@@ -947,6 +947,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#larger-mcus-cortex-m4f-m7" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Larger MCUs: Cortex-M4F / M7
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#build-settings" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2488,6 +2499,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#larger-mcus-cortex-m4f-m7" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Larger MCUs: Cortex-M4F / M7
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#build-settings" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2670,6 +2692,11 @@ prints the 30 largest symbols of an image instead.</p>
 <td><code>thumbv6m</code></td>
 <td><code>thumbv6m-none-eabi</code></td>
 <td>Cortex-M0, for comparison</td>
+</tr>
+<tr>
+<td><code>thumbv7em</code></td>
+<td><code>thumbv7em-none-eabihf</code></td>
+<td>Cortex-M4F / M7 (Thumb-2), for comparison with larger MCUs</td>
 </tr>
 </tbody>
 </table>
@@ -3802,6 +3829,108 @@ with a generated server, even one whose methods all return plain values; <code>f
 <code>finish_no_lens</code> next to <code>finish</code>. The generated code keeps <code>finish()</code>. For the length FIFO to drop out of a
 server, <code>Event</code> itself would have to lose its lengths: a <code>final_structure</code>/<code>sized</code> event, which is a wire change of
 <code>ww_client_server</code>.</p>
+<h2 id="larger-mcus-cortex-m4f-m7">Larger MCUs: Cortex-M4F / M7<a class="headerlink" href="#larger-mcus-cortex-m4f-m7" title="Permanent link">&para;</a></h2>
+<p>The <code>thumbv7em</code> column is there to see whether Thumb-2 changes the picture. It does not: with the same profile the
+images are about as large as on Cortex-M0, and the changes above saved about as much. Before them (<code>925a29b1</code>) and
+now:</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>types</th>
+<th style="text-align: right;">thumbv6m before</th>
+<th style="text-align: right;">thumbv6m now</th>
+<th style="text-align: right;">thumbv7em before</th>
+<th style="text-align: right;">thumbv7em now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>rw_ser</td>
+<td></td>
+<td style="text-align: right;">1460</td>
+<td style="text-align: right;">384</td>
+<td style="text-align: right;">1224</td>
+<td style="text-align: right;">412</td>
+</tr>
+<tr>
+<td>struct_ser</td>
+<td>evolvable</td>
+<td style="text-align: right;">1596</td>
+<td style="text-align: right;">830</td>
+<td style="text-align: right;">916</td>
+<td style="text-align: right;">516</td>
+</tr>
+<tr>
+<td>enum_ser</td>
+<td>evolvable</td>
+<td style="text-align: right;">1606</td>
+<td style="text-align: right;">864</td>
+<td style="text-align: right;">1374</td>
+<td style="text-align: right;">572</td>
+</tr>
+<tr>
+<td>vec_ser</td>
+<td>evolvable</td>
+<td style="text-align: right;">1472</td>
+<td style="text-align: right;">1030</td>
+<td style="text-align: right;">844</td>
+<td style="text-align: right;">684</td>
+</tr>
+<tr>
+<td>option_ser</td>
+<td>evolvable</td>
+<td style="text-align: right;">1710</td>
+<td style="text-align: right;">888</td>
+<td style="text-align: right;">1414</td>
+<td style="text-align: right;">608</td>
+</tr>
+<tr>
+<td>busgen_de</td>
+<td>evolvable</td>
+<td style="text-align: right;">6316</td>
+<td style="text-align: right;">5196</td>
+<td style="text-align: right;">6356</td>
+<td style="text-align: right;">4836</td>
+</tr>
+<tr>
+<td>busgen_ser</td>
+<td>evolvable</td>
+<td style="text-align: right;">4054</td>
+<td style="text-align: right;">3296</td>
+<td style="text-align: right;">3902</td>
+<td style="text-align: right;">3386</td>
+</tr>
+<tr>
+<td>busgen</td>
+<td>evolvable</td>
+<td style="text-align: right;">9302</td>
+<td style="text-align: right;">7468</td>
+<td style="text-align: right;">9058</td>
+<td style="text-align: right;">7612</td>
+</tr>
+<tr>
+<td>busgen</td>
+<td>final</td>
+<td style="text-align: right;">8370</td>
+<td style="text-align: right;">6652</td>
+<td style="text-align: right;">8426</td>
+<td style="text-align: right;">6816</td>
+</tr>
+<tr>
+<td>busgen_hand</td>
+<td></td>
+<td style="text-align: right;">4408</td>
+<td style="text-align: right;">4408</td>
+<td style="text-align: right;">4318</td>
+<td style="text-align: right;">4318</td>
+</tr>
+</tbody>
+</table>
+<p>The small serializers are 30 to 40 % smaller on Thumb-2 than on Cortex-M0, the whole codec is not (7.6 against
+7.5 KB): 16 % smaller than before on Thumb-2, 20 % on Cortex-M0. In a real firmware the share is what makes the
+difference small: <code>examples_mcu/usb_stm32h725ig</code>'s <code>all_gpio</code> (embassy, USB, defmt; 66 KB of flash) went from
+67412 to 66172 bytes, 1.8 %.</p>
 <h2 id="build-settings">Build settings<a class="headerlink" href="#build-settings" title="Permanent link">&para;</a></h2>
 <p>Not <code>shrink_wrap</code>'s to fix, but worth more than each code change:</p>
 <ul>

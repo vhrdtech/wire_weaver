@@ -1441,6 +1441,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_numeric
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -1456,6 +1473,37 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#number-types-as-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Number types as features
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2207,6 +2255,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2218,6 +2271,25 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#number-types-as-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Number types as features
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2315,6 +2387,18 @@
 
 
 <h1 id="ww_numeric">ww_numeric<a class="headerlink" href="#ww_numeric" title="Permanent link">&para;</a></h1>
+<h2 id="number-types-as-features">Number types as features<a class="headerlink" href="#number-types-as-features" title="Permanent link">&para;</a></h2>
+<p><code>NumericValue</code> holds any number, and is as big as its biggest variant: 32 bytes on a PC and 24 on a Cortex-M with
+<code>u128</code> in it. Each variant except <code>U8</code> is behind a cargo feature of its name, so firmware enables only what it uses:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># host: std enables every number type</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_numeric</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.2&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># firmware: 8 bytes per value, no 64 or 128-bit code</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">ww_numeric</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.2&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default-features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;u16&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;f32&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<p>Features: <code>nibble</code>, <code>u16</code>, <code>u32</code>, <code>unib32</code>, <code>u64</code>, <code>i32</code>, <code>f32</code>, <code>un</code>, <code>in</code>, <code>u128</code>, <code>i8</code>, <code>i16</code>, <code>i64</code>, <code>i128</code>,
+<code>f64</code>, and <code>all</code>. <code>ww_si</code> has the same ones and passes them on.</p>
+<p>The wire format is the same for every set. A value of a type that is not enabled is read as
+<code>Error::EnumVariantDisabled</code>; see <a href="../../serdes/derive/#cfg-on-enum-variants"><code>#[cfg(..)]</code> on enum variants</a>.</p>
 
 
 

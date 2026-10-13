@@ -900,6 +900,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cfg-on-enum-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>#[cfg(..)]</code> on enum variants
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#crate_pathpath" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2567,6 +2578,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cfg-on-enum-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>#[cfg(..)]</code> on enum variants
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#crate_pathpath" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2838,7 +2860,7 @@ case.</p>
 <h2 id="attribute-arguments">Attribute arguments<a class="headerlink" href="#attribute-arguments" title="Permanent link">&para;</a></h2>
 <p><code>#[derive_shrink_wrap(directive, directive, ..)]</code> accepts a comma separated list of directives. Order doesn't matter
 to the parser, but the codebase consistently writes them in this order (and so do the examples below):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>borrowed, owned, cfg_attr*, derive*, final_structure|self_describing|sized, ww_repr, discriminants
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized, ww_repr, discriminants
 </span></code></pre></div>
 <h3 id="borrowed-borrowedcfg-predicate"><code>borrowed</code>, <code>borrowed(&lt;cfg predicate&gt;)</code><a class="headerlink" href="#borrowed-borrowedcfg-predicate" title="Permanent link">&para;</a></h3>
 <p>Requests generation of the borrowed type. Only needed for an <a href="#borrowed-owned-or-both">Ambiguous</a> type (where it's
@@ -3055,14 +3077,39 @@ of variants you expect to ever need - it directly determines the discriminant's 
 </span></code></pre></div>
 <p>Every generated enum also gets an inherent <code>fn discriminant(&amp;self) -&gt; &lt;repr's native type&gt;</code> method regardless of
 whether <a href="#discriminants-enums-only"><code>discriminants</code></a> is used.</p>
+<h3 id="cfg-on-enum-variants"><code>#[cfg(..)]</code> on enum variants<a class="headerlink" href="#cfg-on-enum-variants" title="Permanent link">&para;</a></h3>
+<p>A variant can be compiled out, typically behind a cargo feature, when only some targets need it: firmware enables
+the few it uses, a host enables all of them.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, non_exhaustive, self_describing, ww_repr = unib32)]</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">Number</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="n">U8</span><span class="p">(</span><span class="kt">u8</span><span class="p">),</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="cp">#[cfg(feature = </span><span class="s">&quot;f32&quot;</span><span class="cp">)]</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="n">F32</span><span class="p">(</span><span class="kt">f32</span><span class="p">),</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">    </span><span class="cp">#[cfg(feature = </span><span class="s">&quot;u128&quot;</span><span class="cp">)]</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">    </span><span class="n">U128</span><span class="p">(</span><span class="kt">u128</span><span class="p">),</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><strong>The wire format does not depend on it.</strong> Discriminants are numbered over all variants, <code>U128</code> is 2 with or
+  without <code>f32</code>, so two builds with different features agree on every variant they share.</li>
+<li>The variant, its serializing and deserializing code and its part of the size exist only where the predicate
+  holds: without <code>u128</code> the enum above is 8 bytes in memory instead of 32, and no 128-bit code is linked.</li>
+<li>Reading a variant that is compiled out gives <code>Error::EnumVariantDisabled</code> (an unknown number is still
+  <code>EnumFutureVersionOrMalformedData</code>).</li>
+<li>A <code>sized</code> enum needs at least one variant without <code>#[cfg]</code>, so its size cannot change with features.</li>
+<li>Cargo features are unified across a build: a crate that matches such an enum without a <code>_</code> arm stops compiling
+  when another crate enables one more variant. The <code>non_exhaustive</code> argument puts <code>#[non_exhaustive]</code> on the
+  generated types and makes the <code>_</code> arm mandatory outside the defining crate.</li>
+</ul>
+<p><code>ww_numeric::NumericValue</code> is built this way. <code>#[cfg]</code> on fields is not supported: it would change the bytes.</p>
 <h3 id="crate_pathpath"><code>crate_path(&lt;path&gt;)</code><a class="headerlink" href="#crate_pathpath" title="Permanent link">&para;</a></h3>
 <p>Generated code refers to <code>shrink_wrap</code> items by path, so neither <code>use shrink_wrap::prelude::*</code> nor any other
 import is needed for the macro, and the names it uses (<code>BufReader</code>, <code>Error</code>, <code>ElementSize</code>, ...) never clash with
 the module's own. The macro finds the crate in <code>Cargo.toml</code>: <code>::shrink_wrap</code> (or whatever it is renamed to), or
 <code>::wire_weaver::shrink_wrap</code> when only <code>wire_weaver</code> is a dependency. <code>crate_path(..)</code> overrides that, for a crate
 that reaches <code>shrink_wrap</code> through some other re-export:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Point</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Point</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>When neither crate is a dependency and nothing is given, the names are left unqualified and the prelude import is
 needed, as it was before.</p>
@@ -3071,19 +3118,19 @@ needed, as it was before.</p>
 <code>.discriminant()</code> method. It's for the case where you need to commit to <em>which</em> variant you're writing before you've
 built that variant's payload - e.g. a streaming/builder API that reserves space for the discriminant, keeps writing,
 and only decides the final variant afterward:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), ww_repr = nib, discriminants)]</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">enum</span><span class="w"> </span><span class="nc">EventKind</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="n">Value</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="w"> </span><span class="p">},</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="n">Written</span><span class="p">,</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="p">}</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="k">fn</span><span class="w"> </span><span class="nf">discriminant_ahead_of_time</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="c1">// `EventKindDiscriminants` can be produced (and its wire discriminant read) without ever</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">    </span><span class="c1">// constructing an `EventKind::Value`&#39;s `data` field.</span>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">placeholder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EventKindDiscriminants</span><span class="p">::</span><span class="n">Value</span><span class="p">;</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">full</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EventKind</span><span class="p">::</span><span class="n">Value</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="p">::</span><span class="n">new_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">])</span><span class="w"> </span><span class="p">};</span>
-</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">placeholder</span><span class="p">.</span><span class="n">discriminant</span><span class="p">(),</span><span class="w"> </span><span class="n">full</span><span class="p">.</span><span class="n">discriminant</span><span class="p">());</span>
-</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), ww_repr = nib, discriminants)]</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">enum</span><span class="w"> </span><span class="nc">EventKind</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="n">Value</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="n">Written</span><span class="p">,</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="p">}</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="k">fn</span><span class="w"> </span><span class="nf">discriminant_ahead_of_time</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="c1">// `EventKindDiscriminants` can be produced (and its wire discriminant read) without ever</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">    </span><span class="c1">// constructing an `EventKind::Value`&#39;s `data` field.</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">placeholder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EventKindDiscriminants</span><span class="p">::</span><span class="n">Value</span><span class="p">;</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">full</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EventKind</span><span class="p">::</span><span class="n">Value</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="p">::</span><span class="n">new_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">])</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">placeholder</span><span class="p">.</span><span class="n">discriminant</span><span class="p">(),</span><span class="w"> </span><span class="n">full</span><span class="p">.</span><span class="n">discriminant</span><span class="p">());</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>This is exactly how <code>ww_client_server</code>'s response builder writes a placeholder discriminant up front, then goes back
 and patches it in once the actual variant being sent is known.</p>
@@ -3093,22 +3140,22 @@ without allocation, or vice versa. Typing out two definitions by hand - one usin
 <code>&amp;'i str</code>, etc.) and one owned - would be very error-prone. <code>owned(&lt;cfg predicate&gt;)</code> (see
 <a href="#owned-ownedcfg-predicate">above</a>) generates the owned definition and its serdes code automatically.</p>
 <p>Pseudo-code usage example:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">round_trip</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span><span class="c1">// on no_std, no allocator</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersion</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">};</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">    </span><span class="c1">// on host, with allocator</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v_owned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersionOwned</span><span class="p">::</span><span class="n">from_ww_bytes_owned</span><span class="p">(</span><span class="n">bytes</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_owned</span><span class="p">(),</span><span class="w"> </span><span class="n">v_owned</span><span class="p">);</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes_from_owned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v_owned</span><span class="p">.</span><span class="n">to_ww_bytes_owned</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">bytes_from_owned</span><span class="p">);</span>
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="w">    </span><span class="c1">// again on no_std</span>
-</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersion</span><span class="p">::</span><span class="n">from_ww_bytes</span><span class="p">(</span><span class="n">bytes_from_owned</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="n">v_ref</span><span class="p">);</span>
-</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">round_trip</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span><span class="c1">// on no_std, no allocator</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersion</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">    </span><span class="c1">// on host, with allocator</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v_owned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersionOwned</span><span class="p">::</span><span class="n">from_ww_bytes_owned</span><span class="p">(</span><span class="n">bytes</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_owned</span><span class="p">(),</span><span class="w"> </span><span class="n">v_owned</span><span class="p">);</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes_from_owned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v_owned</span><span class="p">.</span><span class="n">to_ww_bytes_owned</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">bytes_from_owned</span><span class="p">);</span>
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="w">    </span><span class="c1">// again on no_std</span>
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersion</span><span class="p">::</span><span class="n">from_ww_bytes</span><span class="p">(</span><span class="n">bytes_from_owned</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="n">v_ref</span><span class="p">);</span>
+</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="p">}</span>
 </span></code></pre></div>
 <h3 id="type-mapping">Type mapping<a class="headerlink" href="#type-mapping" title="Permanent link">&para;</a></h3>
 <table>

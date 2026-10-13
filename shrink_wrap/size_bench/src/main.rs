@@ -39,6 +39,8 @@ enum Target {
     Rv32icRelax,
     /// Cortex-M0
     Thumbv6m,
+    /// Cortex-M4F / M7 (Thumb-2), for comparison with larger MCUs
+    Thumbv7em,
 }
 
 impl Target {
@@ -48,6 +50,7 @@ impl Target {
             Target::Rv32ic => "rv32ic",
             Target::Rv32icRelax => "rv32ic-relax",
             Target::Thumbv6m => "thumbv6m",
+            Target::Thumbv7em => "thumbv7em",
         }
     }
 
@@ -55,6 +58,7 @@ impl Target {
         match self {
             Target::Rv32i | Target::Rv32ic | Target::Rv32icRelax => "riscv32i-unknown-none-elf",
             Target::Thumbv6m => "thumbv6m-none-eabi",
+            Target::Thumbv7em => "thumbv7em-none-eabihf",
         }
     }
 

@@ -33,6 +33,7 @@ The build profile is the one of the softcore firmware: nightly, `build-std = ["c
 | `rv32ic` | `riscv32i-unknown-none-elf` | `-C target-feature=+c` (what the softcore runs) |
 | `rv32ic-relax` | `riscv32i-unknown-none-elf` | `-C target-feature=+c,+relax` |
 | `thumbv6m` | `thumbv6m-none-eabi` | Cortex-M0, for comparison |
+| `thumbv7em` | `thumbv7em-none-eabihf` | Cortex-M4F / M7 (Thumb-2), for comparison with larger MCUs |
 
 Every case is a `run(rx, tx)` that decodes from one buffer and encodes into another. Inputs and outputs go through
 `core::hint::black_box`, so nothing is computed at compile time and every decoded field counts as used. The images
@@ -428,6 +429,30 @@ with a generated server, even one whose methods all return plain values; `finish
 `finish_no_lens` next to `finish`. The generated code keeps `finish()`. For the length FIFO to drop out of a
 server, `Event` itself would have to lose its lengths: a `final_structure`/`sized` event, which is a wire change of
 `ww_client_server`.
+
+## Larger MCUs: Cortex-M4F / M7
+
+The `thumbv7em` column is there to see whether Thumb-2 changes the picture. It does not: with the same profile the
+images are about as large as on Cortex-M0, and the changes above saved about as much. Before them (`925a29b1`) and
+now:
+
+| case | types | thumbv6m before | thumbv6m now | thumbv7em before | thumbv7em now |
+| --- | --- | ---: | ---: | ---: | ---: |
+| rw_ser | | 1460 | 384 | 1224 | 412 |
+| struct_ser | evolvable | 1596 | 830 | 916 | 516 |
+| enum_ser | evolvable | 1606 | 864 | 1374 | 572 |
+| vec_ser | evolvable | 1472 | 1030 | 844 | 684 |
+| option_ser | evolvable | 1710 | 888 | 1414 | 608 |
+| busgen_de | evolvable | 6316 | 5196 | 6356 | 4836 |
+| busgen_ser | evolvable | 4054 | 3296 | 3902 | 3386 |
+| busgen | evolvable | 9302 | 7468 | 9058 | 7612 |
+| busgen | final | 8370 | 6652 | 8426 | 6816 |
+| busgen_hand | | 4408 | 4408 | 4318 | 4318 |
+
+The small serializers are 30 to 40 % smaller on Thumb-2 than on Cortex-M0, the whole codec is not (7.6 against
+7.5 KB): 16 % smaller than before on Thumb-2, 20 % on Cortex-M0. In a real firmware the share is what makes the
+difference small: `examples_mcu/usb_stm32h725ig`'s `all_gpio` (embassy, USB, defmt; 66 KB of flash) went from
+67412 to 66172 bytes, 1.8 %.
 
 ## Build settings
 

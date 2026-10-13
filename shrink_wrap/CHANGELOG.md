@@ -62,6 +62,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
       `PUSHES_LEN = false`. A debug build panics there instead. Add an arm if you match on `Error` exhaustively.
     - `BufWriter::encode_len_fifo()`, `write_nib()` and `align_nibble()` are smaller; `align_byte()` is no longer
       inlined.
+- `just size-bench` has a `thumbv7em` target (Cortex-M4F / M7, `thumbv7em-none-eabihf`) next to RV32 and Cortex-M0
+  (TEST-17). Thumb-2 is about as large as Cortex-M0 for a whole codec and gained about as much from SW-34..SW-38:
+  `docs/serdes/code_size.md`, "Larger MCUs".
 - `ElementSize::one_of()` (size of an enum's payload: same size or `SelfDescribing`), `ElementSize::variants_differ()`
   and `ElementSize::repeat()` (`[T; N]`), all `const fn` (SW-35). The size assert of a `sized` type says why it failed.
 - Smaller code on small CPUs (SW-34), same wire format: a derived request/reply codec of a softcore firmware is

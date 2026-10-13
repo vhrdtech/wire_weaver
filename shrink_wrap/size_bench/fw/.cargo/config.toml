@@ -9,5 +9,8 @@ rustflags = ["-C", "link-arg=-Tlink.x", "-C", "target-feature=+c", "-Zlocation-d
 [target.thumbv6m-none-eabi]
 rustflags = ["-C", "link-arg=-Tlink.x", "-Zlocation-detail=none", "-Zfmt-debug=none"]
 
+[target.thumbv7em-none-eabihf]
+rustflags = ["-C", "link-arg=-Tlink.x", "-Zlocation-detail=none", "-Zfmt-debug=none"]
+
 [unstable]
 build-std = ["core"]

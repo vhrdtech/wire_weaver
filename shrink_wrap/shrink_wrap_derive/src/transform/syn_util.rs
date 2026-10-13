@@ -58,6 +58,21 @@ pub(crate) fn take_default_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Optio
     Ok(Some(name_value.value))
 }
 
+/// Take every `#[cfg(..)]` attribute and return the predicates.
+pub(crate) fn take_cfg_attrs(
+    attrs: &mut Vec<syn::Attribute>,
+) -> Result<Vec<proc_macro2::TokenStream>, String> {
+    let mut cfg = vec![];
+    for attr in attrs.iter().filter(|a| a.path().is_ident("cfg")) {
+        let Meta::List(list) = &attr.meta else {
+            return Err("Expected #[cfg(predicate)]".into());
+        };
+        cfg.push(list.tokens.clone());
+    }
+    attrs.retain(|a| !a.path().is_ident("cfg"));
+    Ok(cfg)
+}
+
 pub(crate) fn take_flag_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
     let (attr_idx, _) = attrs
         .iter()

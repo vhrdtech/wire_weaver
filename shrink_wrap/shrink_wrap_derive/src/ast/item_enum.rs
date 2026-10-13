@@ -2,7 +2,8 @@ use crate::ast::docs::Docs;
 use crate::ast::item_struct::Field;
 use crate::ast::ty::Type;
 use crate::ast::util::Version;
-use proc_macro2::Ident;
+use proc_macro2::{Ident, TokenStream};
+use quote::quote;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ItemEnum {
@@ -36,6 +37,23 @@ pub(crate) struct Variant {
     pub(crate) fields: Fields,
     pub(crate) discriminant: u32,
     pub(crate) _since: Option<Version>,
+    /// Predicates of the `#[cfg(..)]` attributes on the variant, passed through to everything generated for it.
+    /// The discriminant does not depend on them: a variant keeps its number in every configuration.
+    pub(crate) cfg: Vec<TokenStream>,
+}
+
+impl Variant {
+    /// `#[cfg(..)]` attributes of the variant, empty when it has none.
+    pub(crate) fn cfg_attrs(&self) -> TokenStream {
+        let cfg = &self.cfg;
+        quote! { #(#[cfg(#cfg)])* }
+    }
+
+    /// `#[cfg(not(..))]`: the configurations the variant is compiled out of. None when it has no `#[cfg]`.
+    pub(crate) fn not_cfg_attr(&self) -> Option<TokenStream> {
+        let cfg = &self.cfg;
+        (!cfg.is_empty()).then(|| quote! { #[cfg(not(all(#(#cfg),*)))] })
+    }
 }
 
 impl ItemEnum {

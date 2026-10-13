@@ -1,7 +1,9 @@
 use crate::ast::item_enum::ItemEnum;
 use crate::ast::item_enum::{Fields, Variant};
 use crate::ast::repr::Repr;
-use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes, take_since_attr};
+use crate::transform::syn_util::{
+    collect_docs_attrs, collect_unknown_attributes, take_cfg_attrs, take_since_attr,
+};
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
     FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, check_tail_bytes_position,
@@ -29,6 +31,7 @@ impl ItemEnum {
             let fields = convert_fields(&variant.fields, &path)?;
             let mut attrs = variant.attrs.clone();
             let since = take_since_attr(&mut attrs)?;
+            let cfg = take_cfg_attrs(&mut attrs)?;
             let docs = collect_docs_attrs(&mut attrs);
             collect_unknown_attributes(&mut attrs);
             variants.push(Variant {
@@ -37,6 +40,7 @@ impl ItemEnum {
                 fields,
                 discriminant,
                 _since: since,
+                cfg,
             });
         }
         let mut attrs = item_enum.attrs.clone();

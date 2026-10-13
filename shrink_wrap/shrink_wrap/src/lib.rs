@@ -83,6 +83,9 @@ pub enum Error {
     /// [BufWriter::finish_no_lens] on a writer that has lengths to encode: the type's
     /// [PUSHES_LEN](SerializeShrinkWrap::PUSHES_LEN) is `false`, but its `ser_shrink_wrap` pushed one.
     LenFifoNotEmpty,
+    /// The enum variant is known, but compiled out of this build: it is behind a `#[cfg(..)]` (usually a cargo
+    /// feature) that is off here. The other side has it enabled.
+    EnumVariantDisabled,
 }
 
 impl Display for Error {

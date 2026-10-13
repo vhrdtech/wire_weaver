@@ -80,7 +80,14 @@ impl<'i> CGItemEnum<'i> {
         };
         let assert_tail_size = self.variants.iter().map(|v| {
             let types = v.fields.types();
-            assert_sized_before_tail_size(&types, self.ident, self.cfg, is_ref, self.crate_path)
+            let assert =
+                assert_sized_before_tail_size(&types, self.ident, self.cfg, is_ref, self.crate_path);
+            if v.cfg.is_empty() || assert.is_empty() {
+                assert
+            } else {
+                let cfg = v.cfg_attrs();
+                quote! { #cfg const _: () = { #assert }; }
+            }
         });
         let native_repr = self.native_repr();
 
@@ -145,19 +152,82 @@ impl<'i> CGItemEnum<'i> {
         let start = size.add(discriminant).tokens(self.crate_path);
         // identical expressions are the same size: keeps the expression short for unit variants
         let mut seen = HashSet::new();
-        let mut variants = self.variant_sizes(is_ref);
-        variants.retain(|size| seen.insert(size.to_string()));
-        let mut variants = variants.into_iter();
-        match variants.next() {
-            Some(first) => quote! { #start.add(#first #(.one_of(#variants))*) },
-            None => start,
+        let sizes = self.variant_sizes(is_ref);
+        let mut always = vec![];
+        let mut conditional = vec![];
+        for (v, size) in self.variants.iter().zip(sizes) {
+            if !v.cfg.is_empty() {
+                conditional.push((v.cfg_attrs(), size));
+            } else if seen.insert(size.to_string()) {
+                always.push(size);
+            }
         }
+        if conditional.is_empty() {
+            let mut variants = always.into_iter();
+            return match variants.next() {
+                Some(first) => quote! { #start.add(#first #(.one_of(#variants))*) },
+                None => start,
+            };
+        }
+        // a variant behind #[cfg] is folded in only where it exists: its field types might not exist elsewhere
+        let element_size = self.crate_path.item(quote! { ElementSize });
+        let (cfg, conditional): (Vec<_>, Vec<_>) = conditional.into_iter().unzip();
+        quote! {{
+            let payload: Option<#element_size> = None;
+            #(
+                let payload = Some(match payload {
+                    Some(payload) => payload.one_of(#always),
+                    None => #always,
+                });
+            )*
+            #(
+                #cfg
+                let payload = Some(match payload {
+                    Some(payload) => payload.one_of(#conditional),
+                    None => #conditional,
+                });
+            )*
+            match payload {
+                Some(payload) => #start.add(payload),
+                None => #start,
+            }
+        }}
+    }
+
+    /// `PUSHES_LEN` const expression: any field of any variant, a variant behind `#[cfg]` only where it exists.
+    fn pushes_len(&self) -> Option<TokenStream> {
+        let cp = self.crate_path;
+        let always = self.variants.iter().filter(|v| v.cfg.is_empty());
+        let always = Type::any_pushes_len(always.flat_map(|v| v.fields.types()), cp);
+        let conditional: Vec<_> = self
+            .variants
+            .iter()
+            .filter(|v| !v.cfg.is_empty())
+            .filter_map(|v| {
+                let expr = Type::any_pushes_len(v.fields.types().into_iter(), cp)?;
+                Some((v.cfg_attrs(), expr))
+            })
+            .collect();
+        if conditional.is_empty() {
+            return always;
+        }
+        let always = always.unwrap_or_else(|| quote! { false });
+        let (cfg, conditional): (Vec<_>, Vec<_>) = conditional.into_iter().unzip();
+        Some(quote! {{
+            let pushes_len = #always;
+            #(
+                #cfg
+                let pushes_len = pushes_len || #conditional;
+            )*
+            pushes_len
+        }})
     }
 
     /// Part of the size assert of a `sized` enum: variants of different sizes make it SelfDescribing, say which.
     fn assert_variants_same_size(&self, is_ref: bool) -> TokenStream {
         let element_size = self.crate_path.item(quote! { ElementSize });
         let variants = self.variant_sizes(is_ref);
+        let variants_cfg = self.variants.iter().map(|v| v.cfg_attrs());
         let sizes = self
             .variants
             .iter()
@@ -183,7 +253,7 @@ impl<'i> CGItemEnum<'i> {
             self.ident
         );
         quote! {
-            assert!(!#element_size::variants_differ(&[#(#variants),*]), #err_msg);
+            assert!(!#element_size::variants_differ(&[#(#variants_cfg #variants),*]), #err_msg);
         }
     }
 
@@ -206,10 +276,7 @@ impl<'i> CGItemEnum<'i> {
             self.cfg,
             element_size,
             // the discriminant never pushes a length, any variant's field can
-            Type::any_pushes_len(
-                self.variants.iter().flat_map(|v| v.fields.types()),
-                self.crate_path,
-            ),
+            self.pushes_len(),
             is_ref,
             is_ref && !self.ambiguous,
             self.crate_path,
@@ -229,6 +296,7 @@ impl ToTokens for CGEnumFieldsDef<'_> {
             let ident = &variant.ident;
             let discriminant = variant.discriminant_lit();
             let variant_docs = &variant.docs;
+            tokens.append_all(variant.cfg_attrs());
             let variant = match &variant.fields {
                 Fields::Named(fields_named) => {
                     let fields_named = fields_named
@@ -315,6 +383,9 @@ impl ToTokens for CGEnumSer<'_> {
         let enum_name = &self.item_enum.ident;
         let mut ser_data_variants = quote! {};
         for variant in self.item_enum.variants {
+            if !matches!(variant.fields, Fields::Unit) {
+                ser_data_variants.append_all(variant.cfg_attrs());
+            }
             match &variant.fields {
                 Fields::Named(fields_named) => {
                     let mut fields_names = vec![];
@@ -477,6 +548,23 @@ impl ToTokens for CGEnumVariantsDes<'_> {
             let discriminant = variant.discriminant_lit();
             let enum_name = &self.item_enum.ident;
             let variant_name = &variant.ident;
+            if let Some(not_cfg) = variant.not_cfg_attr() {
+                // Compiled out here, but a known variant: say so instead of "future version or malformed".
+                // A latched discriminant that failed to read is 0, the kept error comes first then.
+                let error = self.item_enum.crate_path.error();
+                let check_kept = maybe_quote(
+                    matches!(self.item_enum.repr, Repr::U8 | Repr::U16 | Repr::U32),
+                    || quote! { rd.latched()?; },
+                );
+                tokens.append_all(quote! {
+                    #not_cfg
+                    #discriminant => {
+                        #check_kept
+                        return Err(#error::EnumVariantDisabled);
+                    }
+                });
+                tokens.append_all(variant.cfg_attrs());
+            }
             match &variant.fields {
                 Fields::Named(fields_named) => {
                     let mut field_names = vec![];

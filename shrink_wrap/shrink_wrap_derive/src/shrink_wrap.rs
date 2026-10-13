@@ -131,6 +131,15 @@ fn generate_inner(
                 crate::ast::item_enum::Fields::Unit => false,
             });
             check_tail_size_unsized(has_tail_size, &args.size_assumption)?;
+            // otherwise the size would be the discriminant alone with every such variant compiled out
+            if matches!(args.size_assumption, Some(ObjectSize::Sized { .. }))
+                && ww_item_enum.variants.iter().all(|v| !v.cfg.is_empty())
+            {
+                return Err(
+                    "sized enum needs at least one variant without #[cfg]: its size must not depend on features"
+                        .into(),
+                );
+            }
             add_notes(&mut ww_item_enum.docs, args.size_assumption.clone(), true);
             // A single `MyTypeDiscriminants` enum is emitted (named off whichever of
             // borrowed/owned is generated, preferring borrowed), never mutating `ww_item_enum`

@@ -74,7 +74,8 @@ fn doc_trait(item_trait: &ItemTrait) -> Result<TokenStream, String> {
                     collect_lifetimes(ty, &mut lifetimes);
                 }
                 let lifetimes = generic_lifetimes(lifetimes);
-                let notes = notes([since]);
+                let stream = stream_fn_note(&item_fn.attrs)?;
+                let notes = notes([stream, since]);
                 items.extend(quote! {
                     #(#docs)*
                     #notes
@@ -108,7 +109,16 @@ fn doc_trait(item_trait: &ItemTrait) -> Result<TokenStream, String> {
                             .iter()
                             .any(|a| a.path().is_ident("credit"))
                             .then(|| "Credit based flow control (`#[credit]`).".to_string());
-                        let notes = notes([Some(note.to_string()), array, credit, since]);
+                        let delivery = item_macro.attrs.iter().find_map(|a| {
+                            if a.path().is_ident("counted") {
+                                Some("Counted: every event has a position, losses are seen exactly (`#[counted]`).".to_string())
+                            } else if a.path().is_ident("reliable") {
+                                Some("Reliable: acknowledged, resent and kept on the device until received (`#[reliable]`).".to_string())
+                            } else {
+                                None
+                            }
+                        });
+                        let notes = notes([Some(note.to_string()), array, credit, delivery, since]);
                         items.extend(quote! {
                             #(#docs)*
                             #notes
@@ -217,6 +227,28 @@ fn since_note(attrs: &[Attribute]) -> Option<String> {
     } else {
         None
     }
+}
+
+/// Note of a stream function (`#[stream(T, kind)] fn ..`): opening it starts a stream of `T`.
+fn stream_fn_note(attrs: &[Attribute]) -> Result<Option<String>, String> {
+    let Some(attr) = attrs.iter().find(|a| a.path().is_ident("stream")) else {
+        return Ok(None);
+    };
+    let tokens = attr
+        .meta
+        .require_list()
+        .map_err(|e| format!("#[stream(..)]: {e}"))?
+        .tokens
+        .to_string();
+    let (ty, kind) = match tokens.rsplit_once(',') {
+        Some((ty, kind)) if matches!(kind.trim(), "counted" | "reliable" | "plain") => {
+            (ty.trim().to_string(), kind.trim().to_string())
+        }
+        _ => (tokens.trim().to_string(), "plain".to_string()),
+    };
+    Ok(Some(format!(
+        "Stream function: calling it opens a {kind} stream of `{ty}` from the device, with this result."
+    )))
 }
 
 /// Notes about a resource, added as the last paragraph of its documentation.

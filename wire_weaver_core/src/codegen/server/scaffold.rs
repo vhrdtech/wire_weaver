@@ -83,14 +83,13 @@ pub fn gen_server_scaffold(
         )?;
         writeln!(
             s.handlers,
-            "/// Number of a new session of a counted or reliable stream, when a host opens one.
-             fn new_stream_session(&mut self) -> u32 {{
-             // TODO: put a boot counter into the high bits (or use a random number), so that a cursor from before \
-             // a reboot doesn't match a new session
-             self.stream_sessions = self.stream_sessions.wrapping_add(1);
-             self.stream_sessions
-             }}
-"
+            "/// Number of a new session of a counted or reliable stream, when a host opens one.\n\
+             fn new_stream_session(&mut self) -> u32 {{\n\
+             // TODO: put a boot counter into the high bits (or use a random number), so that a cursor from\n\
+             // before a reboot doesn't match a new session\n\
+             self.stream_sessions = self.stream_sessions.wrapping_add(1);\n\
+             self.stream_sessions\n\
+             }}\n"
         )?;
     }
 
@@ -427,7 +426,8 @@ impl Scaffold<'_> {
         self.docs(item)?;
         writeln!(
             self.handlers,
-            "/// Opens the stream (a new session): `Ok` / `Ready` starts it.\n\
+            "///\n\
+             /// Opens the stream (a new session): `Ok` / `Ready` starts it.\n\
              {maybe_async}fn {name}(&mut self, {cx}{idx}{args_def}) -> RpcResult<{return_ty}> {{\n\
              {body}\n\
              }}\n\

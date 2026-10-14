@@ -298,7 +298,7 @@ fn future_version_is_passed_on() {
     );
 }
 
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = u8)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = u8, no_future_version)]
 enum ModeV1 {
     Off,
     On,
@@ -412,4 +412,55 @@ fn discriminants_enum() {
     assert_eq!(StatusDiscriminants::Busy.discriminant(), 1);
     assert_eq!(StatusDiscriminants::Unknown(5).discriminant(), 5);
     assert_eq!(Status::Unknown(5).discriminant(), 5);
+}
+
+/// SW-47: an `Unsized` enum gets `Unknown(u32)` without writing it, in the borrowed and the owned type.
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq), ww_repr = u8)]
+enum ModeAuto<'i> {
+    Off,
+    On,
+    Named(&'i str) = 5,
+}
+
+/// SW-47: renamed with `future_version = <Name>`, here because `Unknown` is a variant of its own.
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = u8, future_version = Newer)]
+enum Reason {
+    Unknown,
+    User,
+}
+
+/// SW-47: not added when every discriminant is taken, nor to `sized` / `self_describing` enums.
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone, Copy), ww_repr = u1)]
+enum Full {
+    A,
+    B,
+}
+
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone, Copy), ww_repr = u2, self_describing)]
+enum Closed {
+    A,
+    B,
+}
+
+#[test]
+fn future_version_by_default() {
+    let mut buf = [0u8; 8];
+    let bytes = ModeV2::Blink.to_ww_bytes(&mut buf).unwrap();
+    assert_eq!(
+        ModeAuto::from_ww_bytes(bytes).unwrap(),
+        ModeAuto::Unknown(2)
+    );
+    assert_eq!(
+        ModeAutoOwned::from_ww_bytes_owned(bytes).unwrap(),
+        ModeAutoOwned::Unknown(2)
+    );
+    assert_eq!(Reason::from_ww_bytes(bytes).unwrap(), Reason::Newer(2));
+    assert_eq!(Reason::Unknown.discriminant(), 0);
+
+    // exhaustive without a third arm: no variant was added
+    let name = |e: Full, c: Closed| match (e, c) {
+        (Full::A, Closed::A) => "a",
+        (Full::B, _) | (_, Closed::B) => "b",
+    };
+    assert_eq!(name(Full::A, Closed::A), "a");
 }

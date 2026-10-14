@@ -191,7 +191,7 @@ fn mixed_with_checks<'i>(rd: &mut BufReader<'i>) -> Result<Mixed<'i>, Error> {
 
 /// A latched variant, one with a list, one with a field that has a default (its flag falls back, its value is
 /// read with `?`).
-#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone), ww_repr = u8)]
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone), ww_repr = u8, no_future_version)]
 enum Ev<'i> {
     A {
         x: U5,

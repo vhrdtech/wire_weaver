@@ -78,6 +78,13 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### ⚠️ Breaking
 
+- Enum variants from a newer version by default (SW-47): `#[derive_shrink_wrap]` adds `#[future_version]
+  Unknown(u32)` to every `Unsized` enum (the default) that has a free discriminant in its `ww_repr` and doesn't have
+  such a variant already. Same wire, `ELEMENT_SIZE` and `MAX_SIZE`, but a new Rust variant: exhaustive matches need
+  an `Unknown(_)` arm, fieldless enums can't be cast with `as` anymore, `Copy` enums grow. Opt out with the
+  `no_future_version` argument (an enum that is complete by nature, or one whose readers must fail on a newer value),
+  name it with `future_version = <Name>` when `Unknown` is a variant of its own. `final_structure`,
+  `self_describing` and `sized` enums only get it when written. See `docs/serdes/derive.md`.
 - `#[derive_shrink_wrap(..)]` takes all options as arguments instead of separate attributes: `#[owned = "std"]`
   becomes `owned(feature = "std")`, `#[final_structure]` / `#[self_describing]` / `#[sized]` become arguments of the
   same name, `#[ww_repr(u2)]` becomes `ww_repr = u2`, and `derive(..)`, `cfg_attr_borrowed(..)` / `cfg_attr_owned(..)`

@@ -141,6 +141,11 @@ fn generate_inner(
                 return Err("For enums, ww_repr must be specified".into());
             };
             let mut ww_item_enum = ItemEnum::from_syn(item_enum, repr)?;
+            ww_item_enum.apply_future_version_arg(
+                &args.future_version,
+                &args.size_assumption,
+                repr,
+            )?;
             let has_tail_size = ww_item_enum.variants.iter().any(|v| match &v.fields {
                 crate::ast::item_enum::Fields::Named(named) => {
                     named.iter().any(|f| f.ty.contains_tail_size())

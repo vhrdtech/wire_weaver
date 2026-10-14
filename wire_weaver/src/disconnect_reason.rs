@@ -4,7 +4,8 @@ use shrink_wrap::prelude::*;
     borrowed,
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, Eq, PartialEq),
-    ww_repr = u8
+    ww_repr = u8,
+    future_version = Newer
 )]
 pub enum DisconnectReason {
     CommanderDropped,

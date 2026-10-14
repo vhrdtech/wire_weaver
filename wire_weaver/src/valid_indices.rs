@@ -4,6 +4,7 @@ use shrink_wrap::prelude::*;
 
 /// List or range of available indices that can be used by a client.
 /// For each array of traits, streams, or properties, ValidIndices are provided by a user implementation on the server side.
+/// A form from a newer version (`Unknown`) contains no index.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
@@ -21,6 +22,7 @@ impl ValidIndices<'_> {
         match self {
             ValidIndices::Range(range) => range.contains(&index),
             ValidIndices::List(list) => list.iter().any(|i| i == Ok(index)),
+            ValidIndices::Unknown(_) => false,
         }
     }
 
@@ -36,6 +38,7 @@ impl ValidIndicesOwned {
         match self {
             ValidIndicesOwned::Range(range) => range.contains(&index),
             ValidIndicesOwned::List(list) => list.contains(&index),
+            ValidIndicesOwned::Unknown(_) => false,
         }
     }
 
@@ -45,6 +48,7 @@ impl ValidIndicesOwned {
                 ValidIndicesOwnedIter::Range(range.start.0..range.end.0)
             }
             ValidIndicesOwned::List(list) => ValidIndicesOwnedIter::List(list.iter()),
+            ValidIndicesOwned::Unknown(_) => ValidIndicesOwnedIter::Range(0..0),
         }
     }
 }

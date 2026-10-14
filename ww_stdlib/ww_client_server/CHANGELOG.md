@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- `ErrorKind` gets `Unknown(u32)` (SW-47): a framework error from a newer device decodes instead of failing the reply.
+  `MultiIndex` is `no_future_version`: an index form the device doesn't know fails the request.
 Wire-incompatible with 0.1.0.
 
 * `PathKind::GlobalFull` carries `trait_name: &str` after `gid`: a crate can define several traits, its name and

@@ -71,6 +71,8 @@
   (SW-50): arguments, return values, properties, stream and sink items and fields of API types, as
   `ww_self::Type::Delta` / `DeltaOfDelta` / `XorFloat` in introspection data. `T` is checked: `u8`..`u64`,
   `i8`..`i64` for the first two, `f32` or `f64` for `XorFloat`.
+- Types with the `no_future_version` and `future_version = <Name>` arguments of `derive_shrink_wrap` (SW-47) are
+  read from API crates; the variant stays out of the API model like a written `#[future_version]` one.
 - A `#[future_version]` enum variant (SW-16) is left out of the API model (`ww_self`): it is no variant on the
   wire, adding it later changes neither introspection data nor snapshots.
 - Servers serve requests addressed by a global trait path (API-20, `PathKind::GlobalFull`): the trait is looked up

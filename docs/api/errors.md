@@ -238,7 +238,8 @@ pub enum I2cError<'i> {
 
 ## 3. Future variants by default
 
-SW-16 landed opt-in. SW-47 makes the derive add `#[future_version] Unknown(u32)` itself:
+SW-16 landed opt-in. SW-47 makes the derive add `#[future_version] Unknown(u32)` itself (**built** on this branch,
+`docs/serdes/derive.md#enum-variants-from-a-newer-version`):
 
 | Enum | Gets `Unknown(u32)` |
 |---|---|
@@ -256,10 +257,14 @@ SW-16 landed opt-in. SW-47 makes the derive add `#[future_version] Unknown(u32)`
   longer castable with `as`, `Copy` enums grow to 8 bytes. A Rust API break of `shrink_wrap_derive` and of every
   crate with such an enum: one minor bump each, in this release cycle, before anything is published with errors that
   can grow.
-- Also framework enums: `ww_client_server::ErrorKind` (a new framework error no longer breaks an old client's
-  decode), `ww_self` model enums. Those whose matches are wire-critical (`RequestKind`, `PathKind`, link messages)
-  are reviewed one by one and get `no_future_version` where an unknown value must be a hard error.
-- Python decodes the variant as `("Unknown", N)` and the C generator (API-26) as a `_UNKNOWN` tag with the number.
+- Framework enums, as built: `ww_client_server::ErrorKind` gets it (a new framework error no longer breaks an old
+  client's decode), `wire_weaver::ValidIndices` too (an unknown form contains no index), `DisconnectReason` gets
+  `Newer(u32)` (it has an `Unknown` of its own). `MultiIndex`, the `ww_self` model enums and
+  `ww_numeric::NumericAnyType` are `no_future_version`: their readers can't act on a value they don't know (INT-8
+  for a model that tolerates newer variants). `RequestKind`, `PathKind`, `EventKind`, `StreamSideband` are
+  `final_structure`, unchanged.
+- Python and the dynamic decoder show the variant as `<unknown N>` (as since SW-16); the C generator (API-26) needs
+  an unknown tag with the number.
 
 ## 4. Optional items
 

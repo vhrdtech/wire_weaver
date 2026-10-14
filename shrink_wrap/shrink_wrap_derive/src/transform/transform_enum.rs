@@ -1,5 +1,8 @@
+use crate::args::FutureVersionArg;
+use crate::ast::docs::Docs;
 use crate::ast::item_enum::ItemEnum;
 use crate::ast::item_enum::{Fields, FutureVersion, Variant};
+use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_cfg_attrs, take_flag_like_attr,
@@ -10,7 +13,9 @@ use crate::transform::util::{
     FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, check_tail_bytes_position,
     check_tail_size_position, create_flags, create_tuple_flags, transform_field,
 };
-use syn::{Expr, Lit};
+use proc_macro2::{Ident, Span};
+use std::collections::HashSet;
+use syn::{Expr, Lit, LitStr};
 
 impl ItemEnum {
     pub(crate) fn from_syn(item_enum: &syn::ItemEnum, repr: Repr) -> Result<Self, String> {
@@ -66,6 +71,72 @@ impl ItemEnum {
             variants,
             future_version,
         })
+    }
+}
+
+impl ItemEnum {
+    /// SW-47: an `Unsized` enum gets `#[future_version] Unknown(u32)` unless it has one already, says
+    /// `no_future_version`, or every discriminant of its repr is taken. `final_structure`, `self_describing` and `sized`
+    /// enums only get it when written: they can't skip the fields of a newer variant.
+    pub(crate) fn apply_future_version_arg(
+        &mut self,
+        arg: &FutureVersionArg,
+        size_assumption: &Option<ObjectSize>,
+        repr: Repr,
+    ) -> Result<(), String> {
+        if let Some(fv) = &self.future_version {
+            return match arg {
+                FutureVersionArg::Default => Ok(()),
+                FutureVersionArg::Off => Err(format!(
+                    "no_future_version, but the enum has #[future_version] {}(u32): remove one of them",
+                    fv.ident
+                )),
+                FutureVersionArg::Named(name) => Err(format!(
+                    "future_version = {name}, but the enum has #[future_version] {}(u32): remove one of them",
+                    fv.ident
+                )),
+            };
+        }
+        let ident = match arg {
+            FutureVersionArg::Off => return Ok(()),
+            FutureVersionArg::Default => {
+                if !matches!(size_assumption, None | Some(ObjectSize::Unsized)) {
+                    return Ok(());
+                }
+                Ident::new("Unknown", Span::call_site())
+            }
+            FutureVersionArg::Named(name) => {
+                if !matches!(size_assumption, None | Some(ObjectSize::Unsized)) {
+                    return Err(format!(
+                        "future_version = {name} works on Unsized enums only, write #[future_version] {name}(u32) \
+                         as the last variant instead"
+                    ));
+                }
+                name.clone()
+            }
+        };
+        let used: HashSet<u32> = self.variants.iter().map(|v| v.discriminant).collect();
+        if used.len() as u64 > repr.max_discriminant() as u64 {
+            return match arg {
+                FutureVersionArg::Named(name) => Err(format!(
+                    "future_version = {name}, but every discriminant of ww_repr {repr:?} is taken"
+                )),
+                _ => Ok(()),
+            };
+        }
+        if self.variants.iter().any(|v| v.ident == ident) {
+            return Err(format!(
+                "variant `{ident}` clashes with the variant for discriminants from a newer version (SW-47): \
+                 rename it, or name the other one with future_version = <Name>, or opt out with no_future_version"
+            ));
+        }
+        let mut docs = Docs::empty();
+        docs.push(LitStr::new(
+            "A variant from a newer version of this type, with its discriminant (added by `derive_shrink_wrap`).",
+            Span::call_site(),
+        ));
+        self.future_version = Some(FutureVersion { docs, ident });
+        Ok(())
     }
 }
 
@@ -252,6 +323,63 @@ mod tests {
             let item: syn::ItemEnum = syn::parse2(ts).unwrap();
             assert!(ItemEnum::from_syn(&item, Repr::U8).is_err());
         }
+    }
+
+    #[test]
+    fn future_version_by_default() {
+        use crate::args::FutureVersionArg as A;
+        use syn::parse_quote;
+        let apply = |item: syn::ItemEnum, arg: A, size: Option<ObjectSize>, repr: Repr| {
+            let mut e = ItemEnum::from_syn(&item, repr).unwrap();
+            e.apply_future_version_arg(&arg, &size, repr)
+                .map(|()| e.future_version.map(|fv| fv.ident.to_string()))
+        };
+        let named = |n: &str| A::Named(Ident::new(n, Span::call_site()));
+        let ab: syn::ItemEnum = parse_quote! { enum E { A, B } };
+        let u8r = Repr::U8;
+        assert_eq!(
+            apply(ab.clone(), A::Default, None, u8r),
+            Ok(Some("Unknown".into()))
+        );
+        assert_eq!(apply(ab.clone(), A::Off, None, u8r), Ok(None));
+        assert_eq!(
+            apply(ab.clone(), named("Newer"), None, u8r),
+            Ok(Some("Newer".into()))
+        );
+        // other size assumptions only when written
+        for size in [
+            ObjectSize::SelfDescribing,
+            ObjectSize::UnsizedFinalStructure,
+            ObjectSize::sized(0),
+        ] {
+            assert_eq!(
+                apply(ab.clone(), A::Default, Some(size.clone()), u8r),
+                Ok(None)
+            );
+            assert!(apply(ab.clone(), named("Newer"), Some(size), u8r).is_err());
+        }
+        // every discriminant taken
+        assert_eq!(apply(ab.clone(), A::Default, None, Repr::U(1)), Ok(None));
+        assert!(apply(ab, named("Newer"), None, Repr::U(1)).is_err());
+        // a written one stays, an argument next to it is a contradiction
+        let written: syn::ItemEnum = parse_quote! { enum E { A, #[future_version] Later(u32) } };
+        assert_eq!(
+            apply(written.clone(), A::Default, None, u8r),
+            Ok(Some("Later".into()))
+        );
+        assert!(apply(written.clone(), A::Off, None, u8r).is_err());
+        assert!(apply(written, named("Newer"), None, u8r).is_err());
+        // a clash with a user variant names the fix
+        let clash: syn::ItemEnum = parse_quote! { enum E { A, Unknown } };
+        assert!(
+            apply(clash.clone(), A::Default, None, u8r)
+                .unwrap_err()
+                .contains("future_version = <Name>")
+        );
+        assert_eq!(
+            apply(clash, named("Newer"), None, u8r),
+            Ok(Some("Newer".into()))
+        );
     }
 
     #[test]

@@ -27,6 +27,8 @@ pub(crate) struct Args {
     pub(crate) size_assumption: Option<ObjectSize>,
     pub(crate) ww_repr: Option<Repr>,
     pub(crate) discriminants_enum: bool,
+    /// Enums: what to do about the `#[future_version]` variant (SW-47).
+    pub(crate) future_version: FutureVersionArg,
     /// `crate_path(some::path)`: how generated code names the `shrink_wrap` crate, instead of looking it up in
     /// `Cargo.toml`.
     pub(crate) crate_path: Option<TokenStream>,
@@ -53,6 +55,7 @@ impl Parse for Args {
         let mut crate_path = None;
         let mut fixed_layout = false;
         let mut head_tail = false;
+        let mut future_version = FutureVersionArg::Default;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -115,6 +118,14 @@ impl Parse for Args {
                 "discriminants" => {
                     discriminants_enum = true;
                 }
+                "no_future_version" => {
+                    set_future_version(&mut future_version, FutureVersionArg::Off, &ident)?;
+                }
+                "future_version" => {
+                    input.parse::<Token![=]>()?;
+                    let name: Ident = input.parse()?;
+                    set_future_version(&mut future_version, FutureVersionArg::Named(name), &ident)?;
+                }
                 "non_exhaustive" => {
                     // other attributes on the item are not kept, and this one is wanted on both types
                     cfg_attr.push(quote::quote! { all(), non_exhaustive });
@@ -141,6 +152,7 @@ impl Parse for Args {
 
         Ok(Args {
             discriminants_enum,
+            future_version,
             borrowed,
             owned,
             cfg_attr,
@@ -161,7 +173,34 @@ impl Parse for Args {
 const SUPPORTED_DIRECTIVES: &str = "borrowed(..), owned, owned(..), \
 cfg_attr(..), cfg_attr_owned(..), cfg_attr_borrowed(..), \
 derive(..), derive_owned(..), derive_borrowed(..), \
-final_structure, self_describing, sized, fixed_layout, head_tail, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, non_exhaustive, crate_path(..)";
+final_structure, self_describing, sized, fixed_layout, head_tail, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, non_exhaustive, no_future_version, future_version = <Name>, crate_path(..)";
+
+/// Enum argument about the variant that holds discriminants from a newer version (SW-16, SW-47).
+#[derive(Clone, Debug, Default)]
+pub(crate) enum FutureVersionArg {
+    /// `Unknown(u32)` is added to `Unsized` enums that have a free discriminant
+    #[default]
+    Default,
+    /// `no_future_version`: never added
+    Off,
+    /// `future_version = Name`: added under this name
+    Named(Ident),
+}
+
+fn set_future_version(
+    slot: &mut FutureVersionArg,
+    value: FutureVersionArg,
+    ident: &Ident,
+) -> syn::Result<()> {
+    if !matches!(slot, FutureVersionArg::Default) {
+        return Err(syn::Error::new(
+            ident.span(),
+            "only one of no_future_version, future_version = <Name> is allowed",
+        ));
+    }
+    *slot = value;
+    Ok(())
+}
 
 /// Parses a required `(Path1, Path2, ..)`, like Rust's own `#[derive(..)]`
 fn parse_path_list_paren(input: ParseStream) -> syn::Result<Vec<Path>> {

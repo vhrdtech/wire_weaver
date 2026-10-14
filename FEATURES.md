@@ -194,8 +194,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   discriminant into it instead of failing with `EnumFutureVersionOrMalformedData`, and writes it back; an `Unsized`
   enum skips the newer variant's fields with its size slot, `sized` / `self_describing` ones only survive new unit
   variants. No wire number of its own, no change to `ELEMENT_SIZE`, left out of the API model. The `ww_self`
-  dynamic decoder reads an unknown variant of an `Unsized` enum as `<unknown N>`. Opt-in per enum, see SW-47 for
-  adding it by default. `docs/serdes/derive.md#enum-variants-from-a-newer-version`, `shrink_wrap/tests/evolution.rs`.
+  dynamic decoder reads an unknown variant of an `Unsized` enum as `<unknown N>`. Added by default since SW-47.
+  `docs/serdes/derive.md#enum-variants-from-a-newer-version`, `shrink_wrap/tests/evolution.rs`.
 - ✅ **SW-48 Bit-sized fields and variant payloads**: `U1`..`U64` / `I2`..`I64` (`u7`, `ub10`, `i2`.. in the API
   model) as struct fields, enum variant payloads and `#[ww_trait]` method arguments, returns and properties, packed
   bit after bit with a sub-byte discriminant: `enum I2cAddress { Seven(U7), Ten(U10) }` with `ww_repr = u1,
@@ -204,6 +204,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   client and Python already handled them, now tested byte for byte against derived types; the C runtime has the
   bit reads. Same wire format (`shrink_wrap/tests/sub_byte.rs`, `tests/dynamic`, `tests/methods`,
   `docs/serdes/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address`).
+- ✅ **SW-47 `#[future_version]` variant by default**: the derive adds `Unknown(u32)` to every `Unsized` enum with a
+  free discriminant; `no_future_version` opts out (framework enums whose readers must fail: `ww_self` model,
+  `MultiIndex`), `future_version = Name` renames it, `final_structure` / `self_describing` / `sized` enums only get it
+  when written. A Rust API change of every such enum (exhaustive matches need the arm), not of the wire or the API
+  model. `docs/serdes/derive.md#enum-variants-from-a-newer-version`, `shrink_wrap/tests/evolution.rs`.
 - 📋 **SW-17 Const / magic type** · `v0.5` — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the `magic` field in
   `ww_self` (a plain `u32` today).
@@ -235,13 +240,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **SW-29 Flatten support** — apply a type's layout across struct/enum boundaries.
 - 💡 **SW-30 `derive_shrink_wrap` on a whole module at once**. For definitions in separate files with own syntax, see
   [standalone definition files](#api-model-and-codegen-api).
-- 📋 **SW-47 `#[future_version]` variant by default** · `v0.5` — the derive adds `Unknown(u32)` to every `Unsized`
-  enum with a free discriminant; `no_future_version` opts out, `future_version = Name` renames it, `final_structure`
-  / `self_describing` / `sized` enums only get it when written. Changes the Rust type of every enum (exhaustive
-  matches need a new arm, `Copy` enums grow), not the wire or the API model (`docs/api/errors.md`).
-
-## `derive_shrink_wrap` macro (`DER`)
-
 - ✅ **DER-1 `#[derive_shrink_wrap(..)]` attribute** with clear syntax, no hidden magic and good error messages
   (`docs/serdes/derive.md`); replaced `#[derive(ShrinkWrap)]`.
 - ✅ **DER-2 Discriminant checks**: discriminants must fit `ww_repr`, implicit ones are numbered like in Rust.
@@ -514,6 +512,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   introspection data smaller. Can't be undone later, so decide per type.
 - 💡 **INT-7 Compress `ww_self` strings with a pre-shared dictionary** — partly addressed by leaving snapshot-known
   traits and types out of introspection data.
+- 💡 **INT-8 Model enums that tolerate newer variants** — the `ww_self` enums (`Type`, `ApiItemKind`, `Fields`, ...)
+  and `ww_numeric::NumericAnyType` are `no_future_version` (SW-47): a host reading a newer model fails as a whole.
+  With `Unknown` handled in every walker (visitor, signature, inline, values, compat, CLI, Python), an older host could
+  show the rest of a newer device's API and mark the unknown parts.
 
 ## Evolution, versioning and compatibility (`EVO`)
 

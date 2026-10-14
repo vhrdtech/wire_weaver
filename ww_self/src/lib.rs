@@ -1,4 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+// The model's enums are `no_future_version` (SW-47): a bundle carries `ww_self_version`, and every reader walks the
+// whole model, so a newer kind of type or item can't be skipped as `Unknown(_)`. Tolerating newer model variants is
+// INT-8.
 
 #[cfg(feature = "std")]
 mod alloc;
@@ -74,7 +77,8 @@ pub struct ApiBundle<'i> {
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Debug),
-    ww_repr = u2
+    ww_repr = u2,
+    no_future_version
 )]
 pub enum ApiLevelLocation<'i> {
     InLine {
@@ -97,7 +101,8 @@ pub enum ApiLevelLocation<'i> {
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Debug),
-    ww_repr = u2
+    ww_repr = u2,
+    no_future_version
 )]
 pub enum TypeLocation<'i> {
     InLine {
@@ -148,7 +153,8 @@ pub struct ApiItem<'i> {
     cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Debug, PartialEq),
     self_describing,
-    ww_repr = u2
+    ww_repr = u2,
+    no_future_version
 )]
 pub enum Multiplicity {
     Flat,
@@ -159,7 +165,8 @@ pub enum Multiplicity {
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Debug),
-    ww_repr = nib
+    ww_repr = nib,
+    no_future_version
 )]
 pub enum ApiItemKind<'i> {
     Method {
@@ -220,7 +227,8 @@ pub enum Delivery {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Copy, Debug, PartialEq, Eq),
-    ww_repr = nib
+    ww_repr = nib,
+    no_future_version
 )]
 pub enum FlowControl {
     /// The device grants credit in bytes, each write carries its byte position, lost writes are sent again from the
@@ -244,7 +252,8 @@ pub struct Argument<'i> {
     cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Copy, Debug),
     self_describing,
-    ww_repr = u3
+    ww_repr = u3,
+    no_future_version
 )]
 pub enum PropertyAccess {
     /// Property is not going to change, observe not available
@@ -261,7 +270,8 @@ pub enum PropertyAccess {
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Debug, PartialEq),
-    ww_repr = unib32
+    ww_repr = unib32,
+    no_future_version
 )]
 pub enum Type<'i> {
     /// 1-bit, alignment of one-bit, same as `UB(UBits(1))` but serialized with only 1 nibble because bool is used very often.
@@ -325,7 +335,8 @@ pub enum Type<'i> {
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Debug, PartialEq),
-    ww_repr = unib32
+    ww_repr = unib32,
+    no_future_version
 )]
 pub enum Value<'i> {
     Bool(bool),
@@ -351,7 +362,8 @@ pub enum Value<'i> {
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Debug, PartialEq),
-    ww_repr = u2
+    ww_repr = u2,
+    no_future_version
 )]
 pub enum FieldsValue<'i> {
     Named(RefVec<'i, (&'i str, Value<'i>)>),
@@ -410,7 +422,8 @@ pub struct ItemEnum<'i> {
     cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Debug, PartialEq),
     self_describing,
-    ww_repr = u3
+    ww_repr = u3,
+    no_future_version
 )]
 pub enum Repr {
     /// One nibble with one nibble alignment
@@ -445,7 +458,8 @@ pub struct Variant<'i> {
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Debug, PartialEq),
-    ww_repr = u2
+    ww_repr = u2,
+    no_future_version
 )]
 pub enum Fields<'i> {
     Named(RefVec<'i, Field<'i>>),

@@ -23,7 +23,7 @@ struct Wave {
     gain: f32,
 }
 
-#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone), ww_repr = u8)]
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone), ww_repr = u8, no_future_version)]
 enum Request<'i> {
     Hello,
     Stop {

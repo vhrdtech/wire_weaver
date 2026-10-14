@@ -104,20 +104,42 @@ the default. The default can be any expression of the field's type (`#[default =
 ### Enum variants from a newer version
 
 A reader that gets a discriminant it doesn't know fails with `Error::EnumFutureVersionOrMalformedData`. An enum that
-will grow (errors, modes) can end with a variant marked `#[future_version]` instead: it holds any discriminant this
-version doesn't know, so an older host reports a newer device's error instead of failing to decode the reply, and
-can pass the value on.
+will grow (errors, modes) ends with a `#[future_version]` variant instead: it holds any discriminant this version
+doesn't know, so an older host reports a newer device's error instead of failing to decode the reply, and can pass
+the value on.
+
+Every `Unsized` enum (the default) gets it without writing it (SW-47): the derive adds `Unknown(u32)` as if it were
+written last. So this
 
 ```rust
 #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = unib32)]
 enum IoError {
     InUse,
     Refused,
-    /// A variant from a newer version.
+}
+```
+
+is the same type as
+
+```rust
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = unib32)]
+enum IoError {
+    InUse,
+    Refused,
+    /// A variant from a newer version of this type, with its discriminant.
     #[future_version]
     Unknown(u32),
 }
 ```
+
+| Enum | Gets the variant |
+|---|---|
+| `Unsized` with a free discriminant in its `ww_repr` | yes, as `Unknown(u32)` |
+| [`no_future_version`](#no_future_version-future_version-name-enums-only) | no: complete by nature (`Level`, `Parity`), or its readers must fail on a newer value |
+| `future_version = Newer` | yes, as `Newer(u32)`: needed when `Unknown` is a variant of its own |
+| every discriminant of the repr taken (`ww_repr = u1` with two variants) | no |
+| `final_structure`, `self_describing`, `sized` | only when written: they can't skip a newer variant's fields |
+| written `#[future_version] X(u32)` | as written |
 
 - The variant is last, has one `u32` field (the discriminant), no discriminant of its own and no `#[cfg]`. It takes
   no number on the wire: the next version adds `NoIoLevel` as 2 before it, and an older reader gets `Unknown(2)`.
@@ -170,7 +192,8 @@ case.
 to the parser, but the codebase consistently writes them in this order (and so do the examples below):
 
 ```text
-borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized, ww_repr, discriminants
+borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized, ww_repr, discriminants,
+no_future_version|future_version
 ```
 
 ### `borrowed`, `borrowed(<cfg predicate>)`
@@ -559,6 +582,32 @@ struct Point { x: u8, y: u8 }
 
 When neither crate is a dependency and nothing is given, the names are left unqualified and the prelude import is
 needed, as it was before.
+
+### `no_future_version`, `future_version = <Name>` (enums only)
+
+An `Unsized` enum gets `Unknown(u32)` for discriminants from a newer version (see
+[Enum variants from a newer version](#enum-variants-from-a-newer-version)). `no_future_version` leaves it out, for an
+enum that is complete by nature or whose readers must fail on a value they don't know (a request kind a device can't
+act on). `future_version = <Name>` names the variant, when `Unknown` is taken:
+
+```rust
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = u2, no_future_version)]
+enum Parity {
+    None,
+    Even,
+    Odd,
+}
+
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = u8, future_version = Newer)]
+enum Reason {
+    Unknown,
+    User,
+    // Newer(u32) is added
+}
+```
+
+Either is an error next to a written `#[future_version]` variant, and `future_version = <Name>` on an enum that can't
+get one (not `Unsized`, or every discriminant taken).
 
 ### `discriminants` (enums only)
 

@@ -173,7 +173,13 @@ pub enum RequestKind<'i> {
 /// # Different resources at one API level
 /// Can make a MultiCall:: request to '0/3' (third pin in the array) with MultiIndex::List(0, 1).
 /// To call set_level(args0) and then set_mode(args1) in one request.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug), ww_repr = u2)]
+// An index form this side doesn't know fails the request, instead of selecting nothing (SW-47)
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    derive(Clone, Debug),
+    ww_repr = u2,
+    no_future_version
+)]
 pub enum MultiIndex<'i> {
     // All,
     Range(Range<UNib32>),
@@ -461,6 +467,7 @@ impl Error<'_> {
             ErrorKind::StreamStoreFailed => ErrorKindOwned::StreamStoreFailed,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),
             ErrorKind::UserStr(s) => ErrorKindOwned::UserStr(s.to_string()),
+            ErrorKind::Unknown(d) => ErrorKindOwned::Unknown(*d),
         };
         ErrorOwned {
             err_seq: self.err_seq,

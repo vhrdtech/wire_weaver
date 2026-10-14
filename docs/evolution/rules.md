@@ -168,8 +168,9 @@ overhead, giving all the nice backwards and forwards compatibility benefits.
       byte, which read as 0: give it its zero value as the default.
 * New enum variants can be added at the end. Readers of older versions fail on them unless the enum has a
   [`#[future_version]` variant](../serdes/derive.md#enum-variants-from-a-newer-version); with one, they get its
-  discriminant. In an `Unsized` enum new variants may carry data, in a `sized` or `self_describing` one only new
-  unit variants can be read past by older readers.
+  discriminant. Every `Unsized` enum has one unless it says `no_future_version` (SW-47). In an `Unsized` enum new
+  variants may carry data, in a `sized` or `self_describing` one only new unit variants can be read past by older
+  readers. Adding or removing `no_future_version` changes the Rust type, not the wire: a Rust API break only.
 * New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
   other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
 * TODO: clarify: `T` -> struct containing `T`

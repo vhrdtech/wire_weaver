@@ -273,12 +273,17 @@ impl Parse for Args {
                 }
                 "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
                 | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants"
-                | "crate_path" | "non_exhaustive" => {
+                | "crate_path" | "non_exhaustive" | "no_future_version" => {
                     // Directives irrelevant to wire_weaver_core's introspection (it only cares
                     // about `ww_repr` and the size assumption) - skip their arguments, if any.
                     if input.peek(syn::token::Paren) {
                         let _group: proc_macro2::Group = input.parse()?;
                     }
+                }
+                "future_version" => {
+                    // the variant is left out of the API model (SW-16, SW-47)
+                    input.parse::<Token![=]>()?;
+                    let _name: Ident = input.parse()?;
                 }
                 u => {
                     return Err(syn::Error::new(

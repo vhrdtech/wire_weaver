@@ -87,7 +87,9 @@ pub enum NumericBaseType {
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Clone, Debug, PartialEq),
-    ww_repr = unib32
+    ww_repr = unib32,
+    // a type description: readers can't skip a newer kind (SW-47, INT-8)
+    no_future_version
 )]
 pub enum NumericAnyType<'i> {
     Base(NumericBaseType),
@@ -108,7 +110,9 @@ pub enum NumericAnyType<'i> {
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Clone, Debug, PartialEq),
-    ww_repr = unib32
+    ww_repr = unib32,
+    // a type description: readers can't skip a newer kind (SW-47, INT-8)
+    no_future_version
 )]
 pub enum SubTypeKind<'i> {
     ValidRange {

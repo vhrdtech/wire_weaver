@@ -33,7 +33,8 @@
 //! Not: `Vec`, `RefVec`, strings, `MaxLen`, `UNib32` and the other varints (their size depends on the value),
 //! `RefBox`, `TailSize`, tuples, ranges, 128-bit numbers, bit fields wider than 32 bits, `#[default]` fields. A
 //! struct must be `sized`, `final_structure` or `self_describing` (an evolvable type may grow, so it has no fixed
-//! layout); an enum `sized` or `self_describing` with a byte-aligned tag, `ww_repr = u8`, `u16` or `u32`.
+//! layout); an enum `sized` or `self_describing` with a byte-aligned tag, `ww_repr = u8`, `u16` or `u32`, and no
+//! `#[future_version]` variant (a discriminant of a newer version has no known length).
 //!
 //! Types that qualify get the fast path without asking. The `fixed_layout` directive makes it a requirement: a
 //! field that breaks it is a compile error that says why and what to use instead. On a struct it also picks the

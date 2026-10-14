@@ -465,3 +465,21 @@ fn c_header() {
         assert!(out.contains(line), "missing {line:?} in\n{out}");
     }
 }
+
+/// Byte-tagged and sized, so it would qualify, but a `#[future_version]` variant (SW-16) has a discriminant of a
+/// newer version and no known length: no fast path, the usual serdes as before.
+#[derive_shrink_wrap(borrowed, sized, ww_repr = u8, derive(Debug, PartialEq))]
+enum Later {
+    A,
+    B,
+    #[future_version]
+    Unknown(u32),
+}
+
+#[test]
+fn future_version_has_no_fast_path() {
+    let mut buf = [0u8; 8];
+    let bytes = Later::B.to_ww_bytes(&mut buf).unwrap();
+    assert_eq!(Later::from_ww_bytes(bytes).unwrap(), Later::B);
+    assert_eq!(Later::from_ww_bytes(&[7]).unwrap(), Later::Unknown(7));
+}

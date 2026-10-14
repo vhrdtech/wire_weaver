@@ -1200,6 +1200,7 @@ pub(crate) fn enum_eligible(
     size_assumption: &Option<ObjectSize>,
     repr: Repr,
     variants: &[Variant],
+    has_future_version: bool,
     required: bool,
 ) -> Result<bool, String> {
     let fail = |why: &str| {
@@ -1216,6 +1217,12 @@ pub(crate) fn enum_eligible(
         return fail(
             "an enum must be sized (every variant the same length) or self_describing (the tag tells the \
              length); an evolvable enum may grow",
+        );
+    }
+    if has_future_version {
+        return fail(
+            "a #[future_version] variant holds a discriminant of a newer version, whose length this one cannot \
+             know. Remove it",
         );
     }
     if repr_bytes(repr).is_none() {

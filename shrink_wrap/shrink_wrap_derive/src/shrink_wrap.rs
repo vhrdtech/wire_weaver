@@ -186,6 +186,7 @@ fn generate_inner(
                 &args.size_assumption,
                 repr,
                 &ww_item_enum.variants,
+                ww_item_enum.future_version.is_some(),
                 fixed_required,
             )? {
                 for ident in fixed_idents(&generate_borrowed, &generate_owned, ty_kind) {
@@ -319,6 +320,11 @@ fn head_tail_inner(
             let cg = seed.cg_enum(&ww_item_enum, repr);
             ts.append_all(cg.def_rust(true));
             ts.append_all(cg.impl_discriminant(true));
+            if ww_item_enum.future_version.is_some() {
+                return Err("head_tail: a #[future_version] variant holds discriminants of a newer version, whose \
+                            heads and tails this one cannot know. Remove it"
+                    .into());
+            }
             ts.append_all(head_tail::ht_enum(
                 &names,
                 repr,

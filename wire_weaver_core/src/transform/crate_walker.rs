@@ -11,7 +11,7 @@ use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, TypeLocation
 use ww_version::{FullVersionOwned, VersionOwned};
 
 /// Crates re-exported by `wire_weaver`, usable without depending on them directly.
-const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_version"];
+const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_error", "ww_version"];
 
 /// Load API definition and all referenced data types from a given crate.
 ///

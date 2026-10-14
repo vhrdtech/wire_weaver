@@ -83,6 +83,7 @@ ww_self = { version = "0.2.0", path = "./ww_self" }
 ww_client_server = { version = "0.2.0", path = "./ww_stdlib/ww_client_server", default-features = false }
 ww_date_time = { version = "0.1.0", path = "./ww_stdlib/ww_date_time", default-features = false }
 ww_dfu = { version = "0.1.0", path = "./ww_stdlib/ww_dfu", default-features = false }
+ww_error = { version = "0.1.0", path = "./ww_stdlib/ww_error", default-features = false }
 ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = false }
 ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
 ww_log_bare_metal = { version = "0.1.0", path = "./ww_stdlib/ww_log_bare_metal", default-features = false }

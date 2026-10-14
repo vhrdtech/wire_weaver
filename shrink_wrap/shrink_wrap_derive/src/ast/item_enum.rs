@@ -51,6 +51,8 @@ pub(crate) struct Variant {
     pub(crate) cfg: Vec<TokenStream>,
     /// `#[display("..")]` override (DER-12), takes precedence over the first doc line.
     pub(crate) display: Option<String>,
+    /// `#[common] Common(CommonError<'i>)`: gets `From<CommonError>` and `HasCommon` (STD-16).
+    pub(crate) common: bool,
 }
 
 impl Variant {

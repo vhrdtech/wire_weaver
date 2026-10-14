@@ -14,6 +14,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `From<U7> for u8` / `TryFrom<u8> for U7` (`Error::SubtypeOutOfRange` when it doesn't fit) for every `U1`..`U64`
   and `I2`..`I64` and its backing integer. Their use as enum variant payloads next to a sub-byte discriminant is
   tested byte for byte (`tests/sub_byte.rs`, `docs/serdes/showcase.md`).
+- `#[common]` on an enum variant (STD-16): `#[common] Common(CommonError<'i>)` gets `From<CommonError>` for the
+  enum and an implementation of `ww_error::HasCommon` (`e.common()`), for the borrowed and the owned type. One per
+  enum, one unnamed field; the generated code reaches `ww_error` directly or through `wire_weaver`.
 - Enum variants from a newer version (SW-16): an enum that ends with `#[future_version] Unknown(u32)` (any name,
   one `u32` field, no discriminant) reads a discriminant it doesn't know into that variant instead of failing with
   `EnumFutureVersionOrMalformedData`, and writes it back. An `Unsized` enum (the default) skips the newer variant's

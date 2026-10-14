@@ -89,6 +89,8 @@
   combination of `omit_if` conditions, under `#[cfg]`). Only optional items can be left out, any other path is a
   compile error naming the trait's optional items and groups. `ServerScaffoldConfig::omit` leaves their stubs out.
   `#[optional]` on `ww_impl!` is rejected. See `docs/api/errors.md#4-optional-items`.
+- An API crate can name `ww_error` types (`use ww_error::CommonError`) with only `wire_weaver` as a dependency, as
+  for `shrink_wrap` and `ww_version` (STD-16).
 - Types with the `no_future_version` and `future_version = <Name>` arguments of `derive_shrink_wrap` (SW-47) are
   read from API crates; the variant stays out of the API model like a written `#[future_version]` one.
 - A `#[future_version]` enum variant (SW-16) is left out of the API model (`ww_self`): it is no variant on the

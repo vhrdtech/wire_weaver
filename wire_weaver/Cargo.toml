@@ -10,12 +10,13 @@ documentation = "https://vhrdtech.github.io/wire_weaver"
 
 [features]
 default = ["std"]
-std = ["shrink_wrap/std", "ww_version/std"]
-defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_version/defmt"]
+std = ["shrink_wrap/std", "ww_error/std", "ww_version/std"]
+defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_error/defmt", "ww_version/defmt"]
 serde = ["shrink_wrap/serde"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
 shrink_wrap = { workspace = true, default-features = false }
 wire_weaver_derive.workspace = true
+ww_error = { workspace = true, default-features = false }
 ww_version = { workspace = true, default-features = false }

@@ -228,6 +228,7 @@ fn generate_inner(
                 if args.display {
                     ts.append_all(cg_item_enum.display_and_error_rust(true));
                 }
+                ts.append_all(cg_item_enum.impl_common(true)?);
             }
 
             if let Some(owned) = generate_owned {
@@ -241,6 +242,10 @@ fn generate_inner(
                 ts.append_all(cg_item_enum.serdes_rust(false));
                 if args.display && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
                     ts.append_all(cg_item_enum.display_and_error_rust(false));
+                }
+                // an ambiguous type is the same one as borrowed, which has the impls already
+                if !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
+                    ts.append_all(cg_item_enum.impl_common(false)?);
                 }
             }
         }

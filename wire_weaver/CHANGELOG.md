@@ -16,6 +16,8 @@
 
 - `api_doc` module with `Property<T, E>`, `Stream<T>` and `Sink<T>` markers, return types of the rustdoc-only trait
   that `#[ww_trait]` generates (DOC-6), with a table of how each resource shows up.
+- `wire_weaver::ww_error` and `prelude::{CommonError, CommonErrorOwned, HasCommon}` (STD-16): errors every API can
+  return, without a dependency of its own (`docs/std_library/ww_error.md`).
 - `Context<'_, O, M = ()>`, passed to every server handler: request `seq()`, `medium()` the request came from,
   `reply_to()` (`ReplyTo { medium, seq }`) to answer a deferred call later, and it sends events (stream updates,
   property updates, deferred replies) through `EventOut` (async) / `BlockingEventOut` (sync).

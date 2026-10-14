@@ -21,6 +21,7 @@ pub use valid_indices::ValidIndices;
 #[cfg(feature = "std")]
 pub use valid_indices::ValidIndicesOwned;
 pub use wire_weaver_derive::{compact_version, full_version, ww_api, ww_codegen, ww_trait};
+pub use ww_error;
 pub use ww_version;
 use ww_version::FullVersion;
 
@@ -42,6 +43,10 @@ pub mod prelude {
     pub use wire_weaver_derive::{
         compact_version, full_version, ww_api, ww_api_root, ww_codegen, ww_impl, ww_trait,
     };
+    pub use ww_error;
+    #[cfg(feature = "std")]
+    pub use ww_error::CommonErrorOwned;
+    pub use ww_error::{CommonError, HasCommon};
     pub use ww_version;
     pub use ww_version::FullVersion;
 }

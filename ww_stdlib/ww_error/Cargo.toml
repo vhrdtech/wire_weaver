@@ -1,0 +1,17 @@
+[package]
+name = "ww_error"
+version = "0.1.0"
+authors.workspace = true
+description = "Errors every WireWeaver API can return, recognised by tools by their type"
+edition.workspace = true
+license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
+
+[features]
+default = ["std"]
+std = ["shrink_wrap/std"]
+defmt = ["dep:defmt", "shrink_wrap/defmt"]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+shrink_wrap.workspace = true

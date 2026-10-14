@@ -43,6 +43,10 @@ impl ItemEnum {
                     repr.max_discriminant()
                 ));
             }
+            let common = take_flag_like_attr(&mut attrs, "common");
+            if common {
+                check_common_variant(variant, variants.iter().any(|v: &Variant| v.common))?;
+            }
             let path = FieldPath::new(FieldPathRoot::EnumVariant(variant.ident.clone()));
             let fields = convert_fields(&variant.fields, &path)?;
             let since = take_since_attr(&mut attrs)?;
@@ -58,6 +62,7 @@ impl ItemEnum {
                 _since: since,
                 cfg,
                 display,
+                common,
             });
         }
         let mut attrs = item_enum.attrs.clone();
@@ -176,6 +181,22 @@ fn future_version_variant(
         docs,
         ident: ident.clone(),
     })
+}
+
+/// `#[common] Common(CommonError<'i>)`: one per enum, one unnamed field (STD-16).
+fn check_common_variant(variant: &syn::Variant, has_one_already: bool) -> Result<(), String> {
+    let ident = &variant.ident;
+    if has_one_already {
+        return Err(format!(
+            "#[common] variant `{ident}`: only one variant can be #[common]"
+        ));
+    }
+    match &variant.fields {
+        syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(()),
+        _ => Err(format!(
+            "#[common] variant `{ident}` must have one unnamed field: `#[common] {ident}(CommonError<'i>)`"
+        )),
+    }
 }
 
 fn get_discriminant(variant: &syn::Variant) -> Result<Option<u32>, String> {

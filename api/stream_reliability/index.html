@@ -1,0 +1,3564 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Wire format and API code generator with rich type system and no alloc for embedded systems">
+      
+      
+        <meta name="author" content="Roman Isaikin">
+      
+      
+        <link rel="canonical" href="https://ww.vhrd.tech/api/stream_reliability/">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.70">
+    
+    
+      
+        <title>Stream reliability (design) - WireWeaver</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e442bf79.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="WireWeaver" class="md-header__button md-logo" aria-label="WireWeaver" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            WireWeaver
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Stream reliability (design)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/vhrdtech/wire_weaver" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vhrdtech/wire_weaver
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../features/" class="md-tabs__link">
+        
+  
+  Features
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../serdes/shrink_wrap/" class="md-tabs__link">
+          
+  
+  SerDes
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../overview/" class="md-tabs__link">
+          
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../evolution/rules/" class="md-tabs__link">
+          
+  
+  Evolution
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../std_library/overview/" class="md-tabs__link">
+          
+  
+  Standard library
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../transport/overview/" class="md-tabs__link">
+          
+  
+  Transport protocols
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../examples/examples/" class="md-tabs__link">
+          
+  
+  Examples and templates
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/" class="md-tabs__link">
+          
+  
+  Dev tools
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="WireWeaver" class="md-nav__button md-logo" aria-label="WireWeaver" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    WireWeaver
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/vhrdtech/wire_weaver" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vhrdtech/wire_weaver
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Features
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  SerDes
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  SerDes
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/shrink_wrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Shrink Wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Built-in types
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/derive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Derive
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/showcase/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Showcase
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/use_cases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Use cases
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/code_size/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Code size on small CPUs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  shrink_wrap in C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  API
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  High-level overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Streams
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../traits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Traits
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../arrays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Arrays
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../addressing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resources addressing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Versioning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../folder_structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Folder structure
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolution
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Evolution
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolution rules
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/checker_tool/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolution checker
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Standard library
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Standard library
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_date_time/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_date_time
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_version
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_numeric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_numeric
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_si/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_gpio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_gpio
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_client_server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_client_server
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_can_bus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_can_bus
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_dfu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_dfu: firmware updates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_log_baremetal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_log_baremetal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_self/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_self
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport protocols
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Transport protocols
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/ww_framer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Framer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/ww_link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Link layer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/usb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  USB
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/follow_reboot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Following a reboot: RP2350 BOOTSEL
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/rtt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RTT
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/websocket/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  WebSocket
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/udp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  UDP
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and templates
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Examples and templates
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and Templates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/vhrdtech/wire_weaver_template" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  wire_weaver_template repo
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev tools
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Dev tools
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev_tool/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev GUI tool
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Summary
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-data-is-lost-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where data is lost today
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Where data is lost today">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-wireweaver-guarantees-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What WireWeaver guarantees today
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scenarios
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Design
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#three-delivery-kinds" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Three delivery kinds
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#declaring-streams-functions-that-return-streams-api-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Declaring streams: functions that return streams (API-31)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#positions-and-units-d4-d5" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Positions and units (D4, D5)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#head-on-the-wire" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Head on the wire
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sessions-cursors-and-resuming" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sessions, cursors and resuming
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#latest-values-while-backfilling-s10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Latest values while backfilling (S10)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#one-protocol-for-reliable-streams-and-credit-sinks-api-34" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        One protocol for reliable streams and credit sinks (API-34)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stores-and-backfill-srv-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Stores and backfill (SRV-15)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#send-scheduler-and-priorities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Send scheduler and priorities
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#counting-with-cnt" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Counting with <code>cnt</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#device-side-codegen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device side (codegen)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#host-side-clt-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host side (CLT-23)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timestamps-and-their-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timestamps and their cost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scenarios-walked-through" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scenarios walked through
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-transport-with-this-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Per transport, with this design
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-ww_stream-crate" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The <code>ww_stream</code> crate
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility-and-what-breaks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Compatibility and what breaks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-14-oct-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Review (14 Oct 2026)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Implementation plan
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ideas-not-asked-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ideas not asked for
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+  
+
+
+<h1 id="stream-reliability-design">Stream reliability (design)<a class="headerlink" href="#stream-reliability-design" title="Permanent link">&para;</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Design, approved by Roman on 14 Oct 2026, with his points worked in</p>
+<p>Items: API-30 counted-reliable-streams, API-31 stream-functions (typed open, includes API-15), API-34
+sink-sessions, SRV-15 stream-stores, CLT-23 host-stream-positions, TEST-19 lossy-test-medium. Roman's review and
+the answers are in <a href="#review-14-oct-2026">Review</a>; the pieces are built on their own branches as in
+<a href="#implementation-plan">Implementation plan</a>. Nothing is built yet; once it is, this page becomes the reference for
+counted and reliable streams.</p>
+</div>
+<p>Roman, reviewing the IO trait family (D4 <code>seq</code> units, D5 <code>lost</code> counts, 14 Oct 2026): <em>"we miss reliable transfer
+in wire_weaver, let's not bodge it in each trait from the side. On USB there shouldn't really be losses at all."</em></p>
+<p>This page puts positions, lost-data accounting, reliable delivery and backfill into the framework, for every
+device and every stream, so that no item type has to carry <code>seq</code>, <code>lost</code> or <code>t</code> fields of its own.</p>
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Every stream gets a delivery kind</strong>, chosen in the API: plain (latest value wins, nothing is counted),
+  <strong>counted</strong> (a position in each event, exactly how much was lost and where) or <strong>reliable</strong> (acknowledged and
+  resent, nothing lost while the device has room to keep it).</li>
+<li><strong>Positions count units</strong> the device names when it sends (bytes for a UART, transactions for a monitor, sample sets
+  for an ADC), 64-bit: D4 and D5, done once in the framework. The host never computes units.</li>
+<li><strong>The head lives in the event, not in the item</strong>: flags, <code>pos</code>, <code>lost</code> and <code>t</code> (device time) in a per-event head of
+  2 to 6 bytes for any position up to 4 T units, plus 5 for a timestamp. Item types stay pure data.</li>
+<li><strong>Reliable streams and credit sinks are one protocol</strong> in both directions: positions in units, grants in bytes (the
+  receiver's memory), cumulative acknowledgements, go-back-N; sessions and cursors for both.</li>
+<li><strong>Backfill is built in from the start</strong>: what the device keeps lives in a <strong>store</strong> (RAM ring, or an SD card / flash
+  log) that keeps filling while the host is gone; a host that comes back <strong>resumes</strong> from its last position, sees the
+  <strong>latest values at once</strong> and gets the backlog alongside, with the original timestamps.</li>
+<li><strong>Streams are opened like methods are called</strong>: <code>#[stream(SampleBlock&lt;'i&gt;)] fn samples(config: StreamConfig&lt;'i&gt;) -&gt;
+  Result&lt;StreamActual, AdcError&gt;</code>, the old "functions returning streams" idea (API-15). A read on a stream returns
+  its state.</li>
+<li><strong>Timestamps</strong>: per event (a chunk) by default, per anchor for fixed-rate streams, per item as <code>DeltaOfDelta</code> inside
+  monitor items.</li>
+<li><strong>One crate, <code>ww_stream</code></strong>, holds the state machines (device and host side), the stores and the send scheduler
+  with priorities between streams; it counts what happens with typed <code>cnt</code> counters.</li>
+</ul>
+<h2 id="where-data-is-lost-today">Where data is lost today<a class="headerlink" href="#where-data-is-lost-today" title="Permanent link">&para;</a></h2>
+<p>Along the way from a producer on the device to user code on the host:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a> producer ──► device buffer ──► event loop ──► framer ──► medium ──► host transport ──► event loop ──► stream queue ──► user code
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a> (DMA, ISR)   (user&#39;s ring)     (ww_device)               (USB..)    (nusb, socket)     (client)      (per stream)
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>     ①             ②                ③                         ④                                          ⑤
+</span></code></pre></div>
+<ol>
+<li><strong>Producer overflow</strong> (② full): the producer can't wait, so data is dropped. Happens on <strong>every medium</strong>: when the
+   stream's rate is above what the link moves (rePort's budget is ~800 KB/s on USB full speed for all streams
+   together), while the device's event loop is busy (a flash erase, a long handler), and while no host is connected.</li>
+<li><strong>Event loop blocked</strong> (③): <code>&lt;name&gt;_send().await</code> waits for the framer, which waits for the medium. On USB a host
+   that doesn't read makes the device's event loop wait, replies to requests included. Nothing is lost here, the
+   loss moves to ①.</li>
+<li><strong>Medium</strong> (④), per transport below.</li>
+<li><strong>Link down</strong>: everything in device buffers, the framer, the medium and host queues at that moment is lost, and
+   everything the producer makes until the host is back.</li>
+<li><strong>Host queue</strong> (⑤): today an unbounded channel per stream (<code>rx_dispatcher.rs</code>). A slow consumer (a Python notebook
+   busy for a second) loses nothing, the host's memory grows instead, without limit. So on USB, contrary to the
+   assumption in rePort's <code>api_design.md</code> §10.3, a slow notebook does not make the device drop: a slow USB bus or a
+   too high total rate does.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Medium</th>
+<th>The medium itself</th>
+<th>Where losses happen</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>USB bulk / interrupt</td>
+<td>CRC and retries in hardware, flow control by NAK: <strong>no loss</strong></td>
+<td>① when the rate is above the bus's share, ④ on unplug, device reset, USB suspend (SRV-9), host process exit</td>
+</tr>
+<tr>
+<td>RTT</td>
+<td>RAM rings, no corruption; a chunk that doesn't fit is retried for <code>write_timeout</code> (500 ms), then the link goes down</td>
+<td>① (a probe polls at its own pace, ~0.1-1 MB/s), ④ on detach</td>
+</tr>
+<tr>
+<td>UDP</td>
+<td>datagrams lost, duplicated, reordered; a message split across datagrams is dropped whole when a piece is lost</td>
+<td>any datagram, ① , ④ (also a takeover by another host)</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>TCP: no loss while connected, backpressure blocks the device</td>
+<td>①, ④: what was in flight when the connection drops</td>
+</tr>
+<tr>
+<td>CAN (TR-6, planned)</td>
+<td>frames retried on bus errors; frames dropped when a receiver FIFO overflows (USB-CAN adapters, SocketCAN queues), bus-off</td>
+<td>any frame (a split message is dropped whole), ①, ④</td>
+</tr>
+<tr>
+<td>UART (TR-7, planned)</td>
+<td>bit errors, overruns: a message with a bad checksum is dropped</td>
+<td>any message, ①, ④</td>
+</tr>
+<tr>
+<td>In-process</td>
+<td>none</td>
+<td>① only</td>
+</tr>
+</tbody>
+</table>
+<p>So Roman is right that USB doesn't lose on the wire; but USB still loses at ① and ④, and the host has no way to
+notice either: a stream item carries nothing that tells it something is missing.</p>
+<h3 id="what-wireweaver-guarantees-today">What WireWeaver guarantees today<a class="headerlink" href="#what-wireweaver-guarantees-today" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Guarantee</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Requests</td>
+<td><code>seq</code> and a timeout per request: a lost request or reply times out. A retry may execute twice (CLT-17 reliable-requests).</td>
+</tr>
+<tr>
+<td><code>ww_framer</code></td>
+<td>Detects a lost piece of a split message (remaining length, CRC on UDP), drops that message, continues with the next one. No retransmission.</td>
+</tr>
+<tr>
+<td><code>ww_link</code></td>
+<td>Link setup survives losses (retries), a peer timeout ends a silent session.</td>
+</tr>
+<tr>
+<td>Plain sinks, host → device</td>
+<td>Nothing: not acknowledged, not counted.</td>
+</tr>
+<tr>
+<td>Credit sinks, host → device (API-28)</td>
+<td>Reliable: byte positions, cumulative credit, go-back-N resend on loss; the host never outruns the device's buffer.</td>
+</tr>
+<tr>
+<td>Streams, device → host</td>
+<td><strong>Nothing</strong>: no position, no loss signal, no acknowledgement, nothing kept for a host that comes back.</td>
+</tr>
+<tr>
+<td>Sideband</td>
+<td>In order with data on a link; host → device commands are answered.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scenarios">Scenarios<a class="headerlink" href="#scenarios" title="Permanent link">&para;</a></h2>
+<p>The design is checked against these; <a href="#scenarios-walked-through">Scenarios walked through</a> shows each one with the
+mechanism below.</p>
+<ul>
+<li><strong>S1 UART monitor on USB, total rate above the budget.</strong> rePort monitors two UART lines at 2 Mbaud while an ADC
+  streams; for 300 ms the sum is above what USB full speed moves. The device drops 60 000 bytes of line A. The host
+  must show "60 000 bytes lost at 12.345 s" at exactly the right place, and the protocol decoder must resynchronise
+  after the gap instead of decoding garbage.</li>
+<li><strong>S2 UDP telemetry.</strong> An ESP32 sensor node streams 100 Hz readings over Wi-Fi; some datagrams are lost, a few come
+  twice or out of order. Live data: resending a reading from 2 s ago is pointless, but the plot must show gaps where
+  they are, and duplicates must not show twice.</li>
+<li><strong>S3 Data logger, host gone.</strong> A field logger samples 4 ADC channels at 1 kS/s and writes to its SD card. The laptop
+  is connected once a day over USB (or a gateway over UDP); it must get every sample since the last time, with the
+  original timestamps, while new samples keep coming. Nothing is lost unless the card is full, and then the host is
+  told exactly what.</li>
+<li><strong>S4 Host stuck.</strong> A Python script stops reading for 10 minutes (breakpoint). A plain or counted stream must not eat
+  the host's memory; a reliable stream must stop at the device's store (RAM or SD) and continue without loss when the
+  script reads again, or report exactly what the store couldn't hold.</li>
+<li><strong>S5 Device reboot.</strong> The logger reboots (watchdog, power cut) while the host is away. Data on the SD card from before
+  the reboot must still arrive, its timestamps marked as belonging to the previous clock epoch.</li>
+<li><strong>S6 Host process restart.</strong> The host-side recorder crashes and is restarted; it resumes from the position it saved
+  with the data, not from "now", and not from the beginning.</li>
+<li><strong>S7 ADC at 500 kS/s.</strong> Fixed rate, 750 KB/s of packed 12-bit samples on USB full speed: the head and timestamps must
+  cost around 1 %, not 10 %.</li>
+<li><strong>S8 I2C monitor at 1 MHz.</strong> Up to ~20 000 short transactions per second, each with its own time; per-item cost of
+  time must stay near one byte.</li>
+<li>
+<p><strong>S9 A latest-value stream.</strong> A motor controller streams its state at 1 kHz, the host shows it. Losing some is fine,
+  resending is wrong (stale), counting is unnecessary: it must cost nothing extra.</p>
+</li>
+<li>
+<p><strong>S10 Latest values during backfill.</strong> The S3 logger has 6 hours on its SD card; the laptop connects and a dashboard
+  must show the current readings at once, not after the 4 minutes the backlog takes to come over, while a recorder
+  gets all 6 hours and everything after.</p>
+</li>
+</ul>
+<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
+<h3 id="three-delivery-kinds">Three delivery kinds<a class="headerlink" href="#three-delivery-kinds" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>plain</th>
+<th>counted</th>
+<th>reliable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Position in each event</td>
+<td>–</td>
+<td>yes</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Device-side drops reported exactly (<code>lost</code>)</td>
+<td>–</td>
+<td>yes</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Link losses, duplicates, reorder detected</td>
+<td>–</td>
+<td>yes</td>
+<td>yes, and repaired</td>
+</tr>
+<tr>
+<td>Device timestamp in the head</td>
+<td>–</td>
+<td>optional</td>
+<td>optional</td>
+</tr>
+<tr>
+<td>Acknowledged, resent</td>
+<td>–</td>
+<td>–</td>
+<td>yes (go-back-N)</td>
+</tr>
+<tr>
+<td>Kept while the host is slow or gone, sent when it is back (backfill)</td>
+<td>–</td>
+<td>–</td>
+<td>while the device's store has room</td>
+</tr>
+<tr>
+<td>Latest values first after a reconnect, backlog alongside</td>
+<td>–</td>
+<td>–</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Host → device messages</td>
+<td>–</td>
+<td>none (open / close only)</td>
+<td><code>Ack</code> every ~half window</td>
+</tr>
+<tr>
+<td>Extra bytes per event</td>
+<td>0</td>
+<td>2-6</td>
+<td>2-6</td>
+</tr>
+<tr>
+<td>Device state</td>
+<td>none</td>
+<td>a few counters</td>
+<td>counters and a store</td>
+</tr>
+<tr>
+<td>Scenario</td>
+<td>S9</td>
+<td>S1, S2, S7, S8</td>
+<td>S3-S6, S10</td>
+</tr>
+</tbody>
+</table>
+<p>The kind is part of the API (a different event, like credit sinks are a different resource kind), so it is chosen in
+the API crate and visible in introspection, and changing it later is a break. Plain stays the default, so existing
+APIs are unchanged and S9 costs nothing. Which store a reliable stream uses and how big it is, is the device's choice,
+not the API's: a rePort keeps 256 KB in RAM, a logger keeps 32 GB on SD, the same <code>ww_adc</code> API.</p>
+<p>Counted is the advice for any stream of measured data: it costs a few bytes per event and makes every loss visible.
+Reliable is for data that must not be lost: logs, monitors whose decoders can't recover from gaps, loggers.</p>
+<h3 id="declaring-streams-functions-that-return-streams-api-31">Declaring streams: functions that return streams (API-31)<a class="headerlink" href="#declaring-streams-functions-that-return-streams-api-31" title="Permanent link">&para;</a></h3>
+<p><code>ww_adc</code> round 1 had <code>start_stream(config)</code> / <code>stop_stream()</code> methods next to the stream; round 2 starts and stops by
+sideband <code>Open</code> / <code>Close</code> and configures with a method, because <code>Open</code> can't carry a configuration. Sideband is
+lacking in four ways:</p>
+<ol>
+<li><code>Open</code> carries no data, so a configuration needs a separate method, and between the two calls the device runs with
+   a configuration the host didn't choose, or the host has to know that the order matters.</li>
+<li>A sideband handler can't answer with a typed result or error (<code>Option&lt;StreamSideband&gt;</code> only): the actual rate and
+   "channel 9 doesn't exist" need a method.</li>
+<li>A session (positions from 0, the units' meaning) has to start exactly when the configuration changes. With a method
+   beside the stream, the framework doesn't know when that is; the method would reset the framework's counters from
+   the side, the bodge Roman doesn't want.</li>
+<li>Generic tools (a recorder, <code>ww stream</code>) can open any stream, but don't know which method to call first.</li>
+</ol>
+<p>Roman's old idea (API-15) answers all four: <strong>a stream is opened by calling a function, and the call returns the
+stream</strong>. In the trait it is a method with an attribute naming the item type:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">AdcStream</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="sd">/// Raw samples, whole sample sets interleaved; unit: sample set</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="cp">#[stream(SampleBlock&lt;&#39;i&gt;, reliable)]</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">samples</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">StreamConfig</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">StreamActual</span><span class="p">,</span><span class="w"> </span><span class="n">AdcError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">stream_capabilities</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">StreamCapabilities</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li>The method part is an ordinary method: arguments, a return type, <code>#[errors(..)]</code> lists and the flat <code>CallError</code>
+  of the errors design (<code>docs/api/errors.md</code>, API-32, CLT-24), optional items (API-16), all apply unchanged.</li>
+<li><code>stream!(x: T)</code> stays, as the short form of <code>#[stream(T)] fn x();</code> (no arguments, unit result): one mechanism for all
+  streams. <code>#[stream(T, counted)]</code> / <code>#[stream(T, reliable)]</code> choose the kind; <code>#[counted] stream!(x: T)</code> is the short
+  form there too.</li>
+<li>Device: the handler is the method's (<code>fn samples(&amp;mut self, cx, config) -&gt; Result&lt;StreamActual, AdcError&gt;</code>); an <code>Ok</code>
+  starts a new session, an <code>Err</code> leaves the stream as it was. Closing calls <code>close_samples(cx)</code>. Scaffolded.</li>
+<li>Host: <code>let (actual, mut samples) = adc.samples(config).call().await?;</code> (a prepared call like any method, one <code>?</code>, CLT-24), <code>adc.samples_resume(cursor)</code> for
+  a resume (the configuration of the session is kept on the device), dropping or <code>close()</code>-ing the stream closes it.</li>
+<li>Re-configuring a running stream is calling the function again: a new session. A setting that doesn't change what
+  the units mean (a trigger level) can stay a method.</li>
+<li><strong>Several instances</strong> of one stream (two subscribers of an I2C monitor with different address filters) are what
+  "functions returning streams" make possible later. Not in v0.5, but the wire keeps room: an instance would be one more
+  element of the event's <code>path</code>, which costs nothing now.</li>
+<li><strong>A read on a stream returns its state</strong> (<code>RequestKind::Read</code> on a stream path, unused today): open or not, session,
+  oldest / newest / next position, store use and capacity, persistent or not, and the arguments it was opened with,
+  typed (<code>StreamStatus&lt;StreamConfig&gt;</code>). Methods like <code>ww_adc</code>'s <code>stream_state()</code> go away, and a generic tool shows the
+  health of any stream.</li>
+</ul>
+<p>Wire: <code>RequestKind::StreamOpen { resume: Option&lt;StreamCursor&gt;, args: TailBytes }</code> (appended), answered with a <code>Value</code>
+holding <code>StreamOpened { session, oldest, live_from, resume_from: Option&lt;pos&gt;, result: TailBytes }</code>. Sideband <code>Close</code>
+stays; sideband <code>Open</code> is no longer sent by new hosts.</p>
+<h3 id="positions-and-units-d4-d5">Positions and units (D4, D5)<a class="headerlink" href="#positions-and-units-d4-d5" title="Permanent link">&para;</a></h3>
+<p>Each counted or reliable stream counts <strong>units</strong> from the start of its session, as a <code>u64</code>. What a unit is, the
+stream's doc says, and the device says how many units each item has when it sends it:</p>
+<table>
+<thead>
+<tr>
+<th>Stream</th>
+<th>Unit</th>
+<th>An item of…</th>
+<th>…has units</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ww_uart</code> <code>rx</code></td>
+<td>byte</td>
+<td>37 bytes</td>
+<td>37</td>
+</tr>
+<tr>
+<td><code>ww_i2c</code> <code>I2cMonitor::records</code></td>
+<td>transaction</td>
+<td>12 transactions</td>
+<td>12</td>
+</tr>
+<tr>
+<td><code>ww_adc</code> <code>AdcStream::samples</code></td>
+<td>sample set (one sample of every channel)</td>
+<td>1 536 bytes of 4 channels × 12 bit</td>
+<td>256</td>
+</tr>
+<tr>
+<td><code>ww_logic_analyzer</code> <code>LogicStream</code></td>
+<td>sample</td>
+<td>a block</td>
+<td>its samples</td>
+</tr>
+<tr>
+<td>a status stream</td>
+<td>item</td>
+<td>one value</td>
+<td>1 (the default)</td>
+</tr>
+</tbody>
+</table>
+<p><code>pos</code> of an event is the position of its first unit. The next event's <code>pos</code> is <code>pos + units + lost</code>, so:</p>
+<ul>
+<li><strong><code>lost</code></strong> (units the device dropped right before this event: producer overflow, store full, no host) explains a
+  jump of <code>pos</code> exactly, and says the gap is the device's.</li>
+<li>A jump of <code>pos</code> that <code>lost</code> does not explain is a <strong>link loss</strong> (UDP, CAN): the host knows exactly how many units are
+  missing, though not their content. Reliable streams get them resent.</li>
+<li><code>pos</code> lower than expected is a <strong>duplicate</strong> or a <strong>late</strong> event (UDP): the host drops it and counts it.</li>
+</ul>
+<p>The host never needs to know how to count units of an item: it only compares positions. That is why units are given
+at send time and never computed from the item (an ADC block's byte length doesn't tell the sets without the format).</p>
+<p>Why units and not items: a protocol decoder needs "frame starts at byte 4711 of this capture", and a gap of "3 items"
+says nothing when the device drops raw bytes before they ever became items (D5's scenario).</p>
+<p><strong>Why 64 bits.</strong> A 32 GB SD card holds 2³⁵ bytes, so a byte stream's positions pass 2³² within one card, and a
+session lasts as long as the card's data does. 32-bit positions would wrap inside the store, and a resume cursor
+would become ambiguous. Positions are <code>u64</code> everywhere: in the head, in cursors, in acknowledgements, in stores. On the
+wire they cost only what they need (below): a position never wraps in practice (2⁵⁸ units in the head is 288 P), and
+nothing is truncated, so the host never has to guess the high bits.</p>
+<h3 id="head-on-the-wire">Head on the wire<a class="headerlink" href="#head-on-the-wire" title="Permanent link">&para;</a></h3>
+<p>A counted or reliable stream sends a new event kind, <code>EventKind::StreamItem</code> (appended to <code>EventKind</code>, which has room
+for 16 variants), instead of <code>StreamData</code>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// ww_client_server</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">EventKind</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="c1">// ... Value, Written, StreamData, StreamSideband as today</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="n">StreamItem</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">path</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">UNib32</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">head</span><span class="p">:</span><span class="w"> </span><span class="nc">StreamHead</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">TailBytes</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">}</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">StreamHead</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">pos</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w">           </span><span class="c1">// position of the event&#39;s first unit since the session started</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">lost</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">,</span><span class="w">  </span><span class="c1">// units the device dropped right before this event; `pos` counts them</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Second</span><span class="o">&gt;</span><span class="p">,</span><span class="w">  </span><span class="c1">// device time of the first unit (`ww_timebase` clock)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">ext</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">HeadExt</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// rare markers, evolvable: clock epoch changed (reboot), ...</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The derive would write each <code>Option</code>'s flag right before its value, and <code>pos</code> as a byte-aligned number after its own
+flag: the first measurement put 3 flags into a byte of their own. Written by hand instead, the flags share the first
+byte with the length of <code>pos</code> and its top bits:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a> byte 0:  L T X n n n p p      L, T, X: lost, t, ext follow
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>                               nnn: bytes of pos after this one (0..7), pp: the top 2 bits of pos
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a> then:    n bytes of pos (2 + 8n bits in all)
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>          lost: UVlq64              if L
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>          t:    ww_si::Second       if T (starts on a byte, so its prefix and type tag share one byte)
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>          ext:  HeadExt             if X (Unsized: fields can be appended later)
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>pos</code> below</th>
+<th>4</th>
+<th>1 Ki</th>
+<th>256 Ki</th>
+<th>64 Mi</th>
+<th>16 Gi</th>
+<th>4 Ti</th>
+<th>2⁵⁸</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Head bytes (no <code>lost</code>, <code>t</code>, <code>ext</code>)</td>
+<td>1</td>
+<td>2</td>
+<td>3</td>
+<td>4</td>
+<td>5</td>
+<td>6</td>
+<td>8</td>
+</tr>
+</tbody>
+</table>
+<p>Plus <code>lost</code> 1 byte below 128 units (2 below 16 Ki, ...), <code>t</code> 5 bytes as <code>Second { Micro, U32 }</code> (wraps every 71.6
+min, D6; 9 bytes as <code>U64</code>). A 32 GB byte stream near its end has a 6-byte head, 11 with a timestamp. These sizes
+follow from the layout; API-30 checks them with real bytes and writes the result here. For comparison, measured
+before (derived <code>Option</code>s and a 32-bit <code>UVlq32</code> position): 2 to 6 bytes for positions up to 4 Gi only.</p>
+<p>Today's <code>StreamData</code> event costs 3 to 5 bytes of header and path before the data (measured), so a long-running stream
+with a timestamp pays ~15 bytes per event: 3 % of a 512-byte chunk, 1 % of 1.5 KiB. Small items go into chunks
+(a <code>MaxLen&lt;RefVec&lt;'i, Record&gt;, N&gt;</code> item, as the IO family does already), see <a href="#timestamps-and-their-cost">Timestamps</a>.</p>
+<p><code>Second</code> costs one byte more than raw ticks: not worth a new type (D6 holds). Considered and not taken: sending <code>pos</code>
+only when the host may be out of step (the host would have to count units from items); truncating <code>pos</code> to its low
+bits (ambiguous across a big store); putting <code>pos</code> into <code>Event::seq</code> (mixes request ids with positions).</p>
+<h3 id="sessions-cursors-and-resuming">Sessions, cursors and resuming<a class="headerlink" href="#sessions-cursors-and-resuming" title="Permanent link">&para;</a></h3>
+<p>A <strong>session</strong> is one run of a stream with one meaning of its positions, numbered by the device (<code>session: u32</code>, e.g.
+a boot counter and an open counter, or random). A <strong>cursor</strong> names a point in it:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">StreamCursor</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">session</span><span class="p">:</span><span class="w"> </span><span class="nc">UVlq32</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">pos</span><span class="p">:</span><span class="w"> </span><span class="nc">UVlq64</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li>A session starts when the host <strong>opens the stream</strong> (calls its function) with arguments, or when the device starts
+  it by itself (a logger that samples from power-on with its stored configuration). Positions start at 0.</li>
+<li>It ends when the host opens it again (the units may mean something else now), or when the device's store is erased.
+  <strong>It does not end when the link goes down</strong>, nor, with a persistent store, on a reboot.</li>
+<li>Opening carries an optional cursor (<strong>resume</strong>). The device answers with the session, the oldest position it still
+  has, where the live part starts, and where the backlog starts:<ul>
+<li>same session, cursor still in the store: backlog from the cursor on, nothing lost (S3, S6);</li>
+<li>same session, cursor older than what is kept: backlog from the oldest it has; the units in between are reported
+  lost (<code>Gap { cause: Store }</code> on the host);</li>
+<li>another session (the device restarted the stream): the host reports the old session as ended and starts with the
+  new one.</li>
+</ul>
+</li>
+<li>Counted streams resume too: there is no store, but the device keeps counting while the host is away (and counts
+  what it drops as <code>lost</code>), so after a reconnect the first event's <code>lost</code> says exactly how much the host missed.</li>
+</ul>
+<p>The host keeps the cursor of every open stream. On a reconnect with <code>disconnect_keep_streams</code> (EX-10) it re-opens each
+one with its cursor by itself; user code sees a <code>Resumed</code> event, and gaps if any. A recorder that saves data
+somewhere also saves the cursor next to it, and passes it to <code>&lt;name&gt;_resume()</code> after a restart (S6).</p>
+<h3 id="latest-values-while-backfilling-s10">Latest values while backfilling (S10)<a class="headerlink" href="#latest-values-while-backfilling-s10" title="Permanent link">&para;</a></h3>
+<p>A resumed reliable stream has <strong>two runs</strong> of positions, each delivered in order:</p>
+<ul>
+<li>the <strong>live run</strong> starts at the newest event the device has (<code>live_from</code>, so a slow stream shows its latest value at
+  once instead of after its next event) and goes on with everything new;</li>
+<li>the <strong>backfill run</strong> goes from the resume cursor (or the oldest kept event) up to <code>live_from</code>.</li>
+</ul>
+<p>The device sends live events first, and backfill events whenever the live run has nothing to send or no credit
+(the <a href="#send-scheduler-and-priorities">send scheduler</a> does it, with live before backfill in every priority class). The
+link's spare capacity drains the backlog; when the live run alone fills the link, the backlog waits in the store,
+nothing is lost, and live data is never delayed by old data. When the backfill run reaches <code>live_from</code>, it ends
+(<code>BackfillDone</code> on the host), and the two runs are one again.</p>
+<p>On the host, events carry which run they belong to; user code takes what it needs:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="n">samples</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adc</span><span class="p">.</span><span class="n">samples_resume</span><span class="p">(</span><span class="n">cursor</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="k">mut</span><span class="w"> </span><span class="n">live</span><span class="p">,</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">backlog</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">split</span><span class="p">();</span><span class="w">    </span><span class="c1">// two receivers, each in order</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1">// dashboard: live.recv() -&gt; latest values right away</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1">// recorder:  both, written by position; or samples.recv_event() for everything interleaved, each tagged Live / Backfill</span>
+</span></code></pre></div>
+<p>Alternatives considered: a rate-limited "peek" of the newest value beside an in-order stream (sends data twice, and
+a dashboard gets a preview, not the data); sending newest-first (the backlog would arrive backwards, a recorder has to
+sort, and acknowledgements stop being cumulative). Two in-order runs keep every event sent once and every
+acknowledgement cumulative.</p>
+<p>Acknowledgements carry one position per run (below); the store releases what is acknowledged from its start, so while
+a backfill runs, acknowledged live events stay in the store until the backfill passes them. That costs store room only
+for the time the backfill takes.</p>
+<h3 id="one-protocol-for-reliable-streams-and-credit-sinks-api-34">One protocol for reliable streams and credit sinks (API-34)<a class="headerlink" href="#one-protocol-for-reliable-streams-and-credit-sinks-api-34" title="Permanent link">&para;</a></h3>
+<p>Reliable streams are credit sinks (API-28) the other way round. Both directions use one set of messages, with
+<strong>positions in units</strong> (identity, loss accounting, resume) and <strong>grants in bytes</strong> (what actually runs out is the
+receiver's memory: a device's sink buffer, a host's queue):</p>
+<table>
+<thead>
+<tr>
+<th>Sideband</th>
+<th>Direction</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Ack { have, backfill, grant }</code></td>
+<td>receiver → sender</td>
+<td>received every unit before <code>have</code> (live run) and before <code>backfill</code> (backfill run, while there is one); the sender may have up to <code>grant</code> bytes of events in flight beyond that</td>
+</tr>
+<tr>
+<td><code>Resend { from, grant }</code></td>
+<td>receiver → sender</td>
+<td>units from <code>from</code> on are missing (in whichever run <code>from</code> falls): send again from there</td>
+</tr>
+<tr>
+<td><code>Query { sent }</code></td>
+<td>sender → receiver</td>
+<td>"I have sent up to <code>sent</code>, where are you?" (out of credit, nothing heard for a while); answered with <code>Ack</code> or <code>Resend</code></td>
+</tr>
+</tbody>
+</table>
+<p>All positions <code>UVlq64</code>, all messages cumulative, so a lost one is harmless (UDP). Positions are always the start of an
+event, since events are accepted whole. These replace today's <code>Credit</code> / <code>CreditQuery</code> / <code>Resend</code> (byte positions, 32
+bit); credit sinks are not on crates.io yet (<code>ww_client_server</code> 0.1.0 is), so nothing deployed breaks.</p>
+<p>What credit sinks gain (Roman: "reliable sinks in units: yes"): positions in units (bytes for a byte sink, items for a
+typed one), sessions and cursors, so a DFU plan resumes after a reconnect instead of starting over, and 64-bit
+positions beyond 4 GiB. The device's buffer is still granted in bytes, so nothing changes in how a device sizes it
+(<code>SinkCredit::sized_for</code>).</p>
+<p>For a reliable stream:</p>
+<ul>
+<li><strong>Device</strong>: keeps every event it sent in its store until an <code>Ack</code> passes it, sends while the bytes in flight stay
+  within <code>grant</code>, goes back to <code>from</code> on <code>Resend</code>. Host gone: nothing is acknowledged, the store fills, then new data
+  is dropped and counted in <code>lost</code> (or the oldest, by the store's policy).</li>
+<li><strong>Host</strong>: accepts events of each run in order only, drops duplicates, asks for a resend on a gap (once per gap),
+  acknowledges every half window or 100 ms. The <strong>window</strong> is what the host will queue for this stream (default 4 MiB,
+  configurable): a host that doesn't read stops granting, the device stops sending and keeps filling its store. Host
+  memory stays bounded, data waits on the device, where a big SD card may be (S4).</li>
+<li><strong>Acknowledge when</strong>: by default when user code receives an event; with <code>AckMode::Explicit</code>, only when user code
+  calls <code>ack(pos)</code>, e.g. after it wrote the data to disk, so a crash between receiving and saving loses nothing (S6).</li>
+<li>On USB the link never loses, so <code>Resend</code> never happens, and <code>Ack</code> is a few bytes every half window: reliable costs
+  almost nothing over counted on USB, and gives backfill and bounded host memory.</li>
+</ul>
+<p>Why per stream and not a reliable link layer (ARQ in <code>ww_link</code>, making UDP as good as USB): link-level resending would
+hold back latest-value streams behind a lost datagram (S2, S9), can't keep data across a reconnect or a reboot, and
+doesn't know about device-side drops; the end-to-end positions are needed anyway. A reliable link may still be right
+for requests on UDP; that is CLT-17 reliable-requests, kept separate.</p>
+<h3 id="stores-and-backfill-srv-15">Stores and backfill (SRV-15)<a class="headerlink" href="#stores-and-backfill-srv-15" title="Permanent link">&para;</a></h3>
+<p>What a reliable stream keeps lives in a <strong>store</strong>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">StreamStore</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="k">type</span><span class="w"> </span><span class="nc">Error</span><span class="p">;</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="sd">/// Append an event: its head and item bytes, as they go on the wire. `Full`: nothing stored, the caller counts</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="sd">/// its units as lost.</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">push</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">head</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">StreamHead</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">item</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">PushError</span><span class="o">&lt;</span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="sd">/// Copy the event at `pos` (or the first one after it) into `buf`.</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="o">&lt;&#39;</span><span class="na">b</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">pos</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">b</span><span class="w"> </span><span class="nc">mut</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">StoredEvent</span><span class="o">&lt;&#39;</span><span class="na">b</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w"> </span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="sd">/// Events before `pos` are acknowledged and may go.</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">release</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">pos</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="sd">/// Session, oldest and newest kept positions, next position, bytes used and capacity, persistent or not.</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">state</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">StoreState</span><span class="p">;</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">    </span><span class="sd">/// A new session: drop everything, positions from 0.</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">session</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Shipped stores, in <code>ww_stream</code>:</p>
+<ul>
+<li><strong><code>RamRing&lt;N&gt;</code></strong>: a byte ring in RAM, the default (rePort: 256 KB from the capture pool, ~300 ms of the full USB
+  budget). Survives host reconnects, not reboots.</li>
+<li><strong><code>LogStore</code></strong> on a block device (SD card through <code>embedded-sdmmc</code>'s <code>BlockDevice</code>, NOR flash through
+  <code>embedded-storage</code>), behind a feature: an append-only log of segments with a header per segment (session, first
+  position, clock epoch), a tail pointer written every so often, a CRC per record. Survives reboots and power cuts:
+  after a power cut it finds the end of the log by scanning the last segment, so at most the record being written is
+  lost, and it is counted. Big enough for days of data.</li>
+<li>Policy when full: <strong>drop newest</strong> (default, keeps what is stored contiguous, as D5 wants) or <strong>drop oldest</strong> (a ring
+  of the most recent data). Both counted exactly.</li>
+</ul>
+<p>Events are stored as they are sent, head included, so a resent event is bit-identical: timestamps are the device's
+time when the data was made, never when it was sent (S3). A reboot restarts the device's clock, so the first record
+after one carries a new <strong>clock epoch</strong> in <code>HeadExt</code>; the host maps each epoch to real time with <code>ww_timebase</code>'s
+<code>time_map</code> (or shows "before reboot N"), S5.</p>
+<p>Producers write into the store from their own task (a DMA half-done interrupt wakes a task that builds the item and
+pushes it), the event loop reads from it and sends: the store is shared between the two (a producer half and a sender
+half, or a <code>critical-section</code> mutex; API-30 decides). Pushing never waits for the link, the link only ever waits for
+the store, so a slow link can't stall a producer, and replies are not stuck behind stream data (rePort
+<code>api_design.md</code> §10.3).</p>
+<h3 id="send-scheduler-and-priorities">Send scheduler and priorities<a class="headerlink" href="#send-scheduler-and-priorities" title="Permanent link">&para;</a></h3>
+<p>Today every <code>&lt;name&gt;_send().await</code> writes straight into the framer, in whatever order the producers call it. With
+stores in between, sending is decided in one place, the <strong>send scheduler</strong> in <code>ww_stream</code>, which the event loop
+calls between requests (generated <code>poll_streams(&amp;mut server, out)</code>):</p>
+<ul>
+<li>each counted or reliable stream has a <strong>priority</strong> set by the device (<code>Reliable::new(store).priority(High)</code>), not
+  the API: a rePort puts its log stream above a bulk ADC stream, a logger the other way round;</li>
+<li>per turn the scheduler sends events by priority class, the live run before the backfill run within a class,
+  round-robin between streams of one class, up to a byte budget per turn, so requests are read between turns;</li>
+<li>a stream out of credit or with nothing to send is skipped.</li>
+</ul>
+<p>This is not a crutch: it is the one place where the order of outgoing data is decided, every stream goes through it,
+and nothing else has to know. What it can't do: reorder what is already in the framer or the USB endpoint (bounded
+by their few KB), or schedule plain streams, which still write directly; data that needs a priority is counted or
+reliable. Live before backfill (S10) is the same mechanism.</p>
+<h3 id="counting-with-cnt">Counting with <code>cnt</code><a class="headerlink" href="#counting-with-cnt" title="Permanent link">&para;</a></h3>
+<p>Each counted or reliable stream counts what happens to its data with typed <code>cnt</code> instance counters, not one counter
+for everything, so <code>cnt tui</code> on a firmware shows per stream what went where:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// ww_stream</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="cp">#[derive(cnt::Count)]</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">StreamCnt</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="cp">#[count(u64, unit = </span><span class="s">&quot;unit&quot;</span><span class="cp">)]</span><span class="w"> </span><span class="n">Sent</span><span class="p">,</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="cp">#[count(u64, unit = </span><span class="s">&quot;unit&quot;</span><span class="cp">)]</span><span class="w"> </span><span class="n">Resent</span><span class="p">,</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="cp">#[count(u64, unit = </span><span class="s">&quot;unit&quot;</span><span class="cp">, warn)]</span><span class="w"> </span><span class="n">LostProducer</span><span class="p">,</span><span class="w">   </span><span class="c1">// producer&#39;s own ring overflowed (`lost()`)</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="cp">#[count(u64, unit = </span><span class="s">&quot;unit&quot;</span><span class="cp">, warn)]</span><span class="w"> </span><span class="n">LostStoreFull</span><span class="p">,</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="cp">#[count(u64, unit = </span><span class="s">&quot;unit&quot;</span><span class="cp">, warn)]</span><span class="w"> </span><span class="n">LostNoHost</span><span class="p">,</span><span class="w">     </span><span class="c1">// counted stream, link down</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="cp">#[count(u64, unit = </span><span class="s">&quot;B&quot;</span><span class="cp">)]</span><span class="w"> </span><span class="n">Acked</span><span class="p">,</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="cp">#[count(warn)]</span><span class="w"> </span><span class="n">ResendRequests</span><span class="p">,</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="cp">#[count(warn)]</span><span class="w"> </span><span class="n">Overruns</span><span class="p">,</span><span class="w">                           </span><span class="c1">// more in flight than granted (a host bug)</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="p">}</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="c1">// firmware: one instance per stream, named by the firmware</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="k">static</span><span class="w"> </span><span class="n">ADC_SAMPLES_CNT</span><span class="p">:</span><span class="w"> </span><span class="nc">cnt</span><span class="p">::</span><span class="n">Counters</span><span class="o">&lt;</span><span class="n">StreamCnt</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cnt</span><span class="p">::</span><span class="n">counters</span><span class="o">!</span><span class="p">(</span><span class="n">StreamCnt</span><span class="p">,</span><span class="w"> </span><span class="n">adc_samples</span><span class="p">);</span>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="kd">let</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Reliable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">RamRing</span><span class="p">::</span><span class="n">new</span><span class="p">()).</span><span class="n">counters</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ADC_SAMPLES_CNT</span><span class="p">);</span>
+</span></code></pre></div>
+<p><code>cnt</code>'s <code>disabled</code> feature compiles them out. The host side keeps its own <code>StreamStats</code> (received, lost by cause,
+duplicates, late), the same names, in <code>stream.stats()</code>. Store fill could also go into SRV-11 link statistics.</p>
+<h3 id="device-side-codegen">Device side (codegen)<a class="headerlink" href="#device-side-codegen" title="Permanent link">&para;</a></h3>
+<p>Like credit sinks, the server struct owns the state, and generated code is handed it:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Server</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="n">rx</span><span class="p">:</span><span class="w"> </span><span class="nc">Counted</span><span class="p">,</span><span class="w">                                    </span><span class="c1">// counted: counters only</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="n">samples</span><span class="p">:</span><span class="w"> </span><span class="nc">Reliable</span><span class="o">&lt;</span><span class="n">RamRing</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">256</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">     </span><span class="c1">// reliable: counters, credit, runs, store</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">}</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">impl</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="c1">// generated code calls this for open / close / Ack / Resend / Query and for the scheduler</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">stream_samples</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Reliable</span><span class="o">&lt;</span><span class="n">RamRing</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">256</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">samples</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="c1">// the stream function&#39;s handler, see above</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">samples</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">StreamConfig</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">        </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">StreamActual</span><span class="p">,</span><span class="w"> </span><span class="n">AdcError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">close_samples</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="p">}</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="c1">// producer task: units and time given here, nothing in the item type</span>
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">samples_push</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">samples</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">block</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">t</span><span class="p">)).</span><span class="k">await</span><span class="p">;</span><span class="w"> </span><span class="c1">// full: counted as lost</span>
+</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="n">server</span><span class="p">.</span><span class="n">rx</span><span class="p">.</span><span class="n">lost</span><span class="p">(</span><span class="n">dropped_bytes</span><span class="p">);</span><span class="w"> </span><span class="c1">// the producer&#39;s own ring overflowed: goes into the next event&#39;s `lost`</span>
+</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="c1">// event loop, between requests: what the scheduler picks, as credit allows</span>
+</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">poll_streams</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">sink</span><span class="p">()).</span><span class="k">await</span><span class="p">;</span>
+</span></code></pre></div>
+<p>Exact names and how state is shared with producer tasks are for API-30 / API-31; <code>ww api scaffold</code> emits the handlers.</p>
+<h3 id="host-side-clt-23">Host side (CLT-23)<a class="headerlink" href="#host-side-clt-23" title="Permanent link">&para;</a></h3>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">actual</span><span class="p">,</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adc</span><span class="p">.</span><span class="n">samples</span><span class="p">(</span><span class="n">StreamConfig</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">ev</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">recv_event</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="k">match</span><span class="w"> </span><span class="n">ev</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Item</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="n">run</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w">       </span><span class="c1">// run: Live or Backfill</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Gap</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">at</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">,</span><span class="w"> </span><span class="n">cause</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w">          </span><span class="c1">// cause: Device, Link, Store, Host</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Resumed</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">cursor</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">BackfillDone</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Disconnected</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">}</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="n">save</span><span class="p">(</span><span class="n">samples</span><span class="p">.</span><span class="n">cursor</span><span class="p">());</span><span class="w"> </span><span class="c1">// with the data, for a restart</span>
+</span></code></pre></div>
+<ul>
+<li><code>recv()</code> keeps returning plain values; gaps are counted in <code>samples.stats()</code> and logged.</li>
+<li>Per-stream queues become bounded for every stream (<code>ClientConfig</code>, default a few MiB): plain and counted streams
+  drop the newest and report a <code>Gap { cause: Host }</code>, reliable ones stop granting. Fixes the unbounded growth of S4.</li>
+<li><code>samples.status().await</code> is the read on the stream (state, store fill, typed open arguments).</li>
+<li>The dynamic client and Python get the same: positions, gaps, runs, cursors, <code>ack</code>.</li>
+</ul>
+<h3 id="timestamps-and-their-cost">Timestamps and their cost<a class="headerlink" href="#timestamps-and-their-cost" title="Permanent link">&para;</a></h3>
+<p><code>t</code> in the head is the device time of the event's first unit, a <code>ww_si::Second</code> in the storage the device picks
+(D6): <code>Second { Micro, U32 }</code> (5 bytes, wraps every 71.6 min, the host unwraps) on most MCUs. One clock per device
+(<code>ww_timebase</code>), so items of different streams line up. Three granularities, the device picks per stream:</p>
+<table>
+<thead>
+<tr>
+<th>Granularity</th>
+<th>How</th>
+<th>Cost</th>
+<th>For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Per anchor</td>
+<td><code>t</code> in every N-th event (e.g. every 50 ms); the host interpolates by <code>pos</code> and the configured rate</td>
+<td>~5 B per anchor</td>
+<td>fixed-rate streams: ADC, logic analyzer</td>
+</tr>
+<tr>
+<td>Per event (chunk)</td>
+<td><code>t</code> in every event</td>
+<td>5 B per event</td>
+<td>UART chunks (a chunk ends on line idle, so <code>t</code> is its first byte), sensor readings</td>
+</tr>
+<tr>
+<td>Per item</td>
+<td><code>t</code> per event, plus each item's offset from it inside the item, in the head's unit, as <code>DeltaOfDelta</code> (SW-31)</td>
+<td>measured: 1.2 B/item for jittered ~100 µs gaps, 1.9 B/item for random 20-2020 µs gaps, 0.23 B/item for a regular rate</td>
+<td>monitors: I2C transactions, GPIO edges</td>
+</tr>
+</tbody>
+</table>
+<p>Per anchor relies on the sample clock and the timer coming from the same oscillator; anchors bound the drift if not.</p>
+<ul>
+<li><strong>ADC, 500 kS/s, 12-bit packed, one channel (750 KB/s), S7</strong>: an hour in, positions are ~2³¹ sample sets, a 5-byte
+  head. Blocks of 256 samples (384 B) are 1 953 events/s: header and head 9 B = 2.3 %, <code>t</code> in every event 1.3 % more.
+  Blocks of 1 024 samples (1.5 KiB): 0.6 % and 0.3 %. Per-sample timestamps would be 15 % for no information: the rate
+  is fixed. Recommendation: blocks of ~1 KiB and a <code>t</code> anchor every 50 ms: under 1 % in all.</li>
+<li><strong>I2C monitor at 1 MHz, ~20 000 transactions/s, S8</strong>: chunks of 32 transactions every ~1.6 ms: 625 events/s × 14 B
+  (header, head, <code>t</code>) = 8.8 KB/s, plus per-transaction time ~1.5 B × 20 000 = 30 KB/s, against ~10 B of data per
+  transaction (200 KB/s). Timing costs ~20 %, needed for a monitor; well inside the budget.</li>
+</ul>
+<h3 id="scenarios-walked-through">Scenarios walked through<a class="headerlink" href="#scenarios-walked-through" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>S1</strong>: counted (or reliable) <code>line_a</code>. The consumer task can't push 60 000 bytes, calls <code>lost(60000)</code>; the next
+  event has <code>lost = 60000</code>, <code>pos</code> jumped by as much plus its own bytes. The host emits <code>Gap { at, 60000, Device }</code>, the
+  decoder resyncs. Exact, on any medium.</li>
+<li><strong>S2</strong>: counted. Lost datagrams show as <code>pos</code> jumps without <code>lost</code> (<code>Gap { Link }</code>), duplicates and late ones are
+  dropped and counted. Nothing is resent, nothing is stale.</li>
+<li><strong>S3</strong>: reliable with a <code>LogStore</code> on SD. Without a host the store fills; the laptop resumes with its saved cursor,
+  gets the live run at once and the backlog with the link's spare capacity. Timestamps are from the records.</li>
+<li><strong>S4</strong>: plain/counted: the host's bounded queue drops and reports <code>Gap { Host }</code>; memory stays bounded. Reliable: the
+  host stops granting, the device's store absorbs 10 minutes (SD) or reports what didn't fit (RAM).</li>
+<li><strong>S5</strong>: <code>LogStore</code> keeps session and positions across the reboot; the first record after it carries the new clock
+  epoch. The host gets one session with an epoch change in it.</li>
+<li><strong>S6</strong>: <code>AckMode::Explicit</code> and a cursor saved with the data; after the restart, <code>samples_resume(cursor)</code>.</li>
+<li><strong>S7, S8</strong>: <a href="#timestamps-and-their-cost">Timestamps</a>.</li>
+<li><strong>S9</strong>: plain <code>stream!</code>: unchanged, no cost.</li>
+<li><strong>S10</strong>: <a href="#latest-values-while-backfilling-s10">Latest values while backfilling</a>: the dashboard reads the live run,
+  the recorder both.</li>
+</ul>
+<h3 id="per-transport-with-this-design">Per transport, with this design<a class="headerlink" href="#per-transport-with-this-design" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Medium</th>
+<th>Counted</th>
+<th>Reliable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>USB, RTT, WebSocket, in-process</td>
+<td>device drops and link-down gaps exact</td>
+<td>nothing lost while the store has room; backfill after reconnect, live first; host memory bounded</td>
+</tr>
+<tr>
+<td>UDP</td>
+<td>also link losses, duplicates, reordering detected</td>
+<td>go-back-N repairs them; acknowledgements are cumulative, so their loss is harmless</td>
+</tr>
+<tr>
+<td>CAN, UART (when they exist)</td>
+<td>as UDP</td>
+<td>as UDP; keep events small (a split message is lost whole)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-ww_stream-crate">The <code>ww_stream</code> crate<a class="headerlink" href="#the-ww_stream-crate" title="Permanent link">&para;</a></h2>
+<p>One new <code>no_std</code> crate (Roman: one crate, if it doesn't mix too much), framework layer, version with the workspace:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>What</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>head</code></td>
+<td><code>StreamHead</code> codec (the hand-written layout above)</td>
+<td>both sides</td>
+</tr>
+<tr>
+<td><code>tx</code></td>
+<td><code>Counted</code>, <code>Reliable&lt;S&gt;</code>: sender state machines (runs, credit, go-back-N, sessions)</td>
+<td>device (and host, for sinks)</td>
+</tr>
+<tr>
+<td><code>rx</code></td>
+<td>receiver state machine: in order per run, gaps by cause, duplicates, <code>Ack</code> timing</td>
+<td>host (and device, for sinks)</td>
+</tr>
+<tr>
+<td><code>store</code></td>
+<td><code>StreamStore</code>, <code>RamRing</code>; <code>LogStore</code> behind the <code>log-store</code> feature</td>
+<td>device</td>
+</tr>
+<tr>
+<td><code>sched</code></td>
+<td>send scheduler with priorities</td>
+<td>device</td>
+</tr>
+<tr>
+<td><code>cnt</code></td>
+<td><code>StreamCnt</code></td>
+<td>device</td>
+</tr>
+</tbody>
+</table>
+<p>It is one subject, delivery of positioned data, and each module is small; the block-device log is the only part with
+outside dependencies, so it sits behind a feature. Wire types (<code>StreamHead</code> as a type, <code>StreamCursor</code>, <code>StreamOpened</code>,
+the sideband messages, <code>EventKind::StreamItem</code>, <code>RequestKind::StreamOpen</code>) stay in <code>ww_client_server</code>, which is the
+wire model. <code>ww_client_server::credit::SinkCredit</code> moves into <code>ww_stream::tx</code> (API-34), since sinks and streams share
+the protocol.</p>
+<h2 id="compatibility-and-what-breaks">Compatibility and what breaks<a class="headerlink" href="#compatibility-and-what-breaks" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>ww_client_server</code>: appended <code>EventKind::StreamItem</code>, <code>RequestKind::StreamOpen</code>, new types; <code>StreamSideband</code>'s
+  <code>Credit</code> / <code>CreditQuery</code> / <code>Resend</code> replaced by <code>Ack</code> / <code>Query</code> / <code>Resend</code> with 64-bit unit positions, and
+  <code>CreditWrite</code> by a write with a 64-bit unit position (API-34). Existing messages of plain streams, methods and
+  properties keep their bytes. Credit sinks are not on crates.io (<code>ww_client_server</code> 0.1.0 is), so no deployed device
+  breaks; <code>ww_dfu</code> and its tests move along.</li>
+<li><code>ww_self</code>: <code>ApiItemKind::Stream</code> gets the delivery kind and the stream function's arguments and result;
+  introspection data changes, snapshots re-saved.</li>
+<li>Codegen: plain streams generate what they do today, plus the open / close handlers; new hosts open every stream with
+  <code>StreamOpen</code>. An old host's sideband <code>Open</code> keeps working on plain streams.</li>
+<li>Turning a plain stream into a counted or reliable one, or giving it arguments, is an API break (bump the API crate),
+  like plain sink → credit sink. To be added to <code>docs/evolution/rules.md</code>.</li>
+<li>IO family (STD-13, not published): <code>seq</code>, <code>lost</code>, <code>t</code> stay out of item types (already done there); <code>configure_stream</code>
+  becomes the stream function's arguments, <code>stream_state()</code> the read on the stream. No deployed device is affected.</li>
+</ul>
+<h2 id="review-14-oct-2026">Review (14 Oct 2026)<a class="headerlink" href="#review-14-oct-2026" title="Permanent link">&para;</a></h2>
+<p>Roman: "the design looks great; build it", with nine points. Each with what changed:</p>
+<ol>
+<li><strong>Latest values right away while backfilling.</strong> Two in-order runs, live first: <a href="#latest-values-while-backfilling-s10">Latest values while
+   backfilling</a>, scenario S10.</li>
+<li><strong>32 bits cover 4 GB, a 32 GB SD card more.</strong> Positions are <code>u64</code> everywhere; on the wire a length-coded position
+   up to 2⁵⁸ that costs 1 to 6 bytes for positions up to 4 Ti, nothing truncated: <a href="#positions-and-units-d4-d5">Why 64 bits</a>,
+   <a href="#head-on-the-wire">Head on the wire</a>.</li>
+<li><strong>Smaller head with flag repositioning.</strong> The flags share the first byte with the position's length; <code>Second</code>
+   then starts on a byte with its prefix and tag in one byte: <a href="#head-on-the-wire">Head on the wire</a>.</li>
+<li><strong>Typed open, close to functions returning streams.</strong> That's it: <code>#[stream(T)] fn name(args) -&gt; Result&lt;A, E&gt;</code>,
+   <code>stream!</code> its short form, room for several instances later (API-15 folds into API-31):
+   <a href="#declaring-streams-functions-that-return-streams-api-31">Declaring streams</a>.</li>
+<li><strong>One <code>ww_stream</code> crate.</strong> Yes, with the wire types staying in <code>ww_client_server</code>: <a href="#the-ww_stream-crate">The <code>ww_stream</code>
+   crate</a>.</li>
+<li><strong>A read on a stream returning its state.</strong> Kept, part of API-31.</li>
+<li><strong><code>cnt</code>, typed counters.</strong> <code>StreamCnt</code> instance counters per stream: <a href="#counting-with-cnt">Counting with <code>cnt</code></a>.</li>
+<li><strong>Priorities between streams, if not a crutch.</strong> The send scheduler, which is where the order is decided anyway:
+   <a href="#send-scheduler-and-priorities">Send scheduler and priorities</a>.</li>
+<li><strong>Reliable sinks in units.</strong> One protocol for both directions, sinks get sessions and resume (API-34):
+   <a href="#one-protocol-for-reliable-streams-and-credit-sinks-api-34">One protocol</a>.</li>
+</ol>
+<p>The round 1 decisions, as built: R1 three kinds, plain the default; R2 units given at send time, <code>u64</code> positions in a
+hand-laid head; R3 <code>t</code> in the framework head, per-item time in the item as <code>DeltaOfDelta</code>; R4 streams as functions,
+one open mechanism for all streams; R5 one <code>ww_stream</code> crate; R6 drop newest by default, drop oldest as an option;
+R7 acknowledge on receive by default, explicit as an option.</p>
+<h2 id="implementation-plan">Implementation plan<a class="headerlink" href="#implementation-plan" title="Permanent link">&para;</a></h2>
+<p>Each piece on its own branch, in this order (claimed ids in brackets):</p>
+<ol>
+<li><strong>Protocol core</strong> (API-30, <code>top</code>): wire types in <code>ww_client_server</code>, the <code>ww_stream</code> crate (head codec, <code>Counted</code>,
+   <code>Reliable</code>, receiver, runs, <code>RamRing</code>, scheduler, <code>StreamCnt</code>), <code>ww_self</code> delivery kind. Exhaustive unit tests:
+   loss, duplicates, reorder, positions past 2³² and 2⁵⁰, resume inside / before / after the store, both full policies,
+   live and backfill runs, scheduler order. Real bytes of the head written into this page. Its first commit pins the
+   crate skeleton and the <code>StreamStore</code> trait, so piece 4 can start from it.</li>
+<li><strong>Stream functions and codegen</strong> (API-31, <code>opus</code>, after 1): <code>#[stream(T, kind)]</code>, <code>#[counted]</code> / <code>#[reliable]</code> on
+   <code>stream!</code>, grammar and AST, server codegen (handlers, <code>_push</code>, <code>_send</code>, <code>poll_streams</code>, dispatch of <code>StreamOpen</code>,
+   the read and the sideband), client codegen (<code>name(args)</code>, <code>name_resume(cursor)</code>, <code>status()</code>), scaffold,
+   introspection, <code>tests/streams_reliable</code> (+ <code>_api</code>). FEATURES: API-15 to superseded.</li>
+<li><strong>Host runtime</strong> (CLT-23, <code>opus</code>, after 1, beside 2): <code>StreamEvent</code>, runs and <code>split()</code>, stats, bounded queues for
+   every stream, ack modes, cursors, auto-resume on reconnect, dynamic client and Python.</li>
+<li><strong>Persistent store</strong> (SRV-15, <code>top</code>, after the first commit of 1): <code>LogStore</code>, power-cut safe, clock epochs, both
+   policies; simulated block device with a power cut at every write.</li>
+<li><strong>Sinks on the shared protocol</strong> (API-34, <code>opus</code>, after 1): unit positions, <code>Ack</code> / <code>Query</code> / <code>Resend</code>, sessions and
+   resume for credit sinks, <code>SinkCredit</code> into <code>ww_stream</code>, <code>ww_dfu</code> and its tests along.</li>
+<li><strong>Lossy test medium and scenarios</strong> (TEST-19, <code>sonnet</code>, after 2 and 3): an in-process medium that drops,
+   duplicates, reorders, stalls and disconnects on a seeded schedule; S1-S6 and S10 end to end; docs: <code>streams.md</code>,
+   each transport page's reliability section, evolution rules.</li>
+<li><strong>IO family on top</strong> (<code>sonnet</code>, after 2, with the STD-13 session): <code>ww_uart</code> rx and monitor, <code>ww_i2c</code> monitor,
+   <code>ww_adc</code> samples as counted or reliable stream functions, units in their docs, per-item <code>DeltaOfDelta</code> time in
+   monitor items.</li>
+</ol>
+<h2 id="ideas-not-asked-for">Ideas not asked for<a class="headerlink" href="#ideas-not-asked-for" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><code>ww record</code></strong>: every stream of one or more devices into a file (or rerun), with cursors, so <code>ww record --resume</code>
+  continues after a restart; gaps, runs and clock epochs on the timeline.</li>
+<li><strong>Several instances of a stream function</strong> (subscribers with their own filters), on the room left in the path.</li>
+<li><strong>Store fill in link statistics</strong> (SRV-11), so a dashboard warns before data is dropped.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 vhrdtech
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/vhrdtech" target="_blank" rel="noopener" title="vhrdtech on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://www.linkedin.com/company/vhrdtech/" target="_blank" rel="noopener" title="vhrdtech on LinkedIn" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://vhrd.tech" target="_blank" rel="noopener" title="vhrd.tech website" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M351.9 280H161c2.9 64.5 17.2 123.9 37.5 167.4 11.4 24.5 23.7 41.8 35.1 52.4 11.2 10.5 18.9 12.2 22.9 12.2s11.7-1.7 22.9-12.2c11.4-10.6 23.7-28 35.1-52.4 20.3-43.5 34.6-102.9 37.5-167.4zm-191-48h190.9c-2.8-64.5-17.1-123.9-37.4-167.4-11.4-24.4-23.7-41.8-35.1-52.4C268.1 1.7 260.4 0 256.4 0s-11.7 1.7-22.9 12.2c-11.4 10.6-23.7 28-35.1 52.4-20.3 43.5-34.6 102.9-37.5 167.4m-48 0c3.5-85.6 25.6-165.1 57.9-217.3C78.7 47.3 10.9 131.2 1.5 232zM1.5 280c9.4 100.8 77.2 184.7 169.3 217.3-32.3-52.2-54.4-131.7-57.9-217.3zm398.4 0c-3.5 85.6-25.6 165.1-57.9 217.3 92.1-32.7 159.9-116.5 169.3-217.3zm111.4-48C501.9 131.2 434.1 47.3 342 14.7c32.3 52.2 54.4 131.7 57.9 217.3z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a2388154.min.js"></script>
+      
+    
+  </body>
+</html>

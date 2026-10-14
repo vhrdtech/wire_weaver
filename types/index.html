@@ -2417,6 +2417,8 @@
 <li>Integers as differences: <code>Delta&lt;'i, T&gt;</code> / <code>DeltaOwned&lt;T&gt;</code>, <code>T</code> any of <code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code></li>
 <li>Integers as differences of differences (timestamps): <code>DeltaOfDelta&lt;'i, T&gt;</code> / <code>DeltaOfDeltaOwned&lt;T&gt;</code></li>
 <li>Floats as XOR with the previous value: <code>XorFloat&lt;'i, T&gt;</code> / <code>XorFloatOwned&lt;T&gt;</code>, <code>T</code> is <code>f32</code> or <code>f64</code></li>
+<li>Usable in derived types and in every API position; the dynamic client and Python see them as lists of
+  numbers</li>
 </ul>
 </li>
 </ul>

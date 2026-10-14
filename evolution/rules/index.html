@@ -1423,6 +1423,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#compressed-sequences-delta-deltaofdelta-xorfloat" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code>, <code>XorFloat</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#finalstructure-selfdescribing-and-sized-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2608,6 +2619,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#compressed-sequences-delta-deltaofdelta-xorfloat" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code>, <code>XorFloat</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#finalstructure-selfdescribing-and-sized-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2924,6 +2946,10 @@ is compatible depends on what the old version writes:</p>
 </ul>
 <p>At connect time the client does not refuse a device whose bounds differ from its own: a longer value is rejected when
 it is sent, by whichever side has the smaller bound.</p>
+<h3 id="compressed-sequences-delta-deltaofdelta-xorfloat">Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code>, <code>XorFloat</code><a class="headerlink" href="#compressed-sequences-delta-deltaofdelta-xorfloat" title="Permanent link">&para;</a></h3>
+<p>Each has bytes of its own, so <code>Vec&lt;T&gt;</code> -&gt; <code>Delta&lt;T&gt;</code>, <code>Delta&lt;T&gt;</code> -&gt; <code>DeltaOfDelta&lt;T&gt;</code> or <code>Delta&lt;u32&gt;</code> -&gt;
+<code>Delta&lt;u64&gt;</code> is breaking (<code>ww api check</code> reports it), unlike the borrowed / owned form (<code>Delta&lt;'i, T&gt;</code> /
+<code>DeltaOwned&lt;T&gt;</code>), which is the same type.</p>
 <h3 id="finalstructure-selfdescribing-and-sized-types">FinalStructure, SelfDescribing and Sized types<a class="headerlink" href="#finalstructure-selfdescribing-and-sized-types" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>Sized</code> can become <code>SelfDescribing</code> and back (<code>sized</code> &lt;-&gt; <code>self_describing</code>): neither gets a size slot from its

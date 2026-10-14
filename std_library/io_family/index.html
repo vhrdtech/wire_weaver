@@ -1,0 +1,3128 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Wire format and API code generator with rich type system and no alloc for embedded systems">
+      
+      
+        <meta name="author" content="Roman Isaikin">
+      
+      
+        <link rel="canonical" href="https://ww.vhrd.tech/std_library/io_family/">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.70">
+    
+    
+      
+        <title>IO trait family (design) - WireWeaver</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e442bf79.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="WireWeaver" class="md-header__button md-logo" aria-label="WireWeaver" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            WireWeaver
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              IO trait family (design)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/vhrdtech/wire_weaver" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vhrdtech/wire_weaver
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../features/" class="md-tabs__link">
+        
+  
+  Features
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../serdes/shrink_wrap/" class="md-tabs__link">
+          
+  
+  SerDes
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../evolution/rules/" class="md-tabs__link">
+          
+  
+  Evolution
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../overview/" class="md-tabs__link">
+          
+  
+  Standard library
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../transport/overview/" class="md-tabs__link">
+          
+  
+  Transport protocols
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../examples/examples/" class="md-tabs__link">
+          
+  
+  Examples and templates
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/" class="md-tabs__link">
+          
+  
+  Dev tools
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="WireWeaver" class="md-nav__button md-logo" aria-label="WireWeaver" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    WireWeaver
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/vhrdtech/wire_weaver" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vhrdtech/wire_weaver
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Features
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  SerDes
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  SerDes
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/shrink_wrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Shrink Wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Built-in types
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/derive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Derive
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/showcase/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Showcase
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/use_cases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Use cases
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/code_size/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Code size on small CPUs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  shrink_wrap in C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  API
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  High-level overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Streams
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/traits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Traits
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/arrays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Arrays
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/addressing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resources addressing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Versioning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/folder_structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Folder structure
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolution
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Evolution
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolution rules
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/checker_tool/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolution checker
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Standard library
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Standard library
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_date_time/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_date_time
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_version
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_numeric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_numeric
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_si/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_gpio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_gpio
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_client_server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_client_server
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_can_bus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_can_bus
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_dfu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_dfu: firmware updates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_log_baremetal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_log_baremetal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_self/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_self
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport protocols
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Transport protocols
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/ww_framer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Framer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/ww_link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Link layer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/usb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  USB
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/follow_reboot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Following a reboot: RP2350 BOOTSEL
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/rtt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RTT
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/websocket/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  WebSocket
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/udp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  UDP
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and templates
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Examples and templates
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and Templates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/vhrdtech/wire_weaver_template" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  wire_weaver_template repo
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev tools
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Dev tools
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev_tool/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev GUI tool
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#scope-and-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scope and principles
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#moved-to-other-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Moved to other work
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#crates-and-traits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Crates and traits
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-answers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Review answers
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Review answers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#round-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Round 3
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#round-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Round 2
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#round-1-what-still-stands" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Round 1, what still stands
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conventions-for-every-io-trait" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Conventions for every IO trait
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_gpio" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_gpio</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_uart" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_uart</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_i2c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_i2c</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_spi" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_spi</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_adc" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_adc</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_pwm" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_pwm</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_onewire" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_onewire</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_timebase" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_timebase</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_logic_analyzer-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_logic_analyzer</code> (new)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_signal_generator-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_signal_generator</code> (new)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww_si-and-ww_numeric-improvements" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww_si</code> and <code>ww_numeric</code> improvements
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#versions-compatibility-what-breaks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Versions, compatibility, what breaks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Implementation plan
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ideas-not-asked-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ideas not asked for
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+  
+
+
+<h1 id="io-trait-family-design">IO trait family (design)<a class="headerlink" href="#io-trait-family-design" title="Permanent link">&para;</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Approved, being built</p>
+<p>STD-13 io-trait-family, approved by Roman on 14 Oct 2026 after three review rounds (answers in
+<a href="#review-answers">Review answers</a>). Every crate exists as a skeleton on the branch (the sources and their doc
+comments are the API description); the per-crate fill-ins add docs pages, tests and host helpers.</p>
+</div>
+<h2 id="scope-and-principles">Scope and principles<a class="headerlink" href="#scope-and-principles" title="Permanent link">&para;</a></h2>
+<p>The family is for <strong>every device</strong> that exposes IO over WireWeaver: a Nucleo board bridging its pins to a PC, a USB
+adapter like an FTDI or Bus Pirate, a motor controller, an ESP32 sensor node, a lab instrument, rePort. rePort is the
+first user and the source of the requirements, not the shape of the traits.</p>
+<ol>
+<li><strong>What deserves a trait is a trait.</strong> A separate function a device may or may not have (a bus monitor, ADC
+   streaming, ADC capture, PWM capture) is its own trait; a few methods some devices can't do (I2C bus recovery,
+   switchable pull-ups) stay in the core trait and answer <code>Unsupported</code>. That such methods still cost a dispatch
+   entry and a stub is solved in the framework, with cfg-style features on trait methods (<code>ww-errors-plan</code>), not by
+   splitting traits. Bigger subjects get their own crates: <code>ww_logic_analyzer</code>, <code>ww_signal_generator</code>.</li>
+<li><strong>Evolve what works.</strong> <code>ww_gpio</code> (usable, used), <code>ww_uart</code> and <code>ww_i2c</code> (prototypes) keep every resource, index,
+   name and type that works; each section lists what is kept, changed (and why) and added.</li>
+<li><strong>Typed values through <code>ww_si</code>.</strong> Voltages, frequencies and timestamps are <code>ww_si</code> quantities, not <code>u16</code> millivolts
+   or a new tick type. The device reports in whatever storage is convenient for it (a <code>u32</code> of µs, an <code>f32</code> of V);
+   the host reads them all. <code>ww_si</code> and <code>ww_numeric</code> get extended for it, every part behind a cargo feature
+   (<a href="#ww_si-and-ww_numeric-improvements">below</a>).</li>
+<li><strong>Ergonomic first, fast paths separate.</strong> <code>ww_gpio</code> stays low-speed, logical-pin GPIO. Sampling many pins fast
+   is a logic analyzer, driving many pins fast is a signal generator. Many small calls in one round trip are
+   multi-call (CLT-15), a framework feature, not a method per trait.</li>
+<li><strong>No bodges from the side.</strong> What is a framework concern (reliable streams, error evolution, rustdoc) is solved in
+   the framework by its own session; the family leaves a pointer and stays plain until it lands.</li>
+</ol>
+<h2 id="moved-to-other-work">Moved to other work<a class="headerlink" href="#moved-to-other-work" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Subject</th>
+<th>Where</th>
+<th>What the IO family does meanwhile</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stream reliability: sequence numbers, lost counts, backfill (e.g. from an SD card), stream control through sideband commands, per-chunk timestamps</td>
+<td><code>ww-stream-reliability</code></td>
+<td>No <code>seq</code> / <code>lost</code> in stream items; streams start and stop with sideband <code>Open</code> / <code>Close</code>; items carry only the timestamps that belong to the data (an I2C transaction's start and end)</td>
+</tr>
+<tr>
+<td><code>#[future_version]</code> by default (SW-47), per-method errors, common + crate-specific variants, errors carrying strings or bytes</td>
+<td><code>ww-errors-plan</code></td>
+<td>Plain error enums: 0.1 variants kept, <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>Unsupported</code> appended as unit variants; no hand-typed <code>#[future_version]</code></td>
+</tr>
+<tr>
+<td>Methods a device never supports, compiled out (cfg-style features on trait methods)</td>
+<td><code>ww-errors-plan</code></td>
+<td>Such methods answer <code>Unsupported</code>; capabilities say what works</td>
+</tr>
+<tr>
+<td><code>#[ww_trait]</code> in rustdoc</td>
+<td><code>ww-rustdoc-traits</code> (DOC-6)</td>
+<td>Crate docs name traits and methods in backticks, not as links</td>
+</tr>
+</tbody>
+</table>
+<h2 id="crates-and-traits">Crates and traits<a class="headerlink" href="#crates-and-traits" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Crate</th>
+<th>Traits</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ww_gpio</code></td>
+<td><code>Bank</code>, <code>Pin</code></td>
+<td>evolves 0.1, additive except errors</td>
+</tr>
+<tr>
+<td><code>ww_uart</code></td>
+<td><code>Uart</code>, <code>UartMonitor</code></td>
+<td>evolves 0.1</td>
+</tr>
+<tr>
+<td><code>ww_i2c</code></td>
+<td><code>I2c</code>, <code>I2cWatch</code>, <code>I2cMonitor</code></td>
+<td>evolves 0.1, <strong>written</strong></td>
+</tr>
+<tr>
+<td><code>ww_spi</code></td>
+<td><code>Spi</code>, <code>SpiMonitor</code></td>
+<td>new content (0.1 is empty)</td>
+</tr>
+<tr>
+<td><code>ww_adc</code></td>
+<td><code>Adc</code>, <code>AdcStream</code>, <code>AdcCapture</code></td>
+<td>new, <strong>written</strong></td>
+</tr>
+<tr>
+<td><code>ww_pwm</code></td>
+<td><code>Pwm</code> with <code>channel[]: PwmChannel</code>, <code>PwmCapture</code></td>
+<td>new</td>
+</tr>
+<tr>
+<td><code>ww_onewire</code></td>
+<td><code>OneWire</code></td>
+<td>new</td>
+</tr>
+<tr>
+<td><code>ww_timebase</code></td>
+<td><code>Clock</code></td>
+<td>new: device time and sync, no new time type</td>
+</tr>
+<tr>
+<td><code>ww_logic_analyzer</code></td>
+<td><code>LogicAnalyzer</code>, <code>LogicStream</code></td>
+<td>new</td>
+</tr>
+<tr>
+<td><code>ww_signal_generator</code></td>
+<td><code>PatternGenerator</code>, <code>WaveformGenerator</code></td>
+<td>new</td>
+</tr>
+<tr>
+<td><code>ww_si</code> / <code>ww_numeric</code></td>
+<td>—</td>
+<td>extended for the above</td>
+</tr>
+</tbody>
+</table>
+<p>A device picks traits, for example a Nucleo bridge: <code>gpio: ww_gpio::Bank</code>, <code>uart: ww_uart::Uart</code>,
+<code>i2c: ww_i2c::I2c</code>; rePort adds <code>uart_monitor: ww_uart::UartMonitor</code>, <code>i2c_monitor: ww_i2c::I2cMonitor</code>,
+<code>la: ww_logic_analyzer::LogicAnalyzer</code>, and so on. Each trait sits at most once in a device's tree and outside trait
+arrays, so generic tools find it by global trait path (API-20, CLT-10, landed).</p>
+<h2 id="review-answers">Review answers<a class="headerlink" href="#review-answers" title="Permanent link">&para;</a></h2>
+<h3 id="round-3">Round 3<a class="headerlink" href="#round-3" title="Permanent link">&para;</a></h3>
+<p><strong>10-bit addresses without the extra byte.</strong> Done: SW-48 (bit-width fields in the derive, child session
+<code>ww-subbyte-fields</code>) packs <code>I2cAddress { Seven(U7), Ten(U10) }</code> into 8 bits for a 7-bit address and 11 for a
+10-bit one, so <code>ww_i2c</code> supports both at no cost.</p>
+<p><strong>A third <code>ww_i2c</code> trait for autonomous reads.</strong> <code>I2cWatch</code> (usb_io_fw IF-6 i2c-polling): the device repeats
+configured reads (<code>I2cWatchConfig</code>: address, plain or register read, length, period) and reports on the <code>changes</code>
+stream only what <code>I2cWatchReport</code> asks for: every read, a change under a mask, or a mask / value match starting or
+ending. Host transactions have priority and run between watch reads; errors are reported once. Slots reuse the 0.1
+<code>OutOfCycleSlots</code> / <code>InvalidCycleSlot</code> errors meant for cycle reads.</p>
+<p><strong>Approved otherwise.</strong> Errors follow <code>ww-errors-plan</code> (approved there: <code>Common(CommonError)</code> first, <code>#[errors(..)]</code>
+per method, SW-47 automatic <code>Unknown</code>) through its stdlib migration, which covers every crate here; <code>seq</code> / <code>lost</code> /
+backfill wait for <code>ww-stream-reliability</code>.</p>
+<h3 id="round-2">Round 2<a class="headerlink" href="#round-2" title="Permanent link">&para;</a></h3>
+<p><strong>D4 <code>seq</code> / D5 <code>lost</code>: no bodging reliable transfer into each trait.</strong> Agreed. Both fields are out of every item
+type; <code>I2cRecord</code>, <code>SampleBlock</code> and the UART chunks wait for <code>ww-stream-reliability</code>. On USB nothing should be
+lost; what remains are slow hosts on fast monitors and lossy links (UDP, LoRa), which that work covers.</p>
+<p><strong>D7: every device has a timer; no <code>Option</code> where it isn't needed.</strong> Agreed. Timestamps are plain <code>Second</code>, never
+<code>Option</code>, and the <code>timestamps: bool</code> capability flags are gone. The <code>Option</code>s left are real choices that cost one
+bit: <code>delay_after</code> (no delay), <code>io_level</code> (leave it as it is), <code>flush_interval</code> (device default), <code>t_trigger</code> (no
+trigger), measured line voltages (most adapters can't measure).</p>
+<p><strong>D8: <code>#[future_version]</code> by hand everywhere.</strong> Removed from both crates; making it automatic (SW-47) is
+<code>ww-errors-plan</code>'s.</p>
+<p><strong>Errors: per-method, common + own, carrying strings.</strong> Moved to <code>ww-errors-plan</code>. The family's enums are plain:
+<code>I2cError</code> is the 0.1 enum plus <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>Unsupported</code>; <code>AdcError</code> is new with the same
+four first. Whatever <code>ww-errors-plan</code> decides is applied once, to all crates.</p>
+<p><strong>Methods a device never supports cost a stub; don't split traits just for that.</strong> Agreed, and corrected: <code>I2cBus</code>
+(lines, recovery, pull-ups) is merged back into <code>I2c</code> as <code>i2c_lines_state</code>, <code>i2c_wiggle_clock</code>, <code>i2c_set_pullups</code>,
+<code>i2c_pullups</code>, the names the 0.1 <code>TODO</code>s had. Monitors, ADC streaming, ADC capture and PWM capture stay traits:
+each is a function of its own that many devices lack entirely, with its own streams and state, and a sniffer can
+implement <code>I2cMonitor</code> without having an I2C master.</p>
+<p><strong><code>ww_numeric</code> / <code>ww_si</code>: extending them is welcome, everything a cargo feature.</strong> Yes: number types already are
+features; the plan extends that to quantity groups and the host helpers
+(<a href="#ww_si-and-ww_numeric-improvements">below</a>).</p>
+<p><strong><code>ww_i2c</code>: 10-bit addresses?</strong> <strong>Support them</strong>, as <code>I2cAddress { Seven(u8), Ten(u16) }</code>. Why: they are in the
+specification, embedded-hal's <code>I2c</code> trait is generic over <code>SevenBitAddress</code> / <code>TenBitAddress</code> (so the host crate
+<code>ww_i2c_hl</code> maps cleanly onto both), and adding them later would break every method's signature. The cost, measured
+with a scratch serializer on this branch: a write-read request's address part is 2 bytes instead of 1 (<code>[00, 50]</code>
+for <code>Seven(0x50)</code>, <code>[80, 50, 03]</code> for <code>Ten(0x350)</code>), because the variant bit is padded to a byte unless another
+bit-sized argument shares it, and the derive macro can't pack a <code>u7</code> field yet. With bit-width fields in the
+derive (<code>Seven(u7)</code>), a 7-bit address would be one byte again with no API change on the Rust side; that is a
+<code>shrink_wrap</code> item worth filing. An adapter without 10-bit support answers <code>Unsupported</code> and says so in
+<code>I2cCapabilities::ten_bit_addresses</code>. <code>i2c_scan</code> still returns the 7-bit addresses (a 10-bit scan is rarely
+useful and would be a 1024-address probe).</p>
+<p><strong><code>ww_adc::stop_stream</code>: why not a sideband command?</strong> Done: <code>AdcStream::configure_stream</code> sets the configuration
+(and answers with the actual rate), sideband <code>Open</code> starts sampling, <code>Close</code> stops it; <code>start_stream</code> and
+<code>stop_stream</code> are gone. One gap is noted for <code>ww-stream-reliability</code>: <code>Open</code> can't carry the configuration, so a
+host configures first, then opens.</p>
+<p><strong>rustdoc for <code>#[ww_trait]</code>.</strong> <code>ww-rustdoc-traits</code> (DOC-6); <code>ww_i2c</code> and <code>ww_adc</code> are good test cases for it.</p>
+<h3 id="round-1-what-still-stands">Round 1, what still stands<a class="headerlink" href="#round-1-what-still-stands" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>For all devices, not only rePort; own crates for logic analysis and signal generation</strong>: as above.</li>
+<li><strong><code>cnt</code> from the start</strong>: a task for <code>examples_mcu/*</code> and the test firmwares (counters in the MCU examples,
+  <code>runner = "cnt run --chip ..."</code> in each board's <code>.cargo/config.toml</code>, as <code>usb_io_fw</code> does).</li>
+<li><strong>D2 levels as <code>ww_si::Volt</code></strong>, never <code>u16</code> millivolts: <code>Volt</code> lets the device pick the storage (<code>U16</code> of mV,
+  <code>F32</code> of V); its prefix and type tag cost one byte, irrelevant for configuration calls.</li>
+<li><strong>D3 methods returning the actual value set</strong> for settings the hardware rounds; plain choices stay properties.</li>
+<li><strong>D6 timestamps as <code>ww_si::Second</code></strong>: device time since its clock started, in the prefix and storage the device
+  picks (<code>U32</code> of µs on most MCUs: 5 bytes with prefix and tag; <code>U64</code> where there is a 64-bit counter). A fixed-width
+  value wraps (a <code>U32</code> of µs every 71.6 minutes) and the host unwraps it; <code>Clock::now()</code> gives the full value. One
+  clock per device, so its data lines up across traits. No <code>Ticks</code> type, no <code>UVlq64</code> (its size grows with uptime).</li>
+<li><strong>D9 no <code>u32</code> pin masks</strong> in <code>ww_gpio</code>: pins by logical index only; bulk is multi-call, precise multi-pin timing
+  is a logic analyzer or signal generator.</li>
+<li><strong>D10 one test crate pair per trait</strong> (<code>tests/io_&lt;trait&gt;</code> + <code>tests/io_&lt;trait&gt;_api</code>), each mock server doubling as
+  a simulator for host crates (WW-4).</li>
+<li><strong><code>TimedPinEvent</code> removed</strong> from <code>ww_gpio</code>; its 0.1 <code>event</code> stream stays for low-speed edges.</li>
+<li><strong><code>read_many</code> removed</strong> from <code>ww_adc</code>; simultaneous sampling is a one-set capture in <code>AdcCapture</code>.</li>
+<li><strong>Mocks, <code>ww</code> subcommands, sigrok export, rerun</strong>: yes, in <a href="#ideas-not-asked-for">ideas</a>.</li>
+</ul>
+<h2 id="conventions-for-every-io-trait">Conventions for every IO trait<a class="headerlink" href="#conventions-for-every-io-trait" title="Permanent link">&para;</a></h2>
+<p><strong>Types.</strong> New types are <code>Unsized</code> unless they are bit-level leaves, <code>owned(feature = "std")</code>,
+<code>cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))</code>. Every list, byte buffer and string is bounded with
+<code>MaxLen</code> (raising a bound later is compatible, lowering is not). Physical values are <code>ww_si</code> quantities. No <code>Option</code>
+unless "none" is a real value.</p>
+<p><strong>Configuration.</strong> Plain choices are properties. Settings the hardware rounds are methods returning what was set
+(<code>i2c_configure</code> returns the real frequency, <code>AdcStream::configure_stream</code> the real rate). A trait with many coupled
+settings takes one config struct (new fields with <code>#[default = ..]</code> only); <code>Disabled</code> is a mode, disabling releases
+the pins.</p>
+<p><strong>Errors.</strong> One plain enum per crate; <code>InUse</code> (pins or peripheral serve another function), <code>NoIoLevel</code> (level
+translators unpowered), <code>Refused</code> (a safety rule of the device), <code>Unsupported</code> (this device doesn't have it) by these
+names in each. Each method's doc lists the variants it returns in an <code># Errors</code> section. Evolution of errors:
+<code>ww-errors-plan</code>.</p>
+<p><strong>Streams.</strong> Opening a stream starts nothing by itself unless its trait says so; streams with a configuration are
+configured with a method and started and stopped with sideband <code>Open</code> / <code>Close</code>. Host → device bulk data goes
+through <code>#[credit] sink!</code> (API-28). Loss reporting and per-chunk timestamps: <code>ww-stream-reliability</code>.</p>
+<p><strong>Capabilities</strong> are queried, never assumed: every core trait has <code>capabilities()</code>.</p>
+<p><strong>Resource order</strong> is wire-visible: the most used resources first (indices 0-7 encode in 4 bits).</p>
+<h2 id="ww_gpio"><code>ww_gpio</code><a class="headerlink" href="#ww_gpio" title="Permanent link">&para;</a></h2>
+<p>0.1 is usable and used (<code>ww_gpio_hl</code>, <code>examples/all_gpio</code>, three <code>examples_mcu</code> boards). The new version is 0.1 plus
+a per-pin <code>capabilities()</code> and the common errors; everything 0.1 sends keeps its bytes.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Item</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>kept</td>
+<td><code>Bank</code>: <code>pin[]</code>, <code>reserved!(1..=7)</code>, <code>capabilities()</code>, <code>reference_voltage: Volt</code>, <code>name()</code></td>
+<td>works</td>
+</tr>
+<tr>
+<td>kept</td>
+<td><code>Pin</code>: <code>set_output_level</code> 0, <code>toggle</code> 1, <code>output_level</code> 2, <code>input_level</code> 3, <code>event</code> 7, <code>set_mode</code>, <code>mode</code>, <code>pull</code>, <code>speed</code>, <code>configure_events</code></td>
+<td>works, indices are wire</td>
+</tr>
+<tr>
+<td>kept</td>
+<td><code>Level</code>, <code>Mode</code>, <code>Pull</code>, <code>Speed</code>, <code>IoPinEvent</code>, <code>IoPinEnabledEvents</code>, <code>BankCapabilities</code>, all <code>Error</code> variants</td>
+<td>works</td>
+</tr>
+<tr>
+<td>added</td>
+<td><code>Pin::capabilities() -&gt; PinCapabilities</code> (appended): modes, pulls, speeds, <code>name</code>, whether events work</td>
+<td>which pin can do what differs per pin on most MCUs and adapters</td>
+</tr>
+<tr>
+<td>added</td>
+<td><code>Error</code>: <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code> (appended)</td>
+<td>common errors</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ww_uart"><code>ww_uart</code><a class="headerlink" href="#ww_uart" title="Permanent link">&para;</a></h2>
+<p>0.1 is a prototype used by <code>examples/uart</code>. The new version keeps the trait shape and its properties, changes the
+TX sink, and moves monitoring into its own trait.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Item</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>kept</td>
+<td><code>rx</code> stream at 0, <code>capabilities()</code>, properties <code>baud_rate</code>, <code>mode</code>, <code>stop_bits</code>, <code>parity</code>, <code>prevent_back_feed</code>, <code>reference_voltage</code>, <code>set_pin_level</code></td>
+<td>work</td>
+</tr>
+<tr>
+<td>kept</td>
+<td><code>BaudRate</code>, <code>Mode</code>, <code>Pin</code>, <code>StopBits</code>, <code>Parity</code>, <code>Capabilities</code> fields, <code>Error</code> variants</td>
+<td>work</td>
+</tr>
+<tr>
+<td>kept</td>
+<td><code>RxChunk { flags, timestamp, bytes }</code> for now, <code>bytes</code> bounded</td>
+<td>its time and loss fields are <code>ww-stream-reliability</code>'s</td>
+</tr>
+<tr>
+<td>changed</td>
+<td><code>sink!(tx: [u8])</code> → <code>#[credit] sink!(tx: MaxLen&lt;RefVec&lt;'i, u8&gt;, 256&gt;)</code></td>
+<td>a plain sink overruns the device's TX buffer on bulk writes (a file sent to the UART); credit sinks (API-28) exist for this</td>
+</tr>
+<tr>
+<td>moved</td>
+<td><code>tx_mon</code> → <code>UartMonitor</code> trait: <code>line_a</code> / <code>line_b</code> streams of <code>RxChunk</code></td>
+<td>a monitor is its own function; most UARTs can't do it</td>
+</tr>
+<tr>
+<td>added</td>
+<td><code>data_bits</code> property, <code>set_baud(BaudRate) -&gt; Result&lt;u32, Error&gt;</code> returning the real baud, <code>send_break</code>, <code>tx_pending</code></td>
+<td>missing settings; D3</td>
+</tr>
+<tr>
+<td>added</td>
+<td><code>RxFlags</code>: <code>framing_error</code>, <code>overrun</code>, <code>break_detected</code> (appended with defaults)</td>
+<td>error flags</td>
+</tr>
+<tr>
+<td>added</td>
+<td><code>Error</code>: <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>Timeout</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="ww_i2c"><code>ww_i2c</code><a class="headerlink" href="#ww_i2c" title="Permanent link">&para;</a></h2>
+<p><strong>Written</strong> (<code>ww_stdlib/ww_i2c/src/lib.rs</code>). Against 0.1:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Item</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>kept</td>
+<td><code>I2c</code>: <code>i2c_capabilities</code>, <code>i2c_configure</code>, <code>i2c_write</code>, <code>i2c_read</code> with <code>I2cReadKind</code>, <code>i2c_scan</code>, <code>delay_after</code>, names and order; <code>I2cMode</code>; <code>I2cError</code> variants</td>
+<td>work</td>
+</tr>
+<tr>
+<td>changed</td>
+<td><code>addr: u8</code> → <code>I2cAddress { Seven(U7), Ten(U10) }</code></td>
+<td>10-bit support at no cost, see round 3</td>
+</tr>
+<tr>
+<td>changed</td>
+<td><code>io_level_mv: u16</code> → <code>io_level: Option&lt;Volt&gt;</code></td>
+<td>D2; <code>None</code> leaves the level</td>
+</tr>
+<tr>
+<td>changed</td>
+<td><code>Vec&lt;u8&gt;</code> → <code>MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;</code></td>
+<td>a <code>no_alloc</code> device server can't take a <code>Vec</code>; bounded sizes</td>
+</tr>
+<tr>
+<td>changed</td>
+<td><code>RawTimestamp { ticks: u32 }</code> → <code>ww_si::Second</code></td>
+<td>D6</td>
+</tr>
+<tr>
+<td>changed</td>
+<td><code>delay_after: u32</code> (no unit) → <code>Option&lt;Second&gt;</code></td>
+<td>typed; 1 bit when there is no delay</td>
+</tr>
+<tr>
+<td>changed</td>
+<td>plain structs get <code>#[derive_shrink_wrap]</code></td>
+<td>they cross the wire</td>
+</tr>
+<tr>
+<td>added</td>
+<td><code>i2c_transaction</code></td>
+<td>repeated starts, embedded-hal <code>transaction</code></td>
+</tr>
+<tr>
+<td>added</td>
+<td><code>i2c_lines_state</code>, <code>i2c_wiggle_clock</code>, <code>i2c_set_pullups</code>, <code>i2c_pullups</code></td>
+<td>the 0.1 <code>TODO</code>s: see a stuck bus, free it</td>
+</tr>
+<tr>
+<td>added</td>
+<td><code>I2cWatch</code> trait: autonomous reads reported by change or match</td>
+<td>the host doesn't poll (IF-6)</td>
+</tr>
+<tr>
+<td>added</td>
+<td><code>I2cMonitor</code> trait: one <code>I2cRecord</code> per transaction (start, end, address, direction, bytes, NACK position)</td>
+<td>sniffers</td>
+</tr>
+<tr>
+<td>added</td>
+<td><code>I2cError</code>: <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>Unsupported</code></td>
+<td>common errors</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ww_spi"><code>ww_spi</code><a class="headerlink" href="#ww_spi" title="Permanent link">&para;</a></h2>
+<p>0.1 is an empty trait. <code>Spi</code>: <code>transfer</code>, <code>transaction</code> (CS held: write, read, transfer, delay ops), <code>write</code>,
+<code>capabilities</code>, <code>configure(SpiConfig) -&gt; SpiActual</code> (role master / slave, frequency, mode 0-3, bit order, word bits,
+CS auto / manual / none), <code>set_cs</code>, <code>reference_voltage: Volt</code>. <code>SpiMonitor</code>: a <code>frames</code> stream, one item per CS
+assertion with start and end time, <code>mosi</code> and <code>miso</code> bytes. Slave data paths come later.</p>
+<h2 id="ww_adc"><code>ww_adc</code><a class="headerlink" href="#ww_adc" title="Permanent link">&para;</a></h2>
+<p><strong>Written</strong> (<code>ww_stdlib/ww_adc/src/lib.rs</code>). Three traits: <code>Adc</code> (channels with their <code>ww_si</code> unit and range, one
+calibrated reading), <code>AdcStream</code> (continuous raw sampling: <code>configure_stream</code>, sideband <code>Open</code> / <code>Close</code>),
+<code>AdcCapture</code> (lossless triggered block capture into device RAM, read out after; a one-set capture is the
+simultaneous read). A thermometer implements <code>Adc</code> only; a data logger adds <code>AdcStream</code>; a scope-like device adds
+<code>AdcCapture</code>.</p>
+<h2 id="ww_pwm"><code>ww_pwm</code><a class="headerlink" href="#ww_pwm" title="Permanent link">&para;</a></h2>
+<p><code>Pwm</code> with <code>channel[]: PwmChannel</code> and <code>capabilities()</code> naming the group of each channel (channels of a group share
+the frequency) and which channels can capture. <code>PwmChannel</code>: <code>set_output(PwmOutput { freq: Hertz, duty: u16,
+inverted, phase_correct }) -&gt; PwmActual</code>, <code>set_duty</code>, <code>stop(idle: Level)</code>. <code>PwmCapture</code> (<code>set_capture(mode, gate)</code>,
+<code>read_capture</code>, a <code>capture</code> stream) for devices that measure. Error <code>SharedTimer</code>: the other channel of the group
+runs at another frequency.</p>
+<h2 id="ww_onewire"><code>ww_onewire</code><a class="headerlink" href="#ww_onewire" title="Permanent link">&para;</a></h2>
+<p><code>OneWire</code> with <code>transaction { rom: Option&lt;RomId&gt;, write, read_len, strong_pullup_ms }</code>, <code>reset</code>, paged <code>search</code>,
+bit-level <code>triplet</code>, <code>configure { pin, speed: Standard | Overdrive }</code>, <code>capabilities</code>.</p>
+<h2 id="ww_timebase"><code>ww_timebase</code><a class="headerlink" href="#ww_timebase" title="Permanent link">&para;</a></h2>
+<p>Only the <code>Clock</code> trait, no time type (D6): <code>now() -&gt; Second</code> (full width, for unwrapping and host ↔ device
+correlation), <code>info()</code> (resolution, source, sync formats), <code>configure_sync(Off | Master { format } | Slave
+{ format })</code>, <code>sync_status()</code> (<code>Free</code>, <code>Acquiring</code>, <code>Locked</code>, <code>Holdover</code>, offset, last lock), a <code>time_map</code> stream of
+<code>(local: Second, shared: Second, state)</code> points about once per second while synced and on every state change, so a
+timeline shows unsynced spans, and <code>set_time_of_day(ww_date_time::DateTime)</code> for a master.</p>
+<h2 id="ww_logic_analyzer-new"><code>ww_logic_analyzer</code> (new)<a class="headerlink" href="#ww_logic_analyzer-new" title="Permanent link">&para;</a></h2>
+<p>Timestamped capture of many digital channels, for anything from an MCU with a PIO or a DMA-able port to a dedicated
+analyzer:</p>
+<ul>
+<li><code>LogicAnalyzer</code>: <code>capabilities()</code> (channels with names, max sample rate per channel count, buffer depth,
+  encodings, triggers), <code>configure(LaConfig { channels, rate: Hertz, depth, trigger, pre_trigger })</code> returning the
+  real rate and depth, <code>arm()</code>, <code>status()</code>, <code>read(offset, len, encoding)</code>. Lossless, at any rate the hardware can
+  sample into RAM.</li>
+<li><code>LogicStream</code>: continuous capture streamed while the link keeps up (reliability from <code>ww-stream-reliability</code>).</li>
+</ul>
+<p>Encodings (the reason this is a crate): <code>Raw</code> (samples bit-packed), <code>Transitions</code> (only changes: a <code>DeltaOfDelta</code> of
+sample indices plus the new levels, SW-31; a quiet bus costs almost nothing). Triggers: level, edge, pattern,
+external. Protocol decoding stays on the host. Design: <a href="../logic_analyzer/">logic analyzer and signal generator</a>.</p>
+<h2 id="ww_signal_generator-new"><code>ww_signal_generator</code> (new)<a class="headerlink" href="#ww_signal_generator-new" title="Permanent link">&para;</a></h2>
+<p>The reverse: <code>PatternGenerator</code> (digital: channels, rate, repeat, a pattern loaded through a <code>#[credit] sink!</code> in the
+analyzer's <code>Raw</code> encoding, so a capture can be replayed; driving several pins at the same instant) and
+<code>WaveformGenerator</code> (a DAC: sine, square, triangle, sawtooth, DC, arbitrary tables; <code>freq: Hertz</code>, <code>amplitude:
+Volt</code>, <code>offset: Volt</code>). Design: <a href="../logic_analyzer/">logic analyzer and signal generator</a>.</p>
+<h2 id="ww_si-and-ww_numeric-improvements"><code>ww_si</code> and <code>ww_numeric</code> improvements<a class="headerlink" href="#ww_si-and-ww_numeric-improvements" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Everything a cargo feature</strong>: number types already are; quantity groups (electrical, time, mechanical, ...) and
+   the host helpers become features too, so a firmware pays only for what it uses.</li>
+<li><strong>Time semantics of <code>Second</code> as a timestamp</strong>: "device time since its clock's start", the wrap rule for
+   fixed-width storage, host helpers (<code>to_f64_seconds()</code>, an <code>Unwrapper</code> with <code>now()</code> as anchor).</li>
+<li><strong>Constructors and conversions</strong>: <code>Volt::millivolts(3300u16)</code>, <code>Volt::volts_f32(3.3)</code>, <code>to_f64()</code>, comparisons
+   across prefixes and storage; the same for <code>Hertz</code>, <code>Second</code>, <code>Ampere</code>.</li>
+<li><strong>Derives on every quantity</strong>: done on this branch (owned, <code>defmt</code>, <code>Debug</code>; <code>ww_adc</code> needed them).</li>
+<li><strong>Variable-length storage</strong>: <code>UVlq32</code> / <code>UVlq64</code> in <code>NumericValue</code> (it is <code>self_describing</code>, so add them before
+   release).</li>
+<li><strong>Later, zero-overhead typed quantities</strong> for hot paths: <code>Volt&lt;u16, Milli&gt;</code> (storage and prefix in the type, only
+   the number on the wire, the unit in the API model), special-cased in codegen like <code>MaxLen</code>.</li>
+</ol>
+<h2 id="versions-compatibility-what-breaks">Versions, compatibility, what breaks<a class="headerlink" href="#versions-compatibility-what-breaks" title="Permanent link">&para;</a></h2>
+<p>None of <code>ww_gpio</code>, <code>ww_uart</code>, <code>ww_i2c</code>, <code>ww_spi</code>, <code>ww_si</code> has been published, so they keep 0.1.0 (AGENTS.md: never
+published crates are not bumped) and their API snapshots are re-saved; new crates start at 0.1.0. On the wire against
+today's 0.1 code: <code>ww_gpio</code> sends the same bytes (new <code>Error</code> variants are new to old readers); <code>ww_uart</code> changes
+<code>tx</code> and moves <code>tx_mon</code> (affects <code>examples/uart*</code>); <code>ww_i2c</code> changes addresses, levels, bounds, timestamps (no user in
+this repo); <code>ww_spi</code> gets content. Outside this repo <code>usb_io_fw</code> moves to the family in its 0.4.0 (FW-1). No deployed
+device besides rePort rev A boards in-house uses these crates.</p>
+<h2 id="implementation-plan">Implementation plan<a class="headerlink" href="#implementation-plan" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong><code>ww_si</code> / <code>ww_numeric</code> improvements</strong> (items 1-3 and 5), first, since every crate uses them.</li>
+<li><strong>Skeleton</strong> in this session: the remaining crates with their traits and types compiling <code>no_std</code> and <code>std</code>,
+   workspace wiring, FEATURES items.</li>
+<li><strong>Fill-ins on sonnet, in parallel</strong>, one per crate: doc comments, host helpers, the test pair <code>tests/io_&lt;x&gt;</code> with
+   a mock server, a docs page, snapshot, CHANGELOG, FEATURES. <code>ww_gpio</code> also moves <code>ww_gpio_hl</code> and the examples;
+   <code>ww_uart</code> the uart example. <code>ww_logic_analyzer</code> and <code>ww_signal_generator</code> get a design pass on opus first.</li>
+<li><strong><code>cnt</code> in <code>examples_mcu</code></strong>: counters in the MCU examples and test firmwares, <code>cnt run</code> as the cargo runner.</li>
+<li>When <code>ww-errors-plan</code> and <code>ww-stream-reliability</code> land: apply them to every crate of the family in one pass.</li>
+<li><strong>Review</strong> of the whole family by Roman, then <code>tpm land</code>.</li>
+</ol>
+<h2 id="ideas-not-asked-for">Ideas not asked for<a class="headerlink" href="#ideas-not-asked-for" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Mocks as a reusable simulator</strong> (<code>ww_io_sim</code>, std): the test servers wired as a loopback (TX↔RX, an I2C EEPROM
+  at 0x50, a 1-wire DS18B20); WW-4 runs crates.io embedded-hal drivers against it, rePort's sim reuses it.</li>
+<li><strong><code>ww</code> CLI subcommands</strong>: <code>ww gpio</code>, <code>ww uart term</code>, <code>ww i2c scan</code>, <code>ww adc read</code>, <code>ww la capture</code> on any device
+  that has the trait, found by global trait path (<code>DynClient::traits_only(..)</code>, <code>DynClient::global_attachment(gid,
+  "Trait")</code>).</li>
+<li><strong><code>ww record</code> into rerun</strong>: every stream of one or more devices on rerun timelines (device time, shared time), with
+  gaps and unsynced spans visible.</li>
+<li><strong>sigrok export</strong> of <code>ww_logic_analyzer</code> captures and of monitor streams.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 vhrdtech
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/vhrdtech" target="_blank" rel="noopener" title="vhrdtech on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://www.linkedin.com/company/vhrdtech/" target="_blank" rel="noopener" title="vhrdtech on LinkedIn" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://vhrd.tech" target="_blank" rel="noopener" title="vhrd.tech website" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M351.9 280H161c2.9 64.5 17.2 123.9 37.5 167.4 11.4 24.5 23.7 41.8 35.1 52.4 11.2 10.5 18.9 12.2 22.9 12.2s11.7-1.7 22.9-12.2c11.4-10.6 23.7-28 35.1-52.4 20.3-43.5 34.6-102.9 37.5-167.4zm-191-48h190.9c-2.8-64.5-17.1-123.9-37.4-167.4-11.4-24.4-23.7-41.8-35.1-52.4C268.1 1.7 260.4 0 256.4 0s-11.7 1.7-22.9 12.2c-11.4 10.6-23.7 28-35.1 52.4-20.3 43.5-34.6 102.9-37.5 167.4m-48 0c3.5-85.6 25.6-165.1 57.9-217.3C78.7 47.3 10.9 131.2 1.5 232zM1.5 280c9.4 100.8 77.2 184.7 169.3 217.3-32.3-52.2-54.4-131.7-57.9-217.3zm398.4 0c-3.5 85.6-25.6 165.1-57.9 217.3 92.1-32.7 159.9-116.5 169.3-217.3zm111.4-48C501.9 131.2 434.1 47.3 342 14.7c32.3 52.2 54.4 131.7 57.9 217.3z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a2388154.min.js"></script>
+      
+    
+  </body>
+</html>

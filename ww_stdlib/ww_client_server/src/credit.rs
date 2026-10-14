@@ -246,10 +246,7 @@ mod tests {
         c.take_credit();
         assert_eq!(c.on_write(0, 10), CreditVerdict::Accept);
         // 10..20 lost
-        assert_eq!(
-            c.on_write(20, 10),
-            CreditVerdict::Gap(Some(resend(10, 90)))
-        );
+        assert_eq!(c.on_write(20, 10), CreditVerdict::Gap(Some(resend(10, 90))));
         assert_eq!(c.on_write(30, 10), CreditVerdict::Gap(None));
         // resend from 10
         assert_eq!(c.on_write(10, 10), CreditVerdict::Accept);

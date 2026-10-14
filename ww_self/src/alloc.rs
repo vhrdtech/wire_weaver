@@ -1,7 +1,7 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    FieldOwned, FieldsOwned, ItemEnumOwned, ItemStructOwned, Multiplicity, Repr, TypeLocationOwned,
-    TypeOwned,
+    FieldOwned, FieldsOwned, FlowControl, ItemEnumOwned, ItemStructOwned, Multiplicity, Repr,
+    TypeLocationOwned, TypeOwned,
 };
 use anyhow::{Result, anyhow};
 use shrink_wrap::ElementSize;
@@ -50,6 +50,18 @@ impl ApiItemOwned {
 
     pub fn is_array(&self) -> bool {
         matches!(self.multiplicity, Multiplicity::Array { .. })
+    }
+}
+
+impl ApiItemKindOwned {
+    /// Stream or sink: its item type, whether it goes from device to host (a stream), and the flow control of a
+    /// sink that has one.
+    pub fn as_stream(&self) -> Option<(&TypeOwned, bool, Option<FlowControl>)> {
+        match self {
+            ApiItemKindOwned::Stream { ty, is_up } => Some((ty, *is_up, None)),
+            ApiItemKindOwned::FlowSink { ty, flow } => Some((ty, false, Some(*flow))),
+            _ => None,
+        }
     }
 }
 

@@ -50,6 +50,11 @@
 - Generated `no_alloc` servers have `<METHOD>_REQUEST_MAX_LEN` and `<METHOD>_RESPONSE_MAX_LEN: Option<usize>` per
   method, the longest request and reply message, `None` when a part is unbounded (first step of API-18). Check a
   message buffer against them at compile time.
+- `#[credit] sink!(..)`: credit-based flow control for a sink (API-28, `docs/api/streams.md`). Generated servers call a
+  new handler `credit_<name>(&mut self[, index_chain]) -> &mut ww_client_server::credit::SinkCredit`, check the
+  position of each write, call `write_<name>` only for writes in order, answer `CreditQuery` themselves and send
+  `Credit`/`Resend` events; the server scaffold includes the handler and a `SinkCredit` field. Generated clients
+  open credit sinks with `Commander::prepare_credit_sink()`.
 - `medium` server codegen option: type (usually an enum) handlers get from `cx.medium()`, `()` if not set.
 - `stream_data_ser()` has `<name>_send(.., out)` and `<name>_send_blocking(.., out)` for every stream, sending through a
   handler's `cx` or `server.sink()`, and the same serializers for `ro` / `rw` properties: property updates are sent

@@ -11,8 +11,8 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{LitStr, Path};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Multiplicity,
-    PropertyAccess, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, FlowControl,
+    Multiplicity, PropertyAccess, TypeOwned,
 };
 
 /// API client code generation configuration.
@@ -361,6 +361,19 @@ fn level_method(
             &ident,
             ty,
             *is_up,
+            false,
+        ),
+        ApiItemKindOwned::FlowSink { ty, flow } => handle_stream(
+            api_bundle,
+            model,
+            path_mode,
+            gid_paths,
+            maybe_index_arg,
+            index_chain_push,
+            &ident,
+            ty,
+            false,
+            matches!(flow, FlowControl::Credit),
         ),
         ApiItemKindOwned::Trait { .. } => {
             let level = item.get_as_level(api_bundle).expect("api level");
@@ -537,6 +550,7 @@ fn handle_stream(
     ident: &Ident,
     ty: &TypeOwned,
     is_up: bool,
+    credit: bool,
 ) -> TokenStream {
     let ty_def = if ty.is_byte_slice(api_bundle).unwrap() {
         quote! { wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned }
@@ -570,10 +584,11 @@ fn handle_stream(
             }
         } else {
             // client out
-            let prepare_fn = if is_async {
-                quote! { prepare_sink }
-            } else {
-                quote! { prepare_sink_blocking }
+            let prepare_fn = match (is_async, credit) {
+                (true, false) => quote! { prepare_sink },
+                (false, false) => quote! { prepare_sink_blocking },
+                (true, true) => quote! { prepare_credit_sink },
+                (false, true) => quote! { prepare_credit_sink_blocking },
             };
             quote! {
                 pub #maybe_async fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client::Sink<#ty_def>, wire_weaver_client::Error> {

@@ -1,7 +1,7 @@
 use super::{
     crate_walker::{CrateContext, Scratch},
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
-    util::{collect_docs, get_since_attr},
+    util::{collect_docs, get_flow_attr, get_since_attr},
 };
 use anyhow::{Context, Result, anyhow};
 use proc_macro2::Ident;
@@ -175,10 +175,15 @@ fn convert_api_item_stream(
     let multiplicity = convert_multiplicity(&args.multiplicity, current_crate, scratch)?;
     let since = get_since_attr(&item_macro.attrs, current_crate)?;
     let docs = collect_docs(&item_macro.attrs);
+    let flow = get_flow_attr(&item_macro.attrs, is_up, current_crate)?;
+    let kind = match flow {
+        Some(flow) => ApiItemKindOwned::FlowSink { ty, flow },
+        None => ApiItemKindOwned::Stream { ty, is_up },
+    };
 
     Ok(ApiItemOwned {
         id: UNib32(idx),
-        kind: ApiItemKindOwned::Stream { ty, is_up },
+        kind,
         multiplicity,
         since,
         ident: args.resource_name.to_string(),

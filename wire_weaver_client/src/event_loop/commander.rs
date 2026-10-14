@@ -245,16 +245,7 @@ impl Commander {
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
         let rx = self.register_stream(&path_kind).await?;
-        Ok(Sink {
-            transport_cmd_tx: TransportCommander::new(
-                self.transport_cmd_tx.clone(),
-                self.default_timeout,
-            ),
-            path_kind,
-            sideband_rx: rx,
-            _phantom: PhantomData,
-            scratch: [0u8; 1024],
-        })
+        Ok(self.sink(path_kind, rx, false))
     }
 
     pub fn prepare_sink_blocking<T: DeserializeShrinkWrapOwned>(
@@ -263,16 +254,36 @@ impl Commander {
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
         let rx = self.register_stream_blocking(&path_kind)?;
-        Ok(Sink {
-            transport_cmd_tx: TransportCommander::new(
-                self.transport_cmd_tx.clone(),
-                self.default_timeout,
-            ),
+        Ok(self.sink(path_kind, rx, false))
+    }
+
+    /// Sink with credit-based flow control (`#[credit] sink!(..)`), see `docs/api/streams.md`.
+    pub async fn prepare_credit_sink<T: DeserializeShrinkWrapOwned>(
+        &self,
+        path: PathKind<'_>,
+    ) -> Result<Sink<T>, Error> {
+        let path_kind = self.resolve_path(path)?;
+        let rx = self.register_stream(&path_kind).await?;
+        Ok(self.sink(path_kind, rx, true))
+    }
+
+    /// Sink with credit-based flow control (`#[credit] sink!(..)`), see `docs/api/streams.md`.
+    pub fn prepare_credit_sink_blocking<T: DeserializeShrinkWrapOwned>(
+        &self,
+        path: PathKind<'_>,
+    ) -> Result<Sink<T>, Error> {
+        let path_kind = self.resolve_path(path)?;
+        let rx = self.register_stream_blocking(&path_kind)?;
+        Ok(self.sink(path_kind, rx, true))
+    }
+
+    fn sink<T>(&self, path_kind: PathKindOwned, rx: StreamUpdateReceiver, credit: bool) -> Sink<T> {
+        Sink::new(
+            TransportCommander::new(self.transport_cmd_tx.clone(), self.default_timeout),
             path_kind,
-            sideband_rx: rx,
-            _phantom: PhantomData,
-            scratch: [0u8; 1024],
-        })
+            rx,
+            credit,
+        )
     }
 
     pub fn introspect(&self) -> Introspect {
@@ -701,6 +712,53 @@ impl TransportCommander {
             .await
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
+    }
+
+    /// A place in the command queue, None if it is full, for [Self::write_forget_command] and
+    /// [Self::sideband_command].
+    pub(crate) fn try_reserve(&self) -> Result<Option<mpsc::Permit<'_, Command>>, Error> {
+        match self.cmd_tx.try_reserve() {
+            Ok(permit) => Ok(Some(permit)),
+            Err(mpsc::error::TrySendError::Full(())) => Ok(None),
+            Err(mpsc::error::TrySendError::Closed(())) => Err(Error::EventLoopNotRunning),
+        }
+    }
+
+    /// Write to a sink, without a reply.
+    pub(crate) fn write_forget_command(
+        &self,
+        path_kind: PathKindOwned,
+        value: Vec<u8>,
+    ) -> Result<Command, Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: UVlq32Backfill(0),
+            path_kind,
+            kind: RequestKindOwned::Write {
+                data: TailBytesOwned(value),
+            },
+        };
+        Ok(Command::SendMessage {
+            bytes: req.to_ww_bytes_owned()?,
+            done_tx: None,
+        })
+    }
+
+    /// Stream sideband request, nobody waits for the reply.
+    pub(crate) fn sideband_command(
+        &self,
+        path_kind: PathKindOwned,
+        sideband: StreamSideband,
+    ) -> Result<Command, Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: UVlq32Backfill(0),
+            path_kind,
+            kind: RequestKindOwned::StreamSideband { sideband },
+        };
+        let (done_tx, _done_rx) = oneshot::channel();
+        Ok(Command::SendMessage {
+            bytes: req.to_ww_bytes_owned()?,
+            done_tx: Some((done_tx, self.default_timeout)),
+        })
     }
 
     pub(crate) fn send_write_request_forget_blocking(

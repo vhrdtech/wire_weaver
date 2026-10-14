@@ -7,6 +7,13 @@
   compatible (`max length raised`). The dynamic client checks bounds of arguments and sink writes.
 - `Sink::send_owned()` for sinks of owned types that hold a `Vec` or `String` (`FooOwned`, which implement
   `SerializeShrinkWrapOwned`, not `SerializeShrinkWrap`); `send()` could not send them.
+- Credit sinks (`#[credit] sink!(..)`, API-28, `docs/api/streams.md`): `Sink::send()` / `send_blocking()` wait
+  until the device granted room for the value, `try_send()` / `try_send_bytes()` return `false` instead (for promise
+  style code), `flush()` / `flush_blocking()` / `try_flush()` wait until the device accepted everything, lost writes
+  are sent again from the device's position (go-back-N), `close()` flushes first. `CreditConfig` (query interval and
+  stall timeout) via `Sink::set_credit_config()`, `Sink::credit_progress()` for progress bars. `DynSink` speaks it
+  too. `Commander::prepare_credit_sink()` / `_blocking()`.
+- `Sink::send_blocking()` for typed sinks, `Sink::try_send()`; values are no longer limited to 1024 bytes.
 - Compatibility checks (device vs host on connect, and `ww api` evolution checks) treat `sized` and `self_describing`
   as the same layout: a type can move between the two without being reported as breaking (SW-35).
 - `Sink::recv_sideband()`, `recv_sideband_blocking()`, `try_recv_sideband()` and `recv_any()` / `recv_any_blocking()`:
@@ -104,6 +111,9 @@
 
 ### ⚠️ Breaking
 
+- `Sink::open()`, `close()` (and `_blocking`) take `&mut self`, same for `DynSink`: on a credit sink they reset or
+  flush its state.
+- `DynResourceKind::Stream` has a `flow: Option<FlowControl>` field.
 - `ClientConfig::websocket_addr(addr, port, path)` is replaced by `ClientConfig::websocket_url(url)`, which also
   takes host names. The unused `net` feature is removed, use `ws`.
 - `ClientConfig::udp_addr(addr, port)` takes a single `"host:port"` string now (host names are resolved when

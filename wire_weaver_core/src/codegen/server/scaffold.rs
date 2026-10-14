@@ -10,8 +10,8 @@ use convert_case::{Case, Casing};
 use std::fmt::Write;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Multiplicity, PropertyAccess,
-    TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, FlowControl, Multiplicity,
+    PropertyAccess, TypeOwned,
 };
 
 /// Server scaffold generation configuration, same meaning as the `ww_codegen!` arguments.
@@ -157,6 +157,10 @@ impl Scaffold<'_> {
                 } => self.property(item, &name, item_index_len, ty, *access, write_err_ty)?,
                 ApiItemKindOwned::Stream { ty, is_up } => {
                     self.stream(item, &name, item_index_len, ty, *is_up)?
+                }
+                ApiItemKindOwned::FlowSink { ty, flow } => {
+                    self.flow(item, &name, item_index_len, *flow)?;
+                    self.stream(item, &name, item_index_len, ty, false)?
                 }
                 ApiItemKindOwned::Trait { .. } => {}
             }
@@ -367,6 +371,50 @@ impl Scaffold<'_> {
                 self.handlers,
                 "{maybe_async}fn write_{name}(&mut self, {cx}{idx}{arg}) {{}}\n",
             )?;
+        }
+        Ok(())
+    }
+
+    /// Flow control state accessor of a sink, generated code keeps the state up to date through it.
+    fn flow(
+        &mut self,
+        item: &ApiItemOwned,
+        name: &str,
+        index_len: usize,
+        flow: FlowControl,
+    ) -> Result<()> {
+        match flow {
+            FlowControl::Credit => {
+                let idx = index_chain_arg(index_len);
+                let state = "ww_client_server::credit::SinkCredit";
+                let body = if index_len == 0 {
+                    writeln!(
+                        self.fields,
+                        "/// Credit sink state of `{name}`: how much the device can buffer, `free()` it after use
+                         pub {name}_credit: {state},",
+                    )?;
+                    format!("&mut self.{name}_credit")
+                } else {
+                    writeln!(
+                        self.fields,
+                        "// TODO: one {state} per index of `{name}`
+// pub {name}_credit: [{state}; N],"
+                    )?;
+                    format!(
+                        "todo!(\"credit state of {} for index {{_index_chain:?}}\")",
+                        item.ident
+                    )
+                };
+                writeln!(
+                    self.handlers,
+                    "/// Credit state of `{}`, see docs/api/streams.md.
+                     fn credit_{name}(&mut self, {idx}) -> &mut {state} {{
+                     {body}
+                     }}
+",
+                    item.ident
+                )?;
+            }
         }
         Ok(())
     }

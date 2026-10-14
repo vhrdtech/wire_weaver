@@ -5,7 +5,7 @@ use semver::Version;
 use shrink_wrap::ElementSize;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Expr, Lit, Meta, Token, UseTree};
-use ww_self::Repr;
+use ww_self::{FlowControl, Repr};
 use ww_version::VersionTriplet;
 
 pub(crate) fn collect_docs(attrs: &[Attribute]) -> Vec<String> {
@@ -59,6 +59,29 @@ pub(crate) fn get_since_attr(
     } else {
         Err(anyhow!("expected #[since = \"x.y.z\"]").context(current_crate.err_context()))
     }
+}
+
+/// Flow control of a sink: `#[credit]` (see `docs/api/streams.md`), `None` for a plain sink.
+pub(crate) fn get_flow_attr(
+    attrs: &[Attribute],
+    is_up: bool,
+    current_crate: &CrateContext,
+) -> Result<Option<FlowControl>> {
+    let Some(attr) = attrs.iter().find(|a| a.path().is_ident("credit")) else {
+        return Ok(None);
+    };
+    if !matches!(attr.meta, Meta::Path(_)) {
+        return Err(
+            anyhow!("expected #[credit] without arguments").context(current_crate.err_context())
+        );
+    }
+    if is_up {
+        return Err(
+            anyhow!("#[credit] is only supported on sink!, not on stream!")
+                .context(current_crate.err_context()),
+        );
+    }
+    Ok(Some(FlowControl::Credit))
 }
 
 /// Path segments leading to `type_name` imported by a `use` tree, e.g. `[a, b]` for `use a::{b::Ty, Other}`.

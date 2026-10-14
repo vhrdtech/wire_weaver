@@ -4,6 +4,9 @@
 
 - `MaxLen` (SW-19) lists and strings are checked when encoding: a longer value raises `ValueError` (`.. at most N
   allowed ..`).
+- Credit sinks (`#[credit] sink!(..)`, API-28): `Sink.send()` waits until the device has room, `Sink.flush()`
+  waits until it accepted everything, `close()` flushes; `Sink.credit`, `Sink.progress` and
+  `Sink.set_credit_config(query_interval, stall_timeout)`.
 - New Python module `wire_weaver` (built with maturin): talk to any WireWeaver device without generated code, the
   API tree is built at runtime from the device introspection data. `connect(...)` with USB or RTT device filters
   returns a `Device` whose traits are attributes, arrays are indexed with `[]`, methods are called with positional or

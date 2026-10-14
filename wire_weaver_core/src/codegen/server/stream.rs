@@ -52,10 +52,10 @@ pub(crate) fn stream_ser_methods_recursive(
                 }
             });
         }
-        if let ApiItemKindOwned::Stream { is_up, .. } = &item.kind {
+        if let Some((_, is_up, _)) = item.kind.as_stream() {
             methods_ts.extend(sideband_ser_methods(
                 item.ident.as_str(),
-                if *is_up { "stream" } else { "sink" },
+                if is_up { "stream" } else { "sink" },
                 &maybe_index_arg,
                 &let_index_chain,
                 is_array,

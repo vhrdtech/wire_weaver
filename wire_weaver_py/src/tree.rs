@@ -3,7 +3,7 @@
 
 use crate::convert::{prefix_err, to_py, to_value, type_name};
 use crate::{Conn, RemoteError, WireWeaverError, client_err, err_msg, stream_err};
-use pyo3::exceptions::{PyAttributeError, PyIndexError, PyKeyError, PyTypeError};
+use pyo3::exceptions::{PyAttributeError, PyIndexError, PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyString, PyTuple};
 use std::sync::{Arc, Mutex};
@@ -101,6 +101,9 @@ pub(crate) fn signature(res: &DynResource) -> String {
         ApiItemKindOwned::Stream { ty, is_up } => {
             let kind = if *is_up { "stream" } else { "sink" };
             format!("{kind} {name}{array}: {}", type_name(ty, bundle))
+        }
+        ApiItemKindOwned::FlowSink { ty, .. } => {
+            format!("credit sink {name}{array}: {}", type_name(ty, bundle))
         }
         ApiItemKindOwned::Trait { .. } => {
             let level = item.get_as_level(bundle).map(|l| l.trait_name.clone());
@@ -694,13 +697,13 @@ impl Sink {
                     .map_err(client_err)?,
             );
         }
-        let sink = guard.as_ref().expect("just set");
+        let sink = guard.as_mut().expect("just set");
         py.detach(|| sink.open_blocking()).map_err(stream_err)
     }
 
     fn close(&self, py: Python<'_>) -> PyResult<()> {
         let sink = self.sink.lock().expect("not poisoned").take();
-        if let Some(sink) = sink {
+        if let Some(mut sink) = sink {
             py.detach(|| sink.close_blocking()).map_err(stream_err)?;
         }
         Ok(())
@@ -714,6 +717,52 @@ impl Sink {
             WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
         })?;
         py.detach(|| sink.send_blocking(&value)).map_err(stream_err)
+    }
+
+    /// Credit sinks (`#[credit]`): wait until the device accepted everything sent so far, resending what was lost.
+    /// Does nothing for other sinks. `close()` flushes too.
+    fn flush(&self, py: Python<'_>) -> PyResult<()> {
+        let mut guard = self.sink.lock().expect("not poisoned");
+        let sink = guard.as_mut().ok_or_else(|| {
+            WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
+        })?;
+        py.detach(|| sink.flush_blocking()).map_err(stream_err)
+    }
+
+    /// True for a sink with credit-based flow control: `send()` waits until the device has room.
+    #[getter]
+    fn credit(&self) -> bool {
+        matches!(
+            self.res.kind(),
+            Ok(DynResourceKind::Stream { flow: Some(_), .. })
+        )
+    }
+
+    /// Credit sinks: `(accepted, sent)` bytes in this session, None for other sinks or before `open()`.
+    #[getter]
+    fn progress(&self) -> Option<(u32, u32)> {
+        let guard = self.sink.lock().expect("not poisoned");
+        guard.as_ref().and_then(|sink| sink.credit_progress())
+    }
+
+    /// Credit sinks: send `CreditQuery` after `query_interval` s without credit, fail after `stall_timeout` s
+    /// without progress (None waits forever). Call it after `open()`.
+    #[pyo3(signature = (query_interval = 1.0, stall_timeout = Some(30.0)))]
+    fn set_credit_config(&self, query_interval: f64, stall_timeout: Option<f64>) -> PyResult<()> {
+        let config = wire_weaver_client::CreditConfig {
+            query_interval: Duration::try_from_secs_f64(query_interval)
+                .map_err(|e| PyValueError::new_err(format!("query_interval: {e}")))?,
+            stall_timeout: stall_timeout
+                .map(Duration::try_from_secs_f64)
+                .transpose()
+                .map_err(|e| PyValueError::new_err(format!("stall_timeout: {e}")))?,
+        };
+        let mut guard = self.sink.lock().expect("not poisoned");
+        let sink = guard.as_mut().ok_or_else(|| {
+            WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
+        })?;
+        sink.set_credit_config(config);
+        Ok(())
     }
 
     fn __enter__(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<Self>> {

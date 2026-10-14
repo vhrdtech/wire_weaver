@@ -6,7 +6,7 @@ use std::fmt::Write;
 use wire_weaver_client::ww_self::visit::{self, Visit};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    FieldsOwned, ItemEnumOwned, ItemStructOwned, Multiplicity, PropertyAccess, Repr,
+    FieldsOwned, FlowControl, ItemEnumOwned, ItemStructOwned, Multiplicity, PropertyAccess, Repr,
     TypeLocationOwned, TypeOwned,
 };
 
@@ -181,6 +181,15 @@ impl TreePrinter<'_> {
             ApiItemKindOwned::Stream { ty, is_up } => {
                 let kind = if *is_up { "stream" } else { "sink" };
                 _ = write!(self.out, "{} ", style(kind).true_color(0x8C, 0xC8, 0xD4));
+                self.ident(item);
+                _ = write!(self.out, ": {}", self.ty(ty));
+            }
+            ApiItemKindOwned::FlowSink { ty, flow } => {
+                let flow = match flow {
+                    FlowControl::Credit => "#[credit] ",
+                };
+                _ = write!(self.out, "{}", style(flow).dim());
+                _ = write!(self.out, "{} ", style("sink").true_color(0x8C, 0xC8, 0xD4));
                 self.ident(item);
                 _ = write!(self.out, ": {}", self.ty(ty));
             }

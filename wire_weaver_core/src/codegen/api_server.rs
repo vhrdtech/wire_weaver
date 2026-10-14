@@ -13,8 +13,8 @@ use quote::quote;
 use syn::{Lit, LitInt, Path};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Multiplicity,
-    PropertyAccess, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, FlowControl,
+    Multiplicity, PropertyAccess, TypeOwned,
 };
 
 /// API server code generation configuration.
@@ -617,9 +617,26 @@ fn level_matcher(
             *access,
             error_seq,
         ),
-        ApiItemKindOwned::Stream { ty, is_up } => {
-            handle_stream(api_bundle, index_chain, cx, &ident, ty, *is_up, error_seq)
-        }
+        ApiItemKindOwned::Stream { ty, is_up } => handle_stream(
+            api_bundle,
+            index_chain,
+            cx,
+            &ident,
+            ty,
+            *is_up,
+            None,
+            error_seq,
+        ),
+        ApiItemKindOwned::FlowSink { ty, flow } => handle_stream(
+            api_bundle,
+            index_chain,
+            cx,
+            &ident,
+            ty,
+            false,
+            Some(*flow),
+            error_seq,
+        ),
         ApiItemKindOwned::Trait { .. } => {
             let process_fn_name = Ident::new(
                 format!("process_{level_name_chain}_{}", api_item.ident).as_str(),
@@ -885,6 +902,7 @@ fn handle_property(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_stream(
     api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
@@ -892,6 +910,7 @@ fn handle_stream(
     ident: &Ident,
     ty: &TypeOwned,
     is_up: bool,
+    flow: Option<FlowControl>,
     err_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_index_chain_call = index_chain.fun_argument_call();
@@ -904,21 +923,30 @@ fn handle_stream(
     );
     let es = err_seq.next();
     let ev_kind_builder = cx.prepare_event_kind_builder();
-    let handle_sideband = quote! {
+    let reply_sideband = quote! {
+        #ev_kind_builder
+        wr.write(&RefVec::Slice { slice: &path }).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+        wr.write(&sideband).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+        Ok(WrAction::WrittenOk(event_kind_builder))
+    };
+    let call_user_sideband = quote! {
         // user fn returns Option<StreamSideband>
         let r = self.#sideband_fn(cx, #maybe_index_chain_call *sideband)#maybe_await;
+    };
+    let match_user_sideband = quote! {
         match r {
             Some(sideband) => {
-                #ev_kind_builder
-                wr.write(&RefVec::Slice { slice: &path }).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
-                wr.write(&sideband).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
-                Ok(WrAction::WrittenOk(event_kind_builder))
+                #reply_sideband
             }
             None => {
                 // nothing to send back, but the host is waiting with the request's seq
                 Ok(WrAction::Acknowledged)
             }
         }
+    };
+    let handle_sideband = quote! {
+        #call_user_sideband
+        #match_user_sideband
     };
     let specific_ops = if is_up {
         // stream (device out)
@@ -976,15 +1004,82 @@ fn handle_stream(
             _ => other_des(),
         };
         let ev_kind_builder = cx.prepare_event_kind_builder();
-        quote! {
-            RequestKind::Write { data } => {
-                #des_data
-                self.#write(cx, #maybe_index_chain_call #arg)#maybe_await;
-                #ev_kind_builder
-                Ok(WrAction::WrittenOk(event_kind_builder)) // TODO: ?? do not send acknowledgements on stream writes
-            }
-            RequestKind::StreamSideband { sideband } => {
-                #handle_sideband
+        match flow {
+            None => quote! {
+                RequestKind::Write { data } => {
+                    #des_data
+                    self.#write(cx, #maybe_index_chain_call #arg)#maybe_await;
+                    #ev_kind_builder
+                    Ok(WrAction::WrittenOk(event_kind_builder)) // TODO: ?? do not send acknowledgements on stream writes
+                }
+                RequestKind::StreamSideband { sideband } => {
+                    #handle_sideband
+                }
+            },
+            Some(FlowControl::Credit) => {
+                let credit_fn =
+                    Ident::new(format!("credit_{}", prefixed_ident).as_str(), ident.span());
+                let es_pos = err_seq.next();
+                let send_sideband = if cx.use_async {
+                    quote! {
+                        // a lost credit event is recovered by the host's next CreditQuery
+                        let _ = wire_weaver::EventOut::send_with(&mut *cx, |scratch| {
+                            ser_ok_event(scratch, 0, EventKind::StreamSideband { path: RefVec::Slice { slice: path }, sideband })
+                                .map(|bytes| bytes.len())
+                        }).await;
+                    }
+                } else {
+                    quote! {
+                        // a lost credit event is recovered by the host's next CreditQuery
+                        let _ = wire_weaver::BlockingEventOut::send_with_blocking(&mut *cx, |scratch| {
+                            ser_ok_event(scratch, 0, EventKind::StreamSideband { path: RefVec::Slice { slice: path }, sideband })
+                                .map(|bytes| bytes.len())
+                        });
+                    }
+                };
+                quote! {
+                    RequestKind::Write { data } => {
+                        let credit_write = {
+                            let mut rd = BufReader::new(data);
+                            ww_client_server::CreditWrite::des_shrink_wrap(&mut rd)
+                                .map_err(|_e| Error::new(#es_pos, ErrorKind::ArgsDesFailed))?
+                        };
+                        let data = &credit_write.data;
+                        let verdict = self.#credit_fn(#maybe_index_chain_call).on_write(credit_write.pos.0, data.0.len() as u32);
+                        match verdict {
+                            ww_client_server::credit::CreditVerdict::Accept => {
+                                #des_data
+                                self.#write(cx, #maybe_index_chain_call #arg)#maybe_await;
+                                if let Some(sideband) = self.#credit_fn(#maybe_index_chain_call).take_credit() {
+                                    #send_sideband
+                                }
+                            }
+                            ww_client_server::credit::CreditVerdict::Gap(Some(sideband)) => {
+                                #send_sideband
+                            }
+                            ww_client_server::credit::CreditVerdict::Duplicate
+                            | ww_client_server::credit::CreditVerdict::Gap(None) => {}
+                        }
+                        #ev_kind_builder
+                        Ok(WrAction::WrittenOk(event_kind_builder))
+                    }
+                    RequestKind::StreamSideband { sideband: StreamSideband::CreditQuery { sent } } => {
+                        // answered here, the user's sideband handler doesn't see it
+                        let sideband = self.#credit_fn(#maybe_index_chain_call).query(sent.0);
+                        #reply_sideband
+                    }
+                    RequestKind::StreamSideband { sideband } => {
+                        if matches!(sideband, StreamSideband::Open) {
+                            self.#credit_fn(#maybe_index_chain_call).open();
+                        }
+                        #call_user_sideband
+                        // initial credit after Open, or a re-grant if the handler freed something
+                        if let Some(sideband) = self.#credit_fn(#maybe_index_chain_call).take_credit() {
+                            #send_sideband
+                        }
+                        #match_user_sideband
+                    }
+                }
             }
         }
     };

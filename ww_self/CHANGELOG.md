@@ -25,6 +25,9 @@
 
 ### 🚀 Features
 
+* `ApiItemKind::FlowSink { ty, flow: FlowControl }` for sinks with flow control (`#[credit] sink!(..)`, API-28),
+  appended, so existing bundles and signatures are unchanged; `ApiItemKindOwned::as_stream()` for code treating
+  streams and sinks of both kinds alike.
 * `ValueOwned::des_shrink_wrap_vec_dyn()`: read the fields of an evolvable struct (e.g., method arguments), the
   counterpart of `ser_shrink_wrap_vec_dyn()`.
 * `inline::inline_skipped()`: put definitions of skipped traits and types back into a bundle, found with a

@@ -176,7 +176,27 @@ pub enum ApiItemKind<'i> {
     Trait {
         trait_idx: UNib32,
     },
+    /// Sink (host to device) with flow control, e.g. `#[credit] sink!(..)`. A plain sink is
+    /// `Stream { is_up: false }`.
+    FlowSink {
+        ty: Type<'i>,
+        flow: FlowControl,
+    },
     // Reserved, no useful info keeping reserved items after IDs are calculated
+}
+
+/// Flow control of a [ApiItemKind::FlowSink].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Copy, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum FlowControl {
+    /// The device grants credit in bytes, each write carries its byte position, lost writes are sent again from the
+    /// last accepted position (`docs/api/streams.md`).
+    Credit,
 }
 
 #[derive_shrink_wrap(

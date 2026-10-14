@@ -17,7 +17,7 @@
 //! # }
 //! ```
 
-use crate::{Commander, Error, Sink, Stream, StreamError};
+use crate::{Commander, CreditConfig, Error, Sink, Stream, StreamError};
 use std::sync::Arc;
 use std::time::Duration;
 use wire_weaver::ValidIndicesOwned;
@@ -26,8 +26,8 @@ use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::PathKind;
 use ww_numeric::NumericValue;
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Multiplicity,
-    PropertyAccess, TypeOwned, ValueOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, FlowControl,
+    Multiplicity, PropertyAccess, TypeOwned, ValueOwned,
 };
 
 /// API root, trait, method, property, stream or an array of them, found by walking an [ApiBundleOwned].
@@ -67,8 +67,12 @@ pub enum DynResourceKind<'a> {
         ty: &'a TypeOwned,
         access: PropertyAccess,
     },
-    /// Stream from a device (`is_up = true`), or a sink on it.
-    Stream { ty: &'a TypeOwned, is_up: bool },
+    /// Stream from a device (`is_up = true`), or a sink on it, with flow control if it has one.
+    Stream {
+        ty: &'a TypeOwned,
+        is_up: bool,
+        flow: Option<FlowControl>,
+    },
 }
 
 impl DynResource {
@@ -116,9 +120,16 @@ impl DynResource {
                     ty,
                     access: *access,
                 },
-                ApiItemKindOwned::Stream { ty, is_up } => {
-                    DynResourceKind::Stream { ty, is_up: *is_up }
-                }
+                ApiItemKindOwned::Stream { ty, is_up } => DynResourceKind::Stream {
+                    ty,
+                    is_up: *is_up,
+                    flow: None,
+                },
+                ApiItemKindOwned::FlowSink { ty, flow } => DynResourceKind::Stream {
+                    ty,
+                    is_up: false,
+                    flow: Some(*flow),
+                },
                 ApiItemKindOwned::Trait { .. } => unreachable!("traits are levels"),
             },
             (_, None) => unreachable!("only the API root has no item"),
@@ -236,9 +247,9 @@ impl DynResource {
         }
     }
 
-    fn stream_ty(&self, want_up: bool) -> Result<&TypeOwned, Error> {
+    fn stream_ty(&self, want_up: bool) -> Result<(&TypeOwned, Option<FlowControl>), Error> {
         match self.kind()? {
-            DynResourceKind::Stream { ty, is_up } if is_up == want_up => Ok(ty),
+            DynResourceKind::Stream { ty, is_up, flow } if is_up == want_up => Ok((ty, flow)),
             _ => Err(self.not_a(if want_up {
                 "stream from a device"
             } else {
@@ -387,29 +398,37 @@ impl DynResource {
 
     /// Subscribe to a stream from a device, see [DynStream::open] to start it.
     pub async fn stream(&self, cmd: &Commander) -> Result<DynStream, Error> {
-        let ty = self.stream_ty(true)?.clone();
+        let ty = self.stream_ty(true)?.0.clone();
         let stream = cmd.prepare_stream(self.path_kind()).await?;
         Ok(DynStream::new(self, stream, ty))
     }
 
     /// Subscribe to a stream from a device, see [DynStream::open_blocking] to start it.
     pub fn stream_blocking(&self, cmd: &Commander) -> Result<DynStream, Error> {
-        let ty = self.stream_ty(true)?.clone();
+        let ty = self.stream_ty(true)?.0.clone();
         let stream = cmd.prepare_stream_blocking(self.path_kind())?;
         Ok(DynStream::new(self, stream, ty))
     }
 
     /// Sink on a device.
     pub async fn sink(&self, cmd: &Commander) -> Result<DynSink, Error> {
-        let ty = self.stream_ty(false)?.clone();
-        let sink = cmd.prepare_sink(self.path_kind()).await?;
+        let (ty, flow) = self.stream_ty(false)?;
+        let ty = ty.clone();
+        let sink = match flow {
+            None => cmd.prepare_sink(self.path_kind()).await?,
+            Some(FlowControl::Credit) => cmd.prepare_credit_sink(self.path_kind()).await?,
+        };
         Ok(DynSink::new(self, sink, ty))
     }
 
     /// Sink on a device.
     pub fn sink_blocking(&self, cmd: &Commander) -> Result<DynSink, Error> {
-        let ty = self.stream_ty(false)?.clone();
-        let sink = cmd.prepare_sink_blocking(self.path_kind())?;
+        let (ty, flow) = self.stream_ty(false)?;
+        let ty = ty.clone();
+        let sink = match flow {
+            None => cmd.prepare_sink_blocking(self.path_kind())?,
+            Some(FlowControl::Credit) => cmd.prepare_credit_sink_blocking(self.path_kind())?,
+        };
         Ok(DynSink::new(self, sink, ty))
     }
 }
@@ -514,20 +533,52 @@ impl DynSink {
         &self.ty
     }
 
-    pub async fn open(&self) -> Result<(), StreamError> {
+    /// True for a sink with credit-based flow control, see [Sink].
+    pub fn is_credit(&self) -> bool {
+        self.sink.is_credit()
+    }
+
+    /// See [Sink::set_credit_config].
+    pub fn set_credit_config(&mut self, config: CreditConfig) {
+        self.sink.set_credit_config(config)
+    }
+
+    /// See [Sink::credit_progress].
+    pub fn credit_progress(&self) -> Option<(u32, u32)> {
+        self.sink.credit_progress()
+    }
+
+    pub async fn open(&mut self) -> Result<(), StreamError> {
         self.sink.open().await
     }
 
-    pub fn open_blocking(&self) -> Result<(), StreamError> {
+    pub fn open_blocking(&mut self) -> Result<(), StreamError> {
         self.sink.open_blocking()
     }
 
-    pub async fn close(&self) -> Result<(), StreamError> {
+    /// See [Sink::close].
+    pub async fn close(&mut self) -> Result<(), StreamError> {
         self.sink.close().await
     }
 
-    pub fn close_blocking(&self) -> Result<(), StreamError> {
+    /// See [Sink::close_blocking].
+    pub fn close_blocking(&mut self) -> Result<(), StreamError> {
         self.sink.close_blocking()
+    }
+
+    /// See [Sink::flush].
+    pub async fn flush(&mut self) -> Result<(), StreamError> {
+        self.sink.flush().await
+    }
+
+    /// See [Sink::flush_blocking].
+    pub fn flush_blocking(&mut self) -> Result<(), StreamError> {
+        self.sink.flush_blocking()
+    }
+
+    /// See [Sink::try_flush].
+    pub fn try_flush(&mut self) -> Result<bool, StreamError> {
+        self.sink.try_flush()
     }
 
     pub async fn send(&mut self, value: &ValueOwned) -> Result<(), StreamError> {
@@ -538,6 +589,12 @@ impl DynSink {
     pub fn send_blocking(&mut self, value: &ValueOwned) -> Result<(), StreamError> {
         let bytes = self.encode(value)?;
         self.sink.send_bytes_blocking(&bytes)
+    }
+
+    /// See [Sink::try_send].
+    pub fn try_send(&mut self, value: &ValueOwned) -> Result<bool, StreamError> {
+        let bytes = self.encode(value)?;
+        self.sink.try_send_bytes(&bytes)
     }
 
     fn encode(&self, value: &ValueOwned) -> Result<Vec<u8>, StreamError> {

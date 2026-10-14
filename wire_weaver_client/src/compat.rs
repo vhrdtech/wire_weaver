@@ -366,6 +366,20 @@ fn compare_kinds<'a>(
             }
         }
         (
+            FlowSink { ty, flow },
+            FlowSink {
+                ty: device_ty,
+                flow: device_flow,
+            },
+        ) => {
+            if flow != device_flow {
+                return Err(format!(
+                    "{flow:?} flow control on the {client_name}, {device_flow:?} on the {device_name}"
+                ));
+            }
+            to_device.check(ty, device_ty)?;
+        }
+        (
             Trait { trait_idx },
             Trait {
                 trait_idx: device_trait_idx,
@@ -423,6 +437,7 @@ fn kind_name(kind: &ApiItemKindOwned) -> &'static str {
         ApiItemKindOwned::Property { .. } => "a property",
         ApiItemKindOwned::Stream { is_up: true, .. } => "a stream",
         ApiItemKindOwned::Stream { is_up: false, .. } => "a sink",
+        ApiItemKindOwned::FlowSink { .. } => "a sink with flow control",
         ApiItemKindOwned::Trait { .. } => "a trait",
     }
 }

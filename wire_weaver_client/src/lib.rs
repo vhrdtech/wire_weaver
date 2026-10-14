@@ -12,6 +12,7 @@ mod local_registry;
 mod tracing;
 
 pub use client::attachment::Attachment;
+pub use client::credit::CreditConfig;
 pub use client::dyn_client::DynClient;
 pub use client::dynamic::{DynResource, DynResourceKind, DynSink, DynStream};
 pub use client::introspect::Introspect;

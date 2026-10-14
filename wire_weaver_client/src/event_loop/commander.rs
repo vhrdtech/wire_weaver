@@ -36,7 +36,7 @@ pub struct Commander {
     /// * Some (empty path) for trait implemented at root level (unknown path), trait addressing will be used.
     /// * Some (non-empty path) for trait implemented at some particular path, trait addressing will be substituted with an actual path.
     ///
-    /// "Some" cases are only for trait clients (`client = "trait_client"`). API root client (`client = "full_client"`) uses absolute addressing.
+    /// "Some" cases are only for trait clients (`client = "trait_client"`). API root client (`client = "std_client"`) uses absolute addressing.
     base_path: Option<Vec<UNib32>>,
 
     /// Mapping from FullVersion (crate name as string + semver) to trait GID of a much smaller size.

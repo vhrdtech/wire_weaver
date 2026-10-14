@@ -105,7 +105,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             "trait_client" => ClientModel::StdTraitClient,
             _ => {
                 return Err(format!(
-                    "client supports raw or async_worked modes, got: '{}'",
+                    "client must be std_client, trait_client or raw, got: '{}'",
                     args.ext.client
                 ));
             }

@@ -21,9 +21,11 @@ pub fn ww_api(args: TokenStream) -> TokenStream {
 ///
 /// Arguments:
 /// * client = absent or "" - do not generate client code at all;
-///     * "full_client" - generate client code starting from API root
-///     * "full_client+usb" - additionally, generate init function code that starts USB event loop
-///     * "trait_client" - generate client code only for one trait
+///     * "std_client" - std client starting from the API root, for a struct implementing
+///       `wire_weaver_client::WwClient`; the transport (USB, RTT, WebSocket, UDP) is picked at connect time through
+///       `ClientConfig`, see `examples/blinky`
+///     * "trait_client" - std client for one trait only, independent of where a device implements it
+///     * "raw" - no_std client, currently not working (FEATURES CLT-14)
 /// * server = true/false - whether to generate server code or not.
 /// * no_alloc = true/false - whether to use std types or RefVec for strings, vectors. Lifetime will be added automatically if no_alloc = true.
 /// * use_async - whether to generate async-aware code.

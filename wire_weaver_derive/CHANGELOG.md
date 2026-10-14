@@ -3,7 +3,8 @@
 ### ⚠️ Breaking
 
 - `ww_api!` is renamed to `ww_codegen!` (the old name is deprecated). `client = ".."` flavors are now
-  `"full_client"`, `"full_client+usb"` and `"trait_client"`.
+  `"std_client"` (from the API root, transport picked at connect time) and `"trait_client"`; `"raw"` (no_std) is
+  not working yet.
 
 ### 🚀 Features
 
@@ -17,6 +18,8 @@
 
 ### 🐛 Fixes
 
+- `ww_codegen!` docs and the error for an unknown `client` value list the real flavors (`std_client`,
+  `trait_client`, `raw`) instead of `full_client` / `full_client+usb` / `async_worked`.
 - `#[ww_trait]` methods with a `MaxLen<&'i str, N>` (any const generic) argument compile: the helper aliases only
   take lifetimes.
 - Correct span for `ww_impl!` of a trait in the same crate.

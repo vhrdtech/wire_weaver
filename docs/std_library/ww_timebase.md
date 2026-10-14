@@ -92,8 +92,7 @@ client
     .clock()
     .configure_sync(SyncConfig::Master { format: SyncFormat::IrigB })
     .call()
-    .await?
-    .unwrap();
+    .await?; // one `?`: a `ClockError` arrives as `CallError::Device`
 
 let mut time_map = client.clock().time_map().call().await?;
 let point = time_map.recv().await?;

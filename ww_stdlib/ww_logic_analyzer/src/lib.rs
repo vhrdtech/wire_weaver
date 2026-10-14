@@ -342,13 +342,14 @@ pub enum Condition {
     AnyEdge,
 }
 
-/// Which edge of an input.
+/// Which edge of an input. Complete by nature, so without an `Unknown` variant for newer versions.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Debug, Clone, Copy, PartialEq, Eq),
-    ww_repr = unib32
+    ww_repr = unib32,
+    no_future_version
 )]
 pub enum Edge {
     Rising,

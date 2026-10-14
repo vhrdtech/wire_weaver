@@ -618,7 +618,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Streams with a configuration are counted stream functions (API-31: `AdcStream::samples`, `LogicStream::data`,
   `Pin::event`, `PwmCaptureChannel::capture`, `SpiMonitor::frames`, `I2cMonitor::records`, `UartMonitor::lines`),
   `Uart::rx` and `I2cWatch::changes` are counted: positions, device losses and timestamps in the event head.
-  Open: error evolution across the family; `*_hl` crates are STD-14.
+  Clients take one `?` per call (CLT-24 `CallError`), `Unsized` enums read newer variants as `Unknown(u32)`
+  (SW-47). Open: the error enums are `self_describing` and not yet on `ww_error::CommonError` (STD-16), so a newer
+  error variant doesn't decode on an older host; `*_hl` crates are STD-14.
 - 🚧 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
   `Raw` and per-channel `Transitions` encodings (SW-31 `DeltaOfDelta`), staged pattern triggers and protocol
   stages (UART byte, I2C address, SPI first byte). Skeleton written, transitions as `DeltaOfDelta` (SW-50), docs

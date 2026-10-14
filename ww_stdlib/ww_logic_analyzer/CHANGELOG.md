@@ -9,3 +9,5 @@
   Triggers: staged `Pattern` conditions (level, edge) and protocol stages `UartByte`, `I2cAddress`, `SpiFirstByte`,
   external input, trigger output.
 - Docs page `docs/std_library/ww_logic_analyzer.md` (STD-13).
+- `Edge` is `no_future_version` (SW-47): rising, falling and any are all there is, so it has no `Unknown(u32)`
+  variant; the crate's other `Unsized` enums have one.

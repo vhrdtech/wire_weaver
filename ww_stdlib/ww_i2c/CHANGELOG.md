@@ -12,6 +12,9 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 - `delay_after` is `Option<Second>` instead of a `u32` without a unit.
 - `RawTimestamp` is gone: `I2cTransactionTimeRange` holds `ww_si::Second` device time.
 - `I2cError` gains `InUse`, `NoIoLevel`, `Refused`, `Unsupported`.
+- `I2cReadKind` (and the new `I2cOp`, `I2cWatchReport`, `I2cRecordKind`) get `Unknown(u32)` from
+  `derive_shrink_wrap` (SW-47): a variant from a newer version of this crate is read into it instead of failing.
+  Exhaustive matches need an `Unknown(_)` arm; a device answers it with `I2cError::Unsupported`. Same wire.
 - `I2cCapabilities` lists IO levels as `Volt`s, bounds `driver_name`, adds `ten_bit_addresses`, `pullups`,
   `bus_recovery`.
 

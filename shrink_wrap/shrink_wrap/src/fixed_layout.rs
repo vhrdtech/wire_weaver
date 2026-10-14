@@ -180,37 +180,45 @@ pub trait FixedLayout: Sized {
     fn write_c(prefix: &str, out: &mut dyn Write) -> core::fmt::Result;
 }
 
-/// A number at a byte offset, little endian: how the generated code of the fixed layout and of `head_tail`
-/// (and its views) reads and writes every multi-byte number (SW-53).
+/// A number in `N` bytes, little endian: how the generated code of the fixed layout and of `head_tail` (and its
+/// views and writers) reads and writes every multi-byte number (SW-53), at a constant offset found with [at] /
+/// [at_mut].
 ///
 /// On CPUs without unaligned loads (RISC-V, Cortex-M0 / ARMv6-M) a `u32` at an odd offset is four byte loads and
 /// three shifts and ors, some 28 bytes of code, at every field. There `ld` and `st` are functions of their own,
-/// one per type, and a field costs a call; elsewhere they are inlined into the one load or store the CPU has.
-/// `u8` and `i8` are always inlined.
+/// one per type, and a field costs a call with a pointer; elsewhere they are inlined into the one load or store
+/// the CPU has.
 pub trait Le: Sized {
-    /// The value at `b[off..]`; panics when `b` is too short (generated code passes arrays it checked).
-    fn ld(b: &[u8], off: usize) -> Self;
-    /// Stores the value at `b[off..]`; panics when `b` is too short.
-    fn st(self, b: &mut [u8], off: usize);
+    /// `[u8; size_of::<Self>()]`
+    type Bytes;
+    fn ld(b: &Self::Bytes) -> Self;
+    fn st(self, b: &mut Self::Bytes);
 }
 
 macro_rules! le {
     ($($ty:ty),*) => {$(
         impl Le for $ty {
+            type Bytes = [u8; size_of::<$ty>()];
+
             #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64",
                 all(target_arch = "arm", not(target_feature = "v7"))), inline(never))]
             #[cfg_attr(not(any(target_arch = "riscv32", target_arch = "riscv64",
                 all(target_arch = "arm", not(target_feature = "v7")))), inline)]
-            fn ld(b: &[u8], off: usize) -> Self {
-                <$ty>::from_le_bytes(take::<{ size_of::<$ty>() }>(b, off))
+            fn ld(b: &Self::Bytes) -> Self {
+                // black_box: under LTO the function is internal, and argument promotion would move its load (the
+                // code this function is for) into every caller, leaving a call that does nothing
+                #[cfg(any(target_arch = "riscv32", target_arch = "riscv64",
+                    all(target_arch = "arm", not(target_feature = "v7"))))]
+                let b = core::hint::black_box(b);
+                <$ty>::from_le_bytes(*b)
             }
 
             #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64",
                 all(target_arch = "arm", not(target_feature = "v7"))), inline(never))]
             #[cfg_attr(not(any(target_arch = "riscv32", target_arch = "riscv64",
                 all(target_arch = "arm", not(target_feature = "v7")))), inline)]
-            fn st(self, b: &mut [u8], off: usize) {
-                b[off..off + size_of::<$ty>()].copy_from_slice(&self.to_le_bytes());
+            fn st(self, b: &mut Self::Bytes) {
+                *b = self.to_le_bytes();
             }
         }
     )*};
@@ -218,26 +226,49 @@ macro_rules! le {
 le!(u16, u32, u64, i16, i32, i64, f32, f64);
 
 impl Le for u8 {
+    type Bytes = [u8; 1];
+
     #[inline(always)]
-    fn ld(b: &[u8], off: usize) -> Self {
-        b[off]
+    fn ld(b: &[u8; 1]) -> Self {
+        b[0]
     }
 
     #[inline(always)]
-    fn st(self, b: &mut [u8], off: usize) {
-        b[off] = self
+    fn st(self, b: &mut [u8; 1]) {
+        b[0] = self
     }
 }
 
 impl Le for i8 {
+    type Bytes = [u8; 1];
+
     #[inline(always)]
-    fn ld(b: &[u8], off: usize) -> Self {
-        b[off] as i8
+    fn ld(b: &[u8; 1]) -> Self {
+        b[0] as i8
     }
 
     #[inline(always)]
-    fn st(self, b: &mut [u8], off: usize) {
-        b[off] = self as u8
+    fn st(self, b: &mut [u8; 1]) {
+        b[0] = self as u8
+    }
+}
+
+/// The `N` bytes of `b` from `off`, for [Le]. Generated code calls it with a const offset on an array of known
+/// length: the bounds check folds away and what is left is a pointer.
+#[inline(always)]
+pub fn at<const N: usize>(b: &[u8], off: usize) -> &[u8; N] {
+    match b.get(off..).and_then(|b| b.first_chunk::<N>()) {
+        Some(b) => b,
+        None => panic!(),
+    }
+}
+
+/// [at], to write.
+#[inline(always)]
+pub fn at_mut<const N: usize>(b: &mut [u8], off: usize) -> &mut [u8; N] {
+    match b.get_mut(off..).and_then(|b| b.first_chunk_mut::<N>()) {
+        Some(b) => b,
+        None => panic!(),
     }
 }
 

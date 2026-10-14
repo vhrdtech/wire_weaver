@@ -306,9 +306,15 @@ fn head_tail_inner(
         !has_lifetime,
         &crate_path,
     );
+    let vis = match &item {
+        Item::Enum(e) => e.vis.clone(),
+        Item::Struct(st) => st.vis.clone(),
+        _ => syn::Visibility::Inherited,
+    };
     let names = head_tail::Names {
         ident: seed.ident.clone(),
         has_lifetime,
+        vis,
     };
     let mut ts = TokenStream::new();
     match &item {

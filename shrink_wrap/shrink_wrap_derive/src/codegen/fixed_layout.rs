@@ -709,9 +709,9 @@ pub(crate) fn read_simple(
         (Kind::Prim(prim), At::Byte(off)) => {
             let n = prim.bytes();
             let ty = prim.rust();
-            let _ = n;
             let le = cp.item(quote! { fixed_layout::Le });
-            quote! { let #local = <#ty as #le>::ld(b, #off); }
+            let at = cp.item(quote! { fixed_layout::at });
+            quote! { let #local = <#ty as #le>::ld(#at::<#n>(b, #off)); }
         }
         (Kind::Array(len, Prim::U8), At::Byte(off)) => {
             quote! { let #local = #take::<{ #len }>(b, #off); }
@@ -720,8 +720,9 @@ pub(crate) fn read_simple(
             let n = prim.bytes();
             let ty = prim.rust();
             let le = cp.item(quote! { fixed_layout::Le });
+            let at = cp.item(quote! { fixed_layout::at });
             quote! {
-                let #local = ::core::array::from_fn(|i| <#ty as #le>::ld(b, #off + i * #n));
+                let #local = ::core::array::from_fn(|i| <#ty as #le>::ld(#at::<#n>(b, #off + i * #n)));
             }
         }
         (Kind::Bits(n, bits), At::Bit(off)) => {
@@ -813,9 +814,11 @@ pub(crate) fn write_simple(
 ) -> Option<TokenStream> {
     let put_bits = cp.item(quote! { fixed_layout::put_bits });
     Some(match (kind, at) {
-        (Kind::Prim(_), At::Byte(off)) => {
+        (Kind::Prim(prim), At::Byte(off)) => {
+            let n = prim.bytes();
             let le = cp.item(quote! { fixed_layout::Le });
-            quote! { #le::st(*#acc, b, #off); }
+            let at_mut = cp.item(quote! { fixed_layout::at_mut });
+            quote! { #le::st(*#acc, #at_mut::<#n>(b, #off)); }
         }
         (Kind::Array(len, Prim::U8), At::Byte(off)) => {
             quote! { b[#off..#off + (#len)].copy_from_slice(&(*#acc)[..]); }
@@ -823,9 +826,10 @@ pub(crate) fn write_simple(
         (Kind::Array(_, prim), At::Byte(off)) => {
             let n = prim.bytes();
             let le = cp.item(quote! { fixed_layout::Le });
+            let at_mut = cp.item(quote! { fixed_layout::at_mut });
             quote! {
                 for (i, v) in (*#acc).iter().enumerate() {
-                    #le::st(*v, b, #off + i * #n);
+                    #le::st(*v, #at_mut::<#n>(b, #off + i * #n));
                 }
             }
         }
@@ -849,7 +853,8 @@ fn writes(layout: &Layout, access: Access, cp: &CratePath) -> Vec<TokenStream> {
     let mut out = Vec::new();
     for p in &layout.placed {
         if let Some((first, last)) = &p.bytes {
-            out.push(quote! { b[#first..=#last].fill(0); });
+            // not `..=`: a RangeInclusive index stays a call at opt-level z
+            out.push(quote! { b[#first..#last + 1].fill(0); });
         }
     }
     for p in &layout.placed {
@@ -1581,6 +1586,13 @@ fn fixed_head_tail(ident: &Ident, cp: &CratePath) -> TokenStream {
             #[inline]
             fn tail_len(&self) -> usize {
                 if #ident::SAME_LEN { 0 } else { self.fixed_len() }
+            }
+
+            type View = Self;
+
+            #[inline]
+            fn view_ht(head: &'i [u8], tail: &mut #tail<'i>) -> Result<Self, #error> {
+                <Self as #ht<'i>>::read_ht(head, tail)
             }
 
             fn write_c_ht(prefix: &str, out: &mut dyn ::core::fmt::Write) -> ::core::fmt::Result {

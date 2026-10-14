@@ -209,7 +209,10 @@ fn garbage_never_panics() {
         }
         // small tags and counts, so that some of it reads
         buf[0] %= 6;
+        let view = Request::view(&buf[..len]);
+        assert_eq!(view.is_ok(), Request::from_head_tail(&buf[..len]).is_ok());
         if let Ok(req) = Request::from_head_tail(&buf[..len]) {
+            assert_eq!(from_view(&view.unwrap()), req);
             ok += 1;
             if let Request::Waves { waves, .. } = &req {
                 let _ = waves_of(waves);
@@ -220,6 +223,78 @@ fn garbage_never_panics() {
         }
     }
     assert!(ok > 1000, "only {ok} of the random messages read");
+}
+
+/// A value back from its view (SW-52), through every accessor
+fn from_view<'i>(v: &RequestView<'i>) -> Request<'i> {
+    let slave = |s: &SlaveView| Slave {
+        on: s.on(),
+        scl: s.scl(),
+        a10: s.a10(),
+        ptr: s.ptr(),
+        filt: s.filt(),
+    };
+    match v {
+        RequestView::Hello => Request::Hello,
+        RequestView::Stop(v) => Request::Stop { mask: v.mask() },
+        RequestView::Waves(v) => Request::Waves {
+            waves: v.waves(),
+            defer: v.defer(),
+        },
+        RequestView::Utx(u) => Request::Utx(Utx {
+            ch: u.ch(),
+            glitch: *u.glitch(),
+            perr: u.perr(),
+            s: slave(u.s()),
+            name: u.name(),
+            defer: u.defer(),
+        }),
+        RequestView::Res(v) => Request::Res {
+            r: v.r(),
+            tag: v.tag(),
+        },
+    }
+}
+
+/// Writes a request through the writer of its variant (SW-52)
+fn write_direct(req: &Request, buf: &mut [u8]) -> Result<usize, ShrinkWrapError> {
+    match *req {
+        Request::Hello => Request::write_hello(buf),
+        Request::Stop { mask } => Request::write_stop(buf, mask),
+        Request::Waves { waves, defer } => Request::write_waves(buf, waves, defer),
+        Request::Utx(u) => Request::write_utx(buf, u),
+        Request::Res { r, tag } => Request::write_res(buf, r, tag),
+    }
+}
+
+#[test]
+fn views_and_writers() {
+    for req in requests() {
+        let mut buf = [0u8; 128];
+        let n = req.to_head_tail(&mut buf).unwrap();
+        let view = Request::view(&buf[..n]).unwrap();
+        assert_eq!(from_view(&view), req);
+        let mut direct = [0u8; 128];
+        assert_eq!(write_direct(&req, &mut direct), Ok(n), "{req:?}");
+        assert_eq!(&direct[..n], &buf[..n], "{req:?}");
+        for short in 0..n {
+            assert!(Request::view(&buf[..short]).is_err(), "{req:?} viewed in {short} bytes");
+            let mut small = vec![0u8; short];
+            assert!(write_direct(&req, &mut small).is_err(), "{req:?} written into {short} bytes");
+        }
+    }
+    // a struct of its own
+    let view = Utx::view(&UTX_BYTES).unwrap();
+    assert_eq!((view.ch(), view.name(), view.s().a10(), view.defer()), (7, "hi", Some(0x0304), true));
+    // bad UTF-8 is found when viewing, as when reading
+    let mut bytes = UTX_BYTES;
+    bytes[21] = 0xff;
+    assert!(Utx::view(&bytes).is_err());
+    // a variant behind a #[cfg]
+    let mut buf = [0u8; 32];
+    let n = Gated::write_kept(&mut buf, 7, List::new(&[WAVE])).unwrap();
+    let Ok(GatedView::Kept(k)) = Gated::view(&buf[..n]) else { panic!() };
+    assert_eq!((k.mask(), k.w().get(0).unwrap().unwrap()), (7, WAVE));
 }
 
 fn waves_of(waves: &List<Wave>) -> usize {

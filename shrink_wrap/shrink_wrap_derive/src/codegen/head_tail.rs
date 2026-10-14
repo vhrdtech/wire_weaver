@@ -11,7 +11,7 @@ use crate::ast::item_struct::Field;
 use crate::ast::repr::Repr;
 use crate::ast::ty::{ArrayLen, Type};
 use crate::codegen::fixed_layout::{
-    At, Item, Kind, Prim, c_field, classify as fixed_classify, flag_local, lit, lit_str, local,
+    At, Bits, Item, Kind, Prim, c_field, classify as fixed_classify, flag_local, lit, lit_str, local,
     read_simple, repr_bytes, snake, struct_items, unraw, variant_items, write_simple,
 };
 use crate::codegen::util::CratePath;
@@ -279,7 +279,7 @@ fn count_local(name: &str) -> Ident {
     format_ident!("__n_{}", name)
 }
 
-fn payload_read(p: &Payload, cp: &CratePath) -> TokenStream {
+fn payload_read(p: &Payload, view: bool, cp: &CratePath) -> TokenStream {
     let ht = cp.item(quote! { head_tail::HeadTail });
     let take = cp.item(quote! { fixed_layout::take });
     match p {
@@ -297,6 +297,10 @@ fn payload_read(p: &Payload, cp: &CratePath) -> TokenStream {
                 ::core::array::from_fn(|i| <#ty>::from_le_bytes(#take::<#n>(raw, i * #n)))
             }}
         }
+        Payload::Nested(ty_i, _) if view => quote! {{
+            let h = tail.take(<#ty_i as #ht<'i>>::HEAD_LEN)?;
+            <#ty_i as #ht<'i>>::view_ht(h, tail)?
+        }},
         Payload::Nested(ty_i, _) => quote! {{
             let h = tail.take(<#ty_i as #ht<'i>>::HEAD_LEN)?;
             <#ty_i as #ht<'i>>::read_ht(h, tail)?
@@ -344,9 +348,11 @@ fn payload_len(p: &Payload, v: &TokenStream, cp: &CratePath) -> TokenStream {
 }
 
 /// Reads of a head and its tail: `let` statements, one local per field, from `b` (the head, an array) and `tail`.
-fn reads(head: &Head, cp: &CratePath) -> Vec<TokenStream> {
+/// For a view (`view`), of the head only what the tail needs (counts, flags), and nested types as views.
+fn reads(head: &Head, view: bool, cp: &CratePath) -> Vec<TokenStream> {
     let ht = cp.item(quote! { head_tail::HeadTail });
     let le = cp.item(quote! { fixed_layout::Le });
+    let at = cp.item(quote! { fixed_layout::at });
     let list = cp.item(quote! { head_tail::List });
     let fixed = cp.item(quote! { fixed_layout::FixedLayout });
     let error = cp.error();
@@ -356,12 +362,14 @@ fn reads(head: &Head, cp: &CratePath) -> Vec<TokenStream> {
         let local = local(&p.item.name);
         match (&p.kind, &p.at) {
             (HKind::Head(kind), Some(at)) => {
-                out.push(read_simple(kind, at, &local, cp).expect("a head kind"));
+                if !view || matches!(kind, Kind::Flag(_)) {
+                    out.push(read_simple(kind, at, &local, cp).expect("a head kind"));
+                }
             }
             (HKind::List(_) | HKind::Str, _) => {
                 let off = byte_at(p);
                 let n = count_local(&p.item.name);
-                out.push(quote! { let #n = <u16 as #le>::ld(b, #off) as usize; });
+                out.push(quote! { let #n = <u16 as #le>::ld(#at::<2>(b, #off)) as usize; });
             }
             _ => {}
         }
@@ -380,16 +388,17 @@ fn reads(head: &Head, cp: &CratePath) -> Vec<TokenStream> {
             },
             HKind::Nested(ty_i, _) => {
                 let off = byte_at(p);
-                quote! { let #local = <#ty_i as #ht<'i>>::read_ht(&b[#off..], tail)?; }
+                let f = if view { quote! { view_ht } } else { quote! { read_ht } };
+                quote! { let #local = <#ty_i as #ht<'i>>::#f(&b[#off..], tail)?; }
             }
             HKind::Option(payload) => {
                 let flag = flag_local(&p.item.name);
-                let read = payload_read(payload, cp);
+                let read = payload_read(payload, view, cp);
                 quote! { let #local = if #flag { Some(#read) } else { None }; }
             }
             HKind::Result(ok, err) => {
                 let flag = flag_local(&p.item.name);
-                let (ok, err) = (payload_read(ok, cp), payload_read(err, cp));
+                let (ok, err) = (payload_read(ok, view, cp), payload_read(err, view, cp));
                 quote! { let #local = if #flag { Ok(#ok) } else { Err(#err) }; }
             }
         };
@@ -406,10 +415,9 @@ fn writes(head: &Head, access: Access, cp: &CratePath) -> Vec<TokenStream> {
     let put_bits = cp.item(quote! { fixed_layout::put_bits });
     let count = cp.item(quote! { head_tail::count });
     let mut out = Vec::new();
-    for p in &head.placed {
-        if let Some((first, last)) = &p.bytes {
-            out.push(quote! { b[#first..=#last].fill(0); });
-        }
+    // bit fields are or-ed into their bytes: clear the head once (`b` is the head, an array)
+    if head.placed.iter().any(|p| p.bytes.is_some()) {
+        out.push(quote! { b.fill(0); });
     }
     for p in &head.placed {
         let acc = access(&p.item.name);
@@ -748,6 +756,8 @@ fn c_walk(h: &str, m: &str, c_name: &str, head: &Head, cp: &CratePath) -> Vec<To
 pub(crate) struct Names {
     pub(crate) ident: Ident,
     pub(crate) has_lifetime: bool,
+    /// Of the type, for its view
+    pub(crate) vis: syn::Visibility,
 }
 
 impl Names {
@@ -776,6 +786,7 @@ fn inherent(names: &Names, cp: &CratePath) -> TokenStream {
     let ht = cp.item(quote! { head_tail::HeadTail });
     let read = cp.item(quote! { head_tail::read });
     let write = cp.item(quote! { head_tail::write });
+    let view_fn = cp.item(quote! { head_tail::view });
     let ty_i = names.ty_i();
     let ty_s = names.ty_s();
     quote! {
@@ -790,6 +801,13 @@ fn inherent(names: &Names, cp: &CratePath) -> TokenStream {
             #[inline]
             pub fn to_head_tail(&self, buf: &mut [u8]) -> Result<usize, #error> {
                 #write(self, buf)
+            }
+
+            /// Views the value at the start of `buf` (SW-52): checks the lengths and walks the tail, but reads a
+            /// field of the head only when its accessor is called. Same bytes as [Self::from_head_tail].
+            #[inline]
+            pub fn view(buf: &'i [u8]) -> Result<<Self as #ht<'i>>::View, #error> {
+                #view_fn::<Self>(buf)
             }
 
             /// Length of the value on the wire: the head and the tail.
@@ -817,8 +835,20 @@ pub(crate) fn ht_struct(
     let tail_wr = cp.item(quote! { head_tail::TailWr });
     let upper_ty = cp.item(quote! { fixed_layout::Upper });
 
-    let reads = reads(&head, cp);
+    let reads = reads(&head, false, cp);
     let construct = construct_fields(&head, true);
+    let view_ident = format_ident!("{}View", ident);
+    let view_def = view_struct(
+        &quote! {},
+        &view_ident,
+        &format!(" A [{ident}] on the wire, see [{ident}::view]."),
+        &names.vis,
+        &head,
+        quote! { { <#ty_s>::HEAD_LEN } },
+        cp,
+    );
+    let view_reads = self::reads(&head, true, cp);
+    let view_construct = view_construct(&head);
     let access = |name: &str| {
         let field = format_ident!("{}", name);
         quote! { (&self.#field) }
@@ -880,6 +910,8 @@ pub(crate) fn ht_struct(
             pub const HEAD_LEN: usize = #len;
         }
 
+        #view_def
+
         #[allow(clippy::identity_op)]
         impl<'i> #ht<'i> for #ty_i {
             const HEAD_LEN: usize = <#ty_s>::HEAD_LEN;
@@ -909,6 +941,18 @@ pub(crate) fn ht_struct(
             #[inline]
             fn tail_len(&self) -> usize {
                 #tail_len
+            }
+
+            type View = #view_ident<'i>;
+
+            #[inline]
+            fn view_ht(head: &'i [u8], tail: &mut #tail_ty<'i>) -> Result<Self::View, #error> {
+                let Some(b) = head.first_chunk::<{ <#ty_s>::HEAD_LEN }>() else {
+                    return Err(#error::OutOfBoundsReadRawSlice);
+                };
+                #unused
+                #(#view_reads)*
+                Ok(#view_ident { __head: b, #(#view_construct),* })
             }
 
             fn write_c_ht(prefix: &str, out: &mut dyn ::core::fmt::Write) -> ::core::fmt::Result {
@@ -952,6 +996,14 @@ pub(crate) fn ht_enum(
 
     let mut defs = Vec::new();
     let mut asserts = Vec::new();
+    let view_ident = format_ident!("{}View", ident);
+    let view_has_lt = variants.iter().any(|v| !matches!(v.fields, Fields::Unit));
+    let view_ty = if view_has_lt { quote! { #view_ident<'i> } } else { quote! { #view_ident } };
+    let vis = &names.vis;
+    let mut view_variants = Vec::new();
+    let mut view_structs = Vec::new();
+    let mut view_arms = Vec::new();
+    let mut writers = Vec::new();
     let mut read_arms = Vec::new();
     let mut write_arms = Vec::new();
     let mut len_arms = Vec::new();
@@ -1034,7 +1086,7 @@ pub(crate) fn ht_enum(
             Fields::Unnamed(_) => quote! { #ident::#v_ident ( #(#construct),* ) },
             Fields::Unit => quote! { #ident::#v_ident },
         };
-        let reads = reads(&head, cp);
+        let reads = reads(&head, false, cp);
         let writes = writes(&head, &access, cp);
         let len = tail_len(&head, &access, cp);
         read_arms.push(quote! {
@@ -1058,6 +1110,47 @@ pub(crate) fn ht_enum(
             }
         });
         len_arms.push(quote! { #cfg #pattern => <#ty_s>::#head_name + #len, });
+
+        // the view of the variant (SW-52): nothing, the view of its one nested field, or a view struct
+        let view_reads = self::reads(&head, true, cp);
+        let single_nested = match (&v.fields, head.placed.as_slice()) {
+            (Fields::Unnamed(_), [p]) => match &p.kind {
+                HKind::Nested(ty_i, _) => Some((ty_i.clone(), local(&p.item.name))),
+                _ => None,
+            },
+            _ => None,
+        };
+        let construct_view = if matches!(v.fields, Fields::Unit) {
+            view_variants.push(quote! { #cfg #v_ident });
+            quote! { #view_ident::#v_ident }
+        } else if let Some((ty_n, l)) = single_nested {
+            view_variants.push(quote! { #cfg #v_ident(<#ty_n as #ht<'i>>::View) });
+            quote! { #view_ident::#v_ident(#l) }
+        } else {
+            let vs_ident = format_ident!("{}{}View", ident, v_ident);
+            view_structs.push(view_struct(
+                &cfg,
+                &vs_ident,
+                &format!(" The variant `{v_ident}` of a [{ident}] on the wire, see [{ident}::view]."),
+                vis,
+                &head,
+                quote! { { <#ty_s>::#head_name } },
+                cp,
+            ));
+            view_variants.push(quote! { #cfg #v_ident(#vs_ident<'i>) });
+            let fields = view_construct(&head);
+            quote! { #view_ident::#v_ident(#vs_ident { __head: b, #(#fields),* }) }
+        };
+        view_arms.push(quote! {
+            #cfg
+            #disc => {
+                let b = tail.take_array::<{ <#ty_s>::#head_name }>()?;
+                let _ = &b;
+                #(#view_reads)*
+                Ok(#construct_view)
+            }
+        });
+        writers.push(writer(names, v, &vs, &head, tag_len, cp));
 
         let vc = format!("{c_name}_{vs}");
         let mut v_heads = Vec::new();
@@ -1113,8 +1206,18 @@ pub(crate) fn ht_enum(
     let c_close = cw("    default:\n        return -1;\n    }}\n}}", &[]);
     let c_name_lit = lit_str(&c_name);
 
+    let view_doc = lit_str(&format!(" A [{ident}] on the wire: the view of its variant, see [{ident}::view]."));
+    let view_lt = if view_has_lt { quote! { <'i> } } else { quote! {} };
+
     Ok(quote! {
         #(#asserts)*
+
+        #[doc = #view_doc]
+        #vis enum #view_ident #view_lt {
+            #(#view_variants),*
+        }
+        #(#view_structs)*
+        #(#writers)*
 
         impl #ty_s {
             /// Bytes of the discriminant: the head.
@@ -1159,6 +1262,19 @@ pub(crate) fn ht_enum(
                 }
             }
 
+            type View = #view_ty;
+
+            #[inline]
+            fn view_ht(head: &'i [u8], tail: &mut #tail_ty<'i>) -> Result<Self::View, #error> {
+                let Some(tag) = head.first_chunk::<#tag_len>() else {
+                    return Err(#error::OutOfBoundsReadRawSlice);
+                };
+                match <#tag_ty>::from_le_bytes(*tag) {
+                    #(#view_arms)*
+                    _ => Err(#error::EnumFutureVersionOrMalformedData),
+                }
+            }
+
             fn write_c_ht(prefix: &str, out: &mut dyn ::core::fmt::Write) -> ::core::fmt::Result {
                 let up = #upper_ty(prefix);
                 #c_title
@@ -1180,4 +1296,209 @@ pub(crate) fn ht_enum(
 
 fn c_members_of(m: &str, head: &Head, cp: &CratePath) -> Vec<TokenStream> {
     c_members(m, head, cp)
+}
+
+/// Rust type of a payload: as declared, or as a view holds it (`view`).
+fn payload_ty(p: &Payload, view: bool, cp: &CratePath) -> TokenStream {
+    let ht = cp.item(quote! { head_tail::HeadTail });
+    match p {
+        Payload::Prim(prim) => prim.rust(),
+        Payload::Array(len, prim) => {
+            let t = prim.rust();
+            quote! { [#t; #len] }
+        }
+        Payload::Nested(ty_i, _) if view => quote! { <#ty_i as #ht<'i>>::View },
+        Payload::Nested(ty_i, _) => ty_i.clone(),
+    }
+}
+
+/// Rust type of a field: as declared, or as a view holds it (`view`); `None` for a flag.
+fn field_ty(kind: &HKind, view: bool, cp: &CratePath) -> Option<TokenStream> {
+    let ht = cp.item(quote! { head_tail::HeadTail });
+    let list = cp.item(quote! { head_tail::List });
+    Some(match kind {
+        HKind::Head(Kind::Prim(p)) => p.rust(),
+        HKind::Head(Kind::Array(len, p)) => {
+            let t = p.rust();
+            quote! { [#t; #len] }
+        }
+        HKind::Head(Kind::Bits(_, bits)) => match bits {
+            Bits::Bool => quote! { bool },
+            Bits::Nibble => cp.item(quote! { Nibble }),
+            Bits::Unsigned(t) | Bits::Signed(t) => quote! { #t },
+        },
+        HKind::Head(_) => return None,
+        HKind::List(item) => quote! { #list<'i, #item> },
+        HKind::Str => quote! { &'i str },
+        HKind::Nested(ty_i, _) if view => quote! { <#ty_i as #ht<'i>>::View },
+        HKind::Nested(ty_i, _) => ty_i.clone(),
+        HKind::Option(p) => {
+            let t = payload_ty(p, view, cp);
+            quote! { Option<#t> }
+        }
+        HKind::Result(ok, err) => {
+            let (ok, err) = (payload_ty(ok, view, cp), payload_ty(err, view, cp));
+            quote! { Result<#ok, #err> }
+        }
+    })
+}
+
+/// A view holds this field as a view of a nested type (handed out by reference), not as a `Copy` value.
+fn holds_view(kind: &HKind) -> bool {
+    let nested = |p: &Payload| matches!(p, Payload::Nested(..));
+    match kind {
+        HKind::Nested(..) => true,
+        HKind::Option(p) => nested(p),
+        HKind::Result(ok, err) => nested(ok) || nested(err),
+        _ => false,
+    }
+}
+
+/// The fields of a view struct, from the locals of `reads(.., true, ..)`: everything but the head's numbers.
+fn view_construct(head: &Head) -> Vec<TokenStream> {
+    head.placed
+        .iter()
+        .filter(|p| !matches!(p.kind, HKind::Head(_)))
+        .filter_map(|p| {
+            let ident = p.item.ident.as_ref()?;
+            let local = local(&p.item.name);
+            Some(quote! { #ident: #local })
+        })
+        .collect()
+}
+
+/// The view of a head (a struct, or an enum variant with fields, SW-52): a reference to the head, whose numbers
+/// and bit fields its accessors read at their offsets (the code of `read_ht`, one field at a time), and the parts
+/// of the tail, found when the view was made.
+fn view_struct(
+    cfg: &TokenStream,
+    view_ident: &Ident,
+    doc: &str,
+    vis: &syn::Visibility,
+    head: &Head,
+    head_len: TokenStream,
+    cp: &CratePath,
+) -> TokenStream {
+    let doc = lit_str(doc);
+    let mut fields = Vec::new();
+    let mut accessors = Vec::new();
+    for p in &head.placed {
+        let Some(ident) = &p.item.ident else { continue };
+        let Some(ty) = field_ty(&p.kind, true, cp) else { continue };
+        let local = local(&p.item.name);
+        let name = &p.item.name;
+        match (&p.kind, &p.at) {
+            (HKind::Head(kind), Some(at)) => {
+                let read = read_simple(kind, at, &local, cp).expect("a head kind");
+                let doc = lit_str(&format!(" `{name}`, read from the head."));
+                accessors.push(quote! {
+                    #[doc = #doc]
+                    #[inline]
+                    pub fn #ident(&self) -> #ty {
+                        let b = self.__head;
+                        #read
+                        #local
+                    }
+                });
+            }
+            _ if holds_view(&p.kind) => {
+                let doc = lit_str(&format!(" `{name}`."));
+                fields.push(quote! { #ident: #ty });
+                accessors.push(quote! {
+                    #[doc = #doc]
+                    #[inline]
+                    pub fn #ident(&self) -> &#ty {
+                        &self.#ident
+                    }
+                });
+            }
+            _ => {
+                let doc = lit_str(&format!(" `{name}`."));
+                fields.push(quote! { #ident: #ty });
+                accessors.push(quote! {
+                    #[doc = #doc]
+                    #[inline]
+                    pub fn #ident(&self) -> #ty {
+                        self.#ident
+                    }
+                });
+            }
+        }
+    }
+    quote! {
+        #cfg
+        #[doc = #doc]
+        #vis struct #view_ident<'i> {
+            __head: &'i [u8; #head_len],
+            #(#fields),*
+        }
+
+        #cfg
+        #[allow(clippy::identity_op)]
+        impl<'i> #view_ident<'i> {
+            #(#accessors)*
+        }
+    }
+}
+
+/// `Enum::write_<variant>(buf, fields..)` (SW-52): writes the variant from its fields into `buf` without making a
+/// value of the enum first; the code of `write_ht` for that variant.
+fn writer(names: &Names, v: &Variant, vs: &str, head: &Head, tag_len: usize, cp: &CratePath) -> TokenStream {
+    let error = cp.error();
+    let tail_wr = cp.item(quote! { head_tail::TailWr });
+    let ty_i = names.ty_i();
+    let ty_s = names.ty_s();
+    let ident = &names.ident;
+    let v_ident = &v.ident;
+    let cfg = v.cfg_attrs();
+    let vu = vs.to_uppercase();
+    let tag_name = format_ident!("{}_TAG", vu);
+    let head_name = format_ident!("{}_HEAD_LEN", vu);
+    let mut params = Vec::new();
+    let mut moves = Vec::new();
+    for p in &head.placed {
+        let Some(param) = &p.item.ident else { continue };
+        let Some(ty) = field_ty(&p.kind, false, cp) else { continue };
+        let w = format_ident!("__w_{}", p.item.name);
+        params.push(quote! { #param: #ty });
+        moves.push(quote! { let #w = #param; });
+    }
+    let access = |name: &str| {
+        let w = format_ident!("__w_{}", name);
+        quote! { (&#w) }
+    };
+    let writes = writes(head, &access, cp);
+    // the buffer's name must not be a field's
+    let buf = if head.placed.iter().any(|p| p.item.ident.as_ref().is_some_and(|i| i == "buf")) {
+        format_ident!("__buf")
+    } else {
+        format_ident!("buf")
+    };
+    let name = format_ident!("write_{}", vs);
+    let doc = lit_str(&format!(
+        " Writes `{ident}::{v_ident}` with these fields at the start of `{buf}`, returns its length: the same bytes as \
+         [{ident}::to_head_tail], without making the value first."
+    ));
+    quote! {
+        #cfg
+        impl<'i> #ty_i {
+            #[doc = #doc]
+            #[allow(clippy::too_many_arguments, clippy::identity_op)]
+            pub fn #name(#buf: &mut [u8], #(#params),*) -> Result<usize, #error> {
+                #(#moves)*
+                let Some((tag, rest)) = #buf.split_first_chunk_mut::<#tag_len>() else {
+                    return Err(#error::OutOfBoundsWriteRawSlice);
+                };
+                *tag = <#ty_s>::#tag_name.to_le_bytes();
+                let mut tail_wr = #tail_wr::new(rest);
+                let tail = &mut tail_wr;
+                let Some(b) = tail.put(<#ty_s>::#head_name)?.first_chunk_mut::<{ <#ty_s>::#head_name }>() else {
+                    return Err(#error::OutOfBoundsWriteRawSlice);
+                };
+                let _ = &b;
+                #(#writes)*
+                Ok(#tag_len + tail.pos())
+            }
+        }
+    }
 }

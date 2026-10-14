@@ -131,6 +131,15 @@ pub trait HeadTail<'i>: Sized {
     /// Bytes this value takes in the tail.
     fn tail_len(&self) -> usize;
 
+    /// What [view] gives (SW-52): for a `head_tail` struct `X` the `XView<'i>` the derive generates, a reference
+    /// to the head (fields read at their offsets when asked for) and the tail parts, walked once; for a
+    /// `head_tail` enum the `XView` enum of the variants' views; for a fixed-layout type the value itself.
+    type View;
+
+    /// Views the value from its head (at least [HEAD_LEN](Self::HEAD_LEN) bytes) and the tail cursor: checks the
+    /// lengths and walks the tail, reads no field of the head but the counts and flags it needs for that.
+    fn view_ht(head: &'i [u8], tail: &mut Tail<'i>) -> Result<Self::View, Error>;
+
     /// The C defines, readers and tail walker of this type, names starting with `prefix`. Needs
     /// [C_PRELUDE](crate::fixed_layout::C_PRELUDE) and [C_TAIL_PRELUDE] in front of it, and the C text of the
     /// types it holds.
@@ -144,6 +153,15 @@ pub fn read<'i, T: HeadTail<'i>>(buf: &'i [u8]) -> Result<T, Error> {
         return Err(Error::OutOfBoundsReadRawSlice);
     };
     T::read_ht(head, &mut Tail::new(rest))
+}
+
+/// Views a value that starts at `buf[0]`: see [HeadTail::View].
+#[inline]
+pub fn view<'i, T: HeadTail<'i>>(buf: &'i [u8]) -> Result<T::View, Error> {
+    let Some((head, rest)) = buf.split_at_checked(T::HEAD_LEN) else {
+        return Err(Error::OutOfBoundsReadRawSlice);
+    };
+    T::view_ht(head, &mut Tail::new(rest))
 }
 
 /// Writes `v` at the start of `buf`, returns its length.

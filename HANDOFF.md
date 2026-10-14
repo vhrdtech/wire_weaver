@@ -11,13 +11,13 @@ Design of errors and the trait surface for all APIs (Roman's IO family review, 1
   docs (derive.md, rules.md), CHANGELOGs; FEATURES SW-47 done, INT-8 idea. just check / test / lint pass.
 
 ## Next
-- All five pieces are in, rebased onto origin/master f6292ff as plain commits (no merges: tpm land rebases): SW-47, CLT-24
+- All five pieces are in, rebased onto master 3539cdf (DOC-6) as plain commits (no merges: tpm land rebases): SW-47, CLT-24
   (+ acbb7068 port of master's CLT-10 code), DER-12, API-16, STD-16. just check + 702 tests pass; just lint stopped at
   cargo doc on a full /mnt/data (reported to parent).
-- Open: CommonError's Display is hand-written (drops the trailing period, leaves out empty strings); DER-12 keeps
-  the period. Pick one convention (ww_self::doc_message strips it too) and swap CommonError to `display`.
-- Next: spawn API-32 (P2401#14oct-1805e) from here once the disk has room; then the migration (1805g) covering every
-  IO crate with ww-io-traits.
+- Display convention settled: messages without the trailing period everywhere; CommonError stays hand-written
+  (empty parts left out).
+- API-32 running in child ww-error-lists (from this branch on master 3539cdf). Then the migration (1805g) covering
+  every IO crate with ww-io-traits.
 - Rebase with plain `git rebase origin/master` before ready (local master lags origin).
 
 ## Gotchas

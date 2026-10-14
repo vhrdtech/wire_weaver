@@ -11,7 +11,6 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 wire_weaver.workspace = true
 
 
-
 #defmt = { version = "1.0", optional = true }
 
 #[features]

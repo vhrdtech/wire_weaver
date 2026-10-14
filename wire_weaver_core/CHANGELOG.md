@@ -2,6 +2,13 @@
 
 ### 🐛 Fixes
 
+- Stream items and property notifications (`stream_data_ser().<stream>()` and the `_send` / `_send_blocking`
+  variants) of a type that doesn't end on a byte boundary or has sizes of its own (a `bool` or nibble enum at the end,
+  a `&str` or `RefVec` inside) are written on their own (`to_ww_bytes`) between the event header and the event's
+  sizes. Written in place, the item's last bits shared a byte with the event's path length and were lost, and its
+  sizes mixed with the event's, so the host could not read it (e.g., `ww_dfu::PlanAck`). Byte-aligned items without
+  sizes of their own are sent exactly as before; devices built with older code send the broken form for the others
+  and need a rebuild.
 - Fixed-size arrays in method arguments and return values are generated as `[T; N]` (they were `[N; T]`, which
   didn't compile), in server and client code and in `ww api scaffold` output.
 - A method returning a borrowed type inside another type (`Result<RefVec<'i, T>, E>`) keeps its lifetime in the

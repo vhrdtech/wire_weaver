@@ -83,7 +83,7 @@ pub(crate) fn stream_ser_methods_recursive(
         };
         let send_lifetimes = maybe_quote(ty.is_lifetime(bundle).unwrap(), quote! { <'i> });
 
-        let (value_ty, value_ser) = if kind == "stream" && ty.is_byte_slice(bundle).unwrap() {
+        let (value_ty, body) = if kind == "stream" && ty.is_byte_slice(bundle).unwrap() {
             let check_max_len = ty.max_len(bundle).unwrap().map(|max_len| {
                 let max_len = max_len as usize;
                 quote! {
@@ -96,16 +96,57 @@ pub(crate) fn stream_ser_methods_recursive(
                 quote! { [u8] },
                 quote! {
                     #check_max_len
+                    let mut wr = BufWriter::new(scratch);
+                    let event_builder = EventBuilder::new(0, &mut wr)?;
+                    let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+
+                    #let_index_chain
+                    let path = RefVec::Slice { slice: &index_chain };
+                    wr.write(&path)?;
                     wr.write(&TailBytes(value))?;
+
+                    event_kind_builder.finish_with_kind(EventKindDiscriminants::StreamData, &mut wr);
+                    event_builder.finish(true, &mut wr);
+                    wr.finish_and_take()
                 },
             )
         } else {
             let ty_def = ty_def(bundle, ty, !no_alloc, TyPos::Arg).unwrap();
-            let value_ser = quote! {
-                value.ser_shrink_wrap(&mut wr)?;
-            };
+            // The host reads the value from the event's tail bytes, as `from_ww_bytes` would: so it is written on its
+            // own with `to_ww_bytes`, byte aligned and with its own sizes, between the event's header and the event's
+            // sizes (the path length). Written in place, a value ending mid-byte lost its last bits, and its sizes
+            // mixed with the event's.
+            (
+                quote! { #ty_def },
+                quote! {
+                    let mut header_buf = [0u8; 64];
+                    let mut wr = BufWriter::new(&mut header_buf);
+                    let event_builder = EventBuilder::new(0, &mut wr)?;
+                    let event_kind_builder = EventKindBuilder::new(&mut wr)?;
 
-            (quote! { #ty_def }, value_ser)
+                    #let_index_chain
+                    let path = RefVec::Slice { slice: &index_chain };
+                    wr.write(&path)?;
+
+                    event_kind_builder.finish_with_kind(EventKindDiscriminants::StreamData, &mut wr);
+                    event_builder.finish(true, &mut wr);
+                    wr.align_byte();
+                    let head_len = wr.pos().0;
+                    let header = wr.finish_and_take()?;
+                    if head_len > scratch.len() {
+                        return Err(ShrinkWrapError::OutOfBoundsWriteRawSlice);
+                    }
+                    let value_len = value.to_ww_bytes(&mut scratch[head_len..])?.len();
+                    let sizes = &header[head_len..];
+                    let end = head_len + value_len + sizes.len();
+                    if end > scratch.len() {
+                        return Err(ShrinkWrapError::OutOfBoundsWriteRawSlice);
+                    }
+                    scratch[..head_len].copy_from_slice(&header[..head_len]);
+                    scratch[head_len + value_len..end].copy_from_slice(sizes);
+                    Ok(&scratch[..end])
+                },
+            )
         };
         let ident = Ident::new(item.ident.as_str(), Span::call_site());
         let send = Ident::new(format!("{}_send", item.ident).as_str(), Span::call_site());
@@ -128,19 +169,7 @@ pub(crate) fn stream_ser_methods_recursive(
                 value: & #value_ty,
                 scratch: &'a mut [u8],
             ) -> Result<&'a [u8], ShrinkWrapError> {
-                let mut wr = BufWriter::new(scratch);
-                let event_builder = EventBuilder::new(0, &mut wr)?;
-                let event_kind_builder = EventKindBuilder::new(&mut wr)?;
-
-                #let_index_chain
-                let path = RefVec::Slice { slice: &index_chain };
-                wr.write(&path)?;
-
-                #value_ser
-
-                event_kind_builder.finish_with_kind(EventKindDiscriminants::StreamData, &mut wr);
-                event_builder.finish(true, &mut wr);
-                wr.finish_and_take()
+                #body
             }
 
             #[doc = #send_doc]

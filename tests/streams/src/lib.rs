@@ -117,6 +117,14 @@ mod tests {
                 Ready(())
             }
 
+            fn sideband_odd_stream(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                sideband: StreamSideband,
+            ) -> Option<StreamSideband> {
+                self.record("odd_stream", sideband)
+            }
+
             fn sideband_user_stream(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -430,6 +438,23 @@ mod tests {
         }
         assert_eq!(stream.recv().await.unwrap(), Point { x: -1, y: 2 });
         assert_eq!(stream.recv().await.unwrap(), Point { x: 300, y: -400 });
+    }
+
+    /// Regression: an item ending mid-byte lost its last bits, and its own sizes mixed with the event's.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn odd_sized_stream() {
+        let (device, _data) = start("streams/odd_sized");
+        let client = connect(&device).await;
+        let mut stream = client.odd_stream().await.unwrap();
+        let mut scratch = [0u8; 64];
+        for (n, name, flag) in [(1, "a", true), (2, "", false), (3, "three", true)] {
+            let odd = streams_api::Odd { n, name, flag };
+            device.send(stream_data_ser().odd_stream(&odd, &mut scratch).unwrap());
+        }
+        for (n, name, flag) in [(1, "a", true), (2, "", false), (3, "three", true)] {
+            let odd = stream.recv().await.unwrap();
+            assert_eq!((odd.n, odd.name.as_str(), odd.flag), (n, name, flag));
+        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

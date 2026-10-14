@@ -259,6 +259,7 @@ pub enum EventKind<'i> {
 )]
 pub enum StreamSideband {
     /// Sent if a stream was successfully opened
+    // TODO(API-31): goes away once every stream is opened with RequestKind::StreamOpen
     Open,
     /// Sent if a stream was successfully closed
     Close,
@@ -270,6 +271,8 @@ pub enum StreamSideband {
     User(UNib32),
     /// Credit sinks, device to host: `have` bytes of items were accepted in order since `Open`, the host may send up
     /// to byte position `have + grant` (whole items only). Cumulative, a lost one is replaced by the next one.
+    // TODO(API-34): Credit, CreditQuery and Resend go, credit sinks move to Ack / Query / ResendFrom (no shim, the
+    // wire may break before rePort rev B), ResendFrom may take the name Resend then
     Credit { have: UNib32, grant: UNib32 },
     /// Credit sinks, host to device: the host has sent up to byte position `sent`, the device answers with
     /// [StreamSideband::Credit] or [StreamSideband::Resend].

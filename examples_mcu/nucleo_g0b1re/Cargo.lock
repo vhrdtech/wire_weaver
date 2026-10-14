@@ -1928,6 +1928,7 @@ version = "0.2.0"
 dependencies = [
  "wire_weaver",
  "ww_global",
+ "ww_si",
 ]
 
 [[package]]
@@ -1994,6 +1995,14 @@ dependencies = [
  "shrink_wrap",
  "ww_numeric",
  "ww_version",
+]
+
+[[package]]
+name = "ww_si"
+version = "0.1.0"
+dependencies = [
+ "shrink_wrap",
+ "ww_numeric",
 ]
 
 [[package]]

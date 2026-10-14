@@ -938,6 +938,7 @@ version = "0.2.0"
 dependencies = [
  "wire_weaver",
  "ww_global",
+ "ww_si",
 ]
 
 [[package]]

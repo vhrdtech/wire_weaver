@@ -236,7 +236,8 @@ pub enum ApiItemKind<'i> {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
     derive(Clone, Copy, Debug, PartialEq, Eq),
-    ww_repr = nib
+    ww_repr = nib,
+    no_future_version
 )]
 pub enum Delivery {
     /// Latest value wins: no positions, nothing counted (events are `StreamData`).

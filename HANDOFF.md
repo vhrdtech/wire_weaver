@@ -1,31 +1,52 @@
 # Handoff: ww-errors-plan
 
-Design of errors and the trait surface for all APIs (Roman's IO family review, 14 Oct 2026).
+Errors and the trait surface for all APIs (Roman's IO family review, 14 Oct 2026). This session is the integrator:
+children build pieces on branches from here, this branch collects them as plain commits (never merge commits:
+`tpm land` rebases; take children's feature commits with `git cherry-pick`, skip their "drop handoff" commits).
 
-## Done
-- `docs/api/errors.md`: design for review (per-method errors, common errors, SW-47, optional items), plan table,
-  decisions for Roman. Downstream claims checked in a throwaway prototype (plain Rust, anyhow + thiserror).
-- FEATURES: SW-47 planned, API-16 rewritten as optional items, new CLT-24, STD-16, API-32, API-33 (idea), DER-12.
+## Done (on this branch, rebased onto master 3539cdf)
 
-- SW-47 built (derive adds `Unknown(u32)` to Unsized enums; `no_future_version`, `future_version = Name`), tests,
-  docs (derive.md, rules.md), CHANGELOGs; FEATURES SW-47 done, INT-8 idea. just check / test / lint pass.
+- Design `docs/api/errors.md`, approved by Roman 14 Oct (all recommendations). Condition: `RpcResult` /
+  `GetResult` / `SetResult` keep their semantics; `CallError` keeps `Unimplemented` visible.
+- SW-47 future-version-default: derive adds `Unknown(u32)` to Unsized enums; `no_future_version`,
+  `future_version = Name`. ww_self / NumericAnyType / MultiIndex opt out (INT-8 idea).
+- CLT-24 flat-call-errors: `CallError<E> { Device(E), Unimplemented { resource }, Client(Error) }`, incl. the port of
+  master's CLT-10 code (`ww dfu reboot`, tests/cross_version).
+- DER-12 display directive; convention: messages drop the doc line's trailing period (also `ww_self::doc_message`,
+  CommonError). CommonError's Display stays hand-written (leaves out empty string parts).
+- API-16 optional items (`#[optional]`, `omit`, `omit_if`, Unimplemented fallback, omitted lists in ww_self);
+  tests/traits checks an omitted fallible method gives `CallError::Unimplemented`.
+- STD-16 common errors: `ww_error::CommonError`, `#[common]`, `HasCommon`, prelude re-export, Python `.common`.
+- `.config/nextest.toml`: ref_vec_skip random-buffer test gets 15 s.
+- Last full run (after the 3539cdf rebase): just check, just lint pass; nextest 713/714 with only the ref_vec_skip
+  timeout, fixed since. Re-run after the next rebase.
+
+## In flight
+
+- Child `ww-error-lists` (opus, task P2401#14oct-1805e): API-32 `#[errors(..)]` per-method lists, started from this
+  branch before the last 3 commits (display convention, handoff). Told: strip `#[errors]` in DOC-6's rustdoc trait,
+  use the no-trailing-period convention, keep Rpc/Get/SetResult, wire breaks are fine (no shims). When it says ready:
+  cherry-pick its feature commits here, run just check / test / lint.
 
 ## Next
-- All five pieces are in, rebased onto master 3539cdf (DOC-6) as plain commits (no merges: tpm land rebases): SW-47, CLT-24
-  (+ acbb7068 port of master's CLT-10 code), DER-12, API-16, STD-16. just check + 702 tests pass; just lint stopped at
-  cargo doc on a full /mnt/data (reported to parent).
-- Display convention settled: messages without the trailing period everywhere; CommonError stays hand-written
-  (empty parts left out).
-- API-32 running in child ww-error-lists (from this branch on master 3539cdf). Then the migration (1805g) covering
-  every IO crate with ww-io-traits.
-- Rebase with plain `git rebase origin/master` before ready (local master lags origin).
+
+1. After API-32: `git rebase master` (master is at 37eb26d or later; it carries docs/api/errors.md taken from this
+   branch, expect a conflict there: keep this branch's version plus anything new from master).
+2. Spawn the stdlib migration (task P2401#14oct-1805g, sonnet) from here, coordinated with session ww-io-traits:
+   every IO crate that exists by then (ww_gpio, ww_uart, ww_i2c, ww_spi, ww_adc, ww_pwm, ww_onewire, ww_timebase;
+   later ww_logic_analyzer, ww_signal_generator) plus ww_dfu, ww_can_bus: `#[common] Common(CommonError)` first,
+   `#[errors(..)]` from their `# Errors` rustdoc sections, `#[optional]` where methods answer Unsupported today,
+   `no_future_version` on complete-by-nature enums (ww_uart StopBits, Parity). Tell ww-io-traits when it starts.
+3. When all is in and green: `git rm HANDOFF.md`, commit, `tpm work ready --note "..."`.
 
 ## Gotchas
+
 - Roman's policy (14 Oct): until devices go to testers (end of 2026) wire breaks are fine, no shims or migration
-  paths for undeployed formats (usb_io_fw docs/api_design.md Q13). The migration task just breaks.
-- ww_i2c's `I2cReadKind` gets `Unknown` too; its CHANGELOG lives on the ww-io-traits branch, so no entry here.
-- Stdlib enums complete by nature (`ww_uart` `StopBits`, `Parity`) got `Unknown` as well: the migration task should
-  mark them `no_future_version`.
-- Narrow per-method types: `?` from `CallError<Narrow>` into a thiserror `#[from] CallError<Wide>` doesn't compile;
-  a generic `impl<E> From<CallError<E>> for X where Wide: From<E>` does.
-- ww-io-traits keeps its error enums plain until this design lands (message of 14 Oct).
+  paths for undeployed formats (usb_io_fw docs/api_design.md Q13).
+- /mnt/data filled up twice from parallel builds; check `df -h /mnt/data` before heavy runs. Children whose work is
+  integrated may be closed with `tpm work done NAME --force` (user allowed it).
+- Local `master` sometimes lags `origin/master`; rebase onto whichever is newer, plainly (no -i/--onto/--exec).
+- rerere is on: repeated conflicts (dynamic.rs, changelogs) resolve themselves; check for leftover markers with
+  `rg -l "^(<<<<<<<|>>>>>>>) "`.
+- Narrow per-method error types: explored and not recommended (API-33 idea), reasons in docs/api/errors.md.
+- ww_i2c's `I2cReadKind` gets `Unknown` too; its CHANGELOG lives on the ww-io-traits side.

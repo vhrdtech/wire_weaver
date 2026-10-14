@@ -1,5 +1,18 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- Fixed-size arrays in method arguments and return values are generated as `[T; N]` (they were `[N; T]`, which
+  didn't compile), in server and client code and in `ww api scaffold` output.
+- A method returning a borrowed type inside another type (`Result<RefVec<'i, T>, E>`) keeps its lifetime in the
+  generated server (`RefVec<'_, T>`; it was `RefVec<, T>`).
+- `sink!` of a borrowed struct (`sink!(plan: PlanSegment<'i>)`) generates a valid turbofish in the server's write
+  handler (`PlanSegment::<'_>::des_shrink_wrap`).
+- The std client's argument struct of a method that takes a `Vec` or `String` is named `<Method>ArgsOwned`, as
+  `derive_shrink_wrap` requires for owned types; such methods failed to compile.
+- Generated code names `wire_weaver::shrink_wrap::RefVec` (and `RefBox`, `Nibble`, `UNib32`) by their full path, so a
+  crate that depends only on `wire_weaver` compiles.
+
 ### ⚠️ Breaking
 
 - Every generated server handler takes `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` as the first argument

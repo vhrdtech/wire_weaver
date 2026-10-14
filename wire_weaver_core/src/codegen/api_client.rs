@@ -599,12 +599,8 @@ fn ser_args(
     args: &[ArgumentOwned],
     no_alloc: bool,
 ) -> (TokenStream, TokenStream, TokenStream) {
-    let args_struct_ident = Ident::new(
-        format!("{}_args", method_ident)
-            .to_case(Case::Pascal)
-            .as_str(),
-        method_ident.span(),
-    );
+    let args_struct_ident =
+        crate::codegen::api_common::args_struct_ident(&method_ident.to_string(), no_alloc);
     if args.is_empty() {
         if no_alloc {
             (

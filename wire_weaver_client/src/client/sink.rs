@@ -140,6 +140,19 @@ impl<T: SerializeShrinkWrap> Sink<T> {
     }
 }
 
+/// Sinks of owned types that hold a `Vec` or a `String` (`FooOwned`): those implement `SerializeShrinkWrapOwned`
+/// rather than `SerializeShrinkWrap`, so they are sent with [Sink::send_owned].
+impl<T: wire_weaver::shrink_wrap::SerializeShrinkWrapOwned> Sink<T> {
+    /// Serialize and send the provided owned value to a remote device sink
+    pub async fn send_owned(&mut self, value: T) -> Result<(), StreamError> {
+        let value_bytes = value.to_ww_bytes_owned()?;
+        self.transport_cmd_tx
+            .send_write_request_forget(self.path_kind.clone(), value_bytes)
+            .await?;
+        Ok(())
+    }
+}
+
 impl Sink<TailBytesOwned> {
     pub async fn send_bytes(&mut self, bytes: &[u8]) -> Result<(), StreamError> {
         self.transport_cmd_tx

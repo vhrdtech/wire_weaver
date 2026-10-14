@@ -63,7 +63,7 @@ fn ty_def_inner(
                 Ok(quote! { Vec<#inner_ty> })
             } else {
                 let l = lifetime(ty_pos);
-                Ok(quote! { shrink_wrap::RefVec #maybe_turbofish <#l, #inner_ty> })
+                Ok(quote! { wire_weaver::shrink_wrap::RefVec #maybe_turbofish <#l, #inner_ty> })
             }
         }
         TypeOwned::Array { len, ty } => {
@@ -72,7 +72,7 @@ fn ty_def_inner(
                 format!("{}", len.0).as_str(),
                 Span::call_site(),
             ));
-            Ok(quote! { [ #len; #ty ] })
+            Ok(quote! { [ #ty; #len ] })
         }
         TypeOwned::Tuple(types) => {
             let types: Result<Vec<TokenStream>, _> = types
@@ -113,7 +113,7 @@ fn ty_def_inner(
                 quote! { Box #maybe_turbofish <#inner_ty> }
             } else {
                 let l = lifetime(ty_pos);
-                quote! { shrink_wrap::RefBox #maybe_turbofish <#l, #inner_ty> }
+                quote! { wire_weaver::shrink_wrap::RefBox #maybe_turbofish <#l, #inner_ty> }
             })
         }
         TypeOwned::Range(numeric_base) => {
@@ -173,11 +173,11 @@ fn ty_def_numeric_any(numeric_any: &NumericAnyTypeOwned) -> TokenStream {
 
 fn ty_def_numeric_base(base: &NumericBaseType) -> TokenStream {
     match base {
-        NumericBaseType::Nibble => quote! { shrink_wrap::Nibble },
+        NumericBaseType::Nibble => quote! { wire_weaver::shrink_wrap::Nibble },
         NumericBaseType::U8 => quote! { u8 },
         NumericBaseType::U16 => quote! { u16 },
         NumericBaseType::U32 => quote! { u32 },
-        NumericBaseType::UNib32 => quote! { shrink_wrap::UNib32 },
+        NumericBaseType::UNib32 => quote! { wire_weaver::shrink_wrap::UNib32 },
         NumericBaseType::U64 => quote! { u64 },
         NumericBaseType::I32 => quote! { i32 },
         NumericBaseType::F32 => quote! { f32 },
@@ -207,6 +207,6 @@ fn lifetime(ty_pos: TyPos) -> TokenStream {
     match ty_pos {
         TyPos::Def /*| TyPos::Return*/ => quote! { 'i },
         TyPos::Arg | TyPos::Expr => quote! { '_ },
-        TyPos::Annotation => quote! {},
+        TyPos::Annotation => quote! { '_ },
     }
 }

@@ -918,7 +918,7 @@ fn handle_stream(
         // sink (device in)
         let mut other_des = || {
             let es = err_seq.next();
-            let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap();
+            let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Expr).unwrap();
             let ts = quote! {
                 let mut rd = BufReader::new(data);
                 let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
@@ -1035,15 +1035,10 @@ fn des_args(
     mod_ident: &Ident,
     method_ident: &Ident,
     args: &[ArgumentOwned],
-    _no_alloc: bool,
+    no_alloc: bool,
     error_seq: &mut ErrorSeq,
 ) -> (TokenStream, TokenStream) {
-    let args_struct_ident = Ident::new(
-        format!("{}_args", method_ident)
-            .to_case(Case::Pascal)
-            .as_str(),
-        Span::call_site(),
-    );
+    let args_struct_ident = api_common::args_struct_ident(&method_ident.to_string(), no_alloc);
     if args.is_empty() {
         (quote! {}, quote! {})
     } else {

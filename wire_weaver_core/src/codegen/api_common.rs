@@ -5,6 +5,19 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{TokenStreamExt, quote};
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned};
 
+/// Name of the struct a method's arguments are serialized through. With alloc the struct holds owned types
+/// (`Vec`, `String`), and shrink_wrap wants such a struct's name to end in `Owned`.
+pub fn args_struct_ident(method: &str, no_alloc: bool) -> Ident {
+    let suffix = if no_alloc { "" } else { "Owned" };
+    Ident::new(
+        &format!(
+            "{}{suffix}",
+            format!("{method}_args").to_case(convert_case::Case::Pascal)
+        ),
+        Span::call_site(),
+    )
+}
+
 pub fn args_structs(
     api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
@@ -22,12 +35,7 @@ pub fn args_structs(
                 quote! { #ident: #ty }
             });
 
-            let ident = Ident::new(
-                format!("{}_args", item.ident)
-                    .to_case(convert_case::Case::Pascal)
-                    .as_str(),
-                Span::call_site(),
-            );
+            let ident = args_struct_ident(&item.ident, no_alloc);
             let is_lifetime = args
                 .iter()
                 .any(|arg| arg.ty.is_lifetime(api_bundle).unwrap());

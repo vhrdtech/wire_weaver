@@ -8,7 +8,9 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyString, PyTuple};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use wire_weaver_client::ww_self::{ApiItemKindOwned, PropertyAccess, TypeOwned, ValueOwned};
+use wire_weaver_client::ww_self::{
+    ApiItemKindOwned, Delivery, PropertyAccess, TypeOwned, ValueOwned,
+};
 use wire_weaver_client::{DynResource, DynResourceKind, DynSink, DynStream};
 
 /// Python object for a resource: trait node, array, method, property, stream or sink.
@@ -104,6 +106,13 @@ pub(crate) fn signature(res: &DynResource) -> String {
         }
         ApiItemKindOwned::FlowSink { ty, .. } => {
             format!("credit sink {name}{array}: {}", type_name(ty, bundle))
+        }
+        ApiItemKindOwned::PositionedStream { ty, delivery } => {
+            let delivery = match delivery {
+                Delivery::Counted => "counted",
+                Delivery::Reliable => "reliable",
+            };
+            format!("{delivery} stream {name}{array}: {}", type_name(ty, bundle))
         }
         ApiItemKindOwned::Trait { .. } => {
             let level = item.get_as_level(bundle).map(|l| l.trait_name.clone());

@@ -5,7 +5,7 @@ use shrink_wrap::ElementSize;
 use std::fmt::Write;
 use wire_weaver_client::ww_self::visit::{self, Visit};
 use wire_weaver_client::ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, Delivery,
     FieldsOwned, FlowControl, ItemEnumOwned, ItemStructOwned, Multiplicity, PropertyAccess, Repr,
     TypeLocationOwned, TypeOwned,
 };
@@ -190,6 +190,20 @@ impl TreePrinter<'_> {
                 };
                 _ = write!(self.out, "{}", style(flow).dim());
                 _ = write!(self.out, "{} ", style("sink").true_color(0x8C, 0xC8, 0xD4));
+                self.ident(item);
+                _ = write!(self.out, ": {}", self.ty(ty));
+            }
+            ApiItemKindOwned::PositionedStream { ty, delivery } => {
+                let delivery = match delivery {
+                    Delivery::Counted => "#[counted] ",
+                    Delivery::Reliable => "#[reliable] ",
+                };
+                _ = write!(self.out, "{}", style(delivery).dim());
+                _ = write!(
+                    self.out,
+                    "{} ",
+                    style("stream").true_color(0x8C, 0xC8, 0xD4)
+                );
                 self.ident(item);
                 _ = write!(self.out, ": {}", self.ty(ty));
             }

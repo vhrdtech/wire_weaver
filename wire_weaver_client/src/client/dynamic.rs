@@ -130,6 +130,12 @@ impl DynResource {
                     is_up: false,
                     flow: Some(*flow),
                 },
+                // TODO(CLT-23): positions, gaps and acks of counted and reliable streams
+                ApiItemKindOwned::PositionedStream { ty, .. } => DynResourceKind::Stream {
+                    ty,
+                    is_up: true,
+                    flow: None,
+                },
                 ApiItemKindOwned::Trait { .. } => unreachable!("traits are levels"),
             },
             (_, None) => unreachable!("only the API root has no item"),

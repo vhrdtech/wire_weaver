@@ -4,8 +4,9 @@
     Items: API-30 counted-reliable-streams, API-31 stream-functions (typed open, includes API-15), API-34
     sink-sessions, SRV-15 stream-stores, CLT-23 host-stream-positions, TEST-19 lossy-test-medium. Roman's review and
     the answers are in [Review](#review-14-oct-2026); the pieces are built on their own branches as in
-    [Implementation plan](#implementation-plan). Nothing is built yet; once it is, this page becomes the reference for
-    counted and reliable streams.
+    [Implementation plan](#implementation-plan). Piece 1, the protocol core (API-30: wire types and the `ww_stream`
+    crate), is built; what it decided is in [As built in API-30](#as-built-in-api-30). Once all pieces are, this
+    page becomes the reference for counted and reliable streams.
 
 Roman, reviewing the IO trait family (D4 `seq` units, D5 `lost` counts, 14 Oct 2026): *"we miss reliable transfer
 in wire_weaver, let's not bodge it in each trait from the side. On USB there shouldn't really be losses at all."*
@@ -322,7 +323,8 @@ somewhere also saves the cursor next to it, and passes it to `<name>_resume()` a
 A resumed reliable stream has **two runs** of positions, each delivered in order:
 
 - the **live run** starts at the newest event the device has (`live_from`, so a slow stream shows its latest value at
-  once instead of after its next event) and goes on with everything new;
+  once instead of after its next event; when the device lost units right before that event, `live_from` is where
+  they start, so the event reports them) and goes on with everything new;
 - the **backfill run** goes from the resume cursor (or the oldest kept event) up to `live_from`.
 
 The device sends live events first, and backfill events whenever the live run has nothing to send or no credit
@@ -358,8 +360,8 @@ receiver's memory: a device's sink buffer, a host's queue):
 | Sideband | Direction | Meaning |
 |---|---|---|
 | `Ack { have, backfill, grant }` | receiver → sender | received every unit before `have` (live run) and before `backfill` (backfill run, while there is one); the sender may have up to `grant` bytes of events in flight beyond that |
-| `Resend { from, grant }` | receiver → sender | units from `from` on are missing (in whichever run `from` falls): send again from there |
-| `Query { sent }` | sender → receiver | "I have sent up to `sent`, where are you?" (out of credit, nothing heard for a while); answered with `Ack` or `Resend` |
+| `Resend { from, grant }` (`ResendFrom` until API-34 removes the credit sinks' `Resend`) | receiver → sender | units from `from` on are missing (in whichever run `from` falls): send again from there |
+| `Query { sent, backfill }` | sender → receiver | "I have sent up to `sent` (and `backfill` in the backfill run), where are you?" (out of credit, nothing heard for a while); answered with `Ack` or `Resend`. Without `backfill` while the receiver has a backfill run: the sender ended it (the store dropped the rest of the backlog) |
 
 All positions `UVlq64`, all messages cumulative, so a lost one is harmless (UDP). Positions are always the start of an
 event, since events are accepted whole. These replace today's `Credit` / `CreditQuery` / `Resend` (byte positions, 32
@@ -429,7 +431,9 @@ after one carries a new **clock epoch** in `HeadExt`; the host maps each epoch t
 
 Producers write into the store from their own task (a DMA half-done interrupt wakes a task that builds the item and
 pushes it), the event loop reads from it and sends: the store is shared between the two (a producer half and a sender
-half, or a `critical-section` mutex; API-30 decides). Pushing never waits for the link, the link only ever waits for
+half, or a `critical-section` mutex). API-30 decided: one `Reliable` state, which the event loop holds only to read
+the next event out of the store into its own buffer, and sends that buffer with the state released; shared with a
+producer task behind the firmware's async mutex. Pushing never waits for the link, the link only ever waits for
 the store, so a slow link can't stall a producer, and replies are not stuck behind stream data (rePort
 `api_design.md` §10.3).
 
@@ -585,13 +589,37 @@ One new `no_std` crate (Roman: one crate, if it doesn't mix too much), framework
 | `rx` | receiver state machine: in order per run, gaps by cause, duplicates, `Ack` timing | host (and device, for sinks) |
 | `store` | `StreamStore`, `RamRing`; `LogStore` behind the `log-store` feature | device |
 | `sched` | send scheduler with priorities | device |
-| `cnt` | `StreamCnt` | device |
+| `counters` | `StreamCnt` (`cnt` instance counters with the `cnt` feature), `TxStats` | device |
 
 It is one subject, delivery of positioned data, and each module is small; the block-device log is the only part with
 outside dependencies, so it sits behind a feature. Wire types (`StreamHead` as a type, `StreamCursor`, `StreamOpened`,
 the sideband messages, `EventKind::StreamItem`, `RequestKind::StreamOpen`) stay in `ww_client_server`, which is the
 wire model. `ww_client_server::credit::SinkCredit` moves into `ww_stream::tx` (API-34), since sinks and streams share
 the protocol.
+
+### As built in API-30
+
+What building the protocol core added to the design, or decided where the design left it open:
+
+- **`units` in the head** (byte 0 `L T X U nnn p`): without them the host can't see where an event ends. Positions up
+  to 2⁵⁷. See [Head on the wire](#head-on-the-wire).
+- **Stores** take the head only (`push(head, item)`), it carries the units. `StoreState::dropped_units` says what a
+  drop-oldest store forgot, so the sender counts it exactly.
+- **Grants**: an event goes out while the bytes in flight before it are below the grant (so a grant smaller than an
+  item can't deadlock). The sender keeps up to `K` in-flight records per run (`Reliable<S, K = 16>`); beyond that,
+  neighbours merge: acknowledgements and resends then act on the merged range, never wrong. It never goes back
+  before what is acknowledged.
+- **The live run's start** includes the units lost right before the newest event (above).
+- **Resuming in the middle of a backfill**: a cursor is one position, so the live events after it come again in the
+  new backlog. The receiver remembers up to 8 such ranges (`Seen`) and drops them as `Verdict::Had`, reporting
+  only the part of their gaps it didn't have; beyond 8, events are delivered twice, never lost.
+- **When one side's backfill run ended without the other knowing** (a lost `Query`, a stale `ResendFrom`): the
+  device answers a `ResendFrom` or `Ack` for what it no longer has with a `Query` right away, a host whose backfill
+  stalls sends its `Ack` again. Found by the seeded simulation (`ww_stream/src/tests/sim.rs`, `SIM_SEEDS=20000`).
+- **Timing** is the caller's: `poll(now_ms)` / `poll_query(now_ms)`; defaults: ack every half window or 100 ms,
+  resend asked again after 500 ms, query after 200 ms of silence, window 4 MiB, initial grant 4 KiB.
+- **Introspection**: `ApiItemKind::PositionedStream { ty, delivery }` (appended, like `FlowSink`); plain streams keep
+  `Stream` and their bytes. API-31 adds the stream function's arguments and result.
 
 ## Compatibility and what breaks
 

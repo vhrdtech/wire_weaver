@@ -385,6 +385,10 @@ fn level_method(
             false,
             matches!(flow, FlowControl::Credit),
         ),
+        // TODO(API-31): the transform doesn't make counted / reliable streams yet
+        ApiItemKindOwned::PositionedStream { .. } => quote! {
+            compile_error!("counted and reliable streams are not generated yet (API-31)");
+        },
         ApiItemKindOwned::Trait { .. } => {
             let level = item.get_as_level(api_bundle).expect("api level");
             let level_entry_fn_name = Ident::new(&item.ident, Span::call_site());

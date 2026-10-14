@@ -296,7 +296,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
   done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
   docs.rs (DOC-6).
-- 📋 **API-15 Return streams from functions** · `v0.5.x` — related idea: model streams as functions that can be called
+- 📋 **API-15 Return streams from functions** · `v0.5.x` — being built as API-31 stream-functions; related idea: model streams as functions that can be called
   to change parameters, subscribe, stop.
 - 📋 **API-16 Feature groups** · `v0.5.x` — resources behind features (all enabled by default), connected to the user
   crate's features in `ww_codegen!`. Related: `#[cfg]` in enums, see [derive macro](#derive_shrink_wrap-macro).
@@ -320,6 +320,24 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **API-29 Bounds of resource array indices** · `v0.5.x` — `stream!(adc[8]: u16)` or `motor[1..=4]`, checked by the
   server before a handler is called and visible in introspection (`docs/api/arrays.md`). Lengths of lists and
   strings inside a resource's type are bounded with `MaxLen` (SW-19).
+- 🚧 **API-30 Counted and reliable streams** · `v0.5` — counted streams put a head in every event (flags and a
+  length-coded 64-bit `pos` in units the device names when it sends, the event's `units`, `lost`, optional device time
+  `t`), so drops on the device, link losses and duplicates are reported exactly and item types carry no `seq` /
+  `lost` / `t` fields (IO family D4, D5). Reliable streams add `Ack` / `ResendFrom` / `Query` (go-back-N, grants in
+  bytes), keep unacknowledged events in a store, resume by cursor after a reconnect with the latest values first and
+  the backlog beside them; a send scheduler with priorities between streams; typed `cnt` counters
+  (`docs/api/stream_reliability.md`). Done, the protocol core: wire types in `ww_client_server::stream`
+  (`StreamHead` with its hand-laid encoding, byte-verified; `StreamCursor`, `StreamOpened`, `EventKind::StreamItem`,
+  `RequestKind::StreamOpen`, the sideband), the `ww_stream` crate (`Counted`, `Reliable`, `Receiver`, `RamRing`,
+  `Scheduler`, `StreamCnt`; sans-IO, `no_std`, tested over a seeded lossy link with random disconnects),
+  `ww_self::ApiItemKind::PositionedStream`. Missing: codegen (API-31), the host runtime (CLT-23), credit sinks on it
+  (API-34), the persistent store (SRV-15).
+- 📋 **API-31 Stream functions** · `v0.5` — `#[stream(T, reliable)] fn name(args) -> Result<A, E>`: a stream is opened
+  by calling a function with typed arguments and result, which starts a session (`stream!` is the short form); a read
+  on a stream returns its state. Includes API-15 (`docs/api/stream_reliability.md`).
+- 📋 **API-34 Credit sinks on the stream protocol** · `v0.5` — positions in units (64 bit), `Ack` / `Query` / `Resend`
+  shared with reliable streams, sessions and resume for credit sinks, so a DFU plan continues after a reconnect;
+  `SinkCredit` moves into `ww_stream` (`docs/api/stream_reliability.md`).
 - 💡 **API-24 Guarded calls for critical resources** · `v0.5.x` — for safety-critical actions, such as starting a motor
   or switching high power, a request that happens to match predefined bytes must not be enough. Add an extra
   check, e.g. a CRC over the resource identity and arguments (a "strict mode" per resource), or a
@@ -366,6 +384,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   informing the device.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **SRV-11 Link statistics** in `ww_device` (`TODO` in `link.rs`).
+- 📋 **SRV-15 Stream stores and backfill** · `v0.5` — `ww_stream::store`: what a reliable stream (API-30) keeps until the
+  host acknowledges it, a RAM ring and a power-cut safe log on a block device (SD card, NOR flash) that keeps
+  positions and clock epochs across reboots; drop-newest or drop-oldest when full, counted exactly
+  (`docs/api/stream_reliability.md`). `RamRing` is done (API-30).
 - 💡 **SRV-12 std server on Tower** · `v0.5`.
 - 💡 **SRV-13 IPC over USB / multi-app devices / USB multiplexer** · `v0.5.x`.
 - 💡 **SRV-14 FPGA server** · `v0.5.x`.
@@ -419,6 +441,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **CLT-22 One `Sink::send` for borrowed and owned items** — owned types (`FooOwned`) implement only
   `SerializeShrinkWrapOwned`, so they go through `send_owned`; one `send` for both (a sink item trait, or the derive
   implementing both), then drop `send_owned`.
+- 📋 **CLT-23 Stream positions, gaps and resume on the host** · `v0.5` — `Item` / `Gap` / `Resumed` stream events and
+  stats for counted and reliable streams (API-30), bounded per-stream queues for every stream (today unbounded),
+  acknowledge on receive or explicitly, cursors to resume after a reconnect or a host restart; dynamic client and
+  Python too (`docs/api/stream_reliability.md`). The sans-IO receiver is `ww_stream::rx::Receiver` (API-30).
 
 ## Transports and protocols (`TR`)
 
@@ -586,6 +612,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **TEST-14 Update all dependencies** · `v0.5.x`.
 - 📋 **TEST-15 Measure serialization speed** on MCU and host (LE vs BE, array access vs pointers, `UNib32`
   implementations).
+- 📋 **TEST-19 Lossy test medium** · `v0.5` — an in-process medium that drops, duplicates, reorders, stalls and
+  disconnects on a seeded schedule, with the stream reliability scenarios S1-S6 as end-to-end tests
+  (`docs/api/stream_reliability.md`).
 - 💡 **TEST-16 Host queue on a slow VM** — does it lead to fewer or no missed packets?
 
 ## Dropped and superseded

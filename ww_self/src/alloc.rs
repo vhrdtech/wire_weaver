@@ -1,5 +1,5 @@
 use crate::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, Delivery,
     FieldOwned, FieldsOwned, FlowControl, ItemEnumOwned, ItemStructOwned, Multiplicity, Repr,
     TypeLocationOwned, TypeOwned,
 };
@@ -54,12 +54,21 @@ impl ApiItemOwned {
 }
 
 impl ApiItemKindOwned {
+    /// Delivery kind of a counted or reliable stream, `None` for everything else (plain streams included).
+    pub fn delivery(&self) -> Option<Delivery> {
+        match self {
+            ApiItemKindOwned::PositionedStream { delivery, .. } => Some(*delivery),
+            _ => None,
+        }
+    }
+
     /// Stream or sink: its item type, whether it goes from device to host (a stream), and the flow control of a
-    /// sink that has one.
+    /// sink that has one. A counted or reliable stream is a stream here, see [Self::delivery].
     pub fn as_stream(&self) -> Option<(&TypeOwned, bool, Option<FlowControl>)> {
         match self {
             ApiItemKindOwned::Stream { ty, is_up } => Some((ty, *is_up, None)),
             ApiItemKindOwned::FlowSink { ty, flow } => Some((ty, false, Some(*flow))),
+            ApiItemKindOwned::PositionedStream { ty, .. } => Some((ty, true, None)),
             _ => None,
         }
     }

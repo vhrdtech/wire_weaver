@@ -151,9 +151,9 @@ macro_rules! define_visitor {
                         v.visit_type(ty);
                     }
                 }
-                ApiItemKindOwned::Stream { ty, .. } | ApiItemKindOwned::FlowSink { ty, .. } => {
-                    v.visit_type(ty)
-                }
+                ApiItemKindOwned::Stream { ty, .. }
+                | ApiItemKindOwned::FlowSink { ty, .. }
+                | ApiItemKindOwned::PositionedStream { ty, .. } => v.visit_type(ty),
                 ApiItemKindOwned::Trait { .. } => {}
             }
         }

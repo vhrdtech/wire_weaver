@@ -162,6 +162,12 @@ impl Scaffold<'_> {
                     self.flow(item, &name, item_index_len, *flow)?;
                     self.stream(item, &name, item_index_len, ty, false)?
                 }
+                // TODO(API-31): the transform doesn't make counted / reliable streams yet
+                ApiItemKindOwned::PositionedStream { .. } => {
+                    anyhow::bail!(
+                        "{name}: counted and reliable streams are not scaffolded yet (API-31)"
+                    )
+                }
                 ApiItemKindOwned::Trait { .. } => {}
             }
         }

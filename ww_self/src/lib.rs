@@ -182,7 +182,29 @@ pub enum ApiItemKind<'i> {
         ty: Type<'i>,
         flow: FlowControl,
     },
+    /// Stream (device to host) whose events carry positions, `#[stream(T, counted)]` /
+    /// `#[stream(T, reliable)]` (API-30, `docs/api/stream_reliability.md`). A plain stream is `Stream`.
+    PositionedStream {
+        ty: Type<'i>,
+        delivery: Delivery,
+    },
     // Reserved, no useful info keeping reserved items after IDs are calculated
+}
+
+/// Delivery kind of a [ApiItemKind::PositionedStream].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Copy, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum Delivery {
+    /// Every event has a position and the units the device dropped before it: losses are seen exactly, nothing is
+    /// resent.
+    Counted,
+    /// Counted, acknowledged and resent; kept in the device's store while the host is slow or gone.
+    Reliable,
 }
 
 /// Flow control of a [ApiItemKind::FlowSink].

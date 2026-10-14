@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `ww api tree` shows counted and reliable streams as `#[counted] stream` / `#[reliable] stream` (API-30).
 - `ww bootsel list | info | flash | reboot` (CLT-21): RP2040 / RP2350 boot ROMs in BOOTSEL mode over PICOBOOT
   (`ww_picoboot`), selected with `--serial` as other commands; `flash` writes a UF2 file or a raw binary (`--addr`),
   verifies it and reboots into it, with a progress bar; `--wait` waits for the boot ROM after the app rebooted into it

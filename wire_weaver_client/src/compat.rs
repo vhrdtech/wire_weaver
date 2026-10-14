@@ -16,8 +16,8 @@ use wire_weaver::shrink_wrap::{ElementSize, UNib32};
 use ww_self::signature;
 use ww_self::visit::Visit;
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, FieldOwned, FieldsOwned,
-    ItemEnumOwned, ItemStructOwned, PropertyAccess, TypeLocationOwned, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, Delivery, FieldOwned,
+    FieldsOwned, ItemEnumOwned, ItemStructOwned, PropertyAccess, TypeLocationOwned, TypeOwned,
 };
 use ww_version::{FullVersionOwned, VersionTriplet};
 
@@ -380,6 +380,20 @@ fn compare_kinds<'a>(
             to_device.check(ty, device_ty)?;
         }
         (
+            PositionedStream { ty, delivery },
+            PositionedStream {
+                ty: device_ty,
+                delivery: device_delivery,
+            },
+        ) => {
+            if delivery != device_delivery {
+                return Err(format!(
+                    "{delivery:?} stream on the {client_name}, {device_delivery:?} on the {device_name}"
+                ));
+            }
+            to_client.check(device_ty, ty)?;
+        }
+        (
             Trait { trait_idx },
             Trait {
                 trait_idx: device_trait_idx,
@@ -438,6 +452,14 @@ fn kind_name(kind: &ApiItemKindOwned) -> &'static str {
         ApiItemKindOwned::Stream { is_up: true, .. } => "a stream",
         ApiItemKindOwned::Stream { is_up: false, .. } => "a sink",
         ApiItemKindOwned::FlowSink { .. } => "a sink with flow control",
+        ApiItemKindOwned::PositionedStream {
+            delivery: Delivery::Counted,
+            ..
+        } => "a counted stream",
+        ApiItemKindOwned::PositionedStream {
+            delivery: Delivery::Reliable,
+            ..
+        } => "a reliable stream",
         ApiItemKindOwned::Trait { .. } => "a trait",
     }
 }

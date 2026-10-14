@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use wire_weaver::shrink_wrap::ElementSize;
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, Delivery,
     FieldOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess, Repr, TypeOwned,
 };
 use ww_version::VersionTriplet;
@@ -363,6 +363,13 @@ fn item_signature(bundle: &ApiBundleOwned, item: &ApiItemOwned) -> String {
                 FlowControl::Credit => "#[credit] ",
             };
             format!("{flow}sink {ident}: {}", type_name(bundle, ty))
+        }
+        ApiItemKindOwned::PositionedStream { ty, delivery } => {
+            let delivery = match delivery {
+                Delivery::Counted => "#[counted] ",
+                Delivery::Reliable => "#[reliable] ",
+            };
+            format!("{delivery}stream {ident}: {}", type_name(bundle, ty))
         }
         ApiItemKindOwned::Trait { trait_idx } => {
             let crate_name = |crate_idx: u32| bundle.crate_name(crate_idx).unwrap_or("?");

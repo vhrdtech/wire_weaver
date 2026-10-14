@@ -720,6 +720,10 @@ fn level_matcher(
             Some(*flow),
             error_seq,
         ),
+        // TODO(API-31): the transform doesn't make counted / reliable streams yet
+        ApiItemKindOwned::PositionedStream { .. } => quote! {
+            compile_error!("counted and reliable streams are not generated yet (API-31)");
+        },
         ApiItemKindOwned::Trait { .. } => {
             let process_fn_name = Ident::new(
                 format!("process_{level_name_chain}_{}", api_item.ident).as_str(),

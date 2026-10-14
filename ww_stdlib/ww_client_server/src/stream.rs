@@ -284,6 +284,8 @@ impl DeserializeShrinkWrapOwned for StreamHead {
 }
 
 #[cfg(test)]
+// binary literals grouped as the fields of byte 0: L T X U, nnn, p
+#[allow(clippy::unusual_byte_groupings)]
 mod tests {
     use super::*;
     use crate::{Event, EventKind};

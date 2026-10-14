@@ -5,6 +5,9 @@
 - `Delta`, `DeltaOfDelta` and `XorFloat` in APIs (SW-50): the dynamic client reads and writes them as lists of
   numbers; the evolution checker (`ww api check`) and the connect-time check report another codec or element type,
   or a plain `Vec` instead, as breaking.
+- Counted and reliable streams in introspection data (API-30): the compatibility check and API diffs know
+  `ApiItemKind::PositionedStream` (a delivery kind that differs between client and device is incompatible), the
+  dynamic client lists them as streams. Their events (`EventKind::StreamItem`) are dropped until CLT-23.
 - Follow a device across a reboot into other firmware (CLT-21), `follow` module: `Follow::gone()` / `back()` /
   `back_in_bootsel()` / `back_in_wire_weaver()` wait for the device with the same serial number to go away and come
   back as what is expected, on any `follow::Bus` (`UsbBus` for real devices); `Found` tells a WireWeaver device, an

@@ -399,8 +399,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **STD-12 `ww_dfu` firmware update API** — traits `UpdateNode`, `BootControl`, `Inventory`, `Stage`,
   `StageBulk`: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored
   plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec (P2625). End to
-  end test `tests/dfu`. Next: credit-based sinks for `StageBulk`, bounded sizes for the pieces (SW-19), a chunky
-  implementation (chunky NET-1).
+  end test `tests/dfu`. `StageBulk::plan` is a credit sink (API-28 credit-sinks). Next: bounded sizes for the pieces
+  (SW-19), a chunky implementation (chunky NET-1).
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

@@ -60,9 +60,11 @@
 //!
 //! **In one go** (`StageBulk`): on a link where a round trip takes seconds (LoRa, LTE-M, satellite), per-step calls
 //! would eat the whole gain of sending a delta. The host announces the plan once, then streams it, header excluded,
-//! as raw octets; the device applies (modes 1 and 3) or stores (mode 2) as the bytes arrive and acknowledges only
-//! when it has to: on a gap, when the host is about to run out of credit, and at the end. On a reliable link that is
-//! a single acknowledgement for the whole update.
+//! as raw octets on a credit sink (WireWeaver's credit-based flow control, `docs/api/streams.md`): the host never
+//! sends more segments than the device has room for, lost segments are sent again from the last one the device has
+//! (go-back-N). The device applies (modes 1 and 3) or stores (mode 2) as the bytes arrive and acknowledges on its own
+//! only at the end (and every `ack_every` bytes if asked). On a reliable link that is a single acknowledgement for
+//! the whole update, besides the sink's credit grants, which the device sends as often as its buffer needs.
 //!
 //! # Resuming
 //!
@@ -244,14 +246,14 @@ pub trait Stage {
 /// right after its step, exactly the protocol spec's wire form, so with [Target::Stored] the node writes these bytes
 /// to its plan area unchanged.
 ///
-/// Flow: `begin_bulk` → segments on `plan` until `total_len` bytes are in, each placed by its offset → the node
-/// acknowledges on `plan_ack` when it has to → the host calls `Stage::finish`.
+/// Flow: `begin_bulk` → segments on `plan` (a credit sink) until `total_len` bytes are in, each placed by its offset
+/// → the node acknowledges on `plan_ack` at the end → the host calls `Stage::finish`.
 #[ww_trait]
 pub trait StageBulk {
     /// Start (or resume) a bulk session for the plan with this header; the checks are those of `Stage::begin`.
     ///
     /// `total_len` is the length of the plan after the header. `ack_every` asks the node to acknowledge at least
-    /// every so many bytes even when nothing went wrong; `0` means only on gaps, credit and at the end, the right
+    /// every so many bytes even when nothing went wrong; `0` means only at the end (and on a failure), the right
     /// choice on a reliable link (one acknowledgement per update). The answer's [Session::resume_from] says from which
     /// byte to start sending (0 for a new session).
     fn begin_bulk(
@@ -262,19 +264,20 @@ pub trait StageBulk {
     ) -> Result<Session, Error>;
 
     /// Plan bytes from the host. A segment may be any size up to [StageLimits::max_piece]; each says where its bytes
-    /// go, so a node that sees a gap knows it and asks for the missing part.
+    /// go.
     ///
-    /// The node takes segments in order only: one that starts past the end of what the node has is a gap, so the
-    /// node drops it and acknowledges with the offset it needs (go-back-N); one it already has is dropped silently.
+    /// A credit sink: credit counts segments, so the node sizes its receive queue in segment slots of `max_piece`
+    /// bytes each (plus the segment's own encoding), and grants as it frees them. A lost segment is detected and
+    /// sent again by the sink's flow control (go-back-N), segments arrive in order. A segment whose offset does not
+    /// continue what the node has (e.g., the host resumed from the wrong place) answers [BulkStatus::Gap] on
+    /// `plan_ack`.
+    #[credit]
     sink!(plan: PlanSegment<'i>);
 
-    /// Acknowledgements from the node: how far it is, how much more it can take, and whether something went wrong.
+    /// Acknowledgements from the node: how far it is and whether something went wrong. How much more it can take is
+    /// the `plan` sink's credit.
     ///
-    /// Sent when the host is about to run out of credit, on a gap, every `ack_every` bytes if asked, and once at the
-    /// end (all bytes in, or an error). The host must not send past `have + credit`.
-    ///
-    /// Once WireWeaver's credit-based sinks land, the credit moves into the sink's own flow control and this stream
-    /// keeps `have` and `status` only.
+    /// Sent once at the end (all bytes in, or an error), on an offset gap, and every `ack_every` bytes if asked.
     stream!(plan_ack: PlanAck);
 }
 
@@ -602,10 +605,8 @@ pub struct PlanSegment<'i> {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct PlanAck {
-    /// Bytes after the header the node has, in order. After a gap the host resends from here.
+    /// Bytes after the header the node has, in order. After a [BulkStatus::Gap] the host resends from here.
     pub have: u32,
-    /// Bytes past `have` the host may send before the next acknowledgement.
-    pub credit: u32,
     /// How the session stands.
     pub status: BulkStatus,
 }
@@ -622,7 +623,8 @@ pub struct PlanAck {
 pub enum BulkStatus {
     /// Receiving; nothing wrong.
     Receiving,
-    /// A gap: bytes from `have` on are missing; resend from there.
+    /// A segment did not continue at `have` (e.g., a wrong resume point): bytes from `have` on are missing; resend
+    /// from there. Segments lost on the way are handled by the `plan` sink's flow control instead.
     Gap,
     /// All `total_len` bytes are in; call `Stage::finish`.
     Complete,

@@ -73,6 +73,8 @@ mod tests {
 
         pub struct DfuServer {
             pub dev: Arc<RwLock<Device>>,
+            /// Two segment slots, freed as soon as a segment is written
+            pub plan_credit: ww_client_server::credit::SinkCredit,
         }
 
         impl DfuServer {
@@ -397,6 +399,10 @@ mod tests {
                 }))
             }
 
+            fn credit_bulk_plan(&mut self) -> &mut ww_client_server::credit::SinkCredit {
+                &mut self.plan_credit
+            }
+
             fn sideband_bulk_plan(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -411,10 +417,12 @@ mod tests {
                 value: ww_dfu::PlanSegment<'_>,
             ) {
                 let mut dev = self.dev.write().unwrap();
-                // In order only: a gap or a repeat is dropped (a real node would acknowledge on plan_ack).
+                // Segments arrive in order (the sink's flow control), but an offset that doesn't continue the plan is
+                // dropped (a real node would acknowledge BulkStatus::Gap on plan_ack).
                 if value.offset as usize == dev.plan.len() {
                     dev.plan.extend(value.data.iter().map(|b| b.unwrap()));
                 }
+                self.plan_credit.free(1);
             }
 
             fn sideband_bulk_plan_ack(
@@ -484,7 +492,10 @@ mod tests {
     ) {
         let _ = tracing_subscriber::fmt::try_init();
         let dev = Arc::new(RwLock::new(Device::default()));
-        let server = server::DfuServer { dev: dev.clone() };
+        let server = server::DfuServer {
+            dev: dev.clone(),
+            plan_credit: ww_client_server::credit::SinkCredit::new(2).with_threshold(1),
+        };
         let device = tests_common::start_device(
             name,
             server,
@@ -657,27 +668,29 @@ mod tests {
         assert_eq!(session.resume_from, 0);
 
         let mut plan = bulk.plan().await.unwrap();
+        assert!(plan.is_credit());
         for (offset, data) in [
             (0, vec![1, 2, 3, 4]),
             (8, vec![9, 10, 11, 12]),
             (4, vec![5, 6, 7, 8]),
         ] {
-            // The second one is a gap and is dropped.
+            // The second one doesn't continue the plan and is dropped by the node.
             plan.send_owned(ww_dfu::PlanSegmentOwned { offset, data })
                 .await
                 .unwrap();
         }
-        // Sinks are not acknowledged; a method call after them is answered only after they are handled.
+        // a credit sink: flush() returns once the node accepted every segment
+        plan.flush().await.unwrap();
+        assert_eq!(plan.credit_progress(), Some((3, 3)));
+        assert_eq!(dev.read().unwrap().plan, vec![1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(
             client.stage().progress().call().await.unwrap(),
             Err(Error::NoSession)
         );
-        assert_eq!(dev.read().unwrap().plan, vec![1, 2, 3, 4, 5, 6, 7, 8]);
 
         // The ack type round-trips with an error inside a status.
         let ack = PlanAck {
             have: 8,
-            credit: 64,
             status: BulkStatus::Failed(Error::OutOfOrder(3)),
         };
         let mut buf = [0u8; 64];

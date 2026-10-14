@@ -37,7 +37,7 @@ create_exception!(
     wire_weaver,
     RemoteError,
     WireWeaverError,
-    "A method returned `Err(e)`, `e` is in the `value` attribute."
+    "A method returned `Err(e)`: `e` is in the `value` attribute, the `ww_error::CommonError` in it (if any) in `common`."
 );
 
 pub(crate) fn client_err(e: Error) -> PyErr {

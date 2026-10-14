@@ -6,6 +6,7 @@ use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{ApiBundleOwned, TypeOwned};
 
 use crate::codegen::util::maybe_quote_cl;
+use crate::transform::WIRE_WEAVER_REEXPORTS;
 
 #[derive(Copy, Clone)]
 pub(crate) enum TyPos {
@@ -163,8 +164,14 @@ fn user_ty_def(
 ) -> Result<TokenStream> {
     let source_crate = if let Some(crate_idx) = crate_idx {
         let name = api_bundle.crate_name(crate_idx)?;
+        let reexported = WIRE_WEAVER_REEXPORTS.contains(&name);
         let name = Ident::new(name, Span::call_site());
-        quote! { #name }
+        if reexported {
+            // `CommonError` without a dependency on `ww_error`, as the API crate itself
+            quote! { wire_weaver::#name }
+        } else {
+            quote! { #name }
+        }
     } else {
         quote! {}
     };

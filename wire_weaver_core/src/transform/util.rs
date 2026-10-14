@@ -211,6 +211,22 @@ pub(crate) fn use_tree_path_to<'t>(tree: &'t UseTree, type_name: &str) -> Option
     }
 }
 
+/// Paths of the glob imports in a `use` tree: `use a::b::*` gives `[a, b]`.
+pub(crate) fn use_tree_globs(tree: &UseTree) -> Vec<Vec<&Ident>> {
+    match tree {
+        UseTree::Path(use_path) => use_tree_globs(&use_path.tree)
+            .into_iter()
+            .map(|mut path| {
+                path.insert(0, &use_path.ident);
+                path
+            })
+            .collect(),
+        UseTree::Glob(_) => vec![vec![]],
+        UseTree::Name(_) | UseTree::Rename(_) => vec![],
+        UseTree::Group(use_group) => use_group.items.iter().flat_map(use_tree_globs).collect(),
+    }
+}
+
 /// All names imported by a `use` tree with the path segments leading to them, renames and globs are skipped.
 pub(crate) fn use_tree_names(tree: &UseTree) -> Vec<(Vec<&Ident>, &Ident)> {
     match tree {

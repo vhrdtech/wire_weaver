@@ -13,6 +13,8 @@
 - `ww api scaffold --omit i2c.pullups,reset` (API-16): no stubs for these optional items, `omit = [..]` in the
   generated `ww_codegen!`; stubs of the optional items it keeps name their omit path. `ww api tree` and
   `ww introspect` show `#[optional]` / `#[optional(group)]` and `(left out by this device)`.
+- `ww api tree -t` and `ww introspect -t` mark `ww_error::CommonError` and the variants holding it (`Common(CommonError)
+  common errors`, STD-16).
 - `ww bootsel list | info | flash | reboot` (CLT-21): RP2040 / RP2350 boot ROMs in BOOTSEL mode over PICOBOOT
   (`ww_picoboot`), selected with `--serial` as other commands; `flash` writes a UF2 file or a raw binary (`--addr`),
   verifies it and reboots into it, with a progress bar; `--wait` waits for the boot ROM after the app rebooted into it

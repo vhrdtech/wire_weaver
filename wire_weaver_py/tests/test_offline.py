@@ -164,3 +164,40 @@ def test_optional_items():
     assert api.i2c.i2c_write.signature == "i2c_write(data: u8) -> u8"
     assert api.i2c.i2c_wiggle_clock.signature == "i2c_wiggle_clock(count: u8) -> u8 (optional)"
     assert "rw i2c_pullups: bool (optional)" in repr(api.i2c)
+
+
+# replies from tests/common_error (`reply_bytes_for_python`): `read()` returning `Err(Common(InUse { by: "USART2" }))`
+# and `Err(Nack)`, `calibrate()` returning `Err(Busy)` (a `CommonError` alone)
+READ_IN_USE_HEX = "000020555341525432060929"
+NACK_HEX = "001001"
+BUSY_HEX = "003001"
+
+
+@pytest.fixture(scope="module")
+def errors_api():
+    return ww.load_api(str(API_CRATE.parent / "common_error_api"), "CommonErrors")
+
+
+def test_common_error(errors_api):
+    data = bytes.fromhex(READ_IN_USE_HEX)
+    in_use = {"InUse": dict(by="USART2")}
+    assert errors_api.read.decode_return(data) == {"Err": {"Common": in_use}}
+    with pytest.raises(ww.RemoteError, match=r"read\(\) returned an error: In use by USART2$") as e:
+        errors_api.read.decode_return(data, raise_err=True)
+    assert e.value.value == {"Common": in_use}
+    assert e.value.common == in_use
+
+
+def test_common_error_alone(errors_api):
+    with pytest.raises(ww.RemoteError, match="Busy with another operation, try again later$") as e:
+        errors_api.calibrate.decode_return(bytes.fromhex(BUSY_HEX), raise_err=True)
+    assert e.value.value == "Busy"
+    assert e.value.common == "Busy"
+
+
+def test_own_error(errors_api):
+    # an error of the API's own: no common part, its doc line as the message
+    with pytest.raises(ww.RemoteError, match="The sensor did not answer$") as e:
+        errors_api.read.decode_return(bytes.fromhex(NACK_HEX), raise_err=True)
+    assert e.value.value == "Nack"
+    assert e.value.common is None

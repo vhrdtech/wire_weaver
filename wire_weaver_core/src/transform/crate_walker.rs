@@ -11,7 +11,7 @@ use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, TypeLocation
 use ww_version::{FullVersionOwned, VersionOwned};
 
 /// Crates re-exported by `wire_weaver`, usable without depending on them directly.
-const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_error", "ww_version"];
+pub(crate) const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_error", "ww_version"];
 
 /// Load API definition and all referenced data types from a given crate.
 ///
@@ -196,7 +196,7 @@ impl CrateContext {
         manifest: Rc<ManifestContext>,
         scratch: &mut Scratch,
     ) -> Result<Rc<Self>> {
-        let version = manifest.full_version()?;
+        let version = manifest.full_version(scratch)?;
         if let Some(crate_cx) = scratch.crates.get(&version) {
             return Ok(crate_cx.clone());
         }
@@ -208,7 +208,11 @@ impl CrateContext {
             version,
             lib_rs_ast: lib_rs,
         };
-        scratch.root_bundle.find_crate_or_create(&crate_cx); // ensure crate name is in ext_crates
+        // the root crate is always first in ext_crates, even when no types are referenced from it; the others are
+        // added when a type or trait of theirs is, not when a path only goes through them (`wire_weaver::prelude`)
+        if scratch.root_bundle.ext_crates.is_empty() {
+            scratch.root_bundle.find_crate_or_create(&crate_cx);
+        }
         Ok(Rc::new(crate_cx))
     }
 
@@ -347,14 +351,26 @@ impl ManifestContext {
         Err(anyhow!("not found"))
     }
 
-    fn full_version(&self) -> Result<FullVersionOwned> {
+    fn full_version(&self, scratch: &mut Scratch) -> Result<FullVersionOwned> {
         let package = self
             .manifest
             .package
             .clone()
             .context("No package section found in Cargo.toml")?;
-        let Inheritable::Set(version) = &package.version else {
-            return Err(anyhow!("No version found in Cargo.toml"));
+        let version = match &package.version {
+            Inheritable::Set(version) => version.clone(),
+            // `version.workspace = true`, e.g. `wire_weaver` itself, walked for its `prelude`
+            Inheritable::Inherited => self
+                .load_parent_manifest(scratch)?
+                .manifest
+                .workspace
+                .as_ref()
+                .and_then(|w| w.package.as_ref())
+                .and_then(|p| p.version.clone())
+                .ok_or_else(|| {
+                    anyhow!("version.workspace = true, but the workspace has no package.version")
+                        .context(self.err_context())
+                })?,
         };
         Ok(FullVersionOwned::new(
             package.name,

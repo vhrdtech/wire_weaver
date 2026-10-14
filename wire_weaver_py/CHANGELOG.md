@@ -14,6 +14,10 @@
 - Signatures of counted and reliable streams say so (`counted stream x: T`, API-30).
 - Optional items (API-16): signatures end in `(optional)`, or `(left out by this device)` for one the device leaves
   out; calling such an item raises without sending a request.
+- `RemoteError.common` (STD-16): the `ww_error::CommonError` in a method's error (`{"InUse": {"by": "USART2"}}`),
+  `None` for an error of the API's own. The message is the error variant's doc line with its fields filled in
+  (`read() returned an error: In use by USART2`) instead of the value's repr, where the variant has one.
+- `Method.decode_return(data, raise_err=True)` returns `T` or raises `RemoteError` as a call would.
 - `MaxLen` (SW-19) lists and strings are checked when encoding: a longer value raises `ValueError` (`.. at most N
   allowed ..`).
 - Credit sinks (`#[credit] sink!(..)`, API-28, credit counted in bytes): `Sink.send()` waits until the device has

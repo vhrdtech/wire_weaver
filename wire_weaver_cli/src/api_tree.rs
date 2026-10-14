@@ -325,7 +325,12 @@ impl<'a> TreePrinter<'a> {
                 TypeLocationOwned::InLine {
                     ty: TypeOwned::Enum(item_enum),
                     ..
-                } => self.item_enum(item_enum),
+                } => {
+                    let ty = TypeOwned::OutOfLine {
+                        type_idx: (idx as u32).into(),
+                    };
+                    self.item_enum(item_enum, ty.is_common_error(self.bundle))
+                }
                 TypeLocationOwned::InLine { ty, .. } => {
                     _ = writeln!(self.out, "{}", self.ty(ty));
                 }
@@ -356,7 +361,8 @@ impl<'a> TreePrinter<'a> {
         self.fields(&item_struct.fields);
     }
 
-    fn item_enum(&mut self, item_enum: &'a ItemEnumOwned) {
+    /// `is_common`: `ww_error::CommonError`, the errors every API can return (STD-16).
+    fn item_enum(&mut self, item_enum: &'a ItemEnumOwned, is_common: bool) {
         _ = write!(self.out, "{} ", style("enum").blue());
         self.type_ident(item_enum.crate_idx.0, &item_enum.ident);
         let repr = match item_enum.repr {
@@ -368,7 +374,12 @@ impl<'a> TreePrinter<'a> {
             Repr::ByteAlignedU32 => "u32".to_string(),
         };
         let size = size_name(&item_enum.size);
-        _ = writeln!(self.out, " {}", style(format!("{size}, repr {repr}")).dim());
+        let common = if is_common { ", common errors" } else { "" };
+        _ = writeln!(
+            self.out,
+            " {}",
+            style(format!("{size}, repr {repr}{common}")).dim()
+        );
         self.visit_docs(&item_enum.docs);
         for (idx, variant) in item_enum.variants.iter().enumerate() {
             let is_last = idx + 1 == item_enum.variants.len();
@@ -380,6 +391,10 @@ impl<'a> TreePrinter<'a> {
                 style(&variant.ident).bold()
             );
             self.unnamed_fields(&variant.fields);
+            if matches!(&variant.fields, FieldsOwned::Unnamed(f) if f.len() == 1 && f[0].ty.is_common_error(self.bundle))
+            {
+                _ = write!(self.out, " {}", style("common errors").dim());
+            }
             if let Some(since) = &variant.since {
                 _ = write!(self.out, " {}", style(format!("since {since:?}")).dim());
             }
@@ -574,6 +589,17 @@ types
             "{types}"
         );
         assert!(types.contains("└─ inner: Vec<Inner>\n"), "{types}");
+    }
+
+    #[test]
+    fn renders_common_errors() {
+        console::set_colors_enabled(false);
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/common_error_api");
+        let bundle = wire_weaver_core::load(&path, None, false).unwrap();
+        let types = render_types(&bundle, true);
+        assert!(types.contains("enum ww_error::CommonError unsized, repr unib32, common errors\n"));
+        assert!(types.contains("├─ 0 Common(CommonError) common errors\n"));
+        assert!(types.contains("└─ 1 Nack\n"));
     }
 
     #[test]

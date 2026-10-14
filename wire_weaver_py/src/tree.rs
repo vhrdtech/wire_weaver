@@ -286,7 +286,8 @@ impl Array {
 
 /// Method, call it with positional or keyword arguments: `dev.add(1, b=2)`.
 ///
-/// A method returning `Result<T, E>` returns `T` or raises `RemoteError` with `E` in its `value` attribute.
+/// A method returning `Result<T, E>` returns `T` or raises `RemoteError` with `E` in its `value` attribute, and the
+/// `ww_error::CommonError` in it (if any) in `common`.
 #[pyclass(module = "wire_weaver", frozen)]
 pub struct Method {
     res: DynResource,
@@ -384,16 +385,39 @@ pub(crate) fn return_to_py(
     {
         return match r {
             Ok(v) => Ok(to_py(py, v, ok_ty, bundle)?.unbind()),
-            Err(e) => {
-                let e = to_py(py, e, err_ty, bundle)?;
-                let msg = format!("{}() returned an error: {}", res.path(), e.repr()?);
-                let err = RemoteError::new_err(msg);
-                err.value(py).setattr("value", e)?;
-                Err(err)
-            }
+            Err(e) => Err(remote_error(py, res, e, err_ty)?),
         };
     }
     Ok(to_py(py, &value, ty, bundle)?.unbind())
+}
+
+/// `RemoteError` for the `Err(e)` of a call: `e` in `value`, the `ww_error::CommonError` in it in `common`
+/// (`None` for an error of the API's own), and the variant's doc line as the message (STD-16).
+fn remote_error(
+    py: Python<'_>,
+    res: &DynResource,
+    e: &ValueOwned,
+    err_ty: &TypeOwned,
+) -> PyResult<PyErr> {
+    let bundle = res.bundle();
+    let value = to_py(py, e, err_ty, bundle)?;
+    let common = e.common_error(err_ty, bundle);
+    let text = match common {
+        Some((c, c_ty)) => c.doc_message(c_ty, bundle),
+        None => e.doc_message(err_ty, bundle),
+    };
+    let text = match text {
+        Some(text) => text,
+        None => value.repr()?.to_string(),
+    };
+    let err = RemoteError::new_err(format!("{}() returned an error: {text}", res.path()));
+    let common = match common {
+        Some((c, c_ty)) => to_py(py, c, c_ty, bundle)?.unbind(),
+        None => py.None(),
+    };
+    err.value(py).setattr("value", value)?;
+    err.value(py).setattr("common", common)?;
+    Ok(err)
 }
 
 #[pymethods]
@@ -437,13 +461,18 @@ impl Method {
     }
 
     /// Deserialize a return value as sent by a device, `Result` is returned as `{"Ok": ..}` or `{"Err": ..}`.
-    fn decode_return(&self, py: Python<'_>, data: &[u8]) -> PyResult<Py<PyAny>> {
+    /// With `raise_err=True` it is returned or raised as a call would: `T`, or `RemoteError`.
+    #[pyo3(signature = (data, raise_err = false))]
+    fn decode_return(&self, py: Python<'_>, data: &[u8], raise_err: bool) -> PyResult<Py<PyAny>> {
         let Some(ty) = self.return_ty() else {
             return Ok(py.None());
         };
         let bundle = self.res.bundle();
         let value = ValueOwned::des_shrink_wrap_dyn(data, &ty, bundle)
             .map_err(|e| WireWeaverError::new_err(format!("{e:#}")))?;
+        if raise_err {
+            return self.return_to_py(py, Some(value));
+        }
         Ok(to_py(py, &value, &ty, bundle)?.unbind())
     }
 

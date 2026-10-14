@@ -1,5 +1,6 @@
 mod api;
 mod crate_walker;
+pub(crate) use crate_walker::WIRE_WEAVER_REEXPORTS;
 mod snapshot;
 mod ty;
 mod util;

@@ -1,6 +1,8 @@
 use super::{
     crate_walker::{CrateContext, Scratch},
-    util::{collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_path_to},
+    util::{
+        collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_globs, use_tree_path_to,
+    },
 };
 use anyhow::{Context, Result, anyhow};
 use shrink_wrap::{ElementSize, UNib32};
@@ -144,9 +146,35 @@ pub(crate) fn convert_ty_path_segment(
                     _ => {}
                 }
             }
+            // `use wire_weaver::prelude::*` brings in `CommonError`: look into glob imports last, as Rust does
+            for item in &current_crate.lib_rs_ast.items {
+                let Item::Use(item_use) = item else {
+                    continue;
+                };
+                for path in use_tree_globs(&item_use.tree) {
+                    // a glob into a crate that can't be walked (`std`) or that doesn't have the type
+                    let Ok(dependent_crate) = current_crate.resolve_path(path, scratch) else {
+                        continue;
+                    };
+                    if declares_or_imports(&dependent_crate, user_ty) {
+                        let ty: Type = parse_str(user_ty)?;
+                        return convert_ty(&ty, &dependent_crate, scratch);
+                    }
+                }
+            }
             Err(anyhow!("Type {segment:?} not found").context(current_crate.err_context()))
         }
     }
+}
+
+/// Whether `name` is defined in `cx` or imported into it by name (globs are not followed, to not walk in circles).
+fn declares_or_imports(cx: &CrateContext, name: &str) -> bool {
+    cx.lib_rs_ast.items.iter().any(|item| match item {
+        Item::Enum(item_enum) => item_enum.ident == name,
+        Item::Struct(item_struct) => item_struct.ident == name,
+        Item::Use(item_use) => use_tree_path_to(&item_use.tree, name).is_some(),
+        _ => false,
+    })
 }
 
 /// Mark a user-defined type as being converted, errors out if it is already, i.e., it refers to itself.

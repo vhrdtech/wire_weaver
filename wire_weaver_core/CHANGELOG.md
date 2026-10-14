@@ -13,6 +13,9 @@
   `ww_codegen!` panicked with `not yet implemented` (SW-48). Types that only contained them were fine.
 - Trait clients (`client = "trait_client"`) name the client's own trait in global paths of nested levels too; they
   named the nested trait with an index chain starting at the outer one.
+- A crate with `version.workspace = true` (`wire_weaver` itself) can be walked: a type reached through its
+  `prelude` failed with `No version found in Cargo.toml`. Crates only passed through on a path are no longer listed in
+  the API bundle's `ext_crates`.
 - Stream items and property notifications (`stream_data_ser().<stream>()` and the `_send` / `_send_blocking`
   variants) of a type that doesn't end on a byte boundary or has sizes of its own (a `bool` or nibble enum at the end,
   a `&str` or `RefVec` inside) are written on their own (`to_ww_bytes`) between the event header and the event's
@@ -89,6 +92,10 @@
   combination of `omit_if` conditions, under `#[cfg]`). Only optional items can be left out, any other path is a
   compile error naming the trait's optional items and groups. `ServerScaffoldConfig::omit` leaves their stubs out.
   `#[optional]` on `ww_impl!` is rejected. See `docs/api/errors.md#4-optional-items`.
+- Types imported with a glob (`use wire_weaver::prelude::*`) are found, after the ones defined or imported by name
+  (STD-16, for `CommonError` from the prelude).
+- Generated code names types of `shrink_wrap`, `ww_version` and `ww_error` through `wire_weaver::`, so a server or
+  client crate needs no dependency of its own on them.
 - An API crate can name `ww_error` types (`use ww_error::CommonError`) with only `wire_weaver` as a dependency, as
   for `shrink_wrap` and `ww_version` (STD-16).
 - Types with the `no_future_version` and `future_version = <Name>` arguments of `derive_shrink_wrap` (SW-47) are

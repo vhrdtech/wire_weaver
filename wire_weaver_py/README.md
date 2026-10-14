@@ -36,7 +36,9 @@ waits until it accepted everything (lost values are sent again), `close()` flush
 `(accepted, sent)` bytes, `sink.set_credit_config(query_interval=1.0, stall_timeout=30.0)` tunes it
 to a slow link. See `docs/api/streams.md`.
 
-A method returning `Result<T, E>` returns `T`, or raises `ww.RemoteError` with `E` in its `value` attribute. A request
+A method returning `Result<T, E>` returns `T`, or raises `ww.RemoteError` with `E` in its `value` attribute and the
+errors every API shares (`ww_error::CommonError`, e.g. `{"InUse": {"by": "USART2"}}`) in `common` (`None` for an error
+of the API's own); the message is the error's doc line (`In use by USART2`). A request
 without a reply raises `TimeoutError`, other errors raise `ww.WireWeaverError`. Use `dev["name"]` for a resource named
 like one of the `Device` methods (`api`, `info`, `disconnect`).
 

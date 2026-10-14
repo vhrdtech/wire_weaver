@@ -612,6 +612,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
+name = "common_error"
+version = "0.1.0"
+dependencies = [
+ "common_error_api",
+ "tests_common",
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "ww_client_server",
+]
+
+[[package]]
+name = "common_error_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "compare-wire-formats"
 version = "0.5.0"
 dependencies = [

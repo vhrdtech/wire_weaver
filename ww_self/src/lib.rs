@@ -7,6 +7,9 @@
 mod alloc;
 #[cfg(feature = "std")]
 pub use alloc::StreamFnRef;
+mod common;
+#[cfg(feature = "std")]
+pub use common::COMMON_ERROR;
 #[cfg(feature = "std")]
 pub mod inline;
 #[cfg(feature = "std")]

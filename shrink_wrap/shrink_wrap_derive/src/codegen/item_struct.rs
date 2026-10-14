@@ -91,6 +91,7 @@ impl<'i> CGItemStruct<'i> {
             self.cfg,
             element_size,
             Type::any_pushes_len(self.fields.iter().map(|f| &f.ty), self.crate_path),
+            Type::seq_max_size(self.fields.iter().map(|f| &f.ty), self.crate_path),
             is_ref,
             is_ref && !self.ambiguous,
             self.crate_path,

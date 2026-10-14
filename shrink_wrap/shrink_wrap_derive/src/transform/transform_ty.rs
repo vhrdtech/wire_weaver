@@ -22,6 +22,9 @@ pub(crate) fn transform_type(
                     // e.g. shrink_wrap::TailSize<2>: keep the width, it is not a plain external type
                     return transform_type_tail_size(last);
                 }
+                if last.ident == "MaxLen" {
+                    return transform_type_max_len(last, path);
+                }
                 let is_lifetime = is_lifetime(&last.arguments);
                 let args = generic_args(&last.arguments);
                 let segments = type_path
@@ -115,6 +118,7 @@ fn transform_path_segment(
         "RangeInclusive" => transform_type_range_inclusive(path_segment, field_path)?,
         "RefBox" => transform_type_ref_box(path_segment, field_path)?,
         "TailSize" => transform_type_tail_size(path_segment)?,
+        "MaxLen" => transform_type_max_len(path_segment, field_path)?,
         other_ty => {
             // u1, u2, .., u63, except u8, u16, ...
             if let Some(un) = other_ty
@@ -307,4 +311,39 @@ fn transform_type_tail_size(path_segment: &PathSegment) -> Result<Type, String> 
         }
     };
     Ok(Type::TailSize(width))
+}
+
+/// `MaxLen<T, N>` or `MaxLen<T, { expr }>`, `T` a `Vec`/`RefVec` or a string. Not an external type: `T` is
+/// converted to its owned form for the owned side (`MaxLen<RefVec<'i, u8>, 8>` -> `MaxLen<Vec<u8>, 8>`).
+fn transform_type_max_len(path_segment: &PathSegment, path: &FieldPath) -> Result<Type, String> {
+    let PathArguments::AngleBracketed(args) = &path_segment.arguments else {
+        return Err("expected MaxLen<T, N>".into());
+    };
+    let mut args = args.args.iter();
+    let (Some(GenericArgument::Type(inner_ty)), Some(len), None) =
+        (args.next(), args.next(), args.next())
+    else {
+        return Err("expected MaxLen<T, N>".into());
+    };
+    let len = match len {
+        GenericArgument::Const(expr) => expr.clone(),
+        // `N` alone parses as a type
+        GenericArgument::Type(syn::Type::Path(type_path)) => Expr::Path(syn::ExprPath {
+            attrs: vec![],
+            qself: type_path.qself.clone(),
+            path: type_path.path.clone(),
+        }),
+        other => {
+            return Err(format!(
+                "expected MaxLen<T, N> with N a const, got {other:?}"
+            ));
+        }
+    };
+    let inner_ty = transform_type(inner_ty.clone(), None, path)?;
+    if !matches!(inner_ty, Type::Vec(_) | Type::String) {
+        return Err(
+            "MaxLen<T, N> bounds a list or a string: T is Vec, RefVec, String or &str".into(),
+        );
+    }
+    Ok(Type::MaxLen(len, Box::new(inner_ty)))
 }

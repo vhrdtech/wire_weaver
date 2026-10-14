@@ -47,6 +47,7 @@ macro_rules! un {
 
             impl SerializeShrinkWrap for [<U $bits>] {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+                const MAX_SIZE: Option<crate::max_size::MaxSize> = Some(crate::max_size::MaxSize::bits($bits));
 
                 fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                     wr.[<write_un $base_bits>]($bits, self.0)
@@ -257,6 +258,7 @@ macro_rules! signed_un {
 
             impl SerializeShrinkWrap for [<I $bits>] {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+                const MAX_SIZE: Option<crate::max_size::MaxSize> = Some(crate::max_size::MaxSize::bits($bits));
 
                 fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                     wr.[<write_un $base_bits>]($bits, self.0 as [<u $base_bits>])

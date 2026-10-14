@@ -16,7 +16,7 @@ pub struct UNib32(pub u32);
 const ONE_MORE_NIBBLE: u8 = 0b1000;
 
 impl UNib32 {
-    pub fn len_nibbles(&self) -> usize {
+    pub const fn len_nibbles(&self) -> usize {
         // A loop rather than `bits.div_ceil(3)`: no division routine on CPUs without a divider (RV32I, Cortex-M0),
         // which is 170 bytes of code there, see docs/serdes/code_size.md.
         let mut val = self.0 >> 3;
@@ -104,6 +104,9 @@ impl UNib32 {
 impl SerializeShrinkWrap for UNib32 {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
     const PUSHES_LEN: bool = false;
+    const MAX_SIZE: Option<crate::max_size::MaxSize> = Some(crate::max_size::MaxSize::nibbles(
+        UNib32(u32::MAX).len_nibbles(),
+    ));
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         self.write_forward(wr)

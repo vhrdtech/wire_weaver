@@ -67,6 +67,7 @@ impl UVlq64 {
 impl SerializeShrinkWrap for UVlq64 {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
     const PUSHES_LEN: bool = false;
+    const MAX_SIZE: Option<crate::max_size::MaxSize> = Some(crate::max_size::MaxSize::bytes(10));
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         self.write_forward(wr)

@@ -131,6 +131,16 @@ impl Type {
                     None => quote! { #tail_size },
                 }
             }
+            Type::MaxLen(len, inner_ty) => {
+                let max_len = cp.item(quote! { MaxLen });
+                let inner_ty = inner_ty.def(no_alloc, cp);
+                // a literal, a const or a `{ .. }` block as written, anything else needs the braces
+                let len = match len {
+                    syn::Expr::Lit(_) | syn::Expr::Path(_) | syn::Expr::Block(_) => quote! { #len },
+                    len => quote! { { #len } },
+                };
+                quote! { #max_len<#inner_ty, #len> }
+            }
         }
     }
 
@@ -257,7 +267,8 @@ impl Type {
             | Type::String
             | Type::RefBox(_)
             | Type::Range(_)
-            | Type::RangeInclusive(_) => {
+            | Type::RangeInclusive(_)
+            | Type::MaxLen(_, _) => {
                 let field_path = field_path.by_ref();
                 // same as Sized, special handling of Unsized moved to the BufWriter::write and BufRead::read instead
                 tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
@@ -384,7 +395,11 @@ impl Type {
                 });
                 return;
             }
-            Type::String | Type::RefBox(_) | Type::Range(_) | Type::RangeInclusive(_) => {
+            Type::String
+            | Type::RefBox(_)
+            | Type::Range(_)
+            | Type::RangeInclusive(_)
+            | Type::MaxLen(_, _) => {
                 tokens.append_all(quote! {
                     let #variable_name = rd.#read() #handle_err;
                 });

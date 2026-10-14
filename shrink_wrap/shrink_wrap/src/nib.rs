@@ -50,6 +50,7 @@ impl Nibble {
 
 impl SerializeShrinkWrap for Nibble {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 4 };
+    const MAX_SIZE: Option<crate::max_size::MaxSize> = Some(crate::max_size::MaxSize::nibbles(1));
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write_nib(*self)

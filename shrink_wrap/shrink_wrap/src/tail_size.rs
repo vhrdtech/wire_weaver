@@ -95,6 +95,7 @@ pub(crate) fn decode_slot(slot: &[u8]) -> Result<u32, Error> {
 
 impl<const N: usize> SerializeShrinkWrap for TailSize<N> {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: N * 8 };
+    const MAX_SIZE: Option<crate::max_size::MaxSize> = Some(crate::max_size::MaxSize::bytes(N));
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         let bytes = Self::encode(self.0)?;

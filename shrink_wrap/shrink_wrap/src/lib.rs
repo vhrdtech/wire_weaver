@@ -20,6 +20,10 @@ pub mod vlq32;
 pub use crate::vlq32::{UVlq32, UVlq32Backfill};
 pub mod vlq64;
 pub use crate::vlq64::UVlq64;
+pub mod max_len;
+pub use max_len::{ItemMaxSize, LenBounded, MaxLen};
+pub mod max_size;
+pub use max_size::{MaxSize, write_max_size};
 pub mod ref_box;
 pub use ref_box::RefBox;
 pub mod ref_vec;
@@ -86,6 +90,9 @@ pub enum Error {
     /// The enum variant is known, but compiled out of this build: it is behind a `#[cfg(..)]` (usually a cargo
     /// feature) that is off here. The other side has it enabled.
     EnumVariantDisabled,
+    /// A [MaxLen] list or string is longer than its maximum: when serializing or deserializing it, or in
+    /// [MaxLen::new]. A longer value is never cut.
+    MaxLenExceeded,
 }
 
 impl Display for Error {
@@ -119,6 +126,8 @@ pub mod prelude {
     pub use crate::buf_writer::BufWriter;
     #[cfg(feature = "std")]
     pub use crate::buf_writer_owned::BufWriterOwned;
+    pub use crate::max_len::MaxLen;
+    pub use crate::max_size::MaxSize;
     pub use crate::nib::Nibble;
     pub use crate::nib32::UNib32;
     pub use crate::ref_box::RefBox;

@@ -1,5 +1,6 @@
 #[cfg(feature = "std")]
 use crate::BufWriterOwned;
+use crate::max_size::{MaxSize, write_max_size};
 use crate::{BufReader, BufWriter, Error};
 use paste::paste;
 
@@ -18,6 +19,15 @@ pub trait SerializeShrinkWrap {
     /// sets it from the fields. Set it to `false` in a hand-written impl only when no path through
     /// `ser_shrink_wrap` pushes a length, see [write_pushes_len].
     const PUSHES_LEN: bool = !matches!(Self::ELEMENT_SIZE, ElementSize::Sized { .. });
+
+    /// Upper bound of what [ser_shrink_wrap](Self::ser_shrink_wrap) writes, `None` when there is none: something
+    /// in the type can grow without a limit (a `Vec`, `RefVec` or string without [MaxLen](crate::MaxLen), a
+    /// `RefBox`), or the impl does not say (the default). [MaxSize::buffer_len] of it is the length of a buffer
+    /// [to_ww_bytes](Self::to_ww_bytes) always fits into, see [max_size](crate::max_size).
+    ///
+    /// `#[derive_shrink_wrap]` sets it from the fields. In a hand-written impl, build it with the `const fn`s of
+    /// [max_size](crate::max_size) from what `ser_shrink_wrap` writes, or leave it `None`.
+    const MAX_SIZE: Option<MaxSize> = None;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error>;
 
@@ -193,6 +203,7 @@ pub enum ElementSize {
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for &T {
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
     const PUSHES_LEN: bool = T::PUSHES_LEN;
+    const MAX_SIZE: Option<MaxSize> = T::MAX_SIZE;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         <T as SerializeShrinkWrap>::ser_shrink_wrap(self, wr)
@@ -305,6 +316,7 @@ impl ElementSize {
 
 impl SerializeShrinkWrap for ElementSize {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 2 };
+    const MAX_SIZE: Option<MaxSize> = Some(MaxSize::bits(2));
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write_un8(2, self.discriminant())
@@ -347,6 +359,7 @@ impl DeserializeShrinkWrapOwned for ElementSize {
 
 impl SerializeShrinkWrap for bool {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 1 };
+    const MAX_SIZE: Option<MaxSize> = Some(MaxSize::bits(1));
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write_bool(*self)
@@ -383,6 +396,7 @@ macro_rules! impl_serialize {
         paste! {
             impl SerializeShrinkWrap for [<$sign $bits>] {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
+                const MAX_SIZE: Option<MaxSize> = Some(MaxSize::bytes($bits / 8));
 
                 fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                     wr.[<write_ $sign $bits>](*self)
@@ -499,6 +513,7 @@ impl<'i> DeserializeShrinkWrap<'i> for &'i str {
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for Option<T> {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
     const PUSHES_LEN: bool = write_pushes_len::<T>();
+    const MAX_SIZE: Option<MaxSize> = MaxSize::seq(Some(MaxSize::bits(1)), write_max_size::<T>());
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         match self {
@@ -555,6 +570,10 @@ impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for Option<T> {
 impl<T: SerializeShrinkWrap, E: SerializeShrinkWrap> SerializeShrinkWrap for Result<T, E> {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
     const PUSHES_LEN: bool = write_pushes_len::<T>() || write_pushes_len::<E>();
+    const MAX_SIZE: Option<MaxSize> = MaxSize::seq(
+        Some(MaxSize::bits(1)),
+        MaxSize::one_of(write_max_size::<T>(), write_max_size::<E>()),
+    );
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         match self {
@@ -627,6 +646,11 @@ macro_rules! impl_tuple {
                 // const ELEMENT_SIZE: ElementSize = add_recursive!($($types),*);
                 const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
                 const PUSHES_LEN: bool = false $(|| write_pushes_len::<$types>())*;
+                const MAX_SIZE: Option<MaxSize> = {
+                    let size = Some(MaxSize::ZERO);
+                    $(let size = MaxSize::seq(size, write_max_size::<$types>());)*
+                    size
+                };
 
                 fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                     $(wr.write(&self.$indices)?;)*
@@ -686,6 +710,7 @@ impl_tuple!(A, B, C, D, E, F, G, H; 0, 1, 2, 3, 4, 5, 6, 7);
 impl<const N: usize, T: SerializeShrinkWrap> SerializeShrinkWrap for [T; N] {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
     const PUSHES_LEN: bool = write_pushes_len::<T>();
+    const MAX_SIZE: Option<MaxSize> = MaxSize::repeat(write_max_size::<T>(), N);
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         for elem in self {
@@ -748,6 +773,7 @@ impl<const N: usize, T: DeserializeShrinkWrapOwned + Default + Copy> Deserialize
 
 impl SerializeShrinkWrap for () {
     const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 0 };
+    const MAX_SIZE: Option<MaxSize> = Some(MaxSize::ZERO);
 
     fn ser_shrink_wrap(&self, _wr: &mut BufWriter) -> Result<(), Error> {
         Ok(())
@@ -782,6 +808,7 @@ impl DeserializeShrinkWrapOwned for () {
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::Range<T> {
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
     const PUSHES_LEN: bool = write_pushes_len::<T>();
+    const MAX_SIZE: Option<MaxSize> = MaxSize::repeat(write_max_size::<T>(), 2);
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write(&self.start)?;
@@ -824,6 +851,7 @@ impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for core::ops::Ra
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::RangeInclusive<T> {
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
     const PUSHES_LEN: bool = write_pushes_len::<T>();
+    const MAX_SIZE: Option<MaxSize> = MaxSize::repeat(write_max_size::<T>(), 2);
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write(self.start())?;

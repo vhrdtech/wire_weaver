@@ -86,6 +86,9 @@ pub(crate) enum Type {
 
     /// `TailSize<N>`, the size of the rest of the enclosing value, backfilled; `None` is the default width.
     TailSize(Option<Expr>),
+
+    /// `MaxLen<T, N>`: a `Vec`/`RefVec` or string `T` with at most `N` elements, `N` kept as written.
+    MaxLen(Expr, Box<Type>),
 }
 
 impl Type {
@@ -117,6 +120,7 @@ impl Type {
             Type::RefBox(ref_box) => {
                 ref_box.make_owned();
             }
+            Type::MaxLen(_, inner) => inner.make_owned(),
             _ => {}
         }
     }
@@ -132,7 +136,8 @@ impl Type {
             | Type::Range(ty)
             | Type::RangeInclusive(ty)
             | Type::Option(_, ty)
-            | Type::RefBox(ty) => ty.any(pred),
+            | Type::RefBox(ty)
+            | Type::MaxLen(_, ty) => ty.any(pred),
             Type::Tuple(types) => types.iter().any(|ty| ty.any(pred)),
             Type::Result(_, ok_err_ty) => ok_err_ty.0.any(pred) || ok_err_ty.1.any(pred),
             _ => false,
@@ -174,7 +179,8 @@ impl Type {
             | Type::Range(ty)
             | Type::RangeInclusive(ty)
             | Type::Option(_, ty)
-            | Type::RefBox(ty) => ty.externals(out),
+            | Type::RefBox(ty)
+            | Type::MaxLen(_, ty) => ty.externals(out),
             Type::Tuple(types) => {
                 for ty in types {
                     ty.externals(out);
@@ -193,7 +199,9 @@ impl Type {
     /// plain fields gets a literal `false`. What `SerializeShrinkWrap::PUSHES_LEN` of a derived type is made of.
     pub(crate) fn pushes_len_expr(&self, cp: &CratePath) -> Option<TokenStream> {
         match self {
-            Type::String | Type::Vec(_) | Type::RefBox(_) => Some(quote! { true }),
+            Type::String | Type::Vec(_) | Type::RefBox(_) | Type::MaxLen(_, _) => {
+                Some(quote! { true })
+            }
             Type::External(path, is_lifetime) => {
                 let element_size = cp.item(quote! { ElementSize });
                 let (ser_trait, _) = cp.serdes_traits(true);
@@ -216,6 +224,78 @@ impl Type {
             // integers, flags, varints, the TailSize slot (its backfill encodes what was pushed after it)
             _ => None,
         }
+    }
+
+    /// Const `Option<MaxSize>` expression: upper bound of what a field of this type writes, see
+    /// `SerializeShrinkWrap::MAX_SIZE`. Only for the borrowed side, the owned traits don't have it.
+    pub(crate) fn max_size_expr(&self, cp: &CratePath) -> TokenStream {
+        let max_size = cp.item(quote! { MaxSize });
+        let some = |size: TokenStream| quote! { Some(#max_size::#size) };
+        match self {
+            Type::Bool | Type::IsSome(_) | Type::IsOk(_) => some(quote! { bits(1) }),
+            Type::Nibble => some(quote! { nibbles(1) }),
+            Type::U8 | Type::I8 => some(quote! { bytes(1) }),
+            Type::U16 | Type::I16 => some(quote! { bytes(2) }),
+            Type::U32 | Type::I32 | Type::F32 => some(quote! { bytes(4) }),
+            Type::U64 | Type::I64 | Type::F64 => some(quote! { bytes(8) }),
+            Type::U128 | Type::I128 => some(quote! { bytes(16) }),
+            // not written by the derive yet
+            Type::ULeb32
+            | Type::ULeb64
+            | Type::ULeb128
+            | Type::ILeb32
+            | Type::ILeb64
+            | Type::ILeb128 => quote! { None },
+            // unbounded
+            Type::String | Type::Vec(_) | Type::RefBox(_) => quote! { None },
+            // the flag is a field of its own (IsSome / IsOk), only the value is written here
+            Type::Option(_, ty) => Self::write_max_size(ty, cp),
+            Type::Result(_, ok_err_ty) => {
+                let ok = Self::write_max_size(&ok_err_ty.0, cp);
+                let err = Self::write_max_size(&ok_err_ty.1, cp);
+                quote! { #max_size::one_of(#ok, #err) }
+            }
+            // the slot, and when it is filled in, the lengths encoded after the fields: up to a padding nibble and
+            // an alignment to a byte, which 2 more bytes cover
+            Type::TailSize(width) => {
+                let width = match width {
+                    Some(width) => quote! { (#width) },
+                    None => quote! { 5 },
+                };
+                some(quote! { bytes(#width + 2) })
+            }
+            // written with `wr.write()`: what the type's impl says
+            Type::UNib32
+            | Type::UVlq32
+            | Type::UVlq64
+            | Type::Array(_, _)
+            | Type::Tuple(_)
+            | Type::Range(_)
+            | Type::RangeInclusive(_)
+            | Type::External(_, _)
+            | Type::MaxLen(_, _) => Self::write_max_size(self, cp),
+        }
+    }
+
+    /// `MaxSize::of_write::<T>()` of this type, as a const expression.
+    fn write_max_size(ty: &Type, cp: &CratePath) -> TokenStream {
+        let max_size = cp.item(quote! { MaxSize });
+        let ty = ty.def(true, cp);
+        quote! { #max_size::of_write::<#ty>() }
+    }
+
+    /// `MaxSize::seq` of [max_size_expr](Self::max_size_expr) over `types`, fields one after another.
+    pub(crate) fn seq_max_size<'a>(
+        types: impl Iterator<Item = &'a Type>,
+        cp: &CratePath,
+    ) -> TokenStream {
+        let max_size = cp.item(quote! { MaxSize });
+        let sizes = types.map(|ty| ty.max_size_expr(cp));
+        quote! {{
+            let size = Some(#max_size::ZERO);
+            #(let size = #max_size::seq(size, #sizes);)*
+            size
+        }}
     }
 
     /// `||` of [pushes_len_expr](Self::pushes_len_expr) over `types`, `None` when none of them pushes a length.
@@ -306,6 +386,8 @@ impl Type {
                 return Some(option_ty.element_size()?.add(ObjectSize::SelfDescribing));
             }
             Type::RefBox(_) => return Some(ObjectSize::Unsized),
+            // same as the list or string inside
+            Type::MaxLen(_, inner) => return inner.element_size(),
             Type::TailSize(None) => 5 * 8,
             Type::TailSize(Some(width)) => {
                 if let Expr::Lit(lit) = width

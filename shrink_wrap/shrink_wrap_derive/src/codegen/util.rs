@@ -50,6 +50,7 @@ pub(crate) fn serdes_scaffold(
     cfg: Option<&TokenStream>,
     element_size: TokenStream,
     pushes_len: Option<TokenStream>,
+    max_size: TokenStream,
     is_ref: bool,
     has_lifetime: bool,
     cp: &CratePath,
@@ -61,6 +62,7 @@ pub(crate) fn serdes_scaffold(
     let (ser_trait, des_trait) = cp.serdes_traits(is_ref);
     if is_ref {
         let buf_writer = cp.item(quote! { BufWriter });
+        let max_size_ty = cp.item(quote! { MaxSize });
         // The trait itself always carries a `'i` (the input buffer's lifetime); `#ty_lifetime` is
         // only applied to `#ty_name` when the type actually has a `<'i>` generic of its own.
         let ty_lifetime = maybe_quote(has_lifetime, || quote! { <'i> });
@@ -71,6 +73,7 @@ pub(crate) fn serdes_scaffold(
             impl<'i> #ser_trait for #ty_name #ty_lifetime {
                 const ELEMENT_SIZE: #element_size_ty = #element_size;
                 const PUSHES_LEN: bool = #pushes_len;
+                const MAX_SIZE: Option<#max_size_ty> = #max_size;
 
                 fn ser_shrink_wrap(&self, wr: &mut #buf_writer) -> Result<(), #error> {
                     #ser

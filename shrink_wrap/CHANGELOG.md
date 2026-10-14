@@ -10,6 +10,17 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- Bounded lists and strings (SW-19): `MaxLen<T, N>` wraps a `RefVec`, `Vec`, `&str` or `String` with at most `N`
+  elements (bytes for a string). Same bytes on the wire as `T` alone. A longer value is an error, never cut:
+  serializing it and deserializing it (checked before the elements are read) give the new `Error::MaxLenExceeded`,
+  `MaxLen::new` too. Derefs to `T`; `#[derive_shrink_wrap]` maps `MaxLen<RefVec<'i, T>, N>` to
+  `MaxLen<Vec<T>, N>` (and `&str` to `String`) on the owned side. `N` can be a literal, a const or `{ expr }`.
+- Worst-case serialized size (SW-19, first step of API-18): `SerializeShrinkWrap::MAX_SIZE: Option<MaxSize>`, `Some`
+  when every part of a type is bounded (numbers, `bool`, arrays, tuples, `Option`, `Result`, `MaxLen`, derived
+  structs and enums of them), `None` otherwise and by default. `MaxSize::buffer_len()` is a buffer length
+  `to_ww_bytes` always fits into, usable in a `const`. `#[derive_shrink_wrap]` sets it for borrowed types;
+  `MaxSize::{seq, one_of, repeat, list, unsized_value, of_write}` and `write_max_size::<T>()` build it in
+  hand-written impls. `UNib32::len_nibbles` is a `const fn`.
 - `#[cfg(..)]` on enum variants (DER-8): the variant, its serdes code and its part of `ELEMENT_SIZE` exist only where
   the predicate holds. Discriminants are numbered over all variants, so the wire format does not depend on features;
   reading a variant that is compiled out gives the new `Error::EnumVariantDisabled`. Before, the attribute was

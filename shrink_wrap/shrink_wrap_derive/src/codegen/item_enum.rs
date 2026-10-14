@@ -199,6 +199,49 @@ impl<'i> CGItemEnum<'i> {
         }}
     }
 
+    /// `MAX_SIZE` const expression: the discriminant, then the largest variant, a variant behind `#[cfg]` only
+    /// where it exists.
+    fn max_size(&self) -> TokenStream {
+        let cp = self.crate_path;
+        let max_size = cp.item(quote! { MaxSize });
+        let discriminant = match self.repr {
+            Repr::U(bits) => quote! { bits(#bits as usize) },
+            Repr::Nibble => quote! { nibbles(1) },
+            Repr::U8 => quote! { bytes(1) },
+            Repr::U16 => quote! { bytes(2) },
+            Repr::U32 => quote! { bytes(4) },
+            Repr::UNib32 => {
+                let max = self
+                    .variants
+                    .iter()
+                    .map(|v| v.discriminant)
+                    .max()
+                    .unwrap_or(0);
+                let nibbles = shrink_wrap_len_nibbles(max);
+                quote! { nibbles(#nibbles) }
+            }
+        };
+        let variants = self.variants.iter().map(|v| {
+            let cfg = v.cfg_attrs();
+            let size = Type::seq_max_size(v.fields.types().into_iter(), cp);
+            quote! {
+                #cfg
+                let payload = match payload {
+                    Some(payload) => Some(#max_size::one_of(payload, #size)),
+                    None => Some(#size),
+                };
+            }
+        });
+        quote! {{
+            let payload: Option<Option<#max_size>> = None;
+            #(#variants)*
+            match payload {
+                Some(payload) => #max_size::seq(Some(#max_size::#discriminant), payload),
+                None => Some(#max_size::#discriminant),
+            }
+        }}
+    }
+
     /// `PUSHES_LEN` const expression: any field of any variant, a variant behind `#[cfg]` only where it exists.
     fn pushes_len(&self) -> Option<TokenStream> {
         let cp = self.crate_path;
@@ -282,6 +325,7 @@ impl<'i> CGItemEnum<'i> {
             element_size,
             // the discriminant never pushes a length, any variant's field can
             self.pushes_len(),
+            self.max_size(),
             is_ref,
             is_ref && !self.ambiguous,
             self.crate_path,
@@ -630,4 +674,15 @@ impl ToTokens for CGEnumVariantsDes<'_> {
             }
         }
     }
+}
+
+/// Nibbles of `UNib32(value)`, as in shrink_wrap.
+fn shrink_wrap_len_nibbles(value: u32) -> usize {
+    let mut value = value >> 3;
+    let mut nibbles = 1;
+    while value != 0 {
+        value >>= 3;
+        nibbles += 1;
+    }
+    nibbles
 }

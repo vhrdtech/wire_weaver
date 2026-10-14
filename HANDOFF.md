@@ -79,3 +79,4 @@ Prompt common part: $CLAUDE_JOB_DIR/tmp/common.txt (not durable; it is in each c
   functions (`#[stream(Item, reliable)] fn samples(config) -> Result<Actual, Err>`), Read replaces stream_state(),
   seq/lost/t in the framework head, per-item monitor time as DeltaOfDelta relative to head t. Keep current shapes;
   its piece 7 migrates the IO family after its codegen lands. Not our work now.
+- DOC-6 (ww-rustdoc-traits): #[ww_trait] becomes a real trait: traits pub, lifetimes written out; told all children. master at f6292ff (cnt-examples, subbyte-fields landed).

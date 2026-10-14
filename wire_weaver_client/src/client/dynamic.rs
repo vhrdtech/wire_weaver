@@ -45,6 +45,8 @@ pub struct DynResource {
     /// None for the API root
     item: Option<ApiItemOwned>,
     node: Node,
+    /// An `#[optional]` item the device leaves out (API-16), requests to it fail locally.
+    omitted: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -89,6 +91,7 @@ impl DynResource {
             path: String::new(),
             item: None,
             node: Node::Level { trait_idx: None },
+            omitted: false,
         }
     }
 
@@ -147,6 +150,28 @@ impl DynResource {
         })
     }
 
+    /// Whether this is an `#[optional]` resource the device leaves out (API-16): requests to it fail with
+    /// [Error::NotImplementedByDevice] without being sent.
+    pub fn is_omitted(&self) -> bool {
+        self.omitted
+    }
+
+    /// Ids of the optional items of this level (the API root or a trait) the device leaves out.
+    fn omitted_ids(&self) -> &[UNib32] {
+        let omitted = match (&self.node, &self.item) {
+            (Node::Level { trait_idx: None }, _) => &self.bundle.root_omitted,
+            (
+                Node::Level { .. },
+                Some(ApiItemOwned {
+                    kind: ApiItemKindOwned::Trait { omitted, .. },
+                    ..
+                }),
+            ) => omitted,
+            _ => return &[],
+        };
+        omitted.as_deref().unwrap_or_default()
+    }
+
     /// Resources of the API root or a trait, empty for anything else.
     pub fn children(&self) -> &[ApiItemOwned] {
         match self.level() {
@@ -184,6 +209,7 @@ impl DynResource {
             path,
             item: Some(item.clone()),
             node,
+            omitted: self.omitted || self.omitted_ids().contains(&item.id),
         })
     }
 
@@ -203,6 +229,7 @@ impl DynResource {
             path: format!("{}[{index}]", self.path),
             item: Some(item.clone()),
             node: self.resolve(item)?,
+            omitted: self.omitted,
         })
     }
 
@@ -240,8 +267,19 @@ impl DynResource {
         }
     }
 
-    fn path_kind(&self) -> PathKind<'_> {
-        PathKind::absolute(&self.index_chain)
+    /// Path to send a request to, an error for an omitted optional resource.
+    fn path_kind(&self) -> Result<PathKind<'_>, Error> {
+        if self.omitted {
+            let device = self
+                .bundle
+                .crate_version(self.bundle.root.crate_idx.0)
+                .map_err(other)?;
+            return Err(Error::NotImplementedByDevice {
+                resource: self.path.clone(),
+                device: Box::new(device.clone()),
+            });
+        }
+        Ok(PathKind::absolute(&self.index_chain))
     }
 
     fn method(&self) -> Result<(&[ArgumentOwned], Option<&TypeOwned>), Error> {
@@ -305,7 +343,7 @@ impl DynResource {
     ) -> Result<Option<ValueOwned>, Error> {
         let bytes = self.call_args(args)?;
         let reply = cmd
-            .prepare_call::<TailBytesOwned, Error>(self.path_kind(), Ok(bytes), "")
+            .prepare_call::<TailBytesOwned, Error>(self.path_kind()?, Ok(bytes), "")
             .call()
             .await?;
         self.decode_return(&reply)
@@ -319,7 +357,7 @@ impl DynResource {
         timeout: Option<Duration>,
     ) -> Result<Option<ValueOwned>, Error> {
         let bytes = self.call_args(args)?;
-        let mut call = cmd.prepare_call::<TailBytesOwned, Error>(self.path_kind(), Ok(bytes), "");
+        let mut call = cmd.prepare_call::<TailBytesOwned, Error>(self.path_kind()?, Ok(bytes), "");
         if let Some(timeout) = timeout {
             call = call.with_timeout(timeout);
         }
@@ -344,7 +382,7 @@ impl DynResource {
     pub async fn read(&self, cmd: &Commander) -> Result<ValueOwned, Error> {
         self.property()?;
         let bytes = cmd
-            .prepare_read::<TailBytesOwned>(self.path_kind())
+            .prepare_read::<TailBytesOwned>(self.path_kind()?)
             .read()
             .await?;
         self.decode_property(&bytes)
@@ -357,7 +395,7 @@ impl DynResource {
         timeout: Option<Duration>,
     ) -> Result<ValueOwned, Error> {
         self.property()?;
-        let mut read = cmd.prepare_read::<TailBytesOwned>(self.path_kind());
+        let mut read = cmd.prepare_read::<TailBytesOwned>(self.path_kind()?);
         if let Some(timeout) = timeout {
             read = read.with_timeout(timeout);
         }
@@ -368,7 +406,7 @@ impl DynResource {
     /// Write a property.
     pub async fn write(&self, cmd: &Commander, value: &ValueOwned) -> Result<(), Error> {
         let bytes = self.encode_property(value)?;
-        cmd.prepare_write::<Error>(self.path_kind(), Ok(bytes), "")
+        cmd.prepare_write::<Error>(self.path_kind()?, Ok(bytes), "")
             .write()
             .await
     }
@@ -381,7 +419,7 @@ impl DynResource {
         timeout: Option<Duration>,
     ) -> Result<(), Error> {
         let bytes = self.encode_property(value)?;
-        let mut write = cmd.prepare_write::<Error>(self.path_kind(), Ok(bytes), "");
+        let mut write = cmd.prepare_write::<Error>(self.path_kind()?, Ok(bytes), "");
         if let Some(timeout) = timeout {
             write = write.with_timeout(timeout);
         }
@@ -393,7 +431,7 @@ impl DynResource {
         if !matches!(self.node, Node::Array) {
             return Err(self.not_a("array"));
         }
-        cmd.prepare_read::<ValidIndicesOwned>(self.path_kind())
+        cmd.prepare_read::<ValidIndicesOwned>(self.path_kind()?)
             .read()
             .await
     }
@@ -403,7 +441,7 @@ impl DynResource {
         if !matches!(self.node, Node::Array) {
             return Err(self.not_a("array"));
         }
-        cmd.prepare_read::<ValidIndicesOwned>(self.path_kind())
+        cmd.prepare_read::<ValidIndicesOwned>(self.path_kind()?)
             .blocking_read()
     }
 
@@ -412,7 +450,7 @@ impl DynResource {
     pub async fn stream(&self, cmd: &Commander) -> Result<DynStream, Error> {
         let ty = self.plain_stream_ty()?;
         let stream = cmd
-            .prepare_stream_open::<(), Stream<TailBytesOwned>>(self.path_kind(), None, Ok(vec![]))
+            .prepare_stream_open::<(), Stream<TailBytesOwned>>(self.path_kind()?, None, Ok(vec![]))
             .call()
             .await?;
         Ok(DynStream::new(self, stream, ty))
@@ -422,7 +460,7 @@ impl DynResource {
     pub fn stream_blocking(&self, cmd: &Commander) -> Result<DynStream, Error> {
         let ty = self.plain_stream_ty()?;
         let stream = cmd
-            .prepare_stream_open::<(), Stream<TailBytesOwned>>(self.path_kind(), None, Ok(vec![]))
+            .prepare_stream_open::<(), Stream<TailBytesOwned>>(self.path_kind()?, None, Ok(vec![]))
             .blocking_call()?;
         Ok(DynStream::new(self, stream, ty))
     }
@@ -580,8 +618,8 @@ impl DynResource {
         let (ty, flow) = self.stream_ty(false)?;
         let ty = ty.clone();
         let sink = match flow {
-            None => cmd.prepare_sink(self.path_kind()).await?,
-            Some(FlowControl::Credit) => cmd.prepare_credit_sink(self.path_kind()).await?,
+            None => cmd.prepare_sink(self.path_kind()?).await?,
+            Some(FlowControl::Credit) => cmd.prepare_credit_sink(self.path_kind()?).await?,
         };
         Ok(DynSink::new(self, sink, ty))
     }
@@ -591,8 +629,8 @@ impl DynResource {
         let (ty, flow) = self.stream_ty(false)?;
         let ty = ty.clone();
         let sink = match flow {
-            None => cmd.prepare_sink_blocking(self.path_kind())?,
-            Some(FlowControl::Credit) => cmd.prepare_credit_sink_blocking(self.path_kind())?,
+            None => cmd.prepare_sink_blocking(self.path_kind()?)?,
+            Some(FlowControl::Credit) => cmd.prepare_credit_sink_blocking(self.path_kind()?)?,
         };
         Ok(DynSink::new(self, sink, ty))
     }

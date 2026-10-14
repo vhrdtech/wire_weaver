@@ -18,6 +18,7 @@ pub(crate) fn render(bundle: &ApiBundleOwned, skip_docs: bool) -> String {
         out: String::new(),
         prefix: String::new(),
         is_last: false,
+        omitted: ids(&bundle.root_omitted),
     };
     printer.header();
     printer.visit_api_level(&bundle.root);
@@ -32,6 +33,7 @@ pub(crate) fn render_types(bundle: &ApiBundleOwned, skip_docs: bool) -> String {
         out: String::new(),
         prefix: String::new(),
         is_last: false,
+        omitted: vec![],
     };
     printer.types();
     printer.out
@@ -77,6 +79,12 @@ struct TreePrinter<'a> {
     prefix: String,
     /// Whether the item being visited is the last one of its level.
     is_last: bool,
+    /// Ids of the current level's optional items the device leaves out (API-16).
+    omitted: Vec<u32>,
+}
+
+fn ids(omitted: &Option<Vec<shrink_wrap::UNib32>>) -> Vec<u32> {
+    omitted.iter().flatten().map(|id| id.0).collect()
 }
 
 impl<'a> Visit<'a> for TreePrinter<'a> {
@@ -98,10 +106,12 @@ impl<'a> Visit<'a> for TreePrinter<'a> {
         let parent_prefix_len = self.prefix.len();
         self.prefix.push_str(if is_last { "   " } else { "│  " });
         self.visit_docs(&item.docs);
-        if let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind
+        if let ApiItemKindOwned::Trait { trait_idx, omitted } = &item.kind
             && let Some(location) = self.bundle.traits.get(trait_idx.0 as usize)
         {
+            let parent_omitted = std::mem::replace(&mut self.omitted, ids(omitted));
             self.visit_api_level_location(location);
+            self.omitted = parent_omitted;
         }
         self.prefix.truncate(parent_prefix_len);
     }
@@ -140,6 +150,13 @@ impl TreePrinter<'_> {
 
     fn item_line(&mut self, item: &ApiItemOwned) {
         _ = write!(self.out, "{} ", style(item.id.0).dim());
+        if let Some(optional) = &item.optional {
+            let attr = match &optional.group {
+                Some(group) => format!("#[optional({group})] "),
+                None => "#[optional] ".to_string(),
+            };
+            _ = write!(self.out, "{}", style(attr).dim());
+        }
         match &item.kind {
             ApiItemKindOwned::Method { args, return_ty } => {
                 _ = write!(self.out, "{} ", style("fn").blue());
@@ -228,6 +245,13 @@ impl TreePrinter<'_> {
         }
         if let Some(since) = &item.since {
             _ = write!(self.out, " {}", style(format!("since {since:?}")).dim());
+        }
+        if self.omitted.contains(&item.id.0) {
+            _ = write!(
+                self.out,
+                " {}",
+                style("(left out by this device)").red().dim()
+            );
         }
     }
 
@@ -475,13 +499,48 @@ trait Traits traits_api@0.1.0
 │  └─ 0 fn m1()
 ├─ 1 impl gpio[]: traits_api::Gpio
 │  └─ 0 fn set_high()
-└─ 2 impl periph[]: traits_api::Peripheral
-   └─ 0 impl channel[]: traits_api::Channel
-      ├─ 0 rw property gain: f32
-      └─ 1 fn run()
+├─ 2 impl periph[]: traits_api::Peripheral
+│  └─ 0 impl channel[]: traits_api::Channel
+│     ├─ 0 rw property gain: f32
+│     └─ 1 fn run()
+├─ 3 impl i2c: traits_api::I2c
+│  ├─ 0 fn i2c_write(data: u8) -> u8
+│  ├─ 1 #[optional] fn i2c_wiggle_clock(count: u8) -> u8
+│  │  /// Clocks SCL until SDA is released.
+│  ├─ 2 #[optional(pullups)] fn i2c_set_pullups(enabled: bool)
+│  │  /// Switchable pull-ups: both items or neither.
+│  ├─ 3 #[optional(pullups)] rw property i2c_pullups: bool
+│  └─ 4 #[optional] stream i2c_monitor: u8
+└─ 4 #[optional] fn reset()
+   /// Optional item of the root level itself.
 ";
         assert_eq!(tree, expected);
-        assert_eq!(summary(&traits_api()), "8 resources, 4 traits, 0 types");
+        assert_eq!(summary(&traits_api()), "15 resources, 5 traits, 0 types");
+    }
+
+    #[test]
+    fn renders_omitted_items() {
+        console::set_colors_enabled(false);
+        let mut bundle = traits_api();
+        bundle.root_omitted = Some(vec![shrink_wrap::UNib32(4)]);
+        let i2c = bundle
+            .root
+            .items
+            .iter_mut()
+            .find(|i| i.ident == "i2c")
+            .unwrap();
+        if let ApiItemKindOwned::Trait { omitted, .. } = &mut i2c.kind {
+            *omitted = Some(vec![shrink_wrap::UNib32(2), shrink_wrap::UNib32(3)]);
+        }
+        let tree = render(&bundle, true);
+        for line in [
+            "├─ 1 #[optional] fn i2c_wiggle_clock(count: u8) -> u8\n",
+            "├─ 2 #[optional(pullups)] fn i2c_set_pullups(enabled: bool) (left out by this device)\n",
+            "├─ 3 #[optional(pullups)] rw property i2c_pullups: bool (left out by this device)\n",
+            "└─ 4 #[optional] fn reset() (left out by this device)\n",
+        ] {
+            assert!(tree.contains(line), "{line}{tree}");
+        }
     }
 
     #[test]
@@ -533,12 +592,12 @@ types
         };
         let tree = render(&bundle, false);
         assert!(
-            tree.contains("├─ 1 impl gpio[]: traits_api::Gpio (definition not included)\n└─ 2"),
+            tree.contains("├─ 1 impl gpio[]: traits_api::Gpio (definition not included)\n├─ 2"),
             "{tree}"
         );
         assert_eq!(
             summary(&bundle),
-            "7 resources, 4 traits, 0 types (1 traits and 0 types not included)"
+            "14 resources, 5 traits, 0 types (1 traits and 0 types not included)"
         );
     }
 }

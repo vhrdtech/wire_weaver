@@ -156,3 +156,11 @@ def test_credit_sinks():
     assert not api.plain.credit
     assert api.plan.signature == "credit sink plan: Vec<u8>"
     assert api.plan.progress is None
+
+
+def test_optional_items():
+    # API-16: optional items are marked, a device's model also says which ones it leaves out (tests/traits)
+    api = ww.load_api(str(Path(__file__).parents[2] / "tests" / "traits_api"), "Traits")
+    assert api.i2c.i2c_write.signature == "i2c_write(data: u8) -> u8"
+    assert api.i2c.i2c_wiggle_clock.signature == "i2c_wiggle_clock(count: u8) -> u8 (optional)"
+    assert "rw i2c_pullups: bool (optional)" in repr(api.i2c)

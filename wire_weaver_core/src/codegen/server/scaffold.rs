@@ -2,10 +2,11 @@
 //! [gen_server](crate::gen_server) expects to be implemented on the server struct.
 //!
 //! Handler names and signatures must stay in sync with `codegen/api_server.rs`.
+use crate::codegen::omit::{Omissions, Omit};
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use convert_case::{Case, Casing};
 use std::fmt::Write;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
@@ -26,6 +27,9 @@ pub struct ServerScaffoldConfig {
     pub property_model: String,
     /// Path to the medium type passed to handlers in `wire_weaver::Context`, `()` if None.
     pub medium: Option<String>,
+    /// `#[optional]` items or groups to leave out, `"i2c.pullups"` (API-16): no stubs for them, passed on to
+    /// `ww_codegen!(.., omit = [..])`.
+    pub omit: Vec<String>,
 }
 
 /// Generates Rust source of a server struct, an impl block with a stub for every handler, each returning
@@ -52,6 +56,9 @@ pub fn gen_server_scaffold(
     let property_model =
         PropertyModel::parse(property_model_str).context("failed to parse property model")?;
 
+    let omit: Vec<Omit> = config.omit.iter().map(Omit::always).collect();
+    let omissions = Omissions::resolve(api_bundle, &omit).map_err(|e| anyhow!(e))?;
+
     let root = &api_bundle.root;
     let crate_name = root.crate_name(api_bundle)?.replace('-', "_");
     let out_trait = if config.use_async {
@@ -70,11 +77,12 @@ pub fn gen_server_scaffold(
         cx,
         method_model,
         property_model,
+        omissions,
         fields: String::new(),
         handlers: String::new(),
         positioned: false,
     };
-    s.level(root, None, "root".into(), 0, "")?;
+    s.level(root, None, "root".into(), 0, "", &[])?;
     if s.positioned {
         writeln!(
             s.fields,
@@ -98,6 +106,11 @@ pub fn gen_server_scaffold(
         Some(medium) => format!("medium = {medium:?},\n"),
         None => String::new(),
     };
+    let omit = if config.omit.is_empty() {
+        String::new()
+    } else {
+        format!("omit = {:?},\n", config.omit)
+    };
     let trait_name = &root.trait_name;
     let mut out = String::new();
     writeln!(
@@ -116,7 +129,7 @@ pub fn gen_server_scaffold(
          server = true, no_alloc = {}, use_async = {},\n\
          method_model = {method_model_str:?},\n\
          property_model = {property_model_str:?},\n\
-         {medium});\n\
+         {omit}{medium});\n\
          }}",
         config.no_alloc, config.use_async
     )?;
@@ -131,6 +144,7 @@ struct Scaffold<'a> {
     cx: String,
     method_model: MethodModel,
     property_model: PropertyModel,
+    omissions: Omissions,
     fields: String,
     handlers: String,
     /// A counted or reliable stream was scaffolded: `new_stream_session` is needed
@@ -140,7 +154,8 @@ struct Scaffold<'a> {
 impl Scaffold<'_> {
     /// Mirrors `process_request_inner_recursive` and `level_matchers`: `prefix` is the chain of trait item
     /// idents handler names are prefixed with, `level_name_chain` is `root_<..>` used in valid indices handler
-    /// names, `index_len` is the length of the index chain passed to handlers on this level.
+    /// names, `index_len` is the length of the index chain passed to handlers on this level, `item_path` the trait
+    /// item idents from the root (for omitted items).
     fn level(
         &mut self,
         level: &ApiLevelOwned,
@@ -148,7 +163,9 @@ impl Scaffold<'_> {
         level_name_chain: String,
         index_len: usize,
         path: &str,
+        item_path: &[String],
     ) -> Result<()> {
+        let omitted = self.omissions.level(item_path);
         let crate_name = level.crate_name(self.api_bundle)?;
         let at = if path.is_empty() { "root" } else { path };
         writeln!(
@@ -157,6 +174,22 @@ impl Scaffold<'_> {
             level.trait_name
         )?;
         for item in &level.items {
+            if omitted.contains_key(&item.id.0) {
+                continue;
+            }
+            if let Some(optional) = &item.optional {
+                let name = optional.group.as_ref().unwrap_or(&item.ident);
+                writeln!(
+                    self.handlers,
+                    "// optional, can be left out with omit = [\"{}\"]",
+                    item_path
+                        .iter()
+                        .chain([name])
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(".")
+                )?;
+            }
             let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
             if is_array {
                 self.valid_indices(item, &level_name_chain, index_len, path)?;
@@ -206,12 +239,15 @@ impl Scaffold<'_> {
                 item.ident,
                 if is_array { "[]" } else { "" }
             );
+            let mut child_item_path = item_path.to_vec();
+            child_item_path.push(item.ident.clone());
             self.level(
                 child,
                 Some(&child_prefix),
                 format!("{level_name_chain}_{}", item.ident),
                 index_len + is_array as usize,
                 &child_path,
+                &child_item_path,
             )?;
         }
         Ok(())

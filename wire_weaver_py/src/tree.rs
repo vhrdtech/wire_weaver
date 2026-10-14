@@ -10,7 +10,7 @@ use pyo3::types::{PyBytes, PyDict, PyString, PyTuple};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use wire_weaver_client::ww_self::{
-    ApiItemKindOwned, ArgumentOwned, Delivery, PropertyAccess, TypeOwned, ValueOwned,
+    ApiItemKindOwned, ApiItemOwned, ArgumentOwned, Delivery, PropertyAccess, TypeOwned, ValueOwned,
 };
 use wire_weaver_client::{DynResource, DynResourceKind, DynSink, DynStream};
 
@@ -81,11 +81,22 @@ pub(crate) fn docs(res: &DynResource) -> String {
         .unwrap_or_default()
 }
 
-/// One-line signature, e.g. `add(a: u32, b: i16) -> i64`, `rw speed: u16`, `stream samples: Vec<u8>`.
+/// One-line signature, e.g. `add(a: u32, b: i16) -> i64`, `rw speed: u16`, `stream samples: Vec<u8>`, with
+/// `(optional)` or `(left out by this device)` after an `#[optional]` resource (API-16).
 pub(crate) fn signature(res: &DynResource) -> String {
     let Some(item) = res.item() else {
         return "API root".into();
     };
+    let mut signature = item_signature(res, item);
+    if res.is_omitted() {
+        signature.push_str(" (left out by this device)");
+    } else if item.optional.is_some() {
+        signature.push_str(" (optional)");
+    }
+    signature
+}
+
+fn item_signature(res: &DynResource, item: &ApiItemOwned) -> String {
     let bundle = res.bundle();
     let array = if item.is_array() { "[]" } else { "" };
     let name = &item.ident;

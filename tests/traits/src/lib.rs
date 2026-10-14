@@ -461,4 +461,76 @@ mod tests {
         assert_eq!(call(&[3, 1], &[3]), None);
         assert_eq!(call(&[3, 2], &[0x80]).as_deref(), Some("Unimplemented"));
     }
+
+    #[test]
+    fn scaffold_leaves_out_omitted_items() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../traits_api");
+        let bundle = wire_weaver_core::load(&path, Some("Traits".into()), false).unwrap();
+        let config = wire_weaver_core::ServerScaffoldConfig {
+            server_struct: "Server".into(),
+            no_alloc: true,
+            use_async: false,
+            method_model: String::new(),
+            property_model: String::new(),
+            medium: None,
+            omit: vec!["reset".into(), "i2c.pullups".into()],
+        };
+        let code = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap();
+        for expected in [
+            "fn i2c_i2c_write(",
+            "fn i2c_i2c_wiggle_clock(",
+            "// optional, can be left out with omit = [\"i2c.i2c_wiggle_clock\"]",
+            "omit = [\"reset\", \"i2c.pullups\"],",
+        ] {
+            assert!(code.contains(expected), "{expected}\n{code}");
+        }
+        for omitted in ["fn reset(", "i2c_set_pullups", "i2c_pullups("] {
+            assert!(!code.contains(omitted), "{omitted}\n{code}");
+        }
+
+        let config = wire_weaver_core::ServerScaffoldConfig {
+            omit: vec!["i2c.i2c_write".into()],
+            ..config
+        };
+        let e = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap_err();
+        assert!(e.to_string().contains("not #[optional]"), "{e}");
+    }
+
+    /// The dynamic client (used by Python) knows omitted items from the device's model and fails them locally.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dynamic_client_fails_omitted_items_locally() {
+        use wire_weaver_client::{ClientConfig, DynClient, DynResource};
+        let _ = tracing_subscriber::fmt::try_init();
+        let data = Arc::new(RwLock::new(SharedTestData::default()));
+        let device = tests_common::start_device(
+            "traits/dynamic",
+            no_std_sync_server::NoStdSyncServer { data },
+            traits_api::TRAITS_FULL_GID,
+            no_std_sync_server::api_impl::api_hash(),
+        );
+        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        let bundle = client.device_introspect().unwrap().api_bundle.clone();
+        let root = DynResource::root(bundle);
+        let i2c = root.child("i2c").unwrap();
+        assert!(!i2c.child("i2c_write").unwrap().is_omitted());
+        let wiggle = i2c.child("i2c_wiggle_clock").unwrap();
+        assert!(wiggle.is_omitted());
+        assert!(root.child("reset").unwrap().is_omitted());
+        let r = wiggle
+            .call(
+                client.cmd(),
+                &[wire_weaver_client::ww_self::ValueOwned::Numeric(
+                    wire_weaver_client::ww_numeric::NumericValue::U8(3),
+                )],
+            )
+            .await;
+        assert_not_implemented(r, "i2c.i2c_wiggle_clock");
+        assert_not_implemented(
+            i2c.child("i2c_pullups").unwrap().read(client.cmd()).await,
+            "i2c.i2c_pullups",
+        );
+    }
 }

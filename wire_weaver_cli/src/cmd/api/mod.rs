@@ -69,6 +69,11 @@ pub enum ApiCommand {
         #[arg(long)]
         medium: Option<String>,
 
+        /// `#[optional]` items or groups to leave out (`i2c.pullups`, `reset`): no stubs, `omit = [..]` in
+        /// ww_codegen!. Repeat or separate with commas
+        #[arg(long, value_delimiter = ',', value_name = "TRAIT_ITEM.ITEM")]
+        omit: Vec<String>,
+
         /// Write to a file instead of stdout, refuses to overwrite an existing one
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         output: Option<PathBuf>,
@@ -158,6 +163,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             method_model,
             property_model,
             medium,
+            omit,
             output,
         } => scaffold::scaffold(
             path,
@@ -169,6 +175,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
                 method_model,
                 property_model,
                 medium,
+                omit,
             },
             output,
         ),

@@ -307,6 +307,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -358,6 +362,8 @@
   
     
       
+      
+        
       
         
       
@@ -653,17 +659,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Wire format (<code>shrink_wrap</code>, <code>SW</code>)
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#derive_shrink_wrap-macro-der" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>derive_shrink_wrap</code> macro (<code>DER</code>)
       </span>
     </span>
   </a>
@@ -1105,6 +1100,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1191,6 +1190,60 @@
     
   
   Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -1604,6 +1657,8 @@
       
         
       
+        
+      
     
     
     
@@ -1771,6 +1826,33 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_error/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_error
 
     
   </span>
@@ -2576,17 +2658,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#derive_shrink_wrap-macro-der" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>derive_shrink_wrap</code> macro (<code>DER</code>)
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#api-model-and-codegen-api" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2940,8 +3011,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   discriminant into it instead of failing with <code>EnumFutureVersionOrMalformedData</code>, and writes it back; an <code>Unsized</code>
   enum skips the newer variant's fields with its size slot, <code>sized</code> / <code>self_describing</code> ones only survive new unit
   variants. No wire number of its own, no change to <code>ELEMENT_SIZE</code>, left out of the API model. The <code>ww_self</code>
-  dynamic decoder reads an unknown variant of an <code>Unsized</code> enum as <code>&lt;unknown N&gt;</code>. Opt-in per enum, see SW-47 for
-  adding it by default. <code>docs/serdes/derive.md#enum-variants-from-a-newer-version</code>, <code>shrink_wrap/tests/evolution.rs</code>.</li>
+  dynamic decoder reads an unknown variant of an <code>Unsized</code> enum as <code>&lt;unknown N&gt;</code>. Added by default since SW-47.
+  <code>docs/serdes/derive.md#enum-variants-from-a-newer-version</code>, <code>shrink_wrap/tests/evolution.rs</code>.</li>
 <li>✅ <strong>SW-48 Bit-sized fields and variant payloads</strong>: <code>U1</code>..<code>U64</code> / <code>I2</code>..<code>I64</code> (<code>u7</code>, <code>ub10</code>, <code>i2</code>.. in the API
   model) as struct fields, enum variant payloads and <code>#[ww_trait]</code> method arguments, returns and properties, packed
   bit after bit with a sub-byte discriminant: <code>enum I2cAddress { Seven(U7), Ten(U10) }</code> with <code>ww_repr = u1,
@@ -2950,6 +3021,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   client and Python already handled them, now tested byte for byte against derived types; the C runtime has the
   bit reads. Same wire format (<code>shrink_wrap/tests/sub_byte.rs</code>, <code>tests/dynamic</code>, <code>tests/methods</code>,
   <code>docs/serdes/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address</code>).</li>
+<li>✅ <strong>SW-47 <code>#[future_version]</code> variant by default</strong>: the derive adds <code>Unknown(u32)</code> to every <code>Unsized</code> enum with a
+  free discriminant; <code>no_future_version</code> opts out (framework enums whose readers must fail: <code>ww_self</code> model,
+  <code>MultiIndex</code>), <code>future_version = Name</code> renames it, <code>final_structure</code> / <code>self_describing</code> / <code>sized</code> enums only get it
+  when written. A Rust API change of every such enum (exhaustive matches need the arm), not of the wire or the API
+  model. <code>docs/serdes/derive.md#enum-variants-from-a-newer-version</code>, <code>shrink_wrap/tests/evolution.rs</code>.</li>
 <li>📋 <strong>SW-17 Const / magic type</strong> · <code>v0.5</code> — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the <code>magic</code> field in
   <code>ww_self</code> (a plain <code>u32</code> today).</li>
@@ -2981,13 +3057,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>SW-29 Flatten support</strong> — apply a type's layout across struct/enum boundaries.</li>
 <li>💡 <strong>SW-30 <code>derive_shrink_wrap</code> on a whole module at once</strong>. For definitions in separate files with own syntax, see
   <a href="#api-model-and-codegen-api">standalone definition files</a>.</li>
-<li>💡 <strong>SW-47 <code>#[future_version]</code> variant by default</strong> — add the SW-16 variant to every enum unless all discriminants
-  of the repr are taken or an argument opts out. Changes the Rust type of every enum (exhaustive matches need a new
-  arm, <code>Copy</code> enums grow), so it needs a release that breaks the Rust API anyway, and the variant's name must not
-  clash with user variants.</li>
-</ul>
-<h2 id="derive_shrink_wrap-macro-der"><code>derive_shrink_wrap</code> macro (<code>DER</code>)<a class="headerlink" href="#derive_shrink_wrap-macro-der" title="Permanent link">&para;</a></h2>
-<ul>
 <li>✅ <strong>DER-1 <code>#[derive_shrink_wrap(..)]</code> attribute</strong> with clear syntax, no hidden magic and good error messages
   (<code>docs/serdes/derive.md</code>); replaced <code>#[derive(ShrinkWrap)]</code>.</li>
 <li>✅ <strong>DER-2 Discriminant checks</strong>: discriminants must fit <code>ww_repr</code>, implicit ones are numbered like in Rust.</li>
@@ -2999,6 +3068,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>shrink_wrap/tests/generic_external.rs</code>).</li>
 <li>✅ <strong>DER-11 Field type from a macro_rules <code>$T:ty</code> fragment</strong>: accepted like the type written directly, instead of
   rejected as an unsupported <code>syn::Type::Group</code> (test <code>shrink_wrap/tests/macro_ty_fragment.rs</code>).</li>
+<li>✅ <strong>DER-12 <code>Display</code> from doc comments</strong>: a <code>display</code> directive writes <code>core::fmt::Display</code> and
+  <code>core::error::Error</code> (borrowed and owned) from the first doc line of each variant/struct, <code>{field}</code> filled in,
+  <code>#[display("..")]</code> to override; a variant with neither is a compile error. Error enums need no hand-written
+  <code>Display</code> on hosts (<code>docs/serdes/derive.md</code>; test <code>shrink_wrap/tests/display.rs</code>).</li>
 <li>📋 <strong>DER-5 <code>#[since = "x.y.z"]</code> on fields</strong> — generate correct evolution code from it (<code>TODO</code> in
   <code>shrink_wrap_derive/src/lib.rs</code>).</li>
 <li>📋 <strong>DER-6 Check that <code>TailBytes</code> ends the outer type too</strong> — a struct ending in <code>TailBytes</code> used as a non-last field
@@ -3046,6 +3119,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   arguments in <code>StreamStatus</code>, stream functions in the dynamic client and Python (CLT-23), streams that detach by
   themselves when the link goes down (a resume re-attaches) (<code>docs/api/stream_reliability.md</code>,
   <code>tests/streams_reliable</code>).</li>
+<li>✅ <strong>API-16 Optional items</strong> — <code>#[optional]</code> / <code>#[optional(group)]</code> on a trait's methods, properties and streams;
+  a server leaves them out with <code>ww_codegen!(.., omit = ["i2c.pullups"])</code> or <code>omit_if(&lt;cfg&gt;) = [..]</code> (the user
+  crate's features), pays no dispatch arm and writes no handler (about 100 bytes of flash per item on Cortex-M). Only
+  optional items can be left out (compile error otherwise). A call answers <code>Unimplemented</code> from the level's fallback
+  arm (<code>id &lt; ITEM_COUNT</code>), the device's model lists the omitted items (<code>ww_self</code> <code>omitted</code>, <code>root_omitted</code>), so the
+  generated and dynamic clients and Python fail locally with <code>NotImplementedByDevice</code>; <code>ww api scaffold --omit</code>, CLI
+  tree and Python show them (<code>docs/api/optional_items.md</code>, <code>tests/traits</code>). Not yet: <code>#[optional]</code> on
+  <code>ww_impl!</code>, the GUI (<code>wire_weaver_tool</code>).</li>
+<li>✅ <strong>API-32 Per-method error lists</strong> — <code>#[errors(Common(InUse), Nack, ..)]</code> on a trait method: checked against the
+  error enum when the trait is parsed (a compile error on a wrong name), in the API model (<code>ww_self</code> <code>Method::errors</code>),
+  generated client and rustdoc <code># Errors</code> with each variant's doc line, <code>ww api tree</code>, Python <code>help()</code>, <code>ww api check</code>
+  (compatible); the generated and dynamic clients warn when a device returns a variant outside the list, tests fail
+  (<code>tests_common</code>). Nothing on the device (<code>docs/api/methods.md#error-lists</code>, <code>tests/methods</code>). Not yet: the GUI
+  (<code>wire_weaver_tool</code>).</li>
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
@@ -3054,8 +3141,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
   done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
   docs.rs (DOC-6).</li>
-<li>📋 <strong>API-16 Feature groups</strong> · <code>v0.5.x</code> — resources behind features (all enabled by default), connected to the user
-  crate's features in <code>ww_codegen!</code>. Related: <code>#[cfg]</code> in enums, see <a href="#derive_shrink_wrap-macro">derive macro</a>.</li>
+<li>💡 <strong>API-33 Narrow error types per method</strong> — generated per-method error enums with the crate enum's
+  discriminants, as server handler return types only (<code>narrow_errors = true</code>), for a compile-time contract on the
+  device. Explored and not recommended for clients: friction in every driver crate.</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
 <li>🚧 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: <code>MAX_SIZE</code> of types (SW-19) and per-method <code>&lt;METHOD&gt;_REQUEST_MAX_LEN</code> /
@@ -3158,6 +3246,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>CLT-8 Compatibility check on connect</strong>: each resource is checked against device introspection when the API hash
   differs.</li>
 <li>✅ <strong>CLT-9 Connection selectors</strong>, clear errors when no device is found, <code>disconnect()</code> releases the transport.</li>
+<li>✅ <strong>CLT-24 One <code>?</code> per call</strong> — a method returning <code>Result&lt;T, E&gt;</code> gives <code>Result&lt;T, CallError&lt;E&gt;&gt;</code>
+  (<code>Device(E)</code>, <code>Unimplemented { resource }</code> or <code>Client(Error)</code>) from <code>call</code>, <code>blocking_call</code> and promises, a property
+  with a user error type the same from <code>write</code> and <code>write_promise</code>, instead of <code>Result&lt;Result&lt;T, E&gt;, Error&gt;</code> and <code>??</code>;
+  <code>Error::is_unimplemented()</code> for items without an error type (<code>docs/api/methods.md#client-side</code>,
+  <code>tests/methods</code>).</li>
 <li>🚧 <strong>CLT-10 Trait calls that work on any device</strong> · <code>v0.5</code> — serial, user label, a CLI that works with all devices.
   <code>ww list</code> with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: <code>ClientConfig::traits_only()</code>, <code>DynClient::global_attachment()</code> (served through API-20,
@@ -3243,6 +3336,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   introspection data smaller. Can't be undone later, so decide per type.</li>
 <li>💡 <strong>INT-7 Compress <code>ww_self</code> strings with a pre-shared dictionary</strong> — partly addressed by leaving snapshot-known
   traits and types out of introspection data.</li>
+<li>💡 <strong>INT-8 Model enums that tolerate newer variants</strong> — the <code>ww_self</code> enums (<code>Type</code>, <code>ApiItemKind</code>, <code>Fields</code>, ...)
+  and <code>ww_numeric::NumericAnyType</code> are <code>no_future_version</code> (SW-47): a host reading a newer model fails as a whole.
+  With <code>Unknown</code> handled in every walker (visitor, signature, inline, values, compat, CLI, Python), an older host could
+  show the rest of a newer device's API and mark the unknown parts.</li>
 </ul>
 <h2 id="evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility (<code>EVO</code>)<a class="headerlink" href="#evolution-versioning-and-compatibility-evo" title="Permanent link">&para;</a></h2>
 <ul>
@@ -3287,6 +3384,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>STD-3 <code>ww_si</code></strong> and <strong><code>ww_numeric</code></strong>.</li>
 <li>✅ <strong>STD-4 <code>ww_date_time</code></strong>.</li>
 <li>✅ <strong>STD-5 <code>ww_gpio</code></strong>.</li>
+<li>✅ <strong>STD-16 Common errors</strong> — <code>ww_error::CommonError</code> (<code>Unsupported</code>, <code>InvalidArgument</code>, <code>InUse</code>, <code>Busy</code>,
+  <code>WrongState</code>, <code>NoPower</code>, <code>Refused</code>, <code>Timeout</code>, <code>Fault</code>, bounded strings), re-exported as
+  <code>wire_weaver::prelude::CommonError</code>, nested first in an error enum as <code>#[common] Common(CommonError)</code> (the derive
+  adds <code>From&lt;CommonError&gt;</code> and <code>HasCommon</code>); recognised by tools by its type (<code>ww_self::TypeOwned::is_common_error</code>):
+  Python <code>RemoteError.common</code> with the doc line as the message, <code>ww api tree -t</code> marks it. Display by hand until
+  DER-12 takes over. Moving the stdlib crates' errors to it is still to do.
+  <code>docs/std_library/ww_error.md</code>, <code>tests/common_error</code>.</li>
 <li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing.</li>
 <li>🔍 <strong>STD-7 Interrupt left enabled in <code>ww_gpio_hl</code></strong> · <code>v0.5</code> — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.</li>

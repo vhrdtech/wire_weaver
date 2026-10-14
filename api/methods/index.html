@@ -19,7 +19,7 @@
         <link rel="prev" href="../overview/">
       
       
-        <link rel="next" href="../properties/">
+        <link rel="next" href="../errors/">
       
       
         
@@ -307,6 +307,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -358,6 +362,8 @@
   
     
       
+      
+        
       
         
       
@@ -893,6 +899,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1113,12 +1123,83 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Client side">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#error-lists" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Error lists
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1525,6 +1606,8 @@
       
         
       
+        
+      
     
     
     
@@ -1692,6 +1775,33 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_error/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_error
 
     
   </span>
@@ -2555,6 +2665,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Client side">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#error-lists" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Error lists
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2600,6 +2727,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -2773,6 +2904,51 @@ A deferred call that is never answered times out on the client.</p>
 <h3 id="resource-names-mapping">Resource names mapping<a class="headerlink" href="#resource-names-mapping" title="Permanent link">&para;</a></h3>
 <p>In order to avoid complex shared data structures and allocation on <code>no_std</code>, all API levels are squished into one.</p>
 <h2 id="client-side">Client side<a class="headerlink" href="#client-side" title="Permanent link">&para;</a></h2>
+<p><code>client = "..."</code> in <code>ww_codegen!</code> generates a client struct with one function per method. It returns a
+<code>PreparedCall</code>, which is executed with <code>call().await</code>, <code>blocking_call()</code>, <code>call_forget()</code> (no reply) or
+<code>call_promise(marker)</code> (polled from immediate mode UI code).</p>
+<p>A method without <code>Result</code> gives <code>Result&lt;T, wire_weaver_client::Error&gt;</code>. A method returning <code>Result&lt;T, E&gt;</code> gives
+<code>Result&lt;T, CallError&lt;E&gt;&gt;</code>, so one <code>?</code> is enough:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">CallError</span><span class="o">&lt;</span><span class="n">E</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="sd">/// The device answered with its error: the `Err(e)` of the method.</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">Device</span><span class="p">(</span><span class="n">E</span><span class="p">),</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="sd">/// The device has no implementation: its handler returned `Unimplemented`, or the device&#39;s API doesn&#39;t have</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="sd">/// the method (known locally from introspection, no round trip).</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="n">Unimplemented</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">resource</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="sd">/// The call didn&#39;t go through: link, timeout, disconnect, another framework error.</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="n">Client</span><span class="p">(</span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">Error</span><span class="p">),</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">// trait: fn move_motor(x: f32) -&gt; Result&lt;(), MotorError&gt;;</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">client</span><span class="p">.</span><span class="n">move_motor</span><span class="p">(</span><span class="mf">1.0</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// with anyhow, or a thiserror enum with #[from] CallError&lt;MotorError&gt;</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">match</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">move_motor</span><span class="p">(</span><span class="mf">1.0</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">MotorError</span><span class="p">::</span><span class="n">EndStop</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* the device said no */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Unimplemented</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* this device can&#39;t move motors */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">into</span><span class="p">()),</span><span class="w"> </span><span class="c1">// CallError::Client: link, timeout, ...</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>Display</code> and <code>source()</code> of <code>CallError</code> are the inner error's, and it is <code>std::error::Error</code> when <code>E</code> is. Methods
+without <code>Result</code> tell an unimplemented method apart with <code>wire_weaver_client::Error::is_unimplemented()</code>. A property
+with a user error type (<code>property!(rw mode: u8, ModeError)</code>) gives the same <code>CallError&lt;ModeError&gt;</code> from <code>write()</code>.
+See <a href="../errors/">Errors</a> for declaring errors, common errors and errors of newer firmware.</p>
+<h3 id="error-lists">Error lists<a class="headerlink" href="#error-lists" title="Permanent link">&para;</a></h3>
+<p><code>#[errors(..)]</code> on a method names the variants of its error enum it returns (API-32), <code>Common(InUse, Refused)</code> the
+variants of the enum a <code>Common(CommonError)</code> variant holds, <code>Common</code> all of them:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Sensor</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="sd">/// Reads one sample.</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="cp">#[errors(Common(Busy, InUse), Nack)]</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">SensorError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The list is checked when the trait is parsed (an unknown or repeated name is a compile error on that name), goes
+into the API model and from there into the generated client's docs (<code># Errors</code>, each entry with its variant's doc
+line), <code>ww api tree</code>, Python's <code>help()</code> and <code>ww api check</code> (a changed list is a compatible change). The device and
+the wire don't see it: a device may still return any variant, the client logs a <code>tracing</code> warning when one is
+outside the list, and <code>tests_common</code> makes that a test failure (<code>wire_weaver_client::set_strict_error_lists</code>).
+Without <code>#[errors]</code> a method may return every variant. More in <a href="../errors/#which-errors-a-method-returns">Errors</a>.</p>
 
 
 
@@ -2829,13 +3005,13 @@ A deferred call that is never answered times out on the client.</p>
         
         
           
-          <a href="../properties/" class="md-footer__link md-footer__link--next" aria-label="Next: Properties">
+          <a href="../errors/" class="md-footer__link md-footer__link--next" aria-label="Next: Errors">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Properties
+                Errors
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -305,6 +305,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -358,6 +362,8 @@
   
     
       
+      
+        
       
         
       
@@ -891,6 +897,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -977,6 +987,60 @@
     
   
   Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -1614,6 +1678,8 @@
       
         
       
+        
+      
     
     
     
@@ -1781,6 +1847,33 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_error/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_error
 
     
   </span>
@@ -2986,8 +3079,9 @@ overhead, giving all the nice backwards and forwards compatibility benefits.</p>
 </li>
 <li>New enum variants can be added at the end. Readers of older versions fail on them unless the enum has a
   <a href="../../serdes/derive/#enum-variants-from-a-newer-version"><code>#[future_version]</code> variant</a>; with one, they get its
-  discriminant. In an <code>Unsized</code> enum new variants may carry data, in a <code>sized</code> or <code>self_describing</code> one only new
-  unit variants can be read past by older readers.</li>
+  discriminant. Every <code>Unsized</code> enum has one unless it says <code>no_future_version</code> (SW-47). In an <code>Unsized</code> enum new
+  variants may carry data, in a <code>sized</code> or <code>self_describing</code> one only new unit variants can be read past by older
+  readers. Adding or removing <code>no_future_version</code> changes the Rust type, not the wire: a Rust API break only.</li>
 <li>New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
   other field (see <a href="../checker_tool/#new-fields-in-padding-bits">the checker</a> for exact conditions).</li>
 <li>TODO: clarify: <code>T</code> -&gt; struct containing <code>T</code></li>

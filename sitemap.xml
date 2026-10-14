@@ -10,10 +10,16 @@
         <loc>https://ww.vhrd.tech/api/arrays/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/api/errors/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/folder_structure/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/api/methods/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/api/optional_items/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/api/overview/</loc>
@@ -89,6 +95,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_dfu/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_error/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_gpio/</loc>

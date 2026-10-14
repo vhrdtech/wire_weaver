@@ -307,6 +307,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -358,6 +362,8 @@
   
     
       
+      
+        
       
         
       
@@ -893,6 +899,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1050,6 +1060,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optional-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Optional items
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#resource-arrays" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1084,6 +1105,60 @@
     
   
   Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -1497,6 +1572,8 @@
       
         
       
+        
+      
     
     
     
@@ -1664,6 +1741,33 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_error/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_error
 
     
   </span>
@@ -2491,6 +2595,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optional-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Optional items
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#resource-arrays" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2544,6 +2659,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -2636,6 +2755,10 @@ be added to the end).</p>
 <p>More on <a href="../properties/">properties page</a>.</p>
 <h2 id="traits">Traits<a class="headerlink" href="#traits" title="Permanent link">&para;</a></h2>
 <p>More on <a href="../traits/">traits page</a>.</p>
+<h2 id="optional-items">Optional items<a class="headerlink" href="#optional-items" title="Permanent link">&para;</a></h2>
+<p>A method, property or stream marked <code>#[optional]</code> (or <code>#[optional(group)]</code>) can be left out of a device's server with
+<code>ww_codegen!(.., omit = ["i2c.pullups"])</code>: no dispatch arm and no handler, a call answers <code>Unimplemented</code>, and a
+client knows it from the device's model. See <a href="../optional_items/">Optional items</a>.</p>
 <h2 id="resource-arrays">Resource arrays<a class="headerlink" href="#resource-arrays" title="Permanent link">&para;</a></h2>
 <p>More on <a href="../arrays/">arrays page</a>.</p>
 

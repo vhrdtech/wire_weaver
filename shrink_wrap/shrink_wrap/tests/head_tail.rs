@@ -273,3 +273,29 @@ fn c_header() {
         "tests/head_tail.h is not what the types produce: SW_UPDATE_GOLDEN=1 cargo test -p shrink_wrap --test head_tail"
     );
 }
+
+/// Variants behind a `#[cfg]` (SW-54): one compiled out, one in. Tags stay where they are.
+#[derive_shrink_wrap(head_tail, ww_repr = u8, derive(Clone, Copy, Debug, PartialEq))]
+pub enum Gated<'i> {
+    First,
+    #[cfg(any())]
+    Gone { x: u32, w: List<'i, Wave> },
+    #[cfg(all())]
+    Kept { mask: u16, w: List<'i, Wave> },
+}
+
+#[test]
+fn cfg_variants() {
+    assert_eq!(Gated::KEPT_TAG, 2);
+    let w = [WAVE];
+    let v = Gated::Kept { mask: 7, w: List::new(&w) };
+    let mut buf = [0u8; 32];
+    let n = v.to_head_tail(&mut buf).unwrap();
+    assert_eq!(buf[0], 2);
+    assert_eq!(Gated::from_head_tail(&buf[..n]).unwrap(), v);
+    // the tag of the variant this build has no code for: unknown, as from a newer version
+    assert!(Gated::from_head_tail(&[1, 0, 0, 0, 0, 0, 0]).is_err());
+    let mut c = String::new();
+    write_c_header(&mut c, "GATED_H", "", &[Wave::write_c_ht, Gated::write_c_ht]).unwrap();
+    assert!(c.contains("GATED_KEPT 2u") && !c.contains("GONE"), "{c}");
+}

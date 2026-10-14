@@ -938,12 +938,6 @@ pub(crate) fn ht_enum(
     let Some((tag_len, tag_prim)) = repr_bytes(repr) else {
         return Err("head_tail: the tag must be byte-aligned: use ww_repr = u8, u16 or u32".into());
     };
-    if let Some(v) = variants.iter().find(|v| !v.cfg.is_empty()) {
-        return Err(format!(
-            "head_tail: variant `{}` has a #[cfg]: the layout would depend on the features. Remove the #[cfg]",
-            v.ident
-        ));
-    }
     let ident = &names.ident;
     let ty_i = names.ty_i();
     let ty_s = names.ty_s();
@@ -965,6 +959,8 @@ pub(crate) fn ht_enum(
     let mut c_members = Vec::new();
     let mut c_cases = Vec::new();
     for v in variants {
+        // a variant compiled out (SW-54) keeps its tag: it is just unknown to this build, like a newer one
+        let cfg = v.cfg_attrs();
         let vs = snake(&v.ident.to_string());
         let vu = vs.to_uppercase();
         let items = variant_items(v).map_err(|e| format!("head_tail: {e}"))?;
@@ -989,13 +985,16 @@ pub(crate) fn ht_enum(
             len,
             ..
         } = &head;
-        asserts.extend(a.iter().cloned());
+        asserts.extend(a.iter().map(|a| quote! { #cfg #a }));
         defs.push(quote! {
-            #[doc = #doc_tag]
-            pub const #tag_name: #tag_ty = #disc;
-            #[doc = #doc_head]
-            pub const #head_name: usize = #len;
-            #(#consts)*
+            #cfg
+            impl #ty_s {
+                #[doc = #doc_tag]
+                pub const #tag_name: #tag_ty = #disc;
+                #[doc = #doc_head]
+                pub const #head_name: usize = #len;
+                #(#consts)*
+            }
         });
 
         let v_ident = &v.ident;
@@ -1039,6 +1038,7 @@ pub(crate) fn ht_enum(
         let writes = writes(&head, &access, cp);
         let len = tail_len(&head, &access, cp);
         read_arms.push(quote! {
+            #cfg
             #disc => {
                 let b = tail.take_array::<{ <#ty_s>::#head_name }>()?;
                 let _ = &b;
@@ -1047,6 +1047,7 @@ pub(crate) fn ht_enum(
             }
         });
         write_arms.push(quote! {
+            #cfg
             #pattern => {
                 tag.copy_from_slice(&<#ty_s>::#tag_name.to_le_bytes());
                 let Some(b) = tail.put(<#ty_s>::#head_name)?.first_chunk_mut::<{ <#ty_s>::#head_name }>() else {
@@ -1056,10 +1057,11 @@ pub(crate) fn ht_enum(
                 #(#writes)*
             }
         });
-        len_arms.push(quote! { #pattern => <#ty_s>::#head_name + #len, });
+        len_arms.push(quote! { #cfg #pattern => <#ty_s>::#head_name + #len, });
 
         let vc = format!("{c_name}_{vs}");
-        c_heads.push(cw(
+        let mut v_heads = Vec::new();
+        v_heads.push(cw(
             &format!("#define {{}}{c_upper}_{vu} {{}}u\n#define {{}}{c_upper}_{vu}_HEAD_LEN {{}}u"),
             &[
                 quote! { up },
@@ -1068,8 +1070,10 @@ pub(crate) fn ht_enum(
                 quote! { <#ty_s>::#head_name },
             ],
         ));
-        c_heads.extend(c_head(&ty_s, &format!("{vu}_"), &vc, &head, cp));
-        c_members.extend(c_members_of(&format!("{vs}_"), &head, cp));
+        v_heads.extend(c_head(&ty_s, &format!("{vu}_"), &vc, &head, cp));
+        c_heads.push(quote! { #cfg { #(#v_heads)* } });
+        let v_members = c_members_of(&format!("{vs}_"), &head, cp);
+        c_members.push(quote! { #cfg { #(#v_members)* } });
         let mut case = vec![cw(
             "    case {}u:\n        vh = sw_ht_take(t, end, {}u);\n        if (vh == NULL) {{ return -1; }}\n        \
              tl->head = vh;",
@@ -1080,7 +1084,7 @@ pub(crate) fn ht_enum(
         )];
         case.extend(c_walk("vh", &format!("{vs}_"), &vc, &head, cp));
         case.push(cw("        return 0;", &[]));
-        c_cases.push(quote! { #(#case)* });
+        c_cases.push(quote! { #cfg { #(#case)* } });
     }
 
     let c_title = cw(
@@ -1117,8 +1121,8 @@ pub(crate) fn ht_enum(
             pub const TAG_LEN: usize = #tag_len;
             /// Bytes of the head.
             pub const HEAD_LEN: usize = #tag_len;
-            #(#defs)*
         }
+        #(#defs)*
 
         #[allow(clippy::identity_op)]
         impl<'i> #ht<'i> for #ty_i {

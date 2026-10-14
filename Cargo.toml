@@ -92,6 +92,9 @@ blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved"
 bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }
 credit_sink_api = { version = "0.1.0", path = "./tests/credit_sink_api" }
 dfu_api = { version = "0.1.0", path = "./tests/dfu_api" }
+dfu_app_api = { version = "0.1.0", path = "./tests/dfu_app_api" }
+dfu_lean_app_api = { version = "0.1.0", path = "./tests/dfu_lean_app_api" }
+dfu_updater_api = { version = "0.1.0", path = "./tests/dfu_updater_api" }
 dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }

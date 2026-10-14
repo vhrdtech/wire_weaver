@@ -1,0 +1,24 @@
+[package]
+name = "dfu_scenarios"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+dfu_app_api.workspace = true
+dfu_lean_app_api.workspace = true
+dfu_updater_api.workspace = true
+sha2.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "net", "time"] }
+tracing-subscriber.workspace = true
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process", "udp", "ws"] }
+wire_weaver_core.workspace = true
+ww_client_server.workspace = true
+ww_device = { workspace = true, features = ["udp", "ws"] }
+ww_dfu = { workspace = true, features = ["std"] }
+ww_framer.workspace = true
+ww_link.workspace = true

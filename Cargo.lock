@@ -804,6 +804,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "dfu_app_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_dfu",
+]
+
+[[package]]
+name = "dfu_lean_app_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_dfu",
+]
+
+[[package]]
+name = "dfu_scenarios"
+version = "0.1.0"
+dependencies = [
+ "dfu_app_api",
+ "dfu_lean_app_api",
+ "dfu_updater_api",
+ "sha2",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "ww_client_server",
+ "ww_device",
+ "ww_dfu",
+ "ww_framer",
+ "ww_link",
+]
+
+[[package]]
+name = "dfu_updater_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_dfu",
+]
+
+[[package]]
 name = "digest"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

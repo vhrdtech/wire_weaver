@@ -1,0 +1,108 @@
+// ww_onewire 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+    "1-Wire over WireWeaver: reset, ROM search, addressed transactions with strong pull-up.",
+], crate_idx: 0, trait_name: "ww_onewire", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "OneWire", docs: []),
+]), types: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "RomId", fields: Named([
+        (ident: Some("bytes"), default: None, since: None, ty: Array(len: 8, ty: NumericAny(Base(U8))), docs: []),
+    ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
+        120,
+        122,
+        229,
+        235,
+        98,
+        254,
+        103,
+        224,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "OneWireTransaction", fields: Named([
+        (ident: Some("rom"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
+            "`None` = skip ROM (one device on the bus).",
+        ]),
+        (ident: Some("write"), default: None, since: None, ty: MaxLen(max_len: 256, ty: Vec(NumericAny(Base(U8)))), docs: []),
+        (ident: Some("read_len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("strong_pullup"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
+            "Drive the bus high this long after the last byte (parasite-powered parts converting).",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "OneWireError", variants: [
+        (docs: [], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "InUse", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "NoIoLevel", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Refused", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "InvalidArgument", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "WrongMode", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "No device answered the reset.",
+        ], ident: "NoPresence", fields: Unit, discriminant: 6, since: None),
+        (docs: [], ident: "CrcMismatch", fields: Unit, discriminant: 7, since: None),
+        (docs: [
+            "The bus is held low.",
+        ], ident: "ShortCircuit", fields: Unit, discriminant: 8, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SearchState", fields: Named([
+        (ident: Some("last_rom"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("last_discrepancy"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SearchPage", fields: Named([
+        (ident: Some("roms"), default: None, since: None, ty: MaxLen(max_len: 16, ty: Vec(OutOfLine(type_idx: 0))), docs: []),
+        (ident: Some("next"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
+            "Where to continue, `None` when all devices were found.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "OneWireCapabilities", fields: Named([
+        (ident: Some("pins"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(MaxLen(max_len: 16, ty: String))), docs: [
+            "Pins the bus can be put on, by name.",
+        ]),
+        (ident: Some("overdrive"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("strong_pullup"), default: None, since: None, ty: Bool, docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "OneWireSpeed", variants: [
+        (docs: [], ident: "Standard", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Overdrive", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "OneWireConfig", fields: Named([
+        (ident: Some("enabled"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("pin"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Index into [OneWireCapabilities::pins].",
+        ]),
+        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Triplet", fields: Named([
+        (ident: Some("id_bit"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("cmp_bit"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("direction"), default: None, since: None, ty: Bool, docs: []),
+    ]))), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "OneWire", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "t", ty: OutOfLine(type_idx: 2)),
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 256, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "transaction", docs: [
+            "Reset, ROM select (or skip ROM), write, read `read_len` bytes, optional strong pull-up after the last byte.",
+        ]),
+        (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Bool, err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "reset", docs: [
+            "Reset pulse; true when a device answered with a presence pulse.",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "from", ty: Option(some_ty: OutOfLine(type_idx: 4))),
+            (ident: "family", ty: Option(some_ty: NumericAny(Base(U8)))),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 5), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "search", docs: [
+            "ROM search, one page at a time: start with `from: None`, continue with the page\'s `next`.",
+        ]),
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "capabilities", docs: []),
+        (id: 4, kind: Method(args: [
+            (ident: "config", ty: OutOfLine(type_idx: 8)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "configure", docs: []),
+        (id: 5, kind: Method(args: [
+            (ident: "direction", ty: Bool),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 9), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "triplet", docs: [
+            "One search step at bit level, for a search run on the host.",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_onewire", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

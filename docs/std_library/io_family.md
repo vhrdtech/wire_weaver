@@ -1,9 +1,9 @@
 # IO trait family (design)
 
-!!! warning "Design for review, round 3"
-    Draft of 14 Oct 2026 (STD-13 io-trait-family). Rounds 1 and 2 were reviewed by Roman on 14 Oct; the answers are in
-    [Review answers](#review-answers). `ww_i2c` and `ww_adc` exist as real crates on this branch (read their sources:
-    the doc comments are the API description); the other crates are designed here and built after approval.
+!!! note "Approved, being built"
+    STD-13 io-trait-family, approved by Roman on 14 Oct 2026 after three review rounds (answers in
+    [Review answers](#review-answers)). Every crate exists as a skeleton on the branch (the sources and their doc
+    comments are the API description); the per-crate fill-ins add docs pages, tests and host helpers.
 
 ## Scope and principles
 
@@ -43,7 +43,7 @@ first user and the source of the requirements, not the shape of the traits.
 |---|---|---|
 | `ww_gpio` | `Bank`, `Pin` | evolves 0.1, additive except errors |
 | `ww_uart` | `Uart`, `UartMonitor` | evolves 0.1 |
-| `ww_i2c` | `I2c`, `I2cMonitor` | evolves 0.1, **written** |
+| `ww_i2c` | `I2c`, `I2cWatch`, `I2cMonitor` | evolves 0.1, **written** |
 | `ww_spi` | `Spi`, `SpiMonitor` | new content (0.1 is empty) |
 | `ww_adc` | `Adc`, `AdcStream`, `AdcCapture` | new, **written** |
 | `ww_pwm` | `Pwm` with `channel[]: PwmChannel`, `PwmCapture` | new |
@@ -59,6 +59,22 @@ A device picks traits, for example a Nucleo bridge: `gpio: ww_gpio::Bank`, `uart
 arrays, so generic tools find it by global trait path (API-20, CLT-10, landed).
 
 ## Review answers
+
+### Round 3
+
+**10-bit addresses without the extra byte.** Done: SW-48 (bit-width fields in the derive, child session
+`ww-subbyte-fields`) packs `I2cAddress { Seven(U7), Ten(U10) }` into 8 bits for a 7-bit address and 11 for a
+10-bit one, so `ww_i2c` supports both at no cost.
+
+**A third `ww_i2c` trait for autonomous reads.** `I2cWatch` (usb_io_fw IF-6 i2c-polling): the device repeats
+configured reads (`I2cWatchConfig`: address, plain or register read, length, period) and reports on the `changes`
+stream only what `I2cWatchReport` asks for: every read, a change under a mask, or a mask / value match starting or
+ending. Host transactions have priority and run between watch reads; errors are reported once. Slots reuse the 0.1
+`OutOfCycleSlots` / `InvalidCycleSlot` errors meant for cycle reads.
+
+**Approved otherwise.** Errors follow `ww-errors-plan` (approved there: `Common(CommonError)` first, `#[errors(..)]`
+per method, SW-47 automatic `Unknown`) through its stdlib migration, which covers every crate here; `seq` / `lost` /
+backfill wait for `ww-stream-reliability`.
 
 ### Round 2
 
@@ -187,7 +203,7 @@ TX sink, and moves monitoring into its own trait.
 | | Item | Why |
 |---|---|---|
 | kept | `I2c`: `i2c_capabilities`, `i2c_configure`, `i2c_write`, `i2c_read` with `I2cReadKind`, `i2c_scan`, `delay_after`, names and order; `I2cMode`; `I2cError` variants | work |
-| changed | `addr: u8` → `I2cAddress { Seven(u8), Ten(u16) }` | 10-bit support, see round 2 |
+| changed | `addr: u8` → `I2cAddress { Seven(U7), Ten(U10) }` | 10-bit support at no cost, see round 3 |
 | changed | `io_level_mv: u16` → `io_level: Option<Volt>` | D2; `None` leaves the level |
 | changed | `Vec<u8>` → `MaxLen<RefVec<'i, u8>, N>` | a `no_alloc` device server can't take a `Vec`; bounded sizes |
 | changed | `RawTimestamp { ticks: u32 }` → `ww_si::Second` | D6 |
@@ -195,6 +211,7 @@ TX sink, and moves monitoring into its own trait.
 | changed | plain structs get `#[derive_shrink_wrap]` | they cross the wire |
 | added | `i2c_transaction` | repeated starts, embedded-hal `transaction` |
 | added | `i2c_lines_state`, `i2c_wiggle_clock`, `i2c_set_pullups`, `i2c_pullups` | the 0.1 `TODO`s: see a stuck bus, free it |
+| added | `I2cWatch` trait: autonomous reads reported by change or match | the host doesn't poll (IF-6) |
 | added | `I2cMonitor` trait: one `I2cRecord` per transaction (start, end, address, direction, bytes, NACK position) | sniffers |
 | added | `I2cError`: `InUse`, `NoIoLevel`, `Refused`, `Unsupported` | common errors |
 
@@ -293,8 +310,6 @@ device besides rePort rev A boards in-house uses these crates.
 
 ## Ideas not asked for
 
-- **Bit-width fields in the derive** (`Seven(u7)`): makes a 7-bit `I2cAddress` one byte again, and helps every
-  packed type.
 - **Mocks as a reusable simulator** (`ww_io_sim`, std): the test servers wired as a loopback (TX↔RX, an I2C EEPROM
   at 0x50, a 1-wire DS18B20); WW-4 runs crates.io embedded-hal drivers against it, rePort's sim reuses it.
 - **`ww` CLI subcommands**: `ww gpio`, `ww uart term`, `ww i2c scan`, `ww adc read`, `ww la capture` on any device

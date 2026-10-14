@@ -1,0 +1,159 @@
+// ww_pwm 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+    "PWM outputs and pulse measurement over WireWeaver.",
+    "",
+    "| Trait        | What it is for                                                       | Who implements it          |",
+    "|--------------|----------------------------------------------------------------------|----------------------------|",
+    "| `Pwm`        | `channel[]` of PWM outputs: frequency, duty, polarity.               | Every device with PWM      |",
+    "| `PwmCapture` | `channel[]` of inputs measuring frequency, duty, pulse width, edges. | Devices with timer capture |",
+    "",
+    "Channels in one group share a timer and so a frequency ([PwmChannelInfo::group]).",
+], crate_idx: 0, trait_name: "ww_pwm", items: [
+    (id: 0, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "Pwm", docs: []),
+    (id: 1, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "PwmChannel", docs: []),
+    (id: 2, kind: Trait(trait_idx: 3), multiplicity: Flat, since: None, ident: "PwmCapture", docs: []),
+    (id: 3, kind: Trait(trait_idx: 2), multiplicity: Flat, since: None, ident: "PwmCaptureChannel", docs: []),
+]), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "Hertz", signature: [
+        133,
+        10,
+        115,
+        237,
+        190,
+        117,
+        13,
+        219,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "PwmOutput", fields: Named([
+        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "0..=65535 = 0..100 %.",
+        ]),
+        (ident: Some("inverted"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("phase_correct"), default: None, since: None, ty: Bool, docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "PwmActual", fields: Named([
+        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "PwmError", variants: [
+        (docs: [], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "InUse", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "NoIoLevel", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Refused", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "InvalidArgument", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "WrongMode", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "The other channel of the group runs at another frequency.",
+        ], ident: "SharedTimer", fields: Unit, discriminant: 6, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "PwmState", variants: [
+        (docs: [], ident: "Idle", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Output", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+        ]), discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "PwmChannelInfo", fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: []),
+        (ident: Some("group"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Channels with the same group share the frequency.",
+        ]),
+        (ident: Some("capture"), default: None, since: None, ty: Bool, docs: [
+            "This channel is also in `PwmCapture`.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "PwmCapabilities", fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(OutOfLine(type_idx: 5))), docs: []),
+        (ident: Some("min_freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("max_freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("duty_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Duty resolution of the hardware.",
+        ]),
+    ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
+        120,
+        122,
+        229,
+        235,
+        98,
+        254,
+        103,
+        224,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "CaptureValue", variants: [
+        (docs: [], ident: "Frequency", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "0..=65535 = 0..100 %.",
+        ], ident: "DutyCycle", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [], ident: "PulseWidth", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
+        ]), discriminant: 2, since: None),
+        (docs: [], ident: "EdgeCount", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "CaptureSample", fields: Named([
+        (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [
+            "End of the measurement window.",
+        ]),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "CaptureMode", variants: [
+        (docs: [], ident: "Off", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Frequency", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "DutyCycle", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "PulseWidth", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "EdgeCount", fields: Unit, discriminant: 4, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "CaptureConfig", fields: Named([
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: []),
+        (ident: Some("gate"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [
+            "Measurement window.",
+        ]),
+    ]))), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "PwmChannel", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "output", ty: OutOfLine(type_idx: 1)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 2), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_output", docs: [
+            "Starts or changes the output and returns what was actually set.",
+        ]),
+        (id: 1, kind: Method(args: [
+            (ident: "duty", ty: NumericAny(Base(U16))),
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U16)), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_duty", docs: [
+            "Changes only the duty (0..=65535 = 0..100 %), keeping the frequency; returns the duty actually set.",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "idle_high", ty: Bool),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "stop", docs: [
+            "Stops the output, leaving the pin high or low.",
+        ]),
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4))), multiplicity: Flat, since: None, ident: "state", docs: []),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "Pwm", items: [
+        (id: 0, kind: Trait(trait_idx: 0), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: []),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "capabilities", docs: []),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "PwmCaptureChannel", items: [
+        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 9), is_up: true), multiplicity: Flat, since: None, ident: "capture", docs: [
+            "Measurements, one per `gate`, while capture is on.",
+        ]),
+        (id: 1, kind: Method(args: [
+            (ident: "config", ty: OutOfLine(type_idx: 11)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_capture", docs: []),
+        (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 9), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "read_capture", docs: [
+            "The last measurement.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "PwmCapture", items: [
+        (id: 0, kind: Trait(trait_idx: 2), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: []),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_pwm", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

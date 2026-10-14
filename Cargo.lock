@@ -4436,12 +4436,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_onewire"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_picoboot"
 version = "0.1.0"
 dependencies = [
  "nusb",
  "thiserror 2.0.20",
  "tokio",
+]
+
+[[package]]
+name = "ww_pwm"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_si",
 ]
 
 [[package]]
@@ -4471,6 +4489,17 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
+name = "ww_timebase"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_date_time",
+ "ww_si",
 ]
 
 [[package]]

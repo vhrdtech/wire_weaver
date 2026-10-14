@@ -595,9 +595,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **STD-13 IO trait family** · `v0.5` — `ww_gpio`, `ww_uart` (+ `UartMonitor`), `ww_i2c` (+ `I2cMonitor`,
   10-bit addresses), `ww_spi` (+ `SpiMonitor`), `ww_adc` (`Adc`, `AdcStream`, `AdcCapture`), `ww_pwm`, `ww_onewire`,
   `ww_timebase` (`Clock`), `ww_logic_analyzer`, `ww_signal_generator`; `ww_si` values and timestamps, plain error
-  enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Design round 3 in review
-  (`docs/std_library/io_family.md`); `ww_i2c` and `ww_adc` written as drafts. Stream loss and timestamps wait for
+  enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Design approved 14 Oct
+  (`docs/std_library/io_family.md`); skeletons of every crate written, `ww_i2c` with `I2cWatch` (autonomous
+  reads) and 10-bit addresses (SW-48); per-crate fill-ins next. Stream loss and timestamps wait for
   ww-stream-reliability, error evolution for ww-errors-plan.
+- 🚧 **STD-17 `ww_timebase`** · `v0.5` — `Clock`: device time as `ww_si::Second`, sync master / slave, `time_map`
+  stream. Skeleton; fill-in next (STD-13).
+- 🚧 **STD-18 `ww_adc`** · `v0.5` — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Draft written;
+  fill-in next (STD-13).
+- 🚧 **STD-19 `ww_pwm`** · `v0.5` — `Pwm` / `PwmChannel` outputs, `PwmCapture` measurements. Skeleton (STD-13).
+- 🚧 **STD-20 `ww_onewire`** · `v0.5` — `OneWire`: transactions, search, triplet. Skeleton (STD-13).
+- 📋 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
+  `Raw` and `Transitions` encodings (SW-31). Design pass first (STD-13).
+- 📋 **STD-22 `ww_signal_generator`** · `v0.5.x` — `PatternGenerator` (digital, replays analyzer captures),
+  `WaveformGenerator` (DAC). Design pass first (STD-13).
+- 📋 **STD-23 `ww_si` / `ww_numeric` extended** · `v0.5` — every part a cargo feature, `Second` as a device
+  timestamp (wrap rule, host `Unwrapper`), constructors and conversions, `UVlq32` / `UVlq64` storage (STD-13).
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

@@ -1,0 +1,19 @@
+[package]
+name = "ww_timebase"
+version = "0.1.0"
+authors.workspace = true
+description = "Device clock and time synchronisation data types and API"
+edition.workspace = true
+license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_date_time/std", "ww_si/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_date_time/defmt", "ww_si/defmt"]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+wire_weaver = { workspace = true, default-features = false }
+ww_date_time = { workspace = true, default-features = false }
+ww_si = { workspace = true, default-features = false }

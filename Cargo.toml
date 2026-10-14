@@ -90,7 +90,11 @@ ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
 ww_i2c = { version = "0.1.0", path = "./ww_stdlib/ww_i2c", default-features = false }
 ww_log_bare_metal = { version = "0.1.0", path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
 ww_numeric = { version = "0.2.0", path = "./ww_stdlib/ww_numeric", default-features = false }
+ww_onewire = { version = "0.1.0", path = "./ww_stdlib/ww_onewire", default-features = false }
+ww_pwm = { version = "0.1.0", path = "./ww_stdlib/ww_pwm", default-features = false }
 ww_si = { version = "0.1.0", path = "./ww_stdlib/ww_si", default-features = false }
+ww_spi = { version = "0.1.0", path = "./ww_stdlib/ww_spi", default-features = false }
+ww_timebase = { version = "0.1.0", path = "./ww_stdlib/ww_timebase", default-features = false }
 ww_uart = { version = "0.1.0", path = "./ww_stdlib/ww_uart", default-features = false }
 ww_version = { version = "0.2.0", path = "./ww_stdlib/ww_version", default-features = false }
 

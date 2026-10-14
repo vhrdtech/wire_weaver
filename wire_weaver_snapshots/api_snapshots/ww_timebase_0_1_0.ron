@@ -1,0 +1,107 @@
+// ww_timebase 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+    "Device time and synchronisation over WireWeaver.",
+    "",
+    "Every device has one free-running clock that timestamps everything it captures, as [Second]s since the clock",
+    "started (see `docs/std_library/io_family.md`). `Clock` lets a host read it in full (to unwrap fixed-width",
+    "timestamps and correlate with host time), and synchronise several devices: one is the master on a sync line,",
+    "the others lock to it and publish `time_map` points that map their local time to the shared one.",
+], crate_idx: 0, trait_name: "ww_timebase", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Clock", docs: []),
+]), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
+        120,
+        122,
+        229,
+        235,
+        98,
+        254,
+        103,
+        224,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SyncFormat", variants: [
+        (docs: [], ident: "IrigB", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Pps", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "ClockInfo", fields: Named([
+        (ident: Some("resolution"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "Smallest step of the clock.",
+        ]),
+        (ident: Some("source"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
+            "\"RP2350 TIMER0\", \"DWT cycle counter\".",
+        ]),
+        (ident: Some("sync_formats"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 1))), docs: [
+            "Sync formats this device can use; empty without a sync line.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SyncState", variants: [
+        (docs: [], ident: "Free", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Acquiring", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Locked", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Holdover", fields: Unit, discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "TimeMapPoint", fields: Named([
+        (ident: Some("local"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("shared"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SyncConfig", variants: [
+        (docs: [], ident: "Off", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Master", fields: Named([
+            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [], ident: "Slave", fields: Named([
+            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
+        ]), discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "ClockError", variants: [
+        (docs: [], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "InvalidArgument", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "WrongMode", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "InUse", fields: Unit, discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SyncStatus", fields: Named([
+        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+        (ident: Some("offset"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
+            "Local minus shared time at the last lock, when known.",
+        ]),
+        (ident: Some("last_lock"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
+            "Local time of the last lock.",
+        ]),
+    ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 2, type_name: "DateTime", signature: [
+        211,
+        75,
+        69,
+        235,
+        24,
+        200,
+        194,
+        195,
+    ]),
+], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "Clock", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0))), multiplicity: Flat, since: None, ident: "now", docs: [
+            "Device time now, full width.",
+        ]),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "info", docs: []),
+        (id: 2, kind: Stream(ty: OutOfLine(type_idx: 4), is_up: true), multiplicity: Flat, since: None, ident: "time_map", docs: [
+            "While synced, and on every sync state change: local time and the shared time it corresponds to.",
+        ]),
+        (id: 3, kind: Method(args: [
+            (ident: "config", ty: OutOfLine(type_idx: 5)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "configure_sync", docs: []),
+        (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5))), multiplicity: Flat, since: None, ident: "sync_config", docs: []),
+        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7))), multiplicity: Flat, since: None, ident: "sync_status", docs: []),
+        (id: 6, kind: Method(args: [
+            (ident: "t", ty: OutOfLine(type_idx: 8)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "set_time_of_day", docs: [
+            "Time of day a master sends on the sync line, set from its host.",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_timebase", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

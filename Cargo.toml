@@ -80,12 +80,14 @@ ww_global = { version = "0.2.0", path = "./ww_global" }
 ww_self = { version = "0.2.0", path = "./ww_self" }
 
 # ww_stdlib, each crate has its own version
+ww_adc = { version = "0.1.0", path = "./ww_stdlib/ww_adc", default-features = false }
 ww_client_server = { version = "0.2.0", path = "./ww_stdlib/ww_client_server", default-features = false }
 ww_date_time = { version = "0.1.0", path = "./ww_stdlib/ww_date_time", default-features = false }
 ww_dfu = { version = "0.1.0", path = "./ww_stdlib/ww_dfu", default-features = false }
 ww_error = { version = "0.1.0", path = "./ww_stdlib/ww_error", default-features = false }
 ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = false }
 ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
+ww_i2c = { version = "0.1.0", path = "./ww_stdlib/ww_i2c", default-features = false }
 ww_log_bare_metal = { version = "0.1.0", path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
 ww_numeric = { version = "0.2.0", path = "./ww_stdlib/ww_numeric", default-features = false }
 ww_si = { version = "0.1.0", path = "./ww_stdlib/ww_si", default-features = false }

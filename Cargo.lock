@@ -4240,6 +4240,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_adc"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_numeric",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_board_info"
 version = "0.1.0"
 dependencies = [
@@ -4377,6 +4387,7 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
+ "ww_si",
 ]
 
 [[package]]

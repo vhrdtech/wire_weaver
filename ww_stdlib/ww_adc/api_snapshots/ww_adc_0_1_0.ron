@@ -1,0 +1,460 @@
+// ww_adc 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+    "Analog inputs over WireWeaver: single calibrated readings, continuous sampling, and lossless captures into device",
+    "RAM.",
+    "",
+    "# Traits",
+    "",
+    "| Trait          | What it is for                                                         | Who implements it          |",
+    "|----------------|------------------------------------------------------------------------|----------------------------|",
+    "| `Adc`          | The channels, their unit and range; one calibrated reading on demand.  | Every device with an ADC   |",
+    "| `AdcStream`    | Continuous sampling of chosen channels, streamed while the link keeps up. | Data loggers, adapters   |",
+    "| `AdcCapture`   | A block of samples into device RAM, optionally triggered, read after.  | Scope-like devices         |",
+    "",
+    "A thermometer or a battery monitor implements `Adc` only; a data logger adds `AdcStream`; a device that samples",
+    "faster than its link (500 kS/s over USB full speed) adds `AdcCapture`. Traits a device doesn\'t put into its API",
+    "tree cost it nothing.",
+    "",
+    "```rust,ignore",
+    "#[ww_api_root]",
+    "trait MyLogger {",
+    "    ww_impl!(adc: ww_adc::Adc);",
+    "    ww_impl!(adc_stream: ww_adc::AdcStream);",
+    "}",
+    "```",
+    "",
+    "# Channels and units",
+    "",
+    "Channels are numbered `0..n` in [AdcCapabilities::channels], the order the device lists them. Each channel has a",
+    "physical unit and SI prefix ([ChannelInfo::unit], [ChannelInfo::prefix]): a voltage input reads in V or mV, a",
+    "current sense input in mA, the die temperature in °C. [Reading::value] is a number in that unit, in whatever",
+    "number type the device finds convenient (an `f32` after calibration, an `i32` of µV), so a host shows \"3.297 V\"",
+    "without knowing the device.",
+    "",
+    "`Adc::read` returns calibrated values. Streams and captures carry **raw** samples, to keep them compact; a host",
+    "converts them with [ChannelInfo::raw_to_value] (`value = raw * scale + offset`).",
+    "",
+    "# Simultaneous readings",
+    "",
+    "Readings of several channels taken at the same instant (three phase currents) are a capture of one sample set:",
+    "`AdcCapture::capture` with `sets: 1` and [Trigger::Now], if [CaptureCapabilities::simultaneous] says the",
+    "hardware samples the channels together. Several `Adc::read`s, even in one multi-call, are taken one after the",
+    "other.",
+    "",
+    "# Streams: `seq`, `lost`, `t`",
+    "",
+    "Every [SampleBlock] carries the head all IO streams of `ww_stdlib` share:",
+    "",
+    "- `seq`: index of the block\'s first sample set since `AdcStream::start_stream`, wrapping. A sample set is one",
+    "  sample of every channel in the stream. Blocks of 100, 100, 50 sets have `seq` 0, 100, 200; the next one 250.",
+    "- `lost`: sample sets dropped right before this block because the host didn\'t keep up (its buffer filled). `seq`",
+    "  counts them too, so the host knows exactly where the gap is and how long it was, instead of gluing data from",
+    "  before and after it together.",
+    "- `t`: device time of the block\'s first sample set ([Second] since the device\'s clock started, in the prefix and",
+    "  number type the device picks; a fixed-width value wraps and the host unwraps it).",
+    "",
+    "# Errors",
+    "",
+    "All traits return [AdcError]; each method lists the variants it returns.",
+], crate_idx: 0, trait_name: "ww_adc", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Adc", docs: []),
+    (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "AdcStream", docs: []),
+    (id: 2, kind: Trait(trait_idx: 2), multiplicity: Flat, since: None, ident: "AdcCapture", docs: []),
+]), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "NumericValue", signature: [
+        167,
+        241,
+        183,
+        24,
+        62,
+        237,
+        8,
+        22,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Prefix", signature: [
+        176,
+        15,
+        252,
+        129,
+        58,
+        111,
+        152,
+        11,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Second", signature: [
+        120,
+        122,
+        229,
+        235,
+        98,
+        254,
+        103,
+        224,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One calibrated reading, see `Adc::read`.",
+    ], ident: "Reading", fields: Named([
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "In the channel\'s [ChannelInfo::unit] and [ChannelInfo::prefix].",
+        ]),
+        (ident: Some("raw"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
+            "The converter\'s raw code, where there is one (for checking calibration).",
+        ]),
+        (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
+            "When the sample was taken.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Errors of every trait in this crate. Each method lists the variants it returns.",
+    ], ident: "AdcError", variants: [
+        (docs: [
+            "Not supported by this device (a format, a trigger).",
+        ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "The pins or the converter serve another function, named in `by`.",
+        ], ident: "InUse", fields: Named([
+            (ident: Some("by"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "The input buffers or translators have no supply.",
+        ], ident: "NoIoLevel", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "A safety rule of the device doesn\'t allow it; `reason` says which.",
+        ], ident: "Refused", fields: Named([
+            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: 64, ty: String), docs: []),
+        ]), discriminant: 3, since: None),
+        (docs: [
+            "An argument is out of range (rate, depth, offset, trigger level).",
+        ], ident: "InvalidArgument", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "The call needs another state (e.g. reading a capture that isn\'t done).",
+        ], ident: "WrongMode", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "No channel with this index.",
+        ], ident: "NoSuchChannel", fields: Unit, discriminant: 6, since: None),
+        (docs: [
+            "The converter is taken by a stream or capture.",
+        ], ident: "Busy", fields: Unit, discriminant: 7, since: None),
+        (docs: [
+            "The conversion didn\'t finish.",
+        ], ident: "Timeout", fields: Unit, discriminant: 8, since: None),
+    ])), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 2, type_name: "BaseUnit", signature: [
+        114,
+        239,
+        182,
+        149,
+        193,
+        214,
+        33,
+        110,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "`value = raw * scale + offset`, in the channel\'s unit and prefix.",
+    ], ident: "Linear", fields: Named([
+        (ident: Some("scale"), default: None, since: None, ty: NumericAny(Base(F32)), docs: []),
+        (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(F32)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One analog input.",
+    ], ident: "ChannelInfo", fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
+            "For the user: \"IO0\", \"VBUS\", \"die temperature\".",
+        ]),
+        (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+            "Physical unit of [Reading::value], [ChannelInfo::min] and [ChannelInfo::max].",
+        ]),
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+            "SI prefix of the values.",
+        ]),
+        (ident: Some("min"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "Lowest value the channel can show.",
+        ]),
+        (ident: Some("max"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "Highest value the channel can show.",
+        ]),
+        (ident: Some("bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Converter resolution.",
+        ]),
+        (ident: Some("calibrated"), default: None, since: None, ty: Bool, docs: [
+            "Whether readings are calibrated for this unit (per-device factors) or nominal only.",
+        ]),
+        (ident: Some("raw_to_value"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 6)), docs: [
+            "How raw samples of streams and captures turn into values; `None` if they don\'t linearly.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What a device\'s ADC offers, see `Adc::capabilities`.",
+    ], ident: "AdcCapabilities", fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(OutOfLine(type_idx: 7))), docs: [
+            "Channel `n` of every method is `channels[n]`.",
+        ]),
+        (ident: Some("timestamps"), default: None, since: None, ty: Bool, docs: [
+            "Whether timestamps are real; without a clock they are all zero.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Raw samples of a stream, see `AdcStream`.",
+    ], ident: "SampleBlock", fields: Named([
+        (ident: Some("seq"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Index of the first sample set since the stream started, wrapping; counts lost sets too.",
+        ]),
+        (ident: Some("lost"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
+            "Sample sets dropped right before this block, 0 normally.",
+        ]),
+        (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
+            "Time of the first sample set.",
+        ]),
+        (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "Whole sample sets, interleaved in the order of [StreamConfig::channels], packed as [StreamConfig::format].",
+        ]),
+    ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 2, type_name: "Hertz", signature: [
+        133,
+        10,
+        115,
+        237,
+        190,
+        117,
+        13,
+        219,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "How raw samples are packed in [SampleBlock::data] and capture data.",
+    ], ident: "SampleFormat", variants: [
+        (docs: [
+            "One byte per sample.",
+        ], ident: "U8", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Two bytes per sample, little-endian.",
+        ], ident: "U16", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Two 12-bit samples in three bytes: `a[7:0]`, `a[11:8] | b[3:0] << 4`, `b[11:4]`; an odd last sample takes",
+            "two bytes.",
+        ], ident: "Packed12", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "Two bytes per sample, signed, little-endian (differential inputs).",
+        ], ident: "I16", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "Three bytes per sample, signed, little-endian (sigma-delta converters).",
+        ], ident: "I24", fields: Unit, discriminant: 4, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `AdcStream` can do.",
+    ], ident: "StreamCapabilities", fields: Named([
+        (ident: Some("max_total_rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            "Highest sample rate of all channels together (samples, not sets, per second), alone on the link.",
+        ]),
+        (ident: Some("max_channels"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Most channels in one stream.",
+        ]),
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 11))), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What to stream, see `AdcStream::start_stream`.",
+    ], ident: "StreamConfig", fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "Channel indices, in the order samples are interleaved.",
+        ]),
+        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            "Sample sets per second.",
+        ]),
+        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: []),
+        (ident: Some("flush_interval"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
+            "Send a block at least this often even if it isn\'t full (small rates would wait long otherwise); `None` lets",
+            "the device choose (around 10 ms).",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `AdcStream::start_stream` actually set.",
+    ], ident: "StreamActual", fields: Named([
+        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            "Sample sets per second.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A running stream, see `AdcStream::stream_config`.",
+    ], ident: "StreamRunning", fields: Named([
+        (ident: Some("config"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: []),
+        (ident: Some("actual"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `AdcCapture` can do.",
+    ], ident: "CaptureCapabilities", fields: Named([
+        (ident: Some("max_total_rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            "Highest sample rate of all channels together (samples per second).",
+        ]),
+        (ident: Some("max_bytes"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Capture memory in bytes.",
+        ]),
+        (ident: Some("simultaneous"), default: None, since: None, ty: Bool, docs: [
+            "Whether the channels of one sample set are sampled at the same instant (simultaneous sampling ADCs, or",
+            "several ADCs triggered together).",
+        ]),
+        (ident: Some("level_trigger"), default: None, since: None, ty: Bool, docs: [
+            "Which [Trigger]s work.",
+        ]),
+        (ident: Some("external_trigger"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 11))), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "When a capture starts.",
+    ], ident: "Trigger", variants: [
+        (docs: [
+            "Right away.",
+        ], ident: "Now", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "When `channel` rises through `level` (in the channel\'s unit and prefix).",
+        ], ident: "Rising", fields: Named([
+            (ident: Some("channel"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+            (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "When `channel` falls through `level`.",
+        ], ident: "Falling", fields: Named([
+            (ident: Some("channel"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+            (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "On the device\'s external trigger input, or another device\'s trigger.",
+        ], ident: "External", fields: Unit, discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What to capture, see `AdcCapture::capture`.",
+    ], ident: "CaptureConfig", fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "Channel indices, in the order samples are interleaved.",
+        ]),
+        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            "Sample sets per second.",
+        ]),
+        (ident: Some("sets"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Sample sets to keep in total, `pre_trigger` included.",
+        ]),
+        (ident: Some("pre_trigger"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Sample sets to keep from before the trigger.",
+        ]),
+        (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: []),
+        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `AdcCapture::capture` actually set.",
+    ], ident: "CaptureActual", fields: Named([
+        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            "Sample sets per second.",
+        ]),
+        (ident: Some("bytes"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Size of the data once done, for `AdcCapture::capture_read`.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Where a capture stands, see `AdcCapture::capture_status`.",
+    ], ident: "CaptureStatus", variants: [
+        (docs: [
+            "Nothing armed, no data.",
+        ], ident: "Idle", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Waiting for the trigger (sampling the pre-trigger part).",
+        ], ident: "Armed", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Triggered at `t`, taking the rest.",
+        ], ident: "Triggered", fields: Named([
+            (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "Done: data ready to read. `t_first` is the time of the first set, `t_trigger` the trigger\'s.",
+        ], ident: "Done", fields: Named([
+            (ident: Some("t_first"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+            (ident: Some("t_trigger"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: []),
+            (ident: Some("sets"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 3, since: None),
+    ])), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "The channels and single readings.",
+    ], crate_idx: 0, trait_name: "Adc", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "channel", ty: NumericAny(Base(U8))),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 3), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "read", docs: [
+            "One calibrated reading of `channel`, in the channel\'s unit.",
+            "",
+            "# Errors",
+            "",
+            "[AdcError::NoSuchChannel], [AdcError::Busy] (the ADC runs a stream or capture that can\'t be interrupted),",
+            "[AdcError::NoIoLevel] (inputs behind an unpowered buffer), [AdcError::Timeout].",
+        ]),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+            "The channels, their units and ranges, and whether timestamps are real.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Continuous sampling, sent on the `samples` stream.",
+        "",
+        "Only one stream runs at a time. Opening the `samples` stream starts nothing; `AdcStream::start_stream` does.",
+    ], crate_idx: 0, trait_name: "AdcStream", items: [
+        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 9), is_up: true), multiplicity: Flat, since: None, ident: "samples", docs: [
+            "Raw samples, interleaved in the order of [StreamConfig::channels]. `seq` counts sample sets.",
+        ]),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12))), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
+            "Rates, formats and limits of streaming.",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "config", ty: OutOfLine(type_idx: 13)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "start_stream", docs: [
+            "Starts sampling `config.channels` at `config.rate` sample sets per second and returns what was actually set",
+            "(the nearest rate the hardware can do). Restarts a running stream with the new configuration, `seq` from 0.",
+            "",
+            "# Errors",
+            "",
+            "[AdcError::NoSuchChannel], [AdcError::InvalidArgument] (rate or channel count out of range),",
+            "[AdcError::Unsupported] (format), [AdcError::Busy] (a capture runs), [AdcError::InUse], [AdcError::NoIoLevel].",
+        ]),
+        (id: 3, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "stop_stream", docs: [
+            "Stops sampling; blocks already sampled are still sent.",
+        ]),
+        (id: 4, kind: Method(args: [], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 15)))), multiplicity: Flat, since: None, ident: "stream_config", docs: [
+            "The configuration of the running stream, `None` when stopped. For a host that joins a running stream.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Lossless capture: samples go into device RAM at any rate the hardware can do, the host reads them out after.",
+    ], crate_idx: 0, trait_name: "AdcCapture", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 16))), multiplicity: Flat, since: None, ident: "capture_capabilities", docs: [
+            "Rates, depth, triggers and formats of captures.",
+        ]),
+        (id: 1, kind: Method(args: [
+            (ident: "config", ty: OutOfLine(type_idx: 18)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 19), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "capture", docs: [
+            "Arms a capture. With [Trigger::Now] it starts at once; otherwise it samples `pre_trigger` sets continuously",
+            "and keeps them, waits for the trigger, then takes the rest. Replaces a previous capture and its data.",
+            "",
+            "# Errors",
+            "",
+            "[AdcError::NoSuchChannel], [AdcError::InvalidArgument] (rate, depth or trigger level out of range),",
+            "[AdcError::Unsupported] (format or trigger), [AdcError::Busy] (a stream runs), [AdcError::InUse],",
+            "[AdcError::NoIoLevel].",
+        ]),
+        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 20))), multiplicity: Flat, since: None, ident: "capture_status", docs: [
+            "Where the capture stands.",
+        ]),
+        (id: 3, kind: Method(args: [
+            (ident: "offset", ty: NumericAny(Base(U32))),
+            (ident: "len", ty: NumericAny(Base(U16))),
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 768, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "capture_read", docs: [
+            "Reads `len` bytes of the captured data from `offset`. The data is raw samples, interleaved in the order of",
+            "[CaptureConfig::channels], `CaptureActual::bytes` long; the first `pre_trigger` sets come before the trigger.",
+            "",
+            "# Errors",
+            "",
+            "[AdcError::WrongMode] (no finished capture), [AdcError::InvalidArgument] (outside the data).",
+        ]),
+        (id: 4, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "capture_abort", docs: [
+            "Stops an armed or running capture and drops its data.",
+        ]),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_adc", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+])

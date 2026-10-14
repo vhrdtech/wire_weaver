@@ -16,6 +16,7 @@ pub enum SIExpr<'i> {
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, PartialEq, Eq),
     self_describing,
     ww_repr = unib32
@@ -117,7 +118,13 @@ impl TryFrom<i8> for Prefix {
     }
 }
 
-#[derive_shrink_wrap(owned(feature = "std"), final_structure, ww_repr = unib32)]
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Debug),
+    final_structure,
+    ww_repr = unib32
+)]
 pub enum BaseUnit<'i> {
     Unitless,
     Second,
@@ -164,7 +171,12 @@ pub struct Unit<'i> {
     pub exp: i8,
 }
 
-#[derive_shrink_wrap(borrowed, owned(feature = "std"))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug)
+)]
 pub struct SIExp {
     pub second: INib8P3,
     pub meter: INib8P3,
@@ -195,6 +207,7 @@ pub struct Quantity<'i> {
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, PartialEq),
     final_structure
 )]
@@ -205,7 +218,13 @@ pub struct Second {
 
 /// Length quantity in meters with prefix (m, mm, μm, km, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Meter {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -215,7 +234,13 @@ pub struct Meter {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// Note that gram is expressed with Prefix::Milli (milli-kilo-gram)
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct KiloGram {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -223,7 +248,13 @@ pub struct KiloGram {
 
 /// Electric current quantity in Amperes with prefix (A, mA, μA, kA, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Ampere {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -231,7 +262,13 @@ pub struct Ampere {
 
 /// Thermodynamic temperature quantity in Kelvin with prefix (K, mK, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Kelvin {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -239,7 +276,13 @@ pub struct Kelvin {
 
 /// Amount of substance quantity in mole with prefix (mol, mmol, μmol, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Mole {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -247,7 +290,13 @@ pub struct Mole {
 
 /// Luminous intensity quantity in candela with prefix (cd, mcd, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Candela {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -259,7 +308,13 @@ pub struct Candela {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−1, 1/s
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Hertz {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -269,7 +324,13 @@ pub struct Hertz {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: 1, m/m
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Radian {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -279,7 +340,13 @@ pub struct Radian {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: (π / 180) rad (≈ 17.5 mrad)
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Degree {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -289,7 +356,13 @@ pub struct Degree {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: 1, m2/m2
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Steradian {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -299,7 +372,13 @@ pub struct Steradian {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m⋅s−2, kg⋅m/s2
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Newton {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -309,7 +388,13 @@ pub struct Newton {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m−1⋅s−2, N/m2
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Pascal {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -319,7 +404,13 @@ pub struct Pascal {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−2, m⋅N, C⋅V, W⋅s
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Joule {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -329,7 +420,13 @@ pub struct Joule {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−3, J/s, V⋅A
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Watt {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -339,7 +436,13 @@ pub struct Watt {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s⋅A, A⋅s, F⋅V
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Coulomb {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -352,6 +455,7 @@ pub struct Coulomb {
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
     final_structure
 )]
@@ -364,7 +468,13 @@ pub struct Volt {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg−1⋅m−2⋅s4⋅A2, C/V, s/Ω
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Farad {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -374,7 +484,13 @@ pub struct Farad {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−3⋅A−2, V/A, 1/S
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Ohm {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -384,7 +500,13 @@ pub struct Ohm {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg−1⋅m−2⋅s3⋅A2, A/V, 1/Ω
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Siemens {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -394,7 +516,13 @@ pub struct Siemens {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−2⋅A−1, V⋅s, T⋅m2, J/A
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Weber {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -404,7 +532,13 @@ pub struct Weber {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅s−2⋅A−1, N/(A⋅m), Wb/m2, V⋅s/m2
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Tesla {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -414,7 +548,13 @@ pub struct Tesla {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−2⋅A−2, V⋅s/A, Wb/A, Ω⋅s
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Henry {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -424,7 +564,13 @@ pub struct Henry {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: K
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct DegreeCelsius {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -434,7 +580,13 @@ pub struct DegreeCelsius {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: cd, cd⋅sr
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Lumen {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -444,7 +596,13 @@ pub struct Lumen {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: cd⋅m−2, lm/m2
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Lux {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -454,7 +612,13 @@ pub struct Lux {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−1, 1/s
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Becquerel {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -464,7 +628,13 @@ pub struct Becquerel {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m2⋅s−2, J/kg
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Gray {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -474,7 +644,13 @@ pub struct Gray {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m2⋅s−2, J/kg
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Sievert {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -484,7 +660,13 @@ pub struct Sievert {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−1⋅mol, mol/s
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Katal {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -493,14 +675,26 @@ pub struct Katal {
 // Related units
 /// Logarithmic ratio quantity
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct DeciBel {
     pub value: NumericValue,
 }
 
 /// Logarithmic ratio quantity relative to mW
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct DeciBelmW {
     pub value: NumericValue,
 }
@@ -509,7 +703,13 @@ pub struct DeciBelmW {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: 0.001 m3
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Litre {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -519,7 +719,13 @@ pub struct Litre {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: J, kg⋅m2⋅s−2
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct ElectronVolt {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -530,7 +736,13 @@ pub struct ElectronVolt {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m⋅s−1
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Speed {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -540,7 +752,13 @@ pub struct Speed {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m⋅s−2
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Acceleration {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -550,7 +768,13 @@ pub struct Acceleration {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m⋅s−3
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Jerk {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -560,7 +784,13 @@ pub struct Jerk {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m⋅s−4
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Snap {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -570,7 +800,13 @@ pub struct Snap {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m⋅kg⋅s−3
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct Yank {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -580,7 +816,13 @@ pub struct Yank {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−1
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct AngularVelocity {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -590,7 +832,13 @@ pub struct AngularVelocity {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−2
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct AngularAcceleration {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -600,7 +848,13 @@ pub struct AngularAcceleration {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−2
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct HertzPerSecond {
     pub prefix: Prefix,
     pub value: NumericValue,
@@ -610,13 +864,21 @@ pub struct HertzPerSecond {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m3⋅s−1
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug), final_structure)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
 pub struct VolumetricFlow {
     pub prefix: Prefix,
     pub value: NumericValue,
 }
 
 // Dynamic
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct INib8P3(i8);
 
 impl INib8P3 {

@@ -1,19 +1,18 @@
 # Handoff: ww-stream-reliability
 
-Planning and coordinating session for stream positions / lost accounting / reliable delivery / backfill.
+Coordinating session for stream positions / lost accounting / reliable delivery / backfill
+(`docs/api/stream_reliability.md`, on master since 37eb26d, approved by Roman 14 Oct).
 
-Done:
-- Design `docs/api/stream_reliability.md`, approved by Roman 14 Oct with nine points, all worked in (see its Review
-  section): two runs live+backfill, u64 positions in a hand-laid head, stream functions (API-15 into API-31), one
-  `ww_stream` crate, read on a stream, typed cnt counters, send scheduler with priorities, sinks in units (API-34).
-- FEATURES ids: API-30, API-31, API-34, SRV-15, CLT-23, TEST-19. Tasks in P2401 (#14oct-1805h..1806c).
+State:
+- API-30 protocol core: landed (1473db9), session ww-stream-core closed.
+- SRV-15 LogStore: ww-stream-logstore, woken to `git rebase master` and start (was blocked on core).
+- API-31 stream functions + codegen: ww-stream-functions (opus), owns wire_weaver_core/derive, server, ww_self.
+- CLT-23 host runtime: ww-stream-host (opus), owns wire_weaver_client; commits the runtime surface first for API-31.
+- Next: API-34 sink-sessions (task P2401#14oct-2053, opus) once API-31 is in (both edit stream codegen); then TEST-19
+  (P2401#14oct-1806b, sonnet) after API-31 + CLT-23, and the IO family (P2401#14oct-1806c, sonnet) with ww-io-traits.
 
-Next (order in the doc's Implementation plan):
-- piece 1 API-30 core spawned on omarchy-m1 (top); when its first commit pins the crate skeleton + StreamStore trait,
-  spawn SRV-15 from its branch; after core: API-31, CLT-23, API-34 (opus); then TEST-19 and the IO family (sonnet).
-- Coordinate with ww-io-traits (STD-13) and ww-errors-plan (CallError, #[errors], optional items apply to stream
-  functions).
+This branch: only the doc's Compatibility section (Roman's no-shims policy), its nav entry and a pointer from
+streams.md on top of master.
 
-Gotchas:
-- `just build-docs` not run (ask first: it breaks a running `serve-docs`).
-- Head byte sizes are computed from the layout, API-30 verifies them with real bytes.
+Decisions taken here: units in the head (`L T X U nnn p`, from ww-stream-core); no compatibility shims (Roman's
+policy); logstore waited for core to land rather than having its branch moved (guard).

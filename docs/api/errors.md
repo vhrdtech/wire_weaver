@@ -44,14 +44,21 @@ The same type is used on the wire, in the device's handlers and in the client, s
 
 ### Which errors a method returns
 
-`#[errors(..)]` lists the variants a method can actually return. The list doesn't change the type or the wire; it
-goes into the API model, and from there:
+`#[errors(..)]` lists the variants a method can actually return. For a variant holding one enum, such as
+`Common(CommonError)`, the entry names the variants of that one: `Common(InUse, Refused)`; `Common` alone means any
+`CommonError`. The list is checked when the trait is parsed, so an unknown or repeated name is a compile error on
+that name.
 
-- into the generated client docs, as an `# Errors` section with each variant's doc line;
-- into introspection, so the `ww` CLI and Python's `help()` show it;
-- into the evolution checker: a list growing is a documented, compatible change;
-- into a check on the client: when a device returns a variant outside the method's list, the client logs a warning
-  (and the test harness fails), so a device that doesn't keep its contract is noticed early.
+The list doesn't change the type or the wire; it goes into the API model, and from there:
+
+- into the docs, as an `# Errors` section with each variant's doc line, both in the generated client and on the
+  trait's rustdoc;
+- into introspection, so `ww api tree` and Python's `help()` show it;
+- into the evolution checker: a changed list is reported as a compatible change;
+- into a check on the client: when a device returns a variant outside the method's list, the generated and the
+  dynamic client log a `tracing` warning, so a device that doesn't keep its contract is noticed early.
+  `wire_weaver_client::set_strict_error_lists(true)` makes it a panic instead; the test harness
+  (`tests_common`) turns that on.
 
 A method without `#[errors]` may return any variant of its error enum.
 

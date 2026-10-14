@@ -588,6 +588,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-20 `ww_onewire`** — `OneWire`: addressed transactions with strong pull-up, reset, paged and
   bit-level (`triplet`) ROM search, the real Dallas/Maxim search algorithm. Full rustdoc, docs page
   (`docs/std_library/ww_onewire.md`), API snapshot, in-process test with a mock bus (`tests/io_onewire`).
+- ✅ **STD-23 `ww_si` / `ww_numeric` extended** · `v0.5` — quantity groups and host helpers as cargo features,
+  `Second` as a device timestamp (wrap rule, host `Unwrapper`), constructors, conversions and comparisons across
+  prefixes and storage, `UVlq32` / `UVlq64` storage (STD-13). `docs/std_library/ww_si.md`,
+  `docs/std_library/ww_numeric.md`. Zero-overhead typed quantities (`Volt<u16, Milli>`) are not part of
+  it, see `docs/std_library/io_family.md`.
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
@@ -617,8 +622,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Raw` and `Transitions` encodings (SW-31). Design pass first (STD-13).
 - 📋 **STD-22 `ww_signal_generator`** · `v0.5.x` — `PatternGenerator` (digital, replays analyzer captures),
   `WaveformGenerator` (DAC). Design pass first (STD-13).
-- 📋 **STD-23 `ww_si` / `ww_numeric` extended** · `v0.5` — every part a cargo feature, `Second` as a device
-  timestamp (wrap rule, host `Unwrapper`), constructors and conversions, `UVlq32` / `UVlq64` storage (STD-13).
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

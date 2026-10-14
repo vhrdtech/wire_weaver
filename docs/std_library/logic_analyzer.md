@@ -49,8 +49,7 @@ signals do.
 ### `Transitions`: only the edges, per channel
 
 For each channel: its level at the start of the range and the sample indices where it toggles, as a
-`DeltaOfDelta<'i, u32>` (SW-31; `#[ww_trait]` APIs carry it once SW-50 series-in-apis lands, until then the
-skeleton has its serialized bytes). Every listed index is an edge of that channel (levels are implied: each one
+`DeltaOfDelta<'i, u32>` (SW-31, in APIs since SW-50). Every listed index is an edge of that channel (levels are implied: each one
 toggles), so no level bits are stored. A channel that keeps a steady rhythm (a clock, a UART at a fixed baud,
 PWM at a fixed duty) costs about one bit per edge; a quiet channel costs its start level and an empty list.
 

@@ -28,7 +28,7 @@
     "  channel of the configuration\'s channel list. Sub-byte words are packed starting at bit 0 of a byte (sample 0",
     "  in the lowest bits), multi-byte words are little-endian. What a DMA from a GPIO port produces.",
     "- [Encoding::Transitions], [TransitionsChunk]: per channel, its level at the start and the sample indices where",
-    "  it toggles, as a `DeltaOfDelta<u32>` (SW-31; until SW-50, its serialized bytes). A steady clock costs about one bit per edge, a quiet channel",
+    "  it toggles, as a `DeltaOfDelta<u32>` (SW-31). A steady clock costs about one bit per edge, a quiet channel",
     "  almost nothing, so the edge rate limits a stream, not the sample rate.",
     "",
     "Sample indices are `u32` counted from a capture\'s first sample, or from the start of a stream (where they wrap",
@@ -377,9 +377,8 @@
         (ident: Some("scanned_to"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "No more edges before this sample; the next chunk of this channel starts here.",
         ]),
-        (ident: Some("edges"), default: None, since: None, ty: MaxLen(max_len: 768, ty: Vec(NumericAny(Base(U8)))), docs: [
-            "Samples where the channel toggles, ascending, in `from..scanned_to`: the bytes of",
-            "`DeltaOfDelta::<u32>::to_ww_bytes`.",
+        (ident: Some("edges"), default: None, since: None, ty: DeltaOfDelta(U32), docs: [
+            "Samples where the channel toggles, ascending, in `from..scanned_to`; at most [MAX_EDGES].",
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
@@ -488,8 +487,8 @@
             (ident: "channel", ty: NumericAny(Base(U8))),
             (ident: "from", ty: NumericAny(Base(U32))),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 23), err_ty: OutOfLine(type_idx: 17)))), multiplicity: Flat, since: None, ident: "read_transitions", docs: [
-            "Edges of `channel` (an index into [CaptureConfig::channels]) from sample `from` on, up to 128 edges or a",
-            "full reply; [TransitionsChunk::scanned_to] says where the next call starts.",
+            "Edges of `channel` (an index into [CaptureConfig::channels]) from sample `from` on, up to [MAX_EDGES]",
+            "edges or a full reply; [TransitionsChunk::scanned_to] says where the next call starts.",
             "",
             "# Errors",
             "",

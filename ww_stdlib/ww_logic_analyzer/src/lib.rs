@@ -25,7 +25,7 @@
 //!   channel of the configuration's channel list. Sub-byte words are packed starting at bit 0 of a byte (sample 0
 //!   in the lowest bits), multi-byte words are little-endian. What a DMA from a GPIO port produces.
 //! - [Encoding::Transitions], [TransitionsChunk]: per channel, its level at the start and the sample indices where
-//!   it toggles, as a `DeltaOfDelta<u32>` (SW-31; until SW-50, its serialized bytes). A steady clock costs about one bit per edge, a quiet channel
+//!   it toggles, as a `DeltaOfDelta<u32>` (SW-31). A steady clock costs about one bit per edge, a quiet channel
 //!   almost nothing, so the edge rate limits a stream, not the sample rate.
 //!
 //! Sample indices are `u32` counted from a capture's first sample, or from the start of a stream (where they wrap
@@ -54,6 +54,9 @@ pub const MAX_NAME_LEN: usize = 32;
 
 /// Largest raw data of one [RawChunk], in bytes; the worst case of a [TransitionsChunk] (128 edges) fits as well.
 pub const MAX_READ_LEN: usize = 768;
+
+/// Most edges of one [TransitionsChunk]: 128 indices take at most 592 bytes, so a chunk fits a reply.
+pub const MAX_EDGES: usize = 128;
 
 /// Most trigger stages of one [Trigger::Stages].
 pub const MAX_STAGES: usize = 8;
@@ -99,8 +102,8 @@ pub trait LogicAnalyzer {
     /// [LaError::Unsupported] (the device doesn't give raw words).
     fn read_raw(range: SampleRange) -> Result<RawChunk<'i>, LaError>;
 
-    /// Edges of `channel` (an index into [CaptureConfig::channels]) from sample `from` on, up to 128 edges or a
-    /// full reply; [TransitionsChunk::scanned_to] says where the next call starts.
+    /// Edges of `channel` (an index into [CaptureConfig::channels]) from sample `from` on, up to [MAX_EDGES]
+    /// edges or a full reply; [TransitionsChunk::scanned_to] says where the next call starts.
     ///
     /// # Errors
     ///
@@ -446,10 +449,8 @@ pub struct TransitionsChunk<'i> {
     pub from: u32,
     /// No more edges before this sample; the next chunk of this channel starts here.
     pub scanned_to: u32,
-    /// Samples where the channel toggles, ascending, in `from..scanned_to`: the bytes of
-    /// `DeltaOfDelta::<u32>::to_ww_bytes`.
-    // TODO(SW-50): `DeltaOfDelta<'i, u32>` once ww_trait APIs carry series types.
-    pub edges: MaxLen<RefVec<'i, u8>, MAX_READ_LEN>,
+    /// Samples where the channel toggles, ascending, in `from..scanned_to`; at most [MAX_EDGES].
+    pub edges: DeltaOfDelta<'i, u32>,
 }
 
 /// One item of the `LogicStream::data` stream.

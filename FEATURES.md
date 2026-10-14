@@ -621,7 +621,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
   `Raw` and per-channel `Transitions` encodings (SW-31 `DeltaOfDelta`), staged pattern triggers and protocol
   stages (UART byte, I2C address, SPI first byte). Design approved 14 Oct (`docs/std_library/logic_analyzer.md`),
-  skeleton written; transitions wait for SW-50 (series types in APIs), then fill-in (STD-13).
+  skeleton written, transitions as `DeltaOfDelta` (SW-50); fill-in next (STD-13).
 - 🚧 **STD-22 `ww_signal_generator`** · `v0.5.x` — `PatternGenerator` (digital, replays analyzer captures through
   a credit sink), `WaveformGenerator` (DAC channels). Design approved 14 Oct, skeleton written (STD-13).
 - 💡 **STD-10 Device state machine trait** like CANopen.

@@ -27,6 +27,7 @@ Both compose with the rest of the API using [`ww_impl!`](../api/traits.md) and c
 ```rust
 #[ww_trait]
 pub trait Uart {
+    #[counted]
     stream!(rx: RxChunk<'i>);
 
     #[credit]
@@ -50,7 +51,9 @@ pub trait Uart {
 ```
 
 * `rx` - received bytes, chunked as they arrive (see [`RxChunk`](#types) below). A chunk ends after a short
-  silence on the line, when it is full, or on a line error.
+  silence on the line, when it is full, or on a line error. A counted stream, opened by calling it: its unit is a
+  byte, so the event head carries each chunk's byte position, the device time of its first byte, and exactly how
+  many bytes the device dropped before it ([stream delivery](../api/stream_reliability.md)).
 * `tx` - bytes to send, a [credit sink](../api/streams.md) (API-28): the host tracks the device's TX buffer
   (`Capabilities::tx_buffer`) and never sends more than it holds, so a large write (e.g. a file piped to the UART)
   can't overrun it.
@@ -68,17 +71,16 @@ pub trait Uart {
 ```rust
 #[ww_trait]
 pub trait UartMonitor {
-    stream!(line_a: RxChunk<'i>);
-    stream!(line_b: RxChunk<'i>);
-
-    fn configure_monitor(config: MonitorConfig) -> Result<u32, Error>;
+    #[stream(MonitorChunk<'i>, counted)]
+    fn lines(config: MonitorConfig) -> Result<u32, Error>;
 }
 ```
 
-* `line_a` / `line_b` - the two directions of the watched link (rePort: RX and CTS/RX2), each a stream of
-  [`RxChunk`](#types). Receiving starts on the stream's sideband `Open` and stops on `Close`.
-* `configure_monitor` - line settings of the watched link (baud rate, data bits, parity, stop bits); answers the
-  baud rate actually set, same as `Uart::baud_rate_actual`.
+* `lines` - a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with the line
+  settings of the watched link (baud rate, data bits, parity, stop bits) and gets back the baud rate actually set
+  (same as `Uart::baud_rate_actual`), then both directions of the link (rePort: RX and CTS/RX2) in one stream, in
+  the order they arrived: each `MonitorChunk` says which `MonitorLine` it came from, so a request and its answer
+  stay in order. Closing the stream stops receiving. The unit is a byte of either line.
 
 Monitoring is its own trait because it is its own function: a sniffer may have no UART master at all, and most
 bridges can't sniff a link they aren't part of.
@@ -95,12 +97,13 @@ bridges can't sniff a link they aren't part of.
 * `DataBits` - `Eight`, `Seven`, `Nine`, `Six`, `Five`.
 * `Error` - `Unsupported`, `UnsupportedMode`, `UnsupportedReferenceVoltage`, `WrongMode`, `CustomU8(u8)`,
   `CustomU32(u32)`, `InUse`, `NoIoLevel`, `Refused`, `Timeout`; each method's rustdoc lists the variants it returns.
-* `RxChunk<'i>` - `flags: Option<RxFlags>`, `timestamp: Option<Second>` (device time the chunk was received),
-  `bytes: MaxLen<RefVec<'i, u8>, UART_CHUNK_MAX>`.
+* `RxChunk<'i>` - `flags: Option<RxFlags>`, `bytes: MaxLen<RefVec<'i, u8>, UART_CHUNK_MAX>`; when it was received
+  is the time in the event head.
+* `MonitorChunk<'i>` - `line: MonitorLine` (`A` or `B`, 1 bit), `chunk: RxChunk<'i>`.
 * `RxFlags` - `parity_error`, `framing_error`, `overrun`, `break_detected`, seen while receiving a chunk.
-* `MonitorConfig` - `baud_rate`, `data_bits`, `parity`, `stop_bits` of the link `UartMonitor` watches.
+* `MonitorConfig` - `baud_rate`, `data_bits`, `parity`, `stop_bits` of the link `UartMonitor::lines` watches.
 * `Capabilities<'i>` - `min_baud_rate` / `max_baud_rate: u32`, `voltages: MaxLen<RefVec<'i, Volt>, 8>`,
-  `rx_timestamps` / `hw_flow_control` / `sw_flow_control` / `high_z_mode` / `test_mode` /
+  `rx_timestamps` (`rx` events carry their time) / `hw_flow_control` / `sw_flow_control` / `high_z_mode` / `test_mode` /
   `back_feed_detector: bool`, `rx_buffer` / `tx_buffer: u32` (device receive and transmit buffer sizes, in bytes).
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")`, so owned (`*Owned`)

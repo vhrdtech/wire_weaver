@@ -7,9 +7,12 @@ mod tests {
     use std::time::Duration;
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
+    use wire_weaver_client::StreamEvent;
     use ww_client_server::StreamSideband;
+    use ww_stream::tx::Counted;
     use ww_uart::{
-        BaudRate, Capabilities, DataBits, Error, Mode, MonitorConfig, Parity, Pin, StopBits,
+        BaudRate, Capabilities, DataBits, Error, Mode, MonitorChunk, MonitorConfig, MonitorLine,
+        Parity, Pin, RxChunk, StopBits,
     };
 
     /// Device behaviour and what it received, shared with the test.
@@ -26,10 +29,12 @@ mod tests {
         send_break_calls: Vec<ww_si::Second>,
         tx_bytes: Vec<u8>,
         tx_sideband: Vec<StreamSideband>,
-        rx_sideband: Vec<StreamSideband>,
+        /// The `rx` stream is open.
+        rx_open: bool,
+        /// Set while `UartMonitor::lines` is open.
         monitor_config: Option<MonitorConfig>,
-        line_a_sideband: Vec<StreamSideband>,
-        line_b_sideband: Vec<StreamSideband>,
+        /// Bytes the test makes arrive, sent on `rx` or `lines` (with `Some(line)`) before the next request.
+        received: Vec<(Option<MonitorLine>, Vec<u8>)>,
     }
 
     impl Default for Model {
@@ -46,10 +51,9 @@ mod tests {
                 send_break_calls: vec![],
                 tx_bytes: vec![],
                 tx_sideband: vec![],
-                rx_sideband: vec![],
+                rx_open: false,
                 monitor_config: None,
-                line_a_sideband: vec![],
-                line_b_sideband: vec![],
+                received: vec![],
             }
         }
     }
@@ -82,16 +86,56 @@ mod tests {
         pub struct Server {
             pub m: Arc<Mutex<Model>>,
             pub uart_tx_credit: SinkCredit,
+            pub rx: Counted,
+            pub lines: Counted,
+            pub stream_sessions: u32,
+            pub start: std::time::Instant,
         }
 
         impl Server {
-            fn sideband_uart_rx(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                sideband: StreamSideband,
-            ) -> Option<StreamSideband> {
-                self.m.lock().unwrap().rx_sideband.push(sideband);
-                None
+            /// The event loop's producer: bytes the lines received, as chunks of the open streams.
+            fn produce(&mut self, out: &mut impl BlockingEventOut) {
+                let received = std::mem::take(&mut self.m.lock().unwrap().received);
+                let t = ww_si::Second::microseconds(self.start.elapsed().as_micros() as u32);
+                let ser = api_impl::stream_data_ser();
+                for (line, bytes) in received {
+                    let chunk = RxChunk {
+                        flags: None,
+                        bytes: MaxLen::new(RefVec::new_bytes(&bytes)).unwrap(),
+                    };
+                    let units = bytes.len() as u64;
+                    let _ = match line {
+                        None => {
+                            ser.uart()
+                                .rx_send_blocking(&mut self.rx, &chunk, units, Some(t), out)
+                        }
+                        Some(line) => ser.uart_monitor().lines_send_blocking(
+                            &mut self.lines,
+                            &MonitorChunk { line, chunk },
+                            units,
+                            Some(t),
+                            out,
+                        ),
+                    };
+                }
+            }
+
+            fn new_stream_session(&mut self) -> u32 {
+                self.stream_sessions = self.stream_sessions.wrapping_add(1);
+                self.stream_sessions
+            }
+
+            fn uart_rx(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                self.m.lock().unwrap().rx_open = true;
+                Ready(())
+            }
+
+            fn close_uart_rx(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+                self.m.lock().unwrap().rx_open = false;
+            }
+
+            fn stream_uart_rx(&mut self) -> &mut Counted {
+                &mut self.rx
             }
 
             fn credit_uart_tx(&mut self) -> &mut SinkCredit {
@@ -291,37 +335,27 @@ mod tests {
                 Ready(self.uart_tx_credit.buffered())
             }
 
-            fn sideband_uart_monitor_line_a(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                sideband: StreamSideband,
-            ) -> Option<StreamSideband> {
-                self.m.lock().unwrap().line_a_sideband.push(sideband);
-                None
-            }
-
-            fn sideband_uart_monitor_line_b(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                sideband: StreamSideband,
-            ) -> Option<StreamSideband> {
-                self.m.lock().unwrap().line_b_sideband.push(sideband);
-                None
-            }
-
-            fn uart_monitor_configure_monitor(
+            fn uart_monitor_lines(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: MonitorConfig,
             ) -> RpcResult<Result<u32, Error>> {
-                let baud_rate = config.baud_rate;
-                self.m.lock().unwrap().monitor_config = Some(config);
-                let actual = match baud_rate {
+                let actual = match config.baud_rate {
                     BaudRate::Baud115200 => 115200,
                     BaudRate::BaudOther(hz) => hz,
+                    BaudRate::Baud110 => return Ready(Err(Error::Unsupported)),
                     _ => 9600,
                 };
+                self.m.lock().unwrap().monitor_config = Some(config);
                 Ready(Ok(actual))
+            }
+
+            fn close_uart_monitor_lines(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+                self.m.lock().unwrap().monitor_config = None;
+            }
+
+            fn stream_uart_monitor_lines(&mut self) -> &mut Counted {
+                &mut self.lines
             }
         }
 
@@ -345,6 +379,8 @@ mod tests {
                 out: &mut impl BlockingEventOut,
                 medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
+                // the mock's producer runs between requests
+                self.produce(out);
                 self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
@@ -377,7 +413,6 @@ mod tests {
     }
 
     use client::StdClient;
-    use sync_server::api_impl::stream_data_ser;
 
     fn start(path: &str, model: Model) -> (TestDevice, Arc<Mutex<Model>>) {
         let _ = tracing_subscriber::fmt::try_init();
@@ -385,6 +420,10 @@ mod tests {
         let server = sync_server::Server {
             m: m.clone(),
             uart_tx_credit: ww_client_server::credit::SinkCredit::new(ww_uart::UART_TX_MAX as u32),
+            rx: Counted::new(),
+            lines: Counted::new(),
+            stream_sessions: 0,
+            start: std::time::Instant::now(),
         };
         let device = tests_common::start_device(
             path,
@@ -493,40 +532,60 @@ mod tests {
         tx.flush().await.unwrap();
         assert_eq!(m.lock().unwrap().tx_bytes, b"hello");
 
-        let mut rx = client.uart().rx().await.unwrap();
-        rx.open().await.unwrap();
-        eventually(&m, |m| !m.rx_sideband.is_empty()).await;
-        assert_eq!(m.lock().unwrap().rx_sideband, vec![StreamSideband::Open]);
+        let mut rx = client.uart().rx().call().await.unwrap();
+        assert!(m.lock().unwrap().rx_open);
 
-        let mut scratch = [0u8; 64];
-        let chunk = ww_uart::RxChunk {
-            flags: None,
-            timestamp: None,
-            bytes: MaxLen::new(RefVec::new_bytes(b"abc")).unwrap(),
-        };
-        device.send(stream_data_ser().uart().rx(&chunk, &mut scratch).unwrap());
-        let received = rx.recv().await.unwrap();
-        assert_eq!(received.bytes.into_inner().as_slice(), b"abc");
+        m.lock().unwrap().received.push((None, b"abc".to_vec()));
+        m.lock().unwrap().received.push((None, b"de".to_vec()));
+        // any request lets the mock's event loop send them
+        client.uart().tx_pending().call().await.unwrap();
+        for (pos, bytes) in [(0, &b"abc"[..]), (3, b"de")] {
+            match rx.recv_event().await.unwrap() {
+                StreamEvent::Item {
+                    pos: p,
+                    units,
+                    t,
+                    value,
+                    ..
+                } => {
+                    assert_eq!((p, units), (pos, bytes.len() as u64));
+                    assert!(t.is_some());
+                    assert_eq!(value.bytes.into_inner().as_slice(), bytes);
+                }
+                ev => panic!("{ev:?}"),
+            }
+        }
+        rx.close().await.unwrap();
+        eventually(&m, |m| !m.rx_open).await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn monitor_configure_and_lines() {
+    async fn monitor_lines() {
         let (device, m) = start("io_uart/monitor", Model::default());
         let client = connect(&device).await;
 
-        let config = MonitorConfig {
-            baud_rate: BaudRate::Baud115200,
+        let config = |baud_rate| MonitorConfig {
+            baud_rate,
             data_bits: DataBits::Eight,
             parity: Parity::None,
             stop_bits: StopBits::Stop1,
         };
-        let actual = client
+        let r = client
             .uart_monitor()
-            .configure_monitor(config)
+            .lines(config(BaudRate::Baud110))
             .call()
             .await
             .unwrap();
-        assert!(matches!(actual, Ok(115200)));
+        assert!(matches!(r, Err(Error::Unsupported)), "{:?}", r.err());
+
+        let (actual, mut lines) = client
+            .uart_monitor()
+            .lines(config(BaudRate::Baud115200))
+            .call()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(actual, 115200);
         assert!(matches!(
             m.lock()
                 .unwrap()
@@ -536,27 +595,24 @@ mod tests {
             Some(BaudRate::Baud115200)
         ));
 
-        let mut line_a = client.uart_monitor().line_a().await.unwrap();
-        line_a.open().await.unwrap();
-        eventually(&m, |m| !m.line_a_sideband.is_empty()).await;
-        assert_eq!(
-            m.lock().unwrap().line_a_sideband,
-            vec![StreamSideband::Open]
-        );
+        // a request on line A, the answer on line B, in the order they arrived
+        m.lock()
+            .unwrap()
+            .received
+            .push((Some(MonitorLine::A), b"xyz".to_vec()));
+        m.lock()
+            .unwrap()
+            .received
+            .push((Some(MonitorLine::B), b"ok".to_vec()));
+        client.uart().tx_pending().call().await.unwrap();
+        let a = lines.recv().await.unwrap();
+        assert_eq!(a.line, MonitorLine::A);
+        assert_eq!(a.chunk.bytes.into_inner().as_slice(), b"xyz");
+        let b = lines.recv().await.unwrap();
+        assert_eq!(b.line, MonitorLine::B);
+        assert_eq!(b.chunk.bytes.into_inner().as_slice(), b"ok");
 
-        let mut scratch = [0u8; 64];
-        let chunk = ww_uart::RxChunk {
-            flags: None,
-            timestamp: None,
-            bytes: MaxLen::new(RefVec::new_bytes(b"xyz")).unwrap(),
-        };
-        device.send(
-            stream_data_ser()
-                .uart_monitor()
-                .line_a(&chunk, &mut scratch)
-                .unwrap(),
-        );
-        let received = line_a.recv().await.unwrap();
-        assert_eq!(received.bytes.into_inner().as_slice(), b"xyz");
+        lines.close().await.unwrap();
+        eventually(&m, |m| m.monitor_config.is_none()).await;
     }
 }

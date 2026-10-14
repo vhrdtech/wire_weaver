@@ -3,10 +3,11 @@
 //! | Trait          | What it is for                                                    | Who implements it        |
 //! |----------------|-------------------------------------------------------------------|--------------------------|
 //! | `Uart`         | Configure, receive on `rx`, send on the `tx` credit sink.         | Every UART bridge        |
-//! | `UartMonitor`  | Both lines of a serial link as two streams, without driving them. | Sniffers, debug adapters |
+//! | `UartMonitor`  | Both lines of a serial link as one stream, without driving them.  | Sniffers, debug adapters |
 //!
 //! Received bytes come in chunks ([RxChunk]): a chunk ends after a short silence on the line, when it is full, or on
-//! a line error. How a host learns about chunks the device had to drop is not covered yet.
+//! a line error. The receive streams are counted, in bytes: the event head carries each chunk's position, the device
+//! time of its first byte, and exactly how many bytes the device dropped before it.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -22,7 +23,8 @@ pub const UART_CHUNK_MAX: usize = 512;
 #[ww_trait]
 pub trait Uart {
     /// Received bytes, chunked as they arrive (see [RxChunk]); a chunk ends on a short silence, when it is full, or
-    /// on a line error.
+    /// on a line error. A counted stream, unit: byte; the head's time is when the chunk's first byte arrived.
+    #[counted]
     stream!(rx: RxChunk<'i>);
 
     /// Bytes to send. Credit-based (API-28): the host never sends more than the device's TX buffer
@@ -107,34 +109,48 @@ pub trait Uart {
 }
 
 /// Both lines of a serial link between two other devices, received without driving them.
-///
-/// Configured with `UartMonitor::configure_monitor`; each stream's sideband `Open` starts receiving its line,
-/// `Close` stops it.
 #[ww_trait]
 pub trait UartMonitor {
-    /// One direction of the link (rePort: RX). Receiving starts on sideband `Open`, stops on `Close`.
-    stream!(line_a: RxChunk<'i>);
-
-    /// The other direction (rePort: CTS / RX2). Receiving starts on sideband `Open`, stops on `Close`.
-    stream!(line_b: RxChunk<'i>);
-
-    /// Line settings of the watched link; answers the baud rate actually set.
+    /// What both directions of the link carry, in the order it arrived, decoded with `config`; each chunk says
+    /// which line it came from. Opening starts receiving and answers the baud rate actually set, closing stops it.
+    /// A counted stream, unit: byte (of both lines); the head's time is when the chunk's first byte arrived.
     ///
     /// # Errors
     ///
     /// [Error::Unsupported] (baud rate, mode or parity this monitor can't decode), [Error::InUse], [Error::NoIoLevel].
-    fn configure_monitor(config: MonitorConfig) -> Result<u32, Error>;
+    #[stream(MonitorChunk<'i>, counted)]
+    fn lines(config: MonitorConfig) -> Result<u32, Error>;
 }
 
-/// Received bytes, see `Uart::rx` and `UartMonitor`.
+/// Received bytes, see `Uart::rx` and `UartMonitor::lines`. When they arrived is the time in the event head.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
 pub struct RxChunk<'i> {
     /// Line errors seen while receiving this chunk, if any.
     pub flags: Option<RxFlags>,
-    /// When this chunk was received, device time since the clock started.
-    pub timestamp: Option<Second>,
     /// The received bytes.
     pub bytes: MaxLen<RefVec<'i, u8>, UART_CHUNK_MAX>,
+}
+
+/// Bytes of one line of the watched link, see `UartMonitor::lines`.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
+pub struct MonitorChunk<'i> {
+    pub line: MonitorLine,
+    pub chunk: RxChunk<'i>,
+}
+
+/// Which line of the watched link a [MonitorChunk] came from.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    sized,
+    ww_repr = u1
+)]
+pub enum MonitorLine {
+    /// One direction of the link (rePort: RX).
+    A,
+    /// The other direction (rePort: CTS / RX2).
+    B,
 }
 
 /// Line errors seen in a chunk.
@@ -150,7 +166,7 @@ pub struct RxFlags {
     pub break_detected: bool,
 }
 
-/// Line settings of `UartMonitor::configure_monitor`.
+/// Line settings of the watched link, the argument of `UartMonitor::lines`.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug))]
 pub struct MonitorConfig {
     /// Baud rate of the watched link.
@@ -305,7 +321,7 @@ pub struct Capabilities<'i> {
     pub max_baud_rate: u32,
     /// Reference voltages this device's `reference_voltage` property can be set to; empty if it isn't adjustable.
     pub voltages: MaxLen<RefVec<'i, Volt>, 8>,
-    /// Whether `rx` chunks carry a [RxChunk::timestamp].
+    /// Whether `rx` chunks carry the device time of their first byte (the time in the event head).
     pub rx_timestamps: bool,
     /// Whether [Mode::HardwareFlowControl] is supported.
     pub hw_flow_control: bool,

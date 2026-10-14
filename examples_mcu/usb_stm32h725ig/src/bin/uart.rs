@@ -32,6 +32,7 @@ use wire_weaver_usb_embassy::{
     LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
 };
 use ww_client_server::StreamSideband;
+use ww_stream::tx::Counted;
 use ww_client_server::credit::SinkCredit;
 use ww_si::Volt;
 use ww_uart::{BaudRate, Capabilities, DataBits, Mode, Parity, RxChunk, StopBits};
@@ -79,11 +80,11 @@ async fn ww_server_task(
                 }
             }
             Either3::Second(rg) => {
-                send_received_bytes(&mut server, 0, &rg).await;
+                send_received_bytes(&mut server, &mut state, 0, &rg).await;
                 rg.release();
             }
             Either3::Third(rg) => {
-                send_received_bytes(&mut server, 1, &rg).await;
+                send_received_bytes(&mut server, &mut state, 1, &rg).await;
                 rg.release();
             }
         }
@@ -92,22 +93,25 @@ async fn ww_server_task(
 
 async fn send_received_bytes(
     server: &mut UsbServer<'static, UsbDriver>,
+    state: &mut ServerState,
     index: u32,
     bytes: &[u8],
 ) {
+    let rx = &mut state.rx[index as usize];
     let mut out = server.sink();
     if !out.sink.is_up() {
-        // nobody to send to, drop
+        // nobody to send to: dropped, and the host learns how many bytes with the next chunk
+        rx.lost(bytes.len() as u64);
         return;
     }
     let chunk = RxChunk {
         flags: None,
-        timestamp: None,
         bytes: MaxLen::new_unchecked(RefVec::new_bytes(bytes)),
     };
+    // units: bytes; no clock in this API, so no time
     let r = server_impl::stream_data_ser()
         .uart(index)
-        .rx_send(&chunk, &mut out)
+        .rx_send(rx, &chunk, bytes.len() as u64, None, &mut out)
         .await;
     if let Err(e) = r {
         error!("send_received_bytes error: {:?}", e);
@@ -118,6 +122,9 @@ struct ServerState {
     tx_producer: [TxProducer; 2],
     /// Credit of each `tx` sink: the host never sends more than the TX queue holds
     tx_credit: [SinkCredit; 2],
+    /// Position and loss accounting of each counted `rx` stream
+    rx: [Counted; 2],
+    stream_sessions: u32,
     // uart_baud_rate: [BaudRate; 2],
     // uart_mode: [Mode; 2],
     // uart_stop_bits: [StopBits; 2],
@@ -172,13 +179,13 @@ impl ServerState {
 
     async fn close_uart_rx(&mut self, _cx: &mut Context<'_, impl EventOut>, _index: [UNib32; 1]) {}
 
-    async fn sideband_uart_rx(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-        _sideband: StreamSideband,
-    ) -> Option<StreamSideband> {
-        None
+    async fn stream_uart_rx(&mut self, index: [UNib32; 1]) -> &mut Counted {
+        &mut self.rx[index[0].0 as usize]
+    }
+
+    fn new_stream_session(&mut self) -> u32 {
+        self.stream_sessions = self.stream_sessions.wrapping_add(1);
+        self.stream_sessions
     }
 
     async fn sideband_uart_tx(
@@ -490,6 +497,8 @@ async fn main(spawner: embassy_executor::Spawner) {
     let state = ServerState {
         tx_producer: [tx_bb_uart7.framed_producer(), tx_bb_uart8.framed_producer()],
         tx_credit: [SinkCredit::new(TX_BUF_SIZE as u32), SinkCredit::new(TX_BUF_SIZE as u32)],
+        rx: [Counted::new(), Counted::new()],
+        stream_sessions: 0,
         // uart_baud_rate: [BaudRate::Baud115200; 2],
         // uart_mode: [Mode::Asynchronous; 2],
         // uart_stop_bits: [StopBits::Stop1; 2],

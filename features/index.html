@@ -2817,14 +2817,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>API-9 Full name chains</strong> in generated names (fixed the <code>event_sideband</code> collision).</li>
 <li>✅ <strong>API-10 Type paths from Cargo</strong>: trait source path, external types in API crates as full paths.</li>
 <li>✅ <strong>API-11 Sync and async servers, async / blocking / promise clients</strong> from the same trait.</li>
-<li>✅ <strong>API-28 Credit-based flow control for sinks</strong> — <code>#[credit] sink!(..)</code>: the device grants credit in elements
-  (sink values, any type; <code>StreamSideband::Credit { have, grant }</code>), the host waits when out of credit (async,
-  blocking, <code>try_send</code>), writes carry their element index so a lossy medium resumes with go-back-N from <code>have</code>
-  (<code>Resend</code>, <code>CreditQuery</code>), <code>flush()</code> waits for the final ack. Device state in <code>ww_client_server::credit::SinkCredit</code>,
-  queue sized in element slots from <code>stream_data_ser().&lt;sink&gt;_max_element_bytes()</code> (from <code>MAX_SIZE</code>, <code>MaxLen</code>
-  bounds included), dynamic and Python clients too. Used by <code>ww_dfu</code> <code>StageBulk::plan</code>. For bulk transfers (chunky OTA
-  plans over LTE-M/LoRa/UDP), UART bridges, CAN tx. See also CLT-18 backpressure (<code>docs/api/streams.md</code>,
-  <code>tests/credit_sink</code>).</li>
+<li>✅ <strong>API-28 Credit-based flow control for sinks</strong> — <code>#[credit] sink!(..)</code>: the device grants credit in bytes of
+  items (the serialized value of each write, never split; <code>StreamSideband::Credit { have, grant }</code>), so a receive
+  buffer holds as many items as fit whatever their sizes; the host waits when out of credit (async, blocking,
+  <code>try_send</code>), writes carry the byte position of their first byte so a lossy medium resumes with go-back-N from <code>have</code>
+  (<code>Resend</code>, <code>CreditQuery</code>), <code>flush()</code> waits for the final ack. No deadlock: generated <code>&lt;SINK&gt;_MAX_ITEM_BYTES</code> (from
+  <code>MAX_SIZE</code>, <code>MaxLen</code> bounds included) and <code>SinkCredit::sized_for()</code> check at compile time that the buffer holds the
+  largest item and cap the re-grant threshold, the host fails an item bigger than the buffer with
+  <code>StreamError::ItemTooBig</code>. Device state in <code>ww_client_server::credit::SinkCredit</code>, dynamic and Python clients too.
+  Used by <code>ww_dfu</code> <code>StageBulk::plan</code>. For bulk transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN
+  tx. See also CLT-18 backpressure (<code>docs/api/streams.md</code>, <code>tests/credit_sink</code>).</li>
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
@@ -3020,9 +3022,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>STD-12 <code>ww_dfu</code> firmware update API</strong> — traits <code>UpdateNode</code>, <code>BootControl</code>, <code>Inventory</code>, <code>Stage</code>,
   <code>StageBulk</code>: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored
   plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec (P2625). End to
-  end test <code>tests/dfu</code>. <code>StageBulk::plan</code> is a credit sink (API-28 credit-sinks). Next: bounded sizes for the pieces
-  (<code>MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;</code> on <code>PlanSegment::data</code>, <code>Stage::write</code> data and the headers: needs one protocol-wide
-  <code>N</code> next to the per-node <code>max_piece</code>, to be chosen with the chunky spec, SW-19), a chunky implementation (chunky NET-1).</li>
+  end test <code>tests/dfu</code>. <code>StageBulk::plan</code> is a credit sink (API-28 credit-sinks). Every variable-size field is bounded (SW-19:
+  <code>MAX_PIECE_LEN</code>, <code>MAX_HEADER_LEN</code>, <code>MAX_CHUNKS_PAGE</code>, <code>MAX_PRODUCT_LEN</code>), so every method has a known largest
+  request and reply. <code>Profile::AB(SlotSwitch::{Copy, Remap})</code> / <code>InPlace</code>. Next: a chunky implementation (chunky
+  NET-1).</li>
 <li>💡 <strong>STD-10 Device state machine trait</strong> like CANopen.</li>
 <li>💡 <strong>STD-11 Register description registry</strong> — WireWeaver for describing device registers.</li>
 </ul>

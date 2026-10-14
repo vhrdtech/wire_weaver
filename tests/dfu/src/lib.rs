@@ -9,7 +9,8 @@ mod tests {
     use wire_weaver::prelude::*;
     use ww_dfu::{
         BootState, BootTarget, BulkStatus, ChunkState, Error, LastResult, NodeInfo, Offers,
-        Outcome, PlanAck, Profile, Progress, Role, Session, Slot, SlotLayout, StageLimits, Target,
+        Outcome, PlanAck, Profile, Progress, Role, Session, Slot, SlotLayout, SlotSwitch,
+        StageLimits, Target,
     };
 
     const CHUNK: usize = 16;
@@ -85,8 +86,8 @@ mod tests {
                 let dev = self.dev.read().unwrap();
                 Ready(NodeInfo {
                     role: Role::App,
-                    profile: Profile::Swap,
-                    product: "dfu-test",
+                    profile: Profile::AB(SlotSwitch::Copy),
+                    product: MaxLen::new("dfu-test").unwrap(),
                     geometry_id: 0x1234_5678,
                     app_version: Some(7),
                     version_floor: 5,
@@ -173,7 +174,8 @@ mod tests {
                 slot: Slot,
                 first: u16,
                 count: u16,
-            ) -> RpcResult<Result<RefVec<'_, ChunkState>, Error>> {
+            ) -> RpcResult<Result<MaxLen<RefVec<'_, ChunkState>, { ww_dfu::MAX_CHUNKS_PAGE }>, Error>>
+            {
                 let dev = self.dev.read().unwrap();
                 let flash = match slot {
                     Slot::Active => &dev.active,
@@ -182,7 +184,8 @@ mod tests {
                 if first as usize >= CHUNKS {
                     return Ready(Err(Error::OutOfRange));
                 }
-                let end = (first as usize + count as usize).min(CHUNKS);
+                let end =
+                    (first as usize + (count as usize).min(ww_dfu::MAX_CHUNKS_PAGE)).min(CHUNKS);
                 let states: Vec<ChunkState> = flash[first as usize * CHUNK..end * CHUNK]
                     .chunks(CHUNK)
                     .map(|c| {
@@ -194,9 +197,10 @@ mod tests {
                     })
                     .collect();
                 // A real no_alloc server builds the reply in its own buffer; a leaked Vec stands in for it here.
-                Ready(Ok(RefVec::Slice {
+                Ready(Ok(MaxLen::new(RefVec::Slice {
                     slice: Box::leak(states.into_boxed_slice()),
-                }))
+                })
+                .unwrap()))
             }
 
             fn stage_limits(
@@ -217,7 +221,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 target: Target,
-                header: RefVec<'_, u8>,
+                header: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_HEADER_LEN }>,
             ) -> RpcResult<Result<Session, Error>> {
                 let mut dev = self.dev.write().unwrap();
                 if target != Target::Live {
@@ -305,7 +309,7 @@ mod tests {
                 dst: u16,
                 hash: [u8; 8],
                 offset: u32,
-                data: RefVec<'_, u8>,
+                data: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_PIECE_LEN }>,
             ) -> RpcResult<Result<(), Error>> {
                 let mut dev = self.dev.write().unwrap();
                 match dev.check_order(index) {
@@ -387,7 +391,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _target: Target,
-                _header: RefVec<'_, u8>,
+                _header: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_HEADER_LEN }>,
                 _total_len: u32,
                 _ack_every: u32,
             ) -> RpcResult<Result<Session, Error>> {
@@ -514,8 +518,8 @@ mod tests {
         let (client, _dev, _device) = connect("dfu/inventory").await;
 
         let node = client.node().node().call().await.unwrap();
-        assert_eq!(node.profile, Profile::Swap);
-        assert_eq!(node.product, "dfu-test");
+        assert_eq!(node.profile, Profile::AB(SlotSwitch::Copy));
+        assert_eq!(&*node.product, "dfu-test");
         assert_eq!(node.manifest_digest, Some([1, 2, 3, 4, 5, 6, 7, 8]));
         assert!(node.offers.stage && node.offers.stage_bulk);
 
@@ -573,7 +577,7 @@ mod tests {
 
         // Plan: erase block 0, copy active chunk 2 to chunk 0, write chunk 1 in two pieces.
         let session = stage
-            .begin(Target::Live, vec![3])
+            .begin(Target::Live, MaxLen::new(vec![3]).unwrap())
             .call()
             .await
             .unwrap()
@@ -600,7 +604,7 @@ mod tests {
 
         // Resume: begin with the same header answers where to continue.
         let again = stage
-            .begin(Target::Live, vec![3])
+            .begin(Target::Live, MaxLen::new(vec![3]).unwrap())
             .call()
             .await
             .unwrap()
@@ -611,14 +615,21 @@ mod tests {
         let hash: [u8; 8] = data[..8].try_into().unwrap();
         assert_eq!(
             stage
-                .write(2, 1, hash, 0, vec![0; MAX_PIECE + 1])
+                .write(2, 1, hash, 0, MaxLen::new(vec![0; MAX_PIECE + 1]).unwrap())
                 .call()
                 .await
                 .unwrap(),
             Err(Error::PieceTooBig)
         );
+        // Past the protocol-wide bound the client refuses to send at all; nothing reaches the device.
+        let too_long = MaxLen::new_unchecked(vec![0; ww_dfu::MAX_PIECE_LEN + 1]);
+        assert!(stage.write(2, 1, hash, 0, too_long).call().await.is_err());
+        assert_eq!(
+            stage.progress().call().await.unwrap().unwrap().chunk_offset,
+            0
+        );
         stage
-            .write(2, 1, hash, 0, data[..8].to_vec())
+            .write(2, 1, hash, 0, MaxLen::new(data[..8].to_vec()).unwrap())
             .call()
             .await
             .unwrap()
@@ -626,7 +637,7 @@ mod tests {
         let progress = stage.progress().call().await.unwrap().unwrap();
         assert_eq!((progress.next_step, progress.chunk_offset), (2, 8));
         stage
-            .write(2, 1, hash, 8, data[8..].to_vec())
+            .write(2, 1, hash, 8, MaxLen::new(data[8..].to_vec()).unwrap())
             .call()
             .await
             .unwrap()
@@ -660,7 +671,7 @@ mod tests {
         let (client, dev, _device) = connect("dfu/bulk").await;
         let mut bulk = client.bulk();
         let session = bulk
-            .begin_bulk(Target::Live, vec![0], 12, 0)
+            .begin_bulk(Target::Live, MaxLen::new(vec![0]).unwrap(), 12, 0)
             .call()
             .await
             .unwrap()
@@ -675,9 +686,12 @@ mod tests {
             (4, vec![5, 6, 7, 8]),
         ] {
             // The second one doesn't continue the plan and is dropped by the node.
-            plan.send_owned(ww_dfu::PlanSegmentOwned { offset, data })
-                .await
-                .unwrap();
+            plan.send_owned(ww_dfu::PlanSegmentOwned {
+                offset,
+                data: MaxLen::new(data).unwrap(),
+            })
+            .await
+            .unwrap();
         }
         // a credit sink: flush() returns once the node accepted every segment
         plan.flush().await.unwrap();

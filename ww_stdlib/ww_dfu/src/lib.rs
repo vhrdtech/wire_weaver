@@ -28,7 +28,7 @@
 //!
 //! # Three ways a device updates
 //!
-//! **1. A/B, applied live** ([Profile::Swap], [Profile::BankSwap], [Profile::RpBootrom]). The running app receives
+//! **1. A/B, applied live** ([Profile::AB]). The running app receives
 //! the plan and applies it straight into the inactive slot (DFU, the other bank, the other partition). Nothing it
 //! runs from is touched, so a cut or a lost link costs nothing but time. When the image is complete and verified,
 //! `Stage::finish` marks it staged; `BootControl::reboot` with [BootTarget::App] switches to it for one trial boot,
@@ -87,12 +87,32 @@
 //!
 //! # Sizes
 //!
-//! Byte payloads (`Stage::write` data, [PlanSegment] data) are bounded by [StageLimits::max_piece], which the
-//! device chooses to fit its receive buffer. Until WireWeaver has bounded sizes in the type system (FEATURES SW-19),
-//! that limit is only checked at runtime: a longer piece is [Error::PieceTooBig].
+//! Byte payloads (`Stage::write` data, [PlanSegment] data) have two limits:
+//! - [MAX_PIECE_LEN], the same for every node, is part of the types (`MaxLen`). Both ends check it, and a device
+//!   can check at compile time that its receive buffer holds the largest request (the generated
+//!   `<METHOD>_REQUEST_MAX_LEN` constants).
+//! - [StageLimits::max_piece], at most [MAX_PIECE_LEN], is what this node takes, chosen to fit its buffer. A longer
+//!   piece is [Error::PieceTooBig].
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
+
+/// Largest data payload of one `Stage::write` call or one [PlanSegment], in bytes, for every node.
+///
+/// A node takes at most its own [StageLimits::max_piece], which may be smaller. Raising this bound later is a
+/// compatible change (old nodes and hosts keep working, the wire form doesn't change); lowering it is breaking.
+pub const MAX_PIECE_LEN: usize = 1024;
+
+/// Largest plan header in bytes, as `Stage::begin` and `StageBulk::begin_bulk` take it. The header's real length is
+/// fixed by the protocol spec and is far smaller; this only bounds the message. Raising it is compatible.
+pub const MAX_HEADER_LEN: usize = 256;
+
+/// Most chunk states one `Inventory::chunks` reply carries. A node may return fewer (see there). Raising it is
+/// compatible.
+pub const MAX_CHUNKS_PAGE: usize = 64;
+
+/// Longest product name in [NodeInfo::product], in bytes. Raising it is compatible.
+pub const MAX_PRODUCT_LEN: usize = 32;
 
 /// Length of a chunk hash: SHA-256 truncated to its first 8 bytes. Fixed by the protocol spec; a different length
 /// is a new major version of this API.
@@ -164,9 +184,13 @@ pub trait Inventory {
     /// The state of `count` chunks of `slot`, starting at chunk `first`.
     ///
     /// Paged on purpose: the host sets the pace and asks again for a page whose reply was lost. Fewer entries than
-    /// asked for come back at the end of the slot, or when a page would not fit the node's reply buffer; the host
-    /// continues from the first chunk it didn't get.
-    fn chunks(slot: Slot, first: u16, count: u16) -> Result<RefVec<'i, ChunkState>, Error>;
+    /// asked for come back at the end of the slot, past [MAX_CHUNKS_PAGE], or when a page would not fit the node's
+    /// reply buffer; the host continues from the first chunk it didn't get.
+    fn chunks(
+        slot: Slot,
+        first: u16,
+        count: u16,
+    ) -> Result<MaxLen<RefVec<'i, ChunkState>, MAX_CHUNKS_PAGE>, Error>;
 }
 
 /// Receive a plan step by step, apply it ([Target::Live]) or store it ([Target::Stored]), and finish it.
@@ -186,7 +210,10 @@ pub trait Stage {
     /// geometry against this node's, the image version against the version floor, the descriptor signature, the boot
     /// state ([BootState::may_stage]), the target against [StageLimits], and for [Target::Stored] that the plan fits
     /// the plan area. A refusal here costs the host nothing but this call, which matters on a slow link.
-    fn begin(target: Target, header: RefVec<'i, u8>) -> Result<Session, Error>;
+    fn begin(
+        target: Target,
+        header: MaxLen<RefVec<'i, u8>, MAX_HEADER_LEN>,
+    ) -> Result<Session, Error>;
 
     /// Step `index`: erase erase-block `block` of the slot being written.
     fn erase(index: u32, block: u16) -> Result<(), Error>;
@@ -210,7 +237,7 @@ pub trait Stage {
         dst: u16,
         hash: [u8; 8],
         offset: u32,
-        data: RefVec<'i, u8>,
+        data: MaxLen<RefVec<'i, u8>, MAX_PIECE_LEN>,
     ) -> Result<(), Error>;
 
     /// Where the current session stands: the next step the node expects, and how far into it.
@@ -258,7 +285,7 @@ pub trait StageBulk {
     /// byte to start sending (0 for a new session).
     fn begin_bulk(
         target: Target,
-        header: RefVec<'i, u8>,
+        header: MaxLen<RefVec<'i, u8>, MAX_HEADER_LEN>,
         total_len: u32,
         ack_every: u32,
     ) -> Result<Session, Error>;
@@ -293,7 +320,7 @@ pub struct NodeInfo<'i> {
     /// How this device switches between images.
     pub profile: Profile,
     /// Product name, as the release's manifest names it; the host uses it to pick the release line.
-    pub product: &'i str,
+    pub product: MaxLen<&'i str, MAX_PRODUCT_LEN>,
     /// Flash geometry id as the protocol spec defines it (chip line, slot layout, chunk size). A plan is made for one
     /// geometry and is refused on any other.
     pub geometry_id: u32,
@@ -340,15 +367,34 @@ pub enum Role {
     ww_repr = nib
 )]
 pub enum Profile {
-    /// Two slots swapped page by page by the bootloader (embassy-boot), trial boot and revert.
-    Swap,
-    /// Dual-bank flash, the hardware swaps the banks (STM32 H7, G4, L4...), trial boot and revert.
-    BankSwap,
-    /// RP2350 boot ROM A/B partitions with try-before-you-buy.
-    RpBootrom,
+    /// Two slots: the update is written to the inactive one, which then boots on trial and is kept or reverted
+    /// (mode 1). How the switch happens is given.
+    AB(SlotSwitch),
     /// One app slot, updated in place: from a stored plan by the bootloader (mode 2) or live by an updater (mode 3).
     /// No revert.
     InPlace,
+}
+
+/// How an A/B device switches to the other slot. Both work the same for the host; they differ in the time the first
+/// boot after an update takes and in flash wear.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    self_describing,
+    ww_repr = nib
+)]
+pub enum SlotSwitch {
+    /// The bootloader copies or swaps the slots' contents page by page, so the image always runs from the same place
+    /// (embassy-boot on single-bank parts such as STM32 F1 and G0). The first boot after an update, and a revert,
+    /// take the time of rewriting the slot.
+    Copy,
+    /// Hardware or a boot ROM maps the chosen slot to the address the image runs from; nothing is copied and the
+    /// switch is instant. Examples: dual-bank flash with bank swap (STM32 H7, G4, L4), the RP2350 boot ROM (a
+    /// partition table with an A/B pair, address translation, try-before-you-buy), ESP32 OTA partitions, nRF
+    /// dual-bank.
+    Remap,
 }
 
 /// Which update traits a node implements. Lets a host decide what to do after a single call, which matters on slow
@@ -533,8 +579,8 @@ pub enum Target {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct StageLimits {
-    /// Largest data payload in one `Stage::write` or [PlanSegment], in bytes. Chosen to fit the node's receive
-    /// buffer.
+    /// Largest data payload in one `Stage::write` or [PlanSegment], in bytes, at most [MAX_PIECE_LEN]. Chosen to
+    /// fit the node's receive buffer.
     pub max_piece: u32,
     /// How many step calls the host may have outstanding at once. `1` on a node that blocks while it writes flash.
     pub in_flight: u8,
@@ -593,8 +639,8 @@ pub struct Progress {
 pub struct PlanSegment<'i> {
     /// Where these bytes go: offset from the first byte after the plan header.
     pub offset: u32,
-    /// Plan bytes, at most [StageLimits::max_piece].
-    pub data: RefVec<'i, u8>,
+    /// Plan bytes, at most [StageLimits::max_piece] (and never more than [MAX_PIECE_LEN]).
+    pub data: MaxLen<RefVec<'i, u8>, MAX_PIECE_LEN>,
 }
 
 /// An acknowledgement on `StageBulk`'s `plan_ack` stream.

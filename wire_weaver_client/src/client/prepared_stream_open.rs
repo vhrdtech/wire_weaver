@@ -189,7 +189,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
         } else {
             Some(
                 self.transport_cmd_tx
-                    .register_stream(&self.path_kind)
+                    .register_stream(&self.path_kind, self.queue_bytes)
                     .await?,
             )
         };
@@ -207,7 +207,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
         } else {
             Some(
                 self.transport_cmd_tx
-                    .register_stream_blocking(&self.path_kind)?,
+                    .register_stream_blocking(&self.path_kind, self.queue_bytes)?,
             )
         };
         let (parts, (cmd, done_rx)) = self.start(plain_rx)?;

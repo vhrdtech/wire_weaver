@@ -9,7 +9,12 @@
   compares their delivery, item type, arguments and result, the API diff prints them as `#[stream(T, kind)] fn`.
 - The raw stream event `StreamEvent` (`Data` / `Sideband` / `Connected` / `Disconnected`, from `Sink::recv_any` and
   in `StreamError::UnexpectedEvent`) is now `RawStreamEvent`; `StreamEvent<T>` is the event of a counted or reliable
-  stream (CLT-23). Code that named it: rename.
+  stream (CLT-23). Code that named it: rename. It has a new variant, `Dropped { events, bytes }` (also in
+  `TypedStreamEvent`): exhaustive matches need an arm for it.
+- Per-stream queues are bounded (CLT-23): a plain stream (or a property observer) that isn't read for a while
+  drops the newest data beyond `ClientConfig::stream_queue_bytes` (4 MiB by default) instead of growing the host's
+  memory without limit; `Stream::dropped()` counts them, `recv_any()` reports them once as `Dropped`, `recv()` skips
+  that report. Introspection data is never dropped.
 
 ### 🚀 Features
 

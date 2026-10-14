@@ -1,10 +1,11 @@
 use crate::client::credit::{CreditConfig, CreditTx, Due};
 use crate::event_loop::commander::TransportCommander;
+use crate::event_loop::event_queue::TryRecvError;
+use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
 use crate::{Error, RawStreamEvent, StreamError};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKindOwned, StreamSideband};
@@ -18,7 +19,7 @@ use ww_client_server::{PathKindOwned, StreamSideband};
 pub struct Sink<T> {
     transport_cmd_tx: TransportCommander,
     path_kind: PathKindOwned,
-    sideband_rx: UnboundedReceiver<RawStreamEvent>,
+    sideband_rx: StreamUpdateReceiver,
     /// Events received while waiting for credit, for the user
     pending: VecDeque<RawStreamEvent>,
     credit: Option<CreditTx>,
@@ -29,7 +30,7 @@ impl<T> Sink<T> {
     pub(crate) fn new(
         transport_cmd_tx: TransportCommander,
         path_kind: PathKindOwned,
-        sideband_rx: UnboundedReceiver<RawStreamEvent>,
+        sideband_rx: StreamUpdateReceiver,
         credit: bool,
     ) -> Self {
         Sink {

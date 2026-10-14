@@ -7,6 +7,7 @@ use crate::compat::{ApiCompat, ApiMatch, Verdict};
 use crate::config::IntrospectBundle;
 use crate::device_info::DeviceApiInfo;
 use crate::event_loop::command::Command;
+use crate::event_loop::event_queue::event_queue;
 use crate::event_loop::rx_dispatcher::ResponseReceiver;
 use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
@@ -232,7 +233,10 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Stream<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.transport().register_stream(&path_kind).await?;
+        let rx = self
+            .transport()
+            .register_stream(&path_kind, self.stream_queue_bytes)
+            .await?;
         Ok(Stream {
             transport_cmd_tx: TransportCommander::new(
                 self.transport_cmd_tx.clone(),
@@ -249,7 +253,9 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Stream<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.transport().register_stream_blocking(&path_kind)?;
+        let rx = self
+            .transport()
+            .register_stream_blocking(&path_kind, self.stream_queue_bytes)?;
         Ok(Stream {
             transport_cmd_tx: TransportCommander::new(
                 self.transport_cmd_tx.clone(),
@@ -266,7 +272,10 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.transport().register_stream(&path_kind).await?;
+        let rx = self
+            .transport()
+            .register_stream(&path_kind, self.stream_queue_bytes)
+            .await?;
         Ok(self.sink(path_kind, rx, false))
     }
 
@@ -275,7 +284,9 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.transport().register_stream_blocking(&path_kind)?;
+        let rx = self
+            .transport()
+            .register_stream_blocking(&path_kind, self.stream_queue_bytes)?;
         Ok(self.sink(path_kind, rx, false))
     }
 
@@ -285,7 +296,10 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.transport().register_stream(&path_kind).await?;
+        let rx = self
+            .transport()
+            .register_stream(&path_kind, self.stream_queue_bytes)
+            .await?;
         Ok(self.sink(path_kind, rx, true))
     }
 
@@ -295,7 +309,9 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.transport().register_stream_blocking(&path_kind)?;
+        let rx = self
+            .transport()
+            .register_stream_blocking(&path_kind, self.stream_queue_bytes)?;
         Ok(self.sink(path_kind, rx, true))
     }
 
@@ -556,8 +572,9 @@ impl TransportCommander {
     pub(crate) async fn register_stream(
         &self,
         path_kind: &PathKindOwned,
+        queue_bytes: usize,
     ) -> Result<StreamUpdateReceiver, Error> {
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = event_queue(queue_bytes);
         let (registered_tx, registered_rx) = oneshot::channel();
         self.cmd_tx
             .send(Command::OnStreamEvent {
@@ -577,8 +594,9 @@ impl TransportCommander {
     pub(crate) fn register_stream_blocking(
         &self,
         path_kind: &PathKindOwned,
+        queue_bytes: usize,
     ) -> Result<StreamUpdateReceiver, Error> {
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = event_queue(queue_bytes);
         let (registered_tx, registered_rx) = oneshot::channel();
         self.cmd_tx
             .blocking_send(Command::OnStreamEvent {
@@ -956,7 +974,8 @@ impl TransportCommander {
             kind: RequestKindOwned::Introspect,
         };
         let req = req.to_ww_bytes_owned()?;
-        let (stream_event_tx, stream_event_rx) = mpsc::unbounded_channel();
+        // introspection data must not be dropped
+        let (stream_event_tx, stream_event_rx) = event_queue(usize::MAX);
         self.cmd_tx
             .send(Command::OnStreamEvent {
                 path_kind: Box::new(PathKindOwned::Absolute { path: vec![] }),
@@ -986,7 +1005,8 @@ impl TransportCommander {
             kind: RequestKindOwned::Introspect,
         };
         let req = req.to_ww_bytes_owned()?;
-        let (stream_event_tx, stream_event_rx) = mpsc::unbounded_channel();
+        // introspection data must not be dropped
+        let (stream_event_tx, stream_event_rx) = event_queue(usize::MAX);
         self.cmd_tx
             .blocking_send(Command::OnStreamEvent {
                 path_kind: Box::new(PathKindOwned::Absolute { path: vec![] }),

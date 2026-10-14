@@ -1,9 +1,10 @@
 use crate::Error;
 use crate::event_loop::commander::TransportCommander;
+use crate::event_loop::event_queue::TryRecvError;
+use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
 use std::marker::PhantomData;
 use std::ops::ControlFlow;
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc::{UnboundedReceiver, error::TryRecvError};
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::Error as SWError;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
@@ -14,7 +15,7 @@ use ww_client_server::{PathKindOwned, StreamSideband};
 pub struct Stream<T> {
     pub(crate) transport_cmd_tx: TransportCommander,
     pub(crate) path_kind: PathKindOwned,
-    pub(crate) rx: UnboundedReceiver<RawStreamEvent>,
+    pub(crate) rx: StreamUpdateReceiver,
     pub(crate) _phantom: PhantomData<T>,
 }
 
@@ -28,6 +29,10 @@ pub enum RawStreamEvent {
     Connected,
     /// Locally generated event, sent when connection to remote device is down
     Disconnected,
+    /// Locally generated event: the stream's queue on the host was full (the program didn't read for a while),
+    /// `events` data events of `bytes` bytes before this one were dropped. See
+    /// [ClientConfig::stream_queue_bytes](crate::ClientConfig::stream_queue_bytes).
+    Dropped { events: u64, bytes: u64 },
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -40,6 +45,9 @@ pub enum TypedStreamEvent<T> {
     Connected,
     /// Locally generated event, sent when connection to remote device is down
     Disconnected,
+    /// Locally generated event: `events` data events of `bytes` bytes before this one were dropped, the stream's
+    /// queue on the host was full.
+    Dropped { events: u64, bytes: u64 },
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -61,6 +69,12 @@ pub enum StreamError {
 }
 
 impl<T: DeserializeShrinkWrapOwned> Stream<T> {
+    /// Data events dropped since the stream was opened because its queue on the host was full (the program didn't
+    /// read for a while), see [ClientConfig::stream_queue_bytes](crate::ClientConfig::stream_queue_bytes).
+    pub fn dropped(&self) -> u64 {
+        self.rx.dropped()
+    }
+
     /// Send Close command through sideband channel
     pub async fn close(&self) -> Result<(), StreamError> {
         self.sideband(StreamSideband::Close).await
@@ -99,7 +113,10 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     pub async fn recv(&mut self) -> Result<T, StreamError> {
         let bytes = loop {
             let ev = self.rx.recv().await.ok_or(StreamError::Closed)?;
-            if matches!(ev, RawStreamEvent::Connected) {
+            if matches!(
+                ev,
+                RawStreamEvent::Connected | RawStreamEvent::Dropped { .. }
+            ) {
                 continue;
             }
             let RawStreamEvent::Data(bytes) = ev else {
@@ -119,7 +136,10 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     pub fn recv_blocking(&mut self) -> Result<T, StreamError> {
         let bytes = loop {
             let ev = self.rx.blocking_recv().ok_or(StreamError::Closed)?;
-            if matches!(ev, RawStreamEvent::Connected) {
+            if matches!(
+                ev,
+                RawStreamEvent::Connected | RawStreamEvent::Dropped { .. }
+            ) {
                 continue;
             }
             let RawStreamEvent::Data(bytes) = ev else {
@@ -140,7 +160,10 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
         let bytes = loop {
             match self.rx.try_recv() {
                 Ok(ev) => {
-                    if matches!(ev, RawStreamEvent::Connected) {
+                    if matches!(
+                        ev,
+                        RawStreamEvent::Connected | RawStreamEvent::Dropped { .. }
+                    ) {
                         continue;
                     }
                     let RawStreamEvent::Data(bytes) = ev else {
@@ -276,5 +299,8 @@ fn to_typed<T: DeserializeShrinkWrapOwned>(
         RawStreamEvent::Sideband(s) => Ok(TypedStreamEvent::Sideband(s)),
         RawStreamEvent::Connected => Ok(TypedStreamEvent::Connected),
         RawStreamEvent::Disconnected => Ok(TypedStreamEvent::Disconnected),
+        RawStreamEvent::Dropped { events, bytes } => {
+            Ok(TypedStreamEvent::Dropped { events, bytes })
+        }
     }
 }

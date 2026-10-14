@@ -1,11 +1,12 @@
 use crate::client::positioned::Shared;
 use crate::client::prepared_stream_open::decode_opened;
 use crate::event_loop::command::StreamOpenHook;
+use crate::event_loop::event_queue::{EventReceiver, EventSender};
 use crate::{Error, RawStreamEvent, SeqTy};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::oneshot;
 use tracing::{debug, trace, warn};
 use wire_weaver::prelude::UVlq32Backfill;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned, UNib32};
@@ -14,8 +15,8 @@ use ww_client_server::{EventKind, PathKindOwned, RequestKindOwned};
 pub(crate) type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
 pub(crate) type ResponseReceiver = oneshot::Receiver<Result<Vec<u8>, Error>>;
 
-pub(crate) type StreamUpdateSender = mpsc::UnboundedSender<RawStreamEvent>;
-pub(crate) type StreamUpdateReceiver = mpsc::UnboundedReceiver<RawStreamEvent>;
+pub(crate) type StreamUpdateSender = EventSender;
+pub(crate) type StreamUpdateReceiver = EventReceiver;
 
 const IGNORE_TIMER_DURATION: Duration = Duration::from_millis(1);
 

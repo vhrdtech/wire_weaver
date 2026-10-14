@@ -364,6 +364,10 @@ pub fn run(rx: &[u8], tx: &mut [u8]) -> usize {
 #[cfg(feature = "busgen_hand")]
 pub use crate::hand::run;
 
+/// `busgen` in the head+tail encoding (SW-46)
+#[cfg(feature = "busgen_ht")]
+pub use crate::ht::run;
+
 /// A method's reply as `ww_codegen!` server code encodes it (`ser_method_output`): the return value alone into
 /// one scratch buffer, then the event around its bytes, and the error event every generated server sends when
 /// that fails.

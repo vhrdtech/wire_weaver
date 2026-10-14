@@ -39,6 +39,9 @@ mod ww_repr;
 /// * `fixed_layout` - require a fixed little-endian byte layout and its fast path (`ENCODED_LEN`, offset consts,
 ///   `from_fixed` / `to_fixed`, `FixedLayout`); a field that breaks it is a compile error. Types that have such a
 ///   layout get the fast path without it, see `shrink_wrap::fixed_layout`.
+/// * `head_tail` - the head+tail encoding instead of shrink_wrap's: every fixed-width field at a constant offset in a
+///   head, lists (`head_tail::List`), strings and option payloads one after another in a tail (`from_head_tail` /
+///   `to_head_tail`, `HeadTail`, a C reader); no `SerializeShrinkWrap`, see `shrink_wrap::head_tail`.
 /// * `ww_repr = <u1,u2.. | nib | unib32 | u8 | u16 ..>` - set the enum discriminant representation.
 /// * `discriminants` - additionally generate a `MyTypeDiscriminants` enum (enum items only).
 ///

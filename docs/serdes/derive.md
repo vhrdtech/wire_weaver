@@ -433,6 +433,53 @@ let header = Header::from_ww_bytes(&bytes)?; // the same value through BufReader
 On a Cortex-M0, decoding a header of eight integers takes 276 bytes of code this way and 484 through `BufReader`; a
 bit-packed sample 276 instead of 652 ([code size](code_size.md#fixed-layout-fast-path)).
 
+### `head_tail`: a fixed head and a sequential tail
+
+For types with lists, strings or options in the middle, where no fixed layout exists, `head_tail` picks a wire
+format of its own (SW-46), made for the smallest reader on a microcontroller:
+
+- the **head** has a length known at compile time and holds every fixed-width field at a constant offset, as
+  `fixed_layout` places them, and for each variable field what is fixed about it: a `u16` count for a list or
+  string, the flag bit of an `Option` or `Result`, the head of a nested `head_tail` or `fixed_layout` type;
+- the **tail** follows the head and holds the variable parts in field order: list items, string bytes, option
+  payloads, the tails of nested types.
+
+An enum is its tag (`ww_repr = u8`, `u16` or `u32`), then the head and tail of its variant. Reading the head is loads
+at constant offsets; the tail is read front to back by a cursor that only takes lengths it already knows (`Tail`).
+There are no lengths at the back, no `BufReader`, no per-type generic reader.
+
+```rust
+use shrink_wrap::head_tail::List;
+
+#[derive_shrink_wrap(head_tail)]
+struct Utx<'i> {
+    ch: u8,
+    fmt: UartFormat,        // a fixed_layout type: in the head
+    glitch: Option<Wave>,   // flag bit in the head, the Wave in the tail
+    perr: List<'i, u16>,    // count in the head, the items in the tail
+    name: &'i str,          // the same
+    defer: bool,            // a bit in the head, after all of them
+}
+
+let utx = Utx::from_head_tail(&bytes)?;
+let n = utx.to_head_tail(&mut buf)?;
+```
+
+A list is a `shrink_wrap::head_tail::List<'i, T>`: `List::new(&items)` to write, and read from the wire it keeps the
+bytes and reads an item when its iterator reaches it. Its items are numbers or `fixed_layout` types of one length.
+`Option` / `Result` payloads are numbers, arrays of them, or `head_tail` / `fixed_layout` types. Every
+`fixed_layout` type implements `HeadTail` (all head when it has one length, else all tail), so the types of a
+protocol mix freely.
+
+It is one type with one format: a `head_tail` type has no `SerializeShrinkWrap` / `DeserializeShrinkWrap` (and no
+owned version), so it cannot be a field of an ordinary shrink_wrap type or a ww API argument. `write_c_ht` prints
+the C reader: head defines and readers as for `fixed_layout`, and per type a `<name>_tail_t` and a
+`<name>_tail()` that walks the tail and points at each variable part
+(`shrink_wrap::head_tail::write_c_header` writes a whole header).
+
+On busgen's request and reply enums the codec takes 4626 bytes on a Cortex-M0, a hand-written one 4408 and the
+derived shrink_wrap one 6652 ([code size](code_size.md#head-and-tail)).
+
 ### `ww_repr = <repr>` (enums only)
 
 Sets the wire representation of an enum's discriminant. **Required** for every enum - structs must not set it.

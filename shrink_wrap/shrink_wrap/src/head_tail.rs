@@ -194,6 +194,11 @@ impl<'i> Tail<'i> {
     /// `n` items of `item_len` bytes each.
     #[inline]
     pub fn take_items(&mut self, n: usize, item_len: usize) -> Result<&'i [u8], Error> {
+        // a count is a u16: with items of at most 64 KiB the product fits a 32-bit usize, and the check folds away
+        // (a checked multiplication is a call to a division routine on a Cortex-M0)
+        if usize::BITS >= 32 && n <= u16::MAX as usize && item_len <= u16::MAX as usize {
+            return self.take(n * item_len);
+        }
         match n.checked_mul(item_len) {
             Some(len) => self.take(len),
             None => Err(Error::OutOfBoundsReadRawSlice),
@@ -313,18 +318,28 @@ impl<'i, T: FixedLayout + Clone> List<'i, T> {
     }
 
     pub fn iter(&self) -> ListIter<'i, T> {
-        ListIter { list: *self, i: 0 }
+        match *self {
+            List::Slice(items) => ListIter::Slice(items.iter()),
+            List::Wire { bytes, len, .. } => ListIter::Wire {
+                bytes,
+                left: len,
+                _t: PhantomData,
+            },
+        }
     }
 
     /// Writes the items one after another into `out`, which is `len() * T::ENCODED_LEN` bytes.
     #[inline]
-    // `as_chunks_mut` needs the length as a const generic argument, which a generic type's const cannot be
-    #[allow(clippy::chunks_exact_to_as_chunks)]
     pub fn write_items(&self, out: &mut [u8]) -> Result<(), Error> {
         match self {
             List::Slice(items) => {
-                for (item, chunk) in items.iter().zip(out.chunks_exact_mut(T::ENCODED_LEN)) {
-                    item.write_fixed(chunk)?;
+                // not `chunks_exact_mut`: it divides by the chunk length
+                let mut at = 0;
+                for item in items.iter() {
+                    match out.get_mut(at..) {
+                        Some(rest) => at += item.write_fixed(rest)?,
+                        None => return Err(Error::OutOfBoundsWriteRawSlice),
+                    }
                 }
                 Ok(())
             }
@@ -350,18 +365,33 @@ impl<'i> List<'i, u8> {
 }
 
 /// The items of a [List], each read when it is reached.
-pub struct ListIter<'i, T> {
-    list: List<'i, T>,
-    i: usize,
+pub enum ListIter<'i, T> {
+    Slice(core::slice::Iter<'i, T>),
+    /// The bytes from the next item on, and how many items are left.
+    Wire {
+        bytes: &'i [u8],
+        left: usize,
+        _t: PhantomData<T>,
+    },
 }
 
 impl<T: FixedLayout + Clone> Iterator for ListIter<'_, T> {
     type Item = Result<T, Error>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let item = self.list.get(self.i)?;
-        self.i += 1;
-        Some(item)
+        match self {
+            ListIter::Slice(items) => items.next().cloned().map(Ok),
+            ListIter::Wire { bytes, left, .. } => {
+                if *left == 0 {
+                    return None;
+                }
+                *left -= 1;
+                let item = T::read_fixed(bytes);
+                *bytes = bytes.get(T::ENCODED_LEN..).unwrap_or(&[]);
+                Some(item)
+            }
+        }
     }
 }
 

@@ -32,6 +32,7 @@ const CASES: &[(&str, bool)] = &[
     ("busgen_ser", true),
     ("busgen", true),
     ("busgen_hand", false),
+    ("busgen_ht", false),
     ("reply", true),
 ];
 

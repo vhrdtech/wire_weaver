@@ -38,6 +38,8 @@ busgen_de = []
 busgen_ser = []
 busgen = []
 busgen_hand = []
+# busgen with `head_tail` types (SW-46)
+busgen_ht = []
 # A method's reply the way `ww_codegen!` server code encodes it: the return value alone, then a
 # `ww_client_server::Event` around it, plus the error event every generated server has.
 reply = ["dep:ww_client_server"]

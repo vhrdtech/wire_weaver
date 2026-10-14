@@ -433,6 +433,27 @@ is its own straight-line code. The bytes left in `fixed_ser` are mostly `memcpy`
 On a real format, chunky_mcu_updater's plan reader (header, signed descriptor, steps) takes 892 bytes on Cortex-M0 with
 the fast path, 840 with its hand-written parser and 1854 through `BufReader` (its `just size-bench`).
 
+## Head and tail
+
+`busgen_ht` is `busgen` with `head_tail` types (SW-46, [derive](derive.md#head_tail-a-fixed-head-and-a-sequential-tail)):
+the plain structs `fixed_layout`, `Utx`, `I2c`, `I2cSlave`, `Request` and `Reply` `head_tail`, lists as
+`head_tail::List`, the same handler. Every fixed field is a load at a constant offset, the lists, the string and
+the `Option<Wave>` are taken from the tail by lengths already read from the head:
+
+| case | types | rv32i | rv32ic | rv32ic-relax | thumbv6m | thumbv7em |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `busgen` | final | 11388 | 8210 | 7438 | 6652 | 6816 |
+| `busgen_hand` | | 7824 | 5762 | 5152 | 4408 | 4318 |
+| `busgen_ht` | | 8124 | 6004 | 5852 | 4626 | 3984 |
+
+5 % above the hand-written codec on Cortex-M0 and 4 % on RV32IC, 30 % and 27 % below the derived one; on
+Thumb-2 it is the smallest. Unlike the hand-written one it checks every length (a short message is an error, not
+zeros) and the UTF-8 of the string. Linker relaxation helps it less than the others: its calls are fewer, the code
+is mostly inline loads. Two things were worth taking out of the runtime on the way: a checked multiplication for
+the length of a list (on a Cortex-M0 its overflow check links a 200-byte division routine) and `chunks_exact_mut`
+(divides by the chunk length); the list iterator walks a cursor instead of computing `i * len`. On the wire it is
+a little smaller than busgen's own format too, since the bools of the head are bits.
+
 ## Replies of generated servers
 
 Measured after SW-41, not changed. The code `ww_codegen!` generates for a server ends every message with

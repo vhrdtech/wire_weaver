@@ -18,6 +18,13 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `discriminant()` returns the wire discriminant also for it; writing one that doesn't fit the repr or belongs to a
   known variant gives `Error::SubtypeOutOfRange`. See `docs/serdes/derive.md`.
 - `Error::is_read_eob()`: whether a read ran out of data.
+- Head+tail encoding (SW-46): the `head_tail` directive gives a type a wire format of its own, every fixed-width
+  field at a constant offset in a head (counts of lists and strings, flags of `Option` / `Result`, heads of nested
+  types included) and the variable parts in field order in a tail. New module `head_tail`: the `HeadTail` trait (in
+  the prelude), `List<'i, T>` for lists, the `Tail` / `TailWr` cursors, `read` / `write`, `write_c_header` and
+  `C_TAIL_PRELUDE` for the generated C tail walker. Derived types get `HEAD_LEN`, offset consts, `from_head_tail` /
+  `to_head_tail` / `head_tail_len`. Every fixed-layout type now implements `HeadTail`; `u8`..`u64`, `i8`..`i64`,
+  `f32`, `f64` implement `FixedLayout` (as items of a `List`).
 - Fixed-layout fast path for bit fields and a variable last field (SW-45): `bool`, `U1`..`U32`, `I2`..`I32` and
   `Nibble` at compile-time bit offsets (`<FIELD>_BIT_OFFSET`, `<FIELD>_BITS`), `Option` / `Result` / unequal enums as
   the last field, flags (also relocated with `#[flag]`) as bit fields; `MIN_LEN` and `fixed_len()` next to

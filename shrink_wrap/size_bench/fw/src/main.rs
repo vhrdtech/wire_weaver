@@ -11,6 +11,8 @@
 mod cases;
 #[cfg(feature = "busgen_hand")]
 mod hand;
+#[cfg(feature = "busgen_ht")]
+mod ht;
 #[allow(dead_code)]
 mod types;
 

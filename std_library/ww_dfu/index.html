@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -2035,6 +2037,8 @@
       
         
       
+        
+      
     
     
     
@@ -2175,6 +2179,33 @@
     
   
   USB
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/follow_reboot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Following a reboot: RP2350 BOOTSEL
 
     
   </span>
@@ -3192,7 +3223,8 @@ digest and which traits are there (<code>Offers</code>). On a slow link that is 
 <li><strong>Step order.</strong> A step ahead of its turn is <code>Error::OutOfOrder(expected)</code>; a step the node already has is accepted
   again and skipped (its reply was lost), so resending is always harmless.</li>
 <li><strong>Reboots.</strong> <code>BootControl::reboot</code> answers before the reset; the host then reconnects to the same device (USB serial
-  number, IP address) and finds whatever firmware answers there.</li>
+  number, IP address) and finds whatever firmware answers there. When the updater is a boot ROM that doesn't speak
+  WireWeaver (RP2350 BOOTSEL), see <a href="../../transport/follow_reboot/">Following a reboot</a>.</li>
 </ul>
 <h2 id="2c-app-step-swap-shuttle">2C-APP-STEP: Swap Shuttle<a class="headerlink" href="#2c-app-step-swap-shuttle" title="Permanent link">&para;</a></h2>
 <p><em>A/B with a copying bootloader; the running app receives the plan one call per step over a fast link.</em></p>

@@ -27,9 +27,9 @@
 //!
 //! # Time
 //!
-//! `SpiMonitor` reports when a frame's CS assertion started and ended ([SpiFrame::start], [SpiFrame::end]) as
-//! [Second]s of device time: time since the device's clock started, in the prefix and number type the device picks
-//! (usually a `u32` of microseconds). A fixed-width value wraps and the host unwraps it.
+//! `SpiMonitor` reports when a frame's CS assertion started (the time in the event head) and ended ([SpiFrame::end])
+//! as [Second]s of device time: time since the device's clock started, in the prefix and number type the device
+//! picks (usually a `u32` of microseconds). A fixed-width value wraps and the host unwraps it.
 //!
 //! # Slave mode
 //!
@@ -112,20 +112,18 @@ pub trait Spi {
     property!(rw reference_voltage: Volt, SpiError);
 }
 
-/// Watches an SPI bus without taking part: one [SpiFrame] per CS assertion on the `frames` stream. Configured with
-/// `SpiMonitor::configure_monitor`; the stream's sideband `Open` starts, `Close` stops.
+/// Watches an SPI bus without taking part: one [SpiFrame] per CS assertion on the `frames` stream.
 #[ww_trait]
 pub trait SpiMonitor {
-    /// One frame per CS assertion, in bus order.
-    stream!(frames: SpiFrame<'i>);
-
-    /// Starts or stops monitoring with the bus settings needed to decode frames (the monitor doesn't drive CS or
-    /// clock, it only listens).
+    /// One frame per CS assertion, in bus order, decoded with `config` (the monitor doesn't drive CS or clock, it
+    /// only listens). Opening starts monitoring, closing stops it. A counted stream, unit: frame; the head's time is
+    /// when CS was asserted, and the host learns exactly how many frames the device dropped.
     ///
     /// # Errors
     ///
     /// [SpiError::InUse], [SpiError::Unsupported] (this `word_bits`), [SpiError::Refused].
-    fn configure_monitor(config: SpiMonitorConfig) -> Result<(), SpiError>;
+    #[stream(SpiFrame<'i>, counted)]
+    fn frames(config: SpiMonitorConfig) -> Result<(), SpiError>;
 }
 
 /// Bus settings, see `Spi::configure`.
@@ -148,7 +146,7 @@ pub struct SpiActual {
     pub freq: Hertz,
 }
 
-/// Bus settings for `SpiMonitor::configure_monitor`: everything needed to decode frames correctly, without the
+/// Bus settings for `SpiMonitor::frames`: everything needed to decode frames correctly, without the
 /// parts that only apply to driving the bus ([SpiConfig::role], [SpiConfig::cs]).
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug))]
 pub struct SpiMonitorConfig {
@@ -236,9 +234,7 @@ pub enum SpiOp<'i> {
 /// One frame seen by `SpiMonitor`: from CS asserted to released.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
 pub struct SpiFrame<'i> {
-    /// When CS was asserted.
-    pub start: Second,
-    /// When CS was released.
+    /// When CS was released; when it was asserted is the time in the event head.
     pub end: Second,
     /// Longer than [SPI_MAX] bytes, the rest was cut.
     pub truncated: bool,

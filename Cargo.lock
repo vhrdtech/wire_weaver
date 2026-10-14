@@ -2036,6 +2036,7 @@ dependencies = [
  "ww_numeric",
  "ww_si",
  "ww_spi",
+ "ww_stream",
 ]
 
 [[package]]

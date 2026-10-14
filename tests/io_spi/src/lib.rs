@@ -7,13 +7,14 @@ mod tests {
     use std::time::Duration;
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use ww_client_server::StreamSideband;
+    use wire_weaver_client::StreamEvent;
     use ww_numeric::NumericValue;
     use ww_si::{Prefix, Second, Volt};
     use ww_spi::{
         BitOrder, CsMode, SpiActual, SpiCapabilities, SpiConfig, SpiError, SpiFrame, SpiMode,
         SpiMonitorConfig, SpiOp, SpiRole,
     };
+    use ww_stream::tx::Counted;
 
     /// Smaller than [ww_spi::SPI_MAX], so a too-long transfer can be tested without building a 512-byte buffer.
     const MAX_LEN: usize = 64;
@@ -46,8 +47,10 @@ mod tests {
         reference_voltage: Option<Volt>,
         /// Bytes of every `Spi::write`, in order.
         writes: Vec<Vec<u8>>,
+        /// Set while the `frames` stream is open.
         monitor_config: Option<SpiMonitorConfig>,
-        monitor_sideband: Vec<StreamSideband>,
+        /// Frames the test makes the mock bus see: mosi, miso, CS asserted and released in µs.
+        seen: Vec<(Vec<u8>, Vec<u8>, u32, u32)>,
     }
 
     mod no_std_sync_server {
@@ -56,6 +59,37 @@ mod tests {
 
         pub struct NoStdSyncServer {
             pub data: Arc<Mutex<Model>>,
+            pub frames: Counted,
+            pub stream_sessions: u32,
+        }
+
+        impl NoStdSyncServer {
+            /// The event loop's producer: frames the monitor saw while `frames` is open.
+            fn produce(&mut self, out: &mut impl BlockingEventOut) {
+                let seen = std::mem::take(&mut self.data.lock().unwrap().seen);
+                for (mosi, miso, start_us, end_us) in seen {
+                    let frame = SpiFrame {
+                        end: second(Prefix::Micro, end_us),
+                        truncated: false,
+                        mosi: MaxLen::new(RefVec::Slice { slice: &mosi }).unwrap(),
+                        miso: MaxLen::new(RefVec::Slice { slice: &miso }).unwrap(),
+                    };
+                    let _ = api_impl::stream_data_ser()
+                        .spi_monitor()
+                        .frames_send_blocking(
+                            &mut self.frames,
+                            &frame,
+                            1,
+                            Some(second(Prefix::Micro, start_us)),
+                            out,
+                        );
+                }
+            }
+
+            fn new_stream_session(&mut self) -> u32 {
+                self.stream_sessions = self.stream_sessions.wrapping_add(1);
+                self.stream_sessions
+            }
         }
 
         impl NoStdSyncServer {
@@ -211,16 +245,7 @@ mod tests {
                 )
             }
 
-            fn sideband_spi_monitor_frames(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                sideband: StreamSideband,
-            ) -> Option<StreamSideband> {
-                self.data.lock().unwrap().monitor_sideband.push(sideband);
-                None
-            }
-
-            fn spi_monitor_configure_monitor(
+            fn spi_monitor_frames(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiMonitorConfig,
@@ -230,6 +255,14 @@ mod tests {
                 }
                 self.data.lock().unwrap().monitor_config = Some(config);
                 Ready(Ok(()))
+            }
+
+            fn close_spi_monitor_frames(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+                self.data.lock().unwrap().monitor_config = None;
+            }
+
+            fn stream_spi_monitor_frames(&mut self) -> &mut Counted {
+                &mut self.frames
             }
         }
 
@@ -253,6 +286,8 @@ mod tests {
                 out: &mut impl BlockingEventOut,
                 medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
+                // the mock's producer runs between requests
+                self.produce(out);
                 self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
@@ -284,13 +319,16 @@ mod tests {
         }
     }
 
-    use no_std_sync_server::api_impl::stream_data_ser;
     use std_client::StdClient;
 
     fn start(path: &str) -> (TestDevice, Arc<Mutex<Model>>) {
         let _ = tracing_subscriber::fmt::try_init();
         let data = Arc::new(Mutex::new(Model::default()));
-        let server = no_std_sync_server::NoStdSyncServer { data: data.clone() };
+        let server = no_std_sync_server::NoStdSyncServer {
+            data: data.clone(),
+            frames: Counted::new(),
+            stream_sessions: 0,
+        };
         let device = tests_common::start_device(
             path,
             server,
@@ -484,56 +522,45 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn monitor_configure_and_frames_stream() {
+    async fn monitor_frames_stream() {
         let (device, data) = start("io_spi/monitor");
         let client = connect(&device).await;
-        let mut stream = client.spi_monitor().frames().await.unwrap();
+        let config = |word_bits| SpiMonitorConfig {
+            mode: SpiMode::Mode0,
+            bit_order: BitOrder::MsbFirst,
+            word_bits,
+        };
+        let r = client.spi_monitor().frames(config(9)).call().await.unwrap();
+        assert!(matches!(r, Err(SpiError::Unsupported)), "{:?}", r.err());
 
-        client
+        let ((), mut stream) = client
             .spi_monitor()
-            .configure_monitor(SpiMonitorConfig {
-                mode: SpiMode::Mode0,
-                bit_order: BitOrder::MsbFirst,
-                word_bits: 8,
-            })
+            .frames(config(8))
             .call()
             .await
             .unwrap()
             .unwrap();
+        assert!(data.lock().unwrap().monitor_config.is_some());
 
-        stream.open().await.unwrap();
-        eventually(&data, |d| !d.monitor_sideband.is_empty()).await;
-        assert_eq!(
-            data.lock().unwrap().monitor_sideband,
-            vec![StreamSideband::Open]
-        );
-
-        let mosi = [0x9Fu8];
-        let miso = [0x00u8, 0x00, 0x40];
-        let frame = SpiFrame {
-            start: second(Prefix::Micro, 100),
-            end: second(Prefix::Micro, 140),
-            truncated: false,
-            mosi: MaxLen::new(RefVec::Slice { slice: &mosi }).unwrap(),
-            miso: MaxLen::new(RefVec::Slice { slice: &miso }).unwrap(),
-        };
-        let mut scratch = [0u8; 64];
-        device.send(
-            stream_data_ser()
-                .spi_monitor()
-                .frames(&frame, &mut scratch)
-                .unwrap(),
-        );
-        let received = stream.recv().await.unwrap();
-        assert_eq!(received.mosi.into_inner(), vec![0x9F]);
-        assert_eq!(received.miso.into_inner(), vec![0x00, 0x00, 0x40]);
-        assert!(!received.truncated);
+        data.lock()
+            .unwrap()
+            .seen
+            .push((vec![0x9F], vec![0x00, 0x00, 0x40], 100, 140));
+        // any request lets the mock's event loop send it
+        client.spi().capabilities().call().await.unwrap();
+        match stream.recv_event().await.unwrap() {
+            StreamEvent::Item { pos, t, value, .. } => {
+                assert_eq!(pos, 0);
+                assert_eq!(t.unwrap().value, NumericValue::U32(100));
+                assert_eq!(value.end.value, NumericValue::U32(140));
+                assert_eq!(value.mosi.into_inner(), vec![0x9F]);
+                assert_eq!(value.miso.into_inner(), vec![0x00, 0x00, 0x40]);
+                assert!(!value.truncated);
+            }
+            ev => panic!("{ev:?}"),
+        }
 
         stream.close().await.unwrap();
-        eventually(&data, |d| d.monitor_sideband.len() == 2).await;
-        assert_eq!(
-            data.lock().unwrap().monitor_sideband[1],
-            StreamSideband::Close
-        );
+        eventually(&data, |d| d.monitor_config.is_none()).await;
     }
 }

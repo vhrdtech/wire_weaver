@@ -1,10 +1,12 @@
 # Logic analyzer and signal generator (design)
 
-!!! note "Draft for review"
+!!! note "Approved, skeletons built"
     STD-21 `ww_logic_analyzer` and STD-22 `ww_signal_generator`, the design pass the
-    [IO family](io_family.md) asked for. Nothing is built yet; questions for Roman are in [Open questions](#open-questions).
-    Everything here follows the family's conventions (errors, streams, capabilities, `ww_si` values); only what is
-    new is written out.
+    [IO family](io_family.md) asked for, approved by Roman on 14 Oct 2026 with the answers in
+    [Review answers](#review-answers). Both crates exist as skeletons (`ww_stdlib/ww_logic_analyzer`,
+    `ww_stdlib/ww_signal_generator`); their sources are the API description. This page stays as the reasoning: the
+    design may still improve once a device uses it, edge cases are hard to imagine before. Everything here follows
+    the family's conventions (errors, streams, capabilities, `ww_si` values); only what is new is written out.
 
 ## What the two crates are for
 
@@ -184,15 +186,24 @@ than a second timestamp.
 pub enum Trigger<'i> {
     /// Right away.
     Now,
-    /// When every condition of a stage holds on the same sample, stage after stage; the capture triggers at the
-    /// last stage.
+    /// Stage after stage, each one met after the one before; the capture triggers when the last one is met.
     Stages(MaxLen<RefVec<'i, TriggerStage<'i>>, MAX_STAGES>),
     /// On the external trigger input.
     External { edge: Edge },
 }
 
-pub struct TriggerStage<'i> {
-    pub conditions: MaxLen<RefVec<'i, ChannelCondition>, MAX_CHANNELS>,
+pub enum TriggerStage<'i> {
+    /// Every condition holds on the same sample.
+    Pattern(MaxLen<RefVec<'i, ChannelCondition>, MAX_CHANNELS>),
+    /// A UART frame (8 data bits, LSB first, idle high) on `channel` at `baud` whose data matches `value` under
+    /// `mask`; met at the stop bit.
+    UartByte { channel: u8, baud: u32, value: u8, mask: u8 },
+    /// An I2C address byte on `scl` / `sda` matching `address`, of a read (`Some(true)`), a write (`Some(false)`)
+    /// or either; met at the ACK bit.
+    I2cAddress { scl: u8, sda: u8, address: ww_i2c::I2cAddress, read: Option<bool> },
+    /// The first byte on `data` (MOSI or MISO) after `cs` goes low, clocked by `sck` in SPI `mode` (0-3), matching
+    /// `value` under `mask`; met at its last bit.
+    SpiFirstByte { cs: u8, sck: u8, data: u8, mode: u8, msb_first: bool, value: u8, mask: u8 },
 }
 
 pub struct ChannelCondition {
@@ -207,19 +218,29 @@ pub enum Condition { Low, High, Rising, Falling, AnyEdge }
 pub enum Edge { Rising, Falling, Any }
 ```
 
-This is sigrok's trigger model, which covers the cases the family named: **level** (one condition `High`),
+The `Pattern` stage is sigrok's trigger model, which covers the cases the family named: **level** (one condition `High`),
 **edge** (`Rising`), **pattern** (several `Low` / `High` in one stage), and an edge qualified by a pattern ("CLK
 rising while CS low"). Stages give sequences ("CS falls, then MOSI rises") on hardware that has them;
 `LaCapabilities::trigger` says how many stages and which conditions work (an MCU with a pin-change interrupt does
 one stage of edges on a few channels; an FPGA analyzer does several stages of anything).
 
-Not in the first version, and appendable as `Trigger` variants without breaking anything: protocol triggers
-(UART byte, I2C address match), pulse-width triggers ("a low pulse shorter than 1 µs"), counted triggers ("the 10th
-rising edge").
+**Protocol stages** (review: wanted in the first version, they make debugging much easier) match a decoded event
+instead of a sample: a UART byte, an I2C address with its R/W bit, the first SPI byte after CS. They are matched on
+the decoded stream next to the capture (on rePort in the PIO program or the firmware), decoding only as much as the
+match needs; `LaCapabilities` says which stage kinds work. Being stages, they combine with each other and with
+patterns ("CS low, then the UART byte `0x55`"), which already gives sequences. Data patterns over several bytes
+(`UartBytes { pattern }`, an I2C register write), more protocols (CAN identifier), pulse-width and counted stages
+are appended as `TriggerStage` variants when a device needs them; the enum is shaped for that, every stage is
+self-contained.
+Unknown variants from newer hosts are handled by the automatic `#[future_version]` variant (SW-47,
+`ww-errors-plan`) like every enum of the family: `Trigger`, `TriggerStage`, `Condition` and `Shape` get no
+hand-written `Unknown`.
 
 **Trigger output.** `CaptureConfig::trigger_out: bool` drives the device's trigger output when the capture
-triggers, so another analyzer, a scope or a `PatternGenerator` on another device starts on the same edge. For
-alignment without wires, the timestamps line up through `ww_timebase` (below).
+triggers, so another analyzer, a scope or a `PatternGenerator` on another device starts on the same edge. A common
+trigger shared across devices and functions (routing, sync-based triggers at a shared time) belongs to
+`ww_timebase` (review answer 5); until it exists, this bool and `Trigger::External` are the wire-level link, and
+the timestamps line up through `ww_timebase`'s clock sync (below).
 
 ## `LogicStream`: continuous capture
 
@@ -456,29 +477,30 @@ Helpers in each crate's `std` part, not on the wire:
 
 | Crate | Depends on | Version |
 |---|---|---|
-| `ww_logic_analyzer` | `wire_weaver`, `ww_si`, `ww_gpio` (`Level`) | 0.1.0, new |
+| `ww_logic_analyzer` | `wire_weaver`, `ww_si`, `ww_gpio` (`Level`), `ww_i2c` (`I2cAddress`) | 0.1.0, new |
 | `ww_signal_generator` | `wire_weaver`, `ww_si`, `ww_gpio`, `ww_logic_analyzer` (chunk types), `ww_adc` (`SampleFormat`, `Linear`) | 0.1.0, new |
 
 Both new, so nothing breaks; skeletons compile `no_std` and `std`, snapshots saved, FEATURES STD-21 / STD-22.
 
-## Open questions
+## Review answers
 
-1. **Per-channel transitions, not merged.** The table above says per channel is smaller in every case and
-   independent of idle channels; the cost is one call per channel for a full read (one multi-call). Agree?
-2. **`DeltaOfDelta<u32>` only, or also `Delta`?** DoD is never much worse than `Delta` here and much better on
-   clocked signals. An uneven PWM is the weak case of both (3 % of raw, fine). I'd ship DoD only; a third
-   encoding can be appended to `Encoding` if a real capture shows a need.
-3. **`ww_adc` dependency for `SampleFormat` / `Linear`.** Reusing them couples `ww_signal_generator` to `ww_adc`;
-   the alternative is moving both into `ww_numeric` (STD-23's area). I'd reuse now and move them with STD-23 if it
-   touches them anyway.
-4. **`rearm()`**: worth a method, or should a host send the configuration again?
-5. **Trigger output as a config bool** (and an external trigger input as a `Trigger` variant) is the simplest
-   cross-device link. Should trigger in/out instead be a small trait of its own (`ww_timebase`?), shared by
-   `AdcCapture`, `LogicAnalyzer` and `PatternGenerator`? It would let one device route triggers between its own
-   functions too.
+Roman, 14 Oct 2026: the design is accepted with these answers.
+
+1. **Per-channel transitions**: yes.
+2. **`DeltaOfDelta<u32>` only**: yes; another encoding is appended to `Encoding` if a real capture needs it.
+3. **`ww_adc`'s `SampleFormat` / `Linear` reused** in `ww_signal_generator` now; they move with STD-23 if it
+   moves them.
+4. **`rearm()` stays.**
+5. **Trigger output as a bool for now**; a common cross-device trigger belongs in `ww_timebase`.
+
+Plus: **protocol triggers in the first version**, the simple ones (UART byte, I2C address + R/W, SPI first byte
+after CS: the `UartByte`, `I2cAddress` and `SpiFirstByte` stages), matched on the decoded stream next to the
+capture; multi-byte patterns later, as further stages; **no hand-written `Unknown` variants**, the automatic `#[future_version]` (SW-47) covers
+`Trigger`, `TriggerStage`, `Condition` and `Shape`; **build the agreed core without over-building**, the design
+improves once it is used.
 
 ## Not in this version
 
-Protocol, pulse-width and counted triggers; per-channel sample rates (mixed-rate analyzers); on-device protocol
+Protocol stages beyond UART and I2C, pulse-width and counted triggers; a cross-device trigger (`ww_timebase`); per-channel sample rates (mixed-rate analyzers); on-device protocol
 decoding (use the monitor traits); analog channels in a logic analyzer (an `AdcCapture` next to it); sweeps,
 bursts and modulation in `WaveformGenerator`; sigrok session (`.sr`) export.

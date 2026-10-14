@@ -13,6 +13,11 @@ use crate::StreamHead;
 mod ram_ring;
 pub use ram_ring::{RECORD_OVERHEAD, RamRing, RamRingError};
 
+#[cfg(any(test, feature = "log-store"))]
+pub mod log;
+#[cfg(any(test, feature = "log-store"))]
+pub use log::{LogConfig, LogError, LogMedium, LogStore, Recovery};
+
 /// Storage of the events of one reliable stream, see the [module docs](self).
 ///
 /// Methods are `async` because a store may sit on an SD card or flash; RAM stores never wait.

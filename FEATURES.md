@@ -331,7 +331,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `RequestKind::StreamOpen`, the sideband), the `ww_stream` crate (`Counted`, `Reliable`, `Receiver`, `RamRing`,
   `Scheduler`, `StreamCnt`; sans-IO, `no_std`, tested over a seeded lossy link with random disconnects),
   `ww_self::ApiItemKind::PositionedStream`. Missing: codegen (API-31), the host runtime (CLT-23), credit sinks on it
-  (API-34), the persistent store (SRV-15).
+  (API-34). The persistent store is done (SRV-15).
 - 📋 **API-31 Stream functions** · `v0.5` — `#[stream(T, reliable)] fn name(args) -> Result<A, E>`: a stream is opened
   by calling a function with typed arguments and result, which starts a session (`stream!` is the short form); a read
   on a stream returns its state. Includes API-15 (`docs/api/stream_reliability.md`).
@@ -366,6 +366,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **SRV-6 Media**: USB (embassy), RTT, WebSocket and UDP (both also on `embassy-net`).
 - ✅ **SRV-7 UDP device medium** — `ww_device::udp`, one frame per datagram over any datagram socket, one host at a
   time, another host takes over by starting link setup (`docs/transport/udp.md`).
+- ✅ **SRV-15 Stream stores and backfill** — `ww_stream::store`: what a reliable stream (API-30) keeps until the
+  host acknowledges it: `RamRing` (API-30) and `LogStore`, a power-cut safe log on a block device (feature
+  `log-store`; `SdMedium` on an `embedded-sdmmc` `BlockDevice` with `sdmmc`, `NorMedium` on an
+  `embedded-storage-async` `NorFlash` with `nor-flash`) that keeps session, positions and clock epochs across reboots;
+  drop-newest or drop-oldest when full, counted exactly. Tested with a power cut at every write
+  (`ww_stream/src/tests/log_store.rs`); `docs/api/stream_stores.md`.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:
@@ -384,10 +390,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   informing the device.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **SRV-11 Link statistics** in `ww_device` (`TODO` in `link.rs`).
-- 📋 **SRV-15 Stream stores and backfill** · `v0.5` — `ww_stream::store`: what a reliable stream (API-30) keeps until the
-  host acknowledges it, a RAM ring and a power-cut safe log on a block device (SD card, NOR flash) that keeps
-  positions and clock epochs across reboots; drop-newest or drop-oldest when full, counted exactly
-  (`docs/api/stream_reliability.md`). `RamRing` is done (API-30).
 - 💡 **SRV-12 std server on Tower** · `v0.5`.
 - 💡 **SRV-13 IPC over USB / multi-app devices / USB multiplexer** · `v0.5.x`.
 - 💡 **SRV-14 FPGA server** · `v0.5.x`.

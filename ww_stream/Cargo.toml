@@ -12,9 +12,21 @@ default = []
 std = ["ww_client_server/std", "ww_si/std"]
 # typed per-stream instance counters (cnt::Counters<StreamCnt>)
 cnt = ["dep:cnt"]
+# store::LogStore: a power-cut safe log on a block device
+log-store = ["dep:crc"]
+# store::log::SdMedium on an embedded-sdmmc BlockDevice
+sdmmc = ["log-store", "dep:embedded-sdmmc-types"]
+# store::log::NorMedium on an embedded-storage-async NorFlash
+nor-flash = ["log-store", "dep:embedded-storage-async"]
 
 [dependencies]
 cnt = { workspace = true, optional = true }
+crc = { version = "3.4", optional = true }
+embedded-sdmmc-types = { version = "0.1", optional = true }
+embedded-storage-async = { version = "0.4.2", optional = true }
 wire_weaver.workspace = true
 ww_client_server.workspace = true
 ww_si.workspace = true
+
+[dev-dependencies]
+crc = "3.4"

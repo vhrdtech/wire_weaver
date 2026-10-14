@@ -1,4 +1,5 @@
 mod counted;
+mod log_store;
 mod ram_ring;
 mod receiver;
 mod reliable;

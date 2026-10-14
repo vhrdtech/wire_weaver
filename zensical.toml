@@ -29,6 +29,7 @@ nav = [
             "api/properties.md",
             "api/streams.md",
             "api/stream_reliability.md",
+            "api/stream_stores.md",
             "api/traits.md",
             "api/arrays.md",
             "api/addressing.md",

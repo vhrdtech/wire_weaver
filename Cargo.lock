@@ -112,6 +112,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "arbitrary-int"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ab387a0c4143b4fd3804e193946e78c8ab16cf26c5fde2048e4ac3d618c3b64"
+
+[[package]]
 name = "array_of_streams"
 version = "0.1.0"
 dependencies = [
@@ -230,6 +236,17 @@ checksum = "5727b15fa97d4f4fee0a3b7c3d550ed0269f54329207b86388de918604e31269"
 dependencies = [
  "borsh",
  "serde",
+]
+
+[[package]]
+name = "bitbybit"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf218b839af0730012cc21856c4149789afde9ae6dc3078c7adaf311e8b76854"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1173,6 +1190,33 @@ checksum = "eb5a1bd585135d302f8f6d7de329310938093da6271b37a6c94b8798795c0c6d"
 dependencies = [
  "embedded-io-async",
  "embedded-nal",
+]
+
+[[package]]
+name = "embedded-sdmmc-types"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4234384920317421a61a221dd06dda643ee13d95d4a95532a6294b4d01a8852f"
+dependencies = [
+ "arbitrary-int",
+ "bitbybit",
+ "bitflags 2.13.1",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "embedded-storage"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c815b3ed4213d85d6cfd274b871f430c0681084e28dfd4a537877f47f844ec83"
+
+[[package]]
+name = "embedded-storage-async"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69aa7787b8ba0cf4e626c95839f811d853b75e24a0f7312a1eef324fedc13b21"
+dependencies = [
+ "embedded-storage",
 ]
 
 [[package]]
@@ -4370,6 +4414,9 @@ name = "ww_stream"
 version = "0.5.0"
 dependencies = [
  "cnt",
+ "crc",
+ "embedded-sdmmc-types",
+ "embedded-storage-async",
  "wire_weaver",
  "ww_client_server",
  "ww_si",

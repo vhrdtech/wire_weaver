@@ -26,8 +26,8 @@ of every event, so a `SampleBlock` or an `RxChunk` stays pure data.
     The protocol is built: the wire types in `ww_client_server::stream`, and the device and host state machines,
     stores and send scheduler in the `ww_stream` crate, all sans-IO and tested against a simulated lossy link.
     Declaring counted and reliable streams in a `#[ww_trait]` and the generated code (API-31), the host-side stream
-    API (CLT-23), a store on an SD card or flash (SRV-15), and credit sinks on the same protocol (API-34) are being
-    built; see [Features](../features.md). Until then, `ww_stream` can be driven by hand.
+    API (CLT-23), and credit sinks on the same protocol (API-34) are being built; see [Features](../features.md).
+    Until then, `ww_stream` can be driven by hand.
 
 ## Where stream data gets lost
 
@@ -239,7 +239,8 @@ pub trait StreamStore {
 
 - **`RamRing<N>`**: a byte ring of `N` bytes in RAM (each event takes `RECORD_OVERHEAD` bytes more than its item).
   Survives host reconnects, not reboots.
-- A store on an SD card or NOR flash that survives reboots and power cuts is being built (SRV-15).
+- **`LogStore`**: a log on an SD card or NOR flash that survives reboots and power cuts, keeping session, positions
+  and clock epochs; see [Stream stores](stream_stores.md).
 - When a store is full it drops the newest events (`FullPolicy::DropNewest`, the default: what is kept stays
   contiguous) or the oldest (`DropOldest`: the most recent data). Either way the units are counted and reported to the
   host as lost.

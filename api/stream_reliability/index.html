@@ -1202,6 +1202,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#receiving-on-the-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Receiving on the host
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#counting" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2612,6 +2623,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#receiving-on-the-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Receiving on the host
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#counting" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2830,9 +2852,10 @@ of every event, so a <code>SampleBlock</code> or an <code>RxChunk</code> stays p
 <p class="admonition-title">Status</p>
 <p>The protocol is built: the wire types in <code>ww_client_server::stream</code>, and the device and host state machines,
 stores and send scheduler in the <code>ww_stream</code> crate, all sans-IO and tested against a simulated lossy link.
-Declaring counted and reliable streams in a <code>#[ww_trait]</code> and the generated code (API-31), the host-side stream
-API (CLT-23), and credit sinks on the same protocol (API-34) are being built; see <a href="../../features/">Features</a>.
-Until then, <code>ww_stream</code> can be driven by hand.</p>
+Declaring counted and reliable streams in a <code>#[ww_trait]</code> and the generated code are built too
+(<a href="../streams/">Streams</a>), and the host side in <code>wire_weaver_client</code>
+(<a href="#receiving-on-the-host">Receiving on the host</a>). Credit sinks on the same protocol (API-34) are being built;
+see <a href="../../features/">Features</a>.</p>
 </div>
 <h2 id="where-stream-data-gets-lost">Where stream data gets lost<a class="headerlink" href="#where-stream-data-gets-lost" title="Permanent link">&para;</a></h2>
 <p>From a producer on the device to user code on the host:</p>
@@ -3152,15 +3175,52 @@ needs a priority is counted or reliable.</p>
 <p>On the host, <code>ww_stream::rx::Receiver</code> takes each event's head (<code>on_item</code>) and returns a <code>Verdict</code>: accept (with the
 gaps before it, each with its run, position, size and cause: <code>Device</code>, <code>Link</code>, <code>Store</code> or <code>Host</code>), duplicate, already
 had, late or out of order; <code>poll(now_ms)</code> returns the next <code>Ack</code> or <code>ResendFrom</code> to send.</p>
+<h2 id="receiving-on-the-host">Receiving on the host<a class="headerlink" href="#receiving-on-the-host" title="Permanent link">&para;</a></h2>
+<p>Opening a stream returns a handle: <code>PositionedStream&lt;T&gt;</code> for a counted or reliable one. Generated clients open it by
+calling the stream function (<code>device.samples(config).call().await?</code>); underneath, and for tools without generated
+code, it is <code>Commander::prepare_stream_open(path, delivery, args)</code>, and <code>prepare_stream_resume(path, delivery,
+cursor)</code> to resume. A stream function that returns <code>Result&lt;A, E&gt;</code> gives <code>Result&lt;(A, stream), E&gt;</code>: an <code>Err</code> opens
+nothing.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adc</span><span class="p">.</span><span class="n">samples</span><span class="p">(</span><span class="n">config</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">ev</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">recv_event</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="k">match</span><span class="w"> </span><span class="n">ev</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Item</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">run</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* run: Live or Backfill */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Gap</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">at</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">,</span><span class="w"> </span><span class="n">cause</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* cause: Device, Link, Store, Host */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Resumed</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">cursor</span><span class="p">,</span><span class="w"> </span><span class="n">ended</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ended: the old session, when the device has a new one */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">BackfillDone</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Disconnected</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Closed</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><code>recv()</code> returns values only; gaps are logged and counted in <code>stats()</code> (<code>StreamStats</code>: received, lost by cause,
+  duplicates, late, out of order, resend requests, what is queued). Blocking and <code>try_</code> variants of each exist.</li>
+<li><code>cursor()</code> is where to resume from: everything before it was received (counted) or acknowledged (reliable).
+  A recorder saves it with its data and opens with <code>&lt;name&gt;_resume(cursor)</code> after a restart.</li>
+<li><code>ack_mode(AckMode::Explicit)</code> when opening: a reliable stream's data counts as received only when <code>ack(pos)</code>
+  confirms it (after writing it to disk, say), so a crash in between loses nothing. By default it counts when user
+  code takes it.</li>
+<li><code>split()</code> gives one handle per run, each in order: a dashboard reads the live one, a recorder both.</li>
+<li><code>close()</code>, or dropping the handle, closes the stream on the device.</li>
+</ul>
+<p>The receiver runs in the client's event loop, so a program that doesn't read still answers the device. Its memory
+stays bounded: a reliable stream holds at most its window (<code>window(bytes)</code> when opening, 4 MiB by default), and the
+device keeps the rest in its store; a counted stream holds <code>ClientConfig::stream_queue_bytes</code> (4 MiB by default) and
+drops what comes beyond it, reported as one <code>Gap { cause: Host }</code> before the next item that fits. Plain streams have
+the same bound: what they drop is counted (<code>Stream::dropped()</code>) and reported once as <code>RawStreamEvent::Dropped</code>.</p>
+<p>After <code>disconnect().keep_streams()</code> the handles stay open (they see <code>Disconnected</code>, not the end), and
+<code>Commander::resume_streams()</code> on the next connection resumes each from its cursor: the same handle goes on with
+<code>Resumed</code> and whatever the device kept meanwhile. Without <code>keep_streams</code>, a stream ends with the connection.</p>
+<p>The dynamic client has the same as <code>DynResource::positioned_stream</code> (<code>DynPositionedStream</code>, values as <code>ValueOwned</code>),
+Python as a <code>PositionedStream</code> object (<a href="../../python/#counted-and-reliable-streams">Python</a>).</p>
 <h2 id="counting">Counting<a class="headerlink" href="#counting" title="Permanent link">&para;</a></h2>
 <p>Every sending stream keeps <code>TxStats</code> (<code>stats()</code>): units sent and resent, lost by cause (producer, store full, no
 host), bytes acknowledged, resend requests, overruns. With the <code>cnt</code> feature it also counts into typed
 <a href="https://crates.io/crates/cnt"><code>cnt</code></a> instance counters, one set per stream, named by the firmware, so <code>cnt tui</code> shows
 per stream where data went:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">counters</span><span class="p">::</span><span class="n">StreamCnt</span><span class="p">;</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">static</span><span class="w"> </span><span class="n">ADC_SAMPLES_CNT</span><span class="p">:</span><span class="w"> </span><span class="nc">cnt</span><span class="p">::</span><span class="n">Counters</span><span class="o">&lt;</span><span class="n">StreamCnt</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cnt</span><span class="p">::</span><span class="n">counters</span><span class="o">!</span><span class="p">(</span><span class="n">StreamCnt</span><span class="p">,</span><span class="w"> </span><span class="n">adc_samples</span><span class="p">);</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Reliable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">RamRing</span><span class="p">::</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">256</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">()).</span><span class="n">counters</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ADC_SAMPLES_CNT</span><span class="p">);</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">counters</span><span class="p">::</span><span class="n">StreamCnt</span><span class="p">;</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">static</span><span class="w"> </span><span class="n">ADC_SAMPLES_CNT</span><span class="p">:</span><span class="w"> </span><span class="nc">cnt</span><span class="p">::</span><span class="n">Counters</span><span class="o">&lt;</span><span class="n">StreamCnt</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cnt</span><span class="p">::</span><span class="n">counters</span><span class="o">!</span><span class="p">(</span><span class="n">StreamCnt</span><span class="p">,</span><span class="w"> </span><span class="n">adc_samples</span><span class="p">);</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Reliable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">RamRing</span><span class="p">::</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">256</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">()).</span><span class="n">counters</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ADC_SAMPLES_CNT</span><span class="p">);</span>
 </span></code></pre></div>
 <p>The host's <code>Receiver</code> keeps <code>RxStats</code> with the same causes: received, lost on the device, on the link and in the store,
 duplicates, late, out of order.</p>

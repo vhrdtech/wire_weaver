@@ -2353,6 +2353,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#counted-and-reliable-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Counted and reliable streams
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2529,6 +2540,17 @@
   
     <nav class="md-nav" aria-label="Using the API">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#counted-and-reliable-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Counted and reliable streams
+      </span>
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
@@ -2786,6 +2808,24 @@ them for tab completion. For the <code>Dynamic</code> trait from <code>tests/dyn
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="k">with</span> <span class="n">dev</span><span class="o">.</span><span class="n">commands</span> <span class="k">as</span> <span class="n">sink</span><span class="p">:</span>             <span class="c1"># stream to the device (sink): open(), send(), close()</span>
 </span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">sink</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">&quot;Move&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}})</span>
 </span></code></pre></div>
+<h3 id="counted-and-reliable-streams">Counted and reliable streams<a class="headerlink" href="#counted-and-reliable-streams" title="Permanent link">&para;</a></h3>
+<p>A stream marked counted or reliable in the API (its signature says so) gives every item a position, reports what
+was lost and where, and can be resumed from a saved cursor (<a href="../api/stream_reliability/">Stream reliability</a>):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">s</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">samples</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">s</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">rate</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">ack</span><span class="o">=</span><span class="s2">&quot;explicit&quot;</span><span class="p">)</span>      <span class="c1"># the stream function&#39;s arguments; returns its result, an Err raises RemoteError</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>                                       <span class="c1"># open(cursor=saved) after a restart; ack=&quot;receive&quot; is the default</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">ev</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">recv_event</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>       <span class="c1"># dict: kind &quot;item&quot;, &quot;gap&quot;, &quot;resumed&quot;, &quot;backfill_done&quot;, &quot;disconnected&quot;, &quot;closed&quot;</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="k">if</span> <span class="n">ev</span><span class="p">[</span><span class="s2">&quot;kind&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;item&quot;</span><span class="p">:</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="n">write</span><span class="p">(</span><span class="n">ev</span><span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">],</span> <span class="n">ev</span><span class="p">[</span><span class="s2">&quot;t&quot;</span><span class="p">],</span> <span class="n">ev</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">])</span>  <span class="c1"># t: device time in seconds, or None</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="n">s</span><span class="o">.</span><span class="n">ack</span><span class="p">(</span><span class="n">ev</span><span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">ev</span><span class="p">[</span><span class="s2">&quot;units&quot;</span><span class="p">])</span>          <span class="c1"># explicit: the device may free it now</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>        <span class="n">save_cursor</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">cursor</span><span class="p">)</span>                   <span class="c1"># (session, pos), with the data</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="k">elif</span> <span class="n">ev</span><span class="p">[</span><span class="s2">&quot;kind&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;gap&quot;</span><span class="p">:</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">ev</span><span class="p">[</span><span class="s2">&quot;units&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1"> lost at </span><span class="si">{</span><span class="n">ev</span><span class="p">[</span><span class="s2">&quot;at&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">ev</span><span class="p">[</span><span class="s2">&quot;cause&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>  <span class="c1"># device, link, store or host</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">s</span><span class="o">.</span><span class="n">stats</span>                                <span class="c1"># received, lost by cause, duplicates, queued ...</span>
+</span></code></pre></div>
+<p><code>recv()</code> and iterating return values only, gaps are counted in <code>stats</code>. A resumed reliable stream delivers the
+latest values at once (<code>run</code> <code>"live"</code>) and the backlog beside them (<code>run</code> <code>"backfill"</code>), each in order.</p>
 <p>Every resource also has <code>doc</code> (its doc comment), <code>path</code> (e.g. <code>channel[2].gain</code>) and, except traits, <code>signature</code>.
 Use <code>dev["name"]</code> for a resource named like one of the <code>Device</code> attributes (<code>api</code>, <code>info</code>, <code>disconnect</code>).</p>
 <p>Blocking calls release the GIL, and waiting on a stream can be interrupted with Ctrl+C.</p>
@@ -2866,20 +2906,20 @@ Use <code>dev["name"]</code> for a resource named like one of the <code>Device</
 </table>
 <h2 id="api-from-source-offline-use">API from source, offline use<a class="headerlink" href="#api-from-source-offline-use" title="Permanent link">&para;</a></h2>
 <p>A device with introspection disabled needs its API from the crate source:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">api</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">load_api</span><span class="p">(</span><span class="s2">&quot;path/to/my_api&quot;</span><span class="p">,</span> <span class="s2">&quot;MyApi&quot;</span><span class="p">)</span>   <span class="c1"># trait name is needed if the crate has several</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="n">api</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">api</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">load_api</span><span class="p">(</span><span class="s2">&quot;path/to/my_api&quot;</span><span class="p">,</span> <span class="s2">&quot;MyApi&quot;</span><span class="p">)</span>   <span class="c1"># trait name is needed if the crate has several</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="n">api</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>load_api()</code> alone works without a device: browse the API the same way, and serialize values to see what goes over
 the wire, or decode captured bytes:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">load_api</span><span class="p">(</span><span class="s2">&quot;tests/dynamic_api&quot;</span><span class="p">,</span> <span class="s2">&quot;Dynamic&quot;</span><span class="p">)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">encode_args</span><span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="n">b</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="s1">&#39;28000000feff&#39;</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="mi">1500</span><span class="p">)</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="sa">b</span><span class="s1">&#39;</span><span class="se">\xdc\x05</span><span class="s1">&#39;</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\xdc\x05</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="mi">1500</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">check</span><span class="o">.</span><span class="n">decode_return</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x00\x00\x01</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">{</span><span class="s1">&#39;Err&#39;</span><span class="p">:</span> <span class="s1">&#39;TooBig&#39;</span><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">load_api</span><span class="p">(</span><span class="s2">&quot;tests/dynamic_api&quot;</span><span class="p">,</span> <span class="s2">&quot;Dynamic&quot;</span><span class="p">)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">encode_args</span><span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="n">b</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="s1">&#39;28000000feff&#39;</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="mi">1500</span><span class="p">)</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="sa">b</span><span class="s1">&#39;</span><span class="se">\xdc\x05</span><span class="s1">&#39;</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\xdc\x05</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="mi">1500</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">check</span><span class="o">.</span><span class="n">decode_return</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x00\x00\x01</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">{</span><span class="s1">&#39;Err&#39;</span><span class="p">:</span> <span class="s1">&#39;TooBig&#39;</span><span class="p">}</span>
 </span></code></pre></div>
 <p>Methods have <code>encode_args()</code> / <code>decode_return()</code>, properties <code>encode()</code> / <code>decode()</code>, streams <code>decode()</code> and sinks
 <code>encode()</code>. Calling a

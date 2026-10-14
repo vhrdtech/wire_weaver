@@ -13,7 +13,8 @@ use syn::{LitStr, Path};
 use ww_self::errors::{error_list_docs, fmt_error_list, method_err_ty};
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Delivery,
-    ErrorVariantOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
+    ErrorVariantOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess, StreamFnRef,
+    TypeOwned,
 };
 
 /// API client code generation configuration.

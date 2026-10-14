@@ -3,7 +3,8 @@ use super::{
     errors::{get_errors_attr, reject_errors_attr},
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
     util::{
-        collect_docs, get_delivery_attr, get_flow_attr, get_optional_attr, get_since_attr, get_stream_fn_attr,
+        collect_docs, get_delivery_attr, get_flow_attr, get_optional_attr, get_since_attr,
+        get_stream_fn_attr,
     },
 };
 use anyhow::{Context, Result, anyhow};

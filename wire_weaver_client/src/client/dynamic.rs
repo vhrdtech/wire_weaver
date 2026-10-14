@@ -606,9 +606,11 @@ impl DynResource {
                 open.resume = Some(cursor);
                 open
             }
-            None => {
-                cmd.prepare_stream_open(self.path_kind()?, Some(delivery), self.stream_fn_args(args))
-            }
+            None => cmd.prepare_stream_open(
+                self.path_kind()?,
+                Some(delivery),
+                self.stream_fn_args(args),
+            ),
         };
         open.raw_fallible = fallible;
         Ok(open.ack_mode(ack_mode))

@@ -2,6 +2,9 @@
 
 ### 🐛 Fixes
 
+- Bit-sized numbers `U1`..`U64` / `I2`..`I64` (`u7`, `ub10`, `i2`, ..) used directly as a method argument, return
+  value, property, stream or sink type generate `wire_weaver::shrink_wrap::un::U7` etc. in server and client code;
+  `ww_codegen!` panicked with `not yet implemented` (SW-48). Types that only contained them were fine.
 - Trait clients (`client = "trait_client"`) name the client's own trait in global paths of nested levels too; they
   named the nested trait with an index chain starting at the outer one.
 - Stream items and property notifications (`stream_data_ser().<stream>()` and the `_send` / `_send_blocking`

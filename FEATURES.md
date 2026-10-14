@@ -171,6 +171,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   variants. No wire number of its own, no change to `ELEMENT_SIZE`, left out of the API model. The `ww_self`
   dynamic decoder reads an unknown variant of an `Unsized` enum as `<unknown N>`. Opt-in per enum, see SW-47 for
   adding it by default. `docs/serdes/derive.md#enum-variants-from-a-newer-version`, `shrink_wrap/tests/evolution.rs`.
+- ✅ **SW-48 Bit-sized fields and variant payloads**: `U1`..`U64` / `I2`..`I64` (`u7`, `ub10`, `i2`.. in the API
+  model) as struct fields, enum variant payloads and `#[ww_trait]` method arguments, returns and properties, packed
+  bit after bit with a sub-byte discriminant: `enum I2cAddress { Seven(U7), Ten(U10) }` with `ww_repr = u1,
+  self_describing` takes 8 or 11 bits instead of 16 or 24 with `u8` / `u16`. Server and client codegen (it panicked
+  on such a method argument), `I16` (was missing), `From` / `TryFrom` to and from the backing integer. The dynamic
+  client and Python already handled them, now tested byte for byte against derived types; the C runtime has the
+  bit reads. Same wire format (`shrink_wrap/tests/sub_byte.rs`, `tests/dynamic`, `tests/methods`,
+  `docs/serdes/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address`).
 - 📋 **SW-17 Const / magic type** · `v0.5` — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the `magic` field in
   `ww_self` (a plain `u32` today).

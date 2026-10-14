@@ -10,6 +10,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- Bit-sized numbers (SW-48): `I16` (bit-aligned, 16 bits; `I15` and `I17` existed, `I16` was missing), and
+  `From<U7> for u8` / `TryFrom<u8> for U7` (`Error::SubtypeOutOfRange` when it doesn't fit) for every `U1`..`U64`
+  and `I2`..`I64` and its backing integer. Their use as enum variant payloads next to a sub-byte discriminant is
+  tested byte for byte (`tests/sub_byte.rs`, `docs/serdes/showcase.md`).
 - Enum variants from a newer version (SW-16): an enum that ends with `#[future_version] Unknown(u32)` (any name,
   one `u32` field, no discriminant) reads a discriminant it doesn't know into that variant instead of failing with
   `EnumFutureVersionOrMalformedData`, and writes it back. An `Unsized` enum (the default) skips the newer variant's

@@ -12,6 +12,19 @@ enum I2cAddress {
     Ten(U10),
 }
 
+/// The same with byte-aligned payloads: the discriminant is padded to a byte.
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    derive(Debug, PartialEq, Eq, Copy, Clone),
+    ww_repr = u1,
+    self_describing
+)]
+enum I2cAddressBytes {
+    Seven(u8),
+    Ten(u16),
+}
+
 /// Same-sized variants can be `sized`: 1 + 7 bits.
 #[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u1, sized)]
 enum Offset {
@@ -68,6 +81,10 @@ fn i2c_address_bytes() {
     let ten = I2cAddress::Ten(U10::new(0x55).unwrap());
     assert_eq!(bytes(&ten), [0x8a, 0xa0]);
     assert_eq!(I2cAddress::from_ww_bytes(&[0x8a, 0xa0]), Ok(ten));
+
+    // 16 and 24 bits with u8 / u16
+    assert_eq!(bytes(&I2cAddressBytes::Seven(0x50)), [0x00, 0x50]);
+    assert_eq!(bytes(&I2cAddressBytes::Ten(0x3ff)), [0x80, 0xff, 0x03]);
     assert_eq!(
         <I2cAddress as SerializeShrinkWrap>::ELEMENT_SIZE,
         ElementSize::SelfDescribing

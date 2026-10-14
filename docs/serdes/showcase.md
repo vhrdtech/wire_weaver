@@ -36,6 +36,58 @@ This is what the `ElementSize::Sized { size_bits }` case (see [derive.md](derive
 is built on: a `sized` struct/enum's fields are just laid out bit after bit, so putting a `bool` field or a small
 enum next to another `Sized` field is free - they share the same byte instead of each getting its own.
 
+### Bit-sized fields and variant payloads: a 7- or 10-bit I2C address
+
+The same `U1`..`U64` / `I2`..`I64` types work as struct fields, enum variant payloads and `#[ww_trait]` method
+arguments, returns and properties. Next to a 1-bit discriminant they share its byte:
+
+```rust
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq, Copy, Clone), ww_repr = u1, self_describing)]
+enum I2cAddress {
+    Seven(U7),
+    Ten(U10),
+}
+
+let seven = I2cAddress::Seven(U7::new(0x50).unwrap());
+assert_eq!(seven.to_ww_bytes(&mut buf).unwrap(), &[0x50]);       // 0 1010000: 8 bits
+let ten = I2cAddress::Ten(U10::new(0x3ff).unwrap());
+assert_eq!(ten.to_ww_bytes(&mut buf).unwrap(), &[0xff, 0xe0]);   // 1 1111111111 00000: 11 bits
+```
+
+With `Seven(u8)` instead, the byte-aligned `u8` pads the discriminant to a byte and the same address takes
+`[0x00, 0x50]`. The variants are 7 and 10 bits, so the enum is `self_describing`, not `sized` (a `sized` enum needs
+variants of one size, see [derive.md](derive.md#size-assumptions-final_structure-self_describing-sized)). Same-sized
+payloads can be `sized` and then nest without any size information, e.g. a 32-bit frame
+(`shrink_wrap/tests/sub_byte.rs`):
+
+```rust
+#[derive_shrink_wrap(borrowed, derive(..), ww_repr = u1, sized)]
+enum Offset { Up(U7), Signed(I7) }                                  // 1 + 7 bits
+
+#[derive_shrink_wrap(borrowed, derive(..), ww_repr = u2, sized)]
+enum Reg {                                                          // 2 + 14 bits
+    Wide { addr: U10, write: bool, len: U3 },
+    Narrow { addr: U12, bank: I2 },
+    Idle(U14),
+}
+
+#[derive_shrink_wrap(borrowed, derive(..), sized)]
+struct Frame { kind: U3, offset: Offset, reg: Reg, tail: I5 }       // 3 + 8 + 16 + 5 bits
+
+let frame = Frame {
+    kind: U3::new(0b101).unwrap(),
+    offset: Offset::Signed(I7::minus_one()),
+    reg: Reg::Wide { addr: U10::new(0x2aa).unwrap(), write: true, len: U3::new(5).unwrap() },
+    tail: I5::new(-16).unwrap(),
+};
+// 101 1 1111111 00 1010101010 1 101 10000
+assert_eq!(frame.to_ww_bytes(&mut buf).unwrap(), &[0xbf, 0xe5, 0x55, 0xb0]);
+```
+
+`U7::new(x)` returns `None` when `x` does not fit, `U7::try_from(x)` an `Error::SubtypeOutOfRange`, and
+`u8::from(addr)` / `addr.value()` give the number back. The dynamic client (`ww_self::ValueOwned`) reads and writes
+these as the smallest standard integer (`U7` as a `u8`, `I10` as an `i16`) and rejects values that don't fit.
+
 ## `UNib32`: variable-length numbers by the nibble
 
 `UNib32` encodes a `u32` as 1-or-more nibbles: 1 continuation bit + 3 value bits per nibble.

@@ -7,6 +7,11 @@
     * Unsigned (four-bit alignment): `nib`
     * Signed and unsigned (one-bit alignment): `u1`, `u2`, `u3`, ... `ub64`, `i2` ... `ib64`
         * `u8` is byte-aligned, while `ub8` is bit-aligned
+        * In Rust: `U1`..`U64` and `I2`..`I64` (`shrink_wrap::un`, in the prelude), backed by the smallest standard
+          integer, with checked constructors (`U7::new(x)`, `U7::try_from(x)`) and `.value()` / `u8::from(..)`.
+          Usable as struct fields, enum variant payloads and method arguments, returns and properties: an
+          `enum I2cAddress { Seven(U7), Ten(U10) }` with `ww_repr = u1` takes 8 or 11 bits
+          (see [showcase](serdes/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address))
 * Nibble-based variable length u32: `unib32` (1 to 11 nibbles, four-bit alignment)
 * Byte-based variable length u32: `uvlq32` (big endian VLQ, 1 to 5 bytes, one-byte alignment)
     * `UVlq32Backfill`: always written as 5 bytes, value can be filled in later and leading bytes dropped

@@ -99,7 +99,7 @@ mod tests {
                         SpiOp::Write(_) => {}
                         // the mock peripheral has nothing to say: reads come back as 0xA5
                         SpiOp::Read(len) => {
-                            read_bytes.extend(std::iter::repeat(0xA5u8).take(len as usize))
+                            read_bytes.extend(std::iter::repeat_n(0xA5u8, len as usize))
                         }
                         SpiOp::Transfer(data) => {
                             read_bytes.extend_from_slice(data.into_inner().as_slice())

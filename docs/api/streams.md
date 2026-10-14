@@ -55,9 +55,60 @@ let (actual, mut samples) = adc.samples(config).call().await??;
 let mut rx = adc.rx().call().await?;
 ```
 
-Plain streams send `StreamData` events as below; counted and reliable streams carry positions and are kept and
-resent by `ww_stream`, see [stream reliability](stream_reliability.md) for the device side (`stream_<name>()`,
-`<name>_push`, `poll_streams`) and the host side.
+`R` is nothing or a `Result<A, E>`. The device decides in its open handler: `Ready(Ok(..))` / `Ready(())` starts a
+new session, `Ready(Err(..))` answers with the error and leaves the stream as it was. Calling a stream again opens it
+again (a new session, e.g. with another configuration). `ww api scaffold` prints every handler a server needs.
+
+Plain streams send `StreamData` events as [below](#sending-stream-updates). Counted and reliable streams carry
+positions in their events, see [stream reliability](stream_reliability.md) for what they guarantee.
+
+### Counted and reliable streams on the device
+
+The server keeps each stream's state, a `ww_stream::tx::Counted` or `Reliable<S>` (with its store `S`), and hands
+it to generated code through `stream_<name>()`. Generated code opens, resumes and closes it, feeds it the host's
+acknowledgements and answers a read on the stream with its `StreamStatus`:
+
+```rust
+struct Server {
+    rx: Counted,
+    samples: Reliable<RamRing<{ 16 * 1024 }>>,
+    sessions: u32,
+}
+
+impl Server {
+    async fn stream_rx(&mut self) -> &mut Counted { &mut self.rx }
+    async fn stream_samples(&mut self) -> &mut Reliable<RamRing<{ 16 * 1024 }>> { &mut self.samples }
+    /// A new session's number: put a boot counter into the high bits, so a cursor from before a reboot never matches
+    fn new_stream_session(&mut self) -> u32 { self.sessions += 1; self.sessions }
+    // open handlers `rx`, `samples` and `close_rx`, `close_samples` as for any stream
+}
+```
+
+`stream_<name>()` may return anything that dereferences to the state, e.g. a mutex guard when a producer task shares
+it. Reliable streams need an async server (`use_async = true`), their store is async.
+
+Producers name the units of each item when they send it (bytes of a chunk, samples of a block) and the device time
+of its first unit, if any:
+
+```rust
+let ser = server_impl::stream_data_ser();
+// counted: sent right away; while no host has it open the units are counted as lost
+ser.rx_send(&mut server.rx, &chunk, chunk.len() as u64, Some(t), cx).await?;
+server.rx.lost(dropped); // the producer's own buffer overflowed: the next event reports it
+// reliable: into the store, never waits for the link
+ser.samples_push(&mut server.samples, &block, 256, Some(t), &mut scratch).await?;
+// event loop, between requests: send what the stores have, by priority, and ask a silent host where it is
+server.poll_streams(&mut out, now_ms, &mut buf, 4096).await?;
+```
+
+### Counted and reliable streams on the host
+
+```rust
+let (actual, mut samples) = adc.samples(config).call().await??;
+let cursor = samples.cursor();                  // save it with the data
+let mut samples = adc.samples_resume(cursor?).call().await?;   // after a restart: the backlog and live data
+let status = adc.samples_status().read().await?; // open, session, positions, store use
+```
 
 ## Sending stream updates
 

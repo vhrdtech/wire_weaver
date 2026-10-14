@@ -62,7 +62,7 @@ Changes are sorted into four kinds, and each kind requires a bump of a version p
 |-------------------|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------|
 | None              | exactly the same traits and types, doc comments included                                                    | none                                               |
 | Doc comments only | a doc comment on a trait, resource, type, field or variant is changed                                       | compatible position (patch before 1.0, minor after) |
-| Compatible        | new trait, new resource at the end of a trait, new field with `#[default]` at the end of an `Unsized` type, new field in unused padding bits of any type, new type, `#[since]` or `#[default]` value changed | compatible position (patch before 1.0, minor after) |
+| Compatible        | new trait, new resource at the end of a trait, new field with `#[default]` at the end of an `Unsized` type, new field in unused padding bits of any type, new type, `#[since]` or `#[default]` value changed, max length raised or removed | compatible position (patch before 1.0, minor after) |
 | Breaking          | see below                                                                                                   | breaking position (minor before 1.0, major after)  |
 
 Doc comments are not on the wire, but a released version's snapshot never changes, so they need a new version as well
@@ -82,6 +82,8 @@ name. A change is breaking if:
   `#[default]` at the end of an `Unsized` type, field added in between old ones outside of unused padding bits (see
   below), field added at the end of a `final_structure`, `self_describing` or `sized` type, enum variant added or
   removed, `ww_repr` or size kind changed,
+* a [max length](rules.md#maximum-lengths-maxlent-n) is lowered or added (`T` -> `MaxLen<T, N>`): data the old
+  version writes may no longer be read,
 * a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g.
   `ww_si 0.1` -> `0.2`), or one from the same crate version with a different definition.
 

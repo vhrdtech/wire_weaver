@@ -20,6 +20,8 @@ Wire-incompatible with 0.1.0.
 
 ### 🚀 Features
 
+* `max_len::{call_request, call_request_compact, value_event}`: `const fn`s giving the longest request that calls a
+  method and the longest reply or stream event, from the arguments' or value's `MaxSize` (SW-19, API-18).
 * `Request::peek_seq()` reads the seq of a serialized request without deserializing the rest.
 * `EventBuilder`, `EventKindBuilder` and `ErrorBuilder`.
 * `MultiIndex::iter()`.

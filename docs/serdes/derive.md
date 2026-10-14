@@ -460,6 +460,8 @@ fn round_trip() {
 | `RefVec<'i, u8>` | `Vec<u8>`        |
 | `&'i str`        | `String`         |
 | `RefBox<'i, T>`  | `Box<T>`         |
+| `MaxLen<RefVec<'i, T>, N>` | `MaxLen<Vec<T>, N>` |
+| `MaxLen<&'i str, N>` | `MaxLen<String, N>` |
 | `UserType<'i>`   | `UserTypeOwned`  |
 | `UserType<'i, T>` | `UserTypeOwned<T>` |
 
@@ -470,6 +472,11 @@ of `shrink_wrap` itself follow this scheme too (`Delta<'i, T>` / `DeltaOwned<T>`
 
 Array lengths can be any const expression (`[f32; MAX_SERIES]`, `[u8; N * 2]`), not only literals; a `sized` type's
 `ELEMENT_SIZE` carries them symbolically.
+
+`MaxLen<T, N>` (a list or string of at most `N` elements, `N` any const expression) has the same bytes as `T` and is
+checked on serialize and deserialize, see [bounded lists and strings](../types.md#bounded-lists-and-strings-maxlent-n).
+The borrowed type gets a `MAX_SIZE` (worst-case serialized size, `Some` when every field is bounded) next to
+`ELEMENT_SIZE`; the owned one does not have it yet.
 
 `TailSize<N>` is the same on both sides: a slot the macro fills in with the size of the rest of the value, see
 [the wire format page](shrink_wrap.md#size-of-the-rest-of-a-value-tailsizen). It is only allowed in types without a

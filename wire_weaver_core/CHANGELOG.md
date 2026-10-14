@@ -12,6 +12,7 @@
   `derive_shrink_wrap` requires for owned types; such methods failed to compile.
 - Generated code names `wire_weaver::shrink_wrap::RefVec` (and `RefBox`, `Nibble`, `UNib32`) by their full path, so a
   crate that depends only on `wire_weaver` compiles.
+- `ww api scaffold` names `wire_weaver::shrink_wrap::tail_bytes::TailBytes` by its full path in byte sink handlers.
 
 ### ⚠️ Breaking
 
@@ -42,6 +43,13 @@
 
 ### 🚀 Features
 
+- `MaxLen<T, N>` (SW-19) in `#[ww_trait]` method arguments, return types, properties, `stream!`/`sink!` items and
+  types, `N` an integer literal, `{literal}` or a `const` of the API crate's `lib.rs`. Carried into introspection as
+  `ww_self::Type::MaxLen`. Byte streams and sinks with a bound keep their raw `TailBytes` wire form; the server
+  rejects a longer sink write (`ArgsDesFailed`), a stream send of a longer value returns `MaxLenExceeded`.
+- Generated `no_alloc` servers have `<METHOD>_REQUEST_MAX_LEN` and `<METHOD>_RESPONSE_MAX_LEN: Option<usize>` per
+  method, the longest request and reply message, `None` when a part is unbounded (first step of API-18). Check a
+  message buffer against them at compile time.
 - `medium` server codegen option: type (usually an enum) handlers get from `cx.medium()`, `()` if not set.
 - `stream_data_ser()` has `<name>_send(.., out)` and `<name>_send_blocking(.., out)` for every stream, sending through a
   handler's `cx` or `server.sink()`, and the same serializers for `ro` / `rw` properties: property updates are sent

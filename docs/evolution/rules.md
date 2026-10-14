@@ -170,6 +170,23 @@ overhead, giving all the nice backwards and forwards compatibility benefits.
 * TODO: clarify: `T` -> struct containing `T`
 * Struct fields and enum variants can be renamed (but their position must NOT change).
 
+### Maximum lengths: `MaxLen<T, N>`
+
+A [`MaxLen<T, N>`](../types.md#bounded-lists-and-strings-maxlent-n) has the same bytes as `T`, so a bound never
+changes the wire, only which values the reader accepts (a longer one is an error, never truncated). Whether a change
+is compatible depends on what the old version writes:
+
+* **Raising a bound or removing it** (`MaxLen<T, 64>` -> `MaxLen<T, 256>` or `T`): compatible. Everything the old
+  version writes is still read. The checker lists it as `max length raised`, because values the new version writes
+  beyond the old bound are rejected by the old version (with an error): a new client sending a long piece to an old
+  device gets an error reply, the same as any argument the device refuses.
+* **Lowering a bound or adding one** (`T` -> `MaxLen<T, 64>`, `MaxLen<T, 256>` -> `MaxLen<T, 64>`): breaking. Values
+  the old version is allowed to write no longer fit, and nothing on the wire tells the old version so.
+* Changing `T` inside the bound follows the usual rules for `T`.
+
+At connect time the client does not refuse a device whose bounds differ from its own: a longer value is rejected when
+it is sent, by whichever side has the smaller bound.
+
 ### FinalStructure, SelfDescribing and Sized types
 
 * `Sized` can become `SelfDescribing` and back (`sized` <-> `self_describing`): neither gets a size slot from its

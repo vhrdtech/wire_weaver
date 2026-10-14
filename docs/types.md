@@ -15,8 +15,9 @@
 * Byte-based variable length u64: `uvlq64` (same VLQ encoding as `uvlq32`, 1 to 10 bytes, one-byte alignment)
 * Floating point numbers: `f32`, `f64`
 * Textual:
-    * UTF-8 string `String`
-    * TODO: With max bounded length
+    * UTF-8 string `String` / `&'i str`
+    * With a maximum length in bytes: `MaxLen<String, N>` / `MaxLen<&'i str, N>`
+      (see [bounded lists and strings](#bounded-lists-and-strings-maxlent-n))
 * Sequences:
     * Arrays:
         * Arbitrary length array: `Vec<T>`
@@ -24,7 +25,8 @@
         * Arbitrary length array (no alloc): `RefVec<'i, T>`
         * Byte array (no alloc): `RefVec<'i, u8>`
         * Fixed sized array: `[T; N]`, `N` a literal or any const expression
-        * TODO: Max bounded
+        * With a maximum length: `MaxLen<Vec<T>, N>` / `MaxLen<RefVec<'i, T>, N>`
+          (see [bounded lists and strings](#bounded-lists-and-strings-maxlent-n))
     * Compressed sequences, written bit by bit against the previous element
       (see [wire format](serdes/shrink_wrap.md#compressed-sequences-delta-deltaofdelta-and-xorfloat)):
         * Integers as differences: `Delta<'i, T>` / `DeltaOwned<T>`, `T` any of `u8`..`u64`, `i8`..`i64`
@@ -50,6 +52,56 @@
 
 There are a lot more types as a part of a standard library (date, time, version, numbers, SI units, etc.).
 See the [overview](std_library/overview.md).
+
+# Bounded lists and strings: `MaxLen<T, N>`
+
+`MaxLen<T, N>` wraps a list or a string (`RefVec<'i, T>`, `Vec<T>`, `&'i str` or `String`) and allows at most `N`
+elements (bytes for a string). It works everywhere a type can appear: struct and enum fields, method arguments and
+return types, properties, `stream!` and `sink!` items, and nested inside other lists (`MaxLen<RefVec<'i, MaxLen<&'i
+str, 8>>, 4>`).
+
+```rust
+pub const MAX_PIECE: usize = 256;
+
+#[ww_trait]
+trait Stage {
+    fn write(offset: u32, last: bool, data: MaxLen<RefVec<'i, u8>, MAX_PIECE>);
+    property!(rw label: MaxLen<&'i str, 32>);
+}
+```
+
+In a `#[ww_trait]`, `N` is an integer literal, `{literal}`, or the name of a `const` defined in the API crate's
+`lib.rs`. In a plain `#[derive_shrink_wrap]` type it is any const expression.
+
+* **Checked both ways, never truncated.** `MaxLen::new` refuses a value that is too long, serializing one (e.g. after
+  changing it through `DerefMut`) fails with `Error::MaxLenExceeded`, and so does deserializing one, before any
+  element is read. A server answers an over-long argument with an error, a client refuses to send one.
+* **Same wire form as the unbounded type.** Not a single byte changes: the bound only exists in the code on both
+  ends. That is what keeps it evolvable: a bound can be added, raised, lowered or removed without a new wire format,
+  and the [evolution rules](evolution/rules.md#maximum-lengths-maxlent-n) decide which of those old peers accept.
+* **Visible in introspection.** `ww_self` describes it as `Type::MaxLen { max_len, ty }`, so the dynamic client and
+  the Python module check the bound too (Python raises `ValueError: ... at most N ...`).
+* **Worst-case size at compile time.** Every type has a `SerializeShrinkWrap::MAX_SIZE: Option<MaxSize>`, `Some` when
+  every part of it is bounded (numbers, arrays, `Option`/`Result`, structs and enums of them, and `MaxLen` lists and
+  strings of bounded elements) and `None` as soon as anything can grow without a limit (a plain `Vec`, `RefVec`,
+  `String`, `RefBox`, compressed sequences). `MaxSize::buffer_len_of(T::MAX_SIZE)` is a buffer length any value of
+  `T` always serializes into. It is an upper bound, not the exact worst case: every length is counted as at least
+  four nibbles and every alignment as needed.
+
+A generated `no_alloc` server also gets, per method, `<METHOD>_REQUEST_MAX_LEN` and `<METHOD>_RESPONSE_MAX_LEN:
+Option<usize>`: the longest request message that calls it and the longest reply, `None` when an argument or the
+return type is unbounded. A firmware can check at compile time that its message buffer is big enough:
+
+```rust
+const MAX_MESSAGE_LEN: usize = 512;
+const _: () = assert!(matches!(
+    api_server::WRITE_REQUEST_MAX_LEN,
+    Some(len) if len <= MAX_MESSAGE_LEN
+));
+```
+
+`MaxLen` bounds the length of one value. The number of resources in a resource array (`stream!(adc[]: u16)`) is a
+different thing, see [arrays](api/arrays.md).
 
 # Self-referential types
 
@@ -96,7 +148,9 @@ fn version1_1() {
 Older code can still read new data and will skip the Option, and newer code can read old data, yielding None.
 All the while, the serialized size didn't even change (it could have though, it's just an example).
 
-## TODO: Subtypes (bounded numbers and array lengths)
+## TODO: Subtypes (bounded numbers)
+
+Lengths of lists and strings are bounded with [`MaxLen`](#bounded-lists-and-strings-maxlent-n).
 
 Simple checked numbers where only a range of values is allowed:
 

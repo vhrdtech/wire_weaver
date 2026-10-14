@@ -12,7 +12,8 @@ trait ArrayOf {
 }
 ```
 
-TODO: size bounds
+TODO: bounds of the index (`adc[8]`, `motor[1..=4]`). The length of a list or string inside a resource's type is
+bounded with [`MaxLen`](../types.md#bounded-lists-and-strings-maxlent-n) instead.
 
 Traits inside other traits can also contain arrays, all the indices leading up to them are accumulated and passed as
 Rust array `[u32; N]` argument into a corresponding user handler.

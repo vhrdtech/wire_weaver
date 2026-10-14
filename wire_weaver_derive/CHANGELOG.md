@@ -17,6 +17,8 @@
 
 ### 🐛 Fixes
 
+- `#[ww_trait]` methods with a `MaxLen<&'i str, N>` (any const generic) argument compile: the helper aliases only
+  take lifetimes.
 - Correct span for `ww_impl!` of a trait in the same crate.
 
 ## 0.4.0 - 07 Jan 2026

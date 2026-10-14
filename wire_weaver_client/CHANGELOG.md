@@ -2,6 +2,9 @@
 
 ### 🚀 Features
 
+- `MaxLen` bounds (SW-19) in compatibility checks: on connect a different bound is not an error (a longer value is
+  rejected when it is sent); in `ww api check`, lowering or adding a bound is breaking and raising or removing one is
+  compatible (`max length raised`). The dynamic client checks bounds of arguments and sink writes.
 - `Sink::send_owned()` for sinks of owned types that hold a `Vec` or `String` (`FooOwned`, which implement
   `SerializeShrinkWrapOwned`, not `SerializeShrinkWrap`); `send()` could not send them.
 - Compatibility checks (device vs host on connect, and `ww api` evolution checks) treat `sized` and `self_describing`

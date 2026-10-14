@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- `MaxLen` (SW-19) lists and strings are checked when encoding: a longer value raises `ValueError` (`.. at most N
+  allowed ..`).
 - New Python module `wire_weaver` (built with maturin): talk to any WireWeaver device without generated code, the
   API tree is built at runtime from the device introspection data. `connect(...)` with USB or RTT device filters
   returns a `Device` whose traits are attributes, arrays are indexed with `[]`, methods are called with positional or

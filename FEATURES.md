@@ -104,6 +104,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **SW-33 `UVlq64`**: byte-based variable length `u64`, same big endian VLQ encoding as `UVlq32`, 1 to 10 bytes,
   `uvlq64` field type in `#[derive_shrink_wrap(..)]`, `BufReader::read_uvlq64`/`BufWriter`/`BufWriterOwned::write_uvlq64`
   (`shrink_wrap/src/vlq64.rs`, `docs/types.md`, `docs/serdes/showcase.md`). No `UVlq64Backfill` (not asked for).
+- ✅ **SW-19 Bounded lists and strings `MaxLen<T, N>`**: a `RefVec`, `Vec`, `&str` or `String` with at most `N`
+  elements, same bytes as `T` (a bound can be added, raised or removed without a new wire form), checked on
+  serialize and deserialize (`Error::MaxLenExceeded`, never truncated). Works in derived types and in every API
+  position (arguments, returns, properties, stream and sink items), visible in introspection
+  (`ww_self::Type::MaxLen`), honoured by the dynamic client and Python; raising a bound is compatible, lowering or
+  adding one breaking (`ww api check`). `SerializeShrinkWrap::MAX_SIZE: Option<MaxSize>`, the worst-case size of a
+  type whose every part is bounded, feeds API-18. `docs/types.md`, `docs/evolution/rules.md`,
+  `shrink_wrap/tests/max_len.rs`, `tests/bounded`, `examples_mcu/mcu_qemu` (`qemu-bounded`).
 - 🚧 **SW-15 Handle end of buffer when reading evolved fields** · `v0.5` — fields with `#[default = ..]` already fall
   back to the default, but on _any_ read error (`Field::handle_eob` in
   `shrink_wrap_derive/src/codegen/item_struct.rs`), not only on end of buffer. Missing: fall back only on
@@ -125,11 +133,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   each with their own. Readers bound the value by it (a longer buffer stops at the right byte, a truncated one
   errors, newer trailing fields are skipped) or skip it without parsing. Fields before it must be `Sized` or
   `SelfDescribing`, checked at compile time. `docs/serdes/shrink_wrap.md`, showcase.
-- 📋 **SW-19 Bounded sizes: `#[max_size]`, bounded `String`/`Vec`** · `v0.5.x` — from `docs/types.md` and
-  `docs/api/arrays.md`. Enables worst-case buffer size analysis (see [Codegen](#api-model-and-codegen-api)).
-  An Unsized record at a fixed file offset already works without it: serialize into a buffer of the capacity
-  (too big fails), read with `TailSize<N>` (SW-18) bounding the value; what is left here is computing that
-  capacity from the type.
+- 📋 **SW-42 `MAX_SIZE` on owned types** · `v0.5.x` — `SerializeShrinkWrapOwned` has no worst-case size yet, only
+  the borrowed trait has (SW-19); host code sizing a buffer for an owned value uses the borrowed type's.
 - 📋 **SW-20 Sub-type numbers** · `v0.5.x` — numbers restricted to a range, like `10..=25`, or a set with gaps, like
   `0..=8, 12, 16`; checked on serialization and deserialization, possibly using fewer bits on the wire
   (`docs/types.md`, "Subtypes").
@@ -201,8 +206,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **API-16 Feature groups** · `v0.5.x` — resources behind features (all enabled by default), connected to the user
   crate's features in `ww_codegen!`. Related: `#[cfg]` in enums, see [derive macro](#derive_shrink_wrap-macro).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
-- 📋 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
-  arguments and outputs. Depends on bounded sizes.
+- 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
+  arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /
+  `<METHOD>_RESPONSE_MAX_LEN` consts in `no_alloc` servers, checked at compile time against a buffer in
+  `tests/bounded` and `examples_mcu/mcu_qemu`. Missing: consts for properties, streams and sinks, the largest of
+  all of them for a whole API (to size `ww_device` buffers such as `UdpBuffers<MAX_MESSAGE_LEN>` automatically),
+  paths of nested traits counted exactly (now the worst case of the full path), the same consts on the client.
 - 📋 **API-19 Change dispatcher match order** to process common requests faster · `v0.5.x`.
 - 📋 **API-20 Trait paths on the server side** — `TODO` in `api_server.rs`.
 - 📋 **API-21 `no_alloc = false` servers** — don't compile today.
@@ -210,6 +219,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   when a trait is implemented twice (`tests/traits_api`).
 - ⛔ **API-23 Index chain array → named arguments** · `v0.5.x` — stalled. Generating ad-hoc structs with named index
   fields might be a good ergonomic: users see the names through IDE lookup instead of guessing array indices.
+- 📋 **API-29 Bounds of resource array indices** · `v0.5.x` — `stream!(adc[8]: u16)` or `motor[1..=4]`, checked by the
+  server before a handler is called and visible in introspection (`docs/api/arrays.md`). Lengths of lists and
+  strings inside a resource's type are bounded with `MaxLen` (SW-19).
 - 💡 **API-24 Guarded calls for critical resources** · `v0.5.x` — for safety-critical actions, such as starting a motor
   or switching high power, a request that happens to match predefined bytes must not be enough. Add an extra
   check, e.g. a CRC over the resource identity and arguments (a "strict mode" per resource), or a
@@ -292,6 +304,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   user code should block or yield when the queue is full; add tests for it. Running out of request ids
   currently fails the request with an error instead of waiting (`TODO` in `event_loop/core/tx.rs`).
 - 📋 **CLT-19 Connection priority** in the client config (`TODO` in `config.rs`).
+- 📋 **CLT-20 Bound check of generated byte sink writes** · `v0.5.x` — a `sink!(x: MaxLen<RefVec<'i, u8>, N>)` write
+  from a generated client is sent as raw bytes without a length check, the device rejects a longer one
+  (`ArgsDesFailed`); the dynamic client and Python already check before sending.
 
 ## Transports and protocols (`TR`)
 

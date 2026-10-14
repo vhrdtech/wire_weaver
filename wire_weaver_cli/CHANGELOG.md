@@ -8,6 +8,8 @@
 
 ### 🚀 Features
 
+- `ww api check` reports `MaxLen` bound changes: lowering or adding one is breaking, raising or removing one
+  compatible (SW-19).
 - `ww api scaffold` generates handlers taking `_cx: &mut Context<..>`, `--medium <path>` sets the medium type.
 - `ww api save <path>` saves all traits and types of a crate into `<path>/api_snapshots/<crate>_<version>.ron`, to be
   committed and kept unchanged. Re-running is a no-op, any change without a version bump is an error, doc-only

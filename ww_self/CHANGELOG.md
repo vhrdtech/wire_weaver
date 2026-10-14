@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+* `Type::MaxLen { max_len, ty }` appended (SW-19): a list or string with a maximum length, same bytes as `ty`.
+  Exhaustive matches on `Type`/`TypeOwned` need a new arm; introspection data of an API that uses `MaxLen` can't be
+  read by an older ww_self. `TypeOwned::max_len()` returns the bound, `is_byte_slice()` looks through it, and
+  `ValueOwned` serialization and deserialization fail on a value longer than the bound.
 * `PropertyAccess` and `Repr` are `self_describing` instead of `sized`: their variants differ in size, which a `sized`
   enum can no longer have (SW-35). Same bytes, only `ELEMENT_SIZE` and the type signatures change.
 * `TypeOwned::is_unsized()` now means `ElementSize::Unsized` (its size is recorded in the FIFO of sizes at the back of

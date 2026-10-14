@@ -565,3 +565,35 @@ pub enum I2cError {
     /// This adapter doesn't have it (10-bit addresses, switchable pull-ups, bus recovery).
     Unsupported,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Checked against the real encoding (AGENTS.md): a 7-bit address is the variant bit (`self_describing`,
+    /// `ww_repr = u1`) plus 7 address bits, 8 in total, so it costs no more than a plain `u8` would.
+    #[test]
+    fn seven_bit_address_is_one_byte_on_the_wire() {
+        let addr = I2cAddress::seven(0x50).unwrap();
+        let mut buf = [0u8; 4];
+        let bytes = addr.to_ww_bytes(&mut buf).unwrap();
+        assert_eq!(bytes.len(), 1);
+        assert_eq!(I2cAddress::from_ww_bytes(bytes).unwrap(), addr);
+    }
+
+    /// A 10-bit address is the variant bit plus 10 address bits, 11 in total, rounded up to 2 bytes.
+    #[test]
+    fn ten_bit_address_is_two_bytes_on_the_wire() {
+        let addr = I2cAddress::ten(0x350).unwrap();
+        let mut buf = [0u8; 4];
+        let bytes = addr.to_ww_bytes(&mut buf).unwrap();
+        assert_eq!(bytes.len(), 2);
+        assert_eq!(I2cAddress::from_ww_bytes(bytes).unwrap(), addr);
+    }
+
+    #[test]
+    fn address_constructors_reject_out_of_range_values() {
+        assert!(I2cAddress::seven(0x80).is_none());
+        assert!(I2cAddress::ten(0x400).is_none());
+    }
+}

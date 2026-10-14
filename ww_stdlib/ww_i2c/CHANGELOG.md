@@ -21,3 +21,7 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 - `I2c::i2c_lines_state`, `i2c_wiggle_clock` (free a stuck bus), `i2c_set_pullups`, `i2c_pullups`.
 - `I2cMonitor` trait: a `records` stream with one `I2cRecord` per transaction.
 - Crate and method docs, with an `# Errors` section per method.
+- End-to-end test pair `tests/io_i2c` + `tests/io_i2c_api` (STD-13 fill-in): a mock server on `ww_device::Server`
+  exercising `I2c`, `I2cWatch` (all three `I2cWatchReport` rules plus the error-once-then-recovery sequence) and
+  `I2cMonitor`, and a unit test checking `I2cAddress::seven`/`::ten` wire sizes (1 and 2 bytes). Docs page
+  `docs/std_library/ww_i2c.md`.

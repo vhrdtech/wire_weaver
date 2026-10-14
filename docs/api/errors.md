@@ -1,7 +1,8 @@
 # Errors and optional items (design)
 
-!!! warning "Design for review"
-    Draft of 14 Oct 2026, from Roman's review of the IO trait family (`docs/std_library/io_family.md` on
+!!! note "Design, approved by Roman on 14 Oct 2026"
+    All recommendations accepted (see [Decisions](#decisions)); SW-47 is built, the rest is being built. Draft of
+    14 Oct 2026, from Roman's review of the IO trait family (`docs/std_library/io_family.md` on
     `s/14oct2026-ww-io-traits`). Nothing here is built yet except where a section says so. Items: SW-47
     future-version-default, CLT-24 flat-call-errors, STD-16 common-errors, API-32 method-error-lists, DER-12
     display-from-docs, API-16 optional-items (see [Plan](#plan)).
@@ -153,12 +154,23 @@ For a method `-> Result<T, E>`, `call()`, `blocking_call()` and promises return 
 
 ```rust
 pub enum CallError<E> {
-    /// The device answered with its error.
+    /// The device answered with its error: the `Err(e)` of the method.
     Device(E),
-    /// The call didn't go through: link, timeout, not implemented by the device, framework error.
+    /// The device has no implementation: its handler returned `Unimplemented` (`RpcResult`, `GetResult`,
+    /// `SetResult`), the item is an omitted optional one (API-16), or the device's API doesn't have it (known locally
+    /// from introspection, no round trip).
+    Unimplemented { resource: String },
+    /// The call didn't go through: link, timeout, disconnect, another framework error.
     Client(wire_weaver_client::Error),
 }
 ```
+
+**`RpcResult`, `GetResult` and `SetResult` keep their meaning.** They are neither common nor per-method errors: they
+let a handler leave an implementation out (`Unimplemented`, the scaffold's default) or answer later (`Deferred`)
+without `todo!()`, and the framework reports it. `CallError` keeps that visible as its own variant, so a client
+tells "the device said no" (`Device`), "the device can't do this at all" (`Unimplemented`) and "the call failed"
+(`Client`) apart without digging into `ErrorKind`. Methods without `Result` keep `wire_weaver_client::Error`, which
+gets `is_unimplemented()` for the same question.
 
 `Display` and `source()` are transparent (the inner error's text once, so `anyhow`'s `{:#}` doesn't print it twice);
 `CallError<E>` is `std::error::Error` when `E` is. Methods without `Result` keep `Result<T, wire_weaver_client::Error>`.
@@ -328,7 +340,12 @@ Breaking, all before anything with these APIs is published: SW-47 and CLT-24 bre
 STD-16 and the migration break the wire of stdlib error enums (none published: `ww_gpio`, `ww_uart`, `ww_i2c`,
 `ww_dfu` are not on crates.io); API-32 and API-16 add defaulted fields to `ww_self` (compatible).
 
-## Decisions for Roman
+## Decisions
+
+Roman's answers of 14 Oct 2026: all recommendations accepted, `CommonError` as proposed (extended later when
+needed), with one condition: `RpcResult` / `GetResult` / `SetResult` keep their semantics and `CallError` keeps
+`Unimplemented` visible (done above). The questions were:
+
 
 1. Per-method errors: crate enum + lists in the model (recommended), or narrow types per method after all?
 2. Common errors nested as `Common(CommonError)` (recommended), or flat variants first in each enum?

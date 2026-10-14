@@ -21,6 +21,8 @@ publishes a
 stream update and similarly does not wait for any response from a client.
 Sinks marked `#[credit]` get credit-based flow control instead, see
 [below](#credit-based-flow-control-for-sinks); for other streams, backpressure can be built on the sideband channel.
+Positions, exact lost-data accounting, reliable delivery and backfill for device → host streams are being designed
+in [Stream reliability](stream_reliability.md).
 
 Streams can have a beginning and an end, for example, to implement a file IO or firmware update, to deal with small
 chunks

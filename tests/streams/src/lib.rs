@@ -43,6 +43,83 @@ mod tests {
                 self.record("plain_stream", sideband)
             }
 
+            fn plain_stream(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
+                self.record(&"plain_stream", StreamSideband::Open);
+                Ready(())
+            }
+
+            fn close_plain_stream(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) {
+                self.record(&"plain_stream", StreamSideband::Close);
+            }
+
+            fn vec_stream(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
+                self.record(&"vec_stream", StreamSideband::Open);
+                Ready(())
+            }
+
+            fn close_vec_stream(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) {
+                self.record(&"vec_stream", StreamSideband::Close);
+            }
+
+            fn array_of_streams(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+            ) -> RpcResult<()> {
+                self.record(&format!("array_of_streams[{}]", index_chain[0].0), StreamSideband::Open);
+                Ready(())
+            }
+
+            fn close_array_of_streams(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+            ) {
+                self.record(&format!("array_of_streams[{}]", index_chain[0].0), StreamSideband::Close);
+            }
+
+            fn odd_stream(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
+                self.record(&"odd_stream", StreamSideband::Open);
+                Ready(())
+            }
+
+            fn close_odd_stream(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) {
+                self.record(&"odd_stream", StreamSideband::Close);
+            }
+
+            fn user_stream(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
+                self.record(&"user_stream", StreamSideband::Open);
+                Ready(())
+            }
+
+            fn close_user_stream(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) {
+                self.record(&"user_stream", StreamSideband::Close);
+            }
+
             fn sideband_plain_sink(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -303,9 +380,8 @@ mod tests {
     async fn basic_type_stream_and_open_close() {
         let (device, data) = start("streams/basic_type");
         let client = connect(&device).await;
-        let mut stream = client.plain_stream().await.unwrap();
-
-        stream.open().await.unwrap();
+        // calling the stream opens it
+        let mut stream = client.plain_stream().call().await.unwrap();
         eventually(&data, |d| !d.sideband.is_empty()).await;
         assert_eq!(
             sideband(&data),
@@ -332,8 +408,8 @@ mod tests {
     async fn stream_updates_from_handler() {
         let (device, _data) = start("streams/from_handler");
         let mut client = connect(&device).await;
-        let mut points = client.user_stream().await.unwrap();
-        let mut array = client.array_of_streams(1).await.unwrap();
+        let mut points = client.user_stream().call().await.unwrap();
+        let mut array = client.array_of_streams(1).call().await.unwrap();
 
         // events sent by a handler arrive before its reply
         assert_eq!(client.emit(3).call().await.unwrap(), 3);
@@ -358,24 +434,27 @@ mod tests {
         let (device, data) = start("streams/sideband_reply");
         data.lock().unwrap().ack_sideband = true;
         let client = connect(&device).await;
-        let mut stream = client.plain_stream().await.unwrap();
+        let mut stream = client.plain_stream().call().await.unwrap();
         assert_eq!(
             stream.recv_any().await.unwrap(),
             TypedStreamEvent::Connected
         );
-        stream.open().await.unwrap();
+        stream
+            .sideband(StreamSideband::User(UNib32(5)))
+            .await
+            .unwrap();
         let ev = tokio::time::timeout(Duration::from_secs(1), stream.recv_any())
             .await
             .expect("sideband reply reaches the stream")
             .unwrap();
-        assert_eq!(ev, TypedStreamEvent::Sideband(StreamSideband::Open));
+        assert_eq!(ev, TypedStreamEvent::Sideband(StreamSideband::User(UNib32(5))));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn sideband_from_device() {
         let (device, _data) = start("streams/sideband_from_device");
         let client = connect(&device).await;
-        let mut stream = client.plain_stream().await.unwrap();
+        let mut stream = client.plain_stream().call().await.unwrap();
         // locally generated when subscribed while connected
         assert_eq!(
             stream.recv_any().await.unwrap(),
@@ -404,7 +483,7 @@ mod tests {
     async fn byte_buffer_stream() {
         let (device, _data) = start("streams/byte_buffer");
         let client = connect(&device).await;
-        let mut stream = client.vec_stream().await.unwrap();
+        let mut stream = client.vec_stream().call().await.unwrap();
 
         let mut scratch = [0u8; 512];
         device.send(
@@ -430,7 +509,7 @@ mod tests {
     async fn user_type_stream() {
         let (device, _data) = start("streams/user_type");
         let client = connect(&device).await;
-        let mut stream = client.user_stream().await.unwrap();
+        let mut stream = client.user_stream().call().await.unwrap();
         let mut scratch = [0u8; 64];
         let points = [Point { x: -1, y: 2 }, Point { x: 300, y: -400 }];
         for p in &points {
@@ -445,7 +524,7 @@ mod tests {
     async fn odd_sized_stream() {
         let (device, _data) = start("streams/odd_sized");
         let client = connect(&device).await;
-        let mut stream = client.odd_stream().await.unwrap();
+        let mut stream = client.odd_stream().call().await.unwrap();
         let mut scratch = [0u8; 64];
         for (n, name, flag) in [(1, "a", true), (2, "", false), (3, "three", true)] {
             let odd = streams_api::Odd { n, name, flag };
@@ -461,13 +540,15 @@ mod tests {
     async fn array_of_streams() {
         let (device, data) = start("streams/array");
         let client = connect(&device).await;
-        let mut s1 = client.array_of_streams(1).await.unwrap();
-        let mut s3 = client.array_of_streams(3).await.unwrap();
-        s3.open().await.unwrap();
-        eventually(&data, |d| !d.sideband.is_empty()).await;
+        let mut s1 = client.array_of_streams(1).call().await.unwrap();
+        let mut s3 = client.array_of_streams(3).call().await.unwrap();
+        eventually(&data, |d| d.sideband.len() == 2).await;
         assert_eq!(
             sideband(&data),
-            vec![sb("array_of_streams[3]", StreamSideband::Open)]
+            vec![
+                sb("array_of_streams[1]", StreamSideband::Open),
+                sb("array_of_streams[3]", StreamSideband::Open)
+            ]
         );
 
         let mut scratch = [0u8; 64];
@@ -500,13 +581,19 @@ mod tests {
     async fn sideband_without_reply_releases_seq() {
         let (device, data) = start("streams/sideband_without_reply_seq");
         let client = connect_one_seq(&device).await;
-        let stream = client.plain_stream().await.unwrap();
+        let stream = client.plain_stream().call().await.unwrap();
         // the device acknowledges a sideband its handler returned None for
-        stream.open().await.unwrap();
+        stream
+            .sideband(StreamSideband::User(UNib32(1)))
+            .await
+            .unwrap();
         seq_released(&client).await;
         assert_eq!(
             sideband(&data),
-            vec![sb("plain_stream", StreamSideband::Open)]
+            vec![
+                sb("plain_stream", StreamSideband::Open),
+                sb("plain_stream", StreamSideband::User(UNib32(1)))
+            ]
         );
     }
 
@@ -515,16 +602,19 @@ mod tests {
         let (device, data) = start("streams/sideband_reply_seq");
         data.lock().unwrap().ack_sideband = true;
         let client = connect_one_seq(&device).await;
-        let mut stream = client.plain_stream().await.unwrap();
+        let mut stream = client.plain_stream().call().await.unwrap();
         assert_eq!(
             stream.recv_any().await.unwrap(),
             TypedStreamEvent::Connected
         );
-        stream.open().await.unwrap();
+        stream
+            .sideband(StreamSideband::User(UNib32(2)))
+            .await
+            .unwrap();
         seq_released(&client).await;
         assert_eq!(
             stream.recv_any().await.unwrap(),
-            TypedStreamEvent::Sideband(StreamSideband::Open)
+            TypedStreamEvent::Sideband(StreamSideband::User(UNib32(2)))
         );
     }
 
@@ -600,8 +690,7 @@ mod tests {
         let _guard = rt.enter();
         let client = connect_blocking(&device);
 
-        let mut stream = client.plain_stream_blocking().unwrap();
-        stream.open_blocking().unwrap();
+        let mut stream = client.plain_stream().blocking_call().unwrap();
         let mut scratch = [0u8; 64];
         device.send(stream_data_ser().plain_stream(&9, &mut scratch).unwrap());
         assert_eq!(stream.recv_blocking().unwrap(), 9);
@@ -639,7 +728,7 @@ mod tests {
     async fn timeout_async() {
         let (device, _data) = start("streams/timeout_async");
         let client = connect(&device).await;
-        let mut stream = client.vec_stream().await.unwrap();
+        let mut stream = client.vec_stream().call().await.unwrap();
         let mut scratch = [0u8; 64];
         device.send(stream_data_ser().vec_stream(&[1], &mut scratch).unwrap());
         // no Close from the device
@@ -658,7 +747,7 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = rt.enter();
         let client = connect_blocking(&device);
-        let mut stream = client.vec_stream_blocking().unwrap();
+        let mut stream = client.vec_stream().blocking_call().unwrap();
         let mut scratch = [0u8; 64];
         device.send(stream_data_ser().vec_stream(&[1], &mut scratch).unwrap());
         let r = stream.recv_all_bytes_timeout_blocking(Duration::from_millis(50));
@@ -668,7 +757,7 @@ mod tests {
         );
 
         // with a Close in time, the bytes received so far are returned
-        let mut stream = client.vec_stream_blocking().unwrap();
+        let mut stream = client.vec_stream().blocking_call().unwrap();
         device.send(stream_data_ser().vec_stream(&[2], &mut scratch).unwrap());
         device.send(&sideband_event(&[2], StreamSideband::Close));
         let r = stream.recv_all_bytes_timeout_blocking(Duration::from_millis(500));

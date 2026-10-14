@@ -61,16 +61,6 @@ pub enum StreamError {
 }
 
 impl<T: DeserializeShrinkWrapOwned> Stream<T> {
-    /// Send Open command through sideband channel
-    pub async fn open(&self) -> Result<(), StreamError> {
-        self.sideband(StreamSideband::Open).await
-    }
-
-    /// Send Open command through sideband channel
-    pub fn open_blocking(&self) -> Result<(), StreamError> {
-        self.sideband_blocking(StreamSideband::Open)
-    }
-
     /// Send Close command through sideband channel
     pub async fn close(&self) -> Result<(), StreamError> {
         self.sideband(StreamSideband::Close).await

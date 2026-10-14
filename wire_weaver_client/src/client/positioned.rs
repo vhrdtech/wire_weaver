@@ -185,6 +185,8 @@ impl Shared {
         let delivery = match config.delivery {
             ww_self::Delivery::Counted => ww_stream::rx::Delivery::Counted,
             ww_self::Delivery::Reliable => ww_stream::rx::Delivery::Reliable,
+            // plain streams are opened as Stream<T>, never as positioned ones
+            ww_self::Delivery::Plain => unreachable!("a plain stream has no positions"),
         };
         Arc::new(Shared {
             inner: Mutex::new(Inner {

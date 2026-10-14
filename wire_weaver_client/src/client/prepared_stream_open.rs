@@ -22,7 +22,8 @@ use crate::{Error, Stream};
 /// Result type of a stream function: `()` for `stream!` and functions without a result, `Result<A, E>` for
 /// fallible ones. The stream is open only when it is `Ok`.
 pub trait StreamOpenResult: DeserializeShrinkWrapOwned + Sized {
-    /// What opening returns with the stream handle `S`: `((), S)`, or `Result<(A, S), E>`.
+    /// What opening returns with the stream handle `S`: `S` for a stream without a result (`stream!`), or
+    /// `Result<(A, S), E>`.
     type With<S>;
     /// Whether the device opened the stream.
     fn is_open(&self) -> bool;
@@ -31,14 +32,14 @@ pub trait StreamOpenResult: DeserializeShrinkWrapOwned + Sized {
 }
 
 impl StreamOpenResult for () {
-    type With<S> = ((), S);
+    type With<S> = S;
 
     fn is_open(&self) -> bool {
         true
     }
 
-    fn with<S>(self, stream: S) -> ((), S) {
-        ((), stream)
+    fn with<S>(self, stream: S) -> S {
+        stream
     }
 }
 

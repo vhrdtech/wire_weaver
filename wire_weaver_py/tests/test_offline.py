@@ -120,3 +120,15 @@ def test_errors(api, call, error, message):
         call(api)
     if message:
         assert message in str(e.value)
+
+
+def test_max_len():
+    # MaxLen<T, N> (SW-19): same bytes as T, longer values are an error
+    api = ww.load_api(str(API_CRATE.parent / "bounded_api"), "Bounded")
+    assert api.label.signature == "rw label: MaxLen<String, 6>"
+    assert api.label.decode(api.label.encode("abcdef")) == "abcdef"
+    with pytest.raises(ValueError, match="at most 6"):
+        api.label.encode("abcdefg")
+    assert api.write.encode_args(1, True, b"\x01" * 8)
+    with pytest.raises(ValueError, match="at most 8"):
+        api.write.encode_args(1, True, b"\x01" * 9)

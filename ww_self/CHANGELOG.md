@@ -2,6 +2,11 @@
 
 ### ⚠️ Breaking
 
+* `ApiItemKind::PositionedStream` is replaced by `StreamFn { ty, delivery, args, return_ty }` (API-31): a stream
+  function, `#[stream(T, kind)] fn name(args) -> R` or `#[counted]` / `#[reliable] stream!`. `Delivery` gets
+  `Plain` as its first variant. A plain `stream!` stays `Stream { is_up: true }` with its bytes.
+  `ApiItemKindOwned::as_stream_fn()` sees every stream (device to host) as a stream function (`StreamFnRef`),
+  `delivery()` returns `Plain` for plain streams.
 * `Type::Delta`, `Type::DeltaOfDelta` and `Type::XorFloat` appended (SW-50), each with the `NumericBaseType` of
   its elements: the compressed sequences of shrink_wrap (SW-31, SW-32) in APIs. Exhaustive matches on
   `Type`/`TypeOwned` need new arms; introspection data of an API that uses them can't be read by an older ww_self.

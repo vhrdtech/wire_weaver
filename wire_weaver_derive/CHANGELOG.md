@@ -14,6 +14,8 @@
 
 ### 🚀 Features
 
+- `#[ww_trait]` accepts `#[stream(T, kind)]` on trait fns and `#[counted]` / `#[reliable]` on `stream!` (API-31), and
+  notes them in the rustdoc trait.
 - API traits show up in `cargo doc` and on docs.rs (DOC-6): methods with their signatures, properties, streams,
   sinks, consts and `ww_impl!` sub-traits as functions returning `wire_weaver::api_doc` markers, all with their doc
   comments plus a note with access mode, array index, `#[credit]` and `#[since]`. The trait doc comment moved from

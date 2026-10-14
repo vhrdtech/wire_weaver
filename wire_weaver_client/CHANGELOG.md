@@ -2,6 +2,11 @@
 
 ### ⚠️ Breaking
 
+- `Stream::open()` / `open_blocking()` are gone: a stream is opened by its generated call (API-31),
+  `client.<name>().call().await` returns it. For `stream!` (`()` result) opening returns the stream itself, not
+  `((), stream)`. `DynResource::stream()` opens plain streams with `StreamOpen`; `DynStream::open()` is gone. Stream
+  functions and counted / reliable streams in the API model are `ApiItemKind::StreamFn`: the compatibility check
+  compares their delivery, item type, arguments and result, the API diff prints them as `#[stream(T, kind)] fn`.
 - The raw stream event `StreamEvent` (`Data` / `Sideband` / `Connected` / `Disconnected`, from `Sink::recv_any` and
   in `StreamError::UnexpectedEvent`) is now `RawStreamEvent`; `StreamEvent<T>` is the event of a counted or reliable
   stream (CLT-23). Code that named it: rename.

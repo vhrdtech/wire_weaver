@@ -34,6 +34,31 @@ each individual array size is guaranteed to be preserved, even if multiple strea
 transport level. Sending `[1, 2, 3]`, `[4]`, `[5, 6]` will result in the same arrays received on the other end, in the
 same order.
 
+## Opening a stream
+
+A stream is opened by calling it (API-31): the host sends `RequestKind::StreamOpen` and the device calls the
+handler named like the stream, `close_<name>` when the host closes it. A stream can take arguments and return a
+result, and choose its delivery kind, as a stream function:
+
+```rust
+#[ww_trait]
+trait Adc {
+    /// unit: sample set
+    #[stream(SampleBlock<'i>, reliable)]
+    fn samples(config: StreamConfig) -> Result<StreamActual, AdcError>;
+    #[counted]
+    stream!(rx: Vec<u8>);  // short form, no arguments and no result
+}
+
+// host
+let (actual, mut samples) = adc.samples(config).call().await??;
+let mut rx = adc.rx().call().await?;
+```
+
+Plain streams send `StreamData` events as below; counted and reliable streams carry positions and are kept and
+resent by `ww_stream`, see [stream reliability](stream_reliability.md) for the device side (`stream_<name>()`,
+`<name>_push`, `poll_streams`) and the host side.
+
 ## Sending stream updates
 
 The server side generates `stream_data_ser()`, with `<name>_send(&value, out)` (async) and `<name>_send_blocking`
@@ -90,9 +115,10 @@ The following stream sideband events are supported:
 
 ### Handling sideband on the device
 
-A sideband command from the host calls `sideband_<name>(cx, sideband)` on the server. Returning `Some(sideband)` sends
+A sideband command from the host calls `sideband_<name>(cx, sideband)` on the server (`Close` on a stream calls
+`close_<name>` instead). Returning `Some(sideband)` sends
 it back as a sideband event on the same stream, `None` sends back only an acknowledgement. Either way the host gets an
-answer and releases the request's seq right away; `open()`, `close()` and `sideband()` on the host don't wait for it.
+answer and releases the request's seq right away; `close()` and `sideband()` on the host don't wait for it.
 
 The device can also send sideband events on its own, for streams and sinks alike: `stream_data_ser()` has
 `<name>_sideband_send(sideband, out)`, `<name>_sideband_send_blocking` and `<name>_sideband(sideband, scratch)`, used
@@ -103,8 +129,8 @@ the same way as the data methods above:
 server_impl::stream_data_ser().word_sideband_send(StreamSideband::User(UNib32(1)), cx).await?;
 ```
 
-On the host, a stream or sink receives everything the device sends after its constructor (e.g., `client.word().await`)
-returns, events sent before that are not buffered. The first event is always `Connected` (or `Disconnected`), which
+On the host, a stream or sink receives everything the device sends after it is opened (e.g.,
+`client.byte().call().await` or `client.word().await`) returns, events sent before that are not buffered. The first event is always `Connected` (or `Disconnected`), which
 `recv()` skips. `Stream::recv_any()` returns sideband events along with data, `Sink::recv_sideband()` (`_blocking`,
 `try_recv_sideband()`) returns the ones sent to a sink.
 

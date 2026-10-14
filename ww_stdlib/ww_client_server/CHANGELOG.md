@@ -23,6 +23,10 @@ Wire-incompatible with 0.1.0.
 
 ### 🚀 Features
 
+* `stream::StreamStatus` / `StoreStatus` (a read on a counted or reliable stream), `ser_stream_item_event` (a
+  `StreamItem` event with its item in place), `StreamOpened::ser_head` (the stream function's result written in place
+  after it), `ErrorKind::StreamNoSession` and `StreamStoreFailed` appended (API-31). Streams no longer use sideband
+  `Open`, sinks still do until API-34.
 * Counted and reliable streams (API-30), wire types in `stream`: `StreamHead` (position, `units`, `lost`, device
   time `t`, `HeadExt`) with a hand-laid encoding of 1 to 8 bytes for positions up to 2⁵⁷ (flags, the position's
   length and its top bit share the first byte, `units` costs nothing when 1), `StreamCursor`, `StreamOpened`; `EventKind::StreamItem { path, head, data }`,

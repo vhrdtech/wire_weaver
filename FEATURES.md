@@ -288,6 +288,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `StreamError::ItemTooBig`. Device state in `ww_client_server::credit::SinkCredit`, dynamic and Python clients too.
   Used by `ww_dfu` `StageBulk::plan`. For bulk transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN
   tx. See also CLT-18 backpressure (`docs/api/streams.md`, `tests/credit_sink`).
+- ✅ **API-31 Stream functions** — `#[stream(T, counted)] fn name(args) -> Result<A, E>` and `#[counted]` /
+  `#[reliable] stream!(name: T)`: every stream (plain ones too) is opened by calling it (`RequestKind::StreamOpen`),
+  with typed arguments and result; the device's handler named like the stream decides, `Ok` starts a session,
+  `close_<name>` closes it. Counted and reliable streams keep their state in what `stream_<name>()` returns
+  (`ww_stream::tx::Counted` / `Reliable`), resume by cursor (`name_resume(cursor)`), answer a read with their
+  `StreamStatus` (`name_status()`), send with `stream_data_ser().<name>_send` (counted) or push into the store with
+  `<name>_push` (reliable), which the generated `poll_streams` sends by priority between requests and resends on the
+  host's `ResendFrom`; `ww api scaffold`, introspection (`ApiItemKind::StreamFn`), compatibility check and API diff
+  know them. Includes API-15. Not yet: reliable streams in resource arrays (`poll_streams` refuses them), the open
+  arguments in `StreamStatus`, stream functions in the dynamic client and Python (CLT-23), streams that detach by
+  themselves when the link goes down (a resume re-attaches) (`docs/api/stream_reliability.md`,
+  `tests/streams_reliable`).
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
 - 📋 **API-13 Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.
@@ -296,8 +308,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
   done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
   docs.rs (DOC-6).
-- 📋 **API-15 Return streams from functions** · `v0.5.x` — being built as API-31 stream-functions; related idea: model streams as functions that can be called
-  to change parameters, subscribe, stop.
 - 📋 **API-16 Feature groups** · `v0.5.x` — resources behind features (all enabled by default), connected to the user
   crate's features in `ww_codegen!`. Related: `#[cfg]` in enums, see [derive macro](#derive_shrink_wrap-macro).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
@@ -330,11 +340,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`StreamHead` with its hand-laid encoding, byte-verified; `StreamCursor`, `StreamOpened`, `EventKind::StreamItem`,
   `RequestKind::StreamOpen`, the sideband), the `ww_stream` crate (`Counted`, `Reliable`, `Receiver`, `RamRing`,
   `Scheduler`, `StreamCnt`; sans-IO, `no_std`, tested over a seeded lossy link with random disconnects),
-  `ww_self::ApiItemKind::PositionedStream`. Missing: codegen (API-31), the host runtime (CLT-23), credit sinks on it
+  `ww_self::ApiItemKind::StreamFn`, codegen (API-31). Missing: the host runtime (CLT-23), credit sinks on it
   (API-34). The persistent store is done (SRV-15).
-- 📋 **API-31 Stream functions** · `v0.5` — `#[stream(T, reliable)] fn name(args) -> Result<A, E>`: a stream is opened
-  by calling a function with typed arguments and result, which starts a session (`stream!` is the short form); a read
-  on a stream returns its state. Includes API-15 (`docs/api/stream_reliability.md`).
 - 📋 **API-34 Credit sinks on the stream protocol** · `v0.5` — positions in units (64 bit), `Ack` / `Query` / `Resend`
   shared with reliable streams, sessions and resume for credit sinks, so a DFU plan continues after a reconnect;
   `SinkCredit` moves into `ww_stream` (`docs/api/stream_reliability.md`).
@@ -621,6 +628,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
 ## Dropped and superseded
 
+- **API-15 Return streams from functions** — superseded by API-31 stream functions: `#[stream(T)] fn name(args)`
+  opens a stream with typed arguments and result.
 - **Document things** (old notes) — superseded by `docs/serdes/shrink_wrap.md` and `docs/evolution/rules.md`;
   the notes described an earlier format (field ids, `vlu16n_rev`). Remaining ideas moved to their areas.
 - **LEB numbers** — superseded by `UNib32` and `UVlq32` (`ULeb128` is still in the derive AST, unimplemented).

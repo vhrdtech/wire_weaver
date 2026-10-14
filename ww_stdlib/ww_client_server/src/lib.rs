@@ -259,7 +259,8 @@ pub enum EventKind<'i> {
 )]
 pub enum StreamSideband {
     /// Sent if a stream was successfully opened
-    // TODO(API-31): goes away once every stream is opened with RequestKind::StreamOpen
+    // Streams are opened with RequestKind::StreamOpen (API-31), only sinks still use it
+    // TODO(API-34): goes away once sinks are opened like streams
     Open,
     /// Sent if a stream was successfully closed
     Close,

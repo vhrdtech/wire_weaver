@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- `Stream.open()` opens with `StreamOpen` (API-31); stream functions are named `plain` / `counted` / `reliable
+  stream` in signatures.
 - `Delta`, `DeltaOfDelta` and `XorFloat` (SW-50) are lists of `int` / `float` (any iterable accepted), a value out
   of range of the element type raises `ValueError`.
 - Signatures of counted and reliable streams say so (`counted stream x: T`, API-30).

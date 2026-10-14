@@ -217,6 +217,13 @@ of the API version as well (minor before 1.0, major after, see [layer 4](#layer-
 * `T` to struct of `T` in return position
 * `T` to `Vec<T>` in return position?
 
+Streams (API-30, API-31, [stream reliability](../api/stream_reliability.md)): the delivery kind of a stream is part
+of the API. Turning a plain `stream!` into a `#[counted]` or `#[reliable]` one (or back, or one into the other), or
+giving a stream arguments or a result (`#[stream(T)] fn name(args) -> Result<A, E>`), changes its events and how it is
+opened, so it is a break of the API crate: bump its breaking version position, as for a plain sink becoming a
+`#[credit]` one. A plain `#[stream(T)] fn name()` without arguments and result is the same as `stream!(name: T)`, the
+same bytes in introspection.
+
 ### API model
 
 API model (like `ww_client_server`) is part of the compatibility equation, it is not allowed to update the model

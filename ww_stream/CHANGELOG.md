@@ -4,6 +4,9 @@
 
 ### 🚀 Features
 
+- For generated code (API-31): `Counted::status()` / `Reliable::status()` (`StreamStatus`), `Reliable::on_host_sideband`
+  (an `Ack` / `ResendFrom` where no clock is at hand, the time is taken at the next `poll_query`), `tx::PushItemError`,
+  `Second` and `StreamStatus` re-exported.
 - First version (API-30), the sans-IO, `no_std` core of counted and reliable streams
   (`docs/api/stream_reliability.md`):
     - `tx::Counted`: positions, `lost`, sessions, resume; `tx::Reliable<S: StreamStore>`: live and backfill runs,

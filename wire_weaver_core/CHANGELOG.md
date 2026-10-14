@@ -28,6 +28,11 @@
 
 ### ⚠️ Breaking
 
+- Stream functions (API-31): every stream is opened by calling it with `RequestKind::StreamOpen`. Servers
+  implement, for every `stream!`, the open handler named like the stream (`fn <name>(&mut self, cx, ..) ->
+  RpcResult<()>`, return `Ready(())` to accept) and `close_<name>(cx)`; sideband `Close` goes to the latter,
+  `sideband_<name>` only gets the other commands. Clients open with `<name>(args).call()` / `.blocking_call()`
+  instead of `<name>().await` / `<name>_blocking()`. `ww api scaffold` prints the new handlers.
 - Every generated server handler takes `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` as the first argument
   after `&mut self` (`BlockingEventOut` for `use_async = false`): methods and `sideband_*` instead of
   `msg_tx: &mut impl MessageSink`, and newly `get_*`, `set_*`, `changed_*` and `write_*`. `valid_indices_*` don't.
@@ -55,6 +60,13 @@
 
 ### 🚀 Features
 
+- Stream functions and counted / reliable streams in codegen (API-31): `#[stream(T, counted | reliable)] fn
+  name(args) -> Result<A, E>` and `#[counted]` / `#[reliable] stream!`. Server: open with typed arguments and result,
+  resume by cursor, close, `Ack` / `ResendFrom` into `ww_stream`, a read returns `StreamStatus`, state through
+  `stream_<name>()`, sessions from `new_stream_session()`; `stream_data_ser().<name>_send` (counted), `<name>_push`
+  (reliable) and `<name>_event`, and `poll_streams(out, now_ms, buf, budget)` on the server sending stored events by
+  priority and the device's `Query`s. Client: `<name>(args)`, `<name>_resume(cursor)`, `<name>_status()`. Scaffold
+  and introspection too (`docs/api/stream_reliability.md`, `tests/streams_reliable`).
 - `Delta<'i, T>`, `DeltaOfDelta<'i, T>` and `XorFloat<'i, T>` (and their `..Owned<T>` forms) in `#[ww_trait]` APIs
   (SW-50): arguments, return values, properties, stream and sink items and fields of API types, as
   `ww_self::Type::Delta` / `DeltaOfDelta` / `XorFloat` in introspection data. `T` is checked: `u8`..`u64`,

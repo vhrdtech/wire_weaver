@@ -29,6 +29,7 @@ pub use ref_box::RefBox;
 pub mod ref_vec;
 pub use ref_vec::{RefVec, RefVecIter};
 pub mod either_any_vec;
+pub mod fixed_layout;
 pub mod traits;
 pub use shrink_wrap_derive::{derive_shrink_wrap, ww_repr};
 #[cfg(feature = "std")]
@@ -131,6 +132,7 @@ pub mod prelude {
     pub use crate::buf_writer::BufWriter;
     #[cfg(feature = "std")]
     pub use crate::buf_writer_owned::BufWriterOwned;
+    pub use crate::fixed_layout::FixedLayout;
     pub use crate::max_len::MaxLen;
     pub use crate::max_size::MaxSize;
     pub use crate::nib::Nibble;

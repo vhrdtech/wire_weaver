@@ -30,6 +30,9 @@ pub(crate) struct Args {
     /// `crate_path(some::path)`: how generated code names the `shrink_wrap` crate, instead of looking it up in
     /// `Cargo.toml`.
     pub(crate) crate_path: Option<TokenStream>,
+    /// `fixed_layout`: the type must have a fixed byte layout (SW-44), a compile error names the field that breaks
+    /// it. Without it, a type that has one gets the fast path anyway.
+    pub(crate) fixed_layout: bool,
 }
 
 impl Parse for Args {
@@ -46,6 +49,7 @@ impl Parse for Args {
         let mut size_assumption = None;
         let mut ww_repr = None;
         let mut crate_path = None;
+        let mut fixed_layout = false;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -99,6 +103,9 @@ impl Parse for Args {
                         },
                     )?);
                 }
+                "fixed_layout" => {
+                    fixed_layout = true;
+                }
                 "discriminants" => {
                     discriminants_enum = true;
                 }
@@ -139,6 +146,7 @@ impl Parse for Args {
             size_assumption,
             ww_repr,
             crate_path,
+            fixed_layout,
         })
     }
 }
@@ -146,7 +154,7 @@ impl Parse for Args {
 const SUPPORTED_DIRECTIVES: &str = "borrowed(..), owned, owned(..), \
 cfg_attr(..), cfg_attr_owned(..), cfg_attr_borrowed(..), \
 derive(..), derive_owned(..), derive_borrowed(..), \
-final_structure, self_describing, sized, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, non_exhaustive, crate_path(..)";
+final_structure, self_describing, sized, fixed_layout, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, non_exhaustive, crate_path(..)";
 
 /// Parses a required `(Path1, Path2, ..)`, like Rust's own `#[derive(..)]`
 fn parse_path_list_paren(input: ParseStream) -> syn::Result<Vec<Path>> {

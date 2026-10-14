@@ -5,7 +5,7 @@ use syn::{File, Item, Path, parse2};
 use crate::{
     args::Args,
     ast::{item_enum::ItemEnum, item_struct::ItemStruct, object_size::ObjectSize, repr::Repr},
-    codegen::{item_enum::CGItemEnum, item_struct::CGItemStruct, util::CratePath},
+    codegen::{fixed_layout, item_enum::CGItemEnum, item_struct::CGItemStruct, util::CratePath},
     transform::docs_util::add_notes,
 };
 
@@ -76,8 +76,16 @@ fn generate_inner(
     item: Item,
     ty_kind: TyKind,
     name: String,
-    args: Args,
+    mut args: Args,
 ) -> Result<TokenStream, String> {
+    // `fixed_layout` implies `sized` on a struct, before the size assumption goes into the generated code
+    let fixed_struct = match &item {
+        Item::Struct(_) => {
+            fixed_layout::struct_size_assumption(&mut args.size_assumption, args.fixed_layout)?
+        }
+        _ => false,
+    };
+    let fixed_required = args.fixed_layout;
     let do_generate_borrowed = matches!(ty_kind, TyKind::ImpliedRef) | args.borrowed.is_some();
     let ambiguous = matches!(ty_kind, TyKind::Ambiguous);
     let crate_path = crate_path(args.crate_path);
@@ -162,6 +170,25 @@ fn generate_inner(
                 }
             }
 
+            if fixed_layout::enum_eligible(
+                &args.size_assumption,
+                repr,
+                &ww_item_enum.variants,
+                fixed_required,
+            )? {
+                for ident in fixed_idents(&generate_borrowed, &generate_owned, ty_kind) {
+                    if let Some(fast) = fixed_layout::fixed_enum(
+                        ident,
+                        repr,
+                        &ww_item_enum.variants,
+                        fixed_required,
+                        &crate_path,
+                    )? {
+                        ts.append_all(fast);
+                    }
+                }
+            }
+
             if let Some(borrowed) = generate_borrowed {
                 let cg_item_enum = borrowed.cg_enum(&ww_item_enum, repr);
                 ts.append_all(cg_item_enum.def_rust(true));
@@ -196,6 +223,19 @@ fn generate_inner(
                 false,
             );
 
+            if fixed_struct {
+                for ident in fixed_idents(&generate_borrowed, &generate_owned, ty_kind) {
+                    if let Some(fast) = fixed_layout::fixed_struct(
+                        ident,
+                        &ww_item_struct.fields,
+                        fixed_required,
+                        &crate_path,
+                    )? {
+                        ts.append_all(fast);
+                    }
+                }
+            }
+
             if let Some(borrowed) = generate_borrowed {
                 let cg_item_struct = borrowed.cg_struct(&ww_item_struct);
                 ts.append_all(cg_item_struct.def_rust(true));
@@ -215,6 +255,20 @@ fn generate_inner(
         _ => {}
     }
     Ok(ts)
+}
+
+/// The types to give the fixed-layout fast path: each generated type once (an ambiguous type with both
+/// `borrowed` and `owned` is one type).
+fn fixed_idents<'a>(
+    borrowed: &'a Option<CGSeed>,
+    owned: &'a Option<CGSeed>,
+    ty_kind: TyKind,
+) -> Vec<&'a Ident> {
+    let mut out: Vec<&Ident> = borrowed.iter().map(|s| &s.ident).collect();
+    if !(matches!(ty_kind, TyKind::Ambiguous) && borrowed.is_some()) {
+        out.extend(owned.iter().map(|s| &s.ident));
+    }
+    out
 }
 
 /// A `TailSize` slot counts the bytes to the end of the value including the reverse lengths its fields keep at

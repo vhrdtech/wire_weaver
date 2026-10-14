@@ -9,5 +9,5 @@ fail-fast = false
 # property and random-buffer tests run hundreds of cases each, the LogStore power-cut tests one per write: give them
 # more time, keep 3 s for everything else
 [[profile.default.overrides]]
-filter = '(package(shrink_wrap_c) & binary(cross)) | (package(shrink_wrap) & (binary(latched_reads) | binary(sub_byte))) | (package(ww_stream) & test(/power_cut_/))'
+filter = '(package(shrink_wrap_c) & binary(cross)) | (package(shrink_wrap) & (binary(latched_reads) | binary(sub_byte) | binary(ref_vec_skip))) | (package(ww_stream) & test(/power_cut_/))'
 slow-timeout = { period = "15s", terminate-after = 1 }

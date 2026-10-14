@@ -121,7 +121,8 @@ was lost and where, and can be resumed from a saved cursor ([Stream reliability]
 
 ```python
 s = dev.samples
-s.open(ack="explicit")                 # or open(cursor=saved) after a restart; ack="receive" is the default
+s.open(rate=1000, ack="explicit")      # the stream function's arguments; returns its result, an Err raises RemoteError
+                                       # open(cursor=saved) after a restart; ack="receive" is the default
 while True:
     ev = s.recv_event(timeout=1)       # dict: kind "item", "gap", "resumed", "backfill_done", "disconnected", "closed"
     if ev["kind"] == "item":

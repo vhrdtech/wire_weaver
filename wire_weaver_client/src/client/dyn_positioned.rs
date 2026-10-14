@@ -16,7 +16,7 @@ pub enum DynStreamOpen {
     /// Open, with the stream function's result (its `Ok` value for a `Result`, None without a result).
     Open {
         result: Option<ValueOwned>,
-        stream: DynPositionedStream,
+        stream: Box<DynPositionedStream>,
     },
     /// The stream function returned this `Err`: nothing was opened.
     Rejected(ValueOwned),

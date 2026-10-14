@@ -506,11 +506,11 @@ impl DynResource {
             Some(ValueOwned::Result(Err(e))) => DynStreamOpen::Rejected(*e),
             Some(ValueOwned::Result(Ok(v))) => DynStreamOpen::Open {
                 result: Some(*v),
-                stream: self.dyn_positioned(stream),
+                stream: Box::new(self.dyn_positioned(stream)),
             },
             result => DynStreamOpen::Open {
                 result,
-                stream: self.dyn_positioned(stream),
+                stream: Box::new(self.dyn_positioned(stream)),
             },
         })
     }

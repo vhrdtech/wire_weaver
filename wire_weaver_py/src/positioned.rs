@@ -203,7 +203,7 @@ impl PositionedStream {
             .is_some_and(|ty| matches!(ty.get_in_line(res.bundle()), Ok(TypeOwned::Result { .. })));
         let value = match opened {
             DynStreamOpen::Open { result, stream } => {
-                *guard = Some(stream);
+                *guard = Some(*stream);
                 match (result, is_result) {
                     (Some(v), true) => Some(ValueOwned::Result(Ok(Box::new(v)))),
                     (result, _) => result,

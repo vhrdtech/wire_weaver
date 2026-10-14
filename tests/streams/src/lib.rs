@@ -579,10 +579,8 @@ mod tests {
         let (device, data) = start("streams/sideband_without_reply_seq");
         let client = connect_one_seq(&device).await;
         let stream = client.plain_stream().call().await.unwrap();
-        // the open's seq first: a sideband is not retried when no seq is free, and the host frees a seq only right
-        // after it woke the caller, so give it a moment
+        // with one seq, the sideband waits for the open's to be freed
         seq_released(&client).await;
-        tokio::time::sleep(Duration::from_millis(5)).await;
         // the device acknowledges a sideband its handler returned None for
         stream
             .sideband(StreamSideband::User(UNib32(1)))
@@ -610,7 +608,6 @@ mod tests {
             TypedStreamEvent::Connected
         );
         seq_released(&client).await;
-        tokio::time::sleep(Duration::from_millis(5)).await;
         stream
             .sideband(StreamSideband::User(UNib32(2)))
             .await

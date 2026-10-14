@@ -75,3 +75,7 @@ Prompt common part: $CLAUDE_JOB_DIR/tmp/common.txt (not durable; it is in each c
   master, P2401#14oct-2051. logic-analyzer builds with a MaxLen<RefVec<u8>> crutch marked TODO(SW-50) and reports
   ready only after swapping to DeltaOfDelta.
 - master moved (typed-plan landed, 56b25df); rebase onto master (`git rebase master`) before integrating children.
+- ww-stream-reliability design approved by Roman (docs/api/stream_reliability.md on its branch): streams become
+  functions (`#[stream(Item, reliable)] fn samples(config) -> Result<Actual, Err>`), Read replaces stream_state(),
+  seq/lost/t in the framework head, per-item monitor time as DeltaOfDelta relative to head t. Keep current shapes;
+  its piece 7 migrates the IO family after its codegen lands. Not our work now.

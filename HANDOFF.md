@@ -68,3 +68,10 @@ Prompt common part: $CLAUDE_JOB_DIR/tmp/common.txt (not durable; it is in each c
   children woken to commit and finish.
 - Merge order when ready: si-numeric first (touches ww_si dep lines of every IO crate + core ty.rs), then gpio, uart,
   i2c, spi (then tell api3-design for WW-4), then adc, pwm, onewire, timebase.
+- Roman answered logic_analyzer.md directly to the child: accepted with Q1-Q5 as recommended, plus simple protocol
+  triggers (UART byte, I2C address + R/W, SPI first byte) in v1, keep rearm(), cross-device trigger in ww_timebase,
+  SW-47 automatic future_version instead of hand-written Unknown.
+- SW-50 series-types-in-apis (DeltaOfDelta in #[ww_trait] APIs) spawned: series-in-apis, opus, omarchy-m1, from
+  master, P2401#14oct-2051. logic-analyzer builds with a MaxLen<RefVec<u8>> crutch marked TODO(SW-50) and reports
+  ready only after swapping to DeltaOfDelta.
+- master moved (typed-plan landed, 56b25df); rebase onto master (`git rebase master`) before integrating children.

@@ -139,6 +139,8 @@ mod tests {
                             read_bytes.extend_from_slice(data.into_inner().as_slice())
                         }
                         SpiOp::Delay(_) => {}
+                        // an op of a newer API version
+                        SpiOp::Unknown(_) => return Ready(Err(SpiError::Unsupported)),
                     }
                 }
                 Ready(Ok(MaxLen::new(leak_bytes(read_bytes)).unwrap()))
@@ -385,7 +387,6 @@ mod tests {
             .configure(configured_master(CsMode::Auto))
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(actual.freq.value, NumericValue::U32(1));
         assert_eq!(actual.freq.prefix, Prefix::Mega);
@@ -393,8 +394,11 @@ mod tests {
         // this mock has no slave mode
         let mut slave = configured_master(CsMode::Auto);
         slave.role = SpiRole::Slave;
-        let err = client.spi().configure(slave).call().await.unwrap();
-        assert!(matches!(err, Err(SpiError::Unsupported)));
+        let err = client.spi().configure(slave).call().await;
+        assert!(matches!(
+            err.unwrap_err().device(),
+            Some(SpiError::Unsupported)
+        ));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -406,7 +410,6 @@ mod tests {
             .configure(configured_master(CsMode::Auto))
             .call()
             .await
-            .unwrap()
             .unwrap();
 
         let echoed = client
@@ -414,7 +417,6 @@ mod tests {
             .transfer(MaxLen::new(vec![1u8, 2, 3]).unwrap())
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(echoed.into_inner(), vec![1, 2, 3]);
 
@@ -423,7 +425,6 @@ mod tests {
             .write(MaxLen::new(vec![9u8, 8]).unwrap())
             .call()
             .await
-            .unwrap()
             .unwrap();
         eventually(&data, |d| !d.writes.is_empty()).await;
         assert_eq!(data.lock().unwrap().writes, vec![vec![9u8, 8]]);
@@ -433,9 +434,8 @@ mod tests {
             .spi()
             .transfer(MaxLen::new(too_long).unwrap())
             .call()
-            .await
-            .unwrap();
-        assert_eq!(err, Err(SpiError::BufferTooBig));
+            .await;
+        assert_eq!(err.unwrap_err().device(), Some(&SpiError::BufferTooBig));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -447,7 +447,6 @@ mod tests {
             .configure(configured_master(CsMode::Auto))
             .call()
             .await
-            .unwrap()
             .unwrap();
 
         let ops = vec![
@@ -461,7 +460,6 @@ mod tests {
             .transaction(MaxLen::new(ops).unwrap())
             .call()
             .await
-            .unwrap()
             .unwrap();
         // the Write and Delay ops contribute no bytes; Read comes back as 0xA5, Transfer echoes
         assert_eq!(read.into_inner(), vec![0xA5, 0xA5, 5, 6]);
@@ -476,22 +474,20 @@ mod tests {
             .configure(configured_master(CsMode::Auto))
             .call()
             .await
-            .unwrap()
             .unwrap();
 
-        let err = client.spi().set_cs(true).call().await.unwrap();
-        assert_eq!(err, Err(SpiError::WrongMode));
+        let err = client.spi().set_cs(true).call().await;
+        assert_eq!(err.unwrap_err().device(), Some(&SpiError::WrongMode));
 
         client
             .spi()
             .configure(configured_master(CsMode::Manual))
             .call()
             .await
-            .unwrap()
             .unwrap();
-        client.spi().set_cs(true).call().await.unwrap().unwrap();
+        client.spi().set_cs(true).call().await.unwrap();
         assert!(data.lock().unwrap().cs_active);
-        client.spi().set_cs(false).call().await.unwrap().unwrap();
+        client.spi().set_cs(false).call().await.unwrap();
         assert!(!data.lock().unwrap().cs_active);
     }
 

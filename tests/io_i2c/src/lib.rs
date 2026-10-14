@@ -69,12 +69,14 @@ mod tests {
         }
     }
 
-    fn offset_of(kind: &I2cReadKind<'_>) -> usize {
+    /// `None` for a read kind of a newer API version, which this mock doesn't support.
+    fn offset_of(kind: &I2cReadKind<'_>) -> Option<usize> {
         match kind {
-            I2cReadKind::Plain => 0,
+            I2cReadKind::Plain => Some(0),
             I2cReadKind::RepeatedStart { write } => {
-                write.as_slice().first().copied().unwrap_or(0) as usize
+                Some(write.as_slice().first().copied().unwrap_or(0) as usize)
             }
+            I2cReadKind::Unknown(_) => None,
         }
     }
 
@@ -84,22 +86,26 @@ mod tests {
             I2cReadKindOwned::RepeatedStart { write } => {
                 write.first().copied().unwrap_or(0) as usize
             }
+            I2cReadKindOwned::Unknown(_) => unreachable!("rejected by watch_config_to_owned"),
         }
     }
 
     /// Builds the owned equivalent of a borrowed `I2cReadKind` to store beyond the call that carried it.
-    fn read_kind_to_owned(kind: &I2cReadKind<'_>) -> I2cReadKindOwned {
-        match kind {
+    fn read_kind_to_owned(kind: &I2cReadKind<'_>) -> Result<I2cReadKindOwned, I2cError> {
+        Ok(match kind {
             I2cReadKind::Plain => I2cReadKindOwned::Plain,
             I2cReadKind::RepeatedStart { write } => I2cReadKindOwned::RepeatedStart {
                 write: MaxLen::new_unchecked(write.as_slice().to_vec()),
             },
-        }
+            I2cReadKind::Unknown(_) => return Err(I2cError::Unsupported),
+        })
     }
 
     /// Builds the owned equivalent of a borrowed `I2cWatchReport` to store beyond the call that carried it.
-    fn report_to_owned(report: &ww_i2c::I2cWatchReport<'_>) -> I2cWatchReportOwned {
-        match report {
+    fn report_to_owned(
+        report: &ww_i2c::I2cWatchReport<'_>,
+    ) -> Result<I2cWatchReportOwned, I2cError> {
+        Ok(match report {
             ww_i2c::I2cWatchReport::Always => I2cWatchReportOwned::Always,
             ww_i2c::I2cWatchReport::Changed { mask } => I2cWatchReportOwned::Changed {
                 mask: MaxLen::new_unchecked(mask.as_slice().to_vec()),
@@ -108,17 +114,19 @@ mod tests {
                 mask: MaxLen::new_unchecked(mask.as_slice().to_vec()),
                 value: MaxLen::new_unchecked(value.as_slice().to_vec()),
             },
-        }
+            ww_i2c::I2cWatchReport::Unknown(_) => return Err(I2cError::Unsupported),
+        })
     }
 
-    fn watch_config_to_owned(config: &I2cWatchConfig<'_>) -> I2cWatchConfigOwned {
-        I2cWatchConfigOwned {
+    /// `Unsupported` for a read kind or report of a newer API version.
+    fn watch_config_to_owned(config: &I2cWatchConfig<'_>) -> Result<I2cWatchConfigOwned, I2cError> {
+        Ok(I2cWatchConfigOwned {
             addr: config.addr,
-            kind: read_kind_to_owned(&config.kind),
+            kind: read_kind_to_owned(&config.kind)?,
             len: config.len,
             period: config.period,
-            report: report_to_owned(&config.report),
-        }
+            report: report_to_owned(&config.report)?,
+        })
     }
 
     /// One autonomous watch, see `ww_i2c::I2cWatch`.
@@ -242,9 +250,12 @@ mod tests {
                 if len == 0 {
                     return Ready(Err(I2cError::ZeroLengthTransfer));
                 }
+                let Some(offset) = offset_of(&kind) else {
+                    return Ready(Err(I2cError::Unsupported));
+                };
                 let mut m = self.model.lock().unwrap();
                 let start = m.tick();
-                let result = m.read(addr, offset_of(&kind), len);
+                let result = m.read(addr, offset, len);
                 let end = m.tick();
                 let data = match result {
                     Ok(data) => data,
@@ -321,6 +332,8 @@ mod tests {
                             }
                             read_out.extend_from_slice(&chunk);
                         }
+                        // an op of a newer API version
+                        I2cOp::Unknown(_) => return Ready(Err(I2cError::Unsupported)),
                     }
                 }
                 m.registers.insert(key, reg);
@@ -403,11 +416,15 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 watch: I2cWatchConfig<'_>,
             ) -> RpcResult<Result<u8, I2cError>> {
+                let config = match watch_config_to_owned(&watch) {
+                    Ok(config) => config,
+                    Err(e) => return Ready(Err(e)),
+                };
                 let Some(slot) = self.watches.iter().position(Option::is_none) else {
                     return Ready(Err(I2cError::OutOfCycleSlots));
                 };
                 self.watches[slot] = Some(WatchSlot {
-                    config: watch_config_to_owned(&watch),
+                    config,
                     last_reported: None,
                     last_match: None,
                     in_error: false,
@@ -427,8 +444,12 @@ mod tests {
                 if entry.is_none() {
                     return Ready(Err(I2cError::InvalidCycleSlot));
                 }
+                let config = match watch_config_to_owned(&watch) {
+                    Ok(config) => config,
+                    Err(e) => return Ready(Err(e)),
+                };
                 *entry = Some(WatchSlot {
-                    config: watch_config_to_owned(&watch),
+                    config,
                     last_reported: None,
                     last_match: None,
                     in_error: false,
@@ -546,6 +567,9 @@ mod tests {
                                     slot.last_match = Some(is_match);
                                     (was_error || changed).then(|| Ok(data.clone()))
                                 }
+                                I2cWatchReportOwned::Unknown(_) => {
+                                    unreachable!("rejected by watch_config_to_owned")
+                                }
                             }
                         }
                     };
@@ -656,14 +680,12 @@ mod tests {
             .i2c_write(addr, MaxLen::new(vec![1, 2, 3]).unwrap(), None)
             .call()
             .await
-            .unwrap()
             .unwrap();
         let read = client
             .i2c()
             .i2c_read(addr, I2cReadKindOwned::Plain, 3, None)
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(read.data.as_slice(), &[1, 2, 3]);
     }
@@ -680,9 +702,8 @@ mod tests {
             .i2c_write(addr, MaxLen::new(vec![1]).unwrap(), None)
             .call()
             .await
-            .unwrap()
             .unwrap_err();
-        assert_eq!(err, I2cError::Nack);
+        assert_eq!(err.device(), Some(&I2cError::Nack));
 
         let addr_ok = I2cAddress::seven(0x52).unwrap();
         let err = client
@@ -690,9 +711,8 @@ mod tests {
             .i2c_read(addr_ok, I2cReadKindOwned::Plain, 0, None)
             .call()
             .await
-            .unwrap()
             .unwrap_err();
-        assert_eq!(err, I2cError::ZeroLengthTransfer);
+        assert_eq!(err.device(), Some(&I2cError::ZeroLengthTransfer));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -702,20 +722,14 @@ mod tests {
         model.lock().unwrap().registers.insert(0x60, vec![2]);
         let client = connect(&device).await;
 
-        let found = client.i2c().i2c_scan().call().await.unwrap().unwrap();
+        let found = client.i2c().i2c_scan().call().await.unwrap();
         assert_eq!(found.as_slice(), &[0x50, 0x60]);
 
         let lines = client.i2c().i2c_lines_state().call().await.unwrap();
         assert!(lines.is_scl_high && lines.is_sda_high);
 
         assert!(!client.i2c().i2c_pullups().call().await.unwrap());
-        client
-            .i2c()
-            .i2c_set_pullups(true)
-            .call()
-            .await
-            .unwrap()
-            .unwrap();
+        client.i2c().i2c_set_pullups(true).call().await.unwrap();
         assert!(client.i2c().i2c_pullups().call().await.unwrap());
     }
 
@@ -737,7 +751,6 @@ mod tests {
             .i2c_write(addr, MaxLen::new(vec![9]).unwrap(), None)
             .call()
             .await
-            .unwrap()
             .unwrap();
         let record = records.recv().await.unwrap();
         assert!(!record.read);
@@ -748,7 +761,6 @@ mod tests {
             .i2c_read(addr, I2cReadKindOwned::Plain, 1, None)
             .call()
             .await
-            .unwrap()
             .unwrap();
         let record = records.recv().await.unwrap();
         assert!(record.read);
@@ -774,7 +786,6 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
 
         for _ in 0..3 {
@@ -806,7 +817,6 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
 
         // first tick always reports (no previous value)
@@ -847,7 +857,6 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
 
         // first tick always reports (no previous match state to compare against)
@@ -896,7 +905,6 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
 
         // baseline read, reported (first ever)
@@ -942,14 +950,12 @@ mod tests {
             .watch_add(cfg.clone())
             .call()
             .await
-            .unwrap()
             .unwrap();
         let slot1 = client
             .i2c_watch()
             .watch_add(cfg.clone())
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(
             client
@@ -967,15 +973,8 @@ mod tests {
             .watch_modify(slot0, cfg.clone())
             .call()
             .await
-            .unwrap()
             .unwrap();
-        client
-            .i2c_watch()
-            .watch_remove(slot1)
-            .call()
-            .await
-            .unwrap()
-            .unwrap();
+        client.i2c_watch().watch_remove(slot1).call().await.unwrap();
         assert_eq!(
             client
                 .i2c_watch()
@@ -992,8 +991,7 @@ mod tests {
             .watch_remove(slot1)
             .call()
             .await
-            .unwrap()
             .unwrap_err();
-        assert_eq!(err, I2cError::InvalidCycleSlot);
+        assert_eq!(err.device(), Some(&I2cError::InvalidCycleSlot));
     }
 }

@@ -18,6 +18,9 @@ mod tests {
             SampleFormat::Packed12 => 2, // approximate, not exercised with an odd count here
             SampleFormat::I16 => 2,
             SampleFormat::I24 => 3,
+            SampleFormat::Unknown(_) => {
+                unreachable!("handlers reject formats outside the capabilities")
+            }
         }
     }
 
@@ -285,6 +288,9 @@ mod tests {
                         return Ready(Err(AdcError::NoSuchChannel));
                     }
                 }
+                if !matches!(config.format, SampleFormat::U8 | SampleFormat::U16) {
+                    return Ready(Err(AdcError::Unsupported));
+                }
                 let per_set = sample_bytes(config.format) * config.channels.len();
                 let bytes = per_set * config.sets as usize;
                 if bytes > 4096 {
@@ -463,14 +469,14 @@ mod tests {
         assert_eq!(caps.channels.len(), 2);
         assert_eq!(caps.channels.iter().next().unwrap().name.as_str(), "VIN");
 
-        let reading = adc.read(0).call().await.unwrap().unwrap();
+        let reading = adc.read(0).call().await.unwrap();
         let expected = 2048.0 * 3300.0 / 4095.0;
         assert!(matches!(reading.value, NumericValue::F32(v) if (v - expected).abs() < 0.01));
 
-        assert!(matches!(
-            adc.read(9).call().await.unwrap(),
-            Err(AdcError::NoSuchChannel)
-        ));
+        assert_eq!(
+            adc.read(9).call().await.unwrap_err().device(),
+            Some(&AdcError::NoSuchChannel)
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -507,10 +513,10 @@ mod tests {
         // the mock caps at 500 kHz
         assert_eq!(actual.rate.value, NumericValue::U32(500_000));
         // sampling runs: single readings are refused
-        assert!(matches!(
-            client.adc().read(0).call().await.unwrap(),
-            Err(AdcError::Busy)
-        ));
+        assert_eq!(
+            client.adc().read(0).call().await.unwrap_err().device(),
+            Some(&AdcError::Busy)
+        );
 
         match samples.recv_event().await.unwrap() {
             StreamEvent::Item {
@@ -530,7 +536,7 @@ mod tests {
 
         samples.close().await.unwrap();
         // adc is free again once the stream stops
-        assert!(client.adc().read(0).call().await.unwrap().is_ok());
+        assert!(client.adc().read(0).call().await.is_ok());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -556,30 +562,34 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(actual.bytes, 4);
 
         let status = adc_capture.capture_status().call().await.unwrap();
         assert!(matches!(status, CaptureStatus::Done { sets: 4, .. }));
 
-        let data = adc_capture
-            .capture_read(0, 4)
-            .call()
-            .await
-            .unwrap()
-            .unwrap();
+        let data = adc_capture.capture_read(0, 4).call().await.unwrap();
         assert_eq!(data.as_slice(), &[0, 7, 14, 21]);
 
         assert_eq!(
-            adc_capture.capture_read(2, 10).call().await.unwrap(),
-            Err(AdcError::InvalidArgument)
+            adc_capture
+                .capture_read(2, 10)
+                .call()
+                .await
+                .unwrap_err()
+                .device(),
+            Some(&AdcError::InvalidArgument)
         );
 
         adc_capture.capture_abort().call().await.unwrap();
         assert_eq!(
-            adc_capture.capture_read(0, 1).call().await.unwrap(),
-            Err(AdcError::WrongMode)
+            adc_capture
+                .capture_read(0, 1)
+                .call()
+                .await
+                .unwrap_err()
+                .device(),
+            Some(&AdcError::WrongMode)
         );
     }
 
@@ -606,7 +616,6 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
 
         assert!(matches!(

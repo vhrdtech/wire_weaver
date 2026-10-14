@@ -342,7 +342,7 @@ mod tests {
             inverted: false,
             phase_correct: false,
         };
-        let actual = channel.set_output(output).call().await.unwrap().unwrap();
+        let actual = channel.set_output(output).call().await.unwrap();
         assert_eq!(actual.duty, 32768);
         let stored = m.lock().unwrap().channels[0].unwrap();
         assert_eq!(stored.duty, actual.duty);
@@ -354,14 +354,14 @@ mod tests {
                 assert_eq!(a.duty, actual.duty);
                 assert!(hz_eq(a.freq, actual.freq));
             }
-            PwmState::Idle => panic!("expected Output, got Idle"),
+            other => panic!("expected Output, got {other:?}"),
         }
 
-        let duty = channel.set_duty(1000).call().await.unwrap().unwrap();
+        let duty = channel.set_duty(1000).call().await.unwrap();
         assert_eq!(duty, 1000);
         assert_eq!(m.lock().unwrap().channels[0].unwrap().duty, 1000);
 
-        channel.stop(true).call().await.unwrap().unwrap();
+        channel.stop(true).call().await.unwrap();
         assert!(m.lock().unwrap().channels[0].is_none());
         let state = channel.state().call().await.unwrap();
         assert!(matches!(state, PwmState::Idle));
@@ -373,8 +373,8 @@ mod tests {
         let client = connect(&device).await;
         let pwm = client.pwm();
         let mut channel = pwm.channel(1);
-        let err = channel.set_duty(100).call().await.unwrap();
-        assert_eq!(err, Err(PwmError::WrongMode));
+        let err = channel.set_duty(100).call().await;
+        assert_eq!(err.unwrap_err().device(), Some(&PwmError::WrongMode));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -391,15 +391,15 @@ mod tests {
                 value: NumericValue::U32(100),
             },
         };
-        let actual = channel.set_capture(config).call().await.unwrap().unwrap();
+        let actual = channel.set_capture(config).call().await.unwrap();
         assert_eq!(actual.mode, CaptureMode::Frequency);
         let stored = m.lock().unwrap().capture_config[0].unwrap();
         assert_eq!(stored.mode, config.mode);
         assert!(sec_eq(stored.gate, config.gate));
 
         // no measurement taken yet
-        let err = channel.read_capture().call().await.unwrap();
-        assert_eq!(err.unwrap_err(), PwmError::WrongMode);
+        let err = channel.read_capture().call().await;
+        assert_eq!(err.unwrap_err().device(), Some(&PwmError::WrongMode));
 
         // the device "measures" something; nothing here models real hardware, so the test sets it directly
         let sample = CaptureSample {
@@ -413,7 +413,7 @@ mod tests {
             }),
         };
         m.lock().unwrap().capture_sample[0] = Some(sample);
-        let got = channel.read_capture().call().await.unwrap().unwrap();
+        let got = channel.read_capture().call().await.unwrap();
         assert!(sec_eq(got.t, sample.t));
         assert!(capture_value_eq(got.value, sample.value));
     }
@@ -460,7 +460,7 @@ mod tests {
         };
         m.lock().unwrap().measured.push((0, sample));
         // any request lets the mock's event loop send it
-        channel.read_capture().call().await.unwrap().ok();
+        channel.read_capture().call().await.ok();
         match stream.recv_event().await.unwrap() {
             StreamEvent::Item { pos, t, value, .. } => {
                 assert_eq!(pos, 0);

@@ -129,6 +129,8 @@ mod tests {
                 let format = match config {
                     SyncConfig::Off => None,
                     SyncConfig::Master { format } | SyncConfig::Slave { format } => Some(format),
+                    // a config from a newer API version
+                    SyncConfig::Unknown(_) => return Ready(Err(ClockError::Unsupported)),
                 };
                 if let Some(format) = format
                     && !self.formats.contains(&format)
@@ -203,6 +205,7 @@ mod tests {
                             },
                         );
                     }
+                    SyncConfig::Unknown(_) => unreachable!("rejected above"),
                 }
                 Ready(Ok(()))
             }
@@ -347,7 +350,6 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
 
         let point = time_map.recv().await.unwrap();
@@ -378,7 +380,6 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
 
         assert_eq!(time_map.recv().await.unwrap().state, SyncState::Acquiring);
@@ -395,9 +396,8 @@ mod tests {
                 format: SyncFormat::Pps,
             })
             .call()
-            .await
-            .unwrap();
-        assert_eq!(result, Err(ClockError::Unsupported));
+            .await;
+        assert_eq!(result.unwrap_err().device(), Some(&ClockError::Unsupported));
         assert_eq!(
             client.clock().sync_status().call().await.unwrap().state,
             SyncState::Free
@@ -410,8 +410,8 @@ mod tests {
         let client = connect(&device).await;
         let t = DateTime::from_ymd_hms_utc_opt(2026, 10, 14, 12, 0, 0, 0).unwrap();
 
-        let result = client.clock().set_time_of_day(t).call().await.unwrap();
-        assert_eq!(result, Err(ClockError::WrongMode));
+        let result = client.clock().set_time_of_day(t).call().await;
+        assert_eq!(result.unwrap_err().device(), Some(&ClockError::WrongMode));
 
         client
             .clock()
@@ -420,14 +420,7 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
-        client
-            .clock()
-            .set_time_of_day(t)
-            .call()
-            .await
-            .unwrap()
-            .unwrap();
+        client.clock().set_time_of_day(t).call().await.unwrap();
     }
 }

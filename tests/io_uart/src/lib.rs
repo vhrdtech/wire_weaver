@@ -173,7 +173,10 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: BaudRate,
             ) -> SetResult<Error> {
-                if matches!(value, BaudRate::BaudOther(hz) if hz > capabilities().max_baud_rate) {
+                // a baud rate from a newer API version is as unsupported as one above the range
+                if matches!(value, BaudRate::BaudOther(hz) if hz > capabilities().max_baud_rate)
+                    || matches!(value, BaudRate::Unknown(_))
+                {
                     return SetResult::SetError(Error::Unsupported);
                 }
                 self.m.lock().unwrap().baud_rate = value;
@@ -315,6 +318,7 @@ mod tests {
                     BaudRate::Baud115200 => 115200,
                     BaudRate::Baud921600 => 921_600,
                     BaudRate::BaudOther(hz) => hz,
+                    BaudRate::Unknown(_) => unreachable!("rejected by set_uart_baud_rate"),
                 };
                 Ready(actual)
             }
@@ -488,23 +492,13 @@ mod tests {
         let (device, m) = start("io_uart/pin_level", Model::default());
         let client = connect(&device).await;
 
-        let r = client
-            .uart()
-            .set_pin_level(Pin::Tx, true)
-            .call()
-            .await
-            .unwrap();
-        assert!(matches!(r, Err(Error::WrongMode)));
+        let r = client.uart().set_pin_level(Pin::Tx, true).call().await;
+        assert!(matches!(r.unwrap_err().device(), Some(Error::WrongMode)));
         assert!(m.lock().unwrap().pin_levels.is_empty());
 
         client.uart().write_mode(Mode::Test).write().await.unwrap();
-        let r = client
-            .uart()
-            .set_pin_level(Pin::Tx, true)
-            .call()
-            .await
-            .unwrap();
-        assert!(matches!(r, Ok(())));
+        let r = client.uart().set_pin_level(Pin::Tx, true).call().await;
+        assert!(r.is_ok());
         assert_eq!(m.lock().unwrap().pin_levels, vec![(Pin::Tx, true)]);
     }
 
@@ -514,8 +508,7 @@ mod tests {
         let client = connect(&device).await;
 
         let duration = ww_si::quantity!(10 s u32);
-        let r = client.uart().send_break(duration).call().await.unwrap();
-        assert!(matches!(r, Ok(())));
+        client.uart().send_break(duration).call().await.unwrap();
         assert_eq!(m.lock().unwrap().send_break_calls.len(), 1);
 
         let pending = client.uart().tx_pending().call().await.unwrap();

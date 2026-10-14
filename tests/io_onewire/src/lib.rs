@@ -363,7 +363,7 @@ mod tests {
         let (client, _bus, _device) = connect("onewire/reset_and_transaction", vec![ROM_A]).await;
         let mut onewire = client.onewire();
 
-        assert!(onewire.reset().call().await.unwrap().unwrap());
+        assert!(onewire.reset().call().await.unwrap());
 
         let reply = onewire
             .transaction(OneWireTransactionOwned {
@@ -374,7 +374,6 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(&*reply, &[0x44]);
 
@@ -387,15 +386,14 @@ mod tests {
                 strong_pullup: None,
             })
             .call()
-            .await
-            .unwrap();
-        assert_eq!(err, Err(OneWireError::NoPresence));
+            .await;
+        assert_eq!(err.unwrap_err().device(), Some(&OneWireError::NoPresence));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn reset_no_devices() {
         let (client, _bus, _device) = connect("onewire/reset_no_devices", vec![]).await;
-        assert!(!client.onewire().reset().call().await.unwrap().unwrap());
+        assert!(!client.onewire().reset().call().await.unwrap());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -406,7 +404,7 @@ mod tests {
         let mut found = Vec::new();
         let mut from = None;
         loop {
-            let page = onewire.search(from, None).call().await.unwrap().unwrap();
+            let page = onewire.search(from, None).call().await.unwrap();
             found.extend(page.roms.iter().copied());
             match page.next {
                 Some(next) => from = Some(next),
@@ -422,12 +420,7 @@ mod tests {
         let mut found = Vec::new();
         let mut from = None;
         loop {
-            let page = onewire
-                .search(from, Some(FAMILY_A))
-                .call()
-                .await
-                .unwrap()
-                .unwrap();
+            let page = onewire.search(from, Some(FAMILY_A)).call().await.unwrap();
             found.extend(page.roms.iter().copied());
             match page.next {
                 Some(next) => from = Some(next),
@@ -443,8 +436,11 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn search_no_devices() {
         let (client, _bus, _device) = connect("onewire/search_empty", vec![]).await;
-        let err = client.onewire().search(None, None).call().await.unwrap();
-        assert!(matches!(err, Err(OneWireError::NoPresence)));
+        let err = client.onewire().search(None, None).call().await;
+        assert!(matches!(
+            err.unwrap_err().device(),
+            Some(OneWireError::NoPresence)
+        ));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -465,7 +461,6 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(bus.read().unwrap().configured.unwrap().pin, 1);
 
@@ -476,9 +471,11 @@ mod tests {
                 speed: OneWireSpeed::Standard,
             })
             .call()
-            .await
-            .unwrap();
-        assert_eq!(err, Err(OneWireError::InvalidArgument));
+            .await;
+        assert_eq!(
+            err.unwrap_err().device(),
+            Some(&OneWireError::InvalidArgument)
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -486,7 +483,7 @@ mod tests {
         let (client, _bus, _device) = connect("onewire/triplet", vec![ROM_A]).await;
         let mut onewire = client.onewire();
 
-        assert!(onewire.reset().call().await.unwrap().unwrap());
+        assert!(onewire.reset().call().await.unwrap());
         // Send the `Search ROM` command to start a bit-level search session.
         onewire
             .transaction(OneWireTransactionOwned {
@@ -497,12 +494,11 @@ mod tests {
             })
             .call()
             .await
-            .unwrap()
             .unwrap();
 
         let mut found = [0u8; 8];
         for i in 0..64u8 {
-            let t = onewire.triplet(false).call().await.unwrap().unwrap();
+            let t = onewire.triplet(false).call().await.unwrap();
             // With a single device on the bus every bit agrees, no fork.
             assert_eq!(t.id_bit, t.direction);
             assert_ne!(t.id_bit, t.cmp_bit);
@@ -513,14 +509,20 @@ mod tests {
         assert_eq!(found, ROM_A.bytes);
 
         // 65th call without a new reset/search command is refused.
-        let err = onewire.triplet(false).call().await.unwrap();
-        assert!(matches!(err, Err(OneWireError::WrongMode)));
+        let err = onewire.triplet(false).call().await;
+        assert!(matches!(
+            err.unwrap_err().device(),
+            Some(OneWireError::WrongMode)
+        ));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn triplet_without_search_command_is_refused() {
         let (client, _bus, _device) = connect("onewire/triplet_wrong_mode", vec![ROM_A]).await;
-        let err = client.onewire().triplet(false).call().await.unwrap();
-        assert!(matches!(err, Err(OneWireError::WrongMode)));
+        let err = client.onewire().triplet(false).call().await;
+        assert!(matches!(
+            err.unwrap_err().device(),
+            Some(OneWireError::WrongMode)
+        ));
     }
 }

@@ -520,13 +520,15 @@ mod tests {
         pin.set_mode(Mode::PushPullOutput, Some(Level::High))
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(pin.mode().call().await.unwrap(), Mode::PushPullOutput);
         assert_eq!(pin.output_level().call().await.unwrap(), Level::High);
 
-        let err = pin.set_mode(Mode::Analog, None).call().await.unwrap();
-        assert!(matches!(err, Err(Error::UnsupportedMode)));
+        let err = pin.set_mode(Mode::Analog, None).call().await;
+        assert!(matches!(
+            err.unwrap_err().device(),
+            Some(Error::UnsupportedMode)
+        ));
 
         pin.write_pull(Pull::Up).write().await.unwrap();
         assert_eq!(pin.read_pull().read().await.unwrap(), Pull::Up);

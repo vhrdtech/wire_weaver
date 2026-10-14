@@ -32,9 +32,9 @@
     "",
     "`PatternGenerator` returns [PgError], `WaveformGenerator` [WgError]; each method lists the variants it returns.",
 ], crate_idx: 0, trait_name: "ww_signal_generator", items: [
-    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "PatternGenerator", docs: []),
-    (id: 1, kind: Trait(trait_idx: 2), multiplicity: Flat, since: None, ident: "WaveformGenerator", docs: []),
-    (id: 2, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "WaveformChannel", docs: []),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "PatternGenerator", docs: [], optional: None),
+    (id: 1, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "WaveformGenerator", docs: [], optional: None),
+    (id: 2, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "WaveformChannel", docs: [], optional: None),
 ]), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One output.",
@@ -46,7 +46,7 @@
             "The same pin\'s index in the device\'s `ww_gpio::Bank`, if it has one.",
         ]),
     ]))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "Hertz", signature: [
+    SkippedFullVersion(crate_idx: 1, type_name: "Hertz", signature: [
         226,
         231,
         2,
@@ -56,7 +56,7 @@
         233,
         185,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "RateLimit", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "RateLimit", signature: [
         16,
         70,
         208,
@@ -100,7 +100,7 @@
         ]), discriminant: 1, since: None),
         (docs: [], ident: "Forever", fields: Unit, discriminant: 2, since: None),
     ])), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "Edge", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "Edge", signature: [
         124,
         154,
         57,
@@ -182,7 +182,7 @@
             "A pattern plays.",
         ], ident: "Busy", fields: Unit, discriminant: 7, since: None),
     ])), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "StreamChunk", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "StreamChunk", signature: [
         233,
         207,
         135,
@@ -192,7 +192,7 @@
         14,
         102,
     ]),
-    SkippedFullVersion(crate_idx: 2, type_name: "Second", signature: [
+    SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
         37,
         124,
         121,
@@ -266,7 +266,7 @@
             (ident: Some("once"), default: None, since: None, ty: Bool, docs: []),
         ]), discriminant: 5, since: None),
     ])), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "Volt", signature: [
+    SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
         4,
         154,
         42,
@@ -399,12 +399,12 @@
         "`configure` sets it up, the `pattern` sink loads the data (`Open` starts a new pattern, `Close` completes it),",
         "`start` plays it. While it runs its pins belong to it: `ww_gpio` calls that would drive them answer `InUse`.",
     ], crate_idx: 0, trait_name: "PatternGenerator", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 3)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Channels, rates, memory, encodings and start conditions.",
-        ]),
+        ], optional: None),
         (id: 1, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 7)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 8), err_ty: OutOfLine(type_idx: 9)))), multiplicity: Flat, since: None, ident: "configure", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 8), err_ty: OutOfLine(type_idx: 9))), errors: None), multiplicity: Flat, since: None, ident: "configure", docs: [
             "Sets channels, rate, repetition, idle levels and the start condition, and returns what was actually set.",
             "Drops a loaded pattern.",
             "",
@@ -413,74 +413,74 @@
             "[PgError::NoSuchChannel], [PgError::InvalidArgument] (rate or channel count out of range),",
             "[PgError::Unsupported] (start condition), [PgError::Busy] (a pattern plays), [PgError::InUse],",
             "[PgError::NoIoLevel].",
-        ]),
+        ], optional: None),
         (id: 2, kind: FlowSink(ty: OutOfLine(type_idx: 10), flow: Credit), multiplicity: Flat, since: None, ident: "pattern", docs: [
             "Pattern data, appended in order. The credit is the free pattern memory.",
-        ]),
-        (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9)))), multiplicity: Flat, since: None, ident: "start", docs: [
+        ], optional: None),
+        (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: None), multiplicity: Flat, since: None, ident: "start", docs: [
             "Starts output now, or waits for [PgConfig::start]. Started before the pattern is complete, it plays what it",
             "has while the sink keeps filling, and stops with [PgStatus::Underrun] if the host falls behind.",
             "",
             "# Errors",
             "",
             "[PgError::WrongMode] (not configured, or nothing loaded), [PgError::Refused].",
-        ]),
-        (id: 4, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "stop", docs: [
+        ], optional: None),
+        (id: 4, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "stop", docs: [
             "Stops output; the channels go to their idle levels.",
-        ]),
-        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12))), multiplicity: Flat, since: None, ident: "status", docs: [
+        ], optional: None),
+        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "Where the generator stands.",
-        ]),
+        ], optional: None),
     ]), crate_idx: 0),
     InLine(level: (docs: [
         "One DAC output.",
     ], crate_idx: 0, trait_name: "WaveformChannel", items: [
         (id: 0, kind: Method(args: [
             (ident: "waveform", ty: OutOfLine(type_idx: 16)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 17), err_ty: OutOfLine(type_idx: 18)))), multiplicity: Flat, since: None, ident: "set", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 17), err_ty: OutOfLine(type_idx: 18))), errors: None), multiplicity: Flat, since: None, ident: "set", docs: [
             "Starts or changes the output and returns what the DAC actually does.",
             "",
             "# Errors",
             "",
             "[WgError::InvalidArgument] (frequency or levels out of range), [WgError::Unsupported] (shape or format),",
             "[WgError::WrongMode] (an `Arbitrary` shape with no table), [WgError::InUse], [WgError::Refused].",
-        ]),
+        ], optional: None),
         (id: 1, kind: Method(args: [
             (ident: "level", ty: OutOfLine(type_idx: 15)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 18)))), multiplicity: Flat, since: None, ident: "stop", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 18))), errors: None), multiplicity: Flat, since: None, ident: "stop", docs: [
             "Stops and holds `level`; returns the level actually held.",
             "",
             "# Errors",
             "",
             "[WgError::InvalidArgument] (out of range), [WgError::Refused].",
-        ]),
-        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 19))), multiplicity: Flat, since: None, ident: "state", docs: []),
+        ], optional: None),
+        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 19)), errors: None), multiplicity: Flat, since: None, ident: "state", docs: [], optional: None),
         (id: 3, kind: FlowSink(ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "table", docs: [
             "Table of an [Shape::Arbitrary] waveform, raw codes appended in order; `Open` starts a new table, `Close`",
             "completes it. The credit is the free table memory.",
-        ]),
+        ], optional: None),
     ]), crate_idx: 0),
     InLine(level: (docs: [
         "DAC outputs.",
     ], crate_idx: 0, trait_name: "WaveformGenerator", items: [
-        (id: 0, kind: Trait(trait_idx: 1), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: []),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 22))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [], optional: None),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 22)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "The channels, their ranges and formats.",
-        ]),
+        ], optional: None),
         (id: 2, kind: Method(args: [
             (ident: "channels", ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8))))),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 18)))), multiplicity: Flat, since: None, ident: "start_together", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 18))), errors: None), multiplicity: Flat, since: None, ident: "start_together", docs: [
             "Starts every channel in `channels` (already `set`, held) on the same sample clock tick, so their phases line",
             "up.",
             "",
             "# Errors",
             "",
             "[WgError::NoSuchChannel], [WgError::Unsupported] (the channels don\'t share a clock), [WgError::WrongMode].",
-        ]),
+        ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_signal_generator", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_logic_analyzer", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_logic_analyzer", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_adc", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-])
+], root_omitted: None)

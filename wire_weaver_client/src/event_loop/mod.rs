@@ -10,5 +10,7 @@ pub(crate) mod transport;
 
 #[cfg(test)]
 pub(crate) mod device_e2e_tests;
+#[cfg(test)]
+mod stream_e2e_tests;
 
 pub(crate) type DeviceHandle = Box<dyn Any + Send>;

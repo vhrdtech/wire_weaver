@@ -25,18 +25,20 @@ use crate::event_loop::command::Command;
 use crate::event_loop::stream::{self, BlockingStreamIo, StreamConfig, StreamRx, StreamTx};
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Transport};
 
-const PACKET: usize = 64;
+pub(crate) const PACKET: usize = 64;
 pub(crate) const DEV_MAX_MESSAGE: usize = 1024;
 
-type Packet = Vec<u8>;
-type TxFramer = ww_framer::TxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
-type RxFramer = ww_framer::FramedRxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
+pub(crate) type Packet = Vec<u8>;
+pub(crate) type TxFramer =
+    ww_framer::TxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
+pub(crate) type RxFramer =
+    ww_framer::FramedRxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
 
 // Host side: same framing as NusbTx / NusbRx, over channels
 
-struct HostTx {
-    framer: TxFramer,
-    packets: mpsc::Sender<Packet>,
+pub(crate) struct HostTx {
+    pub(crate) framer: TxFramer,
+    pub(crate) packets: mpsc::Sender<Packet>,
 }
 
 impl MessageTx for HostTx {
@@ -61,9 +63,9 @@ impl MessageTx for HostTx {
     }
 }
 
-struct HostRx {
-    framer: RxFramer,
-    packets: mpsc::Receiver<Packet>,
+pub(crate) struct HostRx {
+    pub(crate) framer: RxFramer,
+    pub(crate) packets: mpsc::Receiver<Packet>,
 }
 
 impl MessageRx for HostRx {
@@ -80,7 +82,7 @@ impl MessageRx for HostRx {
     }
 }
 
-struct PipeTransport(Option<Opened<HostTx, HostRx>>);
+pub(crate) struct PipeTransport(pub(crate) Option<Opened<HostTx, HostRx>>);
 
 impl Transport for PipeTransport {
     type Tx = HostTx;
@@ -92,7 +94,7 @@ impl Transport for PipeTransport {
 
 // Device side: packet IO over channels, tokio clock
 
-struct DevSink(mpsc::Sender<Packet>);
+pub(crate) struct DevSink(pub(crate) mpsc::Sender<Packet>);
 
 impl ww_device::PacketSink for DevSink {
     type Error = ();
@@ -101,7 +103,7 @@ impl ww_device::PacketSink for DevSink {
     }
 }
 
-struct DevSource(mpsc::Receiver<Packet>);
+pub(crate) struct DevSource(pub(crate) mpsc::Receiver<Packet>);
 
 impl ww_device::PacketSource for DevSource {
     type Error = ();
@@ -116,7 +118,7 @@ impl ww_device::PacketSource for DevSource {
     async fn wait_connected(&mut self) {}
 }
 
-struct TokioClock(tokio::time::Instant);
+pub(crate) struct TokioClock(pub(crate) tokio::time::Instant);
 
 impl ww_device::Clock for TokioClock {
     fn now(&self) -> ww_device::Instant {

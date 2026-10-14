@@ -17,7 +17,7 @@
   `Commander::prepare_stream_open::<R, S>(path, delivery, args)` opens any stream by calling its stream function
   (`RequestKind::StreamOpen`), `prepare_stream_resume(path, delivery, cursor)` resumes one; `PreparedStreamOpen`
   (`call()` / `blocking_call()`, `with_timeout`, `ack_mode`, `window`, `queue_bytes`) returns the function's result
-  with the handle (`StreamOpenResult`: `((), S)` or `Result<(A, S), E>`). `PositionedStream<T>`: `recv_event()` with
+  with the handle (`StreamOpenResult`: the handle alone, or `Result<(A, S), E>`). `PositionedStream<T>`: `recv_event()` with
   `StreamEvent::Item { pos, units, t, run, value, .. }` / `Gap { at, units, cause, run }` / `Resumed` /
   `BackfillDone` / `Disconnected` / `Closed`, `recv()` for values only, blocking and `try_` variants, `split()` into
   the live and the backfill run, `cursor()`, `ack(pos)` (`AckMode::Explicit`), `stats()` (`StreamStats`), `close()`.

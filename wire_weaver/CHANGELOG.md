@@ -12,6 +12,8 @@
 
 ### 🚀 Features
 
+- `api_doc` module with `Property<T, E>`, `Stream<T>` and `Sink<T>` markers, return types of the rustdoc-only trait
+  that `#[ww_trait]` generates (DOC-6), with a table of how each resource shows up.
 - `Context<'_, O, M = ()>`, passed to every server handler: request `seq()`, `medium()` the request came from,
   `reply_to()` (`ReplyTo { medium, seq }`) to answer a deferred call later, and it sends events (stream updates,
   property updates, deferred replies) through `EventOut` (async) / `BlockingEventOut` (sync).

@@ -31,3 +31,31 @@ trait Channel {
     property!(rw gain: f32);
     fn run();
 }
+
+/// `#[ww_trait]` makes a Rust trait for rustdoc (`wire_weaver::api_doc`), these fail to compile if its shape changes.
+#[cfg(test)]
+#[allow(dead_code)]
+mod doc_trait {
+    use super::*;
+    use wire_weaver::api_doc::Property;
+
+    fn subgroup<S: Subgroup>(_: fn() -> S) {}
+    fn gpio_array<G: Gpio>(_: fn(UNib32) -> G) {}
+    fn peripheral_array<P: Peripheral>(_: fn(UNib32) -> P) {}
+    fn channel_array<C: Channel>(_: fn(UNib32) -> C) {}
+
+    fn traits<T: Traits>() {
+        subgroup(T::g1);
+        gpio_array(T::gpio);
+        peripheral_array(T::periph);
+    }
+
+    fn peripheral<P: Peripheral>() {
+        channel_array(P::channel);
+    }
+
+    fn channel<C: Channel>() {
+        let _: fn() -> Property<f32> = C::gain;
+        let _: fn() = C::run;
+    }
+}

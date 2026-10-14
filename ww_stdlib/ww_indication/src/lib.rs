@@ -23,7 +23,7 @@ pub trait Indication {
     const HAS_NOT_CONTROLLABLE: bool;
 
     /// Indicator names: can be left empty for conserving memory.
-    const NAMES: RefVec<'i, str>;
+    const NAMES: RefVec<'i, &'i str>;
 }
 
 #[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, PartialEq, Eq), ww_repr = nib)]

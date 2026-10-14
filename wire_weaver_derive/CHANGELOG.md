@@ -2,12 +2,22 @@
 
 ### ⚠️ Breaking
 
+- `#[ww_trait]` / `#[ww_api_root]` emit a Rust trait of the same name and visibility that describes the API for
+  rustdoc (DOC-6), instead of private `SrcMarker*` aliases. It is checked by the compiler in the API crate, so
+  definitions that slipped through before fail now: types must be valid Rust (`RefVec<'i, &'i str>` instead of
+  `RefVec<'i, str>`, `I2cReadEnvelope<'i>` instead of a hidden lifetime), and a trait used from another crate in
+  `ww_impl!` must be `pub` (it was enough for its `*_FULL_GID` const to be public). Such a crate must be built with
+  this version too, since `ww_impl!` now names the trait itself. Wire format and codegen output are unchanged.
 - `ww_api!` is renamed to `ww_codegen!` (the old name is deprecated). `client = ".."` flavors are now
   `"std_client"` (from the API root, transport picked at connect time) and `"trait_client"`; `"raw"` (no_std) is
   not working yet.
 
 ### 🚀 Features
 
+- API traits show up in `cargo doc` and on docs.rs (DOC-6): methods with their signatures, properties, streams,
+  sinks, consts and `ww_impl!` sub-traits as functions returning `wire_weaver::api_doc` markers, all with their doc
+  comments plus a note with access mode, array index, `#[credit]` and `#[since]`. The trait doc comment moved from
+  `*_FULL_GID` to the trait, the `*_FULL_GID` / `*_COMPACT_GID` consts got docs of their own.
 - `medium = "path::to::Medium"` argument of `ww_codegen!`, the type handlers get from `cx.medium()`, see
   `wire_weaver_core` changelog for the handler context.
 - `#[ww_api_root]` to mark the API entry point, `#[ww_trait(gid)]` to give a trait a global id.

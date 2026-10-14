@@ -33,7 +33,7 @@ pub trait I2c {
         kind: I2cReadKind<'i>,
         len: u16,
         delay_after: u32,
-    ) -> Result<I2cReadEnvelope, I2cError>;
+    ) -> Result<I2cReadEnvelope<'i>, I2cError>;
 
     // TODO: SMBus commands
 

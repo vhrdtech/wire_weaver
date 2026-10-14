@@ -268,7 +268,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **API-13 Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.
 - 📋 **API-14 Load API crates from crates.io** · `v0.5` — the crate walker handles path and workspace dependencies;
   `crate = "version"` dependencies hit a `todo!()` in `wire_weaver_core/src/transform/crate_walker.rs`. Also
-  dependencies from git (backlog).
+  dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
+  done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
+  docs.rs (DOC-6).
 - 📋 **API-15 Return streams from functions** · `v0.5.x` — related idea: model streams as functions that can be called
   to change parameters, subscribe, stop.
 - 📋 **API-16 Feature groups** · `v0.5.x` — resources behind features (all enabled by default), connected to the user
@@ -524,8 +526,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **DOC-5 Open docs `TODO`s** — export of all API levels with ids (`api/addressing.md`), splitting traits into
   multiple files (`api/traits.md`), interrupt vs bulk (`transport/usb.md`), `T` → struct containing `T`
   (`evolution/rules.md`).
-- 🔍 **DOC-6 Docs for `ww_stdlib` crates and resource doc comments** · `v0.5.x` — the crates are now publishable, so
-  docs.rs builds them; check whether generated resource types carry doc comments.
+- 🚧 **DOC-6 Docs for `ww_stdlib` crates and resource doc comments** · `v0.5.x` — done: `#[ww_trait]` leaves a Rust
+  trait of the same name for rustdoc, with every resource and its doc comments (properties, streams, sinks and
+  sub-traits as `wire_weaver::api_doc` markers, see `api/traits.md`), checked with nightly `--cfg docsrs` on a
+  crates.io-shaped copy of `ww_i2c`. Missing: docs.rs builds of crates whose API uses another crate's types or traits
+  (`ww_uart`, `ww_gpio`, `ww_si` types), the macro panics on their `version = ".."` dependencies, needs API-14.
 
 ## Testing, CI and performance (`TEST`)
 

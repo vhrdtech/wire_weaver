@@ -57,8 +57,11 @@ pub fn ww_impl(args: TokenStream) -> TokenStream {
     ww_api::ww_impl(args).into()
 }
 
-/// Define a ww_trait, this macro is only a marker and produces no Rust code. All the work is done inside ww_impl! macro, which
-/// loads the appropriate .rs file again through a file system or from crates.io, finds this marker and parses the trait definition.
+/// Define a ww_trait. All the work is done inside ww_codegen! / ww_impl! macros, which load the appropriate .rs file
+/// again through a file system or from crates.io, find this marker and parse the trait definition.
+///
+/// In place, this macro leaves a Rust trait of the same name that only describes the API, so that rustdoc shows it with
+/// all its resources (see `wire_weaver::api_doc`), and `*_FULL_GID` / `*_COMPACT_GID` consts with the API version.
 ///
 /// Example:
 /// ```ignore

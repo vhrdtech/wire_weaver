@@ -6,7 +6,7 @@ pub use ww_si::Volt;
 /// A bank of related IO pins.
 /// Each pin in a bank is using the same reference voltage, that can be adjusted if supported by hardware.
 #[ww_trait]
-trait Bank {
+pub trait Bank {
     /// Array of individual pins.
     /// Suggested indexing scheme:
     /// * Range - useful when a device has sequentially marked IOs (e.g., IO expander)

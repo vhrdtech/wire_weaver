@@ -36,3 +36,17 @@ pub struct Odd<'i> {
     pub name: &'i str,
     pub flag: bool,
 }
+
+/// `#[ww_trait]` makes a Rust trait for rustdoc (`wire_weaver::api_doc`), this fails to compile if its shape changes.
+#[cfg(test)]
+#[allow(dead_code)]
+fn doc_trait<T: Streams>() {
+    use wire_weaver::api_doc::{Sink, Stream};
+    let _: fn() -> Stream<u8> = T::plain_stream;
+    let _: fn() -> Sink<u8> = T::plain_sink;
+    let _: fn() -> Stream<[u8]> = T::vec_stream;
+    let _: fn(UNib32) -> Stream<[u8]> = T::array_of_streams;
+    let _: fn() = T::finish;
+    let _: fn(u8) -> u8 = T::emit;
+    let _: fn() -> Stream<Odd<'static>> = T::odd_stream;
+}

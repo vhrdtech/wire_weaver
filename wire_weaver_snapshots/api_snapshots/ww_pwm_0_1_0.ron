@@ -3,12 +3,43 @@
 (magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
+    "# Traits",
+    "",
     "| Trait        | What it is for                                                       | Who implements it          |",
-    "|--------------|----------------------------------------------------------------------|----------------------------|",
+    "|--------------|------------------------------------------------------------------------|----------------------------|",
     "| `Pwm`        | `channel[]` of PWM outputs: frequency, duty, polarity.               | Every device with PWM      |",
     "| `PwmCapture` | `channel[]` of inputs measuring frequency, duty, pulse width, edges. | Devices with timer capture |",
     "",
-    "Channels in one group share a timer and so a frequency ([PwmChannelInfo::group]).",
+    "```rust,ignore",
+    "#[ww_api_root]",
+    "trait MyController {",
+    "    ww_impl!(pwm: ww_pwm::Pwm);",
+    "    ww_impl!(pwm_capture: ww_pwm::PwmCapture);",
+    "}",
+    "```",
+    "",
+    "# Channels and groups",
+    "",
+    "Channel `n` of every method is `channels[n]` of [PwmCapabilities::channels], the order the device lists them.",
+    "Channels that share a timer share a frequency too ([PwmChannelInfo::group]): `PwmChannel::set_output` on one",
+    "channel changes it for the whole group; asking another channel of the same group for a different frequency",
+    "fails with [PwmError::SharedTimer]. [PwmChannelInfo::capture] says whether a channel is also reachable through",
+    "`PwmCapture`, at the same index.",
+    "",
+    "`PwmCapture` is its own trait (not a mode of `PwmChannel`): measuring pulses needs a timer in capture/input",
+    "mode, which most devices with PWM output don\'t have spare on every channel, so a plain PWM driver implements",
+    "`Pwm` only.",
+    "",
+    "# Streams",
+    "",
+    "`PwmCaptureChannel::capture` sends one [CaptureSample] per `gate` while a capture is running.",
+    "`PwmCaptureChannel::set_capture` sets up what to measure and over which window; the stream\'s own sideband",
+    "`Open` / `Close` starts and stops measuring (streams in the IO family carry no sequence number or loss count,",
+    "see `docs/std_library/io_family.md`).",
+    "",
+    "# Errors",
+    "",
+    "All traits return [PwmError]; each method lists the variants it returns.",
 ], crate_idx: 0, trait_name: "ww_pwm", items: [
     (id: 0, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "Pwm", docs: []),
     (id: 1, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "PwmChannel", docs: []),
@@ -25,50 +56,96 @@
         13,
         219,
     ]),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "PwmOutput", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What to set, see `PwmChannel::set_output`.",
+    ], ident: "PwmOutput", fields: Named([
         (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
         (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "0..=65535 = 0..100 %.",
         ]),
-        (ident: Some("inverted"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("phase_correct"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("inverted"), default: None, since: None, ty: Bool, docs: [
+            "Active level inverted: idle low instead of high, or the reverse.",
+        ]),
+        (ident: Some("phase_correct"), default: None, since: None, ty: Bool, docs: [
+            "Symmetric (center-aligned) counting instead of edge-aligned; usually halves the usable frequency range for",
+            "the same duty resolution.",
+        ]),
     ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "PwmActual", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `PwmChannel::set_output` or `PwmChannel::set_duty` actually set, see [PwmState::Output].",
+    ], ident: "PwmActual", fields: Named([
         (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
-        (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "0..=65535 = 0..100 %.",
+        ]),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "PwmError", variants: [
-        (docs: [], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "InUse", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "NoIoLevel", fields: Unit, discriminant: 2, since: None),
-        (docs: [], ident: "Refused", fields: Unit, discriminant: 3, since: None),
-        (docs: [], ident: "InvalidArgument", fields: Unit, discriminant: 4, since: None),
-        (docs: [], ident: "WrongMode", fields: Unit, discriminant: 5, since: None),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
+        "Errors of every trait in this crate. Each method lists the variants it returns.",
+        "",
+        "How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is being",
+        "designed for all of `ww_stdlib` (`ww-errors-plan`); until then this enum stays plain.",
+    ], ident: "PwmError", variants: [
+        (docs: [
+            "Not supported by this device (a capture mode).",
+        ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "The pins or the timer serve another function.",
+        ], ident: "InUse", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "The output or capture input buffers have no supply.",
+        ], ident: "NoIoLevel", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "A safety rule of the device doesn\'t allow it.",
+        ], ident: "Refused", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "An argument is out of range (frequency, duty, gate).",
+        ], ident: "InvalidArgument", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "The call needs another state (changing duty on a stopped channel, reading a capture before one was taken).",
+        ], ident: "WrongMode", fields: Unit, discriminant: 5, since: None),
         (docs: [
             "The other channel of the group runs at another frequency.",
         ], ident: "SharedTimer", fields: Unit, discriminant: 6, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "PwmState", variants: [
-        (docs: [], ident: "Idle", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Output", fields: Unnamed([
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "The channel\'s output, see `PwmChannel::state`.",
+    ], ident: "PwmState", variants: [
+        (docs: [
+            "Stopped: `PwmChannel::stop` was called, or the channel never started.",
+        ], ident: "Idle", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Running, with what was actually set.",
+        ], ident: "Output", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "PwmChannelInfo", fields: Named([
-        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: []),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One PWM channel, see [PwmCapabilities::channels].",
+    ], ident: "PwmChannelInfo", fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: [
+            "For the user: \"TIM1_CH1\", \"servo\", \"fan\".",
+        ]),
         (ident: Some("group"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
-            "Channels with the same group share the frequency.",
+            "Channels with the same group share a timer and so a frequency, see the crate docs.",
         ]),
         (ident: Some("capture"), default: None, since: None, ty: Bool, docs: [
-            "This channel is also in `PwmCapture`.",
+            "This channel is also in `PwmCapture`, at the same index.",
         ]),
     ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "PwmCapabilities", fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(OutOfLine(type_idx: 5))), docs: []),
-        (ident: Some("min_freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
-        (ident: Some("max_freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What a device\'s PWM offers, see `Pwm::capabilities`.",
+    ], ident: "PwmCapabilities", fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(OutOfLine(type_idx: 5))), docs: [
+            "Channel `n` of every method is `channels[n]`.",
+        ]),
+        (ident: Some("min_freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "Lowest frequency any channel can be set to.",
+        ]),
+        (ident: Some("max_freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "Highest frequency any channel can be set to.",
+        ]),
         (ident: Some("duty_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
-            "Duty resolution of the hardware.",
+            "Duty resolution of the hardware: `set_duty`\'s 0..=65535 range is rounded to this many bits.",
         ]),
     ]))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
@@ -81,7 +158,9 @@
         103,
         224,
     ]),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "CaptureValue", variants: [
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "A measurement, in the mode [CaptureConfig::mode] set; the variant always matches it.",
+    ], ident: "CaptureValue", variants: [
         (docs: [], ident: "Frequency", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
         ]), discriminant: 0, since: None),
@@ -97,61 +176,123 @@
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "CaptureSample", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One measurement, see `PwmCaptureChannel::capture` and `PwmCaptureChannel::read_capture`.",
+    ], ident: "CaptureSample", fields: Named([
         (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [
             "End of the measurement window.",
         ]),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "CaptureMode", variants: [
-        (docs: [], ident: "Off", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Frequency", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "DutyCycle", fields: Unit, discriminant: 2, since: None),
-        (docs: [], ident: "PulseWidth", fields: Unit, discriminant: 3, since: None),
-        (docs: [], ident: "EdgeCount", fields: Unit, discriminant: 4, since: None),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "What `PwmCaptureChannel::set_capture` measures, see [CaptureValue] for the matching result.",
+    ], ident: "CaptureMode", variants: [
+        (docs: [
+            "No measurement; the channel is free for another function.",
+        ], ident: "Off", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Rising-edge to rising-edge, averaged over `gate`.",
+        ], ident: "Frequency", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "High time over the period, averaged over `gate`.",
+        ], ident: "DutyCycle", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "A single pulse\'s high (or low, device-defined) time.",
+        ], ident: "PulseWidth", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "Rising (or falling, device-defined) edges counted over `gate`.",
+        ], ident: "EdgeCount", fields: Unit, discriminant: 4, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "CaptureConfig", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What to measure, see `PwmCaptureChannel::set_capture`.",
+    ], ident: "CaptureConfig", fields: Named([
         (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: []),
         (ident: Some("gate"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [
-            "Measurement window.",
+            "Measurement window: for [CaptureMode::Frequency], [CaptureMode::DutyCycle] and [CaptureMode::EdgeCount], how",
+            "long one measurement covers; [CaptureMode::PulseWidth] times the next single pulse, so `gate` only bounds",
+            "how long it waits for one to start.",
         ]),
     ]))), crate_idx: 0),
 ], traits: [
-    InLine(level: (docs: [], crate_idx: 0, trait_name: "PwmChannel", items: [
+    InLine(level: (docs: [
+        "One PWM output, see [PwmCapabilities::channels] for its group and whether it also captures.",
+    ], crate_idx: 0, trait_name: "PwmChannel", items: [
         (id: 0, kind: Method(args: [
             (ident: "output", ty: OutOfLine(type_idx: 1)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 2), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_output", docs: [
-            "Starts or changes the output and returns what was actually set.",
+            "Starts or changes the output and returns what was actually set (the nearest frequency and duty the hardware",
+            "can do).",
+            "",
+            "# Errors",
+            "",
+            "[PwmError::InvalidArgument] (frequency or duty out of range), [PwmError::SharedTimer] (another channel of",
+            "the same group already runs at a different frequency), [PwmError::InUse], [PwmError::NoIoLevel],",
+            "[PwmError::Refused].",
         ]),
         (id: 1, kind: Method(args: [
             (ident: "duty", ty: NumericAny(Base(U16))),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U16)), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_duty", docs: [
             "Changes only the duty (0..=65535 = 0..100 %), keeping the frequency; returns the duty actually set.",
+            "",
+            "# Errors",
+            "",
+            "[PwmError::WrongMode] (the channel is idle, `PwmChannel::set_output` first), [PwmError::InvalidArgument].",
         ]),
         (id: 2, kind: Method(args: [
             (ident: "idle_high", ty: Bool),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "stop", docs: [
             "Stops the output, leaving the pin high or low.",
+            "",
+            "# Errors",
+            "",
+            "[PwmError::InUse], [PwmError::Refused].",
         ]),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4))), multiplicity: Flat, since: None, ident: "state", docs: []),
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4))), multiplicity: Flat, since: None, ident: "state", docs: [
+            "The current output, or [PwmState::Idle] if stopped.",
+        ]),
     ]), crate_idx: 0),
-    InLine(level: (docs: [], crate_idx: 0, trait_name: "Pwm", items: [
-        (id: 0, kind: Trait(trait_idx: 0), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: []),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "capabilities", docs: []),
+    InLine(level: (docs: [
+        "PWM outputs: frequency, duty cycle and polarity, channel by channel.",
+    ], crate_idx: 0, trait_name: "Pwm", items: [
+        (id: 0, kind: Trait(trait_idx: 0), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [
+            "One PWM output per channel; channel `n` is `channels[n]` of `Pwm::capabilities`.",
+        ]),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+            "The channels, their groups and the frequency and duty range.",
+        ]),
     ]), crate_idx: 0),
-    InLine(level: (docs: [], crate_idx: 0, trait_name: "PwmCaptureChannel", items: [
+    InLine(level: (docs: [
+        "One capture input, measuring over successive `gate` windows while its stream is open.",
+    ], crate_idx: 0, trait_name: "PwmCaptureChannel", items: [
         (id: 0, kind: Stream(ty: OutOfLine(type_idx: 9), is_up: true), multiplicity: Flat, since: None, ident: "capture", docs: [
-            "Measurements, one per `gate`, while capture is on.",
+            "Measurements, one per `gate`, while capture is on. Started and stopped by the stream\'s own sideband `Open` /",
+            "`Close`; `PwmCaptureChannel::set_capture` picks what and over which window.",
         ]),
         (id: 1, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 11)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_capture", docs: []),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_capture", docs: [
+            "Sets up what to measure and returns what was actually set (the nearest gate the hardware can do).",
+            "",
+            "# Errors",
+            "",
+            "[PwmError::Unsupported] (this mode isn\'t available on this channel), [PwmError::InvalidArgument] (gate out",
+            "of range), [PwmError::InUse], [PwmError::Refused].",
+        ]),
         (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 9), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "read_capture", docs: [
             "The last measurement.",
+            "",
+            "# Errors",
+            "",
+            "[PwmError::WrongMode] (no measurement yet; `PwmCaptureChannel::set_capture` first, then wait for at least",
+            "one `gate`).",
         ]),
     ]), crate_idx: 0),
-    InLine(level: (docs: [], crate_idx: 0, trait_name: "PwmCapture", items: [
-        (id: 0, kind: Trait(trait_idx: 2), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: []),
+    InLine(level: (docs: [
+        "Pulse measurement: frequency, duty cycle, pulse width or edge count, channel by channel.",
+    ], crate_idx: 0, trait_name: "PwmCapture", items: [
+        (id: 0, kind: Trait(trait_idx: 2), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [
+            "One capture input per channel; channel `n` is the same index as `Pwm`\'s, see [PwmChannelInfo::capture].",
+        ]),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_pwm", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

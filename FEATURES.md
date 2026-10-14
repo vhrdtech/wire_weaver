@@ -575,6 +575,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Python `RemoteError.common` with the doc line as the message, `ww api tree -t` marks it. Display by hand until
   DER-12 takes over. Moving the stdlib crates' errors to it is still to do.
   `docs/std_library/ww_error.md`, `tests/common_error`.
+- ✅ **STD-19 `ww_pwm`** — `Pwm` / `PwmChannel` outputs (`set_output`, `set_duty`, `stop`, `state`), `PwmCapture` /
+  `PwmCaptureChannel` measurements (frequency, duty, pulse width, edge count) over a plain stream with sideband
+  `Open` / `Close`. Full rustdoc, mock server and in-process tests (`tests/io_pwm`), docs page
+  (`docs/std_library/ww_pwm.md`) (STD-13).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
@@ -604,7 +608,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (STD-13).
 - 🚧 **STD-17 `ww_timebase`** · `v0.5` — `Clock`: device time as `ww_si::Second`, sync master / slave, `time_map`
   stream. Skeleton; fill-in next (STD-13).
-- 🚧 **STD-19 `ww_pwm`** · `v0.5` — `Pwm` / `PwmChannel` outputs, `PwmCapture` measurements. Skeleton (STD-13).
 - 🚧 **STD-20 `ww_onewire`** · `v0.5` — `OneWire`: transactions, search, triplet. Skeleton (STD-13).
 - 📋 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
   `Raw` and `Transitions` encodings (SW-31). Design pass first (STD-13).

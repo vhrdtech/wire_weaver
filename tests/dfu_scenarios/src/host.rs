@@ -100,3 +100,26 @@ macro_rules! send_steps {
         }
     }};
 }
+
+/// Stream plan bytes `$from..$to` of `$plan`'s body on the `plan` credit sink of `$bulk`, in segments of
+/// `$max_piece`, and wait until the device has them all (`flush`).
+#[macro_export]
+macro_rules! send_bulk {
+    ($bulk:expr, $plan:expr, $from:expr, $to:expr, $max_piece:expr) => {{
+        let mut sink = $bulk.plan().await.unwrap();
+        let (from, to) = ($from as usize, $to as usize);
+        let mut offset = from;
+        while offset < to {
+            let end = (offset + $max_piece as usize).min(to);
+            sink.send_owned(ww_dfu::PlanSegmentOwned {
+                offset: offset as u32,
+                data: MaxLen::new($plan.body[offset..end].to_vec()).unwrap(),
+            })
+            .await
+            .unwrap();
+            offset = end;
+        }
+        sink.flush().await.unwrap();
+        sink
+    }};
+}

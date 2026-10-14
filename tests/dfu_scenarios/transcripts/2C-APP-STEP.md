@@ -3,14 +3,17 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          4 B  01 00 00 02
-← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 1364656640, app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed, last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true, stage: true, stage_bulk: true } }
+← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 4242, app_version: Some(1),
+      version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
+      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
+      stage: true, stage_bulk: true } }
         42 B  01 80 00 00 73 69 6d 2d 64 66 …
 → stage.limits()
          4 B  02 03 00 02
 ← { max_piece: 64, in_flight: 1, live: true, stored: false, plan_area: 0, writes_in_background: true }
         13 B  02 80 40 00 00 00 01 80 00 00 …
-→ stage.begin(target: Live, header: [35 B: 57 57 44 50 01 00 …])
-        41 B  03 03 10 00 57 57 44 50 01 00 …
+→ stage.begin(target: Live, header: [35 B: 57 57 44 50 01 92 …])
+        41 B  03 03 10 00 57 57 44 50 01 92 …
 ← Ok({ steps: 11, resumed: false, resume_from: 0 })
         13 B  03 80 80 0b 00 00 00 00 00 00 …
 → stage.erase(index: 0, block: 0)
@@ -79,7 +82,10 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          4 B  01 00 00 02
-← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 1364656640, app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Trial, last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true, stage: true, stage_bulk: true } }
+← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 4242, app_version: Some(2),
+      version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Trial,
+      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
+      stage: true, stage_bulk: true } }
         42 B  01 80 00 00 73 69 6d 2d 64 66 …
 → boot.confirm()
          4 B  02 01 10 02
@@ -87,7 +93,10 @@
          3 B  02 80 80
 → node.node()
          4 B  03 00 00 02
-← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 1364656640, app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed, last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true, stage: true, stage_bulk: true } }
+← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 4242, app_version: Some(2),
+      version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
+      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
+      stage: true, stage_bulk: true } }
         42 B  03 80 00 00 73 69 6d 2d 64 66 …
 ```
 
@@ -97,14 +106,14 @@
 ```text
    ── device runs the app
 →    5 B  04 01 00 00 02
-←   44 B  08 2a 01 80 00 00 73 69 6d 2d 64 66 75 00 02 57
-          51 80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1
+←   44 B  08 2a 01 80 00 00 73 69 6d 2d 64 66 75 92 10 00
+          00 80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1
           e0 02 14 00 00 00 00 00 00 f0 01 57
 →    5 B  04 02 03 00 02
 ←   15 B  08 0d 02 80 40 00 00 00 01 80 00 00 00 00 80
-→   43 B  08 29 03 03 10 00 57 57 44 50 01 00 02 57 51 02
+→   43 B  08 29 03 03 10 00 57 57 44 50 01 92 10 00 00 02
           00 00 00 0b 00 67 01 00 00 86 ba 52 71 00 2c c3
-          5d 9d ff e3 15 a4 73 e3 a5 3c 02
+          5d c1 92 3c 26 b1 01 e5 86 3c 02
 ←   15 B  08 0d 03 80 80 0b 00 00 00 00 00 00 00 00 19
 →   12 B  08 0a 04 03 20 00 00 00 00 00 00 02
 ←    4 B  03 04 80 80
@@ -164,14 +173,14 @@
    ── device runs the app
    ── host reconnects to the same device
 →    5 B  04 01 00 00 02
-←   44 B  08 2a 01 80 00 00 73 69 6d 2d 64 66 75 00 02 57
-          51 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
+←   44 B  08 2a 01 80 00 00 73 69 6d 2d 64 66 75 92 10 00
+          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
           c1 ef 0d 30 00 00 00 00 00 f0 01 57
 →    5 B  04 02 01 10 02
 ←    4 B  03 02 80 80
 →    5 B  04 03 00 00 02
-←   44 B  08 2a 03 80 00 00 73 69 6d 2d 64 66 75 00 02 57
-          51 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
+←   44 B  08 2a 03 80 00 00 73 69 6d 2d 64 66 75 92 10 00
+          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
           c1 ef 0d 00 10 02 00 00 00 f0 01 57
 ```
 

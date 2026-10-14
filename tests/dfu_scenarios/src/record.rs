@@ -211,7 +211,16 @@ fn is_lone_ping(bytes: &[u8]) -> bool {
 /// One readable line: the decoded message, then its size and first bytes.
 fn line(out: &mut String, dir: Dir, text: &str, bytes: &[u8]) {
     let short = short_hex(bytes, 10);
-    writeln!(out, "{} {text}", dir.arrow()).unwrap();
+    // long values (NodeInfo) wrapped after a comma
+    let mut row = format!("{} ", dir.arrow());
+    for (i, part) in text.split_inclusive(", ").enumerate() {
+        if i > 0 && row.chars().count() + part.len() > 112 {
+            writeln!(out, "{}", row.trim_end()).unwrap();
+            row = "      ".into();
+        }
+        row.push_str(part);
+    }
+    writeln!(out, "{row}").unwrap();
     writeln!(out, "      {:>4} B  {short}", bytes.len()).unwrap();
 }
 
@@ -343,7 +352,7 @@ impl Decoder {
                 let w = CreditWrite::from_ww_bytes(data.0).map_err(|e| format!("{e:?}"))?;
                 let v = ValueOwned::des_shrink_wrap_dyn(w.data.0, ty, &b)
                     .map_err(|e| format!("{e:#}"))?;
-                format!("{} ⇐ {} at byte {}", res.name, fmt_value(&v), w.pos.0)
+                format!("{} ⇐ {} (sink position {})", res.name, fmt_value(&v), w.pos.0)
             }
             (RequestKind::Write { data }, ApiItemKindOwned::Stream { ty, .. }) => {
                 let v = ValueOwned::des_shrink_wrap_dyn(data.0, ty, &b)

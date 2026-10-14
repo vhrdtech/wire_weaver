@@ -276,6 +276,9 @@ impl Flash {
                     self.apply_stored(rec)?;
                 }
                 if self.enter_updater {
+                    if !self.app_bootable() {
+                        rec.note("bootloader: an update is under way, the app slot is not bootable: starts the updater");
+                    }
                     return Ok(Firmware::Updater);
                 }
                 if !self.app_bootable() {

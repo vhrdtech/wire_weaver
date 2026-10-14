@@ -403,7 +403,12 @@ impl Node {
 
     pub fn finish(&mut self) -> Result<BootState, Error> {
         let ram = self.ram.as_ref().ok_or(Error::NoSession)?;
-        if ram.next_step < ram.steps {
+        let complete = match (&ram.bulk, ram.target) {
+            // stored as it came: the steps are counted by the plan check below
+            (Some(bulk), Target::Stored) => bulk.have == bulk.total,
+            _ => ram.next_step == ram.steps,
+        };
+        if !complete {
             return Err(Error::Incomplete);
         }
         let hdr = Header::parse(&ram.header).expect("checked by begin");

@@ -1,7 +1,8 @@
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 
 [files]
-extend-exclude = []
+# generated hex dumps of the ww_dfu scenario tests
+extend-exclude = ["tests/dfu_scenarios/transcripts/"]
 
 [default.extend-identifiers]
 

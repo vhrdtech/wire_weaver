@@ -252,6 +252,7 @@ async fn run<F: Firmware>(
                 rec: rec.clone(),
                 rx: WsSplitter::new(Dir::ToDevice),
                 tx: WsSplitter::new(Dir::ToHost),
+                tx_ahead: 0,
             });
             let tx = ww_device::ws::WsTx::new(&conn, &mut tx_buf);
             let rx = ww_device::ws::WsRx::new(&conn, &mut rx_buf);
@@ -316,7 +317,7 @@ async fn serve<F: Firmware>(
         let node = backend.0.node();
         if node.power_cut {
             rec.note(&format!(
-                "power cut while the device applies step {}",
+                "power cut while the device applies step {}: no reply",
                 node.cut_step.unwrap_or_default()
             ));
             return End::Reset;
@@ -374,6 +375,9 @@ struct WsSocket<'l> {
     rec: Recorder,
     rx: WsSplitter,
     tx: WsSplitter,
+    /// Bytes recorded but not written yet: recorded before the write, so the record is complete once the host has a
+    /// reply
+    tx_ahead: usize,
 }
 
 impl ww_device::ws::Socket for WsSocket<'_> {
@@ -386,6 +390,7 @@ impl ww_device::ws::Socket for WsSocket<'_> {
         self.stream = Some(stream);
         self.rx = WsSplitter::new(Dir::ToDevice);
         self.tx = WsSplitter::new(Dir::ToHost);
+        self.tx_ahead = 0;
     }
 
     async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -397,8 +402,10 @@ impl ww_device::ws::Socket for WsSocket<'_> {
 
     async fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         use tokio::io::AsyncWriteExt;
+        // a partial write is called again with the rest, which is recorded already
+        self.tx.feed(&self.rec, &bytes[self.tx_ahead.min(bytes.len())..]);
         let n = self.stream.as_mut().unwrap().write(bytes).await?;
-        self.tx.feed(&self.rec, &bytes[..n]);
+        self.tx_ahead = bytes.len() - n;
         Ok(n)
     }
 }

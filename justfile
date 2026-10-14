@@ -6,6 +6,10 @@ default:
 test:
     cargo nextest run --workspace --no-fail-fast
 
+# Regenerate the ww_dfu scenario transcripts (tests/dfu_scenarios/transcripts, included by docs/std_library/ww_dfu.md)
+dfu-transcripts:
+    DFU_TRANSCRIPTS=update cargo nextest run -p dfu_scenarios
+
 # What CI checks besides the tests: formatting, manifests, typos, clippy and rustdoc, warnings are errors
 lint:
     cargo fmt --all --check

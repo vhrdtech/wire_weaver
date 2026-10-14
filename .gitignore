@@ -4,3 +4,4 @@ target/
 history.txt
 site/
 __pycache__/
+tests/dfu_scenarios/transcripts/*.actual.md

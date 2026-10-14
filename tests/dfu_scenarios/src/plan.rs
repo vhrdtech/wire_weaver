@@ -32,7 +32,7 @@ pub const ERASE: usize = 2 * CHUNK;
 /// Erase blocks per slot.
 pub const BLOCKS: usize = SLOT / ERASE;
 /// Geometry id of the simulated chip.
-pub const GEOMETRY_ID: u32 = 0x5157_0200;
+pub const GEOMETRY_ID: u32 = 4242;
 /// Length of the plan header.
 pub const HEADER_LEN: usize = 35;
 /// Key of the toy release signature (a real one is an Ed25519 or ECDSA signature over the descriptor).

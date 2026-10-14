@@ -265,8 +265,8 @@ pub struct PwmChannelInfo<'i> {
 
 /// Errors of every trait in this crate. Each method lists the variants it returns.
 ///
-/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is being
-/// designed for all of `ww_stdlib` (`ww-errors-plan`); until then this enum stays plain.
+/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is
+/// still open for `ww_stdlib`; until then this enum stays plain.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),

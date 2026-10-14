@@ -591,8 +591,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-23 `ww_si` / `ww_numeric` extended** · `v0.5` — quantity groups and host helpers as cargo features,
   `Second` as a device timestamp (wrap rule, host `Unwrapper`), constructors, conversions and comparisons across
   prefixes and storage, `UVlq32` / `UVlq64` storage (STD-13). `docs/std_library/ww_si.md`,
-  `docs/std_library/ww_numeric.md`. Zero-overhead typed quantities (`Volt<u16, Milli>`) are not part of
-  it, see `docs/std_library/io_family.md`.
+  `docs/std_library/ww_numeric.md`. Zero-overhead typed quantities (`Volt<u16, Milli>`) are not part of it.
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
@@ -613,17 +612,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **STD-13 IO trait family** · `v0.5` — `ww_gpio`, `ww_uart` (+ `UartMonitor`), `ww_i2c` (+ `I2cWatch`,
   `I2cMonitor`, 10-bit addresses), `ww_spi` (+ `SpiMonitor`), `ww_adc` (STD-18), `ww_pwm` (STD-19), `ww_onewire`
   (STD-20), `ww_timebase` (STD-17), `ww_logic_analyzer` / `ww_signal_generator` (STD-21, STD-22); `ww_si` values
-  and timestamps (STD-23), plain error enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Design
-  `docs/std_library/io_family.md` (approved 14 Oct); every crate filled in with full rustdoc, a mock-server test
-  pair `tests/io_<x>` and a docs page `docs/std_library/ww_<x>.md`; `examples_mcu` GPIO and UART boards follow.
-  Open: Roman's review of the filled-in crates; stream loss and timestamps move to ww-stream-reliability's stream
-  functions, error evolution to ww-errors-plan; `*_hl` crates are STD-14.
+  and timestamps (STD-23), plain error enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Family overview
+  in `docs/std_library/io_family.md`; every crate filled in with full rustdoc, a mock-server test pair
+  `tests/io_<x>` and a docs page `docs/std_library/ww_<x>.md`; `examples_mcu` GPIO and UART boards follow.
+  Open: stream loss/timestamp reporting and error evolution across the family; `*_hl` crates are STD-14.
 - 🚧 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
   `Raw` and per-channel `Transitions` encodings (SW-31 `DeltaOfDelta`), staged pattern triggers and protocol
-  stages (UART byte, I2C address, SPI first byte). Design approved 14 Oct (`docs/std_library/logic_analyzer.md`),
-  skeleton written, transitions as `DeltaOfDelta` (SW-50); fill-in next (STD-13).
+  stages (UART byte, I2C address, SPI first byte). Skeleton written, transitions as `DeltaOfDelta` (SW-50), docs
+  page `docs/std_library/ww_logic_analyzer.md`; mock-server test pair still open (STD-13).
 - 🚧 **STD-22 `ww_signal_generator`** · `v0.5.x` — `PatternGenerator` (digital, replays analyzer captures through
-  a credit sink), `WaveformGenerator` (DAC channels). Design approved 14 Oct, skeleton written (STD-13).
+  a credit sink), `WaveformGenerator` (DAC channels). Skeleton written, docs page
+  `docs/std_library/ww_signal_generator.md`; mock-server test pair still open (STD-13).
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

@@ -22,8 +22,8 @@
 //! per-channel transitions. A host reads a capture in an encoding the generator accepts
 //! ([PgCapabilities::raw], [PgCapabilities::transitions]) and sends the chunks to the `pattern` sink as they are.
 //!
-//! A square wave from a timer pin is `ww_pwm`; `WaveformGenerator` is for DACs. The design is in
-//! `docs/std_library/logic_analyzer.md`.
+//! A square wave from a timer pin is `ww_pwm`; `WaveformGenerator` is for DACs. See
+//! `docs/std_library/ww_signal_generator.md` for a full writeup.
 //!
 //! # Errors
 //!
@@ -255,7 +255,8 @@ pub enum PgStatus {
 
 /// Errors of `PatternGenerator`. Each method lists the variants it returns.
 ///
-/// How errors evolve is being designed for all of `ww_stdlib` (`ww-errors-plan`); until then this enum stays plain.
+/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is
+/// still open for `ww_stdlib`; until then this enum stays plain.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -402,7 +403,8 @@ pub enum WaveformState {
 
 /// Errors of `WaveformGenerator`. Each method lists the variants it returns.
 ///
-/// How errors evolve is being designed for all of `ww_stdlib` (`ww-errors-plan`); until then this enum stays plain.
+/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is
+/// still open for `ww_stdlib`; until then this enum stays plain.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),

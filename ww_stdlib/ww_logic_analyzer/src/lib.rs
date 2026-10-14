@@ -16,8 +16,8 @@
 //! ```
 //!
 //! Protocol decoding stays on the host; a device that decodes a protocol itself implements that protocol's monitor
-//! trait (`I2cMonitor`, `UartMonitor`, `SpiMonitor`). The design and its measurements are in
-//! `docs/std_library/logic_analyzer.md`.
+//! trait (`I2cMonitor`, `UartMonitor`, `SpiMonitor`). See `docs/std_library/ww_logic_analyzer.md` for the encodings
+//! and worked examples.
 //!
 //! # Encodings
 //!
@@ -119,7 +119,7 @@ pub trait LogicAnalyzer {
 ///
 /// `LogicStream::configure_stream` sets it up; the `data` stream's sideband `Open` starts sampling and `Close` stops
 /// it. Every chunk carries its first sample index: a gap in them is what a host sees when it couldn't keep up
-/// (loss reporting and backfill are `ww-stream-reliability`'s).
+/// (loss reporting and backfill are not covered yet).
 #[ww_trait]
 pub trait LogicStream {
     /// Captured data in the configured encoding: raw chunks, or transition chunks of each channel as they fill.
@@ -527,7 +527,8 @@ pub struct StreamState<'i> {
 
 /// Errors of both traits in this crate. Each method lists the variants it returns.
 ///
-/// How errors evolve is being designed for all of `ww_stdlib` (`ww-errors-plan`); until then this enum stays plain.
+/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is
+/// still open for `ww_stdlib`; until then this enum stays plain.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),

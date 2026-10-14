@@ -6,8 +6,7 @@
 //! | `UartMonitor`  | Both lines of a serial link as two streams, without driving them. | Sniffers, debug adapters |
 //!
 //! Received bytes come in chunks ([RxChunk]): a chunk ends after a short silence on the line, when it is full, or on
-//! a line error. How a host learns about chunks the device had to drop is the subject of the stream reliability
-//! work (`ww-stream-reliability`, see `docs/std_library/io_family.md`).
+//! a line error. How a host learns about chunks the device had to drop is not covered yet.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;

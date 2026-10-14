@@ -1,7 +1,8 @@
 //! Device time and synchronisation over WireWeaver.
 //!
 //! Every device has one free-running clock that timestamps everything it captures, as [Second]s since the clock
-//! started (see `docs/std_library/io_family.md`). `Clock` lets a host read it in full (to unwrap fixed-width
+//! started (see `docs/std_library/io_family.md` for how this ties into the other IO traits). `Clock` lets a host
+//! read it in full (to unwrap fixed-width
 //! timestamps and correlate with host time), and synchronise several devices: one is the master on a sync line,
 //! the others lock to it and publish `time_map` points that map their local time to the shared one.
 #![cfg_attr(not(feature = "std"), no_std)]

@@ -132,8 +132,7 @@ pub trait I2cMonitor {
 }
 ```
 
-How a host learns about records the device had to drop, and stream control in general, is the subject of the
-stream reliability work (`ww-stream-reliability`, see [the IO trait family design](io_family.md)) - for now
+How a host learns about records the device had to drop, and stream control in general, is not covered yet - for now
 `I2cRecord` carries no sequence number or loss count.
 
 ## Addresses
@@ -197,8 +196,8 @@ available by enabling the crate's `std` / `defmt` features.
 ## Errors
 
 Both `I2c` and `I2cWatch` return `I2cError`; every method's rustdoc lists the variants it actually returns. How
-errors evolve (variants added in newer versions, per-method error lists, errors that carry a reason) is being
-designed for all of `ww_stdlib` (`ww-errors-plan`); until then `I2cError` stays a plain enum.
+errors evolve (variants added in newer versions, per-method error lists, errors that carry a reason) is still open
+for `ww_stdlib`; until then `I2cError` stays a plain enum.
 
 ## Composing into a device API, and testing (`tests/io_i2c`)
 

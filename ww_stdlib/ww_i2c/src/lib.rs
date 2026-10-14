@@ -295,8 +295,7 @@ pub struct I2cWatchEvent<'i> {
 ///
 /// The same as [I2cMode::MonitorOnly] (or the `monitor` flag of [I2cMode::Master], to watch the adapter's own
 /// transfers too), for devices that only sniff and implement no `I2c`. How a host learns about records the device
-/// had to drop, and stream control in general, is the subject of the stream reliability work (`ww-stream-reliability`,
-/// see `docs/std_library/io_family.md`).
+/// had to drop, and stream control in general, is not covered yet.
 #[ww_trait]
 pub trait I2cMonitor {
     /// One record per transaction, in bus order.
@@ -515,8 +514,8 @@ pub struct I2cCapabilities<'i> {
 
 /// Errors of both traits in this crate. Each method lists the variants it returns.
 ///
-/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is being
-/// designed for all of `ww_stdlib` (`ww-errors-plan`); until then this enum stays plain.
+/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is
+/// still open for `ww_stdlib`; until then this enum stays plain.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),

@@ -98,7 +98,7 @@ pub trait PwmCaptureChannel {
   matches `CaptureConfig::mode`. `unib32` discriminant.
 * `PwmError` - `Unsupported`, `InUse`, `NoIoLevel`, `Refused`, `InvalidArgument`, `WrongMode`, `SharedTimer`; unsized
   (`unib32` discriminant, `self_describing`), evolvable. Error evolution (per-method lists, errors carrying a
-  reason) is `ww-errors-plan`'s; until then this enum stays plain, see [IO trait family](io_family.md).
+  reason) is still open for `ww_stdlib`; until then this enum stays plain.
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")` and
 `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`, so owned (`*Owned`) variants and `defmt::Format` are

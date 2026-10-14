@@ -64,7 +64,7 @@ pub trait Clock {
 * `SyncState` - `Free`, `Acquiring`, `Locked`, `Holdover`; `unib32` discriminant, evolvable.
 * `TimeMapPoint` - one `time_map` item: `local: Second`, `shared: Second`, `state: SyncState`.
 * `ClockError` - `Unsupported`, `InvalidArgument`, `WrongMode`, `InUse`; `self_describing`, `unib32`
-  discriminant, evolvable (plain error enum for now, see `docs/std_library/io_family.md` on `ww-errors-plan`).
+  discriminant, evolvable (plain error enum for now; error evolution is still open for `ww_stdlib`).
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")`, so owned (`*Owned`)
 variants are available by enabling the crate's `std` feature.

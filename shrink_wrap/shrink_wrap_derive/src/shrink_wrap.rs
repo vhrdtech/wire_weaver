@@ -321,6 +321,7 @@ impl<'a> CGSeed<'a> {
             repr,
             ident,
             variants: &ww_item_enum.variants,
+            future_version: ww_item_enum.future_version.as_ref(),
             cfg: self.cfg.as_ref(),
             cfg_attr: &self.cfg_attr,
             derive: &self.derive,

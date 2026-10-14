@@ -52,8 +52,8 @@ Two things to notice, both explained in detail below:
 
 ## Evolving types
 
-`#[default = ..]` on an `Option<T>` (or `Vec<T>`) field lets newer and older versions of a type read each other's
-data:
+`#[default = ..]` on a field marks it as added in a later version: newer and older versions of the type read each
+other's data. Fields with a default go after all the others.
 
 ```rust
 #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
@@ -87,7 +87,46 @@ fn evolved_struct() {
 ```
 
 This works for as long as the type stays `Unsized` (the default - see [Size assumptions](#size-assumptions-final_structure-self_describing-sized)
-below). See [evolution rules](../evolution/rules.md) for the full picture, and the
+below).
+
+A field with a default reads as its default only when it starts at the end of the data and its read runs out of data.
+A field that starts with data left is read as usual: a truncated or malformed value is an error, never replaced with
+the default. The default can be any expression of the field's type (`#[default = 7]`, `#[default = Vec::new()]`,
+`#[default = Default::default()]`).
+
+!!! note "Padding bits read as 0"
+    The last byte of older data can have unused bits (the rest of a byte after a `bool`, or the nibble next to a size
+    at the back of the buffer). A new bit-sized field there (`bool`, nibble, the flag of an `Option` or `Result`) is
+    read from them as 0, newer data packs it the same way. So give such fields their zero value as the default:
+    `false`, `None`. An `Option` with `#[default = Some(..)]` reads as `None` or the default depending on where the
+    old data ends.
+
+### Enum variants from a newer version
+
+A reader that gets a discriminant it doesn't know fails with `Error::EnumFutureVersionOrMalformedData`. An enum that
+will grow (errors, modes) can end with a variant marked `#[future_version]` instead: it holds any discriminant this
+version doesn't know, so an older host reports a newer device's error instead of failing to decode the reply, and
+can pass the value on.
+
+```rust
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = unib32)]
+enum IoError {
+    InUse,
+    Refused,
+    /// A variant from a newer version.
+    #[future_version]
+    Unknown(u32),
+}
+```
+
+- The variant is last, has one `u32` field (the discriminant), no discriminant of its own and no `#[cfg]`. It takes
+  no number on the wire: the next version adds `NoIoLevel` as 2 before it, and an older reader gets `Unknown(2)`.
+- The enum's bytes, `ELEMENT_SIZE` and `MAX_SIZE` are the same as without it, so it can be added in any version.
+- New variants may carry data only in an `Unsized` enum (the default): its size slot skips their fields. A `sized` or
+  `self_describing` enum has no size slot, there only new unit variants can be read past.
+- Writing `Unknown(d)` writes the discriminant `d` without fields, so a newer reader gets the variant back if it has
+  no fields. A `d` that doesn't fit `ww_repr` or is a known variant's gives `Error::SubtypeOutOfRange`.
+- `discriminant()` returns the wire discriminant, also for `Unknown(d)`. See [evolution rules](../evolution/rules.md) for the full picture, and the
 [evolution checker tool](../evolution/checker_tool.md) for automatically verifying compatibility across versions.
 
 ## Borrowed, owned, or both?

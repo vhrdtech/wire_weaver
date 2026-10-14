@@ -46,6 +46,10 @@
 
 ### 🐛 Fixes
 
+- `ValueOwned` deserialization of a field with `#[default]` falls back to the default only when the field starts at
+  the end of the data and runs out of it (SW-15), any other error is reported. An unknown discriminant of an
+  `Unsized` enum (a variant from a newer version, SW-16) reads as variant `<unknown N>` without fields instead of
+  failing.
 * Dynamic serialization (`ValueOwned::ser_shrink_wrap_dyn()`, `ser_shrink_wrap_vec_dyn()`, `des_shrink_wrap_dyn()`)
   produces and reads the same bytes as `#[derive_shrink_wrap]`: numbers, strings, `Vec`, arrays, tuples, `Result` and
   ranges were silently not written, `Box`, ranges and `u1`..`u64` / `i2`..`i64` were not read, sizes were

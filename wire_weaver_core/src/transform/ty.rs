@@ -197,6 +197,14 @@ fn convert_item_enum(
     let mut variants = vec![];
     let mut discriminant = 0;
     for variant in &item_enum.variants {
+        // holds a discriminant from a newer version, it is not a variant on the wire (SW-16)
+        if variant
+            .attrs
+            .iter()
+            .any(|a| a.path().is_ident("future_version"))
+        {
+            continue;
+        }
         let fields = convert_fields(&variant.fields, current_crate, scratch)?;
         if let Some((_, explicit_discriminant)) = &variant.discriminant {
             if let Expr::Lit(expr_lit) = explicit_discriminant

@@ -372,7 +372,6 @@ impl Type {
                 return;
             }
             Type::Vec(_inner_ty) => {
-                // TODO: how to handle eob to be zero length?
                 tokens.append_all(quote! { let #variable_name = rd.#read() #handle_err; });
                 return;
             }

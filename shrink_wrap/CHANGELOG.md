@@ -10,6 +10,14 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- Enum variants from a newer version (SW-16): an enum that ends with `#[future_version] Unknown(u32)` (any name,
+  one `u32` field, no discriminant) reads a discriminant it doesn't know into that variant instead of failing with
+  `EnumFutureVersionOrMalformedData`, and writes it back. An `Unsized` enum (the default) skips the newer variant's
+  fields with its size slot, so new variants may carry data; a `sized` or `self_describing` enum only survives new
+  unit variants. The variant takes no discriminant on the wire and doesn't change `ELEMENT_SIZE` or `MAX_SIZE`.
+  `discriminant()` returns the wire discriminant also for it; writing one that doesn't fit the repr or belongs to a
+  known variant gives `Error::SubtypeOutOfRange`. See `docs/serdes/derive.md`.
+- `Error::is_read_eob()`: whether a read ran out of data.
 - C99 runtime (SW-43): `shrink_wrap/c/shrink_wrap.h` and `shrink_wrap.c`, `sw_reader` / `sw_writer` with the same
   bytes as `BufReader` / `BufWriter`, for firmware written in C. No `malloc`, the first error is kept as in SW-41,
   works with a 16-bit `char`. Checked against the Rust crate by the new `shrink_wrap_c` test crate (not published).
@@ -175,6 +183,12 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
+- Fields with `#[default = ..]` (SW-15) read as their default only when they start at the end of the data (written
+  by an older version) and their read runs out of data. Before, any error in such a field gave the default, so a
+  malformed or truncated value was silently replaced. The flag of an evolved `Option` or `Result` falls back with
+  it, and the value is the `#[default]` given (an `Option` was always `None`). `#[default]` is accepted on fields of
+  any type, not only `Option` and `Vec` (as `docs/evolution/rules.md` already said), except `TailSize`,
+  `TailBytes` and `UVlq32Backfill`. Same wire format.
 - A derived type that mixes plain fields with lists, strings or nested types could return a later error instead
   of the first one (since the latched reads of SW-34): a `u32` that did not fit, then a list, gave the list's
   `OutOfBoundsRev` instead of `OutOfBoundsReadRawSlice` (SW-41). It was an error in every case. Now an error kept

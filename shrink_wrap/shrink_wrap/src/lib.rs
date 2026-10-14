@@ -104,20 +104,25 @@ impl Display for Error {
 #[cfg(feature = "std")]
 impl std::error::Error for Error {}
 
-// impl Error {
-//     pub fn is_read_eob(&self) -> bool {
-//         use Error::*;
-//         matches!(
-//             self,
-//             OutOfBoundsReadBool
-//                 | OutOfBoundsReadU4
-//                 | OutOfBoundsReadU8
-//                 | OutOfBoundsReadRawSlice
-//                 | OutOfBoundsReadUN(_)
-//                 | OutOfBoundsRev
-//         )
-//     }
-// }
+impl Error {
+    /// Whether a read ran out of data: past the end of the buffer, or a length or split that does not fit.
+    ///
+    /// A field with `#[default = ..]` reads as its default when it starts at the end of the data (written by an
+    /// older version) and its read fails with one of these, any other error is reported (SW-15).
+    pub const fn is_read_eob(&self) -> bool {
+        use Error::*;
+        matches!(
+            self,
+            OutOfBoundsReadBool
+                | OutOfBoundsReadU4
+                | OutOfBoundsReadU8
+                | OutOfBoundsReadRawSlice
+                | OutOfBoundsReadUN
+                | OutOfBoundsSplit
+                | OutOfBoundsRev
+        )
+    }
+}
 
 pub mod prelude {
     pub use crate::Error as ShrinkWrapError;

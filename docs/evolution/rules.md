@@ -160,11 +160,16 @@ swapping it for a `Vec<T>` or another of the three, or changing `T`, changes the
 When serializing, size of such objects is calculated and written to the resulting byte array. Which is the only
 overhead, giving all the nice backwards and forwards compatibility benefits.
 
-* New fields with default capability can be added to the end of structs, enum struct and tuple variants.
-    * `Option<T>` - None is read from old data,
-    * `Vec<T>` - Empty vector is read from old data,
-    * `String` - Empty string is read from old data,
-    * `T` can be anything.
+* New fields with `#[default = ..]` can be added to the end of structs and enum struct variants. Old data reads as
+  the default (see [derive](../serdes/derive.md#evolving-types)), `T` can be anything:
+    * `Option<T>` - `#[default = None]`,
+    * `Vec<T>`, `String` - `#[default = Vec::new()]`, `#[default = String::new()]`,
+    * a bit-sized field (`bool`, nibble, `Option` / `Result` flag) can land in padding bits of the old data's last
+      byte, which read as 0: give it its zero value as the default.
+* New enum variants can be added at the end. Readers of older versions fail on them unless the enum has a
+  [`#[future_version]` variant](../serdes/derive.md#enum-variants-from-a-newer-version); with one, they get its
+  discriminant. In an `Unsized` enum new variants may carry data, in a `sized` or `self_describing` one only new
+  unit variants can be read past by older readers.
 * New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
   other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
 * TODO: clarify: `T` -> struct containing `T`

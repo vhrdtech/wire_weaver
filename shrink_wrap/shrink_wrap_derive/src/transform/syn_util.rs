@@ -82,6 +82,13 @@ pub(crate) fn take_flag_attr(attrs: &mut Vec<syn::Attribute>) -> Option<()> {
     Some(())
 }
 
+/// Take a `#[name]` attribute without arguments, true when it was there.
+pub(crate) fn take_flag_like_attr(attrs: &mut Vec<syn::Attribute>, name: &str) -> bool {
+    let len = attrs.len();
+    attrs.retain(|a| !a.path().is_ident(name));
+    attrs.len() != len
+}
+
 pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Docs {
     let mut docs = Docs::empty();
     for attr in attrs.iter() {

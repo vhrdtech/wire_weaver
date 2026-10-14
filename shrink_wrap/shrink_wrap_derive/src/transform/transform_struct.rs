@@ -51,34 +51,40 @@ impl ItemStruct {
     }
 }
 
+/// Fields with `#[default = ..]` were added in a later version: they and the fields after them can be missing
+/// from older data. The flag of an evolved `Option` or `Result` gets a default too, so its absence is noticed.
 pub(crate) fn propagate_default_to_flags(fields: &mut [Field]) -> Result<(), String> {
-    let mut set_to_default_false = vec![];
+    let mut evolved = vec![];
     let mut default_found = false;
     let mut default_is_not_last = false;
     for f in fields.iter() {
         if f.default.is_none() {
-            if default_found {
+            if default_found && !matches!(f.ty, Type::IsSome(_) | Type::IsOk(_)) {
                 default_is_not_last = true;
             }
             continue;
         }
         default_found = true;
-        if !matches!(f.ty, Type::Option(_, _) | Type::Vec(_)) {
-            return Err("#[default = ...] used on a type that is not Option<T> or Vec<T>".into());
+        if matches!(f.ty, Type::TailSize(_) | Type::IsSome(_) | Type::IsOk(_)) {
+            return Err(format!(
+                "#[default = ...] on `{}`: a TailSize or flag field cannot be added later",
+                f.ident
+            ));
         }
-        set_to_default_false.push(f.ident.clone());
+        if f.ty.contains_tail_bytes() || f.ty.contains_backfill() {
+            return Err(format!(
+                "#[default = ...] on `{}`: TailBytes and UVlq32Backfill fields cannot be added later",
+                f.ident
+            ));
+        }
+        evolved.push(f.ident.clone());
     }
-    for ident in set_to_default_false {
-        for f in fields.iter_mut() {
-            if let Type::IsSome(flag_for_ident) = &f.ty {
-                if flag_for_ident != &ident {
-                    continue;
-                }
-                let false_expr = parse2(quote! { false }).unwrap();
-                f.default = Some(false_expr); // read is_some flag as false on EOB
-            } else if matches!(f.ty, Type::Option(_, _)) && f.ident == ident {
-                f.default = None; // TODO: Change to actual default value
-            }
+    for f in fields.iter_mut() {
+        if let Type::IsSome(value_ident) | Type::IsOk(value_ident) = &f.ty
+            && evolved.contains(value_ident)
+        {
+            // read as false when missing, the value field then becomes its default
+            f.default = Some(parse2(quote! { false }).unwrap());
         }
     }
     if default_is_not_last {

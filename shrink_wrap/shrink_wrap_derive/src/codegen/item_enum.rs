@@ -1,5 +1,5 @@
 use crate::ast::docs::Docs;
-use crate::ast::item_enum::{Fields, Variant};
+use crate::ast::item_enum::{Fields, FutureVersion, Variant};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
 use crate::ast::ty::Type;
@@ -18,6 +18,7 @@ pub(crate) struct CGItemEnum<'i> {
     pub(crate) repr: Repr,
     pub(crate) ident: &'i Ident,
     pub(crate) variants: &'i [Variant],
+    pub(crate) future_version: Option<&'i FutureVersion>,
     pub(crate) cfg: Option<&'i TokenStream>,
     pub(crate) cfg_attr: &'i [TokenStream],
     pub(crate) derive: &'i [Path],
@@ -95,6 +96,12 @@ impl<'i> CGItemEnum<'i> {
             }
         });
         let native_repr = self.native_repr();
+        // its in-memory tag is the largest one, the wire discriminant is in its field
+        let future_version = self.future_version.map(|fv| {
+            let docs = &fv.docs;
+            let ident = &fv.ident;
+            quote! { #docs #ident(u32) = #native_repr::MAX, }
+        });
 
         let ts = quote! {
             #cfg
@@ -102,7 +109,7 @@ impl<'i> CGItemEnum<'i> {
             #derive
             #(#[cfg_attr(#cfg_attr)])*
             #[repr(#native_repr)]
-            pub enum #enum_name #lifetime { #variants }
+            pub enum #enum_name #lifetime { #variants #future_version }
 
             #assert_size
             #(#assert_tail_size)*
@@ -115,11 +122,25 @@ impl<'i> CGItemEnum<'i> {
         let enum_name = &self.ident;
         let native_repr = self.native_repr();
         let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
+        let tag = quote! { unsafe { *<*const _>::from(self).cast::<#native_repr>() } };
+        let body = match self.future_version {
+            Some(fv) => {
+                let ident = &fv.ident;
+                quote! {
+                    match self {
+                        Self::#ident(discriminant) => *discriminant as #native_repr,
+                        _ => #tag,
+                    }
+                }
+            }
+            None => tag,
+        };
         quote! {
             #cfg
             impl #lifetime #enum_name #lifetime {
+                /// Discriminant on the wire.
                 pub fn discriminant(&self) -> #native_repr {
-                    unsafe { *<*const _>::from(self).cast::<#native_repr>() }
+                    #body
                 }
             }
         }
@@ -427,6 +448,20 @@ impl ToTokens for CGEnumSer<'_> {
         //     "Serialize enum",
         //     self.item_enum.ident.to_string().as_str(),
         // ));
+        if let Some(fv) = self.item_enum.future_version {
+            // a known one would be read back as that variant, without its fields
+            let ident = &fv.ident;
+            let max = self.item_enum.repr.max_discriminant();
+            let known = self.item_enum.variants.iter().map(|v| v.discriminant_lit());
+            let error = self.item_enum.crate_path.error();
+            tokens.append_all(quote! {
+                if let Self::#ident(discriminant) = self {
+                    if *discriminant > #max #(|| *discriminant == #known)* {
+                        return Err(#error::SubtypeOutOfRange);
+                    }
+                }
+            });
+        }
         write_discriminant(self.item_enum.repr, tokens);
 
         let enum_name = &self.item_enum.ident;
@@ -562,14 +597,27 @@ impl ToTokens for CGEnumDes<'_> {
             latched_discriminant && !has_zero,
             || quote! { rd.latched()?; },
         );
+        let unknown = match self.item_enum.future_version {
+            // An Unsized enum is bounded by its size slot, the newer variant's fields are skipped with it. Otherwise
+            // nothing more is read: right for a new unit variant.
+            Some(fv) => {
+                let ident = &fv.ident;
+                let enum_name = &self.item_enum.ident;
+                quote! {
+                    #check_kept
+                    #enum_name::#ident(discriminant as u32)
+                }
+            }
+            None => quote! {
+                #check_kept
+                return Err(#error::EnumFutureVersionOrMalformedData);
+            },
+        };
         tokens.append_all(quote! {
             let discriminant = rd.#read_discriminant;
             let value = match discriminant {
                 #known_variants
-                _ => {
-                    #check_kept
-                    return Err(#error::EnumFutureVersionOrMalformedData);
-                }
+                _ => { #unknown }
             };
             rd.latched()?;
             Ok(value)
@@ -623,20 +671,7 @@ impl ToTokens for CGEnumVariantsDes<'_> {
                         if !matches!(field.ty, Type::IsSome(_) | Type::IsOk(_)) {
                             field_names.push(field_name.clone());
                         }
-                        let handle_eob = field.handle_eob();
-                        // let x = rd.read_()?; or let x = rd.read_().unwrap_or(default);
-                        // tokens.append_all(trace_extended_key_val(
-                        //     "Deserialize named field",
-                        //     field.ident.to_string().as_str(),
-                        // ));
-                        field.ty.buf_read(
-                            field_name,
-                            !self.is_ref,
-                            handle_eob,
-                            field.default.is_none(),
-                            self.item_enum.crate_path,
-                            &mut des_fields,
-                        );
+                        field.buf_read(!self.is_ref, self.item_enum.crate_path, &mut des_fields);
                     }
                     tokens.append_all(quote!(#discriminant => { #des_fields #enum_name::#variant_name{ #(#field_names),* } }))
                 }

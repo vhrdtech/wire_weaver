@@ -10,6 +10,15 @@ pub(crate) struct ItemEnum {
     pub(crate) docs: Docs,
     // pub(crate) ident: Ident,
     pub(crate) variants: Vec<Variant>,
+    /// The `#[future_version]` variant, not in `variants`: it has no discriminant of its own on the wire (SW-16).
+    pub(crate) future_version: Option<FutureVersion>,
+}
+
+/// `#[future_version] Unknown(u32)`: holds a discriminant this version doesn't know, read from a newer version.
+#[derive(Clone, Debug)]
+pub(crate) struct FutureVersion {
+    pub(crate) docs: Docs,
+    pub(crate) ident: Ident,
 }
 
 #[derive(Clone, Debug)]

@@ -1,8 +1,9 @@
 use crate::ast::item_enum::ItemEnum;
-use crate::ast::item_enum::{Fields, Variant};
+use crate::ast::item_enum::{Fields, FutureVersion, Variant};
 use crate::ast::repr::Repr;
 use crate::transform::syn_util::{
-    collect_docs_attrs, collect_unknown_attributes, take_cfg_attrs, take_since_attr,
+    collect_docs_attrs, collect_unknown_attributes, take_cfg_attrs, take_flag_like_attr,
+    take_since_attr,
 };
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
@@ -14,8 +15,18 @@ use syn::{Expr, Lit};
 impl ItemEnum {
     pub(crate) fn from_syn(item_enum: &syn::ItemEnum, repr: Repr) -> Result<Self, String> {
         let mut variants = vec![];
+        let mut future_version = None;
         let mut next_discriminant: u32 = 0;
-        for variant in &item_enum.variants {
+        for (idx, variant) in item_enum.variants.iter().enumerate() {
+            let mut attrs = variant.attrs.clone();
+            if take_flag_like_attr(&mut attrs, "future_version") {
+                future_version = Some(future_version_variant(
+                    variant,
+                    attrs,
+                    idx + 1 == item_enum.variants.len(),
+                )?);
+                continue;
+            }
             // same numbering as Rust: implicit discriminant is the previous one + 1
             let discriminant = get_discriminant(variant)?.unwrap_or(next_discriminant);
             next_discriminant = discriminant.saturating_add(1);
@@ -29,7 +40,6 @@ impl ItemEnum {
             }
             let path = FieldPath::new(FieldPathRoot::EnumVariant(variant.ident.clone()));
             let fields = convert_fields(&variant.fields, &path)?;
-            let mut attrs = variant.attrs.clone();
             let since = take_since_attr(&mut attrs)?;
             let cfg = take_cfg_attrs(&mut attrs)?;
             let docs = collect_docs_attrs(&mut attrs);
@@ -54,8 +64,45 @@ impl ItemEnum {
             docs,
             // ident: item_enum.ident.clone(),
             variants,
+            future_version,
         })
     }
+}
+
+/// `#[future_version] Unknown(u32)`: last, one `u32` field, no discriminant or `#[cfg]` of its own.
+fn future_version_variant(
+    variant: &syn::Variant,
+    mut attrs: Vec<syn::Attribute>,
+    is_last: bool,
+) -> Result<FutureVersion, String> {
+    let ident = &variant.ident;
+    let err = |what: &str| {
+        Err(format!(
+            "#[future_version] variant `{ident}` {what}: expected `#[future_version] {ident}(u32)` as the last variant"
+        ))
+    };
+    if !is_last {
+        return err("is not the last one");
+    }
+    if variant.discriminant.is_some() {
+        return err("has an explicit discriminant, it takes none on the wire");
+    }
+    let syn::Fields::Unnamed(fields) = &variant.fields else {
+        return err("must have one unnamed u32 field");
+    };
+    let is_u32 = |ty: &syn::Type| matches!(ty, syn::Type::Path(p) if p.qself.is_none() && p.path.is_ident("u32"));
+    if fields.unnamed.len() != 1 || !is_u32(&fields.unnamed[0].ty) {
+        return err("must have one unnamed u32 field");
+    }
+    if attrs.iter().any(|a| a.path().is_ident("cfg")) {
+        return err("cannot have #[cfg]");
+    }
+    let docs = collect_docs_attrs(&mut attrs);
+    collect_unknown_attributes(&mut attrs);
+    Ok(FutureVersion {
+        docs,
+        ident: ident.clone(),
+    })
 }
 
 fn get_discriminant(variant: &syn::Variant) -> Result<Option<u32>, String> {
@@ -204,6 +251,26 @@ mod tests {
         for ts in err {
             let item: syn::ItemEnum = syn::parse2(ts).unwrap();
             assert!(ItemEnum::from_syn(&item, Repr::U8).is_err());
+        }
+    }
+
+    #[test]
+    fn future_version_rules() {
+        let parse = |ts| ItemEnum::from_syn(&syn::parse2::<syn::ItemEnum>(ts).unwrap(), Repr::U8);
+        let item = parse(quote! { enum E { A, B, #[future_version] Unknown(u32) } }).unwrap();
+        assert_eq!(item.variants.len(), 2);
+        assert_eq!(item.future_version.unwrap().ident, "Unknown");
+        let err = [
+            quote! { enum E { #[future_version] Unknown(u32), A } },
+            quote! { enum E { A, #[future_version] Unknown(u8) } },
+            quote! { enum E { A, #[future_version] Unknown } },
+            quote! { enum E { A, #[future_version] Unknown { d: u32 } } },
+            quote! { enum E { A, #[future_version] Unknown(u32, u8) } },
+            quote! { enum E { A, #[future_version] Unknown(u32) = 7 } },
+            quote! { enum E { A, #[future_version] #[cfg(feature = "x")] Unknown(u32) } },
+        ];
+        for ts in err {
+            assert!(parse(ts).is_err());
         }
     }
 }

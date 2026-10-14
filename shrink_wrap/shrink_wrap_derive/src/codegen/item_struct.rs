@@ -167,15 +167,7 @@ impl ToTokens for CGStructDes<'_> {
             if !matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
                 field_names.push(field_name.clone());
             }
-            let handle_eob = struct_field.handle_eob();
-            struct_field.ty.buf_read(
-                field_name,
-                !self.is_ref,
-                handle_eob,
-                struct_field.default.is_none(),
-                self.item_struct.crate_path,
-                tokens,
-            );
+            struct_field.buf_read(!self.is_ref, self.item_struct.crate_path, tokens);
         }
         let struct_name = &self.item_struct.ident;
         tokens.append_all(quote! {
@@ -188,12 +180,75 @@ impl ToTokens for CGStructDes<'_> {
 }
 
 impl Field {
-    pub(crate) fn handle_eob(&self) -> TokenStream {
-        match &self.default {
-            None => quote!(?),
-            Some(value) => {
-                quote!(.unwrap_or(#value))
+    /// `let <field> = ..;` reading the field. A field with `#[default = ..]` was added in a later version: it is its
+    /// default when it starts at the end of the data (no whole byte left) and its read runs out of data, any other
+    /// error is reported (SW-15). The flag of an evolved `Option` or `Result` notes that, the value then is the
+    /// default.
+    pub(crate) fn buf_read(&self, owned: bool, cp: &CratePath, tokens: &mut TokenStream) {
+        let ident = &self.ident;
+        let Some(default) = &self.default else {
+            self.ty.buf_read(ident, owned, quote!(?), true, cp, tokens);
+            return;
+        };
+        let at_end = quote! { let __at_end = rd.bytes_left() == 0; };
+        match &self.ty {
+            Type::IsSome(value) | Type::IsOk(value) => {
+                let (absent, at_end) = evolved_flag_idents(value);
+                tokens.append_all(quote! {
+                    let #at_end = rd.bytes_left() == 0;
+                    let mut #absent = false;
+                });
+                let fallback = quote! {
+                    .or_else(|e| if #at_end && e.is_read_eob() { #absent = true; Ok(false) } else { Err(e) })?
+                };
+                self.ty.buf_read(ident, owned, fallback, false, cp, tokens);
+            }
+            Type::Option(_, _) => {
+                // a missing flag reads as false, nothing more is read then
+                let (absent, _) = evolved_flag_idents(ident);
+                let mut read = TokenStream::new();
+                self.ty
+                    .buf_read(ident, owned, quote!(?), false, cp, &mut read);
+                tokens.append_all(quote! {
+                    let #ident = if #absent { #default } else { #read #ident };
+                });
+            }
+            Type::Result(is_ok, _) => {
+                // A flag that started at the end of the data can be read from padding bits, which are 0: then the
+                // `Err` value is missing too. A flag that reads 1 is data, the `Ok` value must follow.
+                let (absent, at_end) = evolved_flag_idents(ident);
+                let error = cp.error();
+                let mut read = TokenStream::new();
+                self.ty
+                    .buf_read(ident, owned, quote!(?), false, cp, &mut read);
+                tokens.append_all(quote! {
+                    let #ident = if #absent {
+                        #default
+                    } else {
+                        match (|| -> Result<_, #error> { #read Ok(#ident) })() {
+                            Ok(value) => value,
+                            Err(e) if #at_end && !#is_ok && e.is_read_eob() => #default,
+                            Err(e) => return Err(e),
+                        }
+                    };
+                });
+            }
+            _ => {
+                let fallback = quote! {
+                    .or_else(|e| if __at_end && e.is_read_eob() { Ok(#default) } else { Err(e) })?
+                };
+                tokens.append_all(at_end);
+                self.ty.buf_read(ident, owned, fallback, false, cp, tokens);
             }
         }
     }
+}
+
+/// Variables of the flag of an evolved `Option` / `Result` field `value`: set when the flag is missing from the data,
+/// and whether the flag started at the end of the data.
+fn evolved_flag_idents(value: &Ident) -> (Ident, Ident) {
+    (
+        quote::format_ident!("__absent_{}", value),
+        quote::format_ident!("__at_end_{}", value),
+    )
 }

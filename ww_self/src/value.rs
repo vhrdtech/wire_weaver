@@ -13,7 +13,7 @@ use crate::{
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_writer_owned::UnsizedBuilderOwned;
-use shrink_wrap::{BufReader, BufWriterOwned, Nibble};
+use shrink_wrap::{BufReader, BufWriterOwned, ElementSize, Nibble};
 use std::borrow::Cow;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 
@@ -255,6 +255,14 @@ fn des_inner(
                 .iter()
                 .find(|v| v.discriminant.0 == discriminant)
             else {
+                // a variant from a newer version: an Unsized enum is bounded by its size slot, its fields are
+                // skipped with it (SW-16)
+                if matches!(enum_def.size, ElementSize::Unsized) {
+                    return Ok(ValueOwned::Enum {
+                        variant: format!("<unknown {discriminant}>"),
+                        fields: FieldsValueOwned::Unit,
+                    });
+                }
                 bail!(
                     "enum '{}' does not have a variant with discriminant {discriminant} (newer version or malformed data)",
                     enum_def.ident
@@ -319,19 +327,24 @@ fn des_fields(
     Ok(match fields {
         FieldsOwned::Named(defs) => {
             let mut values = vec![];
-            let mut flags: Vec<(&str, bool)> = vec![];
+            let mut flags: Vec<(&str, Flag)> = vec![];
             for (idx, def) in defs.iter().enumerate() {
                 let name = def.ident.as_deref().unwrap_or_default();
                 if def.is_flag() {
-                    let flag = match rd.read_bool() {
-                        Ok(flag) => flag,
-                        // field with a default is None when data ends
-                        Err(_) if flag_target(defs, idx).is_some_and(|t| t.default.is_some()) => {
-                            false
+                    let at_end = rd.bytes_left() == 0;
+                    let value = match rd.read_bool() {
+                        Ok(flag) => Some(flag),
+                        // the field has a default and was added later: missing from older data
+                        Err(e)
+                            if at_end
+                                && e.is_read_eob()
+                                && flag_target(defs, idx).is_some_and(|t| t.default.is_some()) =>
+                        {
+                            None
                         }
                         Err(e) => return Err(e.into()),
                     };
-                    flags.push((name, flag));
+                    flags.push((name, Flag { value, at_end }));
                     continue;
                 }
                 let flag = flags
@@ -356,22 +369,44 @@ fn des_fields(
     })
 }
 
-/// Evolved fields with a `#[default = ..]` are read as their default when data ends (sent by an older version).
-/// `flag`: relocated flag of an `Option` or `Result` field, already read.
+/// A relocated flag of an `Option` or `Result` field: `None` when it is missing from the data.
+#[derive(Copy, Clone)]
+struct Flag {
+    value: Option<bool>,
+    /// The flag started at the end of the data: it may have been read from padding bits, which are 0.
+    at_end: bool,
+}
+
+/// Evolved fields with a `#[default = ..]` are read as their default when they start at the end of the data (sent by
+/// an older version) and run out of data, any other error is reported (SW-15). `flag`: relocated flag of an `Option`
+/// or `Result` field, already read.
 fn des_struct_field(
     rd: &mut BufReader,
     def: &FieldOwned,
-    flag: Option<bool>,
+    flag: Option<Flag>,
     api_bundle: &ApiBundleOwned,
 ) -> Result<ValueOwned> {
-    let value = match flag {
-        Some(flag) => des_flagged(rd, flag, &def.ty, api_bundle),
-        None => des_field(rd, &def.ty, api_bundle),
+    let at_end = rd.bytes_left() == 0;
+    let (value, may_be_missing) = match flag {
+        Some(Flag { value: None, .. }) => return ValueOwned::default(&def.ty, api_bundle),
+        // a flag read as 0 from padding bits: the `Err` value of a `Result` is missing then
+        Some(Flag {
+            value: Some(flag),
+            at_end,
+        }) => (des_flagged(rd, flag, &def.ty, api_bundle), at_end && !flag),
+        None => (des_field(rd, &def.ty, api_bundle), at_end),
     };
-    match (value, &def.default) {
-        (Ok(value), _) => Ok(value),
-        (Err(_), Some(_)) => ValueOwned::default(&def.ty, api_bundle),
-        (Err(e), None) => Err(e),
+    match value {
+        Ok(value) => Ok(value),
+        Err(e)
+            if def.default.is_some()
+                && may_be_missing
+                && e.downcast_ref::<shrink_wrap::Error>()
+                    .is_some_and(|e| e.is_read_eob()) =>
+        {
+            ValueOwned::default(&def.ty, api_bundle)
+        }
+        Err(e) => Err(e),
     }
 }
 

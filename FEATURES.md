@@ -120,19 +120,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   adding one breaking (`ww api check`). `SerializeShrinkWrap::MAX_SIZE: Option<MaxSize>`, the worst-case size of a
   type whose every part is bounded, feeds API-18. `docs/types.md`, `docs/evolution/rules.md`,
   `shrink_wrap/tests/max_len.rs`, `tests/bounded`, `examples_mcu/mcu_qemu` (`qemu-bounded`).
-- 🚧 **SW-15 Handle end of buffer when reading evolved fields** · `v0.5` — fields with `#[default = ..]` already fall
-  back to the default, but on _any_ read error (`Field::handle_eob` in
-  `shrink_wrap_derive/src/codegen/item_struct.rs`), not only on end of buffer. Missing: fall back only on
-  end-of-buffer errors, and only for fields added in a later version; `Vec`/`String`/`Option` fields appended
-  without a default should read as empty/`None` from an older buffer (`TODO` in
-  `shrink_wrap_derive/src/codegen/ty.rs`).
-- 📋 **SW-16 `FutureVersion` enum variant** · `v0.5` — a catch-all variant holding the unknown discriminant (and the
-  payload bytes for `Unsized` enums), so an older reader can pass on or report an enum value from a newer
-  version instead of failing with `EnumFutureVersionOrMalformedData`. Notes:
-  - the enum must already be `Unsized` to add new variants with data later; unit variants then write a 0
-    byte size each;
-  - a `sized` enum can only get new unit variants;
-  - add to all enums by default, unless all discriminants of the repr are taken or an attribute opts out.
+- ✅ **SW-15 Handle end of buffer when reading evolved fields**: a field with `#[default = ..]` reads as its default
+  only when it starts at the end of the data and runs out of it (`Error::is_read_eob`); a truncated or malformed
+  value is an error. The flag of an evolved `Option` / `Result` falls back with it, `#[default]` works on any type
+  and its value is used (an `Option` was always `None`). Same in the `ww_self` dynamic decoder. Padding bits of the
+  old data's last byte read as 0, so bit-sized fields default to their zero value. Decided: no implicit defaults
+  for `Vec`/`String`/`Option` fields without `#[default]`, the attribute is what marks a field as added later
+  (and what `ww api check` looks for). `docs/serdes/derive.md#evolving-types`, `shrink_wrap/tests/evolution.rs`.
+- ✅ **SW-16 `FutureVersion` enum variant**: an enum ending with `#[future_version] Unknown(u32)` reads an unknown
+  discriminant into it instead of failing with `EnumFutureVersionOrMalformedData`, and writes it back; an `Unsized`
+  enum skips the newer variant's fields with its size slot, `sized` / `self_describing` ones only survive new unit
+  variants. No wire number of its own, no change to `ELEMENT_SIZE`, left out of the API model. The `ww_self`
+  dynamic decoder reads an unknown variant of an `Unsized` enum as `<unknown N>`. Opt-in per enum, see SW-47 for
+  adding it by default. `docs/serdes/derive.md#enum-variants-from-a-newer-version`, `shrink_wrap/tests/evolution.rs`.
 - 📋 **SW-17 Const / magic type** · `v0.5` — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the `magic` field in
   `ww_self` (a plain `u32` today).
@@ -164,6 +164,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **SW-29 Flatten support** — apply a type's layout across struct/enum boundaries.
 - 💡 **SW-30 `derive_shrink_wrap` on a whole module at once**. For definitions in separate files with own syntax, see
   [standalone definition files](#api-model-and-codegen-api).
+- 💡 **SW-47 `#[future_version]` variant by default** — add the SW-16 variant to every enum unless all discriminants
+  of the repr are taken or an argument opts out. Changes the Rust type of every enum (exhaustive matches need a new
+  arm, `Copy` enums grow), so it needs a release that breaks the Rust API anyway, and the variant's name must not
+  clash with user variants.
 
 ## `derive_shrink_wrap` macro (`DER`)
 

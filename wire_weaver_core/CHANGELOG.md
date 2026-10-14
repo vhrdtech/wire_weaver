@@ -50,6 +50,8 @@
 
 ### 🚀 Features
 
+- A `#[future_version]` enum variant (SW-16) is left out of the API model (`ww_self`): it is no variant on the
+  wire, adding it later changes neither introspection data nor snapshots.
 - `MaxLen<T, N>` (SW-19) in `#[ww_trait]` method arguments, return types, properties, `stream!`/`sink!` items and
   types, `N` an integer literal, `{literal}` or a `const` of the API crate's `lib.rs`. Carried into introspection as
   `ww_self::Type::MaxLen`. Byte streams and sinks with a bound keep their raw `TailBytes` wire form; the server

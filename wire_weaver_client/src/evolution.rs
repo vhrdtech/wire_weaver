@@ -18,10 +18,11 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
 use wire_weaver::shrink_wrap::{ElementSize, SerializeShrinkWrapOwned};
+use ww_self::errors::fmt_error_list;
 use ww_self::visit_mut::VisitMut;
 use ww_self::{
-    ApiBundleOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, FieldsOwned,
-    TypeLocationOwned, TypeOwned,
+    ApiBundleOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ErrorVariantOwned,
+    FieldsOwned, TypeLocationOwned, TypeOwned,
 };
 use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
 
@@ -259,6 +260,7 @@ impl<'a> Checker<'a> {
                 self.breaking.push(format!("{path}: {e}"));
             }
             self.bounds_raised(&path, bounds.narrower);
+            self.compare_error_lists(&path, old_item, new_item);
         }
         for new_item in &new.items {
             // moved ones are already reported
@@ -271,6 +273,53 @@ impl<'a> Checker<'a> {
                 self.check_since(&path, new_item.since);
             }
         }
+    }
+
+    /// A method's `#[errors(..)]` list (API-32) changing is compatible: nothing on the wire changes and the device
+    /// never checks it. Reported, since a client of the old version warns about the variants the new one adds.
+    fn compare_error_lists(&mut self, path: &str, old: &ApiItemOwned, new: &ApiItemOwned) {
+        let (old_list, new_list) = (old.kind.error_list(), new.kind.error_list());
+        if old_list == new_list {
+            return;
+        }
+        let entries = |list: Option<&[ErrorVariantOwned]>| -> Vec<String> {
+            list.unwrap_or_default()
+                .iter()
+                .flat_map(|v| v.entries())
+                .collect()
+        };
+        let change = match (old_list, new_list) {
+            (None, Some(list)) => format!("#[errors({})] added", fmt_error_list(list)),
+            (Some(_), None) => "#[errors(..)] removed, any variant can be returned".to_string(),
+            _ => {
+                let (old_entries, new_entries) = (entries(old_list), entries(new_list));
+                let added: Vec<_> = new_entries
+                    .iter()
+                    .filter(|e| !old_entries.contains(e))
+                    .map(String::as_str)
+                    .collect();
+                let removed: Vec<_> = old_entries
+                    .iter()
+                    .filter(|e| !new_entries.contains(e))
+                    .map(String::as_str)
+                    .collect();
+                let mut parts = vec![];
+                if !added.is_empty() {
+                    parts.push(format!(
+                        "adds {} (clients of the old version warn about them)",
+                        added.join(", ")
+                    ));
+                }
+                if !removed.is_empty() {
+                    parts.push(format!("drops {}", removed.join(", ")));
+                }
+                if parts.is_empty() {
+                    parts.push("reordered".into());
+                }
+                format!("#[errors(..)] {}", parts.join(", "))
+            }
+        };
+        self.compatible.push(format!("{path}: {change}"));
     }
 
     fn compare_types(&mut self) {
@@ -967,6 +1016,76 @@ mod tests {
                 ),
                 changed("Mode::B", "name", "B", "Bb"),
             ]
+        );
+    }
+
+    /// A method's `#[errors(..)]` list changing is compatible and reported (API-32).
+    #[test]
+    fn error_lists() {
+        let api = |errors: &str| {
+            format!(
+                r#"
+                #[ww_api_root]
+                pub trait Api {{
+                    {errors}
+                    fn read() -> Result<u8, ReadError>;
+                }}
+
+                #[derive_shrink_wrap(ww_repr = u4)]
+                pub enum ReadError {{
+                    Common(Inner),
+                    Nack,
+                    Overrun,
+                }}
+
+                #[derive_shrink_wrap(ww_repr = u4)]
+                pub enum Inner {{
+                    Busy,
+                    InUse,
+                }}
+                "#
+            )
+        };
+        let compatible = |old: &str, new: &str| {
+            let report = report(&api(old), &api(new));
+            assert_eq!(report.change, Change::Compatible, "{report:?}");
+            report.compatible
+        };
+        assert_eq!(
+            compatible("", "#[errors(Nack)]"),
+            ["Api::read: #[errors(Nack)] added"]
+        );
+        assert_eq!(
+            compatible("#[errors(Nack)]", ""),
+            ["Api::read: #[errors(..)] removed, any variant can be returned"]
+        );
+        assert_eq!(
+            compatible(
+                "#[errors(Common(Busy), Nack)]",
+                "#[errors(Common(Busy, InUse))]"
+            ),
+            [
+                "Api::read: #[errors(..)] adds Common(InUse) (clients of the old version warn about them), drops Nack"
+            ]
+        );
+        assert_eq!(
+            compatible("#[errors(Nack, Overrun)]", "#[errors(Overrun, Nack)]"),
+            ["Api::read: #[errors(..)] reordered"]
+        );
+
+        let diff = diff(
+            &load("0.1.0", &api("#[errors(Nack)]")),
+            &load("0.1.1", &api("#[errors(Common, Nack)]")),
+        )
+        .unwrap();
+        assert_eq!(
+            diff,
+            [Difference::Changed {
+                path: "Api::read".into(),
+                what: "#[errors]",
+                old: "#[errors(Nack)]".into(),
+                new: "#[errors(Common, Nack)]".into(),
+            }]
         );
     }
 

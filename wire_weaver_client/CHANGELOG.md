@@ -43,6 +43,12 @@
   `ApiItemKind::PositionedStream` (a delivery kind that differs between client and device is incompatible), the
   dynamic client lists them as streams.
   dynamic client lists them as streams. Their events (`EventKind::StreamItem`) are dropped until CLT-23.
+- Per-method error lists (API-32): a device returning an error outside a method's `#[errors(..)]` logs a `tracing`
+  warning naming the method, the error and the list, in generated clients (`call()`, `blocking_call()`, promises,
+  through `PreparedCall::with_error_list(ErrorList { .. })`) and in the dynamic client (and so Python).
+  `set_strict_error_lists(true)` panics instead, for tests (`tests_common` turns it on). `ww api check` (`compare`)
+  reports a list that changed as compatible, naming the entries added (old clients warn about them) and dropped;
+  `diff` lists it as a `#[errors]` change.
 - `Error::is_unimplemented()`: the device has no implementation of an item without an error type (its handler
   returned `Unimplemented`, or `NotImplementedByDevice`). `CallError::device()` and `CallError::is_unimplemented()`.
   `OutcomeError` / `DecodeReply` tie an error type to how a reply is decoded (implemented for `Error` and
@@ -181,6 +187,7 @@
 
 ### ⚠️ Breaking
 
+- `DynResourceKind::Method` has an `errors` field (API-32), matches need `..`.
 - One `?` per call (CLT-24, `docs/api/methods.md`): a method returning `Result<T, E>` gives `Result<T, CallError<E>>`
   from `call()`, `blocking_call()` and `call_promise()` instead of `Result<Result<T, E>, Error>`. `CallError` is
   `Device(E)` (the method's `Err(e)`), `Unimplemented { resource }` (the handler returned `Unimplemented`, or the

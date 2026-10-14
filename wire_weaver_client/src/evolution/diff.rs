@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 
 use wire_weaver::shrink_wrap::ElementSize;
+use ww_self::errors::fmt_error_list;
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, Delivery,
     FieldOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess, Repr, TypeOwned,
@@ -148,6 +149,12 @@ impl Differ<'_> {
                 "signature",
                 item_signature(self.old, old_item),
                 item_signature(self.new, new_item),
+            );
+            self.changed(
+                &path,
+                "#[errors]",
+                error_list(&old_item.kind),
+                error_list(&new_item.kind),
             );
             self.since(&path, old_item.since, new_item.since);
             self.docs(&path, &old_item.docs, &new_item.docs);
@@ -322,7 +329,9 @@ fn item_signature(bundle: &ApiBundleOwned, item: &ApiItemOwned) -> String {
         }
     };
     match &item.kind {
-        ApiItemKindOwned::Method { args, return_ty } => {
+        ApiItemKindOwned::Method {
+            args, return_ty, ..
+        } => {
             let args = args
                 .iter()
                 .map(|arg| format!("{}: {}", arg.ident, type_name(bundle, &arg.ty)))
@@ -471,6 +480,14 @@ fn field_definition(bundle: &ApiBundleOwned, field: &FieldOwned) -> String {
         Some(ident) => format!("{ident}: {ty}"),
         None => ty,
     }
+}
+
+/// `#[errors(..)]` of a method as written, `none` without one.
+fn error_list(kind: &ApiItemKindOwned) -> String {
+    kind.error_list().map_or_else(
+        || "none".into(),
+        |list| format!("#[errors({})]", fmt_error_list(list)),
+    )
 }
 
 fn since(since: Option<VersionTriplet>) -> String {

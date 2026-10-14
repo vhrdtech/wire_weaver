@@ -2,6 +2,12 @@
 
 ### 🚀 Features
 
+- `#[errors(Common(InUse, Refused), Nack, ..)]` on a trait method (API-32): parsed and checked against the variants
+  of the method's error enum (and of the enum in `Common(..)`), an unknown or repeated name, a list on a method without
+  `Result` or on another item is an `ErrorListError` that `#[ww_trait]` shows on the name. The list goes into the
+  model (`ApiItemKind::Method::errors`). Generated clients document it (`# Errors`, each entry with its variant's doc
+  line) and check it: a device error outside the list logs a warning (`PreparedCall::with_error_list`). Nothing
+  changes on the device or on the wire. `internal::ww_self` re-exported for `wire_weaver_derive`.
 - Accepts the `display` directive of `#[derive_shrink_wrap(..)]` (DER-12): a type using it is no longer rejected
   with "unsupported directive 'display'" when introspected from a trait. It has no effect on the API model or
   generated server/client code (`core::fmt::Display`/`core::error::Error` are Rust-only, not wire-defining).

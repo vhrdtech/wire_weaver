@@ -875,7 +875,9 @@ fn level_matcher(
 ) -> TokenStream {
     let ident = Ident::new(&api_item.ident, Span::call_site());
     match &api_item.kind {
-        ApiItemKindOwned::Method { args, return_ty } => handle_method(
+        ApiItemKindOwned::Method {
+            args, return_ty, ..
+        } => handle_method(
             api_bundle,
             index_chain,
             &mod_ident,
@@ -1637,7 +1639,9 @@ fn max_len_consts_recursive(
             path.push(u32::MAX);
         }
         match &item.kind {
-            ApiItemKindOwned::Method { args, return_ty } => {
+            ApiItemKindOwned::Method {
+                args, return_ty, ..
+            } => {
                 let ident = Ident::new(&item.ident, Span::call_site());
                 let name = add_prefix(ident_prefix, &ident)
                     .to_string()

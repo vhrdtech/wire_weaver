@@ -1,30 +1,43 @@
 use convert_case::{Case, Casing};
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{ToTokens, quote};
 use std::path::PathBuf;
+use syn::spanned::Spanned;
 use syn::{
     Attribute, Error, Expr, FnArg, GenericArgument, ItemTrait, Lifetime, Lit, Meta, PathArguments,
     PathSegment, ReturnType, TraitItem, Type, Visibility, parse2,
 };
-use wire_weaver_core::internal::{PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs};
+use wire_weaver_core::internal::ww_self::errors::{error_list_docs, method_err_ty};
+use wire_weaver_core::internal::ww_self::{ApiBundleOwned, ApiItemKindOwned};
+use wire_weaver_core::internal::{
+    ErrorListError, PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs,
+};
 use wire_weaver_core::load;
 
 pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
-    ww_trait_inner(attr, item)
-        .unwrap_or_else(|e| Error::new(Span::call_site(), e).to_compile_error())
+    ww_trait_inner(attr, item).unwrap_or_else(|e| e.to_compile_error())
 }
 
-fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, String> {
-    let item_trait: ItemTrait = syn::parse2(item).map_err(|e| format!("{e:?}"))?;
+fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Error> {
+    let item_trait: ItemTrait = syn::parse2(item)?;
     let trait_name = item_trait.ident.to_string();
     let crate_path = PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
     );
     // Parse fully to catch errors early - in API crates, not in user ones that depend on them.
-    let _api_level =
-        load(&crate_path, Some(trait_name.clone()), false).map_err(|e| format!("{e:?}"))?;
+    let api_bundle = load(&crate_path, Some(trait_name.clone()), false).map_err(|e| {
+        // a wrong #[errors(..)] list points at the name in it
+        match e.chain().find_map(|e| e.downcast_ref::<ErrorListError>()) {
+            Some(list_e) => Error::new(
+                error_list_span(&item_trait, list_e).unwrap_or_else(Span::call_site),
+                list_e.to_string(),
+            ),
+            None => Error::new(Span::call_site(), format!("{e:?}")),
+        }
+    })?;
 
-    let doc_trait = doc_trait(&item_trait)?;
+    let doc_trait =
+        doc_trait(&item_trait, Some(&api_bundle)).map_err(|e| Error::new(Span::call_site(), e))?;
     let full_gid = Ident::new(
         format!("{}_FULL_GID", item_trait.ident)
             .to_case(Case::Constant)
@@ -54,12 +67,18 @@ fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, S
 ///
 /// Resources keep their original spans, so the compiler checks their types in the defining crate (missing
 /// lifetimes, unknown types or traits), and IDEs can go to their definitions and show them on hover.
-fn doc_trait(item_trait: &ItemTrait) -> Result<TokenStream, String> {
+fn doc_trait(
+    item_trait: &ItemTrait,
+    api_bundle: Option<&ApiBundleOwned>,
+) -> Result<TokenStream, String> {
     let mut items = TokenStream::new();
     for item in &item_trait.items {
         match item {
             TraitItem::Fn(item_fn) => {
                 let docs = doc_attrs(&item_fn.attrs);
+                let errors = api_bundle
+                    .map(|bundle| errors_section(bundle, &item_fn.sig.ident.to_string()))
+                    .unwrap_or_default();
                 let since = since_note(&item_fn.attrs);
                 let ident = &item_fn.sig.ident;
                 let inputs = &item_fn.sig.inputs;
@@ -78,6 +97,7 @@ fn doc_trait(item_trait: &ItemTrait) -> Result<TokenStream, String> {
                 let notes = notes([stream, since]);
                 items.extend(quote! {
                     #(#docs)*
+                    #(#[doc = #errors])*
                     #notes
                     fn #ident #lifetimes (#inputs) #output;
                 });
@@ -213,6 +233,74 @@ fn doc_trait(item_trait: &ItemTrait) -> Result<TokenStream, String> {
     })
 }
 
+/// `# Errors` of a method with `#[errors(..)]` (API-32), each entry with its variant's doc line, as in the generated
+/// client's docs.
+fn errors_section(api_bundle: &ApiBundleOwned, method: &str) -> Vec<String> {
+    let Some(ApiItemKindOwned::Method {
+        return_ty,
+        errors: Some(errors),
+        ..
+    }) = api_bundle
+        .root
+        .items
+        .iter()
+        .find(|i| i.ident == method)
+        .map(|i| &i.kind)
+    else {
+        return vec![];
+    };
+    let Some(err_ty) = method_err_ty(return_ty.as_ref(), api_bundle) else {
+        return vec![];
+    };
+    let mut lines = vec![String::new(), " # Errors".to_string(), String::new()];
+    for (name, doc) in error_list_docs(errors, err_ty, api_bundle) {
+        lines.push(match doc {
+            Some(doc) => format!(" - `{name}`: {doc}"),
+            None => format!(" - `{name}`"),
+        });
+    }
+    lines
+}
+
+/// Span of the name an [ErrorListError] is about, in the method's `#[errors(..)]`, or of the attribute itself.
+fn error_list_span(item_trait: &ItemTrait, e: &ErrorListError) -> Option<Span> {
+    let attrs = item_trait.items.iter().find_map(|item| match item {
+        TraitItem::Fn(f) if f.sig.ident == e.method => Some(&f.attrs),
+        TraitItem::Macro(m) => {
+            let tokens = m.mac.tokens.to_string();
+            tokens
+                .contains(&e.method)
+                .then_some(&m.attrs)
+                .filter(|attrs| attrs.iter().any(|a| a.path().is_ident("errors")))
+        }
+        TraitItem::Const(c) if c.ident == e.method => Some(&c.attrs),
+        _ => None,
+    })?;
+    let attr = attrs.iter().find(|a| a.path().is_ident("errors"))?;
+    let name_span = e.name.as_ref().and_then(|name| {
+        let Meta::List(list) = &attr.meta else {
+            return None;
+        };
+        find_ident(list.tokens.clone(), name)
+    });
+    Some(name_span.unwrap_or_else(|| attr.path().span()))
+}
+
+fn find_ident(tokens: TokenStream, name: &str) -> Option<Span> {
+    for tt in tokens {
+        match tt {
+            TokenTree::Ident(ident) if ident == name => return Some(ident.span()),
+            TokenTree::Group(group) => {
+                if let Some(span) = find_ident(group.stream(), name) {
+                    return Some(span);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 fn doc_attrs(attrs: &[Attribute]) -> Vec<&Attribute> {
     attrs.iter().filter(|a| a.path().is_ident("doc")).collect()
 }
@@ -336,7 +424,7 @@ mod tests {
     use super::*;
 
     fn doc_trait_of(src: &str) -> String {
-        doc_trait(&syn::parse_str(src).unwrap())
+        doc_trait(&syn::parse_str(src).unwrap(), None)
             .unwrap()
             .to_string()
     }
@@ -380,6 +468,24 @@ mod tests {
             }
         };
         assert_eq!(out, expected.to_string());
+    }
+
+    #[test]
+    fn errors_section_from_the_list() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/methods_api");
+        let bundle = load(&path, None, false).unwrap();
+        assert_eq!(
+            errors_section(&bundle, "listed_errors"),
+            [
+                "",
+                " # Errors",
+                "",
+                " - `Common(Busy)`: Busy with another operation, try again later",
+                " - `Common(InUse)`: In use by {by}",
+                " - `Nack`: The sensor did not answer",
+            ]
+        );
+        assert!(errors_section(&bundle, "fallible_absent").is_empty());
     }
 
     #[test]

@@ -200,9 +200,9 @@ impl Scaffold<'_> {
                 None => item.ident.clone(),
             };
             match &item.kind {
-                ApiItemKindOwned::Method { args, return_ty } => {
-                    self.method(item, &name, item_index_len, args, return_ty)?
-                }
+                ApiItemKindOwned::Method {
+                    args, return_ty, ..
+                } => self.method(item, &name, item_index_len, args, return_ty)?,
                 ApiItemKindOwned::Property {
                     ty,
                     access,

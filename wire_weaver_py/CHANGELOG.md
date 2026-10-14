@@ -12,6 +12,8 @@
 - `Delta`, `DeltaOfDelta` and `XorFloat` (SW-50) are lists of `int` / `float` (any iterable accepted), a value out
   of range of the element type raises `ValueError`.
 - Signatures of counted and reliable streams say so (`counted stream x: T`, API-30).
+- A method's `#[errors(..)]` (API-32) is in its docs (`help()`, `.doc`): `Errors:` with each entry and its variant's
+  doc line. A device returning an error outside the list logs a warning.
 - Optional items (API-16): signatures end in `(optional)`, or `(left out by this device)` for one the device leaves
   out; calling such an item raises without sending a request.
 - `RemoteError.common` (STD-16): the `ww_error::CommonError` in a method's error (`{"InUse": {"by": "USART2"}}`),

@@ -3,6 +3,7 @@
 use console::style;
 use shrink_wrap::ElementSize;
 use std::fmt::Write;
+use wire_weaver_client::ww_self::errors::{error_list_docs, fmt_error_list, method_err_ty};
 use wire_weaver_client::ww_self::visit::{self, Visit};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, Delivery,
@@ -106,6 +107,7 @@ impl<'a> Visit<'a> for TreePrinter<'a> {
         let parent_prefix_len = self.prefix.len();
         self.prefix.push_str(if is_last { "   " } else { "│  " });
         self.visit_docs(&item.docs);
+        self.error_list_docs(item);
         if let ApiItemKindOwned::Trait { trait_idx, omitted } = &item.kind
             && let Some(location) = self.bundle.traits.get(trait_idx.0 as usize)
         {
@@ -117,6 +119,12 @@ impl<'a> Visit<'a> for TreePrinter<'a> {
     }
 
     fn visit_docs(&mut self, docs: &'a Vec<String>) {
+        self.doc_lines(docs);
+    }
+}
+
+impl TreePrinter<'_> {
+    fn doc_lines(&mut self, docs: &[String]) {
         if self.skip_docs {
             return;
         }
@@ -133,6 +141,34 @@ impl<'a> Visit<'a> for TreePrinter<'a> {
 }
 
 impl TreePrinter<'_> {
+    /// `# Errors` with each entry of a method's `#[errors(..)]` and its variant's doc line (API-32), like the docs
+    /// of the generated client.
+    fn error_list_docs(&mut self, item: &ApiItemOwned) {
+        let ApiItemKindOwned::Method {
+            return_ty,
+            errors: Some(errors),
+            ..
+        } = &item.kind
+        else {
+            return;
+        };
+        let Some(err_ty) = method_err_ty(return_ty.as_ref(), self.bundle) else {
+            return;
+        };
+        let mut lines = vec![];
+        if !item.docs.is_empty() {
+            lines.push(String::new());
+        }
+        lines.push("# Errors".to_string());
+        for (name, doc) in error_list_docs(errors, err_ty, self.bundle) {
+            lines.push(match doc {
+                Some(doc) => format!("- `{name}`: {doc}"),
+                None => format!("- `{name}`"),
+            });
+        }
+        self.doc_lines(&lines);
+    }
+
     fn header(&mut self) {
         let root = &self.bundle.root;
         self.visit_docs(&root.docs);
@@ -158,7 +194,15 @@ impl TreePrinter<'_> {
             _ = write!(self.out, "{}", style(attr).dim());
         }
         match &item.kind {
-            ApiItemKindOwned::Method { args, return_ty } => {
+            ApiItemKindOwned::Method {
+                args,
+                return_ty,
+                errors,
+            } => {
+                if let Some(errors) = errors {
+                    let attr = format!("#[errors({})] ", fmt_error_list(errors));
+                    _ = write!(self.out, "{}", style(attr).dim());
+                }
                 _ = write!(self.out, "{} ", style("fn").blue());
                 self.ident(item);
                 self.out.push('(');
@@ -601,6 +645,30 @@ types
         assert!(types.contains("enum ww_error::CommonError unsized, repr unib32, common errors\n"));
         assert!(types.contains("├─ 0 Common(CommonError) common errors\n"));
         assert!(types.contains("└─ 1 Nack\n"));
+    }
+
+    #[test]
+    fn renders_error_lists() {
+        console::set_colors_enabled(false);
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/methods_api");
+        let bundle = wire_weaver_core::load(&path, None, false).unwrap();
+        let tree = render(&bundle, false);
+        let expected = "\
+├─ 13 #[errors(Common(Busy, InUse), Nack)] fn listed_errors(pick: u8) -> Result<(), ListedError>
+│  /// Errors from a list (API-32): `pick` 0 is `Ok`, 1 `Common(Busy)`, 2 `Nack`, 3 `Common(Timeout)` and
+│  /// 4 `Overrun`, which are not in the list
+│  ///
+│  /// # Errors
+│  /// - `Common(Busy)`: Busy with another operation, try again later
+│  /// - `Common(InUse)`: In use by {by}
+│  /// - `Nack`: The sensor did not answer
+├─ 14 #[errors(Common)] fn all_common(pick: u8) -> Result<(), ListedError>
+│  /// Any `CommonError` (API-32): `Common` lists all of the nested enum's variants
+│  ///
+│  /// # Errors
+│  /// - `Common`: any CommonError
+";
+        assert!(tree.contains(expected), "{tree}");
     }
 
     #[test]

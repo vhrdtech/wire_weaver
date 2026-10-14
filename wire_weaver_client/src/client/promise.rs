@@ -1,3 +1,5 @@
+use crate::client::prepared_call::check_error_list;
+use crate::error_list::ErrorList;
 use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
 use crate::{DecodeReply, Error, OutcomeError, RawStreamEvent};
@@ -42,6 +44,8 @@ pub struct Promise<T, E = Error> {
     resource: &'static str,
     /// Decodes the reply bytes, differs for calls, reads and writes (whose reply is empty)
     decode: Option<DecodeFn<T, E>>,
+    /// `#[errors(..)]` of a called method (API-32)
+    error_list: Option<ErrorList<E>>,
     // TODO: Add instant
 }
 
@@ -55,6 +59,7 @@ impl<T, E> Default for Promise<T, E> {
             seen: false,
             resource: "",
             decode: None,
+            error_list: None,
         }
     }
 }
@@ -116,6 +121,7 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
             seen: false,
             resource: "",
             decode: None,
+            error_list: None,
         }
     }
 
@@ -137,6 +143,7 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
         timeout: Option<Duration>,
         transport_cmd_tx: TransportCommander,
         resource: &'static str,
+        error_list: Option<ErrorList<E>>,
         marker: &'static str,
     ) -> Self
     where
@@ -151,6 +158,7 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
         let mut promise = Self::with_state(state, marker);
         promise.resource = resource;
         promise.decode = Some(E::decode_reply);
+        promise.error_list = error_list;
         promise
     }
 
@@ -264,7 +272,11 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
             StateInner::WaitingForReply(rx) => match rx.try_recv() {
                 Ok(response) => {
                     self.state = match (response, self.decode) {
-                        (Ok(bytes), Some(decode)) => match decode(&bytes) {
+                        (Ok(bytes), Some(decode)) => match check_error_list(
+                            decode(&bytes),
+                            self.error_list.as_ref(),
+                            self.resource,
+                        ) {
                             Ok(reply) => StateInner::Done(Some(reply)),
                             Err(e) => StateInner::Err(e),
                         },

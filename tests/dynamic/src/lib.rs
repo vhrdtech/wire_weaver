@@ -75,6 +75,14 @@ mod tests {
                 Ready(U10::new(sum.clamp(0, 1023) as u16).unwrap())
             }
 
+            fn check_listed(
+                &mut self,
+                cx: &mut Context<'_, impl BlockingEventOut>,
+                x: Option<u8>,
+            ) -> RpcResult<Result<u8, CheckError>> {
+                self.check(cx, x)
+            }
+
             fn check(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -630,6 +638,29 @@ mod tests {
         assert_eq!(gain.index_chain().len(), 3);
     }
 
+    /// tests_common makes clients strict: an error outside the method's `#[errors(..)]` fails the test (API-32).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[should_panic(
+        expected = "'check_listed' returned Missing, which is not in its #[errors(TooBig)]"
+    )]
+    async fn unlisted_error_fails_in_tests() {
+        let device = tests_common::start_device(
+            "dynamic/unlisted_error",
+            server::DynServer::default(),
+            dynamic_api::DYNAMIC_FULL_GID,
+            server::api_impl::api_hash(),
+        );
+        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        let root = DynResource::root(bundle());
+        let check_listed = root.child("check_listed").unwrap();
+        let _ = check_listed
+            .call(client.cmd(), &[ValueOwned::Option(None)])
+            .await;
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn calls_into_generated_server() {
         let device = tests_common::start_device(
@@ -687,6 +718,11 @@ mod tests {
         assert_eq!(
             check.call(cmd, &[ValueOwned::Option(None)]).await.unwrap(),
             err("Missing")
+        );
+        let check_listed = root.child("check_listed").unwrap();
+        assert_eq!(
+            check_listed.call(cmd, &[some(200)]).await.unwrap(),
+            err("TooBig")
         );
 
         let speed = root.child("speed").unwrap();

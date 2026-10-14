@@ -19,6 +19,7 @@
 
 use crate::client::dyn_positioned::{DynPositionedStream, DynStreamOpen};
 use crate::client::prepared_stream_open::RawOpenResult;
+use crate::error_list;
 use crate::{
     AckMode, Commander, CreditConfig, Error, PositionedStream, PreparedStreamOpen, Sink, Stream,
     StreamCursor, StreamError,
@@ -30,9 +31,10 @@ use wire_weaver::prelude::UNib32;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::PathKind;
 use ww_numeric::NumericValue;
+use ww_self::errors::{error_list_contains, error_value_name, fmt_error_list};
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Delivery,
-    FlowControl, Multiplicity, PropertyAccess, TypeOwned, ValueOwned,
+    ErrorVariantOwned, FlowControl, Multiplicity, PropertyAccess, TypeOwned, ValueOwned,
 };
 
 /// API root, trait, method, property, stream or an array of them, found by walking an [ApiBundleOwned].
@@ -69,6 +71,8 @@ pub enum DynResourceKind<'a> {
     Method {
         args: &'a [ArgumentOwned],
         return_ty: Option<&'a TypeOwned>,
+        /// `#[errors(..)]` (API-32): the variants of the `Err` type this method returns, `None` for any.
+        errors: Option<&'a [ErrorVariantOwned]>,
     },
     Property {
         ty: &'a TypeOwned,
@@ -120,9 +124,14 @@ impl DynResource {
             (Node::Level { .. }, _) => DynResourceKind::Level(self.level()?),
             (Node::Array, Some(item)) => DynResourceKind::Array(item),
             (Node::Item, Some(item)) => match &item.kind {
-                ApiItemKindOwned::Method { args, return_ty } => DynResourceKind::Method {
+                ApiItemKindOwned::Method {
+                    args,
+                    return_ty,
+                    errors,
+                } => DynResourceKind::Method {
                     args,
                     return_ty: return_ty.as_ref(),
+                    errors: errors.as_deref(),
                 },
                 ApiItemKindOwned::Property { ty, access, .. } => DynResourceKind::Property {
                     ty,
@@ -284,7 +293,9 @@ impl DynResource {
 
     fn method(&self) -> Result<(&[ArgumentOwned], Option<&TypeOwned>), Error> {
         match self.kind()? {
-            DynResourceKind::Method { args, return_ty } => Ok((args, return_ty)),
+            DynResourceKind::Method {
+                args, return_ty, ..
+            } => Ok((args, return_ty)),
             _ => Err(self.not_a("method")),
         }
     }
@@ -330,9 +341,26 @@ impl DynResource {
         let Some(return_ty) = return_ty else {
             return Ok(None);
         };
-        ValueOwned::des_shrink_wrap_dyn(bytes, return_ty, &self.bundle)
-            .map(Some)
-            .map_err(|e| Error::Other(format!("'{}' return value: {e:#}", self.path)))
+        let value = ValueOwned::des_shrink_wrap_dyn(bytes, return_ty, &self.bundle)
+            .map_err(|e| Error::Other(format!("'{}' return value: {e:#}", self.path)))?;
+        self.check_error_list(&value);
+        Ok(Some(value))
+    }
+
+    /// Warns when the device returned an error outside the method's `#[errors(..)]` (API-32).
+    fn check_error_list(&self, value: &ValueOwned) {
+        let (
+            Ok(DynResourceKind::Method {
+                errors: Some(list), ..
+            }),
+            ValueOwned::Result(Err(err)),
+        ) = (self.kind(), value)
+        else {
+            return;
+        };
+        if !error_list_contains(list, err) {
+            error_list::unlisted(&self.path, &error_value_name(err), &fmt_error_list(list));
+        }
     }
 
     /// Call a method with arguments in the order they are defined in, returns None if it returns nothing.

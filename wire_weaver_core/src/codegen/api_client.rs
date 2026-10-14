@@ -10,9 +10,10 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{LitStr, Path};
+use ww_self::errors::{error_list_docs, fmt_error_list, method_err_ty};
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Delivery,
-    FlowControl, Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
+    ErrorVariantOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
 };
 
 /// API client code generation configuration.
@@ -345,7 +346,11 @@ fn level_method(
     // names the item in CallError::Unimplemented
     let resource = format!("{}::{}", api_level.trait_name, item.ident);
     let lm = match &item.kind {
-        ApiItemKindOwned::Method { args, return_ty } => handle_method(
+        ApiItemKindOwned::Method {
+            args,
+            return_ty,
+            errors,
+        } => handle_method(
             api_bundle,
             model,
             path_mode,
@@ -354,6 +359,7 @@ fn level_method(
             &ident,
             args,
             return_ty,
+            errors.as_deref(),
             &item.docs,
             &resource,
         ),
@@ -452,6 +458,7 @@ fn handle_method(
     ident: &Ident,
     args: &[ArgumentOwned],
     return_type: &Option<TypeOwned>,
+    errors: Option<&[ErrorVariantOwned]>,
     docs: &[String],
     resource: &str,
 ) -> TokenStream {
@@ -471,6 +478,14 @@ fn handle_method(
 
     let path_kind = path_kind(path_mode, gid_paths);
     let maybe_mut = maybe_quote(!args.is_empty(), quote! { mut });
+    let mut docs = docs.to_vec();
+    let mut with_error_list = quote! {};
+    if let Some(errors) = errors
+        && let Some(err_ty) = method_err_ty(return_type.as_ref(), api_bundle)
+    {
+        docs.extend(error_list_doc(errors, err_ty, api_bundle));
+        with_error_list = error_list_check(errors, err_ty, api_bundle);
+    }
     let docs = docs.iter().map(|s| quote! { #[doc = #s] });
     quote! {
         #(#docs)*
@@ -478,8 +493,70 @@ fn handle_method(
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;
-            self.cmd.prepare_call(path_kind, args_bytes, #resource)
+            self.cmd.prepare_call(path_kind, args_bytes, #resource) #with_error_list
         }
+    }
+}
+
+/// `# Errors` section of a method's docs from its `#[errors(..)]` list (API-32), each entry with its variant's doc line.
+fn error_list_doc(
+    errors: &[ErrorVariantOwned],
+    err_ty: &TypeOwned,
+    api_bundle: &ApiBundleOwned,
+) -> Vec<String> {
+    let mut docs = vec![String::new(), "# Errors".into(), String::new()];
+    for (name, doc) in error_list_docs(errors, err_ty, api_bundle) {
+        docs.push(match doc {
+            Some(doc) => format!("- `{name}`: {doc}"),
+            None => format!("- `{name}`"),
+        });
+    }
+    docs
+}
+
+/// `.with_error_list(..)` with a `matches!` over the listed variants (API-32), so that the client warns when a
+/// device returns another one.
+fn error_list_check(
+    errors: &[ErrorVariantOwned],
+    err_ty: &TypeOwned,
+    api_bundle: &ApiBundleOwned,
+) -> TokenStream {
+    let err_path = ty_def(api_bundle, err_ty, true, TyPos::Arg).unwrap();
+    let variants = match err_ty.get_in_line(api_bundle) {
+        Ok(TypeOwned::Enum(item_enum)) => item_enum.variants.as_slice(),
+        _ => &[],
+    };
+    let mut patterns = vec![];
+    for entry in errors {
+        let variant = Ident::new(&entry.ident, Span::call_site());
+        match &entry.nested {
+            None => patterns.push(quote! { #err_path::#variant { .. } }),
+            Some(nested) => {
+                let field_ty = variants
+                    .iter()
+                    .find(|v| v.ident == entry.ident)
+                    .and_then(|v| match &v.fields {
+                        FieldsOwned::Unnamed(fields) if fields.len() == 1 => Some(&fields[0].ty),
+                        _ => None,
+                    })
+                    .expect("checked when the trait was parsed");
+                let inner_path = ty_def(api_bundle, field_ty, true, TyPos::Arg).unwrap();
+                for n in nested {
+                    let n = Ident::new(n, Span::call_site());
+                    patterns.push(quote! { #err_path::#variant(#inner_path::#n { .. }) });
+                }
+            }
+        }
+    }
+    let names = fmt_error_list(errors);
+    quote! {
+        .with_error_list(wire_weaver_client::ErrorList {
+            listed: |e| match e {
+                wire_weaver_client::CallError::Device(e) => matches!(e, #(#patterns)|*),
+                _ => true,
+            },
+            names: #names,
+        })
     }
 }
 

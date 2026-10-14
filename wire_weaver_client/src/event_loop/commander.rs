@@ -137,6 +137,7 @@ impl Commander {
             args,
             timeout_override: None,
             resource,
+            error_list: None,
             _phantom: PhantomData,
         }
     }

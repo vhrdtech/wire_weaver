@@ -187,6 +187,8 @@ fn start<S: Process + Send + 'static>(
     api_hash: ApiHashPair<'static>,
     medium: S::Medium,
 ) -> TestDevice {
+    // a device returning an error outside a method's #[errors(..)] fails the test (API-32)
+    wire_weaver_client::set_strict_error_lists(true);
     let drop_requests = Arc::new(AtomicBool::new(false));
     let filter = Arc::new(Mutex::new(None));
     let (to_device, mut from_test) = mpsc::unbounded_channel::<Vec<u8>>();

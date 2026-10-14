@@ -15,6 +15,13 @@
 * `ApiItemKind::PositionedStream { ty, delivery: Delivery }` appended (API-30): a counted or reliable stream,
   `Delivery::{Counted, Reliable}`. Exhaustive matches on `ApiItemKind` need a new arm; plain streams stay `Stream` and
   keep their bytes. `ApiItemKindOwned::as_stream()` treats it as a stream, `delivery()` tells which kind.
+* Per-method error lists (API-32): `ApiItemKind::Method` gets `errors: Option<RefVec<ErrorVariant>>`
+  (`#[default = None]`, older bundles and snapshots read as before), the `#[errors(..)]` list of the method's trait,
+  each entry a variant of its error enum with, for `Common(InUse, Refused)`, the variants of the enum it holds. Rust
+  code matching `Method { args, return_ty }` needs `..`, struct literals the new field (`None`). The `errors` module
+  has what tools share: `fmt_error_list()` (as written), `error_list_docs()` (each entry with its variant's doc line),
+  `error_list_contains()` (whether a dynamic error value is in a list), `error_value_name()`, `method_err_ty()` and
+  `ApiItemKindOwned::error_list()`.
 * Optional items (API-16): `ApiItemKind::Trait` gets `omitted: Option<RefVec<UNib32>>`, `ApiItem` gets
   `optional: Option<Optional>` and `ApiBundle` gets `root_omitted`, all `#[default = None]`, so older bundles and
   snapshots read as before. Rust code matching `Trait { trait_idx }` needs `..`, struct literals of `ApiItemOwned`,

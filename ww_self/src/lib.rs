@@ -11,6 +11,8 @@ mod common;
 #[cfg(feature = "std")]
 pub use common::COMMON_ERROR;
 #[cfg(feature = "std")]
+pub mod errors;
+#[cfg(feature = "std")]
 pub mod inline;
 #[cfg(feature = "std")]
 pub mod signature;
@@ -158,6 +160,21 @@ pub struct ApiItem<'i> {
     pub optional: Option<Optional<'i>>,
 }
 
+/// One entry of a method's error list (`#[errors(Common(InUse, Refused), Nack)]`, API-32): a variant of the
+/// method's error enum, and for a variant holding one enum (`Common(CommonError)`), the variants of that one.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct ErrorVariant<'i> {
+    /// Name of the variant of the error enum.
+    pub ident: &'i str,
+    /// Variants of the enum in the variant's only field (`Common(InUse, Refused)`), `None` for all of them
+    /// (`Common`).
+    pub nested: Option<RefVec<'i, &'i str>>,
+}
+
 /// Marks an [ApiItem] as optional (`#[optional]`, `#[optional(group)]`), see `docs/api/optional_items.md`.
 #[derive_shrink_wrap(
     owned(feature = "std"),
@@ -194,6 +211,11 @@ pub enum ApiItemKind<'i> {
     Method {
         args: RefVec<'i, Argument<'i>>,
         return_ty: Option<Type<'i>>,
+        /// Variants of the `Err` type of `return_ty` this method returns, `#[errors(..)]` in its trait (API-32), in
+        /// the order written. `None` without `#[errors]`: any variant. A device may still return others (only the
+        /// client checks), see `docs/api/errors.md#1-per-method-errors`.
+        #[default = None]
+        errors: Option<RefVec<'i, ErrorVariant<'i>>>,
     },
     Property {
         ty: Type<'i>,

@@ -52,7 +52,9 @@ def api():
 
 
 def test_tree(api):
-    assert sorted(dir(api)) == ["add", "channel", "check", "echo", "everything", "flagged", "no_args", "speed"]
+    assert sorted(dir(api)) == [
+        "add", "channel", "check", "check_listed", "echo", "everything", "flagged", "no_args", "speed", "sub_byte",
+    ]
     assert "add(a: u32, b: i16) -> i64" in repr(api)
     assert api.add.signature == "add(a: u32, b: i16) -> i64"
     assert api.speed.signature == "rw speed: u16"
@@ -201,3 +203,16 @@ def test_own_error(errors_api):
         errors_api.read.decode_return(bytes.fromhex(NACK_HEX), raise_err=True)
     assert e.value.value == "Nack"
     assert e.value.common is None
+
+
+def test_error_lists():
+    # API-32: a method's #[errors(..)] in its docs (help()), each entry with its variant's doc line
+    api = ww.load_api(str(API_CRATE.parent / "methods_api"), "Methods")
+    assert api.listed_errors.doc.endswith(
+        "which are not in the list\n\nErrors:\n"
+        "    Common(Busy): Busy with another operation, try again later\n"
+        "    Common(InUse): In use by {by}\n"
+        "    Nack: The sensor did not answer"
+    )
+    assert api.all_common.doc.endswith("Errors:\n    Common: any CommonError")
+    assert "Errors:" not in api.fallible_absent.doc

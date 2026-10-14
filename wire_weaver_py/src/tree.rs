@@ -9,6 +9,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyString, PyTuple};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use wire_weaver_client::ww_self::errors::{self, method_err_ty};
 use wire_weaver_client::ww_self::{
     ApiItemKindOwned, ApiItemOwned, ArgumentOwned, Delivery, PropertyAccess, TypeOwned, ValueOwned,
 };
@@ -70,15 +71,45 @@ pub(crate) fn timeout(t: Option<f64>) -> Option<Duration> {
 }
 
 pub(crate) fn docs(res: &DynResource) -> String {
-    res.item()
-        .map(|i| {
-            i.docs
-                .iter()
-                .map(|d| d.trim())
-                .collect::<Vec<_>>()
-                .join("\n")
-        })
-        .unwrap_or_default()
+    let Some(item) = res.item() else {
+        return String::new();
+    };
+    let mut docs = item
+        .docs
+        .iter()
+        .map(|d| d.trim())
+        .collect::<Vec<_>>()
+        .join("\n");
+    docs.push_str(&error_list_docs(res, item));
+    docs
+}
+
+/// `Errors:` with each entry of a method's `#[errors(..)]` (API-32) and its variant's doc line, the variants
+/// `RemoteError.value` can have.
+fn error_list_docs(res: &DynResource, item: &ApiItemOwned) -> String {
+    let ApiItemKindOwned::Method {
+        return_ty,
+        errors: Some(errors),
+        ..
+    } = &item.kind
+    else {
+        return String::new();
+    };
+    let Some(err_ty) = method_err_ty(return_ty.as_ref(), res.bundle()) else {
+        return String::new();
+    };
+    let mut out = String::from(if item.docs.is_empty() {
+        "Errors:"
+    } else {
+        "\n\nErrors:"
+    });
+    for (name, doc) in errors::error_list_docs(errors, err_ty, res.bundle()) {
+        match doc {
+            Some(doc) => out.push_str(&format!("\n    {name}: {doc}")),
+            None => out.push_str(&format!("\n    {name}")),
+        }
+    }
+    out
 }
 
 /// One-line signature, e.g. `add(a: u32, b: i16) -> i64`, `rw speed: u16`, `stream samples: Vec<u8>`, with
@@ -101,7 +132,9 @@ fn item_signature(res: &DynResource, item: &ApiItemOwned) -> String {
     let array = if item.is_array() { "[]" } else { "" };
     let name = &item.ident;
     match &item.kind {
-        ApiItemKindOwned::Method { args, return_ty } => {
+        ApiItemKindOwned::Method {
+            args, return_ty, ..
+        } => {
             let args: Vec<_> = args
                 .iter()
                 .map(|a| format!("{}: {}", a.ident, type_name(&a.ty, bundle)))

@@ -13,6 +13,9 @@ trait Dynamic {
     property!(rw everything: Everything<'i>);
     property!(rw flagged: Flagged<'i>);
     ww_impl!(channel[]: Channel);
+    /// Same as `check`, listing only `TooBig` (API-32)
+    #[errors(TooBig)]
+    fn check_listed(x: Option<u8>) -> Result<u8, CheckError>;
 }
 
 #[ww_trait]

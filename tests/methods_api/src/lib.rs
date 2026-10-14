@@ -21,7 +21,15 @@ trait Methods {
     /// Bit-sized arguments and return (SW-48)
     fn sub_byte(a: U7, b: I10, addr: I2cAddress) -> U10;
     /// `value / 2`, or `Err(MethodError::Odd)` for an odd value
+    #[errors(Odd)]
     fn fallible(value: u8) -> Result<u8, MethodError>;
+    /// Errors from a list (API-32): `pick` 0 is `Ok`, 1 `Common(Busy)`, 2 `Nack`, 3 `Common(Timeout)` and
+    /// 4 `Overrun`, which are not in the list
+    #[errors(Common(Busy, InUse), Nack)]
+    fn listed_errors(pick: u8) -> Result<(), ListedError<'i>>;
+    /// Any `CommonError` (API-32): `Common` lists all of the nested enum's variants
+    #[errors(Common)]
+    fn all_common(pick: u8) -> Result<(), ListedError<'i>>;
     /// Server returns Unimplemented
     fn fallible_absent() -> Result<(), MethodError>;
 }
@@ -41,6 +49,23 @@ impl core::fmt::Display for MethodError {
 }
 
 impl core::error::Error for MethodError {}
+
+/// Error of [Methods::listed_errors]: the common errors first, then the API's own (STD-16).
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Clone),
+    ww_repr = unib32,
+    display
+)]
+pub enum ListedError<'i> {
+    /// {0}
+    #[common]
+    Common(CommonError<'i>),
+    /// The sensor did not answer.
+    Nack,
+    /// Data was lost.
+    Overrun,
+}
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq))]
 struct UserDefined<'i> {

@@ -137,7 +137,7 @@ macro_rules! define_visitor {
             node: & $($lt_ref)? $($mut)? ApiItemKindOwned,
         ) {
             match node {
-                ApiItemKindOwned::Method { args, return_ty } => {
+                ApiItemKindOwned::Method { args, return_ty, .. } => {
                     for arg in args {
                         v.visit_argument(arg);
                     }
@@ -379,6 +379,7 @@ mod tests {
                                 }),
                                 err_ty: Box::new(item_enum),
                             }),
+                            errors: None,
                         },
                     ),
                     item(

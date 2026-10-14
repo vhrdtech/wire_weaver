@@ -16,6 +16,9 @@
 
 - `#[ww_trait]` accepts `#[stream(T, kind)]` on trait fns and `#[counted]` / `#[reliable]` on `stream!` (API-31), and
   notes them in the rustdoc trait.
+- `#[errors(..)]` on methods of a `#[ww_trait]` (API-32): a wrong list is a compile error pointing at the name in it
+  (`CommonError has no variant Bogus, it has: ..`), and the rustdoc trait gets a `# Errors` section with each listed
+  variant's doc line.
 - API traits show up in `cargo doc` and on docs.rs (DOC-6): methods with their signatures, properties, streams,
   sinks, consts and `ww_impl!` sub-traits as functions returning `wire_weaver::api_doc` markers, all with their doc
   comments plus a note with access mode, array index, `#[credit]` and `#[since]`. The trait doc comment moved from

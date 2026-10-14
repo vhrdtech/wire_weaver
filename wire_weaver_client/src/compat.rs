@@ -312,10 +312,14 @@ fn compare_kinds<'a>(
     use ApiItemKindOwned::*;
     match (&client_item.kind, &device_item.kind) {
         (
-            Method { args, return_ty },
+            // error lists don't matter here: nothing on the wire, only the client checks them (API-32)
+            Method {
+                args, return_ty, ..
+            },
             Method {
                 args: device_args,
                 return_ty: device_return_ty,
+                ..
             },
         ) => check_signature(
             (args, return_ty.as_ref()),

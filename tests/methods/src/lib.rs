@@ -24,7 +24,7 @@ mod tests {
 
     mod no_std_sync_server {
         use super::*;
-        use methods_api::{I2cAddress, MethodError, UserDefined};
+        use methods_api::{I2cAddress, ListedError, MethodError, UserDefined};
         use tests_common::TestProcessEvents;
         use wire_weaver::prelude::*;
 
@@ -147,6 +147,32 @@ mod tests {
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
             ) -> RpcResult<Result<(), MethodError>> {
                 Unimplemented.into()
+            }
+
+            fn listed_errors(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                pick: u8,
+            ) -> RpcResult<Result<(), ListedError<'_>>> {
+                Ready(pick_error(pick))
+            }
+
+            fn all_common(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                pick: u8,
+            ) -> RpcResult<Result<(), ListedError<'_>>> {
+                Ready(pick_error(pick))
+            }
+        }
+
+        fn pick_error(pick: u8) -> Result<(), ListedError<'static>> {
+            match pick {
+                0 => Ok(()),
+                1 => Err(CommonError::Busy.into()),
+                2 => Err(ListedError::Nack),
+                3 => Err(CommonError::Timeout.into()),
+                _ => Err(ListedError::Overrun),
             }
         }
 
@@ -382,6 +408,65 @@ mod tests {
             .call()
             .await;
         assert!(matches!(r, Err(CallError::Client(Error::Timeout))), "{r:?}");
+    }
+
+    /// A device error in the method's `#[errors(..)]` list goes through as is (API-32).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn listed_errors() {
+        use methods_api::ListedErrorOwned;
+        use wire_weaver::prelude::CommonErrorOwned;
+        let (device, _data) = start("methods/listed_errors");
+        let mut client = connect(&device).await;
+        client.listed_errors(0).call().await.unwrap();
+        let e = client.listed_errors(1).call().await.unwrap_err();
+        assert!(
+            matches!(
+                e,
+                CallError::Device(ListedErrorOwned::Common(CommonErrorOwned::Busy))
+            ),
+            "{e:?}"
+        );
+        let e = client.listed_errors(2).call().await.unwrap_err();
+        assert!(
+            matches!(e, CallError::Device(ListedErrorOwned::Nack)),
+            "{e:?}"
+        );
+        // Common lists every common error
+        for pick in [1, 3] {
+            client.all_common(pick).call().await.unwrap_err();
+        }
+    }
+
+    /// tests_common makes the client strict: a device error outside the list fails the test (API-32).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[should_panic(
+        expected = "'Methods::listed_errors' returned Device(Common(Timeout)), which is not in its #[errors(Common(Busy, InUse), Nack)]"
+    )]
+    async fn unlisted_nested_error_fails_in_tests() {
+        let (device, _data) = start("methods/unlisted_nested_error");
+        let mut client = connect(&device).await;
+        let _ = client.listed_errors(3).call().await;
+    }
+
+    #[test]
+    #[should_panic(expected = "'Methods::listed_errors' returned Device(Overrun)")]
+    fn unlisted_error_fails_in_tests_blocking() {
+        let (device, _data) = start("methods/unlisted_error_blocking");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let mut client = connect_blocking(&device);
+        let _ = client.listed_errors(4).blocking_call();
+    }
+
+    #[test]
+    #[should_panic(expected = "'Methods::all_common' returned Device(Overrun)")]
+    fn unlisted_error_fails_in_tests_promise() {
+        let (device, _data) = start("methods/unlisted_error_promise");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let mut client = connect_blocking(&device);
+        let mut promise = client.all_common(4).call_promise("all_common");
+        tests_common::wait_promise(&mut promise);
     }
 
     #[test]

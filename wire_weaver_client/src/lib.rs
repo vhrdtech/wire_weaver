@@ -5,6 +5,7 @@ mod compat;
 mod config;
 mod device_info;
 mod error;
+mod error_list;
 pub(crate) mod event_loop;
 pub mod evolution;
 pub mod follow;
@@ -63,6 +64,7 @@ pub type SeqTy = u32;
 /// Default for [ClientConfig::max_seq], the largest request seq number that is serialized into 3 bytes.
 pub const DEFAULT_MAX_SEQ: SeqTy = (1 << 21) - 1;
 pub use error::{CallError, DecodeReply, Error, OutcomeError};
+pub use error_list::{ErrorList, set_strict_error_lists};
 
 pub use wire_weaver_snapshots as snapshots;
 pub use ww_client_server;

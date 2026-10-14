@@ -1,5 +1,7 @@
+use crate::error_list::{self, ErrorList};
 use crate::event_loop::commander::TransportCommander;
-use crate::{DecodeReply, Error, Promise};
+use crate::{CallError, DecodeReply, Error, OutcomeError, Promise};
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
@@ -27,7 +29,18 @@ pub struct PreparedCall<T, E = Error> {
     pub(crate) timeout_override: Option<Duration>,
     /// Names the method in [CallError::Unimplemented](crate::CallError::Unimplemented)
     pub(crate) resource: &'static str,
+    /// `#[errors(..)]` of the method (API-32), checked on the device's error
+    pub(crate) error_list: Option<ErrorList<E>>,
     pub(crate) _phantom: PhantomData<(T, E)>,
+}
+
+impl<T, D: DeserializeShrinkWrapOwned + Debug> PreparedCall<T, CallError<D>> {
+    /// The method's `#[errors(..)]` list (API-32), used by generated client code: a device error outside it is
+    /// logged as a warning (a panic with [set_strict_error_lists](crate::set_strict_error_lists)).
+    pub fn with_error_list(mut self, list: ErrorList<CallError<D>>) -> Self {
+        self.error_list = Some(list);
+        self
+    }
 }
 
 impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
@@ -42,6 +55,7 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
             args: self.args,
             timeout_override: Some(timeout),
             resource: self.resource,
+            error_list: self.error_list,
             _phantom: PhantomData,
         }
     }
@@ -51,10 +65,12 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
     /// Note that this method might have to await for command queue slot.
     /// This can happen if too many requests are sent or if client device is slow to respond.
     pub async fn call(self) -> Result<T, E> {
-        let resource = self.resource;
-        self.call_inner()
+        let (resource, error_list) = (self.resource, self.error_list);
+        let result = self
+            .call_inner()
             .await
-            .map_err(|e| E::from_client(e, resource))?
+            .map_err(|e| E::from_client(e, resource))?;
+        check_error_list(result, error_list.as_ref(), resource)
     }
 
     async fn call_inner(self) -> Result<Result<T, E>, Error> {
@@ -78,9 +94,11 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
     /// Note that this method might block waiting for command queue slot.
     /// This can happen if too many requests are sent or if client device is slow to respond.
     pub fn blocking_call(self) -> Result<T, E> {
-        let resource = self.resource;
-        self.blocking_call_inner()
-            .map_err(|e| E::from_client(e, resource))?
+        let (resource, error_list) = (self.resource, self.error_list);
+        let result = self
+            .blocking_call_inner()
+            .map_err(|e| E::from_client(e, resource))?;
+        check_error_list(result, error_list.as_ref(), resource)
     }
 
     fn blocking_call_inner(self) -> Result<Result<T, E>, Error> {
@@ -139,7 +157,20 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
             self.timeout_override,
             self.transport_cmd_tx,
             self.resource,
+            self.error_list,
             marker,
         )
     }
+}
+
+/// Checks the device's error of a call against the method's `#[errors(..)]` list.
+pub(crate) fn check_error_list<T, E: OutcomeError>(
+    result: Result<T, E>,
+    list: Option<&ErrorList<E>>,
+    resource: &str,
+) -> Result<T, E> {
+    if let Err(e) = &result {
+        error_list::check(e, list, resource);
+    }
+    result
 }

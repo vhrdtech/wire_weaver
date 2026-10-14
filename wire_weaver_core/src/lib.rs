@@ -21,6 +21,7 @@ pub mod prelude {
 }
 
 pub mod internal {
-    pub use crate::transform::{PropertyMacroArgs, StreamAndImplMacroArgs};
+    pub use crate::transform::{ErrorListError, PropertyMacroArgs, StreamAndImplMacroArgs};
+    pub use ww_self;
     pub use ww_self::PropertyAccess;
 }

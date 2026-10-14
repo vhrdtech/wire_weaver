@@ -176,3 +176,23 @@ match client.move_motor(1.0).call().await {
 without `Result` tell an unimplemented method apart with `wire_weaver_client::Error::is_unimplemented()`. A property
 with a user error type (`property!(rw mode: u8, ModeError)`) gives the same `CallError<ModeError>` from `write()`.
 See [Errors](errors.md) for declaring errors, common errors and errors of newer firmware.
+### Error lists
+
+`#[errors(..)]` on a method names the variants of its error enum it returns (API-32), `Common(InUse, Refused)` the
+variants of the enum a `Common(CommonError)` variant holds, `Common` all of them:
+
+```rust
+#[ww_trait]
+trait Sensor {
+    /// Reads one sample.
+    #[errors(Common(Busy, InUse), Nack)]
+    fn read() -> Result<u16, SensorError<'i>>;
+}
+```
+
+The list is checked when the trait is parsed (an unknown or repeated name is a compile error on that name), goes
+into the API model and from there into the generated client's docs (`# Errors`, each entry with its variant's doc
+line), `ww api tree`, Python's `help()` and `ww api check` (a changed list is a compatible change). The device and
+the wire don't see it: a device may still return any variant, the client logs a `tracing` warning when one is
+outside the list, and `tests_common` makes that a test failure (`wire_weaver_client::set_strict_error_lists`).
+Without `#[errors]` a method may return every variant. More in [Errors](errors.md#which-errors-a-method-returns).

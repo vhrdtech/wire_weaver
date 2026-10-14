@@ -23,5 +23,7 @@ Decisions/gotchas:
   [links] (rustdoc -D warnings fails). Framework idea filed in the doc.
 - The API parser needs types from a crate's direct dependencies (ww_numeric::NumericValue via ww_si re-export
   failed: "Module ww_numeric not found"): depend on ww_numeric directly.
+- SW-47 (ww-errors-plan, 54ed35da, not on master yet): Unsized enums get Unknown(u32) automatically; mark
+  complete-by-nature ones `no_future_version` when it lands (I2cOp, I2cReadKind? SampleFormat stays open).
 - SW-16 is on master: `#[future_version] Unknown(u32)` as last variant, opt-in.
 - Global-trait client (ww-cross-version): DynClient::traits_only + global_attachment; trait must not sit in an array.

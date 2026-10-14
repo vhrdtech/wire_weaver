@@ -50,6 +50,7 @@ nav = [
         "std_library/ww_version.md",
         "std_library/ww_numeric.md",
         "std_library/ww_si.md",
+        "std_library/ww_error.md",
         "std_library/ww_gpio.md",
         "std_library/ww_client_server.md",
         "std_library/ww_can_bus.md",

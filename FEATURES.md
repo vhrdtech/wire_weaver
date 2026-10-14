@@ -566,6 +566,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-3 `ww_si`** and **`ww_numeric`**.
 - ✅ **STD-4 `ww_date_time`**.
 - ✅ **STD-5 `ww_gpio`**.
+- ✅ **STD-16 Common errors** — `ww_error::CommonError` (`Unsupported`, `InvalidArgument`, `InUse`, `Busy`,
+  `WrongState`, `NoPower`, `Refused`, `Timeout`, `Fault`, bounded strings), re-exported as
+  `wire_weaver::prelude::CommonError`, nested first in an error enum as `#[common] Common(CommonError)` (the derive
+  adds `From<CommonError>` and `HasCommon`); recognised by tools by its type (`ww_self::TypeOwned::is_common_error`):
+  Python `RemoteError.common` with the doc line as the message, `ww api tree -t` marks it. Display by hand until
+  DER-12 takes over. Moving the stdlib crates' errors to it is the migration piece of `docs/api/errors.md#plan`.
+  `docs/std_library/ww_error.md`, `tests/common_error`.
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
@@ -583,10 +590,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `MAX_PIECE_LEN`, `MAX_HEADER_LEN`, `MAX_CHUNKS_PAGE`, `MAX_PRODUCT_LEN`), so every method has a known largest
   request and reply. `Profile::AB(SlotSwitch::{Copy, Remap})` / `InPlace`. Next: a chunky implementation (chunky
   NET-1).
-- 📋 **STD-16 Common errors** · `v0.5` — `ww_error::CommonError` (`Unsupported`, `InvalidArgument`, `InUse`,
-  `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout`, `Fault`), nested first in every error enum as
-  `#[common] Common(CommonError)` (the derive adds `From` and `HasCommon`), recognised by tools by its type; every
-  stdlib crate's errors moved to it (`docs/api/errors.md#2-common-errors`).
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

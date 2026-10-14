@@ -11,6 +11,7 @@
   and NaiveTime.
 * `ww_numeric` - Various numeric types, including offset-scale and subtypes.
 * `ww_si` - SI units and derived values.
+* `ww_error` - Errors every API can return (`CommonError`), recognised by tools by their type.
 
 ### Common firmware functionality
 

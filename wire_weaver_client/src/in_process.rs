@@ -255,9 +255,7 @@ impl ww_device::PacketSink for UsbSink {
         );
         let to_host = self.to_host.lock().unwrap();
         let to_host = to_host.as_ref().ok_or(Disconnected)?;
-        to_host
-            .send((0, packet.to_vec()))
-            .map_err(|_| Disconnected)
+        to_host.send((0, packet.to_vec())).map_err(|_| Disconnected)
     }
 }
 
@@ -405,8 +403,7 @@ impl Transport for InProcessTransport {
             rx: HostRx {
                 from_device: to_host_rx,
                 message: None,
-                framer: usb_packet
-                    .map(|p| UsbRxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + p)),
+                framer: usb_packet.map(|p| UsbRxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + p)),
             },
         })
     }

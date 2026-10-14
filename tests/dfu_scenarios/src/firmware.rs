@@ -78,8 +78,7 @@ macro_rules! stage_handlers {
             slot: Slot,
             first: u16,
             count: u16,
-        ) -> RpcResult<Result<MaxLen<RefVec<'_, ChunkState>, { ww_dfu::MAX_CHUNKS_PAGE }>, Error>>
-        {
+        ) -> RpcResult<Result<MaxLen<RefVec<'_, ChunkState>, { ww_dfu::MAX_CHUNKS_PAGE }>, Error>> {
             Ready(
                 self.node
                     .chunks(slot, first, count)
@@ -204,7 +203,9 @@ macro_rules! stage_handlers {
             self.plan_credit.free(self.plan_credit.last_item_len());
             use $ser as generated;
             for ack in core::mem::take(&mut self.node.acks) {
-                _ = generated::stream_data_ser().bulk().plan_ack_send_blocking(&ack, cx);
+                _ = generated::stream_data_ser()
+                    .bulk()
+                    .plan_ack_send_blocking(&ack, cx);
             }
         }
 
@@ -333,5 +334,15 @@ pub mod updater {
 }
 
 firmware!(app, AppServer, dfu_app_api, DFU_APP_FULL_GID);
-firmware!(lean_app, LeanAppServer, dfu_lean_app_api, DFU_LEAN_APP_FULL_GID);
-firmware!(updater, UpdaterServer, dfu_updater_api, DFU_UPDATER_FULL_GID);
+firmware!(
+    lean_app,
+    LeanAppServer,
+    dfu_lean_app_api,
+    DFU_LEAN_APP_FULL_GID
+);
+firmware!(
+    updater,
+    UpdaterServer,
+    dfu_updater_api,
+    DFU_UPDATER_FULL_GID
+);

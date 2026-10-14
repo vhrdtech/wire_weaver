@@ -3,7 +3,9 @@
 //! include (`just dfu-transcripts` regenerates them).
 
 use wire_weaver::prelude::*;
-use ww_dfu::{BootState, BootTarget, BulkStatus, ChunkState, Outcome, Profile, Role, Slot, SlotSwitch, Target};
+use ww_dfu::{
+    BootState, BootTarget, BulkStatus, ChunkState, Outcome, Profile, Role, Slot, SlotSwitch, Target,
+};
 
 use crate::device::{Device, Link};
 use crate::flash::{Cut, Firmware, Flash};
@@ -61,9 +63,13 @@ async fn swap_shuttle_2c_app_step() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!((session.steps as usize, session.resumed), (plan.steps.len(), false));
+    assert_eq!(
+        (session.steps as usize, session.resumed),
+        (plan.steps.len(), false)
+    );
     send_steps!(stage, plan, 0, limits.max_piece);
-    dev.rec.note("host resends step 5 as if its reply was lost: skipped");
+    dev.rec
+        .note("host resends step 5 as if its reply was lost: skipped");
     send_steps!(stage, first_steps(&plan, 6), 5, limits.max_piece);
     assert_eq!(stage.finish().call().await.unwrap(), Ok(BootState::Staged));
     host.boot()
@@ -72,14 +78,16 @@ async fn swap_shuttle_2c_app_step() {
         .await
         .unwrap()
         .unwrap();
-    drop(stage);
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
     dev.rec.note("host reconnects to the same device");
     let host = connect!(AppClient, &dev.addr);
     let node = host.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.boot_state), (Some(2), BootState::Trial));
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(2), BootState::Trial)
+    );
     host.boot().confirm().call().await.unwrap().unwrap();
     let node = host.node().node().call().await.unwrap();
     assert_eq!(node.boot_state, BootState::Confirmed);
@@ -119,7 +127,6 @@ async fn swap_freight_2c_app_bulk() {
     drop(sink);
     dev.rec.note("host restarts; the device keeps its session");
     host.disconnect().asynch().await.unwrap();
-    drop(bulk);
     drop(host);
 
     let host = connect!(AppClient, &dev.addr);
@@ -147,14 +154,16 @@ async fn swap_freight_2c_app_bulk() {
         .unwrap();
     drop(acks);
     drop(_sink);
-    drop(bulk);
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
     let host = connect!(AppClient, &dev.addr);
     host.boot().confirm().call().await.unwrap().unwrap();
     let node = host.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.boot_state), (Some(2), BootState::Confirmed));
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(2), BootState::Confirmed)
+    );
     check_or_update(CODE, &dev.rec.transcript(LINK.units()));
 }
 
@@ -176,7 +185,8 @@ async fn flip_shuttle_2r_app_step() {
     let mut stage = host.stage();
     let limits = stage.limits().call().await.unwrap();
 
-    dev.rec.note("host sends a plain full image: ERASE and WRITE only, no manifest needed");
+    dev.rec
+        .note("host sends a plain full image: ERASE and WRITE only, no manifest needed");
     let plan = Plan::full(&v2());
     stage
         .begin(Target::Live, header(&plan))
@@ -192,15 +202,20 @@ async fn flip_shuttle_2r_app_step() {
         .await
         .unwrap()
         .unwrap();
-    drop(stage);
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
     let host = connect!(AppClient, &dev.addr);
-    assert_eq!(host.boot().boot_state().call().await.unwrap(), BootState::Trial);
+    assert_eq!(
+        host.boot().boot_state().call().await.unwrap(),
+        BootState::Trial
+    );
     host.boot().confirm().call().await.unwrap().unwrap();
     let node = host.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.boot_state), (Some(2), BootState::Confirmed));
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(2), BootState::Confirmed)
+    );
     assert_eq!(dev.flash.lock().unwrap().run_bank, 1);
     check_or_update(CODE, &dev.rec.transcript(LINK.units()));
 }
@@ -246,14 +261,17 @@ async fn flip_freight_2r_app_bulk() {
         .unwrap();
     drop(acks);
     drop(sink);
-    drop(bulk);
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
     let host = connect!(AppClient, &dev.addr);
     let node = host.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.boot_state), (Some(2), BootState::Trial));
-    dev.rec.note("the new image fails its own checks: gives up the trial instead of confirming");
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(2), BootState::Trial)
+    );
+    dev.rec
+        .note("the new image fails its own checks: gives up the trial instead of confirming");
     host.boot().revert().call().await.unwrap().unwrap();
     host.boot()
         .reboot(BootTarget::App)
@@ -266,7 +284,10 @@ async fn flip_freight_2r_app_bulk() {
     assert_eq!(dev.booted().await, Firmware::App);
     let host = connect!(AppClient, &dev.addr);
     let node = host.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.boot_state), (Some(1), BootState::Reverted));
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(1), BootState::Reverted)
+    );
     assert_eq!(
         (node.last_result.outcome, node.last_result.version),
         (Outcome::Reverted, 2)
@@ -291,9 +312,15 @@ async fn parcel_shuttle_1s_app_step() {
     let node = host.node().node().call().await.unwrap();
     assert_eq!(node.profile, Profile::InPlace);
 
-    dev.rec.note("host doesn't know this manifest digest: reads the manifest");
+    dev.rec
+        .note("host doesn't know this manifest digest: reads the manifest");
     let mut inventory = host.inventory();
-    let layout = inventory.layout(Slot::Active).call().await.unwrap().unwrap();
+    let layout = inventory
+        .layout(Slot::Active)
+        .call()
+        .await
+        .unwrap()
+        .unwrap();
     let chunks = inventory
         .chunks(Slot::Active, 0, layout.chunk_count)
         .call()
@@ -334,14 +361,15 @@ async fn parcel_shuttle_1s_app_step() {
         .await
         .unwrap()
         .unwrap();
-    drop(inventory);
-    drop(stage);
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
     let host = connect!(AppClient, &dev.addr);
     let node = host.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.boot_state), (Some(2), BootState::Confirmed));
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(2), BootState::Confirmed)
+    );
     assert_eq!(
         (node.last_result.outcome, node.last_result.version),
         (Outcome::Confirmed, 2)
@@ -377,9 +405,13 @@ async fn parcel_freight_1s_app_bulk() {
     let half = 4 * max_piece;
     let sink = send_bulk!(bulk, plan, 0, half, max_piece);
     drop(sink);
-    dev.rec.note("half way: the app keeps doing its job and answers anything else");
+    dev.rec
+        .note("half way: the app keeps doing its job and answers anything else");
     let node = host.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.boot_state), (Some(1), BootState::Confirmed));
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(1), BootState::Confirmed)
+    );
     let _sink = send_bulk!(bulk, plan, half, total, max_piece);
     let ack = acks.recv().await.unwrap();
     assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
@@ -395,13 +427,15 @@ async fn parcel_freight_1s_app_bulk() {
         .unwrap();
     drop(acks);
     drop(_sink);
-    drop(bulk);
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
     let host = connect!(AppClient, &dev.addr);
     let node = host.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.boot_state), (Some(2), BootState::Confirmed));
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(2), BootState::Confirmed)
+    );
     check_or_update(CODE, &dev.rec.transcript(LINK.units()));
 }
 
@@ -430,7 +464,8 @@ async fn pit_stop_shuttle_1l_upd_step() {
     drop(app);
 
     assert_eq!(dev.booted().await, Firmware::Updater);
-    dev.rec.note("host reconnects to the same device: the updater answers");
+    dev.rec
+        .note("host reconnects to the same device: the updater answers");
     let host = connect!(UpdaterClient, &dev.addr);
     let node = host.node().node().call().await.unwrap();
     assert_eq!((node.role, node.app_version), (Role::Bootloader, Some(1)));
@@ -457,20 +492,29 @@ async fn pit_stop_shuttle_1l_upd_step() {
         .unwrap();
     assert!(
         stage
-            .write(7, *dst, *hash, 32, MaxLen::new(data[32..].to_vec()).unwrap())
+            .write(
+                7,
+                *dst,
+                *hash,
+                32,
+                MaxLen::new(data[32..].to_vec()).unwrap()
+            )
             .call()
             .await
             .is_err(),
         "no reply: the power is gone"
     );
-    dev.rec.note("host: the call fails (link lost), reconnects when the device is back");
-    drop(stage);
+    dev.rec
+        .note("host: the call fails (link lost), reconnects when the device is back");
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::Updater);
     let host = connect!(UpdaterClient, &dev.addr);
     let node = host.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.boot_state), (None, BootState::Updating));
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (None, BootState::Updating)
+    );
     let mut stage = host.stage();
     let session = stage
         .begin(Target::Live, header(&plan))
@@ -480,20 +524,25 @@ async fn pit_stop_shuttle_1l_upd_step() {
         .unwrap();
     assert_eq!((session.resumed, session.resume_from), (true, 7));
     send_steps!(stage, plan, 7, limits.max_piece);
-    assert_eq!(stage.finish().call().await.unwrap(), Ok(BootState::Confirmed));
+    assert_eq!(
+        stage.finish().call().await.unwrap(),
+        Ok(BootState::Confirmed)
+    );
     host.boot()
         .reboot(BootTarget::App)
         .call()
         .await
         .unwrap()
         .unwrap();
-    drop(stage);
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::LeanApp);
     let app = connect!(LeanAppClient, &dev.addr);
     let node = app.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.boot_state), (Some(2), BootState::Confirmed));
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(2), BootState::Confirmed)
+    );
     check_or_update(CODE, &dev.rec.transcript(LINK.units()));
 }
 
@@ -548,12 +597,14 @@ async fn pit_stop_freight_1l_upd_bulk() {
         .unwrap();
     drop(acks);
     drop(sink);
-    drop(bulk);
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::LeanApp);
     let app = connect!(LeanAppClient, &dev.addr);
     let node = app.node().node().call().await.unwrap();
-    assert_eq!((node.app_version, node.last_result.outcome), (Some(2), Outcome::Confirmed));
+    assert_eq!(
+        (node.app_version, node.last_result.outcome),
+        (Some(2), Outcome::Confirmed)
+    );
     check_or_update(CODE, &dev.rec.transcript(LINK.units()));
 }

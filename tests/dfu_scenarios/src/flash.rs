@@ -28,6 +28,10 @@ impl Firmware {
     }
 }
 
+/// The power failed while the bootloader worked.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PowerCut;
+
 /// A power cut injected by a test.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Cut {
@@ -246,8 +250,8 @@ impl Flash {
         Ok(steps)
     }
 
-    /// What the bootloader does at a reset. `Err(())` is a power cut while it worked: run it again.
-    pub fn boot(&mut self, rec: &Recorder) -> Result<Firmware, ()> {
+    /// What the bootloader does at a reset. `Err(PowerCut)`: the power failed while it worked, run it again.
+    pub fn boot(&mut self, rec: &Recorder) -> Result<Firmware, PowerCut> {
         match self.profile {
             Profile::AB(switch) => {
                 match self.boot_state {
@@ -317,7 +321,7 @@ impl Flash {
     }
 
     /// Apply the stored plan from where the journal says, offline.
-    fn apply_stored(&mut self, rec: &Recorder) -> Result<(), ()> {
+    fn apply_stored(&mut self, rec: &Recorder) -> Result<(), PowerCut> {
         let steps = self.stored_steps().expect("checked by Stage::finish");
         let header = Header::parse(&self.plan_area.header).expect("checked by Stage::finish");
         let from = self.plan_area.applied;
@@ -337,7 +341,7 @@ impl Flash {
                 // a real cut stops anywhere; half a step is the worst case the journal has to handle
                 _ = self.apply(step, true);
                 rec.note(&format!("power cut while the bootloader applies step {i}"));
-                return Err(());
+                return Err(PowerCut);
             }
             if let Err(e) = self.apply(step, false) {
                 rec.note(&format!("bootloader: step {i} failed ({e:?})"));

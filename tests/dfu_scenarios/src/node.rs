@@ -53,12 +53,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(
-        flash: Arc<Mutex<Flash>>,
-        role: Role,
-        offers: Offers,
-        limits: StageLimits,
-    ) -> Node {
+    pub fn new(flash: Arc<Mutex<Flash>>, role: Role, offers: Offers, limits: StageLimits) -> Node {
         Node {
             flash,
             role,
@@ -517,7 +512,7 @@ impl Node {
                     let (step, len) = match Step::decode(&bulk.pending) {
                         Ok(Some(s)) => s,
                         Ok(None) => break,
-                        Err(()) => return self.fail(Error::BadHeader),
+                        Err(_) => return self.fail(Error::BadHeader),
                     };
                     bulk.pending.drain(..len);
                     if let Err(e) = self.take_step(step) {

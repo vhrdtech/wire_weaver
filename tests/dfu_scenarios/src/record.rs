@@ -159,7 +159,11 @@ fn hidden_packets(recs: &[Rec]) -> Vec<usize> {
     let mut hide_next_tx = false;
     for (i, rec) in recs.iter().enumerate() {
         match rec {
-            Rec::Packet { dir, bytes, setup: s } => {
+            Rec::Packet {
+                dir,
+                bytes,
+                setup: s,
+            } => {
                 let lone_ping = is_lone_ping(bytes);
                 if *s || setup || lone_ping || (*dir == Dir::ToHost && hide_next_tx) {
                     hidden.push(i);
@@ -352,7 +356,12 @@ impl Decoder {
                 let w = CreditWrite::from_ww_bytes(data.0).map_err(|e| format!("{e:?}"))?;
                 let v = ValueOwned::des_shrink_wrap_dyn(w.data.0, ty, &b)
                     .map_err(|e| format!("{e:#}"))?;
-                format!("{} ⇐ {} (sink position {})", res.name, fmt_value(&v), w.pos.0)
+                format!(
+                    "{} ⇐ {} (sink position {})",
+                    res.name,
+                    fmt_value(&v),
+                    w.pos.0
+                )
             }
             (RequestKind::Write { data }, ApiItemKindOwned::Stream { ty, .. }) => {
                 let v = ValueOwned::des_shrink_wrap_dyn(data.0, ty, &b)
@@ -420,7 +429,9 @@ fn fmt_sideband(s: &ww_client_server::StreamSideband) -> String {
     match s {
         Open => "open".into(),
         Close => "close".into(),
-        Credit { have, grant } => format!("credit: have {} bytes, may send {} more", have.0, grant.0),
+        Credit { have, grant } => {
+            format!("credit: have {} bytes, may send {} more", have.0, grant.0)
+        }
         CreditQuery { sent } => format!("credit query: sent {} bytes", sent.0),
         Resend { have, grant } => format!("resend from byte {}, may send {} more", have.0, grant.0),
         other => format!("{other:?}"),
@@ -683,7 +694,10 @@ fn ws_header(b: &[u8]) -> Option<(usize, usize)> {
     let masked = b[1] & 0x80 != 0;
     let (mut header, payload) = match b[1] & 0x7F {
         126 if b.len() >= 4 => (4, u16::from_be_bytes([b[2], b[3]]) as usize),
-        127 if b.len() >= 10 => (10, u64::from_be_bytes(b[2..10].try_into().unwrap()) as usize),
+        127 if b.len() >= 10 => (
+            10,
+            u64::from_be_bytes(b[2..10].try_into().unwrap()) as usize,
+        ),
         126 | 127 => return None,
         n => (2, n as usize),
     };

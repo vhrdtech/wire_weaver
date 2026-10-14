@@ -116,12 +116,26 @@ pub fn v2() -> Vec<u8> {
     )
 }
 
+/// A step's bytes don't start with a known tag.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct BadStep;
+
 /// One plan step.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Step {
-    Erase { block: u16 },
-    Copy { dst: u16, src: u16, hash: [u8; 8] },
-    Write { dst: u16, hash: [u8; 8], data: Vec<u8> },
+    Erase {
+        block: u16,
+    },
+    Copy {
+        dst: u16,
+        src: u16,
+        hash: [u8; 8],
+    },
+    Write {
+        dst: u16,
+        hash: [u8; 8],
+        data: Vec<u8>,
+    },
 }
 
 impl Step {
@@ -149,7 +163,7 @@ impl Step {
     }
 
     /// Decode the step at the start of `bytes`: `Ok(None)` if more bytes are needed, the step and its length otherwise.
-    pub fn decode(bytes: &[u8]) -> Result<Option<(Step, usize)>, ()> {
+    pub fn decode(bytes: &[u8]) -> Result<Option<(Step, usize)>, BadStep> {
         let Some(&tag) = bytes.first() else {
             return Ok(None);
         };
@@ -180,7 +194,7 @@ impl Step {
                 ))
             }
             1..=3 => None,
-            _ => return Err(()),
+            _ => return Err(BadStep),
         })
     }
 }
@@ -259,7 +273,9 @@ impl Plan {
     /// A/B: the inactive slot is erased, every chunk is copied from the running image if it has it anywhere, written
     /// otherwise, blank chunks are left alone.
     pub fn ab(old: &[u8], new: &[u8]) -> Plan {
-        let mut steps: Vec<Step> = (0..BLOCKS as u16).map(|block| Step::Erase { block }).collect();
+        let mut steps: Vec<Step> = (0..BLOCKS as u16)
+            .map(|block| Step::Erase { block })
+            .collect();
         for (dst, chunk) in new.chunks(CHUNK).enumerate() {
             if is_blank(chunk) {
                 continue;
@@ -284,7 +300,9 @@ impl Plan {
     /// A plain full image: erase everything, write every chunk that isn't blank. Works on any device, needs no
     /// manifest.
     pub fn full(new: &[u8]) -> Plan {
-        let mut steps: Vec<Step> = (0..BLOCKS as u16).map(|block| Step::Erase { block }).collect();
+        let mut steps: Vec<Step> = (0..BLOCKS as u16)
+            .map(|block| Step::Erase { block })
+            .collect();
         for (dst, chunk) in new.chunks(CHUNK).enumerate() {
             if !is_blank(chunk) {
                 steps.push(Step::Write {

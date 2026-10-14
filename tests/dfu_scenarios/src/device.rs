@@ -403,7 +403,8 @@ impl ww_device::ws::Socket for WsSocket<'_> {
     async fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         use tokio::io::AsyncWriteExt;
         // a partial write is called again with the rest, which is recorded already
-        self.tx.feed(&self.rec, &bytes[self.tx_ahead.min(bytes.len())..]);
+        self.tx
+            .feed(&self.rec, &bytes[self.tx_ahead.min(bytes.len())..]);
         let n = self.stream.as_mut().unwrap().write(bytes).await?;
         self.tx_ahead = bytes.len() - n;
         Ok(n)

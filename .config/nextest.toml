@@ -11,3 +11,8 @@ fail-fast = false
 [[profile.default.overrides]]
 filter = '(package(shrink_wrap_c) & binary(cross)) | (package(shrink_wrap) & (binary(latched_reads) | binary(sub_byte) | binary(ref_vec_skip))) | (package(ww_stream) & test(/power_cut_/))'
 slow-timeout = { period = "15s", terminate-after = 1 }
+
+# re-parses every saved API snapshot's crate (ww_global and all of ww_stdlib), about 6 s in debug
+[[profile.default.overrides]]
+filter = 'package(wire_weaver_core) & test(snapshots_are_up_to_date)'
+slow-timeout = { period = "15s", terminate-after = 1 }

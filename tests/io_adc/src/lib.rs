@@ -6,8 +6,8 @@ mod tests {
     use std::time::Instant;
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use ww_adc::*;
     use wire_weaver_client::StreamEvent;
+    use ww_adc::*;
     use ww_stream::tx::Counted;
 
     /// Bytes per sample of `fmt`, see [SampleFormat].

@@ -56,15 +56,14 @@ pub trait Pin {
     fn output_level() -> Level;
     fn input_level() -> Level;
 
-    stream!(event: IoPinEvent);
+    #[stream(IoPinEvent, counted)]
+    fn event(enabled: IoPinEnabledEvents<'i>) -> Result<(), Error>;
 
     fn set_mode(mode: Mode, initial: Option<Level>) -> Result<(), Error>;
     fn mode() -> Mode;
 
     property!(rw pull: Pull, Error);
     property!(rw speed: Speed, Error);
-
-    fn configure_events(enabled: IoPinEnabledEvents<'i>) -> Result<(), Error>;
 
     fn capabilities() -> PinCapabilities<'i>;
 }
@@ -74,12 +73,14 @@ pub trait Pin {
   currently an input, these still act on the output register without changing pin mode.
 * `input_level` - reads the input register. If the pin is configured as output and its input buffer is disabled,
   the current output level should be returned instead.
-* `event` - a stream of `IoPinEvent` (rising/falling edge), enabled per-source through `configure_events`.
+* `event` - a counted [stream function](../api/streams.md#opening-a-stream) of `IoPinEvent`s (rising/falling edge,
+  custom sources): the host opens it with the sources to report (`Error::UnsupportedEventType` for one the pin
+  can't generate) and closes it to stop. Its unit is an event: the event head carries the device time of each
+  edge and exactly how many edges the device dropped ([stream delivery](../api/stream_reliability.md)).
 * `set_mode` / `mode` - switch between push-pull, open-drain, input, high-z, analog or a custom mode, optionally
   setting the initial output level before the switch. Can fail with `Error::UnsupportedMode`.
 * `pull` - pull resistor configuration, can fail with `Error::UnsupportedPull`.
 * `speed` - drive strength/slew rate, can fail with `Error::UnsupportedSpeed`.
-* `configure_events` - enables/disables which edges (and any custom sources) feed the `event` stream.
 * `capabilities()` - what this pin supports: modes, pulls, speeds, whether `event` works, and its name, see
   `PinCapabilities` under [Types](#types) below.
 
@@ -95,7 +96,7 @@ pub trait Pin {
   `UnsupportedReferenceVoltage`, `DifferentModes`, `NotImplemented`, `CustomU8(u8)`, `CustomU32(u32)`, `InUse`
   (the pin serves another function), `NoIoLevel` (level translators have no supply), `Refused` (a device safety
   rule doesn't allow it); unsized (`unib32` discriminant), evolvable.
-* `IoPinEnabledEvents<'i>` - which sources feed the `event` stream: `rising: bool`, `falling: bool`, and a
+* `IoPinEnabledEvents<'i>` - which sources the `event` stream reports, its argument: `rising: bool`, `falling: bool`, and a
   `custom: RefVec<'i, u8>` list of custom source indices.
 * `PinCapabilities<'i>` - what one pin supports: `modes: MaxLen<RefVec<'i, Mode>, 8>`,
   `pulls: MaxLen<RefVec<'i, Pull>, 4>`, `speeds: MaxLen<RefVec<'i, Speed>, 5>`, `events: bool` (the `event` stream
@@ -192,7 +193,7 @@ mod server_impl {
 ```
 
 Each resource path becomes an async method named after the flattened path, e.g. `port_pin_set_output_level`,
-`get_port_pin_pull` / `set_port_pin_pull` (property get/set), or `sideband_port_pin_event` (stream enable/disable).
+`get_port_pin_pull` / `set_port_pin_pull` (property get/set), or `port_pin_event` / `close_port_pin_event` (the stream opened with its sources, closed).
 The `[bank_index, pin_index]` addressing is passed in as `index: [UNib32; 2]`:
 
 ```rust
@@ -226,6 +227,6 @@ fn valid_indices_root_port_pin(&mut self, index: [UNib32; 1]) -> ValidIndices<'_
 
 In this example, `capabilities()` and `reference_voltage` are hardcoded (3.3V, push-pull/open-drain/input all
 supported, no custom modes), `set_mode`/`mode` and `pull`/`speed` are translated to/from the STM32 `MODER` /
-`OTYPER` / `PUPDR` / `OSPEEDR` registers, and `configure_events`/the `event` stream are left unimplemented
-(`Error::UnsupportedEventType`, sideband handler returns `None`) since the example does not wire up EXTI
+`OTYPER` / `PUPDR` / `OSPEEDR` registers, and the `event` stream never opens (`port_pin_event` answers
+`Error::UnsupportedEventType`, one `Counted` state serves every pin) since the example does not wire up EXTI
 interrupts.

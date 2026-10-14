@@ -1942,6 +1942,7 @@ dependencies = [
  "ww_client_server",
  "ww_gpio",
  "ww_si",
+ "ww_stream",
 ]
 
 [[package]]

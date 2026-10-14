@@ -5,6 +5,11 @@
 - `Error` get `Unknown(u32)` from `derive_shrink_wrap` (SW-47): a variant from a newer version of this crate is read
   into it instead of failing. Exhaustive matches need an `Unknown(_)` arm. Same wire.
 - `Error` gains `InUse`, `NoIoLevel`, `Refused` (STD-13).
+- `Pin::event` is a counted stream function (API-31): `event(enabled: IoPinEnabledEvents) -> Result<(), Error>`
+  replaces `configure_events` + the plain `event` stream. The host opens it with the sources to report and closes
+  it to stop; events carry their device time and losses in the event head. Servers implement `pin_event` /
+  `close_pin_event` / `stream_pin_event` (a `ww_stream::tx::Counted`) and `new_stream_session` instead of
+  `pin_configure_events`, and send with `stream_data_ser()...event_send(&mut counted, &event, 1, t, out)`.
 
 ### 🚀 Features
 

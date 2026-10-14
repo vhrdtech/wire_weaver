@@ -7,7 +7,8 @@ use core::fmt::Write;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::{debug, hio};
 use wire_weaver::prelude::*;
-use ww_client_server::StreamSideband;
+use ww_stream::tx::Counted;
+use ww_client_server::stream::StreamHead;
 use ww_gpio::IoPinEvent;
 use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed, Volt};
 
@@ -17,12 +18,15 @@ fn main() -> ! {
 
     let mut scratch = [0u8; 512];
     let mut event_scratch = [0u8; 512];
-    let mut server = ServerState {};
+    let mut server = ServerState {
+        pin_events: Counted::new(),
+        stream_sessions: 0,
+    };
 
     let r = api_server::stream_data_ser()
         .port(0)
         .pin(7)
-        .event(&IoPinEvent::RisingEdge, &mut scratch);
+        .event(&StreamHead::at(0), &IoPinEvent::RisingEdge, &mut scratch);
     writeln!(stdout, "{r:02x?}").unwrap();
 
     let event = [1u8, 2, 3];
@@ -43,7 +47,10 @@ impl wire_weaver::BlockingMessageSink for DummyTx {
     }
 }
 
-pub struct ServerState {}
+pub struct ServerState {
+    pin_events: Counted,
+    stream_sessions: u32,
+}
 
 impl ServerState {
     fn port_capabilities(
@@ -119,12 +126,14 @@ impl ServerState {
         ww_unimplemented!()
     }
 
+    /// This board reports no pin events (`PinCapabilities::events` is false), so the stream never opens.
     fn port_pin_event(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 2],
-    ) -> RpcResult<()> {
-        Ready(())
+        _enabled: IoPinEnabledEvents<'_>,
+    ) -> RpcResult<Result<(), Error>> {
+        Ready(Err(Error::UnsupportedEventType))
     }
 
     fn close_port_pin_event(
@@ -134,14 +143,16 @@ impl ServerState {
     ) {
     }
 
-    fn sideband_port_pin_event(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
-        _sideband: StreamSideband,
-    ) -> Option<StreamSideband> {
-        None
+    /// One state for every pin: the stream never opens on this board.
+    fn stream_port_pin_event(&mut self, _index: [UNib32; 2]) -> &mut Counted {
+        &mut self.pin_events
     }
+
+    fn new_stream_session(&mut self) -> u32 {
+        self.stream_sessions = self.stream_sessions.wrapping_add(1);
+        self.stream_sessions
+    }
+
 
     fn port_pin_set_mode(
         &mut self,
@@ -177,14 +188,6 @@ impl ServerState {
         ww_unimplemented!()
     }
 
-    fn port_pin_configure_events(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
-        _enabled: IoPinEnabledEvents<'_>,
-    ) -> RpcResult<Result<(), Error>> {
-        Ready(Err(Error::UnsupportedEventType))
-    }
 
     fn port_pin_capabilities(
         &mut self,

@@ -57,8 +57,14 @@ pub trait Pin {
 
     reserved!(4..=6);
 
-    /// 7. Asynchronous stream of events (rising / falling edge), if enabled by `configure_events`.
-    stream!(event: IoPinEvent);
+    /// 7. Edges (and device-specific sources) of this pin, as they happen: opening the stream enables the sources
+    /// in `enabled`, closing it disables them. A counted stream, unit: event; each event may carry the device time
+    /// it happened at, and the host learns exactly how many events the device dropped.
+    ///
+    /// # Errors
+    /// `Error::UnsupportedEventType` if a requested source (edge or custom) isn't available on this pin.
+    #[stream(IoPinEvent, counted)]
+    fn event(enabled: IoPinEnabledEvents<'i>) -> Result<(), Error>;
 
     /// Mode configuration, input, high-z, push-pull, open-drain or custom.
     /// Optionally set the initial level before changing pin mode.
@@ -80,12 +86,6 @@ pub trait Pin {
     /// # Errors
     /// `Error::UnsupportedSpeed` if the pin doesn't support the requested drive strength (`set` only).
     property!(rw speed: Speed, Error);
-
-    /// Enable or disable asynchronous events sent through the `event` stream.
-    ///
-    /// # Errors
-    /// `Error::UnsupportedEventType` if a requested source (edge or custom) isn't available on this pin.
-    fn configure_events(enabled: IoPinEnabledEvents<'i>) -> Result<(), Error>;
 
     /// What this pin can do: modes, pulls, speeds, whether it sends events, and its name.
     fn capabilities() -> PinCapabilities<'i>;
@@ -163,7 +163,7 @@ pub enum Error {
     UnsupportedPull,
     /// `Pin::speed` was set to a `Speed` this pin doesn't support.
     UnsupportedSpeed,
-    /// `Pin::configure_events` requested an edge or custom source this pin can't generate.
+    /// `Pin::event` was opened with an edge or custom source this pin can't generate.
     UnsupportedEventType,
     /// `Bank::reference_voltage` was set to a voltage this bank can't drive.
     UnsupportedReferenceVoltage,
@@ -223,7 +223,8 @@ pub enum Speed {
     Custom(u8),
 }
 
-/// IO pin asynchronous event (interrupt reason), sent via the `Pin::event` stream if enabled.
+/// IO pin asynchronous event (interrupt reason), sent on the `Pin::event` stream; when it happened is in the event's
+/// head.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -232,7 +233,6 @@ pub enum Speed {
     self_describing,
     ww_repr = u2
 )]
-// TODO: Add optional timestamp?
 pub enum IoPinEvent {
     /// The pin's input went from low to high.
     RisingEdge,
@@ -242,7 +242,7 @@ pub enum IoPinEvent {
     Custom(u8),
 }
 
-/// List of enabled event sources for an IO pin (interrupts) that generate the `Pin::event` stream.
+/// Event sources of an IO pin (interrupts) to report on the `Pin::event` stream, its argument.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),

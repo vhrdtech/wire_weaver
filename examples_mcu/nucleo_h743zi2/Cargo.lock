@@ -1105,6 +1105,7 @@ dependencies = [
  "ww_client_server",
  "ww_gpio",
  "ww_si",
+ "ww_stream",
 ]
 
 [[package]]
@@ -2065,6 +2066,15 @@ version = "0.1.0"
 dependencies = [
  "shrink_wrap",
  "ww_numeric",
+]
+
+[[package]]
+name = "ww_stream"
+version = "0.5.0"
+dependencies = [
+ "wire_weaver",
+ "ww_client_server",
+ "ww_si",
 ]
 
 [[package]]

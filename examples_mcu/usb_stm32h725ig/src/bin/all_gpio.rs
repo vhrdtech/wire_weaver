@@ -17,7 +17,7 @@ use wire_weaver::prelude::*;
 use wire_weaver_usb_embassy::{
     LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
 };
-use ww_client_server::StreamSideband;
+use ww_stream::tx::Counted;
 use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed, Volt};
 
 bind_interrupts!(struct Irqs {
@@ -68,6 +68,8 @@ const BANK_LETTERS: &[u8] = b"ABCDEFGHJK";
 struct ServerState {
     /// Name of the pin last asked for in `port_pin_capabilities`, "PA5"
     pin_name: [u8; 4],
+    pin_events: Counted,
+    stream_sessions: u32,
     bank: [Gpio; 10],
 }
 
@@ -131,6 +133,8 @@ async fn main(spawner: embassy_executor::Spawner) {
 
     let state = ServerState {
         pin_name: [0; 4],
+        pin_events: Counted::new(),
+        stream_sessions: 0,
         bank: [
             GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG, GPIOH, GPIOJ, GPIOK,
         ],
@@ -322,12 +326,14 @@ impl ServerState {
         Ready(level)
     }
 
+    /// This board reports no pin events (`PinCapabilities::events` is false), so the stream never opens.
     async fn port_pin_event(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 2],
-    ) -> RpcResult<()> {
-        Ready(())
+        _enabled: IoPinEnabledEvents<'_>,
+    ) -> RpcResult<Result<(), Error>> {
+        Ready(Err(Error::UnsupportedEventType))
     }
 
     async fn close_port_pin_event(
@@ -337,14 +343,16 @@ impl ServerState {
     ) {
     }
 
-    async fn sideband_port_pin_event(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 2],
-        _sideband: StreamSideband,
-    ) -> Option<StreamSideband> {
-        None
+    /// One state for every pin: the stream never opens on this board.
+    async fn stream_port_pin_event(&mut self, _index: [UNib32; 2]) -> &mut Counted {
+        &mut self.pin_events
     }
+
+    fn new_stream_session(&mut self) -> u32 {
+        self.stream_sessions = self.stream_sessions.wrapping_add(1);
+        self.stream_sessions
+    }
+
 
     async fn port_pin_set_mode(
         &mut self,
@@ -463,14 +471,6 @@ impl ServerState {
         Value(speed)
     }
 
-    async fn port_pin_configure_events(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 2],
-        _enabled: IoPinEnabledEvents<'_>,
-    ) -> RpcResult<Result<(), Error>> {
-        Ready(Err(Error::UnsupportedEventType))
-    }
 
     async fn port_pin_capabilities(
         &mut self,

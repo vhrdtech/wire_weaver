@@ -6,11 +6,12 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use ww_client_server::StreamSideband;
+    use wire_weaver_client::StreamEvent;
     use ww_gpio::{
         BankCapabilities, Error, IoPinEnabledEvents, IoPinEvent, Level, Mode, PinCapabilities,
         Pull, Speed, Volt,
     };
+    use ww_stream::tx::Counted;
 
     /// One bank of the mock device, named like a real MCU port.
     struct BankModel {
@@ -59,11 +60,75 @@ mod tests {
         use tests_common::TestProcessEvents;
         use wire_weaver::BlockingEventOut;
 
+        /// The `event` stream of one pin: which edges it reports while open.
+        #[derive(Default)]
+        pub struct PinEvents {
+            pub counted: Counted,
+            pub rising: bool,
+            pub falling: bool,
+        }
+
         pub struct Server {
             pub banks: Arc<Mutex<Vec<BankModel>>>,
+            pub events: Vec<Vec<PinEvents>>,
+            /// Edges seen by the mock's loopback, sent before the next request (after the reply that caused them)
+            pub pending: Vec<([UNib32; 2], IoPinEvent)>,
+            pub stream_sessions: u32,
+            pub start: std::time::Instant,
         }
 
         impl Server {
+            pub fn new(banks: Arc<Mutex<Vec<BankModel>>>) -> Self {
+                let events = banks
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .map(|b| b.pins.iter().map(|_| PinEvents::default()).collect())
+                    .collect();
+                Server {
+                    banks,
+                    events,
+                    pending: Vec::new(),
+                    stream_sessions: 0,
+                    start: std::time::Instant::now(),
+                }
+            }
+
+            /// Loopback: the input follows the output, an edge goes to the pin's `event` stream if it reports it.
+            fn edge(&mut self, index_chain: [UNib32; 2], before: Level, after: Level) {
+                let (bank, pin) = Self::idx(index_chain);
+                let events = &self.events[bank][pin];
+                let ev = match (before, after) {
+                    (Level::Low, Level::High) if events.rising => IoPinEvent::RisingEdge,
+                    (Level::High, Level::Low) if events.falling => IoPinEvent::FallingEdge,
+                    _ => return,
+                };
+                self.pending.push((index_chain, ev));
+            }
+
+            /// The event loop's producer: what the edges left for the `event` streams.
+            fn produce(&mut self, out: &mut impl BlockingEventOut) {
+                let t = ww_si::Second::microseconds(self.start.elapsed().as_micros() as u32);
+                for (index_chain, ev) in std::mem::take(&mut self.pending) {
+                    let (bank, pin) = Self::idx(index_chain);
+                    let _ = api_impl::stream_data_ser()
+                        .bank(bank as u32)
+                        .pin(pin as u32)
+                        .event_send_blocking(
+                            &mut self.events[bank][pin].counted,
+                            &ev,
+                            1,
+                            Some(t),
+                            out,
+                        );
+                }
+            }
+
+            fn new_stream_session(&mut self) -> u32 {
+                self.stream_sessions = self.stream_sessions.wrapping_add(1);
+                self.stream_sessions
+            }
+
             fn valid_indices_root_bank(&mut self) -> ValidIndices<'_> {
                 ValidIndices::range_u32(0..self.banks.lock().unwrap().len() as u32)
             }
@@ -130,7 +195,10 @@ mod tests {
                 index_chain: [UNib32; 2],
                 level: Level,
             ) -> RpcResult<()> {
-                self.with_pin_mut(index_chain, |pin| pin.output_level = level);
+                let before = self.with_pin_mut(index_chain, |pin| {
+                    std::mem::replace(&mut pin.output_level, level)
+                });
+                self.edge(index_chain, before, level);
                 Ready(())
             }
 
@@ -139,13 +207,17 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 2],
             ) -> RpcResult<()> {
-                self.with_pin_mut(index_chain, |pin| {
-                    pin.output_level = if pin.output_level.is_high() {
+                let before = self.with_pin_mut(index_chain, |pin| {
+                    let before = pin.output_level;
+                    pin.output_level = if before.is_high() {
                         Level::Low
                     } else {
                         Level::High
                     };
+                    before
                 });
+                let after = self.pin(index_chain).output_level;
+                self.edge(index_chain, before, after);
                 Ready(())
             }
 
@@ -166,14 +238,37 @@ mod tests {
                 Ready(self.pin(index_chain).output_level)
             }
 
-            fn sideband_bank_pin_event(
+            fn bank_pin_event(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 2],
-                _sideband: StreamSideband,
-            ) -> Option<StreamSideband> {
-                // No ack: the test only pushes stream data, it doesn't need the sideband reply path.
-                None
+                index_chain: [UNib32; 2],
+                enabled: IoPinEnabledEvents<'_>,
+            ) -> RpcResult<Result<(), Error>> {
+                if !enabled.custom.is_empty() {
+                    // The mock pins have no device-specific sources.
+                    return Ready(Err(Error::UnsupportedEventType));
+                }
+                let (bank, pin) = Self::idx(index_chain);
+                let events = &mut self.events[bank][pin];
+                events.rising = enabled.rising;
+                events.falling = enabled.falling;
+                Ready(Ok(()))
+            }
+
+            fn close_bank_pin_event(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 2],
+            ) {
+                let (bank, pin) = Self::idx(index_chain);
+                let events = &mut self.events[bank][pin];
+                events.rising = false;
+                events.falling = false;
+            }
+
+            fn stream_bank_pin_event(&mut self, index_chain: [UNib32; 2]) -> &mut Counted {
+                let (bank, pin) = Self::idx(index_chain);
+                &mut self.events[bank][pin].counted
             }
 
             fn bank_pin_set_mode(
@@ -240,15 +335,6 @@ mod tests {
                 Value(self.pin(index_chain).speed)
             }
 
-            fn bank_pin_configure_events(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 2],
-                _enabled: IoPinEnabledEvents<'_>,
-            ) -> RpcResult<Result<(), Error>> {
-                Ready(Ok(()))
-            }
-
             fn bank_pin_capabilities(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -308,6 +394,8 @@ mod tests {
                 out: &mut impl BlockingEventOut,
                 medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
+                // the mock's producer runs between requests, after the reply that caused the edges went out
+                self.produce(out);
                 self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
@@ -344,9 +432,7 @@ mod tests {
     fn start(path: &str) -> (TestDevice, Arc<Mutex<Vec<BankModel>>>) {
         let _ = tracing_subscriber::fmt::try_init();
         let banks = Arc::new(Mutex::new(mock_banks()));
-        let srv = server::Server {
-            banks: banks.clone(),
-        };
+        let srv = server::Server::new(banks.clone());
         let device = tests_common::start_device(
             path,
             srv,
@@ -460,27 +546,47 @@ mod tests {
         let bank = client.bank(1);
         let mut pin = bank.pin(1);
 
-        pin.configure_events(ww_gpio::IoPinEnabledEventsOwned {
-            rising: true,
-            falling: true,
-            custom: Default::default(),
-        })
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
-
-        let mut events = pin.event().await.unwrap();
-        events.open().await.unwrap();
-
-        let mut scratch = [0u8; 64];
-        device.send(
-            server::api_impl::stream_data_ser()
-                .bank(1)
-                .pin(1)
-                .event(&IoPinEvent::RisingEdge, &mut scratch)
-                .unwrap(),
+        let r = pin
+            .event(ww_gpio::IoPinEnabledEventsOwned {
+                rising: true,
+                falling: false,
+                custom: vec![3],
+            })
+            .call()
+            .await
+            .unwrap();
+        assert!(
+            matches!(r, Err(Error::UnsupportedEventType)),
+            "{:?}",
+            r.err()
         );
-        assert_eq!(events.recv().await.unwrap(), IoPinEvent::RisingEdge);
+
+        let ((), mut events) = pin
+            .event(ww_gpio::IoPinEnabledEventsOwned {
+                rising: true,
+                falling: false,
+                custom: Default::default(),
+            })
+            .call()
+            .await
+            .unwrap()
+            .unwrap();
+
+        // loopback: rising, falling (not reported), rising; each edge goes out before the next request
+        pin.toggle().call().await.unwrap();
+        pin.toggle().call().await.unwrap();
+        pin.toggle().call().await.unwrap();
+        pin.output_level().call().await.unwrap();
+        for expect_pos in [0, 1] {
+            match events.recv_event().await.unwrap() {
+                StreamEvent::Item { pos, t, value, .. } => {
+                    assert_eq!(pos, expect_pos);
+                    assert_eq!(value, IoPinEvent::RisingEdge);
+                    assert!(t.is_some());
+                }
+                ev => panic!("{ev:?}"),
+            }
+        }
+        events.close().await.unwrap();
     }
 }

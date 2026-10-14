@@ -34,6 +34,7 @@ uart_api = { path = "../../examples/uart_api", default-features = false }
 wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy" }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
+ww_stream = { path = "../../ww_stream", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
 ww_uart = { path = "../../ww_stdlib/ww_uart", default-features = false }
 ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "f32"] }

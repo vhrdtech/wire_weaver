@@ -63,7 +63,8 @@ pub trait PwmCapture {
 
 #[ww_trait]
 pub trait PwmCaptureChannel {
-    stream!(capture: CaptureSample);
+    #[stream(CaptureValue, counted)]
+    fn capture(config: CaptureConfig) -> Result<CaptureConfig, PwmError>;
 
     fn set_capture(config: CaptureConfig) -> Result<CaptureConfig, PwmError>;
     fn read_capture() -> Result<CaptureSample, PwmError>;
@@ -72,11 +73,13 @@ pub trait PwmCaptureChannel {
 
 * `channel[]` - one capture input per channel; channel `n` is the same index as `Pwm`'s own `channel[]`, see
   `PwmChannelInfo::capture`.
-* `capture` - one `CaptureSample` per measurement window (`CaptureConfig::gate`), while the stream is open. As with
-  every IO family stream, the stream's own sideband `Open` / `Close` starts and stops measuring; it carries no
-  sequence number or loss count (see [IO trait family](io_family.md)).
-* `set_capture` - picks what to measure (`CaptureMode`) and the measurement window, and returns what was actually
-  set.
+* `capture` - a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with what to
+  measure (`CaptureMode`) and the measurement window (`CaptureConfig::gate`), gets back what was actually set, then
+  one `CaptureValue` per window until it closes the stream. Its unit is a measurement; the event head carries the
+  end of each window as its time and how many measurements the device dropped
+  ([stream delivery](../api/stream_reliability.md)).
+* `set_capture` - picks what to measure and the window without a stream, for polling with `read_capture`, and
+  returns what was actually set.
 * `read_capture` - the last measurement, without waiting on the stream. Fails with `PwmError::WrongMode` before the
   first measurement completes.
 
@@ -126,19 +129,17 @@ Because `Pwm` and `PwmCapture` both contain their own `channel[]`, resources end
 `tests/io_pwm` is a small in-memory PWM device used for end-to-end tests: it tracks each channel's actual output in
 a `Model` shared with the test, and a capture channel's last configured mode and measurement, instead of driving real
 hardware. It shows the handler shape `ww_codegen!` expects for a trait nested in an array
-(`pwm_channel_set_output`, `pwm_capture_channel_read_capture`, ...) and how to send a `CaptureSample` on the
-`capture` stream from the device side:
+(`pwm_channel_set_output`, `pwm_capture_channel_read_capture`, ...) and how to send a measurement on a channel's
+counted `capture` stream from the device's event loop, with the `ww_stream::tx::Counted` state the server keeps per
+channel (`stream_pwm_capture_channel_capture`):
 
 ```rust
-device.send(
-    sync_server::api_impl::stream_data_ser()
-        .pwm_capture()
-        .channel(0)
-        .capture(&sample, &mut scratch)
-        .unwrap(),
-);
+api_impl::stream_data_ser()
+    .pwm_capture()
+    .channel(idx)
+    .capture_send_blocking(&mut self.capture[idx as usize], &value, 1, Some(t), out)?;
 ```
 
 See `tests/io_pwm/src/lib.rs` for the full mock server and client-side test calls (`capabilities`, `set_output` /
-`set_duty` / `stop` / `state`, `set_capture` / `read_capture`, and the `capture` stream with its `Open` / `Close`
-sideband).
+`set_duty` / `stop` / `state`, `set_capture` / `read_capture`, and the `capture` stream opened with its
+configuration, an invalid one refused, and closed).

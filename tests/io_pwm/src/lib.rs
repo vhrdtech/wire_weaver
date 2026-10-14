@@ -6,13 +6,14 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use ww_client_server::StreamSideband;
+    use wire_weaver_client::StreamEvent;
     use ww_pwm::{
         CaptureConfig, CaptureMode, CaptureSample, CaptureValue, Hertz, PwmActual, PwmCapabilities,
         PwmChannelInfo, PwmError, PwmOutput, PwmState, Second,
     };
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
+    use ww_stream::tx::Counted;
 
     const MAX_FREQ: Hertz = Hertz {
         prefix: Prefix::Mega,
@@ -49,7 +50,10 @@ mod tests {
         capture_config: [Option<CaptureConfig>; 1],
         /// What `read_capture` answers once a measurement "arrives" (set directly by the test, no hardware here).
         capture_sample: [Option<CaptureSample>; 1],
-        sideband: Vec<(u32, StreamSideband)>,
+        /// What the `capture` stream of each channel measures while it is open.
+        streaming: [Option<CaptureConfig>; 1],
+        /// Measurements the test makes "arrive", sent on the stream before the next request.
+        measured: Vec<(u32, CaptureSample)>,
     }
 
     mod sync_server {
@@ -58,9 +62,41 @@ mod tests {
 
         pub struct Server {
             pub m: Arc<Mutex<Model>>,
+            pub capture: [Counted; 1],
+            pub stream_sessions: u32,
         }
 
         impl Server {
+            pub fn new(m: Arc<Mutex<Model>>) -> Self {
+                Server {
+                    m,
+                    capture: [Counted::new()],
+                    stream_sessions: 0,
+                }
+            }
+
+            /// The event loop's producer: measurements of open `capture` streams.
+            fn produce(&mut self, out: &mut impl BlockingEventOut) {
+                let measured = std::mem::take(&mut self.m.lock().unwrap().measured);
+                for (idx, sample) in measured {
+                    let _ = api_impl::stream_data_ser()
+                        .pwm_capture()
+                        .channel(idx)
+                        .capture_send_blocking(
+                            &mut self.capture[idx as usize],
+                            &sample.value,
+                            1,
+                            Some(sample.t),
+                            out,
+                        );
+                }
+            }
+
+            fn new_stream_session(&mut self) -> u32 {
+                self.stream_sessions = self.stream_sessions.wrapping_add(1);
+                self.stream_sessions
+            }
+
             fn valid_indices_root_pwm_channel(&mut self) -> ValidIndices<'_> {
                 ValidIndices::range_u32(0..2)
             }
@@ -149,18 +185,34 @@ mod tests {
                 ValidIndices::range_u32(0..1)
             }
 
-            fn sideband_pwm_capture_channel_capture(
+            fn pwm_capture_channel_capture(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
-                sideband: StreamSideband,
-            ) -> Option<StreamSideband> {
-                self.m
-                    .lock()
-                    .unwrap()
-                    .sideband
-                    .push((index_chain[0].0, sideband));
-                None
+                config: CaptureConfig,
+            ) -> RpcResult<Result<CaptureConfig, PwmError>> {
+                if config.mode == CaptureMode::Off {
+                    return Ready(Err(PwmError::InvalidArgument));
+                }
+                let idx = index_chain[0].0 as usize;
+                self.m.lock().unwrap().streaming[idx] = Some(config);
+                Ready(Ok(config))
+            }
+
+            fn close_pwm_capture_channel_capture(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+            ) {
+                let idx = index_chain[0].0 as usize;
+                self.m.lock().unwrap().streaming[idx] = None;
+            }
+
+            fn stream_pwm_capture_channel_capture(
+                &mut self,
+                index_chain: [UNib32; 1],
+            ) -> &mut Counted {
+                &mut self.capture[index_chain[0].0 as usize]
             }
 
             fn pwm_capture_channel_set_capture(
@@ -207,6 +259,8 @@ mod tests {
                 out: &mut impl BlockingEventOut,
                 medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
+                // the mock's producer runs between requests
+                self.produce(out);
                 self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
@@ -242,7 +296,7 @@ mod tests {
     fn start(path: &str) -> (TestDevice, Arc<Mutex<Model>>) {
         let _ = tracing_subscriber::fmt::try_init();
         let m = Arc::new(Mutex::new(Model::default()));
-        let server = sync_server::Server { m: m.clone() };
+        let server = sync_server::Server::new(m.clone());
         let device = tests_common::start_device(
             path,
             server,
@@ -369,17 +423,33 @@ mod tests {
         let (device, m) = start("pwm_capture/stream");
         let client = connect(&device).await;
         let pwm_capture = client.pwm_capture();
-        let channel = pwm_capture.channel(0);
+        let mut channel = pwm_capture.channel(0);
 
-        let mut stream = channel.capture().await.unwrap();
-        stream.open().await.unwrap();
-        for _ in 0..200 {
-            if !m.lock().unwrap().sideband.is_empty() {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-        }
-        assert_eq!(m.lock().unwrap().sideband, vec![(0, StreamSideband::Open)]);
+        let config = |mode| CaptureConfig {
+            mode,
+            gate: Second {
+                prefix: Prefix::Milli,
+                value: NumericValue::U32(100),
+            },
+        };
+        let r = channel
+            .capture(config(CaptureMode::Off))
+            .call()
+            .await
+            .unwrap();
+        assert!(matches!(r, Err(PwmError::InvalidArgument)), "{:?}", r.err());
+
+        let (actual, mut stream) = channel
+            .capture(config(CaptureMode::DutyCycle))
+            .call()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(actual.mode, CaptureMode::DutyCycle);
+        assert_eq!(
+            m.lock().unwrap().streaming[0].map(|c| c.mode),
+            Some(CaptureMode::DutyCycle)
+        );
 
         let sample = CaptureSample {
             t: Second {
@@ -388,28 +458,25 @@ mod tests {
             },
             value: CaptureValue::DutyCycle(12345),
         };
-        let mut scratch = [0u8; 64];
-        device.send(
-            sync_server::api_impl::stream_data_ser()
-                .pwm_capture()
-                .channel(0)
-                .capture(&sample, &mut scratch)
-                .unwrap(),
-        );
-        let got = stream.recv().await.unwrap();
-        assert!(sec_eq(got.t, sample.t));
-        assert!(capture_value_eq(got.value, sample.value));
+        m.lock().unwrap().measured.push((0, sample));
+        // any request lets the mock's event loop send it
+        channel.read_capture().call().await.unwrap().ok();
+        match stream.recv_event().await.unwrap() {
+            StreamEvent::Item { pos, t, value, .. } => {
+                assert_eq!(pos, 0);
+                assert!(sec_eq(t.unwrap(), sample.t));
+                assert!(capture_value_eq(value, sample.value));
+            }
+            ev => panic!("{ev:?}"),
+        }
 
         stream.close().await.unwrap();
         for _ in 0..200 {
-            if m.lock().unwrap().sideband.len() >= 2 {
+            if m.lock().unwrap().streaming[0].is_none() {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(5)).await;
         }
-        assert_eq!(
-            m.lock().unwrap().sideband,
-            vec![(0, StreamSideband::Open), (0, StreamSideband::Close)]
-        );
+        assert!(m.lock().unwrap().streaming[0].is_none());
     }
 }

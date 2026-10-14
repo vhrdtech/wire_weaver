@@ -29,10 +29,10 @@
 //!
 //! # Streams
 //!
-//! `PwmCaptureChannel::capture` sends one [CaptureSample] per `gate` while a capture is running.
-//! `PwmCaptureChannel::set_capture` sets up what to measure and over which window; the stream's own sideband
-//! `Open` / `Close` starts and stops measuring (streams in the IO family carry no sequence number or loss count,
-//! see `docs/std_library/io_family.md`).
+//! `PwmCaptureChannel::capture` is a counted stream function: the host opens it with what to measure and over which
+//! window, and gets one [CaptureValue] per `gate` until it closes the stream. The event head carries the time of
+//! each measurement (the end of its window) and how many measurements the device dropped. Without a stream,
+//! `PwmCaptureChannel::set_capture` and `PwmCaptureChannel::read_capture` measure and poll the last result.
 //!
 //! # Errors
 //!
@@ -96,14 +96,21 @@ pub trait PwmCapture {
     ww_impl!(channel[]: PwmCaptureChannel);
 }
 
-/// One capture input, measuring over successive `gate` windows while its stream is open.
+/// One capture input, measuring over successive `gate` windows: streamed, or polled.
 #[ww_trait]
 pub trait PwmCaptureChannel {
-    /// Measurements, one per `gate`, while capture is on. Started and stopped by the stream's own sideband `Open` /
-    /// `Close`; `PwmCaptureChannel::set_capture` picks what and over which window.
-    stream!(capture: CaptureSample);
+    /// Measurements of `config`, one per `gate`, until the host closes the stream. Opening returns what was actually
+    /// set (the nearest gate the hardware can do). Unit: measurement; the head's time is the end of its window.
+    ///
+    /// # Errors
+    ///
+    /// [PwmError::Unsupported] (this mode isn't available on this channel), [PwmError::InvalidArgument] (gate out
+    /// of range, or [CaptureMode::Off]), [PwmError::InUse], [PwmError::Refused].
+    #[stream(CaptureValue, counted)]
+    fn capture(config: CaptureConfig) -> Result<CaptureConfig, PwmError>;
 
-    /// Sets up what to measure and returns what was actually set (the nearest gate the hardware can do).
+    /// Sets up what to measure without a stream, for `PwmCaptureChannel::read_capture`, and returns what was
+    /// actually set (the nearest gate the hardware can do).
     ///
     /// # Errors
     ///
@@ -166,7 +173,7 @@ pub enum PwmState {
     Output(PwmActual),
 }
 
-/// What to measure, see `PwmCaptureChannel::set_capture`.
+/// What to measure, see `PwmCaptureChannel::capture` and `PwmCaptureChannel::set_capture`.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -202,7 +209,7 @@ pub enum CaptureMode {
     EdgeCount,
 }
 
-/// One measurement, see `PwmCaptureChannel::capture` and `PwmCaptureChannel::read_capture`.
+/// One measurement with its time, see `PwmCaptureChannel::read_capture`.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),

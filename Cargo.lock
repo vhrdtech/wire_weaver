@@ -2011,6 +2011,7 @@ dependencies = [
  "ww_client_server",
  "ww_pwm",
  "ww_si",
+ "ww_stream",
 ]
 
 [[package]]

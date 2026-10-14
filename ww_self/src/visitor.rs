@@ -151,9 +151,23 @@ macro_rules! define_visitor {
                         v.visit_type(ty);
                     }
                 }
-                ApiItemKindOwned::Stream { ty, .. }
-                | ApiItemKindOwned::FlowSink { ty, .. }
-                | ApiItemKindOwned::PositionedStream { ty, .. } => v.visit_type(ty),
+                ApiItemKindOwned::Stream { ty, .. } | ApiItemKindOwned::FlowSink { ty, .. } => {
+                    v.visit_type(ty)
+                }
+                ApiItemKindOwned::StreamFn {
+                    ty,
+                    args,
+                    return_ty,
+                    ..
+                } => {
+                    v.visit_type(ty);
+                    for arg in args {
+                        v.visit_argument(arg);
+                    }
+                    if let Some(ty) = return_ty {
+                        v.visit_type(ty);
+                    }
+                }
                 ApiItemKindOwned::Trait { .. } => {}
             }
         }

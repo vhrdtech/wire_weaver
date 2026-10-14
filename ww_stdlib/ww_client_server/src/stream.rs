@@ -114,6 +114,99 @@ pub struct StreamOpened<'i> {
     pub result: TailBytes<'i>,
 }
 
+impl StreamOpened<'_> {
+    /// Write everything but `result`, byte aligned, so that the stream function's result can follow in place,
+    /// serialized with its own sizes at the back of the buffer, as a method's return value is in
+    /// [EventKind::Value](crate::EventKind::Value). Same bytes as serializing `self` with the result in `result`.
+    pub fn ser_head(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.align_byte();
+        wr.write(&self.session)?;
+        wr.write(&self.oldest)?;
+        wr.write(&self.live_from)?;
+        wr.write(&self.resume_from)?;
+        wr.align_byte();
+        Ok(())
+    }
+}
+
+/// Serialize an [EventKind::StreamItem](crate::EventKind::StreamItem) event of the stream at `path` into `scratch`:
+/// `item` writes the item's bytes at the start of the buffer it is given (`value.to_ww_bytes(buf)`, or raw bytes as
+/// a store keeps them) and returns their length. The item keeps its own sizes, as `from_ww_bytes` on the host
+/// expects. Used by generated `stream_data_ser()` methods and `poll_streams`.
+pub fn ser_stream_item_event<'a>(
+    scratch: &'a mut [u8],
+    path: &[UNib32],
+    head: &StreamHead,
+    item: impl FnOnce(&mut [u8]) -> Result<usize, Error>,
+) -> Result<&'a [u8], Error> {
+    use crate::EventKindDiscriminants;
+    use crate::builder::{EventBuilder, EventKindBuilder};
+    let mut header_buf = [0u8; 128];
+    let mut wr = BufWriter::new(&mut header_buf);
+    let event_builder = EventBuilder::new(0, &mut wr)?;
+    let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+    wr.write(&RefVec::Slice { slice: path })?;
+    wr.write(head)?;
+    event_kind_builder.finish_with_kind(EventKindDiscriminants::StreamItem, &mut wr);
+    event_builder.finish(true, &mut wr);
+    wr.align_byte();
+    let head_len = wr.pos().0;
+    let header = wr.finish_and_take()?;
+    if head_len > scratch.len() {
+        return Err(Error::OutOfBoundsWriteRawSlice);
+    }
+    let item_len = item(&mut scratch[head_len..])?;
+    let sizes = &header[head_len..];
+    let end = head_len + item_len + sizes.len();
+    if end > scratch.len() {
+        return Err(Error::OutOfBoundsWriteRawSlice);
+    }
+    scratch[..head_len].copy_from_slice(&header[..head_len]);
+    scratch[head_len + item_len..end].copy_from_slice(sizes);
+    Ok(&scratch[..end])
+}
+
+/// State of a stream, the answer to a [RequestKind::Read](crate::RequestKind::Read) on its path (API-31): whether a
+/// host has it open, its session and positions, and what its store holds. Evolvable, fields may be appended.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, Clone, Copy, PartialEq, Eq)
+)]
+pub struct StreamStatus {
+    /// A host has the stream open (counted and reliable streams stay attached across a link loss only until the
+    /// device notices it).
+    pub open: bool,
+    /// Current session, `None` before the first one.
+    pub session: Option<UVlq32>,
+    /// Position of the next unit.
+    pub next: UVlq64,
+    /// Oldest and newest positions kept in the store, `None` when it is empty or there is no store.
+    pub oldest: Option<UVlq64>,
+    pub newest: Option<UVlq64>,
+    /// Bytes sent and not acknowledged yet (reliable streams).
+    pub in_flight: UVlq64,
+    /// What the store holds, `None` without one (plain and counted streams).
+    pub store: Option<StoreStatus>,
+}
+
+/// Store part of a [StreamStatus].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, Clone, Copy, PartialEq, Eq)
+)]
+pub struct StoreStatus {
+    /// Bytes in use, including the store's own overhead.
+    pub used_bytes: UVlq64,
+    /// Bytes the store can hold.
+    pub capacity_bytes: UVlq64,
+    /// Survives a reboot (a log on SD or flash), not just a reconnect.
+    pub persistent: bool,
+    /// Units the store forgot to make room (drop oldest) in this session.
+    pub dropped_units: UVlq64,
+}
+
 impl StreamHead {
     fn encode_pos(&self) -> Result<([u8; 8], usize), Error> {
         if self.pos > Self::MAX_POS {
@@ -511,6 +604,85 @@ mod tests {
         assert_eq!(back.live_from, UVlq64(1000));
         assert_eq!(back.resume_from, Some(UVlq64(10)));
         assert_eq!(back.result.0, [0xaa]);
+    }
+
+    #[test]
+    fn stream_item_event_matches_derived() {
+        let path = [UNib32(1), UNib32(12)];
+        let head = StreamHead {
+            units: 3,
+            lost: Some(2),
+            ..StreamHead::at(1000)
+        };
+        let item: (u8, &str) = (5, "hello");
+        let mut ibuf = [0u8; 32];
+        let item_bytes = item.to_ww_bytes(&mut ibuf).unwrap().to_vec();
+        let event = Event {
+            seq: UVlq32(0),
+            result: Ok(EventKind::StreamItem {
+                path: RefVec::Slice { slice: &path },
+                head,
+                data: TailBytes(&item_bytes),
+            }),
+        };
+        let mut buf = [0u8; 64];
+        let derived = event.to_ww_bytes(&mut buf).unwrap().to_vec();
+        let mut buf = [0u8; 64];
+        let built = ser_stream_item_event(&mut buf, &path, &head, |b| {
+            item.to_ww_bytes(b).map(|b| b.len())
+        })
+        .unwrap();
+        assert_eq!(built, derived);
+        let Ok(EventKind::StreamItem { data, .. }) = Event::from_ww_bytes(built).unwrap().result
+        else {
+            panic!()
+        };
+        assert_eq!(<(u8, &str)>::from_ww_bytes(data.0).unwrap(), item);
+    }
+
+    #[test]
+    fn opened_head_then_result_in_place() {
+        let result: Result<(u8, &str), u8> = Ok((7, "abc"));
+        let mut rbuf = [0u8; 32];
+        let result_bytes = result.to_ww_bytes(&mut rbuf).unwrap().to_vec();
+        let opened = StreamOpened {
+            session: UVlq32(3),
+            oldest: UVlq64(1),
+            live_from: UVlq64(300),
+            resume_from: Some(UVlq64(2)),
+            result: TailBytes(&result_bytes),
+        };
+        let mut buf = [0u8; 64];
+        let derived = opened.to_ww_bytes(&mut buf).unwrap().to_vec();
+
+        let mut buf = [0u8; 64];
+        let mut wr = BufWriter::new(&mut buf);
+        opened.ser_head(&mut wr).unwrap();
+        result.ser_shrink_wrap(&mut wr).unwrap();
+        let in_place = wr.finish_and_take().unwrap().to_vec();
+        assert_eq!(in_place, derived);
+        let back = StreamOpened::from_ww_bytes(&in_place).unwrap();
+        assert_eq!(
+            <Result<(u8, &str), u8>>::from_ww_bytes(back.result.0).unwrap(),
+            result
+        );
+
+        let status = StreamStatus {
+            open: true,
+            session: Some(UVlq32(1)),
+            next: UVlq64(10),
+            oldest: None,
+            newest: Some(UVlq64(9)),
+            in_flight: UVlq64(0),
+            store: Some(StoreStatus {
+                used_bytes: UVlq64(5),
+                capacity_bytes: UVlq64(4096),
+                persistent: false,
+                dropped_units: UVlq64(0),
+            }),
+        };
+        let b = status.to_ww_bytes(&mut buf).unwrap().to_vec();
+        assert_eq!(StreamStatus::from_ww_bytes(&b).unwrap(), status);
     }
 
     #[test]

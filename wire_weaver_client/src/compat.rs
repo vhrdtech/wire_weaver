@@ -16,8 +16,9 @@ use wire_weaver::shrink_wrap::{ElementSize, UNib32};
 use ww_self::signature;
 use ww_self::visit::Visit;
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, Delivery, FieldOwned,
-    FieldsOwned, ItemEnumOwned, ItemStructOwned, PropertyAccess, TypeLocationOwned, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
+    FieldOwned, FieldsOwned, ItemEnumOwned, ItemStructOwned, PropertyAccess, TypeLocationOwned,
+    TypeOwned,
 };
 use ww_version::{FullVersionOwned, VersionTriplet};
 
@@ -287,32 +288,12 @@ fn compare_kinds<'a>(
                 args: device_args,
                 return_ty: device_return_ty,
             },
-        ) => {
-            if args.len() != device_args.len() {
-                return Err(format!(
-                    "takes {} argument(s) on the {client_name}, {} on the {device_name}",
-                    args.len(),
-                    device_args.len()
-                ));
-            }
-            for (arg, device_arg) in args.iter().zip(device_args) {
-                to_device
-                    .check(&arg.ty, &device_arg.ty)
-                    .map_err(|e| format!("argument `{}`: {e}", arg.ident))?;
-            }
-            match (return_ty, device_return_ty) {
-                (None, None) => {}
-                (Some(ty), Some(device_ty)) => to_client
-                    .check(device_ty, ty)
-                    .map_err(|e| format!("return type: {e}"))?,
-                (Some(_), None) => return Err(format!("{device_name} returns nothing")),
-                (None, Some(_)) => {
-                    return Err(format!(
-                        "{device_name} returns a value, {client_name} expects none"
-                    ));
-                }
-            }
-        }
+        ) => check_signature(
+            (args, return_ty.as_ref()),
+            (device_args, device_return_ty.as_ref()),
+            (client_name, device_name),
+            (to_device, to_client),
+        )?,
         (
             Property {
                 ty,
@@ -380,10 +361,17 @@ fn compare_kinds<'a>(
             to_device.check(ty, device_ty)?;
         }
         (
-            PositionedStream { ty, delivery },
-            PositionedStream {
+            StreamFn {
+                ty,
+                delivery,
+                args,
+                return_ty,
+            },
+            StreamFn {
                 ty: device_ty,
                 delivery: device_delivery,
+                args: device_args,
+                return_ty: device_return_ty,
             },
         ) => {
             if delivery != device_delivery {
@@ -392,6 +380,12 @@ fn compare_kinds<'a>(
                 ));
             }
             to_client.check(device_ty, ty)?;
+            check_signature(
+                (args, return_ty.as_ref()),
+                (device_args, device_return_ty.as_ref()),
+                (client_name, device_name),
+                (to_device, to_client),
+            )?;
         }
         (
             Trait { trait_idx },
@@ -452,16 +446,54 @@ fn kind_name(kind: &ApiItemKindOwned) -> &'static str {
         ApiItemKindOwned::Stream { is_up: true, .. } => "a stream",
         ApiItemKindOwned::Stream { is_up: false, .. } => "a sink",
         ApiItemKindOwned::FlowSink { .. } => "a sink with flow control",
-        ApiItemKindOwned::PositionedStream {
+        ApiItemKindOwned::StreamFn {
+            delivery: Delivery::Plain,
+            ..
+        } => "a stream function",
+        ApiItemKindOwned::StreamFn {
             delivery: Delivery::Counted,
             ..
         } => "a counted stream",
-        ApiItemKindOwned::PositionedStream {
+        ApiItemKindOwned::StreamFn {
             delivery: Delivery::Reliable,
             ..
         } => "a reliable stream",
         ApiItemKindOwned::Trait { .. } => "a trait",
     }
+}
+
+/// Arguments go to the device, the result comes back: of a method or a stream function.
+fn check_signature<'a>(
+    (args, return_ty): (&'a [ArgumentOwned], Option<&'a TypeOwned>),
+    (device_args, device_return_ty): (&'a [ArgumentOwned], Option<&'a TypeOwned>),
+    (client_name, device_name): (&str, &str),
+    (to_device, to_client): (&mut TypeCheck<'a>, &mut TypeCheck<'a>),
+) -> Result<(), String> {
+    if args.len() != device_args.len() {
+        return Err(format!(
+            "takes {} argument(s) on the {client_name}, {} on the {device_name}",
+            args.len(),
+            device_args.len()
+        ));
+    }
+    for (arg, device_arg) in args.iter().zip(device_args) {
+        to_device
+            .check(&arg.ty, &device_arg.ty)
+            .map_err(|e| format!("argument `{}`: {e}", arg.ident))?;
+    }
+    match (return_ty, device_return_ty) {
+        (None, None) => {}
+        (Some(ty), Some(device_ty)) => to_client
+            .check(device_ty, ty)
+            .map_err(|e| format!("return type: {e}"))?,
+        (Some(_), None) => return Err(format!("{device_name} returns nothing")),
+        (None, Some(_)) => {
+            return Err(format!(
+                "{device_name} returns a value, {client_name} expects none"
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Crate and name of a trait or type, and it's version.

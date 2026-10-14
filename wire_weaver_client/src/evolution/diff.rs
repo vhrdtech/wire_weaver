@@ -364,12 +364,30 @@ fn item_signature(bundle: &ApiBundleOwned, item: &ApiItemOwned) -> String {
             };
             format!("{flow}sink {ident}: {}", type_name(bundle, ty))
         }
-        ApiItemKindOwned::PositionedStream { ty, delivery } => {
+        ApiItemKindOwned::StreamFn {
+            ty,
+            delivery,
+            args,
+            return_ty,
+        } => {
             let delivery = match delivery {
-                Delivery::Counted => "#[counted] ",
-                Delivery::Reliable => "#[reliable] ",
+                Delivery::Plain => "",
+                Delivery::Counted => ", counted",
+                Delivery::Reliable => ", reliable",
             };
-            format!("{delivery}stream {ident}: {}", type_name(bundle, ty))
+            let args: Vec<String> = args
+                .iter()
+                .map(|arg| format!("{}: {}", arg.ident, type_name(bundle, &arg.ty)))
+                .collect();
+            let mut s = format!(
+                "#[stream({}{delivery})] fn {ident}({})",
+                type_name(bundle, ty),
+                args.join(", ")
+            );
+            if let Some(return_ty) = return_ty {
+                s += &format!(" -> {}", type_name(bundle, return_ty));
+            }
+            s
         }
         ApiItemKindOwned::Trait { trait_idx } => {
             let crate_name = |crate_idx: u32| bundle.crate_name(crate_idx).unwrap_or("?");

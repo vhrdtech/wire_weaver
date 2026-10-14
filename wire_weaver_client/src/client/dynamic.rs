@@ -131,7 +131,7 @@ impl DynResource {
                     flow: Some(*flow),
                 },
                 // TODO(CLT-23): positions, gaps and acks of counted and reliable streams
-                ApiItemKindOwned::PositionedStream { ty, .. } => DynResourceKind::Stream {
+                ApiItemKindOwned::StreamFn { ty, .. } => DynResourceKind::Stream {
                     ty,
                     is_up: true,
                     flow: None,

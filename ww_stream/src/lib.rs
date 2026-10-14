@@ -26,7 +26,11 @@ pub mod sched;
 pub mod store;
 pub mod tx;
 
-pub use ww_client_server::stream::{HeadExt, StreamCursor, StreamHead, StreamOpened};
+pub use ww_client_server::stream::{
+    HeadExt, StoreStatus, StreamCursor, StreamHead, StreamOpened, StreamStatus,
+};
+/// Device time in the head (`t`), re-exported for generated code.
+pub use ww_si::Second;
 
 /// The two runs of positions of a resumed reliable stream, each delivered in order: the live run (the newest event
 /// the device had at the resume and everything after it) and the backfill run (the backlog up to where the live run

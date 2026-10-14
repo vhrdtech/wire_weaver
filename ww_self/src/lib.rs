@@ -3,6 +3,8 @@
 #[cfg(feature = "std")]
 mod alloc;
 #[cfg(feature = "std")]
+pub use alloc::StreamFnRef;
+#[cfg(feature = "std")]
 pub mod inline;
 #[cfg(feature = "std")]
 pub mod signature;
@@ -182,16 +184,19 @@ pub enum ApiItemKind<'i> {
         ty: Type<'i>,
         flow: FlowControl,
     },
-    /// Stream (device to host) whose events carry positions, `#[stream(T, counted)]` /
-    /// `#[stream(T, reliable)]` (API-30, `docs/api/stream_reliability.md`). A plain stream is `Stream`.
-    PositionedStream {
+    /// Stream function (device to host, API-31): `#[stream(T, delivery)] fn name(args) -> R`, or `#[counted]` /
+    /// `#[reliable] stream!(name: T)`; opened by calling it, see `docs/api/stream_reliability.md`. A plain
+    /// `stream!(name: T)` without arguments and result is `Stream { is_up: true }`.
+    StreamFn {
         ty: Type<'i>,
         delivery: Delivery,
+        args: RefVec<'i, Argument<'i>>,
+        return_ty: Option<Type<'i>>,
     },
     // Reserved, no useful info keeping reserved items after IDs are calculated
 }
 
-/// Delivery kind of a [ApiItemKind::PositionedStream].
+/// Delivery kind of a [ApiItemKind::StreamFn].
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -200,6 +205,8 @@ pub enum ApiItemKind<'i> {
     ww_repr = nib
 )]
 pub enum Delivery {
+    /// Latest value wins: no positions, nothing counted (events are `StreamData`).
+    Plain,
     /// Every event has a position and the units the device dropped before it: losses are seen exactly, nothing is
     /// resent.
     Counted,

@@ -14,6 +14,7 @@ use crate::store::{PushError, StreamStore};
 use crate::{HeadExt, Opened, ResumeError, Run, StreamCursor, StreamHead};
 use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
 use ww_client_server::StreamSideband;
+use ww_client_server::stream::{StoreStatus, StreamStatus};
 use ww_si::Second;
 
 /// Sender of a counted stream: positions, `lost`, sessions. No store, nothing resent.
@@ -156,6 +157,19 @@ impl Counted {
         Some(head)
     }
 
+    /// State for a read on the stream.
+    pub fn status(&self) -> StreamStatus {
+        StreamStatus {
+            open: self.attached,
+            session: self.session.map(UVlq32),
+            next: UVlq64(self.next),
+            oldest: None,
+            newest: None,
+            in_flight: UVlq64(0),
+            store: None,
+        }
+    }
+
     /// The event with `head` couldn't be sent: its units, and the `lost` it carried, go into the next event's
     /// `lost`, so the host sees a device loss instead of a link loss.
     pub fn unsent(&mut self, head: &StreamHead) {
@@ -289,6 +303,14 @@ pub enum Pushed {
     Stored,
     /// Dropped (store full, no session) and counted, its units go into the next event's `lost`.
     Lost,
+}
+
+/// Why a generated `<stream>_push` failed: the item didn't serialize (nothing was pushed or counted), or the store
+/// failed (the units were counted as lost).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PushItemError<E> {
+    Serialize(wire_weaver::shrink_wrap::Error),
+    Store(E),
 }
 
 /// An event to send, see [Reliable::next_event].
@@ -676,6 +698,20 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
         sideband: &StreamSideband,
         now_ms: u64,
     ) -> Result<(), S::Error> {
+        self.on_sideband_at(sideband, Some(now_ms)).await
+    }
+
+    /// [on_sideband](Self::on_sideband) where the time isn't at hand (generated request dispatch): the host counts
+    /// as heard at the next [poll_query](Self::poll_query).
+    pub async fn on_host_sideband(&mut self, sideband: &StreamSideband) -> Result<(), S::Error> {
+        self.on_sideband_at(sideband, None).await
+    }
+
+    async fn on_sideband_at(
+        &mut self,
+        sideband: &StreamSideband,
+        now_ms: Option<u64>,
+    ) -> Result<(), S::Error> {
         if !self.attached {
             return Ok(());
         }
@@ -685,7 +721,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                 backfill,
                 grant,
             } => {
-                self.last_heard_ms = Some(now_ms);
+                self.last_heard_ms = now_ms;
                 self.last_query_ms = None;
                 if !self.ack_live(have.0) {
                     return Ok(());
@@ -704,7 +740,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                 self.grant = grant.0 as u64;
             }
             StreamSideband::ResendFrom { from, grant } => {
-                self.last_heard_ms = Some(now_ms);
+                self.last_heard_ms = now_ms;
                 self.last_query_ms = None;
                 self.counting.add(StreamCnt::ResendRequests, 1);
                 let from = from.0;
@@ -812,6 +848,25 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
         StreamSideband::Query {
             sent: UVlq64(self.live.next),
             backfill: self.backfill.as_ref().map(|b| UVlq64(b.run.next)),
+        }
+    }
+
+    /// State for a read on the stream.
+    pub fn status(&self) -> StreamStatus {
+        let state = self.store.state();
+        StreamStatus {
+            open: self.attached,
+            session: self.session.map(UVlq32),
+            next: UVlq64(self.next),
+            oldest: state.oldest.map(UVlq64),
+            newest: state.newest.map(UVlq64),
+            in_flight: UVlq64(self.in_flight()),
+            store: Some(StoreStatus {
+                used_bytes: UVlq64(state.used_bytes),
+                capacity_bytes: UVlq64(state.capacity_bytes),
+                persistent: state.persistent,
+                dropped_units: UVlq64(state.dropped_units),
+            }),
         }
     }
 

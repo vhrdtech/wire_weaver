@@ -10,8 +10,8 @@ use convert_case::{Case, Casing};
 use std::fmt::Write;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, FlowControl, Multiplicity,
-    PropertyAccess, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Delivery, FlowControl,
+    Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
 };
 
 /// Server scaffold generation configuration, same meaning as the `ww_codegen!` arguments.
@@ -72,8 +72,27 @@ pub fn gen_server_scaffold(
         property_model,
         fields: String::new(),
         handlers: String::new(),
+        positioned: false,
     };
     s.level(root, None, "root".into(), 0, "")?;
+    if s.positioned {
+        writeln!(
+            s.fields,
+            "/// Sessions of counted and reliable streams opened so far, see `new_stream_session`
+             pub stream_sessions: u32,"
+        )?;
+        writeln!(
+            s.handlers,
+            "/// Number of a new session of a counted or reliable stream, when a host opens one.
+             fn new_stream_session(&mut self) -> u32 {{
+             // TODO: put a boot counter into the high bits (or use a random number), so that a cursor from before \
+             // a reboot doesn't match a new session
+             self.stream_sessions = self.stream_sessions.wrapping_add(1);
+             self.stream_sessions
+             }}
+"
+        )?;
+    }
 
     let server = &config.server_struct;
     let medium = match &config.medium {
@@ -115,6 +134,8 @@ struct Scaffold<'a> {
     property_model: PropertyModel,
     fields: String,
     handlers: String,
+    /// A counted or reliable stream was scaffolded: `new_stream_session` is needed
+    positioned: bool,
 }
 
 impl Scaffold<'_> {
@@ -155,18 +176,17 @@ impl Scaffold<'_> {
                     access,
                     write_err_ty,
                 } => self.property(item, &name, item_index_len, ty, *access, write_err_ty)?,
-                ApiItemKindOwned::Stream { ty, is_up } => {
-                    self.stream(item, &name, item_index_len, ty, *is_up)?
+                ApiItemKindOwned::Stream { is_up: true, .. }
+                | ApiItemKindOwned::StreamFn { .. } => {
+                    let stream = item.kind.as_stream_fn().expect("a stream");
+                    self.stream_fn(item, &name, item_index_len, stream)?
+                }
+                ApiItemKindOwned::Stream { ty, is_up: false } => {
+                    self.stream(item, &name, item_index_len, ty, false)?
                 }
                 ApiItemKindOwned::FlowSink { ty, flow } => {
                     self.flow(item, &name, item_index_len, *flow)?;
                     self.stream(item, &name, item_index_len, ty, false)?
-                }
-                // TODO(API-31): the transform doesn't make counted / reliable streams yet
-                ApiItemKindOwned::PositionedStream { .. } => {
-                    anyhow::bail!(
-                        "{name}: counted and reliable streams are not scaffolded yet (API-31)"
-                    )
                 }
                 ApiItemKindOwned::Trait { .. } => {}
             }
@@ -378,6 +398,94 @@ impl Scaffold<'_> {
                 "{maybe_async}fn write_{name}(&mut self, {cx}{idx}{arg}) {{}}\n",
             )?;
         }
+        Ok(())
+    }
+
+    /// A stream (device to host) as a stream function: its open handler, `close_`, `sideband_` for plain ones,
+    /// and the state accessor and field of a counted or reliable one.
+    fn stream_fn(
+        &mut self,
+        item: &ApiItemOwned,
+        name: &str,
+        index_len: usize,
+        stream: StreamFnRef<'_>,
+    ) -> Result<()> {
+        let idx = index_chain_arg(index_len);
+        let cx = self.cx.clone();
+        let maybe_async = self.maybe_async();
+        let mut args_def = String::new();
+        for arg in stream.args {
+            // same as the args struct fields handlers are called with, see api_common::args_structs
+            let ty = self.ty(&arg.ty, !self.no_alloc)?;
+            write!(args_def, "_{}: {ty}, ", arg.ident)?;
+        }
+        let (return_ty, body) = match stream.return_ty {
+            Some(ty) => (self.ty(ty, false)?, "Unimplemented.into()"),
+            // nothing to decide: accept the open
+            None => ("()".into(), "RpcResult::Ready(())"),
+        };
+        self.docs(item)?;
+        writeln!(
+            self.handlers,
+            "/// Opens the stream (a new session): `Ok` / `Ready` starts it.\n\
+             {maybe_async}fn {name}(&mut self, {cx}{idx}{args_def}) -> RpcResult<{return_ty}> {{\n\
+             {body}\n\
+             }}\n\
+             \n\
+             /// The host closed the stream.\n\
+             {maybe_async}fn close_{name}(&mut self, {cx}{idx}) {{}}\n",
+        )?;
+        let state = match stream.delivery {
+            Delivery::Plain => {
+                writeln!(
+                    self.handlers,
+                    "{maybe_async}fn sideband_{name}(&mut self, {cx}{idx}_sideband: ww_client_server::StreamSideband) -> Option<ww_client_server::StreamSideband> {{\n\
+                     // TODO: None sends no reply\n\
+                     None\n\
+                     }}\n",
+                )?;
+                return Ok(());
+            }
+            Delivery::Counted => "ww_stream::tx::Counted",
+            Delivery::Reliable => "ww_stream::tx::Reliable<ww_stream::store::RamRing<4096>>",
+        };
+        self.positioned = true;
+        let body = if index_len == 0 {
+            writeln!(
+                self.fields,
+                "/// State of the {} stream `{name}` (positions, sessions{})\n\
+                 pub {name}_stream: {state},",
+                if stream.delivery == Delivery::Counted {
+                    "counted"
+                } else {
+                    "reliable"
+                },
+                if stream.delivery == Delivery::Counted {
+                    ""
+                } else {
+                    ", store"
+                },
+            )?;
+            format!("&mut self.{name}_stream")
+        } else {
+            writeln!(
+                self.fields,
+                "// TODO: one {state} per index of `{name}`\n// pub {name}_stream: [{state}; N],"
+            )?;
+            format!(
+                "todo!(\"stream state of {} for index {{_index_chain:?}}\")",
+                item.ident
+            )
+        };
+        writeln!(
+            self.handlers,
+            "/// State of `{}`: generated code opens, resumes, closes it and feeds it the host's \
+             acknowledgements; producers send through it.\n\
+             {maybe_async}fn stream_{name}(&mut self, {idx}) -> &mut {state} {{\n\
+             {body}\n\
+             }}\n",
+            item.ident
+        )?;
         Ok(())
     }
 

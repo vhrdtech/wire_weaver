@@ -193,8 +193,14 @@ impl TreePrinter<'_> {
                 self.ident(item);
                 _ = write!(self.out, ": {}", self.ty(ty));
             }
-            ApiItemKindOwned::PositionedStream { ty, delivery } => {
+            ApiItemKindOwned::StreamFn {
+                ty,
+                delivery,
+                args,
+                return_ty,
+            } => {
                 let delivery = match delivery {
+                    Delivery::Plain => "",
                     Delivery::Counted => "#[counted] ",
                     Delivery::Reliable => "#[reliable] ",
                 };
@@ -205,7 +211,14 @@ impl TreePrinter<'_> {
                     style("stream").true_color(0x8C, 0xC8, 0xD4)
                 );
                 self.ident(item);
-                _ = write!(self.out, ": {}", self.ty(ty));
+                let args: Vec<String> = args
+                    .iter()
+                    .map(|arg| format!("{}: {}", arg.ident, self.ty(&arg.ty)))
+                    .collect();
+                _ = write!(self.out, "({}): {}", args.join(", "), self.ty(ty));
+                if let Some(return_ty) = return_ty {
+                    _ = write!(self.out, " -> {}", self.ty(return_ty));
+                }
             }
             ApiItemKindOwned::Trait { trait_idx } => {
                 _ = write!(self.out, "{} ", style("impl").true_color(0xCF, 0x8E, 0x6D));

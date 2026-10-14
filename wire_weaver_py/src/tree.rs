@@ -107,8 +107,9 @@ pub(crate) fn signature(res: &DynResource) -> String {
         ApiItemKindOwned::FlowSink { ty, .. } => {
             format!("credit sink {name}{array}: {}", type_name(ty, bundle))
         }
-        ApiItemKindOwned::PositionedStream { ty, delivery } => {
+        ApiItemKindOwned::StreamFn { ty, delivery, .. } => {
             let delivery = match delivery {
+                Delivery::Plain => "plain",
                 Delivery::Counted => "counted",
                 Delivery::Reliable => "reliable",
             };

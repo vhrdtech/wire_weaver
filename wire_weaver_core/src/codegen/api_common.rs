@@ -25,7 +25,13 @@ pub fn args_structs(
 ) -> TokenStream {
     let mut defs = TokenStream::new();
     for item in &api_level.items {
-        if let ApiItemKindOwned::Method { args, .. } = &item.kind {
+        let args = match &item.kind {
+            ApiItemKindOwned::Method { args, .. } | ApiItemKindOwned::StreamFn { args, .. } => {
+                Some(args)
+            }
+            _ => None,
+        };
+        if let Some(args) = args {
             if args.is_empty() {
                 continue;
             }

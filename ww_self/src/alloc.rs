@@ -1,7 +1,7 @@
 use crate::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, Delivery,
-    FieldOwned, FieldsOwned, FlowControl, ItemEnumOwned, ItemStructOwned, Multiplicity, Repr,
-    TypeLocationOwned, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
+    ArgumentOwned, Delivery, FieldOwned, FieldsOwned, FlowControl, ItemEnumOwned, ItemStructOwned,
+    Multiplicity, Repr, TypeLocationOwned, TypeOwned,
 };
 use anyhow::{Result, anyhow};
 use shrink_wrap::ElementSize;
@@ -54,10 +54,37 @@ impl ApiItemOwned {
 }
 
 impl ApiItemKindOwned {
-    /// Delivery kind of a counted or reliable stream, `None` for everything else (plain streams included).
+    /// Delivery kind of a stream (device to host), `None` for everything else: `Plain` for `stream!` and plain
+    /// stream functions.
     pub fn delivery(&self) -> Option<Delivery> {
         match self {
-            ApiItemKindOwned::PositionedStream { delivery, .. } => Some(*delivery),
+            ApiItemKindOwned::StreamFn { delivery, .. } => Some(*delivery),
+            ApiItemKindOwned::Stream { is_up: true, .. } => Some(Delivery::Plain),
+            _ => None,
+        }
+    }
+
+    /// A stream (device to host) seen as a stream function: item type, delivery, arguments and return type. A plain
+    /// `stream!(x: T)` is `#[stream(T)] fn x()`.
+    pub fn as_stream_fn(&self) -> Option<StreamFnRef<'_>> {
+        match self {
+            ApiItemKindOwned::StreamFn {
+                ty,
+                delivery,
+                args,
+                return_ty,
+            } => Some(StreamFnRef {
+                ty,
+                delivery: *delivery,
+                args,
+                return_ty: return_ty.as_ref(),
+            }),
+            ApiItemKindOwned::Stream { ty, is_up: true } => Some(StreamFnRef {
+                ty,
+                delivery: Delivery::Plain,
+                args: &[],
+                return_ty: None,
+            }),
             _ => None,
         }
     }
@@ -68,10 +95,19 @@ impl ApiItemKindOwned {
         match self {
             ApiItemKindOwned::Stream { ty, is_up } => Some((ty, *is_up, None)),
             ApiItemKindOwned::FlowSink { ty, flow } => Some((ty, false, Some(*flow))),
-            ApiItemKindOwned::PositionedStream { ty, .. } => Some((ty, true, None)),
+            ApiItemKindOwned::StreamFn { ty, .. } => Some((ty, true, None)),
             _ => None,
         }
     }
+}
+
+/// A stream as a stream function, see [ApiItemKindOwned::as_stream_fn].
+#[derive(Debug, Clone, Copy)]
+pub struct StreamFnRef<'a> {
+    pub ty: &'a TypeOwned,
+    pub delivery: Delivery,
+    pub args: &'a [ArgumentOwned],
+    pub return_ty: Option<&'a TypeOwned>,
 }
 
 impl ApiBundleOwned {

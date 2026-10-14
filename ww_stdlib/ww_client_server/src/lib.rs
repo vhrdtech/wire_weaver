@@ -352,6 +352,10 @@ pub enum ErrorKind<'i> {
     /// A global trait path ([PathKind::GlobalCompact] or [PathKind::GlobalFull]) names a trait the device doesn't
     /// implement, implements in an incompatible version, or only under a resource array
     TraitNotFound,
+    /// [RequestKind::StreamOpen] with a cursor on a stream that has no session to resume: open it with arguments
+    StreamNoSession,
+    /// The store of a reliable stream failed (open or resume)
+    StreamStoreFailed,
 }
 
 // Optional shaper configuration request.
@@ -452,6 +456,8 @@ impl Error<'_> {
             ErrorKind::ReadPropertyWithSeqZero => ErrorKindOwned::ReadPropertyWithSeqZero,
             ErrorKind::PathKindNotSupported => ErrorKindOwned::PathKindNotSupported,
             ErrorKind::TraitNotFound => ErrorKindOwned::TraitNotFound,
+            ErrorKind::StreamNoSession => ErrorKindOwned::StreamNoSession,
+            ErrorKind::StreamStoreFailed => ErrorKindOwned::StreamStoreFailed,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),
             ErrorKind::UserStr(s) => ErrorKindOwned::UserStr(s.to_string()),
         };

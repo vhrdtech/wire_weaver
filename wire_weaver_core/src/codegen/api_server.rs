@@ -13,8 +13,8 @@ use quote::quote;
 use syn::{Lit, LitInt, Path};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, FlowControl,
-    Multiplicity, PropertyAccess, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Delivery,
+    FlowControl, Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
 };
 use ww_version::FullVersionOwned;
 
@@ -180,6 +180,7 @@ pub fn gen_server(
             &mut max_len_consts,
         );
     }
+    let poll_streams = poll_streams(api_bundle, cx.use_async);
     let global_trait_path = global_trait_path(api_bundle);
     let (es1, es2) = (error_seq.next(), error_seq.next());
     let server_struct_path = config.server_struct_path;
@@ -334,11 +335,160 @@ pub fn gen_server(
             #process_request_inner
 
             #deferred_return_methods
+
+            #poll_streams
         }
 
         #stream_send_methods
 
         #global_trait_path
+    }
+}
+
+/// Reliable streams of the API: name of their handlers (with the trait chain prefix) and absolute path, or an
+/// error message for one that can't be polled.
+fn reliable_streams_recursive(
+    api_bundle: &ApiBundleOwned,
+    level: &ApiLevelOwned,
+    prefix: Option<&String>,
+    path: &mut Vec<u32>,
+    under_array: bool,
+    out: &mut Vec<Result<(Ident, Vec<u32>), String>>,
+) {
+    for item in &level.items {
+        let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
+        path.push(item.id.0);
+        match &item.kind {
+            ApiItemKindOwned::StreamFn {
+                delivery: Delivery::Reliable,
+                ..
+            } => {
+                if under_array || is_array {
+                    out.push(Err(format!(
+                        "reliable stream {} in a resource array: poll_streams can't send it yet (API-31)",
+                        item.ident
+                    )));
+                } else {
+                    let ident = Ident::new(&item.ident, Span::call_site());
+                    out.push(Ok((add_prefix(prefix, &ident), path.clone())));
+                }
+            }
+            ApiItemKindOwned::Trait { .. } => {
+                let child = item.get_as_level(api_bundle).unwrap();
+                let prefix = match prefix {
+                    Some(prefix) => format!("{prefix}_{}", item.ident),
+                    None => item.ident.clone(),
+                };
+                reliable_streams_recursive(
+                    api_bundle,
+                    child,
+                    Some(&prefix),
+                    path,
+                    under_array || is_array,
+                    out,
+                );
+            }
+            _ => {}
+        }
+        path.pop();
+    }
+}
+
+/// `poll_streams` on the server: sends what reliable streams have in their stores, as the send scheduler of
+/// `ww_stream` picks (priority, live before backfill, round-robin), and their queries. Not generated without
+/// reliable streams.
+fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
+    let mut streams = vec![];
+    reliable_streams_recursive(
+        api_bundle,
+        &api_bundle.root,
+        None,
+        &mut vec![],
+        false,
+        &mut streams,
+    );
+    if streams.is_empty() || !use_async {
+        // a blocking server with reliable streams already got a compile error from its dispatcher
+        return quote! {};
+    }
+    let mut errors = TokenStream::new();
+    let mut ok = vec![];
+    for s in streams {
+        match s {
+            Ok(s) => ok.push(s),
+            Err(e) => errors.extend(quote! { compile_error!(#e); }),
+        }
+    }
+    let n = ok.len();
+    let state_fns: Vec<Ident> = ok
+        .iter()
+        .map(|(ident, _)| Ident::new(&format!("stream_{ident}"), ident.span()))
+        .collect();
+    let paths: Vec<TokenStream> = ok
+        .iter()
+        .map(|(_, path)| quote! { [#(UNib32(#path)),*] })
+        .collect();
+    let idx = 0..n;
+    quote! {
+        #errors
+
+        /// Send what the reliable streams have, between requests: events by priority, the live run before the
+        /// backfill run, round-robin within a priority, up to `budget_bytes` of items (at least one event), and a
+        /// `Query` for a stream whose host was silent. `buf` must hold the biggest item of any reliable stream;
+        /// `now_ms` is any millisecond clock. A stream whose store fails is skipped this turn.
+        pub async fn poll_streams(
+            &mut self,
+            out: &mut impl wire_weaver::EventOut,
+            now_ms: u64,
+            buf: &mut [u8],
+            budget_bytes: usize,
+        ) -> Result<(), wire_weaver::SendError> {
+            #(
+                if let Some(sideband) = self.#state_fns().await.poll_query(now_ms) {
+                    let path = #paths;
+                    wire_weaver::EventOut::send_with(out, |scratch| {
+                        ser_ok_event(scratch, 0, EventKind::StreamSideband { path: RefVec::Slice { slice: &path }, sideband })
+                            .map(|bytes| bytes.len())
+                    }).await?;
+                }
+            )*
+            let mut sched = ww_stream::sched::Scheduler::<#n>::new(budget_bytes);
+            sched.start_turn();
+            loop {
+                let ready = [#(self.#state_fns().await.ready()),*];
+                let Some((i, run)) = sched.pick(&ready) else {
+                    break;
+                };
+                let sent = match i {
+                    #(
+                        #idx => {
+                            let ev = match self.#state_fns().await.next_event(run, buf).await {
+                                Ok(Some(ev)) => ev,
+                                Ok(None) | Err(_) => {
+                                    sched.skip(i, run);
+                                    continue;
+                                }
+                            };
+                            let path = #paths;
+                            wire_weaver::EventOut::send_with(out, |scratch| {
+                                ww_client_server::stream::ser_stream_item_event(scratch, &path, &ev.head, |b: &mut [u8]| {
+                                    if ev.item.len() > b.len() {
+                                        return Err(ShrinkWrapError::OutOfBoundsWriteRawSlice);
+                                    }
+                                    b[..ev.item.len()].copy_from_slice(ev.item);
+                                    Ok(ev.item.len())
+                                })
+                                .map(|bytes| bytes.len())
+                            }).await?;
+                            ev.item.len()
+                        }
+                    )*
+                    _ => break,
+                };
+                sched.sent(sent);
+            }
+            Ok(())
+        }
     }
 }
 
@@ -700,13 +850,24 @@ fn level_matcher(
             *access,
             error_seq,
         ),
-        ApiItemKindOwned::Stream { ty, is_up } => handle_stream(
+        ApiItemKindOwned::Stream { is_up: true, .. } | ApiItemKindOwned::StreamFn { .. } => {
+            handle_stream_fn(
+                api_bundle,
+                index_chain,
+                &mod_ident,
+                cx,
+                &ident,
+                api_item.kind.as_stream_fn().expect("a stream"),
+                error_seq,
+            )
+        }
+        ApiItemKindOwned::Stream { ty, is_up: false } => handle_stream(
             api_bundle,
             index_chain,
             cx,
             &ident,
             ty,
-            *is_up,
+            false,
             None,
             error_seq,
         ),
@@ -720,10 +881,6 @@ fn level_matcher(
             Some(*flow),
             error_seq,
         ),
-        // TODO(API-31): the transform doesn't make counted / reliable streams yet
-        ApiItemKindOwned::PositionedStream { .. } => quote! {
-            compile_error!("counted and reliable streams are not generated yet (API-31)");
-        },
         ApiItemKindOwned::Trait { .. } => {
             let process_fn_name = Ident::new(
                 format!("process_{level_name_chain}_{}", api_item.ident).as_str(),
@@ -989,6 +1146,207 @@ fn handle_property(
     }
 }
 
+/// A stream (device to host) as a stream function (API-31): opened with `RequestKind::StreamOpen` (the user's
+/// handler named like the stream gets the arguments, `Ok` starts a new session), resumed with a cursor (counted and
+/// reliable), closed with sideband `Close` (`close_<name>`). Counted and reliable streams keep their state in
+/// what `stream_<name>()` returns (`ww_stream::tx::Counted` / `Reliable`), a read on them returns its
+/// `StreamStatus`, and a reliable stream takes the host's `Ack` / `ResendFrom`. Plain streams pass other sideband
+/// commands to `sideband_<name>` as before.
+#[allow(clippy::too_many_arguments)]
+fn handle_stream_fn(
+    api_bundle: &ApiBundleOwned,
+    index_chain: IndexChain,
+    mod_ident: &Ident,
+    cx: &ApiServerCGContext<'_>,
+    ident: &Ident,
+    stream: StreamFnRef<'_>,
+    error_seq: &mut ErrorSeq,
+) -> TokenStream {
+    let maybe_await = maybe_quote(cx.use_async, quote! { .await });
+    let idx = index_chain.fun_argument_call();
+    let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), ident);
+    let close_fn = Ident::new(&format!("close_{prefixed_ident}"), ident.span());
+    let state_fn = Ident::new(&format!("stream_{prefixed_ident}"), ident.span());
+    let delivery = stream.delivery;
+    if delivery == Delivery::Reliable && !cx.use_async {
+        return quote! {
+            compile_error!("reliable streams need an async server (use_async = true): their store is async");
+        };
+    }
+    // reliable streams' methods that touch the store are async
+    let store_await = maybe_quote(delivery == Delivery::Reliable, quote! { .await });
+
+    let args: Vec<ArgumentOwned> = stream.args.to_vec();
+    let (args_des, args_list) = des_args(mod_ident, ident, &args, cx.no_alloc, error_seq);
+    let maybe_args = if args.is_empty() {
+        quote! { .. }
+    } else {
+        quote! { args, .. }
+    };
+    let enforce_ty = match stream.return_ty {
+        Some(ty) => ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap(),
+        None => quote! { () },
+    };
+    let is_ok = if stream.return_ty.is_some() {
+        quote! { output.is_ok() }
+    } else {
+        quote! { true }
+    };
+    let es_ser = error_seq.next();
+    let es_store = error_seq.next();
+    let closed_opened = quote! {
+        ww_client_server::stream::StreamOpened {
+            session: wire_weaver::shrink_wrap::UVlq32(0),
+            oldest: wire_weaver::shrink_wrap::UVlq64(0),
+            live_from: wire_weaver::shrink_wrap::UVlq64(0),
+            resume_from: None,
+            result: TailBytes(&[]),
+        }
+    };
+    let open_state = match delivery {
+        Delivery::Plain => quote! { let opened = #closed_opened; },
+        Delivery::Counted => quote! {
+            let opened = if #is_ok {
+                let session = self.new_stream_session();
+                self.#state_fn(#idx)#maybe_await.open(session).to_wire(&[])
+            } else {
+                // the stream stays as it was
+                #closed_opened
+            };
+        },
+        Delivery::Reliable => quote! {
+            let opened = if #is_ok {
+                let session = self.new_stream_session();
+                match self.#state_fn(#idx).await.open(session).await {
+                    Ok(opened) => opened.to_wire(&[]),
+                    Err(_) => return Err(Error::new(#es_store, ErrorKind::StreamStoreFailed)),
+                }
+            } else {
+                // the stream stays as it was
+                #closed_opened
+            };
+        },
+    };
+    let ev_kind_builder = cx.prepare_event_kind_builder();
+    let es_open = error_seq.next();
+    let open = quote! {
+        RequestKind::StreamOpen { resume: None, #maybe_args } => {
+            #args_des
+            match self.#prefixed_ident(cx, #idx #args_list)#maybe_await {
+                RpcResult::Ready(output) => {
+                    let output: #enforce_ty = output;
+                    #open_state
+                    #ev_kind_builder
+                    opened.ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
+                    output.ser_shrink_wrap(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
+                    Ok(WrAction::WrittenOk(event_kind_builder))
+                }
+                // a stream function answers right away: the session starts with its result
+                RpcResult::Deferred => Err(Error::not_supported(#es_open)),
+                RpcResult::Unimplemented => Err(Error::unimplemented(#es_open)),
+            }
+        }
+    };
+    let es_resume = error_seq.next();
+    let resume = if delivery == Delivery::Plain {
+        quote! {}
+    } else {
+        let ev_kind_builder = cx.prepare_event_kind_builder();
+        let resume_result = if delivery == Delivery::Counted {
+            quote! { r.map_err(|_| ErrorKind::StreamNoSession) }
+        } else {
+            quote! {
+                r.map_err(|e| match e {
+                    ww_stream::ResumeError::NoSession => ErrorKind::StreamNoSession,
+                    ww_stream::ResumeError::Store(_) => ErrorKind::StreamStoreFailed,
+                })
+            }
+        };
+        quote! {
+            RequestKind::StreamOpen { resume: Some(cursor), .. } => {
+                let r = self.#state_fn(#idx)#maybe_await.resume(*cursor)#store_await;
+                let opened = #resume_result.map_err(|kind| Error::new(#es_resume, kind))?;
+                #ev_kind_builder
+                opened.to_wire(&[]).ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
+                Ok(WrAction::WrittenOk(event_kind_builder))
+            }
+        }
+    };
+    let detach = maybe_quote(
+        delivery != Delivery::Plain,
+        quote! { self.#state_fn(#idx)#maybe_await.detach(); },
+    );
+    let close = quote! {
+        RequestKind::StreamSideband { sideband: StreamSideband::Close } => {
+            #detach
+            self.#close_fn(cx, #idx)#maybe_await;
+            Ok(WrAction::Acknowledged)
+        }
+    };
+    let es_sb = error_seq.next();
+    let sideband = match delivery {
+        Delivery::Plain => {
+            let sideband_fn = Ident::new(&format!("sideband_{prefixed_ident}"), ident.span());
+            let ev_kind_builder = cx.prepare_event_kind_builder();
+            quote! {
+                RequestKind::StreamSideband { sideband } => {
+                    // user fn returns Option<StreamSideband>
+                    match self.#sideband_fn(cx, #idx *sideband)#maybe_await {
+                        Some(sideband) => {
+                            #ev_kind_builder
+                            wr.write(&RefVec::Slice { slice: &path }).map_err(|_| Error::new(#es_sb, ErrorKind::ResponseSerFailed))?;
+                            wr.write(&sideband).map_err(|_| Error::new(#es_sb, ErrorKind::ResponseSerFailed))?;
+                            Ok(WrAction::WrittenOk(event_kind_builder))
+                        }
+                        // nothing to send back, but the host may wait with the request's seq
+                        None => Ok(WrAction::Acknowledged),
+                    }
+                }
+            }
+        }
+        // acknowledgements of a counted stream mean nothing: nothing is kept
+        Delivery::Counted => quote! {
+            RequestKind::StreamSideband { sideband: StreamSideband::Ack { .. } } => {
+                Ok(WrAction::Acknowledged)
+            }
+        },
+        Delivery::Reliable => quote! {
+            RequestKind::StreamSideband {
+                sideband: sideband @ (StreamSideband::Ack { .. } | StreamSideband::ResendFrom { .. })
+            } => {
+                self.#state_fn(#idx).await.on_host_sideband(sideband).await
+                    .map_err(|_| Error::new(#es_store, ErrorKind::StreamStoreFailed))?;
+                Ok(WrAction::Acknowledged)
+            }
+        },
+    };
+    let status = if delivery == Delivery::Plain {
+        quote! {}
+    } else {
+        let ev_kind_builder = cx.prepare_event_kind_builder();
+        let ser_status = ser_value(cx.multi_req, quote! { status }, error_seq);
+        quote! {
+            RequestKind::Read => {
+                let status: ww_client_server::stream::StreamStatus = self.#state_fn(#idx)#maybe_await.status();
+                #ev_kind_builder
+                #ser_status
+                Ok(WrAction::WrittenOk(event_kind_builder))
+            }
+        }
+    };
+    let es = error_seq.next();
+    quote! {
+        match &request.kind {
+            #open
+            #resume
+            #close
+            #sideband
+            #status
+            _ => { Err(Error::not_supported(#es)) }
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn handle_stream(
     api_bundle: &ApiBundleOwned,
@@ -1035,14 +1393,9 @@ fn handle_stream(
         #call_user_sideband
         #match_user_sideband
     };
-    let specific_ops = if is_up {
-        // stream (device out)
-        quote! {
-            RequestKind::StreamSideband { sideband } => {
-                #handle_sideband
-            }
-        }
-    } else {
+    // streams (device out) are stream functions, see handle_stream_fn
+    debug_assert!(!is_up);
+    let specific_ops = {
         // sink (device in)
         // bytes with a max length: sent as is like without one, checked here
         let is_bounded_bytes =

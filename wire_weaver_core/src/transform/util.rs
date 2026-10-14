@@ -5,7 +5,7 @@ use semver::Version;
 use shrink_wrap::ElementSize;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Expr, Lit, Meta, Token, UseTree};
-use ww_self::{FlowControl, Repr};
+use ww_self::{Delivery, FlowControl, Repr};
 use ww_version::VersionTriplet;
 
 pub(crate) fn collect_docs(attrs: &[Attribute]) -> Vec<String> {
@@ -59,6 +59,92 @@ pub(crate) fn get_since_attr(
     } else {
         Err(anyhow!("expected #[since = \"x.y.z\"]").context(current_crate.err_context()))
     }
+}
+
+/// Delivery kind of a `stream!` from `#[counted]` / `#[reliable]`, plain without either. Not allowed on `sink!`.
+pub(crate) fn get_delivery_attr(
+    attrs: &[Attribute],
+    is_up: bool,
+    current_crate: &CrateContext,
+) -> Result<Delivery> {
+    let mut delivery = Delivery::Plain;
+    for attr in attrs {
+        let d = if attr.path().is_ident("counted") {
+            Delivery::Counted
+        } else if attr.path().is_ident("reliable") {
+            Delivery::Reliable
+        } else {
+            continue;
+        };
+        if !matches!(attr.meta, Meta::Path(_)) {
+            return Err(
+                anyhow!("expected #[counted] or #[reliable] without arguments")
+                    .context(current_crate.err_context()),
+            );
+        }
+        if !is_up {
+            return Err(anyhow!(
+                "#[counted] and #[reliable] are only supported on stream!, not on sink! (see #[credit])"
+            )
+            .context(current_crate.err_context()));
+        }
+        if delivery != Delivery::Plain {
+            return Err(
+                anyhow!("a stream is either #[counted] or #[reliable], not both")
+                    .context(current_crate.err_context()),
+            );
+        }
+        delivery = d;
+    }
+    Ok(delivery)
+}
+
+/// `#[stream(T)]`, `#[stream(T, counted)]` or `#[stream(T, reliable)]` on a trait fn: a stream function (API-31).
+pub(crate) struct StreamFnAttr {
+    pub ty: syn::Type,
+    pub delivery: Delivery,
+}
+
+impl Parse for StreamFnAttr {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let ty = input.parse()?;
+        let delivery = if input.is_empty() {
+            Delivery::Plain
+        } else {
+            let _comma: Token![,] = input.parse()?;
+            let kind: Ident = input.parse()?;
+            match kind.to_string().as_str() {
+                "plain" => Delivery::Plain,
+                "counted" => Delivery::Counted,
+                "reliable" => Delivery::Reliable,
+                u => {
+                    return Err(syn::Error::new(
+                        kind.span(),
+                        format!("unknown stream kind {u}, expected counted or reliable"),
+                    ));
+                }
+            }
+        };
+        if !input.is_empty() {
+            let _comma: Option<Token![,]> = input.parse()?;
+        }
+        Ok(StreamFnAttr { ty, delivery })
+    }
+}
+
+/// The `#[stream(..)]` attribute of a trait fn, `None` for an ordinary method.
+pub(crate) fn get_stream_fn_attr(
+    attrs: &[Attribute],
+    current_crate: &CrateContext,
+) -> Result<Option<StreamFnAttr>> {
+    let Some(attr) = attrs.iter().find(|a| a.path().is_ident("stream")) else {
+        return Ok(None);
+    };
+    let parsed = attr
+        .parse_args::<StreamFnAttr>()
+        .context("expected #[stream(ItemType)] or #[stream(ItemType, counted | reliable)]")
+        .context(current_crate.err_context())?;
+    Ok(Some(parsed))
 }
 
 /// Flow control of a sink: `#[credit]` (see `docs/api/streams.md`), `None` for a plain sink.

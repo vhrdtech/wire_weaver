@@ -1,7 +1,7 @@
 use super::{
     crate_walker::{CrateContext, Scratch},
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
-    util::{collect_docs, get_flow_attr, get_since_attr},
+    util::{collect_docs, get_delivery_attr, get_flow_attr, get_since_attr, get_stream_fn_attr},
 };
 use anyhow::{Context, Result, anyhow};
 use proc_macro2::Ident;
@@ -14,8 +14,8 @@ use syn::{
     TraitItemMacro, Type, TypePath, parse2,
 };
 use ww_self::{
-    ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ArgumentOwned,
-    Multiplicity, PropertyAccess,
+    ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ArgumentOwned, Delivery,
+    Multiplicity, PropertyAccess, TypeOwned,
 };
 
 pub(crate) fn convert_api_items(
@@ -145,11 +145,31 @@ fn convert_api_item_fn(
         ReturnType::Default => None,
         ReturnType::Type(_, ty) => Some(convert_ty(ty, current_crate, scratch)?),
     };
-    // let return_ty = convert_ty(&item_fn.sig.output, current_file, cache)?;
     let since = get_since_attr(&item_fn.attrs, current_crate)?;
+    let kind = match get_stream_fn_attr(&item_fn.attrs, current_crate)? {
+        Some(_)
+            if return_ty
+                .as_ref()
+                .is_some_and(|ty| !matches!(ty, TypeOwned::Result { .. })) =>
+        {
+            return Err(anyhow!(
+                "stream function {} returns neither nothing nor a Result<T, E>: a stream function \
+                 answers its open with its result, wrap it into Result<T, E>",
+                item_fn.sig.ident
+            )
+            .context(current_crate.err_context()));
+        }
+        Some(stream) => stream_kind(
+            convert_ty(&stream.ty, current_crate, scratch)?,
+            stream.delivery,
+            args,
+            return_ty,
+        ),
+        None => ApiItemKindOwned::Method { args, return_ty },
+    };
     Ok(ApiItemOwned {
         id: UNib32(idx),
-        kind: ApiItemKindOwned::Method { args, return_ty },
+        kind,
         multiplicity: Multiplicity::Flat,
         since,
         ident: item_fn.sig.ident.to_string(),
@@ -176,8 +196,10 @@ fn convert_api_item_stream(
     let since = get_since_attr(&item_macro.attrs, current_crate)?;
     let docs = collect_docs(&item_macro.attrs);
     let flow = get_flow_attr(&item_macro.attrs, is_up, current_crate)?;
+    let delivery = get_delivery_attr(&item_macro.attrs, is_up, current_crate)?;
     let kind = match flow {
         Some(flow) => ApiItemKindOwned::FlowSink { ty, flow },
+        None if is_up => stream_kind(ty, delivery, vec![], None),
         None => ApiItemKindOwned::Stream { ty, is_up },
     };
 
@@ -189,6 +211,26 @@ fn convert_api_item_stream(
         ident: args.resource_name.to_string(),
         docs,
     })
+}
+
+/// A stream function, or `Stream` for a plain one without arguments and result (`stream!`, same bytes as before
+/// stream functions existed).
+fn stream_kind(
+    ty: TypeOwned,
+    delivery: Delivery,
+    args: Vec<ArgumentOwned>,
+    return_ty: Option<TypeOwned>,
+) -> ApiItemKindOwned {
+    if delivery == Delivery::Plain && args.is_empty() && return_ty.is_none() {
+        ApiItemKindOwned::Stream { ty, is_up: true }
+    } else {
+        ApiItemKindOwned::StreamFn {
+            ty,
+            delivery,
+            args,
+            return_ty,
+        }
+    }
 }
 
 fn convert_api_item_property(

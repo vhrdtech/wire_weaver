@@ -11,8 +11,8 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{LitStr, Path};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, FlowControl,
-    Multiplicity, PropertyAccess, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Delivery,
+    FlowControl, Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
 };
 
 /// API client code generation configuration.
@@ -361,7 +361,20 @@ fn level_method(
             ty,
             write_err_ty,
         ),
-        ApiItemKindOwned::Stream { ty, is_up } => handle_stream(
+        ApiItemKindOwned::Stream { is_up: true, .. } | ApiItemKindOwned::StreamFn { .. } => {
+            handle_stream_fn(
+                api_bundle,
+                model,
+                path_mode,
+                gid_paths,
+                maybe_index_arg,
+                index_chain_push,
+                &ident,
+                item.kind.as_stream_fn().expect("a stream"),
+                &item.docs,
+            )
+        }
+        ApiItemKindOwned::Stream { ty, is_up: false } => handle_stream(
             api_bundle,
             model,
             path_mode,
@@ -370,7 +383,7 @@ fn level_method(
             index_chain_push,
             &ident,
             ty,
-            *is_up,
+            false,
             false,
         ),
         ApiItemKindOwned::FlowSink { ty, flow } => handle_stream(
@@ -385,10 +398,6 @@ fn level_method(
             false,
             matches!(flow, FlowControl::Credit),
         ),
-        // TODO(API-31): the transform doesn't make counted / reliable streams yet
-        ApiItemKindOwned::PositionedStream { .. } => quote! {
-            compile_error!("counted and reliable streams are not generated yet (API-31)");
-        },
         ApiItemKindOwned::Trait { .. } => {
             let level = item.get_as_level(api_bundle).expect("api level");
             let level_entry_fn_name = Ident::new(&item.ident, Span::call_site());
@@ -551,6 +560,84 @@ fn handle_property(
         #read_fns
         #observe_fns
     }
+}
+
+/// A stream (device to host) is opened by calling it (API-31): `name(args)` prepares the open, whose `.call()`
+/// returns the stream with the stream function's result; counted and reliable streams also get
+/// `name_resume(cursor)` and `name_status()`, the read on the stream.
+#[allow(clippy::too_many_arguments)]
+fn handle_stream_fn(
+    api_bundle: &ApiBundleOwned,
+    model: ClientModel,
+    path_mode: ClientPathMode,
+    gid_paths: &GidPaths,
+    maybe_index_arg: TokenStream,
+    index_chain_push: TokenStream,
+    ident: &Ident,
+    stream: StreamFnRef<'_>,
+    docs: &[String],
+) -> TokenStream {
+    let item_ty = if stream.ty.is_byte_slice(api_bundle).unwrap() {
+        quote! { wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned }
+    } else {
+        ty_def(api_bundle, stream.ty, !model.no_alloc(), TyPos::Arg).unwrap()
+    };
+    let result_ty = match stream.return_ty {
+        Some(ty) => ty_def(api_bundle, ty, true, TyPos::Arg).unwrap(),
+        None => quote! { () },
+    };
+    let (handle_ty, delivery) = match stream.delivery {
+        Delivery::Plain => (quote! { wire_weaver_client::Stream<#item_ty> }, None),
+        Delivery::Counted => (
+            quote! { wire_weaver_client::PositionedStream<#item_ty> },
+            Some(quote! { wire_weaver_client::ww_self::Delivery::Counted }),
+        ),
+        Delivery::Reliable => (
+            quote! { wire_weaver_client::PositionedStream<#item_ty> },
+            Some(quote! { wire_weaver_client::ww_self::Delivery::Reliable }),
+        ),
+    };
+    let args = stream.args.to_vec();
+    let (args_ser, args_list, _) = ser_args(api_bundle, ident, &args, model.no_alloc());
+    let path_kind = path_kind(path_mode, gid_paths);
+    let maybe_mut = maybe_quote(!args.is_empty(), quote! { mut });
+    let docs = docs.iter().map(|s| quote! { #[doc = #s] });
+    let delivery_opt = match &delivery {
+        Some(d) => quote! { Some(#d) },
+        None => quote! { None },
+    };
+    let mut ts = quote! {
+        #(#docs)*
+        ///
+        /// Opens the stream: `.call().await` returns the stream function's result with the stream.
+        pub fn #ident(& #maybe_mut self #maybe_index_arg, #args_list) -> wire_weaver_client::PreparedStreamOpen<#result_ty, #handle_ty> {
+            #args_ser
+            #index_chain_push
+            let path_kind = #path_kind;
+            self.cmd.prepare_stream_open(path_kind, #delivery_opt, args_bytes)
+        }
+    };
+    if let Some(delivery) = delivery {
+        let resume = Ident::new(&format!("{ident}_resume"), ident.span());
+        let status = Ident::new(&format!("{ident}_status"), ident.span());
+        ts.extend(quote! {
+            /// Resume the stream from `cursor` (saved with the data), with the arguments its session was opened with
+            /// on the device.
+            pub fn #resume(&self #maybe_index_arg, cursor: wire_weaver_client::ww_client_server::stream::StreamCursor) -> wire_weaver_client::PreparedStreamOpen<(), #handle_ty> {
+                #index_chain_push
+                let path_kind = #path_kind;
+                self.cmd.prepare_stream_resume(path_kind, #delivery, cursor)
+            }
+
+            /// State of the stream on the device: open or not, session, positions, store use.
+            pub fn #status(&self #maybe_index_arg) -> wire_weaver_client::PreparedRead<wire_weaver_client::ww_client_server::stream::StreamStatus> {
+                #index_chain_push
+                let path_kind = #path_kind;
+                self.cmd.prepare_read(path_kind)
+            }
+        });
+    }
+    ts
 }
 
 #[allow(clippy::too_many_arguments)]

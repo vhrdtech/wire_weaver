@@ -21,7 +21,7 @@ device and every stream, so that no item type has to carry `seq`, `lost` or `t` 
 - **Positions count units** the device names when it sends (bytes for a UART, transactions for a monitor, sample sets
   for an ADC), 64-bit: D4 and D5, done once in the framework. The host never computes units.
 - **The head lives in the event, not in the item**: flags, `pos`, `lost` and `t` (device time) in a per-event head of
-  2 to 6 bytes for any position up to 4 T units, plus 5 for a timestamp. Item types stay pure data.
+  1 to 6 bytes for any position up to 2 T units (plus 1-2 for events of more than one unit), plus 5 for a timestamp. Item types stay pure data.
 - **Reliable streams and credit sinks are one protocol** in both directions: positions in units, grants in bytes (the
   receiver's memory), cumulative acknowledgements, go-back-N; sessions and cursors for both.
 - **Backfill is built in from the start**: what the device keeps lives in a **store** (RAM ring, or an SD card / flash
@@ -132,7 +132,7 @@ mechanism below.
 | Kept while the host is slow or gone, sent when it is back (backfill) | – | – | while the device's store has room |
 | Latest values first after a reconnect, backlog alongside | – | – | yes |
 | Host → device messages | – | none (open / close only) | `Ack` every ~half window |
-| Extra bytes per event | 0 | 2-6 | 2-6 |
+| Extra bytes per event | 0 | 1-8 (+5 with `t`) | 1-8 (+5 with `t`) |
 | Device state | none | a few counters | counters and a store |
 | Scenario | S9 | S1, S2, S7, S8 | S3-S6, S10 |
 
@@ -209,7 +209,8 @@ stream's doc says, and the device says how many units each item has when it send
 | `ww_logic_analyzer` `LogicStream` | sample | a block | its samples |
 | a status stream | item | one value | 1 (the default) |
 
-`pos` of an event is the position of its first unit. The next event's `pos` is `pos + units + lost`, so:
+`pos` of an event is the position of its first unit, `units` (in the head too) how many it has. The next event's
+`pos` is this one's `pos + units` plus its own `lost`, so:
 
 - **`lost`** (units the device dropped right before this event: producer overflow, store full, no host) explains a
   jump of `pos` exactly, and says the gap is the device's.
@@ -218,7 +219,9 @@ stream's doc says, and the device says how many units each item has when it send
 - `pos` lower than expected is a **duplicate** or a **late** event (UDP): the host drops it and counts it.
 
 The host never needs to know how to count units of an item: it only compares positions. That is why units are given
-at send time and never computed from the item (an ADC block's byte length doesn't tell the sets without the format).
+at send time and never computed from the item (an ADC block's byte length doesn't tell the sets without the format),
+and why they travel in the head: without them the host can't tell where an event ends, and a lost event between two
+received ones would look like a bigger first one (found while building API-30).
 
 Why units and not items: a protocol decoder needs "frame starts at byte 4711 of this capture", and a gap of "3 items"
 says nothing when the device drops raw bytes before they ever became items (D5's scenario).
@@ -226,7 +229,7 @@ says nothing when the device drops raw bytes before they ever became items (D5's
 **Why 64 bits.** A 32 GB SD card holds 2³⁵ bytes, so a byte stream's positions pass 2³² within one card, and a
 session lasts as long as the card's data does. 32-bit positions would wrap inside the store, and a resume cursor
 would become ambiguous. Positions are `u64` everywhere: in the head, in cursors, in acknowledgements, in stores. On the
-wire they cost only what they need (below): a position never wraps in practice (2⁵⁸ units in the head is 288 P), and
+wire they cost only what they need (below): a position never wraps in practice (2⁵⁷ units in the head is 144 P), and
 nothing is truncated, so the host never has to guess the high bits.
 
 ### Head on the wire
@@ -243,6 +246,7 @@ pub enum EventKind<'i> {
 
 pub struct StreamHead {
     pub pos: u64,           // position of the event's first unit since the session started
+    pub units: u64,         // units of the event's item (1 for one item, the bytes of a UART chunk, ...)
     pub lost: Option<u64>,  // units the device dropped right before this event; `pos` counts them
     pub t: Option<Second>,  // device time of the first unit (`ww_timebase` clock)
     pub ext: Option<HeadExt>, // rare markers, evolvable: clock epoch changed (reboot), ...
@@ -251,28 +255,32 @@ pub struct StreamHead {
 
 The derive would write each `Option`'s flag right before its value, and `pos` as a byte-aligned number after its own
 flag: the first measurement put 3 flags into a byte of their own. Written by hand instead, the flags share the first
-byte with the length of `pos` and its top bits:
+byte with the length of `pos` and its top bit:
 
 ```
- byte 0:  L T X n n n p p      L, T, X: lost, t, ext follow
-                               nnn: bytes of pos after this one (0..7), pp: the top 2 bits of pos
- then:    n bytes of pos (2 + 8n bits in all)
+ byte 0:  L T X U n n n p      L, T, X, U: lost, t, ext, units follow (units only when not 1)
+                               nnn: bytes of pos after this one (0..7), p: the top bit of pos
+ then:    n bytes of pos (1 + 8n bits in all, big endian)
+          units: UVlq64             if U
           lost: UVlq64              if L
           t:    ww_si::Second       if T (starts on a byte, so its prefix and type tag share one byte)
           ext:  HeadExt             if X (Unsized: fields can be appended later)
 ```
 
-| `pos` below | 4 | 1 Ki | 256 Ki | 64 Mi | 16 Gi | 4 Ti | 1 Pi (2⁵⁰) | 2⁵⁸ |
+| `pos` below | 2 | 512 | 128 Ki | 32 Mi | 8 Gi | 2 Ti | 512 Ti | 2⁵⁷ |
 |---|---|---|---|---|---|---|---|---|
-| Head bytes (no `lost`, `t`, `ext`) | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| Head bytes (one unit, no `lost`, `t`, `ext`) | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 
-Plus `lost` 1 byte below 128 units (2 below 16 Ki, ...), `t` 5 bytes as `Second { Micro, U32 }` (wraps every 71.6
-min, D6; 9 bytes as `U64`). A 32 GB byte stream near its end has a 6-byte head, 11 with a timestamp. Measured with
-real bytes (`ww_client_server::stream` tests): every size in the table at both ends of its range, `lost` = 100 is
-1 byte and 200 is 2, `t` as `Second { Micro, U32 }` is 5 bytes and as `U64` 9, and a whole `StreamItem` event with
-a one-element path, `pos` = 2³³, `lost` = 7 and `t` is 4 + 11 bytes before its data (`d2 00 00 00 00 07 23 78 56 34
-12` for the head). A position of 2⁵⁸ or more is a serialization error. For comparison, measured before (derived
-`Option`s and a 32-bit `UVlq32` position): 2 to 6 bytes for positions up to 4 Gi only.
+Plus `units` when not 1 and `lost`, each 1 byte below 128 (2 below 16 Ki, ...), `t` 5 bytes as `Second { Micro,
+U32 }` (wraps every 71.6 min, D6; 9 bytes as `U64`). Events of one item (units = 1) pay nothing for `units`; a byte
+stream pays 1-2 bytes. A 32 GB byte stream near its end, in 1 KiB chunks, has an 8-byte head, 13 with a timestamp.
+
+All of it measured with real bytes (`ww_client_server::stream` tests): every size in the table at both ends of its
+range; `units` = 127 is 1 byte, 128 and 16 383 are 2, 16 384 is 3; `lost` = 100 is 1 byte, 200 is 2; `t` as
+`Second { Micro, U32 }` is 5 bytes and as `U64` 9; a whole `StreamItem` event with a one-element path, `pos` = 2³³,
+`units` = 3, `lost` = 7 and `t` is 4 + 13 bytes before its data (`da 02 00 00 00 00 03 07 23 78 56 34 12` for the
+head). A position of 2⁵⁷ or more is a serialization error. For comparison, measured before (derived `Option`s and a
+32-bit `UVlq32` position, no `units`): 2 to 6 bytes for positions up to 4 Gi only.
 
 Today's `StreamData` event costs 3 to 5 bytes of header and path before the data (measured), so a long-running stream
 with a timestamp pays ~15 bytes per event: 3 % of a 512-byte chunk, 1 % of 1.5 KiB. Small items go into chunks
@@ -390,7 +398,7 @@ pub trait StreamStore {
     type Error;
     /// Append an event: its head and item bytes, as they go on the wire. `Full`: nothing stored, the caller counts
     /// its units as lost.
-    async fn push(&mut self, head: &StreamHead, units: u64, item: &[u8]) -> Result<(), PushError<Self::Error>>;
+    async fn push(&mut self, head: &StreamHead, item: &[u8]) -> Result<(), PushError<Self::Error>>;
     /// Copy the event at `pos` (or the first one after it) into `buf`.
     async fn read<'b>(&mut self, pos: u64, buf: &'b mut [u8]) -> Result<Option<StoredEvent<'b>>, Self::Error>;
     /// Events before `pos` are acknowledged and may go.
@@ -531,12 +539,12 @@ save(samples.cursor()); // with the data, for a restart
 
 Per anchor relies on the sample clock and the timer coming from the same oscillator; anchors bound the drift if not.
 
-- **ADC, 500 kS/s, 12-bit packed, one channel (750 KB/s), S7**: an hour in, positions are ~2³¹ sample sets, a 5-byte
-  head. Blocks of 256 samples (384 B) are 1 953 events/s: header and head 9 B = 2.3 %, `t` in every event 1.3 % more.
-  Blocks of 1 024 samples (1.5 KiB): 0.6 % and 0.3 %. Per-sample timestamps would be 15 % for no information: the rate
+- **ADC, 500 kS/s, 12-bit packed, one channel (750 KB/s), S7**: an hour in, positions are ~2³¹ sample sets, a 7-byte
+  head with `units`. Blocks of 256 samples (384 B) are 1 953 events/s: header and head 11 B = 2.9 %, `t` in every
+  event 1.3 % more. Blocks of 1 024 samples (1.5 KiB): 0.7 % and 0.3 %. Per-sample timestamps would be 15 % for no information: the rate
   is fixed. Recommendation: blocks of ~1 KiB and a `t` anchor every 50 ms: under 1 % in all.
-- **I2C monitor at 1 MHz, ~20 000 transactions/s, S8**: chunks of 32 transactions every ~1.6 ms: 625 events/s × 14 B
-  (header, head, `t`) = 8.8 KB/s, plus per-transaction time ~1.5 B × 20 000 = 30 KB/s, against ~10 B of data per
+- **I2C monitor at 1 MHz, ~20 000 transactions/s, S8**: chunks of 32 transactions every ~1.6 ms: 625 events/s × 15 B
+  (header, head with `units`, `t`) = 9.4 KB/s, plus per-transaction time ~1.5 B × 20 000 = 30 KB/s, against ~10 B of data per
   transaction (200 KB/s). Timing costs ~20 %, needed for a monitor; well inside the budget.
 
 ### Scenarios walked through
@@ -608,7 +616,7 @@ Roman: "the design looks great; build it", with nine points. Each with what chan
 1. **Latest values right away while backfilling.** Two in-order runs, live first: [Latest values while
    backfilling](#latest-values-while-backfilling-s10), scenario S10.
 2. **32 bits cover 4 GB, a 32 GB SD card more.** Positions are `u64` everywhere; on the wire a length-coded position
-   up to 2⁵⁸ that costs 1 to 6 bytes for positions up to 4 Ti, nothing truncated: [Why 64 bits](#positions-and-units-d4-d5),
+   up to 2⁵⁷ that costs 1 to 6 bytes for positions up to 2 Ti, nothing truncated: [Why 64 bits](#positions-and-units-d4-d5),
    [Head on the wire](#head-on-the-wire).
 3. **Smaller head with flag repositioning.** The flags share the first byte with the position's length; `Second`
    then starts on a byte with its prefix and tag in one byte: [Head on the wire](#head-on-the-wire).

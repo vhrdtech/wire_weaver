@@ -1,8 +1,8 @@
 //! What a reliable stream keeps until the host acknowledges it: the [StreamStore] trait and the stores shipped
 //! with this crate.
 //!
-//! A store keeps whole events, as they go on the wire: the [StreamHead] (timestamp included) and the item bytes,
-//! plus how many units the item has. A resent event is bit-identical to the first send, so timestamps are always
+//! A store keeps whole events, as they go on the wire: the [StreamHead] (units and timestamp included) and the item
+//! bytes. A resent event is bit-identical to the first send, so timestamps are always
 //! the device's time when the data was made.
 //!
 //! Positions are the events' `pos`, `u64` units since the session started. A store keeps events in position order
@@ -18,17 +18,12 @@ pub trait StreamStore {
     /// Error of the underlying storage (a block device, flash).
     type Error;
 
-    /// Append an event: its head and item bytes, as they go on the wire, and how many units the item has.
+    /// Append an event: its head and item bytes, as they go on the wire.
     ///
     /// `head.pos` is above every position stored before. A store that drops the oldest events when full makes
     /// room by forgetting them (`state().oldest` moves on); one that drops the newest returns [PushError::Full]
     /// and stores nothing, the caller counts the units as lost.
-    async fn push(
-        &mut self,
-        head: &StreamHead,
-        units: u64,
-        item: &[u8],
-    ) -> Result<(), PushError<Self::Error>>;
+    async fn push(&mut self, head: &StreamHead, item: &[u8]) -> Result<(), PushError<Self::Error>>;
 
     /// Copy the event at `pos`, or the first one after it, into `buf`. `None` when there is none.
     ///
@@ -54,17 +49,8 @@ pub trait StreamStore {
 pub struct StoredEvent<'b> {
     /// Head as pushed.
     pub head: StreamHead,
-    /// Units of the item.
-    pub units: u64,
     /// Item bytes as pushed.
     pub item: &'b [u8],
-}
-
-impl StoredEvent<'_> {
-    /// Position right after this event's units: where the next event starts when nothing is lost in between.
-    pub fn end(&self) -> u64 {
-        self.head.pos + self.units
-    }
 }
 
 /// What a [StreamStore] holds, see [StreamStore::state].

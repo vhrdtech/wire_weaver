@@ -23,9 +23,9 @@ Wire-incompatible with 0.1.0.
 
 ### 🚀 Features
 
-* Counted and reliable streams (API-30), wire types in `stream`: `StreamHead` (position, `lost`, device time `t`,
-  `HeadExt`) with a hand-laid encoding of 1 to 8 bytes for positions up to 2⁵⁸ (flags, the position's length and its
-  top 2 bits share the first byte), `StreamCursor`, `StreamOpened`; `EventKind::StreamItem { path, head, data }`,
+* Counted and reliable streams (API-30), wire types in `stream`: `StreamHead` (position, `units`, `lost`, device
+  time `t`, `HeadExt`) with a hand-laid encoding of 1 to 8 bytes for positions up to 2⁵⁷ (flags, the position's
+  length and its top bit share the first byte, `units` costs nothing when 1), `StreamCursor`, `StreamOpened`; `EventKind::StreamItem { path, head, data }`,
   `RequestKind::StreamOpen { resume, args }` and `StreamSideband::{Ack, ResendFrom, Query}` with 64-bit positions
   in units, all appended. Depends on `ww_si` for the timestamp.
 * `ErrorKind::TraitNotFound`: answer to a global trait path whose trait the device doesn't implement, implements in

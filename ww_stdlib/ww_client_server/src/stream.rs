@@ -18,13 +18,15 @@ use ww_si::Second;
 /// event's data sits in the stream, how much the device dropped right before it and when it was made.
 ///
 /// Positions count units the device names when it sends (bytes, transactions, sample sets), from the start of the
-/// session. The next event's `pos` is `pos + units + lost` of it, so the host tells device drops (`lost`), link
-/// losses (a jump `lost` doesn't explain) and duplicates (`pos` lower than expected) apart without knowing anything
-/// about the items.
+/// session. The next event's `pos` is `pos + units` of this one plus its own `lost`, so the host tells device drops
+/// (`lost`), link losses (a jump `lost` doesn't explain) and duplicates (`pos` lower than expected) apart without
+/// knowing anything about the items.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StreamHead {
-    /// Position of the event's first unit since the session started. Below 2⁵⁸, see [StreamHead::MAX_POS].
+    /// Position of the event's first unit since the session started. Below 2⁵⁷, see [StreamHead::MAX_POS].
     pub pos: u64,
+    /// Units of the event's item, as the device counts them; 1 costs nothing on the wire.
+    pub units: u64,
     /// Units the device dropped right before this event; `pos` counts them.
     pub lost: Option<u64>,
     /// Device time of the event's first unit (`ww_timebase` clock).
@@ -34,13 +36,14 @@ pub struct StreamHead {
 }
 
 impl StreamHead {
-    /// Largest position the head can carry: 2 bits in the first byte and up to 7 more bytes.
-    pub const MAX_POS: u64 = (1 << 58) - 1;
+    /// Largest position the head can carry: 1 bit in the first byte and up to 7 more bytes.
+    pub const MAX_POS: u64 = (1 << 57) - 1;
 
-    /// Head with a position only.
+    /// Head of an event of one unit with a position only.
     pub const fn at(pos: u64) -> Self {
         StreamHead {
             pos,
+            units: 1,
             lost: None,
             t: None,
             ext: None,
@@ -50,6 +53,16 @@ impl StreamHead {
     /// `lost` as a number, 0 when not there.
     pub fn lost_units(&self) -> u64 {
         self.lost.unwrap_or(0)
+    }
+
+    /// Position right after the event's units: where the next event starts when nothing is lost in between.
+    pub fn end(&self) -> u64 {
+        self.pos + self.units
+    }
+
+    /// Position where the previous event ended when nothing was lost on the link: `pos - lost`.
+    pub fn after_previous(&self) -> u64 {
+        self.pos.saturating_sub(self.lost_units())
     }
 }
 
@@ -105,10 +118,10 @@ impl StreamHead {
         if self.pos > Self::MAX_POS {
             return Err(Error::SubtypeOutOfRange);
         }
-        let n = if self.pos < 4 {
+        let n = if self.pos < 2 {
             0
         } else {
-            (64 - self.pos.leading_zeros() as usize - 2).div_ceil(8)
+            (64 - self.pos.leading_zeros() as usize - 1).div_ceil(8)
         };
         let mut bytes = [0u8; 8];
         let mut flags = 0u8;
@@ -121,26 +134,34 @@ impl StreamHead {
         if self.ext.is_some() {
             flags |= 0x20;
         }
-        bytes[0] = flags | ((n as u8) << 2) | ((self.pos >> (8 * n)) & 0b11) as u8;
+        if self.units != 1 {
+            flags |= 0x10;
+        }
+        bytes[0] = flags | ((n as u8) << 1) | ((self.pos >> (8 * n)) & 1) as u8;
         for i in 0..n {
             bytes[1 + i] = (self.pos >> (8 * (n - 1 - i))) as u8;
         }
         Ok((bytes, n + 1))
     }
 
-    /// Bytes of the head without `t` and `ext`: the first byte, the position and `lost`.
+    /// Bytes of the head without `t` and `ext`: the first byte, the position, `units` and `lost`.
     pub fn len_without_t_ext(&self) -> usize {
         let pos_len = match self.encode_pos() {
             Ok((_, len)) => len,
             Err(_) => 8,
         };
-        pos_len + self.lost.map(|l| UVlq64(l).len_bytes()).unwrap_or(0)
+        let units_len = if self.units != 1 {
+            UVlq64(self.units).len_bytes()
+        } else {
+            0
+        };
+        pos_len + units_len + self.lost.map(|l| UVlq64(l).len_bytes()).unwrap_or(0)
     }
 
     fn decode_pos(rd: &mut BufReader<'_>) -> Result<(u8, u64), Error> {
         let b0 = rd.read_u8()?;
-        let n = ((b0 >> 2) & 0b111) as usize;
-        let mut pos = (b0 & 0b11) as u64;
+        let n = ((b0 >> 1) & 0b111) as usize;
+        let mut pos = (b0 & 1) as u64;
         for &b in rd.read_raw_slice(n)? {
             pos = (pos << 8) | b as u64;
         }
@@ -149,14 +170,19 @@ impl StreamHead {
 }
 
 // Layout ("Head on the wire" in docs/api/stream_reliability.md):
-//  byte 0:  L T X n n n p p   L, T, X: lost, t, ext follow; nnn: bytes of pos after this one; pp: top 2 bits of pos
-//  then n bytes of pos (big endian), lost: UVlq64, t: Second, ext: HeadExt (Unsized, its length in the back).
+//  byte 0:  L T X U n n n p   L, T, X, U: lost, t, ext, units (when not 1) follow; nnn: bytes of pos after this
+//                              one; p: top bit of pos
+//  then n bytes of pos (big endian), units: UVlq64, lost: UVlq64, t: Second, ext: HeadExt (Unsized, its length in
+//  the back).
 impl SerializeShrinkWrap for StreamHead {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         let (bytes, len) = self.encode_pos()?;
         wr.write_raw_slice(&bytes[..len])?;
+        if self.units != 1 {
+            wr.write_uvlq64(self.units)?;
+        }
         if let Some(lost) = self.lost {
             wr.write_uvlq64(lost)?;
         }
@@ -177,6 +203,9 @@ impl SerializeShrinkWrapOwned for StreamHead {
     fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         let (bytes, len) = self.encode_pos()?;
         wr.write_raw_slice(&bytes[..len])?;
+        if self.units != 1 {
+            wr.write_uvlq64(self.units)?;
+        }
         if let Some(lost) = self.lost {
             wr.write_uvlq64(lost)?;
         }
@@ -195,6 +224,7 @@ impl<'i> DeserializeShrinkWrap<'i> for StreamHead {
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         let (b0, pos) = Self::decode_pos(rd)?;
+        let units = if b0 & 0x10 != 0 { rd.read_uvlq64()? } else { 1 };
         let lost = if b0 & 0x80 != 0 {
             Some(rd.read_uvlq64()?)
         } else {
@@ -210,7 +240,13 @@ impl<'i> DeserializeShrinkWrap<'i> for StreamHead {
         } else {
             None
         };
-        Ok(StreamHead { pos, lost, t, ext })
+        Ok(StreamHead {
+            pos,
+            units,
+            lost,
+            t,
+            ext,
+        })
     }
 }
 
@@ -219,6 +255,7 @@ impl DeserializeShrinkWrapOwned for StreamHead {
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
         let (b0, pos) = Self::decode_pos(rd)?;
+        let units = if b0 & 0x10 != 0 { rd.read_uvlq64()? } else { 1 };
         let lost = if b0 & 0x80 != 0 {
             Some(rd.read_uvlq64()?)
         } else {
@@ -234,7 +271,13 @@ impl DeserializeShrinkWrapOwned for StreamHead {
         } else {
             None
         };
-        Ok(StreamHead { pos, lost, t, ext })
+        Ok(StreamHead {
+            pos,
+            units,
+            lost,
+            t,
+            ext,
+        })
     }
 }
 
@@ -266,13 +309,13 @@ mod tests {
     #[test]
     fn pos_only() {
         assert_eq!(bytes(&StreamHead::at(0)), [0x00]);
-        assert_eq!(bytes(&StreamHead::at(3)), [0x03]);
-        assert_eq!(bytes(&StreamHead::at(4)), [0b000_001_00, 0x04]);
-        assert_eq!(bytes(&StreamHead::at(0x3ff)), [0b000_001_11, 0xff]);
-        assert_eq!(bytes(&StreamHead::at(0x400)), [0b000_010_00, 0x04, 0x00]);
+        assert_eq!(bytes(&StreamHead::at(1)), [0x01]);
+        assert_eq!(bytes(&StreamHead::at(2)), [0b0000_001_0, 0x02]);
+        assert_eq!(bytes(&StreamHead::at(0x1ff)), [0b0000_001_1, 0xff]);
+        assert_eq!(bytes(&StreamHead::at(0x200)), [0b0000_010_0, 0x02, 0x00]);
         assert_eq!(
             bytes(&StreamHead::at(0x0123_4567_89ab_cdef)),
-            [0b000_111_01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]
+            [0b0000_111_1, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]
         );
         assert_eq!(bytes(&StreamHead::at(StreamHead::MAX_POS)).len(), 8);
     }
@@ -290,14 +333,14 @@ mod tests {
     #[test]
     fn sizes_by_position() {
         let limits = [
-            (1u64 << 2, 1),
-            (1 << 10, 2),
-            (1 << 18, 3),
-            (1 << 26, 4),
-            (1 << 34, 5),
-            (1 << 42, 6),
-            (1 << 50, 7),
-            (1 << 58, 8),
+            (1u64 << 1, 1),
+            (1 << 9, 2),
+            (1 << 17, 3),
+            (1 << 25, 4),
+            (1 << 33, 5),
+            (1 << 41, 6),
+            (1 << 49, 7),
+            (1 << 57, 8),
         ];
         let mut prev = 0;
         for (below, len) in limits {
@@ -312,30 +355,47 @@ mod tests {
     }
 
     #[test]
+    fn units() {
+        let head = |units| StreamHead {
+            units,
+            ..StreamHead::at(5)
+        };
+        assert_eq!(bytes(&head(1)), [0b0000_001_0, 0x05]);
+        assert_eq!(bytes(&head(0)), [0b0001_001_0, 0x05, 0]);
+        assert_eq!(bytes(&head(127)), [0b0001_001_0, 0x05, 127]);
+        assert_eq!(bytes(&head(128)), [0b0001_001_0, 0x05, 0x81, 0x00]);
+        assert_eq!(bytes(&head(16383)).len(), 4);
+        assert_eq!(bytes(&head(16384)).len(), 5);
+        assert_eq!(bytes(&head(u64::MAX)).len(), 12);
+        assert_eq!(head(37).end(), 42);
+    }
+
+    #[test]
     fn lost_t_ext() {
         let head = StreamHead {
-            pos: 5,
             lost: Some(100),
-            t: None,
-            ext: None,
+            ..StreamHead::at(5)
         };
-        assert_eq!(bytes(&head), [0b100_001_00, 0x05, 100]);
+        assert_eq!(bytes(&head), [0b1000_001_0, 0x05, 100]);
+        assert_eq!(head.after_previous(), 0);
         let head = StreamHead {
             lost: Some(200),
+            units: 300,
             ..head
         };
-        assert_eq!(bytes(&head), [0b100_001_00, 0x05, 0x81, 0x48]);
+        // units before lost
+        assert_eq!(bytes(&head), [0b1001_001_0, 0x05, 0x82, 0x2c, 0x81, 0x48]);
+        assert_eq!(head.len_without_t_ext(), 6);
 
         let head = StreamHead {
-            pos: 5,
-            lost: None,
             t: Some(MICROS),
-            ext: None,
+            ..StreamHead::at(5)
         };
         // Second { Micro, U32 }: prefix and number type in one byte, then the u32
-        let b = bytes(&head);
-        assert_eq!(b.len(), 2 + 5, "{b:02x?}");
-        assert_eq!(b[..2], [0b010_001_00, 0x05]);
+        assert_eq!(
+            bytes(&head),
+            [0b0100_001_0, 0x05, 0x23, 0x78, 0x56, 0x34, 0x12]
+        );
 
         let t64 = StreamHead {
             t: Some(Second {
@@ -348,6 +408,7 @@ mod tests {
 
         let ext = StreamHead {
             pos: 5,
+            units: 2,
             lost: Some(1),
             t: Some(MICROS),
             ext: Some(HeadExt {
@@ -355,27 +416,29 @@ mod tests {
             }),
         };
         let b = bytes(&ext);
-        assert_eq!(b[..3], [0b111_001_00, 0x05, 1]);
+        assert_eq!(b[..4], [0b1111_001_0, 0x05, 2, 1]);
 
         let empty_ext = StreamHead {
-            pos: 5,
-            lost: None,
-            t: None,
             ext: Some(HeadExt::default()),
+            ..StreamHead::at(5)
         };
         bytes(&empty_ext);
     }
 
-    /// A 32 GB byte stream near its end: 6 bytes, 11 with a timestamp.
+    /// A 32 GB byte stream near its end, events of 1 KiB: 8 bytes, 13 with a timestamp.
     #[test]
     fn big_store() {
-        let pos = 32u64 << 30;
-        assert_eq!(bytes(&StreamHead::at(pos)).len(), 6);
+        let head = StreamHead {
+            units: 1024,
+            ..StreamHead::at(32 << 30)
+        };
+        assert_eq!(bytes(&head).len(), 8);
         let head = StreamHead {
             t: Some(MICROS),
-            ..StreamHead::at(pos)
+            ..head
         };
-        assert_eq!(bytes(&head).len(), 11);
+        assert_eq!(bytes(&head).len(), 13);
+        assert_eq!(bytes(&StreamHead::at(32 << 30)).len(), 6);
     }
 
     #[test]
@@ -383,6 +446,7 @@ mod tests {
         let path = [UNib32(2)];
         let head = StreamHead {
             pos: 1 << 33,
+            units: 3,
             lost: Some(7),
             t: Some(MICROS),
             ext: None,
@@ -409,11 +473,11 @@ mod tests {
         assert_eq!(p.iter().next().unwrap().unwrap(), UNib32(2));
         assert_eq!(h, head);
         assert_eq!(data.0, [1, 2, 3]);
-        // seq, result and kind, path and its length in the back: 4 bytes as for StreamData; head 5 + 1 + 5; data
-        assert_eq!(b.len(), 4 + 11 + 3, "{b:02x?}");
+        // seq, result and kind, path and its length in the back: 4 bytes as for StreamData; head 6 + 1 + 1 + 5; data
+        assert_eq!(b.len(), 4 + 13 + 3, "{b:02x?}");
         assert_eq!(
-            b[3..14],
-            [0xd2, 0, 0, 0, 0, 7, 0x23, 0x78, 0x56, 0x34, 0x12]
+            b[3..16],
+            [0xda, 0x02, 0, 0, 0, 0, 3, 7, 0x23, 0x78, 0x56, 0x34, 0x12]
         );
 
         let owned = crate::EventOwned::from_ww_bytes_owned(&b).unwrap();

@@ -82,8 +82,8 @@
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
         "Errors of every trait in this crate. Each method lists the variants it returns.",
         "",
-        "How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is being",
-        "designed for all of `ww_stdlib` (`ww-errors-plan`); until then this enum stays plain.",
+        "How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is",
+        "still open for `ww_stdlib`; until then this enum stays plain.",
     ], ident: "PwmError", variants: [
         (docs: [
             "Not supported by this device (a capture mode).",

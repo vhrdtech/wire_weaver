@@ -32,8 +32,9 @@ use wire_weaver_usb_embassy::{
     LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
 };
 use ww_client_server::StreamSideband;
+use ww_client_server::credit::SinkCredit;
 use ww_si::Volt;
-use ww_uart::{BaudRate, Capabilities, Mode, Parity, RxChunk, StopBits};
+use ww_uart::{BaudRate, Capabilities, DataBits, Mode, Parity, RxChunk, StopBits};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
@@ -102,7 +103,7 @@ async fn send_received_bytes(
     let chunk = RxChunk {
         flags: None,
         timestamp: None,
-        bytes: RefVec::new_bytes(bytes),
+        bytes: MaxLen::new_unchecked(RefVec::new_bytes(bytes)),
     };
     let r = server_impl::stream_data_ser()
         .uart(index)
@@ -115,6 +116,8 @@ async fn send_received_bytes(
 
 struct ServerState {
     tx_producer: [TxProducer; 2],
+    /// Credit of each `tx` sink: the host never sends more than the TX queue holds
+    tx_credit: [SinkCredit; 2],
     // uart_baud_rate: [BaudRate; 2],
     // uart_mode: [Mode; 2],
     // uart_stop_bits: [StopBits; 2],
@@ -155,7 +158,8 @@ impl WireWeaverAsyncApiBackend for ServerState {
 
 impl ServerState {
     pub fn valid_indices_root_uart(&mut self) -> ValidIndices<'_> {
-        ValidIndices::range_u32(0..0)
+        // UART7 and UART8
+        ValidIndices::range_u32(0..2)
     }
 
     async fn uart_rx(
@@ -186,35 +190,23 @@ impl ServerState {
         None
     }
 
-    async fn write_uart_tx(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 1], bytes: &[u8]) {
+    fn credit_uart_tx(&mut self, index: [UNib32; 1]) -> &mut SinkCredit {
+        &mut self.tx_credit[index[0].0 as usize]
+    }
+
+    async fn write_uart_tx(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        index: [UNib32; 1],
+        data: &shrink_wrap::tail_bytes::TailBytes<'_>,
+    ) {
         let index = index[0].0 as usize;
+        let bytes = data.0;
         let mut wg = self.tx_producer[index].wait_grant(bytes.len() as u16).await;
         wg.copy_from_slice(bytes);
         wg.commit(bytes.len() as u16);
-    }
-
-    async fn uart_tx_mon(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-    ) -> RpcResult<()> {
-        Ready(())
-    }
-
-    async fn close_uart_tx_mon(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-    ) {
-    }
-
-    async fn sideband_uart_tx_mon(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-        _sideband: StreamSideband,
-    ) -> Option<StreamSideband> {
-        None
+        // the bytes are in the TX queue now; the queue itself waits for room above
+        self.tx_credit[index].free(bytes.len() as u32);
     }
 
     async fn uart_capabilities(
@@ -225,15 +217,17 @@ impl ServerState {
         let cap = Capabilities {
             min_baud_rate: 0,
             max_baud_rate: 0,
-            voltages: RefVec::Slice {
+            voltages: MaxLen::new_unchecked(RefVec::Slice {
                 slice: &[ww_si::quantity!(3.3 V f32)],
-            },
+            }),
             rx_timestamps: false,
             hw_flow_control: false,
             sw_flow_control: false,
             high_z_mode: false,
             test_mode: false,
             back_feed_detector: false,
+            rx_buffer: RX_BUF_SIZE as u32,
+            tx_buffer: TX_BUF_SIZE as u32,
         };
         Ready(cap)
     }
@@ -329,6 +323,48 @@ impl ServerState {
         _pin: ww_uart::Pin,
         _is_high: bool,
     ) -> RpcResult<Result<(), ww_uart::Error>> {
+        ww_unimplemented!()
+    }
+
+    async fn set_uart_data_bits(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _index: [UNib32; 1],
+        _data_bits: DataBits,
+    ) -> SetResult<ww_uart::Error> {
+        ww_unimplemented!()
+    }
+
+    async fn get_uart_data_bits(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _index: [UNib32; 1],
+    ) -> GetResult<DataBits, ww_uart::Error> {
+        ww_unimplemented!()
+    }
+
+    async fn uart_baud_rate_actual(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _index: [UNib32; 1],
+    ) -> RpcResult<u32> {
+        ww_unimplemented!()
+    }
+
+    async fn uart_send_break(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _index: [UNib32; 1],
+        _duration: ww_si::Second,
+    ) -> RpcResult<Result<(), ww_uart::Error>> {
+        ww_unimplemented!()
+    }
+
+    async fn uart_tx_pending(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _index: [UNib32; 1],
+    ) -> RpcResult<u32> {
         ww_unimplemented!()
     }
 }
@@ -453,6 +489,7 @@ async fn main(spawner: embassy_executor::Spawner) {
 
     let state = ServerState {
         tx_producer: [tx_bb_uart7.framed_producer(), tx_bb_uart8.framed_producer()],
+        tx_credit: [SinkCredit::new(TX_BUF_SIZE as u32), SinkCredit::new(TX_BUF_SIZE as u32)],
         // uart_baud_rate: [BaudRate::Baud115200; 2],
         // uart_mode: [Mode::Asynchronous; 2],
         // uart_stop_bits: [StopBits::Stop1; 2],

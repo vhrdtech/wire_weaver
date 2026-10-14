@@ -9,7 +9,7 @@ use cortex_m_semihosting::{debug, hio};
 use wire_weaver::prelude::*;
 use ww_client_server::StreamSideband;
 use ww_gpio::IoPinEvent;
-use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Speed, Volt};
+use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed, Volt};
 
 #[entry]
 fn main() -> ! {
@@ -184,6 +184,14 @@ impl ServerState {
         _enabled: IoPinEnabledEvents<'_>,
     ) -> RpcResult<Result<(), Error>> {
         Ready(Err(Error::UnsupportedEventType))
+    }
+
+    fn port_pin_capabilities(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+        _index: [UNib32; 2],
+    ) -> RpcResult<PinCapabilities<'_>> {
+        ww_unimplemented!()
     }
 
     fn valid_indices_root_port(&mut self) -> ValidIndices<'_> {

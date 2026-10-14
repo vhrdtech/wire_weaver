@@ -19,7 +19,7 @@ use wire_weaver_usb_embassy::{
     LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
 };
 use ww_client_server::StreamSideband;
-use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, Pull, Speed, Volt};
+use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed, Volt};
 
 bind_interrupts!(struct Irqs {
     OTG_FS => usb::InterruptHandler<USB_OTG_FS>;
@@ -63,7 +63,12 @@ impl WireWeaverAsyncApiBackend for ServerState {
     }
 }
 
+/// Port letter of each entry in `ServerState::bank`
+const BANK_LETTERS: &[u8] = b"ABCDEFGHIJK";
+
 struct ServerState {
+    /// Name of the pin last asked for in `port_pin_capabilities`, "PA5"
+    pin_name: [u8; 4],
     bank: [Gpio; 11],
 }
 
@@ -112,6 +117,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     info!("RCC and RAM init done");
 
     let state = ServerState {
+        pin_name: [0; 4],
         bank: [
             GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG, GPIOH, GPIOI, GPIOJ, GPIOK,
         ],
@@ -430,6 +436,35 @@ impl ServerState {
         _enabled: IoPinEnabledEvents<'_>,
     ) -> RpcResult<Result<(), Error>> {
         Ready(Err(Error::UnsupportedEventType))
+    }
+
+    async fn port_pin_capabilities(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        index: [UNib32; 2],
+    ) -> RpcResult<PinCapabilities<'_>> {
+        let pin = index[1].0 as u8;
+        self.pin_name = [b'P', BANK_LETTERS[index[0].0 as usize], b'0' + pin % 10, 0];
+        let len = if pin >= 10 {
+            self.pin_name[2] = b'1';
+            self.pin_name[3] = b'0' + pin - 10;
+            4
+        } else {
+            3
+        };
+        Ready(PinCapabilities {
+            modes: MaxLen::new_unchecked(RefVec::Slice {
+                slice: &[Mode::PushPullOutput, Mode::OpenDrainOutput, Mode::Input, Mode::HighZ, Mode::Analog],
+            }),
+            pulls: MaxLen::new_unchecked(RefVec::Slice {
+                slice: &[Pull::None, Pull::Up, Pull::Down],
+            }),
+            speeds: MaxLen::new_unchecked(RefVec::Slice {
+                slice: &[Speed::Slow, Speed::Medium, Speed::Fast, Speed::VeryFast],
+            }),
+            events: false,
+            name: MaxLen::new_unchecked(core::str::from_utf8(&self.pin_name[..len]).unwrap_or("")),
+        })
     }
 
     fn valid_indices_root_port(&mut self) -> ValidIndices<'_> {

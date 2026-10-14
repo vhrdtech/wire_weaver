@@ -91,7 +91,7 @@
   fallback arm answers `Unimplemented` for ids of the trait, the introspection data lists them (one variant per
   combination of `omit_if` conditions, under `#[cfg]`). Only optional items can be left out, any other path is a
   compile error naming the trait's optional items and groups. `ServerScaffoldConfig::omit` leaves their stubs out.
-  `#[optional]` on `ww_impl!` is rejected. See `docs/api/errors.md#4-optional-items`.
+  `#[optional]` on `ww_impl!` is rejected. See `docs/api/optional_items.md`.
 - Types imported with a glob (`use wire_weaver::prelude::*`) are found, after the ones defined or imported by name
   (STD-16, for `CommonError` from the prelude).
 - Generated code names types of `shrink_wrap`, `ww_version` and `ww_error` through `wire_weaver::`, so a server or

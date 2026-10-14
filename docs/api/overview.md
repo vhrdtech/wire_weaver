@@ -56,7 +56,7 @@ More on [traits page](traits.md).
 
 A method, property or stream marked `#[optional]` (or `#[optional(group)]`) can be left out of a device's server with
 `ww_codegen!(.., omit = ["i2c.pullups"])`: no dispatch arm and no handler, a call answers `Unimplemented`, and a
-client knows it from the device's model. See [Optional items](errors.md#4-optional-items).
+client knows it from the device's model. See [Optional items](optional_items.md).
 
 ## Resource arrays
 

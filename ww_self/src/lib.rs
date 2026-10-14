@@ -158,7 +158,7 @@ pub struct ApiItem<'i> {
     pub optional: Option<Optional<'i>>,
 }
 
-/// Marks an [ApiItem] as optional (`#[optional]`, `#[optional(group)]`), see `docs/api/errors.md#4-optional-items`.
+/// Marks an [ApiItem] as optional (`#[optional]`, `#[optional(group)]`), see `docs/api/optional_items.md`.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),

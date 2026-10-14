@@ -1,6 +1,6 @@
 //! Optional items a server leaves out (API-16): `ww_codegen!(.., omit = [..], omit_if(<cfg>) = [..])`.
 //!
-//! See `docs/api/errors.md#4-optional-items`.
+//! See `docs/api/optional_items.md`.
 
 use proc_macro2::TokenStream;
 use shrink_wrap::UNib32;

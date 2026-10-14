@@ -26,7 +26,7 @@ nav = [
     { "API" = [
             "api/overview.md",
             "api/methods.md",
-            "api/errors.md",
+            "api/optional_items.md",
             "api/properties.md",
             "api/streams.md",
             "api/stream_reliability.md",

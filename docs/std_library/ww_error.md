@@ -1,8 +1,8 @@
 # ww_error
 
 Errors every API can return (STD-16): `Unsupported`, `InUse`, `Busy`, ... look the same in every crate, generic host
-code handles them without knowing the crate, and tools recognise them by their type. The design and why it is a
-nested variant is in [Errors and optional items](../api/errors.md#2-common-errors).
+code handles them without knowing the crate, and tools recognise them by their type.
+An API crate nests them as one `#[common] Common(CommonError)` variant of its own error enum (see below).
 
 `wire_weaver` re-exports the crate: `wire_weaver::prelude` has `CommonError`, `CommonErrorOwned` (with `std`) and
 `HasCommon`, so an API crate needs no dependency of its own.

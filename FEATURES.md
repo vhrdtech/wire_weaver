@@ -254,7 +254,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and
   `core::error::Error` (borrowed and owned) from the first doc line of each variant/struct, `{field}` filled in,
   `#[display("..")]` to override; a variant with neither is a compile error. Error enums need no hand-written
-  `Display` on hosts (`docs/serdes/derive.md`, `docs/api/errors.md`; test `shrink_wrap/tests/display.rs`).
+  `Display` on hosts (`docs/serdes/derive.md`; test `shrink_wrap/tests/display.rs`).
 - 📋 **DER-5 `#[since = "x.y.z"]` on fields** — generate correct evolution code from it (`TODO` in
   `shrink_wrap_derive/src/lib.rs`).
 - 📋 **DER-6 Check that `TailBytes` ends the outer type too** — a struct ending in `TailBytes` used as a non-last field
@@ -308,7 +308,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   optional items can be left out (compile error otherwise). A call answers `Unimplemented` from the level's fallback
   arm (`id < ITEM_COUNT`), the device's model lists the omitted items (`ww_self` `omitted`, `root_omitted`), so the
   generated and dynamic clients and Python fail locally with `NotImplementedByDevice`; `ww api scaffold --omit`, CLI
-  tree and Python show them (`docs/api/errors.md#4-optional-items`, `tests/traits`). Not yet: `#[optional]` on
+  tree and Python show them (`docs/api/optional_items.md`, `tests/traits`). Not yet: `#[optional]` on
   `ww_impl!`, the GUI (`wire_weaver_tool`).
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
@@ -320,11 +320,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   docs.rs (DOC-6).
 - 📋 **API-32 Per-method error lists** · `v0.5` — `#[errors(Common, Nack, ..)]` on a trait method: checked against the
   error enum, in the API model, generated client docs (`# Errors`), introspection (CLI, GUI, Python), `ww api check`;
-  the client warns when a device returns a variant outside the list (tests fail). Nothing on the device
-  (`docs/api/errors.md`).
+  the client warns when a device returns a variant outside the list (tests fail). Nothing on the device.
 - 💡 **API-33 Narrow error types per method** — generated per-method error enums with the crate enum's
   discriminants, as server handler return types only (`narrow_errors = true`), for a compile-time contract on the
-  device. Explored and not recommended for clients: friction in every driver crate (`docs/api/errors.md`).
+  device. Explored and not recommended for clients: friction in every driver crate.
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /
@@ -432,7 +431,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`Device(E)`, `Unimplemented { resource }` or `Client(Error)`) from `call`, `blocking_call` and promises, a property
   with a user error type the same from `write` and `write_promise`, instead of `Result<Result<T, E>, Error>` and `??`;
   `Error::is_unimplemented()` for items without an error type (`docs/api/methods.md#client-side`,
-  `docs/api/errors.md`, `tests/methods`).
+  `tests/methods`).
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,
@@ -571,7 +570,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver::prelude::CommonError`, nested first in an error enum as `#[common] Common(CommonError)` (the derive
   adds `From<CommonError>` and `HasCommon`); recognised by tools by its type (`ww_self::TypeOwned::is_common_error`):
   Python `RemoteError.common` with the doc line as the message, `ww api tree -t` marks it. Display by hand until
-  DER-12 takes over. Moving the stdlib crates' errors to it is the migration piece of `docs/api/errors.md#plan`.
+  DER-12 takes over. Moving the stdlib crates' errors to it is still to do.
   `docs/std_library/ww_error.md`, `tests/common_error`.
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves

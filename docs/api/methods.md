@@ -175,4 +175,3 @@ match client.move_motor(1.0).call().await {
 `Display` and `source()` of `CallError` are the inner error's, and it is `std::error::Error` when `E` is. Methods
 without `Result` tell an unimplemented method apart with `wire_weaver_client::Error::is_unimplemented()`. A property
 with a user error type (`property!(rw mode: u8, ModeError)`) gives the same `CallError<ModeError>` from `write()`.
-See [Errors and optional items](errors.md) for the design.

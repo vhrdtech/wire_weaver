@@ -47,24 +47,24 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<()> {
-                self.record(&"plain_stream", StreamSideband::Open);
+                self.record("plain_stream", StreamSideband::Open);
                 Ready(())
             }
 
             fn close_plain_stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
-                self.record(&"plain_stream", StreamSideband::Close);
+                self.record("plain_stream", StreamSideband::Close);
             }
 
             fn vec_stream(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<()> {
-                self.record(&"vec_stream", StreamSideband::Open);
+                self.record("vec_stream", StreamSideband::Open);
                 Ready(())
             }
 
             fn close_vec_stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
-                self.record(&"vec_stream", StreamSideband::Close);
+                self.record("vec_stream", StreamSideband::Close);
             }
 
             fn array_of_streams(
@@ -94,24 +94,24 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<()> {
-                self.record(&"odd_stream", StreamSideband::Open);
+                self.record("odd_stream", StreamSideband::Open);
                 Ready(())
             }
 
             fn close_odd_stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
-                self.record(&"odd_stream", StreamSideband::Close);
+                self.record("odd_stream", StreamSideband::Close);
             }
 
             fn user_stream(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<()> {
-                self.record(&"user_stream", StreamSideband::Open);
+                self.record("user_stream", StreamSideband::Open);
                 Ready(())
             }
 
             fn close_user_stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
-                self.record(&"user_stream", StreamSideband::Close);
+                self.record("user_stream", StreamSideband::Close);
             }
 
             fn sideband_plain_sink(

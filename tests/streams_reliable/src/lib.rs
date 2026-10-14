@@ -324,7 +324,7 @@ mod tests {
         client.produce(1).call().await.unwrap();
         loop {
             match next(&mut samples).await {
-                StreamEvent::Item { pos, .. } if pos == 1200 => break,
+                StreamEvent::Item { pos: 1200, .. } => break,
                 StreamEvent::Item { pos, .. } => {
                     assert_eq!(pos, 200 + items);
                     items += 1;

@@ -1980,6 +1980,7 @@ dependencies = [
  "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client",
+ "ww_client_server",
  "ww_onewire",
 ]
 

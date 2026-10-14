@@ -12,7 +12,8 @@ Next (after review):
 Decisions/gotchas:
 - Roman (14 Oct): evolve ww_gpio / ww_uart / ww_i2c from 0.1, keep what works; the doc has a kept/changed/added
   table per crate. ww_gpio 0.2 is additive on the wire (only Error variants new).
-- SW-16 shape (ww-evolution): last variant `#[future_version] Unknown(u32)`, opt-in.
+- SW-16 shape (ww-evolution): last variant `#[future_version] Unknown(u32)`, opt-in. Done on
+  s/14oct2026-ww-evolution (f90c4727), not on main yet: the skeleton must branch after it lands (or merge it in).
 - Global-trait client (ww-cross-version): DynClient::traits_only + global_attachment; trait must not sit in an array.
 - Parent api3-design holds STD-13..15; STD-13 is this family.
 - Family release waits for SW-16 future-version (ww-evolution session, WW-3).

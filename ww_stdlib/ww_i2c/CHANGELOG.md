@@ -19,7 +19,10 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 - `I2c::i2c_transaction`: several reads and writes to one address with repeated starts (embedded-hal style).
 - `I2c::i2c_lines_state`, `i2c_wiggle_clock` (free a stuck bus), `i2c_set_pullups`, `i2c_pullups`.
-- `I2cMonitor` trait: a `records` stream with one `I2cRecord` per transaction.
+- `I2cMonitor` trait: `records(io_level)`, a counted stream function (API-31) with one `I2cRecord` per transaction;
+  the start condition's time and dropped records are in the event head.
+- `I2cWatch::changes` is a counted stream (API-31): each result's read time and dropped results are in the event
+  head, `I2cWatchEvent` holds only the slot and the result.
 - Crate and method docs, with an `# Errors` section per method.
 - End-to-end test pair `tests/io_i2c` + `tests/io_i2c_api` (STD-13 fill-in): a mock server on `ww_device::Server`
   exercising `I2c`, `I2cWatch` (all three `I2cWatchReport` rules plus the error-once-then-recovery sequence) and

@@ -36,8 +36,8 @@
 //!
 //! # Time
 //!
-//! Every transfer reports when it started and ended ([I2cTransactionTimeRange]), and every monitor record when it
-//! happened, as [Second]s of device time: time since the device's clock started, in the prefix and number type the
+//! Every transfer reports when it started and ended ([I2cTransactionTimeRange]), and every monitor record and watch
+//! result when it happened (the time in the event head of their counted streams), as [Second]s of device time: time since the device's clock started, in the prefix and number type the
 //! device picks (usually a `u32` of microseconds). A fixed-width value wraps (a `u32` of µs every 71.6 minutes) and
 //! the host unwraps it. All timestamps of one device come from the same clock, so I2C transfers line up with the
 //! device's other data.
@@ -189,7 +189,9 @@ pub trait I2c {
 /// transfer. Results go out on the `changes` stream.
 #[ww_trait]
 pub trait I2cWatch {
-    /// Results the watches report, in the order they were read.
+    /// Results the watches report, in the order they were read. A counted stream, unit: result; the head's time is
+    /// when the read started, and the host learns exactly how many results the device dropped.
+    #[counted]
     stream!(changes: I2cWatchEvent<'i>);
 
     /// How many watches, how fast, how long.
@@ -277,7 +279,7 @@ pub enum I2cWatchReport<'i> {
     },
 }
 
-/// A result of a watch, on the `I2cWatch` `changes` stream. An error is reported once, when the watch starts to
+/// A result of a watch, on the `I2cWatch` `changes` stream; when the read started is the time in the event head. An error is reported once, when the watch starts to
 /// fail, and the next successful read is reported whatever the rule.
 #[derive_shrink_wrap(
     owned(feature = "std"),
@@ -286,28 +288,25 @@ pub enum I2cWatchReport<'i> {
 )]
 pub struct I2cWatchEvent<'i> {
     pub slot: u8,
-    /// When the read started.
-    pub t: Second,
     pub result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>,
 }
 
 /// Watches the bus without taking part: every transaction becomes one [I2cRecord] on the `records` stream.
 ///
 /// The same as [I2cMode::MonitorOnly] (or the `monitor` flag of [I2cMode::Master], to watch the adapter's own
-/// transfers too), for devices that only sniff and implement no `I2c`. How a host learns about records the device
-/// had to drop, and stream control in general, is not covered yet.
+/// transfers too), for devices that only sniff and implement no `I2c`.
 #[ww_trait]
 pub trait I2cMonitor {
-    /// One record per transaction, in bus order.
-    stream!(records: I2cRecord<'i>);
-
-    /// Starts or stops monitoring. `io_level` as in `I2c::i2c_configure`; the adapter's pull-ups stay as they are
-    /// (the watched bus has its own).
+    /// One record per transaction, in bus order. Opening starts monitoring, closing stops it. `io_level` as in
+    /// `I2c::i2c_configure`; the adapter's pull-ups stay as they are (the watched bus has its own). A counted
+    /// stream, unit: transaction; the head's time is the start condition, and the host learns exactly how many
+    /// records the device dropped.
     ///
     /// # Errors
     ///
     /// [I2cError::InUse], [I2cError::UnsupportedIoLevel], [I2cError::Refused], [I2cError::NoIoLevel].
-    fn monitor(enabled: bool, io_level: Option<Volt>) -> Result<(), I2cError>;
+    #[stream(I2cRecord<'i>, counted)]
+    fn records(io_level: Option<Volt>) -> Result<(), I2cError>;
 }
 
 /// A 7-bit or 10-bit I2C address.
@@ -447,9 +446,7 @@ pub struct I2cLinesState {
     derive(Debug, Clone)
 )]
 pub struct I2cRecord<'i> {
-    /// Time of the start condition.
-    pub start: Second,
-    /// Time of the stop (or repeated start).
+    /// Time of the stop (or repeated start); the start condition's is the time in the event head.
     pub end: Second,
     pub addr: I2cAddress,
     /// Read (true) or write (false).

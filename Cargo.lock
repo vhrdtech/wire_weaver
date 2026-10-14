@@ -1966,6 +1966,7 @@ dependencies = [
  "ww_client_server",
  "ww_i2c",
  "ww_si",
+ "ww_stream",
 ]
 
 [[package]]

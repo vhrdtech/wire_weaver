@@ -15,6 +15,7 @@ mod tests {
     };
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
+    use ww_stream::tx::Counted;
 
     fn secs(v: u32) -> Second {
         Second {
@@ -142,6 +143,9 @@ mod tests {
             read_scratch: [u8; MAX_READ_LEN],
             scan_scratch: [u8; MAX_SCAN],
             watch_list_scratch: [u8; MAX_WATCHES],
+            records: Counted,
+            changes: Counted,
+            stream_sessions: u32,
         }
 
         impl Server {
@@ -152,6 +156,9 @@ mod tests {
                     read_scratch: [0u8; MAX_READ_LEN],
                     scan_scratch: [0u8; MAX_SCAN],
                     watch_list_scratch: [0u8; MAX_WATCHES],
+                    records: Counted::new(),
+                    changes: Counted::new(),
+                    stream_sessions: 0,
                 }
             }
 
@@ -208,9 +215,7 @@ mod tests {
                 m.writes.push((key, bytes.clone()));
                 let end = m.tick();
                 if m.monitor_enabled {
-                    let mut scratch = [0u8; 64];
                     let record = I2cRecord {
-                        start,
                         end,
                         addr,
                         read: false,
@@ -220,9 +225,8 @@ mod tests {
                     };
                     api_impl::stream_data_ser()
                         .i2c_monitor()
-                        .records_send_blocking(&record, cx)
+                        .records_send_blocking(&mut self.records, &record, 1, Some(start), cx)
                         .ok();
-                    let _ = &mut scratch;
                 }
                 Ready(Ok(I2cTransactionTimeRange { start, end }))
             }
@@ -248,7 +252,6 @@ mod tests {
                 };
                 if m.monitor_enabled {
                     let record = I2cRecord {
-                        start,
                         end,
                         addr,
                         read: true,
@@ -258,7 +261,7 @@ mod tests {
                     };
                     api_impl::stream_data_ser()
                         .i2c_monitor()
-                        .records_send_blocking(&record, cx)
+                        .records_send_blocking(&mut self.records, &record, 1, Some(start), cx)
                         .ok();
                 }
                 self.read_scratch[..data.len()].copy_from_slice(&data);
@@ -371,12 +374,17 @@ mod tests {
                 Ready(self.model.lock().unwrap().pullups)
             }
 
-            fn sideband_i2c_watch_changes(
+            fn i2c_watch_changes(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _sideband: ww_client_server::StreamSideband,
-            ) -> Option<ww_client_server::StreamSideband> {
-                None
+            ) -> RpcResult<()> {
+                Ready(())
+            }
+
+            fn close_i2c_watch_changes(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
+
+            fn stream_i2c_watch_changes(&mut self) -> &mut Counted {
+                &mut self.changes
             }
 
             fn i2c_watch_watch_capabilities(
@@ -458,22 +466,26 @@ mod tests {
                 Ready(MaxLen::new(RefVec::new_bytes(&self.watch_list_scratch[..len])).unwrap())
             }
 
-            fn sideband_i2c_monitor_records(
+            fn i2c_monitor_records(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _sideband: ww_client_server::StreamSideband,
-            ) -> Option<ww_client_server::StreamSideband> {
-                None
-            }
-
-            fn i2c_monitor_monitor(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                enabled: bool,
                 _io_level: Option<ww_si::Volt>,
             ) -> RpcResult<Result<(), I2cError>> {
-                self.model.lock().unwrap().monitor_enabled = enabled;
+                self.model.lock().unwrap().monitor_enabled = true;
                 Ready(Ok(()))
+            }
+
+            fn close_i2c_monitor_records(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+                self.model.lock().unwrap().monitor_enabled = false;
+            }
+
+            fn stream_i2c_monitor_records(&mut self) -> &mut Counted {
+                &mut self.records
+            }
+
+            fn new_stream_session(&mut self) -> u32 {
+                self.stream_sessions = self.stream_sessions.wrapping_add(1);
+                self.stream_sessions
             }
 
             /// Test-only: one read cycle for every configured watch, applying `I2cWatchReport` the same way a
@@ -548,12 +560,11 @@ mod tests {
                         };
                         let event = I2cWatchEvent {
                             slot: slot_idx as u8,
-                            t,
                             result,
                         };
                         api_impl::stream_data_ser()
                             .i2c_watch()
-                            .changes_send_blocking(&event, cx)
+                            .changes_send_blocking(&mut self.changes, &event, 1, Some(t), cx)
                             .ok();
                         sent += 1;
                     }
@@ -712,10 +723,9 @@ mod tests {
     async fn i2c_monitor_records_writes_and_reads() {
         let (device, _model) = start("io_i2c/monitor");
         let client = connect(&device).await;
-        let mut records = client.i2c_monitor().records().await.unwrap();
-        client
+        let ((), mut records) = client
             .i2c_monitor()
-            .monitor(true, None)
+            .records(None)
             .call()
             .await
             .unwrap()
@@ -750,7 +760,7 @@ mod tests {
         let (device, model) = start("io_i2c/watch_always");
         model.lock().unwrap().registers.insert(0x50, vec![1]);
         let client = connect(&device).await;
-        let mut changes = client.i2c_watch().changes().await.unwrap();
+        let mut changes = client.i2c_watch().changes().call().await.unwrap();
 
         let addr = I2cAddress::seven(0x50).unwrap();
         let slot = client
@@ -780,7 +790,7 @@ mod tests {
         let (device, model) = start("io_i2c/watch_changed");
         model.lock().unwrap().registers.insert(0x50, vec![0]);
         let client = connect(&device).await;
-        let mut changes = client.i2c_watch().changes().await.unwrap();
+        let mut changes = client.i2c_watch().changes().call().await.unwrap();
 
         let addr = I2cAddress::seven(0x50).unwrap();
         client
@@ -820,7 +830,7 @@ mod tests {
         let (device, model) = start("io_i2c/watch_matches");
         model.lock().unwrap().registers.insert(0x50, vec![0]);
         let client = connect(&device).await;
-        let mut changes = client.i2c_watch().changes().await.unwrap();
+        let mut changes = client.i2c_watch().changes().call().await.unwrap();
 
         let addr = I2cAddress::seven(0x50).unwrap();
         client
@@ -870,7 +880,7 @@ mod tests {
         let (device, model) = start("io_i2c/watch_error");
         model.lock().unwrap().registers.insert(0x50, vec![1]);
         let client = connect(&device).await;
-        let mut changes = client.i2c_watch().changes().await.unwrap();
+        let mut changes = client.i2c_watch().changes().call().await.unwrap();
 
         let addr = I2cAddress::seven(0x50).unwrap();
         client

@@ -91,6 +91,7 @@ ones and see no more delay than one watch read.
 ```rust
 #[ww_trait]
 pub trait I2cWatch {
+    #[counted]
     stream!(changes: I2cWatchEvent<'i>);
     fn watch_capabilities() -> I2cWatchCapabilities;
     fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u8, I2cError>;
@@ -103,7 +104,9 @@ pub trait I2cWatch {
 * `watch_add` / `watch_modify` / `watch_remove` / `watch_list` - manage watch slots (at most
   `I2cWatchCapabilities::max_watches`, see [Types](#types)); modifying a watch forgets its previous result, so the
   next read is always reported.
-* `changes` - results, in the order the watches were read, as [`I2cWatchEvent`](#types).
+* `changes` - results, in the order the watches were read, as [`I2cWatchEvent`](#types). A counted stream (unit:
+  result): the host opens it by calling it, the event head carries when each read started and how many results the
+  device dropped ([stream delivery](../api/stream_reliability.md)).
 
 `I2cWatchReport` (part of `I2cWatchConfig`) decides when a result is worth a report:
 
@@ -127,13 +130,15 @@ too), for devices that only sniff and implement no `I2c`.
 ```rust
 #[ww_trait]
 pub trait I2cMonitor {
-    stream!(records: I2cRecord<'i>);
-    fn monitor(enabled: bool, io_level: Option<Volt>) -> Result<(), I2cError>;
+    #[stream(I2cRecord<'i>, counted)]
+    fn records(io_level: Option<Volt>) -> Result<(), I2cError>;
 }
 ```
 
-How a host learns about records the device had to drop, and stream control in general, is not covered yet - for now
-`I2cRecord` carries no sequence number or loss count.
+`records` is a counted [stream function](../api/streams.md#opening-a-stream): opening it starts monitoring (at
+`io_level`, as in `i2c_configure`; the adapter's pull-ups stay as they are, the watched bus has its own), closing it
+stops. Its unit is a transaction: the event head carries the time of each start condition and exactly how many
+records the device dropped and where ([stream delivery](../api/stream_reliability.md)).
 
 ## Addresses
 
@@ -156,7 +161,7 @@ are in `I2cCapabilities` / `I2cWatchCapabilities`. Raising a bound later is a co
 ## Time
 
 Every transfer reports when it started and ended (`I2cTransactionTimeRange`), and every monitor record and watch
-event when it happened, as `ww_si::Second`s of device time: time since the device's clock started, in the prefix
+result when it happened (the time in the event head of its counted stream), as `ww_si::Second`s of device time: time since the device's clock started, in the prefix
 and number type the device picks (usually a `u32` of microseconds). A fixed-width value wraps (a `u32` of µs every
 71.6 minutes) and the host unwraps it. All timestamps of one device come from the same clock, so I2C transfers line
 up with the device's other data.
@@ -179,8 +184,8 @@ up with the device's other data.
 * `I2cWatchCapabilities` - `max_watches` (at most `MAX_WATCHES`), `max_len` (at most `MAX_WATCH_LEN`), `min_period`.
 * `I2cWatchConfig<'i>` - `addr`, `kind: I2cReadKind<'i>`, `len`, `period: Second`, `report: I2cWatchReport<'i>`.
 * `I2cWatchReport<'i>` - `Always`, `Changed { mask }`, `Matches { mask, value }`, see [`I2cWatch`](#i2cwatch) above.
-* `I2cWatchEvent<'i>` - `slot`, `t: Second`, `result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>`.
-* `I2cRecord<'i>` - `start` / `end: Second`, `addr`, `read: bool`, `kind: I2cRecordKind`, `nack_at: Option<u16>`
+* `I2cWatchEvent<'i>` - `slot`, `result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>`.
+* `I2cRecord<'i>` - `end: Second` (stop or repeated start; the start condition is the head's time), `addr`, `read: bool`, `kind: I2cRecordKind`, `nack_at: Option<u16>`
   (index of the first byte not acknowledged, `Some(0)` = the address), `bytes` (without the address).
 * `I2cRecordKind` - `Complete`, `RepeatedStart` (the next record continues the transaction), `Truncated` (more than
   `MAX_RECORD_LEN` bytes), `BusError`.
@@ -219,7 +224,7 @@ event loop end to end:
 
 * `i2c_write_read_roundtrip`, `i2c_nack_and_zero_length`, `i2c_scan_and_lines` - `I2c` write/read/scan/lines/pullups,
   and the `Nack` / `ZeroLengthTransfer` error paths.
-* `i2c_monitor_records_writes_and_reads` - `I2cMonitor::monitor` turns transactions into `I2cRecord`s on `records`.
+* `i2c_monitor_records_writes_and_reads` - opening `I2cMonitor::records` turns transactions into `I2cRecord`s on it.
 * `i2c_watch_always_reports_every_read`, `i2c_watch_changed_reports_only_on_change`,
   `i2c_watch_matches_reports_on_transition_only`, `i2c_watch_error_reported_once_then_recovery_always_reports`,
   `i2c_watch_modify_remove_and_list` - the three `I2cWatchReport` rules, the error-once-then-recovery sequence, and

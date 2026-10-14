@@ -32,7 +32,7 @@
 //! assert_eq!(I2cError::Nack.common(), None);
 //! ```
 //!
-//! Tools (ww CLI, GUI, Python) recognise `ww_error::CommonError` by its type in the API model and show it the same
+//! Tools (the ww CLI, Python) recognise `ww_error::CommonError` by its type in the API model and show it the same
 //! for every API. Strings are bounded and may be empty: a device that saves flash sends `""`.
 
 // `#[common]` in derived enums names this crate `::ww_error`, here too

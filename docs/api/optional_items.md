@@ -3,7 +3,8 @@
 A method, property or stream of a trait can be marked optional. A device's server may then leave it out when it is
 built: no dispatch arm, no handler to write, no stub answering "not implemented". A client calling it gets
 `Unimplemented`, and a client with the device's introspection data knows it without asking.
-`tests/traits` has a worked example.
+`tests/traits` has a worked example; [Errors](errors.md#unsupported-is-not-unimplemented) tells `Unimplemented`
+apart from a device's own errors.
 
 ```rust
 #[ww_trait]

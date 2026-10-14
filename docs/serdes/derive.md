@@ -106,7 +106,7 @@ the default. The default can be any expression of the field's type (`#[default =
 A reader that gets a discriminant it doesn't know fails with `Error::EnumFutureVersionOrMalformedData`. An enum that
 will grow (errors, modes) ends with a `#[future_version]` variant instead: it holds any discriminant this version
 doesn't know, so an older host reports a newer device's error instead of failing to decode the reply, and can pass
-the value on.
+the value on. How this fits with the rest of an API's errors: [Errors](../api/errors.md).
 
 Every `Unsized` enum (the default) gets it without writing it (SW-47): the derive adds `Unknown(u32)` as if it were
 written last. So this
@@ -642,7 +642,8 @@ owned side, or both, whichever `owned`/`borrowed` generate. The message is the f
 each variant's own for an enum, without its trailing period (Rust's convention for error messages, so it reads
 well inside a longer one; `...` is kept, `#[display("..")]` is used as written). `{field}` is filled in from the type's own field of that name, format specs work
 too (`{field:#x}`); a tuple variant's fields are `{0}`, `{1}`, ... `#[display("..")]` overrides the doc line, for a
-tuple variant's fields or when the doc line should say more than the message:
+tuple variant's fields or when the doc line should say more than the message (error enums in APIs:
+[Errors](../api/errors.md)):
 
 ```rust
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone), display, ww_repr = unib32)]

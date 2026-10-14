@@ -195,7 +195,7 @@ pub struct Quantity<'i> {
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
-    derive(Copy, Clone, Debug),
+    derive(Copy, Clone, Debug, PartialEq),
     final_structure
 )]
 pub struct Second {

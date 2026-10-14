@@ -550,6 +550,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
+name = "cnt"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c57ebe0c01fec909b51cd496275ad386024228efbd5c25f2d0c0a7ae40863ab0"
+dependencies = [
+ "cnt_macro",
+]
+
+[[package]]
+name = "cnt_macro"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eea5da6a5ce73a385e09f92bc63fd4aeb716f8bcda0ad2883479de4f00499293"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
+]
+
+[[package]]
 name = "cobs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4155,6 +4175,7 @@ version = "0.2.0"
 dependencies = [
  "wire_weaver",
  "ww_global",
+ "ww_si",
 ]
 
 [[package]]
@@ -4342,6 +4363,15 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
+]
+
+[[package]]
+name = "ww_stream"
+version = "0.5.0"
+dependencies = [
+ "cnt",
+ "wire_weaver",
+ "ww_client_server",
 ]
 
 [[package]]

@@ -5,6 +5,7 @@ pub mod builder;
 pub mod credit;
 pub mod max_len;
 pub mod multi_req;
+pub mod stream;
 pub mod util;
 
 use wire_weaver::{prelude::*, shrink_wrap::tail_bytes::TailBytes};

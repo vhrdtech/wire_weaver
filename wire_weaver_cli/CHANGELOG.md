@@ -10,6 +10,9 @@
 
 - `ww api tree` shows stream functions with their arguments and result and their delivery kind (API-31).
 - `ww api tree` shows counted and reliable streams as `#[counted] stream` / `#[reliable] stream` (API-30).
+- `ww api scaffold --omit i2c.pullups,reset` (API-16): no stubs for these optional items, `omit = [..]` in the
+  generated `ww_codegen!`; stubs of the optional items it keeps name their omit path. `ww api tree` and
+  `ww introspect` show `#[optional]` / `#[optional(group)]` and `(left out by this device)`.
 - `ww bootsel list | info | flash | reboot` (CLT-21): RP2040 / RP2350 boot ROMs in BOOTSEL mode over PICOBOOT
   (`ww_picoboot`), selected with `--serial` as other commands; `flash` writes a UF2 file or a raw binary (`--addr`),
   verifies it and reboots into it, with a progress bar; `--wait` waits for the boot ROM after the app rebooted into it

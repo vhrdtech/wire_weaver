@@ -12,6 +12,8 @@
 - `Delta`, `DeltaOfDelta` and `XorFloat` (SW-50) are lists of `int` / `float` (any iterable accepted), a value out
   of range of the element type raises `ValueError`.
 - Signatures of counted and reliable streams say so (`counted stream x: T`, API-30).
+- Optional items (API-16): signatures end in `(optional)`, or `(left out by this device)` for one the device leaves
+  out; calling such an item raises without sending a request.
 - `MaxLen` (SW-19) lists and strings are checked when encoding: a longer value raises `ValueError` (`.. at most N
   allowed ..`).
 - Credit sinks (`#[credit] sink!(..)`, API-28, credit counted in bytes): `Sink.send()` waits until the device has

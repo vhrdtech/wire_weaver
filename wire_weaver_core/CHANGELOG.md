@@ -42,6 +42,8 @@
 - Generated std clients (CLT-24): a method returning `Result<T, E>` returns `PreparedCall<T, CallError<E>>` (was
   `PreparedCall<Result<T, E>>`), a property with a user error type `PreparedWrite<CallError<E>>` (was
   `PreparedWrite<E>`), one without `PreparedWrite<Error>` (was `PreparedWrite<()>`). See `wire_weaver_client`.
+- `GenServerConfig`, `GenServerConfigRaw` and `ServerScaffoldConfig` have a new `omit` field (API-16): struct
+  literals in `build.rs` scripts need `omit: vec![]`.
 - Every generated server handler takes `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` as the first argument
   after `&mut self` (`BlockingEventOut` for `use_async = false`): methods and `sideband_*` instead of
   `msg_tx: &mut impl MessageSink`, and newly `get_*`, `set_*`, `changed_*` and `write_*`. `valid_indices_*` don't.
@@ -80,6 +82,13 @@
   (SW-50): arguments, return values, properties, stream and sink items and fields of API types, as
   `ww_self::Type::Delta` / `DeltaOfDelta` / `XorFloat` in introspection data. `T` is checked: `u8`..`u64`,
   `i8`..`i64` for the first two, `f32` or `f64` for `XorFloat`.
+- Optional items (API-16): `#[optional]` / `#[optional(group)]` on trait methods, properties and streams go into the
+  model (`ApiItem::optional`); `GenServerConfig::omit` / `GenServerConfigRaw::omit` (`Vec<codegen::omit::Omit>`,
+  `Omit::always(path)`, `Omit::when(cfg, path)`) leave them out of a server: no dispatch arm, no handler, the level's
+  fallback arm answers `Unimplemented` for ids of the trait, the introspection data lists them (one variant per
+  combination of `omit_if` conditions, under `#[cfg]`). Only optional items can be left out, any other path is a
+  compile error naming the trait's optional items and groups. `ServerScaffoldConfig::omit` leaves their stubs out.
+  `#[optional]` on `ww_impl!` is rejected. See `docs/api/errors.md#4-optional-items`.
 - Types with the `no_future_version` and `future_version = <Name>` arguments of `derive_shrink_wrap` (SW-47) are
   read from API crates; the variant stays out of the API model like a written `#[future_version]` one.
 - A `#[future_version]` enum variant (SW-16) is left out of the API model (`ww_self`): it is no variant on the

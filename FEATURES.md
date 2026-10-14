@@ -302,6 +302,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   arguments in `StreamStatus`, stream functions in the dynamic client and Python (CLT-23), streams that detach by
   themselves when the link goes down (a resume re-attaches) (`docs/api/stream_reliability.md`,
   `tests/streams_reliable`).
+- ✅ **API-16 Optional items** — `#[optional]` / `#[optional(group)]` on a trait's methods, properties and streams;
+  a server leaves them out with `ww_codegen!(.., omit = ["i2c.pullups"])` or `omit_if(<cfg>) = [..]` (the user
+  crate's features), pays no dispatch arm and writes no handler (about 100 bytes of flash per item on Cortex-M). Only
+  optional items can be left out (compile error otherwise). A call answers `Unimplemented` from the level's fallback
+  arm (`id < ITEM_COUNT`), the device's model lists the omitted items (`ww_self` `omitted`, `root_omitted`), so the
+  generated and dynamic clients and Python fail locally with `NotImplementedByDevice`; `ww api scaffold --omit`, CLI
+  tree and Python show them (`docs/api/errors.md#4-optional-items`, `tests/traits`). Not yet: `#[optional]` on
+  `ww_impl!`, the GUI (`wire_weaver_tool`).
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
 - 📋 **API-13 Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.
@@ -310,11 +318,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
   done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
   docs.rs (DOC-6).
-- 📋 **API-16 Optional items** · `v0.5` — `#[optional]` / `#[optional(group)]` on a trait's methods, properties and
-  streams; a server leaves them out with `ww_codegen!(.., omit = [..])` or `omit_if(<cfg>) = [..]` (the user crate's
-  features), pays no dispatch arm and writes no handler. A call answers `Unimplemented` from the level's fallback arm,
-  the device's model lists the omitted items so clients fail locally (`NotImplementedByDevice`), scaffold `--omit`
-  (`docs/api/errors.md#4-optional-items`).
 - 📋 **API-32 Per-method error lists** · `v0.5` — `#[errors(Common, Nack, ..)]` on a trait method: checked against the
   error enum, in the API model, generated client docs (`# Errors`), introspection (CLI, GUI, Python), `ww api check`;
   the client warns when a device returns a variant outside the list (tests fail). Nothing on the device

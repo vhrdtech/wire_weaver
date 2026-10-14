@@ -47,6 +47,9 @@
   returned `Unimplemented`, or `NotImplementedByDevice`). `CallError::device()` and `CallError::is_unimplemented()`.
   `OutcomeError` / `DecodeReply` tie an error type to how a reply is decoded (implemented for `Error` and
   `CallError`).
+- Optional items a device leaves out (API-16, listed in its introspection data) fail locally with
+  `Error::NotImplementedByDevice`, in generated clients and in the dynamic client (`DynResource::is_omitted()`); they
+  are not reported among the incompatible resources after connecting.
 - Follow a device across a reboot into other firmware (CLT-21), `follow` module: `Follow::gone()` / `back()` /
   `back_in_bootsel()` / `back_in_wire_weaver()` wait for the device with the same serial number to go away and come
   back as what is expected, on any `follow::Bus` (`UsbBus` for real devices); `Found` tells a WireWeaver device, an

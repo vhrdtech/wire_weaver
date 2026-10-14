@@ -15,6 +15,10 @@
 * `ApiItemKind::PositionedStream { ty, delivery: Delivery }` appended (API-30): a counted or reliable stream,
   `Delivery::{Counted, Reliable}`. Exhaustive matches on `ApiItemKind` need a new arm; plain streams stay `Stream` and
   keep their bytes. `ApiItemKindOwned::as_stream()` treats it as a stream, `delivery()` tells which kind.
+* Optional items (API-16): `ApiItemKind::Trait` gets `omitted: Option<RefVec<UNib32>>`, `ApiItem` gets
+  `optional: Option<Optional>` and `ApiBundle` gets `root_omitted`, all `#[default = None]`, so older bundles and
+  snapshots read as before. Rust code matching `Trait { trait_idx }` needs `..`, struct literals of `ApiItemOwned`,
+  `ApiBundleOwned` and `ApiItemKindOwned::Trait` the new fields (`None`).
 * `Type::MaxLen { max_len, ty }` appended (SW-19): a list or string with a maximum length, same bytes as `ty`.
   Exhaustive matches on `Type`/`TypeOwned` need a new arm; introspection data of an API that uses `MaxLen` can't be
   read by an older ww_self. `TypeOwned::max_len()` returns the bound, `is_byte_slice()` looks through it, and

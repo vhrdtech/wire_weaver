@@ -20,6 +20,8 @@
   sinks, consts and `ww_impl!` sub-traits as functions returning `wire_weaver::api_doc` markers, all with their doc
   comments plus a note with access mode, array index, `#[credit]` and `#[since]`. The trait doc comment moved from
   `*_FULL_GID` to the trait, the `*_FULL_GID` / `*_COMPACT_GID` consts got docs of their own.
+- `omit = ["i2c.pullups", ..]` and `omit_if(<cfg>) = [..]` arguments of `ww_codegen!` (API-16): `#[optional]`
+  items (or groups) a server leaves out, always or when the cfg predicate holds (`omit_if(not(feature = "pullups"))`).
 - `medium = "path::to::Medium"` argument of `ww_codegen!`, the type handlers get from `cx.medium()`, see
   `wire_weaver_core` changelog for the handler context.
 - `#[ww_api_root]` to mark the API entry point, `#[ww_trait(gid)]` to give a trait a global id.

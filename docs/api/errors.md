@@ -283,7 +283,8 @@ SW-16 landed opt-in. SW-47 makes the derive add `#[future_version] Unknown(u32)`
 ## 4. Optional items
 
 A method, property or stream of a trait can be marked optional; a device's server leaves it out at codegen time and
-pays neither the dispatch arm nor the handler. One mark, one flavour:
+pays neither the dispatch arm nor the handler. One mark, one flavour (**built**, API-16, see [As built](#as-built)
+for the details; `tests/traits` has a worked example):
 
 ```rust
 #[ww_trait]
@@ -320,6 +321,39 @@ ww_codegen!(nucleo_api::Nucleo for Server, server = true, omit = ["i2c.i2c_wiggl
 - `ww api scaffold --omit ..` leaves the stubs out; `capabilities()` booleans that only said whether a method works
   (`monitor_supported`) can go, the model says it. A capability that depends on what is found at run time (a board
   variant read from EEPROM) stays a capability: optional is for what is known when the firmware is built.
+
+### As built
+
+- Model (`ww_self`, all defaulted, older bundles and snapshots read as before): `ApiItem::optional:
+  Option<Optional { group }>` from the trait, `ApiItemKind::Trait { omitted: Option<RefVec<UNib32>> }` for a trait
+  reference, and `ApiBundle::root_omitted` for items of the API root itself (`omit = ["reset"]`). The marker is part of
+  the trait's signature (marking an item optional later changes it, a snapshot has to be saved again).
+- Paths: `"<trait item>.<..>.<item or group>"` from the API root, without array indices (`"periph.channel.run"` leaves
+  `run` out of every `periph[i].channel[j]`). An item and a group of the same name: the item wins. Leaving an item out
+  twice (by name and through its group, or in `omit` and `omit_if`) is a compile error, as is an unknown name or a
+  required item (the error lists the optional items and groups of the trait).
+- `#[optional]` on `ww_impl!` is rejected: a trait that a device may leave out as a whole is not built yet; mark its
+  items instead.
+- `omit_if(<cfg>) = [..]`: the dispatch arm gets `#[cfg(not(<cfg>))]`, the handler is the device crate's to `cfg`
+  out. The introspection data (and with it the API hash) depends on which items are left out, so it is generated for
+  each combination of the conditions, under `#[cfg(all(..))]`; at most 4 different conditions.
+- The fallback arm of a level that leaves something out answers `ErrorKind::Unimplemented` for an id below the
+  trait's item count and `BadPath` above it; levels that leave nothing out are generated as before.
+- Client: an omitted item's verdict in `compat.rs` is `Omitted` (not listed among the mismatches, it is the device's
+  choice), calls fail with `NotImplementedByDevice`. The dynamic client (`DynResource::is_omitted()`) and with it
+  Python fail locally too; Python signatures end in `(optional)` or `(left out by this device)`, `ww api tree` and
+  `ww introspect` show `#[optional]` and `(left out by this device)`.
+- `ww api scaffold --omit i2c.pullups,reset` (`ServerScaffoldConfig::omit`) leaves the stubs out and writes the same
+  `omit = [..]` into the `ww_codegen!` call; stubs of optional items it keeps carry a comment naming their path.
+- A device without introspection data that a client doesn't have cached either: the call goes out and is answered
+  `Unimplemented`.
+
+**Server code size.** Measured on `thumbv7em-none-eabihf` (`opt-level = "s"`, LTO, introspection off) with a
+`Board { ww_impl!(i2c: I2c); fn other(..) }` API whose `I2c` has one required method and three optional items (two
+methods and an `rw` property): with stub handlers answering `Unimplemented` (what a device writes without
+`omit`, as the scaffold generates them) the server is 7496 bytes of `.text`, with `omit` 7204 bytes, and with the
+three items not in the API at all 7192 bytes. So leaving an item out saves about 100 bytes (its arm, argument
+decoding and the stub), and the `id < ITEM_COUNT` comparison costs 12 bytes per level that leaves something out.
 
 **When optional, when a trait.** Optional: one to three items within the trait's subject that some hardware lacks
 (clock wiggle, pull-ups, a hardware CRC). A trait: items with their own state, configuration or streams, a subject of their

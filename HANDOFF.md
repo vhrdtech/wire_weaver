@@ -15,7 +15,9 @@ Design of errors and the trait surface for all APIs (Roman's IO family review, 1
 - Children from ebfd76d1, this session integrates (merges their branches here, runs just check/test/lint):
   ww-call-error (CLT-24), ww-display-docs (DER-12), ww-common-error (STD-16), ww-optional-items (API-16).
 - After STD-16 is merged: spawn API-32 (P2401#14oct-1805e) from here; after all: migration (P2401#14oct-1805g)
-  together with ww-io-traits.
+  together with ww-io-traits, covering every IO crate whose skeleton exists by then (ww_gpio, ww_uart, ww_i2c,
+  ww_spi, ww_adc, ww_pwm, ww_onewire, ww_timebase; later ww_logic_analyzer, ww_signal_generator) plus ww_dfu,
+  ww_can_bus; the '# Errors' rustdoc sections are the input for #[errors(..)].
 
 ## Gotchas
 - ww_i2c's `I2cReadKind` gets `Unknown` too; its CHANGELOG lives on the ww-io-traits branch, so no entry here.

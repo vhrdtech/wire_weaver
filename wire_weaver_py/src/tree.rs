@@ -588,8 +588,7 @@ impl Stream {
                     .map_err(client_err)?,
             );
         }
-        let stream = guard.as_ref().expect("just set");
-        py.detach(|| stream.open_blocking()).map_err(stream_err)
+        Ok(())
     }
 
     /// Ask a device to stop the stream and unsubscribe.

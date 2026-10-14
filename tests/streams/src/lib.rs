@@ -51,10 +51,7 @@ mod tests {
                 Ready(())
             }
 
-            fn close_plain_stream(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) {
+            fn close_plain_stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
                 self.record(&"plain_stream", StreamSideband::Close);
             }
 
@@ -66,10 +63,7 @@ mod tests {
                 Ready(())
             }
 
-            fn close_vec_stream(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) {
+            fn close_vec_stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
                 self.record(&"vec_stream", StreamSideband::Close);
             }
 
@@ -78,7 +72,10 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
             ) -> RpcResult<()> {
-                self.record(&format!("array_of_streams[{}]", index_chain[0].0), StreamSideband::Open);
+                self.record(
+                    &format!("array_of_streams[{}]", index_chain[0].0),
+                    StreamSideband::Open,
+                );
                 Ready(())
             }
 
@@ -87,7 +84,10 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
             ) {
-                self.record(&format!("array_of_streams[{}]", index_chain[0].0), StreamSideband::Close);
+                self.record(
+                    &format!("array_of_streams[{}]", index_chain[0].0),
+                    StreamSideband::Close,
+                );
             }
 
             fn odd_stream(
@@ -98,10 +98,7 @@ mod tests {
                 Ready(())
             }
 
-            fn close_odd_stream(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) {
+            fn close_odd_stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
                 self.record(&"odd_stream", StreamSideband::Close);
             }
 
@@ -113,10 +110,7 @@ mod tests {
                 Ready(())
             }
 
-            fn close_user_stream(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) {
+            fn close_user_stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
                 self.record(&"user_stream", StreamSideband::Close);
             }
 
@@ -447,7 +441,10 @@ mod tests {
             .await
             .expect("sideband reply reaches the stream")
             .unwrap();
-        assert_eq!(ev, TypedStreamEvent::Sideband(StreamSideband::User(UNib32(5))));
+        assert_eq!(
+            ev,
+            TypedStreamEvent::Sideband(StreamSideband::User(UNib32(5)))
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

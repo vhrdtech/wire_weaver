@@ -402,18 +402,39 @@ impl DynResource {
             .blocking_read()
     }
 
-    /// Subscribe to a stream from a device, see [DynStream::open] to start it.
+    /// Open a plain stream from a device (a `stream!` without arguments): the device starts it.
+    // TODO(CLT-23): stream functions with arguments, counted and reliable streams
     pub async fn stream(&self, cmd: &Commander) -> Result<DynStream, Error> {
-        let ty = self.stream_ty(true)?.0.clone();
-        let stream = cmd.prepare_stream(self.path_kind()).await?;
+        let ty = self.plain_stream_ty()?;
+        let stream = cmd
+            .prepare_stream_open::<(), Stream<TailBytesOwned>>(self.path_kind(), None, Ok(vec![]))
+            .call()
+            .await?;
         Ok(DynStream::new(self, stream, ty))
     }
 
-    /// Subscribe to a stream from a device, see [DynStream::open_blocking] to start it.
+    /// Blocking variant of [Self::stream].
     pub fn stream_blocking(&self, cmd: &Commander) -> Result<DynStream, Error> {
-        let ty = self.stream_ty(true)?.0.clone();
-        let stream = cmd.prepare_stream_blocking(self.path_kind())?;
+        let ty = self.plain_stream_ty()?;
+        let stream = cmd
+            .prepare_stream_open::<(), Stream<TailBytesOwned>>(self.path_kind(), None, Ok(vec![]))
+            .blocking_call()?;
         Ok(DynStream::new(self, stream, ty))
+    }
+
+    /// Item type of a plain stream without arguments and result.
+    fn plain_stream_ty(&self) -> Result<TypeOwned, Error> {
+        let ty = self.stream_ty(true)?.0.clone();
+        match &self.item {
+            Some(item) if matches!(item.kind, ApiItemKindOwned::StreamFn { .. }) => {
+                Err(Error::Other(format!(
+                    "'{}' is a stream function or a counted or reliable stream, not supported by the dynamic \
+                     client yet",
+                    self.display_path()
+                )))
+            }
+            _ => Ok(ty),
+        }
     }
 
     /// Sink on a device.
@@ -461,14 +482,6 @@ impl DynStream {
     /// Stream item type.
     pub fn ty(&self) -> &TypeOwned {
         &self.ty
-    }
-
-    pub async fn open(&self) -> Result<(), StreamError> {
-        self.stream.open().await
-    }
-
-    pub fn open_blocking(&self) -> Result<(), StreamError> {
-        self.stream.open_blocking()
     }
 
     pub async fn close(&self) -> Result<(), StreamError> {

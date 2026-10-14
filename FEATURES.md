@@ -456,7 +456,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `split()`, `StreamStats`, `AckMode::OnReceive` / `Explicit`, cursors; every stream's queue is bounded
   (`ClientConfig::stream_queue_bytes`, plain streams report `RawStreamEvent::Dropped`); after
   `disconnect().keep_streams()` streams wait and `Commander::resume_streams()` resumes them; `DynPositionedStream`
-  and the Python `PositionedStream` (`docs/python.md`). Tested end to end against a hand-written device: S4 host
+  and the Python `PositionedStream` (`docs/api/stream_reliability.md`, `docs/python.md`). Tested end to end against a hand-written device: S4 host
   stuck, S6 host restart, resume after a reconnect (`wire_weaver_client/src/event_loop/stream_e2e_tests.rs`).
   Missing: counted and reliable streams on trait paths (events carry the absolute path), the reconnect itself
   (EX-10), stream function arguments in the dynamic client and Python (API-31), tests through generated code

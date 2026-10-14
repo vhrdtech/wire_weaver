@@ -25,9 +25,10 @@ of every event, so a `SampleBlock` or an `RxChunk` stays pure data.
 !!! note "Status"
     The protocol is built: the wire types in `ww_client_server::stream`, and the device and host state machines,
     stores and send scheduler in the `ww_stream` crate, all sans-IO and tested against a simulated lossy link.
-    Declaring counted and reliable streams in a `#[ww_trait]` and the generated code (API-31), the host-side stream
-    API (CLT-23), and credit sinks on the same protocol (API-34) are being built; see [Features](../features.md).
-    Until then, `ww_stream` can be driven by hand.
+    Declaring counted and reliable streams in a `#[ww_trait]` and the generated code are built too
+    ([Streams](streams.md)), and the host side in `wire_weaver_client`
+    ([Receiving on the host](#receiving-on-the-host)). Credit sinks on the same protocol (API-34) are being built;
+    see [Features](../features.md).
 
 ## Where stream data gets lost
 
@@ -283,6 +284,49 @@ needs a priority is counted or reliable.
 On the host, `ww_stream::rx::Receiver` takes each event's head (`on_item`) and returns a `Verdict`: accept (with the
 gaps before it, each with its run, position, size and cause: `Device`, `Link`, `Store` or `Host`), duplicate, already
 had, late or out of order; `poll(now_ms)` returns the next `Ack` or `ResendFrom` to send.
+
+## Receiving on the host
+
+Opening a stream returns a handle: `PositionedStream<T>` for a counted or reliable one. Generated clients open it by
+calling the stream function (`device.samples(config).call().await?`); underneath, and for tools without generated
+code, it is `Commander::prepare_stream_open(path, delivery, args)`, and `prepare_stream_resume(path, delivery,
+cursor)` to resume. A stream function that returns `Result<A, E>` gives `Result<(A, stream), E>`: an `Err` opens
+nothing.
+
+```rust
+let mut samples = adc.samples(config).call().await?;
+while let Ok(ev) = samples.recv_event().await {
+    match ev {
+        StreamEvent::Item { pos, units, t, run, value, .. } => { /* run: Live or Backfill */ }
+        StreamEvent::Gap { at, units, cause, .. } => { /* cause: Device, Link, Store, Host */ }
+        StreamEvent::Resumed { cursor, ended, .. } => { /* ended: the old session, when the device has a new one */ }
+        StreamEvent::BackfillDone | StreamEvent::Disconnected | StreamEvent::Closed => {}
+    }
+}
+```
+
+- `recv()` returns values only; gaps are logged and counted in `stats()` (`StreamStats`: received, lost by cause,
+  duplicates, late, out of order, resend requests, what is queued). Blocking and `try_` variants of each exist.
+- `cursor()` is where to resume from: everything before it was received (counted) or acknowledged (reliable).
+  A recorder saves it with its data and opens with `<name>_resume(cursor)` after a restart.
+- `ack_mode(AckMode::Explicit)` when opening: a reliable stream's data counts as received only when `ack(pos)`
+  confirms it (after writing it to disk, say), so a crash in between loses nothing. By default it counts when user
+  code takes it.
+- `split()` gives one handle per run, each in order: a dashboard reads the live one, a recorder both.
+- `close()`, or dropping the handle, closes the stream on the device.
+
+The receiver runs in the client's event loop, so a program that doesn't read still answers the device. Its memory
+stays bounded: a reliable stream holds at most its window (`window(bytes)` when opening, 4 MiB by default), and the
+device keeps the rest in its store; a counted stream holds `ClientConfig::stream_queue_bytes` (4 MiB by default) and
+drops what comes beyond it, reported as one `Gap { cause: Host }` before the next item that fits. Plain streams have
+the same bound: what they drop is counted (`Stream::dropped()`) and reported once as `RawStreamEvent::Dropped`.
+
+After `disconnect().keep_streams()` the handles stay open (they see `Disconnected`, not the end), and
+`Commander::resume_streams()` on the next connection resumes each from its cursor: the same handle goes on with
+`Resumed` and whatever the device kept meanwhile. Without `keep_streams`, a stream ends with the connection.
+
+The dynamic client has the same as `DynResource::positioned_stream` (`DynPositionedStream`, values as `ValueOwned`),
+Python as a `PositionedStream` object ([Python](../python.md#counted-and-reliable-streams)).
 
 ## Counting
 

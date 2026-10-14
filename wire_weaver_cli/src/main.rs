@@ -41,14 +41,18 @@ async fn run() -> Result<()> {
     };
     let mut device = match &selection {
         Some(selection) if cli.need_device() => Some(
-            DynClient::from_config(selection.client_config())
-                .connect()
-                .await
-                .with_context(|| {
-                    format!(
-                        "connecting to device ({selection}), run 'ww list' to see connected devices"
-                    )
-                })?,
+            DynClient::from_config(if cli.traits_only() {
+                selection.client_config().traits_only()
+            } else {
+                selection.client_config()
+            })
+            .connect()
+            .await
+            .with_context(|| {
+                format!(
+                    "connecting to device ({selection}), run 'ww list' to see connected devices"
+                )
+            })?,
         ),
         _ => None,
     };
@@ -65,6 +69,14 @@ async fn run() -> Result<()> {
         Commands::Api(api_cmd) => cmd::api::api(api_cmd)?,
         Commands::Introspect(args) => {
             cmd::introspect::introspect(args, device.as_mut().unwrap()).await?
+        }
+        Commands::Dfu(dfu_cmd) => {
+            let resets_device = dfu_cmd.resets_device();
+            cmd::dfu::dfu(dfu_cmd, device.as_ref().unwrap()).await?;
+            if resets_device {
+                // the device is gone or about to, nothing to disconnect from
+                return Ok(());
+            }
         }
         Commands::Config(config_cmd) => {
             cmd::config::config(config_cmd, selection.as_ref().unwrap())?

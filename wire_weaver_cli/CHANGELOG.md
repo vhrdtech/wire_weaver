@@ -12,7 +12,9 @@
   (`ww_picoboot`), selected with `--serial` as other commands; `flash` writes a UF2 file or a raw binary (`--addr`),
   verifies it and reboots into it, with a progress bar; `--wait` waits for the boot ROM after the app rebooted into it
   and `--follow` for the app to come back. Shell completion of `--serial` lists BOOTSEL devices too.
-- `ww --version` shows the git SHA and build time: `ww 0.5.0 (a1b2c3d-dirty, built 3 Oct 2026 18:20 UTC)`.
+- `ww dfu reboot [--into updater|app]`: reboots any device implementing `ww_dfu::BootControl`, whatever its API and
+  version, through a global trait path (API-20, CLT-10).
+- `ww --version` shows the git SHA (`-dirty` with uncommitted changes) and commit time.
 - `ww api check` reports `MaxLen` bound changes: lowering or adding one is breaking, raising or removing one
   compatible (SW-19).
 - `ww api tree` shows `#[credit]` sinks; `ww api scaffold` generates their `credit_<name>` handler (API-28).

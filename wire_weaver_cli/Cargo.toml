@@ -29,6 +29,8 @@ toml = "1"
 toml_edit = "0.25"
 tracing = "0.1"
 tracing-subscriber.workspace = true
+wire_weaver.workspace = true
 wire_weaver_client.workspace = true
 
 wire_weaver_core.workspace = true
+ww_dfu = { workspace = true, features = ["std"] }

@@ -310,8 +310,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   differs.
 - ✅ **CLT-9 Connection selectors**, clear errors when no device is found, `disconnect()` releases the transport.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
-  `ww list` with filters and USB interface string metadata are done; calling `ww_stdlib` traits generically
-  from the CLI is not.
+  `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
+  its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,
+  `tests/cross_version`) and `ww dfu reboot`. Missing: CLI commands for the other `ww_stdlib` traits (firmware and
+  board info, GPIO, UART, ...).
 - 📋 **CLT-11 Typed property handles** · `v0.5` — `RwProperty`/`RoProperty`/`WoProperty` so that
   `.prop_name().read()`, `.prepare_write(1).blocking()`, `.asynch().await` work.
 - 📋 **CLT-12 Stream receive timeout** · `v0.5` — and a beat timeout between updates.

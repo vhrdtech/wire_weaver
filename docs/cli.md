@@ -52,6 +52,7 @@ spaces or quotes are inserted quoted, and values after `@` or `:` complete too (
 | [`ww introspect`](#ww-introspect)  | yes            | Prints the device's resource tree from its introspection data      |
 | [`ww api`](#ww-api)                | no             | Prints the resource tree or AST of an API crate, saves, checks and diffs snapshots, from source |
 | [`ww usb-loopback`](#ww-usb-loopback) | yes         | Runs USB loopback and throughput tests                             |
+| [`ww dfu`](#ww-dfu)                | yes, any API   | Firmware update steps through `ww_dfu` traits: `ww dfu reboot`     |
 | [`ww config`](#ww-config)          | no             | Shows or saves the device selection in a project `ww.toml`         |
 
 `ww help <command>` or `ww <command> --help` prints all options of a command.
@@ -226,6 +227,26 @@ nothing was lost or corrupted), then one-way transmit and receive speed tests, w
 
 Lost or corrupted packets usually point at the hardware rather than the software: a bad cable, a malfunctioning
 hub, a powered hub used without power, or power problems on an externally powered device.
+
+### `ww dfu`
+
+Firmware update steps through the [`ww_dfu`](std_library/ww_dfu.md) traits. These work with any device that
+implements the trait somewhere in its API, whatever the API and its version: `ww dfu` connects without the user API
+check and calls the trait through a [global trait path](api/addressing.md), which the device resolves itself. So a
+`ww` built today can still reboot a device whose firmware is years older.
+
+```
+$ ww dfu reboot --serial 4B333720
+blinky_api@0.1.0 reboots into the updater
+```
+
+| Command / option             | Default   | Description                                                                 |
+|------------------------------|-----------|-----------------------------------------------------------------------------|
+| `reboot`                     |           | `ww_dfu::BootControl::reboot`, then exits without waiting for the device    |
+| `reboot --into <TARGET>`     | `updater` | `updater` (bootloader with a transport or recovery app) or `app` (normal reset, applies a staged update) |
+
+A device without `ww_dfu::BootControl`, or with an incompatible version of `ww_dfu`, answers that it doesn't implement
+the trait. Following the device into its updater and flashing it is not done yet (CLT-21).
 
 ### `ww config`
 

@@ -1,22 +1,14 @@
 use crate::cmd::api::ApiCommand;
 use crate::cmd::bootsel::BootselCommand;
 use crate::cmd::config::ConfigCommand;
+use crate::cmd::dfu::DfuCommand;
 use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
 use crate::device::DeviceArgs;
 use clap::{Parser, Subcommand};
-/// `0.5.0 (a1b2c3d-dirty, built 3 Oct 2026 18:20 UTC)`
-const VERSION: &str = concat!(
-    env!("CARGO_PKG_VERSION"),
-    " (",
-    env!("GIT_SHA"),
-    ", built ",
-    env!("BUILD_TIME"),
-    ")"
-);
 
 #[derive(Parser)]
-#[command(name = "ww", version = VERSION, about, long_about = None)]
+#[command(name = "ww", version = env!("WW_VERSION"), about, long_about = None)]
 #[command(propagate_version = true)]
 #[command(color = clap::ColorChoice::Auto)]
 #[command(styles = clap::builder::styling::Styles::styled()
@@ -57,6 +49,10 @@ pub(crate) enum Commands {
     /// Print the resource tree of the selected device's API, using its introspection data
     Introspect(IntrospectArgs),
 
+    /// Firmware update steps (ww_dfu), on any device whatever its API version
+    #[command(subcommand)]
+    Dfu(DfuCommand),
+
     /// Show or save device selection in a project ww.toml
     #[command(subcommand)]
     Config(ConfigCommand),
@@ -81,6 +77,11 @@ pub(crate) enum Commands {
 }
 
 impl Cli {
+    /// Commands that only call global traits connect to any device, whatever its API and version
+    pub fn traits_only(&self) -> bool {
+        matches!(&self.command, Commands::Dfu(_))
+    }
+
     pub fn need_device(&self) -> bool {
         match &self.command {
             Commands::List(_) => false,
@@ -89,6 +90,7 @@ impl Cli {
             Commands::Introspect(_) => true,
             Commands::Config(_) => false,
             Commands::Bootsel(_) => false,
+            Commands::Dfu(_) => true,
             #[cfg(target_os = "linux")]
             Commands::Udev => false,
         }

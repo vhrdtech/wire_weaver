@@ -4006,8 +4006,10 @@ dependencies = [
  "toml_edit",
  "tracing",
  "tracing-subscriber",
+ "wire_weaver",
  "wire_weaver_client",
  "wire_weaver_core",
+ "ww_dfu",
 ]
 
 [[package]]

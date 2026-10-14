@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use ww_numeric::NumericValue;
 use ww_self::{ApiBundleOwned, TypeOwned, ValueOwned};
 use ww_si::Prefix;
 
@@ -187,20 +186,7 @@ impl DynPositionedStream {
 
 /// A device time in seconds, e.g. `t` of a [StreamEvent::Item].
 pub fn seconds(t: &Second) -> f64 {
-    let value = match t.value {
-        NumericValue::U8(v) => v as f64,
-        NumericValue::U16(v) => v as f64,
-        NumericValue::U32(v) | NumericValue::UNib32(v) => v as f64,
-        NumericValue::U64(v) => v as f64,
-        NumericValue::U128(v) => v as f64,
-        NumericValue::I8(v) => v as f64,
-        NumericValue::I16(v) => v as f64,
-        NumericValue::I32(v) => v as f64,
-        NumericValue::I64(v) => v as f64,
-        NumericValue::I128(v) => v as f64,
-        NumericValue::F64(v) => v,
-        other => other.as_f32() as f64,
-    };
+    let value = t.value.to_f64();
     let exp = match t.prefix {
         Prefix::Unit => 0,
         Prefix::Milli => -3,
@@ -234,6 +220,7 @@ pub fn seconds(t: &Second) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ww_numeric::NumericValue;
 
     #[test]
     fn seconds_of_device_times() {

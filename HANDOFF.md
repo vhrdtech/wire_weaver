@@ -81,3 +81,4 @@ Prompt common part: $CLAUDE_JOB_DIR/tmp/common.txt (not durable; it is in each c
   its piece 7 migrates the IO family after its codegen lands. Not our work now.
 - DOC-6 (ww-rustdoc-traits): #[ww_trait] becomes a real trait: traits pub, lifetimes written out; told all children. master at f6292ff (cnt-examples, subbyte-fields landed).
 - Integrated (cherry-pick onto our branch, after rebase on master f6292ff): io-adc dfe91744 (children git rm HANDOFF.md: keep ours on conflict).
+- Integrated: io-pwm f731a726, io-uart dcb342f2, io-timebase 08e97f1b (FEATURES conflicts each time: done items go up to the ✅ block of STD; keep the STD-13 line ours). Workspace check green; examples_mcu not yet checked (usb_stm32h725ig uses ww_uart). Waiting: gpio, i2c, spi, onewire, si-numeric, logic-analyzer (SW-50).

@@ -5,7 +5,9 @@ use syn::{File, Item, Path, parse2};
 use crate::{
     args::Args,
     ast::{item_enum::ItemEnum, item_struct::ItemStruct, object_size::ObjectSize, repr::Repr},
-    codegen::{fixed_layout, item_enum::CGItemEnum, item_struct::CGItemStruct, util::CratePath},
+    codegen::{
+        fixed_layout, head_tail, item_enum::CGItemEnum, item_struct::CGItemStruct, util::CratePath,
+    },
     transform::docs_util::add_notes,
 };
 
@@ -64,7 +66,12 @@ pub fn shrink_wrap_derive(item: TokenStream) -> TokenStream {
 
 fn shrink_wrap_attr_inner(item: Item, args: Args) -> Result<TokenStream, String> {
     let (ty_kind, name) = TyKind::from_item(&item)?;
-    if matches!(ty_kind, TyKind::Ambiguous) && args.borrowed.is_none() && args.owned.is_none() {
+    // a head_tail type has one version, nothing to choose
+    if matches!(ty_kind, TyKind::Ambiguous)
+        && args.borrowed.is_none()
+        && args.owned.is_none()
+        && !args.head_tail
+    {
         return Err(
             "Ambiguous declaration, add `Owned` to type name, add borrowed or owned directive, or use PhantomData to capture a lifetime".into(),
         );
@@ -78,6 +85,9 @@ fn generate_inner(
     name: String,
     mut args: Args,
 ) -> Result<TokenStream, String> {
+    if args.head_tail {
+        return head_tail_inner(item, ty_kind, name, args);
+    }
     // `fixed_layout` implies `sized` on a struct, before the size assumption goes into the generated code
     let fixed_struct = match &item {
         Item::Struct(item_struct) => fixed_layout::struct_size_assumption(
@@ -253,6 +263,81 @@ fn generate_inner(
                 }
                 ts.append_all(cg_item_struct.serdes_rust(false));
             }
+        }
+        _ => {}
+    }
+    Ok(ts)
+}
+
+/// A `head_tail` type (SW-46): the type itself, its discriminant fn, and the head+tail code instead of shrink_wrap's
+/// serdes. One type, borrowed: it reads from the buffer without copying.
+fn head_tail_inner(
+    item: Item,
+    ty_kind: TyKind,
+    name: String,
+    args: Args,
+) -> Result<TokenStream, String> {
+    if args.owned.is_some() || matches!(ty_kind, TyKind::ExplicitOwned) {
+        return Err(
+            "head_tail: a head_tail type borrows from the buffer; there is no owned version".into(),
+        );
+    }
+    if args.fixed_layout {
+        return Err("head_tail: a type is either fixed_layout or head_tail, not both".into());
+    }
+    if args.size_assumption.is_some() {
+        return Err(
+            "head_tail: sized, final_structure and self_describing are shrink_wrap's; a head_tail type has its \
+             own encoding. Remove them"
+                .into(),
+        );
+    }
+    let has_lifetime = matches!(ty_kind, TyKind::ImpliedRef);
+    let crate_path = crate_path(args.crate_path);
+    let seed = CGSeed::new(
+        Ident::new(&name, Span::call_site()),
+        args.borrowed.flatten(),
+        args.cfg_attr_borrowed,
+        &args.cfg_attr,
+        args.derive_borrowed,
+        &args.derive,
+        None,
+        !has_lifetime,
+        &crate_path,
+    );
+    let names = head_tail::Names {
+        ident: seed.ident.clone(),
+        has_lifetime,
+    };
+    let mut ts = TokenStream::new();
+    match &item {
+        Item::Enum(item_enum) => {
+            let Some(repr) = args.ww_repr else {
+                return Err("For enums, ww_repr must be specified".into());
+            };
+            let ww_item_enum = ItemEnum::from_syn(item_enum, repr)?;
+            let cg = seed.cg_enum(&ww_item_enum, repr);
+            ts.append_all(cg.def_rust(true));
+            ts.append_all(cg.impl_discriminant(true));
+            ts.append_all(head_tail::ht_enum(
+                &names,
+                repr,
+                &ww_item_enum.variants,
+                &crate_path,
+            )?);
+        }
+        Item::Struct(item_struct) => {
+            if args.ww_repr.is_some() {
+                return Err("structs must not have a ww_repr".into());
+            }
+            let ww_item_struct = ItemStruct::from_syn(item_struct)?;
+            let cg = seed.cg_struct(&ww_item_struct);
+            ts.append_all(cg.def_rust(true));
+            ts.append_all(head_tail::ht_struct(
+                &names,
+                &ww_item_struct.fields,
+                &crate_path,
+            )?);
         }
         _ => {}
     }

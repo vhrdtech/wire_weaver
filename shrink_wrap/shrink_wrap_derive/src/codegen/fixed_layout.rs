@@ -18,7 +18,7 @@ use quote::{format_ident, quote};
 use syn::LitStr;
 
 #[derive(Clone, Copy, Debug)]
-enum Prim {
+pub(crate) enum Prim {
     U8,
     U16,
     U32,
@@ -32,7 +32,7 @@ enum Prim {
 }
 
 impl Prim {
-    fn of(ty: &Type) -> Option<Prim> {
+    pub(crate) fn of(ty: &Type) -> Option<Prim> {
         Some(match ty {
             Type::U8 => Prim::U8,
             Type::U16 => Prim::U16,
@@ -48,7 +48,7 @@ impl Prim {
         })
     }
 
-    fn bytes(self) -> usize {
+    pub(crate) fn bytes(self) -> usize {
         match self {
             Prim::U8 | Prim::I8 => 1,
             Prim::U16 | Prim::I16 => 2,
@@ -57,7 +57,7 @@ impl Prim {
         }
     }
 
-    fn rust(self) -> TokenStream {
+    pub(crate) fn rust(self) -> TokenStream {
         match self {
             Prim::U8 => quote! { u8 },
             Prim::U16 => quote! { u16 },
@@ -72,7 +72,7 @@ impl Prim {
         }
     }
 
-    fn c_ty(self) -> &'static str {
+    pub(crate) fn c_ty(self) -> &'static str {
         match self {
             Prim::U8 => "uint8_t",
             Prim::U16 => "uint16_t",
@@ -88,7 +88,7 @@ impl Prim {
     }
 
     /// C expression reading the value at `ptr` (C text).
-    fn c_load(self, ptr: &str) -> String {
+    pub(crate) fn c_load(self, ptr: &str) -> String {
         match self {
             Prim::U8 => format!("sw_fixed_u8({ptr})"),
             Prim::U16 => format!("sw_fixed_u16({ptr})"),
@@ -106,7 +106,7 @@ impl Prim {
 
 /// A bit field.
 #[derive(Clone, Debug)]
-enum Bits {
+pub(crate) enum Bits {
     Bool,
     Nibble,
     /// `U1`..`U32`, its type name.
@@ -116,7 +116,7 @@ enum Bits {
 }
 
 #[derive(Clone, Debug)]
-enum Kind {
+pub(crate) enum Kind {
     Prim(Prim),
     Array(ArrayLen, Prim),
     /// Another fixed-layout type, `FixedLayout` is checked by the compiler.
@@ -135,7 +135,7 @@ impl Kind {
 }
 
 /// How `ty` is laid out, or why it has no fixed layout and what to use instead.
-fn classify(ty: &Type) -> Result<Kind, String> {
+pub(crate) fn classify(ty: &Type) -> Result<Kind, String> {
     if let Some(prim) = Prim::of(ty) {
         return Ok(Kind::Prim(prim));
     }
@@ -241,14 +241,14 @@ fn classify(ty: &Type) -> Result<Kind, String> {
 }
 
 /// One field to lay out: its name (consts, C, locals), its Rust ident (`None` for a flag), its type, `#[default]`.
-struct Item<'a> {
-    name: String,
-    ident: Option<Ident>,
-    ty: &'a Type,
-    has_default: bool,
+pub(crate) struct Item<'a> {
+    pub(crate) name: String,
+    pub(crate) ident: Option<Ident>,
+    pub(crate) ty: &'a Type,
+    pub(crate) has_default: bool,
 }
 
-fn struct_items(fields: &[Field]) -> Vec<Item<'_>> {
+pub(crate) fn struct_items(fields: &[Field]) -> Vec<Item<'_>> {
     fields
         .iter()
         .map(|f| {
@@ -267,7 +267,7 @@ fn struct_items(fields: &[Field]) -> Vec<Item<'_>> {
         .collect()
 }
 
-fn variant_items(v: &Variant) -> Result<Vec<Item<'_>>, String> {
+pub(crate) fn variant_items(v: &Variant) -> Result<Vec<Item<'_>>, String> {
     Ok(match &v.fields {
         Fields::Named(named) => struct_items(named),
         Fields::Unnamed(unnamed) => {
@@ -296,7 +296,7 @@ fn variant_items(v: &Variant) -> Result<Vec<Item<'_>>, String> {
     })
 }
 
-fn unraw(ident: &Ident) -> String {
+pub(crate) fn unraw(ident: &Ident) -> String {
     let s = ident.to_string();
     s.strip_prefix("r#").map(str::to_string).unwrap_or(s)
 }
@@ -317,17 +317,17 @@ pub(crate) fn snake(name: &str) -> String {
     out
 }
 
-fn lit_str(s: &str) -> LitStr {
+pub(crate) fn lit_str(s: &str) -> LitStr {
     LitStr::new(s, Span::call_site())
 }
 
-fn lit(n: usize) -> Literal {
+pub(crate) fn lit(n: usize) -> Literal {
     Literal::usize_unsuffixed(n)
 }
 
 /// Where a field starts.
 #[derive(Clone)]
-enum At {
+pub(crate) enum At {
     /// Byte offset, a const path.
     Byte(TokenStream),
     /// Bit offset from the start of the value, a const path.
@@ -624,12 +624,12 @@ fn payload_min(kind: &Kind, cp: &CratePath) -> TokenStream {
 }
 
 /// Local holding a field's value while reading.
-fn local(name: &str) -> Ident {
+pub(crate) fn local(name: &str) -> Ident {
     format_ident!("__f_{}", name)
 }
 
 /// Local holding a flag while reading, by the name of its Option or Result field.
-fn flag_local(target: &str) -> Ident {
+pub(crate) fn flag_local(target: &str) -> Ident {
     format_ident!("__flag_{}", target)
 }
 
@@ -694,53 +694,70 @@ fn payload_len(kind: &Kind, v: &TokenStream, cp: &CratePath) -> TokenStream {
     }
 }
 
-/// The reads of a layout: `let` statements, one local per field, from `b` (the head, an array) and `buf` (all).
-fn reads(layout: &Layout, cp: &CratePath) -> Vec<TokenStream> {
+/// Reads a number, array or bit field (`kind` at `at`) from `b` into the local `local`, flags into their flag
+/// local; `None` for other kinds.
+pub(crate) fn read_simple(
+    kind: &Kind,
+    at: &At,
+    local: &Ident,
+    cp: &CratePath,
+) -> Option<TokenStream> {
     let take = cp.item(quote! { fixed_layout::take });
     let get_bits = cp.item(quote! { fixed_layout::get_bits });
-    let fixed = cp.item(quote! { fixed_layout::FixedLayout });
     let nibble = cp.item(quote! { Nibble });
+    Some(match (kind, at) {
+        (Kind::Prim(prim), At::Byte(off)) => {
+            let n = prim.bytes();
+            let ty = prim.rust();
+            quote! { let #local = <#ty>::from_le_bytes(#take::<#n>(b, #off)); }
+        }
+        (Kind::Array(len, Prim::U8), At::Byte(off)) => {
+            quote! { let #local = #take::<{ #len }>(b, #off); }
+        }
+        (Kind::Array(_, prim), At::Byte(off)) => {
+            let n = prim.bytes();
+            let ty = prim.rust();
+            quote! {
+                let #local = ::core::array::from_fn(|i| <#ty>::from_le_bytes(#take::<#n>(b, #off + i * #n)));
+            }
+        }
+        (Kind::Bits(n, bits), At::Bit(off)) => {
+            let n = *n;
+            let raw = quote! { #get_bits(b, #off, #n) };
+            let value = match bits {
+                Bits::Bool => quote! { #raw != 0 },
+                Bits::Nibble => quote! { #nibble::new_masked(#raw as u8) },
+                Bits::Unsigned(ty) | Bits::Signed(ty) => {
+                    quote! { #ty::__from_wire(#raw as u64) }
+                }
+            };
+            quote! { let #local = #value; }
+        }
+        (Kind::Flag(target), At::Bit(off)) => {
+            let flag = flag_local(&unraw(target));
+            quote! { let #flag = #get_bits(b, #off, 1) != 0; }
+        }
+        _ => return None,
+    })
+}
+
+/// The reads of a layout: `let` statements, one local per field, from `b` (the head, an array) and `buf` (all).
+fn reads(layout: &Layout, cp: &CratePath) -> Vec<TokenStream> {
+    let fixed = cp.item(quote! { fixed_layout::FixedLayout });
     let error = cp.error();
     let mut out = Vec::new();
     for p in &layout.placed {
         let local = local(&p.item.name);
+        if let Some(stmt) = read_simple(&p.kind, &p.at, &local, cp) {
+            out.push(stmt);
+            continue;
+        }
         let stmt = match (&p.kind, &p.at) {
-            (Kind::Prim(prim), At::Byte(off)) => {
-                let n = prim.bytes();
-                let ty = prim.rust();
-                quote! { let #local = <#ty>::from_le_bytes(#take::<#n>(b, #off)); }
-            }
-            (Kind::Array(len, Prim::U8), At::Byte(off)) => {
-                quote! { let #local = #take::<{ #len }>(b, #off); }
-            }
-            (Kind::Array(_, prim), At::Byte(off)) => {
-                let n = prim.bytes();
-                let ty = prim.rust();
-                quote! {
-                    let #local = ::core::array::from_fn(|i| <#ty>::from_le_bytes(#take::<#n>(b, #off + i * #n)));
-                }
-            }
             (Kind::Nested(ty), At::Byte(off)) if layout.tail && is_last(layout, p) => quote! {
                 let #local = <#ty as #fixed>::read_fixed(buf.get(#off..).ok_or(#error::OutOfBoundsReadRawSlice)?)?;
             },
             (Kind::Nested(ty), At::Byte(off)) => {
                 quote! { let #local = <#ty as #fixed>::read_fixed(&b[#off..])?; }
-            }
-            (Kind::Bits(n, bits), At::Bit(off)) => {
-                let n = *n;
-                let raw = quote! { #get_bits(b, #off, #n) };
-                let value = match bits {
-                    Bits::Bool => quote! { #raw != 0 },
-                    Bits::Nibble => quote! { #nibble::new_masked(#raw as u8) },
-                    Bits::Unsigned(ty) | Bits::Signed(ty) => {
-                        quote! { #ty::__from_wire(#raw as u64) }
-                    }
-                };
-                quote! { let #local = #value; }
-            }
-            (Kind::Flag(target), At::Bit(off)) => {
-                let flag = flag_local(&unraw(target));
-                quote! { let #flag = #get_bits(b, #off, 1) != 0; }
             }
             (Kind::Option(payload), At::Byte(off)) => {
                 let flag = flag_local(&p.item.name);
@@ -783,6 +800,44 @@ fn construct_fields(layout: &Layout, named: bool) -> Vec<TokenStream> {
 /// Reference to the field of this name, given how fields are reached (`self.x` or a binding).
 type Access<'f> = &'f dyn Fn(&str) -> TokenStream;
 
+/// Writes a number, array or bit field (`kind` at `at`, the value a reference `acc`) into `b`, whose bit field
+/// bytes are cleared; `None` for other kinds (flags too: they need the field they are for).
+pub(crate) fn write_simple(
+    kind: &Kind,
+    at: &At,
+    acc: &TokenStream,
+    cp: &CratePath,
+) -> Option<TokenStream> {
+    let put_bits = cp.item(quote! { fixed_layout::put_bits });
+    Some(match (kind, at) {
+        (Kind::Prim(prim), At::Byte(off)) => {
+            let n = prim.bytes();
+            quote! { b[#off..#off + #n].copy_from_slice(&(*#acc).to_le_bytes()); }
+        }
+        (Kind::Array(len, Prim::U8), At::Byte(off)) => {
+            quote! { b[#off..#off + (#len)].copy_from_slice(&(*#acc)[..]); }
+        }
+        (Kind::Array(_, prim), At::Byte(off)) => {
+            let n = prim.bytes();
+            quote! {
+                for (i, v) in (*#acc).iter().enumerate() {
+                    b[#off + i * #n..#off + (i + 1) * #n].copy_from_slice(&v.to_le_bytes());
+                }
+            }
+        }
+        (Kind::Bits(n, bits), At::Bit(off)) => {
+            let n = *n;
+            let raw = match bits {
+                Bits::Bool => quote! { (*#acc) as u32 },
+                Bits::Nibble => quote! { (*#acc).value() as u32 },
+                Bits::Unsigned(_) | Bits::Signed(_) => quote! { (*#acc).__to_wire() as u32 },
+            };
+            quote! { #put_bits(b, #off, #n, #raw); }
+        }
+        _ => return None,
+    })
+}
+
 /// The writes of a layout into `b` (the whole value, its length checked), bit field bytes cleared first.
 fn writes(layout: &Layout, access: Access, cp: &CratePath) -> Vec<TokenStream> {
     let put_bits = cp.item(quote! { fixed_layout::put_bits });
@@ -795,33 +850,13 @@ fn writes(layout: &Layout, access: Access, cp: &CratePath) -> Vec<TokenStream> {
     }
     for p in &layout.placed {
         let acc = access(&p.item.name);
+        if let Some(stmt) = write_simple(&p.kind, &p.at, &acc, cp) {
+            out.push(stmt);
+            continue;
+        }
         let stmt = match (&p.kind, &p.at) {
-            (Kind::Prim(prim), At::Byte(off)) => {
-                let n = prim.bytes();
-                quote! { b[#off..#off + #n].copy_from_slice(&(*#acc).to_le_bytes()); }
-            }
-            (Kind::Array(len, Prim::U8), At::Byte(off)) => {
-                quote! { b[#off..#off + (#len)].copy_from_slice(&(*#acc)[..]); }
-            }
-            (Kind::Array(_, prim), At::Byte(off)) => {
-                let n = prim.bytes();
-                quote! {
-                    for (i, v) in (*#acc).iter().enumerate() {
-                        b[#off + i * #n..#off + (i + 1) * #n].copy_from_slice(&v.to_le_bytes());
-                    }
-                }
-            }
             (Kind::Nested(ty), At::Byte(off)) => {
                 quote! { <#ty as #fixed>::write_fixed(#acc, &mut b[#off..])?; }
-            }
-            (Kind::Bits(n, bits), At::Bit(off)) => {
-                let n = *n;
-                let raw = match bits {
-                    Bits::Bool => quote! { (*#acc) as u32 },
-                    Bits::Nibble => quote! { (*#acc).value() as u32 },
-                    Bits::Unsigned(_) | Bits::Signed(_) => quote! { (*#acc).__to_wire() as u32 },
-                };
-                quote! { #put_bits(b, #off, #n, #raw); }
             }
             (Kind::Flag(target), At::Bit(off)) => {
                 let target_name = unraw(target);
@@ -883,21 +918,37 @@ fn len_expr(layout: &Layout, access: Access, cp: &CratePath) -> TokenStream {
 /// `writeln!` calls emitting the C defines and readers of a layout; `c_name` is the snake name of the struct or
 /// variant.
 fn c_fields(ty_ident: &Ident, prefix: &str, c_name: &str, layout: &Layout) -> Vec<TokenStream> {
-    let upper = c_name.to_uppercase();
     let mut out = Vec::new();
     for p in &layout.placed {
-        let fu = p.item.name.to_uppercase();
-        let func = format!("{c_name}_{}", p.item.name);
-        match (&p.kind, &p.at) {
-            (Kind::Bits(..) | Kind::Flag(_), At::Bit(_)) => {
-                let n = match &p.kind {
+        out.extend(c_field(ty_ident, prefix, c_name, &p.item.name, &p.kind));
+    }
+    out
+}
+
+/// The C defines and reader of the field `name` (`kind`), from the consts `{prefix}{NAME}_OFFSET` (or
+/// `_BIT_OFFSET`) of `ty_ident`; `c_name` is the snake name of the struct or variant.
+pub(crate) fn c_field(
+    ty_ident: &Ident,
+    prefix: &str,
+    c_name: &str,
+    name: &str,
+    kind: &Kind,
+) -> Vec<TokenStream> {
+    let upper = c_name.to_uppercase();
+    let mut out = Vec::new();
+    {
+        let fu = name.to_uppercase();
+        let func = format!("{c_name}_{name}");
+        match kind {
+            Kind::Bits(..) | Kind::Flag(_) => {
+                let n = match kind {
                     Kind::Bits(n, _) => *n,
                     _ => 1,
                 };
                 let off_const = format_ident!("{prefix}{fu}_BIT_OFFSET");
                 let define = lit_str(&format!("#define {{}}{upper}_{fu}_BIT_OFFSET {{}}u"));
                 let define_n = lit_str(&format!("#define {{}}{upper}_{fu}_BITS {n}u"));
-                let signed = matches!(&p.kind, Kind::Bits(_, Bits::Signed(_)));
+                let signed = matches!(kind, Kind::Bits(_, Bits::Signed(_)));
                 let text = if signed {
                     format!(
                         "static inline int32_t {{}}{func}(const uint8_t *p) {{{{ return sw_fixed_sbits(p, {{}}u, {n}u); }}}}"
@@ -914,7 +965,7 @@ fn c_fields(ty_ident: &Ident, prefix: &str, c_name: &str, layout: &Layout) -> Ve
                     ::core::writeln!(out, #text, prefix, #ty_ident::#off_const)?;
                 });
             }
-            (kind, At::Byte(_)) => {
+            kind => {
                 let off_const = format_ident!("{prefix}{fu}_OFFSET");
                 let define = lit_str(&format!("#define {{}}{upper}_{fu}_OFFSET {{}}u"));
                 out.push(quote! { ::core::writeln!(out, #define, up, #ty_ident::#off_const)?; });
@@ -952,7 +1003,6 @@ fn c_fields(ty_ident: &Ident, prefix: &str, c_name: &str, layout: &Layout) -> Ve
                     }
                 }
             }
-            _ => unreachable!("bit fields have bit offsets, the rest byte offsets"),
         }
     }
     out
@@ -1060,6 +1110,7 @@ pub(crate) fn fixed_struct(
          [fixed_len](Self::fixed_len) bytes, the same unless the last field has a variable length."
     ));
 
+    let ht_impl = fixed_head_tail(ident, cp);
     Ok(Some(quote! {
         #(#asserts)*
 
@@ -1129,11 +1180,13 @@ pub(crate) fn fixed_struct(
                 Ok(())
             }
         }
+
+        #ht_impl
     }))
 }
 
 /// Byte width of a byte-aligned enum discriminant.
-fn repr_bytes(repr: Repr) -> Option<(usize, Prim)> {
+pub(crate) fn repr_bytes(repr: Repr) -> Option<(usize, Prim)> {
     match repr {
         Repr::U8 => Some((1, Prim::U8)),
         Repr::U16 => Some((2, Prim::U16)),
@@ -1387,6 +1440,7 @@ pub(crate) fn fixed_enum(
     let first_min = &min_names[0];
     let rest_min = &min_names[1..];
 
+    let ht_impl = fixed_head_tail(ident, cp);
     Ok(Some(quote! {
         #(#asserts)*
 
@@ -1472,5 +1526,55 @@ pub(crate) fn fixed_enum(
                 Ok(())
             }
         }
+
+        #ht_impl
     }))
+}
+
+/// `HeadTail` for a fixed-layout type, so that `head_tail` types can hold it: one of a single length is all head,
+/// any other all tail.
+fn fixed_head_tail(ident: &Ident, cp: &CratePath) -> TokenStream {
+    let error = cp.error();
+    let ht = cp.item(quote! { head_tail::HeadTail });
+    let tail = cp.item(quote! { head_tail::Tail });
+    let tail_wr = cp.item(quote! { head_tail::TailWr });
+    let fixed = cp.item(quote! { fixed_layout::FixedLayout });
+    let c_name = lit_str(&snake(&ident.to_string()));
+    quote! {
+        impl<'i> #ht<'i> for #ident {
+            const HEAD_LEN: usize = if #ident::SAME_LEN { #ident::ENCODED_LEN } else { 0 };
+            const C_NAME: &'static str = #c_name;
+            const C_TAIL: bool = false;
+
+            #[inline]
+            fn read_ht(head: &'i [u8], tail: &mut #tail<'i>) -> Result<Self, #error> {
+                if #ident::SAME_LEN {
+                    #ident::from_fixed(head)
+                } else {
+                    let v = #ident::from_fixed(tail.rest())?;
+                    tail.take(v.fixed_len())?;
+                    Ok(v)
+                }
+            }
+
+            #[inline]
+            fn write_ht(&self, head: &mut [u8], tail: &mut #tail_wr) -> Result<(), #error> {
+                if #ident::SAME_LEN {
+                    self.to_fixed(head)?;
+                } else {
+                    self.to_fixed(tail.put(self.fixed_len())?)?;
+                }
+                Ok(())
+            }
+
+            #[inline]
+            fn tail_len(&self) -> usize {
+                if #ident::SAME_LEN { 0 } else { self.fixed_len() }
+            }
+
+            fn write_c_ht(prefix: &str, out: &mut dyn ::core::fmt::Write) -> ::core::fmt::Result {
+                <#ident as #fixed>::write_c(prefix, out)
+            }
+        }
+    }
 }

@@ -33,6 +33,8 @@ pub(crate) struct Args {
     /// `fixed_layout`: the type must have a fixed byte layout (SW-44), a compile error names the field that breaks
     /// it. Without it, a type that has one gets the fast path anyway.
     pub(crate) fixed_layout: bool,
+    /// `head_tail`: a fixed head and a sequential tail (SW-46) instead of shrink_wrap's own encoding.
+    pub(crate) head_tail: bool,
 }
 
 impl Parse for Args {
@@ -50,6 +52,7 @@ impl Parse for Args {
         let mut ww_repr = None;
         let mut crate_path = None;
         let mut fixed_layout = false;
+        let mut head_tail = false;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -106,6 +109,9 @@ impl Parse for Args {
                 "fixed_layout" => {
                     fixed_layout = true;
                 }
+                "head_tail" => {
+                    head_tail = true;
+                }
                 "discriminants" => {
                     discriminants_enum = true;
                 }
@@ -147,6 +153,7 @@ impl Parse for Args {
             ww_repr,
             crate_path,
             fixed_layout,
+            head_tail,
         })
     }
 }
@@ -154,7 +161,7 @@ impl Parse for Args {
 const SUPPORTED_DIRECTIVES: &str = "borrowed(..), owned, owned(..), \
 cfg_attr(..), cfg_attr_owned(..), cfg_attr_borrowed(..), \
 derive(..), derive_owned(..), derive_borrowed(..), \
-final_structure, self_describing, sized, fixed_layout, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, non_exhaustive, crate_path(..)";
+final_structure, self_describing, sized, fixed_layout, head_tail, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, non_exhaustive, crate_path(..)";
 
 /// Parses a required `(Path1, Path2, ..)`, like Rust's own `#[derive(..)]`
 fn parse_path_list_paren(input: ParseStream) -> syn::Result<Vec<Path>> {

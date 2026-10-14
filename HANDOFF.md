@@ -21,6 +21,8 @@ Design of errors and the trait surface for all APIs (Roman's IO family review, 1
 - Rebase with plain `git rebase origin/master` before ready (local master lags origin).
 
 ## Gotchas
+- Roman's policy (14 Oct): until devices go to testers (end of 2026) wire breaks are fine, no shims or migration
+  paths for undeployed formats (usb_io_fw docs/api_design.md Q13). The migration task just breaks.
 - ww_i2c's `I2cReadKind` gets `Unknown` too; its CHANGELOG lives on the ww-io-traits branch, so no entry here.
 - Stdlib enums complete by nature (`ww_uart` `StopBits`, `Parity`) got `Unknown` as well: the migration task should
   mark them `no_future_version`.

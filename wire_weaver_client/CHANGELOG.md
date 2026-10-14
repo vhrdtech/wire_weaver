@@ -7,13 +7,14 @@
   compatible (`max length raised`). The dynamic client checks bounds of arguments and sink writes.
 - `Sink::send_owned()` for sinks of owned types that hold a `Vec` or `String` (`FooOwned`, which implement
   `SerializeShrinkWrapOwned`, not `SerializeShrinkWrap`); `send()` could not send them.
-- Credit sinks (`#[credit] sink!(..)`, API-28, `docs/api/streams.md`): `Sink::send()` / `send_blocking()` wait
-  until the device granted room for the value, `try_send()` / `try_send_bytes()` return `false` instead (for promise
+- Credit sinks (`#[credit] sink!(..)`, API-28, `docs/api/streams.md`), credit counted in values: `Sink::send()` /
+  `send_blocking()` / `send_owned()` wait until the device granted a slot for the value, `try_send()` / `try_send_bytes()` return `false` instead (for promise
   style code), `flush()` / `flush_blocking()` / `try_flush()` wait until the device accepted everything, lost writes
   are sent again from the device's position (go-back-N), `close()` flushes first. `CreditConfig` (query interval and
   stall timeout) via `Sink::set_credit_config()`, `Sink::credit_progress()` for progress bars. `DynSink` speaks it
   too. `Commander::prepare_credit_sink()` / `_blocking()`.
-- `Sink::send_blocking()` for typed sinks, `Sink::try_send()`; values are no longer limited to 1024 bytes.
+- `Sink::send_blocking()` for typed sinks, `Sink::try_send()`, `send_owned_blocking()`, `try_send_owned()`; values are
+  no longer limited to 1024 bytes.
 - Compatibility checks (device vs host on connect, and `ww api` evolution checks) treat `sized` and `self_describing`
   as the same layout: a type can move between the two without being reported as breaking (SW-35).
 - `Sink::recv_sideband()`, `recv_sideband_blocking()`, `try_recv_sideband()` and `recv_any()` / `recv_any_blocking()`:

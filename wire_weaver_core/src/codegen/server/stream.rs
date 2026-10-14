@@ -5,7 +5,9 @@ use crate::codegen::{index_chain::IndexChain, ty_def::TyPos};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess};
+use ww_self::{
+    ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess, TypeOwned,
+};
 
 pub(crate) fn stream_ser_methods_recursive(
     bundle: &ApiBundleOwned,
@@ -60,6 +62,9 @@ pub(crate) fn stream_ser_methods_recursive(
                 &let_index_chain,
                 is_array,
             ));
+        }
+        if let ApiItemKindOwned::FlowSink { ty, .. } = &item.kind {
+            methods_ts.extend(max_element_bytes(bundle, item.ident.as_str(), ty));
         }
         // streams going out of the device, and observable properties, whose updates are sent as stream data
         let (ty, kind) = match &item.kind {
@@ -165,7 +170,7 @@ pub(crate) fn stream_ser_methods_recursive(
         is_root,
         quote! {
             /// Serializers of stream updates and property change notifications (sent as stream data on the property's path).
-            pub fn stream_data_ser() -> #ser_struct_name {
+            pub const fn stream_data_ser() -> #ser_struct_name {
                 #ser_struct_name {}
             }
         },
@@ -184,6 +189,36 @@ pub(crate) fn stream_ser_methods_recursive(
         #child_ts
     });
     ts
+}
+
+/// Worst-case size of one element of a sink with flow control, to size its receive queue in element slots.
+fn max_element_bytes(bundle: &ApiBundleOwned, ident: &str, ty: &TypeOwned) -> TokenStream {
+    let name = Ident::new(
+        format!("{ident}_max_element_bytes").as_str(),
+        Span::call_site(),
+    );
+    let doc = format!(
+        "Worst-case serialized size of one `{ident}` element in bytes, to size the receive queue in element slots \
+         (`SinkCredit::slots_for`). None when no upper bound is known (unsized types, byte slices)."
+    );
+    let body = if ty.is_byte_slice(bundle).unwrap() {
+        quote! { None }
+    } else {
+        let ty_def = ty_def(bundle, ty, false, TyPos::Annotation).unwrap();
+        quote! {
+            // TODO(SW-19): the MaxLen bound of bounded unsized types
+            match <#ty_def as wire_weaver::shrink_wrap::SerializeShrinkWrap>::ELEMENT_SIZE {
+                wire_weaver::shrink_wrap::ElementSize::Sized { size_bits } => Some(size_bits.div_ceil(8) as u32),
+                _ => None,
+            }
+        }
+    };
+    quote! {
+        #[doc = #doc]
+        pub const fn #name(&self) -> Option<u32> {
+            #body
+        }
+    }
 }
 
 /// Sideband events sent by the device on its own, not as a reply to a sideband request from the host.

@@ -20,7 +20,8 @@ trait CreditSinks {
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
-    derive(Debug, PartialEq, Eq, Clone, Copy)
+    derive(Debug, PartialEq, Eq, Clone, Copy),
+    sized
 )]
 pub struct Point {
     pub x: i16,

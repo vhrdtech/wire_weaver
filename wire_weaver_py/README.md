@@ -31,8 +31,8 @@ dev.disconnect()
 ```
 
 A sink marked `#[credit]` in the API (`sink.credit` is `True`) has flow control: `send()` waits until the device has
-room for the value, `flush()` waits until it accepted everything (lost values are sent again), `close()` flushes,
-`sink.progress` is `(accepted, sent)` bytes, `sink.set_credit_config(query_interval=1.0, stall_timeout=30.0)` tunes it
+a slot for the value, `flush()` waits until it accepted everything (lost values are sent again), `close()` flushes,
+`sink.progress` is `(accepted, sent)` values, `sink.set_credit_config(query_interval=1.0, stall_timeout=30.0)` tunes it
 to a slow link. See `docs/api/streams.md`.
 
 A method returning `Result<T, E>` returns `T`, or raises `ww.RemoteError` with `E` in its `value` attribute. A request

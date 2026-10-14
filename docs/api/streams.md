@@ -122,21 +122,24 @@ trait Updater {
 }
 ```
 
-The device grants the host **credit in bytes**: the host may only send what fits into the space the device said it
-has. The host waits (async), blocks (blocking) or returns "would block" (`try_send`, for GUIs and promises) when it is
-out of credit, so it never outruns the device's RAM, however slow the device or fast the link is.
+The device grants the host **credit in elements**: one element is one value of the sink's type (one write), whatever
+its type and size. The host may only send as many values as the device said it has slots for. The host waits (async),
+blocks (blocking) or returns "would block" (`try_send`, for GUIs and promises) when it is out of credit, so it never
+outruns the device's receive queue, however slow the device or fast the link is.
 
-### Why bytes and not messages
+### Why elements and not bytes
 
-Credit counts the serialized bytes of the sink's values (what the device's write handler gets), not messages:
+A sink carries any type, and the device keeps what it received as values of that type, so it thinks in values:
 
-* a device buffer is a number of bytes, and sink values often vary in size (`[u8]` chunks, `Vec<Frame>`), so a
-  message count can't bound RAM unless every message is assumed to be the largest one;
-* for fixed-size values, bytes are just messages times their size, nothing is lost;
-* byte positions give the host an exact place to resume from after a loss, and stay meaningful when the host changes
-  its chunk size.
+* the device sizes its receive queue in element slots, for the worst-case element size: `slots = buffer bytes / max
+  element size` (`SinkCredit::slots_for`). Generated `stream_data_ser().<sink>_max_element_bytes()` gives that size
+  where it is known (`sized` types today; the bound of bounded types once SW-19 `MaxLen` lands, `None` until then,
+  e.g., for `[u8]`), so the user decides the slot size from the API rather than guessing;
+* positions count values, so a resend starts at a value boundary by construction, and the numbers stay small (a
+  position costs 1 byte for the first 128 values of a session);
+* the host never has to know how the device stores a value.
 
-Framing and request overhead is not counted, it depends on the medium and is never stored by the device.
+The price: a device that queues variable-size values in a byte buffer has to reserve the worst case per slot.
 
 ### Wire format
 
@@ -144,31 +147,32 @@ A credit sink is a different resource kind from a plain sink (`ApiItemKind::Flow
 }` in `ww_self`), so introspection, the dynamic client and the Python client know to speak this protocol, and turning
 a plain sink into a credit sink is an API break (its writes change).
 
-Each write carries its **position**: the byte offset of this value from the start of the session, followed by the
-value itself, as `ww_client_server::CreditWrite { pos: UVlq32, data: TailBytes }` inside `RequestKind::Write`. That
-costs 1 byte for the first 128 bytes of a session, 2 bytes up to 16 KiB, 3 bytes up to 2 MiB.
+Each write carries its **position**: the index of this value from the start of the session, followed by the value
+itself, as `ww_client_server::CreditWrite { pos: UVlq32, data: TailBytes }` inside `RequestKind::Write`. That costs 1
+byte for the first 128 values of a session, 2 bytes up to 16384, 3 bytes up to 2 M values.
 
 Three `StreamSideband` variants are added (appended, so existing values keep their encoding):
 
 | Sideband                   | Direction     | Meaning                                                                                       |
 |----------------------------|---------------|-----------------------------------------------------------------------------------------------|
-| `Credit { have, grant }`   | device → host | `have`: bytes accepted in order since `Open`; the host may send up to position `have + grant` |
+| `Credit { have, grant }`   | device → host | `have`: values accepted in order since `Open`; the host may send up to position `have + grant` |
 | `CreditQuery { sent }`     | host → device | "I have sent up to `sent`, where are you?"; answered with `Credit` or `Resend`                 |
 | `Resend { have, grant }`   | device → host | data after `have` was lost: send again from position `have`, up to `have + grant`              |
 
 All three are cumulative: every one of them carries the full state, so losing one is harmless, the next one (or the
-answer to the next query) replaces it. Positions are `u32`, a session is limited to 4 GiB, `Open` starts a new one.
+answer to the next query) replaces it. Positions are `u32`, a session is limited to `u32::MAX` values, `Open` starts
+a new one.
 
 ### Session
 
 1. The host sends `Open`. The device resets its counters and answers with `Credit { have: 0, grant: capacity }`
    (initial credit). Credit events left over from a previous session are ignored by the host until this one arrives.
    `send()` on a sink that was never opened opens it first.
-2. The host sends values while `pos + len <= have + grant`, keeping a copy of everything after `have` (at most the
-   device's capacity) for a resend.
-3. The device counts accepted bytes (`have`) as writes arrive, and the bytes it has **freed** (consumed, e.g., written
-   to flash). Its limit is `freed + capacity`. When the limit has moved by at least `threshold` bytes since the last
-   grant, it sends a new `Credit`. A large threshold means few acks (a slow link), a small one keeps the pipe full.
+2. The host sends values while `pos < have + grant`, keeping a copy of everything after `have` (at most the device's
+   capacity in values) for a resend.
+3. The device counts accepted values (`have`) as writes arrive, and the values it has **freed** (consumed, e.g.,
+   written to flash). Its limit is `freed + capacity`. When the limit has moved by at least `threshold` values since
+   the last grant, it sends a new `Credit`. A large threshold means few acks (a slow link), a small one keeps the pipe full.
 4. When the host is out of credit and nothing arrives for `query_interval`, it sends `CreditQuery { sent }`; the
    device answers right away with its current state. This recovers from a lost `Credit`, from a device that freed
    less than `threshold`, and detects lost data at the end of a transfer.
@@ -192,14 +196,18 @@ so when the device sees a `CreditQuery`, everything the host sent before it has 
 
 ### Device side
 
-Generated server code does the bookkeeping, user code only says how much buffer it has and when it frees some.
+Generated server code does the bookkeeping, user code only says how many values it can queue and when it frees
+some.
 Every credit sink gets one more handler, returning the sink's state, `ww_client_server::credit::SinkCredit`, usually a
 field of the server struct (arrays of sinks get the index chain, as other handlers do):
 
 ```rust
+const CHUNK: usize = 256; // the host sends the plan in chunks of at most this many bytes
+const SLOTS: u32 = SinkCredit::slots_for(4096, CHUNK as u32);
+
 struct Server {
-    plan_credit: SinkCredit, // SinkCredit::new(capacity).with_threshold(capacity / 2)
-    plan_buf: heapless::Vec<u8, 4096>,
+    plan_credit: SinkCredit, // SinkCredit::new(SLOTS), re-granted every SLOTS / 2 values by default
+    plan_queue: heapless::Deque<heapless::Vec<u8, CHUNK>, { SLOTS as usize }>,
 }
 
 impl Server {
@@ -208,12 +216,11 @@ impl Server {
     }
 
     fn write_plan(&mut self, cx: &mut Context<'_, impl BlockingEventOut>, data: &TailBytes<'_>) {
-        // only called for writes in order, never more than the credit granted
-        self.plan_buf.extend_from_slice(data.0).unwrap();
-        if self.plan_buf.len() >= SECTOR {
-            flash_write(&self.plan_buf); // stalls for a while
-            self.plan_credit.free(self.plan_buf.len() as u32);
-            self.plan_buf.clear();
+        // only called for writes in order, never more values than the credit granted
+        self.plan_queue.push_back(heapless::Vec::from_slice(data.0).unwrap()).unwrap();
+        if self.plan_queue.len() >= SLOTS as usize / 2 {
+            let n = flash_write(&mut self.plan_queue); // stalls for a while, pops what it wrote
+            self.plan_credit.free(n as u32);
         }
     }
 }
@@ -227,7 +234,7 @@ impl Server {
 * Data freed outside a handler (e.g., after a flash write in the event loop): `if let Some(sb) =
   credit.take_credit() { stream_data_ser().plan_sideband_send(sb, &mut server.sink()).await?; }`. If that is
   skipped, the host's next `CreditQuery` picks it up after `query_interval`.
-* `SinkCredit::overruns()` counts bytes the host sent beyond its credit (should stay 0; such writes are still
+* `SinkCredit::overruns()` counts values the host sent beyond its credit (should stay 0; such writes are still
   passed to the handler).
 
 ### Host side
@@ -237,7 +244,7 @@ returns `Ok(false)` without sending when there is no credit for the value yet, a
 `Sink::set_credit_config(CreditConfig { query_interval, stall_timeout })` tunes it to the link: `query_interval`
 (default 1 s) should be longer than the link's round trip, `stall_timeout` (default 30 s) is how long to wait without
 any progress before `send()` fails with a timeout, longer than the device's worst stall (an H7 sector erase takes 1-2
-s). A value larger than the device's whole window can never be sent and fails right away.
+s). `credit_progress()` returns `(accepted, sent)` values of the session, e.g., for a progress bar.
 
 Related: [CLT-18 backpressure](../features.md#client-host-side-clt) (the command queue of the client),
 `API-28` in the [features](../features.md) list.

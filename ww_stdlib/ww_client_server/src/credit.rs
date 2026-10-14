@@ -2,14 +2,18 @@
 //!
 //! [SinkCredit] is sans-IO: generated server code feeds it writes and sideband commands and sends the
 //! [StreamSideband] events it returns, user code only sets the capacity and calls [SinkCredit::free].
+//!
+//! Credit counts elements (sink values, one per write), whatever their type. The device sizes its receive queue in
+//! element slots: `slots = buffer bytes / worst-case element size`, see [SinkCredit::slots_for]. The generated
+//! `stream_data_ser().<sink>_max_element_bytes()` gives the worst-case size where it is known.
 
 use crate::StreamSideband;
 use wire_weaver::shrink_wrap::UNib32;
 
 /// Flow control state of one credit sink on the device.
 ///
-/// All counters are byte positions from the start of the session (`Open`): `have` bytes were accepted in order,
-/// `freed` of them were consumed by user code, so the device can take up to `freed + capacity`.
+/// All counters are element positions from the start of the session (`Open`): `have` elements were accepted in
+/// order, `freed` of them were consumed by user code, so the device can take up to `freed + capacity`.
 #[derive(Debug, Clone)]
 pub struct SinkCredit {
     capacity: u32,
@@ -37,7 +41,7 @@ pub enum CreditVerdict {
 }
 
 impl SinkCredit {
-    /// Device can buffer `capacity` bytes of this sink, re-granted every `capacity / 2` bytes freed.
+    /// Device can buffer `capacity` elements of this sink, re-granted every `capacity / 2` elements freed.
     pub const fn new(capacity: u32) -> Self {
         SinkCredit {
             capacity,
@@ -51,7 +55,7 @@ impl SinkCredit {
         }
     }
 
-    /// Send a new Credit once the limit moved by at least `threshold` bytes (clamped to `1..=capacity`).
+    /// Send a new Credit once the limit moved by at least `threshold` elements (clamped to `1..=capacity`).
     /// A big threshold means few acks over a slow link, a small one keeps the link busy.
     pub const fn with_threshold(mut self, threshold: u32) -> Self {
         self.threshold = Self::clamp_threshold(threshold, self.capacity);
@@ -68,7 +72,7 @@ impl SinkCredit {
         }
     }
 
-    /// Change how much the device can buffer. Credit already granted is not taken back when it shrinks.
+    /// Change how many elements the device can buffer. Credit already granted is not taken back when it shrinks.
     pub fn set_capacity(&mut self, capacity: u32) {
         self.capacity = capacity;
         self.threshold = Self::clamp_threshold(self.threshold, capacity);
@@ -86,22 +90,22 @@ impl SinkCredit {
         self.threshold
     }
 
-    /// Bytes accepted in order since Open, also the position of the next expected write.
+    /// Elements accepted in order since Open, also the position of the next expected write.
     pub fn have(&self) -> u32 {
         self.have
     }
 
-    /// Bytes freed by user code since Open.
+    /// Elements freed by user code since Open.
     pub fn freed(&self) -> u32 {
         self.freed
     }
 
-    /// Bytes accepted but not freed yet.
+    /// Elements accepted but not freed yet.
     pub fn buffered(&self) -> u32 {
         self.have - self.freed
     }
 
-    /// Bytes the host sent beyond the credit it was granted, should stay 0.
+    /// Elements the host sent beyond the credit it was granted, should stay 0.
     pub fn overruns(&self) -> u32 {
         self.overruns
     }
@@ -125,17 +129,13 @@ impl SinkCredit {
         self.resend_armed = true;
     }
 
-    /// A write of `len` bytes at position `pos` arrived (called by generated code).
-    pub fn on_write(&mut self, pos: u32, len: u32) -> CreditVerdict {
+    /// The element at position `pos` arrived (called by generated code).
+    pub fn on_write(&mut self, pos: u32) -> CreditVerdict {
         if pos == self.have {
-            let end = pos.saturating_add(len);
-            let allowed = self.granted.max(self.limit());
-            if end > allowed {
-                self.overruns = self
-                    .overruns
-                    .saturating_add(end - allowed.max(pos).min(end));
+            if pos >= self.granted.max(self.limit()) {
+                self.overruns = self.overruns.saturating_add(1);
             }
-            self.have = end;
+            self.have = pos.saturating_add(1);
             self.resend_armed = true;
             CreditVerdict::Accept
         } else if pos < self.have {
@@ -148,11 +148,22 @@ impl SinkCredit {
         }
     }
 
-    /// User code consumed `len` bytes and the space can be given back to the host.
+    /// User code consumed `count` elements and their slots can be given back to the host.
     /// Send the result of [Self::take_credit] afterwards when not in a write handler (generated code does it after
     /// each write).
-    pub fn free(&mut self, len: u32) {
-        self.freed = self.freed.saturating_add(len).min(self.have);
+    pub fn free(&mut self, count: u32) {
+        self.freed = self.freed.saturating_add(count).min(self.have);
+    }
+
+    /// Number of element slots a receive buffer of `buffer_bytes` holds when an element takes at most
+    /// `max_element_bytes`, e.g., `SinkCredit::new(SinkCredit::slots_for(4096, max))` with `max` from the generated
+    /// `stream_data_ser().<sink>_max_element_bytes()`. Never 0.
+    pub const fn slots_for(buffer_bytes: u32, max_element_bytes: u32) -> u32 {
+        if max_element_bytes == 0 {
+            return if buffer_bytes == 0 { 1 } else { buffer_bytes };
+        }
+        let slots = buffer_bytes / max_element_bytes;
+        if slots == 0 { 1 } else { slots }
     }
 
     /// Credit event to send to the host, if one is owed or the limit moved by at least the threshold since the last
@@ -216,68 +227,79 @@ mod tests {
 
     #[test]
     fn initial_credit_and_threshold() {
-        let mut c = SinkCredit::new(100).with_threshold(30);
+        let mut c = SinkCredit::new(10).with_threshold(3);
         c.open();
-        assert_eq!(c.take_credit(), credit(0, 100));
+        assert_eq!(c.take_credit(), credit(0, 10));
         assert_eq!(c.take_credit(), None);
-        assert_eq!(c.on_write(0, 40), CreditVerdict::Accept);
-        assert_eq!(c.on_write(40, 40), CreditVerdict::Accept);
-        assert_eq!(c.buffered(), 80);
-        c.free(20);
-        assert_eq!(c.take_credit(), None, "limit moved by 20 < 30");
-        c.free(20);
-        assert_eq!(c.take_credit(), credit(80, 60));
-        assert_eq!(c.limit(), 140);
+        for pos in 0..8 {
+            assert_eq!(c.on_write(pos), CreditVerdict::Accept);
+        }
+        assert_eq!(c.buffered(), 8);
+        c.free(2);
+        assert_eq!(c.take_credit(), None, "limit moved by 2 < 3");
+        c.free(2);
+        assert_eq!(c.take_credit(), credit(8, 6));
+        assert_eq!(c.limit(), 14);
         assert_eq!(c.overruns(), 0);
     }
 
     #[test]
     fn overrun_counted() {
-        let mut c = SinkCredit::new(10);
-        assert_eq!(c.take_credit(), credit(0, 10));
-        assert_eq!(c.on_write(0, 8), CreditVerdict::Accept);
-        assert_eq!(c.on_write(8, 8), CreditVerdict::Accept);
-        assert_eq!(c.overruns(), 6);
+        let mut c = SinkCredit::new(2);
+        assert_eq!(c.take_credit(), credit(0, 2));
+        for pos in 0..5 {
+            assert_eq!(c.on_write(pos), CreditVerdict::Accept);
+        }
+        assert_eq!(c.overruns(), 3);
     }
 
     #[test]
     fn gap_sends_resend_once() {
-        let mut c = SinkCredit::new(100);
+        let mut c = SinkCredit::new(10);
         c.take_credit();
-        assert_eq!(c.on_write(0, 10), CreditVerdict::Accept);
-        // 10..20 lost
-        assert_eq!(c.on_write(20, 10), CreditVerdict::Gap(Some(resend(10, 90))));
-        assert_eq!(c.on_write(30, 10), CreditVerdict::Gap(None));
-        // resend from 10
-        assert_eq!(c.on_write(10, 10), CreditVerdict::Accept);
-        assert_eq!(c.on_write(20, 10), CreditVerdict::Accept);
-        assert_eq!(c.on_write(10, 10), CreditVerdict::Duplicate);
+        assert_eq!(c.on_write(0), CreditVerdict::Accept);
+        // 1 lost
+        assert_eq!(c.on_write(2), CreditVerdict::Gap(Some(resend(1, 9))));
+        assert_eq!(c.on_write(3), CreditVerdict::Gap(None));
+        // resend from 1
+        assert_eq!(c.on_write(1), CreditVerdict::Accept);
+        assert_eq!(c.on_write(2), CreditVerdict::Accept);
+        assert_eq!(c.on_write(1), CreditVerdict::Duplicate);
         // next gap re-armed
-        assert!(matches!(c.on_write(50, 10), CreditVerdict::Gap(Some(_))));
+        assert!(matches!(c.on_write(5), CreditVerdict::Gap(Some(_))));
     }
 
     #[test]
     fn query() {
-        let mut c = SinkCredit::new(100);
+        let mut c = SinkCredit::new(10);
         c.take_credit();
-        c.on_write(0, 10);
-        assert_eq!(c.query(10), credit(10, 90).unwrap());
+        c.on_write(0);
+        assert_eq!(c.query(1), credit(1, 9).unwrap());
         // lost at the end, nothing after it revealed the gap
-        assert_eq!(c.query(30), resend(10, 90));
-        assert_eq!(c.on_write(20, 10), CreditVerdict::Gap(None));
-        c.free(10);
-        assert_eq!(c.query(10), credit(10, 100).unwrap());
+        assert_eq!(c.query(3), resend(1, 9));
+        assert_eq!(c.on_write(2), CreditVerdict::Gap(None));
+        c.free(1);
+        assert_eq!(c.query(1), credit(1, 10).unwrap());
     }
 
     #[test]
     fn open_resets() {
-        let mut c = SinkCredit::new(16);
+        let mut c = SinkCredit::new(4);
         c.take_credit();
-        c.on_write(0, 16);
-        c.free(16);
+        for pos in 0..4 {
+            c.on_write(pos);
+        }
+        c.free(4);
         c.open();
         assert_eq!(c.have(), 0);
-        assert_eq!(c.take_credit(), credit(0, 16));
+        assert_eq!(c.take_credit(), credit(0, 4));
+    }
+
+    #[test]
+    fn slots() {
+        assert_eq!(SinkCredit::slots_for(4096, 100), 40);
+        assert_eq!(SinkCredit::slots_for(50, 100), 1);
+        assert_eq!(SinkCredit::slots_for(64, 0), 64);
     }
 }
 

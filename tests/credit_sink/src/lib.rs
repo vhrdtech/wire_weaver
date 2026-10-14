@@ -15,12 +15,13 @@ mod tests {
     /// Device behaviour and what it received, shared with the test.
     #[derive(Default)]
     struct Model {
-        /// Unconsumed `plan` bytes, like a RAM buffer
-        buffer: Vec<u8>,
+        /// Unconsumed `plan` elements, like a receive queue
+        buffer: Vec<Vec<u8>>,
+        /// Most elements ever queued
         max_buffered: usize,
         /// Consumed `plan` bytes, in order
         plan: Vec<u8>,
-        /// Consume the buffer once it holds this many bytes (a flash write), 0 consumes every write right away
+        /// Consume the queue once it holds this many elements (a flash write), 0 consumes every write right away
         drain_at: usize,
         /// How long a drain takes
         stall: Duration,
@@ -50,8 +51,8 @@ mod tests {
             }
         }
 
-        fn drain_at(mut self, bytes: usize, stall: Duration) -> Self {
-            self.model.drain_at = bytes;
+        fn drain_at(mut self, elements: usize, stall: Duration) -> Self {
+            self.model.drain_at = elements;
             self.model.stall = stall;
             self
         }
@@ -86,7 +87,7 @@ mod tests {
                     let mut m = self.m.lock().unwrap();
                     let rest = std::mem::take(&mut m.buffer);
                     self.plan_credit.free(rest.len() as u32);
-                    m.plan.extend(rest);
+                    m.plan.extend(rest.concat());
                     m.closed += 1;
                 }
                 None
@@ -99,13 +100,13 @@ mod tests {
             ) {
                 let mut m = self.m.lock().unwrap();
                 std::thread::sleep(m.per_write);
-                m.buffer.extend_from_slice(data.0);
+                m.buffer.push(data.0.to_vec());
                 m.max_buffered = m.max_buffered.max(m.buffer.len());
                 if m.buffer.len() >= m.drain_at {
                     std::thread::sleep(m.stall);
                     let consumed = std::mem::take(&mut m.buffer);
                     self.plan_credit.free(consumed.len() as u32);
-                    m.plan.extend(consumed);
+                    m.plan.extend(consumed.concat());
                     if m.drop_grants > 0 && self.plan_credit.take_credit().is_some() {
                         m.drop_grants -= 1;
                     }
@@ -127,7 +128,7 @@ mod tests {
 
             fn write_points(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, value: Point) {
                 self.m.lock().unwrap().points.push(value);
-                self.points_credit.free(4);
+                self.points_credit.free(1);
             }
 
             fn valid_indices_root_lanes(&mut self) -> ValidIndices<'_> {
@@ -155,7 +156,7 @@ mod tests {
             ) {
                 let idx = index_chain[0].0 as usize;
                 self.m.lock().unwrap().lanes[idx].extend_from_slice(data.0);
-                self.lanes_credit[idx].free(data.0.len() as u32);
+                self.lanes_credit[idx].free(1);
             }
 
             fn sideband_plain(
@@ -234,7 +235,7 @@ mod tests {
                 data: &shrink_wrap::tail_bytes::TailBytes<'_>,
             ) {
                 self.m.lock().unwrap().plan.extend_from_slice(data.0);
-                self.credit.free(data.0.len() as u32);
+                self.credit.free(1);
             }
 
             fn credit_points(&mut self) -> &mut SinkCredit {
@@ -355,8 +356,8 @@ mod tests {
         let server = sync_server::Server {
             m: m.clone(),
             plan_credit: credit(),
-            points_credit: SinkCredit::new(16).with_threshold(8),
-            lanes_credit: [(); 4].map(|_| SinkCredit::new(64).with_threshold(32)),
+            points_credit: SinkCredit::new(4).with_threshold(2),
+            lanes_credit: [(); 4].map(|_| SinkCredit::new(4).with_threshold(2)),
         };
         let device = tests_common::start_device(
             path,
@@ -413,7 +414,7 @@ mod tests {
     async fn flush_waits_until_everything_is_accepted() {
         let (device, m) = start(
             "credit/flush",
-            Config::new(1024, 512).drain_at(0, Duration::ZERO),
+            Config::new(16, 8).drain_at(0, Duration::ZERO),
         );
         let client = connect(&device).await;
         let mut plan = client.plan().await.unwrap();
@@ -425,14 +426,15 @@ mod tests {
         plan.flush().await.unwrap();
         // no waiting for the device here: flush returned after it accepted everything
         assert_eq!(m.lock().unwrap().plan, bytes);
-        assert_eq!(plan.credit_progress(), Some((1000, 1000)));
+        assert_eq!(plan.credit_progress(), Some((10, 10)));
         plan.close().await.unwrap();
         eventually(&m, |m| m.closed == 1).await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn slow_device_is_never_overrun() {
-        let config = Config::new(1024, 512).drain_at(768, Duration::from_millis(20));
+        // a queue of 8 elements, written to flash 6 at a time
+        let config = Config::new(8, 4).drain_at(6, Duration::from_millis(20));
         let (device, m) = start("credit/slow", config);
         m.lock().unwrap().per_write = Duration::from_millis(1);
         let client = connect(&device).await;
@@ -445,13 +447,13 @@ mod tests {
         eventually(&m, |m| m.closed == 1).await;
         let m = m.lock().unwrap();
         assert_eq!(m.plan, bytes);
-        assert!(m.max_buffered <= 1024, "{}", m.max_buffered);
+        assert!(m.max_buffered <= 8, "{}", m.max_buffered);
         assert_eq!(m.overruns, 0);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn throughput() {
-        let config = Config::new(8192, 4096).drain_at(4096, Duration::ZERO);
+        let config = Config::new(16, 8).drain_at(8, Duration::ZERO);
         let (device, m) = start("credit/throughput", config);
         let client = connect(&device).await;
         let mut plan = client.plan().await.unwrap();
@@ -472,14 +474,14 @@ mod tests {
         let m = m.lock().unwrap();
         assert_eq!(m.plan, bytes);
         assert_eq!(m.overruns, 0);
-        assert!(m.max_buffered <= 8192);
+        assert!(m.max_buffered <= 16);
         assert!(elapsed < Duration::from_secs(10), "{elapsed:?}");
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn lost_credit_event_is_recovered_by_a_query() {
         // one re-grant per drain, and the first one is lost
-        let config = Config::new(512, 512).drain_at(512, Duration::ZERO);
+        let config = Config::new(4, 4).drain_at(4, Duration::ZERO);
         let (device, m) = start("credit/lost_credit", config);
         m.lock().unwrap().drop_grants = 1;
         let queries = Arc::new(Mutex::new(0));
@@ -514,13 +516,13 @@ mod tests {
     async fn lost_write_is_sent_again_go_back_n() {
         let (device, m) = start(
             "credit/lost_write",
-            Config::new(4096, 1024).drain_at(0, Duration::ZERO),
+            Config::new(32, 8).drain_at(0, Duration::ZERO),
         );
         let dropped = Arc::new(Mutex::new(false));
         let d = dropped.clone();
         device.filter_requests(move |request| {
             let mut d = d.lock().unwrap();
-            if !*d && write_pos(request) == Some(300) {
+            if !*d && write_pos(request) == Some(3) {
                 *d = true;
                 return true;
             }
@@ -546,13 +548,13 @@ mod tests {
     async fn lost_last_write_is_found_by_flush() {
         let (device, m) = start(
             "credit/lost_last",
-            Config::new(4096, 1024).drain_at(0, Duration::ZERO),
+            Config::new(32, 8).drain_at(0, Duration::ZERO),
         );
         let dropped = Arc::new(Mutex::new(false));
         let d = dropped.clone();
         device.filter_requests(move |request| {
             let mut d = d.lock().unwrap();
-            if !*d && write_pos(request) == Some(900) {
+            if !*d && write_pos(request) == Some(9) {
                 *d = true;
                 return true;
             }
@@ -578,7 +580,7 @@ mod tests {
     async fn lost_open_is_sent_again() {
         let (device, m) = start(
             "credit/lost_open",
-            Config::new(256, 128).drain_at(0, Duration::ZERO),
+            Config::new(4, 2).drain_at(0, Duration::ZERO),
         );
         let dropped = Arc::new(Mutex::new(false));
         let d = dropped.clone();
@@ -607,7 +609,7 @@ mod tests {
     async fn reopen_starts_a_new_session() {
         let (device, m) = start(
             "credit/reopen",
-            Config::new(256, 128).drain_at(0, Duration::ZERO),
+            Config::new(4, 2).drain_at(0, Duration::ZERO),
         );
         let positions = Arc::new(Mutex::new(vec![]));
         let p = positions.clone();
@@ -627,31 +629,32 @@ mod tests {
         plan.send_bytes(&[3; 50]).await.unwrap();
         plan.close().await.unwrap();
         eventually(&m, |m| m.closed == 2).await;
-        assert_eq!(*positions.lock().unwrap(), [0, 100, 0]);
+        assert_eq!(*positions.lock().unwrap(), [0, 1, 0]);
         assert_eq!(m.lock().unwrap().plan.len(), 250);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn value_bigger_than_the_window_fails() {
-        let (device, _m) = start(
-            "credit/too_big",
-            Config::new(64, 32).drain_at(0, Duration::ZERO),
+    async fn elements_of_any_size_take_one_slot() {
+        let (device, m) = start(
+            "credit/any_size",
+            Config::new(2, 1).drain_at(0, Duration::ZERO),
         );
         let client = connect(&device).await;
         let mut plan = client.plan().await.unwrap();
-        plan.send_bytes(&[0; 64]).await.unwrap();
-        let r = plan.send_bytes(&[0; 65]).await;
-        assert!(
-            matches!(r, Err(StreamError::Other(Error::Other(_)))),
-            "{r:?}"
-        );
+        for len in [600, 1, 900, 0, 7] {
+            plan.send_bytes(&vec![0xAB; len]).await.unwrap();
+        }
+        plan.flush().await.unwrap();
+        assert_eq!(plan.credit_progress(), Some((5, 5)));
+        assert_eq!(m.lock().unwrap().plan.len(), 1508);
+        assert_eq!(m.lock().unwrap().overruns, 0);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn stuck_device_times_out() {
         let (device, _m) = start(
             "credit/stuck",
-            Config::new(64, 64).drain_at(1000, Duration::ZERO),
+            Config::new(1, 1).drain_at(1000, Duration::ZERO),
         );
         let client = connect(&device).await;
         let mut plan = client.plan().await.unwrap();
@@ -672,10 +675,10 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn typed_values_and_try_send() {
-        let (device, m) = start("credit/typed", Config::new(64, 32));
+        let (device, m) = start("credit/typed", Config::new(4, 2));
         let client = connect(&device).await;
         let mut points = client.points().await.unwrap();
-        // 16 bytes of credit, 4 per point
+        // 4 elements of credit
         let expected: Vec<Point> = (0..50).map(|i| Point { x: i, y: -i }).collect();
         let mut would_block = 0;
         for p in &expected {
@@ -684,7 +687,7 @@ mod tests {
                 tokio::time::sleep(Duration::from_millis(1)).await;
             }
         }
-        assert!(would_block > 0, "16 bytes of credit run out");
+        assert!(would_block > 0, "4 elements of credit run out");
         while !points.try_flush().unwrap() {
             tokio::time::sleep(Duration::from_millis(1)).await;
         }
@@ -693,7 +696,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn array_of_credit_sinks() {
-        let (device, m) = start("credit/array", Config::new(64, 32));
+        let (device, m) = start("credit/array", Config::new(4, 2));
         let client = connect(&device).await;
         let mut lane1 = client.lanes(1).await.unwrap();
         let mut lane2 = client.lanes(2).await.unwrap();
@@ -711,7 +714,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn plain_sink_writes_have_no_position() {
-        let (device, m) = start("credit/plain", Config::new(64, 32));
+        let (device, m) = start("credit/plain", Config::new(4, 2));
         let raw = Arc::new(Mutex::new(vec![]));
         let r = raw.clone();
         device.filter_requests(move |request| {
@@ -738,7 +741,7 @@ mod tests {
     fn blocking_client() {
         let (device, m) = start(
             "credit/blocking",
-            Config::new(256, 128).drain_at(200, Duration::from_millis(5)),
+            Config::new(8, 4).drain_at(6, Duration::from_millis(5)),
         );
         let rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = rt.enter();
@@ -774,8 +777,8 @@ mod tests {
         let m = Arc::new(Mutex::new(Model::default()));
         let server = async_server::Server {
             m: m.clone(),
-            credit: SinkCredit::new(128).with_threshold(64),
-            other: SinkCredit::new(16),
+            credit: SinkCredit::new(4).with_threshold(2),
+            other: SinkCredit::new(4),
         };
         let device = tests_common::start_device_async(
             "credit/async_server",
@@ -800,7 +803,7 @@ mod tests {
         use wire_weaver_client::ww_self::ValueOwned;
         use wire_weaver_client::{ClientConfig, DynClient, DynResource, DynResourceKind};
 
-        let (device, m) = start("credit/dynamic", Config::new(64, 32));
+        let (device, m) = start("credit/dynamic", Config::new(4, 2));
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../credit_sink_api");
         let bundle = wire_weaver_core::load(&path, Some("CreditSinks".into()), false).unwrap();
         let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
@@ -853,5 +856,16 @@ mod tests {
             assert!(code.contains(expected), "{expected}\n{code}");
         }
         assert!(!code.contains("plain_credit"));
+    }
+
+    #[test]
+    fn max_element_bytes_sizes_the_queue() {
+        use sync_server::api_impl::stream_data_ser;
+        // usable in a const: a queue for the worst case (Point is `sized`, an evolvable struct would be None)
+        const POINT: Option<u32> = stream_data_ser().points_max_element_bytes();
+        assert_eq!(POINT, Some(4));
+        assert_eq!(SinkCredit::slots_for(64, POINT.unwrap()), 16);
+        // byte slices have no bound (until SW-19 MaxLen)
+        assert_eq!(stream_data_ser().plan_max_element_bytes(), None);
     }
 }

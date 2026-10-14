@@ -1045,7 +1045,7 @@ fn handle_stream(
                                 .map_err(|_e| Error::new(#es_pos, ErrorKind::ArgsDesFailed))?
                         };
                         let data = &credit_write.data;
-                        let verdict = self.#credit_fn(#maybe_index_chain_call).on_write(credit_write.pos.0, data.0.len() as u32);
+                        let verdict = self.#credit_fn(#maybe_index_chain_call).on_write(credit_write.pos.0);
                         match verdict {
                             ww_client_server::credit::CreditVerdict::Accept => {
                                 #des_data

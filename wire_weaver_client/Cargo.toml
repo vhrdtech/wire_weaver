@@ -9,7 +9,7 @@ license.workspace = true
 
 [features]
 default = ["usb"]
-usb = [] # USB (using nusb)
+usb = ["ww_picoboot/usb"] # USB (using nusb)
 ws = [
     "dep:tokio-tungstenite",
     "dep:futures-util",
@@ -36,7 +36,7 @@ futures-util = { version = "0.3", default-features = false, features = ["sink"],
 hex = { workspace = true, features = ["std"] }
 iceoryx2 = { version = "0.8", optional = true }
 iceoryx2-bb-container = { version = "0.8", optional = true }
-nusb = { version = "0.2", features = ["tokio"] } # TODO: try to use without tokio?
+nusb.workspace = true # TODO: try to use without tokio?
 probe-rs = { version = "0.32", default-features = false, features = ["builtin-targets", "cmsisdap_v1", "builtin-formats"], optional = true }
 rand = "0.10"
 ron.workspace = true
@@ -54,6 +54,7 @@ ww_device = { workspace = true, optional = true }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_link = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
+ww_picoboot.workspace = true
 ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["std"] }
 

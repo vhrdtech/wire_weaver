@@ -1,0 +1,21 @@
+[package]
+name = "follow_reboot"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+dfu_lean_app_api.workspace = true
+semver.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
+tracing-subscriber.workspace = true
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process"] }
+ww_client_server.workspace = true
+ww_device.workspace = true
+ww_dfu = { workspace = true, features = ["std"] }
+ww_picoboot = { workspace = true, features = ["sim"] }

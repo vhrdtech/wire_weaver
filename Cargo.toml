@@ -17,6 +17,7 @@ members = [
     "ww_framer",
     "ww_global",
     "ww_link",
+    "ww_picoboot",
     "ww_self",
     "ww_stdlib/*",
 ]
@@ -40,6 +41,7 @@ convert_case = "0.11"
 defmt = "1.1"
 hex = { version = "0.4", default-features = false }
 hex-literal = "1"
+nusb = { version = "0.2", features = ["tokio"] }
 proc-macro2 = "1.0"
 proptest = "1.11"
 pyo3 = "0.29"
@@ -68,6 +70,7 @@ wire_weaver_snapshots = { version = "0.5.0", path = "./wire_weaver_snapshots" }
 ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }
 ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }
+ww_picoboot = { version = "0.1.0", path = "./ww_picoboot", default-features = false }
 
 # framework-level base types, each crate has its own version
 ww_global = { version = "0.2.0", path = "./ww_global" }

@@ -1,0 +1,24 @@
+[package]
+name = "ww_picoboot"
+version = "0.1.0"
+authors.workspace = true
+description = "PICOBOOT host for the RP2350 / RP2040 boot ROM in Rust on nusb: flash UF2 or binary images, query, reboot"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["rp2350", "picoboot", "bootsel", "usb", "picotool"]
+
+[features]
+default = ["usb"]
+# Real devices through nusb
+usb = ["dep:nusb", "dep:tokio"]
+# Simulated RP2350 boot ROM for tests
+sim = []
+
+[dependencies]
+nusb = { workspace = true, optional = true }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["time"], optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }

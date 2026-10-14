@@ -7,6 +7,7 @@ mod device_info;
 mod error;
 pub(crate) mod event_loop;
 pub mod evolution;
+pub mod follow;
 mod layout;
 mod local_registry;
 mod tracing;
@@ -59,6 +60,7 @@ pub use error::Error;
 pub use wire_weaver_snapshots as snapshots;
 pub use ww_client_server;
 pub use ww_numeric;
+pub use ww_picoboot;
 pub use ww_self;
 pub use ww_version;
 

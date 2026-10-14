@@ -2,6 +2,15 @@
 
 ### 🚀 Features
 
+- Follow a device across a reboot into other firmware (CLT-21), `follow` module: `Follow::gone()` / `back()` /
+  `back_in_bootsel()` / `back_in_wire_weaver()` wait for the device with the same serial number to go away and come
+  back as what is expected, on any `follow::Bus` (`UsbBus` for real devices); `Found` tells a WireWeaver device, an
+  RP2040 / RP2350 boot ROM in BOOTSEL mode and anything else apart; a timeout lists what had the serial number then.
+  `follow::rp2_update()` (`rp2_update_with()` on any bus and PICOBOOT IO) is the second half of an update in the
+  RP2350 boot ROM: after `ww_dfu::BootControl::reboot(Updater)` it finds the BOOTSEL device by serial number, writes
+  and verifies the image over PICOBOOT (`ww_picoboot`, re-exported), reboots it as `picotool load -x` does, and
+  returns the firmware as it came back. `follow::rp2350_serial()` is the serial number a firmware reports so it can
+  be followed (the chip id as the boot ROM shows it).
 - Simulated USB for in-process devices: `in_process::usb_device(path, max_packet_size)` registers a device that
   speaks USB packets (`UsbSink` / `UsbSource`, wrapped in `ww_device::FramedTx` / `FramedRx` as real endpoints are),
   the host packs messages with the USB framer configuration of `ww_link`, exactly as over nusb. Connect with the same

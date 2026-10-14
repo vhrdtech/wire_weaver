@@ -880,6 +880,7 @@ dependencies = [
  "defmt",
  "shrink_wrap",
  "wire_weaver_derive",
+ "ww_error",
  "ww_version",
 ]
 
@@ -939,6 +940,14 @@ dependencies = [
  "wire_weaver",
  "ww_global",
  "ww_si",
+]
+
+[[package]]
+name = "ww_error"
+version = "0.1.0"
+dependencies = [
+ "defmt",
+ "shrink_wrap",
 ]
 
 [[package]]

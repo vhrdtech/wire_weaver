@@ -1904,6 +1904,7 @@ dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
  "wire_weaver_derive",
+ "ww_error",
  "ww_version",
 ]
 
@@ -1989,6 +1990,14 @@ dependencies = [
  "ww_client_server",
  "ww_framer",
  "ww_link",
+]
+
+[[package]]
+name = "ww_error"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "shrink_wrap",
 ]
 
 [[package]]

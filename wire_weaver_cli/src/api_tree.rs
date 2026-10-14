@@ -522,8 +522,9 @@ trait Traits traits_api@0.1.0
 │  ├─ 0 fn i2c_write(data: u8) -> u8
 │  ├─ 1 #[optional] fn i2c_wiggle_clock(count: u8) -> u8
 │  │  /// Clocks SCL until SDA is released.
-│  ├─ 2 #[optional(pullups)] fn i2c_set_pullups(enabled: bool)
+│  ├─ 2 #[optional(pullups)] fn i2c_set_pullups(enabled: bool) -> Result<(), u8>
 │  │  /// Switchable pull-ups: both items or neither.
+│  │  /// Fallible: an omitted method with an error type gives `CallError::Unimplemented` on the client.
 │  ├─ 3 #[optional(pullups)] rw property i2c_pullups: bool
 │  └─ 4 #[optional] stream i2c_monitor: u8
 └─ 4 #[optional] fn reset()
@@ -550,7 +551,7 @@ trait Traits traits_api@0.1.0
         let tree = render(&bundle, true);
         for line in [
             "├─ 1 #[optional] fn i2c_wiggle_clock(count: u8) -> u8\n",
-            "├─ 2 #[optional(pullups)] fn i2c_set_pullups(enabled: bool) (left out by this device)\n",
+            "├─ 2 #[optional(pullups)] fn i2c_set_pullups(enabled: bool) -> Result<(), u8> (left out by this device)\n",
             "├─ 3 #[optional(pullups)] rw property i2c_pullups: bool (left out by this device)\n",
             "└─ 4 #[optional] fn reset() (left out by this device)\n",
         ] {

@@ -115,18 +115,18 @@ mod tests {
             .await
             .expect("connect");
 
-        assert_eq!(client.read(0).call().await.unwrap(), Ok(1234));
-        let e = client.read(1).call().await.unwrap().unwrap_err();
+        assert_eq!(client.read(0).call().await.unwrap(), 1234);
+        let e = device_err(client.read(1).call().await);
         assert_eq!(e, SensorErrorOwned::Common(in_use()));
         assert_eq!(e.common(), Some(&in_use()));
         assert_eq!(e.common().unwrap().to_string(), "In use by USART2");
-        let e = client.read(2).call().await.unwrap().unwrap_err();
+        let e = device_err(client.read(2).call().await);
         assert_eq!(e.common(), Some(&CommonErrorOwned::Fault { code: 0x2a }));
-        let e = client.read(3).call().await.unwrap().unwrap_err();
+        let e = device_err(client.read(3).call().await);
         assert_eq!(e, SensorErrorOwned::Nack);
         assert_eq!(e.common(), None);
 
-        let e = client.calibrate().call().await.unwrap().unwrap_err();
+        let e = device_err(client.calibrate().call().await);
         assert_eq!(e, CommonErrorOwned::Busy);
     }
 
@@ -152,6 +152,16 @@ mod tests {
             "Common",
             FieldsValueOwned::Unnamed(vec![in_use]),
         ))))
+    }
+
+    /// The device's own error of a call (CLT-24): `CallError::Device`.
+    fn device_err<T: std::fmt::Debug, E: std::fmt::Debug>(
+        r: Result<T, wire_weaver_client::CallError<E>>,
+    ) -> E {
+        match r {
+            Err(wire_weaver_client::CallError::Device(e)) => e,
+            other => panic!("expected CallError::Device, got {other:?}"),
+        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

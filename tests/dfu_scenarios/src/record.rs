@@ -420,6 +420,11 @@ impl Decoder {
                 let res = self.resolve(&path).ok_or("unknown stream")?;
                 format!("{}: {}", res.name, fmt_sideband(&sideband))
             }
+            EventKind::StreamItem { path, head, .. } => {
+                let path: Vec<UNib32> = path.iter().map(|p| p.unwrap()).collect();
+                let res = self.resolve(&path).ok_or("unknown stream")?;
+                format!("{} at {} ⇒ (not decoded)", res.name, head.pos)
+            }
         })
     }
 }

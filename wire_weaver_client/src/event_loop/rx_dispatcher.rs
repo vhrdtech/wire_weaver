@@ -290,6 +290,10 @@ impl RxDispatcher {
                         }
                     }
                 }
+                EventKind::StreamItem { .. } => {
+                    // TODO(CLT-23): positions, gaps and acks through ww_stream::rx
+                    debug!("dropping a counted / reliable stream event, not supported yet");
+                }
             },
             Err(e) => {
                 if let Some(mut done_tx) = self.take_response(event.seq.0) {

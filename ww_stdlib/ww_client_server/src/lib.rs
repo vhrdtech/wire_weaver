@@ -11,6 +11,8 @@ pub mod util;
 use wire_weaver::{prelude::*, shrink_wrap::tail_bytes::TailBytes};
 use ww_version::{CompactVersion, FullVersion};
 
+use stream::{StreamCursor, StreamHead};
+
 #[cfg(feature = "std")]
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 #[cfg(feature = "std")]
@@ -137,6 +139,16 @@ pub enum RequestKind<'i> {
     /// Send serialized AST describing a resource and all related types, see `ww_self` for format.
     /// Optional, for simplicity can be implemented only at root level, sending all API tree.
     Introspect,
+
+    /// Open a counted or reliable stream (API-30, API-31): call its stream function with `args`, or resume from
+    /// `resume` with the arguments the session was opened with. Answered with [EventKind::Value] holding
+    /// [stream::StreamOpened].
+    StreamOpen {
+        /// Resume from this point instead of starting a new session.
+        resume: Option<StreamCursor>,
+        /// Arguments of the stream function, serialized like [RequestKind::Call] arguments.
+        args: TailBytes<'i>,
+    },
 }
 
 /// Index for a multi request. Two kinds of multi requests are possible:
@@ -224,6 +236,16 @@ pub enum EventKind<'i> {
         path: RefVec<'i, UNib32>,
         sideband: StreamSideband,
     },
+
+    /// An event of a counted or reliable stream (API-30): the head says where its data sits in the stream, what
+    /// the device dropped right before it and when it was made, see [StreamHead].
+    StreamItem {
+        /// Same as in [EventKind::StreamData].
+        path: RefVec<'i, UNib32>,
+        head: StreamHead,
+        /// The serialized item.
+        data: TailBytes<'i>,
+    },
 }
 
 /// Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.
@@ -255,6 +277,24 @@ pub enum StreamSideband {
     /// Credit sinks, device to host: writes after `have` were lost, the host sends again from byte position `have`
     /// (always an item boundary), up to `have + grant` (go-back-N).
     Resend { have: UNib32, grant: UNib32 },
+    /// Counted and reliable streams (API-30), receiver to sender: every unit before `have` (live run) and before
+    /// `backfill` (backfill run, while there is one) was received; the sender may have up to `grant` bytes of events
+    /// in flight beyond them. Cumulative, a lost one is replaced by the next one.
+    Ack {
+        have: UVlq64,
+        backfill: Option<UVlq64>,
+        grant: UVlq32,
+    },
+    /// Reliable streams, receiver to sender: units from `from` on are missing (in whichever run `from` falls), send
+    /// again from there (go-back-N), with up to `grant` bytes in flight.
+    ResendFrom { from: UVlq64, grant: UVlq32 },
+    /// Reliable streams, sender to receiver: "I have sent up to `sent` (live run) and `backfill` (backfill run),
+    /// where are you?" when out of credit or nothing was heard for a while; answered with [StreamSideband::Ack] or
+    /// [StreamSideband::ResendFrom].
+    Query {
+        sent: UVlq64,
+        backfill: Option<UVlq64>,
+    },
 }
 
 /// Data of a [RequestKind::Write] to a sink with credit-based flow control: the byte position of the item's first byte
@@ -489,6 +529,7 @@ impl RequestKind<'_> {
             RequestKind::MultiWrite { .. } => EventKindDiscriminants::Written,
             RequestKind::StreamSideband { .. } => EventKindDiscriminants::StreamSideband,
             RequestKind::Introspect => EventKindDiscriminants::StreamData,
+            RequestKind::StreamOpen { .. } => EventKindDiscriminants::Value,
         }
     }
 }
@@ -533,6 +574,10 @@ impl RequestKind<'_> {
                 sideband: *sideband,
             },
             RequestKind::Introspect => RequestKindOwned::Introspect,
+            RequestKind::StreamOpen { resume, args } => RequestKindOwned::StreamOpen {
+                resume: *resume,
+                args: args.make_owned(),
+            },
         };
         Ok(req)
     }

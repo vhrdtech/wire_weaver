@@ -262,14 +262,17 @@ byte with the length of `pos` and its top bits:
           ext:  HeadExt             if X (Unsized: fields can be appended later)
 ```
 
-| `pos` below | 4 | 1 Ki | 256 Ki | 64 Mi | 16 Gi | 4 Ti | 2⁵⁸ |
-|---|---|---|---|---|---|---|---|
-| Head bytes (no `lost`, `t`, `ext`) | 1 | 2 | 3 | 4 | 5 | 6 | 8 |
+| `pos` below | 4 | 1 Ki | 256 Ki | 64 Mi | 16 Gi | 4 Ti | 1 Pi (2⁵⁰) | 2⁵⁸ |
+|---|---|---|---|---|---|---|---|---|
+| Head bytes (no `lost`, `t`, `ext`) | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 
 Plus `lost` 1 byte below 128 units (2 below 16 Ki, ...), `t` 5 bytes as `Second { Micro, U32 }` (wraps every 71.6
-min, D6; 9 bytes as `U64`). A 32 GB byte stream near its end has a 6-byte head, 11 with a timestamp. These sizes
-follow from the layout; API-30 checks them with real bytes and writes the result here. For comparison, measured
-before (derived `Option`s and a 32-bit `UVlq32` position): 2 to 6 bytes for positions up to 4 Gi only.
+min, D6; 9 bytes as `U64`). A 32 GB byte stream near its end has a 6-byte head, 11 with a timestamp. Measured with
+real bytes (`ww_client_server::stream` tests): every size in the table at both ends of its range, `lost` = 100 is
+1 byte and 200 is 2, `t` as `Second { Micro, U32 }` is 5 bytes and as `U64` 9, and a whole `StreamItem` event with
+a one-element path, `pos` = 2³³, `lost` = 7 and `t` is 4 + 11 bytes before its data (`d2 00 00 00 00 07 23 78 56 34
+12` for the head). A position of 2⁵⁸ or more is a serialization error. For comparison, measured before (derived
+`Option`s and a 32-bit `UVlq32` position): 2 to 6 bytes for positions up to 4 Gi only.
 
 Today's `StreamData` event costs 3 to 5 bytes of header and path before the data (measured), so a long-running stream
 with a timestamp pays ~15 bytes per event: 3 % of a 512-byte chunk, 1 % of 1.5 KiB. Small items go into chunks

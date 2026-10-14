@@ -10,6 +10,8 @@ pub enum Error {
     Client(#[from] wire_weaver_client::Error),
     #[error("ww_gpio error: '{:?}'", .0)]
     Gpio(ww_gpio::Error),
+    #[error("'{resource}' is not implemented by the device")]
+    Unimplemented { resource: String },
     #[error(transparent)]
     Stream(#[from] wire_weaver_client::StreamError),
     #[error("expected ww_gpio::Gpio trait, got: '{}'", .0)]
@@ -23,5 +25,16 @@ pub enum Error {
 impl From<ww_gpio::Error> for Error {
     fn from(e: ww_gpio::Error) -> Self {
         Error::Gpio(e)
+    }
+}
+
+impl From<wire_weaver_client::CallError<ww_gpio::Error>> for Error {
+    fn from(e: wire_weaver_client::CallError<ww_gpio::Error>) -> Self {
+        use wire_weaver_client::CallError;
+        match e {
+            CallError::Device(e) => Error::Gpio(e),
+            CallError::Unimplemented { resource } => Error::Unimplemented { resource },
+            CallError::Client(e) => Error::Client(e),
+        }
     }
 }

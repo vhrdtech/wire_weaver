@@ -42,6 +42,11 @@
 - Counted and reliable streams in introspection data (API-30): the compatibility check and API diffs know
   `ApiItemKind::PositionedStream` (a delivery kind that differs between client and device is incompatible), the
   dynamic client lists them as streams.
+  dynamic client lists them as streams. Their events (`EventKind::StreamItem`) are dropped until CLT-23.
+- `Error::is_unimplemented()`: the device has no implementation of an item without an error type (its handler
+  returned `Unimplemented`, or `NotImplementedByDevice`). `CallError::device()` and `CallError::is_unimplemented()`.
+  `OutcomeError` / `DecodeReply` tie an error type to how a reply is decoded (implemented for `Error` and
+  `CallError`).
 - Follow a device across a reboot into other firmware (CLT-21), `follow` module: `Follow::gone()` / `back()` /
   `back_in_bootsel()` / `back_in_wire_weaver()` wait for the device with the same serial number to go away and come
   back as what is expected, on any `follow::Bus` (`UsbBus` for real devices); `Found` tells a WireWeaver device, an
@@ -173,6 +178,21 @@
 
 ### ⚠️ Breaking
 
+- One `?` per call (CLT-24, `docs/api/methods.md`): a method returning `Result<T, E>` gives `Result<T, CallError<E>>`
+  from `call()`, `blocking_call()` and `call_promise()` instead of `Result<Result<T, E>, Error>`. `CallError` is
+  `Device(E)` (the method's `Err(e)`), `Unimplemented { resource }` (the handler returned `Unimplemented`, or the
+  device's API doesn't have the method: `NotImplementedByDevice`) or `Client(Error)`; `Display` and `source()` are the
+  inner error's, `std::error::Error` when `E` is. Replace `??` with `?` and `Ok(Err(e))` with
+  `Err(CallError::Device(e))`; a `thiserror` enum takes `#[from] CallError<E>`. Methods without `Result` keep
+  `Result<T, Error>`.
+- A property with a user error type (`property!(rw mode: u8, ModeError)`) gives `Result<(), CallError<ModeError>>` from
+  `write()` / `blocking_write()` and `Promise<(), CallError<ModeError>>` from `write_promise()`, the user error as
+  `CallError::Device` instead of `Error::RemoteError` with `ErrorKind::UserBytes`. `Error::RemoteErrorDes` (the user
+  error formatted into a string by `write_promise()`) is removed.
+- `PreparedCall<T, E = Error>`, `PreparedWrite<E = Error>`, `Promise<T, E = Error>` and `PromiseState<'_, T, E = Error>`
+  take the error type (`PreparedWrite`'s parameter was the user error type, `()` without one; now it is `Error` or
+  `CallError<UserError>`). `Promise::take()` needs `E: Display`. `Commander::prepare_call()` and `prepare_write()` take
+  a `resource: &'static str`, the item's name for `CallError::Unimplemented` (generated code passes `Trait::item`).
 - `Sink::open()`, `close()` (and `_blocking`) take `&mut self`, same for `DynSink`: on a credit sink they reset or
   flush its state.
 - `DynResourceKind::Stream` has a `flow: Option<FlowControl>` field.

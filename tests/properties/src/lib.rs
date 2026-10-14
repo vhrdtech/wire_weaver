@@ -5,7 +5,7 @@ mod tests {
     use std::time::Duration;
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use wire_weaver_client::{Error, MultiRead};
+    use wire_weaver_client::{CallError, Error, MultiRead};
     use ww_client_server::ErrorKindOwned;
 
     #[derive(Default)]
@@ -356,9 +356,10 @@ mod tests {
             user_error(client.read_mode().read().await),
             ModeError::NotSet
         );
-        assert_eq!(
-            user_error(client.write_mode(11).write().await),
-            ModeError::TooBig
+        let r = client.write_mode(11).write().await;
+        assert!(
+            matches!(r, Err(CallError::Device(ModeError::TooBig))),
+            "{r:?}"
         );
         assert_eq!(data.read().unwrap().mode, 0, "failed write is not applied");
         client.write_mode(5).write().await.unwrap();
@@ -487,10 +488,9 @@ mod tests {
         assert_eq!(write.take_ready(), Some(()), "{write}");
         let mut write = client.write_mode(11).write_promise("write_mode");
         tests_common::wait_promise(&mut write);
-        let Some(Error::RemoteErrorDes(e)) = write.peek_error() else {
+        let Some(CallError::Device(ModeError::TooBig)) = write.peek_error() else {
             panic!("expected deserialized user error, got {write}");
         };
-        assert!(e.contains("TooBig"), "{e}");
 
         let mut read = client.read_mode().read_promise("read_mode");
         tests_common::wait_promise(&mut read);

@@ -1,32 +1,32 @@
 use crate::event_loop::commander::TransportCommander;
-use crate::{Error, Promise};
-use std::fmt::Debug;
+use crate::{Error, OutcomeError, Promise};
 use std::marker::PhantomData;
 use std::time::Duration;
-use wire_weaver::prelude::DeserializeShrinkWrapOwned;
 use ww_client_server::PathKindOwned;
 
-/// Self-contained struct containing all necessary information needed to perform a read:
+/// Self-contained struct containing all necessary information needed to perform a write:
 /// * TX ends towards transport and dispatcher event loops
 /// * Resource path
-/// * Property type as a generic `T` argument
-/// * User error type as a generic `E` argument, `()` if the property has none
+/// * Error type as a generic `E` argument: [Error] for properties without a user error type,
+///   [CallError](crate::CallError) for properties with one (`property!(rw name: T, UserError)`)
 ///
 /// When obtained, the user can choose how to actually execute the call:
-/// * async: `read()`
-/// * blocking: `blocking_read()`
-/// * turn into a `Promise<T>` useful in immediate mode UI
-#[must_use = "PrepareRead does nothing, unless read(), blocking_read() or read_promise() is used"]
-pub struct PreparedWrite<E> {
+/// * async: `write()`
+/// * blocking: `blocking_write()`
+/// * turn into a `Promise<(), E>` useful in immediate mode UI
+#[must_use = "PreparedWrite does nothing, unless write(), blocking_write() or write_promise() is used"]
+pub struct PreparedWrite<E = Error> {
     pub(crate) postpone_err: Result<(), Error>,
     pub(crate) transport_cmd_tx: TransportCommander,
     pub(crate) path_kind: PathKindOwned,
     pub(crate) value: Vec<u8>,
     pub(crate) timeout_override: Option<Duration>,
+    /// Names the property in [CallError::Unimplemented](crate::CallError::Unimplemented)
+    pub(crate) resource: &'static str,
     pub(crate) _phantom_err: PhantomData<E>,
 }
 
-impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
+impl<E: OutcomeError> PreparedWrite<E> {
     /// Use provided timeout instead of default one propagated from CommandSender
     pub fn with_timeout(self, timeout: Duration) -> Self {
         Self {
@@ -35,12 +35,20 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
             path_kind: self.path_kind,
             value: self.value,
             timeout_override: Some(timeout),
+            resource: self.resource,
             _phantom_err: PhantomData,
         }
     }
 
     /// Send write request, await response (or timeout) and return it.
-    pub async fn write(self) -> Result<(), Error> {
+    pub async fn write(self) -> Result<(), E> {
+        let resource = self.resource;
+        self.write_inner()
+            .await
+            .map_err(|e| E::from_client(e, resource))
+    }
+
+    async fn write_inner(self) -> Result<(), Error> {
         // late error return, to have more ergonomic dev.fn_name().call()?; instead of dev.fn_name()?.call()?;
         self.postpone_err?;
 
@@ -57,7 +65,13 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
     }
 
     /// Send write request, block the thread until response is received (or timeout) and return it.
-    pub fn blocking_write(self) -> Result<(), Error> {
+    pub fn blocking_write(self) -> Result<(), E> {
+        let resource = self.resource;
+        self.blocking_write_inner()
+            .map_err(|e| E::from_client(e, resource))
+    }
+
+    fn blocking_write_inner(self) -> Result<(), Error> {
         self.postpone_err?;
 
         // send call to a remote device through transport layer
@@ -95,11 +109,10 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
     /// Return a [Promise] that sends a write request on its first poll and receives the result on subsequent polls.
     /// Useful for immediate mode UI. Must only be polled from synchronous code, not from async tasks,
     /// see [Promise] docs; use `write()` in async code.
-    /// A user error (see `property!(rw name: T, UserError)`) is returned as [Error::RemoteErrorDes] with it formatted.
     #[must_use = "Promise does nothing, unless it is polled"]
-    pub fn write_promise(self, marker: &'static str) -> Promise<()> {
+    pub fn write_promise(self, marker: &'static str) -> Promise<(), E> {
         if let Err(e) = self.postpone_err {
-            return Promise::error(e, marker);
+            return Promise::error(E::from_client(e, self.resource), marker);
         }
 
         Promise::new_write(
@@ -107,10 +120,7 @@ impl<E: DeserializeShrinkWrapOwned + Debug> PreparedWrite<E> {
             self.value,
             self.timeout_override,
             self.transport_cmd_tx,
-            |bytes| match E::from_ww_bytes_owned(bytes) {
-                Ok(e) => format!("{e:?}"),
-                Err(e) => format!("failed to deserialize: {e:?}"),
-            },
+            self.resource,
             marker,
         )
     }

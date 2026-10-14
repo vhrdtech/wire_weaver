@@ -554,7 +554,6 @@ mod tests {
             .layout(Slot::Active)
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(layout.chunk_count, CHUNKS as u16);
 
@@ -564,14 +563,13 @@ mod tests {
             .call()
             .await
             .unwrap();
-        assert_eq!(digest, Ok([1, 2, 3, 4, 5, 6, 7, 8]));
+        assert_eq!(digest, [1, 2, 3, 4, 5, 6, 7, 8]);
 
         let chunks = client
             .inventory()
             .chunks(Slot::Active, 1, 2)
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(chunks.len(), 2);
         assert_eq!(
@@ -583,7 +581,6 @@ mod tests {
             .chunks(Slot::Inactive, 0, 9)
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(blank.len(), CHUNKS, "a page stops at the end of the slot");
         assert!(blank.iter().all(|c| *c == ChunkState::Blank));
@@ -597,8 +594,8 @@ mod tests {
         let limits = stage.limits().call().await.unwrap();
         assert_eq!(limits.max_piece, MAX_PIECE as u32);
         assert_eq!(
-            stage.progress().call().await.unwrap(),
-            Err(Error::NoSession)
+            stage.progress().call().await.unwrap_err().device(),
+            Some(&Error::NoSession)
         );
 
         // Plan: erase block 0, copy active chunk 2 to chunk 0, write chunk 1 in two pieces.
@@ -606,34 +603,39 @@ mod tests {
             .begin(Target::Live, MaxLen::new(vec![3]).unwrap())
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!((session.steps, session.resumed), (3, false));
         assert_eq!(
-            stage.copy(1, 0, 2, [0; 8]).call().await.unwrap(),
-            Err(Error::OutOfOrder(0))
+            stage
+                .copy(1, 0, 2, [0; 8])
+                .call()
+                .await
+                .unwrap_err()
+                .device(),
+            Some(&Error::OutOfOrder(0))
         );
 
-        stage.erase(0, 0).call().await.unwrap().unwrap();
-        stage.erase(0, 0).call().await.unwrap().unwrap(); // a resend is skipped
+        stage.erase(0, 0).call().await.unwrap();
+        stage.erase(0, 0).call().await.unwrap(); // a resend is skipped
         assert_eq!(
-            stage.copy(1, 0, 2, [0; 8]).call().await.unwrap(),
-            Err(Error::SourceMismatch)
+            stage
+                .copy(1, 0, 2, [0; 8])
+                .call()
+                .await
+                .unwrap_err()
+                .device(),
+            Some(&Error::SourceMismatch)
         );
         let src_hash = [32, 33, 34, 35, 36, 37, 38, 39];
-        stage.copy(1, 0, 2, src_hash).call().await.unwrap().unwrap();
-        assert_eq!(
-            stage.copy(1, 0, 2, src_hash).call().await.unwrap(),
-            Ok(()),
-            "a resend of a done step"
-        );
+        stage.copy(1, 0, 2, src_hash).call().await.unwrap();
+        // a resend of a done step
+        stage.copy(1, 0, 2, src_hash).call().await.unwrap();
 
         // Resume: begin with the same header answers where to continue.
         let again = stage
             .begin(Target::Live, MaxLen::new(vec![3]).unwrap())
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!((again.resumed, again.resume_from), (true, 2));
 
@@ -644,32 +646,28 @@ mod tests {
                 .write(2, 1, hash, 0, MaxLen::new(vec![0; MAX_PIECE + 1]).unwrap())
                 .call()
                 .await
-                .unwrap(),
-            Err(Error::PieceTooBig)
+                .unwrap_err()
+                .device(),
+            Some(&Error::PieceTooBig)
         );
         // Past the protocol-wide bound the client refuses to send at all; nothing reaches the device.
         let too_long = MaxLen::new_unchecked(vec![0; ww_dfu::MAX_PIECE_LEN + 1]);
         assert!(stage.write(2, 1, hash, 0, too_long).call().await.is_err());
-        assert_eq!(
-            stage.progress().call().await.unwrap().unwrap().chunk_offset,
-            0
-        );
+        assert_eq!(stage.progress().call().await.unwrap().chunk_offset, 0);
         stage
             .write(2, 1, hash, 0, MaxLen::new(data[..8].to_vec()).unwrap())
             .call()
             .await
-            .unwrap()
             .unwrap();
-        let progress = stage.progress().call().await.unwrap().unwrap();
+        let progress = stage.progress().call().await.unwrap();
         assert_eq!((progress.next_step, progress.chunk_offset), (2, 8));
         stage
             .write(2, 1, hash, 8, MaxLen::new(data[8..].to_vec()).unwrap())
             .call()
             .await
-            .unwrap()
             .unwrap();
 
-        assert_eq!(stage.finish().call().await.unwrap(), Ok(BootState::Staged));
+        assert_eq!(stage.finish().call().await.unwrap(), BootState::Staged);
         {
             let dev = dev.read().unwrap();
             assert_eq!(&dev.inactive[..CHUNK], &dev.active[2 * CHUNK..3 * CHUNK]);
@@ -678,17 +676,17 @@ mod tests {
 
         let mut boot = client.boot();
         assert_eq!(boot.boot_state().call().await.unwrap(), BootState::Staged);
-        boot.reboot(BootTarget::App).call().await.unwrap().unwrap();
+        boot.reboot(BootTarget::App).call().await.unwrap();
         assert_eq!(dev.read().unwrap().rebooted_into, Some(BootTarget::App));
         dev.write().unwrap().boot_state = BootState::Trial;
-        boot.confirm().call().await.unwrap().unwrap();
+        boot.confirm().call().await.unwrap();
         assert_eq!(
             boot.boot_state().call().await.unwrap(),
             BootState::Confirmed
         );
         assert_eq!(
-            boot.revert().call().await.unwrap(),
-            Err(Error::WrongState(BootState::Confirmed))
+            boot.revert().call().await.unwrap_err().device(),
+            Some(&Error::WrongState(BootState::Confirmed))
         );
     }
 
@@ -700,7 +698,6 @@ mod tests {
             .begin_bulk(Target::Live, MaxLen::new(vec![0]).unwrap(), 12, 0)
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(session.resume_from, 0);
 
@@ -727,8 +724,8 @@ mod tests {
         assert_eq!(PLAN_SEGMENT_MAX, 1031);
         assert_eq!(dev.read().unwrap().plan, vec![1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(
-            client.stage().progress().call().await.unwrap(),
-            Err(Error::NoSession)
+            client.stage().progress().call().await.unwrap_err().device(),
+            Some(&Error::NoSession)
         );
 
         // The ack type round-trips with an error inside a status.

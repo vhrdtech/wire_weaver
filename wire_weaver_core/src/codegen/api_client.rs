@@ -298,10 +298,17 @@ fn level_methods(
     path_mode: ClientPathMode,
     gid_paths: &GidPaths,
 ) -> TokenStream {
-    let handlers = api_level
-        .items
-        .iter()
-        .map(|item| level_method(api_bundle, item, index_chain, model, path_mode, gid_paths));
+    let handlers = api_level.items.iter().map(|item| {
+        level_method(
+            api_bundle,
+            api_level,
+            item,
+            index_chain,
+            model,
+            path_mode,
+            gid_paths,
+        )
+    });
     quote! {
         #(#handlers)*
     }
@@ -309,6 +316,7 @@ fn level_methods(
 
 fn level_method(
     api_bundle: &ApiBundleOwned,
+    api_level: &ApiLevelOwned,
     item: &ApiItemOwned,
     mut index_chain: IndexChain,
     model: ClientModel,
@@ -334,6 +342,8 @@ fn level_method(
         }
     };
     let ident = Ident::new(&item.ident, Span::call_site());
+    // names the item in CallError::Unimplemented
+    let resource = format!("{}::{}", api_level.trait_name, item.ident);
     let lm = match &item.kind {
         ApiItemKindOwned::Method { args, return_ty } => handle_method(
             api_bundle,
@@ -345,6 +355,7 @@ fn level_method(
             args,
             return_ty,
             &item.docs,
+            &resource,
         ),
         ApiItemKindOwned::Property {
             access,
@@ -360,6 +371,7 @@ fn level_method(
             &ident,
             ty,
             write_err_ty,
+            &resource,
         ),
         ApiItemKindOwned::Stream { is_up: true, .. } | ApiItemKindOwned::StreamFn { .. } => {
             handle_stream_fn(
@@ -441,12 +453,20 @@ fn handle_method(
     args: &[ArgumentOwned],
     return_type: &Option<TypeOwned>,
     docs: &[String],
+    resource: &str,
 ) -> TokenStream {
     let (args_ser, args_list, _args_names) = ser_args(api_bundle, ident, args, model.no_alloc());
-    let output_ty = if let Some(return_type) = &return_type {
-        ty_def(api_bundle, return_type, true, TyPos::Arg).unwrap()
-    } else {
-        quote! { () }
+    // a method returning Result<T, E> gives Result<T, CallError<E>> instead of Result<Result<T, E>, Error>
+    let output_ty = match return_type {
+        Some(return_type) => match return_type.get_in_line(api_bundle).unwrap() {
+            TypeOwned::Result { ok_ty, err_ty } => {
+                let ok_ty = ty_def(api_bundle, ok_ty, true, TyPos::Arg).unwrap();
+                let err_ty = ty_def(api_bundle, err_ty, true, TyPos::Arg).unwrap();
+                quote! { #ok_ty, wire_weaver_client::CallError<#err_ty> }
+            }
+            _ => ty_def(api_bundle, return_type, true, TyPos::Arg).unwrap(),
+        },
+        None => quote! { () },
     };
 
     let path_kind = path_kind(path_mode, gid_paths);
@@ -458,7 +478,7 @@ fn handle_method(
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;
-            self.cmd.prepare_call(path_kind, args_bytes)
+            self.cmd.prepare_call(path_kind, args_bytes, #resource)
         }
     }
 }
@@ -474,6 +494,7 @@ fn handle_property(
     prop_name: &Ident,
     ty: &TypeOwned,
     user_result_ty: &Option<TypeOwned>,
+    resource: &str,
 ) -> TokenStream {
     let path_kind = path_kind(path_mode, gid_paths);
     let ty = ty_def(api_bundle, ty, !model.no_alloc(), TyPos::Arg).unwrap();
@@ -483,10 +504,11 @@ fn handle_property(
         PropertyAccess::ReadWrite { .. } | PropertyAccess::WriteOnly
     ) {
         let write_fn_name = Ident::new(&format!("write_{}", prop_name), Span::call_site());
-        let user_result_ty = if let Some(ty) = user_result_ty {
-            ty_def(api_bundle, ty, !model.no_alloc(), TyPos::Arg).unwrap()
+        let write_err_ty = if let Some(ty) = user_result_ty {
+            let ty = ty_def(api_bundle, ty, !model.no_alloc(), TyPos::Arg).unwrap();
+            quote! { wire_weaver_client::CallError<#ty> }
         } else {
-            quote! { () }
+            quote! { wire_weaver_client::Error }
         };
         let ser_value = if model.no_alloc() {
             quote! {
@@ -499,11 +521,11 @@ fn handle_property(
             }
         };
         quote! {
-            pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client::PreparedWrite<#user_result_ty> {
+            pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client::PreparedWrite<#write_err_ty> {
                 #ser_value
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd.prepare_write(path_kind, value)
+                self.cmd.prepare_write(path_kind, value, #resource)
             }
         }
     } else {

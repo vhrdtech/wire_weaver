@@ -1384,7 +1384,7 @@ mod tests {
         cmd.resolve_api_match();
 
         fn call(cmd: &Commander, id: u32) -> Result<(), Error> {
-            cmd.prepare_call::<()>(PathKind::absolute(&[UNib32(id)]), Ok(vec![]))
+            cmd.prepare_call::<(), Error>(PathKind::absolute(&[UNib32(id)]), Ok(vec![]), "")
                 .postpone_err
         }
         assert!(

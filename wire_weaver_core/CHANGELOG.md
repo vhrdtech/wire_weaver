@@ -33,6 +33,9 @@
   RpcResult<()>`, return `Ready(())` to accept) and `close_<name>(cx)`; sideband `Close` goes to the latter,
   `sideband_<name>` only gets the other commands. Clients open with `<name>(args).call()` / `.blocking_call()`
   instead of `<name>().await` / `<name>_blocking()`. `ww api scaffold` prints the new handlers.
+- Generated std clients (CLT-24): a method returning `Result<T, E>` returns `PreparedCall<T, CallError<E>>` (was
+  `PreparedCall<Result<T, E>>`), a property with a user error type `PreparedWrite<CallError<E>>` (was
+  `PreparedWrite<E>`), one without `PreparedWrite<Error>` (was `PreparedWrite<()>`). See `wire_weaver_client`.
 - Every generated server handler takes `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` as the first argument
   after `&mut self` (`BlockingEventOut` for `use_async = false`): methods and `sideband_*` instead of
   `msg_tx: &mut impl MessageSink`, and newly `get_*`, `set_*`, `changed_*` and `write_*`. `valid_indices_*` don't.

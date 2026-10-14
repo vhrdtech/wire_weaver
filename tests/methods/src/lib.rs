@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use methods_api::UserDefinedOwned;
+    use methods_api::{MethodError, UserDefinedOwned};
     use std::sync::{Arc, RwLock};
     use std::time::Duration;
     use tests_common::TestDevice;
-    use wire_weaver_client::Error;
+    use wire_weaver_client::{CallError, Error};
     use ww_client_server::ErrorKindOwned;
 
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -24,7 +24,7 @@ mod tests {
 
     mod no_std_sync_server {
         use super::*;
-        use methods_api::{I2cAddress, UserDefined};
+        use methods_api::{I2cAddress, MethodError, UserDefined};
         use tests_common::TestProcessEvents;
         use wire_weaver::prelude::*;
 
@@ -128,6 +128,25 @@ mod tests {
                 };
                 let sum = a.value() as i32 + b.value() as i32 + addr as i32;
                 Ready(U10::new(sum.clamp(0, U10::max().value() as i32) as u16).unwrap())
+            }
+
+            fn fallible(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                value: u8,
+            ) -> RpcResult<Result<u8, MethodError>> {
+                Ready(if value.is_multiple_of(2) {
+                    Ok(value / 2)
+                } else {
+                    Err(MethodError::Odd)
+                })
+            }
+
+            fn fallible_absent(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+            ) -> RpcResult<Result<(), MethodError>> {
+                Unimplemented.into()
             }
         }
 
@@ -322,8 +341,81 @@ mod tests {
             panic!("expected RemoteError, got {r:?}");
         };
         assert!(matches!(e.kind, ErrorKindOwned::Unimplemented));
+        assert!(client.absent().call().await.unwrap_err().is_unimplemented());
+        let r = client.fallible_absent().call().await;
+        let Err(CallError::Unimplemented { resource }) = r else {
+            panic!("expected CallError::Unimplemented, got {r:?}");
+        };
+        assert_eq!(resource, "Methods::fallible_absent");
         // and the connection is still usable
         client.no_args().call().await.unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn call_errors() {
+        let (device, _data) = start("methods/call_errors");
+        let mut client = connect(&device).await;
+        assert_eq!(client.fallible(4).call().await.unwrap(), 2);
+        let e = client.fallible(3).call().await.unwrap_err();
+        assert!(matches!(e, CallError::Device(MethodError::Odd)), "{e:?}");
+        // transparent: the device error's text, no source of its own
+        assert_eq!(e.to_string(), "odd value");
+        assert!(std::error::Error::source(&e).is_none());
+
+        // one ? in a function returning a std error
+        async fn halve(
+            client: &mut StdClient,
+            value: u8,
+        ) -> Result<u8, Box<dyn std::error::Error>> {
+            Ok(client.fallible(value).call().await?)
+        }
+        assert_eq!(halve(&mut client, 8).await.unwrap(), 4);
+        assert_eq!(
+            halve(&mut client, 1).await.unwrap_err().to_string(),
+            "odd value"
+        );
+
+        device.drop_requests(true);
+        let r = client
+            .fallible(2)
+            .with_timeout(Duration::from_millis(50))
+            .call()
+            .await;
+        assert!(matches!(r, Err(CallError::Client(Error::Timeout))), "{r:?}");
+    }
+
+    #[test]
+    fn call_errors_blocking_and_promise() {
+        let (device, _data) = start("methods/call_errors_blocking_and_promise");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let mut client = connect_blocking(&device);
+        assert_eq!(client.fallible(6).blocking_call().unwrap(), 3);
+        let r = client.fallible(5).blocking_call();
+        assert!(
+            matches!(r, Err(CallError::Device(MethodError::Odd))),
+            "{r:?}"
+        );
+
+        let mut promise = client.fallible(10).call_promise("fallible");
+        tests_common::wait_promise(&mut promise);
+        assert_eq!(promise.take_ready(), Some(5));
+        let mut promise = client.fallible(7).call_promise("fallible");
+        tests_common::wait_promise(&mut promise);
+        assert!(
+            matches!(
+                promise.peek_error(),
+                Some(CallError::Device(MethodError::Odd))
+            ),
+            "{promise}"
+        );
+        assert_eq!(promise.take(), Err("odd value".into()));
+        let mut promise = client.fallible_absent().call_promise("fallible_absent");
+        tests_common::wait_promise(&mut promise);
+        assert!(
+            matches!(promise.peek_error(), Some(CallError::Unimplemented { .. })),
+            "{promise}"
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

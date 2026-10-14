@@ -305,7 +305,7 @@ impl DynResource {
     ) -> Result<Option<ValueOwned>, Error> {
         let bytes = self.call_args(args)?;
         let reply = cmd
-            .prepare_call::<TailBytesOwned>(self.path_kind(), Ok(bytes))
+            .prepare_call::<TailBytesOwned, Error>(self.path_kind(), Ok(bytes), "")
             .call()
             .await?;
         self.decode_return(&reply)
@@ -319,7 +319,7 @@ impl DynResource {
         timeout: Option<Duration>,
     ) -> Result<Option<ValueOwned>, Error> {
         let bytes = self.call_args(args)?;
-        let mut call = cmd.prepare_call::<TailBytesOwned>(self.path_kind(), Ok(bytes));
+        let mut call = cmd.prepare_call::<TailBytesOwned, Error>(self.path_kind(), Ok(bytes), "");
         if let Some(timeout) = timeout {
             call = call.with_timeout(timeout);
         }
@@ -368,7 +368,7 @@ impl DynResource {
     /// Write a property.
     pub async fn write(&self, cmd: &Commander, value: &ValueOwned) -> Result<(), Error> {
         let bytes = self.encode_property(value)?;
-        cmd.prepare_write::<()>(self.path_kind(), Ok(bytes))
+        cmd.prepare_write::<Error>(self.path_kind(), Ok(bytes), "")
             .write()
             .await
     }
@@ -381,7 +381,7 @@ impl DynResource {
         timeout: Option<Duration>,
     ) -> Result<(), Error> {
         let bytes = self.encode_property(value)?;
-        let mut write = cmd.prepare_write::<()>(self.path_kind(), Ok(bytes));
+        let mut write = cmd.prepare_write::<Error>(self.path_kind(), Ok(bytes), "");
         if let Some(timeout) = timeout {
             write = write.with_timeout(timeout);
         }

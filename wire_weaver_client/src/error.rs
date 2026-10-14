@@ -1,3 +1,6 @@
+use std::fmt::{Debug, Display, Formatter};
+use wire_weaver::prelude::DeserializeShrinkWrapOwned;
+use ww_client_server::ErrorKindOwned;
 use ww_version::FullVersionOwned;
 
 use crate::DeviceInfo;
@@ -52,8 +55,6 @@ pub enum Error {
     Disconnected,
     #[error("Remote device returned ww_client_server::{:?}", .0)]
     RemoteError(ww_client_server::ErrorOwned),
-    #[error("Remote device returned {}", .0)]
-    RemoteErrorDes(String),
     #[error("All command senders were dropped")]
     CmdTxDropped,
     #[error("Exit command received")]
@@ -121,3 +122,204 @@ impl From<wire_weaver::shrink_wrap::Error> for Error {
 //     /// of connection.
 //     KeepRetrying,
 // }
+
+impl Error {
+    /// The device has no implementation of the called item: its handler returned `Unimplemented`
+    /// (`RpcResult`, `GetResult`, `SetResult`), or the device's API doesn't have it ([Error::NotImplementedByDevice],
+    /// known locally from introspection). For items without an error type, items with one return
+    /// [CallError::Unimplemented] instead.
+    pub fn is_unimplemented(&self) -> bool {
+        match self {
+            Error::NotImplementedByDevice { .. } => true,
+            Error::RemoteError(e) => matches!(e.kind, ErrorKindOwned::Unimplemented),
+            _ => false,
+        }
+    }
+}
+
+/// Error of a call to a method returning `Result<T, E>`, or of a write to a property with an error type.
+///
+/// `call()`, `blocking_call()`, `write()` and the promises of such items return `Result<T, CallError<E>>`,
+/// so one `?` is enough, and a match tells the three outcomes apart.
+///
+/// `Display` and [source](std::error::Error::source) are transparent: the inner error's text, once.
+#[derive(Debug)]
+pub enum CallError<E> {
+    /// The device answered with its error: the `Err(e)` of the method (or of the property write).
+    Device(E),
+    /// The device has no implementation: its handler returned `Unimplemented` (`RpcResult`, `GetResult`,
+    /// `SetResult`), or the device's API doesn't have it (known locally from introspection, no round trip).
+    Unimplemented {
+        /// Resource name, e.g. `Gpio::set_mode` or `gpio[].set_mode`
+        resource: String,
+    },
+    /// The call didn't go through: link, timeout, disconnect, another framework error.
+    Client(Error),
+}
+
+impl<E> CallError<E> {
+    /// Returns the device's error, if the device answered with one.
+    pub fn device(&self) -> Option<&E> {
+        match self {
+            CallError::Device(e) => Some(e),
+            _ => None,
+        }
+    }
+
+    /// See [CallError::Unimplemented].
+    pub fn is_unimplemented(&self) -> bool {
+        matches!(self, CallError::Unimplemented { .. })
+    }
+}
+
+impl<E: Display> Display for CallError<E> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CallError::Device(e) => Display::fmt(e, f),
+            CallError::Unimplemented { resource } => {
+                write!(f, "'{resource}' is not implemented by the device")
+            }
+            CallError::Client(e) => Display::fmt(e, f),
+        }
+    }
+}
+
+impl<E: std::error::Error + 'static> std::error::Error for CallError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            CallError::Device(e) => e.source(),
+            CallError::Unimplemented { .. } => None,
+            CallError::Client(e) => e.source(),
+        }
+    }
+}
+
+/// Error type of a call, read or write outcome: [Error] for items without an error type, [CallError] for items with one.
+/// Implemented by generated client code's error types only, not meant to be implemented by users.
+pub trait OutcomeError: Debug + Sized {
+    /// Wraps an error of the call itself; `resource` names the called item for [CallError::Unimplemented].
+    fn from_client(e: Error, resource: &'static str) -> Self;
+}
+
+/// Decodes a reply to `T` or the error it carries, see [OutcomeError].
+pub trait DecodeReply<T>: OutcomeError {
+    fn decode_reply(bytes: &[u8]) -> Result<T, Self>;
+}
+
+impl OutcomeError for Error {
+    fn from_client(e: Error, _resource: &'static str) -> Self {
+        e
+    }
+}
+
+impl<T: DeserializeShrinkWrapOwned> DecodeReply<T> for Error {
+    fn decode_reply(bytes: &[u8]) -> Result<T, Self> {
+        Ok(T::from_ww_bytes_owned(bytes)?)
+    }
+}
+
+impl<E: DeserializeShrinkWrapOwned + Debug> OutcomeError for CallError<E> {
+    fn from_client(e: Error, resource: &'static str) -> Self {
+        match e {
+            Error::NotImplementedByDevice { resource, .. } => CallError::Unimplemented { resource },
+            Error::RemoteError(remote) => match &remote.kind {
+                ErrorKindOwned::Unimplemented => CallError::Unimplemented {
+                    resource: resource.into(),
+                },
+                // a property write's user error
+                ErrorKindOwned::UserBytes(bytes) => match E::from_ww_bytes_owned(bytes) {
+                    Ok(e) => CallError::Device(e),
+                    Err(e) => CallError::Client(e.into()),
+                },
+                _ => CallError::Client(Error::RemoteError(remote)),
+            },
+            e => CallError::Client(e),
+        }
+    }
+}
+
+impl<T, E> DecodeReply<T> for CallError<E>
+where
+    T: DeserializeShrinkWrapOwned,
+    E: DeserializeShrinkWrapOwned + Debug,
+{
+    fn decode_reply(bytes: &[u8]) -> Result<T, Self> {
+        match Result::<T, E>::from_ww_bytes_owned(bytes) {
+            Ok(Ok(value)) => Ok(value),
+            Ok(Err(e)) => Err(CallError::Device(e)),
+            Err(e) => Err(CallError::Client(e.into())),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wire_weaver::prelude::SerializeShrinkWrap;
+
+    fn remote(kind: ww_client_server::ErrorKind<'_>) -> Error {
+        Error::RemoteError(ww_client_server::Error::new(1, kind).make_owned())
+    }
+
+    #[test]
+    fn unimplemented_from_device_and_compat() {
+        type E = CallError<u8>;
+        let e = E::from_client(remote(ww_client_server::ErrorKind::Unimplemented), "T::m");
+        assert!(matches!(&e, CallError::Unimplemented { resource } if resource == "T::m"));
+        assert!(remote(ww_client_server::ErrorKind::Unimplemented).is_unimplemented());
+
+        let not_on_device = || Error::NotImplementedByDevice {
+            resource: "t.m".into(),
+            device: Box::new(FullVersionOwned::new(
+                "d".into(),
+                ww_version::VersionOwned::new(0, 1, 0),
+            )),
+        };
+        assert!(not_on_device().is_unimplemented());
+        let e = E::from_client(not_on_device(), "T::m");
+        assert!(matches!(&e, CallError::Unimplemented { resource } if resource == "t.m"));
+
+        let e = E::from_client(Error::Timeout, "T::m");
+        assert!(matches!(e, CallError::Client(Error::Timeout)));
+        assert!(!Error::Timeout.is_unimplemented());
+    }
+
+    #[test]
+    fn user_bytes_of_a_write_are_the_device_error() {
+        let mut buf = [0u8; 8];
+        let bytes = 7u8.to_ww_bytes(&mut buf).unwrap();
+        let kind = ww_client_server::ErrorKind::UserBytes(
+            wire_weaver::shrink_wrap::RefVec::new_bytes(bytes),
+        );
+        let e = CallError::<u8>::from_client(remote(kind), "T::p");
+        assert!(matches!(e, CallError::Device(7)), "{e:?}");
+    }
+
+    #[test]
+    fn decode_reply_splits_the_result() {
+        let mut buf = [0u8; 8];
+        let ok = Result::<u8, u8>::Ok(3)
+            .to_ww_bytes(&mut buf)
+            .unwrap()
+            .to_vec();
+        assert!(matches!(CallError::<u8>::decode_reply(&ok), Ok(3u8)));
+        let err = Result::<u8, u8>::Err(4)
+            .to_ww_bytes(&mut buf)
+            .unwrap()
+            .to_vec();
+        assert!(matches!(
+            <CallError<u8> as DecodeReply<u8>>::decode_reply(&err),
+            Err(CallError::Device(4))
+        ));
+    }
+
+    #[test]
+    fn display_is_transparent() {
+        let e = CallError::<std::fmt::Error>::Client(Error::Timeout);
+        assert_eq!(e.to_string(), "Timeout");
+        let e = CallError::<u8>::Unimplemented {
+            resource: "T::m".into(),
+        };
+        assert_eq!(e.to_string(), "'T::m' is not implemented by the device");
+    }
+}

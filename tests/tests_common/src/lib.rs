@@ -279,8 +279,8 @@ impl<S: Process> WireWeaverAsyncApiBackend for TestBackend<S> {
 }
 
 /// Poll a promise from synchronous code until it is done or failed, panics after 5 s.
-pub fn wait_promise<T: DeserializeShrinkWrapOwned + core::fmt::Debug>(
-    promise: &mut wire_weaver_client::Promise<T>,
+pub fn wait_promise<T: DeserializeShrinkWrapOwned, E: wire_weaver_client::OutcomeError>(
+    promise: &mut wire_weaver_client::Promise<T, E>,
 ) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {

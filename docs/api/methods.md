@@ -140,3 +140,39 @@ A deferred call that is never answered times out on the client.
 In order to avoid complex shared data structures and allocation on `no_std`, all API levels are squished into one.
 
 ## Client side
+
+`client = "..."` in `ww_codegen!` generates a client struct with one function per method. It returns a
+`PreparedCall`, which is executed with `call().await`, `blocking_call()`, `call_forget()` (no reply) or
+`call_promise(marker)` (polled from immediate mode UI code).
+
+A method without `Result` gives `Result<T, wire_weaver_client::Error>`. A method returning `Result<T, E>` gives
+`Result<T, CallError<E>>`, so one `?` is enough:
+
+```rust
+pub enum CallError<E> {
+    /// The device answered with its error: the `Err(e)` of the method.
+    Device(E),
+    /// The device has no implementation: its handler returned `Unimplemented`, or the device's API doesn't have
+    /// the method (known locally from introspection, no round trip).
+    Unimplemented { resource: String },
+    /// The call didn't go through: link, timeout, disconnect, another framework error.
+    Client(wire_weaver_client::Error),
+}
+```
+
+```rust
+// trait: fn move_motor(x: f32) -> Result<(), MotorError>;
+client.move_motor(1.0).call().await?; // with anyhow, or a thiserror enum with #[from] CallError<MotorError>
+
+match client.move_motor(1.0).call().await {
+    Ok(()) => {}
+    Err(CallError::Device(MotorError::EndStop)) => { /* the device said no */ }
+    Err(CallError::Unimplemented { .. }) => { /* this device can't move motors */ }
+    Err(e) => return Err(e.into()), // CallError::Client: link, timeout, ...
+}
+```
+
+`Display` and `source()` of `CallError` are the inner error's, and it is `std::error::Error` when `E` is. Methods
+without `Result` tell an unimplemented method apart with `wire_weaver_client::Error::is_unimplemented()`. A property
+with a user error type (`property!(rw mode: u8, ModeError)`) gives the same `CallError<ModeError>` from `write()`.
+See [Errors and optional items](errors.md) for the design.

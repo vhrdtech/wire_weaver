@@ -91,7 +91,7 @@ impl FlexBlocking {
     pub fn set_as_output(&mut self, initial: Option<Level>) -> Result<(), Error> {
         self.io
             .set_mode(Mode::PushPullOutput, initial)
-            .blocking_call()??;
+            .blocking_call()?;
         self.mode = Some(Mode::PushPullOutput);
         Ok(())
     }
@@ -107,7 +107,7 @@ impl FlexBlocking {
     /// The internal pull-up or pull-down resistor can optionally be enabled according to pull.
     pub fn set_as_input(&mut self, pull: Pull) -> Result<(), Error> {
         self.io.write_pull(pull).blocking_write()?;
-        self.io.set_mode(Mode::Input, None).blocking_call()??;
+        self.io.set_mode(Mode::Input, None).blocking_call()?;
         self.mode = Some(Mode::Input);
         Ok(())
     }
@@ -148,7 +148,7 @@ impl FlexBlocking {
     /// Optionally, set the initial level before changing pin mode.
     /// This method may fail with [UnsupportedMode](ww_gpio::Error::UnsupportedMode) error.
     fn set_mode(&mut self, mode: Mode, initial: Option<Level>) -> Result<(), Error> {
-        self.io.set_mode(mode, initial).blocking_call()??;
+        self.io.set_mode(mode, initial).blocking_call()?;
         Ok(())
     }
 
@@ -238,7 +238,7 @@ impl FlexBlocking {
                 falling,
                 custom: vec![],
             })
-            .blocking_call()??;
+            .blocking_call()?;
         self.rising_enabled = rising;
         self.falling_enabled = falling;
         Ok(())
@@ -253,7 +253,7 @@ impl FlexBlocking {
                 falling: false,
                 custom: vec![],
             })
-            .blocking_call()??;
+            .blocking_call()?;
         self.rising_enabled = false;
         self.falling_enabled = false;
         self.event_rx = None;

@@ -117,11 +117,14 @@ impl Commander {
         Ok(())
     }
 
-    pub fn prepare_call<T: DeserializeShrinkWrapOwned>(
+    /// `E` is [Error] for methods without `Result`, [CallError](crate::CallError) for methods returning one;
+    /// `resource` names the method in [CallError::Unimplemented](crate::CallError::Unimplemented).
+    pub fn prepare_call<T: DeserializeShrinkWrapOwned, E>(
         &self,
         path: PathKind<'_>,
         args: Result<Vec<u8>, Error>,
-    ) -> PreparedCall<T> {
+        resource: &'static str,
+    ) -> PreparedCall<T, E> {
         // postpone error return to have a better syntax (one ? instead of two)
         let (postpone_err, path_kind, args) = match (self.resolve_path(path), args) {
             (Ok(path_kind), Ok(args)) => (Ok(()), path_kind, args),
@@ -133,6 +136,7 @@ impl Commander {
             path_kind,
             args,
             timeout_override: None,
+            resource,
             _phantom: PhantomData,
         }
     }
@@ -156,10 +160,13 @@ impl Commander {
         }
     }
 
-    pub fn prepare_write<E: DeserializeShrinkWrapOwned>(
+    /// `E` is [Error] for properties without a user error type, [CallError](crate::CallError) for those with one;
+    /// `resource` names the property in [CallError::Unimplemented](crate::CallError::Unimplemented).
+    pub fn prepare_write<E>(
         &self,
         path: PathKind<'_>,
         value: Result<Vec<u8>, Error>,
+        resource: &'static str,
     ) -> PreparedWrite<E> {
         let (postpone_err, path_kind, value) = match (self.resolve_path(path), value) {
             (Ok(path_kind), Ok(value)) => (Ok(()), path_kind, value),
@@ -171,6 +178,7 @@ impl Commander {
             path_kind,
             value,
             timeout_override: None,
+            resource,
             _phantom_err: PhantomData,
         }
     }

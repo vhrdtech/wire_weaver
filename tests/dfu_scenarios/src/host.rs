@@ -71,14 +71,11 @@ macro_rules! send_steps {
             let index = index as u32;
             match step {
                 $crate::plan::Step::Erase { block } => {
-                    $stage.erase(index, *block).call().await.unwrap().unwrap()
+                    $stage.erase(index, *block).call().await.unwrap()
                 }
-                $crate::plan::Step::Copy { dst, src, hash } => $stage
-                    .copy(index, *dst, *src, *hash)
-                    .call()
-                    .await
-                    .unwrap()
-                    .unwrap(),
+                $crate::plan::Step::Copy { dst, src, hash } => {
+                    $stage.copy(index, *dst, *src, *hash).call().await.unwrap()
+                }
                 $crate::plan::Step::Write { dst, hash, data } => {
                     for (i, piece) in data.chunks($max_piece as usize).enumerate() {
                         let offset = (i * $max_piece as usize) as u32;
@@ -92,7 +89,6 @@ macro_rules! send_steps {
                             )
                             .call()
                             .await
-                            .unwrap()
                             .unwrap()
                     }
                 }

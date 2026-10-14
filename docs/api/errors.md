@@ -150,6 +150,8 @@ and the IDE view; what it costs is friction in every driver crate and a Rust bre
 
 ### One `?` per call
 
+**Built** (CLT-24, [Methods: client side](methods.md#client-side)).
+
 For a method `-> Result<T, E>`, `call()`, `blocking_call()` and promises return `Result<T, CallError<E>>`:
 
 ```rust

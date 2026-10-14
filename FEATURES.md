@@ -424,6 +424,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **CLT-8 Compatibility check on connect**: each resource is checked against device introspection when the API hash
   differs.
 - ✅ **CLT-9 Connection selectors**, clear errors when no device is found, `disconnect()` releases the transport.
+- ✅ **CLT-24 One `?` per call** — a method returning `Result<T, E>` gives `Result<T, CallError<E>>`
+  (`Device(E)`, `Unimplemented { resource }` or `Client(Error)`) from `call`, `blocking_call` and promises, a property
+  with a user error type the same from `write` and `write_promise`, instead of `Result<Result<T, E>, Error>` and `??`;
+  `Error::is_unimplemented()` for items without an error type (`docs/api/methods.md#client-side`,
+  `docs/api/errors.md`, `tests/methods`).
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,
@@ -458,9 +463,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   on a simulated device (`tests/follow_reboot`, `docs/transport/follow_reboot.md`). Missing: a run against a Pico 2 /
   rePort; RTT (another control block: a second ELF or a RAM scan) and UDP / WebSocket (the port may change); asking
   for the reboot from the CLI needs CLT-10.
-- 📋 **CLT-24 One `?` per call** · `v0.5` — a method returning `Result<T, E>` gives `Result<T, CallError<E>>`
-  (`Device(E)` or `Client(Error)`) from `call`, `blocking_call`, promises and property writes, instead of
-  `Result<Result<T, E>, Error>` and `??` (`docs/api/errors.md`).
 - 📋 **CLT-22 One `Sink::send` for borrowed and owned items** — owned types (`FooOwned`) implement only
   `SerializeShrinkWrapOwned`, so they go through `send_owned`; one `send` for both (a sink item trait, or the derive
   implementing both), then drop `send_owned`.

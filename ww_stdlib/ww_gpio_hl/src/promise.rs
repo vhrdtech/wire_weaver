@@ -3,7 +3,7 @@ use crate::ww::BankClient;
 use std::sync::Arc;
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver_client::Attachment;
-use wire_weaver_client::{Promise, PromiseState};
+use wire_weaver_client::{CallError, Promise, PromiseState};
 use ww_gpio::{Level, Mode, Pull, Speed};
 
 pub struct BankPromise {
@@ -131,7 +131,7 @@ pub struct FlexPromise {
     pin_idx: u32,
     mode: Promise<Mode>,
     mode_cached: Option<Mode>,
-    set_mode: Promise<()>,
+    set_mode: Promise<(), CallError<ww_gpio::Error>>,
     output_level: Promise<Level>,
     output_level_cached: Option<Level>,
     set_output_level: Promise<()>,
@@ -140,10 +140,10 @@ pub struct FlexPromise {
     input_level_cached: Option<Level>,
     speed: Promise<Speed>,
     speed_cached: Option<Speed>,
-    set_speed: Promise<()>,
+    set_speed: Promise<(), CallError<ww_gpio::Error>>,
     pull: Promise<Pull>,
     pull_cached: Option<Pull>,
-    set_pull: Promise<()>,
+    set_pull: Promise<(), CallError<ww_gpio::Error>>,
 }
 
 impl FlexPromiseRef<'_> {
@@ -206,7 +206,7 @@ impl FlexPromise {
         self.mode = self.bank.pin(self.pin_idx).mode().call_promise("");
     }
 
-    pub fn set_mode_promise(&self) -> &Promise<()> {
+    pub fn set_mode_promise(&self) -> &Promise<(), CallError<ww_gpio::Error>> {
         &self.set_mode
     }
 

@@ -31,7 +31,7 @@ use wire_weaver_client::follow;
 use wire_weaver_client::ww_picoboot::{Image, image::family};
 
 let serial = device_info.serials[0].clone(); // as listed, before the reboot
-app.boot().reboot(BootTarget::Updater).call().await??;
+app.boot().reboot(BootTarget::Updater).call().await?;
 drop(app);
 
 let image = Image::from_uf2(&std::fs::read("app.uf2")?, &[family::RP2350_ARM_S])?;

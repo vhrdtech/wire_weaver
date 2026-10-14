@@ -93,12 +93,7 @@ async fn update_through_rp2350_bootsel() {
     let app = connect(&serial).await;
     let node = app.node().node().call().await.unwrap();
     assert_eq!(node.app_version, Some(1));
-    app.boot()
-        .reboot(BootTarget::Updater)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    app.boot().reboot(BootTarget::Updater).call().await.unwrap();
     drop(app);
 
     let image = Image::from_uf2(&uf2(&app_image(2, 30_000)), &[family::RP2350_ARM_S]).unwrap();
@@ -196,12 +191,7 @@ async fn follow_reboot_into_the_same_app() {
     assert_eq!(dev.booted().await, Mode::App(5));
     let mut bus = dev.bus();
     let app = connect(&dev.serial).await;
-    app.boot()
-        .reboot(BootTarget::App)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    app.boot().reboot(BootTarget::App).call().await.unwrap();
     drop(app);
     let follow = Follow::new(dev.serial.to_lowercase());
     follow.gone(&mut bus, Duration::from_secs(2)).await.unwrap();

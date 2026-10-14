@@ -20,7 +20,27 @@ trait Methods {
     fn request_medium() -> u8;
     /// Bit-sized arguments and return (SW-48)
     fn sub_byte(a: U7, b: I10, addr: I2cAddress) -> U10;
+    /// `value / 2`, or `Err(MethodError::Odd)` for an odd value
+    fn fallible(value: u8) -> Result<u8, MethodError>;
+    /// Server returns Unimplemented
+    fn fallible_absent() -> Result<(), MethodError>;
 }
+
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq), ww_repr = u4)]
+pub enum MethodError {
+    Odd,
+}
+
+impl core::fmt::Display for MethodError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            MethodError::Odd => write!(f, "odd value"),
+            MethodError::Unknown(n) => write!(f, "unknown error {n}"),
+        }
+    }
+}
+
+impl core::error::Error for MethodError {}
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq))]
 struct UserDefined<'i> {

@@ -61,7 +61,6 @@ async fn swap_shuttle_2c_app_step() {
         .begin(Target::Live, header(&plan))
         .call()
         .await
-        .unwrap()
         .unwrap();
     assert_eq!(
         (session.steps as usize, session.resumed),
@@ -71,13 +70,8 @@ async fn swap_shuttle_2c_app_step() {
     dev.rec
         .note("host resends step 5 as if its reply was lost: skipped");
     send_steps!(stage, first_steps(&plan, 6), 5, limits.max_piece);
-    assert_eq!(stage.finish().call().await.unwrap(), Ok(BootState::Staged));
-    host.boot()
-        .reboot(BootTarget::App)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    assert_eq!(stage.finish().call().await.unwrap(), BootState::Staged);
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
@@ -88,7 +82,7 @@ async fn swap_shuttle_2c_app_step() {
         (node.app_version, node.boot_state),
         (Some(2), BootState::Trial)
     );
-    host.boot().confirm().call().await.unwrap().unwrap();
+    host.boot().confirm().call().await.unwrap();
     let node = host.node().node().call().await.unwrap();
     assert_eq!(node.boot_state, BootState::Confirmed);
     assert_eq!(node.last_result.outcome, Outcome::Confirmed);
@@ -119,7 +113,6 @@ async fn swap_freight_2c_app_bulk() {
         .begin_bulk(Target::Live, header(&plan), total, 0)
         .call()
         .await
-        .unwrap()
         .unwrap();
     assert_eq!(session.resume_from, 0);
     let half = 3 * max_piece;
@@ -135,7 +128,6 @@ async fn swap_freight_2c_app_bulk() {
         .begin_bulk(Target::Live, header(&plan), total, 0)
         .call()
         .await
-        .unwrap()
         .unwrap();
     assert_eq!((session.resumed, session.resume_from), (true, half));
     let mut acks = bulk.plan_ack().call().await.unwrap();
@@ -144,21 +136,16 @@ async fn swap_freight_2c_app_bulk() {
     assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
     assert_eq!(
         host.stage().finish().call().await.unwrap(),
-        Ok(BootState::Staged)
+        BootState::Staged
     );
-    host.boot()
-        .reboot(BootTarget::App)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
     drop(acks);
     drop(_sink);
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
     let host = connect!(AppClient, &dev.addr);
-    host.boot().confirm().call().await.unwrap().unwrap();
+    host.boot().confirm().call().await.unwrap();
     let node = host.node().node().call().await.unwrap();
     assert_eq!(
         (node.app_version, node.boot_state),
@@ -192,16 +179,10 @@ async fn flip_shuttle_2r_app_step() {
         .begin(Target::Live, header(&plan))
         .call()
         .await
-        .unwrap()
         .unwrap();
     send_steps!(stage, plan, 0, limits.max_piece);
-    assert_eq!(stage.finish().call().await.unwrap(), Ok(BootState::Staged));
-    host.boot()
-        .reboot(BootTarget::App)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    assert_eq!(stage.finish().call().await.unwrap(), BootState::Staged);
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
@@ -210,7 +191,7 @@ async fn flip_shuttle_2r_app_step() {
         host.boot().boot_state().call().await.unwrap(),
         BootState::Trial
     );
-    host.boot().confirm().call().await.unwrap().unwrap();
+    host.boot().confirm().call().await.unwrap();
     let node = host.node().node().call().await.unwrap();
     assert_eq!(
         (node.app_version, node.boot_state),
@@ -243,7 +224,6 @@ async fn flip_freight_2r_app_bulk() {
     bulk.begin_bulk(Target::Live, header(&plan), total, 0)
         .call()
         .await
-        .unwrap()
         .unwrap();
     let mut acks = bulk.plan_ack().call().await.unwrap();
     let sink = send_bulk!(bulk, plan, 0, total, max_piece);
@@ -251,14 +231,9 @@ async fn flip_freight_2r_app_bulk() {
     assert_eq!(ack.status, BulkStatus::Complete);
     assert_eq!(
         host.stage().finish().call().await.unwrap(),
-        Ok(BootState::Staged)
+        BootState::Staged
     );
-    host.boot()
-        .reboot(BootTarget::App)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
     drop(acks);
     drop(sink);
     drop(host);
@@ -272,13 +247,8 @@ async fn flip_freight_2r_app_bulk() {
     );
     dev.rec
         .note("the new image fails its own checks: gives up the trial instead of confirming");
-    host.boot().revert().call().await.unwrap().unwrap();
-    host.boot()
-        .reboot(BootTarget::App)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    host.boot().revert().call().await.unwrap();
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
@@ -315,17 +285,11 @@ async fn parcel_shuttle_1s_app_step() {
     dev.rec
         .note("host doesn't know this manifest digest: reads the manifest");
     let mut inventory = host.inventory();
-    let layout = inventory
-        .layout(Slot::Active)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    let layout = inventory.layout(Slot::Active).call().await.unwrap();
     let chunks = inventory
         .chunks(Slot::Active, 0, layout.chunk_count)
         .call()
         .await
-        .unwrap()
         .unwrap();
     let expected: Vec<ChunkState> = v1()
         .chunks(CHUNK)
@@ -347,20 +311,11 @@ async fn parcel_shuttle_1s_app_step() {
         .begin(Target::Stored, header(&plan))
         .call()
         .await
-        .unwrap()
         .unwrap();
     send_steps!(stage, plan, 0, limits.max_piece);
-    assert_eq!(
-        stage.finish().call().await.unwrap(),
-        Ok(BootState::PlanStored)
-    );
+    assert_eq!(stage.finish().call().await.unwrap(), BootState::PlanStored);
     dev.flash.lock().unwrap().cut = Some(Cut::Apply(5));
-    host.boot()
-        .reboot(BootTarget::App)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::App);
@@ -399,7 +354,6 @@ async fn parcel_freight_1s_app_bulk() {
     bulk.begin_bulk(Target::Stored, header(&plan), total, 0)
         .call()
         .await
-        .unwrap()
         .unwrap();
     let mut acks = bulk.plan_ack().call().await.unwrap();
     let half = 4 * max_piece;
@@ -417,14 +371,9 @@ async fn parcel_freight_1s_app_bulk() {
     assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
     assert_eq!(
         host.stage().finish().call().await.unwrap(),
-        Ok(BootState::PlanStored)
+        BootState::PlanStored
     );
-    host.boot()
-        .reboot(BootTarget::App)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
     drop(acks);
     drop(_sink);
     drop(host);
@@ -455,12 +404,7 @@ async fn pit_stop_shuttle_1l_upd_step() {
     let app = connect!(LeanAppClient, &dev.addr);
     let node = app.node().node().call().await.unwrap();
     assert!(!node.offers.stage);
-    app.boot()
-        .reboot(BootTarget::Updater)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    app.boot().reboot(BootTarget::Updater).call().await.unwrap();
     drop(app);
 
     assert_eq!(dev.booted().await, Firmware::Updater);
@@ -477,7 +421,6 @@ async fn pit_stop_shuttle_1l_upd_step() {
         .begin(Target::Live, header(&plan))
         .call()
         .await
-        .unwrap()
         .unwrap();
     dev.flash.lock().unwrap().cut = Some(Cut::Download(7));
     send_steps!(stage, first_steps(&plan, 7), 0, limits.max_piece);
@@ -488,7 +431,6 @@ async fn pit_stop_shuttle_1l_upd_step() {
         .write(7, *dst, *hash, 0, MaxLen::new(data[..32].to_vec()).unwrap())
         .call()
         .await
-        .unwrap()
         .unwrap();
     assert!(
         stage
@@ -520,20 +462,11 @@ async fn pit_stop_shuttle_1l_upd_step() {
         .begin(Target::Live, header(&plan))
         .call()
         .await
-        .unwrap()
         .unwrap();
     assert_eq!((session.resumed, session.resume_from), (true, 7));
     send_steps!(stage, plan, 7, limits.max_piece);
-    assert_eq!(
-        stage.finish().call().await.unwrap(),
-        Ok(BootState::Confirmed)
-    );
-    host.boot()
-        .reboot(BootTarget::App)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    assert_eq!(stage.finish().call().await.unwrap(), BootState::Confirmed);
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
     drop(host);
 
     assert_eq!(dev.booted().await, Firmware::LeanApp);
@@ -561,12 +494,7 @@ async fn pit_stop_freight_1l_upd_bulk() {
     .await;
     let app = connect!(LeanAppClient, &dev.addr);
     app.node().node().call().await.unwrap();
-    app.boot()
-        .reboot(BootTarget::Updater)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    app.boot().reboot(BootTarget::Updater).call().await.unwrap();
     drop(app);
 
     assert_eq!(dev.booted().await, Firmware::Updater);
@@ -579,7 +507,6 @@ async fn pit_stop_freight_1l_upd_bulk() {
     bulk.begin_bulk(Target::Live, header(&plan), total, 0)
         .call()
         .await
-        .unwrap()
         .unwrap();
     let mut acks = bulk.plan_ack().call().await.unwrap();
     let sink = send_bulk!(bulk, plan, 0, total, max_piece);
@@ -587,14 +514,9 @@ async fn pit_stop_freight_1l_upd_bulk() {
     assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
     assert_eq!(
         host.stage().finish().call().await.unwrap(),
-        Ok(BootState::Confirmed)
+        BootState::Confirmed
     );
-    host.boot()
-        .reboot(BootTarget::App)
-        .call()
-        .await
-        .unwrap()
-        .unwrap();
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
     drop(acks);
     drop(sink);
     drop(host);

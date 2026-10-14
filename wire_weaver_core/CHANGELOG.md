@@ -1,5 +1,11 @@
 ## Unreleased
 
+### 🚀 Features
+
+- Accepts the `display` directive of `#[derive_shrink_wrap(..)]` (DER-12): a type using it is no longer rejected
+  with "unsupported directive 'display'" when introspected from a trait. It has no effect on the API model or
+  generated server/client code (`core::fmt::Display`/`core::error::Error` are Rust-only, not wire-defining).
+
 ### 🐛 Fixes
 
 - Bit-sized numbers `U1`..`U64` / `I2`..`I64` (`u7`, `ub10`, `i2`, ..) used directly as a method argument, return

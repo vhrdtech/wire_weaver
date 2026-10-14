@@ -101,6 +101,8 @@ fn generate_inner(
     let do_generate_borrowed = matches!(ty_kind, TyKind::ImpliedRef) | args.borrowed.is_some();
     let ambiguous = matches!(ty_kind, TyKind::Ambiguous);
     let crate_path = crate_path(args.crate_path);
+    // kept for `display`'s error messages, below `name` is moved into the borrowed/owned CGSeeds
+    let type_name = name.clone();
     let generate_borrowed = if do_generate_borrowed {
         Some(CGSeed::new(
             item_name(name.clone(), ty_kind, true),
@@ -166,6 +168,17 @@ fn generate_inner(
                 );
             }
             add_notes(&mut ww_item_enum.docs, args.size_assumption.clone(), true);
+            if args.display {
+                for v in &ww_item_enum.variants {
+                    if v.display_message().is_none() {
+                        return Err(format!(
+                            "{type_name}::{}: display requires a doc comment (its first line is the message) \
+                             or #[display(\"..\")]",
+                            v.ident
+                        ));
+                    }
+                }
+            }
             // A single `MyTypeDiscriminants` enum is emitted (named off whichever of
             // borrowed/owned is generated, preferring borrowed), never mutating `ww_item_enum`
             // itself since it's still needed below to generate the real borrowed/owned types.
@@ -212,6 +225,9 @@ fn generate_inner(
                 ts.append_all(cg_item_enum.def_rust(true));
                 ts.append_all(cg_item_enum.impl_discriminant(true));
                 ts.append_all(cg_item_enum.serdes_rust(true));
+                if args.display {
+                    ts.append_all(cg_item_enum.display_and_error_rust(true));
+                }
             }
 
             if let Some(owned) = generate_owned {
@@ -223,6 +239,9 @@ fn generate_inner(
                     ts.append_all(cg_item_enum.impl_discriminant(false));
                 }
                 ts.append_all(cg_item_enum.serdes_rust(false));
+                if args.display && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
+                    ts.append_all(cg_item_enum.display_and_error_rust(false));
+                }
             }
         }
         Item::Struct(item_struct) => {
@@ -235,6 +254,16 @@ fn generate_inner(
                 .iter()
                 .any(|f| f.ty.contains_tail_size());
             check_tail_size_unsized(has_tail_size, &args.size_assumption)?;
+            // computed before `add_notes` below adds its own doc lines, which would otherwise count as the
+            // struct's "first doc line"
+            let display_message = args.display.then(|| ww_item_struct.display_message());
+            if let Some(None) = display_message {
+                return Err(format!(
+                    "{type_name}: display requires a doc comment (its first line is the message) \
+                     or #[display(\"..\")]"
+                ));
+            }
+            let display_message = display_message.flatten();
             add_notes(
                 &mut ww_item_struct.docs,
                 args.size_assumption.clone(),
@@ -258,6 +287,9 @@ fn generate_inner(
                 let cg_item_struct = borrowed.cg_struct(&ww_item_struct);
                 ts.append_all(cg_item_struct.def_rust(true));
                 ts.append_all(cg_item_struct.serdes_rust(true));
+                if let Some(message) = &display_message {
+                    ts.append_all(cg_item_struct.display_and_error_rust(true, message));
+                }
             }
 
             if let Some(owned) = generate_owned {
@@ -268,6 +300,11 @@ fn generate_inner(
                     ts.append_all(cg_item_struct.def_rust(false));
                 }
                 ts.append_all(cg_item_struct.serdes_rust(false));
+                if let Some(message) = &display_message
+                    && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed)
+                {
+                    ts.append_all(cg_item_struct.display_and_error_rust(false, message));
+                }
             }
         }
         _ => {}
@@ -641,5 +678,74 @@ fn collect_referenced_types_in_ty(
             collect_referenced_types_in_ty(&type_paren.elem, forced_lifetime, out);
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::shrink_wrap_attr;
+    use quote::quote;
+
+    #[test]
+    fn missing_doc_or_display_is_a_compile_error() {
+        let ts = shrink_wrap_attr(
+            quote! { display, borrowed, derive(Debug), ww_repr = u8 },
+            quote! {
+                enum E {
+                    /// documented
+                    A,
+                    B,
+                }
+            },
+        );
+        let s = ts.to_string();
+        assert!(s.contains("compile_error"));
+        assert!(s.contains("E::B"));
+        assert!(s.contains("display requires a doc comment"));
+    }
+
+    #[test]
+    fn missing_doc_or_display_on_struct_is_a_compile_error() {
+        let ts = shrink_wrap_attr(
+            quote! { display, borrowed, derive(Debug) },
+            quote! {
+                struct S {
+                    a: u8,
+                }
+            },
+        );
+        let s = ts.to_string();
+        assert!(s.contains("compile_error"));
+        assert!(s.contains("display requires a doc comment"));
+    }
+
+    #[test]
+    fn doc_or_display_present_does_not_error() {
+        let ts = shrink_wrap_attr(
+            quote! { display, borrowed, derive(Debug), ww_repr = u8 },
+            quote! {
+                enum E {
+                    /// documented
+                    A,
+                    #[display("overridden")]
+                    B,
+                }
+            },
+        );
+        assert!(!ts.to_string().contains("compile_error"));
+    }
+
+    #[test]
+    fn display_not_requested_skips_the_check() {
+        let ts = shrink_wrap_attr(
+            quote! { borrowed, derive(Debug), ww_repr = u8 },
+            quote! {
+                enum E {
+                    A,
+                    B,
+                }
+            },
+        );
+        assert!(!ts.to_string().contains("compile_error"));
     }
 }

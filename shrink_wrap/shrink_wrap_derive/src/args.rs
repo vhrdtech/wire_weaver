@@ -29,6 +29,9 @@ pub(crate) struct Args {
     pub(crate) discriminants_enum: bool,
     /// Enums: what to do about the `#[future_version]` variant (SW-47).
     pub(crate) future_version: FutureVersionArg,
+    /// `display` (DER-12): generate `core::fmt::Display` and `core::error::Error` from the first doc line of
+    /// each variant/struct, or `#[display("..")]` when it overrides it.
+    pub(crate) display: bool,
     /// `crate_path(some::path)`: how generated code names the `shrink_wrap` crate, instead of looking it up in
     /// `Cargo.toml`.
     pub(crate) crate_path: Option<TokenStream>,
@@ -56,6 +59,7 @@ impl Parse for Args {
         let mut fixed_layout = false;
         let mut head_tail = false;
         let mut future_version = FutureVersionArg::Default;
+        let mut display = false;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -126,6 +130,9 @@ impl Parse for Args {
                     let name: Ident = input.parse()?;
                     set_future_version(&mut future_version, FutureVersionArg::Named(name), &ident)?;
                 }
+                "display" => {
+                    display = true;
+                }
                 "non_exhaustive" => {
                     // other attributes on the item are not kept, and this one is wanted on both types
                     cfg_attr.push(quote::quote! { all(), non_exhaustive });
@@ -153,6 +160,7 @@ impl Parse for Args {
         Ok(Args {
             discriminants_enum,
             future_version,
+            display,
             borrowed,
             owned,
             cfg_attr,
@@ -173,7 +181,7 @@ impl Parse for Args {
 const SUPPORTED_DIRECTIVES: &str = "borrowed(..), owned, owned(..), \
 cfg_attr(..), cfg_attr_owned(..), cfg_attr_borrowed(..), \
 derive(..), derive_owned(..), derive_borrowed(..), \
-final_structure, self_describing, sized, fixed_layout, head_tail, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, non_exhaustive, no_future_version, future_version = <Name>, crate_path(..)";
+final_structure, self_describing, sized, fixed_layout, head_tail, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, display, non_exhaustive, no_future_version, future_version = <Name>, crate_path(..)";
 
 /// Enum argument about the variant that holds discriminants from a newer version (SW-16, SW-47).
 #[derive(Clone, Debug, Default)]
@@ -290,6 +298,14 @@ mod args_parse_tests {
         assert_eq!(args.derive.len(), 2);
         assert_eq!(args.derive_owned.len(), 1);
         assert_eq!(args.derive_borrowed.len(), 1);
+    }
+
+    #[test]
+    fn display_is_a_bare_flag() {
+        let args: Args = parse2(quote! { ww_repr = u8 }).unwrap();
+        assert!(!args.display);
+        let args: Args = parse2(quote! { display, ww_repr = u8 }).unwrap();
+        assert!(args.display);
     }
 
     #[test]

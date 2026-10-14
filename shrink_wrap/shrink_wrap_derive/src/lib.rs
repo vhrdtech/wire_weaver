@@ -44,6 +44,8 @@ mod ww_repr;
 ///   `to_head_tail`, `HeadTail`, a C reader); no `SerializeShrinkWrap`, see `shrink_wrap::head_tail`.
 /// * `ww_repr = <u1,u2.. | nib | unib32 | u8 | u16 ..>` - set the enum discriminant representation.
 /// * `discriminants` - additionally generate a `MyTypeDiscriminants` enum (enum items only).
+/// * `display` - generate `core::fmt::Display` and `core::error::Error` from the first doc line of each
+///   variant/struct, `{field}` filled in; `#[display("..")]` overrides it.
 ///
 /// See also [ShrinkWrap derive macro](ShrinkWrap).
 #[proc_macro_attribute]

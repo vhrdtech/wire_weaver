@@ -251,6 +251,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `shrink_wrap/tests/generic_external.rs`).
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
+- ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and
+  `core::error::Error` (borrowed and owned) from the first doc line of each variant/struct, `{field}` filled in,
+  `#[display("..")]` to override; a variant with neither is a compile error. Error enums need no hand-written
+  `Display` on hosts (`docs/serdes/derive.md`, `docs/api/errors.md`; test `shrink_wrap/tests/display.rs`).
 - 📋 **DER-5 `#[since = "x.y.z"]` on fields** — generate correct evolution code from it (`TODO` in
   `shrink_wrap_derive/src/lib.rs`).
 - 📋 **DER-6 Check that `TailBytes` ends the outer type too** — a struct ending in `TailBytes` used as a non-last field
@@ -261,9 +265,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   it reads `Error::EnumVariantDisabled` (`docs/serdes/derive.md`). First user: `ww_numeric::NumericValue`, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: `#[cfg]` on fields (it would change
   the wire format, should be a compile error), `ww_si` enums.
-- 📋 **DER-12 `Display` from doc comments** · `v0.5` — a `display` directive writes `Display` and
-  `core::error::Error` from the first doc line of each variant, `{field}` filled in, `#[display("..")]` to override;
-  error enums need no hand-written `Display` on hosts (`docs/api/errors.md`).
 
 ## API model and codegen (`API`)
 

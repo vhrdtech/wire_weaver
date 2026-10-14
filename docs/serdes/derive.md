@@ -193,7 +193,7 @@ to the parser, but the codebase consistently writes them in this order (and so d
 
 ```text
 borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized, ww_repr, discriminants,
-no_future_version|future_version
+display, no_future_version|future_version
 ```
 
 ### `borrowed`, `borrowed(<cfg predicate>)`
@@ -634,6 +634,43 @@ fn discriminant_ahead_of_time() {
 
 This is exactly how `ww_client_server`'s response builder writes a placeholder discriminant up front, then goes back
 and patches it in once the actual variant being sent is known.
+
+### `display` (DER-12)
+
+Generates `core::fmt::Display` and `core::error::Error` (a bare `impl`, no `source()`) for the borrowed side, the
+owned side, or both, whichever `owned`/`borrowed` generate. The message is the first doc line: a struct's own, or
+each variant's own for an enum. `{field}` is filled in from the type's own field of that name, format specs work
+too (`{field:#x}`); a tuple variant's fields are `{0}`, `{1}`, ... `#[display("..")]` overrides the doc line, for a
+tuple variant's fields or when the doc line should say more than the message:
+
+```rust
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone), display, ww_repr = unib32)]
+pub enum IoError<'i> {
+    /// Not supported by this device.
+    Unsupported,
+    /// In use by {by}.
+    InUse { by: &'i str },
+    /// Hardware fault {code:#x}.
+    Fault { code: u32 },
+    #[display("wrapping: {0}")]
+    Wrapped(u8),
+}
+
+fn display_message() {
+    assert_eq!(IoError::Unsupported.to_string(), "Not supported by this device.");
+    assert_eq!(IoError::InUse { by: "USART2" }.to_string(), "In use by USART2.");
+    assert_eq!(IoError::Fault { code: 0xBEEF }.to_string(), "Hardware fault 0xbeef.");
+    assert_eq!(IoError::Wrapped(7).to_string(), "wrapping: 7");
+    // the owned side gets it too
+    assert_eq!(IoErrorOwned::Unsupported.to_string(), "Not supported by this device.");
+}
+```
+
+A variant with neither a doc comment nor `#[display("..")]` is a compile error naming it, so a message is never
+silently missing; the `#[future_version]` variant (SW-47) always has one, written or not. A field not mentioned by
+the message is simply unused, not an error. `display` is unused on the device if nothing calls it (no `Display` or
+`Error` method is ever invoked there), so the linker drops it - there is no `no_std` downside to turning it on for
+an API's error types.
 
 ## Zero-copy and owned types
 

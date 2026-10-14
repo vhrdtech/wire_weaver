@@ -273,7 +273,7 @@ impl Parse for Args {
                 }
                 "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
                 | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants"
-                | "crate_path" | "non_exhaustive" | "no_future_version" => {
+                | "crate_path" | "non_exhaustive" | "no_future_version" | "display" => {
                     // Directives irrelevant to wire_weaver_core's introspection (it only cares
                     // about `ww_repr` and the size assumption) - skip their arguments, if any.
                     if input.peek(syn::token::Paren) {
@@ -361,7 +361,7 @@ mod derive_shrink_wrap_args_tests {
             borrowed, owned(feature = "std"), ww_repr = nib,
             derive(Clone, Debug), derive_owned(Clone), derive_borrowed(Copy),
             cfg_attr(feature = "a"), cfg_attr_owned(feature = "b", derive(X)),
-            cfg_attr_borrowed(feature = "c"), discriminants, sized
+            cfg_attr_borrowed(feature = "c"), discriminants, display, sized
         };
         let args: Args = parse2(ts).unwrap();
         assert!(args.ww_repr.is_some());

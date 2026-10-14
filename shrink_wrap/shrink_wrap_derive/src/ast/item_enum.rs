@@ -49,6 +49,8 @@ pub(crate) struct Variant {
     /// Predicates of the `#[cfg(..)]` attributes on the variant, passed through to everything generated for it.
     /// The discriminant does not depend on them: a variant keeps its number in every configuration.
     pub(crate) cfg: Vec<TokenStream>,
+    /// `#[display("..")]` override (DER-12), takes precedence over the first doc line.
+    pub(crate) display: Option<String>,
 }
 
 impl Variant {
@@ -62,6 +64,12 @@ impl Variant {
     pub(crate) fn not_cfg_attr(&self) -> Option<TokenStream> {
         let cfg = &self.cfg;
         (!cfg.is_empty()).then(|| quote! { #[cfg(not(all(#(#cfg),*)))] })
+    }
+
+    /// The `display` (DER-12) message: the `#[display("..")]` override, or the first doc line. `None` when
+    /// neither is present.
+    pub(crate) fn display_message(&self) -> Option<String> {
+        self.display.clone().or_else(|| self.docs.first_line())
     }
 }
 

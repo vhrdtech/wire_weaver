@@ -5,8 +5,8 @@ use crate::ast::item_enum::{Fields, FutureVersion, Variant};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
 use crate::transform::syn_util::{
-    collect_docs_attrs, collect_unknown_attributes, take_cfg_attrs, take_flag_like_attr,
-    take_since_attr,
+    collect_docs_attrs, collect_unknown_attributes, take_cfg_attrs, take_display_attr,
+    take_flag_like_attr, take_since_attr,
 };
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
@@ -47,6 +47,7 @@ impl ItemEnum {
             let fields = convert_fields(&variant.fields, &path)?;
             let since = take_since_attr(&mut attrs)?;
             let cfg = take_cfg_attrs(&mut attrs)?;
+            let display = take_display_attr(&mut attrs)?;
             let docs = collect_docs_attrs(&mut attrs);
             collect_unknown_attributes(&mut attrs);
             variants.push(Variant {
@@ -56,6 +57,7 @@ impl ItemEnum {
                 discriminant,
                 _since: since,
                 cfg,
+                display,
             });
         }
         let mut attrs = item_enum.attrs.clone();

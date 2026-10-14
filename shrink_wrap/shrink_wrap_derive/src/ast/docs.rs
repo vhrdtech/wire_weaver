@@ -26,9 +26,10 @@ impl Docs {
             .push(LitStr::new(s.as_ref().trim(), Span::call_site()));
     }
 
-    // pub(crate) fn first_line(&self) -> Option<String> {
-    //     self.docs.first().map(|s| s.value())
-    // }
+    /// The first doc line, used as the `display` (DER-12) message when there is no `#[display("..")]` override.
+    pub(crate) fn first_line(&self) -> Option<String> {
+        self.docs.first().map(|s| s.value())
+    }
 }
 
 impl ToTokens for Docs {

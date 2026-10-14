@@ -4,7 +4,9 @@ use syn::parse2;
 use crate::ast::item_struct::Field;
 use crate::ast::item_struct::ItemStruct;
 use crate::ast::ty::Type;
-use crate::transform::syn_util::{collect_docs_attrs, collect_unknown_attributes};
+use crate::transform::syn_util::{
+    collect_docs_attrs, collect_unknown_attributes, take_display_attr,
+};
 use crate::transform::util::{
     FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, check_tail_bytes_position,
     check_tail_size_position, create_flags, transform_field,
@@ -28,6 +30,7 @@ impl ItemStruct {
         // if add_evolve_docs {
         //     add_notes(&mut docs, size_assumption, false);
         // }
+        let display = take_display_attr(&mut attrs)?;
 
         collect_unknown_attributes(&mut attrs);
         create_flags(&mut fields, &explicit_flags);
@@ -47,6 +50,7 @@ impl ItemStruct {
             docs,
             // ident: item_struct.ident.clone(),
             fields,
+            display,
         })
     }
 }

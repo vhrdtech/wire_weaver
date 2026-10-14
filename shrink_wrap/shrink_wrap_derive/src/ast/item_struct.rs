@@ -9,6 +9,16 @@ pub(crate) struct ItemStruct {
     pub(crate) docs: Docs,
     // pub(crate) ident: Ident,
     pub(crate) fields: Vec<Field>,
+    /// `#[display("..")]` override (DER-12), takes precedence over the first doc line.
+    pub(crate) display: Option<String>,
+}
+
+impl ItemStruct {
+    /// The `display` (DER-12) message: the `#[display("..")]` override, or the first doc line. `None` when
+    /// neither is present.
+    pub(crate) fn display_message(&self) -> Option<String> {
+        self.display.clone().or_else(|| self.docs.first_line())
+    }
 }
 
 #[derive(Clone, Debug)]

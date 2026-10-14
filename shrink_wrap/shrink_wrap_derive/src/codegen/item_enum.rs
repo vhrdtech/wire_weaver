@@ -5,12 +5,13 @@ use crate::ast::repr::Repr;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{
-    CratePath, assert_sized_before_tail_size, maybe_quote, serdes_scaffold,
+    CratePath, assert_sized_before_tail_size, maybe_quote, rewrite_positional_placeholders,
+    serdes_scaffold,
 };
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{ToTokens, TokenStreamExt, quote};
+use quote::{ToTokens, TokenStreamExt, format_ident, quote};
 use std::collections::HashSet;
-use syn::{Lit, LitInt, Path};
+use syn::{Lit, LitInt, LitStr, Path};
 
 #[derive(Clone, Debug)]
 pub(crate) struct CGItemEnum<'i> {
@@ -351,6 +352,87 @@ impl<'i> CGItemEnum<'i> {
             is_ref && !self.ambiguous,
             self.crate_path,
         )
+    }
+
+    /// DER-12: `core::fmt::Display` (from each variant's `display` message) and `core::error::Error`.
+    pub(crate) fn display_and_error_rust(&self, is_ref: bool) -> TokenStream {
+        let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
+        let enum_name = &self.ident;
+        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
+        let arms = CGEnumDisplayArms { item_enum: self };
+        quote! {
+            #cfg
+            impl #lifetime ::core::fmt::Display for #enum_name #lifetime {
+                #[allow(unused_variables)]
+                fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    match self {
+                        #arms
+                    }
+                }
+            }
+
+            #cfg
+            impl #lifetime ::core::error::Error for #enum_name #lifetime {}
+        }
+    }
+}
+
+/// DER-12: one `write!` match arm per variant, from its `display` message (checked non-empty before codegen),
+/// plus the `#[future_version]` variant if any.
+struct CGEnumDisplayArms<'i> {
+    item_enum: &'i CGItemEnum<'i>,
+}
+
+impl ToTokens for CGEnumDisplayArms<'_> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let enum_name = &self.item_enum.ident;
+        for variant in self.item_enum.variants {
+            let variant_name = &variant.ident;
+            let message = variant
+                .display_message()
+                .expect("checked before codegen: every variant has a doc line or #[display(..)]");
+            let lit = LitStr::new(
+                &rewrite_positional_placeholders(&message),
+                Span::call_site(),
+            );
+            tokens.append_all(variant.cfg_attrs());
+            match &variant.fields {
+                Fields::Named(named) => {
+                    let names: Vec<&Ident> = named
+                        .iter()
+                        .filter(|f| !matches!(f.ty, Type::IsOk(_) | Type::IsSome(_)))
+                        .map(|f| &f.ident)
+                        .collect();
+                    tokens.append_all(quote! {
+                        #enum_name::#variant_name { #(#names),* } => write!(f, #lit),
+                    });
+                }
+                Fields::Unnamed(unnamed) => {
+                    let names: Vec<Ident> = unnamed
+                        .iter()
+                        .filter(|ty| !matches!(ty, Type::IsOk(_) | Type::IsSome(_)))
+                        .enumerate()
+                        .map(|(i, _)| format_ident!("_{i}"))
+                        .collect();
+                    tokens.append_all(quote! {
+                        #enum_name::#variant_name( #(#names),* ) => write!(f, #lit),
+                    });
+                }
+                Fields::Unit => {
+                    tokens.append_all(quote! {
+                        #enum_name::#variant_name => write!(f, #lit),
+                    });
+                }
+            }
+        }
+        if let Some(fv) = self.item_enum.future_version {
+            let ident = &fv.ident;
+            let message = fv.docs.first_line().unwrap_or_default();
+            let lit = LitStr::new(&message, Span::call_site());
+            tokens.append_all(quote! {
+                #enum_name::#ident(_) => write!(f, #lit),
+            });
+        }
     }
 }
 

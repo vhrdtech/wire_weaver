@@ -4,11 +4,12 @@ use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{
-    CratePath, assert_sized_before_tail_size, maybe_quote, serdes_scaffold,
+    CratePath, assert_sized_before_tail_size, maybe_quote, rewrite_positional_placeholders,
+    serdes_scaffold,
 };
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
-use syn::Path;
+use syn::{LitStr, Path};
 
 #[derive(Clone, Debug)]
 pub(crate) struct CGItemStruct<'i> {
@@ -96,6 +97,34 @@ impl<'i> CGItemStruct<'i> {
             is_ref && !self.ambiguous,
             self.crate_path,
         )
+    }
+
+    /// DER-12: `core::fmt::Display` (from `message`, the struct's `display` message) and `core::error::Error`.
+    pub(crate) fn display_and_error_rust(&self, is_ref: bool, message: &str) -> TokenStream {
+        let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
+        let ident = &self.ident;
+        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
+        let lit = LitStr::new(&rewrite_positional_placeholders(message), Span::call_site());
+        let binds = self.fields.iter().filter_map(|f| {
+            if matches!(f.ty, Type::IsOk(_) | Type::IsSome(_)) {
+                return None;
+            }
+            let field = &f.ident;
+            Some(quote! { let #field = &self.#field; })
+        });
+        quote! {
+            #cfg
+            impl #lifetime ::core::fmt::Display for #ident #lifetime {
+                #[allow(unused_variables)]
+                fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    #(#binds)*
+                    write!(f, #lit)
+                }
+            }
+
+            #cfg
+            impl #lifetime ::core::error::Error for #ident #lifetime {}
+        }
     }
 }
 

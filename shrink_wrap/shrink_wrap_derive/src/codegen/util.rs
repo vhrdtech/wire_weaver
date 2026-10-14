@@ -153,6 +153,45 @@ pub(crate) fn assert_sized_before_tail_size(
     tokens
 }
 
+/// DER-12: rewrites bare positional placeholders (`{0}`, `{1:#x}`, ...) in a `display` message into `{_0}`,
+/// `{_1:#x}`, so a tuple variant's fields - bound as ordinary named locals `_0`, `_1`, ... - are picked up by
+/// Rust's implicit-named-argument capture, the same way `{field}` picks up a named field. This way `write!`
+/// is never given an explicit argument list, so a field the message doesn't mention is merely an unused local
+/// (silenced with `#[allow(unused_variables)]`) instead of a hard "argument never used" error.
+pub(crate) fn rewrite_positional_placeholders(fmt: &str) -> String {
+    let mut out = String::with_capacity(fmt.len());
+    let mut chars = fmt.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '{' if chars.peek() == Some(&'{') => {
+                chars.next();
+                out.push_str("{{");
+            }
+            '}' if chars.peek() == Some(&'}') => {
+                chars.next();
+                out.push_str("}}");
+            }
+            '{' => {
+                out.push('{');
+                let mut name = String::new();
+                while let Some(&next) = chars.peek() {
+                    if next == '}' || next == ':' {
+                        break;
+                    }
+                    name.push(next);
+                    chars.next();
+                }
+                if !name.is_empty() && name.bytes().all(|b| b.is_ascii_digit()) {
+                    out.push('_');
+                }
+                out.push_str(&name);
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 pub(crate) fn maybe_quote<F: FnMut() -> TokenStream>(
     condition: bool,
     mut call_if_true: F,
@@ -161,5 +200,36 @@ pub(crate) fn maybe_quote<F: FnMut() -> TokenStream>(
         call_if_true()
     } else {
         TokenStream::new()
+    }
+}
+
+#[cfg(test)]
+mod rewrite_positional_placeholders_tests {
+    use super::rewrite_positional_placeholders;
+
+    #[test]
+    fn renames_positional_placeholders_only() {
+        assert_eq!(rewrite_positional_placeholders("Timed out."), "Timed out.");
+        assert_eq!(
+            rewrite_positional_placeholders("In use by {by}."),
+            "In use by {by}."
+        );
+        assert_eq!(
+            rewrite_positional_placeholders("Hardware fault {0:#x}."),
+            "Hardware fault {_0:#x}."
+        );
+        assert_eq!(
+            rewrite_positional_placeholders("{0} and {1}"),
+            "{_0} and {_1}"
+        );
+    }
+
+    #[test]
+    fn leaves_escaped_braces_alone() {
+        assert_eq!(rewrite_positional_placeholders("{{0}}"), "{{0}}");
+        assert_eq!(
+            rewrite_positional_placeholders("{{literal}} {0}"),
+            "{{literal}} {_0}"
+        );
     }
 }

@@ -20,6 +20,7 @@
   `None` for an error of the API's own. The message is the error variant's doc line with its fields filled in
   (`read() returned an error: In use by USART2`) instead of the value's repr, where the variant has one.
 - `Method.decode_return(data, raise_err=True)` returns `T` or raises `RemoteError` as a call would.
+- `UVlq32` / `UVlq64` numbers (STD-23) are Python `int`s, both ways.
 - `MaxLen` (SW-19) lists and strings are checked when encoding: a longer value raises `ValueError` (`.. at most N
   allowed ..`).
 - Credit sinks (`#[credit] sink!(..)`, API-28, credit counted in bytes): `Sink.send()` waits until the device has

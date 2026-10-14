@@ -278,7 +278,7 @@ mod tests {
             ("small", num(N::U8(9))),
             ("signed", num(N::I8(-7))),
             ("nib", num(N::Nibble(Nibble::new(0xA).unwrap()))),
-            ("v", num(N::UNib32(1234))),
+            ("v", num(N::UNib32(UNib32(1234)))),
             ("a", num(N::U8(0xAB))),
             ("b", num(N::U16(0xBEEF))),
             ("c", num(N::U32(0xDEAD_BEEF))),

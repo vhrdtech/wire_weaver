@@ -24,7 +24,7 @@ use pyo3::prelude::*;
 use pyo3::types::{
     PyBool, PyByteArray, PyBytes, PyDict, PyFloat, PyInt, PyList, PyRange, PyString, PyTuple,
 };
-use shrink_wrap::Nibble;
+use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
 use wire_weaver_client::ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned,
@@ -412,7 +412,9 @@ fn to_numeric(obj: &Bound<'_, PyAny>, base: &NumericBaseType) -> PyResult<Numeri
         B::U8 => V::U8(int!(u8)),
         B::U16 => V::U16(int!(u16)),
         B::U32 => V::U32(int!(u32)),
-        B::UNib32 => V::UNib32(int!(u32)),
+        B::UNib32 => V::UNib32(UNib32(int!(u32))),
+        B::UVlq32 => V::UVlq32(UVlq32(int!(u32))),
+        B::UVlq64 => V::UVlq64(UVlq64(int!(u64))),
         B::U64 => V::U64(int!(u64)),
         B::I8 => V::I8(int!(i8)),
         B::I16 => V::I16(int!(i16)),
@@ -599,7 +601,8 @@ fn numeric_to_py<'py>(py: Python<'py>, n: &NumericValue) -> PyResult<Bound<'py, 
         V::Nibble(v) => v.value().into_pyobject(py)?.into_any(),
         V::U8(v) => v.into_pyobject(py)?.into_any(),
         V::U16(v) => v.into_pyobject(py)?.into_any(),
-        V::U32(v) | V::UNib32(v) => v.into_pyobject(py)?.into_any(),
+        V::U32(v) | V::UNib32(UNib32(v)) | V::UVlq32(UVlq32(v)) => v.into_pyobject(py)?.into_any(),
+        V::UVlq64(UVlq64(v)) => v.into_pyobject(py)?.into_any(),
         V::U64(v) => v.into_pyobject(py)?.into_any(),
         V::U128(v) => v.into_pyobject(py)?.into_any(),
         V::I8(v) => v.into_pyobject(py)?.into_any(),

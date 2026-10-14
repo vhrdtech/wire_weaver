@@ -22,6 +22,10 @@ Wire-incompatible with 0.1.0.
 
 * `max_len::{call_request, call_request_compact, value_event}`: `const fn`s giving the longest request that calls a
   method and the longest reply or stream event, from the arguments' or value's `MaxSize` (SW-19, API-18).
+* Credit-based flow control for `#[credit]` sinks (API-28): `StreamSideband::Credit { have, grant }`,
+  `CreditQuery { sent }` and `Resend { have, grant }` appended (existing variants keep their encoding),
+  `CreditWrite { pos, data }` (data of a write to a credit sink), and `credit::SinkCredit`, the sans-IO device side
+  state that generated server code drives. See `docs/api/streams.md`.
 * `Request::peek_seq()` reads the seq of a serialized request without deserializing the rest.
 * `EventBuilder`, `EventKindBuilder` and `ErrorBuilder`.
 * `MultiIndex::iter()`.

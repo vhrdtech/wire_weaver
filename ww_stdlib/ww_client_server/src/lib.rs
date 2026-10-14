@@ -3,6 +3,7 @@
 
 pub mod builder;
 pub mod max_len;
+pub mod credit;
 pub mod multi_req;
 pub mod util;
 
@@ -232,6 +233,23 @@ pub enum StreamSideband {
     SizeHint(UNib32),
     /// User event, can be used to indicate errors or other data
     User(UNib32),
+    /// Credit sinks, device to host: `have` bytes were accepted in order since `Open`, the host may send up to
+    /// position `have + grant`. Cumulative, a lost one is replaced by the next one.
+    Credit { have: UNib32, grant: UNib32 },
+    /// Credit sinks, host to device: the host has sent up to position `sent`, the device answers with
+    /// [StreamSideband::Credit] or [StreamSideband::Resend].
+    CreditQuery { sent: UNib32 },
+    /// Credit sinks, device to host: writes after `have` were lost, the host sends again from position `have`,
+    /// up to `have + grant` (go-back-N).
+    Resend { have: UNib32, grant: UNib32 },
+}
+
+/// Data of a [RequestKind::Write] to a sink with credit-based flow control: the byte position of the value from the
+/// start of the session (sum of the lengths of all values before it), then the serialized value itself.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug), final_structure)]
+pub struct CreditWrite<'i> {
+    pub pos: UVlq32,
+    pub data: TailBytes<'i>,
 }
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug), final_structure)]

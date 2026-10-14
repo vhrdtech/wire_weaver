@@ -340,7 +340,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`StreamHead` with its hand-laid encoding, byte-verified; `StreamCursor`, `StreamOpened`, `EventKind::StreamItem`,
   `RequestKind::StreamOpen`, the sideband), the `ww_stream` crate (`Counted`, `Reliable`, `Receiver`, `RamRing`,
   `Scheduler`, `StreamCnt`; sans-IO, `no_std`, tested over a seeded lossy link with random disconnects),
-  `ww_self::ApiItemKind::StreamFn`, codegen (API-31). Missing: the host runtime (CLT-23), credit sinks on it
+  `ww_self::ApiItemKind::StreamFn`, codegen (API-31), the host runtime (CLT-23). Missing: credit sinks on it
   (API-34). The persistent store is done (SRV-15).
 - 📋 **API-34 Credit sinks on the stream protocol** · `v0.5` — positions in units (64 bit), `Ack` / `Query` / `Resend`
   shared with reliable streams, sessions and resume for credit sinks, so a DFU plan continues after a reconnect;
@@ -450,10 +450,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **CLT-22 One `Sink::send` for borrowed and owned items** — owned types (`FooOwned`) implement only
   `SerializeShrinkWrapOwned`, so they go through `send_owned`; one `send` for both (a sink item trait, or the derive
   implementing both), then drop `send_owned`.
-- 📋 **CLT-23 Stream positions, gaps and resume on the host** · `v0.5` — `Item` / `Gap` / `Resumed` stream events and
-  stats for counted and reliable streams (API-30), bounded per-stream queues for every stream (today unbounded),
-  acknowledge on receive or explicitly, cursors to resume after a reconnect or a host restart; dynamic client and
-  Python too (`docs/api/stream_reliability.md`). The sans-IO receiver is `ww_stream::rx::Receiver` (API-30).
+- 🚧 **CLT-23 Stream positions, gaps and resume on the host** · `v0.5` — `Commander::prepare_stream_open` /
+  `prepare_stream_resume` (what generated code calls, `PreparedStreamOpen`, `StreamOpenResult`), `PositionedStream`
+  with `StreamEvent::Item` / `Gap` / `Resumed` / `BackfillDone` / `Disconnected`, live and backfill runs and
+  `split()`, `StreamStats`, `AckMode::OnReceive` / `Explicit`, cursors; every stream's queue is bounded
+  (`ClientConfig::stream_queue_bytes`, plain streams report `RawStreamEvent::Dropped`); after
+  `disconnect().keep_streams()` streams wait and `Commander::resume_streams()` resumes them; `DynPositionedStream`
+  and the Python `PositionedStream` (`docs/python.md`). Tested end to end against a hand-written device: S4 host
+  stuck, S6 host restart, resume after a reconnect (`wire_weaver_client/src/event_loop/stream_e2e_tests.rs`).
+  Missing: counted and reliable streams on trait paths (events carry the absolute path), the reconnect itself
+  (EX-10), stream function arguments in the dynamic client and Python (API-31), tests through generated code
+  (API-31, TEST-19).
 
 ## Transports and protocols (`TR`)
 

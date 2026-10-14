@@ -7,7 +7,6 @@ mod tests {
     use std::time::{Duration, Instant};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use ww_client_server::StreamSideband;
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{Prefix, Second};
     use ww_timebase::{
@@ -35,7 +34,8 @@ mod tests {
         sync_config: SyncConfig,
         sync_status: SyncStatus,
         times_of_day: Vec<DateTime>,
-        sidebands: Vec<StreamSideband>,
+        /// The `time_map` stream is open.
+        time_map_open: bool,
     }
 
     impl Default for Model {
@@ -48,7 +48,7 @@ mod tests {
                     last_lock: None,
                 },
                 times_of_day: Vec::new(),
-                sidebands: Vec::new(),
+                time_map_open: false,
             }
         }
     }
@@ -101,12 +101,23 @@ mod tests {
                 })
             }
 
+            fn clock_time_map(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
+                self.m.lock().unwrap().time_map_open = true;
+                Ready(())
+            }
+
+            fn close_clock_time_map(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+                self.m.lock().unwrap().time_map_open = false;
+            }
+
             fn sideband_clock_time_map(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                sideband: StreamSideband,
-            ) -> Option<StreamSideband> {
-                self.m.lock().unwrap().sidebands.push(sideband);
+                _sideband: ww_client_server::StreamSideband,
+            ) -> Option<ww_client_server::StreamSideband> {
                 None
             }
 
@@ -327,7 +338,7 @@ mod tests {
     async fn configure_sync_master_locks_immediately_and_publishes_time_map() {
         let (device, _m) = start("timebase/master");
         let client = connect(&device).await;
-        let mut time_map = client.clock().time_map().await.unwrap();
+        let mut time_map = client.clock().time_map().call().await.unwrap();
 
         client
             .clock()
@@ -358,7 +369,7 @@ mod tests {
     async fn configure_sync_slave_acquires_then_locks() {
         let (device, _m) = start("timebase/slave");
         let client = connect(&device).await;
-        let mut time_map = client.clock().time_map().await.unwrap();
+        let mut time_map = client.clock().time_map().call().await.unwrap();
 
         client
             .clock()

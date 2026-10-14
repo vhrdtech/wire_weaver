@@ -15,7 +15,7 @@ tracing-subscriber.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
 ww_client_server.workspace = true
-ww_stream = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }
 ww_spi = { workspace = true, features = ["std"] }
+ww_stream = { workspace = true, features = ["std"] }

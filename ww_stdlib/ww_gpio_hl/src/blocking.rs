@@ -1,7 +1,7 @@
 use crate::Error;
 use crate::ww::{BankClient, GpioClient};
 use wire_weaver::ValidIndicesOwned;
-use wire_weaver_client::{Attachment, Stream};
+use wire_weaver_client::{Attachment, PositionedStream};
 use ww_gpio::{
     BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull, Volt,
 };
@@ -31,7 +31,7 @@ pub struct OpenDrainOutputBlocking {
 /// Blocking flavor.
 pub struct FlexBlocking {
     io: GpioClient,
-    event_rx: Option<Stream<IoPinEvent>>,
+    event_rx: Option<PositionedStream<IoPinEvent>>,
     rising_enabled: bool,
     falling_enabled: bool,
     mode: Option<Mode>,
@@ -230,33 +230,31 @@ impl FlexBlocking {
         Ok(())
     }
 
-    /// Enable rising or falling or both interrupts for this pin.
+    /// Enable rising or falling or both interrupts for this pin: opens its event stream (again) with these edges.
     pub fn enable_interrupts(&mut self, rising: bool, falling: bool) -> Result<(), Error> {
-        self.io
-            .configure_events(IoPinEnabledEventsOwned {
+        // a new session replaces the old stream
+        self.event_rx = None;
+        let ((), event_rx) = self
+            .io
+            .event(IoPinEnabledEventsOwned {
                 rising,
                 falling,
                 custom: vec![],
             })
-            .blocking_call()?;
+            .blocking_call()??;
+        self.event_rx = Some(event_rx);
         self.rising_enabled = rising;
         self.falling_enabled = falling;
         Ok(())
     }
 
-    /// Disable all interrupts for this pin and drop the event stream channel if existed.
+    /// Disable all interrupts for this pin: closes its event stream, if open.
     /// Recommended to call this if interrupts no longer are used on this pin, so that a remote device does not send unnecessary data.
     pub fn disable_interrupts(&mut self) -> Result<(), Error> {
-        self.io
-            .configure_events(IoPinEnabledEventsOwned {
-                rising: false,
-                falling: false,
-                custom: vec![],
-            })
-            .blocking_call()?;
+        // dropping the stream closes it on the device
+        self.event_rx = None;
         self.rising_enabled = false;
         self.falling_enabled = false;
-        self.event_rx = None;
         Ok(())
     }
 
@@ -288,10 +286,10 @@ impl FlexBlocking {
             None if !self.rising_enabled || !self.falling_enabled => {
                 self.enable_interrupts(true, true)?;
             }
+            _ if self.event_rx.is_none() => {
+                self.enable_interrupts(self.rising_enabled, self.falling_enabled)?;
+            }
             _ => {}
-        }
-        if self.event_rx.is_none() {
-            self.event_rx = Some(self.io.event().blocking_call()?);
         }
         let Some(event_rx) = self.event_rx.as_mut() else {
             return Err(Error::Internal("event_rx is None".into()));

@@ -95,7 +95,7 @@ client
     .await?
     .unwrap();
 
-let mut time_map = client.clock().time_map().await?;
+let mut time_map = client.clock().time_map().call().await?;
 let point = time_map.recv().await?;
 assert_eq!(point.state, SyncState::Locked);
 ```

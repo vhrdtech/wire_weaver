@@ -610,14 +610,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `MAX_PIECE_LEN`, `MAX_HEADER_LEN`, `MAX_CHUNKS_PAGE`, `MAX_PRODUCT_LEN`), so every method has a known largest
   request and reply. `Profile::AB(SlotSwitch::{Copy, Remap})` / `InPlace`. Next: a chunky implementation (chunky
   NET-1).
-- 🚧 **STD-13 IO trait family** · `v0.5` — `ww_gpio`, `ww_uart` (+ `UartMonitor`), `ww_i2c` (+ `I2cMonitor`,
-  10-bit addresses), `ww_spi` (+ `SpiMonitor`), `ww_adc` (`Adc`, `AdcStream`, `AdcCapture`), `ww_pwm`, `ww_onewire`,
-  `ww_timebase` (`Clock`), `ww_logic_analyzer`, `ww_signal_generator`; `ww_si` values and timestamps, plain error
-  enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Design approved 14 Oct
-  (`docs/std_library/io_family.md`); skeletons of every crate written, `ww_i2c` with `I2cWatch` (autonomous
-  reads) and 10-bit addresses (SW-48); filled in: `ww_gpio`, `ww_uart`, `ww_i2c`, `ww_spi`
-  (full rustdoc, mock-server tests in `tests/io_<x>`, docs pages `docs/std_library/ww_<x>.md`). Stream loss and
-  timestamps wait for ww-stream-reliability, error evolution for ww-errors-plan.
+- 🚧 **STD-13 IO trait family** · `v0.5` — `ww_gpio`, `ww_uart` (+ `UartMonitor`), `ww_i2c` (+ `I2cWatch`,
+  `I2cMonitor`, 10-bit addresses), `ww_spi` (+ `SpiMonitor`), `ww_adc` (STD-18), `ww_pwm` (STD-19), `ww_onewire`
+  (STD-20), `ww_timebase` (STD-17), `ww_logic_analyzer` / `ww_signal_generator` (STD-21, STD-22); `ww_si` values
+  and timestamps (STD-23), plain error enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Design
+  `docs/std_library/io_family.md` (approved 14 Oct); every crate filled in with full rustdoc, a mock-server test
+  pair `tests/io_<x>` and a docs page `docs/std_library/ww_<x>.md`; `examples_mcu` GPIO and UART boards follow.
+  Open: Roman's review of the filled-in crates; stream loss and timestamps move to ww-stream-reliability's stream
+  functions, error evolution to ww-errors-plan; `*_hl` crates are STD-14.
 - 🚧 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
   `Raw` and per-channel `Transitions` encodings (SW-31 `DeltaOfDelta`), staged pattern triggers and protocol
   stages (UART byte, I2C address, SPI first byte). Design approved 14 Oct (`docs/std_library/logic_analyzer.md`),

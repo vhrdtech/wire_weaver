@@ -19,7 +19,7 @@
         <link rel="prev" href="../properties/">
       
       
-        <link rel="next" href="../traits/">
+        <link rel="next" href="../stream_reliability/">
       
       
         
@@ -284,6 +284,8 @@
   
     
       
+      
+        
       
         
       
@@ -885,6 +887,8 @@
       
         
       
+        
+      
     
     
     
@@ -1226,6 +1230,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stream_reliability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Stream delivery: counted and reliable streams
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2679,6 +2710,8 @@
       
         
       
+        
+      
     
     
     
@@ -2727,7 +2760,9 @@ status updates or bytes from USART, frames to be transmitted on CAN bus, etc.</p
 publishes a
 stream update and similarly does not wait for any response from a client.
 Sinks marked <code>#[credit]</code> get credit-based flow control instead, see
-<a href="#credit-based-flow-control-for-sinks">below</a>; for other streams, backpressure can be built on the sideband channel.</p>
+<a href="#credit-based-flow-control-for-sinks">below</a>; for other streams, backpressure can be built on the sideband channel.
+Positions, exact lost-data accounting, reliable delivery and backfill for device → host streams: see
+<a href="../stream_reliability/">Stream delivery</a>.</p>
 <p>Streams can have a beginning and an end, for example, to implement a file IO or firmware update, to deal with small
 chunks
 at a time and yet be able to signal a completion event. It is also possible to send a user-defined delimiter, to be
@@ -3012,13 +3047,13 @@ device's receive buffer fails with <code>StreamError::ItemTooBig</code>.</p>
         
         
           
-          <a href="../traits/" class="md-footer__link md-footer__link--next" aria-label="Next: Traits">
+          <a href="../stream_reliability/" class="md-footer__link md-footer__link--next" aria-label="Next: Stream delivery: counted and reliable streams">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Traits
+                Stream delivery: counted and reliable streams
               </div>
             </div>
             <div class="md-footer__button md-icon">

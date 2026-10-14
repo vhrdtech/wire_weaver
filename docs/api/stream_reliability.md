@@ -195,7 +195,7 @@ pub trait AdcStream {
 
 Wire: `RequestKind::StreamOpen { resume: Option<StreamCursor>, args: TailBytes }` (appended), answered with a `Value`
 holding `StreamOpened { session, oldest, live_from, resume_from: Option<pos>, result: TailBytes }`. Sideband `Close`
-stays; sideband `Open` is no longer sent by new hosts.
+stays; sideband `Open` is removed (nothing is deployed, see [Compatibility](#compatibility-and-what-breaks)).
 
 ### Positions and units (D4, D5)
 
@@ -623,19 +623,22 @@ What building the protocol core added to the design, or decided where the design
 
 ## Compatibility and what breaks
 
-- `ww_client_server`: appended `EventKind::StreamItem`, `RequestKind::StreamOpen`, new types; `StreamSideband`'s
-  `Credit` / `CreditQuery` / `Resend` replaced by `Ack` / `Query` / `Resend` with 64-bit unit positions, and
-  `CreditWrite` by a write with a 64-bit unit position (API-34). Existing messages of plain streams, methods and
-  properties keep their bytes. Credit sinks are not on crates.io (`ww_client_server` 0.1.0 is), so no deployed device
-  breaks; `ww_dfu` and its tests move along.
+Roman's policy (14 Oct 2026, rePort `api_design.md` Q13): until devices are given out (rePort rev B testers, end of
+2026), breaking the wire is fine whenever it makes the system better, the `shrink_wrap` format included, and formats
+nobody has deployed get no compatibility shims or migration paths. So this design replaces what it improves on,
+instead of keeping it next to the new form:
+
+- `ww_client_server`: `EventKind::StreamItem`, `RequestKind::StreamOpen` and the new types are added; `StreamSideband`'s
+  `Open`, `Credit`, `CreditQuery` and `Resend` are removed and `Ack` / `Query` / `Resend` (64-bit unit positions) take
+  their place, `CreditWrite` becomes a write with a 64-bit unit position (API-34). Variants may be renumbered.
+  Messages of methods and properties are not touched by this design.
 - `ww_self`: `ApiItemKind::Stream` gets the delivery kind and the stream function's arguments and result;
   introspection data changes, snapshots re-saved.
-- Codegen: plain streams generate what they do today, plus the open / close handlers; new hosts open every stream with
-  `StreamOpen`. An old host's sideband `Open` keeps working on plain streams.
-- Turning a plain stream into a counted or reliable one, or giving it arguments, is an API break (bump the API crate),
-  like plain sink → credit sink. To be added to `docs/evolution/rules.md`.
-- IO family (STD-13, not published): `seq`, `lost`, `t` stay out of item types (already done there); `configure_stream`
-  becomes the stream function's arguments, `stream_state()` the read on the stream. No deployed device is affected.
+- Codegen: every stream is opened with `StreamOpen`; plain streams send the events they do today.
+- `ww_dfu`, its tests and the IO family (STD-13) move along in the same pieces.
+- After devices are out, the evolution rules apply: turning a plain stream into a counted or reliable one, or giving
+  it arguments, is then an API break (bump the API crate), like plain sink → credit sink; to be added to
+  `docs/evolution/rules.md` with API-31.
 
 ## Review (14 Oct 2026)
 

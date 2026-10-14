@@ -325,7 +325,22 @@ fn finish<R: StreamOpenResult, S: StreamHandle>(
         Ok(R::from_ww_bytes_owned(&result)?)
     });
     let result = match decoded {
-        Ok(r) if r.is_open() => r,
+        Ok(r) if r.is_open() => {
+            if let Parts::Positioned {
+                transport_cmd_tx,
+                shared,
+                ..
+            } = &parts
+            {
+                let mut streams = transport_cmd_tx
+                    .streams
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                streams.retain(|s| s.strong_count() > 0);
+                streams.push(Arc::downgrade(shared));
+            }
+            r
+        }
         Ok(r) => {
             discard(&parts);
             return Ok(r.with(S::from_parts(HandleParts(parts))));

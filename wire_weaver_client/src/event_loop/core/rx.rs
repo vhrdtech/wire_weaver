@@ -172,6 +172,7 @@ impl RxCore {
                 );
             }
             ToRx::RegisterTracer(tx) => self.tracers.register(tx),
+            ToRx::KeepStreams => self.dispatcher.keep_streams = true,
             ToRx::TransportUp {
                 client_version,
                 connected_tx,

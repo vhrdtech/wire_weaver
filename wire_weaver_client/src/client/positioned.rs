@@ -332,6 +332,15 @@ impl Inner {
         self.push(Entry::Disconnected);
     }
 
+    /// A resume failed: nothing more comes.
+    pub(crate) fn ended(&mut self) {
+        self.attached = false;
+    }
+
+    pub(crate) fn is_finished(&self) -> bool {
+        self.closed || self.device_closed
+    }
+
     fn push_gaps(&mut self, gaps: &Gaps) {
         for gap in gaps.iter() {
             warn!(

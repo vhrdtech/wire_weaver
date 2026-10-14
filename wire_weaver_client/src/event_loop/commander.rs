@@ -3,10 +3,11 @@ use crate::Introspect;
 use crate::PreparedCall;
 use crate::PreparedDisconnect;
 use crate::Stream;
+use crate::client::positioned::Shared;
 use crate::compat::{ApiCompat, ApiMatch, Verdict};
 use crate::config::IntrospectBundle;
 use crate::device_info::DeviceApiInfo;
-use crate::event_loop::command::Command;
+use crate::event_loop::command::{Command, StreamOpenHook};
 use crate::event_loop::event_queue::event_queue;
 use crate::event_loop::rx_dispatcher::ResponseReceiver;
 use crate::event_loop::rx_dispatcher::ResponseSender;
@@ -17,7 +18,7 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, warn};
@@ -61,13 +62,19 @@ pub struct Commander {
     pub(crate) traits_only: bool,
     /// Bytes of items queued per stream on the host
     stream_queue_bytes: usize,
+    streams: StreamRegistry,
 }
 
 #[derive(Clone)]
 pub(crate) struct TransportCommander {
     cmd_tx: mpsc::Sender<Command>,
     default_timeout: Duration,
+    /// Open counted and reliable streams, see [Commander::resume_streams]
+    pub(crate) streams: StreamRegistry,
 }
+
+/// Counted and reliable streams opened through a [Commander] (and its clones), to resume them after a reconnect.
+pub(crate) type StreamRegistry = Arc<Mutex<Vec<Weak<Shared>>>>;
 
 impl Commander {
     pub fn new(transport_cmd_tx: mpsc::Sender<Command>) -> Self {
@@ -82,6 +89,7 @@ impl Commander {
             api_match: ApiMatch::NoClientApi,
             traits_only: false,
             stream_queue_bytes: crate::DEFAULT_STREAM_QUEUE_BYTES,
+            streams: StreamRegistry::default(),
         }
     }
 
@@ -121,10 +129,7 @@ impl Commander {
         };
         PreparedCall {
             postpone_err,
-            transport_cmd_tx: TransportCommander::new(
-                self.transport_cmd_tx.clone(),
-                self.default_timeout,
-            ),
+            transport_cmd_tx: self.transport(),
             path_kind,
             args,
             timeout_override: None,
@@ -143,10 +148,7 @@ impl Commander {
             Err(_) => Ok(()),
         };
         PreparedRead {
-            transport_cmd_tx: TransportCommander::new(
-                self.transport_cmd_tx.clone(),
-                self.default_timeout,
-            ),
+            transport_cmd_tx: self.transport(),
             version_check,
             path_kind,
             timeout_override: None,
@@ -165,10 +167,7 @@ impl Commander {
         };
         PreparedWrite {
             postpone_err,
-            transport_cmd_tx: TransportCommander::new(
-                self.transport_cmd_tx.clone(),
-                self.default_timeout,
-            ),
+            transport_cmd_tx: self.transport(),
             path_kind,
             value,
             timeout_override: None,
@@ -177,7 +176,11 @@ impl Commander {
     }
 
     fn transport(&self) -> TransportCommander {
-        TransportCommander::new(self.transport_cmd_tx.clone(), self.default_timeout)
+        TransportCommander {
+            cmd_tx: self.transport_cmd_tx.clone(),
+            default_timeout: self.default_timeout,
+            streams: self.streams.clone(),
+        }
     }
 
     /// Bytes of items queued per stream, see [ClientConfig::stream_queue_bytes](crate::ClientConfig::stream_queue_bytes).
@@ -228,6 +231,81 @@ impl Commander {
         open
     }
 
+    /// Resume every counted and reliable stream opened through this commander (and its clones) that is still
+    /// open, each from its cursor, after a reconnect that followed `disconnect().keep_streams()`. Their handles
+    /// go on as before and see [StreamEvent::Resumed](crate::StreamEvent::Resumed), and gaps if the device didn't
+    /// keep everything. A stream the device can't resume ends (its handle returns `StreamError::Closed` once
+    /// drained). Returns how many were resumed.
+    // TODO(EX-10): the reconnect itself calls this once it exists
+    pub async fn resume_streams(&self) -> Result<usize, Error> {
+        let mut resumed = 0;
+        for (shared, cmd, done_rx) in self.resume_commands()? {
+            self.transport().send_command(cmd).await?;
+            let ok = matches!(done_rx.await, Ok(Ok(_)));
+            resumed += self.resumed(&shared, ok);
+        }
+        Ok(resumed)
+    }
+
+    /// Blocking variant of [Self::resume_streams].
+    pub fn resume_streams_blocking(&self) -> Result<usize, Error> {
+        let mut resumed = 0;
+        for (shared, cmd, done_rx) in self.resume_commands()? {
+            self.transport().send_command_blocking(cmd)?;
+            let ok = matches!(done_rx.blocking_recv(), Ok(Ok(_)));
+            resumed += self.resumed(&shared, ok);
+        }
+        Ok(resumed)
+    }
+
+    fn resume_commands(&self) -> Result<Vec<(Arc<Shared>, Command, ResponseReceiver)>, Error> {
+        let streams: Vec<Arc<Shared>> = {
+            let mut streams = self.streams.lock().unwrap_or_else(|e| e.into_inner());
+            streams.retain(|s| s.strong_count() > 0);
+            streams.iter().filter_map(Weak::upgrade).collect()
+        };
+        let mut commands = vec![];
+        for shared in streams {
+            let inner = shared.lock();
+            let Some(cursor) = inner.cursor() else {
+                continue;
+            };
+            if inner.is_finished() {
+                continue;
+            }
+            let path = inner.path.clone();
+            drop(inner);
+            let bytes = ww_client_server::RequestOwned {
+                seq: UVlq32Backfill(0),
+                path_kind: PathKindOwned::Absolute { path },
+                kind: RequestKindOwned::StreamOpen {
+                    resume: Some(cursor),
+                    args: TailBytesOwned(vec![]),
+                },
+            }
+            .to_ww_bytes_owned()?;
+            let (done_tx, done_rx) = oneshot::channel();
+            let cmd = Command::OpenStream {
+                bytes,
+                done_tx,
+                timeout: self.default_timeout,
+                hook: Box::new(StreamOpenHook::new::<()>(shared.clone(), Some(cursor))),
+            };
+            commands.push((shared, cmd, done_rx));
+        }
+        Ok(commands)
+    }
+
+    fn resumed(&self, shared: &Shared, ok: bool) -> usize {
+        if ok {
+            return 1;
+        }
+        warn!("a stream could not be resumed, it ends");
+        shared.lock().ended();
+        shared.wake();
+        0
+    }
+
     pub async fn prepare_stream<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
@@ -238,10 +316,7 @@ impl Commander {
             .register_stream(&path_kind, self.stream_queue_bytes)
             .await?;
         Ok(Stream {
-            transport_cmd_tx: TransportCommander::new(
-                self.transport_cmd_tx.clone(),
-                self.default_timeout,
-            ),
+            transport_cmd_tx: self.transport(),
             path_kind,
             rx,
             _phantom: PhantomData,
@@ -257,10 +332,7 @@ impl Commander {
             .transport()
             .register_stream_blocking(&path_kind, self.stream_queue_bytes)?;
         Ok(Stream {
-            transport_cmd_tx: TransportCommander::new(
-                self.transport_cmd_tx.clone(),
-                self.default_timeout,
-            ),
+            transport_cmd_tx: self.transport(),
             path_kind,
             rx,
             _phantom: PhantomData,
@@ -316,17 +388,12 @@ impl Commander {
     }
 
     fn sink<T>(&self, path_kind: PathKindOwned, rx: StreamUpdateReceiver, credit: bool) -> Sink<T> {
-        Sink::new(
-            TransportCommander::new(self.transport_cmd_tx.clone(), self.default_timeout),
-            path_kind,
-            rx,
-            credit,
-        )
+        Sink::new(self.transport(), path_kind, rx, credit)
     }
 
     pub fn introspect(&self) -> Introspect {
         Introspect::new(
-            TransportCommander::new(self.transport_cmd_tx.clone(), self.default_timeout),
+            self.transport(),
             self.connected_device.user_api_hash.clone(),
         )
     }
@@ -543,13 +610,6 @@ impl Commander {
 }
 
 impl TransportCommander {
-    fn new(cmd_tx: mpsc::Sender<Command>, default_timeout: Duration) -> Self {
-        Self {
-            cmd_tx,
-            default_timeout,
-        }
-    }
-
     pub(crate) fn default_timeout(&self) -> Duration {
         self.default_timeout
     }

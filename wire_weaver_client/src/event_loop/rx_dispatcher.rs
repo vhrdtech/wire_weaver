@@ -94,6 +94,8 @@ pub(crate) struct RxDispatcher {
     /// Time base of the streams' receivers, and when they were polled last
     epoch: Option<Instant>,
     last_stream_poll: Option<Instant>,
+    /// Disconnecting with `keep_streams`: counted and reliable streams wait for a resume on the next connection
+    pub(crate) keep_streams: bool,
     /// Timed out requests, whose seq is not freed until a late reply arrives or [LATE_REPLY_WINDOW] ends.
     timed_out: HashMap<SeqTy, Instant>,
     stream_handlers: HashMap<Vec<UNib32>, Vec<StreamUpdateSender>>,
@@ -241,9 +243,10 @@ impl RxDispatcher {
                 if !self.is_connected {
                     self.cancel_all_requests();
                     for shared in self.positioned.values() {
-                        shared.lock().disconnected(false);
+                        shared.lock().disconnected(self.keep_streams);
                         shared.wake();
                     }
+                    // kept ones are registered again when they are resumed
                     self.positioned.clear();
                 }
                 self.notify_streams();

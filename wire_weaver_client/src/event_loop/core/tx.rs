@@ -261,6 +261,8 @@ impl TxCore {
                 reason,
             } => {
                 info!("disconnecting on user request (but keeping streams ready for re-use)");
+                // before rx learns that the link is down
+                self.output.push_back(TxOutput::ToRx(ToRx::KeepStreams));
                 self.tracers.disconnected("client request", true);
                 self.send_disconnect(now, reason);
                 self.disconnected_tx = disconnected_tx;

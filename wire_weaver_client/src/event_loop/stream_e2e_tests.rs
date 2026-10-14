@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use wire_weaver::shrink_wrap::tail_bytes::{TailBytes, TailBytesOwned};
 use wire_weaver::shrink_wrap::{
     DeserializeShrinkWrap, Error as ShrinkWrapError, RefVec, SerializeShrinkWrap, UNib32, UVlq32,
@@ -16,13 +16,15 @@ use ww_device::{LinkConfig, LinkEvent};
 use ww_stream::store::RamRing;
 use ww_stream::tx::{Counted, Reliable};
 use ww_stream::{Opened, Run, StreamHead};
-use ww_version::{ApiHashPair, CompactVersion, FullVersion, GlobalTypeId, Version};
+use ww_version::{
+    ApiHashPair, CompactVersion, FullVersion, FullVersionOwned, GlobalTypeId, Version, VersionOwned,
+};
 
 use super::device_e2e_tests::{
     DevSink, DevSource, HostRx, HostTx, PACKET, Packet, PipeTransport, RxFramer, TokioClock,
-    TxFramer, connect,
+    TxFramer,
 };
-use crate::event_loop::command::Command;
+use crate::event_loop::command::{Command, EventLoopResidual};
 use crate::event_loop::transport::Opened as TransportOpened;
 use crate::{AckMode, Cause, Commander, PositionedStream, StreamEvent};
 
@@ -241,14 +243,31 @@ async fn run_device(
 
 struct Connection {
     cmd: Commander,
-    device: tokio::task::JoinHandle<(Box<Dev>, mpsc::UnboundedReceiver<Produce>)>,
+    device: DeviceTask,
 }
 
 /// Connect a new host event loop to the device.
 async fn connect_host(dev: Box<Dev>, produce: mpsc::UnboundedReceiver<Produce>) -> Connection {
+    let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
+    let (device, _) = start_event_loop(dev, produce, &cmd_tx, cmd_rx).await;
+    Connection {
+        cmd: Commander::new(cmd_tx),
+        device,
+    }
+}
+
+type DeviceTask = tokio::task::JoinHandle<(Box<Dev>, mpsc::UnboundedReceiver<Produce>)>;
+
+/// Start an event loop on `cmd_rx` and connect it to the device over a new pipe; the residual comes back when it
+/// exits, to start the next one on the same command channel (a reconnect).
+async fn start_event_loop(
+    dev: Box<Dev>,
+    produce: mpsc::UnboundedReceiver<Produce>,
+    cmd_tx: &mpsc::Sender<Command>,
+    cmd_rx: mpsc::Receiver<Command>,
+) -> (DeviceTask, oneshot::Receiver<EventLoopResidual>) {
     let (host_to_dev_tx, host_to_dev_rx) = mpsc::channel::<Packet>(4);
     let (dev_to_host_tx, dev_to_host_rx) = mpsc::channel::<Packet>(64);
-    let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
     let device = tokio::spawn(run_device(dev, produce, dev_to_host_tx, host_to_dev_rx));
     tokio::spawn(crate::event_loop::core::worker(
         cmd_rx,
@@ -263,12 +282,24 @@ async fn connect_host(dev: Box<Dev>, produce: mpsc::UnboundedReceiver<Produce>) 
             },
         })),
     ));
-    let info = connect(&cmd_tx, (0, 3)).await;
+    let (connected_tx, connected_rx) = oneshot::channel();
+    let (residual_tx, residual_rx) = oneshot::channel();
+    cmd_tx
+        .send(Command::Connect {
+            handle: Box::new(()),
+            max_seq: crate::DEFAULT_MAX_SEQ,
+            client_version: Box::new(FullVersionOwned::new(
+                "test_api".into(),
+                VersionOwned::new(0, 3, 0),
+            )),
+            connected_tx: Some(connected_tx),
+            failed_tx: Some(residual_tx),
+        })
+        .await
+        .unwrap();
+    let info = connected_rx.await.unwrap();
     assert!(info.result.is_ok(), "{:?}", info.result);
-    Connection {
-        cmd: Commander::new(cmd_tx),
-        device,
-    }
+    (device, residual_rx)
 }
 
 impl Connection {
@@ -595,4 +626,78 @@ async fn s6_resume_after_host_restart_from_saved_cursor() {
     assert!(seen[..60].iter().all(|s| !s), "nothing before the cursor");
     assert_eq!(s.stats().received, 90);
     conn.host_exits().await;
+}
+
+/// Reconnect after `disconnect().keep_streams()` (the device unplugged and plugged back, the host program kept
+/// running): `resume_streams()` resumes the stream from where the handle is, the handle goes on with everything
+/// the device kept meanwhile.
+#[tokio::test]
+async fn reconnect_with_keep_streams_resumes_streams() {
+    let (produce_tx, produce_rx) = mpsc::unbounded_channel();
+    let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
+    let (device, residual) = start_event_loop(Dev::new(), produce_rx, &cmd_tx, cmd_rx).await;
+    let cmd = Commander::new(cmd_tx.clone());
+    let mut s = cmd
+        .prepare_stream_open::<(), PositionedStream<TailBytesOwned>>(
+            path(RELIABLE),
+            Some(ww_self::Delivery::Reliable),
+            Ok(vec![]),
+        )
+        .call()
+        .await
+        .unwrap();
+    produce_tx
+        .send(Produce::Items {
+            stream: RELIABLE,
+            from: 0,
+            to: 50,
+        })
+        .unwrap();
+    for i in 0..50 {
+        let StreamEvent::Item { pos, .. } = next(&mut s).await else {
+            panic!("item {i}")
+        };
+        assert_eq!(pos, i);
+    }
+    // acknowledged before the link goes
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    cmd.disconnect().keep_streams().await.unwrap();
+    let residual = residual.await.unwrap();
+    let (dev, produce_rx) = device.await.unwrap();
+    assert!(matches!(next(&mut s).await, StreamEvent::Disconnected));
+    // the handle waits for a resume, it doesn't end
+    assert!(s.try_recv_event().unwrap().is_none());
+
+    produce_tx
+        .send(Produce::Items {
+            stream: RELIABLE,
+            from: 50,
+            to: 100,
+        })
+        .unwrap();
+    let (_device, _residual) = start_event_loop(dev, produce_rx, &cmd_tx, residual.cmd_rx).await;
+    assert_eq!(cmd.resume_streams().await.unwrap(), 1);
+    match next(&mut s).await {
+        StreamEvent::Resumed { cursor, ended, .. } => {
+            assert_eq!((cursor.pos.0, ended), (50, None));
+        }
+        ev => panic!("{ev:?}"),
+    }
+    let mut seen = [false; 100];
+    let mut backfill_done = false;
+    while seen[50..].iter().any(|s| !s) || !backfill_done {
+        match next(&mut s).await {
+            StreamEvent::Item { pos, value, .. } => {
+                assert_eq!(index(&value) as u64, pos);
+                assert!(!seen[pos as usize], "{pos} twice");
+                seen[pos as usize] = true;
+            }
+            StreamEvent::BackfillDone => backfill_done = true,
+            ev => panic!("{ev:?}"),
+        }
+    }
+    assert_eq!(s.stats().lost_device + s.stats().lost_store, 0);
+    tokio::task::spawn_blocking(move || drop(cmd))
+        .await
+        .unwrap();
 }

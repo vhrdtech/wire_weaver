@@ -91,6 +91,9 @@ pub(crate) enum ToRx {
         client_version: Box<ww_version::FullVersionOwned>,
         connected_tx: Option<oneshot::Sender<crate::device_info::ConnectionInfo>>,
     },
+    /// Tx exits on [Command::DisconnectKeepStreams]: counted and reliable streams stay open for a resume on the next
+    /// connection ([crate::Commander::resume_streams]).
+    KeepStreams,
     /// Tx decided to exit (command, commander dropped, setup timeout, write error), rx should too.
     /// Error, if any, is reported to a pending `connected_tx` by rx.
     Stop(Option<String>),

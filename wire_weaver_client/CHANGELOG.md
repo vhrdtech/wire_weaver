@@ -28,7 +28,9 @@
   the live and the backfill run, `cursor()`, `ack(pos)` (`AckMode::Explicit`), `stats()` (`StreamStats`), `close()`.
   The event loop runs each stream's `ww_stream::rx::Receiver`: positions, gaps by cause, duplicates, `Ack` and
   `ResendFrom` for reliable streams, the device's `Query`. `ClientConfig::stream_queue_bytes` bounds what a stream
-  queues (`DEFAULT_STREAM_QUEUE_BYTES`, 4 MiB).
+  queues (`DEFAULT_STREAM_QUEUE_BYTES`, 4 MiB). After `disconnect().keep_streams()` the handles of counted and
+  reliable streams wait instead of ending; `Commander::resume_streams()` (and `_blocking`) resumes every one of them
+  from its cursor on the next connection (the reconnect itself is EX-10), the handle sees `Resumed` and goes on.
 
 - `Delta`, `DeltaOfDelta` and `XorFloat` in APIs (SW-50): the dynamic client reads and writes them as lists of
   numbers; the evolution checker (`ww api check`) and the connect-time check report another codec or element type,

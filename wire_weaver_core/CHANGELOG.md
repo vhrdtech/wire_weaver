@@ -2,6 +2,8 @@
 
 ### 🐛 Fixes
 
+- Trait clients (`client = "trait_client"`) name the client's own trait in global paths of nested levels too; they
+  named the nested trait with an index chain starting at the outer one.
 - Stream items and property notifications (`stream_data_ser().<stream>()` and the `_send` / `_send_blocking`
   variants) of a type that doesn't end on a byte boundary or has sizes of its own (a `bool` or nibble enum at the end,
   a `&str` or `RefVec` inside) are written on their own (`to_ww_bytes`) between the event header and the event's
@@ -52,6 +54,13 @@
 
 - A `#[future_version]` enum variant (SW-16) is left out of the API model (`ww_self`): it is no variant on the
   wire, adding it later changes neither introspection data nor snapshots.
+- Servers serve requests addressed by a global trait path (API-20, `PathKind::GlobalFull`): the trait is looked up
+  wherever it sits in the API tree, its crate version checked for protocol compatibility, and the request continues
+  from there; `ErrorKind::TraitNotFound` otherwise. Global paths don't depend on the user API version, so a host can
+  reach `ww_dfu::BootControl` or info traits on a device with any version of its API. Traits under a resource array
+  can't be reached this way; when a trait is implemented several times, the first one (depth first) answers.
+  `PathKind::GlobalCompact` is answered with `TraitNotFound` for now: compact ids of traits are not in the API model
+  yet.
 - `MaxLen<T, N>` (SW-19) in `#[ww_trait]` method arguments, return types, properties, `stream!`/`sink!` items and
   types, `N` an integer literal, `{literal}` or a `const` of the API crate's `lib.rs`. Carried into introspection as
   `ww_self::Type::MaxLen`. Byte streams and sinks with a bound keep their raw `TailBytes` wire form; the server

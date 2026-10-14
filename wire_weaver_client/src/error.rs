@@ -70,6 +70,10 @@ pub enum Error {
     AmbiguousDeviceChoice(Vec<DeviceInfo>),
     #[error("Multi request: '{}'", .0)]
     MultiReq(String),
+    #[error(
+        "Connected with `traits_only()`, only global trait calls are possible, not absolute path '{}'", .0
+    )]
+    AbsolutePathInTraitsOnly(String),
 }
 
 fn describe_not_found(filters: &[String], unmatched: &[DeviceInfo]) -> String {

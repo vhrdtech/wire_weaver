@@ -1,0 +1,19 @@
+[package]
+name = "cross_version"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+cross_version_api.workspace = true
+cross_version_old_api.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "test-util"] }
+tracing-subscriber.workspace = true
+wire_weaver.workspace = true
+wire_weaver_client.workspace = true
+ww_client_server.workspace = true
+ww_dfu = { workspace = true, features = ["std"] }

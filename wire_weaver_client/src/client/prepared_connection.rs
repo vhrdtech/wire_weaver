@@ -309,6 +309,7 @@ fn create_commander_inner(
 ) -> Commander {
     let mut commander = Commander::new(cmd_tx);
     commander.set_local_timeout(config.default_timeout);
+    commander.traits_only = config.traits_only;
     if let Some(introspect_client) = config.introspect_client {
         if introspect_client.api_hash.no_docs == device_api_info.user_api_hash.no_docs {
             // connected device API is exactly the same as client, no need to download or look for cached one
@@ -328,7 +329,7 @@ async fn create_commander(
 ) -> Commander {
     let device_api_hash = device_api_info.user_api_hash.clone();
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
-    if commander.device_introspect().is_none() {
+    if commander.device_introspect().is_none() && !commander.traits_only {
         match commander.introspect().get_as_sent().await {
             Ok(Some((sent_api_bundle, sent_size))) => commander.set_device_introspect(
                 IntrospectBundle::from_sent(sent_api_bundle, device_api_hash, sent_size),
@@ -349,7 +350,7 @@ fn create_commander_blocking(
 ) -> Commander {
     let device_api_hash = device_api_info.user_api_hash.clone();
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
-    if commander.device_introspect().is_none() {
+    if commander.device_introspect().is_none() && !commander.traits_only {
         match commander.introspect().get_as_sent_blocking() {
             Ok(Some((sent_api_bundle, sent_size))) => commander.set_device_introspect(
                 IntrospectBundle::from_sent(sent_api_bundle, device_api_hash, sent_size),

@@ -16,6 +16,7 @@ use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, FlowControl,
     Multiplicity, PropertyAccess, TypeOwned,
 };
+use ww_version::FullVersionOwned;
 
 /// API server code generation configuration.
 pub struct GenServerConfig {
@@ -179,6 +180,7 @@ pub fn gen_server(
             &mut max_len_consts,
         );
     }
+    let global_trait_path = global_trait_path(api_bundle);
     let (es1, es2) = (error_seq.next(), error_seq.next());
     let server_struct_path = config.server_struct_path;
     let maybe_use_ser_shrink_wrap = maybe_quote_cl(cx.multi_req, || quote! { false, });
@@ -251,17 +253,31 @@ pub fn gen_server(
                 let mut wr = BufWriter::new(scratch);
                 let event_builder = EventBuilder::new(request.seq.0, &mut wr)?;
 
-                // TODO: handle trait paths on server side
-                let PathKind::Absolute { path } = &request.path_kind else {
-                    wr.write(&Error::new(#es1, ErrorKind::PathKindNotSupported))?;
-                    event_builder.finish(false, &mut wr);
-                    return wr.finish_and_take();
+                // a global trait path continues from wherever the trait sits in this API (API-20)
+                let (base, path): (&[UNib32], _) = match &request.path_kind {
+                    PathKind::Absolute { path } => (&[], path),
+                    PathKind::GlobalFull { gid, trait_name, path_from_trait } => {
+                        match ww_global_trait_path(gid, trait_name) {
+                            Some(base) => (base, path_from_trait),
+                            None => {
+                                wr.write(&Error::new(#es1, ErrorKind::TraitNotFound))?;
+                                event_builder.finish(false, &mut wr);
+                                return wr.finish_and_take();
+                            }
+                        }
+                    }
+                    // TODO(API-20): compact ids of traits are not in the API model yet, no trait has one assigned
+                    PathKind::GlobalCompact { .. } => {
+                        wr.write(&Error::new(#es1, ErrorKind::TraitNotFound))?;
+                        event_builder.finish(false, &mut wr);
+                        return wr.finish_and_take();
+                    }
                 };
 
                 const MAX_DEPTH: usize = 16; // TODO: calculate max depth
                 let mut path_arr = [UNib32(0); MAX_DEPTH];
                 let mut path_len: usize = 0;
-                for (idx, resource_id) in path.iter().enumerate() {
+                for (idx, resource_id) in base.iter().map(|id| Ok(*id)).chain(path.iter()).enumerate() {
                     let resource_id = resource_id?;
                     if idx < MAX_DEPTH {
                         path_arr[idx] = resource_id;
@@ -321,6 +337,73 @@ pub fn gen_server(
         }
 
         #stream_send_methods
+
+        #global_trait_path
+    }
+}
+
+/// Absolute path of every global trait in the API tree, for requests with a global trait path (API-20).
+///
+/// Traits under a resource array are left out (a global path can't select an index), and when a trait is implemented
+/// several times, the first one in depth first, id order is used. A trait matches when the requested crate version is
+/// protocol compatible with the one this API was built with (same major, and same minor before 1.0).
+fn global_trait_path(api_bundle: &ApiBundleOwned) -> TokenStream {
+    let mut traits = vec![];
+    global_traits_recursive(api_bundle, &api_bundle.root, &mut vec![], &mut traits);
+    let arms = traits.iter().map(|(path, crate_version, trait_name)| {
+        let crate_id = crate_version.crate_id.as_str();
+        let (major, minor) = (crate_version.version.major.0, crate_version.version.minor.0);
+        let version_check = if major >= 1 {
+            quote! { gid.version.major.0 == #major }
+        } else {
+            quote! { gid.version.major.0 == 0 && gid.version.minor.0 == #minor }
+        };
+        quote! {
+            (#crate_id, #trait_name) if #version_check => Some(&[#(UNib32(#path)),*]),
+        }
+    });
+    quote! {
+        /// Absolute path of a global trait in this API, None if it's not implemented in a compatible version.
+        fn ww_global_trait_path(gid: &wire_weaver::ww_version::FullVersion<'_>, trait_name: &str) -> Option<&'static [UNib32]> {
+            match (gid.crate_id, trait_name) {
+                #(#arms)*
+                _ => None,
+            }
+        }
+    }
+}
+
+fn global_traits_recursive(
+    api_bundle: &ApiBundleOwned,
+    level: &ApiLevelOwned,
+    path: &mut Vec<u32>,
+    traits: &mut Vec<(Vec<u32>, FullVersionOwned, String)>,
+) {
+    let crate_version = api_bundle.crate_version(level.crate_idx.0).unwrap();
+    if !traits
+        .iter()
+        .any(|(_, v, name)| v.crate_id == crate_version.crate_id && *name == level.trait_name)
+    {
+        traits.push((
+            path.clone(),
+            crate_version.clone(),
+            level.trait_name.clone(),
+        ));
+    }
+    for item in &level.items {
+        if !matches!(item.kind, ApiItemKindOwned::Trait { .. })
+            || !matches!(item.multiplicity, Multiplicity::Flat)
+        {
+            continue;
+        }
+        path.push(item.id.0);
+        global_traits_recursive(
+            api_bundle,
+            item.get_as_level(api_bundle).unwrap(),
+            path,
+            traits,
+        );
+        path.pop();
     }
 }
 

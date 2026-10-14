@@ -11,6 +11,12 @@
   and verifies the image over PICOBOOT (`ww_picoboot`, re-exported), reboots it as `picotool load -x` does, and
   returns the firmware as it came back. `follow::rp2350_serial()` is the serial number a firmware reports so it can
   be followed (the chip id as the boot ROM shows it).
+- Global trait calls on any device (CLT-10): `ClientConfig::traits_only()` connects without the user API check and
+  without downloading the device's introspection, `DynClient::traits_only(|c| ..)` is a shortcut, and
+  `DynClient::global_attachment(gid, trait_name)` gives an `Attachment` whose calls carry a global trait path the device
+  resolves itself (API-20). A host built against a new API version can so reboot a device with an old one into its
+  updater (`ww_dfu::BootControl`), or read its info traits. Absolute paths on such a connection fail with the new
+  `Error::AbsolutePathInTraitsOnly`.
 - Simulated USB for in-process devices: `in_process::usb_device(path, max_packet_size)` registers a device that
   speaks USB packets (`UsbSink` / `UsbSource`, wrapped in `ww_device::FramedTx` / `FramedRx` as real endpoints are),
   the host packs messages with the USB framer configuration of `ww_link`, exactly as over nusb. Connect with the same

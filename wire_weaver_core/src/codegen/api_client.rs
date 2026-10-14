@@ -123,6 +123,7 @@ pub fn gen_client(
         config.model,
         path_mode,
         Some(&client_struct_path),
+        None,
     );
     quote! {
         #[allow(unused_imports)]
@@ -144,6 +145,9 @@ pub fn gen_client(
     }
 }
 
+/// Paths to a trait's `FULL_GID` and `COMPACT_GID` constants, and its name.
+type GidPaths = (TokenStream, TokenStream, TokenStream);
+
 fn client_struct_name(mod_name: &str) -> Ident {
     Ident::new(
         format!("{}_client", mod_name)
@@ -160,6 +164,7 @@ fn client_structs_recursive(
     model: ClientModel,
     path_mode: ClientPathMode,
     is_at_root: Option<&Path>,
+    root_gid_paths: Option<&GidPaths>,
 ) -> TokenStream {
     let mut ts = TokenStream::new();
     let args_structs = args_structs(api_bundle, api_level, model.no_alloc());
@@ -180,17 +185,21 @@ fn client_structs_recursive(
         Span::call_site(),
     );
     let crate_name = Ident::new(crate_name, Span::call_site());
+    let trait_name = LitStr::new(&api_level.trait_name, Span::call_site());
     let gid_paths = (
         quote! { #crate_name::#full_gid },
         quote! { #crate_name::#compact_gid },
+        quote! { #trait_name },
     );
+    // index chains of nested levels start from the root trait of this client, so global paths name that trait
+    let root_gid_paths = root_gid_paths.unwrap_or(&gid_paths);
     let methods = level_methods(
         api_bundle,
         api_level,
         index_chain,
         model,
         path_mode,
-        &gid_paths,
+        root_gid_paths,
     );
 
     // call before increment_length so that root level does not have it
@@ -214,6 +223,7 @@ fn client_structs_recursive(
             model,
             path_mode,
             None,
+            Some(root_gid_paths),
         ));
     }
 
@@ -286,7 +296,7 @@ fn level_methods(
     index_chain: IndexChain,
     model: ClientModel,
     path_mode: ClientPathMode,
-    gid_paths: &(TokenStream, TokenStream),
+    gid_paths: &GidPaths,
 ) -> TokenStream {
     let handlers = api_level
         .items
@@ -303,7 +313,7 @@ fn level_method(
     mut index_chain: IndexChain,
     model: ClientModel,
     path_mode: ClientPathMode,
-    gid_paths: &(TokenStream, TokenStream),
+    gid_paths: &GidPaths,
 ) -> TokenStream {
     let id = item.id.0;
     let index_chain_push_pre = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
@@ -412,7 +422,7 @@ fn handle_method(
     api_bundle: &ApiBundleOwned,
     model: ClientModel,
     path_mode: ClientPathMode,
-    gid_paths: &(TokenStream, TokenStream),
+    gid_paths: &GidPaths,
     index_chain_push: TokenStream,
     ident: &Ident,
     args: &[ArgumentOwned],
@@ -445,7 +455,7 @@ fn handle_property(
     api_bundle: &ApiBundleOwned,
     model: ClientModel,
     path_mode: ClientPathMode,
-    gid_paths: &(TokenStream, TokenStream),
+    gid_paths: &GidPaths,
     index_chain_push: TokenStream,
     access: &PropertyAccess,
     prop_name: &Ident,
@@ -544,7 +554,7 @@ fn handle_stream(
     api_bundle: &ApiBundleOwned,
     model: ClientModel,
     path_mode: ClientPathMode,
-    gid_paths: &(TokenStream, TokenStream),
+    gid_paths: &GidPaths,
     maybe_index_arg: TokenStream,
     index_chain_push: TokenStream,
     ident: &Ident,
@@ -717,15 +727,14 @@ fn connect_disconnect_methods(api_bundle: &ApiBundleOwned) -> TokenStream {
 }
 
 /// Creates ww_client_server::PathKind in user context
-fn path_kind(path_mode: ClientPathMode, gid_paths: &(TokenStream, TokenStream)) -> TokenStream {
-    let full = &gid_paths.0;
-    let compact = &gid_paths.1;
+fn path_kind(path_mode: ClientPathMode, gid_paths: &GidPaths) -> TokenStream {
+    let (full, compact, trait_name) = gid_paths;
     match path_mode {
         ClientPathMode::Absolute => {
             quote! { PathKind::absolute(&index_chain) }
         }
         ClientPathMode::GlobalTrait => quote! {
-            PathKind::global(#full, #compact, &index_chain)
+            PathKind::global(#full, #compact, #trait_name, &index_chain)
         },
     }
 }

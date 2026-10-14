@@ -1,7 +1,8 @@
 use crate::{
-    ClientConfig, Commander, DeviceApiInfo, PreparedConnection, PreparedDisconnect, WwClient,
-    config::IntrospectBundle,
+    Attachment, ClientConfig, Commander, DeviceApiInfo, PreparedConnection, PreparedDisconnect,
+    WwClient, config::IntrospectBundle,
 };
+use ww_version::FullVersion;
 
 /// Dynamic client that can work with any device.
 /// Two options are available:
@@ -28,6 +29,20 @@ impl DynClient {
 
     pub fn from_config(config: ClientConfig) -> PreparedConnection<Self> {
         PreparedConnection::new(config)
+    }
+
+    /// Connect to any device for global trait calls only, see [ClientConfig::traits_only]. Pass the device
+    /// selection in `c`, e.g. `DynClient::traits_only(|c| c.usb().serial_eq(serial))`.
+    pub fn traits_only(c: impl Fn(ClientConfig) -> ClientConfig) -> PreparedConnection<Self> {
+        PreparedConnection::new(c(Self::default_config().traits_only()))
+    }
+
+    /// Attachment for a global trait wherever the device implements it: calls through it carry a global trait path
+    /// (`gid` and `trait_name`, e.g. `ww_dfu::BOOT_CONTROL_FULL_GID`, `"BootControl"`) that the device resolves
+    /// (API-20). A device that doesn't implement a compatible version of the trait answers with
+    /// `ww_client_server::ErrorKind::TraitNotFound`.
+    pub fn global_attachment(&self, gid: FullVersion<'_>, trait_name: &str) -> Attachment {
+        Attachment::new(self.cmd.clone(), gid.make_owned(), trait_name.to_string())
     }
 
     pub fn cmd(&self) -> &Commander {

@@ -4,6 +4,9 @@
 
 Wire-incompatible with 0.1.0.
 
+* `PathKind::GlobalFull` carries `trait_name: &str` after `gid`: a crate can define several traits, its name and
+  version alone don't say which one (API-20). `PathKind::global()` takes the trait name after the compact id.
+  Only requests with a `GlobalFull` path change on the wire, no released server served them.
 * `Request::seq` is `UVlq32Backfill` and `Event::seq` is `UVlq32` (were `u16`): seq numbers up to 127 take 1 byte
   instead of 2, and up to `u32::MAX` are possible. `Request::set_seq()` takes a `u32` and returns the slice to send,
   without the unused part of the 5-byte placeholder; send that slice instead of the whole buffer.
@@ -20,6 +23,8 @@ Wire-incompatible with 0.1.0.
 
 ### 🚀 Features
 
+* `ErrorKind::TraitNotFound`: answer to a global trait path whose trait the device doesn't implement, implements in
+  an incompatible version or only under a resource array (API-20).
 * `max_len::{call_request, call_request_compact, value_event}`: `const fn`s giving the longest request that calls a
   method and the longest reply or stream event, from the arguments' or value's `MaxSize` (SW-19, API-18).
 * Credit-based flow control for `#[credit]` sinks (API-28), counted in bytes of items (the serialized value of each

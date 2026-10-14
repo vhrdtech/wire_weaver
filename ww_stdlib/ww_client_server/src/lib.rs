@@ -52,13 +52,22 @@ pub struct Request<'i> {
 /// * GlobalCompact - request to a trait resource, for commonly used traits that are used often and have an ID assigned
 /// * GlobalFull - request to a trait resource defined in an arbitrary Rust crate, full crate name, and its version is used as an ID
 ///
+/// A server serves a global path wherever the trait sits in its API tree (API-20): it looks the trait up by its
+/// identity, checks that its own version of the trait crate is protocol compatible (see
+/// `FullVersion::is_protocol_compatible`), and continues with `path_from_trait` from there. Global paths work
+/// whatever the user API version, which is what makes them usable across API versions (firmware update, device
+/// info). A trait under a resource array (`ww_impl!(port[]: Bank)`) can't be reached this way, and when a trait is
+/// implemented several times, the first one in the tree (depth first, in id order) answers.
+/// [ErrorKind::TraitNotFound] when the device doesn't implement a compatible version of the trait.
+///
 /// [Global ID registry](https://github.com/vhrdtech/ww_stdlib/tree/main/ww_global)
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, Clone), final_structure, ww_repr = nib)]
 pub enum PathKind<'i> {
     /// Full path to a resource, regardless of whether it is in a trait or not.
     Absolute { path: RefVec<'i, UNib32> },
 
-    /// Request is for a trait implemented at root level, through a global unique ID (manually assigned for common traits).
+    /// Request is for a trait implemented anywhere in the API tree, through a global unique ID (manually assigned for
+    /// common traits, one per trait).
     GlobalCompact {
         /// CompactVersion consists of 3 UNib32's, so the smallest additional size of such a call if all numbers are <= 7 is 2 bytes.
         gid: CompactVersion,
@@ -66,10 +75,13 @@ pub enum PathKind<'i> {
         path_from_trait: RefVec<'i, UNib32>,
     },
 
-    /// Request is for a trait implemented at root level, through a crates.io name and version (any crate can be used as is).
+    /// Request is for a trait implemented anywhere in the API tree, through a crates.io name and version (any crate
+    /// can be used as is) and the trait's name in that crate.
     /// This kind of request is the biggest, because full crate name is used.
     GlobalFull {
         gid: FullVersion<'i>,
+        /// Name of the trait in the `gid` crate, a crate can define several.
+        trait_name: &'i str,
         /// Used to identify a trait resource, starting from trait root.
         path_from_trait: RefVec<'i, UNib32>,
     },
@@ -293,6 +305,9 @@ pub enum ErrorKind<'i> {
     UserBytes(RefVec<'i, u8>),
     /// Forwarded user error
     UserStr(&'i str),
+    /// A global trait path ([PathKind::GlobalCompact] or [PathKind::GlobalFull]) names a trait the device doesn't
+    /// implement, implements in an incompatible version, or only under a resource array
+    TraitNotFound,
 }
 
 // Optional shaper configuration request.
@@ -317,6 +332,7 @@ impl PathKind<'_> {
     pub fn global<'a>(
         global_full: FullVersion<'static>,
         global_compact: Option<CompactVersion>,
+        trait_name: &'static str,
         path_from_trait: &'a [UNib32],
     ) -> PathKind<'a> {
         if let Some(compact) = global_compact {
@@ -329,6 +345,7 @@ impl PathKind<'_> {
         } else {
             PathKind::GlobalFull {
                 gid: global_full,
+                trait_name,
                 path_from_trait: RefVec::Slice {
                     slice: path_from_trait,
                 },
@@ -390,6 +407,7 @@ impl Error<'_> {
             ErrorKind::Unimplemented => ErrorKindOwned::Unimplemented,
             ErrorKind::ReadPropertyWithSeqZero => ErrorKindOwned::ReadPropertyWithSeqZero,
             ErrorKind::PathKindNotSupported => ErrorKindOwned::PathKindNotSupported,
+            ErrorKind::TraitNotFound => ErrorKindOwned::TraitNotFound,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),
             ErrorKind::UserStr(s) => ErrorKindOwned::UserStr(s.to_string()),
         };
@@ -416,9 +434,11 @@ impl PathKind<'_> {
             },
             PathKind::GlobalFull {
                 gid,
+                trait_name,
                 path_from_trait,
             } => PathKindOwned::GlobalFull {
                 gid: gid.make_owned(),
+                trait_name: trait_name.to_string(),
                 path_from_trait: path_from_trait.iter().collect::<Result<Vec<_>, _>>()?,
             },
         };
@@ -444,9 +464,11 @@ impl PathKindOwned {
             },
             PathKindOwned::GlobalFull {
                 gid,
+                trait_name,
                 path_from_trait,
             } => PathKind::GlobalFull {
                 gid: gid.as_ref(),
+                trait_name,
                 path_from_trait: RefVec::Slice {
                     slice: path_from_trait,
                 },

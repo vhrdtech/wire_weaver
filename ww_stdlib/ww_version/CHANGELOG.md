@@ -7,6 +7,8 @@
 
 ### 🚀 Features
 
+* `CompactVersion::is_protocol_compatible()`, same rules as `Version::is_protocol_compatible()` plus the same
+  global type id.
 * `ApiHash` and `ApiHashPair` (hash of the API with and without docs), `Display` for `ApiHashOwned` (hex).
 * `VersionTriplet`, `CompactVersion::new()`.
 * `FullVersionOwned::is_protocol_compatible()`, `filename_friendly()`.

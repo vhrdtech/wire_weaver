@@ -235,7 +235,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   all of them for a whole API (to size `ww_device` buffers such as `UdpBuffers<MAX_MESSAGE_LEN>` automatically),
   paths of nested traits counted exactly (now the worst case of the full path), the same consts on the client.
 - 📋 **API-19 Change dispatcher match order** to process common requests faster · `v0.5.x`.
-- 📋 **API-20 Trait paths on the server side** — `TODO` in `api_server.rs`.
+- 🚧 **API-20 Trait paths on the server side** · `v0.5` — servers serve `PathKind::GlobalFull` requests (crate,
+  version and trait name) wherever the trait sits in the tree, `ErrorKind::TraitNotFound` otherwise
+  (`tests/cross_version`, `docs/api/addressing.md`). Missing: `PathKind::GlobalCompact` (compact ids of
+  traits are not in the API model yet, none is assigned), traits under a resource array.
 - 📋 **API-21 `no_alloc = false` servers** — don't compile today.
 - ⛔ **API-22 Implement the same trait several times → enum selector** · `v0.5.x` — stalled. At least print a proper error
   when a trait is implemented twice (`tests/traits_api`).

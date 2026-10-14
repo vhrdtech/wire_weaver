@@ -148,6 +148,14 @@ impl CompactVersion {
             patch: UNib32(patch),
         }
     }
+
+    /// Same global type id and a protocol compatible version, same rules as [Version::is_protocol_compatible].
+    pub fn is_protocol_compatible(&self, other: &Self) -> bool {
+        if self.gid != other.gid || self.major != other.major {
+            return false;
+        }
+        self.major.0 >= 1 || self.minor == other.minor
+    }
 }
 
 impl VersionTriplet {

@@ -32,17 +32,17 @@ use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
 #[derive(Clone)]
 pub struct Commander {
     transport_cmd_tx: mpsc::Sender<Command>,
-    /// * None for command sender attached to API root, trait addressing will result in an error.
-    /// * Some (empty path) for trait implemented at root level (unknown path), trait addressing will be used.
+    /// * None: trait addressing is sent as is, the device finds the trait in its API tree (API-20), wherever it is.
+    /// * Some (empty path) for a trait implemented as the API root, trait addressing is substituted with an absolute path.
     /// * Some (non-empty path) for trait implemented at some particular path, trait addressing will be substituted with an actual path.
     ///
     /// "Some" cases are only for trait clients (`client = "trait_client"`). API root client (`client = "std_client"`) uses absolute addressing.
     base_path: Option<Vec<UNib32>>,
 
-    /// Mapping from FullVersion (crate name as string + semver) to trait GID of a much smaller size.
+    /// Mapping from FullVersion (crate name as string + semver) and trait name to trait GID of a much smaller size.
     /// Optimally, should be requested from a device, so that newly assigned GIDs not yet known to a device are not used.
     /// But can also be forced to a known GID if performance is critical.
-    gid_map: HashMap<FullVersionOwned, CompactVersion>,
+    gid_map: HashMap<(FullVersionOwned, String), CompactVersion>,
     default_timeout: Duration,
     pub(crate) connected_device: DeviceApiInfo,
     /// Client API and types, client signature. None if DynClient.
@@ -51,6 +51,9 @@ pub struct Commander {
     device_introspect: Option<IntrospectBundle>,
     /// Whether client resources can be used with the connected device, see [Commander::resolve_api_match].
     api_match: ApiMatch,
+    /// Connected with [ClientConfig::traits_only](crate::ClientConfig::traits_only): device API unknown, absolute
+    /// paths are refused.
+    pub(crate) traits_only: bool,
 }
 
 pub(crate) struct TransportCommander {
@@ -69,6 +72,7 @@ impl Commander {
             client_introspect: None,
             device_introspect: None,
             api_match: ApiMatch::NoClientApi,
+            traits_only: false,
         }
     }
 
@@ -402,6 +406,7 @@ impl Commander {
             }
             PathKind::GlobalFull {
                 gid,
+                trait_name,
                 path_from_trait,
             } => {
                 if let Some(base) = &self.base_path {
@@ -410,7 +415,10 @@ impl Commander {
                         path.push(n?);
                     }
                     PathKindOwned::Absolute { path }
-                } else if let Some(compact) = self.gid_map.get(&gid.make_owned()) {
+                } else if let Some(compact) = self
+                    .gid_map
+                    .get(&(gid.make_owned(), trait_name.to_string()))
+                {
                     // NOTE: lookup needs an owned key, FullVersionOwned can't implement Borrow<FullVersion<'_>> (it borrows &str)
                     PathKindOwned::GlobalCompact {
                         gid: *compact,
@@ -419,11 +427,17 @@ impl Commander {
                 } else {
                     PathKindOwned::GlobalFull {
                         gid: gid.make_owned(),
+                        trait_name: trait_name.to_string(),
                         path_from_trait: path_from_trait.iter().collect::<Result<Vec<_>, _>>()?,
                     }
                 }
             }
         };
+        if self.traits_only
+            && let PathKindOwned::Absolute { path } = &path_kind
+        {
+            return Err(Error::AbsolutePathInTraitsOnly(format!("{path:?}")));
+        }
         Ok(path_kind)
     }
 

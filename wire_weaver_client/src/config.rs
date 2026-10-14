@@ -33,6 +33,7 @@ pub struct ClientConfig {
     default_timeout: Option<Duration>,
     client_version: Option<Box<FullVersionOwned>>,
     max_seq: Option<SeqTy>,
+    traits_only: bool,
 }
 
 pub(crate) struct ValidatedConfig {
@@ -44,6 +45,7 @@ pub(crate) struct ValidatedConfig {
     pub(crate) client_version: Box<FullVersionOwned>,
     pub(crate) max_seq: SeqTy,
     pub(crate) introspect_client: Option<IntrospectBundle>,
+    pub(crate) traits_only: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -200,7 +202,9 @@ impl ClientConfig {
     pub(crate) fn validate(self) -> Result<ValidatedConfig> {
         let s = self;
         // s.canonicalize();
-        let introspect_client = if let Some((ww_self_bytes, api_hash)) = s.introspect_client {
+        let introspect_client = if s.traits_only {
+            None
+        } else if let Some((ww_self_bytes, api_hash)) = s.introspect_client {
             // same as a device sends, with known traits and types left out
             let sent_api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
             Some(IntrospectBundle::from_sent(
@@ -220,10 +224,11 @@ impl ClientConfig {
             bail!("Wrong cmd queue size of {cmd_queue_size}");
         }
         // connecting as dynamic client (introspect device) if no client version specified
-        let client_version = s.client_version.unwrap_or(Box::new(FullVersionOwned::new(
-            "".into(),
-            VersionOwned::new(0, 1, 0),
-        )));
+        let dynamic = Box::new(FullVersionOwned::new("".into(), VersionOwned::new(0, 1, 0)));
+        let client_version = match s.client_version {
+            Some(version) if !s.traits_only => version,
+            _ => dynamic,
+        };
         Ok(ValidatedConfig {
             pieces: s.pieces,
             priority: vec![],
@@ -232,6 +237,7 @@ impl ClientConfig {
             client_version,
             max_seq,
             introspect_client,
+            traits_only: s.traits_only,
         })
     }
 
@@ -436,6 +442,20 @@ impl ClientConfig {
     pub fn client_version(self, version: FullVersionOwned) -> Self {
         let mut c = self;
         c.client_version = Some(Box::new(version));
+        c
+    }
+
+    /// Connect for global trait calls only (CLT-10): to any device, whatever its user API and version.
+    ///
+    /// The user API version check of link setup is skipped (as for a dynamic client) and the device's introspection
+    /// isn't downloaded. Calls go through trait clients (`client = "trait_client"`) or
+    /// [DynClient::global_attachment](crate::DynClient::global_attachment), with global trait paths the device
+    /// resolves itself (API-20), so they work across API versions: reading firmware info or rebooting an old device
+    /// into its updater from a newer host. Absolute paths are refused with [Error::AbsolutePathInTraitsOnly](crate::Error::AbsolutePathInTraitsOnly),
+    /// since they only make sense for a known API.
+    pub fn traits_only(self) -> Self {
+        let mut c = self;
+        c.traits_only = true;
         c
     }
 

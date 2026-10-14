@@ -18,3 +18,12 @@
   (64), `NodeInfo::product` by `MAX_PRODUCT_LEN` (32). Every method's request and reply now has a known largest size
   (`<METHOD>_REQUEST_MAX_LEN` / `_RESPONSE_MAX_LEN`), so a firmware checks its buffer at compile time. A node's own
   `StageLimits::max_piece` stays, at most `MAX_PIECE_LEN`. Raising a bound later is compatible.
+
+### 🚀 Features
+
+- Guide: `docs/std_library/ww_dfu.md` (<https://ww.vhrd.tech/std_library/ww_dfu/>) names the eight update scenarios
+  (`2C-APP-STEP` Swap Shuttle, `2C-APP-BULK` Swap Freight, `2R-APP-STEP` Flip Shuttle, `2R-APP-BULK` Flip Freight,
+  `1S-APP-STEP` Parcel Shuttle, `1S-APP-BULK` Parcel Freight, `1L-UPD-STEP` Pit-stop Shuttle, `1L-UPD-BULK` Pit-stop
+  Freight), says which combinations make no sense and why, helps pick one, and describes each with its flash layout,
+  flow, power-cut behaviour and the exchange recorded from its end-to-end test (`tests/dfu_scenarios`). The crate docs
+  link to it first; the stored-plan mode resumes from an apply journal.

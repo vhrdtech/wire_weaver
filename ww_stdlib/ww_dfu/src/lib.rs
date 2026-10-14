@@ -1,5 +1,10 @@
 //! Firmware update API: a set of small traits that every node taking part in an update picks from.
 //!
+//! **Start with the [guide](https://ww.vhrd.tech/std_library/ww_dfu/)** (`docs/std_library/ww_dfu.md` in the
+//! wire_weaver repo): it names the eight ways a device updates (`2C-APP-STEP` Swap Shuttle to `1L-UPD-BULK` Pit-stop
+//! Freight), helps pick one in three questions, and walks through each with its flash layout, flow, power-cut
+//! behaviour and the exchange recorded from its end-to-end test. The rest of this page is the reference.
+//!
 //! The update itself is a **plan**: a header (which image it produces, for which flash geometry) and a list of steps
 //! that turn what the device holds into the new image: ERASE a block, COPY a chunk the device already has, WRITE a
 //! chunk whose data comes with the step. The plan format, the manifest and the signed image descriptor are defined in
@@ -28,25 +33,26 @@
 //!
 //! # Three ways a device updates
 //!
-//! **1. A/B, applied live** ([Profile::AB]). The running app receives
-//! the plan and applies it straight into the inactive slot (DFU, the other bank, the other partition). Nothing it
+//! **1. A/B, applied live** ([Profile::AB]; scenarios `2C-*` and `2R-*`). The running app receives the plan
+//! and applies it straight into the inactive slot (DFU, the other bank, the other partition). Nothing it
 //! runs from is touched, so a cut or a lost link costs nothing but time. When the image is complete and verified,
 //! `Stage::finish` marks it staged; `BootControl::reboot` with [BootTarget::App] switches to it for one trial boot,
 //! and the new image must `BootControl::confirm` or the next reset reverts it.
 //! Nodes: the app implements everything; the bootloader has no transport at all.
 //!
-//! **2. In place, stored plan** ([Profile::InPlace] with [Target::Stored]). The running app receives the whole plan,
-//! data included, into a plan area in flash, while it keeps doing its job (a download over LoRa may take hours).
-//! `Stage::finish` checks the descriptor signature and that the plan is complete **before anything is touched**.
-//! After the reboot the bootloader applies the stored plan in place, offline; after a power cut it simply starts the
-//! plan again (every step's result is checked by its hash, and the WRITE data is still in the plan area). Downtime is
-//! the apply time only, and the bootloader still has no transport. Costs: a plan area sized for the largest delta,
-//! and no revert (the old image is gone once applied). A plan bigger than the area falls back to mode 3.
+//! **2. In place, stored plan** ([Profile::InPlace] with [Target::Stored]; scenarios `1S-*`). The running app
+//! receives the whole plan, data included, into a plan area in flash, while it keeps doing its job (a download over
+//! LoRa may take hours). `Stage::finish` checks the descriptor signature and that the plan is complete **before
+//! anything is touched**. After the reboot the bootloader applies the stored plan in place, offline; after a power cut
+//! it resumes from its apply journal (every step's result is checked by its hash, and the WRITE data is still in the
+//! plan area). Downtime is the apply time only, and the bootloader still has no transport. Costs: a plan area sized
+//! for the largest delta, and no revert (the old image is gone once applied). A plan bigger than the area falls back
+//! to mode 3.
 //! Nodes: the app implements `UpdateNode`, `BootControl`, `Inventory`, `Stage` (and `StageBulk` on slow links).
 //!
-//! **3. In place, applied live** ([Profile::InPlace] with [Target::Live]). The bootloader, or a small
-//! write-protected recovery app at its own address, receives the plan and applies it as the pieces arrive. No extra
-//! flash, the fastest end to end, but the device does nothing else for the whole download, and a cut leaves no
+//! **3. In place, applied live** ([Profile::InPlace] with [Target::Live]; scenarios `1L-*`). The bootloader, or a
+//! small write-protected recovery app at its own address, receives the plan and applies it as the pieces arrive. No
+//! extra flash, the fastest end to end, but the device does nothing else for the whole download, and a cut leaves no
 //! bootable app, so this receiver must come back up and finish the job.
 //! Nodes: the app implements `UpdateNode` and `BootControl` (often only `reboot(Updater)`); the updater implements
 //! `UpdateNode`, `BootControl`, `Inventory`, `Stage` and maybe `StageBulk`.

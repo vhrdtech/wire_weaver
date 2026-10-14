@@ -23,7 +23,8 @@ By default `std` feature is active providing owned types.
 * [ww_gpio](ww_gpio.md) - GPIO bank/pin traits: output/input level, mode, pull, speed, edge event stream
 * ww_client_server - `Request`, `RequestKind`, `Event`, `EventKind`, `Error` used for client-server API model.
 * ww_can_bus - CAN Bus types and API
-* ww_dfu - Firmware update API
+* [ww_dfu](ww_dfu.md) - Firmware update API: eight update scenarios (A/B, stored plan, live in place; step by step or
+  bulk), each with a recorded exchange
 * ww_log_bare_metal - Logging types and API for no_std bare metal targets
 
 Two framework-level crates live in the `wire_weaver` repo root instead of `ww_stdlib`, but are versioned the same way:

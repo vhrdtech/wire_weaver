@@ -48,7 +48,7 @@ Notable ones are:
 * `ww_si` - SI units and derived values.
 * `ww_gpio` - GPIO control data types and remote bridging API.
 * `ww_can_bus` - CAN Bus types and bridging API.
-* `ww_dfu` - Firmware update API.
+* `ww_dfu` - Firmware update API, see the [guide to its eight update scenarios](https://ww.vhrd.tech/std_library/ww_dfu/).
 * `ww_log_bare_metal` - Logging types and API for no_std bare metal targets.
 * `ww_self` - Dynamic access to APIs (API model AST in shrink_wrap format).
 

@@ -4611,6 +4611,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_logic_analyzer"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_gpio",
+ "ww_i2c",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_numeric"
 version = "0.2.0"
 dependencies = [
@@ -4665,6 +4676,17 @@ dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
  "ww_numeric",
+]
+
+[[package]]
+name = "ww_signal_generator"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_adc",
+ "ww_logic_analyzer",
+ "ww_si",
 ]
 
 [[package]]

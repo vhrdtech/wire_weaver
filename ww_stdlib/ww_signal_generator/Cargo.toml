@@ -1,0 +1,26 @@
+[package]
+name = "ww_signal_generator"
+version = "0.1.0"
+authors.workspace = true
+description = "Signal generator remote API: digital pattern generators replaying analyzer captures, DAC waveforms"
+edition.workspace = true
+license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_adc/std", "ww_logic_analyzer/std", "ww_si/std"]
+defmt = [
+    "dep:defmt",
+    "wire_weaver/defmt",
+    "ww_adc/defmt",
+    "ww_logic_analyzer/defmt",
+    "ww_si/defmt",
+]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+wire_weaver = { workspace = true, default-features = false }
+ww_adc = { workspace = true, default-features = false }
+ww_logic_analyzer = { workspace = true, default-features = false }
+ww_si = { workspace = true, default-features = false }

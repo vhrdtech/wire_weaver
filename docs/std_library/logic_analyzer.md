@@ -49,7 +49,8 @@ signals do.
 ### `Transitions`: only the edges, per channel
 
 For each channel: its level at the start of the range and the sample indices where it toggles, as a
-`DeltaOfDelta<'i, u32>` (SW-31). Every listed index is an edge of that channel (levels are implied: each one
+`DeltaOfDelta<'i, u32>` (SW-31; `#[ww_trait]` APIs carry it once SW-50 series-in-apis lands, until then the
+skeleton has its serialized bytes). Every listed index is an edge of that channel (levels are implied: each one
 toggles), so no level bits are stored. A channel that keeps a steady rhythm (a clock, a UART at a fixed baud,
 PWM at a fixed duty) costs about one bit per edge; a quiet channel costs its start level and an empty list.
 
@@ -330,7 +331,7 @@ pub trait PatternGenerator {
 
     /// Pattern data, appended in order. `Open` starts a new pattern, `Close` marks it complete.
     #[credit]
-    sink!(pattern: PatternChunk<'i>);
+    sink!(pattern: StreamChunk<'i>);
 
     /// Starts output now, or waits for `PgConfig::start`. Playing before the pattern is complete streams it: the
     /// device plays what it has while the sink keeps filling, and stops with `Underrun` if the host falls behind.
@@ -343,7 +344,7 @@ pub trait PatternGenerator {
 }
 ```
 
-**Replaying a capture.** `PatternChunk` is `StreamChunk` reused: `Raw(RawChunk)` or `Transitions(TransitionsChunk)`
+**Replaying a capture.** The sink takes `ww_logic_analyzer::StreamChunk`: `Raw(RawChunk)` or `Transitions(TransitionsChunk)`
 (each channel's edges, in chunks), the very items `LogicAnalyzer::read_raw` / `read_transitions` and `LogicStream`
 return. A host replays a capture by reading it in the encoding the generator accepts (`PgCapabilities::encodings`)
 and sending the chunks to the sink, with the capture's `rate` and channel mapping in `PgConfig`. A helper in the

@@ -264,14 +264,14 @@ analyzer:
 
 Encodings (the reason this is a crate): `Raw` (samples bit-packed), `Transitions` (only changes: a `DeltaOfDelta` of
 sample indices plus the new levels, SW-31; a quiet bus costs almost nothing). Triggers: level, edge, pattern,
-external. Protocol decoding stays on the host. Gets its own design pass (opus) before it is built.
+external. Protocol decoding stays on the host. Design: [logic analyzer and signal generator](logic_analyzer.md).
 
 ## `ww_signal_generator` (new)
 
 The reverse: `PatternGenerator` (digital: channels, rate, repeat, a pattern loaded through a `#[credit] sink!` in the
 analyzer's `Raw` encoding, so a capture can be replayed; driving several pins at the same instant) and
 `WaveformGenerator` (a DAC: sine, square, triangle, sawtooth, DC, arbitrary tables; `freq: Hertz`, `amplitude:
-Volt`, `offset: Volt`). Own design pass too.
+Volt`, `offset: Volt`). Design: [logic analyzer and signal generator](logic_analyzer.md).
 
 ## `ww_si` and `ww_numeric` improvements
 

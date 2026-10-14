@@ -35,7 +35,7 @@ fn assert_error<E: core::error::Error>(_: &E) {}
 fn unit_variant_uses_first_doc_line() {
     assert_eq!(
         IoError::Unsupported.to_string(),
-        "Not supported by this device."
+        "Not supported by this device"
     );
     assert_error(&IoError::Unsupported);
 }
@@ -43,13 +43,13 @@ fn unit_variant_uses_first_doc_line() {
 #[test]
 fn named_field_is_interpolated() {
     let e = IoError::InUse { by: "USART2" };
-    assert_eq!(e.to_string(), "In use by USART2.");
+    assert_eq!(e.to_string(), "In use by USART2");
 }
 
 #[test]
 fn format_spec_is_kept() {
     let e = IoError::Fault { code: 0xBEEF };
-    assert_eq!(e.to_string(), "Hardware fault 0xbeef.");
+    assert_eq!(e.to_string(), "Hardware fault 0xbeef");
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn owned_side_also_implements_display_and_error() {
     let owned = IoErrorOwned::InUse {
         by: "USART2".to_string(),
     };
-    assert_eq!(owned.to_string(), "In use by USART2.");
+    assert_eq!(owned.to_string(), "In use by USART2");
     assert_error(&owned);
 }
 
@@ -77,6 +77,6 @@ fn future_version_variant_has_its_own_message() {
 #[test]
 fn struct_uses_its_own_doc_and_fields() {
     let e = ChipIdMismatch { chip_id: 0x42 };
-    assert_eq!(e.to_string(), "Chip id 0x42 did not match.");
+    assert_eq!(e.to_string(), "Chip id 0x42 did not match");
     assert_error(&e);
 }

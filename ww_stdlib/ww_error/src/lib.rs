@@ -106,7 +106,8 @@ impl HasCommon for CommonErrorOwned {
     }
 }
 
-// TODO(DER-12): written by hand until the derive's `display` writes it from the doc lines
+// Written by hand, not with the derive's `display` (DER-12): a part with an empty string is left out ("Refused", not
+// "Refused: "), which a doc-line template can't say. Same convention otherwise: no trailing period.
 /// `text`, followed by `": {reason}"` when `reason` isn't empty.
 fn with_reason(f: &mut fmt::Formatter<'_>, text: &str, reason: &str) -> fmt::Result {
     f.write_str(text)?;

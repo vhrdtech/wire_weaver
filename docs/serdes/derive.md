@@ -639,7 +639,8 @@ and patches it in once the actual variant being sent is known.
 
 Generates `core::fmt::Display` and `core::error::Error` (a bare `impl`, no `source()`) for the borrowed side, the
 owned side, or both, whichever `owned`/`borrowed` generate. The message is the first doc line: a struct's own, or
-each variant's own for an enum. `{field}` is filled in from the type's own field of that name, format specs work
+each variant's own for an enum, without its trailing period (Rust's convention for error messages, so it reads
+well inside a longer one; `...` is kept, `#[display("..")]` is used as written). `{field}` is filled in from the type's own field of that name, format specs work
 too (`{field:#x}`); a tuple variant's fields are `{0}`, `{1}`, ... `#[display("..")]` overrides the doc line, for a
 tuple variant's fields or when the doc line should say more than the message:
 
@@ -657,12 +658,12 @@ pub enum IoError<'i> {
 }
 
 fn display_message() {
-    assert_eq!(IoError::Unsupported.to_string(), "Not supported by this device.");
-    assert_eq!(IoError::InUse { by: "USART2" }.to_string(), "In use by USART2.");
-    assert_eq!(IoError::Fault { code: 0xBEEF }.to_string(), "Hardware fault 0xbeef.");
+    assert_eq!(IoError::Unsupported.to_string(), "Not supported by this device");
+    assert_eq!(IoError::InUse { by: "USART2" }.to_string(), "In use by USART2");
+    assert_eq!(IoError::Fault { code: 0xBEEF }.to_string(), "Hardware fault 0xbeef");
     assert_eq!(IoError::Wrapped(7).to_string(), "wrapping: 7");
     // the owned side gets it too
-    assert_eq!(IoErrorOwned::Unsupported.to_string(), "Not supported by this device.");
+    assert_eq!(IoErrorOwned::Unsupported.to_string(), "Not supported by this device");
 }
 ```
 

@@ -79,7 +79,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   silently dropped and the variant always generated. A `sized` enum needs at least one variant without `#[cfg]`.
 - `non_exhaustive` argument of `#[derive_shrink_wrap(..)]`, puts `#[non_exhaustive]` on the generated types.
 - `display` directive (DER-12): writes `core::fmt::Display` and `core::error::Error` (borrowed and owned, no
-  `source()`) from the first doc line of each variant/struct, `{field}` filled in from the type's own field
+  `source()`) from the first doc line of each variant/struct without its trailing period, `{field}` filled in from the type's own field
   (format specs work too, e.g. `{code:#x}`); `#[display("..")]` overrides it, needed for a tuple variant's fields
   (`{0}`, `{1}`, ...). A variant or struct with neither a doc comment nor `#[display("..")]` is a compile error.
   The `#[future_version]` variant (SW-47) always has one. Unused code is dropped by the linker on a device that

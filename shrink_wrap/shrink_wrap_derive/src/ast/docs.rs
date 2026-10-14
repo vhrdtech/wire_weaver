@@ -30,6 +30,18 @@ impl Docs {
     pub(crate) fn first_line(&self) -> Option<String> {
         self.docs.first().map(|s| s.value())
     }
+
+    /// The first doc line as a `Display` message (DER-12): without one trailing period, like Rust error messages,
+    /// so it reads well inside a longer one ("read() returned an error: In use by USART2"). `...` is kept.
+    pub(crate) fn message_line(&self) -> Option<String> {
+        self.first_line().map(|line| {
+            if line.ends_with('.') && !line.ends_with("..") {
+                line[..line.len() - 1].to_string()
+            } else {
+                line
+            }
+        })
+    }
 }
 
 impl ToTokens for Docs {

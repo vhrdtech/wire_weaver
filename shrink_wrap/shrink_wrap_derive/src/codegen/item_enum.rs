@@ -427,7 +427,7 @@ impl ToTokens for CGEnumDisplayArms<'_> {
         }
         if let Some(fv) = self.item_enum.future_version {
             let ident = &fv.ident;
-            let message = fv.docs.first_line().unwrap_or_default();
+            let message = fv.docs.message_line().unwrap_or_default();
             let lit = LitStr::new(&message, Span::call_site());
             tokens.append_all(quote! {
                 #enum_name::#ident(_) => write!(f, #lit),

@@ -71,7 +71,7 @@ impl Variant {
     /// The `display` (DER-12) message: the `#[display("..")]` override, or the first doc line. `None` when
     /// neither is present.
     pub(crate) fn display_message(&self) -> Option<String> {
-        self.display.clone().or_else(|| self.docs.first_line())
+        self.display.clone().or_else(|| self.docs.message_line())
     }
 }
 

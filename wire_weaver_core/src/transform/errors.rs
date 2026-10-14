@@ -1,5 +1,5 @@
 //! `#[errors(Common(InUse, Refused), Nack, ..)]` on a trait method (API-32): parsed and checked against the
-//! method's error enum, see `docs/api/errors.md#1-per-method-errors`.
+//! method's error enum, see `docs/api/errors.md#which-errors-a-method-returns`.
 
 use super::crate_walker::Scratch;
 use proc_macro2::Ident;

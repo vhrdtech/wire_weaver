@@ -1,5 +1,5 @@
 //! Per-method error lists on the client (`#[errors(..)]`, API-32): a device returning an error outside a method's
-//! list is logged, see `docs/api/errors.md#1-per-method-errors`. Nothing on the device checks the list.
+//! list is logged, see `docs/api/errors.md#which-errors-a-method-returns`. Nothing on the device checks the list.
 
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicBool, Ordering};

@@ -213,7 +213,7 @@ pub enum ApiItemKind<'i> {
         return_ty: Option<Type<'i>>,
         /// Variants of the `Err` type of `return_ty` this method returns, `#[errors(..)]` in its trait (API-32), in
         /// the order written. `None` without `#[errors]`: any variant. A device may still return others (only the
-        /// client checks), see `docs/api/errors.md#1-per-method-errors`.
+        /// client checks), see `docs/api/errors.md#which-errors-a-method-returns`.
         #[default = None]
         errors: Option<RefVec<'i, ErrorVariant<'i>>>,
     },

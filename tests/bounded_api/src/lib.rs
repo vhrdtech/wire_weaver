@@ -1,4 +1,5 @@
 //! Bounded lists and strings (`MaxLen`, SW-19) in every position of an API.
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
 

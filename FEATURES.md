@@ -331,7 +331,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **TR-1 `ww_framer`**: packs many small messages into one packet or splits a big one across packets; U2Head with
   1 byte overhead, CRC, recovery from missed frames, fuzzed.
 - ✅ **TR-2 `ww_link`**: link setup, device info, API version exchange.
-- ✅ **TR-3 USB**, **RTT**, **WebSocket**, **UDP** and **in-process**.
+- ✅ **TR-3 USB**, **RTT**, **WebSocket**, **UDP** and **in-process** (messages, or simulated USB: real USB framing
+  and packet sizes, `in_process::usb_device`).
 - ✅ **TR-4 USB CDC-NCM**: WebSocket over a USB network adapter, with a DHCP server so the host gets an address by
   itself, ping and a hello page over HTTP (`examples_mcu/rp2`, `ww_ws_ncm`); UDP the same way (`ww_udp_ncm`).
 - 💡 **TR-5 USB CDC-NCM extras** — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;

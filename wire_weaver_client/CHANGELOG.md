@@ -2,6 +2,10 @@
 
 ### 🚀 Features
 
+- Simulated USB for in-process devices: `in_process::usb_device(path, max_packet_size)` registers a device that
+  speaks USB packets (`UsbSink` / `UsbSource`, wrapped in `ww_device::FramedTx` / `FramedRx` as real endpoints are),
+  the host packs messages with the USB framer configuration of `ww_link`, exactly as over nusb. Connect with the same
+  `ClientConfig::in_process_path()`. Used by the `ww_dfu` scenario tests.
 - `MaxLen` bounds (SW-19) in compatibility checks: on connect a different bound is not an error (a longer value is
   rejected when it is sent); in `ww api check`, lowering or adding a bound is breaking and raising or removing one is
   compatible (`max length raised`). The dynamic client checks bounds of arguments and sink writes.

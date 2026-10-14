@@ -420,16 +420,27 @@ reader and writer):
 | case | rv32i | rv32ic | rv32ic-relax | thumbv6m | thumbv7em |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `header_de` | 884 | 566 | 484 | 484 | 410 |
-| `fixed_de` | 512 | 378 | 362 | 276 | 120 |
+| `fixed_de` | 580 | 406 | 354 | 228 | 120 |
 | `header_ser` | 1408 | 1022 | 918 | 888 | 856 |
-| `fixed_ser` | 656 | 498 | 478 | 462 | 452 |
+| `fixed_ser` | 788 | 612 | 548 | 462 | 452 |
 | `bits_de` | 1256 | 822 | 728 | 652 | 650 |
 | `bits_fixed_de` | 464 | 308 | 292 | 276 | 268 |
 | `bits_ser` | 1740 | 1204 | 1098 | 1034 | 716 |
-| `bits_fixed_ser` | 944 | 698 | 588 | 560 | 614 |
+| `bits_fixed_ser` | 616 | 458 | 430 | 278 | 310 |
 
 A third to a half less, and the gap grows with the number of types: the fast path has no shared runtime, each type
 is its own straight-line code. The bytes left in `fixed_ser` are mostly `memcpy` (see [Build settings](#build-settings)).
+
+Since SW-53 every multi-byte number goes through `fixed_layout::Le` at the bytes of its field: on RISC-V (no
+unaligned loads, so a `u32` is four byte loads and three shifts and ors, some 28 bytes) `ld` and `st` are one
+function per type and a field is a call with a pointer, elsewhere they are inlined. That costs a type read or
+written once: `fixed_de` / `fixed_ser` above grew from 378 / 498 bytes on RV32IC (the two functions per type are
+more than the eight fields save). It pays as soon as fields are read and written in many places, as in a
+firmware: `busgen_ht` 6004 → 5658 on RV32IC, busgen's own firmware 8.1 KB → 7.7 KB before its views. On a
+Cortex-M0, which has no unaligned loads either, the inlined byte loads of 2-byte instructions take less than the
+calls (`busgen_view` 3894 inlined, 4196 out of line), so it stays inline there. The bit fields' bytes are now
+cleared once per head or struct instead of per field (`bits_fixed_ser` 698 → 458 on RV32IC, 560 → 278 on
+Cortex-M0).
 On a real format, chunky_mcu_updater's plan reader (header, signed descriptor, steps) takes 892 bytes on Cortex-M0 with
 the fast path, 840 with its hand-written parser and 1854 through `BufReader` (its `just size-bench`).
 
@@ -444,10 +455,19 @@ the `Option<Wave>` are taken from the tail by lengths already read from the head
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | `busgen` | final | 11388 | 8210 | 7438 | 6652 | 6816 |
 | `busgen_hand` | | 7824 | 5762 | 5152 | 4408 | 4318 |
-| `busgen_ht` | | 8124 | 6004 | 5852 | 4626 | 3984 |
+| `busgen_ht` | | 7752 | 5658 | 5234 | 4590 | 3992 |
+| `busgen_view` | | 6572 | 4988 | 4546 | 3894 | 3496 |
 
-5 % above the hand-written codec on Cortex-M0 and 4 % on RV32IC, 30 % and 27 % below the derived one; on
-Thumb-2 it is the smallest. Unlike the hand-written one it checks every length (a short message is an error, not
+`busgen_view` is the same types and handler through views and the variant writers (SW-52): `Request::view(rx)`
+checks the lengths and walks the tail, the handler reads each field at its offset when it uses it, and each reply
+is written by `Reply::write_<variant>(tx, fields..)`, without making a `Request` or a `Reply` first. It is the
+smallest of all: 13 % below the hand-written codec on RV32IC, 12 % on Cortex-M0, 19 % on Thumb-2. In busgen's real
+firmware (fpga_tools BUS-12), where the handler also drives the engines, the views take 5608 bytes of `.text` for
+the UART image and 5090 for the I2C one on RV32IC, against 4552 / 4716 hand-written: the hand-written firmware reads
+a field as one small call and checks no length, the views check every length before the first field is used.
+
+`busgen_ht` (values: `from_head_tail`, `to_head_tail`) is 2 % below the hand-written codec on RV32IC and 4 % above
+on Cortex-M0, 31 % below the derived one; on Thumb-2 it is smaller. Unlike the hand-written one it checks every length (a short message is an error, not
 zeros) and the UTF-8 of the string. Linker relaxation helps it less than the others: its calls are fewer, the code
 is mostly inline loads. Two things were worth taking out of the runtime on the way: a checked multiplication for
 the length of a list (on a Cortex-M0 its overflow check links a 200-byte division routine) and `chunks_exact_mut`

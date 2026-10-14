@@ -22,6 +22,18 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `discriminant()` returns the wire discriminant also for it; writing one that doesn't fit the repr or belongs to a
   known variant gives `Error::SubtypeOutOfRange`. See `docs/serdes/derive.md`.
 - `Error::is_read_eob()`: whether a read ran out of data.
+- `head_tail` views and writers (SW-52): `Type::view(buf)` checks the lengths, walks the tail and gives a
+  `TypeView<'_>` whose accessors read each field of the head at its offset when called (lists, strings, options and
+  nested views found on the way); an enum's view is an enum of its variants' views. Every enum variant gets
+  `Enum::write_<variant>(buf, fields..)`, the bytes of `to_head_tail` without making the value. `HeadTail` gains
+  `type View` and `view_ht` (fixed-layout types: the value), `head_tail::view`. busgen's codec through them: 4988
+  bytes on RV32IC, 3894 on Cortex-M0, against 5762 / 4408 hand-written (`size_bench` case `busgen_view`).
+- Numbers through `fixed_layout::Le` (SW-53): the generated code of the fixed layout and of `head_tail` reads and
+  writes every multi-byte number with `Le::ld` / `Le::st` on the bytes at its offset (`fixed_layout::at` /
+  `at_mut`), one out-of-line function per type on RISC-V (no unaligned loads: four byte loads at every field
+  otherwise), inline elsewhere. Bit fields' bytes are cleared once, not per field. `busgen_ht` on RV32IC 6004 →
+  5658, `bits_fixed_ser` 698 → 458; a type written once grows (`fixed_ser` 498 → 612).
+- `#[cfg]` on the variants of a `head_tail` enum (SW-54): a variant compiled out keeps its tag and reads as unknown.
 - Head+tail encoding (SW-46): the `head_tail` directive gives a type a wire format of its own, every fixed-width
   field at a constant offset in a head (counts of lists and strings, flags of `Option` / `Result`, heads of nested
   types included) and the variable parts in field order in a tail. New module `head_tail`: the `HeadTail` trait (in

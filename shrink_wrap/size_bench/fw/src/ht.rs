@@ -98,20 +98,55 @@ pub enum Request<'i> {
     Status,
     Pins,
     Reset,
-    Stop { mask: u16 },
-    Release { lines: u8 },
-    Mark { on: bool, width: u32, lead: u32, line: u8 },
-    Pull { line: u8, up: u8, down: u8 },
-    Waves { waves: List<'i, Wave>, defer: bool },
+    Stop {
+        mask: u16,
+    },
+    Release {
+        lines: u8,
+    },
+    Mark {
+        on: bool,
+        width: u32,
+        lead: u32,
+        line: u8,
+    },
+    Pull {
+        line: u8,
+        up: u8,
+        down: u8,
+    },
+    Waves {
+        waves: List<'i, Wave>,
+        defer: bool,
+    },
     Go,
-    Wait { timeout_ms: u32 },
-    Load { off: u16, frames: List<'i, u16> },
-    Dump { off: u16, n: u16 },
+    Wait {
+        timeout_ms: u32,
+    },
+    Load {
+        off: u16,
+        frames: List<'i, u16>,
+    },
+    Dump {
+        off: u16,
+        n: u16,
+    },
     Utx(Utx<'i>),
-    Urx { line: u8, fmt: UartFormat, defer: bool },
-    UrxGet { max: u16, flush: bool },
+    Urx {
+        line: u8,
+        fmt: UartFormat,
+        defer: bool,
+    },
+    UrxGet {
+        max: u16,
+        flush: bool,
+    },
     I2c(I2c<'i>),
-    I2cSlave { s: I2cSlave, keep_log: bool, defer: bool },
+    I2cSlave {
+        s: I2cSlave,
+        keep_log: bool,
+        defer: bool,
+    },
 }
 
 #[derive_shrink_wrap(borrowed, fixed_layout, derive(Clone, Copy))]
@@ -134,7 +169,13 @@ pub enum Reply<'i> {
         family: u8,
     },
     Ok,
-    Run { run: u32, started: bool, mark: u32, lead: u32, mark_line: u8 },
+    Run {
+        run: u32,
+        started: bool,
+        mark: u32,
+        lead: u32,
+        mark_line: u8,
+    },
     Status {
         run: u32,
         busy: u16,
@@ -149,11 +190,28 @@ pub enum Reply<'i> {
         deferred: u16,
         mark_line: u8,
     },
-    Pins { input: u8, oe: u8, out: u8 },
-    Wait { run: u32, end: u32 },
-    Dump { off: u16, frames: List<'i, u16> },
-    UrxGet { frames: List<'i, RxFrame>, more: u16, overflow: u16 },
-    Err { code: u8, arg: u16 },
+    Pins {
+        input: u8,
+        oe: u8,
+        out: u8,
+    },
+    Wait {
+        run: u32,
+        end: u32,
+    },
+    Dump {
+        off: u16,
+        frames: List<'i, u16>,
+    },
+    UrxGet {
+        frames: List<'i, RxFrame>,
+        more: u16,
+        overflow: u16,
+    },
+    Err {
+        code: u8,
+        arg: u16,
+    },
 }
 
 const FRAMES: [u16; 3] = [1, 2, 3];
@@ -170,6 +228,7 @@ fn reply_run<'i>() -> Reply<'i> {
 }
 
 /// The same handler as `cases::handle`
+#[cfg(feature = "busgen_ht")]
 fn handle<'i>(req: &Request<'i>) -> Result<Reply<'i>, ShrinkWrapError> {
     Ok(match req {
         Request::Hello => Reply::Hello {
@@ -266,6 +325,7 @@ fn handle<'i>(req: &Request<'i>) -> Result<Reply<'i>, ShrinkWrapError> {
 }
 
 /// The whole firmware codec: a request decoded, acted on, and its reply encoded
+#[cfg(feature = "busgen_ht")]
 pub fn run(rx: &[u8], tx: &mut [u8]) -> usize {
     let reply = match Request::from_head_tail(rx).and_then(|req| handle(&req)) {
         Ok(reply) => reply,
@@ -278,4 +338,159 @@ pub fn run(rx: &[u8], tx: &mut [u8]) -> usize {
         }
     };
     reply.to_head_tail(tx).unwrap_or(0)
+}
+
+/// The same handler on a view of the request, the reply written by its variant's writer (SW-52): no value of
+/// `Request` or `Reply` is made
+#[cfg(feature = "busgen_view")]
+fn handle_view(req: &RequestView, tx: &mut [u8]) -> Result<usize, ShrinkWrapError> {
+    let run = |tx: &mut [u8]| Reply::write_run(tx, src(1), src(true), src(2), src(3), src(4));
+    match req {
+        RequestView::Hello => Reply::write_hello(
+            tx,
+            src(1),
+            src("0.1.0"),
+            src(2),
+            src(3),
+            src(4),
+            src(5),
+            src(6),
+            src(7),
+            src(8),
+        ),
+        RequestView::Status => Reply::write_status(
+            tx,
+            src(1),
+            src(2),
+            src(3),
+            src(4),
+            src(5),
+            src(true),
+            src(6),
+            src(7),
+            src(8),
+            src(9),
+            src(10),
+            src(11),
+        ),
+        RequestView::Pins => Reply::write_pins(tx, src(1), src(2), src(3)),
+        RequestView::Wait(v) => {
+            sink(v.timeout_ms());
+            Reply::write_wait(tx, src(1), src(2))
+        }
+        RequestView::Dump(v) => {
+            sink(v.n());
+            Reply::write_dump(tx, v.off(), List::new(src(&FRAMES[..])))
+        }
+        RequestView::UrxGet(v) => {
+            sink((v.max(), v.flush()));
+            Reply::write_urx_get(tx, List::new(src(&RX_FRAMES[..])), src(1), src(2))
+        }
+        RequestView::Waves(v) => {
+            for wave in v.waves().iter() {
+                sink(wave?);
+            }
+            sink(v.defer());
+            run(tx)
+        }
+        RequestView::Load(v) => {
+            sink(v.off());
+            for frame in v.frames().iter() {
+                sink(frame?);
+            }
+            Reply::write_ok(tx)
+        }
+        RequestView::Utx(u) => {
+            for list in [u.perr(), u.ferr(), u.brk()] {
+                for idx in list.iter() {
+                    sink(idx?);
+                }
+            }
+            sink((
+                u.ch(),
+                u.line(),
+                *u.fmt(),
+                u.gap(),
+                u.delay(),
+                u.off(),
+                u.n(),
+                u.brklen(),
+                u.trunc(),
+            ));
+            sink((*u.glitch(), u.defer()));
+            run(tx)
+        }
+        RequestView::I2c(m) => {
+            for wave in m.glitches().iter() {
+                sink(wave?);
+            }
+            sink((
+                m.scl(),
+                m.sda(),
+                m.log(),
+                *m.t(),
+                m.delay(),
+                m.off(),
+                m.n(),
+                m.pp(),
+                m.keep_log(),
+                m.defer(),
+            ));
+            run(tx)
+        }
+        RequestView::Urx(v) => {
+            sink((v.line(), *v.fmt(), v.defer()));
+            run(tx)
+        }
+        RequestView::I2cSlave(v) => {
+            let s = v.s();
+            sink((
+                s.on(),
+                s.scl(),
+                s.sda(),
+                s.log(),
+                s.stretch(),
+                s.stretch_c(),
+                s.filt(),
+                s.nack_at(),
+                s.a10(),
+                s.ptr(),
+            ));
+            sink((v.keep_log(), v.defer()));
+            run(tx)
+        }
+        RequestView::Reset | RequestView::Go => Reply::write_ok(tx),
+        RequestView::Stop(v) => {
+            sink(v.mask());
+            Reply::write_ok(tx)
+        }
+        RequestView::Release(v) => {
+            sink(v.lines());
+            Reply::write_ok(tx)
+        }
+        RequestView::Mark(v) => {
+            sink((v.on(), v.width(), v.lead(), v.line()));
+            Reply::write_ok(tx)
+        }
+        RequestView::Pull(v) => {
+            sink((v.line(), v.up(), v.down()));
+            Reply::write_ok(tx)
+        }
+    }
+}
+
+/// The whole firmware codec through views and writers
+#[cfg(feature = "busgen_view")]
+pub fn run_view(rx: &[u8], tx: &mut [u8]) -> usize {
+    let res = match Request::view(rx) {
+        Ok(req) => handle_view(&req, tx),
+        Err(e) => Err(e),
+    };
+    match res {
+        Ok(n) => n,
+        Err(e) => {
+            sink(e);
+            Reply::write_err(tx, src(1), src(2)).unwrap_or(0)
+        }
+    }
 }

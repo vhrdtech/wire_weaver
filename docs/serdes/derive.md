@@ -477,8 +477,22 @@ the C reader: head defines and readers as for `fixed_layout`, and per type a `<n
 `<name>_tail()` that walks the tail and points at each variable part
 (`shrink_wrap::head_tail::write_c_header` writes a whole header).
 
-On busgen's request and reply enums the codec takes 4626 bytes on a Cortex-M0, a hand-written one 4408 and the
-derived shrink_wrap one 6652 ([code size](code_size.md#head-and-tail)).
+**Views and writers** (SW-52), for firmware that should not make the whole value first. `Utx::view(&bytes)?` checks
+the lengths and walks the tail once (counts and flags are the only fields it reads) and gives a `UtxView<'_>`: a
+reference to the head whose accessors (`v.ch()`, `v.defer()`) read each field at its offset when called, and the
+variable parts found on the way (`v.perr()` a `List`, `v.glitch()` an `&Option<Wave>`, a nested `head_tail` type
+its own view). An enum's view is an enum of its variants' views: `RequestView::Stop(v)` with `v.mask()`, a tuple
+variant of one nested type holds that type's view (`RequestView::Utx(UtxView)`). Each enum variant also gets a
+writer, `Reply::write_run(&mut tx, run, started, mark, lead, mark_line)?`, which writes the same bytes as
+`to_head_tail` of that variant without making the value. Both come from the code of `from_head_tail` /
+`to_head_tail` and are tested against it byte for byte. View types are always `pub` (the `View` of the public
+`HeadTail` trait).
+
+Enum variants may have a `#[cfg]` (SW-54): a variant compiled out keeps its tag, and a build without it reads that
+tag as an unknown one. One protocol enum can then serve firmware images that each handle a part of it.
+
+On busgen's request and reply enums the codec takes 4590 bytes on a Cortex-M0 through values and 3894 through views
+and writers, a hand-written one 4408 and the derived shrink_wrap one 6652 ([code size](code_size.md#head-and-tail)).
 
 ### `ww_repr = <repr>` (enums only)
 

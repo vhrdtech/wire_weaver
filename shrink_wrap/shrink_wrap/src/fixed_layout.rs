@@ -184,10 +184,11 @@ pub trait FixedLayout: Sized {
 /// views and writers) reads and writes every multi-byte number (SW-53), at a constant offset found with [at] /
 /// [at_mut].
 ///
-/// On CPUs without unaligned loads (RISC-V, Cortex-M0 / ARMv6-M) a `u32` at an odd offset is four byte loads and
-/// three shifts and ors, some 28 bytes of code, at every field. There `ld` and `st` are functions of their own,
-/// one per type, and a field costs a call with a pointer; elsewhere they are inlined into the one load or store
-/// the CPU has.
+/// On RISC-V without unaligned loads a `u32` at an odd offset is four byte loads and three shifts and ors, some
+/// 28 bytes of code, at every field. There `ld` and `st` are functions of their own, one per type, and a field
+/// costs a call with a pointer. Elsewhere they are inlined: into the one load or store the CPU has, and on a
+/// Cortex-M0 (no unaligned loads either) into byte loads of 2-byte instructions, which take less than the calls
+/// (measured: `busgen_view` 3894 bytes inlined, 4196 out of line).
 pub trait Le: Sized {
     /// `[u8; size_of::<Self>()]`
     type Bytes;
@@ -200,23 +201,18 @@ macro_rules! le {
         impl Le for $ty {
             type Bytes = [u8; size_of::<$ty>()];
 
-            #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64",
-                all(target_arch = "arm", not(target_feature = "v7"))), inline(never))]
-            #[cfg_attr(not(any(target_arch = "riscv32", target_arch = "riscv64",
-                all(target_arch = "arm", not(target_feature = "v7")))), inline)]
+            #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), inline(never))]
+            #[cfg_attr(not(any(target_arch = "riscv32", target_arch = "riscv64")), inline)]
             fn ld(b: &Self::Bytes) -> Self {
                 // black_box: under LTO the function is internal, and argument promotion would move its load (the
                 // code this function is for) into every caller, leaving a call that does nothing
-                #[cfg(any(target_arch = "riscv32", target_arch = "riscv64",
-                    all(target_arch = "arm", not(target_feature = "v7"))))]
+                #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
                 let b = core::hint::black_box(b);
                 <$ty>::from_le_bytes(*b)
             }
 
-            #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64",
-                all(target_arch = "arm", not(target_feature = "v7"))), inline(never))]
-            #[cfg_attr(not(any(target_arch = "riscv32", target_arch = "riscv64",
-                all(target_arch = "arm", not(target_feature = "v7")))), inline)]
+            #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), inline(never))]
+            #[cfg_attr(not(any(target_arch = "riscv32", target_arch = "riscv64")), inline)]
             fn st(self, b: &mut Self::Bytes) {
                 *b = self.to_le_bytes();
             }

@@ -137,6 +137,26 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Cortex-M0 and 6004 on RV32IC, against 4408 / 5762 hand-written and 6652 / 8210 derived (P2401 #9oct-1433).
   Open: `head_tail` types as ww API arguments (they have no sw serdes), lists of variable-length items, a C writer,
   `u8` counts for short lists (`MaxLen`).
+- ✅ **SW-52 `head_tail` views and variant writers**: `Type::view(buf)` gives a `TypeView<'_>` without making the
+  value: the lengths checked and the tail walked once, the head's fields read by accessors at their offsets when
+  called (the same code as `from_head_tail`, one field at a time), lists, strings, options and nested views kept
+  from the walk; an enum's view is an enum of its variants' views (a tuple variant of one nested type holds its
+  view). Every enum variant gets `Enum::write_<variant>(buf, fields..)`: the bytes of `to_head_tail` for that
+  variant without making the value (the same `write_ht` code). `HeadTail::View` / `view_ht`, `head_tail::view`.
+  Tests: values back from every accessor, writers byte-equal to `to_head_tail`, every truncation, 200 000 random
+  buffers agreeing with `from_head_tail`. Size bench `busgen_view`: 4988 bytes on RV32IC and 3894 on Cortex-M0, 13 %
+  and 12 % below the hand-written codec; busgen's firmware 5608 / 5090 bytes (UART / I2C image, fpga_tools BUS-12).
+  View types are always `pub` (the `View` of a public trait). Open: lazy views of nested fixed-layout types (read
+  when the view is made), a writer for structs.
+- ✅ **SW-53 Numbers through `fixed_layout::Le`, out of line on RISC-V**: generated fixed-layout and `head_tail` code
+  reads and writes multi-byte numbers with `Le::ld` / `Le::st` on the bytes at the field (`fixed_layout::at`), one
+  function per type on RISC-V (no unaligned loads), inline elsewhere (on Cortex-M0 the byte loads are smaller than
+  the calls, measured). Under LTO `ld` passes its pointer through `black_box`: argument promotion would otherwise
+  move the load into every caller. Bit-field bytes cleared once per head. `busgen_ht` on RV32IC 6004 → 5658; a type
+  read or written in one place grows (`fixed_ser` 498 → 612, docs/serdes/code_size.md).
+- ✅ **SW-54 `#[cfg]` on `head_tail` enum variants**: passed to everything generated for the variant (consts, arms,
+  view, writer, C text); a variant compiled out keeps its tag and reads as an unknown one. busgen's firmware builds
+  only its bitstream family's requests with it.
 - ✅ **SW-39 Byte-wise `memcpy`, measured, advice for very small targets**: a firmware's own `memcpy` (and
   `__aeabi_memcpy` on Arm) of 22 bytes instead of the word-wise one of `compiler_builtins`: 324 bytes less on
   RV32IC, 304 on Cortex-M0, for every image that moves a value, at the price of speed and of replacing `memcpy` for

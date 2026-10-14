@@ -40,6 +40,8 @@ busgen = []
 busgen_hand = []
 # busgen with `head_tail` types (SW-46)
 busgen_ht = []
+# the same types read through views and replies through the variant writers (SW-52)
+busgen_view = []
 # A method's reply the way `ww_codegen!` server code encodes it: the return value alone, then a
 # `ww_client_server::Event` around it, plus the error event every generated server has.
 reply = ["dep:ww_client_server"]

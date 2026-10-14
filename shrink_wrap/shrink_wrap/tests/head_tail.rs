@@ -278,14 +278,23 @@ fn views_and_writers() {
         assert_eq!(write_direct(&req, &mut direct), Ok(n), "{req:?}");
         assert_eq!(&direct[..n], &buf[..n], "{req:?}");
         for short in 0..n {
-            assert!(Request::view(&buf[..short]).is_err(), "{req:?} viewed in {short} bytes");
+            assert!(
+                Request::view(&buf[..short]).is_err(),
+                "{req:?} viewed in {short} bytes"
+            );
             let mut small = vec![0u8; short];
-            assert!(write_direct(&req, &mut small).is_err(), "{req:?} written into {short} bytes");
+            assert!(
+                write_direct(&req, &mut small).is_err(),
+                "{req:?} written into {short} bytes"
+            );
         }
     }
     // a struct of its own
     let view = Utx::view(&UTX_BYTES).unwrap();
-    assert_eq!((view.ch(), view.name(), view.s().a10(), view.defer()), (7, "hi", Some(0x0304), true));
+    assert_eq!(
+        (view.ch(), view.name(), view.s().a10(), view.defer()),
+        (7, "hi", Some(0x0304), true)
+    );
     // bad UTF-8 is found when viewing, as when reading
     let mut bytes = UTX_BYTES;
     bytes[21] = 0xff;
@@ -293,7 +302,9 @@ fn views_and_writers() {
     // a variant behind a #[cfg]
     let mut buf = [0u8; 32];
     let n = Gated::write_kept(&mut buf, 7, List::new(&[WAVE])).unwrap();
-    let Ok(GatedView::Kept(k)) = Gated::view(&buf[..n]) else { panic!() };
+    let Ok(GatedView::Kept(k)) = Gated::view(&buf[..n]) else {
+        panic!()
+    };
     assert_eq!((k.mask(), k.w().get(0).unwrap().unwrap()), (7, WAVE));
 }
 
@@ -354,16 +365,25 @@ fn c_header() {
 pub enum Gated<'i> {
     First,
     #[cfg(any())]
-    Gone { x: u32, w: List<'i, Wave> },
-    #[cfg(all())]
-    Kept { mask: u16, w: List<'i, Wave> },
+    Gone {
+        x: u32,
+        w: List<'i, Wave>,
+    },
+    #[cfg(test)]
+    Kept {
+        mask: u16,
+        w: List<'i, Wave>,
+    },
 }
 
 #[test]
 fn cfg_variants() {
     assert_eq!(Gated::KEPT_TAG, 2);
     let w = [WAVE];
-    let v = Gated::Kept { mask: 7, w: List::new(&w) };
+    let v = Gated::Kept {
+        mask: 7,
+        w: List::new(&w),
+    };
     let mut buf = [0u8; 32];
     let n = v.to_head_tail(&mut buf).unwrap();
     assert_eq!(buf[0], 2);
@@ -371,6 +391,12 @@ fn cfg_variants() {
     // the tag of the variant this build has no code for: unknown, as from a newer version
     assert!(Gated::from_head_tail(&[1, 0, 0, 0, 0, 0, 0]).is_err());
     let mut c = String::new();
-    write_c_header(&mut c, "GATED_H", "", &[Wave::write_c_ht, Gated::write_c_ht]).unwrap();
+    write_c_header(
+        &mut c,
+        "GATED_H",
+        "",
+        &[Wave::write_c_ht, Gated::write_c_ht],
+    )
+    .unwrap();
     assert!(c.contains("GATED_KEPT 2u") && !c.contains("GONE"), "{c}");
 }

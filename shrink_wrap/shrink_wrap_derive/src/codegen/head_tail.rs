@@ -11,8 +11,8 @@ use crate::ast::item_struct::Field;
 use crate::ast::repr::Repr;
 use crate::ast::ty::{ArrayLen, Type};
 use crate::codegen::fixed_layout::{
-    At, Bits, Item, Kind, Prim, c_field, classify as fixed_classify, flag_local, lit, lit_str, local,
-    read_simple, repr_bytes, snake, struct_items, unraw, variant_items, write_simple,
+    At, Bits, Item, Kind, Prim, c_field, classify as fixed_classify, flag_local, lit, lit_str,
+    local, read_simple, repr_bytes, snake, struct_items, unraw, variant_items, write_simple,
 };
 use crate::codegen::util::CratePath;
 use proc_macro2::{Ident, Literal, TokenStream};
@@ -388,7 +388,11 @@ fn reads(head: &Head, view: bool, cp: &CratePath) -> Vec<TokenStream> {
             },
             HKind::Nested(ty_i, _) => {
                 let off = byte_at(p);
-                let f = if view { quote! { view_ht } } else { quote! { read_ht } };
+                let f = if view {
+                    quote! { view_ht }
+                } else {
+                    quote! { read_ht }
+                };
                 quote! { let #local = <#ty_i as #ht<'i>>::#f(&b[#off..], tail)?; }
             }
             HKind::Option(payload) => {
@@ -756,8 +760,6 @@ fn c_walk(h: &str, m: &str, c_name: &str, head: &Head, cp: &CratePath) -> Vec<To
 pub(crate) struct Names {
     pub(crate) ident: Ident,
     pub(crate) has_lifetime: bool,
-    /// Of the type, for its view
-    pub(crate) vis: syn::Visibility,
 }
 
 impl Names {
@@ -842,7 +844,6 @@ pub(crate) fn ht_struct(
         &quote! {},
         &view_ident,
         &format!(" A [{ident}] on the wire, see [{ident}::view]."),
-        &names.vis,
         &head,
         quote! { { <#ty_s>::HEAD_LEN } },
         cp,
@@ -998,8 +999,11 @@ pub(crate) fn ht_enum(
     let mut asserts = Vec::new();
     let view_ident = format_ident!("{}View", ident);
     let view_has_lt = variants.iter().any(|v| !matches!(v.fields, Fields::Unit));
-    let view_ty = if view_has_lt { quote! { #view_ident<'i> } } else { quote! { #view_ident } };
-    let vis = &names.vis;
+    let view_ty = if view_has_lt {
+        quote! { #view_ident<'i> }
+    } else {
+        quote! { #view_ident }
+    };
     let mut view_variants = Vec::new();
     let mut view_structs = Vec::new();
     let mut view_arms = Vec::new();
@@ -1131,8 +1135,9 @@ pub(crate) fn ht_enum(
             view_structs.push(view_struct(
                 &cfg,
                 &vs_ident,
-                &format!(" The variant `{v_ident}` of a [{ident}] on the wire, see [{ident}::view]."),
-                vis,
+                &format!(
+                    " The variant `{v_ident}` of a [{ident}] on the wire, see [{ident}::view]."
+                ),
                 &head,
                 quote! { { <#ty_s>::#head_name } },
                 cp,
@@ -1206,14 +1211,20 @@ pub(crate) fn ht_enum(
     let c_close = cw("    default:\n        return -1;\n    }}\n}}", &[]);
     let c_name_lit = lit_str(&c_name);
 
-    let view_doc = lit_str(&format!(" A [{ident}] on the wire: the view of its variant, see [{ident}::view]."));
-    let view_lt = if view_has_lt { quote! { <'i> } } else { quote! {} };
+    let view_doc = lit_str(&format!(
+        " A [{ident}] on the wire: the view of its variant, see [{ident}::view]."
+    ));
+    let view_lt = if view_has_lt {
+        quote! { <'i> }
+    } else {
+        quote! {}
+    };
 
     Ok(quote! {
         #(#asserts)*
 
         #[doc = #view_doc]
-        #vis enum #view_ident #view_lt {
+        pub enum #view_ident #view_lt {
             #(#view_variants),*
         }
         #(#view_structs)*
@@ -1369,12 +1380,11 @@ fn view_construct(head: &Head) -> Vec<TokenStream> {
 
 /// The view of a head (a struct, or an enum variant with fields, SW-52): a reference to the head, whose numbers
 /// and bit fields its accessors read at their offsets (the code of `read_ht`, one field at a time), and the parts
-/// of the tail, found when the view was made.
+/// of the tail, found when the view was made. Always `pub`: it is the `View` of a public trait.
 fn view_struct(
     cfg: &TokenStream,
     view_ident: &Ident,
     doc: &str,
-    vis: &syn::Visibility,
     head: &Head,
     head_len: TokenStream,
     cp: &CratePath,
@@ -1384,7 +1394,9 @@ fn view_struct(
     let mut accessors = Vec::new();
     for p in &head.placed {
         let Some(ident) = &p.item.ident else { continue };
-        let Some(ty) = field_ty(&p.kind, true, cp) else { continue };
+        let Some(ty) = field_ty(&p.kind, true, cp) else {
+            continue;
+        };
         let local = local(&p.item.name);
         let name = &p.item.name;
         match (&p.kind, &p.at) {
@@ -1428,7 +1440,7 @@ fn view_struct(
     quote! {
         #cfg
         #[doc = #doc]
-        #vis struct #view_ident<'i> {
+        pub struct #view_ident<'i> {
             __head: &'i [u8; #head_len],
             #(#fields),*
         }
@@ -1443,7 +1455,14 @@ fn view_struct(
 
 /// `Enum::write_<variant>(buf, fields..)` (SW-52): writes the variant from its fields into `buf` without making a
 /// value of the enum first; the code of `write_ht` for that variant.
-fn writer(names: &Names, v: &Variant, vs: &str, head: &Head, tag_len: usize, cp: &CratePath) -> TokenStream {
+fn writer(
+    names: &Names,
+    v: &Variant,
+    vs: &str,
+    head: &Head,
+    tag_len: usize,
+    cp: &CratePath,
+) -> TokenStream {
     let error = cp.error();
     let tail_wr = cp.item(quote! { head_tail::TailWr });
     let ty_i = names.ty_i();
@@ -1458,7 +1477,9 @@ fn writer(names: &Names, v: &Variant, vs: &str, head: &Head, tag_len: usize, cp:
     let mut moves = Vec::new();
     for p in &head.placed {
         let Some(param) = &p.item.ident else { continue };
-        let Some(ty) = field_ty(&p.kind, false, cp) else { continue };
+        let Some(ty) = field_ty(&p.kind, false, cp) else {
+            continue;
+        };
         let w = format_ident!("__w_{}", p.item.name);
         params.push(quote! { #param: #ty });
         moves.push(quote! { let #w = #param; });
@@ -1469,7 +1490,11 @@ fn writer(names: &Names, v: &Variant, vs: &str, head: &Head, tag_len: usize, cp:
     };
     let writes = writes(head, &access, cp);
     // the buffer's name must not be a field's
-    let buf = if head.placed.iter().any(|p| p.item.ident.as_ref().is_some_and(|i| i == "buf")) {
+    let buf = if head
+        .placed
+        .iter()
+        .any(|p| p.item.ident.as_ref().is_some_and(|i| i == "buf"))
+    {
         format_ident!("__buf")
     } else {
         format_ident!("buf")

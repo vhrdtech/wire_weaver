@@ -22,7 +22,7 @@
 //!
 //! This is a wire format of its own, not shrink_wrap's: a `head_tail` type has no `SerializeShrinkWrap` /
 //! `DeserializeShrinkWrap`, only [HeadTail] and the inherent `from_head_tail` / `to_head_tail` /
-//! `head_tail_len`. Lists are [List] (not `RefVec`, whose items are read through a `BufReader`), strings
+//! `head_tail_len` / `view` (and `write_<variant>` on enums). Lists are [List] (not `RefVec`, whose items are read through a `BufReader`), strings
 //! `&str`. A type is either `head_tail` or not: nothing is decided from the values.
 //!
 //! What a `head_tail` type may hold:
@@ -64,6 +64,32 @@
 //! let n = v.to_head_tail(&mut buf).unwrap();
 //! assert_eq!(&buf[..n], &[7, 0, 0b1000_0000, 2, 0, 1, 0, 2, 0]);
 //! assert_eq!(Load::from_head_tail(&buf[..n]).unwrap(), v);
+//! ```
+//!
+//! A firmware that should not make the whole value first **views** it and **writes** its replies variant by
+//! variant (SW-52): `view` checks the lengths and walks the tail, and the view's accessors read a field of the head
+//! at its offset when called; `write_<variant>` writes an enum variant from its fields, the same bytes as
+//! `to_head_tail`. An enum's view is an enum of its variants' views. Variants may have a `#[cfg]` (SW-54): one
+//! compiled out keeps its tag, and reads as unknown.
+//!
+//! ```
+//! use shrink_wrap::prelude::*;
+//! use shrink_wrap::head_tail::List;
+//!
+//! #[derive_shrink_wrap(head_tail, ww_repr = u8)]
+//! enum Request<'i> {
+//!     Hello,
+//!     Load { off: u16, frames: List<'i, u16> },
+//!     #[cfg(feature = "i2c")]
+//!     I2c { addr: u8 },
+//! }
+//!
+//! let mut buf = [0u8; 16];
+//! let n = Request::write_load(&mut buf, 7, List::new(&[1, 2])).unwrap();
+//! assert_eq!(&buf[..n], &[1, 7, 0, 2, 0, 1, 0, 2, 0]);
+//! let Ok(RequestView::Load(v)) = Request::view(&buf[..n]) else { panic!() };
+//! assert_eq!(v.off(), 7);
+//! assert_eq!(v.frames().iter().map(Result::unwrap).sum::<u16>(), 3);
 //! ```
 //!
 //! A list is a `List`, read item by item from the wire:

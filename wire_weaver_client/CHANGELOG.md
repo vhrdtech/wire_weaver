@@ -216,6 +216,9 @@
 
 ### 🐛 Fixes
 
+- A request sent while every seq number is in flight waits for one instead of failing with "No more request IDs
+  available" (CLT-18), and goes out in order once a reply frees one. A fire-and-forget stream sideband sent right
+  after a call returned could get lost this way with a small `ClientConfig::max_seq`.
 - USB: endpoint addresses and the interface number are no longer hardcoded (`0x01` / `0x81` on interface 0). They are
   read from the active configuration descriptor. The client picks the interface with WireWeaver class/protocol
   (`0xFF` / `0x37`), or for devices not reporting it, the first interface with a bulk or interrupt IN/OUT pair.

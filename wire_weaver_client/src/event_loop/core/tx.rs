@@ -107,13 +107,15 @@ pub(crate) struct TxCore {
 
     // Seq allocation
     next_seq: SeqTy,
-    max_seq: SeqTy,
+    pub(crate) max_seq: SeqTy,
     in_flight: HashSet<SeqTy>,
 
     /// Messages sent while link setup is in progress, sent out once the link is up.
     /// RxCore reports the connection to the user before LinkReady reaches tx, so the first
     /// requests can legitimately arrive here a bit early.
     held_until_up: VecDeque<HeldMessage>,
+    /// Requests that wait for a seq number to be freed (all are in flight), sent in order as seqs come back.
+    waiting_for_seq: VecDeque<HeldMessage>,
 }
 
 impl Default for TxCore {
@@ -142,6 +144,7 @@ impl TxCore {
             max_seq: crate::DEFAULT_MAX_SEQ,
             in_flight: HashSet::new(),
             held_until_up: VecDeque::new(),
+            waiting_for_seq: VecDeque::new(),
         }
     }
 
@@ -336,9 +339,15 @@ impl TxCore {
         }
         let (seq, done_tx) = match done_tx {
             Some((done_tx, timeout)) => {
-                let Some(seq) = self.next_seq() else {
-                    // TODO: backpressure when out of request IDs
-                    _ = done_tx.send(Err(Error::Other("No more request IDs available".into())));
+                // after the ones already waiting, so requests go out in order
+                let seq = match self.waiting_for_seq.is_empty() {
+                    true => self.next_seq(),
+                    false => None,
+                };
+                let Some(seq) = seq else {
+                    trace!("all seq numbers in flight, the request waits for one");
+                    self.waiting_for_seq
+                        .push_back((bytes, Some((done_tx, timeout)), hook));
                     return;
                 };
                 (seq, Some((done_tx, timeout)))
@@ -451,6 +460,14 @@ impl TxCore {
             }
             ToTx::Freed(seq) => {
                 self.in_flight.remove(&seq);
+                if self.phase == Phase::Up {
+                    // the first waiting one takes the seq (or waits again, first), the rest keep waiting behind it
+                    let mut waiting = std::mem::take(&mut self.waiting_for_seq);
+                    if let Some((bytes, done_tx, hook)) = waiting.pop_front() {
+                        self.on_send_message(now, bytes, done_tx, hook);
+                    }
+                    self.waiting_for_seq.extend(waiting);
+                }
             }
             ToTx::PeerGone(result) => {
                 debug!("rx side is gone, exiting");
@@ -577,7 +594,8 @@ impl TxCore {
         self.next_ping_at = None;
         self.next_link_setup_retry_at = None;
         self.in_flight.clear();
-        for (_, done_tx, _) in self.held_until_up.drain(..) {
+        let waiting = self.waiting_for_seq.drain(..);
+        for (_, done_tx, _) in self.held_until_up.drain(..).chain(waiting) {
             if let Some((done_tx, _)) = done_tx {
                 _ = done_tx.send(Err(Error::Disconnected));
             }

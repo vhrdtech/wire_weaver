@@ -724,6 +724,43 @@ mod tests {
         assert_eq!(seqs, (1..=200).collect::<Vec<u32>>());
     }
 
+    /// All seqs in flight: a request waits for one instead of failing, and goes out (in order) once a reply frees
+    /// one, even when the caller sends it right after being woken by that reply.
+    #[test]
+    fn request_waits_for_a_free_seq() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        connect(&mut p, now);
+        p.tx.max_seq = 1;
+        let mut done = vec![];
+        for payload in [0xA1, 0xA2, 0xA3] {
+            let (done_tx, done_rx) = oneshot::channel();
+            p.cmd(
+                now,
+                Command::SendMessage {
+                    bytes: request(&[payload]),
+                    done_tx: Some((done_tx, Duration::from_secs(1))),
+                },
+            );
+            done.push(done_rx);
+        }
+        let sent = p.take_sent();
+        assert_eq!(sent.len(), 1, "only one seq");
+        assert_eq!(
+            ww_client_server::Request::peek_seq(&sent[0].payload).unwrap(),
+            1
+        );
+        for (i, mut done_rx) in done.into_iter().enumerate() {
+            reply(&mut p, now, 1, &[i as u8]);
+            assert_eq!(done_rx.try_recv().unwrap().unwrap(), [i as u8]);
+            let sent = p.take_sent();
+            if i < 2 {
+                assert_eq!(sent.len(), 1, "the next waiting request goes out");
+                assert_eq!(sent[0].payload.last(), Some(&(0xA2 + i as u8)));
+            }
+        }
+    }
+
     #[test]
     fn oversized_request_is_rejected_locally() {
         let now = Instant::now();

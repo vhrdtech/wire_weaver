@@ -2315,6 +2315,22 @@
 
 
 <h1 id="ww_dfu">ww_dfu<a class="headerlink" href="#ww_dfu" title="Permanent link">&para;</a></h1>
+<p>Firmware update API, shared by every device that updates over WireWeaver. The full description lives in the crate
+docs (<code>cargo doc -p ww_dfu --open</code>); in short:</p>
+<ul>
+<li><strong>Traits, each node picks:</strong> <code>UpdateNode</code> (who it is, what it offers; every node), <code>BootControl</code> (boot state,
+  confirm, revert, reboot into the app or the updater), <code>Inventory</code> (the manifest, paged), <code>Stage</code> (receive a plan
+  step by step; session control), <code>StageBulk</code> (receive a whole plan as one stream).</li>
+<li><strong>Three update modes:</strong> A/B applied live by the app; in place from a plan the app stores, applied by the
+  bootloader after a reset (no transport in the bootloader); in place applied live by a bootloader or recovery app
+  with a transport.</li>
+<li><strong>Two ways a plan travels:</strong> one call per step (fast links), or the whole plan in one go with acknowledgements only
+  on gaps, credit and at the end (slow and remote links).</li>
+<li><strong>The device trusts nothing it receives:</strong> bounds, hashes, version floor and signature are checked on the device.</li>
+</ul>
+<p>The plan, manifest and descriptor formats are defined in octets by the chunky protocol spec
+(<code>chunky_mcu_updater</code>, <code>SPEC.md</code>); signed records travel as raw bytes. <code>tests/dfu</code> drives every trait end to end
+against a fake device.</p>
 
 
 

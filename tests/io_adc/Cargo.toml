@@ -15,3 +15,4 @@ tracing-subscriber.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
 ww_adc = { workspace = true, features = ["std"] }
+ww_client_server.workspace = true

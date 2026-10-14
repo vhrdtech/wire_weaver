@@ -599,10 +599,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`docs/std_library/io_family.md`); skeletons of every crate written, `ww_i2c` with `I2cWatch` (autonomous
   reads) and 10-bit addresses (SW-48); per-crate fill-ins next. Stream loss and timestamps wait for
   ww-stream-reliability, error evolution for ww-errors-plan.
+- ✅ **STD-18 `ww_adc`** · `v0.5` — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Fill-in done:
+  full rustdoc, `tests/io_adc` mock server (one test per trait), `docs/std_library/ww_adc.md`, API snapshot
+  (STD-13).
 - 🚧 **STD-17 `ww_timebase`** · `v0.5` — `Clock`: device time as `ww_si::Second`, sync master / slave, `time_map`
   stream. Skeleton; fill-in next (STD-13).
-- 🚧 **STD-18 `ww_adc`** · `v0.5` — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Draft written;
-  fill-in next (STD-13).
 - 🚧 **STD-19 `ww_pwm`** · `v0.5` — `Pwm` / `PwmChannel` outputs, `PwmCapture` measurements. Skeleton (STD-13).
 - 🚧 **STD-20 `ww_onewire`** · `v0.5` — `OneWire`: transactions, search, triplet. Skeleton (STD-13).
 - 📋 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;

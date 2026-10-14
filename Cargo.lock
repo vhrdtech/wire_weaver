@@ -1917,6 +1917,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_adc",
+ "ww_client_server",
 ]
 
 [[package]]

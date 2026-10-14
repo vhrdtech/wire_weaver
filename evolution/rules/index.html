@@ -2861,13 +2861,18 @@ swapping it for a <code>Vec&lt;T&gt;</code> or another of the three, or changing
 <p>When serializing, size of such objects is calculated and written to the resulting byte array. Which is the only
 overhead, giving all the nice backwards and forwards compatibility benefits.</p>
 <ul>
-<li>New fields with default capability can be added to the end of structs, enum struct and tuple variants.<ul>
-<li><code>Option&lt;T&gt;</code> - None is read from old data,</li>
-<li><code>Vec&lt;T&gt;</code> - Empty vector is read from old data,</li>
-<li><code>String</code> - Empty string is read from old data,</li>
-<li><code>T</code> can be anything.</li>
+<li>New fields with <code>#[default = ..]</code> can be added to the end of structs and enum struct variants. Old data reads as
+  the default (see <a href="../../serdes/derive/#evolving-types">derive</a>), <code>T</code> can be anything:<ul>
+<li><code>Option&lt;T&gt;</code> - <code>#[default = None]</code>,</li>
+<li><code>Vec&lt;T&gt;</code>, <code>String</code> - <code>#[default = Vec::new()]</code>, <code>#[default = String::new()]</code>,</li>
+<li>a bit-sized field (<code>bool</code>, nibble, <code>Option</code> / <code>Result</code> flag) can land in padding bits of the old data's last
+  byte, which read as 0: give it its zero value as the default.</li>
 </ul>
 </li>
+<li>New enum variants can be added at the end. Readers of older versions fail on them unless the enum has a
+  <a href="../../serdes/derive/#enum-variants-from-a-newer-version"><code>#[future_version]</code> variant</a>; with one, they get its
+  discriminant. In an <code>Unsized</code> enum new variants may carry data, in a <code>sized</code> or <code>self_describing</code> one only new
+  unit variants can be read past by older readers.</li>
 <li>New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
   other field (see <a href="../checker_tool/#new-fields-in-padding-bits">the checker</a> for exact conditions).</li>
 <li>TODO: clarify: <code>T</code> -&gt; struct containing <code>T</code></li>

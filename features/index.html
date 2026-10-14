@@ -2773,19 +2773,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   adding one breaking (<code>ww api check</code>). <code>SerializeShrinkWrap::MAX_SIZE: Option&lt;MaxSize&gt;</code>, the worst-case size of a
   type whose every part is bounded, feeds API-18. <code>docs/types.md</code>, <code>docs/evolution/rules.md</code>,
   <code>shrink_wrap/tests/max_len.rs</code>, <code>tests/bounded</code>, <code>examples_mcu/mcu_qemu</code> (<code>qemu-bounded</code>).</li>
-<li>🚧 <strong>SW-15 Handle end of buffer when reading evolved fields</strong> · <code>v0.5</code> — fields with <code>#[default = ..]</code> already fall
-  back to the default, but on <em>any</em> read error (<code>Field::handle_eob</code> in
-  <code>shrink_wrap_derive/src/codegen/item_struct.rs</code>), not only on end of buffer. Missing: fall back only on
-  end-of-buffer errors, and only for fields added in a later version; <code>Vec</code>/<code>String</code>/<code>Option</code> fields appended
-  without a default should read as empty/<code>None</code> from an older buffer (<code>TODO</code> in
-  <code>shrink_wrap_derive/src/codegen/ty.rs</code>).</li>
-<li>📋 <strong>SW-16 <code>FutureVersion</code> enum variant</strong> · <code>v0.5</code> — a catch-all variant holding the unknown discriminant (and the
-  payload bytes for <code>Unsized</code> enums), so an older reader can pass on or report an enum value from a newer
-  version instead of failing with <code>EnumFutureVersionOrMalformedData</code>. Notes:</li>
-<li>the enum must already be <code>Unsized</code> to add new variants with data later; unit variants then write a 0
-    byte size each;</li>
-<li>a <code>sized</code> enum can only get new unit variants;</li>
-<li>add to all enums by default, unless all discriminants of the repr are taken or an attribute opts out.</li>
+<li>✅ <strong>SW-15 Handle end of buffer when reading evolved fields</strong>: a field with <code>#[default = ..]</code> reads as its default
+  only when it starts at the end of the data and runs out of it (<code>Error::is_read_eob</code>); a truncated or malformed
+  value is an error. The flag of an evolved <code>Option</code> / <code>Result</code> falls back with it, <code>#[default]</code> works on any type
+  and its value is used (an <code>Option</code> was always <code>None</code>). Same in the <code>ww_self</code> dynamic decoder. Padding bits of the
+  old data's last byte read as 0, so bit-sized fields default to their zero value. Decided: no implicit defaults
+  for <code>Vec</code>/<code>String</code>/<code>Option</code> fields without <code>#[default]</code>, the attribute is what marks a field as added later
+  (and what <code>ww api check</code> looks for). <code>docs/serdes/derive.md#evolving-types</code>, <code>shrink_wrap/tests/evolution.rs</code>.</li>
+<li>✅ <strong>SW-16 <code>FutureVersion</code> enum variant</strong>: an enum ending with <code>#[future_version] Unknown(u32)</code> reads an unknown
+  discriminant into it instead of failing with <code>EnumFutureVersionOrMalformedData</code>, and writes it back; an <code>Unsized</code>
+  enum skips the newer variant's fields with its size slot, <code>sized</code> / <code>self_describing</code> ones only survive new unit
+  variants. No wire number of its own, no change to <code>ELEMENT_SIZE</code>, left out of the API model. The <code>ww_self</code>
+  dynamic decoder reads an unknown variant of an <code>Unsized</code> enum as <code>&lt;unknown N&gt;</code>. Opt-in per enum, see SW-47 for
+  adding it by default. <code>docs/serdes/derive.md#enum-variants-from-a-newer-version</code>, <code>shrink_wrap/tests/evolution.rs</code>.</li>
 <li>📋 <strong>SW-17 Const / magic type</strong> · <code>v0.5</code> — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the <code>magic</code> field in
   <code>ww_self</code> (a plain <code>u32</code> today).</li>
@@ -2817,6 +2817,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>SW-29 Flatten support</strong> — apply a type's layout across struct/enum boundaries.</li>
 <li>💡 <strong>SW-30 <code>derive_shrink_wrap</code> on a whole module at once</strong>. For definitions in separate files with own syntax, see
   <a href="#api-model-and-codegen-api">standalone definition files</a>.</li>
+<li>💡 <strong>SW-47 <code>#[future_version]</code> variant by default</strong> — add the SW-16 variant to every enum unless all discriminants
+  of the repr are taken or an argument opts out. Changes the Rust type of every enum (exhaustive matches need a new
+  arm, <code>Copy</code> enums grow), so it needs a release that breaks the Rust API anyway, and the variant's name must not
+  clash with user variants.</li>
 </ul>
 <h2 id="derive_shrink_wrap-macro-der"><code>derive_shrink_wrap</code> macro (<code>DER</code>)<a class="headerlink" href="#derive_shrink_wrap-macro-der" title="Permanent link">&para;</a></h2>
 <ul>

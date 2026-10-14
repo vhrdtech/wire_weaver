@@ -90,6 +90,7 @@ blinky = { version = "0.1.0", path = "./examples/blinky" }
 blinky_api = { version = "0.1.0", path = "./examples/blinky_api" }
 blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved" }
 bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }
+credit_sink_api = { version = "0.1.0", path = "./tests/credit_sink_api" }
 dfu_api = { version = "0.1.0", path = "./tests/dfu_api" }
 dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }

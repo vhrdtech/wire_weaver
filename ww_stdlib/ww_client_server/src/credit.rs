@@ -16,7 +16,7 @@ pub struct SinkCredit {
     threshold: u32,
     have: u32,
     freed: u32,
-    /// Limit last told to the host
+    /// Limit last told to the host, 0 until the first Credit after Open
     granted: u32,
     /// A Credit is sent on the next [SinkCredit::take_credit] regardless of the threshold (after Open)
     owed: bool,
@@ -44,7 +44,7 @@ impl SinkCredit {
             threshold: Self::clamp_threshold(capacity / 2, capacity),
             have: 0,
             freed: 0,
-            granted: capacity,
+            granted: 0,
             owed: true,
             resend_armed: true,
             overruns: 0,
@@ -120,7 +120,7 @@ impl SinkCredit {
     pub fn open(&mut self) {
         self.have = 0;
         self.freed = 0;
-        self.granted = self.capacity;
+        self.granted = 0;
         self.owed = true;
         self.resend_armed = true;
     }

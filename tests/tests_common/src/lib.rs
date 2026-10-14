@@ -2,13 +2,15 @@
 //! `in_process` transport. Tests drive it with a generated client, exactly as a real device over USB, link setup,
 //! timeouts and streams included.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use tokio::sync::mpsc;
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::{ApiHashPair, FullVersion};
-use wire_weaver::{BlockingEventOut, EventWriter, MessageSink, WireWeaverAsyncApiBackend};
+use wire_weaver::{
+    BlockingEventOut, EventOut, EventWriter, MessageSink, WireWeaverAsyncApiBackend,
+};
 use wire_weaver_client::in_process::{self, TokioClock};
 
 /// Message buffers of the test device (`ww_device::Server` scratch, in-process link).
@@ -28,10 +30,28 @@ pub trait TestProcessEvents {
     ) -> Result<&'a [u8], ShrinkWrapError>;
 }
 
+/// Implemented by test servers generated with `use_async = true`, forwards to the generated `process_request_bytes`.
+pub trait TestProcessEventsAsync {
+    /// `medium = ".."` given to `ww_codegen!`, `()` by default.
+    type Medium: Copy + Send + 'static;
+
+    fn process_request_bytes<'a>(
+        &mut self,
+        bytes: &[u8],
+        scratch: &'a mut [u8],
+        out: &mut impl EventOut,
+        medium: Self::Medium,
+    ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
+}
+
+/// Decides whether a request is dropped (returns true) before the server sees it, see [TestDevice::filter_requests].
+pub type RequestFilter = Box<dyn FnMut(&[u8]) -> bool + Send>;
+
 /// Device running a test server, stopped when dropped.
 pub struct TestDevice {
     path: String,
     drop_requests: Arc<AtomicBool>,
+    filter: Arc<Mutex<Option<RequestFilter>>>,
     to_device: mpsc::UnboundedSender<Vec<u8>>,
 }
 
@@ -44,6 +64,12 @@ impl TestDevice {
     /// Ignore all requests from now on, without replying, as if a device was stuck.
     pub fn drop_requests(&self, drop: bool) {
         self.drop_requests.store(drop, Ordering::Relaxed);
+    }
+
+    /// Look at every request before the server does, drop the ones `filter` returns true for, as a lossy medium
+    /// would. Requests are serialized `ww_client_server::Request`s.
+    pub fn filter_requests(&self, filter: impl FnMut(&[u8]) -> bool + Send + 'static) {
+        *self.filter.lock().unwrap() = Some(Box::new(filter));
     }
 
     /// Send a serialized `ww_client_server::Event` to the host, e.g., stream data from generated `stream_data_ser()`.
@@ -73,12 +99,83 @@ pub fn start_device_on<S: TestProcessEvents + Send + 'static>(
     api_hash: ApiHashPair<'static>,
     medium: S::Medium,
 ) -> TestDevice {
+    start(path, SyncServer(server), version, api_hash, medium)
+}
+
+/// Same as [start_device], for servers generated with `use_async = true`.
+pub fn start_device_async<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
+    path: &str,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+) -> TestDevice {
+    start(path, AsyncServer(server), version, api_hash, ())
+}
+
+/// Sync or async server
+trait Process {
+    type Medium: Copy + Send + 'static;
+
+    fn process<'a>(
+        &mut self,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: Self::Medium,
+        data: &[u8],
+        scratch: &'a mut [u8],
+    ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
+}
+
+struct SyncServer<S>(S);
+
+impl<S: TestProcessEvents> Process for SyncServer<S> {
+    type Medium = S::Medium;
+
+    async fn process<'a>(
+        &mut self,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: S::Medium,
+        data: &[u8],
+        scratch: &'a mut [u8],
+    ) -> Result<&'a [u8], ShrinkWrapError> {
+        // sync server: events sent by handlers are queued and sent out after it returns
+        out.queued(|queue| self.0.process_request_bytes(data, scratch, queue, medium))
+            .await
+    }
+}
+
+struct AsyncServer<S>(S);
+
+impl<S: TestProcessEventsAsync> Process for AsyncServer<S> {
+    type Medium = S::Medium;
+
+    async fn process<'a>(
+        &mut self,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: S::Medium,
+        data: &[u8],
+        scratch: &'a mut [u8],
+    ) -> Result<&'a [u8], ShrinkWrapError> {
+        self.0
+            .process_request_bytes(data, scratch, out, medium)
+            .await
+    }
+}
+
+fn start<S: Process + Send + 'static>(
+    path: &str,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+    medium: S::Medium,
+) -> TestDevice {
     let drop_requests = Arc::new(AtomicBool::new(false));
+    let filter = Arc::new(Mutex::new(None));
     let (to_device, mut from_test) = mpsc::unbounded_channel::<Vec<u8>>();
     let (tx, rx) = in_process::device(path, MAX_MESSAGE_LEN);
     let mut backend = TestBackend {
         server,
         drop_requests: drop_requests.clone(),
+        filter: filter.clone(),
         version,
     };
     std::thread::spawn(move || {
@@ -116,6 +213,7 @@ pub fn start_device_on<S: TestProcessEvents + Send + 'static>(
     TestDevice {
         path: path.to_string(),
         drop_requests,
+        filter,
         to_device,
     }
 }
@@ -123,10 +221,11 @@ pub fn start_device_on<S: TestProcessEvents + Send + 'static>(
 struct TestBackend<S> {
     server: S,
     drop_requests: Arc<AtomicBool>,
+    filter: Arc<Mutex<Option<RequestFilter>>>,
     version: FullVersion<'static>,
 }
 
-impl<S: TestProcessEvents> WireWeaverAsyncApiBackend for TestBackend<S> {
+impl<S: Process> WireWeaverAsyncApiBackend for TestBackend<S> {
     type Medium = S::Medium;
 
     async fn process_bytes<'a>(
@@ -139,12 +238,12 @@ impl<S: TestProcessEvents> WireWeaverAsyncApiBackend for TestBackend<S> {
         if self.drop_requests.load(Ordering::Relaxed) {
             return Ok(&[]);
         }
-        // sync server: events sent by handlers are queued and sent out after it returns
-        out.queued(|queue| {
-            self.server
-                .process_request_bytes(data, scratch, queue, medium)
-        })
-        .await
+        if let Some(filter) = self.filter.lock().unwrap().as_mut()
+            && filter(data)
+        {
+            return Ok(&[]);
+        }
+        self.server.process(out, medium, data, scratch).await
     }
 
     fn version(&self) -> FullVersion<'_> {

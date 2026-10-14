@@ -42,6 +42,13 @@ pub trait TestProcessEventsAsync {
         out: &mut impl EventOut,
         medium: Self::Medium,
     ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
+
+    /// Called every millisecond between requests, `now_ms` since the device started: where a server with reliable
+    /// streams calls its generated `poll_streams`.
+    fn poll(&mut self, out: &mut impl EventOut, now_ms: u64) -> impl Future<Output = ()> {
+        let _ = (out, now_ms);
+        async {}
+    }
 }
 
 /// Decides whether a request is dropped (returns true) before the server sees it, see [TestDevice::filter_requests].
@@ -123,6 +130,12 @@ trait Process {
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
+
+    fn poll(
+        &mut self,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        now_ms: u64,
+    ) -> impl Future<Output = ()>;
 }
 
 struct SyncServer<S>(S);
@@ -141,6 +154,8 @@ impl<S: TestProcessEvents> Process for SyncServer<S> {
         out.queued(|queue| self.0.process_request_bytes(data, scratch, queue, medium))
             .await
     }
+
+    async fn poll(&mut self, _out: &mut EventWriter<'_, impl MessageSink>, _now_ms: u64) {}
 }
 
 struct AsyncServer<S>(S);
@@ -158,6 +173,10 @@ impl<S: TestProcessEventsAsync> Process for AsyncServer<S> {
         self.0
             .process_request_bytes(data, scratch, out, medium)
             .await
+    }
+
+    async fn poll(&mut self, out: &mut EventWriter<'_, impl MessageSink>, now_ms: u64) {
+        self.0.poll(out, now_ms).await
     }
 }
 
@@ -197,10 +216,18 @@ fn start<S: Process + Send + 'static>(
                 &mut event_scratch,
             )
             .with_medium(medium);
+            let started = std::time::Instant::now();
+            let mut tick = tokio::time::interval(std::time::Duration::from_millis(1));
             loop {
                 tokio::select! {
                     ready = server.wait() => {
                         _ = server.handle(ready, &mut backend).await;
+                    }
+                    _ = tick.tick() => {
+                        if server.is_up() {
+                            let now_ms = started.elapsed().as_millis() as u64;
+                            backend.server.poll(&mut server.sink(), now_ms).await;
+                        }
                     }
                     event = from_test.recv() => match event {
                         Some(event) => server.send(&event).await.expect("send event to host"),

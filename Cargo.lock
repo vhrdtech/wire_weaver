@@ -3165,6 +3165,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "streams_reliable"
+version = "0.1.0"
+dependencies = [
+ "streams_reliable_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_stream",
+]
+
+[[package]]
+name = "streams_reliable_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "strip-ansi-escapes"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -324,6 +324,18 @@ mod tests {
         }
     }
 
+    fn assert_call_unimplemented<T: std::fmt::Debug, E: std::fmt::Debug>(
+        result: Result<T, wire_weaver_client::CallError<E>>,
+        name: &str,
+    ) {
+        match result {
+            Err(wire_weaver_client::CallError::Unimplemented { resource }) => {
+                assert_eq!(resource, name)
+            }
+            other => panic!("{name}: expected CallError::Unimplemented, got {other:?}"),
+        }
+    }
+
     /// Omitted optional items fail locally: the device's introspection data lists them.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn omitted_items_fail_locally() {
@@ -348,7 +360,8 @@ mod tests {
             "i2c.i2c_wiggle_clock",
         );
         // group: a method and a property
-        assert_not_implemented(
+        // with an error type: the CallError variant (CLT-24), not the method's own error
+        assert_call_unimplemented(
             client.i2c().i2c_set_pullups(true).call().await,
             "i2c.i2c_set_pullups",
         );
@@ -380,7 +393,7 @@ mod tests {
             .expect("connect");
 
         assert_eq!(client.i2c().i2c_wiggle_clock(3).call().await.unwrap(), 6);
-        assert_not_implemented(
+        assert_call_unimplemented(
             client.i2c().i2c_set_pullups(true).call().await,
             "i2c.i2c_set_pullups",
         );

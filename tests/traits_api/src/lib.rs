@@ -73,8 +73,9 @@ trait I2c {
     #[optional]
     fn i2c_wiggle_clock(count: u8) -> u8;
     /// Switchable pull-ups: both items or neither.
+    /// Fallible: an omitted method with an error type gives `CallError::Unimplemented` on the client.
     #[optional(pullups)]
-    fn i2c_set_pullups(enabled: bool);
+    fn i2c_set_pullups(enabled: bool) -> Result<(), u8>;
     #[optional(pullups)]
     property!(rw i2c_pullups: bool);
     #[optional]

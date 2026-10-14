@@ -26,7 +26,7 @@ Recommendations first; each is a question for Roman, the rest of the page follow
 | D5 | Lost data: a `Lost` record kind / variant (§4.3, §4.4) or a `lost` field? | **`lost: UNib32` in every stream item**: units dropped right before this item. 4 bits when 0, one rule for every stream, no special records. | yes: drops `RecordKind::Lost`, `FrameFlags::Lost` |
 | D6 | Timestamps | **`Ticks(UVlq64)`, absolute, local, in every item** (as §4.5). Delta-coded timestamps inside an item come later as optional appended fields (SW-31). | no |
 | D7 | Where the timebase lives on a device without `ww_timebase::Clock` | Items still carry `Ticks`; `capabilities()` of each trait says `timestamps: bool`; without them `t` is 0. A `Clock` anywhere in the tree defines the tick rate (one per device). | refines |
-| D8 | Enum growth before SW-16 future-version lands | Every error, mode and kind enum is **`Unsized` with `ww_repr = unib32`** (new variants with data later), and the family ships at 0.2.0 only **after SW-16** (WW-3 ww-evolution), so an old host survives a new error variant. | no (§11.3) |
+| D8 | Enum growth before SW-16 future-version lands | Every error, mode and kind enum is **`Unsized` with `ww_repr = unib32`** (new variants with data later), and the family ships at 0.2.0 only **after SW-16** (WW-3 ww-evolution), so an old host survives a new error variant. Every growing enum ends with `#[future_version] Unknown(u32)` (SW-16 as planned in WW-3: opt-in, last, no wire number of its own, catches any unknown discriminant). | no (§11.3) |
 | D9 | `read_inputs` / `write_outputs` width | `u32` (32 pins per bank), as §4.1. Wider banks are split into banks. | no |
 | D10 | Test layout | One test crate pair per trait (`tests/io_gpio` + `tests/io_gpio_api`, ...): parallel fill-ins don't touch each other's files; each mock server is a small loopback simulator that WW-4 (`_hl` crates) reuses. | n/a |
 
@@ -39,7 +39,7 @@ These hold for all crates of the family and for IO traits added later; `docs/api
 **Types.** Every type is `Unsized` unless it is a bit-level leaf (`Level`, `Edge`), `owned(feature = "std")`,
 `borrowed` where it has no lifetime, `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`. Every list,
 byte buffer and string is bounded with `MaxLen` (raising a bound later is compatible, lowering is not). Enums that can
-grow: `ww_repr = unib32`, not `self_describing`/`sized`. Pins and channels are indices, never MCU pin names.
+grow: `ww_repr = unib32`, not `self_describing`/`sized`, ending with `#[future_version] Unknown(u32)`. Pins and channels are indices, never MCU pin names.
 
 **Configuration** is one struct argument, `configure(Config) -> Result<Actual, Error>`, returning what was really
 set (rounded baud and frequency, the level). `config() -> Actual` reads it back. A config struct gets new fields with
@@ -68,6 +68,9 @@ pub enum Error {
     /// Not configured for this (e.g. a transfer while Disabled, a monitor call in Master mode)
     WrongMode,         // 5
     // crate-specific variants follow (Nack, Timeout, ...), appended later as needed
+    /// A variant from a newer version of this API (SW-16)
+    #[future_version]
+    Unknown(u32),      // always last, takes no wire number
 }
 ```
 

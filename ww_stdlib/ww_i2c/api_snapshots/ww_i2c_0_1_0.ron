@@ -39,8 +39,8 @@
     "",
     "# Time",
     "",
-    "Every transfer reports when it started and ended ([I2cTransactionTimeRange]), and every monitor record when it",
-    "happened, as [Second]s of device time: time since the device\'s clock started, in the prefix and number type the",
+    "Every transfer reports when it started and ended ([I2cTransactionTimeRange]), and every monitor record and watch",
+    "result when it happened (the time in the event head of their counted streams), as [Second]s of device time: time since the device\'s clock started, in the prefix and number type the",
     "device picks (usually a `u32` of microseconds). A fixed-width value wraps (a `u32` of µs every 71.6 minutes) and",
     "the host unwraps it. All timestamps of one device come from the same clock, so I2C transfers line up with the",
     "device\'s other data.",
@@ -267,13 +267,10 @@
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A result of a watch, on the `I2cWatch` `changes` stream. An error is reported once, when the watch starts to",
+        "A result of a watch, on the `I2cWatch` `changes` stream; when the read started is the time in the event head. An error is reported once, when the watch starts to",
         "fail, and the next successful read is reported whatever the rule.",
     ], ident: "I2cWatchEvent", fields: Named([
         (ident: Some("slot"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
-            "When the read started.",
-        ]),
         (ident: Some("result"), default: None, since: None, ty: Result(ok_ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 3)), docs: []),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -343,11 +340,8 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One transaction seen by `I2cMonitor`: from a start to the stop (or to the next repeated start).",
     ], ident: "I2cRecord", fields: Named([
-        (ident: Some("start"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
-            "Time of the start condition.",
-        ]),
         (ident: Some("end"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
-            "Time of the stop (or repeated start).",
+            "Time of the stop (or repeated start); the start condition\'s is the time in the event head.",
         ]),
         (ident: Some("addr"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
         (ident: Some("read"), default: None, since: None, ty: Bool, docs: [
@@ -477,8 +471,9 @@
         "ones and see no more delay than one watch read. A watch to an address under a `delay_after` waits like any",
         "transfer. Results go out on the `changes` stream.",
     ], crate_idx: 0, trait_name: "I2cWatch", items: [
-        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 12), is_up: true), multiplicity: Flat, since: None, ident: "changes", docs: [
-            "Results the watches report, in the order they were read.",
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 12), delivery: Counted, args: [], return_ty: None), multiplicity: Flat, since: None, ident: "changes", docs: [
+            "Results the watches report, in the order they were read. A counted stream, unit: result; the head\'s time is",
+            "when the read started, and the host learns exactly how many results the device dropped.",
         ]),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 13))), multiplicity: Flat, since: None, ident: "watch_capabilities", docs: [
             "How many watches, how fast, how long.",
@@ -521,18 +516,15 @@
         "Watches the bus without taking part: every transaction becomes one [I2cRecord] on the `records` stream.",
         "",
         "The same as [I2cMode::MonitorOnly] (or the `monitor` flag of [I2cMode::Master], to watch the adapter\'s own",
-        "transfers too), for devices that only sniff and implement no `I2c`. How a host learns about records the device",
-        "had to drop, and stream control in general, is not covered yet.",
+        "transfers too), for devices that only sniff and implement no `I2c`.",
     ], crate_idx: 0, trait_name: "I2cMonitor", items: [
-        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 17), is_up: true), multiplicity: Flat, since: None, ident: "records", docs: [
-            "One record per transaction, in bus order.",
-        ]),
-        (id: 1, kind: Method(args: [
-            (ident: "enabled", ty: Bool),
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 17), delivery: Counted, args: [
             (ident: "io_level", ty: Option(some_ty: OutOfLine(type_idx: 0))),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "monitor", docs: [
-            "Starts or stops monitoring. `io_level` as in `I2c::i2c_configure`; the adapter\'s pull-ups stay as they are",
-            "(the watched bus has its own).",
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "records", docs: [
+            "One record per transaction, in bus order. Opening starts monitoring, closing stops it. `io_level` as in",
+            "`I2c::i2c_configure`; the adapter\'s pull-ups stay as they are (the watched bus has its own). A counted",
+            "stream, unit: transaction; the head\'s time is the start condition, and the host learns exactly how many",
+            "records the device dropped.",
             "",
             "# Errors",
             "",

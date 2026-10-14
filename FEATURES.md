@@ -615,7 +615,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   and timestamps (STD-23), plain error enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Family overview
   in `docs/std_library/io_family.md`; every crate filled in with full rustdoc, a mock-server test pair
   `tests/io_<x>` and a docs page `docs/std_library/ww_<x>.md`; `examples_mcu` GPIO and UART boards follow.
-  Open: stream loss/timestamp reporting and error evolution across the family; `*_hl` crates are STD-14.
+  Streams with a configuration are counted stream functions (API-31: `AdcStream::samples`, `LogicStream::data`,
+  `Pin::event`, `PwmCaptureChannel::capture`, `SpiMonitor::frames`, `I2cMonitor::records`, `UartMonitor::lines`),
+  `Uart::rx` and `I2cWatch::changes` are counted: positions, device losses and timestamps in the event head.
+  Open: error evolution across the family; `*_hl` crates are STD-14.
 - 🚧 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
   `Raw` and per-channel `Transitions` encodings (SW-31 `DeltaOfDelta`), staged pattern triggers and protocol
   stages (UART byte, I2C address, SPI first byte). Skeleton written, transitions as `DeltaOfDelta` (SW-50), docs

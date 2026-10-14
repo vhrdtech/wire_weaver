@@ -49,7 +49,8 @@ method's rustdoc lists under `# Errors` which variants it can return.
 
 **Typed values through `ww_si`.** Voltages, frequencies and durations are `ww_si` quantities (`Volt`, `Hertz`,
 `Second`), never a bare integer with an implied unit. The device reports in whatever storage and prefix are
-convenient for it (a `u32` of µs, an `f32` of volts); the host reads any of them. Timestamps are `ww_si::Second`:
+convenient for it (a `u32` of µs, an `f32` of volts); the host reads any of them. Timestamps, in method results
+and in stream heads alike, are `ww_si::Second`:
 time since the device's own clock started, in the prefix and number type the device picks. A fixed-width value
 wraps (a `u32` of µs wraps after about 71.6 minutes); a host that needs the full value reads `Clock::now()` and
 unwraps around it. Devices with several timed traits (a logic analyzer, an ADC capture, an I2C monitor) share one
@@ -67,10 +68,23 @@ of its own, and most masters have no monitoring hardware. A monitor reports one 
 its own stream; a master that also wants to see its own traffic sets the matching monitor flag where the trait
 offers one (e.g. `I2cMode::Master { monitor: true, .. }`).
 
-**Streams with sideband `Open`/`Close`.** A stream with a configuration (`AdcStream`, `LogicStream`,
-`I2cMonitor::records`, `UartMonitor`'s line streams) is set up with an ordinary method call, then started and
-stopped with the stream's own sideband commands: `Open` begins sampling/monitoring, `Close` ends it. There is no
-separate `start_stream` / `stop_stream` pair to keep in sync with the configuration.
+**Streams are opened with their configuration.** A stream that needs a configuration is a
+[stream function](../api/streams.md#opening-a-stream): the host opens it with the configuration as its arguments and
+gets back what the device actually set, or an error, and closing the stream stops sampling or monitoring
+(`AdcStream::samples`, `LogicStream::data`, `Pin::event`, `PwmCaptureChannel::capture`, `SpiMonitor::frames`,
+`I2cMonitor::records`, `UartMonitor::lines`). Opening it again starts a new session with the new configuration, so
+there is no separate configure / start / stop to keep in sync.
+
+```rust
+let (actual, mut samples) = adc.adc_stream().samples(config).call().await??;
+```
+
+**Counted streams: positions, losses and time in the head.** Every device → host stream of the family with measured
+or received data is counted ([stream delivery](../api/stream_reliability.md)): each event's head carries its
+position in the stream's unit (a sample set, a byte, a frame, an edge, as the stream's rustdoc says), how many units
+the device dropped right before it, and the device time of its first unit. Item types carry none of this: an
+`RxChunk` is bytes and line flags, a `SampleBlock` raw samples. A host sees exactly what it missed and where
+(`StreamEvent::Gap`), whether the device dropped it (no host, a full buffer) or the link lost it.
 
 **Credit sinks for bulk host → device data.** Where the host sends more than fits one reply — a UART's `tx` bytes,
 a `PatternGenerator`'s pattern, a `WaveformChannel`'s arbitrary table — the method is a `#[credit] sink!(..)`

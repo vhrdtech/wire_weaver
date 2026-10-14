@@ -30,9 +30,9 @@
     "",
     "# Time",
     "",
-    "`SpiMonitor` reports when a frame\'s CS assertion started and ended ([SpiFrame::start], [SpiFrame::end]) as",
-    "[Second]s of device time: time since the device\'s clock started, in the prefix and number type the device picks",
-    "(usually a `u32` of microseconds). A fixed-width value wraps and the host unwraps it.",
+    "`SpiMonitor` reports when a frame\'s CS assertion started (the time in the event head) and ended ([SpiFrame::end])",
+    "as [Second]s of device time: time since the device\'s clock started, in the prefix and number type the device",
+    "picks (usually a `u32` of microseconds). A fixed-width value wraps and the host unwraps it.",
     "",
     "# Slave mode",
     "",
@@ -218,13 +218,18 @@
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Bus settings for `SpiMonitor::frames`: everything needed to decode frames correctly, without the",
+        "parts that only apply to driving the bus ([SpiConfig::role], [SpiConfig::cs]).",
+    ], ident: "SpiMonitorConfig", fields: Named([
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
+        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
+        (ident: Some("word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One frame seen by `SpiMonitor`: from CS asserted to released.",
     ], ident: "SpiFrame", fields: Named([
-        (ident: Some("start"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
-            "When CS was asserted.",
-        ]),
         (ident: Some("end"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
-            "When CS was released.",
+            "When CS was released; when it was asserted is the time in the event head.",
         ]),
         (ident: Some("truncated"), default: None, since: None, ty: Bool, docs: [
             "Longer than [SPI_MAX] bytes, the rest was cut.",
@@ -235,14 +240,6 @@
         (ident: Some("miso"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
             "What the device side (peripheral) drove, if monitored.",
         ]),
-    ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Bus settings for `SpiMonitor::configure_monitor`: everything needed to decode frames correctly, without the",
-        "parts that only apply to driving the bus ([SpiConfig::role], [SpiConfig::cs]).",
-    ], ident: "SpiMonitorConfig", fields: Named([
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
-        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
-        (ident: Some("word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
     ]))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
@@ -312,17 +309,14 @@
         ]),
     ]), crate_idx: 0),
     InLine(level: (docs: [
-        "Watches an SPI bus without taking part: one [SpiFrame] per CS assertion on the `frames` stream. Configured with",
-        "`SpiMonitor::configure_monitor`; the stream\'s sideband `Open` starts, `Close` stops.",
+        "Watches an SPI bus without taking part: one [SpiFrame] per CS assertion on the `frames` stream.",
     ], crate_idx: 0, trait_name: "SpiMonitor", items: [
-        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 12), is_up: true), multiplicity: Flat, since: None, ident: "frames", docs: [
-            "One frame per CS assertion, in bus order.",
-        ]),
-        (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 13)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "configure_monitor", docs: [
-            "Starts or stops monitoring with the bus settings needed to decode frames (the monitor doesn\'t drive CS or",
-            "clock, it only listens).",
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 13), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 12)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "frames", docs: [
+            "One frame per CS assertion, in bus order, decoded with `config` (the monitor doesn\'t drive CS or clock, it",
+            "only listens). Opening starts monitoring, closing stops it. A counted stream, unit: frame; the head\'s time is",
+            "when CS was asserted, and the host learns exactly how many frames the device dropped.",
             "",
             "# Errors",
             "",

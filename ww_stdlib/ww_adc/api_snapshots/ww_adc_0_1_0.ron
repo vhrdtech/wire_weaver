@@ -44,10 +44,11 @@
     "",
     "# Streams",
     "",
-    "`AdcStream` is configured with a method (`AdcStream::configure_stream`, which answers with the rate actually",
-    "set) and started and stopped with the stream\'s own sideband commands: `Open` starts sampling, `Close` stops it.",
-    "What a stream does when the host can\'t keep up (counting and reporting dropped blocks, backfill), and per-block",
-    "timestamps, are not covered yet; [SampleBlock] carries neither.",
+    "`AdcStream::samples` is a counted stream function: the host opens it with a [StreamConfig] and gets the rate",
+    "actually set back, closing it stops sampling. The unit of its positions is a sample set (one sample of every",
+    "channel), so the host knows exactly how many sets the device dropped and where, and each block may carry the",
+    "device time of its first set; a [SampleBlock] itself is pure data. Opening it again starts a new session with the",
+    "new configuration. See `docs/api/stream_reliability.md` for positions, losses and timestamps.",
     "",
     "# Errors",
     "",
@@ -185,13 +186,6 @@
             "Channel `n` of every method is `channels[n]`.",
         ]),
     ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Raw samples of a stream, see `AdcStream`.",
-    ], ident: "SampleBlock", fields: Named([
-        (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
-            "Whole sample sets, interleaved in the order of [StreamConfig::channels], packed as [StreamConfig::format].",
-        ]),
-    ]))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Hertz", signature: [
         226,
         231,
@@ -223,51 +217,49 @@
         ], ident: "I24", fields: Unit, discriminant: 4, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What `AdcStream` can do.",
-    ], ident: "StreamCapabilities", fields: Named([
-        (ident: Some("max_total_rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
-            "Highest sample rate of all channels together (samples, not sets, per second), alone on the link.",
-        ]),
-        (ident: Some("max_channels"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
-            "Most channels in one stream.",
-        ]),
-        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 11))), docs: []),
-    ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What to stream, see `AdcStream::configure_stream`.",
+        "What to stream, see `AdcStream::samples`.",
     ], ident: "StreamConfig", fields: Named([
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
             "Channel indices, in the order samples are interleaved.",
         ]),
-        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
             "Sample sets per second.",
         ]),
-        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: []),
+        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: []),
         (ident: Some("flush_interval"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
             "Send a block at least this often even if it isn\'t full (small rates would wait long otherwise); `None` lets",
             "the device choose (around 10 ms).",
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What `AdcStream::configure_stream` actually set.",
+        "What opening `AdcStream::samples` actually set.",
     ], ident: "StreamActual", fields: Named([
-        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
             "Sample sets per second.",
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "The stream\'s configuration, see `AdcStream::stream_state`.",
-    ], ident: "StreamState", fields: Named([
-        (ident: Some("config"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: []),
-        (ident: Some("actual"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: []),
-        (ident: Some("running"), default: None, since: None, ty: Bool, docs: [
-            "Sampling runs (the stream is open).",
+        "Raw samples of a stream, see `AdcStream::samples`; its position and time are in the event\'s head.",
+    ], ident: "SampleBlock", fields: Named([
+        (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "Whole sample sets, interleaved in the order of [StreamConfig::channels], packed as [StreamConfig::format].",
         ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `AdcStream` can do.",
+    ], ident: "StreamCapabilities", fields: Named([
+        (ident: Some("max_total_rate"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
+            "Highest sample rate of all channels together (samples, not sets, per second), alone on the link.",
+        ]),
+        (ident: Some("max_channels"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Most channels in one stream.",
+        ]),
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 10))), docs: []),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `AdcCapture` can do.",
     ], ident: "CaptureCapabilities", fields: Named([
-        (ident: Some("max_total_rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+        (ident: Some("max_total_rate"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
             "Highest sample rate of all channels together (samples per second).",
         ]),
         (ident: Some("max_bytes"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
@@ -281,7 +273,7 @@
             "Which [Trigger]s work.",
         ]),
         (ident: Some("external_trigger"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 11))), docs: []),
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 10))), docs: []),
     ]))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "When a capture starts.",
@@ -311,7 +303,7 @@
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
             "Channel indices, in the order samples are interleaved.",
         ]),
-        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
             "Sample sets per second.",
         ]),
         (ident: Some("sets"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
@@ -320,13 +312,13 @@
         (ident: Some("pre_trigger"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Sample sets to keep from before the trigger.",
         ]),
-        (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: []),
-        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: []),
+        (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: []),
+        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: []),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `AdcCapture::capture` actually set.",
     ], ident: "CaptureActual", fields: Named([
-        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
             "Sample sets per second.",
         ]),
         (ident: Some("bytes"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
@@ -376,39 +368,33 @@
     InLine(level: (docs: [
         "Continuous sampling, sent on the `samples` stream.",
         "",
-        "Only one stream runs at a time. `AdcStream::configure_stream` sets it up; the `samples` stream\'s sideband `Open`",
-        "starts sampling and `Close` stops it (blocks already sampled are still sent).",
+        "Only one stream runs at a time: opening `samples` again restarts it with the new configuration.",
     ], crate_idx: 0, trait_name: "AdcStream", items: [
-        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 9), is_up: true), multiplicity: Flat, since: None, ident: "samples", docs: [
-            "Raw samples, whole sample sets interleaved in the order of [StreamConfig::channels].",
-        ]),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12))), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
-            "Rates, formats and limits of streaming.",
-        ]),
-        (id: 2, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 13)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "configure_stream", docs: [
-            "Sets up sampling of `config.channels` at `config.rate` sample sets per second and returns what was actually",
-            "set (the nearest rate the hardware can do). Applies at once to a running stream.",
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 13), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 11)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "samples", docs: [
+            "Raw samples of `config.channels` at `config.rate` sample sets per second, whole sample sets interleaved in",
+            "the order of [StreamConfig::channels]. Opening returns what was actually set (the nearest rate the hardware",
+            "can do), closing stops sampling (blocks already sampled are still sent). Unit: sample set.",
             "",
             "# Errors",
             "",
             "[AdcError::NoSuchChannel], [AdcError::InvalidArgument] (rate or channel count out of range),",
             "[AdcError::Unsupported] (format), [AdcError::Busy] (a capture runs), [AdcError::InUse], [AdcError::NoIoLevel].",
         ]),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15))), multiplicity: Flat, since: None, ident: "stream_state", docs: [
-            "The current stream configuration and whether it runs. For a host that joins a running stream.",
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 14))), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
+            "Rates, formats and limits of streaming.",
         ]),
     ]), crate_idx: 0),
     InLine(level: (docs: [
         "Lossless capture: samples go into device RAM at any rate the hardware can do, the host reads them out after.",
     ], crate_idx: 0, trait_name: "AdcCapture", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 16))), multiplicity: Flat, since: None, ident: "capture_capabilities", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15))), multiplicity: Flat, since: None, ident: "capture_capabilities", docs: [
             "Rates, depth, triggers and formats of captures.",
         ]),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 18)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 19), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "capture", docs: [
+            (ident: "config", ty: OutOfLine(type_idx: 17)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 18), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "capture", docs: [
             "Arms a capture. With [Trigger::Now] it starts at once; otherwise it samples `pre_trigger` sets continuously",
             "and keeps them, waits for the trigger, then takes the rest. Replaces a previous capture and its data.",
             "",
@@ -418,7 +404,7 @@
             "[AdcError::Unsupported] (format or trigger), [AdcError::Busy] (a stream runs), [AdcError::InUse],",
             "[AdcError::NoIoLevel].",
         ]),
-        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 20))), multiplicity: Flat, since: None, ident: "capture_status", docs: [
+        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 19))), multiplicity: Flat, since: None, ident: "capture_status", docs: [
             "Where the capture stands.",
         ]),
         (id: 3, kind: Method(args: [

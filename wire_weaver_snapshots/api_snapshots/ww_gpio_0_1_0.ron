@@ -14,8 +14,66 @@
         (docs: [], ident: "Low", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "High", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Event sources of an IO pin (interrupts) to report on the `Pin::event` stream, its argument.",
+    ], ident: "IoPinEnabledEvents", fields: Named([
+        (ident: Some("rising"), default: None, since: None, ty: Bool, docs: [
+            "Report `IoPinEvent::RisingEdge`.",
+        ]),
+        (ident: Some("falling"), default: None, since: None, ty: Bool, docs: [
+            "Report `IoPinEvent::FallingEdge`.",
+        ]),
+        (ident: Some("custom"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [
+            "Indices of device-specific sources to report as `IoPinEvent::Custom`.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "GPIO error",
+    ], ident: "Error", variants: [
+        (docs: [
+            "`Pin::set_mode` was called with a `Mode` this pin doesn\'t support.",
+        ], ident: "UnsupportedMode", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "`Pin::pull` was set to a `Pull` this pin doesn\'t support.",
+        ], ident: "UnsupportedPull", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "`Pin::speed` was set to a `Speed` this pin doesn\'t support.",
+        ], ident: "UnsupportedSpeed", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "`Pin::event` was opened with an edge or custom source this pin can\'t generate.",
+        ], ident: "UnsupportedEventType", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "`Bank::reference_voltage` was set to a voltage this bank can\'t drive.",
+        ], ident: "UnsupportedReferenceVoltage", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "Pins of a bank were requested to use different modes when only one mode at a time is supported.",
+        ], ident: "DifferentModes", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "The method or property exists on the device but isn\'t implemented yet.",
+        ], ident: "NotImplemented", fields: Unit, discriminant: 6, since: None),
+        (docs: [
+            "Device-specific error code, 8-bit.",
+        ], ident: "CustomU8", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        ]), discriminant: 7, since: None),
+        (docs: [
+            "Device-specific error code, 32-bit.",
+        ], ident: "CustomU32", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 8, since: None),
+        (docs: [
+            "The pin serves another function.",
+        ], ident: "InUse", fields: Unit, discriminant: 9, since: None),
+        (docs: [
+            "The level translators have no supply (IO level off).",
+        ], ident: "NoIoLevel", fields: Unit, discriminant: 10, since: None),
+        (docs: [
+            "A safety rule of the device doesn\'t allow it.",
+        ], ident: "Refused", fields: Unit, discriminant: 11, since: None),
+    ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
-        "IO pin asynchronous event (interrupt reason), sent via the `Pin::event` stream if enabled.",
+        "IO pin asynchronous event (interrupt reason), sent on the `Pin::event` stream; when it happened is in the event\'s",
+        "head.",
     ], ident: "IoPinEvent", variants: [
         (docs: [
             "The pin\'s input went from low to high.",
@@ -53,50 +111,6 @@
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
         ]), discriminant: 5, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "GPIO error",
-    ], ident: "Error", variants: [
-        (docs: [
-            "`Pin::set_mode` was called with a `Mode` this pin doesn\'t support.",
-        ], ident: "UnsupportedMode", fields: Unit, discriminant: 0, since: None),
-        (docs: [
-            "`Pin::pull` was set to a `Pull` this pin doesn\'t support.",
-        ], ident: "UnsupportedPull", fields: Unit, discriminant: 1, since: None),
-        (docs: [
-            "`Pin::speed` was set to a `Speed` this pin doesn\'t support.",
-        ], ident: "UnsupportedSpeed", fields: Unit, discriminant: 2, since: None),
-        (docs: [
-            "`Pin::configure_events` requested an edge or custom source this pin can\'t generate.",
-        ], ident: "UnsupportedEventType", fields: Unit, discriminant: 3, since: None),
-        (docs: [
-            "`Bank::reference_voltage` was set to a voltage this bank can\'t drive.",
-        ], ident: "UnsupportedReferenceVoltage", fields: Unit, discriminant: 4, since: None),
-        (docs: [
-            "Pins of a bank were requested to use different modes when only one mode at a time is supported.",
-        ], ident: "DifferentModes", fields: Unit, discriminant: 5, since: None),
-        (docs: [
-            "The method or property exists on the device but isn\'t implemented yet.",
-        ], ident: "NotImplemented", fields: Unit, discriminant: 6, since: None),
-        (docs: [
-            "Device-specific error code, 8-bit.",
-        ], ident: "CustomU8", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        ]), discriminant: 7, since: None),
-        (docs: [
-            "Device-specific error code, 32-bit.",
-        ], ident: "CustomU32", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
-        ]), discriminant: 8, since: None),
-        (docs: [
-            "The pin serves another function.",
-        ], ident: "InUse", fields: Unit, discriminant: 9, since: None),
-        (docs: [
-            "The level translators have no supply (IO level off).",
-        ], ident: "NoIoLevel", fields: Unit, discriminant: 10, since: None),
-        (docs: [
-            "A safety rule of the device doesn\'t allow it.",
-        ], ident: "Refused", fields: Unit, discriminant: 11, since: None),
-    ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "IO pin pull configuration (pull-up, pull-down, etc.)",
     ], ident: "Pull", variants: [
@@ -133,28 +147,15 @@
         ]), discriminant: 4, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "List of enabled event sources for an IO pin (interrupts) that generate the `Pin::event` stream.",
-    ], ident: "IoPinEnabledEvents", fields: Named([
-        (ident: Some("rising"), default: None, since: None, ty: Bool, docs: [
-            "Report `IoPinEvent::RisingEdge`.",
-        ]),
-        (ident: Some("falling"), default: None, since: None, ty: Bool, docs: [
-            "Report `IoPinEvent::FallingEdge`.",
-        ]),
-        (ident: Some("custom"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [
-            "Indices of device-specific sources to report as `IoPinEvent::Custom`.",
-        ]),
-    ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What one pin can do, see `Pin::capabilities`.",
     ], ident: "PinCapabilities", fields: Named([
-        (ident: Some("modes"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 2))), docs: [
+        (ident: Some("modes"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 4))), docs: [
             "Modes the pin can be switched to with `Pin::set_mode`.",
         ]),
-        (ident: Some("pulls"), default: None, since: None, ty: MaxLen(max_len: 4, ty: Vec(OutOfLine(type_idx: 4))), docs: [
+        (ident: Some("pulls"), default: None, since: None, ty: MaxLen(max_len: 4, ty: Vec(OutOfLine(type_idx: 5))), docs: [
             "Pull configurations the pin\'s `pull` property accepts.",
         ]),
-        (ident: Some("speeds"), default: None, since: None, ty: MaxLen(max_len: 5, ty: Vec(OutOfLine(type_idx: 5))), docs: [
+        (ident: Some("speeds"), default: None, since: None, ty: MaxLen(max_len: 5, ty: Vec(OutOfLine(type_idx: 6))), docs: [
             "Drive strengths the pin\'s `speed` property accepts.",
         ]),
         (ident: Some("events"), default: None, since: None, ty: Bool, docs: [
@@ -229,43 +230,42 @@
             "Note that when a pin is configured as output, input buffer might be disabled, resulting in incorrect input level reported.",
             "If this is the case, current output level must be returned.",
         ]),
-        (id: 7, kind: Stream(ty: OutOfLine(type_idx: 1), is_up: true), multiplicity: Flat, since: None, ident: "event", docs: [
-            "7. Asynchronous stream of events (rising / falling edge), if enabled by `configure_events`.",
+        (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 3), delivery: Counted, args: [
+            (ident: "enabled", ty: OutOfLine(type_idx: 1)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2)))), multiplicity: Flat, since: None, ident: "event", docs: [
+            "7. Edges (and device-specific sources) of this pin, as they happen: opening the stream enables the sources",
+            "in `enabled`, closing it disables them. A counted stream, unit: event; each event may carry the device time",
+            "it happened at, and the host learns exactly how many events the device dropped.",
+            "",
+            "# Errors",
+            "`Error::UnsupportedEventType` if a requested source (edge or custom) isn\'t available on this pin.",
         ]),
         (id: 8, kind: Method(args: [
-            (ident: "mode", ty: OutOfLine(type_idx: 2)),
+            (ident: "mode", ty: OutOfLine(type_idx: 4)),
             (ident: "initial", ty: Option(some_ty: OutOfLine(type_idx: 0))),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_mode", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2)))), multiplicity: Flat, since: None, ident: "set_mode", docs: [
             "Mode configuration, input, high-z, push-pull, open-drain or custom.",
             "Optionally set the initial level before changing pin mode.",
             "",
             "# Errors",
             "`Error::UnsupportedMode` if the pin can\'t be switched to the requested mode.",
         ]),
-        (id: 9, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "mode", docs: [
+        (id: 9, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4))), multiplicity: Flat, since: None, ident: "mode", docs: [
             "Get current mode.",
         ]),
-        (id: 10, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "pull", docs: [
+        (id: 10, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "pull", docs: [
             "Pull resistors selection.",
             "",
             "# Errors",
             "`Error::UnsupportedPull` if the pin doesn\'t support the requested pull (`set` only).",
         ]),
-        (id: 11, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "speed", docs: [
+        (id: 11, kind: Property(ty: OutOfLine(type_idx: 6), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "speed", docs: [
             "Drive strength selection.",
             "",
             "# Errors",
             "`Error::UnsupportedSpeed` if the pin doesn\'t support the requested drive strength (`set` only).",
         ]),
-        (id: 12, kind: Method(args: [
-            (ident: "enabled", ty: OutOfLine(type_idx: 6)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "configure_events", docs: [
-            "Enable or disable asynchronous events sent through the `event` stream.",
-            "",
-            "# Errors",
-            "`Error::UnsupportedEventType` if a requested source (edge or custom) isn\'t available on this pin.",
-        ]),
-        (id: 13, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 12, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What this pin can do: modes, pulls, speeds, whether it sends events, and its name.",
         ]),
     ]), crate_idx: 0),
@@ -282,7 +282,7 @@
         (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 9))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Capabilities that each pin of the bank supports.",
         ]),
-        (id: 9, kind: Property(ty: OutOfLine(type_idx: 8), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "reference_voltage", docs: [
+        (id: 9, kind: Property(ty: OutOfLine(type_idx: 8), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "reference_voltage", docs: [
             "Reference voltage for all pins of the bank.",
             "",
             "# Errors",

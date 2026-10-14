@@ -36,8 +36,9 @@
     "",
     "# Time",
     "",
-    "Timestamps are device time ([Second]) of the device\'s clock (`ww_timebase::Clock`); sample `k` was taken at",
-    "`t_first + k / rate`, with the rate the device actually set.",
+    "Timestamps are device time ([Second]) of the device\'s clock (`ww_timebase::Clock`); sample `k` of a capture was",
+    "taken at `t_first + k / rate`, with the rate the device actually set. A stream\'s chunks carry the time of their",
+    "first sample in the event head instead.",
     "",
     "# Errors",
     "",
@@ -382,6 +383,33 @@
             "Samples where the channel toggles, ascending, in `from..scanned_to`; at most [MAX_EDGES].",
         ]),
     ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What to stream, see `LogicStream::data`.",
+    ], ident: "StreamConfig", fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "Channel numbers ([LaCapabilities::channels]), in the bit order of raw words.",
+        ]),
+        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "Samples per second.",
+        ]),
+        (ident: Some("encoding"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: []),
+        (ident: Some("flush_interval"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 18)), docs: [
+            "Send a chunk at least this often even if it isn\'t full; `None` lets the device choose.",
+        ]),
+        (ident: Some("threshold"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
+            "Input threshold where it is adjustable; `None` leaves it.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What opening `LogicStream::data` actually set.",
+    ], ident: "StreamActual", fields: Named([
+        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "Samples per second.",
+        ]),
+        (ident: Some("layout"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [
+            "Layout of raw chunks.",
+        ]),
+    ]))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "One item of the `LogicStream::data` stream.",
     ], ident: "StreamChunk", variants: [
@@ -400,45 +428,6 @@
         ]),
         (ident: Some("transitions_rate"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 3)), docs: [
             "Highest sample rate with [Encoding::Transitions], as long as the edge rate fits the link.",
-        ]),
-    ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What to stream, see `LogicStream::configure_stream`.",
-    ], ident: "StreamConfig", fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
-            "Channel numbers ([LaCapabilities::channels]), in the bit order of raw words.",
-        ]),
-        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
-            "Samples per second.",
-        ]),
-        (ident: Some("encoding"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: []),
-        (ident: Some("flush_interval"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 18)), docs: [
-            "Send a chunk at least this often even if it isn\'t full; `None` lets the device choose.",
-        ]),
-        (ident: Some("threshold"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
-            "Input threshold where it is adjustable; `None` leaves it.",
-        ]),
-    ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What `LogicStream::configure_stream` actually set.",
-    ], ident: "StreamActual", fields: Named([
-        (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
-            "Samples per second.",
-        ]),
-        (ident: Some("layout"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [
-            "Layout of raw chunks.",
-        ]),
-    ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "The stream\'s configuration, see `LogicStream::stream_state`.",
-    ], ident: "StreamState", fields: Named([
-        (ident: Some("config"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: []),
-        (ident: Some("actual"), default: None, since: None, ty: OutOfLine(type_idx: 27), docs: []),
-        (ident: Some("running"), default: None, since: None, ty: Bool, docs: [
-            "Sampling runs (the stream is open).",
-        ]),
-        (ident: Some("t_first"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [
-            "When sample 0 of the stream was taken.",
         ]),
     ]))), crate_idx: 0),
 ], traits: [
@@ -503,28 +492,23 @@
     InLine(level: (docs: [
         "Continuous capture, sent on the `data` stream.",
         "",
-        "`LogicStream::configure_stream` sets it up; the `data` stream\'s sideband `Open` starts sampling and `Close` stops",
-        "it. Every chunk carries its first sample index: a gap in them is what a host sees when it couldn\'t keep up",
-        "(loss reporting and backfill are not covered yet).",
+        "Opening `data` starts sampling with its configuration, closing it stops; opening it again restarts it with the",
+        "new one. Every chunk carries its own sample range, and the stream is counted: the host knows exactly which chunks",
+        "the device dropped, and each chunk may carry the device time of its first sample in the event head.",
     ], crate_idx: 0, trait_name: "LogicStream", items: [
-        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 24), is_up: true), multiplicity: Flat, since: None, ident: "data", docs: [
-            "Captured data in the configured encoding: raw chunks, or transition chunks of each channel as they fill.",
-        ]),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 25))), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
-            "Rates, channels and encodings of streaming.",
-        ]),
-        (id: 2, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 26)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 27), err_ty: OutOfLine(type_idx: 17)))), multiplicity: Flat, since: None, ident: "configure_stream", docs: [
-            "Sets up streaming and returns what was actually set. Applies at once to a running stream.",
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 26), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 24)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 25), err_ty: OutOfLine(type_idx: 17)))), multiplicity: Flat, since: None, ident: "data", docs: [
+            "Captured data in `config`\'s encoding: raw chunks, or transition chunks of each channel as they fill. Opening",
+            "returns what was actually set. Unit: chunk.",
             "",
             "# Errors",
             "",
             "[LaError::NoSuchChannel], [LaError::InvalidArgument] (rate, channel count or threshold out of range),",
             "[LaError::Unsupported] (encoding), [LaError::Busy] (a capture runs), [LaError::InUse], [LaError::NoIoLevel].",
         ]),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 28))), multiplicity: Flat, since: None, ident: "stream_state", docs: [
-            "The current stream configuration and whether it runs. For a host that joins a running stream.",
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 27))), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
+            "Rates, channels and encodings of streaming.",
         ]),
     ]), crate_idx: 0),
 ], ext_crates: [

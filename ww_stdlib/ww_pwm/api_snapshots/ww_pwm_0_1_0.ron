@@ -32,10 +32,10 @@
     "",
     "# Streams",
     "",
-    "`PwmCaptureChannel::capture` sends one [CaptureSample] per `gate` while a capture is running.",
-    "`PwmCaptureChannel::set_capture` sets up what to measure and over which window; the stream\'s own sideband",
-    "`Open` / `Close` starts and stops measuring (streams in the IO family carry no sequence number or loss count,",
-    "see `docs/std_library/io_family.md`).",
+    "`PwmCaptureChannel::capture` is a counted stream function: the host opens it with what to measure and over which",
+    "window, and gets one [CaptureValue] per `gate` until it closes the stream. The event head carries the time of",
+    "each measurement (the end of its window) and how many measurements the device dropped. Without a stream,",
+    "`PwmCaptureChannel::set_capture` and `PwmCaptureChannel::read_capture` measure and poll the last result.",
     "",
     "# Errors",
     "",
@@ -148,42 +148,6 @@
             "Duty resolution of the hardware: `set_duty`\'s 0..=65535 range is rounded to this many bits.",
         ]),
     ]))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        37,
-        124,
-        121,
-        139,
-        82,
-        74,
-        68,
-        74,
-    ]),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "A measurement, in the mode [CaptureConfig::mode] set; the variant always matches it.",
-    ], ident: "CaptureValue", variants: [
-        (docs: [], ident: "Frequency", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
-        ]), discriminant: 0, since: None),
-        (docs: [
-            "0..=65535 = 0..100 %.",
-        ], ident: "DutyCycle", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
-        ]), discriminant: 1, since: None),
-        (docs: [], ident: "PulseWidth", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
-        ]), discriminant: 2, since: None),
-        (docs: [], ident: "EdgeCount", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
-        ]), discriminant: 3, since: None),
-    ])), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "One measurement, see `PwmCaptureChannel::capture` and `PwmCaptureChannel::read_capture`.",
-    ], ident: "CaptureSample", fields: Named([
-        (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [
-            "End of the measurement window.",
-        ]),
-        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
-    ]))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What `PwmCaptureChannel::set_capture` measures, see [CaptureValue] for the matching result.",
     ], ident: "CaptureMode", variants: [
@@ -203,15 +167,51 @@
             "Rising (or falling, device-defined) edges counted over `gate`.",
         ], ident: "EdgeCount", fields: Unit, discriminant: 4, since: None),
     ])), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
+        37,
+        124,
+        121,
+        139,
+        82,
+        74,
+        68,
+        74,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What to measure, see `PwmCaptureChannel::set_capture`.",
+        "What to measure, see `PwmCaptureChannel::capture` and `PwmCaptureChannel::set_capture`.",
     ], ident: "CaptureConfig", fields: Named([
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: []),
-        (ident: Some("gate"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
+        (ident: Some("gate"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [
             "Measurement window: for [CaptureMode::Frequency], [CaptureMode::DutyCycle] and [CaptureMode::EdgeCount], how",
             "long one measurement covers; [CaptureMode::PulseWidth] times the next single pulse, so `gate` only bounds",
             "how long it waits for one to start.",
         ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "A measurement, in the mode [CaptureConfig::mode] set; the variant always matches it.",
+    ], ident: "CaptureValue", variants: [
+        (docs: [], ident: "Frequency", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "0..=65535 = 0..100 %.",
+        ], ident: "DutyCycle", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [], ident: "PulseWidth", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
+        ]), discriminant: 2, since: None),
+        (docs: [], ident: "EdgeCount", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One measurement with its time, see `PwmCaptureChannel::read_capture`.",
+    ], ident: "CaptureSample", fields: Named([
+        (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [
+            "End of the measurement window.",
+        ]),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: []),
     ]))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
@@ -262,23 +262,31 @@
         ]),
     ]), crate_idx: 0),
     InLine(level: (docs: [
-        "One capture input, measuring over successive `gate` windows while its stream is open.",
+        "One capture input, measuring over successive `gate` windows: streamed, or polled.",
     ], crate_idx: 0, trait_name: "PwmCaptureChannel", items: [
-        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 9), is_up: true), multiplicity: Flat, since: None, ident: "capture", docs: [
-            "Measurements, one per `gate`, while capture is on. Started and stopped by the stream\'s own sideband `Open` /",
-            "`Close`; `PwmCaptureChannel::set_capture` picks what and over which window.",
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 10), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 9)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 9), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "capture", docs: [
+            "Measurements of `config`, one per `gate`, until the host closes the stream. Opening returns what was actually",
+            "set (the nearest gate the hardware can do). Unit: measurement; the head\'s time is the end of its window.",
+            "",
+            "# Errors",
+            "",
+            "[PwmError::Unsupported] (this mode isn\'t available on this channel), [PwmError::InvalidArgument] (gate out",
+            "of range, or [CaptureMode::Off]), [PwmError::InUse], [PwmError::Refused].",
         ]),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 11)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_capture", docs: [
-            "Sets up what to measure and returns what was actually set (the nearest gate the hardware can do).",
+            (ident: "config", ty: OutOfLine(type_idx: 9)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 9), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "set_capture", docs: [
+            "Sets up what to measure without a stream, for `PwmCaptureChannel::read_capture`, and returns what was",
+            "actually set (the nearest gate the hardware can do).",
             "",
             "# Errors",
             "",
             "[PwmError::Unsupported] (this mode isn\'t available on this channel), [PwmError::InvalidArgument] (gate out",
             "of range), [PwmError::InUse], [PwmError::Refused].",
         ]),
-        (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 9), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "read_capture", docs: [
+        (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "read_capture", docs: [
             "The last measurement.",
             "",
             "# Errors",

@@ -602,12 +602,12 @@ impl DynResource {
             // the device keeps the session's arguments
             Some(cursor) => {
                 let mut open =
-                    cmd.prepare_stream_open(self.path_kind(), Some(delivery), Ok(vec![]));
+                    cmd.prepare_stream_open(self.path_kind()?, Some(delivery), Ok(vec![]));
                 open.resume = Some(cursor);
                 open
             }
             None => {
-                cmd.prepare_stream_open(self.path_kind(), Some(delivery), self.stream_fn_args(args))
+                cmd.prepare_stream_open(self.path_kind()?, Some(delivery), self.stream_fn_args(args))
             }
         };
         open.raw_fallible = fallible;

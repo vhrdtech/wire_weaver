@@ -34,7 +34,7 @@
     "assert_eq!(I2cError::Nack.common(), None);",
     "```",
     "",
-    "Tools (ww CLI, GUI, Python) recognise `ww_error::CommonError` by its type in the API model and show it the same",
+    "Tools (the ww CLI, Python) recognise `ww_error::CommonError` by its type in the API model and show it the same",
     "for every API. Strings are bounded and may be empty: a device that saves flash sends `\"\"`.",
 ], crate_idx: 0, trait_name: "ww_error", items: []), types: [
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
@@ -89,4 +89,4 @@
     ])), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-])
+], root_omitted: None)

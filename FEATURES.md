@@ -199,8 +199,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (sink values, any type; `StreamSideband::Credit { have, grant }`), the host waits when out of credit (async,
   blocking, `try_send`), writes carry their element index so a lossy medium resumes with go-back-N from `have`
   (`Resend`, `CreditQuery`), `flush()` waits for the final ack. Device state in `ww_client_server::credit::SinkCredit`,
-  queue sized in element slots from `stream_data_ser().<sink>_max_element_bytes()` (`sized` types; bounded types
-  with SW-19), dynamic and Python clients too. Used by `ww_dfu` `StageBulk::plan`. For bulk transfers (chunky OTA
+  queue sized in element slots from `stream_data_ser().<sink>_max_element_bytes()` (from `MAX_SIZE`, `MaxLen`
+  bounds included), dynamic and Python clients too. Used by `ww_dfu` `StageBulk::plan`. For bulk transfers (chunky OTA
   plans over LTE-M/LoRa/UDP), UART bridges, CAN tx. See also CLT-18 backpressure (`docs/api/streams.md`,
   `tests/credit_sink`).
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
@@ -400,7 +400,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `StageBulk`: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored
   plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec (P2625). End to
   end test `tests/dfu`. `StageBulk::plan` is a credit sink (API-28 credit-sinks). Next: bounded sizes for the pieces
-  (SW-19), a chunky implementation (chunky NET-1).
+  (`MaxLen<RefVec<'i, u8>, N>` on `PlanSegment::data`, `Stage::write` data and the headers: needs one protocol-wide
+  `N` next to the per-node `max_piece`, to be chosen with the chunky spec, SW-19), a chunky implementation (chunky NET-1).
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

@@ -133,8 +133,9 @@ A sink carries any type, and the device keeps what it received as values of that
 
 * the device sizes its receive queue in element slots, for the worst-case element size: `slots = buffer bytes / max
   element size` (`SinkCredit::slots_for`). Generated `stream_data_ser().<sink>_max_element_bytes()` gives that size
-  where it is known (`sized` types today; the bound of bounded types once SW-19 `MaxLen` lands, `None` until then,
-  e.g., for `[u8]`), so the user decides the slot size from the API rather than guessing;
+  from the type's `MAX_SIZE` (`None` for a type without an upper bound, e.g., `[u8]`; bound it with
+  [`MaxLen`](../types.md#bounded-lists-and-strings-maxlent-n): `MaxLen<RefVec<'i, u8>, N>` gives `N`), so the user
+  decides the slot size from the API rather than guessing;
 * positions count values, so a resend starts at a value boundary by construction, and the numbers stay small (a
   position costs 1 byte for the first 128 values of a session);
 * the host never has to know how the device stores a value.

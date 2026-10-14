@@ -55,7 +55,8 @@
   position of each write, call `write_<name>` only for writes in order, answer `CreditQuery` themselves and send
   `Credit`/`Resend` events (credit counts elements); the server scaffold includes the handler and a `SinkCredit`
   field. `stream_data_ser()` is a `const fn` and has `<sink>_max_element_bytes()` for credit sinks, the worst-case
-  element size to size the receive queue (`sized` types; `TODO(SW-19)` for bounded ones). Generated clients open
+  element size to size the receive queue (from `MAX_SIZE`; for a byte sink, its `MaxLen` bound). A bounded byte
+  credit sink checks the length before the write takes a position. Generated clients open
   credit sinks with `Commander::prepare_credit_sink()`.
 - `medium` server codegen option: type (usually an enum) handlers get from `cx.medium()`, `()` if not set.
 - `stream_data_ser()` has `<name>_send(.., out)` and `<name>_send_blocking(.., out)` for every stream, sending through a

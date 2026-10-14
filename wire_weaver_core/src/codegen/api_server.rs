@@ -958,6 +958,8 @@ fn handle_stream(
     } else {
         // sink (device in)
         // bytes with a max length: sent as is like without one, checked here
+        let is_bounded_bytes =
+            matches!(ty, TypeOwned::MaxLen { .. }) && ty.is_byte_slice(api_bundle).unwrap();
         let max_len_check = match ty.max_len(api_bundle).unwrap() {
             Some(max_len) if ty.is_byte_slice(api_bundle).unwrap() => {
                 let es = err_seq.next();
@@ -998,8 +1000,8 @@ fn handle_stream(
                     other_des()
                 }
             }
-            TypeOwned::MaxLen { .. } if ty.is_byte_slice(api_bundle).unwrap() => {
-                (max_len_check, quote! { data })
+            TypeOwned::MaxLen { .. } if is_bounded_bytes => {
+                (max_len_check.clone(), quote! { data })
             }
             _ => other_des(),
         };
@@ -1037,6 +1039,12 @@ fn handle_stream(
                         });
                     }
                 };
+                // a too long write is refused before it takes a position, so it is never counted as accepted
+                let (credit_max_len_check, credit_des_data) = if is_bounded_bytes {
+                    (max_len_check, quote! {})
+                } else {
+                    (quote! {}, des_data)
+                };
                 quote! {
                     RequestKind::Write { data } => {
                         let credit_write = {
@@ -1045,10 +1053,11 @@ fn handle_stream(
                                 .map_err(|_e| Error::new(#es_pos, ErrorKind::ArgsDesFailed))?
                         };
                         let data = &credit_write.data;
+                        #credit_max_len_check
                         let verdict = self.#credit_fn(#maybe_index_chain_call).on_write(credit_write.pos.0);
                         match verdict {
                             ww_client_server::credit::CreditVerdict::Accept => {
-                                #des_data
+                                #credit_des_data
                                 self.#write(cx, #maybe_index_chain_call #arg)#maybe_await;
                                 if let Some(sideband) = self.#credit_fn(#maybe_index_chain_call).take_credit() {
                                     #send_sideband

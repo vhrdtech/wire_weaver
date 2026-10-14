@@ -148,8 +148,9 @@ impl CreditTx {
             progress = true;
         }
         if is_resend {
-            // a sign of life even when nothing moved
-            progress = true;
+            // answered: no need to ask again before query_interval, but only an advance is progress, so a value
+            // the device keeps refusing ends in a stall timeout
+            self.last_query = now;
             if have < self.sent {
                 self.resend_from = Some(have);
             }

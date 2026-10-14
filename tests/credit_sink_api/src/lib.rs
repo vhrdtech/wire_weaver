@@ -14,6 +14,9 @@ trait CreditSinks {
     sink!(lanes[]: [u8]);
     /// Plain sink, no flow control
     sink!(plain: [u8]);
+    /// Bounded byte chunks (SW-19 MaxLen)
+    #[credit]
+    sink!(blocks: MaxLen<RefVec<'i, u8>, 4>);
     fn finish();
 }
 

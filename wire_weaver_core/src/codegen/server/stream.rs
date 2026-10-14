@@ -199,17 +199,23 @@ fn max_element_bytes(bundle: &ApiBundleOwned, ident: &str, ty: &TypeOwned) -> To
     );
     let doc = format!(
         "Worst-case serialized size of one `{ident}` element in bytes, to size the receive queue in element slots \
-         (`SinkCredit::slots_for`). None when no upper bound is known (unsized types, byte slices)."
+         (`SinkCredit::slots_for`). None when the type has no upper bound (see `shrink_wrap::MaxLen`)."
     );
     let body = if ty.is_byte_slice(bundle).unwrap() {
-        quote! { None }
+        // sent as is, without a length: a bound is the byte count itself
+        match ty.max_len(bundle).unwrap() {
+            Some(max_len) => quote! { Some(#max_len) },
+            None => quote! { None },
+        }
     } else {
         let ty_def = ty_def(bundle, ty, false, TyPos::Annotation).unwrap();
         quote! {
-            // TODO(SW-19): the MaxLen bound of bounded unsized types
-            match <#ty_def as wire_weaver::shrink_wrap::SerializeShrinkWrap>::ELEMENT_SIZE {
-                wire_weaver::shrink_wrap::ElementSize::Sized { size_bits } => Some(size_bits.div_ceil(8) as u32),
-                _ => None,
+            // what the device gets in a write: the value serialized as a root
+            match wire_weaver::shrink_wrap::MaxSize::buffer_len_of(
+                <#ty_def as wire_weaver::shrink_wrap::SerializeShrinkWrap>::MAX_SIZE,
+            ) {
+                Some(len) => Some(len as u32),
+                None => None,
             }
         }
     };

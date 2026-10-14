@@ -33,6 +33,7 @@ mod tests {
         points: Vec<Point>,
         lanes: [Vec<u8>; 4],
         plain: Vec<Vec<u8>>,
+        blocks: Vec<Vec<u8>>,
         closed: u32,
     }
 
@@ -64,6 +65,7 @@ mod tests {
 
         pub struct Server {
             pub m: Arc<Mutex<Model>>,
+            pub blocks_credit: SinkCredit,
             pub plan_credit: SinkCredit,
             pub points_credit: SinkCredit,
             pub lanes_credit: [SinkCredit; 4],
@@ -116,6 +118,27 @@ mod tests {
 
             fn credit_points(&mut self) -> &mut SinkCredit {
                 &mut self.points_credit
+            }
+
+            fn credit_blocks(&mut self) -> &mut SinkCredit {
+                &mut self.blocks_credit
+            }
+
+            fn sideband_blocks(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _sideband: StreamSideband,
+            ) -> Option<StreamSideband> {
+                None
+            }
+
+            fn write_blocks(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                data: &shrink_wrap::tail_bytes::TailBytes<'_>,
+            ) {
+                self.m.lock().unwrap().blocks.push(data.0.to_vec());
+                self.blocks_credit.free(1);
             }
 
             fn sideband_points(
@@ -242,6 +265,25 @@ mod tests {
                 &mut self.other
             }
 
+            fn credit_blocks(&mut self) -> &mut SinkCredit {
+                &mut self.other
+            }
+
+            async fn sideband_blocks(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+                _sideband: StreamSideband,
+            ) -> Option<StreamSideband> {
+                None
+            }
+
+            async fn write_blocks(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+                _data: &shrink_wrap::tail_bytes::TailBytes<'_>,
+            ) {
+            }
+
             async fn sideband_points(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
@@ -356,6 +398,7 @@ mod tests {
         let server = sync_server::Server {
             m: m.clone(),
             plan_credit: credit(),
+            blocks_credit: SinkCredit::new(2).with_threshold(1),
             points_credit: SinkCredit::new(4).with_threshold(2),
             lanes_credit: [(); 4].map(|_| SinkCredit::new(4).with_threshold(2)),
         };
@@ -865,7 +908,32 @@ mod tests {
         const POINT: Option<u32> = stream_data_ser().points_max_element_bytes();
         assert_eq!(POINT, Some(4));
         assert_eq!(SinkCredit::slots_for(64, POINT.unwrap()), 16);
-        // byte slices have no bound (until SW-19 MaxLen)
+        // byte slices without a bound have none, with MaxLen the bound is the byte count (sent as is)
         assert_eq!(stream_data_ser().plan_max_element_bytes(), None);
+        assert_eq!(stream_data_ser().blocks_max_element_bytes(), Some(4));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn bounded_bytes_too_long_is_never_accepted() {
+        let (device, m) = start("credit/bounded", Config::new(4, 2));
+        let client = connect(&device).await;
+        let mut blocks = client.blocks().await.unwrap();
+        blocks.set_credit_config(CreditConfig {
+            query_interval: Duration::from_millis(20),
+            stall_timeout: Some(Duration::from_millis(200)),
+        });
+        blocks.send_bytes(&[1, 2, 3, 4]).await.unwrap();
+        blocks.send_bytes(&[]).await.unwrap();
+        blocks.flush().await.unwrap();
+        assert_eq!(m.lock().unwrap().blocks, [vec![1, 2, 3, 4], vec![]]);
+        // refused before it takes a position: the device keeps asking for it, the host gives up
+        blocks.send_bytes(&[1, 2, 3, 4, 5]).await.unwrap();
+        let r = blocks.flush().await;
+        assert!(
+            matches!(r, Err(StreamError::Other(Error::Timeout))),
+            "{r:?}"
+        );
+        assert_eq!(m.lock().unwrap().blocks.len(), 2);
+        assert_eq!(blocks.credit_progress(), Some((2, 3)));
     }
 }

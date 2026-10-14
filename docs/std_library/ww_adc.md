@@ -46,22 +46,37 @@ Continuous sampling of chosen channels, streamed while the link keeps up:
 ```rust
 #[ww_trait]
 pub trait AdcStream {
-    stream!(samples: SampleBlock<'i>);
+    #[stream(SampleBlock<'i>, counted)]
+    fn samples(config: StreamConfig<'i>) -> Result<StreamActual, AdcError>;
     fn stream_capabilities() -> StreamCapabilities<'i>;
-    fn configure_stream(config: StreamConfig<'i>) -> Result<StreamActual, AdcError>;
-    fn stream_state() -> StreamState<'i>;
 }
 ```
 
-* `samples` - raw samples, whole sample sets interleaved in the order of `StreamConfig::channels`, packed as
-  `StreamConfig::format`. Only one stream runs at a time.
+* `samples` - a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with the channels,
+  rate and format to sample and gets back what was actually set (the nearest rate the hardware can do), or an
+  `AdcError`. Each `SampleBlock` holds whole sample sets interleaved in the order of `StreamConfig::channels`,
+  packed as `StreamConfig::format`. Closing the stream stops sampling (blocks already sampled are still sent);
+  opening it again restarts it with the new configuration. Only one stream runs at a time.
 * `stream_capabilities` - rates, channel counts and formats the stream supports.
-* `configure_stream` - sets `config.channels` at `config.rate` sample sets per second and returns what was
-  actually set (the nearest rate the hardware can do); applies at once to a running stream. The stream itself
-  starts and stops with its own sideband commands, not a method: `samples`' `Open` starts sampling, `Close` stops
-  it (already-sampled blocks are still sent). This keeps `AdcStream` free of a separate `start_stream` /
-  `stop_stream` pair.
-* `stream_state` - the current configuration and whether sampling runs, for a host that joins a running stream.
+
+The stream's unit is a **sample set** (one sample of every configured channel). Positions, sets the device dropped
+and the device time of a block's first set travel in the event head the framework adds
+([stream delivery](../api/stream_reliability.md)), so a block is pure sample data:
+
+```rust
+// host
+let (actual, mut samples) = adc.adc_stream().samples(config).call().await??;
+while let Ok(ev) = samples.recv_event().await {
+    match ev {
+        StreamEvent::Item { pos, units, t, value, .. } => { /* `units` sets from set `pos`, the first at `t` */ }
+        StreamEvent::Gap { at, units, cause, .. } => { /* `units` sets missing from `at` */ }
+        _ => {}
+    }
+}
+
+// device, in the event loop: two sets just sampled, the first at `t`
+api_impl::stream_data_ser().adc_stream().samples_send_blocking(&mut server.samples, &block, 2, Some(t), &mut server.sink())?;
+```
 
 ### `AdcCapture`
 
@@ -105,8 +120,7 @@ pub trait AdcCapture {
 * `StreamConfig<'i>` - `channels: MaxLen<RefVec<'i, u8>, MAX_CHANNELS>` (interleave order), `rate: Hertz`,
   `format: SampleFormat`, `flush_interval: Option<Second>` (send a partial block at least this often; `None` lets
   the device choose, around 10 ms).
-* `StreamActual` - `rate: Hertz`, what `configure_stream` actually set.
-* `StreamState<'i>` - `config: StreamConfig<'i>`, `actual: StreamActual`, `running: bool`.
+* `StreamActual` - `rate: Hertz`, what opening `samples` actually set.
 * `SampleBlock<'i>` - `data: MaxLen<RefVec<'i, u8>, MAX_BLOCK_LEN>`, the stream's raw bytes.
 * `CaptureCapabilities<'i>` - `max_total_rate: Hertz`, `max_bytes: u32`, `simultaneous: bool` (channels of one
   sample set taken at the same instant), `level_trigger` / `external_trigger: bool`,
@@ -123,7 +137,7 @@ pub trait AdcCapture {
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")` and
 `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`, so owned (`*Owned`) variants (`ChannelInfoOwned`,
-`AdcCapabilitiesOwned`, `StreamConfigOwned`, `StreamStateOwned`, `CaptureConfigOwned`, ...) and `defmt::Format` are
+`AdcCapabilitiesOwned`, `StreamConfigOwned`, `CaptureConfigOwned`, ...) and `defmt::Format` are
 available by enabling the crate's `std` / `defmt` features. Types without a lifetime (`Reading`, `Hertz`, `Second`,
 `StreamActual`, `CaptureActual`, `CaptureStatus`, `AdcError`, ...) are used as is on both sides.
 
@@ -149,9 +163,10 @@ another worked example of the pattern). It is a convenient reference for wiring 
 
 * `capabilities_and_read` - queries `Adc::capabilities`, reads a calibrated and an uncalibrated channel, and
   checks `AdcError::NoSuchChannel` for an out-of-range index.
-* `stream_configure_open_receive_close` - `AdcStream::configure_stream` (the mock caps the requested rate at
-  500 kHz, like real hardware would), opens the `samples` stream with its sideband `Open`, receives a block, and
-  closes it; `Adc::read` answers `AdcError::Busy` while the stream runs.
+* `stream_open_receive_close` - opens `AdcStream::samples` with an unsupported format (`AdcError::Unsupported`,
+  nothing opened), then with a good configuration (the mock caps the requested rate at 500 kHz, like real hardware
+  would), receives a block with its position, set count and time, and closes it; `Adc::read` answers
+  `AdcError::Busy` while the stream runs.
 * `capture_now_trigger_and_read` - `AdcCapture::capture` with `Trigger::Now` completes immediately
   (`CaptureStatus::Done`), `capture_read` returns the data with bounds checking
   (`AdcError::InvalidArgument` past the end), and `capture_abort` drops it (`AdcError::WrongMode` after).

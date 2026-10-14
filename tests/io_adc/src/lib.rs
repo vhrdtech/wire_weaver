@@ -7,7 +7,8 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_adc::*;
-    use ww_client_server::StreamSideband;
+    use wire_weaver_client::StreamEvent;
+    use ww_stream::tx::Counted;
 
     /// Bytes per sample of `fmt`, see [SampleFormat].
     fn sample_bytes(fmt: SampleFormat) -> usize {
@@ -22,16 +23,16 @@ mod tests {
 
     struct StoredStreamConfig {
         channels: Vec<u8>,
-        rate: Hertz,
         format: SampleFormat,
-        flush_interval: Option<Second>,
     }
 
     #[derive(Default)]
     struct StreamSim {
         config: Option<StoredStreamConfig>,
-        actual: Option<StreamActual>,
         running: bool,
+        /// A block to send from the event loop, once the open has been answered
+        pending: bool,
+        counted: Counted,
     }
 
     struct CaptureSim {
@@ -93,6 +94,7 @@ mod tests {
             pub channels: [ChannelInfo<'static>; 2],
             pub stream: StreamSim,
             pub capture: CaptureSim,
+            pub stream_sessions: u32,
         }
 
         impl Server {
@@ -102,6 +104,7 @@ mod tests {
                     channels: channels(),
                     stream: StreamSim::default(),
                     capture: CaptureSim::default(),
+                    stream_sessions: 0,
                 }
             }
 
@@ -156,53 +159,7 @@ mod tests {
                 })
             }
 
-            fn sideband_adc_stream_samples(
-                &mut self,
-                cx: &mut Context<'_, impl BlockingEventOut>,
-                sideband: StreamSideband,
-            ) -> Option<StreamSideband> {
-                match sideband {
-                    StreamSideband::Open => {
-                        self.stream.running = true;
-                        // A real device starts sampling; the mock fills one block right away so the test has
-                        // something to receive without a background thread.
-                        if let Some(config) = &self.stream.config {
-                            let bytes = sample_bytes(config.format) * config.channels.len() * 2;
-                            let data: Vec<u8> = (0..bytes as u8).collect();
-                            let _ = api_impl::stream_data_ser()
-                                .adc_stream()
-                                .samples_send_blocking(
-                                    &SampleBlock {
-                                        data: MaxLen::new(RefVec::new_bytes(&data)).unwrap(),
-                                    },
-                                    cx,
-                                );
-                        }
-                    }
-                    StreamSideband::Close => self.stream.running = false,
-                    _ => {}
-                }
-                Some(sideband)
-            }
-
-            fn adc_stream_stream_capabilities(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<StreamCapabilities<'_>> {
-                Ready(StreamCapabilities {
-                    max_total_rate: Hertz {
-                        prefix: Prefix::Kilo,
-                        value: NumericValue::U32(500),
-                    },
-                    max_channels: self.channels.len() as u8,
-                    formats: MaxLen::new(RefVec::Slice {
-                        slice: &[SampleFormat::U8, SampleFormat::U16],
-                    })
-                    .unwrap(),
-                })
-            }
-
-            fn adc_stream_configure_stream(
+            fn adc_stream_samples(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: StreamConfig<'_>,
@@ -233,50 +190,65 @@ mod tests {
                 };
                 self.stream.config = Some(StoredStreamConfig {
                     channels: config.channels.as_slice().to_vec(),
-                    rate: config.rate,
                     format: config.format,
-                    flush_interval: config.flush_interval,
                 });
-                self.stream.actual = Some(actual);
+                self.stream.running = true;
+                // A real device starts sampling; the mock sends one block of two sets before the next request
+                self.stream.pending = true;
                 Ready(Ok(actual))
             }
 
-            fn adc_stream_stream_state(
+            fn close_adc_stream_samples(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+                self.stream.running = false;
+            }
+
+            fn stream_adc_stream_samples(&mut self) -> &mut Counted {
+                &mut self.stream.counted
+            }
+
+            fn new_stream_session(&mut self) -> u32 {
+                self.stream_sessions = self.stream_sessions.wrapping_add(1);
+                self.stream_sessions
+            }
+
+            /// The event loop's producer: a block the open handler asked for, once the stream is open.
+            fn produce(&mut self, out: &mut impl BlockingEventOut) {
+                if !std::mem::take(&mut self.stream.pending) {
+                    return;
+                }
+                let Some(config) = &self.stream.config else {
+                    return;
+                };
+                let bytes = sample_bytes(config.format) * config.channels.len() * 2;
+                let data: Vec<u8> = (0..bytes as u8).collect();
+                let t = self.now();
+                let _ = api_impl::stream_data_ser()
+                    .adc_stream()
+                    .samples_send_blocking(
+                        &mut self.stream.counted,
+                        &SampleBlock {
+                            data: MaxLen::new(RefVec::new_bytes(&data)).unwrap(),
+                        },
+                        2,
+                        Some(t),
+                        out,
+                    );
+            }
+
+            fn adc_stream_stream_capabilities(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<StreamState<'_>> {
-                let Some(config) = &self.stream.config else {
-                    return Ready(StreamState {
-                        config: StreamConfig {
-                            channels: MaxLen::new(RefVec::new()).unwrap(),
-                            rate: Hertz {
-                                prefix: Prefix::Unit,
-                                value: NumericValue::U32(0),
-                            },
-                            format: SampleFormat::U8,
-                            flush_interval: None,
-                        },
-                        actual: StreamActual {
-                            rate: Hertz {
-                                prefix: Prefix::Unit,
-                                value: NumericValue::U32(0),
-                            },
-                        },
-                        running: false,
-                    });
-                };
-                Ready(StreamState {
-                    config: StreamConfig {
-                        channels: MaxLen::new(RefVec::Slice {
-                            slice: &config.channels,
-                        })
-                        .unwrap(),
-                        rate: config.rate,
-                        format: config.format,
-                        flush_interval: config.flush_interval,
+            ) -> RpcResult<StreamCapabilities<'_>> {
+                Ready(StreamCapabilities {
+                    max_total_rate: Hertz {
+                        prefix: Prefix::Kilo,
+                        value: NumericValue::U32(500),
                     },
-                    actual: self.stream.actual.unwrap(),
-                    running: self.stream.running,
+                    max_channels: self.channels.len() as u8,
+                    formats: MaxLen::new(RefVec::Slice {
+                        slice: &[SampleFormat::U8, SampleFormat::U16],
+                    })
+                    .unwrap(),
                 })
             }
 
@@ -429,6 +401,8 @@ mod tests {
                 out: &mut impl BlockingEventOut,
                 medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
+                // the mock's producer runs between requests, after the open's reply went out
+                self.produce(out);
                 self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
@@ -500,7 +474,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn stream_configure_open_receive_close() {
+    async fn stream_open_receive_close() {
         let device = start("adc/stream");
         let client = connect(&device).await;
         let mut adc_stream = client.adc_stream();
@@ -508,34 +482,51 @@ mod tests {
         let caps = adc_stream.stream_capabilities().call().await.unwrap();
         assert_eq!(caps.max_channels, 2);
 
-        let actual = adc_stream
-            .configure_stream(StreamConfigOwned {
-                channels: MaxLen::new(vec![0, 1]).unwrap(),
-                rate: Hertz {
-                    prefix: Prefix::Kilo,
-                    value: NumericValue::U32(1000),
-                },
-                format: SampleFormat::U16,
-                flush_interval: None,
-            })
+        let config = |format| StreamConfigOwned {
+            channels: MaxLen::new(vec![0, 1]).unwrap(),
+            rate: Hertz {
+                prefix: Prefix::Kilo,
+                value: NumericValue::U32(1000),
+            },
+            format,
+            flush_interval: None,
+        };
+        let r = adc_stream
+            .samples(config(SampleFormat::I24))
+            .call()
+            .await
+            .unwrap();
+        assert!(matches!(r, Err(AdcError::Unsupported)), "{:?}", r.err());
+
+        let (actual, mut samples) = adc_stream
+            .samples(config(SampleFormat::U16))
             .call()
             .await
             .unwrap()
             .unwrap();
         // the mock caps at 500 kHz
         assert_eq!(actual.rate.value, NumericValue::U32(500_000));
+        // sampling runs: single readings are refused
+        assert!(matches!(
+            client.adc().read(0).call().await.unwrap(),
+            Err(AdcError::Busy)
+        ));
 
-        let state = adc_stream.stream_state().call().await.unwrap();
-        assert!(!state.running);
-
-        let mut samples = adc_stream.samples().await.unwrap();
-        samples.open().await.unwrap();
-        let block = samples.recv().await.unwrap();
-        // 2 channels, 2 bytes each (U16), 2 sets
-        assert_eq!(block.data.len(), 8);
-
-        let state = adc_stream.stream_state().call().await.unwrap();
-        assert!(state.running);
+        match samples.recv_event().await.unwrap() {
+            StreamEvent::Item {
+                pos,
+                units,
+                t,
+                value,
+                ..
+            } => {
+                // 2 sets of 2 channels, 2 bytes each (U16)
+                assert_eq!((pos, units), (0, 2));
+                assert_eq!(value.data.len(), 8);
+                assert!(t.is_some());
+            }
+            ev => panic!("{ev:?}"),
+        }
 
         samples.close().await.unwrap();
         // adc is free again once the stream stops
@@ -634,7 +625,7 @@ mod tests {
         // a stream can't start while a capture is armed/triggered, busy by then released
         let mut adc_stream = client.adc_stream();
         adc_stream
-            .configure_stream(StreamConfigOwned {
+            .samples(StreamConfigOwned {
                 channels: MaxLen::new(vec![0]).unwrap(),
                 rate: Hertz {
                     prefix: Prefix::Unit,

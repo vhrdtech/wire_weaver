@@ -41,10 +41,11 @@
 //!
 //! # Streams
 //!
-//! `AdcStream` is configured with a method (`AdcStream::configure_stream`, which answers with the rate actually
-//! set) and started and stopped with the stream's own sideband commands: `Open` starts sampling, `Close` stops it.
-//! What a stream does when the host can't keep up (counting and reporting dropped blocks, backfill), and per-block
-//! timestamps, are not covered yet; [SampleBlock] carries neither.
+//! `AdcStream::samples` is a counted stream function: the host opens it with a [StreamConfig] and gets the rate
+//! actually set back, closing it stops sampling. The unit of its positions is a sample set (one sample of every
+//! channel), so the host knows exactly how many sets the device dropped and where, and each block may carry the
+//! device time of its first set; a [SampleBlock] itself is pure data. Opening it again starts a new session with the
+//! new configuration. See `docs/api/stream_reliability.md` for positions, losses and timestamps.
 //!
 //! # Errors
 //!
@@ -89,27 +90,22 @@ pub trait Adc {
 
 /// Continuous sampling, sent on the `samples` stream.
 ///
-/// Only one stream runs at a time. `AdcStream::configure_stream` sets it up; the `samples` stream's sideband `Open`
-/// starts sampling and `Close` stops it (blocks already sampled are still sent).
+/// Only one stream runs at a time: opening `samples` again restarts it with the new configuration.
 #[ww_trait]
 pub trait AdcStream {
-    /// Raw samples, whole sample sets interleaved in the order of [StreamConfig::channels].
-    stream!(samples: SampleBlock<'i>);
-
-    /// Rates, formats and limits of streaming.
-    fn stream_capabilities() -> StreamCapabilities<'i>;
-
-    /// Sets up sampling of `config.channels` at `config.rate` sample sets per second and returns what was actually
-    /// set (the nearest rate the hardware can do). Applies at once to a running stream.
+    /// Raw samples of `config.channels` at `config.rate` sample sets per second, whole sample sets interleaved in
+    /// the order of [StreamConfig::channels]. Opening returns what was actually set (the nearest rate the hardware
+    /// can do), closing stops sampling (blocks already sampled are still sent). Unit: sample set.
     ///
     /// # Errors
     ///
     /// [AdcError::NoSuchChannel], [AdcError::InvalidArgument] (rate or channel count out of range),
     /// [AdcError::Unsupported] (format), [AdcError::Busy] (a capture runs), [AdcError::InUse], [AdcError::NoIoLevel].
-    fn configure_stream(config: StreamConfig<'i>) -> Result<StreamActual, AdcError>;
+    #[stream(SampleBlock<'i>, counted)]
+    fn samples(config: StreamConfig<'i>) -> Result<StreamActual, AdcError>;
 
-    /// The current stream configuration and whether it runs. For a host that joins a running stream.
-    fn stream_state() -> StreamState<'i>;
+    /// Rates, formats and limits of streaming.
+    fn stream_capabilities() -> StreamCapabilities<'i>;
 }
 
 /// Lossless capture: samples go into device RAM at any rate the hardware can do, the host reads them out after.
@@ -246,7 +242,7 @@ pub struct StreamCapabilities<'i> {
     pub formats: MaxLen<RefVec<'i, SampleFormat>, MAX_FORMATS>,
 }
 
-/// What to stream, see `AdcStream::configure_stream`.
+/// What to stream, see `AdcStream::samples`.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
@@ -263,7 +259,7 @@ pub struct StreamConfig<'i> {
     pub flush_interval: Option<Second>,
 }
 
-/// What `AdcStream::configure_stream` actually set.
+/// What opening `AdcStream::samples` actually set.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -275,20 +271,7 @@ pub struct StreamActual {
     pub rate: Hertz,
 }
 
-/// The stream's configuration, see `AdcStream::stream_state`.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, Clone)
-)]
-pub struct StreamState<'i> {
-    pub config: StreamConfig<'i>,
-    pub actual: StreamActual,
-    /// Sampling runs (the stream is open).
-    pub running: bool,
-}
-
-/// Raw samples of a stream, see `AdcStream`.
+/// Raw samples of a stream, see `AdcStream::samples`; its position and time are in the event's head.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),

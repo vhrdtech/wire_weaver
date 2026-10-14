@@ -912,6 +912,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#fixed_layout-fields-at-fixed-offsets-and-the-fast-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>fixed_layout</code>: fields at fixed offsets, and the fast path
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#head_tail-a-fixed-head-and-a-sequential-tail" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>head_tail</code>: a fixed head and a sequential tail
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ww_repr-repr-enums-only" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2663,6 +2685,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#fixed_layout-fields-at-fixed-offsets-and-the-fast-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>fixed_layout</code>: fields at fixed offsets, and the fast path
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#head_tail-a-fixed-head-and-a-sequential-tail" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>head_tail</code>: a fixed head and a sequential tail
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ww_repr-repr-enums-only" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3195,33 +3239,145 @@ const expression over their <code>ELEMENT_SIZE</code> and the compiler folds it.
 <p><code>size_bits</code> is the sum of the fields' own bits. Alignment padding between fields depends on where the value starts
 in the buffer and is not part of it: <code>struct { a: bool, b: u8 }</code> is <code>Sized { size_bits: 9 }</code> and takes 2 bytes
 on its own.</p>
+<h3 id="fixed_layout-fields-at-fixed-offsets-and-the-fast-path"><code>fixed_layout</code>: fields at fixed offsets, and the fast path<a class="headerlink" href="#fixed_layout-fields-at-fixed-offsets-and-the-fast-path" title="Permanent link">&para;</a></h3>
+<p>shrink_wrap writes a value field after field. When no field's size depends on its value, every field starts at the
+same place in every value: a header, a record in flash, a descriptor that is signed as bytes. Reading a field is
+then a load at a constant offset, and the macro generates that next to the usual serdes code (SW-44, SW-45):</p>
+<ul>
+<li><code>ENCODED_LEN</code>: the longest encoding, the buffer to have ready. <code>MIN_LEN</code>: the shortest. <code>fixed_len()</code>: the length
+  of this value. All three are the same unless the last field has a variable length (see below);</li>
+<li>an offset const per field: <code>COUNT_OFFSET</code> in bytes, or for a bit field <code>URGENT_BIT_OFFSET</code> and <code>URGENT_BITS</code>,
+  counted from the most significant bit of the first byte; for an enum <code>TAG_LEN</code>, and per variant <code>&lt;VARIANT&gt;_TAG</code>,
+  <code>&lt;VARIANT&gt;_LEN</code> and <code>&lt;VARIANT&gt;_&lt;FIELD&gt;_..</code> (unnamed fields by their index); an <code>Option</code>'s flag is <code>&lt;FIELD&gt;_FLAG</code>;</li>
+<li><code>from_fixed(&amp;[u8])</code> and <code>to_fixed(&amp;mut [u8])</code>: loads and stores (shifts and masks for bit fields) at those
+  offsets, without a <code>BufReader</code> or <code>BufWriter</code>. The bytes are those of <code>ser_shrink_wrap</code>. A short buffer is an
+  error, never a panic;</li>
+<li>the <code>FixedLayout</code> trait, whose <code>write_c</code> prints the C reader of the type: a define per offset and a <code>static inline</code>
+  reader per field (<code>shrink_wrap::fixed_layout::write_c_header</code> writes a whole header).</li>
+</ul>
+<p>What has a fixed offset:</p>
+<table>
+<thead>
+<tr>
+<th>field</th>
+<th>rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code>, <code>f32</code>, <code>f64</code>, arrays of them</td>
+<td>start on a byte, little-endian, as <code>BufWriter</code> writes them</td>
+</tr>
+<tr>
+<td><code>bool</code>, <code>U1</code>..<code>U32</code>, <code>I2</code>..<code>I32</code>, <code>Nibble</code></td>
+<td>packed most significant bit first; a <code>Nibble</code> starts on a 4-bit boundary; the next byte-aligned field starts a fresh byte</td>
+</tr>
+<tr>
+<td>another <code>fixed_layout</code> type</td>
+<td>starts on a byte; it cannot share a byte with bit fields of the parent (a compile error asks for a byte-aligned field between them)</td>
+</tr>
+<tr>
+<td><code>Option&lt;T&gt;</code>, <code>Result&lt;T, E&gt;</code>, an enum whose variants differ in length</td>
+<td>only as the <strong>last</strong> field: the fields before it keep their offsets, nothing after it could. The payload starts on a byte; the flag is an ordinary bit field, also where <code>#[flag]</code> moves it</td>
+</tr>
+</tbody>
+</table>
+<p>Not: lists, strings, <code>MaxLen</code>, varints (<code>UNib32</code> and friends), <code>RefBox</code>, <code>TailSize</code>, tuples, ranges, 128-bit numbers,
+bit fields wider than 32 bits, <code>#[default]</code> fields. A struct must be <code>sized</code>, <code>final_structure</code> or <code>self_describing</code>;
+an evolvable struct may grow, so it has no fixed layout. An enum must be <code>sized</code> or <code>self_describing</code> with a
+byte-aligned tag (<code>ww_repr = u8</code>, <code>u16</code> or <code>u32</code>).</p>
+<p>The rule for variable length is the same everywhere: an <code>Option</code>, a <code>Result</code> and an enum of unequal variants are
+each a value whose length depends on what it holds. As a whole type, or as the last field of one, that is fine:
+<code>fixed_len()</code> says how long this value is. Before another field it is not, because that field would move.</p>
+<p>Types that qualify get the fast path without asking. The <code>fixed_layout</code> directive makes it a requirement: a field
+that breaks it is a compile error that says why and what to use instead, for example "field <code>count</code>: a
+variable-length number takes more bytes for larger values, so the fields after it have no fixed offset. Use u32 /
+u64, or U1..U32 for fewer bits". Only with the directive may a field be another fixed-layout type (the macro cannot
+look inside a type it does not see; the compiler checks that it implements <code>FixedLayout</code>). On a struct the directive
+also picks the size assumption when none is given: <code>sized</code>, or <code>self_describing</code> when the last field is an <code>Option</code>
+or <code>Result</code>. A struct whose last field is an enum of unequal variants says <code>self_describing</code> itself.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, fixed_layout)]</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Header</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="n">magic</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">4</span><span class="p">],</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="n">urgent</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="n">retries</span><span class="p">:</span><span class="w"> </span><span class="nc">U3</span><span class="p">,</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">    </span><span class="n">count</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">    </span><span class="n">inner</span><span class="p">:</span><span class="w"> </span><span class="nc">Inner</span><span class="p">,</span><span class="w">         </span><span class="c1">// another fixed_layout type</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">    </span><span class="n">extra</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Extra</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// last: present when its flag bit is set</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="p">}</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="kd">let</span><span class="w"> </span><span class="n">header</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Header</span><span class="p">::</span><span class="n">from_fixed</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bytes</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// what a tiny bootloader links: loads at constant offsets</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="kd">let</span><span class="w"> </span><span class="n">header</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Header</span><span class="p">::</span><span class="n">from_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bytes</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// the same value through BufReader</span>
+</span></code></pre></div>
+<p>On a Cortex-M0, decoding a header of eight integers takes 276 bytes of code this way and 484 through <code>BufReader</code>; a
+bit-packed sample 276 instead of 652 (<a href="../code_size/#fixed-layout-fast-path">code size</a>).</p>
+<h3 id="head_tail-a-fixed-head-and-a-sequential-tail"><code>head_tail</code>: a fixed head and a sequential tail<a class="headerlink" href="#head_tail-a-fixed-head-and-a-sequential-tail" title="Permanent link">&para;</a></h3>
+<p>For types with lists, strings or options in the middle, where no fixed layout exists, <code>head_tail</code> picks a wire
+format of its own (SW-46), made for the smallest reader on a microcontroller:</p>
+<ul>
+<li>the <strong>head</strong> has a length known at compile time and holds every fixed-width field at a constant offset, as
+  <code>fixed_layout</code> places them, and for each variable field what is fixed about it: a <code>u16</code> count for a list or
+  string, the flag bit of an <code>Option</code> or <code>Result</code>, the head of a nested <code>head_tail</code> or <code>fixed_layout</code> type;</li>
+<li>the <strong>tail</strong> follows the head and holds the variable parts in field order: list items, string bytes, option
+  payloads, the tails of nested types.</li>
+</ul>
+<p>An enum is its tag (<code>ww_repr = u8</code>, <code>u16</code> or <code>u32</code>), then the head and tail of its variant. Reading the head is loads
+at constant offsets; the tail is read front to back by a cursor that only takes lengths it already knows (<code>Tail</code>).
+There are no lengths at the back, no <code>BufReader</code>, no per-type generic reader.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">use</span><span class="w"> </span><span class="n">shrink_wrap</span><span class="p">::</span><span class="n">head_tail</span><span class="p">::</span><span class="n">List</span><span class="p">;</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="cp">#[derive_shrink_wrap(head_tail)]</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Utx</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="n">ch</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="n">fmt</span><span class="p">:</span><span class="w"> </span><span class="nc">UartFormat</span><span class="p">,</span><span class="w">        </span><span class="c1">// a fixed_layout type: in the head</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="n">glitch</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Wave</span><span class="o">&gt;</span><span class="p">,</span><span class="w">   </span><span class="c1">// flag bit in the head, the Wave in the tail</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="n">perr</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">,</span><span class="w">    </span><span class="c1">// count in the head, the items in the tail</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">    </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w">          </span><span class="c1">// the same</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">    </span><span class="n">defer</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w">            </span><span class="c1">// a bit in the head, after all of them</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="p">}</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="kd">let</span><span class="w"> </span><span class="n">utx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Utx</span><span class="p">::</span><span class="n">from_head_tail</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bytes</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="kd">let</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">utx</span><span class="p">.</span><span class="n">to_head_tail</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p>A list is a <code>shrink_wrap::head_tail::List&lt;'i, T&gt;</code>: <code>List::new(&amp;items)</code> to write, and read from the wire it keeps the
+bytes and reads an item when its iterator reaches it. Its items are numbers or <code>fixed_layout</code> types of one length.
+<code>Option</code> / <code>Result</code> payloads are numbers, arrays of them, or <code>head_tail</code> / <code>fixed_layout</code> types. Every
+<code>fixed_layout</code> type implements <code>HeadTail</code> (all head when it has one length, else all tail), so the types of a
+protocol mix freely.</p>
+<p>It is one type with one format: a <code>head_tail</code> type has no <code>SerializeShrinkWrap</code> / <code>DeserializeShrinkWrap</code> (and no
+owned version), so it cannot be a field of an ordinary shrink_wrap type or a ww API argument. <code>write_c_ht</code> prints
+the C reader: head defines and readers as for <code>fixed_layout</code>, and per type a <code>&lt;name&gt;_tail_t</code> and a
+<code>&lt;name&gt;_tail()</code> that walks the tail and points at each variable part
+(<code>shrink_wrap::head_tail::write_c_header</code> writes a whole header).</p>
+<p>On busgen's request and reply enums the codec takes 4626 bytes on a Cortex-M0, a hand-written one 4408 and the
+derived shrink_wrap one 6652 (<a href="../code_size/#head-and-tail">code size</a>).</p>
 <h3 id="ww_repr-repr-enums-only"><code>ww_repr = &lt;repr&gt;</code> (enums only)<a class="headerlink" href="#ww_repr-repr-enums-only" title="Permanent link">&para;</a></h3>
 <p>Sets the wire representation of an enum's discriminant. <strong>Required</strong> for every enum - structs must not set it.
 Accepted values: <code>u1</code>..<code>u32</code> (or <code>ub&lt;N&gt;</code> for arbitrary bit widths), <code>nib</code> (4-bit nibble), <code>unib32</code> (<code>UNib32</code>,
 variable-length, 1 or more nibbles), and the byte-aligned <code>u8</code>/<code>u16</code>/<code>u32</code>. Pick the smallest one that fits the number
 of variants you expect to ever need - it directly determines the discriminant's on-wire size (and, combined with
 <code>sized</code>, the whole enum's size):</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1">// Fits in 2 bits (up to 4 variants) - future variants beyond 4 would be a breaking change.</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Debug), ww_repr = u2, sized)]</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="k">enum</span><span class="w"> </span><span class="nc">Pull</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nb">None</span><span class="p">,</span><span class="w"> </span><span class="n">Up</span><span class="p">,</span><span class="w"> </span><span class="n">Down</span><span class="p">,</span><span class="w"> </span><span class="n">UpDown</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1">// Variable-length - room to grow past the initial variant count without repr changes.</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Debug), ww_repr = unib32, self_describing)]</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="k">enum</span><span class="w"> </span><span class="nc">ErrorCode</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">NotFound</span><span class="p">,</span><span class="w"> </span><span class="n">Timeout</span><span class="p">,</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1">// Fits in 2 bits (up to 4 variants) - future variants beyond 4 would be a breaking change.</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Debug), ww_repr = u2, sized)]</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">enum</span><span class="w"> </span><span class="nc">Pull</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nb">None</span><span class="p">,</span><span class="w"> </span><span class="n">Up</span><span class="p">,</span><span class="w"> </span><span class="n">Down</span><span class="p">,</span><span class="w"> </span><span class="n">UpDown</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1">// Variable-length - room to grow past the initial variant count without repr changes.</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Debug), ww_repr = unib32, self_describing)]</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="k">enum</span><span class="w"> </span><span class="nc">ErrorCode</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">NotFound</span><span class="p">,</span><span class="w"> </span><span class="n">Timeout</span><span class="p">,</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>Every generated enum also gets an inherent <code>fn discriminant(&amp;self) -&gt; &lt;repr's native type&gt;</code> method regardless of
 whether <a href="#discriminants-enums-only"><code>discriminants</code></a> is used.</p>
 <h3 id="cfg-on-enum-variants"><code>#[cfg(..)]</code> on enum variants<a class="headerlink" href="#cfg-on-enum-variants" title="Permanent link">&para;</a></h3>
 <p>A variant can be compiled out, typically behind a cargo feature, when only some targets need it: firmware enables
 the few it uses, a host enables all of them.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, non_exhaustive, self_describing, ww_repr = unib32)]</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">Number</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="n">U8</span><span class="p">(</span><span class="kt">u8</span><span class="p">),</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="cp">#[cfg(feature = </span><span class="s">&quot;f32&quot;</span><span class="cp">)]</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="n">F32</span><span class="p">(</span><span class="kt">f32</span><span class="p">),</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="cp">#[cfg(feature = </span><span class="s">&quot;u128&quot;</span><span class="cp">)]</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="n">U128</span><span class="p">(</span><span class="kt">u128</span><span class="p">),</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, non_exhaustive, self_describing, ww_repr = unib32)]</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">Number</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="n">U8</span><span class="p">(</span><span class="kt">u8</span><span class="p">),</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="cp">#[cfg(feature = </span><span class="s">&quot;f32&quot;</span><span class="cp">)]</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="n">F32</span><span class="p">(</span><span class="kt">f32</span><span class="p">),</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">    </span><span class="cp">#[cfg(feature = </span><span class="s">&quot;u128&quot;</span><span class="cp">)]</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span><span class="n">U128</span><span class="p">(</span><span class="kt">u128</span><span class="p">),</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="p">}</span>
 </span></code></pre></div>
 <ul>
 <li><strong>The wire format does not depend on it.</strong> Discriminants are numbered over all variants, <code>U128</code> is 2 with or
@@ -3242,8 +3398,8 @@ import is needed for the macro, and the names it uses (<code>BufReader</code>, <
 the module's own. The macro finds the crate in <code>Cargo.toml</code>: <code>::shrink_wrap</code> (or whatever it is renamed to), or
 <code>::wire_weaver::shrink_wrap</code> when only <code>wire_weaver</code> is a dependency. <code>crate_path(..)</code> overrides that, for a crate
 that reaches <code>shrink_wrap</code> through some other re-export:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Point</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Point</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>When neither crate is a dependency and nothing is given, the names are left unqualified and the prelude import is
 needed, as it was before.</p>
@@ -3252,19 +3408,19 @@ needed, as it was before.</p>
 <code>.discriminant()</code> method. It's for the case where you need to commit to <em>which</em> variant you're writing before you've
 built that variant's payload - e.g. a streaming/builder API that reserves space for the discriminant, keeps writing,
 and only decides the final variant afterward:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), ww_repr = nib, discriminants)]</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">enum</span><span class="w"> </span><span class="nc">EventKind</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="n">Value</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="w"> </span><span class="p">},</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="n">Written</span><span class="p">,</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="p">}</span>
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="k">fn</span><span class="w"> </span><span class="nf">discriminant_ahead_of_time</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">    </span><span class="c1">// `EventKindDiscriminants` can be produced (and its wire discriminant read) without ever</span>
-</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">    </span><span class="c1">// constructing an `EventKind::Value`&#39;s `data` field.</span>
-</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">placeholder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EventKindDiscriminants</span><span class="p">::</span><span class="n">Value</span><span class="p">;</span>
-</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">full</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EventKind</span><span class="p">::</span><span class="n">Value</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="p">::</span><span class="n">new_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">])</span><span class="w"> </span><span class="p">};</span>
-</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">placeholder</span><span class="p">.</span><span class="n">discriminant</span><span class="p">(),</span><span class="w"> </span><span class="n">full</span><span class="p">.</span><span class="n">discriminant</span><span class="p">());</span>
-</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Eq), ww_repr = nib, discriminants)]</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="k">enum</span><span class="w"> </span><span class="nc">EventKind</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="n">Value</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="n">Written</span><span class="p">,</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="p">}</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="k">fn</span><span class="w"> </span><span class="nf">discriminant_ahead_of_time</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">    </span><span class="c1">// `EventKindDiscriminants` can be produced (and its wire discriminant read) without ever</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">    </span><span class="c1">// constructing an `EventKind::Value`&#39;s `data` field.</span>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">placeholder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EventKindDiscriminants</span><span class="p">::</span><span class="n">Value</span><span class="p">;</span>
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">full</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EventKind</span><span class="p">::</span><span class="n">Value</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="p">::</span><span class="n">new_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">])</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">placeholder</span><span class="p">.</span><span class="n">discriminant</span><span class="p">(),</span><span class="w"> </span><span class="n">full</span><span class="p">.</span><span class="n">discriminant</span><span class="p">());</span>
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>This is exactly how <code>ww_client_server</code>'s response builder writes a placeholder discriminant up front, then goes back
 and patches it in once the actual variant being sent is known.</p>
@@ -3274,22 +3430,22 @@ without allocation, or vice versa. Typing out two definitions by hand - one usin
 <code>&amp;'i str</code>, etc.) and one owned - would be very error-prone. <code>owned(&lt;cfg predicate&gt;)</code> (see
 <a href="#owned-ownedcfg-predicate">above</a>) generates the owned definition and its serdes code automatically.</p>
 <p>Pseudo-code usage example:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">round_trip</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">    </span><span class="c1">// on no_std, no allocator</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersion</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">};</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="c1">// on host, with allocator</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v_owned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersionOwned</span><span class="p">::</span><span class="n">from_ww_bytes_owned</span><span class="p">(</span><span class="n">bytes</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_owned</span><span class="p">(),</span><span class="w"> </span><span class="n">v_owned</span><span class="p">);</span>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>
-</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes_from_owned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v_owned</span><span class="p">.</span><span class="n">to_ww_bytes_owned</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">bytes_from_owned</span><span class="p">);</span>
-</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>
-</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="w">    </span><span class="c1">// again on no_std</span>
-</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersion</span><span class="p">::</span><span class="n">from_ww_bytes</span><span class="p">(</span><span class="n">bytes_from_owned</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="n">v_ref</span><span class="p">);</span>
-</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">round_trip</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">    </span><span class="c1">// on no_std, no allocator</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersion</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="c1">// on host, with allocator</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v_owned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersionOwned</span><span class="p">::</span><span class="n">from_ww_bytes_owned</span><span class="p">(</span><span class="n">bytes</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_owned</span><span class="p">(),</span><span class="w"> </span><span class="n">v_owned</span><span class="p">);</span>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes_from_owned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v_owned</span><span class="p">.</span><span class="n">to_ww_bytes_owned</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">bytes_from_owned</span><span class="p">);</span>
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">    </span><span class="c1">// again on no_std</span>
+</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">v_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FullVersion</span><span class="p">::</span><span class="n">from_ww_bytes</span><span class="p">(</span><span class="n">bytes_from_owned</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="n">v_ref</span><span class="p">);</span>
+</span><span id="__span-18-16"><a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="p">}</span>
 </span></code></pre></div>
 <h3 id="type-mapping">Type mapping<a class="headerlink" href="#type-mapping" title="Permanent link">&para;</a></h3>
 <table>

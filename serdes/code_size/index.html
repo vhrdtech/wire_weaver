@@ -942,6 +942,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#fixed-layout-fast-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed-layout fast path
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#head-and-tail" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Head and tail
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#replies-of-generated-servers" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2550,6 +2572,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#fixed-layout-fast-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed-layout fast path
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#head-and-tail" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Head and tail
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#replies-of-generated-servers" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3852,6 +3896,149 @@ All targets, with the chosen form:</p>
 one by one with <code>?</code>: the result (error included) and the reader of every truncation, every byte damaged in turn
 and 20 000 random buffers; an enum without a variant 0 after a failed field. Removing any one of the checks makes
 a test fail.</p>
+<h2 id="fixed-layout-fast-path">Fixed-layout fast path<a class="headerlink" href="#fixed-layout-fast-path" title="Permanent link">&para;</a></h2>
+<p>A type whose encoding is a fixed byte layout (SW-44, <a href="../derive/#fixed_layout-a-fixed-byte-layout-and-its-fast-path">derive</a>)
+does not need <code>BufReader</code> or <code>BufWriter</code> at all: each field is a load or store at a constant offset. The cases
+<code>header_de</code> / <code>header_ser</code> read and write <code>Header</code> (a <code>[u8; 4]</code>, two <code>u8</code>, a <code>u16</code>, four <code>u32</code> and a <code>u64</code>) through
+the reader and writer, <code>fixed_de</code> / <code>fixed_ser</code> the same type with <code>from_fixed</code> / <code>to_fixed</code>. <code>bits_fixed_*</code> is the
+bit-packed <code>Sample</code> of <code>bits_*</code> (SW-45: shifts and masks at constant bit offsets instead of the bit loop of the
+reader and writer):</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">rv32ic-relax</th>
+<th style="text-align: right;">thumbv6m</th>
+<th style="text-align: right;">thumbv7em</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>header_de</code></td>
+<td style="text-align: right;">884</td>
+<td style="text-align: right;">566</td>
+<td style="text-align: right;">484</td>
+<td style="text-align: right;">484</td>
+<td style="text-align: right;">410</td>
+</tr>
+<tr>
+<td><code>fixed_de</code></td>
+<td style="text-align: right;">512</td>
+<td style="text-align: right;">378</td>
+<td style="text-align: right;">362</td>
+<td style="text-align: right;">276</td>
+<td style="text-align: right;">120</td>
+</tr>
+<tr>
+<td><code>header_ser</code></td>
+<td style="text-align: right;">1408</td>
+<td style="text-align: right;">1022</td>
+<td style="text-align: right;">918</td>
+<td style="text-align: right;">888</td>
+<td style="text-align: right;">856</td>
+</tr>
+<tr>
+<td><code>fixed_ser</code></td>
+<td style="text-align: right;">656</td>
+<td style="text-align: right;">498</td>
+<td style="text-align: right;">478</td>
+<td style="text-align: right;">462</td>
+<td style="text-align: right;">452</td>
+</tr>
+<tr>
+<td><code>bits_de</code></td>
+<td style="text-align: right;">1256</td>
+<td style="text-align: right;">822</td>
+<td style="text-align: right;">728</td>
+<td style="text-align: right;">652</td>
+<td style="text-align: right;">650</td>
+</tr>
+<tr>
+<td><code>bits_fixed_de</code></td>
+<td style="text-align: right;">464</td>
+<td style="text-align: right;">308</td>
+<td style="text-align: right;">292</td>
+<td style="text-align: right;">276</td>
+<td style="text-align: right;">268</td>
+</tr>
+<tr>
+<td><code>bits_ser</code></td>
+<td style="text-align: right;">1740</td>
+<td style="text-align: right;">1204</td>
+<td style="text-align: right;">1098</td>
+<td style="text-align: right;">1034</td>
+<td style="text-align: right;">716</td>
+</tr>
+<tr>
+<td><code>bits_fixed_ser</code></td>
+<td style="text-align: right;">944</td>
+<td style="text-align: right;">698</td>
+<td style="text-align: right;">588</td>
+<td style="text-align: right;">560</td>
+<td style="text-align: right;">614</td>
+</tr>
+</tbody>
+</table>
+<p>A third to a half less, and the gap grows with the number of types: the fast path has no shared runtime, each type
+is its own straight-line code. The bytes left in <code>fixed_ser</code> are mostly <code>memcpy</code> (see <a href="#build-settings">Build settings</a>).
+On a real format, chunky_mcu_updater's plan reader (header, signed descriptor, steps) takes 892 bytes on Cortex-M0 with
+the fast path, 840 with its hand-written parser and 1854 through <code>BufReader</code> (its <code>just size-bench</code>).</p>
+<h2 id="head-and-tail">Head and tail<a class="headerlink" href="#head-and-tail" title="Permanent link">&para;</a></h2>
+<p><code>busgen_ht</code> is <code>busgen</code> with <code>head_tail</code> types (SW-46, <a href="../derive/#head_tail-a-fixed-head-and-a-sequential-tail">derive</a>):
+the plain structs <code>fixed_layout</code>, <code>Utx</code>, <code>I2c</code>, <code>I2cSlave</code>, <code>Request</code> and <code>Reply</code> <code>head_tail</code>, lists as
+<code>head_tail::List</code>, the same handler. Every fixed field is a load at a constant offset, the lists, the string and
+the <code>Option&lt;Wave&gt;</code> are taken from the tail by lengths already read from the head:</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>types</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">rv32ic-relax</th>
+<th style="text-align: right;">thumbv6m</th>
+<th style="text-align: right;">thumbv7em</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>busgen</code></td>
+<td>final</td>
+<td style="text-align: right;">11388</td>
+<td style="text-align: right;">8210</td>
+<td style="text-align: right;">7438</td>
+<td style="text-align: right;">6652</td>
+<td style="text-align: right;">6816</td>
+</tr>
+<tr>
+<td><code>busgen_hand</code></td>
+<td></td>
+<td style="text-align: right;">7824</td>
+<td style="text-align: right;">5762</td>
+<td style="text-align: right;">5152</td>
+<td style="text-align: right;">4408</td>
+<td style="text-align: right;">4318</td>
+</tr>
+<tr>
+<td><code>busgen_ht</code></td>
+<td></td>
+<td style="text-align: right;">8124</td>
+<td style="text-align: right;">6004</td>
+<td style="text-align: right;">5852</td>
+<td style="text-align: right;">4626</td>
+<td style="text-align: right;">3984</td>
+</tr>
+</tbody>
+</table>
+<p>5 % above the hand-written codec on Cortex-M0 and 4 % on RV32IC, 30 % and 27 % below the derived one; on
+Thumb-2 it is the smallest. Unlike the hand-written one it checks every length (a short message is an error, not
+zeros) and the UTF-8 of the string. Linker relaxation helps it less than the others: its calls are fewer, the code
+is mostly inline loads. Two things were worth taking out of the runtime on the way: a checked multiplication for
+the length of a list (on a Cortex-M0 its overflow check links a 200-byte division routine) and <code>chunks_exact_mut</code>
+(divides by the chunk length); the list iterator walks a cursor instead of computing <code>i * len</code>. On the wire it is
+a little smaller than busgen's own format too, since the bools of the head are bits.</p>
 <h2 id="replies-of-generated-servers">Replies of generated servers<a class="headerlink" href="#replies-of-generated-servers" title="Permanent link">&para;</a></h2>
 <p>Measured after SW-41, not changed. The code <code>ww_codegen!</code> generates for a server ends every message with
 <code>finish()</code>: the request's reply, a stream's data, a deferred return, an error. All but one of them write a

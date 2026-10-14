@@ -59,3 +59,7 @@
 - Decision: `MaxLen<T, N>` wrapper type rather than a `#[max_len]` attribute: works in every position (args,
   returns, stream items, nested), carries the bound into MAX_SIZE and ww_self. Wire form identical to T.
 - MAX_SIZE is an upper bound: lengths counted as >= 4 nibbles (u16 slot while writing), worst padding.
+- credit-sink finished (s/14oct2026-credit-sink, not landed): it REWROTE `handle_stream` in api_server.rs, where my
+  bounded-byte-sink check (`max_len_check`, `TypeOwned::MaxLen` arm) lives -> on rebase, re-apply that check in
+  their new sink write path. Also touches ww_self lib.rs (ApiItemKind::FlowSink, separate from Type), compat.rs
+  and evolution/diff.rs (FlowSink arms) — should merge cleanly.

@@ -8,7 +8,7 @@ mod tests {
     use std::sync::{Arc, RwLock};
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{FullVersion, Version};
-    use wire_weaver_client::{Attachment, Commander, DynClient, Error};
+    use wire_weaver_client::{Attachment, CallError, Commander, DynClient, Error};
     use ww_client_server::ErrorKindOwned;
     use ww_dfu::{BootState, BootTarget};
 
@@ -217,11 +217,7 @@ mod tests {
         );
         let state = boot.boot_state().call().await.unwrap();
         assert_eq!(state, BootState::Confirmed);
-        boot.reboot(BootTarget::Updater)
-            .call()
-            .await
-            .unwrap()
-            .unwrap();
+        boot.reboot(BootTarget::Updater).call().await.unwrap();
         assert_eq!(
             calls.read().unwrap().rebooted_into,
             Some(BootTarget::Updater)
@@ -237,7 +233,7 @@ mod tests {
         };
         let r = inventory.manifest_digest(ww_dfu::Slot::Active).call().await;
         assert!(
-            matches!(&r, Err(Error::RemoteError(e)) if matches!(e.kind, ErrorKindOwned::TraitNotFound)),
+            matches!(&r, Err(CallError::Client(Error::RemoteError(e))) if matches!(e.kind, ErrorKindOwned::TraitNotFound)),
             "{r:?}"
         );
     }
@@ -251,9 +247,10 @@ mod tests {
         let path = [UNib32(0)]; // boot_state
         let r = client
             .cmd()
-            .prepare_call::<BootState>(
+            .prepare_call::<BootState, Error>(
                 ww_client_server::PathKind::global(gid, None, "BootControl", &path),
                 Ok(vec![]),
+                "BootControl::boot_state",
             )
             .call()
             .await;
@@ -271,7 +268,11 @@ mod tests {
         let path = [UNib32(0)];
         let r = client
             .cmd()
-            .prepare_call::<()>(ww_client_server::PathKind::absolute(&path), Ok(vec![]))
+            .prepare_call::<(), Error>(
+                ww_client_server::PathKind::absolute(&path),
+                Ok(vec![]),
+                "Old::led_on",
+            )
             .call()
             .await;
         assert!(

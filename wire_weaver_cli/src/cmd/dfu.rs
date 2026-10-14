@@ -4,7 +4,7 @@
 use anyhow::{Result, anyhow};
 use clap::{Subcommand, ValueEnum};
 use wire_weaver_client::ww_client_server::ErrorKindOwned;
-use wire_weaver_client::{Commander, DynClient, Error};
+use wire_weaver_client::{CallError, Commander, DynClient, Error};
 use ww_dfu::BootTarget;
 
 #[derive(Subcommand)]
@@ -47,11 +47,13 @@ pub(crate) async fn dfu(cmd: DfuCommand, device: &DynClient) -> Result<()> {
                 Into::Updater => (BootTarget::Updater, "updater"),
                 Into::App => (BootTarget::App, "app"),
             };
-            boot.reboot(target)
-                .call()
-                .await
-                .map_err(not_found)?
-                .map_err(|e| anyhow!("device refused to reboot: {e:?}"))?;
+            boot.reboot(target).call().await.map_err(|e| match e {
+                CallError::Device(e) => anyhow!("device refused to reboot: {e:?}"),
+                CallError::Unimplemented { resource } => {
+                    anyhow!("the device doesn't implement {resource}")
+                }
+                CallError::Client(e) => not_found(e),
+            })?;
             let api = &device.device_api_info().user_api_version;
             println!("{api:?} reboots into the {name}");
         }

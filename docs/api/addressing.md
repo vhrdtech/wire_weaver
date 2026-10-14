@@ -59,7 +59,7 @@ trait client:
 let device = DynClient::traits_only(|c| c.usb().serial_eq(serial)).connect().await?;
 // a client generated with `client = "trait_client"` for ww_dfu::BootControl, see tests/cross_version
 let mut boot = BootControl::new(device.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"));
-boot.reboot(BootTarget::Updater).call().await??;
+boot.reboot(BootTarget::Updater).call().await?;
 ```
 
 A `traits_only` connection refuses absolute paths (`Error::AbsolutePathInTraitsOnly`): without the device's API they

@@ -19,7 +19,7 @@
         <link rel="prev" href="../streams/">
       
       
-        <link rel="next" href="../traits/">
+        <link rel="next" href="../stream_stores/">
       
       
         
@@ -284,6 +284,8 @@
   
     
       
+      
+        
       
         
       
@@ -889,6 +891,8 @@
       
         
       
+        
+      
     
     
     
@@ -1245,6 +1249,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stream_stores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2688,6 +2719,8 @@
       
         
       
+        
+      
     
     
     
@@ -2798,8 +2831,8 @@ of every event, so a <code>SampleBlock</code> or an <code>RxChunk</code> stays p
 <p>The protocol is built: the wire types in <code>ww_client_server::stream</code>, and the device and host state machines,
 stores and send scheduler in the <code>ww_stream</code> crate, all sans-IO and tested against a simulated lossy link.
 Declaring counted and reliable streams in a <code>#[ww_trait]</code> and the generated code (API-31), the host-side stream
-API (CLT-23), a store on an SD card or flash (SRV-15), and credit sinks on the same protocol (API-34) are being
-built; see <a href="../../features/">Features</a>. Until then, <code>ww_stream</code> can be driven by hand.</p>
+API (CLT-23), and credit sinks on the same protocol (API-34) are being built; see <a href="../../features/">Features</a>.
+Until then, <code>ww_stream</code> can be driven by hand.</p>
 </div>
 <h2 id="where-stream-data-gets-lost">Where stream data gets lost<a class="headerlink" href="#where-stream-data-gets-lost" title="Permanent link">&para;</a></h2>
 <p>From a producer on the device to user code on the host:</p>
@@ -3082,7 +3115,8 @@ stream costs almost nothing more than a counted one there, and adds backfill and
 <ul>
 <li><strong><code>RamRing&lt;N&gt;</code></strong>: a byte ring of <code>N</code> bytes in RAM (each event takes <code>RECORD_OVERHEAD</code> bytes more than its item).
   Survives host reconnects, not reboots.</li>
-<li>A store on an SD card or NOR flash that survives reboots and power cuts is being built (SRV-15).</li>
+<li><strong><code>LogStore</code></strong>: a log on an SD card or NOR flash that survives reboots and power cuts, keeping session, positions
+  and clock epochs; see <a href="../stream_stores/">Stream stores</a>.</li>
 <li>When a store is full it drops the newest events (<code>FullPolicy::DropNewest</code>, the default: what is kept stays
   contiguous) or the oldest (<code>DropOldest</code>: the most recent data). Either way the units are counted and reported to the
   host as lost.</li>
@@ -3299,13 +3333,13 @@ resumes (<code>ww_stream/src/tests/sim.rs</code>, more seeds with <code>SIM_SEED
         
         
           
-          <a href="../traits/" class="md-footer__link md-footer__link--next" aria-label="Next: Traits">
+          <a href="../stream_stores/" class="md-footer__link md-footer__link--next" aria-label="Next: Stream stores">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Traits
+                Stream stores
               </div>
             </div>
             <div class="md-footer__button md-icon">

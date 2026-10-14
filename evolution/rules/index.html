@@ -303,6 +303,8 @@
       
         
       
+        
+      
     
     
     
@@ -887,6 +889,8 @@
       
         
       
+        
+      
     
     
     
@@ -1054,6 +1058,33 @@
     
   
   Stream delivery: counted and reliable streams
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stream_stores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Stream stores
 
     
   </span>
@@ -2999,6 +3030,12 @@ of the API version as well (minor before 1.0, major after, see <a href="#layer-4
 <li><code>T</code> to struct of <code>T</code> in return position</li>
 <li><code>T</code> to <code>Vec&lt;T&gt;</code> in return position?</li>
 </ul>
+<p>Streams (API-30, API-31, <a href="../../api/stream_reliability/">stream reliability</a>): the delivery kind of a stream is part
+of the API. Turning a plain <code>stream!</code> into a <code>#[counted]</code> or <code>#[reliable]</code> one (or back, or one into the other), or
+giving a stream arguments or a result (<code>#[stream(T)] fn name(args) -&gt; Result&lt;A, E&gt;</code>), changes its events and how it is
+opened, so it is a break of the API crate: bump its breaking version position, as for a plain sink becoming a
+<code>#[credit]</code> one. A plain <code>#[stream(T)] fn name()</code> without arguments and result is the same as <code>stream!(name: T)</code>, the
+same bytes in introspection.</p>
 <h3 id="api-model">API model<a class="headerlink" href="#api-model" title="Permanent link">&para;</a></h3>
 <p>API model (like <code>ww_client_server</code>) is part of the compatibility equation, it is not allowed to update the model
 version without breaking compatibility.</p>

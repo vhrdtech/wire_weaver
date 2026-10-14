@@ -305,6 +305,8 @@
       
         
       
+        
+      
     
     
     
@@ -1101,6 +1103,8 @@
       
         
       
+        
+      
     
     
     
@@ -1268,6 +1272,33 @@
     
   
   Stream delivery: counted and reliable streams
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stream_stores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Stream stores
 
     
   </span>
@@ -3003,6 +3034,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>StreamError::ItemTooBig</code>. Device state in <code>ww_client_server::credit::SinkCredit</code>, dynamic and Python clients too.
   Used by <code>ww_dfu</code> <code>StageBulk::plan</code>. For bulk transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN
   tx. See also CLT-18 backpressure (<code>docs/api/streams.md</code>, <code>tests/credit_sink</code>).</li>
+<li>✅ <strong>API-31 Stream functions</strong> — <code>#[stream(T, counted)] fn name(args) -&gt; Result&lt;A, E&gt;</code> and <code>#[counted]</code> /
+  <code>#[reliable] stream!(name: T)</code>: every stream (plain ones too) is opened by calling it (<code>RequestKind::StreamOpen</code>),
+  with typed arguments and result; the device's handler named like the stream decides, <code>Ok</code> starts a session,
+  <code>close_&lt;name&gt;</code> closes it. Counted and reliable streams keep their state in what <code>stream_&lt;name&gt;()</code> returns
+  (<code>ww_stream::tx::Counted</code> / <code>Reliable</code>), resume by cursor (<code>name_resume(cursor)</code>), answer a read with their
+  <code>StreamStatus</code> (<code>name_status()</code>), send with <code>stream_data_ser().&lt;name&gt;_send</code> (counted) or push into the store with
+  <code>&lt;name&gt;_push</code> (reliable), which the generated <code>poll_streams</code> sends by priority between requests and resends on the
+  host's <code>ResendFrom</code>; <code>ww api scaffold</code>, introspection (<code>ApiItemKind::StreamFn</code>), compatibility check and API diff
+  know them. Includes API-15. Not yet: reliable streams in resource arrays (<code>poll_streams</code> refuses them), the open
+  arguments in <code>StreamStatus</code>, stream functions in the dynamic client and Python (CLT-23), streams that detach by
+  themselves when the link goes down (a resume re-attaches) (<code>docs/api/stream_reliability.md</code>,
+  <code>tests/streams_reliable</code>).</li>
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
@@ -3011,8 +3054,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
   done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
   docs.rs (DOC-6).</li>
-<li>📋 <strong>API-15 Return streams from functions</strong> · <code>v0.5.x</code> — being built as API-31 stream-functions; related idea: model streams as functions that can be called
-  to change parameters, subscribe, stop.</li>
 <li>📋 <strong>API-16 Feature groups</strong> · <code>v0.5.x</code> — resources behind features (all enabled by default), connected to the user
   crate's features in <code>ww_codegen!</code>. Related: <code>#[cfg]</code> in enums, see <a href="#derive_shrink_wrap-macro">derive macro</a>.</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
@@ -3045,11 +3086,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (<code>StreamHead</code> with its hand-laid encoding, byte-verified; <code>StreamCursor</code>, <code>StreamOpened</code>, <code>EventKind::StreamItem</code>,
   <code>RequestKind::StreamOpen</code>, the sideband), the <code>ww_stream</code> crate (<code>Counted</code>, <code>Reliable</code>, <code>Receiver</code>, <code>RamRing</code>,
   <code>Scheduler</code>, <code>StreamCnt</code>; sans-IO, <code>no_std</code>, tested over a seeded lossy link with random disconnects),
-  <code>ww_self::ApiItemKind::PositionedStream</code>. Missing: codegen (API-31), the host runtime (CLT-23), credit sinks on it
-  (API-34), the persistent store (SRV-15).</li>
-<li>📋 <strong>API-31 Stream functions</strong> · <code>v0.5</code> — <code>#[stream(T, reliable)] fn name(args) -&gt; Result&lt;A, E&gt;</code>: a stream is opened
-  by calling a function with typed arguments and result, which starts a session (<code>stream!</code> is the short form); a read
-  on a stream returns its state. Includes API-15 (<code>docs/api/stream_reliability.md</code>).</li>
+  <code>ww_self::ApiItemKind::StreamFn</code>, codegen (API-31). Missing: the host runtime (CLT-23), credit sinks on it
+  (API-34). The persistent store is done (SRV-15).</li>
 <li>📋 <strong>API-34 Credit sinks on the stream protocol</strong> · <code>v0.5</code> — positions in units (64 bit), <code>Ack</code> / <code>Query</code> / <code>Resend</code>
   shared with reliable streams, sessions and resume for credit sinks, so a DFU plan continues after a reconnect;
   <code>SinkCredit</code> moves into <code>ww_stream</code> (<code>docs/api/stream_reliability.md</code>).</li>
@@ -3080,6 +3118,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>SRV-6 Media</strong>: USB (embassy), RTT, WebSocket and UDP (both also on <code>embassy-net</code>).</li>
 <li>✅ <strong>SRV-7 UDP device medium</strong> — <code>ww_device::udp</code>, one frame per datagram over any datagram socket, one host at a
   time, another host takes over by starting link setup (<code>docs/transport/udp.md</code>).</li>
+<li>✅ <strong>SRV-15 Stream stores and backfill</strong> — <code>ww_stream::store</code>: what a reliable stream (API-30) keeps until the
+  host acknowledges it: <code>RamRing</code> (API-30) and <code>LogStore</code>, a power-cut safe log on a block device (feature
+  <code>log-store</code>; <code>SdMedium</code> on an <code>embedded-sdmmc</code> <code>BlockDevice</code> with <code>sdmmc</code>, <code>NorMedium</code> on an
+  <code>embedded-storage-async</code> <code>NorFlash</code> with <code>nor-flash</code>) that keeps session, positions and clock epochs across reboots;
+  drop-newest or drop-oldest when full, counted exactly. Tested with a power cut at every write
+  (<code>ww_stream/src/tests/log_store.rs</code>); <code>docs/api/stream_stores.md</code>.</li>
 <li>⛔ <strong>SRV-8 One crate per role for firmware and host</strong> · <code>v0.5</code> — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into <code>wire_weaver</code> behind features or splitting by
   std/no_std:</li>
@@ -3098,10 +3142,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   informing the device.</li>
 <li>📋 <strong>SRV-10 Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
 <li>📋 <strong>SRV-11 Link statistics</strong> in <code>ww_device</code> (<code>TODO</code> in <code>link.rs</code>).</li>
-<li>📋 <strong>SRV-15 Stream stores and backfill</strong> · <code>v0.5</code> — <code>ww_stream::store</code>: what a reliable stream (API-30) keeps until the
-  host acknowledges it, a RAM ring and a power-cut safe log on a block device (SD card, NOR flash) that keeps
-  positions and clock epochs across reboots; drop-newest or drop-oldest when full, counted exactly
-  (<code>docs/api/stream_reliability.md</code>). <code>RamRing</code> is done (API-30).</li>
 <li>💡 <strong>SRV-12 std server on Tower</strong> · <code>v0.5</code>.</li>
 <li>💡 <strong>SRV-13 IPC over USB / multi-app devices / USB multiplexer</strong> · <code>v0.5.x</code>.</li>
 <li>💡 <strong>SRV-14 FPGA server</strong> · <code>v0.5.x</code>.</li>
@@ -3333,6 +3373,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 </ul>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>API-15 Return streams from functions</strong> — superseded by API-31 stream functions: <code>#[stream(T)] fn name(args)</code>
+  opens a stream with typed arguments and result.</li>
 <li><strong>Document things</strong> (old notes) — superseded by <code>docs/serdes/shrink_wrap.md</code> and <code>docs/evolution/rules.md</code>;
   the notes described an earlier format (field ids, <code>vlu16n_rev</code>). Remaining ideas moved to their areas.</li>
 <li><strong>LEB numbers</strong> — superseded by <code>UNib32</code> and <code>UVlq32</code> (<code>ULeb128</code> is still in the derive AST, unimplemented).</li>

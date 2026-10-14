@@ -10,9 +10,6 @@
         <loc>https://ww.vhrd.tech/api/arrays/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/api/errors/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/api/folder_structure/</loc>
       </url>
       <url>
@@ -74,12 +71,6 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/serdes/use_cases/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/std_library/io_family/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/std_library/logic_analyzer/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/overview/</loc>

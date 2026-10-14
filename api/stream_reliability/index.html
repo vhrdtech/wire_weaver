@@ -2512,6 +2512,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The ww_stream crate">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#as-built-in-api-30" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        As built in API-30
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2592,8 +2609,9 @@
 <p>Items: API-30 counted-reliable-streams, API-31 stream-functions (typed open, includes API-15), API-34
 sink-sessions, SRV-15 stream-stores, CLT-23 host-stream-positions, TEST-19 lossy-test-medium. Roman's review and
 the answers are in <a href="#review-14-oct-2026">Review</a>; the pieces are built on their own branches as in
-<a href="#implementation-plan">Implementation plan</a>. Nothing is built yet; once it is, this page becomes the reference for
-counted and reliable streams.</p>
+<a href="#implementation-plan">Implementation plan</a>. Piece 1, the protocol core (API-30: wire types and the <code>ww_stream</code>
+crate), is built; what it decided is in <a href="#as-built-in-api-30">As built in API-30</a>. Once all pieces are, this
+page becomes the reference for counted and reliable streams.</p>
 </div>
 <p>Roman, reviewing the IO trait family (D4 <code>seq</code> units, D5 <code>lost</code> counts, 14 Oct 2026): <em>"we miss reliable transfer
 in wire_weaver, let's not bodge it in each trait from the side. On USB there shouldn't really be losses at all."</em></p>
@@ -2607,7 +2625,7 @@ device and every stream, so that no item type has to carry <code>seq</code>, <co
 <li><strong>Positions count units</strong> the device names when it sends (bytes for a UART, transactions for a monitor, sample sets
   for an ADC), 64-bit: D4 and D5, done once in the framework. The host never computes units.</li>
 <li><strong>The head lives in the event, not in the item</strong>: flags, <code>pos</code>, <code>lost</code> and <code>t</code> (device time) in a per-event head of
-  2 to 6 bytes for any position up to 4 T units, plus 5 for a timestamp. Item types stay pure data.</li>
+  1 to 6 bytes for any position up to 2 T units (plus 1-2 for events of more than one unit), plus 5 for a timestamp. Item types stay pure data.</li>
 <li><strong>Reliable streams and credit sinks are one protocol</strong> in both directions: positions in units, grants in bytes (the
   receiver's memory), cumulative acknowledgements, go-back-N; sessions and cursors for both.</li>
 <li><strong>Backfill is built in from the start</strong>: what the device keeps lives in a <strong>store</strong> (RAM ring, or an SD card / flash
@@ -2828,8 +2846,8 @@ mechanism below.</p>
 <tr>
 <td>Extra bytes per event</td>
 <td>0</td>
-<td>2-6</td>
-<td>2-6</td>
+<td>1-8 (+5 with <code>t</code>)</td>
+<td>1-8 (+5 with <code>t</code>)</td>
 </tr>
 <tr>
 <td>Device state</td>
@@ -2944,7 +2962,8 @@ stream's doc says, and the device says how many units each item has when it send
 </tr>
 </tbody>
 </table>
-<p><code>pos</code> of an event is the position of its first unit. The next event's <code>pos</code> is <code>pos + units + lost</code>, so:</p>
+<p><code>pos</code> of an event is the position of its first unit, <code>units</code> (in the head too) how many it has. The next event's
+<code>pos</code> is this one's <code>pos + units</code> plus its own <code>lost</code>, so:</p>
 <ul>
 <li><strong><code>lost</code></strong> (units the device dropped right before this event: producer overflow, store full, no host) explains a
   jump of <code>pos</code> exactly, and says the gap is the device's.</li>
@@ -2953,13 +2972,15 @@ stream's doc says, and the device says how many units each item has when it send
 <li><code>pos</code> lower than expected is a <strong>duplicate</strong> or a <strong>late</strong> event (UDP): the host drops it and counts it.</li>
 </ul>
 <p>The host never needs to know how to count units of an item: it only compares positions. That is why units are given
-at send time and never computed from the item (an ADC block's byte length doesn't tell the sets without the format).</p>
+at send time and never computed from the item (an ADC block's byte length doesn't tell the sets without the format),
+and why they travel in the head: without them the host can't tell where an event ends, and a lost event between two
+received ones would look like a bigger first one (found while building API-30).</p>
 <p>Why units and not items: a protocol decoder needs "frame starts at byte 4711 of this capture", and a gap of "3 items"
 says nothing when the device drops raw bytes before they ever became items (D5's scenario).</p>
 <p><strong>Why 64 bits.</strong> A 32 GB SD card holds 2³⁵ bytes, so a byte stream's positions pass 2³² within one card, and a
 session lasts as long as the card's data does. 32-bit positions would wrap inside the store, and a resume cursor
 would become ambiguous. Positions are <code>u64</code> everywhere: in the head, in cursors, in acknowledgements, in stores. On the
-wire they cost only what they need (below): a position never wraps in practice (2⁵⁸ units in the head is 288 P), and
+wire they cost only what they need (below): a position never wraps in practice (2⁵⁷ units in the head is 144 P), and
 nothing is truncated, so the host never has to guess the high bits.</p>
 <h3 id="head-on-the-wire">Head on the wire<a class="headerlink" href="#head-on-the-wire" title="Permanent link">&para;</a></h3>
 <p>A counted or reliable stream sends a new event kind, <code>EventKind::StreamItem</code> (appended to <code>EventKind</code>, which has room
@@ -2972,51 +2993,60 @@ for 16 variants), instead of <code>StreamData</code>:</p>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">StreamHead</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">pos</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w">           </span><span class="c1">// position of the event&#39;s first unit since the session started</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">lost</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">,</span><span class="w">  </span><span class="c1">// units the device dropped right before this event; `pos` counts them</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Second</span><span class="o">&gt;</span><span class="p">,</span><span class="w">  </span><span class="c1">// device time of the first unit (`ww_timebase` clock)</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">ext</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">HeadExt</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// rare markers, evolvable: clock epoch changed (reboot), ...</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="p">}</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">units</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w">         </span><span class="c1">// units of the event&#39;s item (1 for one item, the bytes of a UART chunk, ...)</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">lost</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">,</span><span class="w">  </span><span class="c1">// units the device dropped right before this event; `pos` counts them</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Second</span><span class="o">&gt;</span><span class="p">,</span><span class="w">  </span><span class="c1">// device time of the first unit (`ww_timebase` clock)</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">ext</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">HeadExt</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// rare markers, evolvable: clock epoch changed (reboot), ...</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The derive would write each <code>Option</code>'s flag right before its value, and <code>pos</code> as a byte-aligned number after its own
 flag: the first measurement put 3 flags into a byte of their own. Written by hand instead, the flags share the first
-byte with the length of <code>pos</code> and its top bits:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a> byte 0:  L T X n n n p p      L, T, X: lost, t, ext follow
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>                               nnn: bytes of pos after this one (0..7), pp: the top 2 bits of pos
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a> then:    n bytes of pos (2 + 8n bits in all)
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>          lost: UVlq64              if L
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>          t:    ww_si::Second       if T (starts on a byte, so its prefix and type tag share one byte)
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>          ext:  HeadExt             if X (Unsized: fields can be appended later)
+byte with the length of <code>pos</code> and its top bit:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a> byte 0:  L T X U n n n p      L, T, X, U: lost, t, ext, units follow (units only when not 1)
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>                               nnn: bytes of pos after this one (0..7), p: the top bit of pos
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a> then:    n bytes of pos (1 + 8n bits in all, big endian)
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>          units: UVlq64             if U
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>          lost: UVlq64              if L
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>          t:    ww_si::Second       if T (starts on a byte, so its prefix and type tag share one byte)
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>          ext:  HeadExt             if X (Unsized: fields can be appended later)
 </span></code></pre></div>
 <table>
 <thead>
 <tr>
 <th><code>pos</code> below</th>
-<th>4</th>
-<th>1 Ki</th>
-<th>256 Ki</th>
-<th>64 Mi</th>
-<th>16 Gi</th>
-<th>4 Ti</th>
-<th>2⁵⁸</th>
+<th>2</th>
+<th>512</th>
+<th>128 Ki</th>
+<th>32 Mi</th>
+<th>8 Gi</th>
+<th>2 Ti</th>
+<th>512 Ti</th>
+<th>2⁵⁷</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Head bytes (no <code>lost</code>, <code>t</code>, <code>ext</code>)</td>
+<td>Head bytes (one unit, no <code>lost</code>, <code>t</code>, <code>ext</code>)</td>
 <td>1</td>
 <td>2</td>
 <td>3</td>
 <td>4</td>
 <td>5</td>
 <td>6</td>
+<td>7</td>
 <td>8</td>
 </tr>
 </tbody>
 </table>
-<p>Plus <code>lost</code> 1 byte below 128 units (2 below 16 Ki, ...), <code>t</code> 5 bytes as <code>Second { Micro, U32 }</code> (wraps every 71.6
-min, D6; 9 bytes as <code>U64</code>). A 32 GB byte stream near its end has a 6-byte head, 11 with a timestamp. These sizes
-follow from the layout; API-30 checks them with real bytes and writes the result here. For comparison, measured
-before (derived <code>Option</code>s and a 32-bit <code>UVlq32</code> position): 2 to 6 bytes for positions up to 4 Gi only.</p>
+<p>Plus <code>units</code> when not 1 and <code>lost</code>, each 1 byte below 128 (2 below 16 Ki, ...), <code>t</code> 5 bytes as <code>Second { Micro,
+U32 }</code> (wraps every 71.6 min, D6; 9 bytes as <code>U64</code>). Events of one item (units = 1) pay nothing for <code>units</code>; a byte
+stream pays 1-2 bytes. A 32 GB byte stream near its end, in 1 KiB chunks, has an 8-byte head, 13 with a timestamp.</p>
+<p>All of it measured with real bytes (<code>ww_client_server::stream</code> tests): every size in the table at both ends of its
+range; <code>units</code> = 127 is 1 byte, 128 and 16 383 are 2, 16 384 is 3; <code>lost</code> = 100 is 1 byte, 200 is 2; <code>t</code> as
+<code>Second { Micro, U32 }</code> is 5 bytes and as <code>U64</code> 9; a whole <code>StreamItem</code> event with a one-element path, <code>pos</code> = 2³³,
+<code>units</code> = 3, <code>lost</code> = 7 and <code>t</code> is 4 + 13 bytes before its data (<code>da 02 00 00 00 00 03 07 23 78 56 34 12</code> for the
+head). A position of 2⁵⁷ or more is a serialization error. For comparison, measured before (derived <code>Option</code>s and a
+32-bit <code>UVlq32</code> position, no <code>units</code>): 2 to 6 bytes for positions up to 4 Gi only.</p>
 <p>Today's <code>StreamData</code> event costs 3 to 5 bytes of header and path before the data (measured), so a long-running stream
 with a timestamp pays ~15 bytes per event: 3 % of a 512-byte chunk, 1 % of 1.5 KiB. Small items go into chunks
 (a <code>MaxLen&lt;RefVec&lt;'i, Record&gt;, N&gt;</code> item, as the IO family does already), see <a href="#timestamps-and-their-cost">Timestamps</a>.</p>
@@ -3052,7 +3082,8 @@ somewhere also saves the cursor next to it, and passes it to <code>&lt;name&gt;_
 <p>A resumed reliable stream has <strong>two runs</strong> of positions, each delivered in order:</p>
 <ul>
 <li>the <strong>live run</strong> starts at the newest event the device has (<code>live_from</code>, so a slow stream shows its latest value at
-  once instead of after its next event) and goes on with everything new;</li>
+  once instead of after its next event; when the device lost units right before that event, <code>live_from</code> is where
+  they start, so the event reports them) and goes on with everything new;</li>
 <li>the <strong>backfill run</strong> goes from the resume cursor (or the oldest kept event) up to <code>live_from</code>.</li>
 </ul>
 <p>The device sends live events first, and backfill events whenever the live run has nothing to send or no credit
@@ -3092,14 +3123,14 @@ receiver's memory: a device's sink buffer, a host's queue):</p>
 <td>received every unit before <code>have</code> (live run) and before <code>backfill</code> (backfill run, while there is one); the sender may have up to <code>grant</code> bytes of events in flight beyond that</td>
 </tr>
 <tr>
-<td><code>Resend { from, grant }</code></td>
+<td><code>Resend { from, grant }</code> (<code>ResendFrom</code> until API-34 removes the credit sinks' <code>Resend</code>)</td>
 <td>receiver → sender</td>
 <td>units from <code>from</code> on are missing (in whichever run <code>from</code> falls): send again from there</td>
 </tr>
 <tr>
-<td><code>Query { sent }</code></td>
+<td><code>Query { sent, backfill }</code></td>
 <td>sender → receiver</td>
-<td>"I have sent up to <code>sent</code>, where are you?" (out of credit, nothing heard for a while); answered with <code>Ack</code> or <code>Resend</code></td>
+<td>"I have sent up to <code>sent</code> (and <code>backfill</code> in the backfill run), where are you?" (out of credit, nothing heard for a while); answered with <code>Ack</code> or <code>Resend</code>. Without <code>backfill</code> while the receiver has a backfill run: the sender ended it (the store dropped the rest of the backlog)</td>
 </tr>
 </tbody>
 </table>
@@ -3134,7 +3165,7 @@ for requests on UDP; that is CLT-17 reliable-requests, kept separate.</p>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="k">type</span><span class="w"> </span><span class="nc">Error</span><span class="p">;</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="sd">/// Append an event: its head and item bytes, as they go on the wire. `Full`: nothing stored, the caller counts</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="sd">/// its units as lost.</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">push</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">head</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">StreamHead</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">item</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">PushError</span><span class="o">&lt;</span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">push</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">head</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">StreamHead</span><span class="p">,</span><span class="w"> </span><span class="n">item</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">PushError</span><span class="o">&lt;</span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;</span><span class="p">;</span>
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="sd">/// Copy the event at `pos` (or the first one after it) into `buf`.</span>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="o">&lt;&#39;</span><span class="na">b</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">pos</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">b</span><span class="w"> </span><span class="nc">mut</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">StoredEvent</span><span class="o">&lt;&#39;</span><span class="na">b</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w"> </span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="sd">/// Events before `pos` are acknowledged and may go.</span>
@@ -3163,7 +3194,9 @@ after one carries a new <strong>clock epoch</strong> in <code>HeadExt</code>; th
 <code>time_map</code> (or shows "before reboot N"), S5.</p>
 <p>Producers write into the store from their own task (a DMA half-done interrupt wakes a task that builds the item and
 pushes it), the event loop reads from it and sends: the store is shared between the two (a producer half and a sender
-half, or a <code>critical-section</code> mutex; API-30 decides). Pushing never waits for the link, the link only ever waits for
+half, or a <code>critical-section</code> mutex). API-30 decided: one <code>Reliable</code> state, which the event loop holds only to read
+the next event out of the store into its own buffer, and sends that buffer with the state released; shared with a
+producer task behind the firmware's async mutex. Pushing never waits for the link, the link only ever waits for
 the store, so a slow link can't stall a producer, and replies are not stuck behind stream data (rePort
 <code>api_design.md</code> §10.3).</p>
 <h3 id="send-scheduler-and-priorities">Send scheduler and priorities<a class="headerlink" href="#send-scheduler-and-priorities" title="Permanent link">&para;</a></h3>
@@ -3280,12 +3313,12 @@ duplicates, late), the same names, in <code>stream.stats()</code>. Store fill co
 </table>
 <p>Per anchor relies on the sample clock and the timer coming from the same oscillator; anchors bound the drift if not.</p>
 <ul>
-<li><strong>ADC, 500 kS/s, 12-bit packed, one channel (750 KB/s), S7</strong>: an hour in, positions are ~2³¹ sample sets, a 5-byte
-  head. Blocks of 256 samples (384 B) are 1 953 events/s: header and head 9 B = 2.3 %, <code>t</code> in every event 1.3 % more.
-  Blocks of 1 024 samples (1.5 KiB): 0.6 % and 0.3 %. Per-sample timestamps would be 15 % for no information: the rate
+<li><strong>ADC, 500 kS/s, 12-bit packed, one channel (750 KB/s), S7</strong>: an hour in, positions are ~2³¹ sample sets, a 7-byte
+  head with <code>units</code>. Blocks of 256 samples (384 B) are 1 953 events/s: header and head 11 B = 2.9 %, <code>t</code> in every
+  event 1.3 % more. Blocks of 1 024 samples (1.5 KiB): 0.7 % and 0.3 %. Per-sample timestamps would be 15 % for no information: the rate
   is fixed. Recommendation: blocks of ~1 KiB and a <code>t</code> anchor every 50 ms: under 1 % in all.</li>
-<li><strong>I2C monitor at 1 MHz, ~20 000 transactions/s, S8</strong>: chunks of 32 transactions every ~1.6 ms: 625 events/s × 14 B
-  (header, head, <code>t</code>) = 8.8 KB/s, plus per-transaction time ~1.5 B × 20 000 = 30 KB/s, against ~10 B of data per
+<li><strong>I2C monitor at 1 MHz, ~20 000 transactions/s, S8</strong>: chunks of 32 transactions every ~1.6 ms: 625 events/s × 15 B
+  (header, head with <code>units</code>, <code>t</code>) = 9.4 KB/s, plus per-transaction time ~1.5 B × 20 000 = 30 KB/s, against ~10 B of data per
   transaction (200 KB/s). Timing costs ~20 %, needed for a monitor; well inside the budget.</li>
 </ul>
 <h3 id="scenarios-walked-through">Scenarios walked through<a class="headerlink" href="#scenarios-walked-through" title="Permanent link">&para;</a></h3>
@@ -3371,8 +3404,8 @@ duplicates, late), the same names, in <code>stream.stats()</code>. Store fill co
 <td>device</td>
 </tr>
 <tr>
-<td><code>cnt</code></td>
-<td><code>StreamCnt</code></td>
+<td><code>counters</code></td>
+<td><code>StreamCnt</code> (<code>cnt</code> instance counters with the <code>cnt</code> feature), <code>TxStats</code></td>
 <td>device</td>
 </tr>
 </tbody>
@@ -3382,6 +3415,29 @@ outside dependencies, so it sits behind a feature. Wire types (<code>StreamHead<
 the sideband messages, <code>EventKind::StreamItem</code>, <code>RequestKind::StreamOpen</code>) stay in <code>ww_client_server</code>, which is the
 wire model. <code>ww_client_server::credit::SinkCredit</code> moves into <code>ww_stream::tx</code> (API-34), since sinks and streams share
 the protocol.</p>
+<h3 id="as-built-in-api-30">As built in API-30<a class="headerlink" href="#as-built-in-api-30" title="Permanent link">&para;</a></h3>
+<p>What building the protocol core added to the design, or decided where the design left it open:</p>
+<ul>
+<li><strong><code>units</code> in the head</strong> (byte 0 <code>L T X U nnn p</code>): without them the host can't see where an event ends. Positions up
+  to 2⁵⁷. See <a href="#head-on-the-wire">Head on the wire</a>.</li>
+<li><strong>Stores</strong> take the head only (<code>push(head, item)</code>), it carries the units. <code>StoreState::dropped_units</code> says what a
+  drop-oldest store forgot, so the sender counts it exactly.</li>
+<li><strong>Grants</strong>: an event goes out while the bytes in flight before it are below the grant (so a grant smaller than an
+  item can't deadlock). The sender keeps up to <code>K</code> in-flight records per run (<code>Reliable&lt;S, K = 16&gt;</code>); beyond that,
+  neighbours merge: acknowledgements and resends then act on the merged range, never wrong. It never goes back
+  before what is acknowledged.</li>
+<li><strong>The live run's start</strong> includes the units lost right before the newest event (above).</li>
+<li><strong>Resuming in the middle of a backfill</strong>: a cursor is one position, so the live events after it come again in the
+  new backlog. The receiver remembers up to 8 such ranges (<code>Seen</code>) and drops them as <code>Verdict::Had</code>, reporting
+  only the part of their gaps it didn't have; beyond 8, events are delivered twice, never lost.</li>
+<li><strong>When one side's backfill run ended without the other knowing</strong> (a lost <code>Query</code>, a stale <code>ResendFrom</code>): the
+  device answers a <code>ResendFrom</code> or <code>Ack</code> for what it no longer has with a <code>Query</code> right away, a host whose backfill
+  stalls sends its <code>Ack</code> again. Found by the seeded simulation (<code>ww_stream/src/tests/sim.rs</code>, <code>SIM_SEEDS=20000</code>).</li>
+<li><strong>Timing</strong> is the caller's: <code>poll(now_ms)</code> / <code>poll_query(now_ms)</code>; defaults: ack every half window or 100 ms,
+  resend asked again after 500 ms, query after 200 ms of silence, window 4 MiB, initial grant 4 KiB.</li>
+<li><strong>Introspection</strong>: <code>ApiItemKind::PositionedStream { ty, delivery }</code> (appended, like <code>FlowSink</code>); plain streams keep
+  <code>Stream</code> and their bytes. API-31 adds the stream function's arguments and result.</li>
+</ul>
 <h2 id="compatibility-and-what-breaks">Compatibility and what breaks<a class="headerlink" href="#compatibility-and-what-breaks" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>ww_client_server</code>: appended <code>EventKind::StreamItem</code>, <code>RequestKind::StreamOpen</code>, new types; <code>StreamSideband</code>'s
@@ -3404,7 +3460,7 @@ the protocol.</p>
 <li><strong>Latest values right away while backfilling.</strong> Two in-order runs, live first: <a href="#latest-values-while-backfilling-s10">Latest values while
    backfilling</a>, scenario S10.</li>
 <li><strong>32 bits cover 4 GB, a 32 GB SD card more.</strong> Positions are <code>u64</code> everywhere; on the wire a length-coded position
-   up to 2⁵⁸ that costs 1 to 6 bytes for positions up to 4 Ti, nothing truncated: <a href="#positions-and-units-d4-d5">Why 64 bits</a>,
+   up to 2⁵⁷ that costs 1 to 6 bytes for positions up to 2 Ti, nothing truncated: <a href="#positions-and-units-d4-d5">Why 64 bits</a>,
    <a href="#head-on-the-wire">Head on the wire</a>.</li>
 <li><strong>Smaller head with flag repositioning.</strong> The flags share the first byte with the position's length; <code>Second</code>
    then starts on a byte with its prefix and tag in one byte: <a href="#head-on-the-wire">Head on the wire</a>.</li>

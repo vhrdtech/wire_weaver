@@ -124,6 +124,14 @@ fn ty_def_inner(
             let numeric_base = ty_def_numeric_base(numeric_base);
             Ok(quote! { core::ops::RangeInclusive #maybe_turbofish <#numeric_base> })
         }
+        TypeOwned::MaxLen { max_len, ty } => {
+            let inner_ty = ty_def_inner(api_bundle, ty, alloc, ty_pos, None)?;
+            let max_len = Lit::Int(LitInt::new(
+                format!("{}", max_len.0).as_str(),
+                Span::call_site(),
+            ));
+            Ok(quote! { wire_weaver::shrink_wrap::MaxLen #maybe_turbofish <#inner_ty, #max_len> })
+        }
     }
 }
 

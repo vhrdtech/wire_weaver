@@ -167,6 +167,18 @@ pub fn gen_server(
         &mut seen,
         &mut args_structs,
     );
+    let mut max_len_consts = TokenStream::new();
+    // the owned types of a `no_alloc = false` server have no MAX_SIZE
+    if config.no_alloc {
+        max_len_consts_recursive(
+            api_bundle,
+            api_level,
+            None,
+            &[],
+            config.no_alloc,
+            &mut max_len_consts,
+        );
+    }
     let (es1, es2) = (error_seq.next(), error_seq.next());
     let server_struct_path = config.server_struct_path;
     let maybe_use_ser_shrink_wrap = maybe_quote_cl(cx.multi_req, || quote! { false, });
@@ -191,6 +203,7 @@ pub fn gen_server(
     };
     quote! {
         #args_structs
+        #max_len_consts
 
         #[allow(unused_imports)]
         use wire_weaver::{RpcResult, SetResult, GetResult};
@@ -916,6 +929,19 @@ fn handle_stream(
         }
     } else {
         // sink (device in)
+        // bytes with a max length: sent as is like without one, checked here
+        let max_len_check = match ty.max_len(api_bundle).unwrap() {
+            Some(max_len) if ty.is_byte_slice(api_bundle).unwrap() => {
+                let es = err_seq.next();
+                let max_len = max_len as usize;
+                quote! {
+                    if data.0.len() > #max_len {
+                        return Err(Error::new(#es, ErrorKind::ArgsDesFailed));
+                    }
+                }
+            }
+            _ => quote! {},
+        };
         let mut other_des = || {
             let es = err_seq.next();
             let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Expr).unwrap();
@@ -943,6 +969,9 @@ fn handle_stream(
                 } else {
                     other_des()
                 }
+            }
+            TypeOwned::MaxLen { .. } if ty.is_byte_slice(api_bundle).unwrap() => {
+                (max_len_check, quote! { data })
             }
             _ => other_des(),
         };
@@ -992,6 +1021,82 @@ fn args_structs_recursive(
         };
         let level = item.get_as_level(api_bundle).unwrap();
         args_structs_recursive(api_bundle, level, no_alloc, seen, ts);
+    }
+}
+
+/// `<METHOD>_REQUEST_MAX_LEN` and `<METHOD>_RESPONSE_MAX_LEN` of every method (SW-19, first step of API-18), named
+/// like its handler: worst-case lengths of a call request with an absolute path and of the answer with the value,
+/// `None` when an argument or the return type has no bound.
+fn max_len_consts_recursive(
+    api_bundle: &ApiBundleOwned,
+    api_level: &ApiLevelOwned,
+    ident_prefix: Option<&String>,
+    path: &[u32],
+    no_alloc: bool,
+    ts: &mut TokenStream,
+) {
+    let mod_name = util::mod_name(api_level, api_bundle);
+    for item in &api_level.items {
+        let mut path = path.to_vec();
+        path.push(item.id.0);
+        if matches!(item.multiplicity, Multiplicity::Array { .. }) {
+            // any index
+            path.push(u32::MAX);
+        }
+        match &item.kind {
+            ApiItemKindOwned::Method { args, return_ty } => {
+                let ident = Ident::new(&item.ident, Span::call_site());
+                let name = add_prefix(ident_prefix, &ident)
+                    .to_string()
+                    .to_case(Case::UpperSnake);
+                let args_max_size = if args.is_empty() {
+                    quote! { Some(wire_weaver::shrink_wrap::MaxSize::ZERO) }
+                } else {
+                    let args_struct = api_common::args_struct_ident(&item.ident, no_alloc);
+                    let is_lifetime = args
+                        .iter()
+                        .any(|arg| arg.ty.is_lifetime(api_bundle).unwrap());
+                    let lifetime = maybe_quote(no_alloc && is_lifetime, quote! { <'static> });
+                    quote! { <#mod_name::#args_struct #lifetime as wire_weaver::shrink_wrap::SerializeShrinkWrap>::MAX_SIZE }
+                };
+                let output_max_size = match return_ty {
+                    Some(ty) => {
+                        let ty = ty_def(api_bundle, ty, !no_alloc, TyPos::Arg).unwrap();
+                        quote! { <#ty as wire_weaver::shrink_wrap::SerializeShrinkWrap>::MAX_SIZE }
+                    }
+                    None => quote! { Some(wire_weaver::shrink_wrap::MaxSize::ZERO) },
+                };
+                let request = Ident::new(&format!("{name}_REQUEST_MAX_LEN"), Span::call_site());
+                let response = Ident::new(&format!("{name}_RESPONSE_MAX_LEN"), Span::call_site());
+                let request_doc = format!(
+                    " Worst-case length of a `{}` call request with an absolute path, `None` if an argument \
+                    has no bound (see `shrink_wrap::MaxLen`).",
+                    item.ident
+                );
+                let response_doc = format!(
+                    " Worst-case length of the answer to a `{}` call with its value, `None` if the return \
+                    type has no bound.",
+                    item.ident
+                );
+                ts.extend(quote! {
+                    #[doc = #request_doc]
+                    pub const #request: Option<usize> =
+                        ww_client_server::max_len::call_request(&[#(#path),*], #args_max_size);
+                    #[doc = #response_doc]
+                    pub const #response: Option<usize> =
+                        ww_client_server::max_len::value_event(#output_max_size);
+                });
+            }
+            ApiItemKindOwned::Trait { .. } => {
+                let level = item.get_as_level(api_bundle).unwrap();
+                let prefix = match ident_prefix {
+                    Some(prefix) => format!("{prefix}_{}", item.ident),
+                    None => item.ident.clone(),
+                };
+                max_len_consts_recursive(api_bundle, level, Some(&prefix), &path, no_alloc, ts);
+            }
+            _ => {}
+        }
     }
 }
 

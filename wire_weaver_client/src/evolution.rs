@@ -25,7 +25,7 @@ use ww_self::{
 };
 use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
 
-use crate::compat::{TypeCheck, compare_items, field_name, fields};
+use crate::compat::{Bounds, TypeCheck, compare_items, field_name, fields};
 use crate::layout;
 
 mod diff;
@@ -237,12 +237,28 @@ impl<'a> Checker<'a> {
                     new_item.ident
                 ));
             }
-            // both ways: old client with a new server, and new client with an old server
-            let result = compare_items((self.old, old_item, OLD), (self.new, new_item, NEW))
-                .and_then(|_| compare_items((self.new, new_item, NEW), (self.old, old_item, OLD)));
+            // both ways: old client with a new server, and new client with an old server; a lowered max length
+            // breaks what the old version writes, a raised one is compatible
+            let mut bounds = Bounds {
+                strict_writer: Some(self.old),
+                narrower: vec![],
+            };
+            let result = compare_items(
+                (self.old, old_item, OLD),
+                (self.new, new_item, NEW),
+                &mut bounds,
+            )
+            .and_then(|_| {
+                compare_items(
+                    (self.new, new_item, NEW),
+                    (self.old, old_item, OLD),
+                    &mut bounds,
+                )
+            });
             if let Err(e) = result {
                 self.breaking.push(format!("{path}: {e}"));
             }
+            self.bounds_raised(&path, bounds.narrower);
         }
         for new_item in &new.items {
             // moved ones are already reported
@@ -266,18 +282,30 @@ impl<'a> Checker<'a> {
                 continue;
             };
             // written by the old version and read by the new one, and the other way around
+            let mut new_to_old = TypeCheck::new(self.new, self.old, NEW, OLD);
             let result = TypeCheck::new(self.old, self.new, OLD, NEW)
+                .strict_bounds(true)
                 .check(old_ty, new_ty)
-                .and_then(|_| TypeCheck::new(self.new, self.old, NEW, OLD).check(new_ty, old_ty));
+                .and_then(|_| new_to_old.check(new_ty, old_ty));
             if let Err(e) = result {
                 self.breaking.push(e);
             }
+            self.bounds_raised(&format!("type {name}"), new_to_old.narrower);
             self.compare_idents(name, old_ty, new_ty);
         }
         for name in new_types.keys() {
             if !old_types.contains_key(name) {
                 self.compatible.push(format!("type {name} added"));
             }
+        }
+    }
+
+    /// Max lengths the new version raised (or removed): compatible, everything the old version writes is still
+    /// read, but values the new version writes beyond the old bound are rejected by the old version.
+    fn bounds_raised(&mut self, path: &str, narrower: Vec<String>) {
+        for msg in narrower {
+            self.compatible
+                .push(format!("{path}: max length raised ({msg})"));
         }
     }
 
@@ -576,6 +604,65 @@ mod tests {
             report.warnings,
             ["Api::led_off is added without #[since = \"0.1.1\"]"]
         );
+    }
+
+    #[test]
+    fn max_length_raised_is_compatible_lowered_is_breaking() {
+        let api = |data: &str, name: &str, field: &str| {
+            format!(
+                r#"
+                #[ww_api_root]
+                pub trait Api {{
+                    fn write(data: {data}) -> {name};
+                    property!(rw label: MaxLen<&'i str, 4>);
+                }}
+
+                #[derive_shrink_wrap]
+                pub struct Piece<'i> {{
+                    pub data: {field},
+                }}
+            "#
+            )
+        };
+        let bytes = |n: u32| format!("MaxLen<RefVec<'i, u8>, {n}>");
+        let name = |n: u32| format!("MaxLen<&'i str, {n}>");
+        let old = api(&bytes(8), &name(8), &bytes(8));
+        assert_eq!(report(&old, &old).change, Change::None);
+
+        // argument, return value and struct field raised: what the old version writes is still read
+        let raised = api(&bytes(16), &name(16), &bytes(16));
+        let report_raised = report(&old, &raised);
+        assert_eq!(
+            report_raised.change,
+            Change::Compatible,
+            "{report_raised:?}"
+        );
+        let compatible = report_raised.compatible.join("\n");
+        assert!(
+            compatible.contains("Api::write: max length raised"),
+            "{compatible}"
+        );
+        assert!(
+            compatible.contains("type Piece: max length raised"),
+            "{compatible}"
+        );
+        // removing a bound is raising it to none
+        let removed = api("RefVec<'i, u8>", "&'i str", "RefVec<'i, u8>");
+        assert_eq!(report(&old, &removed).change, Change::Compatible);
+
+        // lowered: the old version writes values the new one rejects
+        for lowered in [
+            api(&bytes(4), &name(8), &bytes(8)),
+            api(&bytes(8), &name(4), &bytes(8)),
+            api(&bytes(8), &name(8), &bytes(4)),
+        ] {
+            assert_breaking(
+                &report(&old, &lowered),
+                "longer values the old version writes",
+            );
+        }
+        // adding a bound is lowering it from none
+        assert_breaking(&report(&removed, &old), "no max length on the old version");
     }
 
     #[test]

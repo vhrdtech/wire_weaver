@@ -83,6 +83,7 @@ impl ValueOwned {
             TypeOwned::Flag => Err(anyhow!("flag type cannot be created manually")),
             TypeOwned::String => Ok(ValueOwned::String(String::new())),
             TypeOwned::Vec(_) => Ok(ValueOwned::Vec(vec![])),
+            TypeOwned::MaxLen { ty, .. } => Self::default(ty, api_bundle),
             TypeOwned::Array { len, ty } => {
                 Ok(ValueOwned::Array(vec![
                     ValueOwned::default(ty, api_bundle)?;
@@ -207,6 +208,13 @@ fn des_inner(
         }
         TypeOwned::Flag => bail!("flag can only be a named field"),
         TypeOwned::String => Ok(ValueOwned::String(rd.read_str()?.to_string())),
+        TypeOwned::MaxLen { max_len, ty } => {
+            // the length comes first, check it before reading the elements
+            let mut peek = *rd;
+            let len = peek.read_rev_len()?;
+            check_max_len(len, max_len.0)?;
+            des_inner(rd, ty, api_bundle)
+        }
         TypeOwned::Vec(inner_ty) => {
             let len = rd.read_rev_len()?;
             let mut items = Vec::with_capacity(len.min(rd.bytes_left() + 1));
@@ -469,6 +477,15 @@ fn ser_inner(
                 return Err(mismatch());
             };
             wr.write_str(value)?;
+        }
+        TypeOwned::MaxLen { max_len, ty } => {
+            let len = match value {
+                ValueOwned::String(value) => value.len(),
+                ValueOwned::Vec(items) | ValueOwned::Array(items) => items.len(),
+                _ => return Err(mismatch()),
+            };
+            check_max_len(len, max_len.0)?;
+            ser_inner(wr, value, ty, api_bundle)?;
         }
         TypeOwned::Vec(inner_ty) => {
             let (ValueOwned::Vec(items) | ValueOwned::Array(items)) = value else {
@@ -814,4 +831,13 @@ fn float_value(value: &NumericValue) -> Result<f64> {
         NumericValue::F64(v) => *v,
         other => int_value(other)? as f64,
     })
+}
+
+/// A [MaxLen](TypeOwned::MaxLen) value of `len` elements: an error if it is longer than `max_len`, never cut.
+fn check_max_len(len: usize, max_len: u32) -> Result<()> {
+    if len > max_len as usize {
+        return Err(anyhow::Error::new(shrink_wrap::Error::MaxLenExceeded)
+            .context(format!("{len} elements, at most {max_len} allowed")));
+    }
+    Ok(())
 }

@@ -172,7 +172,8 @@ macro_rules! define_visitor {
                 TypeOwned::Vec(ty)
                 | TypeOwned::Array { ty, .. }
                 | TypeOwned::Option { some_ty: ty }
-                | TypeOwned::Box(ty) => v.visit_type(ty),
+                | TypeOwned::Box(ty)
+                | TypeOwned::MaxLen { ty, .. } => v.visit_type(ty),
                 TypeOwned::Result { ok_ty, err_ty } => {
                     v.visit_type(ok_ty);
                     v.visit_type(err_ty);

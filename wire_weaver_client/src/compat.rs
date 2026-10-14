@@ -77,7 +77,12 @@ impl ApiCompat {
         let device_items: HashMap<Vec<u32>, &ApiItemOwned> = collect(device).into_iter().collect();
         Self::build(client, |path, item| match device_items.get(path) {
             Some(device_item) => {
-                match compare_items((client, item, "client"), (device, device_item, "device")) {
+                // a different max length is not checked here: a longer value is rejected when it is sent
+                match compare_items(
+                    (client, item, "client"),
+                    (device, device_item, "device"),
+                    &mut Bounds::default(),
+                ) {
                     Ok(()) => Verdict::Compatible,
                     Err(reason) => Verdict::Incompatible(reason),
                 }
@@ -219,9 +224,21 @@ fn collect(bundle: &ApiBundleOwned) -> Vec<(Vec<u32>, &ApiItemOwned)> {
 pub(crate) type Side<'a> = (&'a ApiBundleOwned, &'a ApiItemOwned, &'static str);
 
 /// Checks that the resource on the client side can be used with the one on the device side.
-pub(crate) fn compare_items(
-    (client, client_item, client_name): Side,
-    (device, device_item, device_name): Side,
+/// How [TypeCheck] treats a reader whose [MaxLen](TypeOwned::MaxLen) is smaller than the writer's: values the
+/// writer can produce are then rejected by the reader (with an error, the bytes are the same).
+#[derive(Default)]
+pub(crate) struct Bounds<'a> {
+    /// A smaller max length on the reader is an error when this bundle is the writer (the old version of a crate:
+    /// lowering a bound breaks data the old version writes).
+    pub(crate) strict_writer: Option<&'a ApiBundleOwned>,
+    /// The smaller max lengths that were not an error.
+    pub(crate) narrower: Vec<String>,
+}
+
+pub(crate) fn compare_items<'a>(
+    (client, client_item, client_name): Side<'a>,
+    (device, device_item, device_name): Side<'a>,
+    bounds: &mut Bounds<'a>,
 ) -> Result<(), String> {
     let array = |item: &ApiItemOwned| {
         if item.is_array() {
@@ -238,8 +255,30 @@ pub(crate) fn compare_items(
         ));
     }
     // types flowing from client to device, and from device to client
-    let mut to_device = TypeCheck::new(client, device, client_name, device_name);
-    let mut to_client = TypeCheck::new(device, client, device_name, client_name);
+    let strict = |writer| {
+        bounds
+            .strict_writer
+            .is_some_and(|strict| std::ptr::eq(strict, writer))
+    };
+    let mut to_device =
+        TypeCheck::new(client, device, client_name, device_name).strict_bounds(strict(client));
+    let mut to_client =
+        TypeCheck::new(device, client, device_name, client_name).strict_bounds(strict(device));
+    let result = compare_kinds(
+        (client, client_item, client_name),
+        (device, device_item, device_name),
+        (&mut to_device, &mut to_client),
+    );
+    bounds.narrower.append(&mut to_device.narrower);
+    bounds.narrower.append(&mut to_client.narrower);
+    result
+}
+
+fn compare_kinds<'a>(
+    (client, client_item, client_name): Side<'a>,
+    (device, device_item, device_name): Side<'a>,
+    (to_device, to_client): (&mut TypeCheck<'a>, &mut TypeCheck<'a>),
+) -> Result<(), String> {
     use ApiItemKindOwned::*;
     match (&client_item.kind, &device_item.kind) {
         (
@@ -477,6 +516,10 @@ pub(crate) struct TypeCheck<'a> {
     reader_name: &'static str,
     /// Out-of-line types already compared or being compared, to stop on self-referential types.
     seen: HashSet<(u32, u32)>,
+    /// A smaller max length on the reader is an error, see [Bounds].
+    strict_bounds: bool,
+    /// Smaller max lengths on the reader found when they are not an error.
+    pub(crate) narrower: Vec<String>,
 }
 
 /// Type with out-of-line references resolved.
@@ -499,7 +542,45 @@ impl<'a> TypeCheck<'a> {
             writer_name,
             reader_name,
             seen: HashSet::new(),
+            strict_bounds: false,
+            narrower: vec![],
         }
+    }
+
+    pub(crate) fn strict_bounds(mut self, strict: bool) -> Self {
+        self.strict_bounds = strict;
+        self
+    }
+
+    /// Max lengths of a list or string on both sides, `None` for none.
+    fn check_bound(&mut self, w: Option<u32>, r: Option<u32>) -> Result<(), String> {
+        let narrower = match (w, r) {
+            (_, None) => false,
+            (None, Some(_)) => true,
+            (Some(w), Some(r)) => r < w,
+        };
+        if !narrower {
+            return Ok(());
+        }
+        let show = |len: Option<u32>| match len {
+            Some(len) => format!("max length {len}"),
+            None => "no max length".to_string(),
+        };
+        let msg = format!(
+            "{} on the {}, {} on the {}",
+            show(w),
+            self.writer_name,
+            show(r),
+            self.reader_name
+        );
+        if self.strict_bounds {
+            return Err(format!(
+                "{msg}: longer values the {} writes are rejected by the {}",
+                self.writer_name, self.reader_name
+            ));
+        }
+        self.narrower.push(msg);
+        Ok(())
     }
 
     pub(crate) fn check(&mut self, w: &'a TypeOwned, r: &'a TypeOwned) -> Result<(), String> {
@@ -537,6 +618,24 @@ impl<'a> TypeCheck<'a> {
         };
         use TypeOwned::*;
         match (w, r) {
+            (
+                MaxLen { max_len, ty: w },
+                MaxLen {
+                    max_len: r_max_len,
+                    ty: r,
+                },
+            ) => {
+                self.check_bound(Some(max_len.0), Some(r_max_len.0))?;
+                self.check(w, r)
+            }
+            (MaxLen { max_len, ty: w }, r) => {
+                self.check_bound(Some(max_len.0), None)?;
+                self.check(w, r)
+            }
+            (w, MaxLen { max_len, ty: r }) => {
+                self.check_bound(None, Some(max_len.0))?;
+                self.check(w, r)
+            }
             (Vec(w), Vec(r)) | (Box(w), Box(r)) => self.check(w, r),
             (Option { some_ty: w }, Option { some_ty: r }) => self.check(w, r),
             (Array { len, ty: w }, Array { len: r_len, ty: r }) => {
@@ -786,6 +885,7 @@ fn describe(ty: &TypeOwned) -> String {
         TypeOwned::Box(_) => "Box".into(),
         TypeOwned::Range(_) => "Range".into(),
         TypeOwned::RangeInclusive(_) => "RangeInclusive".into(),
+        TypeOwned::MaxLen { max_len, ty } => format!("{} of at most {}", describe(ty), max_len.0),
     }
 }
 

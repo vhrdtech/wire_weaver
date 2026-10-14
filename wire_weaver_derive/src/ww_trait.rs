@@ -198,20 +198,15 @@ impl MarkerUniqueName {
 
 fn type_marker(ty: &Type, unique_marker: &mut MarkerUniqueName) -> TokenStream {
     let marker = unique_marker.next_ty();
-    let maybe_args = match &ty {
-        Type::Path(type_path) => {
-            let args = type_path.path.segments.last().unwrap().arguments.clone();
-            Some(quote! { #args })
-        }
-        Type::Reference(type_reference) => type_reference
-            .lifetime
-            .as_ref()
-            .map(|lifetime| quote! { < #lifetime > }),
-        _ => None,
-    };
+    // only the lifetimes are generic: 'type SrcMarkerAbc0<'i> = RefVec<'i, u8>;', 'type SrcMarkerAbc1 = Vec<u8>;',
+    // also with const arguments ('MaxLen<&'i str, 6>')
+    let mut lifetimes = vec![];
+    collect_lifetimes(ty, &mut lifetimes);
+    lifetimes.sort_by(|a, b| a.ident.cmp(&b.ident));
+    lifetimes.dedup_by(|a, b| a.ident == b.ident);
+    let maybe_args = maybe_lifetimes(&lifetimes);
     quote! {
-        // to not try to figure out generic argument vs actual type, in 'type SrcMarkerAbc0<u8> = Vec<u8>;' or RefVec<'i, u8>, etc.
-        #[allow(non_camel_case_types, clippy::builtin_type_shadow)]
+        #[allow(non_camel_case_types)]
         type #marker #maybe_args = #ty;
     }
 }
@@ -222,6 +217,14 @@ fn type_path_marker(type_path: &TypePath, unique_marker: &mut MarkerUniqueName) 
     quote! {
         #[allow(clippy::builtin_type_shadow)]
         type #marker #args = #type_path;
+    }
+}
+
+fn maybe_lifetimes(lifetimes: &[Lifetime]) -> TokenStream {
+    if lifetimes.is_empty() {
+        quote! {}
+    } else {
+        quote! { < #(#lifetimes),* > }
     }
 }
 
@@ -249,6 +252,7 @@ fn collect_lifetimes(ty: &Type, lifetimes: &mut Vec<Lifetime>) {
             if let Some(lifetime) = &type_reference.lifetime {
                 lifetimes.push(lifetime.clone());
             }
+            collect_lifetimes(&type_reference.elem, lifetimes);
         }
         Type::Slice(type_slice) => {
             collect_lifetimes(&type_slice.elem, lifetimes);

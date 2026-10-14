@@ -147,6 +147,7 @@ impl TypeOwned {
             TypeOwned::Box(_) => Ok(true),
             TypeOwned::Range(_) => Ok(false),
             TypeOwned::RangeInclusive(_) => Ok(false),
+            TypeOwned::MaxLen { ty, .. } => ty.is_lifetime(api_bundle),
         }
     }
 
@@ -174,16 +175,20 @@ impl TypeOwned {
             | TypeOwned::Option { .. }
             | TypeOwned::Result { .. }
             | TypeOwned::Range(_)
-            | TypeOwned::RangeInclusive(_) => Ok(false),
+            | TypeOwned::RangeInclusive(_)
+            | TypeOwned::MaxLen { .. } => Ok(false),
         }
     }
 
+    /// A `Vec<u8>` / `RefVec<u8>`, also with a [MaxLen](TypeOwned::MaxLen) (see [max_len](Self::max_len)).
     pub fn is_byte_slice(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
         match self {
             TypeOwned::OutOfLine { type_idx } => {
                 let ty = api_bundle.get_ty(type_idx.0)?;
                 ty.0.is_byte_slice(api_bundle)
             }
+            // sent the same way, the bound is checked on the side
+            TypeOwned::MaxLen { ty, .. } => ty.is_byte_slice(api_bundle),
             TypeOwned::Vec(inner) => Ok(matches!(
                 inner.as_ref(),
                 TypeOwned::NumericAny(NumericAnyTypeOwned::Base(NumericBaseType::U8))
@@ -280,6 +285,19 @@ impl TypeOwned {
             )),
             TypeOwned::Range(base) => Ok(format!("Range<{}>", base.name())),
             TypeOwned::RangeInclusive(base) => Ok(format!("RangeInclusive<{}>", base.name())),
+            TypeOwned::MaxLen { max_len, ty } => Ok(format!(
+                "MaxLen<{}, {}>",
+                ty.human_name(show_crate_name, api_bundle)?,
+                max_len.0
+            )),
+        }
+    }
+
+    /// `Some(max_len)` for a [MaxLen](TypeOwned::MaxLen), out-of-line references followed.
+    pub fn max_len(&self, api_bundle: &ApiBundleOwned) -> Result<Option<u32>> {
+        match self.get_in_line(api_bundle)? {
+            TypeOwned::MaxLen { max_len, .. } => Ok(Some(max_len.0)),
+            _ => Ok(None),
         }
     }
 
@@ -363,6 +381,11 @@ impl TypeOwned {
             )),
             TypeOwned::Range(base) => Ok(format!("Range<{}>", base.name())),
             TypeOwned::RangeInclusive(base) => Ok(format!("RangeInclusive<{}>", base.name())),
+            TypeOwned::MaxLen { max_len, ty } => Ok(format!(
+                "MaxLen<{}, {}>",
+                ty.human_definition(api_bundle, single_line)?,
+                max_len.0
+            )),
         }
     }
 }

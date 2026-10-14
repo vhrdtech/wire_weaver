@@ -340,7 +340,8 @@ fn transform_type_max_len(path_segment: &PathSegment, path: &FieldPath) -> Resul
         }
     };
     let inner_ty = transform_type(inner_ty.clone(), None, path)?;
-    if !matches!(inner_ty, Type::Vec(_) | Type::String) {
+    // a path to one (`shrink_wrap::RefVec<'i, u8>`) is an external type, checked by the trait bounds instead
+    if !matches!(inner_ty, Type::Vec(_) | Type::String | Type::External(_, _)) {
         return Err(
             "MaxLen<T, N> bounds a list or a string: T is Vec, RefVec, String or &str".into(),
         );

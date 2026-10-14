@@ -357,6 +357,9 @@ impl Scaffold<'_> {
                 {
                     "_data: &shrink_wrap::tail_bytes::TailBytes<'_>".into()
                 }
+                TypeOwned::MaxLen { .. } if ty.is_byte_slice(self.api_bundle)? => {
+                    "_data: &shrink_wrap::tail_bytes::TailBytes<'_>".into()
+                }
                 _ => format!("_value: {}", self.ty(ty, false)?),
             };
             self.docs(item)?;

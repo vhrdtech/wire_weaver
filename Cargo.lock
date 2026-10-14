@@ -330,6 +330,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "bounded"
+version = "0.1.0"
+dependencies = [
+ "bounded_api",
+ "hex-literal",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "ww_client_server",
+]
+
+[[package]]
+name = "bounded_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

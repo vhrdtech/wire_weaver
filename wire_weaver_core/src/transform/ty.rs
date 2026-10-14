@@ -106,6 +106,7 @@ pub(crate) fn convert_ty_path_segment(
         "ILeb128" | "ileb128" => Ok(numeric_base(NumericBaseType::ILeb128)),
         "String" | "str" => Ok(TypeOwned::String),
         "Vec" | "RefVec" => convert_ty_vec(segment, current_crate, scratch),
+        "MaxLen" => convert_ty_max_len(segment, current_crate, scratch),
         "Option" => convert_ty_option(segment, current_crate, scratch),
         "Result" => convert_ty_result(segment, current_crate, scratch),
         "Range" => convert_ty_range(segment, current_crate, scratch),
@@ -326,6 +327,72 @@ fn convert_ty_vec(
     let inner_ty = get_inner_angle_bracketed_ty(segment, current_crate)?;
     let inner_ty = convert_ty(inner_ty, current_crate, scratch)?;
     Ok(TypeOwned::Vec(Box::new(inner_ty)))
+}
+
+/// `MaxLen<T, N>`, `T` a list or a string, `N` an integer literal (also as `{ 64 }`) or a `const` of one in the
+/// same crate's lib.rs.
+fn convert_ty_max_len(
+    segment: &PathSegment,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<TypeOwned> {
+    let err = |msg: &str| anyhow!("MaxLen<T, N>: {msg}").context(current_crate.err_context());
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return Err(err("expected generic arguments"));
+    };
+    let mut args = args.args.iter();
+    let (Some(GenericArgument::Type(inner_ty)), Some(len), None) =
+        (args.next(), args.next(), args.next())
+    else {
+        return Err(err("expected a type and a length"));
+    };
+    let max_len = match len {
+        GenericArgument::Const(expr) => max_len_value(expr, current_crate),
+        // `N` alone parses as a type
+        GenericArgument::Type(Type::Path(type_path)) => match type_path.path.get_ident() {
+            Some(ident) => const_value(&ident.to_string(), current_crate),
+            None => None,
+        },
+        _ => None,
+    }
+    .ok_or_else(|| err("N must be an integer literal or a const of one in lib.rs"))?;
+    let inner_ty = convert_ty(inner_ty, current_crate, scratch)?;
+    if !matches!(inner_ty, TypeOwned::Vec(_) | TypeOwned::String) {
+        return Err(err("T must be a Vec, RefVec, String or &str"));
+    }
+    Ok(TypeOwned::MaxLen {
+        max_len: UNib32(max_len),
+        ty: Box::new(inner_ty),
+    })
+}
+
+fn max_len_value(expr: &Expr, current_crate: &CrateContext) -> Option<u32> {
+    match expr {
+        Expr::Lit(lit) => match &lit.lit {
+            Lit::Int(lit_int) => lit_int.base10_parse().ok(),
+            _ => None,
+        },
+        Expr::Block(block) => match block.block.stmts.as_slice() {
+            [syn::Stmt::Expr(expr, None)] => max_len_value(expr, current_crate),
+            _ => None,
+        },
+        Expr::Path(path) => const_value(&path.path.get_ident()?.to_string(), current_crate),
+        _ => None,
+    }
+}
+
+/// Value of `const NAME: _ = <integer literal>;` in the crate's lib.rs.
+fn const_value(name: &str, current_crate: &CrateContext) -> Option<u32> {
+    current_crate
+        .lib_rs_ast
+        .items
+        .iter()
+        .find_map(|item| match item {
+            Item::Const(item_const) if item_const.ident == name => {
+                max_len_value(&item_const.expr, current_crate)
+            }
+            _ => None,
+        })
 }
 
 fn convert_ty_option(

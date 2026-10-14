@@ -11,7 +11,8 @@ use wire_weaver::ww_version::{ApiHashPair, FullVersion};
 use wire_weaver::{BlockingEventOut, EventWriter, MessageSink, WireWeaverAsyncApiBackend};
 use wire_weaver_client::in_process::{self, TokioClock};
 
-const MAX_MESSAGE_LEN: usize = 1024;
+/// Message buffers of the test device (`ww_device::Server` scratch, in-process link).
+pub const MAX_MESSAGE_LEN: usize = 1024;
 
 /// Implemented by test servers generated with `use_async = false`, forwards to the generated `process_request_bytes`.
 pub trait TestProcessEvents {

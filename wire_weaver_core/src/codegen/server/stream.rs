@@ -79,9 +79,18 @@ pub(crate) fn stream_ser_methods_recursive(
         let send_lifetimes = maybe_quote(ty.is_lifetime(bundle).unwrap(), quote! { <'i> });
 
         let (value_ty, value_ser) = if kind == "stream" && ty.is_byte_slice(bundle).unwrap() {
+            let check_max_len = ty.max_len(bundle).unwrap().map(|max_len| {
+                let max_len = max_len as usize;
+                quote! {
+                    if value.len() > #max_len {
+                        return Err(ShrinkWrapError::MaxLenExceeded);
+                    }
+                }
+            });
             (
                 quote! { [u8] },
                 quote! {
+                    #check_max_len
                     wr.write(&TailBytes(value))?;
                 },
             )

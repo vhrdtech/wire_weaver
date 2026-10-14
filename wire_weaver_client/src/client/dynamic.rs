@@ -548,6 +548,14 @@ impl DynSink {
                     "expected bytes, got {value:?}"
                 ))));
             };
+            if let Ok(Some(max_len)) = self.ty.max_len(&self.bundle)
+                && items.len() > max_len as usize
+            {
+                return Err(StreamError::Other(Error::Other(format!(
+                    "{} bytes, at most {max_len} allowed",
+                    items.len()
+                ))));
+            }
             return items
                 .iter()
                 .map(|item| match item {

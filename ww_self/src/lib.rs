@@ -255,6 +255,12 @@ pub enum Type<'i> {
     Range(RefBox<'i, NumericBaseType>),
     /// Closed range `start..=end`
     RangeInclusive(RefBox<'i, NumericBaseType>),
+    /// [String](Type::String) or [Vec](Type::Vec) `ty` with at most `max_len` elements (bytes for a string),
+    /// `MaxLen<T, N>`. Same bytes on the wire as `ty`, a longer value is an error.
+    MaxLen {
+        max_len: UNib32,
+        ty: RefBox<'i, Type<'i>>,
+    },
 }
 
 #[derive_shrink_wrap(

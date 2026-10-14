@@ -56,6 +56,21 @@ pub(crate) fn to_value(
             let s = obj.cast::<PyString>().map_err(|_| expected())?;
             ValueOwned::String(s.to_str()?.to_string())
         }
+        TypeOwned::MaxLen { max_len, ty: inner } => {
+            let value = to_value(obj, inner, bundle)?;
+            let len = match &value {
+                ValueOwned::String(s) => s.len(),
+                ValueOwned::Vec(items) | ValueOwned::Array(items) => items.len(),
+                _ => 0,
+            };
+            if len > max_len.0 as usize {
+                return Err(PyValueError::new_err(format!(
+                    "{len} elements, at most {} allowed (bytes for a string)",
+                    max_len.0
+                )));
+            }
+            value
+        }
         TypeOwned::Vec(inner) => ValueOwned::Vec(to_items(obj, inner, bundle).map_err(|e| {
             if e.is_instance_of::<PyTypeError>(obj.py()) && !is_iterable(obj) {
                 expected()
@@ -432,6 +447,7 @@ pub(crate) fn to_py<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let ty = resolve(ty, bundle)?;
     Ok(match (value, ty) {
+        (_, TypeOwned::MaxLen { ty: inner, .. }) => to_py(py, value, inner, bundle)?,
         (ValueOwned::Bool(b), _) => PyBool::new(py, *b).to_owned().into_any(),
         (ValueOwned::Numeric(n), _) => numeric_to_py(py, n)?,
         (ValueOwned::String(s), _) => PyString::new(py, s).into_any(),

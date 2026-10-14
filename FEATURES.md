@@ -592,12 +592,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `MAX_PIECE_LEN`, `MAX_HEADER_LEN`, `MAX_CHUNKS_PAGE`, `MAX_PRODUCT_LEN`), so every method has a known largest
   request and reply. `Profile::AB(SlotSwitch::{Copy, Remap})` / `InPlace`. Next: a chunky implementation (chunky
   NET-1).
-- 🚧 **STD-13 IO trait family** · `v0.5` — small traits per bus so a device pays only for what it uses: `ww_gpio`,
-  `ww_uart` (+ `UartMonitor`), `ww_i2c` (+ `I2cBus`, `I2cMonitor`), `ww_spi` (+ `SpiMonitor`), `ww_adc` (`Adc`,
-  `AdcStream`, `AdcCapture`), `ww_pwm`, `ww_onewire`, `ww_timebase` (`Clock`), `ww_logic_analyzer`,
-  `ww_signal_generator`; common errors (`InUse`, `NoIoLevel`, `Refused`), `ww_si` values and timestamps, stream
-  items headed by `seq` / `lost` / `t`. Design round 2 in review (`docs/std_library/io_family.md`); `ww_i2c` and
-  `ww_adc` written as drafts. Next: `ww_si` improvements, skeletons, per-crate fill-ins.
+- 🚧 **STD-13 IO trait family** · `v0.5` — `ww_gpio`, `ww_uart` (+ `UartMonitor`), `ww_i2c` (+ `I2cMonitor`,
+  10-bit addresses), `ww_spi` (+ `SpiMonitor`), `ww_adc` (`Adc`, `AdcStream`, `AdcCapture`), `ww_pwm`, `ww_onewire`,
+  `ww_timebase` (`Clock`), `ww_logic_analyzer`, `ww_signal_generator`; `ww_si` values and timestamps, plain error
+  enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Design round 3 in review
+  (`docs/std_library/io_family.md`); `ww_i2c` and `ww_adc` written as drafts. Stream loss and timestamps wait for
+  ww-stream-reliability, error evolution for ww-errors-plan.
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

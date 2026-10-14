@@ -39,17 +39,13 @@
 //! hardware samples the channels together. Several `Adc::read`s, even in one multi-call, are taken one after the
 //! other.
 //!
-//! # Streams: `seq`, `lost`, `t`
+//! # Streams
 //!
-//! Every [SampleBlock] carries the head all IO streams of `ww_stdlib` share:
-//!
-//! - `seq`: index of the block's first sample set since `AdcStream::start_stream`, wrapping. A sample set is one
-//!   sample of every channel in the stream. Blocks of 100, 100, 50 sets have `seq` 0, 100, 200; the next one 250.
-//! - `lost`: sample sets dropped right before this block because the host didn't keep up (its buffer filled). `seq`
-//!   counts them too, so the host knows exactly where the gap is and how long it was, instead of gluing data from
-//!   before and after it together.
-//! - `t`: device time of the block's first sample set ([Second] since the device's clock started, in the prefix and
-//!   number type the device picks; a fixed-width value wraps and the host unwraps it).
+//! `AdcStream` is configured with a method (`AdcStream::configure_stream`, which answers with the rate actually
+//! set) and started and stopped with the stream's own sideband commands: `Open` starts sampling, `Close` stops it.
+//! What a stream does when the host can't keep up (counting and reporting dropped blocks, backfill), and per-block
+//! timestamps, are the subject of the stream reliability work (`ww-stream-reliability`, see
+//! `docs/std_library/io_family.md`); [SampleBlock] gets those fields from there.
 //!
 //! # Errors
 //!
@@ -65,11 +61,8 @@ pub use ww_si::{BaseUnit, Hertz, Prefix, Second};
 /// Most channels a device lists, and most channels in one stream or capture.
 pub const MAX_CHANNELS: usize = 32;
 
-/// Longest channel name ([ChannelInfo::name]) and name in [AdcError::InUse].
+/// Longest channel name ([ChannelInfo::name]).
 pub const MAX_NAME_LEN: usize = 32;
-
-/// Longest reason in [AdcError::Refused].
-pub const MAX_REASON_LEN: usize = 64;
 
 /// Largest sample data of one [SampleBlock], in bytes.
 pub const MAX_BLOCK_LEN: usize = 512;
@@ -89,37 +82,35 @@ pub trait Adc {
     ///
     /// [AdcError::NoSuchChannel], [AdcError::Busy] (the ADC runs a stream or capture that can't be interrupted),
     /// [AdcError::NoIoLevel] (inputs behind an unpowered buffer), [AdcError::Timeout].
-    fn read(channel: u8) -> Result<Reading, AdcError<'i>>;
+    fn read(channel: u8) -> Result<Reading, AdcError>;
 
-    /// The channels, their units and ranges, and whether timestamps are real.
+    /// The channels, their units and ranges.
     fn capabilities() -> AdcCapabilities<'i>;
 }
 
 /// Continuous sampling, sent on the `samples` stream.
 ///
-/// Only one stream runs at a time. Opening the `samples` stream starts nothing; `AdcStream::start_stream` does.
+/// Only one stream runs at a time. `AdcStream::configure_stream` sets it up; the `samples` stream's sideband `Open`
+/// starts sampling and `Close` stops it (blocks already sampled are still sent).
 #[ww_trait]
 pub trait AdcStream {
-    /// Raw samples, interleaved in the order of [StreamConfig::channels]. `seq` counts sample sets.
+    /// Raw samples, whole sample sets interleaved in the order of [StreamConfig::channels].
     stream!(samples: SampleBlock<'i>);
 
     /// Rates, formats and limits of streaming.
     fn stream_capabilities() -> StreamCapabilities<'i>;
 
-    /// Starts sampling `config.channels` at `config.rate` sample sets per second and returns what was actually set
-    /// (the nearest rate the hardware can do). Restarts a running stream with the new configuration, `seq` from 0.
+    /// Sets up sampling of `config.channels` at `config.rate` sample sets per second and returns what was actually
+    /// set (the nearest rate the hardware can do). Applies at once to a running stream.
     ///
     /// # Errors
     ///
     /// [AdcError::NoSuchChannel], [AdcError::InvalidArgument] (rate or channel count out of range),
     /// [AdcError::Unsupported] (format), [AdcError::Busy] (a capture runs), [AdcError::InUse], [AdcError::NoIoLevel].
-    fn start_stream(config: StreamConfig<'i>) -> Result<StreamActual, AdcError<'i>>;
+    fn configure_stream(config: StreamConfig<'i>) -> Result<StreamActual, AdcError>;
 
-    /// Stops sampling; blocks already sampled are still sent.
-    fn stop_stream();
-
-    /// The configuration of the running stream, `None` when stopped. For a host that joins a running stream.
-    fn stream_config() -> Option<StreamRunning<'i>>;
+    /// The current stream configuration and whether it runs. For a host that joins a running stream.
+    fn stream_state() -> StreamState<'i>;
 }
 
 /// Lossless capture: samples go into device RAM at any rate the hardware can do, the host reads them out after.
@@ -136,7 +127,7 @@ pub trait AdcCapture {
     /// [AdcError::NoSuchChannel], [AdcError::InvalidArgument] (rate, depth or trigger level out of range),
     /// [AdcError::Unsupported] (format or trigger), [AdcError::Busy] (a stream runs), [AdcError::InUse],
     /// [AdcError::NoIoLevel].
-    fn capture(config: CaptureConfig<'i>) -> Result<CaptureActual, AdcError<'i>>;
+    fn capture(config: CaptureConfig<'i>) -> Result<CaptureActual, AdcError>;
 
     /// Where the capture stands.
     fn capture_status() -> CaptureStatus;
@@ -150,7 +141,7 @@ pub trait AdcCapture {
     fn capture_read(
         offset: u32,
         len: u16,
-    ) -> Result<MaxLen<RefVec<'i, u8>, MAX_CAPTURE_READ_LEN>, AdcError<'i>>;
+    ) -> Result<MaxLen<RefVec<'i, u8>, MAX_CAPTURE_READ_LEN>, AdcError>;
 
     /// Stops an armed or running capture and drops its data.
     fn capture_abort();
@@ -166,8 +157,8 @@ pub trait AdcCapture {
 pub struct Reading {
     /// In the channel's [ChannelInfo::unit] and [ChannelInfo::prefix].
     pub value: NumericValue,
-    /// The converter's raw code, where there is one (for checking calibration).
-    pub raw: Option<u32>,
+    /// The converter's raw code (for checking calibration).
+    pub raw: u32,
     /// When the sample was taken.
     pub t: Second,
 }
@@ -181,8 +172,6 @@ pub struct Reading {
 pub struct AdcCapabilities<'i> {
     /// Channel `n` of every method is `channels[n]`.
     pub channels: MaxLen<RefVec<'i, ChannelInfo<'i>>, MAX_CHANNELS>,
-    /// Whether timestamps are real; without a clock they are all zero.
-    pub timestamps: bool,
 }
 
 /// One analog input.
@@ -242,9 +231,6 @@ pub enum SampleFormat {
     I16,
     /// Three bytes per sample, signed, little-endian (sigma-delta converters).
     I24,
-    /// A format from a newer version of this API.
-    #[future_version]
-    Unknown(u32),
 }
 
 /// What `AdcStream` can do.
@@ -261,7 +247,7 @@ pub struct StreamCapabilities<'i> {
     pub formats: MaxLen<RefVec<'i, SampleFormat>, MAX_FORMATS>,
 }
 
-/// What to stream, see `AdcStream::start_stream`.
+/// What to stream, see `AdcStream::configure_stream`.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
@@ -278,7 +264,7 @@ pub struct StreamConfig<'i> {
     pub flush_interval: Option<Second>,
 }
 
-/// What `AdcStream::start_stream` actually set.
+/// What `AdcStream::configure_stream` actually set.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -290,15 +276,17 @@ pub struct StreamActual {
     pub rate: Hertz,
 }
 
-/// A running stream, see `AdcStream::stream_config`.
+/// The stream's configuration, see `AdcStream::stream_state`.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Debug, Clone)
 )]
-pub struct StreamRunning<'i> {
+pub struct StreamState<'i> {
     pub config: StreamConfig<'i>,
     pub actual: StreamActual,
+    /// Sampling runs (the stream is open).
+    pub running: bool,
 }
 
 /// Raw samples of a stream, see `AdcStream`.
@@ -308,12 +296,6 @@ pub struct StreamRunning<'i> {
     derive(Debug, Clone)
 )]
 pub struct SampleBlock<'i> {
-    /// Index of the first sample set since the stream started, wrapping; counts lost sets too.
-    pub seq: u32,
-    /// Sample sets dropped right before this block, 0 normally.
-    pub lost: UNib32,
-    /// Time of the first sample set.
-    pub t: Second,
     /// Whole sample sets, interleaved in the order of [StreamConfig::channels], packed as [StreamConfig::format].
     pub data: MaxLen<RefVec<'i, u8>, MAX_BLOCK_LEN>,
 }
@@ -374,9 +356,6 @@ pub enum Trigger {
     Falling { channel: u8, level: NumericValue },
     /// On the device's external trigger input, or another device's trigger.
     External,
-    /// A trigger from a newer version of this API.
-    #[future_version]
-    Unknown(u32),
 }
 
 /// What `AdcCapture::capture` actually set.
@@ -414,29 +393,29 @@ pub enum CaptureStatus {
         t_trigger: Option<Second>,
         sets: u32,
     },
-    /// A status from a newer version of this API.
-    #[future_version]
-    Unknown(u32),
 }
 
 /// Errors of every trait in this crate. Each method lists the variants it returns.
+///
+/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is being
+/// designed for all of `ww_stdlib` (`ww-errors-plan`); until then this enum stays plain.
 #[derive_shrink_wrap(
+    borrowed,
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Clone),
+    derive(Debug, PartialEq, Eq, Copy, Clone),
+    self_describing,
     ww_repr = unib32
 )]
-pub enum AdcError<'i> {
+pub enum AdcError {
     /// Not supported by this device (a format, a trigger).
     Unsupported,
-    /// The pins or the converter serve another function, named in `by`.
-    InUse { by: MaxLen<&'i str, MAX_NAME_LEN> },
+    /// The pins or the converter serve another function.
+    InUse,
     /// The input buffers or translators have no supply.
     NoIoLevel,
-    /// A safety rule of the device doesn't allow it; `reason` says which.
-    Refused {
-        reason: MaxLen<&'i str, MAX_REASON_LEN>,
-    },
+    /// A safety rule of the device doesn't allow it.
+    Refused,
     /// An argument is out of range (rate, depth, offset, trigger level).
     InvalidArgument,
     /// The call needs another state (e.g. reading a capture that isn't done).
@@ -447,7 +426,4 @@ pub enum AdcError<'i> {
     Busy,
     /// The conversion didn't finish.
     Timeout,
-    /// An error from a newer version of this API.
-    #[future_version]
-    Unknown(u32),
 }

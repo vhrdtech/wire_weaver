@@ -42,17 +42,13 @@
     "hardware samples the channels together. Several `Adc::read`s, even in one multi-call, are taken one after the",
     "other.",
     "",
-    "# Streams: `seq`, `lost`, `t`",
+    "# Streams",
     "",
-    "Every [SampleBlock] carries the head all IO streams of `ww_stdlib` share:",
-    "",
-    "- `seq`: index of the block\'s first sample set since `AdcStream::start_stream`, wrapping. A sample set is one",
-    "  sample of every channel in the stream. Blocks of 100, 100, 50 sets have `seq` 0, 100, 200; the next one 250.",
-    "- `lost`: sample sets dropped right before this block because the host didn\'t keep up (its buffer filled). `seq`",
-    "  counts them too, so the host knows exactly where the gap is and how long it was, instead of gluing data from",
-    "  before and after it together.",
-    "- `t`: device time of the block\'s first sample set ([Second] since the device\'s clock started, in the prefix and",
-    "  number type the device picks; a fixed-width value wraps and the host unwraps it).",
+    "`AdcStream` is configured with a method (`AdcStream::configure_stream`, which answers with the rate actually",
+    "set) and started and stopped with the stream\'s own sideband commands: `Open` starts sampling, `Close` stops it.",
+    "What a stream does when the host can\'t keep up (counting and reporting dropped blocks, backfill), and per-block",
+    "timestamps, are the subject of the stream reliability work (`ww-stream-reliability`, see",
+    "`docs/std_library/io_family.md`); [SampleBlock] gets those fields from there.",
     "",
     "# Errors",
     "",
@@ -98,32 +94,31 @@
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "In the channel\'s [ChannelInfo::unit] and [ChannelInfo::prefix].",
         ]),
-        (ident: Some("raw"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
-            "The converter\'s raw code, where there is one (for checking calibration).",
+        (ident: Some("raw"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "The converter\'s raw code (for checking calibration).",
         ]),
         (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
             "When the sample was taken.",
         ]),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
         "Errors of every trait in this crate. Each method lists the variants it returns.",
+        "",
+        "How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is being",
+        "designed for all of `ww_stdlib` (`ww-errors-plan`); until then this enum stays plain.",
     ], ident: "AdcError", variants: [
         (docs: [
             "Not supported by this device (a format, a trigger).",
         ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
         (docs: [
-            "The pins or the converter serve another function, named in `by`.",
-        ], ident: "InUse", fields: Named([
-            (ident: Some("by"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: []),
-        ]), discriminant: 1, since: None),
+            "The pins or the converter serve another function.",
+        ], ident: "InUse", fields: Unit, discriminant: 1, since: None),
         (docs: [
             "The input buffers or translators have no supply.",
         ], ident: "NoIoLevel", fields: Unit, discriminant: 2, since: None),
         (docs: [
-            "A safety rule of the device doesn\'t allow it; `reason` says which.",
-        ], ident: "Refused", fields: Named([
-            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: 64, ty: String), docs: []),
-        ]), discriminant: 3, since: None),
+            "A safety rule of the device doesn\'t allow it.",
+        ], ident: "Refused", fields: Unit, discriminant: 3, since: None),
         (docs: [
             "An argument is out of range (rate, depth, offset, trigger level).",
         ], ident: "InvalidArgument", fields: Unit, discriminant: 4, since: None),
@@ -190,22 +185,10 @@
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(OutOfLine(type_idx: 7))), docs: [
             "Channel `n` of every method is `channels[n]`.",
         ]),
-        (ident: Some("timestamps"), default: None, since: None, ty: Bool, docs: [
-            "Whether timestamps are real; without a clock they are all zero.",
-        ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Raw samples of a stream, see `AdcStream`.",
     ], ident: "SampleBlock", fields: Named([
-        (ident: Some("seq"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
-            "Index of the first sample set since the stream started, wrapping; counts lost sets too.",
-        ]),
-        (ident: Some("lost"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
-            "Sample sets dropped right before this block, 0 normally.",
-        ]),
-        (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
-            "Time of the first sample set.",
-        ]),
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
             "Whole sample sets, interleaved in the order of [StreamConfig::channels], packed as [StreamConfig::format].",
         ]),
@@ -252,7 +235,7 @@
         (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 11))), docs: []),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What to stream, see `AdcStream::start_stream`.",
+        "What to stream, see `AdcStream::configure_stream`.",
     ], ident: "StreamConfig", fields: Named([
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
             "Channel indices, in the order samples are interleaved.",
@@ -267,17 +250,20 @@
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What `AdcStream::start_stream` actually set.",
+        "What `AdcStream::configure_stream` actually set.",
     ], ident: "StreamActual", fields: Named([
         (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
             "Sample sets per second.",
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A running stream, see `AdcStream::stream_config`.",
-    ], ident: "StreamRunning", fields: Named([
+        "The stream\'s configuration, see `AdcStream::stream_state`.",
+    ], ident: "StreamState", fields: Named([
         (ident: Some("config"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: []),
         (ident: Some("actual"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: []),
+        (ident: Some("running"), default: None, since: None, ty: Bool, docs: [
+            "Sampling runs (the stream is open).",
+        ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `AdcCapture` can do.",
@@ -385,36 +371,34 @@
             "[AdcError::NoIoLevel] (inputs behind an unpowered buffer), [AdcError::Timeout].",
         ]),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
-            "The channels, their units and ranges, and whether timestamps are real.",
+            "The channels, their units and ranges.",
         ]),
     ]), crate_idx: 0),
     InLine(level: (docs: [
         "Continuous sampling, sent on the `samples` stream.",
         "",
-        "Only one stream runs at a time. Opening the `samples` stream starts nothing; `AdcStream::start_stream` does.",
+        "Only one stream runs at a time. `AdcStream::configure_stream` sets it up; the `samples` stream\'s sideband `Open`",
+        "starts sampling and `Close` stops it (blocks already sampled are still sent).",
     ], crate_idx: 0, trait_name: "AdcStream", items: [
         (id: 0, kind: Stream(ty: OutOfLine(type_idx: 9), is_up: true), multiplicity: Flat, since: None, ident: "samples", docs: [
-            "Raw samples, interleaved in the order of [StreamConfig::channels]. `seq` counts sample sets.",
+            "Raw samples, whole sample sets interleaved in the order of [StreamConfig::channels].",
         ]),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12))), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
             "Rates, formats and limits of streaming.",
         ]),
         (id: 2, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 13)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "start_stream", docs: [
-            "Starts sampling `config.channels` at `config.rate` sample sets per second and returns what was actually set",
-            "(the nearest rate the hardware can do). Restarts a running stream with the new configuration, `seq` from 0.",
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "configure_stream", docs: [
+            "Sets up sampling of `config.channels` at `config.rate` sample sets per second and returns what was actually",
+            "set (the nearest rate the hardware can do). Applies at once to a running stream.",
             "",
             "# Errors",
             "",
             "[AdcError::NoSuchChannel], [AdcError::InvalidArgument] (rate or channel count out of range),",
             "[AdcError::Unsupported] (format), [AdcError::Busy] (a capture runs), [AdcError::InUse], [AdcError::NoIoLevel].",
         ]),
-        (id: 3, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "stop_stream", docs: [
-            "Stops sampling; blocks already sampled are still sent.",
-        ]),
-        (id: 4, kind: Method(args: [], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 15)))), multiplicity: Flat, since: None, ident: "stream_config", docs: [
-            "The configuration of the running stream, `None` when stopped. For a host that joins a running stream.",
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15))), multiplicity: Flat, since: None, ident: "stream_state", docs: [
+            "The current stream configuration and whether it runs. For a host that joins a running stream.",
         ]),
     ]), crate_idx: 0),
     InLine(level: (docs: [

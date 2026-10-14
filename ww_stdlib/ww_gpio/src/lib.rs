@@ -69,6 +69,25 @@ pub trait Pin {
 
     /// Enable or disable asynchronous events sent through the stream.
     fn configure_events(enabled: IoPinEnabledEvents<'i>) -> Result<(), Error>;
+
+    /// What this pin can do: modes, pulls, speeds, whether it sends events, and its name.
+    fn capabilities() -> PinCapabilities<'i>;
+}
+
+/// What one pin can do, see `Pin::capabilities`.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Debug)
+)]
+pub struct PinCapabilities<'i> {
+    pub modes: MaxLen<RefVec<'i, Mode>, 8>,
+    pub pulls: MaxLen<RefVec<'i, Pull>, 4>,
+    pub speeds: MaxLen<RefVec<'i, Speed>, 5>,
+    /// The `event` stream works on this pin.
+    pub events: bool,
+    /// Name printed on the board or in the datasheet: "IO4", "PB5".
+    pub name: MaxLen<&'i str, 16>,
 }
 
 /// Digital output level - High and Low.
@@ -122,6 +141,12 @@ pub enum Error {
     NotImplemented,
     CustomU8(u8),
     CustomU32(u32),
+    /// The pin serves another function.
+    InUse,
+    /// The level translators have no supply (IO level off).
+    NoIoLevel,
+    /// A safety rule of the device doesn't allow it.
+    Refused,
 }
 
 /// IO pin pull configuration (pull-up, pull-down, etc.)

@@ -6,6 +6,7 @@
 //! | Trait          | What it is for                                                         | Who implements it    |
 //! |----------------|------------------------------------------------------------------------|----------------------|
 //! | `I2c`          | Configure the bus, write, read, write-read, transactions, scan, bus lines and recovery. | Every I2C master |
+//! | `I2cWatch`     | Autonomous reads: the device repeats configured reads and reports only changes. | Adapters that offload polling |
 //! | `I2cMonitor`   | Every transaction on the bus as a stream, without taking part in it.   | Sniffers, debug adapters |
 //!
 //! Monitoring is its own trait because it is its own function: a sniffer may have no master at all, and most
@@ -23,9 +24,9 @@
 //! # Addresses
 //!
 //! [I2cAddress] is 7-bit (`0x50` for a 24C02 EEPROM, not `0xA0`) or 10-bit, as in the I2C specification and
-//! embedded-hal (`SevenBitAddress`, `TenBitAddress`). `I2cAddress::from(0x50u8)` is the 7-bit one. A 7-bit value
-//! above `0x7F` or a 10-bit one above `0x3FF` is answered with [I2cError::MalformedRequest]; an adapter without
-//! 10-bit support answers [I2cError::Unsupported].
+//! embedded-hal (`SevenBitAddress`, `TenBitAddress`): `I2cAddress::seven(0x50)`, `I2cAddress::ten(0x350)`. A 7-bit
+//! address takes one byte on the wire, as a plain `u8` would. An adapter without 10-bit support answers
+//! [I2cError::Unsupported].
 //!
 //! # Sizes
 //!
@@ -68,6 +69,12 @@ pub const MAX_SCAN: usize = 128;
 /// [I2cRecordKind::Truncated].
 pub const MAX_RECORD_LEN: usize = 512;
 
+/// Most watches one `I2cWatch` device holds at once (it may hold fewer, see [I2cWatchCapabilities]).
+pub const MAX_WATCHES: usize = 16;
+
+/// Longest read of one watch, in bytes.
+pub const MAX_WATCH_LEN: usize = 32;
+
 /// Longest name in [I2cCapabilities::driver_name].
 pub const MAX_NAME_LEN: usize = 32;
 
@@ -106,8 +113,7 @@ pub trait I2c {
     ///
     /// [I2cError::Nack] (address or data not acknowledged), [I2cError::Arbitration], [I2cError::Bus],
     /// [I2cError::Timeout] (clock stretched too long), [I2cError::WrongMode] (not a master),
-    /// [I2cError::BufferTooBig] (longer than this device takes), [I2cError::MalformedRequest] (address out of range),
-    /// [I2cError::Unsupported] (10-bit address on an adapter without), [I2cError::NoIoLevel].
+    /// [I2cError::BufferTooBig] (longer than this device takes), [I2cError::Unsupported] (10-bit address on an adapter without), [I2cError::NoIoLevel].
     fn i2c_write(
         addr: I2cAddress,
         data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>,
@@ -174,6 +180,117 @@ pub trait I2c {
     fn i2c_pullups() -> bool;
 }
 
+/// Autonomous reads: the device repeats configured reads on its own and reports only what the host asked for
+/// (every result, a change under a mask, or a match with a value), so the host doesn't poll over the link.
+///
+/// A device implementing it also implements `I2c` (it needs a master). Host transactions have priority: the device
+/// runs a watch read only when no host transaction is waiting, so host calls are spliced in between autonomous
+/// ones and see no more delay than one watch read. A watch to an address under a `delay_after` waits like any
+/// transfer. Results go out on the `changes` stream.
+#[ww_trait]
+pub trait I2cWatch {
+    /// Results the watches report, in the order they were read.
+    stream!(changes: I2cWatchEvent<'i>);
+
+    /// How many watches, how fast, how long.
+    fn watch_capabilities() -> I2cWatchCapabilities;
+
+    /// Adds a watch and returns its slot, used by the other methods and in [I2cWatchEvent::slot].
+    ///
+    /// # Errors
+    ///
+    /// [I2cError::OutOfCycleSlots] (all slots taken), [I2cError::BufferTooBig] (read longer than this device
+    /// watches), [I2cError::MalformedRequest] (period below the device's minimum, mask and value lengths not the
+    /// read length), [I2cError::WrongMode] (not a master).
+    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u8, I2cError>;
+
+    /// Replaces a watch's configuration; its previous result is forgotten, so the next read is reported.
+    ///
+    /// # Errors
+    ///
+    /// [I2cError::InvalidCycleSlot], and as `I2cWatch::watch_add`.
+    fn watch_modify(slot: u8, watch: I2cWatchConfig<'i>) -> Result<(), I2cError>;
+
+    /// Removes a watch.
+    ///
+    /// # Errors
+    ///
+    /// [I2cError::InvalidCycleSlot].
+    fn watch_remove(slot: u8) -> Result<(), I2cError>;
+
+    /// Slots in use.
+    fn watch_list() -> MaxLen<RefVec<'i, u8>, MAX_WATCHES>;
+}
+
+/// What `I2cWatch` can do.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, Copy, Clone)
+)]
+pub struct I2cWatchCapabilities {
+    /// Watches held at once, at most [MAX_WATCHES].
+    pub max_watches: u8,
+    /// Longest read of one watch, at most [MAX_WATCH_LEN].
+    pub max_len: u16,
+    /// Shortest period of one watch.
+    pub min_period: Second,
+}
+
+/// One autonomous read, see `I2cWatch::watch_add`.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, Clone)
+)]
+pub struct I2cWatchConfig<'i> {
+    pub addr: I2cAddress,
+    /// Plain read, or a register read (write the register address, repeated start, read).
+    pub kind: I2cReadKind<'i>,
+    /// Bytes to read, at most [MAX_WATCH_LEN].
+    pub len: u16,
+    /// How often to read.
+    pub period: Second,
+    /// When to send a result.
+    pub report: I2cWatchReport<'i>,
+}
+
+/// When a watch sends its result.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, Clone),
+    ww_repr = unib32
+)]
+pub enum I2cWatchReport<'i> {
+    /// Every read.
+    Always,
+    /// When `data & mask` differs from the previous read's (`mask` as long as the read; all ones to see any change).
+    Changed {
+        mask: MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>,
+    },
+    /// When `data & mask == value` starts or stops being true (an alert bit set, a status reaching a state).
+    Matches {
+        mask: MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>,
+        value: MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>,
+    },
+}
+
+/// A result of a watch, on the `I2cWatch` `changes` stream. An error is reported once, when the watch starts to
+/// fail, and the next successful read is reported whatever the rule.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, Clone)
+)]
+pub struct I2cWatchEvent<'i> {
+    pub slot: u8,
+    /// When the read started.
+    pub t: Second,
+    pub result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>,
+}
+
 /// Watches the bus without taking part: every transaction becomes one [I2cRecord] on the `records` stream.
 ///
 /// The same as [I2cMode::MonitorOnly] (or the `monitor` flag of [I2cMode::Master], to watch the adapter's own
@@ -196,8 +313,8 @@ pub trait I2cMonitor {
 
 /// A 7-bit or 10-bit I2C address.
 ///
-/// On the wire a 7-bit address takes one byte more than a bare `u8` would (the variant flag is padded to a byte when
-/// no other bit-sized value shares it), so 10-bit support costs one byte per request.
+/// Bit-packed (SW-48): a 7-bit address takes one byte on the wire (the variant bit and 7 address bits), a 10-bit
+/// one 11 bits.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -207,15 +324,19 @@ pub trait I2cMonitor {
     ww_repr = u1
 )]
 pub enum I2cAddress {
-    /// `0x00..=0x7F`.
-    Seven(u8),
-    /// `0x000..=0x3FF`.
-    Ten(u16),
+    Seven(U7),
+    Ten(U10),
 }
 
-impl From<u8> for I2cAddress {
-    fn from(addr: u8) -> Self {
-        I2cAddress::Seven(addr)
+impl I2cAddress {
+    /// A 7-bit address, `None` above `0x7F`.
+    pub fn seven(addr: u8) -> Option<Self> {
+        U7::new(addr).map(I2cAddress::Seven)
+    }
+
+    /// A 10-bit address, `None` above `0x3FF`.
+    pub fn ten(addr: u16) -> Option<Self> {
+        U10::new(addr).map(I2cAddress::Ten)
     }
 }
 
@@ -411,11 +532,11 @@ pub enum I2cError {
     WrongMode,
     /// The frequency is out of the adapter's range.
     UnsupportedSpeed,
-    /// Reserved for cycle reads (later).
+    /// All `I2cWatch` slots are taken.
     OutOfCycleSlots,
-    /// Reserved for cycle reads (later).
+    /// No `I2cWatch` with this slot.
     InvalidCycleSlot,
-    /// An argument is out of range (e.g. a 7-bit address above `0x7F`).
+    /// An argument is out of range.
     MalformedRequest,
     /// Longer than this device takes, see [I2cCapabilities].
     BufferTooBig,

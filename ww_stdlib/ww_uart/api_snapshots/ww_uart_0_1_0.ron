@@ -1,10 +1,27 @@
 // ww_uart 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_uart", items: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+    "UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.",
+    "",
+    "| Trait          | What it is for                                                    | Who implements it        |",
+    "|----------------|-------------------------------------------------------------------|--------------------------|",
+    "| `Uart`         | Configure, receive on `rx`, send on the `tx` credit sink.         | Every UART bridge        |",
+    "| `UartMonitor`  | Both lines of a serial link as two streams, without driving them. | Sniffers, debug adapters |",
+    "",
+    "Received bytes come in chunks ([RxChunk]): a chunk ends after a short silence on the line, when it is full, or on",
+    "a line error. How a host learns about chunks the device had to drop is the subject of the stream reliability",
+    "work (`ww-stream-reliability`, see `docs/std_library/io_family.md`).",
+], crate_idx: 0, trait_name: "ww_uart", items: [
     (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Uart", docs: []),
+    (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "UartMonitor", docs: []),
 ]), types: [
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "RxFlags", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Line errors seen in a chunk.",
+    ], ident: "RxFlags", fields: Named([
         (ident: Some("parity_error"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("framing_error"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("overrun"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("break_detected"), default: None, since: None, ty: Bool, docs: []),
     ]))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
         120,
@@ -16,10 +33,12 @@
         103,
         224,
     ]),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "RxChunk", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Received bytes, see [Uart] `rx` and [UartMonitor].",
+    ], ident: "RxChunk", fields: Named([
         (ident: Some("flags"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: []),
         (ident: Some("timestamp"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: []),
-        (ident: Some("bytes"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: []),
+        (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: []),
     ]))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
         103,
@@ -34,13 +53,19 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Capabilities", fields: Named([
         (ident: Some("min_baud_rate"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
         (ident: Some("max_baud_rate"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
-        (ident: Some("voltages"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 3)), docs: []),
+        (ident: Some("voltages"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 3))), docs: []),
         (ident: Some("rx_timestamps"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("hw_flow_control"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("sw_flow_control"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("high_z_mode"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("test_mode"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("back_feed_detector"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("rx_buffer"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Device receive buffer, in bytes.",
+        ]),
+        (ident: Some("tx_buffer"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Device transmit buffer, in bytes (the credit of the `tx` sink).",
+        ]),
     ]))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "BaudRate", variants: [
         (docs: [], ident: "Baud110", fields: Unit, discriminant: 0, since: None),
@@ -70,6 +95,18 @@
         (docs: [], ident: "CustomU32", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
         ]), discriminant: 5, since: None),
+        (docs: [
+            "The pins serve another function.",
+        ], ident: "InUse", fields: Unit, discriminant: 6, since: None),
+        (docs: [
+            "The level translators have no supply (IO level off).",
+        ], ident: "NoIoLevel", fields: Unit, discriminant: 7, since: None),
+        (docs: [
+            "A safety rule of the device doesn\'t allow it.",
+        ], ident: "Refused", fields: Unit, discriminant: 8, since: None),
+        (docs: [
+            "The line stayed busy (e.g. CTS held off too long).",
+        ], ident: "Timeout", fields: Unit, discriminant: 9, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Mode", variants: [
         (docs: [
@@ -82,17 +119,11 @@
             "Flow control using XON/XOFF bytes.",
         ], ident: "SoftwareFlowControl", fields: Unit, discriminant: 2, since: None),
         (docs: [
-            "Both TX and RX lines are receiving, useful for monitoring traffic between two devices.",
-        ], ident: "Monitor2", fields: Unit, discriminant: 3, since: None),
-        (docs: [
-            "All lines are receiving (TX, RX, RTS, CTS), useful for monitoring traffic between two devices.",
-        ], ident: "Monitor4", fields: Unit, discriminant: 4, since: None),
-        (docs: [
             "All pins High-Z.",
-        ], ident: "HighZ", fields: Unit, discriminant: 5, since: None),
+        ], ident: "HighZ", fields: Unit, discriminant: 3, since: None),
         (docs: [
             "Manual control of pins state.",
-        ], ident: "Test", fields: Unit, discriminant: 6, since: None),
+        ], ident: "Test", fields: Unit, discriminant: 4, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(1), crate_idx: 0, docs: [
         "Number of stop bits transmitted after every character.",
@@ -107,6 +138,15 @@
         (docs: [], ident: "Odd", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "Even", fields: Unit, discriminant: 2, since: None),
     ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(3), crate_idx: 0, docs: [
+        "Data bits per character.",
+    ], ident: "DataBits", variants: [
+        (docs: [], ident: "Eight", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Seven", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Nine", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Six", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Five", fields: Unit, discriminant: 4, since: None),
+    ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
         "Pin selector used in test mode.",
     ], ident: "Pin", variants: [
@@ -115,31 +155,41 @@
         (docs: [], ident: "Rts", fields: Unit, discriminant: 2, since: None),
         (docs: [], ident: "Cts", fields: Unit, discriminant: 3, since: None),
     ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Line settings of `UartMonitor::configure_monitor`.",
+    ], ident: "MonitorConfig", fields: Named([
+        (ident: Some("baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: []),
+        (ident: Some("data_bits"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: []),
+        (ident: Some("parity"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: []),
+        (ident: Some("stop_bits"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
+    ]))), crate_idx: 0),
 ], traits: [
-    InLine(level: (docs: [], crate_idx: 0, trait_name: "Uart", items: [
+    InLine(level: (docs: [
+        "A serial port.",
+    ], crate_idx: 0, trait_name: "Uart", items: [
         (id: 0, kind: Stream(ty: OutOfLine(type_idx: 2), is_up: true), multiplicity: Flat, since: None, ident: "rx", docs: [
-            "Receive stream",
+            "Received bytes.",
         ]),
-        (id: 1, kind: Stream(ty: Vec(NumericAny(Base(U8))), is_up: false), multiplicity: Flat, since: None, ident: "tx", docs: [
-            "Transmit sink",
+        (id: 1, kind: FlowSink(ty: MaxLen(max_len: 256, ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "tx", docs: [
+            "Bytes to send. Credit-based: the host never sends more than the device\'s TX buffer holds.",
         ]),
-        (id: 2, kind: Stream(ty: OutOfLine(type_idx: 2), is_up: true), multiplicity: Flat, since: None, ident: "tx_mon", docs: [
-            "TX observe stream",
-        ]),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Supported baud rates, modes and other features.",
         ]),
-        (id: 4, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "baud_rate", docs: [
-            "Baud rate configuration",
+        (id: 3, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "baud_rate", docs: [
+            "Baud rate configuration; `Uart::baud_rate_actual` says what the divider made of it.",
         ]),
-        (id: 5, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "mode", docs: [
-            "Mode configuration",
+        (id: 4, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "mode", docs: [
+            "Mode configuration.",
         ]),
-        (id: 6, kind: Property(ty: OutOfLine(type_idx: 8), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "stop_bits", docs: [
-            "Stop bits configuration",
+        (id: 5, kind: Property(ty: OutOfLine(type_idx: 8), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "stop_bits", docs: [
+            "Stop bits configuration.",
         ]),
-        (id: 7, kind: Property(ty: OutOfLine(type_idx: 9), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "parity", docs: [
-            "Parity configuration",
+        (id: 6, kind: Property(ty: OutOfLine(type_idx: 9), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "parity", docs: [
+            "Parity configuration.",
+        ]),
+        (id: 7, kind: Property(ty: OutOfLine(type_idx: 10), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "data_bits", docs: [
+            "Data bits per character.",
         ]),
         (id: 8, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "prevent_back_feed", docs: [
             "Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.",
@@ -149,10 +199,39 @@
             "Reference voltage configuration, if supported.",
         ]),
         (id: 10, kind: Method(args: [
-            (ident: "pin", ty: OutOfLine(type_idx: 10)),
+            (ident: "pin", ty: OutOfLine(type_idx: 11)),
             (ident: "is_high", ty: Bool),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "set_pin_level", docs: [
-            "Manually control pins, only in [Mode::Test]",
+            "Manually control pins, only in [Mode::Test].",
+        ]),
+        (id: 11, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32)))), multiplicity: Flat, since: None, ident: "baud_rate_actual", docs: [
+            "The baud rate actually set, in baud (the nearest the divider can do).",
+        ]),
+        (id: 12, kind: Method(args: [
+            (ident: "duration", ty: OutOfLine(type_idx: 1)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "send_break", docs: [
+            "Holds TX low for `duration` (a break), after the bytes already queued.",
+        ]),
+        (id: 13, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32)))), multiplicity: Flat, since: None, ident: "tx_pending", docs: [
+            "Bytes queued for sending and not sent yet.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Both lines of a serial link between two other devices, received without driving them.",
+        "",
+        "Configured with `UartMonitor::configure_monitor`; each stream\'s sideband `Open` starts receiving its line,",
+        "`Close` stops it.",
+    ], crate_idx: 0, trait_name: "UartMonitor", items: [
+        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 2), is_up: true), multiplicity: Flat, since: None, ident: "line_a", docs: [
+            "One direction of the link (rePort: RX).",
+        ]),
+        (id: 1, kind: Stream(ty: OutOfLine(type_idx: 2), is_up: true), multiplicity: Flat, since: None, ident: "line_b", docs: [
+            "The other direction (rePort: CTS / RX2).",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "config", ty: OutOfLine(type_idx: 12)),
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "configure_monitor", docs: [
+            "Line settings of the watched link; answers the baud rate actually set.",
         ]),
     ]), crate_idx: 0),
 ], ext_crates: [

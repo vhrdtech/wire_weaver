@@ -49,6 +49,15 @@
         (docs: [], ident: "CustomU32", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
         ]), discriminant: 8, since: None),
+        (docs: [
+            "The pin serves another function.",
+        ], ident: "InUse", fields: Unit, discriminant: 9, since: None),
+        (docs: [
+            "The level translators have no supply (IO level off).",
+        ], ident: "NoIoLevel", fields: Unit, discriminant: 10, since: None),
+        (docs: [
+            "A safety rule of the device doesn\'t allow it.",
+        ], ident: "Refused", fields: Unit, discriminant: 11, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "IO pin pull configuration (pull-up, pull-down, etc.)",
@@ -78,6 +87,19 @@
         (ident: Some("falling"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("custom"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: []),
     ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What one pin can do, see `Pin::capabilities`.",
+    ], ident: "PinCapabilities", fields: Named([
+        (ident: Some("modes"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 2))), docs: []),
+        (ident: Some("pulls"), default: None, since: None, ty: MaxLen(max_len: 4, ty: Vec(OutOfLine(type_idx: 4))), docs: []),
+        (ident: Some("speeds"), default: None, since: None, ty: MaxLen(max_len: 5, ty: Vec(OutOfLine(type_idx: 5))), docs: []),
+        (ident: Some("events"), default: None, since: None, ty: Bool, docs: [
+            "The `event` stream works on this pin.",
+        ]),
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: [
+            "Name printed on the board or in the datasheet: \"IO4\", \"PB5\".",
+        ]),
+    ]))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
         103,
         171,
@@ -91,7 +113,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "GPIO bank capabilities: supported voltages, modes, custom modes, etc.",
     ], ident: "BankCapabilities", fields: Named([
-        (ident: Some("voltage"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 7)), docs: []),
+        (ident: Some("voltage"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 8)), docs: []),
         (ident: Some("push_pull"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("open_drain"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("input"), default: None, since: None, ty: Bool, docs: []),
@@ -152,6 +174,9 @@
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "configure_events", docs: [
             "Enable or disable asynchronous events sent through the stream.",
         ]),
+        (id: 13, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+            "What this pin can do: modes, pulls, speeds, whether it sends events, and its name.",
+        ]),
     ]), crate_idx: 0),
     InLine(level: (docs: [
         "A bank of related IO pins.",
@@ -163,10 +188,10 @@
             "* Range - useful when a device has sequentially marked IOs (e.g., IO expander)",
             "* List - when exposing some pins of an MCU, (e.g., PB1 and PB5, having indices 1 and 5 is less confusing than 0 and 1)",
         ]),
-        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 9))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Capabilities that each pin of the bank supports.",
         ]),
-        (id: 9, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "reference_voltage", docs: [
+        (id: 9, kind: Property(ty: OutOfLine(type_idx: 8), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "reference_voltage", docs: [
             "Reference voltage for all pins of the bank.",
         ]),
         (id: 10, kind: Method(args: [], return_ty: Some(String)), multiplicity: Flat, since: None, ident: "name", docs: [

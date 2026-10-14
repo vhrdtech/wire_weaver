@@ -9,6 +9,7 @@
     "| Trait          | What it is for                                                         | Who implements it    |",
     "|----------------|------------------------------------------------------------------------|----------------------|",
     "| `I2c`          | Configure the bus, write, read, write-read, transactions, scan, bus lines and recovery. | Every I2C master |",
+    "| `I2cWatch`     | Autonomous reads: the device repeats configured reads and reports only changes. | Adapters that offload polling |",
     "| `I2cMonitor`   | Every transaction on the bus as a stream, without taking part in it.   | Sniffers, debug adapters |",
     "",
     "Monitoring is its own trait because it is its own function: a sniffer may have no master at all, and most",
@@ -26,9 +27,9 @@
     "# Addresses",
     "",
     "[I2cAddress] is 7-bit (`0x50` for a 24C02 EEPROM, not `0xA0`) or 10-bit, as in the I2C specification and",
-    "embedded-hal (`SevenBitAddress`, `TenBitAddress`). `I2cAddress::from(0x50u8)` is the 7-bit one. A 7-bit value",
-    "above `0x7F` or a 10-bit one above `0x3FF` is answered with [I2cError::MalformedRequest]; an adapter without",
-    "10-bit support answers [I2cError::Unsupported].",
+    "embedded-hal (`SevenBitAddress`, `TenBitAddress`): `I2cAddress::seven(0x50)`, `I2cAddress::ten(0x350)`. A 7-bit",
+    "address takes one byte on the wire, as a plain `u8` would. An adapter without 10-bit support answers",
+    "[I2cError::Unsupported].",
     "",
     "# Sizes",
     "",
@@ -49,7 +50,8 @@
     "Both traits return [I2cError]; each method lists the variants it returns.",
 ], crate_idx: 0, trait_name: "ww_i2c", items: [
     (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "I2c", docs: []),
-    (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "I2cMonitor", docs: []),
+    (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "I2cWatch", docs: []),
+    (id: 2, kind: Trait(trait_idx: 2), multiplicity: Flat, since: None, ident: "I2cMonitor", docs: []),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
         103,
@@ -135,13 +137,13 @@
             "The frequency is out of the adapter\'s range.",
         ], ident: "UnsupportedSpeed", fields: Unit, discriminant: 2, since: None),
         (docs: [
-            "Reserved for cycle reads (later).",
+            "All `I2cWatch` slots are taken.",
         ], ident: "OutOfCycleSlots", fields: Unit, discriminant: 3, since: None),
         (docs: [
-            "Reserved for cycle reads (later).",
+            "No `I2cWatch` with this slot.",
         ], ident: "InvalidCycleSlot", fields: Unit, discriminant: 4, since: None),
         (docs: [
-            "An argument is out of range (e.g. a 7-bit address above `0x7F`).",
+            "An argument is out of range.",
         ], ident: "MalformedRequest", fields: Unit, discriminant: 5, since: None),
         (docs: [
             "Longer than this device takes, see [I2cCapabilities].",
@@ -186,18 +188,14 @@
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(1), crate_idx: 0, docs: [
         "A 7-bit or 10-bit I2C address.",
         "",
-        "On the wire a 7-bit address takes one byte more than a bare `u8` would (the variant flag is padded to a byte when",
-        "no other bit-sized value shares it), so 10-bit support costs one byte per request.",
+        "Bit-packed (SW-48): a 7-bit address takes one byte on the wire (the variant bit and 7 address bits), a 10-bit",
+        "one 11 bits.",
     ], ident: "I2cAddress", variants: [
-        (docs: [
-            "`0x00..=0x7F`.",
-        ], ident: "Seven", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        (docs: [], ident: "Seven", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UB(7))), docs: []),
         ]), discriminant: 0, since: None),
-        (docs: [
-            "`0x000..=0x3FF`.",
-        ], ident: "Ten", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (docs: [], ident: "Ten", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UB(10))), docs: []),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
@@ -268,6 +266,64 @@
             "Measured SDA voltage, on adapters that can measure it.",
         ]),
     ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A result of a watch, on the `I2cWatch` `changes` stream. An error is reported once, when the watch starts to",
+        "fail, and the next successful read is reported whatever the rule.",
+    ], ident: "I2cWatchEvent", fields: Named([
+        (ident: Some("slot"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+            "When the read started.",
+        ]),
+        (ident: Some("result"), default: None, since: None, ty: Result(ok_ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 3)), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `I2cWatch` can do.",
+    ], ident: "I2cWatchCapabilities", fields: Named([
+        (ident: Some("max_watches"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Watches held at once, at most [MAX_WATCHES].",
+        ]),
+        (ident: Some("max_len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "Longest read of one watch, at most [MAX_WATCH_LEN].",
+        ]),
+        (ident: Some("min_period"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+            "Shortest period of one watch.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "When a watch sends its result.",
+    ], ident: "I2cWatchReport", variants: [
+        (docs: [
+            "Every read.",
+        ], ident: "Always", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "When `data & mask` differs from the previous read\'s (`mask` as long as the read; all ones to see any change).",
+        ], ident: "Changed", fields: Named([
+            (ident: Some("mask"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "When `data & mask == value` starts or stops being true (an alert bit set, a status reaching a state).",
+        ], ident: "Matches", fields: Named([
+            (ident: Some("mask"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: []),
+            (ident: Some("value"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: []),
+        ]), discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One autonomous read, see `I2cWatch::watch_add`.",
+    ], ident: "I2cWatchConfig", fields: Named([
+        (ident: Some("addr"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [
+            "Plain read, or a register read (write the register address, repeated start, read).",
+        ]),
+        (ident: Some("len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "Bytes to read, at most [MAX_WATCH_LEN].",
+        ]),
+        (ident: Some("period"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+            "How often to read.",
+        ]),
+        (ident: Some("report"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: [
+            "When to send a result.",
+        ]),
+    ]))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "How a monitored transaction ended.",
     ], ident: "I2cRecordKind", variants: [
@@ -297,7 +353,7 @@
         (ident: Some("read"), default: None, since: None, ty: Bool, docs: [
             "Read (true) or write (false).",
         ]),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: []),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: []),
         (ident: Some("nack_at"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U16))), docs: [
             "Index of the first byte that was not acknowledged; `Some(0)` = the address was not.",
         ]),
@@ -346,8 +402,7 @@
             "",
             "[I2cError::Nack] (address or data not acknowledged), [I2cError::Arbitration], [I2cError::Bus],",
             "[I2cError::Timeout] (clock stretched too long), [I2cError::WrongMode] (not a master),",
-            "[I2cError::BufferTooBig] (longer than this device takes), [I2cError::MalformedRequest] (address out of range),",
-            "[I2cError::Unsupported] (10-bit address on an adapter without), [I2cError::NoIoLevel].",
+            "[I2cError::BufferTooBig] (longer than this device takes), [I2cError::Unsupported] (10-bit address on an adapter without), [I2cError::NoIoLevel].",
         ]),
         (id: 3, kind: Method(args: [
             (ident: "addr", ty: OutOfLine(type_idx: 4)),
@@ -414,6 +469,55 @@
         ]),
     ]), crate_idx: 0),
     InLine(level: (docs: [
+        "Autonomous reads: the device repeats configured reads on its own and reports only what the host asked for",
+        "(every result, a change under a mask, or a match with a value), so the host doesn\'t poll over the link.",
+        "",
+        "A device implementing it also implements `I2c` (it needs a master). Host transactions have priority: the device",
+        "runs a watch read only when no host transaction is waiting, so host calls are spliced in between autonomous",
+        "ones and see no more delay than one watch read. A watch to an address under a `delay_after` waits like any",
+        "transfer. Results go out on the `changes` stream.",
+    ], crate_idx: 0, trait_name: "I2cWatch", items: [
+        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 12), is_up: true), multiplicity: Flat, since: None, ident: "changes", docs: [
+            "Results the watches report, in the order they were read.",
+        ]),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 13))), multiplicity: Flat, since: None, ident: "watch_capabilities", docs: [
+            "How many watches, how fast, how long.",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "watch", ty: OutOfLine(type_idx: 15)),
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U8)), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "watch_add", docs: [
+            "Adds a watch and returns its slot, used by the other methods and in [I2cWatchEvent::slot].",
+            "",
+            "# Errors",
+            "",
+            "[I2cError::OutOfCycleSlots] (all slots taken), [I2cError::BufferTooBig] (read longer than this device",
+            "watches), [I2cError::MalformedRequest] (period below the device\'s minimum, mask and value lengths not the",
+            "read length), [I2cError::WrongMode] (not a master).",
+        ]),
+        (id: 3, kind: Method(args: [
+            (ident: "slot", ty: NumericAny(Base(U8))),
+            (ident: "watch", ty: OutOfLine(type_idx: 15)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "watch_modify", docs: [
+            "Replaces a watch\'s configuration; its previous result is forgotten, so the next read is reported.",
+            "",
+            "# Errors",
+            "",
+            "[I2cError::InvalidCycleSlot], and as `I2cWatch::watch_add`.",
+        ]),
+        (id: 4, kind: Method(args: [
+            (ident: "slot", ty: NumericAny(Base(U8))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "watch_remove", docs: [
+            "Removes a watch.",
+            "",
+            "# Errors",
+            "",
+            "[I2cError::InvalidCycleSlot].",
+        ]),
+        (id: 5, kind: Method(args: [], return_ty: Some(MaxLen(max_len: 16, ty: Vec(NumericAny(Base(U8)))))), multiplicity: Flat, since: None, ident: "watch_list", docs: [
+            "Slots in use.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
         "Watches the bus without taking part: every transaction becomes one [I2cRecord] on the `records` stream.",
         "",
         "The same as [I2cMode::MonitorOnly] (or the `monitor` flag of [I2cMode::Master], to watch the adapter\'s own",
@@ -421,7 +525,7 @@
         "had to drop, and stream control in general, is the subject of the stream reliability work (`ww-stream-reliability`,",
         "see `docs/std_library/io_family.md`).",
     ], crate_idx: 0, trait_name: "I2cMonitor", items: [
-        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 13), is_up: true), multiplicity: Flat, since: None, ident: "records", docs: [
+        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 17), is_up: true), multiplicity: Flat, since: None, ident: "records", docs: [
             "One record per transaction, in bus order.",
         ]),
         (id: 1, kind: Method(args: [

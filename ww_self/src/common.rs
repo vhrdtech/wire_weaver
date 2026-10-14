@@ -136,19 +136,7 @@ fn format_value(value: &ValueOwned, hex: bool) -> String {
 }
 
 fn integer(n: &NumericValue) -> Option<i128> {
-    Some(match *n {
-        NumericValue::U8(v) => v.into(),
-        NumericValue::U16(v) => v.into(),
-        NumericValue::U32(v) | NumericValue::UNib32(v) => v.into(),
-        NumericValue::U64(v) => v.into(),
-        NumericValue::I8(v) => v.into(),
-        NumericValue::I16(v) => v.into(),
-        NumericValue::I32(v) => v.into(),
-        NumericValue::I64(v) => v.into(),
-        NumericValue::I128(v) => v,
-        NumericValue::U128(v) => i128::try_from(v).ok()?,
-        _ => return None,
-    })
+    n.to_i128()
 }
 
 #[cfg(test)]

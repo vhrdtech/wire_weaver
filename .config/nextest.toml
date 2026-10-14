@@ -6,7 +6,7 @@ slow-timeout = { period = "3s", terminate-after = 1 }
 slow-timeout = { period = "15s", terminate-after = 2 }
 fail-fast = false
 
-# property tests run hundreds of random cases each: give them more time, keep 3 s for everything else
+# property and random-buffer tests run hundreds of cases each: give them more time, keep 3 s for everything else
 [[profile.default.overrides]]
-filter = 'package(shrink_wrap_c) & binary(cross)'
+filter = '(package(shrink_wrap_c) & binary(cross)) | (package(shrink_wrap) & (binary(latched_reads) | binary(sub_byte)))'
 slow-timeout = { period = "15s", terminate-after = 1 }

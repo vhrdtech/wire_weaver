@@ -195,11 +195,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **API-9 Full name chains** in generated names (fixed the `event_sideband` collision).
 - ✅ **API-10 Type paths from Cargo**: trait source path, external types in API crates as full paths.
 - ✅ **API-11 Sync and async servers, async / blocking / promise clients** from the same trait.
-- 🚧 **API-28 Credit-based flow control for sinks** · `v0.5` — `#[credit] sink!(..)`: the device grants credit in
-  bytes (`StreamSideband::Credit { have, grant }`), the host waits when out of credit, writes carry their byte
-  position so a lossy medium resumes with go-back-N from `have` (`Resend`, `CreditQuery`), `flush()` waits for the
-  final ack. Device state in `ww_client_server::credit::SinkCredit`. Design in `docs/api/streams.md`. For bulk
-  transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN tx. See also CLT-18 backpressure.
+- ✅ **API-28 Credit-based flow control for sinks** — `#[credit] sink!(..)`: the device grants credit in bytes
+  (`StreamSideband::Credit { have, grant }`), the host waits when out of credit (async, blocking, `try_send`), writes
+  carry their byte position so a lossy medium resumes with go-back-N from `have` (`Resend`, `CreditQuery`),
+  `flush()` waits for the final ack. Device state in `ww_client_server::credit::SinkCredit`, dynamic and Python
+  clients too. For bulk transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN tx. See also CLT-18
+  backpressure (`docs/api/streams.md`, `tests/credit_sink`).
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
 - 📋 **API-13 Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.

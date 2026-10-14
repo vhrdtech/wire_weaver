@@ -132,3 +132,11 @@ def test_max_len():
     assert api.write.encode_args(1, True, b"\x01" * 8)
     with pytest.raises(ValueError, match="at most 8"):
         api.write.encode_args(1, True, b"\x01" * 9)
+
+
+def test_credit_sinks():
+    api = ww.load_api(str(Path(__file__).parents[2] / "tests" / "credit_sink_api"), "CreditSinks")
+    assert api.plan.credit
+    assert not api.plain.credit
+    assert api.plan.signature == "credit sink plan: Vec<u8>"
+    assert api.plan.progress is None

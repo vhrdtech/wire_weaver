@@ -450,5 +450,8 @@ fields).
   IO0↔IO4, an I2C EEPROM at 0x50, a 1-wire DS18B20; WW-4 runs crates.io embedded-hal drivers against it and the
   rePort sim (HOST-2) reuses it.
 - **`ww io` CLI subcommands** (TOOL-8 and friends): `ww gpio`, `ww uart term`, `ww i2c scan`, `ww adc read` on any
-  device that has the trait, found by global trait path (needs API-20, WW-2).
+  device that has the trait, found by global trait path: `DynClient::traits_only(..)` and
+  `DynClient::global_attachment(ww_x::TRAIT_FULL_GID, "Trait")` (API-20 / CLT-10, WW-2, branch
+  `s/14oct2026-ww-cross-version`). The device resolves the first instance outside arrays, so each IO trait sits at
+  most once per device tree and never inside a trait array (rePort's tree already does that).
 - **sigrok export** of monitor streams on the host (`seq` / `t` / `lost` map to it directly).

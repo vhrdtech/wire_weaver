@@ -104,8 +104,9 @@ pub struct StreamOpened<'i> {
     pub session: UVlq32,
     /// Oldest position the device still has; `live_from` when it keeps nothing (counted streams).
     pub oldest: UVlq64,
-    /// Position of the first live event: the newest event the device has, so a slow stream shows its latest value
-    /// at once, or the next one.
+    /// Where the live run starts: at the newest event the device has (so a slow stream shows its latest value at
+    /// once), or at the units the device lost right before it, or at the next event when it keeps nothing newer
+    /// than the cursor.
     pub live_from: UVlq64,
     /// Where the backfill run starts, `None` when there is no backfill.
     pub resume_from: Option<UVlq64>,

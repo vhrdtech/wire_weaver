@@ -321,6 +321,8 @@ pub struct Reliable<S, const K: usize = 16> {
     released: u64,
     /// The store's `dropped_units` when last looked at
     store_dropped: u64,
+    /// Position of the newest event stored and where the previous one ended (`pos - lost`)
+    newest_stored: Option<(u64, u64)>,
     grant: u64,
     initial_grant: u64,
     priority: Priority,
@@ -346,6 +348,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
             backfill: None,
             released: 0,
             store_dropped: 0,
+            newest_stored: None,
             grant: DEFAULT_INITIAL_GRANT,
             initial_grant: DEFAULT_INITIAL_GRANT,
             priority: Priority::Normal,
@@ -443,6 +446,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
         self.pending_lost = 0;
         self.released = 0;
         self.store_dropped = 0;
+        self.newest_stored = None;
         self.live = RunTx::at(0);
         self.backfill = None;
         Ok(())
@@ -461,7 +465,8 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
     }
 
     /// The host resumes from `cursor`. Live events start at the newest event kept (so the host sees the latest value
-    /// at once), the backlog from the cursor (or the oldest event kept) up to there is sent as the backfill run.
+    /// at once; `live_from` is where the units it says were lost before it start), the backlog from the cursor (or
+    /// the oldest event kept) up to there is sent as the backfill run.
     /// A cursor of another session resumes the current one from its start, the host reports its old session as
     /// ended.
     pub async fn resume(&mut self, cursor: StreamCursor) -> Result<Opened, ResumeError<S::Error>> {
@@ -478,7 +483,11 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
         }
         let state = self.store.state();
         let live_from = match state.newest {
-            Some(newest) if newest >= from => newest,
+            // the newest event's own `lost` stays in the live run, before it
+            Some(newest) if newest >= from => match self.newest_stored {
+                Some((pos, after_previous)) if pos == newest => after_previous.max(from),
+                _ => newest,
+            },
             _ => self.next,
         };
         let backfill_from = state.oldest.map(|oldest| oldest.max(from));
@@ -559,6 +568,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
         match result {
             Ok(()) => {
                 self.pending_lost = 0;
+                self.newest_stored = Some((head.pos, head.after_previous()));
                 Ok(Pushed::Stored)
             }
             Err(e) => {
@@ -585,9 +595,11 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
             priority: self.priority,
             live: credit && newest.is_some_and(|n| n >= self.live.next),
             backfill: credit
-                && self.backfill.as_ref().is_some_and(|b| {
-                    b.run.next < b.end && !b.tail_gone && newest.is_some_and(|n| n >= b.run.next)
-                }),
+                // also when the store has nothing there: next_event finds out the backlog is gone
+                && self
+                    .backfill
+                    .as_ref()
+                    .is_some_and(|b| b.run.next < b.end && !b.tail_gone),
         }
     }
 
@@ -679,7 +691,9 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                     return Ok(());
                 }
                 match (backfill, &self.backfill) {
-                    (Some(b), _) => self.ack_backfill(b.0),
+                    (Some(b), Some(_)) => self.ack_backfill(b.0),
+                    // the host still waits for a backfill run that ended here: tell it
+                    (Some(_), None) => self.query_now = true,
                     // the host has no backfill run (any more): it got all of it
                     (None, Some(b)) if b.run.next >= b.end => {
                         let end = b.end;
@@ -698,21 +712,25 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                     Some(b) if from < b.end => {
                         if from < b.run.acked || from > b.run.next {
                             self.counting.add(StreamCnt::Overruns, 1);
+                            self.query_now = true;
                             return Ok(());
                         }
                         self.ack_backfill(from);
                         if let Some(b) = &mut self.backfill {
-                            b.run.next = b.run.flight.rewind(from);
+                            // the host acknowledged up to an event boundary: never back before it
+                            b.run.next = b.run.flight.rewind(from).max(b.run.acked);
                             b.tail_gone = false;
                         }
                     }
                     _ => {
                         if from < self.live.acked || from > self.live.next {
+                            // the host is out of step (the backfill run it asks for ended here): tell it
                             self.counting.add(StreamCnt::Overruns, 1);
+                            self.query_now = true;
                             return Ok(());
                         }
                         self.ack_live(from);
-                        self.live.next = self.live.flight.rewind(from);
+                        self.live.next = self.live.flight.rewind(from).max(self.live.acked);
                     }
                 }
                 self.grant = grant.0 as u64;
@@ -807,5 +825,20 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                     .map_or(self.live.acked, |b| b.run.acked),
             ),
         })
+    }
+}
+
+#[cfg(test)]
+impl<S: StreamStore, const K: usize> Reliable<S, K> {
+    pub(crate) fn debug_state(&self) -> std::string::String {
+        std::format!(
+            "live {:?} backfill {:?} next {} released {} grant {} store {:?}",
+            self.live,
+            self.backfill,
+            self.next,
+            self.released,
+            self.grant,
+            self.store.state()
+        )
     }
 }

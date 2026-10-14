@@ -54,16 +54,13 @@ pub struct Gap {
     pub cause: Cause,
 }
 
-/// Up to two gaps before one event (link and device), see [Gaps::iter].
+/// Gaps reported at once (before one event: link and device; split around ranges the host already has), see
+/// [Gaps::iter].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Gaps([Option<Gap>; 2]);
+pub struct Gaps([Option<Gap>; 6]);
 
 impl Gaps {
-    const NONE: Gaps = Gaps([None, None]);
-
-    fn one(gap: Gap) -> Self {
-        Gaps([Some(gap), None])
-    }
+    const NONE: Gaps = Gaps([None; 6]);
 
     fn push(&mut self, gap: Gap) {
         if gap.units == 0 {
@@ -83,6 +80,99 @@ impl Gaps {
     }
 }
 
+/// Ranges of live events received before a resume in the middle of a backfill, sorted, disjoint. They come again
+/// in the new backlog (the cursor can't say "backlog up to here, and this live range"): dropped as duplicates, no
+/// gap in them reported twice. Up to [SEEN_RANGES], the lowest forgotten (its events are then delivered twice,
+/// never lost).
+#[derive(Debug, Clone, Copy, Default)]
+struct Seen {
+    ranges: [(u64, u64); SEEN_RANGES],
+    len: usize,
+}
+
+/// Live ranges a receiver remembers across resumes in the middle of a backfill.
+const SEEN_RANGES: usize = 8;
+
+impl Seen {
+    fn add(&mut self, a: u64, b: u64) {
+        if a >= b {
+            return;
+        }
+        let (mut a, mut b) = (a, b);
+        let mut kept = [(0, 0); SEEN_RANGES];
+        let mut n = 0;
+        for &(ra, rb) in &self.ranges[..self.len] {
+            if rb >= a && ra <= b {
+                a = a.min(ra);
+                b = b.max(rb);
+            } else {
+                kept[n] = (ra, rb);
+                n += 1;
+            }
+        }
+        if n == kept.len() {
+            kept.copy_within(1.., 0);
+            n -= 1;
+        }
+        kept[n] = (a, b);
+        n += 1;
+        kept[..n].sort_unstable();
+        self.ranges = kept;
+        self.len = n;
+    }
+
+    /// Drop what ends at or before `pos`: everything before it is had anyway.
+    fn forget_before(&mut self, pos: u64) {
+        let mut n = 0;
+        for i in 0..self.len {
+            if self.ranges[i].1 > pos {
+                self.ranges[n] = self.ranges[i];
+                n += 1;
+            }
+        }
+        self.len = n;
+    }
+
+    fn contains(&self, a: u64, b: u64) -> bool {
+        self.ranges[..self.len]
+            .iter()
+            .any(|&(ra, rb)| ra <= a && b <= rb)
+    }
+
+    /// `gaps` without the parts the host already has.
+    fn clip(&self, gaps: Gaps) -> Gaps {
+        let mut out = Gaps::NONE;
+        for gap in gaps.iter() {
+            let end = gap.at + gap.units;
+            let mut at = gap.at;
+            for &(ra, rb) in &self.ranges[..self.len] {
+                if rb <= at {
+                    continue;
+                }
+                if ra >= end {
+                    break;
+                }
+                if ra > at {
+                    out.push(Gap {
+                        at,
+                        units: ra - at,
+                        ..*gap
+                    });
+                }
+                at = at.max(rb);
+            }
+            if at < end {
+                out.push(Gap {
+                    at,
+                    units: end - at,
+                    ..*gap
+                });
+            }
+        }
+        out
+    }
+}
+
 /// What to do with an event, see [Receiver::on_item].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
@@ -94,6 +184,9 @@ pub enum Verdict {
     },
     /// Received before: drop it.
     Duplicate,
+    /// Received before a resume, comes again in the backlog: drop it, report `gaps` (the part of the units lost
+    /// before it that the host didn't have yet). `backfill_done`: it completed the backfill run.
+    Had { gaps: Gaps, backfill_done: bool },
     /// Counted streams: arrived after its units were reported as a link gap: drop it.
     Late,
     /// Reliable streams: something before it is missing, drop it; a `ResendFrom` is on its way.
@@ -177,16 +270,21 @@ pub struct Receiver {
     ack_interval_ms: u64,
     resend_timeout_ms: u64,
     session: Option<u32>,
+    live_from: u64,
     live: RxRun,
     backfill: Option<RxBackfill>,
+    seen: Seen,
     /// Send an Ack at the next poll
     ack_due: bool,
     bytes_since_ack: u64,
     last_ack_ms: Option<u64>,
+    /// Something new arrived in the backfill run (to notice a stalled one)
+    backfill_progress: bool,
     /// What the last Ack said
     last_acked: (u64, Option<u64>),
     /// Position a ResendFrom is owed for (or was sent for, and when)
-    resend: Option<Resend>,
+    /// Per run (live, backfill)
+    resend: [Option<Resend>; 2],
     stats: RxStats,
 }
 
@@ -206,6 +304,11 @@ impl Receiver {
             ack_interval_ms: DEFAULT_ACK_INTERVAL_MS,
             resend_timeout_ms: DEFAULT_RESEND_TIMEOUT_MS,
             session: None,
+            live_from: 0,
+            seen: Seen {
+                ranges: [(0, 0); SEEN_RANGES],
+                len: 0,
+            },
             live: RxRun {
                 expect: 0,
                 acked: 0,
@@ -215,8 +318,9 @@ impl Receiver {
             ack_due: false,
             bytes_since_ack: 0,
             last_ack_ms: None,
+            backfill_progress: false,
             last_acked: (0, None),
-            resend: None,
+            resend: [None; 2],
             stats: RxStats {
                 received: 0,
                 lost_device: 0,
@@ -271,7 +375,7 @@ impl Receiver {
 
     /// Where to resume from after a reconnect or a restart: every unit before it was received (counted), or
     /// acknowledged (reliable). While a backfill runs, that is the backfill's position: resuming from there gets
-    /// the rest of the backlog, and the live events after it once more.
+    /// the rest of the backlog, and the live events after it once more (the receiver drops them as duplicates).
     pub fn cursor(&self) -> Option<StreamCursor> {
         let pos = match self.delivery {
             Delivery::Counted => self.live.expect,
@@ -291,13 +395,21 @@ impl Receiver {
     pub fn opened(&mut self, cursor: Option<StreamCursor>, opened: &Opened) -> (Gaps, Option<u32>) {
         let mut gaps = Gaps::NONE;
         let mut ended = None;
+        let mut seen = Seen::default();
         if let Some(cursor) = cursor {
-            let from = if cursor.session.0 == opened.session {
+            let same_session = cursor.session.0 == opened.session;
+            let from = if same_session {
                 cursor.pos.0
             } else {
                 ended = Some(cursor.session.0);
                 0
             };
+            if same_session && self.session == Some(opened.session) {
+                seen = self.seen;
+                // what user code took (or confirmed): the rest of the old live run comes again
+                seen.add(self.live_from, self.live.acked);
+                seen.forget_before(from);
+            }
             match opened.resume_from {
                 Some(resume_from) if resume_from < opened.live_from => gaps.push(Gap {
                     run: Run::Backfill,
@@ -316,8 +428,11 @@ impl Receiver {
                 }),
             }
         }
+        let gaps = seen.clip(gaps);
         self.stats.count(&gaps);
         self.session = Some(opened.session);
+        self.seen = seen;
+        self.live_from = opened.live_from;
         self.live = RxRun::at(opened.live_from);
         self.backfill = opened
             .resume_from
@@ -331,14 +446,14 @@ impl Receiver {
         self.bytes_since_ack = 0;
         self.last_ack_ms = None;
         self.last_acked = (opened.live_from, None);
-        self.resend = None;
+        self.resend = [None; 2];
         (gaps, ended)
     }
 
     /// The stream was closed or the link went down; [cursor](Self::cursor) still says where to resume.
     pub fn close(&mut self) {
         self.ack_due = false;
-        self.resend = None;
+        self.resend = [None; 2];
     }
 
     fn run_of(&self, pos: u64) -> Run {
@@ -386,8 +501,9 @@ impl Receiver {
                 Delivery::Reliable => {
                     let from = state.expect;
                     self.stats.out_of_order += 1;
-                    if self.resend.is_none_or(|r| r.from != from) {
-                        self.resend = Some(Resend {
+                    let slot = &mut self.resend[run_index(run)];
+                    if slot.is_none_or(|r| r.from != from) {
+                        *slot = Some(Resend {
                             from,
                             sent_ms: None,
                         });
@@ -404,13 +520,12 @@ impl Receiver {
             cause: Cause::Device,
         });
         state.expect = head.end();
+        let gaps = self.seen.clip(gaps);
         self.stats.count(&gaps);
-        self.stats.received += head.units;
-        if self
-            .resend
-            .is_some_and(|r| r.from < head.end() && self.run_of(r.from) == run)
-        {
-            self.resend = None;
+        self.backfill_progress |= run == Run::Backfill;
+        let slot = &mut self.resend[run_index(run)];
+        if slot.is_some_and(|r| r.from < head.end()) {
+            *slot = None;
         }
         let mut backfill_done = false;
         if let Some(b) = &mut self.backfill
@@ -421,6 +536,19 @@ impl Receiver {
             b.complete = true;
             backfill_done = true;
         }
+        if self.seen.contains(head.pos, head.end()) {
+            self.stats.duplicates += 1;
+            // the reported gaps count as had too, so acknowledgements move over all of it
+            for gap in gaps.iter() {
+                self.seen.add(gap.at, gap.at + gap.units);
+            }
+            self.skip_seen(run);
+            return Verdict::Had {
+                gaps,
+                backfill_done,
+            };
+        }
+        self.stats.received += head.units;
         Verdict::Accept {
             run,
             gaps,
@@ -451,6 +579,26 @@ impl Receiver {
             Run::Backfill => &mut self.backfill.as_mut().expect("run_of").run,
         };
         state.acked = state.acked.max(to.min(state.expect));
+        self.skip_seen(run);
+    }
+
+    /// Move a run's acknowledged position over ranges the host had before a resume.
+    fn skip_seen(&mut self, run: Run) {
+        let state = match (run, &mut self.backfill) {
+            (Run::Backfill, Some(b)) => &mut b.run,
+            _ => &mut self.live,
+        };
+        loop {
+            let acked = state.acked;
+            for &(a, b) in &self.seen.ranges[..self.seen.len] {
+                if a <= state.acked && state.acked < b {
+                    state.acked = b.min(state.expect);
+                }
+            }
+            if state.acked == acked {
+                break;
+            }
+        }
     }
 
     /// The device asks where the host is (`Query`): a resend when it sent more than arrived, and an `Ack` right
@@ -464,26 +612,28 @@ impl Receiver {
         let mut gaps = Gaps::NONE;
         match (&mut self.backfill, backfill) {
             (Some(b), Some(b_sent)) if !b.complete && b_sent > b.run.expect => {
-                self.resend = Some(Resend {
+                self.resend[1] = Some(Resend {
                     from: b.run.expect,
                     sent_ms: None,
                 });
             }
             (Some(b), None) if !b.complete => {
-                gaps = Gaps::one(Gap {
+                gaps.push(Gap {
                     run: Run::Backfill,
                     at: b.run.expect,
                     units: b.end - b.run.expect,
                     cause: Cause::Store,
                 });
+                gaps = self.seen.clip(gaps);
                 b.run.expect = b.end;
                 b.run.acked = b.end;
                 b.complete = true;
+                self.resend[1] = None;
             }
             _ => {}
         }
-        if self.resend.is_none() && sent > self.live.expect {
-            self.resend = Some(Resend {
+        if self.resend[0].is_none() && sent > self.live.expect {
+            self.resend[0] = Some(Resend {
                 from: self.live.expect,
                 sent_ms: None,
             });
@@ -500,7 +650,7 @@ impl Receiver {
             return None;
         }
         let grant = UVlq32(self.window);
-        if let Some(resend) = &mut self.resend {
+        for resend in self.resend.iter_mut().flatten() {
             let due = resend
                 .sent_ms
                 .is_none_or(|t| now_ms.saturating_sub(t) >= self.resend_timeout_ms);
@@ -518,7 +668,14 @@ impl Receiver {
         let interval = self
             .last_ack_ms
             .is_none_or(|t| now_ms.saturating_sub(t) >= self.ack_interval_ms);
-        if !(self.ack_due || (moved && interval)) {
+        // a backfill run that stopped coming: say where it stands again (the device may have ended it and the
+        // Query that said so got lost)
+        let stalled = self.is_backfilling()
+            && !core::mem::take(&mut self.backfill_progress)
+            && self
+                .last_ack_ms
+                .is_some_and(|t| now_ms.saturating_sub(t) >= self.resend_timeout_ms);
+        if !(self.ack_due || (moved && interval) || stalled) {
             return None;
         }
         self.ack_due = false;
@@ -537,5 +694,12 @@ impl Receiver {
             backfill: backfill.map(UVlq64),
             grant,
         })
+    }
+}
+
+fn run_index(run: Run) -> usize {
+    match run {
+        Run::Live => 0,
+        Run::Backfill => 1,
     }
 }

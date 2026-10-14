@@ -44,7 +44,7 @@ pub struct Opened {
     pub session: u32,
     /// Oldest position the device still has, `live_from` when it keeps nothing.
     pub oldest: u64,
-    /// Position of the first live event.
+    /// Where the live run starts: the newest event kept (or the units lost right before it), or the next one.
     pub live_from: u64,
     /// Where the backfill run starts, `None` without one; it ends at `live_from`.
     pub resume_from: Option<u64>,
@@ -82,3 +82,6 @@ pub enum ResumeError<E> {
     /// The store failed.
     Store(E),
 }
+
+#[cfg(test)]
+mod tests;

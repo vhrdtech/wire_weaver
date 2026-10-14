@@ -10,6 +10,9 @@
 
 use crate::StreamHead;
 
+mod ram_ring;
+pub use ram_ring::{RECORD_OVERHEAD, RamRing, RamRingError};
+
 /// Storage of the events of one reliable stream, see the [module docs](self).
 ///
 /// Methods are `async` because a store may sit on an SD card or flash; RAM stores never wait.
@@ -71,6 +74,9 @@ pub struct StoreState {
     pub capacity_bytes: u64,
     /// Survives a reboot (a log on SD or flash), not just a reconnect.
     pub persistent: bool,
+    /// Units of the events the store forgot to make room (drop oldest), since the session started. Not those
+    /// released after an acknowledgement, nor those [PushError::Full] refused.
+    pub dropped_units: u64,
 }
 
 /// Why [StreamStore::push] stored nothing.

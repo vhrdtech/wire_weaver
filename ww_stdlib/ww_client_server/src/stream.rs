@@ -5,12 +5,12 @@
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
 use wire_weaver::shrink_wrap::{
-    BufReader, BufWriter, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error,
-    SerializeShrinkWrap,
+    BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, SerializeShrinkWrap,
 };
 #[cfg(feature = "std")]
 use wire_weaver::shrink_wrap::{
-    BufWriterOwned, SerializeShrinkWrapOwned, tail_bytes::TailBytesOwned,
+    BufWriterOwned, DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned,
+    tail_bytes::TailBytesOwned,
 };
 use ww_si::Second;
 
@@ -250,6 +250,7 @@ impl<'i> DeserializeShrinkWrap<'i> for StreamHead {
     }
 }
 
+#[cfg(feature = "std")]
 impl DeserializeShrinkWrapOwned for StreamHead {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 

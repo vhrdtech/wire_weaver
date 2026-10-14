@@ -4372,6 +4372,7 @@ dependencies = [
  "cnt",
  "wire_weaver",
  "ww_client_server",
+ "ww_si",
 ]
 
 [[package]]

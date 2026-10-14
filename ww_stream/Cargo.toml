@@ -9,7 +9,7 @@ repository.workspace = true
 
 [features]
 default = []
-std = ["ww_client_server/std"]
+std = ["ww_client_server/std", "ww_si/std"]
 # typed per-stream instance counters (cnt::Counters<StreamCnt>)
 cnt = ["dep:cnt"]
 
@@ -17,3 +17,4 @@ cnt = ["dep:cnt"]
 cnt = { workspace = true, optional = true }
 wire_weaver.workspace = true
 ww_client_server.workspace = true
+ww_si.workspace = true

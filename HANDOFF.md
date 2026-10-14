@@ -55,3 +55,16 @@ Prompt common part: $CLAUDE_JOB_DIR/tmp/common.txt (not durable; it is in each c
   NumericValue).
 - `cargo sort -w -g` also rewrites `ww_stdlib/ww_firmware_info/Cargo.toml` (unsorted on master); don't commit that.
 - Shell heredoc commands writing many files at once got interrupted once; write files one by one.
+
+## Status 14 Oct evening
+
+- cnt-examples (EX-14) ready, lands on its own.
+- logic-analyzer design (20699eee on its branch) sent to Roman via parent with my recommendations; child parked
+  until Roman answers (Q1 per-channel yes, Q2 DoD only, Q3 reuse ww_adc types now, Q4 keep rearm, Q5 bool now;
+  plus: Trigger/Condition/Shape need `#[future_version]` Unknown).
+- si-numeric: NumericValue changed (UVlq32/64, UNib32 wire fix as own ⚠️ commit, approved by us, Roman to confirm),
+  so all IO snapshots changed. On merge conflicts in `*.ron`: re-run `just save-snapshots --force`, don't pick a side.
+- gpd-omarchy btrfs metadata ran full (ENOSPC for all children); fixed from outside (8 GiB unallocated again),
+  children woken to commit and finish.
+- Merge order when ready: si-numeric first (touches ww_si dep lines of every IO crate + core ty.rs), then gpio, uart,
+  i2c, spi (then tell api3-design for WW-4), then adc, pwm, onewire, timebase.

@@ -2520,12 +2520,32 @@ instead.</p>
 <p>Compared to resource addresses that can only take a few bytes, <code>FullVersion</code> is likely
 to take about 8-16 bytes or more and vary with the crate name. This is unfortunate for constrained systems, or if one
 wants to pack many calls into one packet.</p>
+<p>The request carries the trait's crate name and version (<code>FullVersion</code>), the trait's name in that crate (a crate can
+define several, <code>ww_dfu</code> has five) and the path from the trait's root. The server finds the trait wherever it sits in
+its API tree and continues from there. It answers <code>ErrorKind::TraitNotFound</code> when it doesn't implement the trait, only
+implements an incompatible version of its crate (major and, before 1.0, minor have to match), or only implements it
+under a resource array (<code>ww_impl!(port[]: ww_gpio::Bank)</code>: a global path can't select an index). When a trait is
+implemented several times, the first one in the tree (depth first, in resource id order) answers.</p>
+<p>Global paths don't depend on the user API or its version, which makes them the way to talk to a device whose API the
+host doesn't know: a host built against a new API version can still reboot a device running an old one into its
+updater (<code>ww_dfu::BootControl</code>) or read its info traits. On the host, connect with <code>traits_only</code> and call through a
+trait client:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">// any device, whatever its API and version: the user API check of link setup is skipped</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DynClient</span><span class="p">::</span><span class="n">traits_only</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">usb</span><span class="p">().</span><span class="n">serial_eq</span><span class="p">(</span><span class="n">serial</span><span class="p">)).</span><span class="n">connect</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1">// a client generated with `client = &quot;trait_client&quot;` for ww_dfu::BootControl, see tests/cross_version</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">boot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BootControl</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">device</span><span class="p">.</span><span class="n">global_attachment</span><span class="p">(</span><span class="n">ww_dfu</span><span class="p">::</span><span class="n">BOOT_CONTROL_FULL_GID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;BootControl&quot;</span><span class="p">));</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">boot</span><span class="p">.</span><span class="n">reboot</span><span class="p">(</span><span class="n">BootTarget</span><span class="p">::</span><span class="n">Updater</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">??</span><span class="p">;</span>
+</span></code></pre></div>
+<p>A <code>traits_only</code> connection refuses absolute paths (<code>Error::AbsolutePathInTraitsOnly</code>): without the device's API they
+could mean anything. <code>ww dfu reboot</code> in the <a href="../../cli/">CLI</a> does exactly this.</p>
 <h2 id="global-trait-addressing-compactversion">Global trait addressing (CompactVersion)<a class="headerlink" href="#global-trait-addressing-compactversion" title="Permanent link">&para;</a></h2>
 <p>Solution to this is <code>CompactVersion</code>, which carries globally unique type id and major.minor version components only, all
 UNib32 encoded.
 The only downside is that guaranteeing globally unique IDs is not as simple as using crate's name anymore. IDs are
 manually assigned and tracked via git instead
 in <a href="https://github.com/vhrdtech/wire_weaver/tree/master/ww_global">ww_global registry</a>.</p>
+<p>Servers don't serve compact trait paths yet (<code>ErrorKind::TraitNotFound</code>): compact ids of traits are not in the API
+model, and none is assigned so far (API-20).</p>
 <h2 id="api-report">API report<a class="headerlink" href="#api-report" title="Permanent link">&para;</a></h2>
 <p>TODO: export a file describing all levels of API with IDs</p>
 

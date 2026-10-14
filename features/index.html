@@ -2919,7 +2919,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   all of them for a whole API (to size <code>ww_device</code> buffers such as <code>UdpBuffers&lt;MAX_MESSAGE_LEN&gt;</code> automatically),
   paths of nested traits counted exactly (now the worst case of the full path), the same consts on the client.</li>
 <li>📋 <strong>API-19 Change dispatcher match order</strong> to process common requests faster · <code>v0.5.x</code>.</li>
-<li>📋 <strong>API-20 Trait paths on the server side</strong> — <code>TODO</code> in <code>api_server.rs</code>.</li>
+<li>🚧 <strong>API-20 Trait paths on the server side</strong> · <code>v0.5</code> — servers serve <code>PathKind::GlobalFull</code> requests (crate,
+  version and trait name) wherever the trait sits in the tree, <code>ErrorKind::TraitNotFound</code> otherwise
+  (<code>tests/cross_version</code>, <code>docs/api/addressing.md</code>). Missing: <code>PathKind::GlobalCompact</code> (compact ids of
+  traits are not in the API model yet, none is assigned), traits under a resource array.</li>
 <li>📋 <strong>API-21 <code>no_alloc = false</code> servers</strong> — don't compile today.</li>
 <li>⛔ <strong>API-22 Implement the same trait several times → enum selector</strong> · <code>v0.5.x</code> — stalled. At least print a proper error
   when a trait is implemented twice (<code>tests/traits_api</code>).</li>
@@ -2990,8 +2993,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   differs.</li>
 <li>✅ <strong>CLT-9 Connection selectors</strong>, clear errors when no device is found, <code>disconnect()</code> releases the transport.</li>
 <li>🚧 <strong>CLT-10 Trait calls that work on any device</strong> · <code>v0.5</code> — serial, user label, a CLI that works with all devices.
-  <code>ww list</code> with filters and USB interface string metadata are done; calling <code>ww_stdlib</code> traits generically
-  from the CLI is not.</li>
+  <code>ww list</code> with filters and USB interface string metadata are done, and global trait calls on any device whatever
+  its API version: <code>ClientConfig::traits_only()</code>, <code>DynClient::global_attachment()</code> (served through API-20,
+  <code>tests/cross_version</code>) and <code>ww dfu reboot</code>. Missing: CLI commands for the other <code>ww_stdlib</code> traits (firmware and
+  board info, GPIO, UART, ...).</li>
 <li>📋 <strong>CLT-11 Typed property handles</strong> · <code>v0.5</code> — <code>RwProperty</code>/<code>RoProperty</code>/<code>WoProperty</code> so that
   <code>.prop_name().read()</code>, <code>.prepare_write(1).blocking()</code>, <code>.asynch().await</code> work.</li>
 <li>📋 <strong>CLT-12 Stream receive timeout</strong> · <code>v0.5</code> — and a beat timeout between updates.</li>

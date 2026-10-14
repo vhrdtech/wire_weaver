@@ -582,6 +582,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-17 `ww_timebase`** — `Clock`: device time as `ww_si::Second` (full width via `now()`, truncated
   elsewhere), sync master / slave (IRIG-B, PPS), `sync_status`, a `time_map` stream mapping device time to
   shared time, `set_time_of_day` for a master. `tests/io_timebase`, `docs/std_library/ww_timebase.md`.
+- ✅ **STD-18 `ww_adc`** — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Fill-in done:
+  full rustdoc, `tests/io_adc` mock server (one test per trait), `docs/std_library/ww_adc.md`, API snapshot
+  (STD-13).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
@@ -607,9 +610,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reads) and 10-bit addresses (SW-48); `ww_uart` fill-in done (rustdoc, `UartMonitor` mock server and tests in
   `tests/io_uart`, `docs/std_library/ww_uart.md`); other per-crate fill-ins next. Stream loss and timestamps wait
   for ww-stream-reliability, error evolution for ww-errors-plan.
-- ✅ **STD-18 `ww_adc`** · `v0.5` — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Fill-in done:
-  full rustdoc, `tests/io_adc` mock server (one test per trait), `docs/std_library/ww_adc.md`, API snapshot
-  (STD-13).
 - 🚧 **STD-20 `ww_onewire`** · `v0.5` — `OneWire`: transactions, search, triplet. Skeleton (STD-13).
 - 📋 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
   `Raw` and `Transitions` encodings (SW-31). Design pass first (STD-13).

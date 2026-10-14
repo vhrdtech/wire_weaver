@@ -4,9 +4,9 @@ Errors and the trait surface for all APIs (Roman's IO family review, 14 Oct 2026
 children build pieces on branches from here, this branch collects them as plain commits (never merge commits:
 `tpm land` rebases; take children's feature commits with `git cherry-pick`, skip their "drop handoff" commits).
 
-## Done (on this branch, rebased onto master 3539cdf)
+## Done (on this branch, rebased onto master 0ac511b, 14 Oct late)
 
-- Design `docs/api/errors.md`, approved by Roman 14 Oct (all recommendations). Condition: `RpcResult` /
+- Design (was `docs/api/errors.md`, now only in ~/git/tpm/prj/P2401-wireweaver/design/errors.md), approved by Roman 14 Oct (all recommendations). Condition: `RpcResult` /
   `GetResult` / `SetResult` keep their semantics; `CallError` keeps `Unimplemented` visible.
 - SW-47 future-version-default: derive adds `Unknown(u32)` to Unsized enums; `no_future_version`,
   `future_version = Name`. ww_self / NumericAnyType / MultiIndex opt out (INT-8 idea).
@@ -18,8 +18,11 @@ children build pieces on branches from here, this branch collects them as plain 
   tests/traits checks an omitted fallible method gives `CallError::Unimplemented`.
 - STD-16 common errors: `ww_error::CommonError`, `#[common]`, `HasCommon`, prelude re-export, Python `.common`.
 - `.config/nextest.toml`: ref_vec_skip random-buffer test gets 15 s.
-- Last full run (after the 3539cdf rebase): just check, just lint pass; nextest 713/714 with only the ref_vec_skip
-  timeout, fixed since. Re-run after the next rebase.
+- Roman's rule (14 Oct): no design/review notes in wire_weaver (public). docs/api/errors.md removed from the branch;
+  docs/api/optional_items.md is the article for API-16 (in zensical nav). The main chat writes the errors article.
+- ww_self::Delivery (API-30, from master) got no_future_version.
+- Last full run (after the 0ac511b rebase): just check, just test (788/788), just lint pass (lint warns about
+  ww_firmware_info's Cargo.toml formatting: master's crate, not ours).
 
 ## In flight
 
@@ -30,8 +33,8 @@ children build pieces on branches from here, this branch collects them as plain 
 
 ## Next
 
-1. After API-32: `git rebase master` (master is at 37eb26d or later; it carries docs/api/errors.md taken from this
-   branch, expect a conflict there: keep this branch's version plus anything new from master).
+1. After API-32: cherry-pick, then `git rebase master` if master moved. Child was told not to touch docs/api/errors.md;
+   if its commits do, drop that file and move user-facing parts into docs/api/methods.md.
 2. Spawn the stdlib migration (task P2401#14oct-1805g, sonnet) from here, coordinated with session ww-io-traits:
    every IO crate that exists by then (ww_gpio, ww_uart, ww_i2c, ww_spi, ww_adc, ww_pwm, ww_onewire, ww_timebase;
    later ww_logic_analyzer, ww_signal_generator) plus ww_dfu, ww_can_bus: `#[common] Common(CommonError)` first,

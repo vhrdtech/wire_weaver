@@ -31,7 +31,7 @@ Recommendations first; each is a question for Roman, the rest of the page follow
 | D5 | Lost data: a `Lost` record kind / variant (§4.3, §4.4) or a `lost` field? | **`lost: UNib32` in every new stream item**: units dropped right before this item. 4 bits when 0, one rule for every stream, no special records. | yes: drops `RecordKind::Lost`, `FrameFlags::Lost` |
 | D6 | Timestamps | **`Ticks(UVlq64)`, absolute, local, in every new stream item** (as §4.5). Delta-coded timestamps inside an item come later as optional appended fields (SW-31). | no |
 | D7 | Where the timebase lives on a device without `ww_timebase::Clock` | Items still carry `Ticks`; `capabilities()` says whether timestamps are real (`rx_timestamps` in uart 0.1 already does); without them `t` is 0. A `Clock` anywhere in the tree defines the tick rate (one per device). | refines |
-| D8 | Enum growth before SW-16 future-version lands | Error enums of the family end with `#[future_version] Unknown(u32)` (SW-16 as planned in WW-3: opt-in, last, no wire number, catches any unknown discriminant), and new enums that will grow are `Unsized` with `ww_repr = unib32`. The family ships only **after SW-16**, so an old host survives a new error variant. Existing `sized` / `self_describing` enums (`Level`, `Mode`, `Pull`, `I2cMode`, ...) stay as they are: they can still get unit variants. | no (§11.3) |
+| D8 | Enum growth before SW-16 future-version lands | Every enum of the family expected to grow (not only errors) ends with `#[future_version] Unknown(u32)`, added explicitly since SW-16 is opt-in (SW-16 as planned in WW-3: opt-in, last, no wire number, catches any unknown discriminant), and new enums that will grow are `Unsized` with `ww_repr = unib32`. The family ships only **after SW-16**, so an old host survives a new error variant. Existing `sized` / `self_describing` enums (`Level`, `Mode`, `Pull`, `I2cMode`, ...) stay as they are: they can still get unit variants. | no (§11.3) |
 | D9 | `read_inputs` / `write_outputs` width | `u32` (32 pins per bank), as §4.1. Wider banks are split into banks. | no |
 | D10 | Test layout | One test crate pair per trait (`tests/io_gpio` + `tests/io_gpio_api`, ...): parallel fill-ins don't touch each other's files; each mock server is a small loopback simulator that WW-4 (`_hl` crates) reuses. | n/a |
 | D11 | UART `RxChunk`: break it for the stream head (`seq`, `lost`, `t: Ticks` first), or append the head after `bytes` and leave `timestamp: Option<Second>` unused? | **Break it**: `ww_uart` 0.2 breaks anyway (the TX credit sink), the item is read by every UART tool, and a dead `timestamp` field next to `t` would confuse every one of them. | no |
@@ -47,7 +47,12 @@ Existing crates follow them where 0.1 doesn't already decide otherwise.
 **Types.** Every new type is `Unsized` unless it is a bit-level leaf (`Edge`), `owned(feature = "std")`, `borrowed`
 where it has no lifetime, `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`. Every list, byte buffer and
 string is bounded with `MaxLen` (raising a bound later is compatible, lowering is not). New enums that can grow:
-`ww_repr = unib32`, not `self_describing`/`sized`. Pins and channels are indices, never MCU pin names.
+`ww_repr = unib32`, not `self_describing`/`sized`. **SW-16 is opt-in**: every enum expected to grow (errors, modes,
+record kinds, capture modes, triggers, units, sync formats; new and existing ones) gets
+`#[future_version] Unknown(u32)` as its last variant explicitly, before the crate is released; one without it fails
+old readers on a new variant. Leaf enums that are complete by nature (`Level`, `Edge`, `SpiMode`, `BitOrder`) don't.
+Whether the existing `sized` / `self_describing` 0.1 enums (`Mode`, `Pull`, `Speed`, `I2cMode`) can take it is
+checked in the skeleton; if not, they stay closed and grow through new resources. Pins and channels are indices, never MCU pin names.
 
 **Configuration** of a new trait is one struct argument, `configure(Config) -> Result<Actual, Error>`, returning what
 was really set (rounded baud and frequency). `config() -> Actual` reads it back. A config struct gets new fields with

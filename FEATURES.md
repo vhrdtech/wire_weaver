@@ -235,10 +235,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **SW-29 Flatten support** — apply a type's layout across struct/enum boundaries.
 - 💡 **SW-30 `derive_shrink_wrap` on a whole module at once**. For definitions in separate files with own syntax, see
   [standalone definition files](#api-model-and-codegen-api).
-- 💡 **SW-47 `#[future_version]` variant by default** — add the SW-16 variant to every enum unless all discriminants
-  of the repr are taken or an argument opts out. Changes the Rust type of every enum (exhaustive matches need a new
-  arm, `Copy` enums grow), so it needs a release that breaks the Rust API anyway, and the variant's name must not
-  clash with user variants.
+- 📋 **SW-47 `#[future_version]` variant by default** · `v0.5` — the derive adds `Unknown(u32)` to every `Unsized`
+  enum with a free discriminant; `no_future_version` opts out, `future_version = Name` renames it, `final_structure`
+  / `self_describing` / `sized` enums only get it when written. Changes the Rust type of every enum (exhaustive
+  matches need a new arm, `Copy` enums grow), not the wire or the API model (`docs/api/errors.md`).
 
 ## `derive_shrink_wrap` macro (`DER`)
 
@@ -263,6 +263,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   it reads `Error::EnumVariantDisabled` (`docs/serdes/derive.md`). First user: `ww_numeric::NumericValue`, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: `#[cfg]` on fields (it would change
   the wire format, should be a compile error), `ww_si` enums.
+- 📋 **DER-12 `Display` from doc comments** · `v0.5` — a `display` directive writes `Display` and
+  `core::error::Error` from the first doc line of each variant, `{field}` filled in, `#[display("..")]` to override;
+  error enums need no hand-written `Display` on hosts (`docs/api/errors.md`).
 
 ## API model and codegen (`API`)
 
@@ -308,8 +311,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
   done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
   docs.rs (DOC-6).
-- 📋 **API-16 Feature groups** · `v0.5.x` — resources behind features (all enabled by default), connected to the user
-  crate's features in `ww_codegen!`. Related: `#[cfg]` in enums, see [derive macro](#derive_shrink_wrap-macro).
+- 📋 **API-16 Optional items** · `v0.5` — `#[optional]` / `#[optional(group)]` on a trait's methods, properties and
+  streams; a server leaves them out with `ww_codegen!(.., omit = [..])` or `omit_if(<cfg>) = [..]` (the user crate's
+  features), pays no dispatch arm and writes no handler. A call answers `Unimplemented` from the level's fallback arm,
+  the device's model lists the omitted items so clients fail locally (`NotImplementedByDevice`), scaffold `--omit`
+  (`docs/api/errors.md#4-optional-items`).
+- 📋 **API-32 Per-method error lists** · `v0.5` — `#[errors(Common, Nack, ..)]` on a trait method: checked against the
+  error enum, in the API model, generated client docs (`# Errors`), introspection (CLI, GUI, Python), `ww api check`;
+  the client warns when a device returns a variant outside the list (tests fail). Nothing on the device
+  (`docs/api/errors.md`).
+- 💡 **API-33 Narrow error types per method** — generated per-method error enums with the crate enum's
+  discriminants, as server handler return types only (`narrow_errors = true`), for a compile-time contract on the
+  device. Explored and not recommended for clients: friction in every driver crate (`docs/api/errors.md`).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /
@@ -447,6 +460,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   on a simulated device (`tests/follow_reboot`, `docs/transport/follow_reboot.md`). Missing: a run against a Pico 2 /
   rePort; RTT (another control block: a second ELF or a RAM scan) and UDP / WebSocket (the port may change); asking
   for the reboot from the CLI needs CLT-10.
+- 📋 **CLT-24 One `?` per call** · `v0.5` — a method returning `Result<T, E>` gives `Result<T, CallError<E>>`
+  (`Device(E)` or `Client(Error)`) from `call`, `blocking_call`, promises and property writes, instead of
+  `Result<Result<T, E>, Error>` and `??` (`docs/api/errors.md`).
 - 📋 **CLT-22 One `Sink::send` for borrowed and owned items** — owned types (`FooOwned`) implement only
   `SerializeShrinkWrapOwned`, so they go through `send_owned`; one `send` for both (a sink item trait, or the derive
   implementing both), then drop `send_owned`.
@@ -559,6 +575,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `MAX_PIECE_LEN`, `MAX_HEADER_LEN`, `MAX_CHUNKS_PAGE`, `MAX_PRODUCT_LEN`), so every method has a known largest
   request and reply. `Profile::AB(SlotSwitch::{Copy, Remap})` / `InPlace`. Next: a chunky implementation (chunky
   NET-1).
+- 📋 **STD-16 Common errors** · `v0.5` — `ww_error::CommonError` (`Unsupported`, `InvalidArgument`, `InUse`,
+  `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout`, `Fault`), nested first in every error enum as
+  `#[common] Common(CommonError)` (the derive adds `From` and `HasCommon`), recognised by tools by its type; every
+  stdlib crate's errors moved to it (`docs/api/errors.md#2-common-errors`).
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

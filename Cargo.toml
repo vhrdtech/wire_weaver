@@ -74,6 +74,7 @@ ww_self = { version = "0.2.0", path = "./ww_self" }
 # ww_stdlib, each crate has its own version
 ww_client_server = { version = "0.2.0", path = "./ww_stdlib/ww_client_server", default-features = false }
 ww_date_time = { version = "0.1.0", path = "./ww_stdlib/ww_date_time", default-features = false }
+ww_dfu = { version = "0.1.0", path = "./ww_stdlib/ww_dfu", default-features = false }
 ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = false }
 ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
 ww_log_bare_metal = { version = "0.1.0", path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
@@ -88,6 +89,7 @@ array_of_streams_api = { version = "0.1.0", path = "./tests/array_of_streams_api
 blinky = { version = "0.1.0", path = "./examples/blinky" }
 blinky_api = { version = "0.1.0", path = "./examples/blinky_api" }
 blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved" }
+dfu_api = { version = "0.1.0", path = "./tests/dfu_api" }
 dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }

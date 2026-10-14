@@ -1,31 +1,698 @@
 // ww_dfu 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_dfu", items: [
-    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "FirmwareUpdate", docs: []),
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+    "Firmware update API: a set of small traits that every node taking part in an update picks from.",
+    "",
+    "The update itself is a **plan**: a header (which image it produces, for which flash geometry) and a list of steps",
+    "that turn what the device holds into the new image: ERASE a block, COPY a chunk the device already has, WRITE a",
+    "chunk whose data comes with the step. The plan format, the manifest and the signed image descriptor are defined in",
+    "octets by the chunky protocol spec (`SPEC.md` in `chunky_mcu_updater`); this crate only carries them. Signed and",
+    "stored records (the descriptor, the plan header) travel as **raw octets**, byte for byte as the spec lays them",
+    "out, so a C implementation with its own framing and a Rust one over WireWeaver move identical bytes, and the",
+    "shared test vectors hold for both. Session-level values (states, errors, limits, progress) are WireWeaver types.",
+    "",
+    "A plain full-image update is the same thing: a plan made only of ERASE and WRITE steps. A node that does not do",
+    "deltas implements the same traits and simply never sees a COPY.",
+    "",
+    "# Traits",
+    "",
+    "| Trait           | What it is for                                                         |",
+    "|-----------------|------------------------------------------------------------------------|",
+    "| `UpdateNode`    | Who this node is and what it offers. Every node implements it.         |",
+    "| `BootControl`   | Boot state, confirm, revert, reboot into the app or the updater.       |",
+    "| `Inventory`     | What the node holds now: the manifest, chunk by chunk.                 |",
+    "| `Stage`         | Receive a plan step by step and apply or store it; session control.    |",
+    "| `StageBulk`     | Receive a whole plan as one stream (slow and remote links).            |",
+    "",
+    "Nothing forces a node to implement all of them. A host reads `UpdateNode::node` first and finds out from",
+    "[Offers] what this node can do. If it can\'t receive an update itself, the host calls `BootControl::reboot` with",
+    "[BootTarget::Updater], reconnects to the same device (by serial number) and carries on with whatever answers",
+    "there.",
+    "",
+    "# Three ways a device updates",
+    "",
+    "**1. A/B, applied live** ([Profile::Swap], [Profile::BankSwap], [Profile::RpBootrom]). The running app receives",
+    "the plan and applies it straight into the inactive slot (DFU, the other bank, the other partition). Nothing it",
+    "runs from is touched, so a cut or a lost link costs nothing but time. When the image is complete and verified,",
+    "`Stage::finish` marks it staged; `BootControl::reboot` with [BootTarget::App] switches to it for one trial boot,",
+    "and the new image must `BootControl::confirm` or the next reset reverts it.",
+    "Nodes: the app implements everything; the bootloader has no transport at all.",
+    "",
+    "**2. In place, stored plan** ([Profile::InPlace] with [Target::Stored]). The running app receives the whole plan,",
+    "data included, into a plan area in flash, while it keeps doing its job (a download over LoRa may take hours).",
+    "`Stage::finish` checks the descriptor signature and that the plan is complete **before anything is touched**.",
+    "After the reboot the bootloader applies the stored plan in place, offline; after a power cut it simply starts the",
+    "plan again (every step\'s result is checked by its hash, and the WRITE data is still in the plan area). Downtime is",
+    "the apply time only, and the bootloader still has no transport. Costs: a plan area sized for the largest delta,",
+    "and no revert (the old image is gone once applied). A plan bigger than the area falls back to mode 3.",
+    "Nodes: the app implements `UpdateNode`, `BootControl`, `Inventory`, `Stage` (and `StageBulk` on slow links).",
+    "",
+    "**3. In place, applied live** ([Profile::InPlace] with [Target::Live]). The bootloader, or a small",
+    "write-protected recovery app at its own address, receives the plan and applies it as the pieces arrive. No extra",
+    "flash, the fastest end to end, but the device does nothing else for the whole download, and a cut leaves no",
+    "bootable app, so this receiver must come back up and finish the job.",
+    "Nodes: the app implements `UpdateNode` and `BootControl` (often only `reboot(Updater)`); the updater implements",
+    "`UpdateNode`, `BootControl`, `Inventory`, `Stage` and maybe `StageBulk`.",
+    "",
+    "# Two ways a plan travels",
+    "",
+    "**Step by step** (`Stage`): one method call per step, each answered with a named error or success. Every call",
+    "carries its step index, and the device checks each step\'s result by hash, so resending a call whose reply was lost",
+    "is harmless. The host keeps up to [StageLimits::in_flight] calls outstanding, which hides most of the round trip",
+    "on fast links (USB, Ethernet, RTT).",
+    "",
+    "**In one go** (`StageBulk`): on a link where a round trip takes seconds (LoRa, LTE-M, satellite), per-step calls",
+    "would eat the whole gain of sending a delta. The host announces the plan once, then streams it, header excluded,",
+    "as raw octets; the device applies (modes 1 and 3) or stores (mode 2) as the bytes arrive and acknowledges only",
+    "when it has to: on a gap, when the host is about to run out of credit, and at the end. On a reliable link that is",
+    "a single acknowledgement for the whole update.",
+    "",
+    "# Resuming",
+    "",
+    "A session is identified by its plan header. `Stage::begin` (or `StageBulk::begin_bulk`) with the header of an",
+    "unfinished session does not start over: it answers with the progress already made, and the host continues from",
+    "there. The progress record is the flash itself (a step whose result is already in place is skipped by its hash),",
+    "so a session survives a lost link, a host restart and, for modes 2 and 3, a power cut.",
+    "",
+    "# Trust",
+    "",
+    "The device trusts nothing it receives. The host, the link and any relay in between (a gateway that stores and",
+    "forwards a plan, a broker) may be broken or hostile. So the device itself checks:",
+    "- every index and offset against its own layout before it touches flash (a step that points outside the slot is",
+    "  [Error::OutOfRange], never a write);",
+    "- every COPY source and every WRITE against the hash in its step;",
+    "- the plan header against its geometry, its version floor and the release signature, before the first step, and",
+    "  the finished image against the descriptor, before it is staged.",
+    "",
+    "Per-chunk hashes are not a trust boundary on their own; the signed descriptor over the whole image is.",
+    "",
+    "# Sizes",
+    "",
+    "Byte payloads (`Stage::write` data, [PlanSegment] data) are bounded by [StageLimits::max_piece], which the",
+    "device chooses to fit its receive buffer. Until WireWeaver has bounded sizes in the type system (FEATURES SW-19),",
+    "that limit is only checked at runtime: a longer piece is [Error::PieceTooBig].",
+], crate_idx: 0, trait_name: "ww_dfu", items: [
+    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "UpdateNode", docs: []),
+    (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "BootControl", docs: []),
+    (id: 2, kind: Trait(trait_idx: 2), multiplicity: Flat, since: None, ident: "Inventory", docs: []),
+    (id: 3, kind: Trait(trait_idx: 3), multiplicity: Flat, since: None, ident: "Stage", docs: []),
+    (id: 4, kind: Trait(trait_idx: 4), multiplicity: Flat, since: None, ident: "StageBulk", docs: []),
 ]), types: [
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(4), crate_idx: 0, docs: [], ident: "FirmwareUpdateState", variants: [
-        (docs: [], ident: "Normal", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Reverted", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "UpdatedNotConfirmed", fields: Unit, discriminant: 2, since: None),
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
+        "Which firmware is answering.",
+    ], ident: "Role", variants: [
+        (docs: [
+            "The application.",
+        ], ident: "App", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "The bootloader, with a transport of its own (mode 3).",
+        ], ident: "Bootloader", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "A recovery app at its own address that updates the app in place (mode 3).",
+        ], ident: "Recovery", fields: Unit, discriminant: 2, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Error", variants: [
-        (docs: [], ident: "Todo", fields: Unit, discriminant: 0, since: None),
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
+        "How a device switches between images; decides which [Target]s make sense.",
+    ], ident: "Profile", variants: [
+        (docs: [
+            "Two slots swapped page by page by the bootloader (embassy-boot), trial boot and revert.",
+        ], ident: "Swap", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Dual-bank flash, the hardware swaps the banks (STM32 H7, G4, L4...), trial boot and revert.",
+        ], ident: "BankSwap", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "RP2350 boot ROM A/B partitions with try-before-you-buy.",
+        ], ident: "RpBootrom", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "One app slot, updated in place: from a stored plan by the bootloader (mode 2) or live by an updater (mode 3).",
+            "No revert.",
+        ], ident: "InPlace", fields: Unit, discriminant: 3, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "FirmwareUpdateCapabilities", fields: Named([
-        (ident: Some("ab_partitions"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("need_reboot_for_writing"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("revert_supported"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("async_write"), default: None, since: None, ty: Bool, docs: [
-            "Whether firmware can do FLASH writes and continue to execute without blocking (single bank FLASH MCUs usually cannot do that)",
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
+        "Where the device stands between two updates.",
+    ], ident: "BootState", variants: [
+        (docs: [
+            "The running image is confirmed. An update may be started.",
+        ], ident: "Confirmed", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "The last update did not confirm and was reverted. An update may be started.",
+        ], ident: "Reverted", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "An image is staged (A/B) and switches in at the next reset.",
+        ], ident: "Staged", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "The running image is on its trial boot: it must `BootControl::confirm`, or the next reset reverts it.",
+        ], ident: "Trial", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "A complete, verified plan is in the plan area and is applied in place at the next reset (mode 2).",
+        ], ident: "PlanStored", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "In place, an update is under way and the app slot does not hold a bootable image (mode 3, in the updater).",
+        ], ident: "Updating", fields: Unit, discriminant: 5, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
+        "What happened to the last update.",
+    ], ident: "Outcome", variants: [
+        (docs: [
+            "No update since the device was provisioned.",
+        ], ident: "Nothing", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Updated and confirmed.",
+        ], ident: "Confirmed", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "The trial image did not confirm (or was reverted on purpose) and the previous one runs again.",
+        ], ident: "Reverted", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "Refused or abandoned before staging (bad signature, below the floor, a failed step, aborted).",
+        ], ident: "Rejected", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "A stored plan or a live in-place update could not finish and the updater took over.",
+        ], ident: "Recovery", fields: Unit, discriminant: 4, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "How the last update ended.",
+    ], ident: "LastResult", fields: Named([
+        (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "What happened.",
+        ]),
+        (ident: Some("version"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "The version the update was for, `0` when there was none.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Which update traits a node implements. Lets a host decide what to do after a single call, which matters on slow",
+        "links where introspection is expensive.",
+    ], ident: "Offers", fields: Named([
+        (ident: Some("boot_control"), default: None, since: None, ty: Bool, docs: [
+            "`BootControl` is here.",
+        ]),
+        (ident: Some("inventory"), default: None, since: None, ty: Bool, docs: [
+            "`Inventory` is here.",
+        ]),
+        (ident: Some("stage"), default: None, since: None, ty: Bool, docs: [
+            "`Stage` is here.",
+        ]),
+        (ident: Some("stage_bulk"), default: None, since: None, ty: Bool, docs: [
+            "`StageBulk` is here.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `UpdateNode::node` reports.",
+    ], ident: "NodeInfo", fields: Named([
+        (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "Which firmware is answering.",
+        ]),
+        (ident: Some("profile"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+            "How this device switches between images.",
+        ]),
+        (ident: Some("product"), default: None, since: None, ty: String, docs: [
+            "Product name, as the release\'s manifest names it; the host uses it to pick the release line.",
+        ]),
+        (ident: Some("geometry_id"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Flash geometry id as the protocol spec defines it (chip line, slot layout, chunk size). A plan is made for one",
+            "geometry and is refused on any other.",
+        ]),
+        (ident: Some("app_version"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
+            "Version of the image in the app slot, `None` when there is no valid image (an updater after a cut in mode 3).",
+        ]),
+        (ident: Some("version_floor"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Lowest version this device will still accept (anti-rollback). Only ever goes up.",
+        ]),
+        (ident: Some("manifest_digest"), default: None, since: None, ty: Option(some_ty: Array(len: 8, ty: NumericAny(Base(U8)))), docs: [
+            "Digest of the app slot\'s manifest, if this node has it at hand (cached, or computed at boot); `None` means",
+            "\"read it with `Inventory::manifest_digest`\".",
+        ]),
+        (ident: Some("boot_state"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
+            "Where the device stands between two updates.",
+        ]),
+        (ident: Some("last_result"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+            "How the last update ended, for the host\'s log and a rollout\'s statistics.",
+        ]),
+        (ident: Some("offers"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+            "Which update traits this node implements.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
+        "Why a request was refused.",
+    ], ident: "Error", variants: [
+        (docs: [
+            "This node doesn\'t do that (a target it doesn\'t accept, revert without a previous image).",
+        ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Not in this boot state; the state is given.",
+        ], ident: "WrongState", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Another session is in progress; `Stage::abort` it first.",
+        ], ident: "Busy", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "No session in progress.",
+        ], ident: "NoSession", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "The plan header is malformed (magic, format, reserved bytes).",
+        ], ident: "BadHeader", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "The plan is for another flash geometry.",
+        ], ident: "WrongGeometry", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "The image\'s version is below the version floor.",
+        ], ident: "BelowFloor", fields: Unit, discriminant: 6, since: None),
+        (docs: [
+            "The release signature over the descriptor doesn\'t verify.",
+        ], ident: "BadSignature", fields: Unit, discriminant: 7, since: None),
+        (docs: [
+            "A step, offset or chunk points outside the slot. Nothing was written.",
+        ], ident: "OutOfRange", fields: Unit, discriminant: 8, since: None),
+        (docs: [
+            "A step arrived ahead of its turn; the node expects this step index next.",
+        ], ident: "OutOfOrder", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 9, since: None),
+        (docs: [
+            "A different step arrived under an index the node already has.",
+        ], ident: "StepMismatch", fields: Unit, discriminant: 10, since: None),
+        (docs: [
+            "A piece is longer than [StageLimits::max_piece].",
+        ], ident: "PieceTooBig", fields: Unit, discriminant: 11, since: None),
+        (docs: [
+            "The plan doesn\'t fit the plan area ([Target::Stored]).",
+        ], ident: "PlanTooBig", fields: Unit, discriminant: 12, since: None),
+        (docs: [
+            "A COPY source doesn\'t have the hash its step says. Nothing was written.",
+        ], ident: "SourceMismatch", fields: Unit, discriminant: 13, since: None),
+        (docs: [
+            "A written chunk doesn\'t have the hash its step says.",
+        ], ident: "HashMismatch", fields: Unit, discriminant: 14, since: None),
+        (docs: [
+            "`Stage::finish` before all steps are in.",
+        ], ident: "Incomplete", fields: Unit, discriminant: 15, since: None),
+        (docs: [
+            "The finished image doesn\'t match its descriptor.",
+        ], ident: "VerifyFailed", fields: Unit, discriminant: 16, since: None),
+        (docs: [
+            "The flash reported an error.",
+        ], ident: "Flash", fields: Unit, discriminant: 17, since: None),
+        (docs: [
+            "A read faulted on ECC (a cut write or erase); the chunk needs an erase.",
+        ], ident: "Ecc", fields: Unit, discriminant: 18, since: None),
+        (docs: [
+            "An implementation-specific error.",
+        ], ident: "Custom", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 19, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
+        "Where `BootControl::reboot` goes.",
+    ], ident: "BootTarget", variants: [
+        (docs: [
+            "The app: the normal reset. Switches to a staged image or applies a stored plan if there is one.",
+        ], ident: "App", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "The updater (bootloader with a transport, or recovery app), to receive an update there (mode 3).",
+        ], ident: "Updater", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
+        "A slot of the flash, from the update\'s point of view.",
+    ], ident: "Slot", variants: [
+        (docs: [
+            "The image that runs (or, in an updater, the app slot being rewritten).",
+        ], ident: "Active", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "The slot a live A/B update is written to: DFU, the other bank, the other partition.",
+        ], ident: "Inactive", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Layout of a slot, as `Inventory::layout` reports it.",
+    ], ident: "SlotLayout", fields: Named([
+        (ident: Some("chunk_size"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Bytes per chunk: the unit hashed in the manifest and written by one WRITE step.",
+        ]),
+        (ident: Some("chunk_count"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "Chunks in the slot.",
+        ]),
+        (ident: Some("erase_size"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Bytes per erase block (the unit of an ERASE step). On parts with mixed sector sizes, the largest.",
+        ]),
+        (ident: Some("erase_count"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "Erase blocks in the slot.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
+        "The state of one chunk, as the manifest records it.",
+    ], ident: "ChunkState", variants: [
+        (docs: [
+            "Readable data with this hash.",
+        ], ident: "Hash", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Array(len: 8, ty: NumericAny(Base(U8))), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "Erased: every byte reads as erased. May be written without an erase.",
+        ], ident: "Blank", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Faults on read (ECC: a write or erase cut by power loss). Needs an erase before anything else.",
+        ], ident: "Unreadable", fields: Unit, discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `Stage::limits` reports.",
+    ], ident: "StageLimits", fields: Named([
+        (ident: Some("max_piece"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Largest data payload in one `Stage::write` or [PlanSegment], in bytes. Chosen to fit the node\'s receive",
+            "buffer.",
+        ]),
+        (ident: Some("in_flight"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "How many step calls the host may have outstanding at once. `1` on a node that blocks while it writes flash.",
+        ]),
+        (ident: Some("live"), default: None, since: None, ty: Bool, docs: [
+            "[Target::Live] is accepted.",
+        ]),
+        (ident: Some("stored"), default: None, since: None, ty: Bool, docs: [
+            "[Target::Stored] is accepted.",
+        ]),
+        (ident: Some("plan_area"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Size of the plan area in bytes (the largest plan [Target::Stored] takes), `0` without one.",
+        ]),
+        (ident: Some("writes_in_background"), default: None, since: None, ty: Bool, docs: [
+            "The node keeps working (answers other requests) while it writes flash. False on single-bank parts that stall",
+            "while programming their own flash.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
+        "Where a plan goes on the node.",
+    ], ident: "Target", variants: [
+        (docs: [
+            "Apply each step as it arrives: into the inactive slot (A/B, mode 1) or, in an updater, in place (mode 3).",
+        ], ident: "Live", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Store the plan with its data in the plan area; the bootloader applies it in place after the reset (mode 2).",
+        ], ident: "Stored", fields: Unit, discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `Stage::begin` and `StageBulk::begin_bulk` answer.",
+    ], ident: "Session", fields: Named([
+        (ident: Some("steps"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Steps in the plan, from its header.",
+        ]),
+        (ident: Some("resumed"), default: None, since: None, ty: Bool, docs: [
+            "`false` for a new session, `true` when an unfinished one for the same plan was found.",
+        ]),
+        (ident: Some("resume_from"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Where to continue: the next step for `Stage`, the next byte after the header for `StageBulk` (`0` for a new",
+            "session).",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `Stage::progress` answers.",
+    ], ident: "Progress", fields: Named([
+        (ident: Some("steps"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Steps in the plan.",
+        ]),
+        (ident: Some("next_step"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "The next step the node expects (`steps` when all are in).",
+        ]),
+        (ident: Some("chunk_offset"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "For a WRITE in pieces: bytes of the next step\'s chunk already in.",
+        ]),
+        (ident: Some("plan_bytes"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "For a bulk session: bytes after the header received in order.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
+        "Progress of long operations and session outcomes, on `Stage`\'s `event` stream.",
+    ], ident: "StageEvent", variants: [
+        (docs: [
+            "Hashing a slot for the manifest: `done` of `total` chunks.",
+        ], ident: "Hashing", fields: Named([
+            (ident: Some("done"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+            (ident: Some("total"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "Applying: `done` of `total` steps.",
+        ], ident: "Applying", fields: Named([
+            (ident: Some("done"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+            (ident: Some("total"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Verifying the finished image or stored plan: `done` of `total` bytes.",
+        ], ident: "Verifying", fields: Named([
+            (ident: Some("done"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+            (ident: Some("total"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "The session finished; the node is now in this state.",
+        ], ident: "Finished", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+        ]), discriminant: 3, since: None),
+        (docs: [
+            "The session failed.",
+        ], ident: "Failed", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
+        ]), discriminant: 4, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A segment of a bulk plan, sent on `StageBulk`\'s `plan` sink.",
+    ], ident: "PlanSegment", fields: Named([
+        (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Where these bytes go: offset from the first byte after the plan header.",
+        ]),
+        (ident: Some("data"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [
+            "Plan bytes, at most [StageLimits::max_piece].",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
+        "Status carried by a [PlanAck].",
+    ], ident: "BulkStatus", variants: [
+        (docs: [
+            "Receiving; nothing wrong.",
+        ], ident: "Receiving", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "A gap: bytes from `have` on are missing; resend from there.",
+        ], ident: "Gap", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "All `total_len` bytes are in; call `Stage::finish`.",
+        ], ident: "Complete", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "The session failed; nothing more is accepted.",
+        ], ident: "Failed", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
+        ]), discriminant: 3, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "An acknowledgement on `StageBulk`\'s `plan_ack` stream.",
+    ], ident: "PlanAck", fields: Named([
+        (ident: Some("have"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Bytes after the header the node has, in order. After a gap the host resends from here.",
+        ]),
+        (ident: Some("credit"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Bytes past `have` the host may send before the next acknowledgement.",
+        ]),
+        (ident: Some("status"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [
+            "How the session stands.",
         ]),
     ]))), crate_idx: 0),
 ], traits: [
-    InLine(level: (docs: [], crate_idx: 0, trait_name: "FirmwareUpdate", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0))), multiplicity: Flat, since: None, ident: "state", docs: []),
-        (id: 1, kind: Stream(ty: Vec(NumericAny(Base(U8))), is_up: false), multiplicity: Flat, since: None, ident: "firmware_block", docs: []),
-        (id: 2, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "reboot", docs: []),
-        (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1)))), multiplicity: Flat, since: None, ident: "revert", docs: []),
-        (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "capabilities", docs: []),
+    InLine(level: (docs: [
+        "Who this node is and what it can do. Every node that takes part in updates implements it: the app, the",
+        "bootloader if it has a transport, a recovery app.",
+        "",
+        "This is what a host reads first, and on slow links often the only thing it reads before an update: together with",
+        "[NodeInfo::manifest_digest] it tells the host which plan to send.",
+    ], crate_idx: 0, trait_name: "UpdateNode", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "node", docs: [
+            "Identity, versions and state of this node, and which of the other update traits it implements.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Boot state and the switch between images.",
+        "",
+        "Implemented by the app (the minimum is `BootControl::reboot` with [BootTarget::Updater], for a node that",
+        "receives updates elsewhere) and by an updater (bootloader with a transport, recovery app), where it at least",
+        "reboots back into the app.",
+    ], crate_idx: 0, trait_name: "BootControl", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "boot_state", docs: [
+            "Where the device stands between two updates.",
+        ]),
+        (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "confirm", docs: [
+            "The running image works: keep it.",
+            "",
+            "Only meaningful in [BootState::Trial]; in any other state it does nothing and returns `Ok`. An image that",
+            "never confirms is reverted at the next reset, so the app should confirm only after it has checked what",
+            "matters to it (its peripherals, its link to the host, its config).",
+        ]),
+        (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "revert", docs: [
+            "Give up the running trial image now, or un-stage a staged one: the previous image runs after the next reset.",
+            "",
+            "[Error::Unsupported] on profiles without a previous image ([Profile::InPlace]), [Error::WrongState] outside",
+            "[BootState::Trial] and [BootState::Staged].",
+        ]),
+        (id: 3, kind: Method(args: [
+            (ident: "into", ty: OutOfLine(type_idx: 8)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "reboot", docs: [
+            "Reset into the app or into the updater.",
+            "",
+            "The reply is sent before the reset, so the host knows the request arrived; the node resets shortly after",
+            "(implementations wait long enough for the reply to leave, typically a few tens of milliseconds). The host then",
+            "reconnects to the same device by serial number; what answers may be a different firmware with a different API",
+            "(an updater after [BootTarget::Updater]).",
+            "",
+            "[BootTarget::App] after a successful `Stage::finish` is what starts the update: the bootloader switches to the",
+            "staged image (A/B) or applies the stored plan (in place).",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "What the node holds now, chunk by chunk: the manifest the host plans against.",
+        "",
+        "The host usually doesn\'t need it: when [NodeInfo::manifest_digest] matches the manifest of a release it built,",
+        "it already knows every chunk. The full read is for the cases where it doesn\'t (a development build, an image",
+        "changed by an interrupted update, a device the host has never seen).",
+    ], crate_idx: 0, trait_name: "Inventory", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "slot", ty: OutOfLine(type_idx: 9)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 10), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "layout", docs: [
+            "Chunk size, chunk count and erase layout of a slot, as this node sees them.",
+        ]),
+        (id: 1, kind: Method(args: [
+            (ident: "slot", ty: OutOfLine(type_idx: 9)),
+        ], return_ty: Some(Result(ok_ty: Array(len: 8, ty: NumericAny(Base(U8))), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "manifest_digest", docs: [
+            "Digest of a slot\'s manifest, as the protocol spec defines it. Equal digests mean equal manifests, so a host",
+            "that already has a manifest with this digest needn\'t read it.",
+            "",
+            "Hashing a whole slot takes time (about a second per few hundred KB on a small MCU); the node may answer later",
+            "and report progress on `Stage`\'s `event` stream, if it has one.",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "slot", ty: OutOfLine(type_idx: 9)),
+            (ident: "first", ty: NumericAny(Base(U16))),
+            (ident: "count", ty: NumericAny(Base(U16))),
+        ], return_ty: Some(Result(ok_ty: Vec(OutOfLine(type_idx: 11)), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "chunks", docs: [
+            "The state of `count` chunks of `slot`, starting at chunk `first`.",
+            "",
+            "Paged on purpose: the host sets the pace and asks again for a page whose reply was lost. Fewer entries than",
+            "asked for come back at the end of the slot, or when a page would not fit the node\'s reply buffer; the host",
+            "continues from the first chunk it didn\'t get.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Receive a plan step by step, apply it ([Target::Live]) or store it ([Target::Stored]), and finish it.",
+        "",
+        "One session at a time per node. The step methods must arrive in plan order: a step with a higher index than",
+        "expected is [Error::OutOfOrder] with the index the node expects, so the host can go back; a step with a lower",
+        "index is accepted again and skipped (its reply was lost), as long as it is the same step.",
+    ], crate_idx: 0, trait_name: "Stage", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12))), multiplicity: Flat, since: None, ident: "limits", docs: [
+            "What this node accepts: piece size, how many calls may be in flight, targets, the plan area.",
+        ]),
+        (id: 1, kind: Method(args: [
+            (ident: "target", ty: OutOfLine(type_idx: 13)),
+            (ident: "header", ty: Vec(NumericAny(Base(U8)))),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "begin", docs: [
+            "Start a session for the plan with this header (the header\'s octets as the protocol spec defines them), or",
+            "resume the unfinished session for the same header.",
+            "",
+            "Everything that can be checked before the first byte is written is checked here: the header\'s format, its",
+            "geometry against this node\'s, the image version against the version floor, the descriptor signature, the boot",
+            "state ([BootState::may_stage]), the target against [StageLimits], and for [Target::Stored] that the plan fits",
+            "the plan area. A refusal here costs the host nothing but this call, which matters on a slow link.",
+        ]),
+        (id: 2, kind: Method(args: [
+            (ident: "index", ty: NumericAny(Base(U32))),
+            (ident: "block", ty: NumericAny(Base(U16))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "erase", docs: [
+            "Step `index`: erase erase-block `block` of the slot being written.",
+        ]),
+        (id: 3, kind: Method(args: [
+            (ident: "index", ty: NumericAny(Base(U32))),
+            (ident: "dst", ty: NumericAny(Base(U16))),
+            (ident: "src", ty: NumericAny(Base(U16))),
+            (ident: "hash", ty: Array(len: 8, ty: NumericAny(Base(U8)))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "copy", docs: [
+            "Step `index`: copy chunk `src` of the running image into chunk `dst` of the slot being written.",
+            "",
+            "The node hashes `src` first; when it doesn\'t match `hash`, nothing is written and the answer is",
+            "[Error::SourceMismatch] (the host planned against a manifest that is no longer true; it should read the",
+            "manifest again or send the chunk as a WRITE). In place, the planner never copies from a chunk an earlier step",
+            "has overwritten.",
+        ]),
+        (id: 4, kind: Method(args: [
+            (ident: "index", ty: NumericAny(Base(U32))),
+            (ident: "dst", ty: NumericAny(Base(U16))),
+            (ident: "hash", ty: Array(len: 8, ty: NumericAny(Base(U8)))),
+            (ident: "offset", ty: NumericAny(Base(U32))),
+            (ident: "data", ty: Vec(NumericAny(Base(U8)))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "write", docs: [
+            "Step `index`, or a piece of it: program chunk `dst` with data whose whole chunk hashes to `hash`.",
+            "",
+            "A chunk bigger than [StageLimits::max_piece] comes in pieces, in order, each saying where it goes in the chunk",
+            "(`offset`, bytes from the chunk\'s start). The node hashes the chunk as the pieces arrive and checks `hash` when",
+            "the last byte of the chunk is in; a mismatch is [Error::HashMismatch] and the host sends the whole chunk again",
+            "from offset 0. Every piece repeats `dst` and `hash`, so a piece is never applied to the wrong step.",
+        ]),
+        (id: 5, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "progress", docs: [
+            "Where the current session stands: the next step the node expects, and how far into it.",
+            "",
+            "[Error::NoSession] when nothing is in progress.",
+        ]),
+        (id: 6, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 2), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "finish", docs: [
+            "All steps are in: verify and stage.",
+            "",
+            "- [Target::Live] in the inactive slot (A/B): the image is checked against the descriptor (hash and",
+            "  signature) and marked staged; it boots for its trial after `BootControl::reboot` with [BootTarget::App].",
+            "- [Target::Stored]: the stored plan is checked for completeness and its header signature; it is applied by",
+            "  the bootloader at the next reset.",
+            "- [Target::Live] in place (an updater): the new image is checked against the descriptor and marked bootable.",
+            "",
+            "Verification hashes the whole image and may take a few seconds; the node answers when it is done and reports",
+            "progress on `event` meanwhile. The answer is the boot state the node is now in.",
+        ]),
+        (id: 7, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "abort", docs: [
+            "Drop the current session. What was written stays where it was (an inactive slot or a plan area is just",
+            "scratch); in place, the device stays in the updater until a session finishes.",
+        ]),
+        (id: 8, kind: Stream(ty: OutOfLine(type_idx: 16), is_up: true), multiplicity: Flat, since: None, ident: "event", docs: [
+            "Progress of long operations (hashing, copying, verifying, applying a stored plan) and the outcome of a session,",
+            "for the host\'s progress bar and log. Nothing here is needed for correctness: the method replies are.",
+        ]),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Receive a whole plan in one go, for links where a round trip per step would cost more than the delta saves.",
+        "",
+        "Uses the session control of `Stage` on the same node (`Stage::progress`, `Stage::finish`, `Stage::abort`); only",
+        "the start and the data path differ. The plan after its header is a byte stream: the steps with each WRITE\'s data",
+        "right after its step, exactly the protocol spec\'s wire form, so with [Target::Stored] the node writes these bytes",
+        "to its plan area unchanged.",
+        "",
+        "Flow: `begin_bulk` → segments on `plan` until `total_len` bytes are in, each placed by its offset → the node",
+        "acknowledges on `plan_ack` when it has to → the host calls `Stage::finish`.",
+    ], crate_idx: 0, trait_name: "StageBulk", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "target", ty: OutOfLine(type_idx: 13)),
+            (ident: "header", ty: Vec(NumericAny(Base(U8)))),
+            (ident: "total_len", ty: NumericAny(Base(U32))),
+            (ident: "ack_every", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 7)))), multiplicity: Flat, since: None, ident: "begin_bulk", docs: [
+            "Start (or resume) a bulk session for the plan with this header; the checks are those of `Stage::begin`.",
+            "",
+            "`total_len` is the length of the plan after the header. `ack_every` asks the node to acknowledge at least",
+            "every so many bytes even when nothing went wrong; `0` means only on gaps, credit and at the end, the right",
+            "choice on a reliable link (one acknowledgement per update). The answer\'s [Session::resume_from] says from which",
+            "byte to start sending (0 for a new session).",
+        ]),
+        (id: 1, kind: Stream(ty: OutOfLine(type_idx: 17), is_up: false), multiplicity: Flat, since: None, ident: "plan", docs: [
+            "Plan bytes from the host. A segment may be any size up to [StageLimits::max_piece]; each says where its bytes",
+            "go, so a node that sees a gap knows it and asks for the missing part.",
+            "",
+            "The node takes segments in order only: one that starts past the end of what the node has is a gap, so the",
+            "node drops it and acknowledges with the offset it needs (go-back-N); one it already has is dropped silently.",
+        ]),
+        (id: 2, kind: Stream(ty: OutOfLine(type_idx: 19), is_up: true), multiplicity: Flat, since: None, ident: "plan_ack", docs: [
+            "Acknowledgements from the node: how far it is, how much more it can take, and whether something went wrong.",
+            "",
+            "Sent when the host is about to run out of credit, on a gap, every `ack_every` bytes if asked, and once at the",
+            "end (all bytes in, or an error). The host must not send past `have + credit`.",
+            "",
+            "Once WireWeaver\'s credit-based sinks land, the credit moves into the sink\'s own flow control and this stream",
+            "keeps `have` and `status` only.",
+        ]),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_dfu", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

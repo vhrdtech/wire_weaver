@@ -192,6 +192,12 @@ is compatible depends on what the old version writes:
 At connect time the client does not refuse a device whose bounds differ from its own: a longer value is rejected when
 it is sent, by whichever side has the smaller bound.
 
+### Compressed sequences: `Delta`, `DeltaOfDelta`, `XorFloat`
+
+Each has bytes of its own, so `Vec<T>` -> `Delta<T>`, `Delta<T>` -> `DeltaOfDelta<T>` or `Delta<u32>` ->
+`Delta<u64>` is breaking (`ww api check` reports it), unlike the borrowed / owned form (`Delta<'i, T>` /
+`DeltaOwned<T>`), which is the same type.
+
 ### FinalStructure, SelfDescribing and Sized types
 
 * `Sized` can become `SelfDescribing` and back (`sized` <-> `self_describing`): neither gets a size slot from its

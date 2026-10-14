@@ -13,7 +13,10 @@ use crate::{
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_writer_owned::UnsizedBuilderOwned;
-use shrink_wrap::{BufReader, BufWriterOwned, ElementSize, Nibble};
+use shrink_wrap::{
+    BufReader, BufWriterOwned, DeltaOfDeltaOwned, DeltaOwned, DeserializeShrinkWrapOwned,
+    ElementSize, Nibble, SerializeShrinkWrapOwned, XorFloatOwned,
+};
 use std::borrow::Cow;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 
@@ -82,7 +85,10 @@ impl ValueOwned {
             }
             TypeOwned::Flag => Err(anyhow!("flag type cannot be created manually")),
             TypeOwned::String => Ok(ValueOwned::String(String::new())),
-            TypeOwned::Vec(_) => Ok(ValueOwned::Vec(vec![])),
+            TypeOwned::Vec(_)
+            | TypeOwned::Delta(_)
+            | TypeOwned::DeltaOfDelta(_)
+            | TypeOwned::XorFloat(_) => Ok(ValueOwned::Vec(vec![])),
             TypeOwned::MaxLen { ty, .. } => Self::default(ty, api_bundle),
             TypeOwned::Array { len, ty } => {
                 Ok(ValueOwned::Array(vec![
@@ -290,6 +296,9 @@ fn des_inner(
             let end = des_numeric(rd, base)?;
             Ok(ValueOwned::RangeInclusive(start..=end))
         }
+        TypeOwned::Delta(base) => des_series(rd, Series::Delta, base),
+        TypeOwned::DeltaOfDelta(base) => des_series(rd, Series::DeltaOfDelta, base),
+        TypeOwned::XorFloat(base) => des_series(rd, Series::XorFloat, base),
     }
 }
 
@@ -612,6 +621,17 @@ fn ser_inner(
             ser_numeric(wr, range.start(), base)?;
             ser_numeric(wr, range.end(), base)?;
         }
+        TypeOwned::Delta(base) | TypeOwned::DeltaOfDelta(base) | TypeOwned::XorFloat(base) => {
+            let (ValueOwned::Vec(items) | ValueOwned::Array(items)) = value else {
+                return Err(mismatch());
+            };
+            let series = match ty {
+                TypeOwned::Delta(_) => Series::Delta,
+                TypeOwned::DeltaOfDelta(_) => Series::DeltaOfDelta,
+                _ => Series::XorFloat,
+            };
+            ser_series(wr, items, series, base)?;
+        }
     }
     Ok(())
 }
@@ -875,4 +895,126 @@ fn check_max_len(len: usize, max_len: u32) -> Result<()> {
             .context(format!("{len} elements, at most {max_len} allowed")));
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Compressed sequences (SW-31, SW-32), read and written with the codecs of shrink_wrap itself
+
+#[derive(Clone, Copy)]
+enum Series {
+    Delta,
+    DeltaOfDelta,
+    XorFloat,
+}
+
+/// Runs `$body` with `$owned` the owned sequence type of `series` and `$t` its element type for `base`.
+macro_rules! with_series {
+    ($series:expr, $base:expr, |$owned:ident, $t:ident| $body:expr) => {{
+        macro_rules! ints {
+            ($o:ident) => {
+                match $base {
+                    NumericBaseType::U8 => with_series!(@ $o<u8>, $owned, $t, $body),
+                    NumericBaseType::U16 => with_series!(@ $o<u16>, $owned, $t, $body),
+                    NumericBaseType::U32 => with_series!(@ $o<u32>, $owned, $t, $body),
+                    NumericBaseType::U64 => with_series!(@ $o<u64>, $owned, $t, $body),
+                    NumericBaseType::I8 => with_series!(@ $o<i8>, $owned, $t, $body),
+                    NumericBaseType::I16 => with_series!(@ $o<i16>, $owned, $t, $body),
+                    NumericBaseType::I32 => with_series!(@ $o<i32>, $owned, $t, $body),
+                    NumericBaseType::I64 => with_series!(@ $o<i64>, $owned, $t, $body),
+                    base => bail!("Delta of {base:?} is not supported, only u8..u64 and i8..i64"),
+                }
+            };
+        }
+        match $series {
+            Series::Delta => ints!(DeltaOwned),
+            Series::DeltaOfDelta => ints!(DeltaOfDeltaOwned),
+            Series::XorFloat => match $base {
+                NumericBaseType::F32 => with_series!(@ XorFloatOwned<f32>, $owned, $t, $body),
+                NumericBaseType::F64 => with_series!(@ XorFloatOwned<f64>, $owned, $t, $body),
+                base => bail!("XorFloat of {base:?} is not supported, only f32 and f64"),
+            },
+        }
+    }};
+    (@ $o:ident<$ty:ident>, $owned:ident, $t:ident, $body:expr) => {{
+        type $owned = $o<$ty>;
+        type $t = $ty;
+        $body
+    }};
+}
+
+fn des_series(rd: &mut BufReader, series: Series, base: &NumericBaseType) -> Result<ValueOwned> {
+    let items = with_series!(series, base, |Owned, T| {
+        Owned::des_shrink_wrap_owned(rd)?
+            .into_inner()
+            .into_iter()
+            .map(|v: T| ValueOwned::Numeric(v.into_value()))
+            .collect()
+    });
+    Ok(ValueOwned::Vec(items))
+}
+
+fn ser_series(
+    wr: &mut BufWriterOwned,
+    items: &[ValueOwned],
+    series: Series,
+    base: &NumericBaseType,
+) -> Result<()> {
+    with_series!(series, base, |Owned, T| {
+        let values = items
+            .iter()
+            .map(|item| {
+                let ValueOwned::Numeric(value) = item else {
+                    bail!("expected a number, got {item:?}");
+                };
+                T::from_value(value)
+                    .ok_or_else(|| anyhow!("{value:?} is out of range for {base:?}"))
+            })
+            .collect::<Result<Owned>>()?;
+        values.ser_shrink_wrap_owned(wr)?;
+    });
+    Ok(())
+}
+
+/// An element of a compressed sequence, from any numeric value that fits (`U8(1)` as `u32`, `1` as `f32`).
+trait SeriesElement: Sized {
+    fn from_value(value: &NumericValue) -> Option<Self>;
+    fn into_value(self) -> NumericValue;
+}
+
+macro_rules! series_element {
+    ($($t:ty => $variant:ident),*) => {$(
+        impl SeriesElement for $t {
+            fn from_value(value: &NumericValue) -> Option<Self> {
+                <$t>::try_from(int_value(value).ok()?).ok()
+            }
+
+            fn into_value(self) -> NumericValue {
+                NumericValue::$variant(self)
+            }
+        }
+    )*};
+}
+series_element!(u8 => U8, u16 => U16, u32 => U32, u64 => U64, i8 => I8, i16 => I16, i32 => I32, i64 => I64);
+
+impl SeriesElement for f32 {
+    fn from_value(value: &NumericValue) -> Option<Self> {
+        Some(match value {
+            NumericValue::F32(v) => *v,
+            other => float_value(other).ok()? as f32,
+        })
+    }
+
+    fn into_value(self) -> NumericValue {
+        NumericValue::F32(self)
+    }
+}
+
+impl SeriesElement for f64 {
+    fn from_value(value: &NumericValue) -> Option<Self> {
+        float_value(value).ok()
+    }
+
+    fn into_value(self) -> NumericValue {
+        NumericValue::F64(self)
+    }
 }

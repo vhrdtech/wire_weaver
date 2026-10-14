@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- `Delta`, `DeltaOfDelta` and `XorFloat` (SW-50) are lists of `int` / `float` (any iterable accepted), a value out
+  of range of the element type raises `ValueError`.
 - `MaxLen` (SW-19) lists and strings are checked when encoding: a longer value raises `ValueError` (`.. at most N
   allowed ..`).
 - Credit sinks (`#[credit] sink!(..)`, API-28, credit counted in bytes): `Sink.send()` waits until the device has

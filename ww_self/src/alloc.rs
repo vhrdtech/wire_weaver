@@ -160,6 +160,8 @@ impl TypeOwned {
             TypeOwned::Range(_) => Ok(false),
             TypeOwned::RangeInclusive(_) => Ok(false),
             TypeOwned::MaxLen { ty, .. } => ty.is_lifetime(api_bundle),
+            // a slice or a reader of the buffer, like RefVec
+            TypeOwned::Delta(_) | TypeOwned::DeltaOfDelta(_) | TypeOwned::XorFloat(_) => Ok(true),
         }
     }
 
@@ -188,7 +190,10 @@ impl TypeOwned {
             | TypeOwned::Result { .. }
             | TypeOwned::Range(_)
             | TypeOwned::RangeInclusive(_)
-            | TypeOwned::MaxLen { .. } => Ok(false),
+            | TypeOwned::MaxLen { .. }
+            | TypeOwned::Delta(_)
+            | TypeOwned::DeltaOfDelta(_)
+            | TypeOwned::XorFloat(_) => Ok(false),
         }
     }
 
@@ -297,6 +302,9 @@ impl TypeOwned {
             )),
             TypeOwned::Range(base) => Ok(format!("Range<{}>", base.name())),
             TypeOwned::RangeInclusive(base) => Ok(format!("RangeInclusive<{}>", base.name())),
+            TypeOwned::Delta(base) => Ok(format!("Delta<{}>", base.name())),
+            TypeOwned::DeltaOfDelta(base) => Ok(format!("DeltaOfDelta<{}>", base.name())),
+            TypeOwned::XorFloat(base) => Ok(format!("XorFloat<{}>", base.name())),
             TypeOwned::MaxLen { max_len, ty } => Ok(format!(
                 "MaxLen<{}, {}>",
                 ty.human_name(show_crate_name, api_bundle)?,
@@ -393,6 +401,9 @@ impl TypeOwned {
             )),
             TypeOwned::Range(base) => Ok(format!("Range<{}>", base.name())),
             TypeOwned::RangeInclusive(base) => Ok(format!("RangeInclusive<{}>", base.name())),
+            TypeOwned::Delta(base) => Ok(format!("Delta<{}>", base.name())),
+            TypeOwned::DeltaOfDelta(base) => Ok(format!("DeltaOfDelta<{}>", base.name())),
+            TypeOwned::XorFloat(base) => Ok(format!("XorFloat<{}>", base.name())),
             TypeOwned::MaxLen { max_len, ty } => Ok(format!(
                 "MaxLen<{}, {}>",
                 ty.human_definition(api_bundle, single_line)?,

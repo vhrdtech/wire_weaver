@@ -134,6 +134,22 @@ def test_max_len():
         api.write.encode_args(1, True, b"\x01" * 9)
 
 
+def test_series():
+    # Delta / DeltaOfDelta / XorFloat (SW-50): lists of numbers, written with their codec
+    api = ww.load_api(str(API_CRATE.parent / "series_api"), "Series")
+    assert api.stamps.signature == "rw stamps: DeltaOfDelta<u64>"
+    stamps = [1_700_000_000_000, 1_700_000_000_250, 1_700_000_000_500]
+    encoded = api.stamps.encode(stamps)
+    assert len(encoded) < 8 * len(stamps)
+    assert api.stamps.decode(encoded) == stamps
+    assert api.stamps.decode(api.stamps.encode(range(3))) == [0, 1, 2]
+    with pytest.raises(ValueError):
+        api.stamps.encode([-1])
+    with pytest.raises(TypeError):
+        api.stamps.encode("abc")
+    assert api.scale.encode_args([1.0, 2.5], 2.0)
+
+
 def test_credit_sinks():
     api = ww.load_api(str(Path(__file__).parents[2] / "tests" / "credit_sink_api"), "CreditSinks")
     assert api.plan.credit

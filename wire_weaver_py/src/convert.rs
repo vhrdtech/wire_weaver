@@ -17,6 +17,7 @@
 //! | `Option<T>`                       | `None` or `T`                                                       |
 //! | `Result<T, E>`                    | `{"Ok": T}` or `{"Err": E}`                                         |
 //! | `Range`, `RangeInclusive`         | `(start, end)` (`range` with step 1 accepted)                       |
+//! | `Delta`, `DeltaOfDelta`, `XorFloat` | `list` of `int` / `float` (any iterable accepted)                 |
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -172,6 +173,17 @@ pub(crate) fn to_value(
         TypeOwned::RangeInclusive(base) => {
             let (start, end) = to_bounds(obj, base, false).ok_or_else(expected)??;
             ValueOwned::RangeInclusive(start..=end)
+        }
+        TypeOwned::Delta(base) | TypeOwned::DeltaOfDelta(base) | TypeOwned::XorFloat(base) => {
+            if obj.is_instance_of::<PyString>() || !is_iterable(obj) {
+                return Err(expected());
+            }
+            let element = TypeOwned::NumericAny(NumericAnyTypeOwned::Base(base.clone()));
+            ValueOwned::Vec(
+                obj.try_iter()?
+                    .map(|item| to_value(&item?, &element, bundle))
+                    .collect::<PyResult<_>>()?,
+            )
         }
         TypeOwned::Flag | TypeOwned::OutOfLine { .. } => {
             return Err(PyTypeError::new_err(format!("unsupported type {ty:?}")));
@@ -469,6 +481,21 @@ pub(crate) fn to_py<'py>(
                     .collect::<PyResult<Vec<_>>>()?;
                 PyList::new(py, items)?.into_any()
             }
+        }
+        (
+            ValueOwned::Vec(items),
+            TypeOwned::Delta(_) | TypeOwned::DeltaOfDelta(_) | TypeOwned::XorFloat(_),
+        ) => {
+            let items = items
+                .iter()
+                .map(|v| match v {
+                    ValueOwned::Numeric(n) => numeric_to_py(py, n),
+                    other => Err(PyTypeError::new_err(format!(
+                        "expected a number, got {other:?}"
+                    ))),
+                })
+                .collect::<PyResult<Vec<_>>>()?;
+            PyList::new(py, items)?.into_any()
         }
         (ValueOwned::Tuple(items), TypeOwned::Tuple(types)) => {
             let items = items

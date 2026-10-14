@@ -124,6 +124,24 @@ fn ty_def_inner(
             let numeric_base = ty_def_numeric_base(numeric_base);
             Ok(quote! { core::ops::RangeInclusive #maybe_turbofish <#numeric_base> })
         }
+        TypeOwned::Delta(base) | TypeOwned::DeltaOfDelta(base) | TypeOwned::XorFloat(base) => {
+            let base = ty_def_numeric_base(base);
+            let name = match (ty, alloc) {
+                (TypeOwned::Delta(_), false) => "Delta",
+                (TypeOwned::Delta(_), true) => "DeltaOwned",
+                (TypeOwned::DeltaOfDelta(_), false) => "DeltaOfDelta",
+                (TypeOwned::DeltaOfDelta(_), true) => "DeltaOfDeltaOwned",
+                (_, false) => "XorFloat",
+                (_, true) => "XorFloatOwned",
+            };
+            let name = Ident::new(name, Span::call_site());
+            Ok(if alloc {
+                quote! { wire_weaver::shrink_wrap::#name #maybe_turbofish <#base> }
+            } else {
+                let l = lifetime(ty_pos);
+                quote! { wire_weaver::shrink_wrap::#name #maybe_turbofish <#l, #base> }
+            })
+        }
         TypeOwned::MaxLen { max_len, ty } => {
             let inner_ty = ty_def_inner(api_bundle, ty, alloc, ty_pos, None)?;
             let max_len = Lit::Int(LitInt::new(

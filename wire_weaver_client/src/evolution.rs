@@ -666,6 +666,35 @@ mod tests {
     }
 
     #[test]
+    fn changed_series_codec_or_element_is_breaking() {
+        let api = |ty: &str| {
+            format!(
+                r#"
+                #[ww_api_root]
+                pub trait Api {{
+                    fn samples() -> {ty};
+                }}
+            "#
+            )
+        };
+        let old = api("DeltaOfDelta<'i, u32>");
+        assert_eq!(report(&old, &old).change, Change::None);
+        assert_eq!(
+            report(&old, &api("DeltaOfDeltaOwned<u32>")).change,
+            Change::None
+        );
+        for (new, reason) in [
+            ("DeltaOfDelta<'i, u64>", "DeltaOfDelta<u64>"),
+            ("Delta<'i, u32>", "Delta<u32>"),
+            ("RefVec<'i, u32>", "Vec"),
+        ] {
+            assert_breaking(&report(&old, &api(new)), reason);
+        }
+        let old = api("XorFloat<'i, f32>");
+        assert_breaking(&report(&old, &api("XorFloat<'i, f64>")), "XorFloat<f64>");
+    }
+
+    #[test]
     fn removed_or_renamed_resource_is_breaking() {
         let new = API.replace("fn set(c: Coord);", "");
         assert_breaking(&report(API, &new), "Api::set removed");

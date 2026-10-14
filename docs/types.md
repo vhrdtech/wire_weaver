@@ -37,6 +37,8 @@
         * Integers as differences: `Delta<'i, T>` / `DeltaOwned<T>`, `T` any of `u8`..`u64`, `i8`..`i64`
         * Integers as differences of differences (timestamps): `DeltaOfDelta<'i, T>` / `DeltaOfDeltaOwned<T>`
         * Floats as XOR with the previous value: `XorFloat<'i, T>` / `XorFloatOwned<T>`, `T` is `f32` or `f64`
+        * Usable in derived types and in every API position; the dynamic client and Python see them as lists of
+          numbers
 * `Option<T>` and `Result<T, E>`
 * `RefBox<T>` for self-referential types.
 * User-defined:

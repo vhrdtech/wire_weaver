@@ -111,6 +111,8 @@ pub(crate) fn convert_ty_path_segment(
         "Result" => convert_ty_result(segment, current_crate, scratch),
         "Range" => convert_ty_range(segment, current_crate, scratch),
         "RangeInclusive" => convert_ty_range_inclusive(segment, current_crate, scratch),
+        "Delta" | "DeltaOwned" | "DeltaOfDelta" | "DeltaOfDeltaOwned" | "XorFloat"
+        | "XorFloatOwned" => convert_ty_series(segment, current_crate, scratch),
         "Box" | "RefBox" => convert_ty_ref_box(segment, current_crate, scratch),
         user_ty => {
             if let Some(ty) = convert_ub_ib(user_ty) {
@@ -466,6 +468,38 @@ fn convert_ty_range_inclusive(
         ));
     };
     Ok(TypeOwned::RangeInclusive(Box::new(numeric_base)))
+}
+
+/// `Delta<'i, T>`, `DeltaOfDelta<'i, T>` (`T` one of `u8`..`u64`, `i8`..`i64`) and `XorFloat<'i, T>` (`f32` or `f64`),
+/// also their `..Owned<T>` forms (SW-31, SW-32).
+fn convert_ty_series(
+    segment: &PathSegment,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<TypeOwned> {
+    let name = segment.ident.to_string();
+    let name = name.trim_end_matches("Owned");
+    let inner_ty = get_inner_angle_bracketed_ty(segment, current_crate)?;
+    let inner_ty = convert_ty(inner_ty, current_crate, scratch)?;
+    use NumericBaseType::*;
+    let base = match inner_ty {
+        TypeOwned::NumericAny(NumericAnyTypeOwned::Base(base)) => Some(base),
+        _ => None,
+    };
+    match (name, base) {
+        ("Delta", Some(base @ (U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64))) => {
+            Ok(TypeOwned::Delta(base))
+        }
+        ("DeltaOfDelta", Some(base @ (U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64))) => {
+            Ok(TypeOwned::DeltaOfDelta(base))
+        }
+        ("XorFloat", Some(base @ (F32 | F64))) => Ok(TypeOwned::XorFloat(base)),
+        ("XorFloat", _) => {
+            Err(anyhow!("XorFloat<T>: T must be f32 or f64").context(current_crate.err_context()))
+        }
+        _ => Err(anyhow!("{name}<T>: T must be one of u8..u64, i8..i64")
+            .context(current_crate.err_context())),
+    }
 }
 
 fn convert_ty_ref_box(

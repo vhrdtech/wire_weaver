@@ -2879,6 +2879,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "series"
+version = "0.1.0"
+dependencies = [
+ "series_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "ww_client_server",
+]
+
+[[package]]
+name = "series_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "sha1"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

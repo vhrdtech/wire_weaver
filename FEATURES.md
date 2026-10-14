@@ -60,6 +60,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`docs/serdes/shrink_wrap.md`, `shrink_wrap/src/series/`, `shrink_wrap/tests/series.rs`).
 - ✅ **SW-32 `XorFloat`**: `f32` / `f64` sequences as XOR with the previous value (Gorilla), bit-exact,
   `XorFloat<'i, T>` / `XorFloatOwned<T>` (same places as SW-31).
+- ✅ **SW-50 Compressed sequences in APIs**: `Delta`, `DeltaOfDelta` and `XorFloat` (borrowed or owned) in every API
+  position (arguments, returns, properties, stream and sink items, fields of API types), visible in introspection
+  (`ww_self::Type::Delta` / `DeltaOfDelta` / `XorFloat`, appended), read and written by the dynamic client and Python
+  (lists of numbers); another codec or element type, or a plain `Vec` instead, is breaking (`ww api check`).
+  `tests/series`, `docs/types.md`, `docs/evolution/rules.md`.
 - ✅ **SW-34 Smaller code on small CPUs**: `BufReader` / `BufWriter` reads and writes that keep an error instead of
   returning it (`read_u8_latch`, `write_u32_latch`, .., `latched()`), used by `#[derive_shrink_wrap]` for plain
   fields with one check per type; `Error` without payloads; one shared integer read and write; no division in

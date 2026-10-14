@@ -19,33 +19,22 @@ STD-17 ww_timebase, STD-18 ww_adc, STD-19 ww_pwm, STD-20 ww_onewire, STD-21 ww_l
 ww_signal_generator, STD-23 ww_si/ww_numeric extension, EX-14 cnt in examples_mcu. (Parent api3-design holds
 STD-14/15, not ours.)
 
+## Children (spawned 14 Oct, step 1 done in a13a8cea: tests/io_<x>{,_api} pairs, docs stubs, nav)
+
+All `--from-here` off a13a8cea on gpd-omarchy unless noted (`--from-here` only works on this PC):
+io-gpio (STD-13, P2401#14oct-1846), io-uart (-1846b), io-i2c (-1846c), io-spi (-1846d), io-adc (STD-18, -1846e),
+io-pwm (STD-19, -1846f), io-onewire (STD-20, -1846g), io-timebase (STD-17, -1846h): sonnet fill-ins.
+si-numeric (STD-23, -1846i, opus), logic-analyzer (STD-21/22, -1846j, opus: design doc to us first, we forward
+it to Roman). cnt-examples (EX-14, -1846k, sonnet) on omarchy-m1 from master.
+Prompt common part: $CLAUDE_JOB_DIR/tmp/common.txt (not durable; it is in each child's first prompt).
+
 ## Next steps
 
-1. **Pre-create shared touch points** so 8 parallel fill-ins don't conflict in Cargo.toml / Cargo.lock /
-   zensical.toml: test crate pairs `tests/io_<x>` + `tests/io_<x>_api` for x in gpio, uart, i2c, spi, adc, pwm,
-   onewire, timebase (layout like `tests/credit_sink{,_api}`; api crate: `#[ww_api_root] pub trait IoXTest {
-   ww_impl!(x: ww_x::Trait); ... }` like `examples/all_gpio_api`; test crate deps: io_x_api, tests_common, tokio,
-   tracing-subscriber, wire_weaver, wire_weaver_client, ww_x; `publish = false`; root `[workspace.dependencies]`
-   entries for every `io_*_api`), empty `#[cfg(test)] mod tests {}`; docs page stubs
-   `docs/std_library/ww_{uart,i2c,spi,adc,pwm,onewire,timebase}.md` + nav entries in `zensical.toml` (ww_gpio.md
-   exists). `cargo check --workspace`, commit.
-2. **File tasks** (`tpm add P2401 '... model:X'`, then `tpm work claim <ID> --task REF`) and **spawn**
-   (`tpm work spawn SLUG wire_weaver --task REF --from-here --on omarchy-m1` mostly; omarchy-m1 had room for 19):
-   - 8 fill-ins, **sonnet**, `--from-here`: per crate full rustdoc, host helpers (std), the test in its
-     `tests/io_<x>` pair with a mock server through `tests_common::start_device` (one in-process test per trait at
-     least), its docs page, snapshot (`ww api save ww_stdlib/ww_x --force`, copy to wire_weaver_snapshots), CHANGELOG,
-     its FEATURES line; touch nothing else shared. Extras: ww_gpio moves `ww_gpio_hl` + `examples/all_gpio` +
-     `examples_mcu` users; ww_uart moves `examples/uart`; ww_i2c tests I2cWatch semantics (Always / Changed mask /
-     Matches start+end, errors once, host calls spliced) and checks `I2cAddress::seven(0x50)` is 1 byte on the wire.
-     Ids: gpio/uart/i2c/spi under STD-13, adc STD-18, pwm STD-19, onewire STD-20, timebase STD-17.
-   - STD-23 ww_si/ww_numeric extension, **opus**, `--from-here`: io_family.md "ww_si and ww_numeric improvements"
-     items 1-3, 5 (features per quantity group, Second as timestamp + Unwrapper, constructors, UVlq32/64).
-   - STD-21 + STD-22 logic analyzer and signal generator **design pass, opus**: doc for Roman's review first
-     (encodings Raw / Transitions with SW-31 DeltaOfDelta, triggers, capture vs stream), then skeletons.
-   - EX-14 cnt in examples_mcu, **sonnet**, from master: counters in MCU examples / test firmwares,
-     `runner = "cnt run --chip ..."` per board `.cargo/config.toml` (see usb_io_fw), `just check-examples-mcu`.
-3. Tell the parent (`tpm work say parent`) the plan in a few lines; park while children work; integrate/review their
-   branches as they report ready.
+1. Wait (parked). As children report ready: review their branch, merge into ours (`git merge s/14oct2026-io-<x>`),
+   resolve conflicts (FEATURES.md, wire_weaver_snapshots, Cargo.lock likely), `just test`, `just lint`.
+2. Forward logic-analyzer's design doc to Roman for review.
+3. When all are in: `just build-docs` (ask Roman first, serve-docs), streams.md conventions check, review renders,
+   tell Roman; `git rm HANDOFF.md`, `tpm work ready`.
 
 ## Coordination
 

@@ -13,7 +13,8 @@ use ww_client_server::{PathKindOwned, StreamSideband};
 /// Also holds a sideband channel, in both directions.
 ///
 /// A sink marked `#[credit]` in the API has credit-based flow control: `send()` waits until the device has room for
-/// the value, `flush()` waits until it accepted everything, see `docs/api/streams.md`.
+/// all bytes of the value, `flush()` waits until it accepted everything, see `docs/api/streams.md`. A value bigger
+/// than the device's receive buffer fails with [StreamError::ItemTooBig].
 pub struct Sink<T> {
     transport_cmd_tx: TransportCommander,
     path_kind: PathKindOwned,
@@ -191,7 +192,8 @@ impl<T> Sink<T> {
         }
     }
 
-    /// Values the device accepted and values sent in this session of a credit sink, e.g., for a progress bar.
+    /// Bytes the device accepted and bytes sent in this session of a credit sink (serialized values), e.g., for a
+    /// progress bar.
     pub fn credit_progress(&self) -> Option<(u32, u32)> {
         self.credit.as_ref().map(|c| (c.acked(), c.sent()))
     }

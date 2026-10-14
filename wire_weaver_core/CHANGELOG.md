@@ -53,9 +53,11 @@
 - `#[credit] sink!(..)`: credit-based flow control for a sink (API-28, `docs/api/streams.md`). Generated servers call a
   new handler `credit_<name>(&mut self[, index_chain]) -> &mut ww_client_server::credit::SinkCredit`, check the
   position of each write, call `write_<name>` only for writes in order, answer `CreditQuery` themselves and send
-  `Credit`/`Resend` events (credit counts elements); the server scaffold includes the handler and a `SinkCredit`
-  field. `stream_data_ser()` is a `const fn` and has `<sink>_max_element_bytes()` for credit sinks, the worst-case
-  element size to size the receive queue (from `MAX_SIZE`; for a byte sink, its `MaxLen` bound). A bounded byte
+  `Credit`/`Resend` events (credit counts bytes of items, the serialized value of each write); the server scaffold
+  includes the handler and a `SinkCredit` field. Each credit sink gets `<SINK>_MAX_ITEM_BYTES: Option<u32>` on its
+  level's `<Level>StreamSerializer` (and `stream_data_ser().<sink>_max_item_bytes()`, `stream_data_ser()` is a
+  `const fn`), the largest item, from `MAX_SIZE` (for a byte sink, its `MaxLen` bound), None when unbounded, for
+  `SinkCredit::sized_for()`. A bounded byte
   credit sink checks the length before the write takes a position. Generated clients open
   credit sinks with `Commander::prepare_credit_sink()`.
 - `medium` server codegen option: type (usually an enum) handlers get from `cx.medium()`, `()` if not set.

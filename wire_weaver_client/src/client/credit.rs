@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use wire_weaver::shrink_wrap::{SerializeShrinkWrapOwned, UNib32, UVlq32};
+use ww_client_server::credit::item_span;
 use ww_client_server::{CreditWriteOwned, StreamSideband};
 
 use crate::{Error, StreamError};
@@ -49,13 +50,16 @@ pub(crate) struct CreditTx {
     opened: bool,
     /// The device answered the Open (a Credit or Resend with `have == 0`), credit events before that are stale
     synced: bool,
-    /// Position (element index) of the next new value
+    /// Byte position of the next new item (bytes of items sent since Open, resends not counted)
     sent: u32,
-    /// Elements the device accepted in order
+    /// Bytes the device accepted in order
     acked: u32,
     /// Position up to which the host may send
     limit: u32,
-    /// Values from `acked` to `sent`, kept for a resend: (position, value bytes)
+    /// Largest grant seen: the device's receive buffer (the first grant after Open is all of it), an item bigger than
+    /// this can never be sent
+    window: u32,
+    /// Items from `acked` to `sent`, kept for a resend: (byte position, item bytes)
     unacked: VecDeque<(u32, Vec<u8>)>,
     /// Resend everything in `unacked` from this position on
     resend_from: Option<u32>,
@@ -72,6 +76,7 @@ impl CreditTx {
             sent: 0,
             acked: 0,
             limit: 0,
+            window: 0,
             unacked: VecDeque::new(),
             resend_from: None,
             last_progress: now,
@@ -83,12 +88,12 @@ impl CreditTx {
         self.opened
     }
 
-    /// Elements the device accepted in this session.
+    /// Bytes the device accepted in this session.
     pub(crate) fn acked(&self) -> u32 {
         self.acked
     }
 
-    /// Elements sent in this session (not counting resends).
+    /// Bytes sent in this session (not counting resends).
     pub(crate) fn sent(&self) -> u32 {
         self.sent
     }
@@ -131,8 +136,8 @@ impl CreditTx {
             return true;
         }
         let mut progress = false;
-        while let Some((pos, _)) = self.unacked.front() {
-            if *pos < have {
+        while let Some((pos, value)) = self.unacked.front() {
+            if pos + item_span(value.len() as u32) <= have {
                 self.unacked.pop_front();
             } else {
                 break;
@@ -147,6 +152,7 @@ impl CreditTx {
             self.limit = limit;
             progress = true;
         }
+        self.window = self.window.max(grant);
         if is_resend {
             // answered: no need to ask again before query_interval, but only an advance is progress, so a value
             // the device keeps refusing ends in a stall timeout
@@ -167,35 +173,44 @@ impl CreditTx {
         let Some(from) = self.resend_from else {
             return Ok(None);
         };
-        let Some(idx) = self.unacked.iter().position(|(pos, _)| *pos >= from) else {
+        let Some(idx) = self
+            .unacked
+            .iter()
+            .position(|(pos, value)| *pos + item_span(value.len() as u32) > from)
+        else {
             self.resend_from = None;
             return Ok(None);
         };
         let (pos, value) = &self.unacked[idx];
-        if *pos >= self.limit {
+        let end = *pos + item_span(value.len() as u32);
+        if end > self.limit {
             return Ok(None);
         }
         let bytes = encode(*pos, value)?;
         self.resend_from = if idx + 1 < self.unacked.len() {
-            Some(*pos + 1)
+            Some(end)
         } else {
             None
         };
         Ok(Some(bytes))
     }
 
-    /// Encoded write of a new value if there is credit for it, None when the caller has to wait.
+    /// Encoded write of a new item if all of it fits into the credit left, None when the caller has to wait.
     /// Resends go first, see [Self::next_resend].
     pub(crate) fn try_new(&mut self, value: &[u8]) -> Result<Option<Vec<u8>>, StreamError> {
         if !self.synced || self.resend_from.is_some() {
             return Ok(None);
         }
-        let Some(end) = self.sent.checked_add(1) else {
+        let len = u32::try_from(value.len()).map_err(|_| too_big(value.len(), self.window))?;
+        if len > self.window {
+            return Err(too_big(value.len(), self.window));
+        }
+        let Some(end) = self.sent.checked_add(item_span(len)) else {
             return Err(StreamError::Other(Error::Other(
-                "credit sink session is limited to u32::MAX elements, open it again".into(),
+                "credit sink session is limited to 4 GiB, open it again".into(),
             )));
         };
-        if self.sent >= self.limit {
+        if end > self.limit {
             return Ok(None);
         }
         let bytes = encode(self.sent, value)?;
@@ -253,6 +268,10 @@ fn encode(pos: u32, value: &[u8]) -> Result<Vec<u8>, StreamError> {
     Ok(write.to_ww_bytes_owned()?)
 }
 
+fn too_big(len: usize, buffer: u32) -> StreamError {
+    StreamError::ItemTooBig { len, buffer }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,43 +321,85 @@ mod tests {
 
     #[test]
     fn never_exceeds_credit() {
-        let (mut c, now) = synced(2);
-        // any size counts as one element
-        assert!(c.try_new(&[0; 100]).unwrap().is_some());
-        assert!(c.try_new(&[0; 1]).unwrap().is_some());
+        let (mut c, now) = synced(10);
+        assert!(c.try_new(&[0; 4]).unwrap().is_some());
+        assert!(c.try_new(&[0; 4]).unwrap().is_some());
         assert_eq!(c.try_new(&[0; 4]).unwrap(), None);
-        c.on_sideband(credit(1, 2), now);
-        assert_eq!(pos(&c.try_new(&[0; 4]).unwrap().unwrap()), 2);
+        assert!(matches!(
+            c.try_new(&[0; 11]),
+            Err(StreamError::ItemTooBig {
+                len: 11,
+                buffer: 10
+            })
+        ));
+        c.on_sideband(credit(4, 10), now);
+        assert_eq!(pos(&c.try_new(&[0; 4]).unwrap().unwrap()), 8);
         assert!(!c.all_acked());
-        c.on_sideband(credit(3, 2), now);
+        c.on_sideband(credit(12, 10), now);
         assert!(c.all_acked());
         assert!(c.unacked.is_empty());
     }
 
     #[test]
     fn go_back_n() {
-        let (mut c, now) = synced(10);
+        let (mut c, now) = synced(100);
         for _ in 0..4 {
             c.try_new(&[0; 10]).unwrap().unwrap();
         }
-        // 1 lost, the device saw 2
-        c.on_sideband(resend(1, 9), now);
+        // 10..20 lost, the device saw 20..30
+        c.on_sideband(resend(10, 90), now);
         assert_eq!(c.try_new(&[0; 10]).unwrap(), None, "resends go first");
         let resent: Vec<u32> = std::iter::from_fn(|| c.next_resend().unwrap())
             .map(|b| pos(&b))
             .collect();
-        assert_eq!(resent, [1, 2, 3]);
-        assert_eq!(pos(&c.try_new(&[0; 10]).unwrap().unwrap()), 4);
+        assert_eq!(resent, [10, 20, 30]);
+        assert_eq!(pos(&c.try_new(&[0; 10]).unwrap().unwrap()), 40);
+    }
+
+    #[test]
+    fn go_back_n_mixed_sizes() {
+        let (mut c, now) = synced(100);
+        let sizes = [3usize, 40, 1, 20];
+        let sent: Vec<u32> = sizes
+            .iter()
+            .map(|len| pos(&c.try_new(&vec![0; *len]).unwrap().unwrap()))
+            .collect();
+        assert_eq!(sent, [0, 3, 43, 44]);
+        // 36 left, a 37 byte item waits
+        assert_eq!(c.try_new(&[0; 37]).unwrap(), None);
+        // the 40 byte item was lost: resend from its first byte
+        c.on_sideband(resend(3, 97), now);
+        let resent: Vec<u32> = std::iter::from_fn(|| c.next_resend().unwrap())
+            .map(|b| pos(&b))
+            .collect();
+        assert_eq!(resent, [3, 43, 44]);
+        c.on_sideband(credit(64, 100), now);
+        assert!(c.all_acked());
+        assert_eq!(pos(&c.try_new(&[0; 37]).unwrap().unwrap()), 64);
+    }
+
+    #[test]
+    fn empty_item_takes_a_position() {
+        let (mut c, now) = synced(10);
+        assert_eq!(pos(&c.try_new(&[]).unwrap().unwrap()), 0);
+        assert_eq!(pos(&c.try_new(&[0; 3]).unwrap().unwrap()), 1);
+        c.on_sideband(resend(0, 10), now);
+        let resent: Vec<u32> = std::iter::from_fn(|| c.next_resend().unwrap())
+            .map(|b| pos(&b))
+            .collect();
+        assert_eq!(resent, [0, 1]);
+        c.on_sideband(credit(4, 10), now);
+        assert!(c.all_acked());
     }
 
     #[test]
     fn credit_does_not_rewind() {
-        let (mut c, now) = synced(10);
+        let (mut c, now) = synced(100);
         c.try_new(&[0; 10]).unwrap().unwrap();
         c.try_new(&[0; 10]).unwrap().unwrap();
-        c.on_sideband(credit(1, 9), now);
+        c.on_sideband(credit(10, 90), now);
         assert_eq!(c.next_resend().unwrap(), None);
-        assert_eq!(c.acked(), 1);
+        assert_eq!(c.acked(), 10);
     }
 
     #[test]
@@ -355,7 +416,7 @@ mod tests {
         c.try_new(&[0; 10]).unwrap().unwrap();
         assert_eq!(
             c.due(now + Duration::from_millis(25)),
-            Some(Due::Query(StreamSideband::CreditQuery { sent: UNib32(1) }))
+            Some(Due::Query(StreamSideband::CreditQuery { sent: UNib32(10) }))
         );
         assert_eq!(c.due(now + Duration::from_millis(50)), Some(Due::Stalled));
     }

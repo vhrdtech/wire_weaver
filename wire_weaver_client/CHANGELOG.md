@@ -7,11 +7,13 @@
   compatible (`max length raised`). The dynamic client checks bounds of arguments and sink writes.
 - `Sink::send_owned()` for sinks of owned types that hold a `Vec` or `String` (`FooOwned`, which implement
   `SerializeShrinkWrapOwned`, not `SerializeShrinkWrap`); `send()` could not send them.
-- Credit sinks (`#[credit] sink!(..)`, API-28, `docs/api/streams.md`), credit counted in values: `Sink::send()` /
-  `send_blocking()` / `send_owned()` wait until the device granted a slot for the value, `try_send()` / `try_send_bytes()` return `false` instead (for promise
+- Credit sinks (`#[credit] sink!(..)`, API-28, `docs/api/streams.md`), credit counted in bytes: `Sink::send()` /
+  `send_blocking()` / `send_owned()` wait until the device granted room for all bytes of the value (values are never
+  split), fail with the new `StreamError::ItemTooBig` when a value is bigger than the device's receive buffer (the
+  first credit after `Open`), `try_send()` / `try_send_bytes()` return `false` instead (for promise
   style code), `flush()` / `flush_blocking()` / `try_flush()` wait until the device accepted everything, lost writes
   are sent again from the device's position (go-back-N), `close()` flushes first. `CreditConfig` (query interval and
-  stall timeout) via `Sink::set_credit_config()`, `Sink::credit_progress()` for progress bars. `DynSink` speaks it
+  stall timeout) via `Sink::set_credit_config()`, `Sink::credit_progress()` (bytes) for progress bars. `DynSink` speaks it
   too. `Commander::prepare_credit_sink()` / `_blocking()`.
 - `Sink::send_blocking()` for typed sinks, `Sink::try_send()`, `send_owned_blocking()`, `try_send_owned()`; values are
   no longer limited to 1024 bytes.

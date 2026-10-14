@@ -22,11 +22,15 @@ Wire-incompatible with 0.1.0.
 
 * `max_len::{call_request, call_request_compact, value_event}`: `const fn`s giving the longest request that calls a
   method and the longest reply or stream event, from the arguments' or value's `MaxSize` (SW-19, API-18).
-* Credit-based flow control for `#[credit]` sinks (API-28), counted in elements (sink values): `StreamSideband::Credit { have, grant }`,
+* Credit-based flow control for `#[credit]` sinks (API-28), counted in bytes of items (the serialized value of each
+  write, never split; an empty item takes one position): `StreamSideband::Credit { have, grant }`,
   `CreditQuery { sent }` and `Resend { have, grant }` appended (existing variants keep their encoding),
-  `CreditWrite { pos, data }` (data of a write to a credit sink), and `credit::SinkCredit`, the sans-IO device side
-  state that generated server code drives, `SinkCredit::slots_for()` to size a receive queue. See
-  `docs/api/streams.md`.
+  `CreditWrite { pos, data }` (data of a write to a credit sink, `pos` is the byte position of its first byte), and
+  `credit::SinkCredit`, the sans-IO device side state that generated server code drives.
+  `SinkCredit::sized_for(buffer_bytes, max_item_bytes)` (`const`, a compile error in a `const` when the buffer can't
+  hold the largest item) and `try_sized_for()` (`BufferTooSmall` error) also cap the re-grant threshold so the
+  largest item always fits after one; `SinkCredit::last_item_len()` tells a write handler what to `free()`.
+  See `docs/api/streams.md`.
 * `Request::peek_seq()` reads the seq of a serialized request without deserializing the rest.
 * `EventBuilder`, `EventKindBuilder` and `ErrorBuilder`.
 * `MultiIndex::iter()`.

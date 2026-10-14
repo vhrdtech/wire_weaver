@@ -50,6 +50,12 @@ pub enum StreamError {
     DeserializeError(SWError),
     #[error("Got unexpected stream event: {:?}", .0)]
     UnexpectedEvent(StreamEvent),
+    /// A credit sink item never fits: credit counts bytes and items are never split, the device has to be able to
+    /// buffer the largest one (`SinkCredit::sized_for` on the device checks it when the bound is known).
+    #[error(
+        "credit sink item of {len} bytes is bigger than the device's receive buffer of {buffer} bytes, it can never be sent"
+    )]
+    ItemTooBig { len: usize, buffer: u32 },
     #[error(transparent)]
     Other(#[from] Error),
 }

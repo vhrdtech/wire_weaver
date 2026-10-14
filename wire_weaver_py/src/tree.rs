@@ -738,7 +738,7 @@ impl Sink {
         )
     }
 
-    /// Credit sinks: `(accepted, sent)` values (elements) in this session, None for other sinks or before `open()`.
+    /// Credit sinks: `(accepted, sent)` bytes (serialized values) in this session, None for other sinks or before `open()`.
     #[getter]
     fn progress(&self) -> Option<(u32, u32)> {
         let guard = self.sink.lock().expect("not poisoned");

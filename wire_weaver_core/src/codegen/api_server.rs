@@ -1054,7 +1054,7 @@ fn handle_stream(
                         };
                         let data = &credit_write.data;
                         #credit_max_len_check
-                        let verdict = self.#credit_fn(#maybe_index_chain_call).on_write(credit_write.pos.0);
+                        let verdict = self.#credit_fn(#maybe_index_chain_call).on_write(credit_write.pos.0, credit_write.data.0.len() as u32);
                         match verdict {
                             ww_client_server::credit::CreditVerdict::Accept => {
                                 #credit_des_data

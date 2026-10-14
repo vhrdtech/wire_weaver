@@ -233,19 +233,19 @@ pub enum StreamSideband {
     SizeHint(UNib32),
     /// User event, can be used to indicate errors or other data
     User(UNib32),
-    /// Credit sinks, device to host: `have` elements were accepted in order since `Open`, the host may send up to
-    /// position `have + grant`. Cumulative, a lost one is replaced by the next one.
+    /// Credit sinks, device to host: `have` bytes of items were accepted in order since `Open`, the host may send up
+    /// to byte position `have + grant` (whole items only). Cumulative, a lost one is replaced by the next one.
     Credit { have: UNib32, grant: UNib32 },
-    /// Credit sinks, host to device: the host has sent up to position `sent`, the device answers with
+    /// Credit sinks, host to device: the host has sent up to byte position `sent`, the device answers with
     /// [StreamSideband::Credit] or [StreamSideband::Resend].
     CreditQuery { sent: UNib32 },
-    /// Credit sinks, device to host: writes after `have` were lost, the host sends again from position `have`,
-    /// up to `have + grant` (go-back-N).
+    /// Credit sinks, device to host: writes after `have` were lost, the host sends again from byte position `have`
+    /// (always an item boundary), up to `have + grant` (go-back-N).
     Resend { have: UNib32, grant: UNib32 },
 }
 
-/// Data of a [RequestKind::Write] to a sink with credit-based flow control: the position of the value (element index
-/// from the start of the session), then the serialized value itself.
+/// Data of a [RequestKind::Write] to a sink with credit-based flow control: the byte position of the item's first byte
+/// (bytes of items sent since the start of the session), then the item itself, the serialized value.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug), final_structure)]
 pub struct CreditWrite<'i> {
     pub pos: UVlq32,

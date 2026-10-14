@@ -64,7 +64,7 @@ pub(crate) fn stream_ser_methods_recursive(
             ));
         }
         if let ApiItemKindOwned::FlowSink { ty, .. } = &item.kind {
-            methods_ts.extend(max_element_bytes(bundle, item.ident.as_str(), ty));
+            methods_ts.extend(max_item_bytes(bundle, item.ident.as_str(), ty));
         }
         // streams going out of the device, and observable properties, whose updates are sent as stream data
         let (ty, kind) = match &item.kind {
@@ -191,16 +191,22 @@ pub(crate) fn stream_ser_methods_recursive(
     ts
 }
 
-/// Worst-case size of one element of a sink with flow control, to size its receive queue in element slots.
-fn max_element_bytes(bundle: &ApiBundleOwned, ident: &str, ty: &TypeOwned) -> TokenStream {
-    let name = Ident::new(
-        format!("{ident}_max_element_bytes").as_str(),
+/// Largest item of a sink with flow control in bytes, to check its receive buffer (`SinkCredit::sized_for`).
+fn max_item_bytes(bundle: &ApiBundleOwned, ident: &str, ty: &TypeOwned) -> TokenStream {
+    let const_name = Ident::new(
+        format!("{}_MAX_ITEM_BYTES", ident.to_case(Case::UpperSnake)).as_str(),
+        Span::call_site(),
+    );
+    let fn_name = Ident::new(
+        format!("{ident}_max_item_bytes").as_str(),
         Span::call_site(),
     );
     let doc = format!(
-        "Worst-case serialized size of one `{ident}` element in bytes, to size the receive queue in element slots \
-         (`SinkCredit::slots_for`). None when the type has no upper bound (see `shrink_wrap::MaxLen`)."
+        "Largest `{ident}` item in bytes (the serialized value of one write, what credit counts), the receive buffer \
+         must hold at least this much (`SinkCredit::sized_for`). None when the type has no upper bound (see \
+         `shrink_wrap::MaxLen`)."
     );
+    let fn_doc = format!("Same as [Self::{const_name}].");
     let body = if ty.is_byte_slice(bundle).unwrap() {
         // sent as is, without a length: a bound is the byte count itself
         match ty.max_len(bundle).unwrap() {
@@ -221,8 +227,11 @@ fn max_element_bytes(bundle: &ApiBundleOwned, ident: &str, ty: &TypeOwned) -> To
     };
     quote! {
         #[doc = #doc]
-        pub const fn #name(&self) -> Option<u32> {
-            #body
+        pub const #const_name: Option<u32> = #body;
+
+        #[doc = #fn_doc]
+        pub const fn #fn_name(&self) -> Option<u32> {
+            Self::#const_name
         }
     }
 }

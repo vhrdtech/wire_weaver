@@ -69,12 +69,16 @@ mod tests {
         }
     }
 
+    /// Largest `StageBulk::plan` segment in bytes, known from the `MaxLen` bounds
+    const PLAN_SEGMENT_MAX: u32 =
+        server::api_impl::WwDfuStageBulkStreamSerializer::PLAN_MAX_ITEM_BYTES.unwrap();
+
     mod server {
         use super::*;
 
         pub struct DfuServer {
             pub dev: Arc<RwLock<Device>>,
-            /// Two segment slots, freed as soon as a segment is written
+            /// Room for two of the largest segments, freed as soon as a segment is written
             pub plan_credit: ww_client_server::credit::SinkCredit,
         }
 
@@ -426,7 +430,8 @@ mod tests {
                 if value.offset as usize == dev.plan.len() {
                     dev.plan.extend(value.data.iter().map(|b| b.unwrap()));
                 }
-                self.plan_credit.free(1);
+                // credit counts the segment's bytes as sent
+                self.plan_credit.free(self.plan_credit.last_item_len());
             }
 
             fn sideband_bulk_plan_ack(
@@ -498,7 +503,10 @@ mod tests {
         let dev = Arc::new(RwLock::new(Device::default()));
         let server = server::DfuServer {
             dev: dev.clone(),
-            plan_credit: ww_client_server::credit::SinkCredit::new(2).with_threshold(1),
+            plan_credit: ww_client_server::credit::SinkCredit::sized_for(
+                2 * PLAN_SEGMENT_MAX,
+                Some(PLAN_SEGMENT_MAX),
+            ),
         };
         let device = tests_common::start_device(
             name,
@@ -695,7 +703,10 @@ mod tests {
         }
         // a credit sink: flush() returns once the node accepted every segment
         plan.flush().await.unwrap();
-        assert_eq!(plan.credit_progress(), Some((3, 3)));
+        // bytes of the three segments as sent, 9 each: offset, data and the encoding around them
+        assert_eq!(plan.credit_progress(), Some((27, 27)));
+        // MAX_PIECE_LEN of data, the offset and the encoding around them
+        assert_eq!(PLAN_SEGMENT_MAX, 1031);
         assert_eq!(dev.read().unwrap().plan, vec![1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(
             client.stage().progress().call().await.unwrap(),

@@ -61,7 +61,7 @@
 //! **In one go** (`StageBulk`): on a link where a round trip takes seconds (LoRa, LTE-M, satellite), per-step calls
 //! would eat the whole gain of sending a delta. The host announces the plan once, then streams it, header excluded,
 //! as raw octets on a credit sink (WireWeaver's credit-based flow control, `docs/api/streams.md`): the host never
-//! sends more segments than the device has room for, lost segments are sent again from the last one the device has
+//! sends more bytes than the device has room for, lost segments are sent again from the last one the device has
 //! (go-back-N). The device applies (modes 1 and 3) or stores (mode 2) as the bytes arrive and acknowledges on its own
 //! only at the end (and every `ack_every` bytes if asked). On a reliable link that is a single acknowledgement for
 //! the whole update, besides the sink's credit grants, which the device sends as often as its buffer needs.
@@ -293,9 +293,11 @@ pub trait StageBulk {
     /// Plan bytes from the host. A segment may be any size up to [StageLimits::max_piece]; each says where its bytes
     /// go.
     ///
-    /// A credit sink: credit counts segments, so the node sizes its receive queue in segment slots of `max_piece`
-    /// bytes each (plus the segment's own encoding), and grants as it frees them. A lost segment is detected and
-    /// sent again by the sink's flow control (go-back-N), segments arrive in order. A segment whose offset does not
+    /// A credit sink: credit counts the bytes of segments as sent (data plus the offset and encoding around it), so
+    /// a buffer of any size holds as many segments as fit, small ones don't take the room of a large one. The node
+    /// grants as it frees bytes; its buffer must hold at least the largest segment, `max_piece` of data plus up to
+    /// 7 bytes (the generated `PLAN_MAX_ITEM_BYTES` gives it for [MAX_PIECE_LEN], `SinkCredit::sized_for` checks it).
+    /// A lost segment is detected and sent again by the sink's flow control (go-back-N), segments arrive in order. A segment whose offset does not
     /// continue what the node has (e.g., the host resumed from the wrong place) answers [BulkStatus::Gap] on
     /// `plan_ack`.
     #[credit]

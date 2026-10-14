@@ -195,14 +195,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **API-9 Full name chains** in generated names (fixed the `event_sideband` collision).
 - ✅ **API-10 Type paths from Cargo**: trait source path, external types in API crates as full paths.
 - ✅ **API-11 Sync and async servers, async / blocking / promise clients** from the same trait.
-- ✅ **API-28 Credit-based flow control for sinks** — `#[credit] sink!(..)`: the device grants credit in elements
-  (sink values, any type; `StreamSideband::Credit { have, grant }`), the host waits when out of credit (async,
-  blocking, `try_send`), writes carry their element index so a lossy medium resumes with go-back-N from `have`
-  (`Resend`, `CreditQuery`), `flush()` waits for the final ack. Device state in `ww_client_server::credit::SinkCredit`,
-  queue sized in element slots from `stream_data_ser().<sink>_max_element_bytes()` (from `MAX_SIZE`, `MaxLen`
-  bounds included), dynamic and Python clients too. Used by `ww_dfu` `StageBulk::plan`. For bulk transfers (chunky OTA
-  plans over LTE-M/LoRa/UDP), UART bridges, CAN tx. See also CLT-18 backpressure (`docs/api/streams.md`,
-  `tests/credit_sink`).
+- ✅ **API-28 Credit-based flow control for sinks** — `#[credit] sink!(..)`: the device grants credit in bytes of
+  items (the serialized value of each write, never split; `StreamSideband::Credit { have, grant }`), so a receive
+  buffer holds as many items as fit whatever their sizes; the host waits when out of credit (async, blocking,
+  `try_send`), writes carry the byte position of their first byte so a lossy medium resumes with go-back-N from `have`
+  (`Resend`, `CreditQuery`), `flush()` waits for the final ack. No deadlock: generated `<SINK>_MAX_ITEM_BYTES` (from
+  `MAX_SIZE`, `MaxLen` bounds included) and `SinkCredit::sized_for()` check at compile time that the buffer holds the
+  largest item and cap the re-grant threshold, the host fails an item bigger than the buffer with
+  `StreamError::ItemTooBig`. Device state in `ww_client_server::credit::SinkCredit`, dynamic and Python clients too.
+  Used by `ww_dfu` `StageBulk::plan`. For bulk transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN
+  tx. See also CLT-18 backpressure (`docs/api/streams.md`, `tests/credit_sink`).
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
 - 📋 **API-13 Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.

@@ -1,6 +1,6 @@
 //! Worst-case serialized size of a type, computed at compile time (SW-19, the first step of API-18).
 //!
-//! [SerializeShrinkWrap::MAX_SIZE](crate::SerializeShrinkWrap::MAX_SIZE) is `Some` for a type whose every part is
+//! [`SerializeShrinkWrap::MAX_SIZE`] is `Some` for a type whose every part is
 //! bounded: numbers, `bool`, arrays, tuples, `Option`, `Result`, structs and enums made of them, and lists and strings
 //! with a maximum length ([MaxLen](crate::MaxLen)). It is `None` for anything that can grow without a limit: a plain
 //! `Vec`, `RefVec`, `String` or `&str`, `RefBox`, compressed sequences, `TailBytes`, and every type that does not set

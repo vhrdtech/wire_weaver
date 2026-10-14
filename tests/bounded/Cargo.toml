@@ -12,8 +12,8 @@ default = ["std"]
 std = []
 
 [dependencies]
-hex-literal.workspace = true
 bounded_api.workspace = true
+hex-literal.workspace = true
 tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "test-util"] }
 tracing-subscriber.workspace = true

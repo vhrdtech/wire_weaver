@@ -15,7 +15,7 @@ use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_writer_owned::UnsizedBuilderOwned;
 use shrink_wrap::{
     BufReader, BufWriterOwned, DeltaOfDeltaOwned, DeltaOwned, DeserializeShrinkWrapOwned,
-    ElementSize, Nibble, SerializeShrinkWrapOwned, UVlq32, UVlq64, XorFloatOwned,
+    ElementSize, Nibble, SerializeShrinkWrapOwned, UNib32, UVlq32, UVlq64, XorFloatOwned,
 };
 use std::borrow::Cow;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
@@ -425,7 +425,7 @@ fn des_numeric(rd: &mut BufReader, base_ty: &NumericBaseType) -> Result<NumericV
         NumericBaseType::U8 => NumericValue::U8(rd.read_u8()?),
         NumericBaseType::U16 => NumericValue::U16(rd.read_u16()?),
         NumericBaseType::U32 => NumericValue::U32(rd.read_u32()?),
-        NumericBaseType::UNib32 => NumericValue::UNib32(rd.read_unib32()?),
+        NumericBaseType::UNib32 => NumericValue::UNib32(UNib32(rd.read_unib32()?)),
         NumericBaseType::U64 => NumericValue::U64(rd.read_u64()?),
         NumericBaseType::U128 => NumericValue::U128(rd.read_u128()?),
         NumericBaseType::I8 => NumericValue::I8(rd.read_i8()?),
@@ -872,7 +872,8 @@ fn int_value(value: &NumericValue) -> Result<i128> {
         NumericValue::Nibble(v) => v.value() as i128,
         NumericValue::U8(v) => *v as i128,
         NumericValue::U16(v) => *v as i128,
-        NumericValue::U32(v) | NumericValue::UNib32(v) => *v as i128,
+        NumericValue::U32(v) => *v as i128,
+        NumericValue::UNib32(v) => v.0 as i128,
         NumericValue::U64(v) => *v as i128,
         NumericValue::U128(v) => i128::try_from(*v).map_err(|_| anyhow!("{v} is out of range"))?,
         NumericValue::I8(v) => *v as i128,

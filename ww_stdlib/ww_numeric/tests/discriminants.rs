@@ -11,7 +11,7 @@ fn numbers_do_not_depend_on_features() {
         (NumericValue::U8(0), 1),
         (NumericValue::U16(0), 2),
         (NumericValue::U32(0), 3),
-        (NumericValue::UNib32(0), 4),
+        (NumericValue::UNib32(UNib32(0)), 4),
         (NumericValue::U64(0), 5),
         (NumericValue::I32(0), 6),
         (NumericValue::F32(0.0), 7),
@@ -36,11 +36,14 @@ fn f32_on_the_wire() {
     assert_eq!(bytes, [0x70, 0x00, 0x00, 0x80, 0x3F]);
 }
 
-/// Discriminants 16 and 17 take two nibbles, then the value is byte aligned.
+/// `UNib32` is nibble-aligned and follows its discriminant directly; discriminants 16 and 17 take two nibbles, then
+/// the `UVlq` value is byte aligned.
 #[test]
 fn variable_length_on_the_wire() {
     let mut buf = [0u8; 16];
-    let cases: [(NumericValue, &[u8]); 4] = [
+    let cases: [(NumericValue, &[u8]); 6] = [
+        (NumericValue::UNib32(UNib32(5)), &[0x45]),
+        (NumericValue::UNib32(UNib32(300)), &[0x4C, 0xD4]),
         (NumericValue::UVlq32(UVlq32(5)), &[0x82, 0x05]),
         (NumericValue::UVlq32(UVlq32(300)), &[0x82, 0x82, 0x2C]),
         (NumericValue::UVlq64(UVlq64(5)), &[0x92, 0x05]),

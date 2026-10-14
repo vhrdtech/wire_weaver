@@ -158,7 +158,7 @@ pub enum NumericValue {
     #[cfg(feature = "u32")]
     U32(u32),
     #[cfg(feature = "unib32")]
-    UNib32(u32),
+    UNib32(UNib32),
     #[cfg(feature = "u64")]
     U64(u64),
     #[cfg(feature = "i32")]
@@ -247,7 +247,7 @@ impl NumericValue {
             #[cfg(feature = "u32")]
             NumericValue::U32(x) => x as f32,
             #[cfg(feature = "unib32")]
-            NumericValue::UNib32(x) => x as f32,
+            NumericValue::UNib32(x) => x.0 as f32,
             #[cfg(feature = "u64")]
             NumericValue::U64(x) => x as f32,
             #[cfg(feature = "i32")]
@@ -305,7 +305,7 @@ impl NumericValue {
             #[cfg(feature = "u32")]
             NumericValue::U32(x) => x as i128,
             #[cfg(feature = "unib32")]
-            NumericValue::UNib32(x) => x as i128,
+            NumericValue::UNib32(x) => x.0 as i128,
             #[cfg(feature = "u64")]
             NumericValue::U64(x) => x as i128,
             #[cfg(feature = "i32")]
@@ -393,6 +393,7 @@ from_number!(
     "nibble" Nibble => Nibble,
     "u16" u16 => U16,
     "u32" u32 => U32,
+    "unib32" UNib32 => UNib32,
     "u64" u64 => U64,
     "i32" i32 => I32,
     "f32" f32 => F32,
@@ -601,7 +602,7 @@ impl NumericBaseType {
             #[cfg(feature = "u32")]
             NumericBaseType::U32 => NumericValue::U32(0),
             #[cfg(feature = "unib32")]
-            NumericBaseType::UNib32 => NumericValue::UNib32(0),
+            NumericBaseType::UNib32 => NumericValue::UNib32(UNib32(0)),
             #[cfg(feature = "u64")]
             NumericBaseType::U64 => NumericValue::U64(0),
             #[cfg(feature = "i32")]

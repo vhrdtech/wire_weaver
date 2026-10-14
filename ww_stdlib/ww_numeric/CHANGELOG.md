@@ -11,6 +11,10 @@ Wire-incompatible with 0.1.1.
   number types bring no code (1.5 KB less flash in the `mcu_qemu` GPIO example). The wire format is the same for
   every feature set; a variant that is not enabled is read as `shrink_wrap::Error::EnumVariantDisabled`.
 * `NumericValue` is `#[non_exhaustive]`: a `match` outside this crate needs a `_` arm.
+* `NumericValue::UNib32` holds a `UNib32` instead of a `u32` and is variable-length on the wire, as its name and
+  `NumericBaseType::UNib32` say: `UNib32(5)` was `40 05 00 00 00` (a plain little-endian `u32` after the discriminant),
+  now it is `45`; `300` is `4C D4` instead of `40 2C 01 00 00`. `ww_self` already read and wrote it this way, so values
+  it decoded from such a field were wrong. Construct with `NumericValue::UNib32(UNib32(5))` or `UNib32(5).into()`.
 
 * `NumericBaseType`: `U4` renamed to `Nibble`, variants reordered, `UN` and `IN` added.
 * `NumericValue`: `U4` renamed to `Nibble`, variants reordered.

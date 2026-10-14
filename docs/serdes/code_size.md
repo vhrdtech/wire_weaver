@@ -413,7 +413,9 @@ a test fail.
 A type whose encoding is a fixed byte layout (SW-44, [derive](derive.md#fixed_layout-a-fixed-byte-layout-and-its-fast-path))
 does not need `BufReader` or `BufWriter` at all: each field is a load or store at a constant offset. The cases
 `header_de` / `header_ser` read and write `Header` (a `[u8; 4]`, two `u8`, a `u16`, four `u32` and a `u64`) through
-the reader and writer, `fixed_de` / `fixed_ser` the same type with `from_fixed` / `to_fixed`:
+the reader and writer, `fixed_de` / `fixed_ser` the same type with `from_fixed` / `to_fixed`. `bits_fixed_*` is the
+bit-packed `Sample` of `bits_*` (SW-45: shifts and masks at constant bit offsets instead of the bit loop of the
+reader and writer):
 
 | case | rv32i | rv32ic | rv32ic-relax | thumbv6m | thumbv7em |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -421,10 +423,14 @@ the reader and writer, `fixed_de` / `fixed_ser` the same type with `from_fixed` 
 | `fixed_de` | 512 | 378 | 362 | 276 | 120 |
 | `header_ser` | 1408 | 1022 | 918 | 888 | 856 |
 | `fixed_ser` | 656 | 498 | 478 | 462 | 452 |
+| `bits_de` | 1256 | 822 | 728 | 652 | 650 |
+| `bits_fixed_de` | 464 | 308 | 292 | 276 | 268 |
+| `bits_ser` | 1740 | 1204 | 1098 | 1034 | 716 |
+| `bits_fixed_ser` | 944 | 698 | 588 | 560 | 614 |
 
 A third to a half less, and the gap grows with the number of types: the fast path has no shared runtime, each type
 is its own straight-line code. The bytes left in `fixed_ser` are mostly `memcpy` (see [Build settings](#build-settings)).
-On a real format, chunky_mcu_updater's plan reader (header, signed descriptor, steps) takes 880 bytes on Cortex-M0 with
+On a real format, chunky_mcu_updater's plan reader (header, signed descriptor, steps) takes 892 bytes on Cortex-M0 with
 the fast path, 840 with its hand-written parser and 1854 through `BufReader` (its `just size-bench`).
 
 ## Replies of generated servers

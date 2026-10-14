@@ -43,6 +43,20 @@ macro_rules! un {
                 pub const fn value(&self) -> [<u $base_bits>] {
                     self.0
                 }
+
+                /// The low bits as on the wire, for the fixed-layout fast path (SW-45).
+                #[doc(hidden)]
+                #[inline(always)]
+                pub const fn __to_wire(self) -> u64 {
+                    (self.0 as u64) & (u64::MAX >> (64 - $bits))
+                }
+
+                /// From the bits on the wire, for the fixed-layout fast path (SW-45).
+                #[doc(hidden)]
+                #[inline(always)]
+                pub const fn __from_wire(raw: u64) -> Self {
+                    Self((raw & (u64::MAX >> (64 - $bits))) as [<u $base_bits>])
+                }
             }
 
             impl SerializeShrinkWrap for [<U $bits>] {
@@ -253,6 +267,20 @@ macro_rules! signed_un {
                 #[inline(always)]
                 pub const fn value(&self) -> [<i $base_bits>] {
                     self.0
+                }
+
+                /// The low bits as on the wire (two's complement), for the fixed-layout fast path (SW-45).
+                #[doc(hidden)]
+                #[inline(always)]
+                pub const fn __to_wire(self) -> u64 {
+                    (self.0 as [<u $base_bits>] as u64) & (u64::MAX >> (64 - $bits))
+                }
+
+                /// From the bits on the wire, sign extended, for the fixed-layout fast path (SW-45).
+                #[doc(hidden)]
+                #[inline(always)]
+                pub fn __from_wire(raw: u64) -> Self {
+                    Self::sign_extend((raw & (u64::MAX >> (64 - $bits))) as [<u $base_bits>])
                 }
             }
 

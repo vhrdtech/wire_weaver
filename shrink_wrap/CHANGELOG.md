@@ -18,6 +18,12 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `discriminant()` returns the wire discriminant also for it; writing one that doesn't fit the repr or belongs to a
   known variant gives `Error::SubtypeOutOfRange`. See `docs/serdes/derive.md`.
 - `Error::is_read_eob()`: whether a read ran out of data.
+- Fixed-layout fast path for bit fields and a variable last field (SW-45): `bool`, `U1`..`U32`, `I2`..`I32` and
+  `Nibble` at compile-time bit offsets (`<FIELD>_BIT_OFFSET`, `<FIELD>_BITS`), `Option` / `Result` / unequal enums as
+  the last field, flags (also relocated with `#[flag]`) as bit fields; `MIN_LEN` and `fixed_len()` next to
+  `ENCODED_LEN`; `FixedLayout` gains `MIN_LEN`, `LEADS_WITH_BITS` and `TRAILS_WITH_BITS`; the C prelude gains
+  `sw_fixed_bits` / `sw_fixed_sbits`. Refusals say why and what to use instead. `U1`..`U64` / `I2`..`I64` gain hidden
+  `__to_wire` / `__from_wire` for the generated code.
 - Fixed-layout fast path (SW-44): a derived type whose encoding is a fixed little-endian byte layout gets
   `ENCODED_LEN`, an offset const per field (`<FIELD>_OFFSET`, `<VARIANT>_<FIELD>_OFFSET`, `<VARIANT>_TAG`,
   `<VARIANT>_LEN` for enums) and `from_fixed` / `to_fixed` working on the slice directly, plus the new

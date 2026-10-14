@@ -1,5 +1,5 @@
-//! The fixed-layout fast path (SW-44): `from_fixed` / `to_fixed` read and write the bytes `des_shrink_wrap` /
-//! `ser_shrink_wrap` do, at the offsets the consts say.
+//! The fixed-layout fast path (SW-44, SW-45): `from_fixed` / `to_fixed` read and write the bytes `des_shrink_wrap` /
+//! `ser_shrink_wrap` do, at the offsets the consts say: byte fields, bit fields, a variable last field.
 
 use hex_literal::hex;
 use shrink_wrap::fixed_layout::{FixedLayout, write_c_header};
@@ -70,17 +70,101 @@ enum Wide {
     B(i32),
 }
 
-/// Not fixed: a `bool`. No fast path is generated, nothing breaks.
-#[derive_shrink_wrap(borrowed, sized, derive(Clone, Copy, Debug, PartialEq))]
-struct WithBool {
+/// Not fixed: a varint. No fast path is generated, nothing breaks.
+#[derive_shrink_wrap(borrowed, self_describing, derive(Clone, Copy, Debug, PartialEq))]
+struct WithVarint {
     a: u8,
-    flag: bool,
+    n: UNib32,
 }
 
 trait NoFastPath {
     const ENCODED_LEN: usize = 0;
 }
-impl NoFastPath for WithBool {}
+impl NoFastPath for WithVarint {}
+
+/// Bit runs: a nibble realigning after one bit, a signed field across a byte boundary, a byte field starting a
+/// fresh byte, wide fields, and a run at the end. Detected: no directive.
+#[derive_shrink_wrap(borrowed, sized, derive(Clone, Copy, Debug, PartialEq))]
+struct Bits {
+    a: bool,
+    n: Nibble,
+    b: U3,
+    s: I5,
+    x: u16,
+    wide: U20,
+    i: I12,
+    last: bool,
+    end: U2,
+}
+
+/// A byte field after a nested type that ends with bits: fine, it starts a fresh byte.
+#[derive_shrink_wrap(borrowed, fixed_layout, derive(Clone, Copy, Debug, PartialEq))]
+struct EndsWithBits {
+    id: u8,
+    on: bool,
+}
+
+#[derive_shrink_wrap(borrowed, fixed_layout, derive(Clone, Copy, Debug, PartialEq))]
+struct Wrap {
+    lead: bool,
+    inner: Inner,
+    flags: EndsWithBits,
+    after: u8,
+}
+
+/// An Option as the last field, its flag where shrink_wrap puts it (just before), `self_describing` implied.
+#[derive_shrink_wrap(borrowed, fixed_layout, derive(Clone, Copy, Debug, PartialEq))]
+struct Maybe {
+    id: u16,
+    on: bool,
+    extra: Option<Inner>,
+}
+
+/// The flag moved with `#[flag]`, into a run of other bits.
+#[derive_shrink_wrap(borrowed, fixed_layout, derive(Clone, Copy, Debug, PartialEq))]
+struct Relocated {
+    #[flag]
+    value: bool,
+    kind: U3,
+    id: u8,
+    value: Option<[u16; 2]>,
+}
+
+#[derive_shrink_wrap(borrowed, fixed_layout, derive(Clone, Copy, Debug, PartialEq))]
+struct Res {
+    a: u8,
+    r: Result<u32, Inner>,
+}
+
+/// A variable-length enum as the last field.
+#[derive_shrink_wrap(
+    borrowed,
+    self_describing,
+    fixed_layout,
+    derive(Clone, Copy, Debug, PartialEq)
+)]
+struct TailOp {
+    seq: U4,
+    op: Op,
+}
+
+/// Bits and an Option inside enum variants.
+#[derive_shrink_wrap(
+    borrowed,
+    self_describing,
+    fixed_layout,
+    ww_repr = u8,
+    derive(Clone, Copy, Debug, PartialEq)
+)]
+enum Msg {
+    Ping,
+    Data {
+        urgent: bool,
+        prio: U2,
+        seq: u16,
+        payload: Option<[u8; 4]>,
+    },
+}
 
 /// Same bytes both ways, both read back to the value.
 fn same<T>(value: &T) -> Vec<u8>
@@ -147,7 +231,38 @@ fn offsets() {
     const { assert!(!Op::SAME_LEN) };
     const { assert!(Wide::SAME_LEN) };
     assert_eq!(Wide::ENCODED_LEN, 6);
-    assert_eq!(<WithBool as NoFastPath>::ENCODED_LEN, 0);
+    assert_eq!(<WithVarint as NoFastPath>::ENCODED_LEN, 0);
+    // bits: a at 0, the nibble rounded up to 4, b and s after it, x on byte 2, then a run of 20 + 12 + 1 + 2
+    assert_eq!(Bits::A_BIT_OFFSET, 0);
+    assert_eq!(Bits::N_BIT_OFFSET, 4);
+    assert_eq!(Bits::B_BIT_OFFSET, 8);
+    assert_eq!(Bits::S_BIT_OFFSET, 11);
+    assert_eq!(Bits::S_BITS, 5);
+    assert_eq!(Bits::X_OFFSET, 2);
+    assert_eq!(Bits::WIDE_BIT_OFFSET, 32);
+    assert_eq!(Bits::I_BIT_OFFSET, 52);
+    assert_eq!(Bits::END_BIT_OFFSET, 65);
+    assert_eq!(Bits::ENCODED_LEN, 9);
+    assert_eq!(Wrap::INNER_OFFSET, 1);
+    assert_eq!(Wrap::FLAGS_OFFSET, 9);
+    assert_eq!(Wrap::AFTER_OFFSET, 11);
+    assert_eq!(Maybe::EXTRA_FLAG_BIT_OFFSET, 17);
+    assert_eq!(Maybe::EXTRA_OFFSET, 3);
+    assert_eq!((Maybe::MIN_LEN, Maybe::ENCODED_LEN), (3, 11));
+    assert_eq!(Relocated::VALUE_FLAG_BIT_OFFSET, 0);
+    assert_eq!(Relocated::KIND_BIT_OFFSET, 1);
+    assert_eq!(Relocated::ID_OFFSET, 1);
+    assert_eq!(Relocated::VALUE_OFFSET, 2);
+    assert_eq!((Res::MIN_LEN, Res::ENCODED_LEN), (6, 10));
+    assert_eq!(TailOp::OP_OFFSET, 1);
+    assert_eq!((TailOp::MIN_LEN, TailOp::ENCODED_LEN), (2, 14));
+    assert_eq!(Msg::DATA_URGENT_BIT_OFFSET, 8);
+    assert_eq!(Msg::DATA_SEQ_OFFSET, 2);
+    assert_eq!(Msg::DATA_PAYLOAD_FLAG_BIT_OFFSET, 32);
+    assert_eq!((Msg::MIN_LEN, Msg::ENCODED_LEN), (1, 9));
+    const { assert!(!Maybe::SAME_LEN) };
+    const { assert!(<EndsWithBits as FixedLayout>::TRAILS_WITH_BITS) };
+    const { assert!(<Wrap as FixedLayout>::LEADS_WITH_BITS) };
 }
 
 #[test]
@@ -215,6 +330,63 @@ fn random_values() {
             hash: r().to_le_bytes(),
         });
         same(&Wide::A(r() as u32));
+        let bits = Bits {
+            a: r() & 1 == 1,
+            n: Nibble::new_masked(r() as u8),
+            b: U3::__from_wire(r()),
+            s: I5::__from_wire(r()),
+            x: r() as u16,
+            wide: U20::__from_wire(r()),
+            i: I12::__from_wire(r()),
+            last: r() & 1 == 1,
+            end: U2::__from_wire(r()),
+        };
+        same(&bits);
+        let flags = EndsWithBits {
+            id: r() as u8,
+            on: r() & 1 == 1,
+        };
+        same(&Wrap {
+            lead: r() & 1 == 1,
+            inner,
+            flags,
+            after: r() as u8,
+        });
+        let some = r() & 1 == 1;
+        same(&Maybe {
+            id: r() as u16,
+            on: r() & 1 == 1,
+            extra: some.then_some(inner),
+        });
+        same(&Relocated {
+            kind: U3::__from_wire(r()),
+            id: r() as u8,
+            value: some.then_some([r() as u16, r() as u16]),
+        });
+        same(&Res {
+            a: r() as u8,
+            r: if some { Ok(r() as u32) } else { Err(inner) },
+        });
+        let op = if some {
+            Op::Stop
+        } else {
+            Op::Copy {
+                dst: r() as u16,
+                src: r() as u16,
+                hash: r().to_le_bytes(),
+            }
+        };
+        same(&TailOp {
+            seq: U4::__from_wire(r()),
+            op,
+        });
+        same(&Msg::Data {
+            urgent: r() & 1 == 1,
+            prio: U2::__from_wire(r()),
+            seq: r() as u16,
+            payload: some.then_some((r() as u32).to_le_bytes()),
+        });
+        same(&Msg::Ping);
     }
 }
 
@@ -229,15 +401,50 @@ fn unknown_tag() {
 }
 
 #[test]
+fn known_bits() {
+    let bits = Bits {
+        a: true,
+        n: Nibble::new_masked(0xa),
+        b: U3::__from_wire(0b101),
+        s: I5::__from_wire((-3i32) as u64),
+        x: 0x1234,
+        wide: U20::__from_wire(0xfedcb),
+        i: I12::__from_wire((-2i32) as u64),
+        last: true,
+        end: U2::__from_wire(0b10),
+    };
+    // a, 3 zero bits, the nibble | b, s (11101) | x LE | wide, i, last, end, zero padding
+    assert_eq!(same(&bits), hex!("8a bd 3412 fedcb ffe c0").to_vec());
+}
+
+/// The generated C reader, checked in and compiled by `just lint-c` with every warning an error.
+#[test]
 fn c_header() {
     let mut out = String::new();
     write_c_header(
         &mut out,
         "TEST_H",
         "t_",
-        &[Inner::write_c, Outer::write_c, Op::write_c],
+        &[
+            Inner::write_c,
+            Outer::write_c,
+            Op::write_c,
+            Bits::write_c,
+            Maybe::write_c,
+            Res::write_c,
+            Msg::write_c,
+        ],
     )
     .unwrap();
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixed_layout.h");
+    if std::env::var_os("SW_UPDATE_GOLDEN").is_some() {
+        std::fs::write(&path, &out).unwrap();
+    }
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap(),
+        out,
+        "tests/fixed_layout.h is not what the types produce: SW_UPDATE_GOLDEN=1 cargo test -p shrink_wrap --test fixed_layout"
+    );
     for line in [
         "#define T_OUTER_LEN 15u",
         "#define T_OUTER_SIGNED_OFFSET 9u",
@@ -250,6 +457,10 @@ fn c_header() {
         "static inline uint16_t t_op_copy_src(const uint8_t *p) { return sw_fixed_u16(p + 3u); }",
         "static inline uint8_t t_op_tag(const uint8_t *p) { return sw_fixed_u8(p); }",
         "    case 4u: return 3u;",
+        "#define T_BITS_S_BIT_OFFSET 11u",
+        "static inline int32_t t_bits_s(const uint8_t *p) { return sw_fixed_sbits(p, 11u, 5u); }",
+        "static inline uint32_t t_maybe_extra_flag(const uint8_t *p) { return sw_fixed_bits(p, 17u, 1u); }",
+        "static inline const uint8_t *t_res_r_err(const uint8_t *p) { return p + 2u; }",
     ] {
         assert!(out.contains(line), "missing {line:?} in\n{out}");
     }

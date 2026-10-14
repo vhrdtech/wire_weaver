@@ -20,9 +20,12 @@ lint:
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
     just lint-c
 
-# Build the shrink_wrap C runtime on its own, warnings are errors (SW-43)
+# Build the shrink_wrap C runtime on its own, warnings are errors (SW-43); build and run the generated fixed-layout C reader (SW-45)
 lint-c:
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -c shrink_wrap/c/shrink_wrap.c -o /dev/null
+    mkdir -p target
+    cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -o target/fixed_layout_c shrink_wrap/shrink_wrap/tests/fixed_layout_c.c
+    target/fixed_layout_c
 
 # Build the Python module (wire_weaver_py) into its own venv and run its tests
 [working-directory('wire_weaver_py')]

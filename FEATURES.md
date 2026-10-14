@@ -106,6 +106,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   for a header of eight integers: decode 484 → 276 bytes, encode 888 → 462 (`docs/serdes/code_size.md`). First user:
   chunky_mcu_updater's plan format (P2625 PROTO-3); it serves the busgen idea of P2401 #9oct-1433 for types
   without dynamic fields. Open: arrays of nested types, a C writer, 16-bit `char` targets in the C reader.
+- ✅ **SW-45 Bit fields and a variable last field in the fixed-layout fast path**: `bool`, `U1`..`U32`,
+  `I2`..`I32` and `Nibble` get compile-time bit offsets (most significant bit first, a `Nibble` on a 4-bit boundary,
+  a byte field after them starting a fresh byte, as `BufWriter` packs them) and are read and written with shifts and
+  masks, in Rust and in the C reader (`sw_fixed_bits`, `sw_fixed_sbits`). `Option<T>`, `Result<T, E>` and enums of
+  unequal variants are allowed as the last field (one rule for all variable-length fields); their flags are bit
+  fields, also where `#[flag]` moves them. `MIN_LEN` and `fixed_len()` next to `ENCODED_LEN` (the longest, the
+  buffer to have ready). A nested type cannot share a byte with bits of its parent: a compile error says so. Every
+  refusal says why and what to use instead. Byte-equal to `ser_shrink_wrap` on mixed bit runs, a run at the end,
+  options, results, relocated flags and enum variants with both (`shrink_wrap/tests/fixed_layout.rs`); the
+  generated C is built and run with every warning an error (`just lint-c`). A bit-packed sample on Cortex-M0:
+  decode 652 → 276 bytes, encode 1034 → 560.
 - ✅ **SW-39 Byte-wise `memcpy`, measured, advice for very small targets**: a firmware's own `memcpy` (and
   `__aeabi_memcpy` on Arm) of 22 bytes instead of the word-wise one of `compiler_builtins`: 324 bytes less on
   RV32IC, 304 on Cortex-M0, for every image that moves a value, at the price of speed and of replacing `memcpy` for

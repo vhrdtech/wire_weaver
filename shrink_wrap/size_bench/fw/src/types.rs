@@ -206,3 +206,16 @@ pub struct Header {
     pub crc: u32,
     pub stamp: u64,
 }
+
+/// `Sample` with a fixed layout (SW-45): the same fields and bytes, read and written by the fast path.
+#[derive_shrink_wrap(borrowed, fixed_layout, derive(Clone, Copy))]
+pub struct PackedSample {
+    pub ch: U3,
+    pub on: bool,
+    pub gain: U4,
+    pub div: U12,
+    pub off: I10,
+    pub raw: U20,
+    pub flags: U5,
+    pub level: u8,
+}

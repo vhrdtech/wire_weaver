@@ -80,9 +80,11 @@ fn generate_inner(
 ) -> Result<TokenStream, String> {
     // `fixed_layout` implies `sized` on a struct, before the size assumption goes into the generated code
     let fixed_struct = match &item {
-        Item::Struct(_) => {
-            fixed_layout::struct_size_assumption(&mut args.size_assumption, args.fixed_layout)?
-        }
+        Item::Struct(item_struct) => fixed_layout::struct_size_assumption(
+            &mut args.size_assumption,
+            args.fixed_layout,
+            last_field_is_flagged(item_struct),
+        )?,
         _ => false,
     };
     let fixed_required = args.fixed_layout;
@@ -255,6 +257,20 @@ fn generate_inner(
         _ => {}
     }
     Ok(ts)
+}
+
+/// The last field is an `Option` or `Result`: a struct with `fixed_layout` is then `self_describing` by default.
+fn last_field_is_flagged(item_struct: &syn::ItemStruct) -> bool {
+    let Some(field) = item_struct.fields.iter().next_back() else {
+        return false;
+    };
+    let syn::Type::Path(path) = &field.ty else {
+        return false;
+    };
+    path.path
+        .segments
+        .last()
+        .is_some_and(|s| s.ident == "Option" || s.ident == "Result")
 }
 
 /// The types to give the fixed-layout fast path: each generated type once (an ambiguous type with both

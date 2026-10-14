@@ -459,3 +459,32 @@ pub fn run(_rx: &[u8], tx: &mut [u8]) -> usize {
         }
     }
 }
+
+/// The bit-packed sample of `bits_de` through the fast path (SW-45)
+#[cfg(feature = "bits_fixed_de")]
+pub fn run(rx: &[u8], _tx: &mut [u8]) -> usize {
+    sink(PackedSample::from_fixed(rx));
+    0
+}
+
+/// The bit-packed sample of `bits_ser` written by the fast path
+#[cfg(feature = "bits_fixed_ser")]
+pub fn run(_rx: &[u8], tx: &mut [u8]) -> usize {
+    let sample = PackedSample {
+        ch: U3::new(1).unwrap_or(U3::zero()),
+        on: true,
+        gain: U4::new(2).unwrap_or(U4::zero()),
+        div: U12::new(3).unwrap_or(U12::zero()),
+        off: I10::new(-4).unwrap_or(I10::zero()),
+        raw: U20::new(5).unwrap_or(U20::zero()),
+        flags: U5::new(6).unwrap_or(U5::zero()),
+        level: 7,
+    };
+    match src(sample).to_fixed(tx) {
+        Ok(len) => len,
+        Err(e) => {
+            sink(e);
+            0
+        }
+    }
+}

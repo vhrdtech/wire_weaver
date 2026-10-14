@@ -56,6 +56,8 @@ impl NumericBaseType {
             NumericBaseType::IQ { m, n } => {
                 return format!("iq{m}.{n}");
             }
+            NumericBaseType::UVlq32 => "uvlq32",
+            NumericBaseType::UVlq64 => "uvlq64",
         };
         name.to_string()
     }

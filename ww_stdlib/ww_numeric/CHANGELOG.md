@@ -17,6 +17,12 @@ Wire-incompatible with 0.1.1.
 
 ### 🚀 Features
 
+* `NumericValue::UVlq32(UVlq32)` and `UVlq64(UVlq64)` (features `uvlq32`, `uvlq64`, part of `all`), discriminants
+  16 and 17, and `NumericBaseType::UVlq32` / `UVlq64` (STD-23): variable-length storage, 1 byte for values up to 127.
+  `ww_numeric::{UVlq32, UVlq64}` re-exported, `value!(300 uvlq32)`.
+* `From<u8>`, `From<u16>`, .., `From<f64>`, `From<UVlq32>` for `NumericValue` (each behind its type's feature),
+  `NumericValue::to_f64()`, `to_i128()` (exact integer value), `unsigned_bits()` (where a counter wraps),
+  `is_float()`.
 * `Owned` variants and optional `serde` support.
 * `NumericValue::ty()`, `NumericAnyTypeOwned::human_name()` and `default()`, `NumericBaseType::name()` (std).
 

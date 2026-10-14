@@ -240,6 +240,8 @@ fn ty_def_numeric_base(base: &NumericBaseType) -> TokenStream {
         NumericBaseType::ILeb128 => todo!(),
         NumericBaseType::UQ { .. } => todo!(),
         NumericBaseType::IQ { .. } => todo!(),
+        NumericBaseType::UVlq32 => quote! { wire_weaver::shrink_wrap::UVlq32 },
+        NumericBaseType::UVlq64 => quote! { wire_weaver::shrink_wrap::UVlq64 },
     }
 }
 

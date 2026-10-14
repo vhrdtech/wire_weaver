@@ -4,6 +4,7 @@
 mod alloc;
 
 use shrink_wrap::prelude::*;
+pub use shrink_wrap::{UVlq32, UVlq64};
 
 #[derive_shrink_wrap(
     borrowed,
@@ -77,6 +78,11 @@ pub enum NumericBaseType {
         m: u8,
         n: u8,
     },
+
+    /// [UVlq32](shrink_wrap::UVlq32): variable length u32, 1 to 5 bytes, alignment of one-byte
+    UVlq32,
+    /// [UVlq64](shrink_wrap::UVlq64): variable length u64, 1 to 10 bytes, alignment of one-byte
+    UVlq64,
 }
 
 // It would be nice to create a separate SubType and ShiftScale for each base type,
@@ -178,6 +184,14 @@ pub enum NumericValue {
     // F16,
     #[cfg(feature = "f64")]
     F64(f64),
+
+    /// Variable length u32 ([UVlq32]): 1 byte up to 127, 2 up to 16383, 5 at most. For values that are usually small
+    /// but are not bounded.
+    #[cfg(feature = "uvlq32")]
+    UVlq32(UVlq32),
+    /// Variable length u64 ([UVlq64]): 1 to 10 bytes.
+    #[cfg(feature = "uvlq64")]
+    UVlq64(UVlq64),
     // TODO: the rest
 }
 
@@ -216,6 +230,10 @@ impl NumericValue {
             NumericValue::I128(_) => I128,
             #[cfg(feature = "f64")]
             NumericValue::F64(_) => F64,
+            #[cfg(feature = "uvlq32")]
+            NumericValue::UVlq32(_) => UVlq32,
+            #[cfg(feature = "uvlq64")]
+            NumericValue::UVlq64(_) => UVlq64,
         }
     }
 
@@ -252,9 +270,141 @@ impl NumericValue {
             NumericValue::I128(x) => x as f32,
             #[cfg(feature = "f64")]
             NumericValue::F64(x) => x as f32,
+            #[cfg(feature = "uvlq32")]
+            NumericValue::UVlq32(x) => x.0 as f32,
+            #[cfg(feature = "uvlq64")]
+            NumericValue::UVlq64(x) => x.0 as f32,
+        }
+    }
+
+    /// The value as `f64`, rounded where it does not fit exactly (above 2^53, `u128`/`i128`).
+    pub fn to_f64(&self) -> f64 {
+        match *self {
+            #[cfg(feature = "f32")]
+            NumericValue::F32(x) => x as f64,
+            #[cfg(feature = "f64")]
+            NumericValue::F64(x) => x,
+            #[cfg(feature = "u128")]
+            NumericValue::U128(x) => x as f64,
+            _ => match self.to_i128() {
+                Some(x) => x as f64,
+                None => f64::NAN,
+            },
+        }
+    }
+
+    /// The exact value of an integer variant, `None` for floats, the not yet supported `UN` / `IN`, and an `u128`
+    /// above `i128::MAX`.
+    pub fn to_i128(&self) -> Option<i128> {
+        let x = match *self {
+            #[cfg(feature = "nibble")]
+            NumericValue::Nibble(x) => x.value() as i128,
+            NumericValue::U8(x) => x as i128,
+            #[cfg(feature = "u16")]
+            NumericValue::U16(x) => x as i128,
+            #[cfg(feature = "u32")]
+            NumericValue::U32(x) => x as i128,
+            #[cfg(feature = "unib32")]
+            NumericValue::UNib32(x) => x as i128,
+            #[cfg(feature = "u64")]
+            NumericValue::U64(x) => x as i128,
+            #[cfg(feature = "i32")]
+            NumericValue::I32(x) => x as i128,
+            #[cfg(feature = "u128")]
+            NumericValue::U128(x) => i128::try_from(x).ok()?,
+            #[cfg(feature = "i8")]
+            NumericValue::I8(x) => x as i128,
+            #[cfg(feature = "i16")]
+            NumericValue::I16(x) => x as i128,
+            #[cfg(feature = "i64")]
+            NumericValue::I64(x) => x as i128,
+            #[cfg(feature = "i128")]
+            NumericValue::I128(x) => x,
+            #[cfg(feature = "uvlq32")]
+            NumericValue::UVlq32(x) => x.0 as i128,
+            #[cfg(feature = "uvlq64")]
+            NumericValue::UVlq64(x) => x.0 as i128,
+            #[allow(unreachable_patterns)]
+            _ => return None,
+        };
+        Some(x)
+    }
+
+    /// Number of bits of an unsigned fixed-width variant (`Nibble` 4, `U8` 8, .., `U128` 128, `UNib32` and `UVlq32`
+    /// 32, `UVlq64` 64): a counter stored in it wraps around at `2^bits`. `None` for signed and float variants.
+    pub fn unsigned_bits(&self) -> Option<u32> {
+        let bits = match self {
+            #[cfg(feature = "nibble")]
+            NumericValue::Nibble(_) => 4,
+            NumericValue::U8(_) => 8,
+            #[cfg(feature = "u16")]
+            NumericValue::U16(_) => 16,
+            #[cfg(feature = "u32")]
+            NumericValue::U32(_) => 32,
+            #[cfg(feature = "unib32")]
+            NumericValue::UNib32(_) => 32,
+            #[cfg(feature = "u64")]
+            NumericValue::U64(_) => 64,
+            #[cfg(feature = "u128")]
+            NumericValue::U128(_) => 128,
+            #[cfg(feature = "uvlq32")]
+            NumericValue::UVlq32(_) => 32,
+            #[cfg(feature = "uvlq64")]
+            NumericValue::UVlq64(_) => 64,
+            #[allow(unreachable_patterns)]
+            _ => return None,
+        };
+        Some(bits)
+    }
+
+    /// True for `F32` and `F64`.
+    pub fn is_float(&self) -> bool {
+        match self {
+            #[cfg(feature = "f32")]
+            NumericValue::F32(_) => true,
+            #[cfg(feature = "f64")]
+            NumericValue::F64(_) => true,
+            #[allow(unreachable_patterns)]
+            _ => false,
         }
     }
 }
+
+macro_rules! from_number {
+    ($($feature:literal $ty:ty => $variant:ident),*) => {
+        $(
+            #[cfg(feature = $feature)]
+            impl From<$ty> for NumericValue {
+                fn from(value: $ty) -> Self {
+                    NumericValue::$variant(value)
+                }
+            }
+        )*
+    };
+}
+
+impl From<u8> for NumericValue {
+    fn from(value: u8) -> Self {
+        NumericValue::U8(value)
+    }
+}
+
+from_number!(
+    "nibble" Nibble => Nibble,
+    "u16" u16 => U16,
+    "u32" u32 => U32,
+    "u64" u64 => U64,
+    "i32" i32 => I32,
+    "f32" f32 => F32,
+    "u128" u128 => U128,
+    "i8" i8 => I8,
+    "i16" i16 => I16,
+    "i64" i64 => I64,
+    "i128" i128 => I128,
+    "f64" f64 => F64,
+    "uvlq32" UVlq32 => UVlq32,
+    "uvlq64" UVlq64 => UVlq64
+);
 
 /// Number of bits in UB number. Serialized as 7-bits and shifted by -1 to represent U1-U128.
 /// Note that only U1-U64 is supported now, but it's not hard to add numbers up to U128.
@@ -426,6 +576,18 @@ macro_rules! value {
     ($add_path:ident $value:literal f64) => {
         $add_path::ww_numeric::NumericValue::F64($value)
     };
+    ($value:literal uvlq32) => {
+        ww_numeric::NumericValue::UVlq32(ww_numeric::UVlq32($value))
+    };
+    ($add_path:ident $value:literal uvlq32) => {
+        $add_path::ww_numeric::NumericValue::UVlq32($add_path::ww_numeric::UVlq32($value))
+    };
+    ($value:literal uvlq64) => {
+        ww_numeric::NumericValue::UVlq64(ww_numeric::UVlq64($value))
+    };
+    ($add_path:ident $value:literal uvlq64) => {
+        $add_path::ww_numeric::NumericValue::UVlq64($add_path::ww_numeric::UVlq64($value))
+    };
 }
 
 impl NumericBaseType {
@@ -471,6 +633,10 @@ impl NumericBaseType {
                 bit_count: U3::zero(),
                 value: 0,
             }),
+            #[cfg(feature = "uvlq32")]
+            NumericBaseType::UVlq32 => NumericValue::UVlq32(UVlq32(0)),
+            #[cfg(feature = "uvlq64")]
+            NumericBaseType::UVlq64 => NumericValue::UVlq64(UVlq64(0)),
             // NumericBaseType::ULeb32 => {}
             // NumericBaseType::ULeb64 => {}
             // NumericBaseType::ULeb128 => {}

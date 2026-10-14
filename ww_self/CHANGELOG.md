@@ -52,6 +52,7 @@
 * `TypeOwned::is_common_error()`, `ValueOwned::common_error()` (STD-16): recognise `ww_error::CommonError` by its
   type (also when its definition was left out), and find it in an API's error value. `ValueOwned::doc_message()`: the
   first doc line of an enum value's variant with `{field}` / `{field:#x}` filled in, the message tools show.
+* `ValueOwned` reads and writes `NumericBaseType::UVlq32` / `UVlq64` numbers (STD-23).
 * `ApiItemKind::FlowSink { ty, flow: FlowControl }` for sinks with flow control (`#[credit] sink!(..)`, API-28),
   appended, so existing bundles and signatures are unchanged; `ApiItemKindOwned::as_stream()` for code treating
   streams and sinks of both kinds alike.

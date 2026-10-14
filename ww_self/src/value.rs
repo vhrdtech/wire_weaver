@@ -15,7 +15,7 @@ use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_writer_owned::UnsizedBuilderOwned;
 use shrink_wrap::{
     BufReader, BufWriterOwned, DeltaOfDeltaOwned, DeltaOwned, DeserializeShrinkWrapOwned,
-    ElementSize, Nibble, SerializeShrinkWrapOwned, XorFloatOwned,
+    ElementSize, Nibble, SerializeShrinkWrapOwned, UVlq32, UVlq64, XorFloatOwned,
 };
 use std::borrow::Cow;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
@@ -435,6 +435,8 @@ fn des_numeric(rd: &mut BufReader, base_ty: &NumericBaseType) -> Result<NumericV
         NumericBaseType::I128 => NumericValue::I128(rd.read_i128()?),
         NumericBaseType::F32 => NumericValue::F32(rd.read_f32()?),
         NumericBaseType::F64 => NumericValue::F64(rd.read_f64()?),
+        NumericBaseType::UVlq32 => NumericValue::UVlq32(UVlq32(rd.read_uvlq32()?)),
+        NumericBaseType::UVlq64 => NumericValue::UVlq64(UVlq64(rd.read_uvlq64()?)),
         NumericBaseType::UB(bits) => {
             let bits = bits.0;
             unsigned_value(bits, rd.read_un64(bits)?)
@@ -835,6 +837,8 @@ fn ser_numeric(
         NumericBaseType::I128 => wr.write_i128(int!(i128))?,
         NumericBaseType::F32 => wr.write_f32(float_value(value)? as f32)?,
         NumericBaseType::F64 => wr.write_f64(float_value(value)?)?,
+        NumericBaseType::UVlq32 => wr.write_uvlq32(int!(u32))?,
+        NumericBaseType::UVlq64 => wr.write_uvlq64(int!(u64))?,
         NumericBaseType::UB(bits) => {
             let bits = bits.0;
             let v = int!(u64);
@@ -876,6 +880,8 @@ fn int_value(value: &NumericValue) -> Result<i128> {
         NumericValue::I32(v) => *v as i128,
         NumericValue::I64(v) => *v as i128,
         NumericValue::I128(v) => *v,
+        NumericValue::UVlq32(v) => v.0 as i128,
+        NumericValue::UVlq64(v) => v.0 as i128,
         u => bail!("expected an integer, got {u:?}"),
     })
 }

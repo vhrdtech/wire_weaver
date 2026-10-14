@@ -29,7 +29,7 @@ pub(crate) fn stream_ser_methods_recursive(
         let let_index_chain = let_index_chain(index_chain, id.0, is_array);
         let maybe_index_arg = maybe_quote(is_array, quote! { index: u32, });
 
-        if let ApiItemKindOwned::Trait { trait_idx } = &item.kind {
+        if let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind {
             let child_level = bundle.get_trait(trait_idx.0).unwrap();
             let child_struct_name = stream_ser_struct_name(child_level, bundle);
 

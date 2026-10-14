@@ -310,7 +310,9 @@ impl Decoder {
             let item = level.items.iter().find(|it| it.id == *idx)?;
             names.push(item.ident.clone());
             match &item.kind {
-                ApiItemKindOwned::Trait { trait_idx } => level = b.get_trait(trait_idx.0).ok()?,
+                ApiItemKindOwned::Trait { trait_idx, .. } => {
+                    level = b.get_trait(trait_idx.0).ok()?
+                }
                 kind if i + 1 == path.len() => {
                     return Some(Resource {
                         name: names.join("."),

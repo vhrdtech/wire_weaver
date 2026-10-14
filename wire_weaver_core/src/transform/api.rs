@@ -1,7 +1,9 @@
 use super::{
     crate_walker::{CrateContext, Scratch},
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
-    util::{collect_docs, get_delivery_attr, get_flow_attr, get_since_attr, get_stream_fn_attr},
+    util::{
+        collect_docs, get_delivery_attr, get_flow_attr, get_optional_attr, get_since_attr, get_stream_fn_attr,
+    },
 };
 use anyhow::{Context, Result, anyhow};
 use proc_macro2::Ident;
@@ -106,6 +108,7 @@ pub(crate) fn convert_api_items(
                     since,
                     ident: trait_item_const.ident.to_string(),
                     docs,
+                    optional: get_optional_attr(&trait_item_const.attrs, current_crate)?,
                 });
             }
             i => {
@@ -174,6 +177,7 @@ fn convert_api_item_fn(
         since,
         ident: item_fn.sig.ident.to_string(),
         docs: collect_docs(&item_fn.attrs),
+        optional: get_optional_attr(&item_fn.attrs, current_crate)?,
     })
 }
 
@@ -210,6 +214,7 @@ fn convert_api_item_stream(
         since,
         ident: args.resource_name.to_string(),
         docs,
+        optional: get_optional_attr(&item_macro.attrs, current_crate)?,
     })
 }
 
@@ -264,6 +269,7 @@ fn convert_api_item_property(
         since,
         ident: args.resource_name.to_string(),
         docs,
+        optional: get_optional_attr(&item_macro.attrs, current_crate)?,
     })
 }
 
@@ -298,6 +304,14 @@ fn convert_api_item_impl(
     };
     let multiplicity = convert_multiplicity(&args.multiplicity, current_crate, scratch)?;
     let since = get_since_attr(&item_macro.attrs, current_crate)?;
+    if get_optional_attr(&item_macro.attrs, current_crate)?.is_some() {
+        return Err(anyhow!(
+            "#[optional] on ww_impl!({}: ..): only methods, properties and streams can be optional, \
+             mark the items of the trait instead",
+            args.resource_name
+        )
+        .context(current_crate.err_context()));
+    }
     Ok(ApiItemOwned {
         id: UNib32(idx),
         kind,
@@ -305,6 +319,7 @@ fn convert_api_item_impl(
         since,
         ident: args.resource_name.to_string(),
         docs: collect_docs(&item_macro.attrs),
+        optional: None,
     })
 }
 
@@ -321,7 +336,10 @@ fn find_and_convert_trait(
             continue;
         }
         let trait_idx = convert_trait(item_trait, current_crate, scratch)?;
-        return Ok(ApiItemKindOwned::Trait { trait_idx });
+        return Ok(ApiItemKindOwned::Trait {
+            trait_idx,
+            omitted: None,
+        });
     }
     Err(anyhow!("Trait {trait_name:?} not found").context(current_crate.err_context()))
 }

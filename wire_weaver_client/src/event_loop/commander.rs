@@ -581,6 +581,11 @@ impl Commander {
                     device: device(),
                 })
             }
+            // an optional item the device leaves out, known from its introspection data
+            Verdict::Omitted => Err(Error::NotImplementedByDevice {
+                resource: resource.name,
+                device: device(),
+            }),
             Verdict::Incompatible(reason) => Err(Error::IncompatibleResource {
                 resource: resource.name,
                 device: device(),

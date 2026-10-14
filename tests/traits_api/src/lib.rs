@@ -5,6 +5,11 @@ trait Traits {
     ww_impl!(g1: Subgroup);
     ww_impl!(gpio[]: Gpio);
     ww_impl!(periph[]: Peripheral);
+    ww_impl!(i2c: I2c);
+
+    /// Optional item of the root level itself.
+    #[optional]
+    fn reset();
 
     // TODO: print proper error when implementing same trait twice?
     // trait from crates
@@ -58,4 +63,20 @@ mod doc_trait {
         let _: fn() -> Property<f32> = C::gain;
         let _: fn() = C::run;
     }
+}
+
+/// Optional items (API-16): a server leaves them out with `ww_codegen!(.., omit = [..])`.
+#[ww_trait]
+trait I2c {
+    fn i2c_write(data: u8) -> u8;
+    /// Clocks SCL until SDA is released.
+    #[optional]
+    fn i2c_wiggle_clock(count: u8) -> u8;
+    /// Switchable pull-ups: both items or neither.
+    #[optional(pullups)]
+    fn i2c_set_pullups(enabled: bool);
+    #[optional(pullups)]
+    property!(rw i2c_pullups: bool);
+    #[optional]
+    stream!(i2c_monitor: u8);
 }

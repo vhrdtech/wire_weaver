@@ -91,6 +91,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 introspect_mode,
                 multi_req: args.ext.multi_req,
                 medium,
+                omit: args.ext.omit.clone(),
             },
         );
         codegen_ts.append_all(ts);

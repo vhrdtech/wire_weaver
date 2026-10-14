@@ -355,6 +355,7 @@ mod tests {
             since: None,
             ident: ident.into(),
             docs: docs("item"),
+            optional: None,
         };
         ApiBundleOwned {
             magic: MAGIC,
@@ -385,6 +386,7 @@ mod tests {
                         "sub",
                         ApiItemKindOwned::Trait {
                             trait_idx: UNib32(0),
+                            omitted: None,
                         },
                     ),
                 ],
@@ -417,6 +419,7 @@ mod tests {
                 },
             ],
             ext_crates: vec![],
+            root_omitted: None,
         }
     }
 

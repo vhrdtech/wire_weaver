@@ -1,3 +1,4 @@
+use crate::codegen::omit::Omissions;
 use crate::codegen::util::ErrorSeq;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
@@ -7,18 +8,37 @@ use ww_self::ApiBundleOwned;
 use ww_self::visit::Visit;
 use ww_self::visit_mut::VisitMut;
 
+/// Introspection request handler and API hash consts. With omitted items (API-16) the bundle a device sends
+/// lists them, so with `omit_if` conditions the bytes and hashes are generated for each combination, under `#[cfg]`.
 pub(crate) fn introspect(
     api_bundle: &ApiBundleOwned,
+    omissions: &Omissions,
     enabled: bool,
     include_docs: bool,
     use_async: bool,
     error_seq: &mut ErrorSeq,
 ) -> (TokenStream, TokenStream) {
-    let IntrospectTs {
-        introspect_bytes,
-        no_docs_hash,
-        with_docs_hash,
-    } = introspect_prepare(api_bundle, include_docs);
+    let mut bytes_consts = TokenStream::new();
+    let mut hash_consts = TokenStream::new();
+    for (cfg, active) in omissions.cfg_combinations() {
+        let device_bundle = omissions.mark(api_bundle, &active);
+        let IntrospectTs {
+            introspect_bytes,
+            no_docs_hash,
+            with_docs_hash,
+        } = introspect_prepare(&device_bundle, include_docs);
+        let maybe_cfg = cfg.map(|cfg| quote! { #[cfg(#cfg)] });
+        bytes_consts.extend(quote! {
+            #maybe_cfg
+            pub const WW_SELF_BYTES: #introspect_bytes;
+        });
+        hash_consts.extend(quote! {
+            #maybe_cfg
+            pub const API_HASH_NO_DOCS: #no_docs_hash;
+            #maybe_cfg
+            pub const API_HASH_WITH_DOCS: #with_docs_hash;
+        });
+    }
     let root = &api_bundle.root;
     let crate_name = Ident::new(root.crate_name(api_bundle).unwrap(), Span::call_site());
     let full_gid = Ident::new(
@@ -26,8 +46,7 @@ pub(crate) fn introspect(
         Span::call_site(),
     );
     let api_hash = quote! {
-        pub const API_HASH_NO_DOCS: #no_docs_hash;
-        pub const API_HASH_WITH_DOCS: #with_docs_hash;
+        #hash_consts
         /// API identity string (`ww:<crate>@<version> h=<hash>`), see [wire_weaver::api_id].
         pub const API_ID: &str = wire_weaver::api_id_string!(#crate_name::#full_gid, API_HASH_NO_DOCS);
 
@@ -58,7 +77,7 @@ pub(crate) fn introspect(
     let handle_introspect = if enabled {
         quote! {
             RequestKind::Introspect => {
-                pub const WW_SELF_BYTES: #introspect_bytes;
+                #bytes_consts
                 for chunk in WW_SELF_BYTES.chunks(128) { // TODO: auto-determine better chunk size
                     let event = Event {
                         seq: wire_weaver::shrink_wrap::UVlq32(request.seq.0),

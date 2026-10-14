@@ -208,7 +208,7 @@ impl DynResource {
 
     fn resolve(&self, item: &ApiItemOwned) -> Result<Node, Error> {
         Ok(match &item.kind {
-            ApiItemKindOwned::Trait { trait_idx } => {
+            ApiItemKindOwned::Trait { trait_idx, .. } => {
                 // check that it is present, not skipped
                 self.bundle.get_trait(trait_idx.0).map_err(other)?;
                 Node::Level {

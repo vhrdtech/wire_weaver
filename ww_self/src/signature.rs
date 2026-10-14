@@ -256,6 +256,7 @@ impl<'a, 'r> Canonical<'a, 'r> {
             types: self.out_types.into_iter().map(Option::unwrap).collect(),
             traits: self.out_traits.into_iter().map(Option::unwrap).collect(),
             ext_crates: self.out_crates,
+            root_omitted: None,
         };
         let bytes = bundle
             .to_ww_bytes_owned()
@@ -312,7 +313,7 @@ impl VisitMut for Canonical<'_, '_> {
     }
 
     fn visit_api_item_kind(&mut self, node: &mut ApiItemKindOwned) {
-        if let ApiItemKindOwned::Trait { trait_idx } = node {
+        if let ApiItemKindOwned::Trait { trait_idx, .. } = node {
             self.remap(trait_idx, Self::trait_idx);
         }
         visit_mut::visit_api_item_kind(self, node)

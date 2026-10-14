@@ -5,7 +5,7 @@ use semver::Version;
 use shrink_wrap::ElementSize;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Expr, Lit, Meta, Token, UseTree};
-use ww_self::{Delivery, FlowControl, Repr};
+use ww_self::{Delivery, FlowControl, OptionalOwned, Repr};
 use ww_version::VersionTriplet;
 
 pub(crate) fn collect_docs(attrs: &[Attribute]) -> Vec<String> {
@@ -145,6 +145,30 @@ pub(crate) fn get_stream_fn_attr(
         .context("expected #[stream(ItemType)] or #[stream(ItemType, counted | reliable)]")
         .context(current_crate.err_context())?;
     Ok(Some(parsed))
+}
+
+/// `#[optional]` or `#[optional(group)]` on a method, property or stream (API-16), `None` for a required item.
+pub(crate) fn get_optional_attr(
+    attrs: &[Attribute],
+    current_crate: &CrateContext,
+) -> Result<Option<OptionalOwned>> {
+    let Some(attr) = attrs.iter().find(|a| a.path().is_ident("optional")) else {
+        return Ok(None);
+    };
+    match &attr.meta {
+        Meta::Path(_) => Ok(Some(OptionalOwned { group: None })),
+        Meta::List(list) => {
+            let group: Ident = list.parse_args().map_err(|e| {
+                anyhow!("expected #[optional] or #[optional(group)]: {e}")
+                    .context(current_crate.err_context())
+            })?;
+            Ok(Some(OptionalOwned {
+                group: Some(group.to_string()),
+            }))
+        }
+        Meta::NameValue(_) => Err(anyhow!("expected #[optional] or #[optional(group)]")
+            .context(current_crate.err_context())),
+    }
 }
 
 /// Flow control of a sink: `#[credit]` (see `docs/api/streams.md`), `None` for a plain sink.

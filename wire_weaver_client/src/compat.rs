@@ -44,6 +44,8 @@ pub(crate) enum Verdict {
     Compatible,
     /// Device has no resource at this path.
     Missing,
+    /// Device's API has the resource, but it is an `#[optional]` one the device leaves out (API-16).
+    Omitted,
     /// Device has a resource at this path, but it can't be used with the client's definition.
     Incompatible(String),
 }
@@ -76,7 +78,9 @@ impl ApiCompat {
     /// Compare every resource of the client's API with the device's resource at the same path.
     pub(crate) fn new(client: &ApiBundleOwned, device: &ApiBundleOwned) -> Self {
         let device_items: HashMap<Vec<u32>, &ApiItemOwned> = collect(device).into_iter().collect();
+        let omitted = omitted(device);
         Self::build(client, |path, item| match device_items.get(path) {
+            Some(_) if omitted.contains(path) => Verdict::Omitted,
             Some(device_item) => {
                 // a different max length is not checked here: a longer value is rejected when it is sent
                 match compare_items(
@@ -159,7 +163,8 @@ impl ApiCompat {
         })
     }
 
-    /// Resources that are missing or incompatible, not descending into ones already reported.
+    /// Resources that are missing or incompatible, not descending into ones already reported. Optional resources the
+    /// device leaves out are not listed, leaving them out is the device's choice.
     pub(crate) fn mismatches(&self) -> Vec<(String, &Verdict)> {
         fn walk<'a>(
             level: &'a HashMap<u32, Node>,
@@ -172,10 +177,10 @@ impl ApiCompat {
                 let node = &level[id];
                 let array = if node.is_array { "[]" } else { "" };
                 let name = format!("{prefix}{}{array}", node.ident);
-                if node.verdict == Verdict::Compatible {
-                    walk(&node.children, &format!("{name}."), out);
-                } else {
-                    out.push((name, &node.verdict));
+                match node.verdict {
+                    Verdict::Compatible => walk(&node.children, &format!("{name}."), out),
+                    Verdict::Omitted => {}
+                    _ => out.push((name, &node.verdict)),
                 }
             }
         }
@@ -198,7 +203,7 @@ impl<'ast> Visit<'ast> for ItemCollector<'ast> {
         self.path.push(node.id.0);
         self.items.push((self.path.clone(), node));
         // traits are referred to by index, follow them to get the resource tree as the device sees it
-        if let ApiItemKindOwned::Trait { trait_idx } = &node.kind
+        if let ApiItemKindOwned::Trait { trait_idx, .. } = &node.kind
             && !self.trait_stack.contains(&trait_idx.0)
             && let Some(location) = self.bundle.traits.get(trait_idx.0 as usize)
         {
@@ -208,6 +213,30 @@ impl<'ast> Visit<'ast> for ItemCollector<'ast> {
         }
         self.path.pop();
     }
+}
+
+/// Paths of the optional items a device leaves out (API-16): `root_omitted` and `omitted` of its trait items.
+fn omitted(device: &ApiBundleOwned) -> HashSet<Vec<u32>> {
+    let mut paths: HashSet<Vec<u32>> = device
+        .root_omitted
+        .iter()
+        .flatten()
+        .map(|id| vec![id.0])
+        .collect();
+    for (path, item) in collect(device) {
+        if let ApiItemKindOwned::Trait {
+            omitted: Some(omitted),
+            ..
+        } = &item.kind
+        {
+            paths.extend(omitted.iter().map(|id| {
+                let mut path = path.clone();
+                path.push(id.0);
+                path
+            }));
+        }
+    }
+    paths
 }
 
 fn collect(bundle: &ApiBundleOwned) -> Vec<(Vec<u32>, &ApiItemOwned)> {
@@ -388,9 +417,10 @@ fn compare_kinds<'a>(
             )?;
         }
         (
-            Trait { trait_idx },
+            Trait { trait_idx, .. },
             Trait {
                 trait_idx: device_trait_idx,
+                ..
             },
         ) => {
             let (Some(identity), Some(device_identity)) = (

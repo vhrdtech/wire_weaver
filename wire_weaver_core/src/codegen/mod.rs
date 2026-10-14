@@ -3,6 +3,7 @@ mod api_common;
 pub mod api_server;
 mod client;
 mod index_chain;
+pub mod omit;
 pub(crate) mod server;
 mod ty_def;
 mod util;

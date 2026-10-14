@@ -1,6 +1,7 @@
 //! # Implementation details:
 //! * Server's index chain contains only array indices on the way to a resource
 use crate::codegen::index_chain::IndexChain;
+use crate::codegen::omit::{Omission, Omissions, Omit};
 use crate::codegen::server::stream::stream_ser_methods_recursive;
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::codegen::util::{ErrorSeq, add_prefix, maybe_quote, maybe_quote_cl};
@@ -10,6 +11,7 @@ use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
+use std::collections::BTreeMap;
 use syn::{Lit, LitInt, Path};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
@@ -39,6 +41,8 @@ pub struct GenServerConfig {
     /// Path to a user type (usually an enum), telling handlers which medium (USB, CAN, ...) a request came from,
     /// see `wire_weaver::Context::medium()`. `()` if None.
     pub medium: Option<String>,
+    /// `#[optional]` items to leave out (API-16): no dispatch arm, no handler, a call answers `Unimplemented`.
+    pub omit: Vec<Omit>,
 }
 
 pub enum IntrospectMode {
@@ -70,6 +74,8 @@ pub struct GenServerConfigRaw {
     /// Path to a user type (usually an enum), telling handlers which medium (USB, CAN, ...) a request came from,
     /// see `wire_weaver::Context::medium()`. `()` if None.
     pub medium: Option<Path>,
+    /// `#[optional]` items to leave out (API-16): no dispatch arm, no handler, a call answers `Unimplemented`.
+    pub omit: Vec<Omit>,
 }
 
 impl From<GenServerConfig> for GenServerConfigRaw {
@@ -83,6 +89,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             introspect_mode: config.introspect_mode,
             multi_req: config.multi_req,
             medium: config.medium.as_deref().map(super::util::str_to_path),
+            omit: config.omit,
         }
     }
 }
@@ -97,6 +104,10 @@ pub fn gen_server(
     config: impl Into<GenServerConfigRaw>,
 ) -> TokenStream {
     let config: GenServerConfigRaw = config.into();
+    let omissions = match Omissions::resolve(api_bundle, &config.omit) {
+        Ok(omissions) => omissions,
+        Err(e) => return quote! { compile_error!(#e); },
+    };
     let additional_use = maybe_quote(
         config.no_alloc,
         quote! { #[allow(unused_imports)] use wire_weaver::shrink_wrap::{RefVec, RefVecIter}; },
@@ -137,6 +148,7 @@ pub fn gen_server(
     };
     let (handle_introspect, api_signature) = super::server::introspect::introspect(
         api_bundle,
+        &omissions,
         introspect_enabled,
         include_docs,
         cx.use_async,
@@ -144,6 +156,8 @@ pub fn gen_server(
     );
     let process_request_inner = process_request_inner_recursive(
         "root".into(),
+        &[],
+        &omissions,
         api_bundle,
         api_level,
         IndexChain::new(),
@@ -645,6 +659,8 @@ impl<'i> ApiServerCGContext<'i> {
 #[allow(clippy::too_many_arguments)]
 fn process_request_inner_recursive(
     level_name_chain: String,
+    item_path: &[String],
+    omissions: &Omissions,
     api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
     index_chain: IndexChain,
@@ -657,6 +673,7 @@ fn process_request_inner_recursive(
     let level_matchers = level_matchers(
         api_bundle,
         api_level,
+        &omissions.level(item_path),
         &level_name_chain,
         index_chain,
         crate_name,
@@ -707,8 +724,12 @@ fn process_request_inner_recursive(
             index_chain.increment_length();
         }
         let level_name_chain = format!("{}_{}", level_name_chain, item.ident);
+        let mut item_path = item_path.to_vec();
+        item_path.push(item.ident.clone());
         ts.extend(process_request_inner_recursive(
             level_name_chain,
+            &item_path,
+            omissions,
             api_bundle,
             level,
             index_chain,
@@ -728,23 +749,50 @@ fn mod_ident(level: &ApiLevelOwned, crate_name: &str) -> Ident {
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn level_matchers(
     api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
+    omitted: &BTreeMap<u32, Omission>,
     level_name_chain: &str,
     index_chain: IndexChain,
     crate_name: &str,
     cx: &ApiServerCGContext<'_>,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
-    let ids = api_level.items.iter().map(|item| {
+    let present = api_level
+        .items
+        .iter()
+        .filter(|item| !matches!(omitted.get(&item.id.0), Some(Omission::Always)));
+    let arm_attrs = present.clone().map(|item| match omitted.get(&item.id.0) {
+        Some(Omission::When(cfg)) => quote! { #[cfg(not(#cfg))] },
+        _ => quote! {},
+    });
+    let ids = present.clone().map(|item| {
         Lit::Int(LitInt::new(
             format!("{}u32", item.id.0).as_str(),
             Span::call_site(),
         ))
     });
     let es = error_seq.next();
-    let handlers = api_level.items.iter().map(|item| match &item.multiplicity {
+    // An omitted optional item keeps its id: answered as unimplemented with one comparison, no arm per item.
+    let omitted_arm = if omitted.is_empty() {
+        quote! {}
+    } else {
+        let item_count = api_level
+            .items
+            .iter()
+            .map(|item| item.id.0 + 1)
+            .max()
+            .unwrap_or(0);
+        let item_count = Lit::Int(LitInt::new(
+            format!("{item_count}u32").as_str(),
+            Span::call_site(),
+        ));
+        let es = error_seq.next();
+        quote! { id if id < #item_count => { Err(Error::unimplemented(#es)) } }
+    };
+    let handlers = present.map(|item| match &item.multiplicity {
         Multiplicity::Flat => level_matcher(
             api_bundle,
             item,
@@ -809,7 +857,8 @@ fn level_matchers(
     });
     quote! {
         Some(id) => match id.0 {
-            #(#ids => { #handlers } ),*
+            #(#arm_attrs #ids => { #handlers } ),*
+            #omitted_arm
             _ => { Err(Error::bad_path(#es)) }
         }
     }

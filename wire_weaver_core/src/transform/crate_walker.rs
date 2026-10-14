@@ -88,6 +88,7 @@ fn load_inner(
         types: scratch.root_bundle.types.clone(),
         traits: scratch.root_bundle.traits.clone(),
         ext_crates: scratch.root_bundle.ext_crates.clone(),
+        root_omitted: None,
     })
 }
 

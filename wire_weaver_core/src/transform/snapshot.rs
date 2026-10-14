@@ -45,11 +45,15 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
                 let trait_idx = convert_trait(item_trait, &entry, &mut scratch)?;
                 items.push(ApiItemOwned {
                     id: UNib32(items.len() as u32),
-                    kind: ApiItemKindOwned::Trait { trait_idx },
+                    kind: ApiItemKindOwned::Trait {
+                        trait_idx,
+                        omitted: None,
+                    },
                     multiplicity: Multiplicity::Flat,
                     since: None,
                     ident: item_trait.ident.to_string(),
                     docs: vec![],
+                    optional: None,
                 });
             }
             Item::Struct(item_struct) if has_attr(&item_struct.attrs, &["derive_shrink_wrap"]) => {
@@ -90,6 +94,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
         types: scratch.types,
         traits: scratch.traits,
         ext_crates: scratch.ext_crates,
+        root_omitted: None,
     };
     skip_foreign(&mut bundle)?;
     drop_unused(&mut bundle, true);
@@ -419,7 +424,7 @@ impl Visit<'_> for Refs {
     }
 
     fn visit_api_item_kind(&mut self, node: &ApiItemKindOwned) {
-        if let ApiItemKindOwned::Trait { trait_idx } = node {
+        if let ApiItemKindOwned::Trait { trait_idx, .. } = node {
             self.traits.push(trait_idx.0);
         }
         visit::visit_api_item_kind(self, node)
@@ -492,7 +497,7 @@ impl VisitMut for Remap {
     }
 
     fn visit_api_item_kind(&mut self, node: &mut ApiItemKindOwned) {
-        if let ApiItemKindOwned::Trait { trait_idx } = node {
+        if let ApiItemKindOwned::Trait { trait_idx, .. } = node {
             trait_idx.0 = self.traits[trait_idx.0 as usize];
         }
         visit_mut::visit_api_item_kind(self, node)

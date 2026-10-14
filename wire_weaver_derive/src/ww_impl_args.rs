@@ -1,7 +1,9 @@
 use darling::FromMeta;
 use darling::ast::NestedMeta;
+use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use syn::parse::{Parse, ParseStream};
-use syn::{Ident, Path, Result, Token};
+use syn::{Error, ExprArray, Ident, Path, Result, Token};
+use wire_weaver_core::codegen::omit::Omit;
 
 pub(crate) struct ApiArgs {
     pub(crate) dep_name: Ident,
@@ -43,6 +45,10 @@ pub(crate) struct ImplExtArgs {
 
     #[darling(default)]
     pub(crate) medium: String,
+
+    /// `omit = ["a.b", ..]` and `omit_if(<cfg>) = [..]`, parsed before darling (`omit_if(..) = ..` is not a `Meta`).
+    #[darling(skip)]
+    pub(crate) omit: Vec<Omit>,
 }
 
 impl Parse for ApiArgs {
@@ -61,9 +67,83 @@ impl Parse for ApiArgs {
 
 impl Parse for ImplExtArgs {
     fn parse(input: ParseStream) -> Result<Self> {
-        let ts: proc_macro2::TokenStream = input.parse()?;
-        let attr_args = NestedMeta::parse_meta_list(ts)?;
-        let ext_args = ImplExtArgs::from_list(&attr_args)?;
+        let ts: TokenStream = input.parse()?;
+        let mut rest = TokenStream::new();
+        let mut omit = vec![];
+        for arg in split_args(ts) {
+            match parse_omit(&arg)? {
+                Some(o) => omit.extend(o),
+                None => {
+                    rest.extend(arg);
+                    rest.extend(quote::quote! { , });
+                }
+            }
+        }
+        let attr_args = NestedMeta::parse_meta_list(rest)?;
+        let mut ext_args = ImplExtArgs::from_list(&attr_args)?;
+        ext_args.omit = omit;
         Ok(ext_args)
     }
+}
+
+/// Splits macro arguments at top-level commas.
+fn split_args(ts: TokenStream) -> Vec<Vec<TokenTree>> {
+    let mut args = vec![vec![]];
+    for tt in ts {
+        match &tt {
+            TokenTree::Punct(p) if p.as_char() == ',' => args.push(vec![]),
+            _ => args.last_mut().unwrap().push(tt),
+        }
+    }
+    args.retain(|arg| !arg.is_empty());
+    args
+}
+
+/// `omit = ["a.b", ..]` or `omit_if(<cfg>) = [..]`, `None` for any other argument.
+fn parse_omit(arg: &[TokenTree]) -> Result<Option<Vec<Omit>>> {
+    let (cfg, value) = match arg {
+        [TokenTree::Ident(ident), TokenTree::Punct(eq), value @ ..]
+            if ident == "omit" && eq.as_char() == '=' =>
+        {
+            (None, value)
+        }
+        [
+            TokenTree::Ident(ident),
+            TokenTree::Group(cfg),
+            TokenTree::Punct(eq),
+            value @ ..,
+        ] if ident == "omit_if"
+            && cfg.delimiter() == Delimiter::Parenthesis
+            && eq.as_char() == '=' =>
+        {
+            (Some(cfg.stream().to_string()), value)
+        }
+        [TokenTree::Ident(ident), ..] if ident == "omit" || ident == "omit_if" => {
+            return Err(Error::new(
+                ident.span(),
+                "expected omit = [\"trait_item.item\", ..] or omit_if(<cfg>) = [..]",
+            ));
+        }
+        _ => return Ok(None),
+    };
+    let value: TokenStream = value.iter().cloned().collect();
+    let array: ExprArray = syn::parse2(value)?;
+    let mut omit = vec![];
+    for elem in array.elems {
+        let syn::Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Str(path),
+            ..
+        }) = elem
+        else {
+            return Err(Error::new_spanned(
+                elem,
+                "expected a string, \"trait_item.item\" or \"trait_item.group\"",
+            ));
+        };
+        omit.push(Omit {
+            path: path.value(),
+            cfg: cfg.clone(),
+        });
+    }
+    Ok(Some(omit))
 }

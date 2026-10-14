@@ -27,7 +27,7 @@ impl ApiLevelOwned {
             if id_chain.len() == 1 {
                 Ok(item)
             } else {
-                if let ApiItemKindOwned::Trait { trait_idx } = &item.kind {
+                if let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind {
                     let level = api_bundle.get_trait(trait_idx.0)?;
                     level.get_item(&id_chain[1..], api_bundle)
                 } else {
@@ -42,7 +42,7 @@ impl ApiLevelOwned {
 
 impl ApiItemOwned {
     pub fn get_as_level<'i>(&self, bundle: &'i ApiBundleOwned) -> Result<&'i ApiLevelOwned> {
-        let ApiItemKindOwned::Trait { trait_idx } = &self.kind else {
+        let ApiItemKindOwned::Trait { trait_idx, .. } = &self.kind else {
             return Err(anyhow!("ApiItem is not Trait"));
         };
         bundle.get_trait(trait_idx.0)

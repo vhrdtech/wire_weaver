@@ -98,7 +98,7 @@ impl<'a> Visit<'a> for TreePrinter<'a> {
         let parent_prefix_len = self.prefix.len();
         self.prefix.push_str(if is_last { "   " } else { "│  " });
         self.visit_docs(&item.docs);
-        if let ApiItemKindOwned::Trait { trait_idx } = &item.kind
+        if let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind
             && let Some(location) = self.bundle.traits.get(trait_idx.0 as usize)
         {
             self.visit_api_level_location(location);
@@ -220,7 +220,7 @@ impl TreePrinter<'_> {
                     _ = write!(self.out, " -> {}", self.ty(return_ty));
                 }
             }
-            ApiItemKindOwned::Trait { trait_idx } => {
+            ApiItemKindOwned::Trait { trait_idx, .. } => {
                 _ = write!(self.out, "{} ", style("impl").true_color(0xCF, 0x8E, 0x6D));
                 self.ident(item);
                 _ = write!(self.out, ": {}", self.trait_name(trait_idx.0));
@@ -447,7 +447,7 @@ struct Counter<'a> {
 impl<'a> Visit<'a> for Counter<'a> {
     fn visit_api_item(&mut self, item: &'a ApiItemOwned) {
         self.resources += 1;
-        if let ApiItemKindOwned::Trait { trait_idx } = &item.kind
+        if let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind
             && let Some(location) = self.bundle.traits.get(trait_idx.0 as usize)
         {
             visit::visit_api_level_location(self, location);

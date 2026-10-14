@@ -414,7 +414,7 @@ impl VisitMut for Import<'_, '_, '_> {
     }
 
     fn visit_api_item_kind(&mut self, node: &mut ApiItemKindOwned) {
-        if let ApiItemKindOwned::Trait { trait_idx } = node {
+        if let ApiItemKindOwned::Trait { trait_idx, .. } = node {
             self.remap(trait_idx, Self::trait_idx);
         }
         visit_mut::visit_api_item_kind(self, node)

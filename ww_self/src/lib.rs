@@ -69,6 +69,10 @@ pub struct ApiBundle<'i> {
     pub traits: RefVec<'i, ApiLevelLocation<'i>>,
     /// Deduplicated array of all external dependencies, referred to by [TypeDefinitionSource::GlobalFull].
     pub ext_crates: RefVec<'i, FullVersion<'i>>,
+    /// Ids of [optional](ApiItem::optional) items of `root` that this device leaves out (API-16), same as
+    /// [ApiItemKind::Trait] `omitted` for the other levels. `None` and an empty list both mean none.
+    #[default = None]
+    pub root_omitted: Option<RefVec<'i, UNib32>>,
     // Hash of ApiBundle with docs present (for a bundle with no docs) and vice versa.
     // pub toggle_doc_hash: ApiHash<'i>,
 }
@@ -145,6 +149,21 @@ pub struct ApiItem<'i> {
     pub since: Option<VersionTriplet>,
     pub ident: &'i str,
     pub docs: RefVec<'i, &'i str>,
+    /// `Some` for an item marked `#[optional]` or `#[optional(group)]` in its trait (API-16): a device may leave it
+    /// out (`ww_codegen!(.., omit = [..])`), then a call answers `Unimplemented`.
+    #[default = None]
+    pub optional: Option<Optional<'i>>,
+}
+
+/// Marks an [ApiItem] as optional (`#[optional]`, `#[optional(group)]`), see `docs/api/errors.md#4-optional-items`.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct Optional<'i> {
+    /// Items of one group are left out together, `omit = ["<trait>.<group>"]`.
+    pub group: Option<&'i str>,
 }
 
 #[derive_shrink_wrap(
@@ -184,6 +203,11 @@ pub enum ApiItemKind<'i> {
     },
     Trait {
         trait_idx: UNib32,
+        /// Ids of [optional](ApiItem::optional) items of this trait that the device leaves out (API-16): a call to
+        /// one answers `Unimplemented`. `None` and an empty list both mean none; a trait referenced in a crate's own
+        /// model (not a device's) always has `None`.
+        #[default = None]
+        omitted: Option<RefVec<'i, UNib32>>,
     },
     /// Sink (host to device) with flow control, e.g. `#[credit] sink!(..)`. A plain sink is
     /// `Stream { is_up: false }`.

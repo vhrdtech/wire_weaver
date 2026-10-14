@@ -372,6 +372,41 @@ const expression over their `ELEMENT_SIZE` and the compiler folds it.
 in the buffer and is not part of it: `struct { a: bool, b: u8 }` is `Sized { size_bits: 9 }` and takes 2 bytes
 on its own.
 
+### `fixed_layout`: a fixed byte layout and its fast path
+
+Some types are just a fixed sequence of bytes: a header, a record in flash, a descriptor that is signed as bytes.
+When every field is a byte-aligned fixed-width number (`u8`..`u64`, `i8`..`i64`, `f32`, `f64`) or an array of them,
+and the type is `sized` or `final_structure` (a struct) or `sized` / `self_describing` with `ww_repr = u8`, `u16` or
+`u32` (an enum), its encoding is a fixed little-endian layout, and the macro generates a fast path next to the
+usual serdes code (SW-44):
+
+- `ENCODED_LEN` and an offset const per field: `MAGIC_OFFSET`, `COUNT_OFFSET`; for an enum `TAG_LEN`, and per variant
+  `<VARIANT>_TAG`, `<VARIANT>_LEN` and `<VARIANT>_<FIELD>_OFFSET` (unnamed fields by their index);
+- `from_fixed(&[u8])` and `to_fixed(&mut [u8])`, which load and store at those offsets directly, without a
+  `BufReader` or `BufWriter`. The bytes are those of `ser_shrink_wrap`. A short buffer is an error, never a panic;
+- the `FixedLayout` trait, whose `write_c` prints the C reader of the type: a define per offset and a
+  `static inline` reader per field (`shrink_wrap::fixed_layout::write_c_header` writes a whole header).
+
+Such types get it without asking. The `fixed_layout` directive makes it a requirement: a field that breaks the
+layout is a compile error that names it, and only with it may a field be another fixed-layout type (the macro
+cannot look inside a type it does not see; the compiler checks that it implements `FixedLayout` and has one length).
+On a struct, `fixed_layout` implies `sized`.
+
+```rust
+#[derive_shrink_wrap(borrowed, fixed_layout)]
+struct Header {
+    magic: [u8; 4],
+    count: u32,
+    inner: Inner, // another fixed_layout type
+}
+
+let header = Header::from_fixed(&bytes)?; // what a tiny bootloader links: loads at constant offsets
+let header = Header::from_ww_bytes(&bytes)?; // the same value through BufReader
+```
+
+On a Cortex-M0, decoding a header of eight integers takes 276 bytes of code this way and 484 through `BufReader`
+([code size](code_size.md#fixed-layout-fast-path)).
+
 ### `ww_repr = <repr>` (enums only)
 
 Sets the wire representation of an enum's discriminant. **Required** for every enum - structs must not set it.

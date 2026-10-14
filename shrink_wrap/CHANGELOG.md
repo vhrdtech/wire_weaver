@@ -18,6 +18,14 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `discriminant()` returns the wire discriminant also for it; writing one that doesn't fit the repr or belongs to a
   known variant gives `Error::SubtypeOutOfRange`. See `docs/serdes/derive.md`.
 - `Error::is_read_eob()`: whether a read ran out of data.
+- Fixed-layout fast path (SW-44): a derived type whose encoding is a fixed little-endian byte layout gets
+  `ENCODED_LEN`, an offset const per field (`<FIELD>_OFFSET`, `<VARIANT>_<FIELD>_OFFSET`, `<VARIANT>_TAG`,
+  `<VARIANT>_LEN` for enums) and `from_fixed` / `to_fixed` working on the slice directly, plus the new
+  `fixed_layout::FixedLayout` trait (also in the prelude) with `write_c` for the matching C reader. Detected for
+  `sized` / `final_structure` structs and `sized` / `self_describing` byte-tagged enums of fixed-width numbers and
+  arrays of them; the new `fixed_layout` directive requires it, allows nested fixed-layout types and names the field
+  that breaks it. Same bytes as `ser_shrink_wrap`. The new inherent items can clash with items of the same name a
+  type already defines.
 - C99 runtime (SW-43): `shrink_wrap/c/shrink_wrap.h` and `shrink_wrap.c`, `sw_reader` / `sw_writer` with the same
   bytes as `BufReader` / `BufWriter`, for firmware written in C. No `malloc`, the first error is kept as in SW-41,
   works with a 16-bit `char`. Checked against the Rust crate by the new `shrink_wrap_c` test crate (not published).

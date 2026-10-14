@@ -415,3 +415,47 @@ pub fn run(_rx: &[u8], tx: &mut [u8]) -> usize {
         },
     }
 }
+
+const HEADER: Header = Header {
+    magic: *b"CKP2",
+    format: 2,
+    kind: 1,
+    flags: 3,
+    id: 4,
+    count: 5,
+    len: 6,
+    crc: 7,
+    stamp: 8,
+};
+
+/// `Header` (eight integers and a byte array, a fixed layout) through `BufReader`
+#[cfg(feature = "header_de")]
+pub fn run(rx: &[u8], _tx: &mut [u8]) -> usize {
+    sink(Header::from_ww_bytes(rx));
+    0
+}
+
+/// `Header` through `BufWriter`
+#[cfg(feature = "header_ser")]
+pub fn run(_rx: &[u8], tx: &mut [u8]) -> usize {
+    enc(&src(HEADER), tx)
+}
+
+/// `Header` through the generated fixed-layout fast path (SW-44)
+#[cfg(feature = "fixed_de")]
+pub fn run(rx: &[u8], _tx: &mut [u8]) -> usize {
+    sink(Header::from_fixed(rx));
+    0
+}
+
+/// `Header` written by the fast path
+#[cfg(feature = "fixed_ser")]
+pub fn run(_rx: &[u8], tx: &mut [u8]) -> usize {
+    match src(HEADER).to_fixed(tx) {
+        Ok(len) => len,
+        Err(e) => {
+            sink(e);
+            0
+        }
+    }
+}

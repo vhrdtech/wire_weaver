@@ -144,8 +144,8 @@ fn offsets() {
     assert_eq!(Op::COPY_LEN, 13);
     assert_eq!(Op::INNER_0_OFFSET, 1);
     assert_eq!(Op::ENCODED_LEN, 13);
-    assert!(!Op::SAME_LEN);
-    assert!(Wide::SAME_LEN);
+    const { assert!(!Op::SAME_LEN) };
+    const { assert!(Wide::SAME_LEN) };
     assert_eq!(Wide::ENCODED_LEN, 6);
     assert_eq!(<WithBool as NoFastPath>::ENCODED_LEN, 0);
 }
@@ -190,7 +190,7 @@ fn random_values() {
             // finite floats, so that PartialEq holds
             x: (r() as u16) as f32 / 7.0,
             y: (r() as u32) as f64 / 3.0,
-            bytes: (r() as u64).to_le_bytes()[..5].try_into().unwrap(),
+            bytes: r().to_le_bytes()[..5].try_into().unwrap(),
             words: [r() as u16, r() as u16, r() as u16],
         };
         same(&numbers);

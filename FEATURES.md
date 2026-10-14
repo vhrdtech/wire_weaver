@@ -94,6 +94,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   truncated and corrupted input (`shrink_wrap/c/tests`, part of `just test`; `just lint` builds the C with
   `-std=c99 -pedantic -Werror`). How to use it: `docs/c.md`. `TailSize`, the series types and the `_latch` /
   `finish_no_lens` code size tricks are not ported.
+- ✅ **SW-44 Fixed-layout fast path**: `#[derive_shrink_wrap]` sees when a type's encoding is a fixed little-endian
+  byte layout (a `sized` or `final_structure` struct, a `sized` or `self_describing` enum with a `u8` / `u16` / `u32`
+  `ww_repr`; fields only `u8`..`u64`, `i8`..`i64`, `f32`, `f64` and arrays of them) and generates an offset const
+  per field, `ENCODED_LEN`, and `from_fixed` / `to_fixed` that load and store at those offsets on the slice, no
+  `BufReader` / `BufWriter`, nothing generic. The `fixed_layout` directive makes it a requirement (and allows
+  nested fixed-layout types): a `bool`, `Option`, list, string, varint or bit-packed field is a compile error naming
+  the field. Same bytes as `ser_shrink_wrap` (`shrink_wrap/tests/fixed_layout.rs`, 2000 random values per type).
+  `FixedLayout::write_c` prints the matching C reader (offset defines and `static inline` loads) from the same
+  derive, `fixed_layout::write_c_header` a whole header: the first generated C of API-26. Code size on Cortex-M0
+  for a header of eight integers: decode 484 → 276 bytes, encode 888 → 462 (`docs/serdes/code_size.md`). First user:
+  chunky_mcu_updater's plan format (P2625 PROTO-3); it serves the busgen idea of P2401 #9oct-1433 for types
+  without dynamic fields. Open: arrays of nested types, a C writer, 16-bit `char` targets in the C reader.
 - ✅ **SW-39 Byte-wise `memcpy`, measured, advice for very small targets**: a firmware's own `memcpy` (and
   `__aeabi_memcpy` on Arm) of 22 bytes instead of the word-wise one of `compiler_builtins`: 324 bytes less on
   RV32IC, 304 on Cortex-M0, for every image that moves a value, at the price of speed and of replacing `memcpy` for

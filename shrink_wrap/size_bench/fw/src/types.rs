@@ -191,3 +191,18 @@ macro_rules! types {
 types!([], []);
 #[cfg(feature = "final")]
 types!([, sized], [, final_structure]);
+
+/// A plain header of eight integers and a byte array: a fixed layout (SW-44), read and written either through
+/// `BufReader` / `BufWriter` (`header_*`) or through the generated fast path (`fixed_*`).
+#[derive_shrink_wrap(borrowed, fixed_layout, derive(Clone, Copy))]
+pub struct Header {
+    pub magic: [u8; 4],
+    pub format: u8,
+    pub kind: u8,
+    pub flags: u16,
+    pub id: u32,
+    pub count: u32,
+    pub len: u32,
+    pub crc: u32,
+    pub stamp: u64,
+}

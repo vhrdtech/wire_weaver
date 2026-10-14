@@ -36,6 +36,9 @@ mod ww_repr;
 ///   own `#[derive(..)]`.
 /// * `final_structure` / `self_describing` / `sized` - lower the assumed element size of the type to
 ///   save space at the cost of restricting further changes (mutually exclusive with each other).
+/// * `fixed_layout` - require a fixed little-endian byte layout and its fast path (`ENCODED_LEN`, offset consts,
+///   `from_fixed` / `to_fixed`, `FixedLayout`); a field that breaks it is a compile error. Types that have such a
+///   layout get the fast path without it, see `shrink_wrap::fixed_layout`.
 /// * `ww_repr = <u1,u2.. | nib | unib32 | u8 | u16 ..>` - set the enum discriminant representation.
 /// * `discriminants` - additionally generate a `MyTypeDiscriminants` enum (enum items only).
 ///

@@ -15,4 +15,4 @@ defmt = ["dep:defmt", "wire_weaver/defmt", "ww_si/defmt"]
 [dependencies]
 defmt = { workspace = true, optional = true }
 wire_weaver = { workspace = true, default-features = false }
-ww_si = { workspace = true, default-features = false }
+ww_si = { workspace = true, default-features = false, features = ["time", "electrical"] }

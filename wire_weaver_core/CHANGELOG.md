@@ -108,6 +108,8 @@
   read from API crates; the variant stays out of the API model like a written `#[future_version]` one.
 - `NumericBaseType::UVlq32` / `UVlq64` map to `shrink_wrap::UVlq32` / `UVlq64` in generated type definitions
   (STD-23).
+- `UVlq32` / `UVlq64` fields are numbers in the API model (`NumericBaseType::UVlq32` / `UVlq64`), and map back to
+  `shrink_wrap::UVlq32` / `UVlq64` in generated type definitions (STD-23); they were unresolved user types.
 - A `#[future_version]` enum variant (SW-16) is left out of the API model (`ww_self`): it is no variant on the
   wire, adding it later changes neither introspection data nor snapshots.
 - Servers serve requests addressed by a global trait path (API-20, `PathKind::GlobalFull`): the trait is looked up

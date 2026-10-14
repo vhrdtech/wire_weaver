@@ -93,6 +93,12 @@
             (ident: Some("m"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
             (ident: Some("n"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
         ]), discriminant: 26, since: None),
+        (docs: [
+            "[UVlq32](shrink_wrap::UVlq32): variable length u32, 1 to 5 bytes, alignment of one-byte",
+        ], ident: "UVlq32", fields: Unit, discriminant: 27, since: None),
+        (docs: [
+            "[UVlq64](shrink_wrap::UVlq64): variable length u64, 1 to 10 bytes, alignment of one-byte",
+        ], ident: "UVlq64", fields: Unit, discriminant: 28, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
         "Any number value (u8-u128, i8-i128, f32, f64, etc.).",
@@ -119,7 +125,7 @@
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
         ]), discriminant: 3, since: None),
         (docs: [], ident: "UNib32", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UNib32)), docs: []),
         ]), discriminant: 4, since: None),
         (docs: [], ident: "U64", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
@@ -154,6 +160,17 @@
         (docs: [], ident: "F64", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(F64)), docs: []),
         ]), discriminant: 15, since: None),
+        (docs: [
+            "Variable length u32 ([UVlq32]): 1 byte up to 127, 2 up to 16383, 5 at most. For values that are usually small",
+            "but are not bounded.",
+        ], ident: "UVlq32", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: []),
+        ]), discriminant: 16, since: None),
+        (docs: [
+            "Variable length u64 ([UVlq64]): 1 to 10 bytes.",
+        ], ident: "UVlq64", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: []),
+        ]), discriminant: 17, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SubTypeKind", variants: [
         (docs: [], ident: "ValidRange", fields: Named([

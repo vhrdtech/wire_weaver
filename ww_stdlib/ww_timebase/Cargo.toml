@@ -16,4 +16,4 @@ defmt = ["dep:defmt", "wire_weaver/defmt", "ww_date_time/defmt", "ww_si/defmt"]
 defmt = { workspace = true, optional = true }
 wire_weaver = { workspace = true, default-features = false }
 ww_date_time = { workspace = true, default-features = false }
-ww_si = { workspace = true, default-features = false }
+ww_si = { workspace = true, default-features = false, features = ["time"] }

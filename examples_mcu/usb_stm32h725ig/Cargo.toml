@@ -36,7 +36,7 @@ wire_weaver = { path = "../../wire_weaver", default-features = false, features =
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
 ww_uart = { path = "../../ww_stdlib/ww_uart", default-features = false }
-ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["f32"] }
+ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "f32"] }
 
 [[bin]]
 name = "stm32h725ig-blinky"

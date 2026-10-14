@@ -95,6 +95,8 @@ pub(crate) fn convert_ty_path_segment(
         "i64" => Ok(numeric_base(NumericBaseType::I64)),
         "i128" => Ok(numeric_base(NumericBaseType::I128)),
         "UNib32" | "unib32" => Ok(numeric_base(NumericBaseType::UNib32)),
+        "UVlq32" | "uvlq32" => Ok(numeric_base(NumericBaseType::UVlq32)),
+        "UVlq64" | "uvlq64" => Ok(numeric_base(NumericBaseType::UVlq64)),
         "UN" | "un" => Ok(numeric_base(NumericBaseType::UN)),
         "IN" | "in" => Ok(numeric_base(NumericBaseType::IN)),
         "f16" => Ok(numeric_base(NumericBaseType::F16)),

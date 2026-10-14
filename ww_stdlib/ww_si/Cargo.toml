@@ -9,8 +9,41 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [features]
 default = ["std"]
-std = ["shrink_wrap/std", "ww_numeric/std", "all"]
+std = ["shrink_wrap/std", "ww_numeric/std", "all", "quantities", "host"]
 defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_numeric/defmt"]
+
+# quantity groups: a firmware enables the ones it uses, std enables all of them
+quantities = [
+    "time",
+    "electrical",
+    "mechanical",
+    "angle",
+    "thermal",
+    "chemical",
+    "photometric",
+    "radiation",
+    "logarithmic",
+]
+# Second, Hertz, HertzPerSecond
+time = []
+# Ampere, Volt, Ohm, Farad, Siemens, Henry, Coulomb, Watt, Weber, Tesla
+electrical = []
+# Meter, KiloGram, Newton, Pascal, Joule, Litre, VolumetricFlow, Speed, Acceleration, Jerk, Snap, Yank
+mechanical = []
+# Radian, Degree, Steradian, AngularVelocity, AngularAcceleration
+angle = []
+# Kelvin, DegreeCelsius
+thermal = []
+# Mole, Katal
+chemical = []
+# Candela, Lumen, Lux
+photometric = []
+# Becquerel, Gray, Sievert, ElectronVolt
+radiation = []
+# DeciBel, DeciBelmW
+logarithmic = []
+# host helpers: timestamp Unwrapper
+host = ["time", "u64"]
 
 # number types of ww_numeric::NumericValue, see ww_numeric; all of them come with std
 all = [
@@ -29,6 +62,8 @@ all = [
     "i64",
     "i128",
     "f64",
+    "uvlq32",
+    "uvlq64",
 ]
 nibble = ["ww_numeric/nibble"]
 u16 = ["ww_numeric/u16"]
@@ -45,6 +80,8 @@ i16 = ["ww_numeric/i16"]
 i64 = ["ww_numeric/i64"]
 i128 = ["ww_numeric/i128"]
 f64 = ["ww_numeric/f64"]
+uvlq32 = ["ww_numeric/uvlq32"]
+uvlq64 = ["ww_numeric/uvlq64"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }

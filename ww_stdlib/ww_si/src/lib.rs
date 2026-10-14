@@ -1,6 +1,30 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+//! SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks
+//! (`Volt { prefix: Milli, value: U16(3300) }`), so the API says what a value means and each device chooses its own
+//! resolution and range.
+//!
+//! Quantity groups are cargo features (`time`, `electrical`, `mechanical`, `angle`, `thermal`, `chemical`,
+//! `photometric`, `radiation`, `logarithmic`, `quantities` for all), as are the number types (`u16`, `f32`, ..,
+//! `all`, see `ww_numeric`) and the host helpers (`host`: [Unwrapper]). `std` enables everything.
 
+#[cfg(all(feature = "mechanical", feature = "time"))]
 mod convert;
+#[cfg(any(
+    feature = "time",
+    feature = "electrical",
+    feature = "mechanical",
+    feature = "angle",
+    feature = "thermal",
+    feature = "chemical",
+    feature = "photometric",
+    feature = "radiation",
+    feature = "logarithmic"
+))]
+mod ops;
+#[cfg(feature = "host")]
+mod timestamp;
+#[cfg(feature = "host")]
+pub use timestamp::{UnwrapError, Unwrapper};
 
 use shrink_wrap::prelude::*;
 pub use ww_numeric;
@@ -204,6 +228,18 @@ pub struct Quantity<'i> {
 
 /// Time quantity in seconds with prefix (s, ms, μs, ns, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+///
+/// # As a timestamp
+///
+/// A `Second` in a device API that marks when something happened (a sample, an I2C transaction's start and end) is
+/// the device's time since its clock started: one clock per device, so timestamps of all its traits line up. The
+/// device picks prefix and storage (`U32` of µs, `U64` of ns, ..), they stay the same for a given stream or method.
+///
+/// Fixed-width unsigned storage holds the time modulo `2^bits`, it wraps: a `U32` of µs every 71.6 minutes, a `U16`
+/// of ms every 65.5 s. `U64` and `UVlq64` don't wrap in practice (584 000 years of µs); `UVlq32` wraps like `U32`.
+/// Timestamps are never signed or floats. The host gets the full time back with [Unwrapper] (feature `host`),
+/// anchored on a full-width reading of the same clock (`ww_timebase::Clock::now()`).
+#[cfg(feature = "time")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -218,6 +254,7 @@ pub struct Second {
 
 /// Length quantity in meters with prefix (m, mm, μm, km, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -234,6 +271,7 @@ pub struct Meter {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// Note that gram is expressed with Prefix::Milli (milli-kilo-gram)
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -248,6 +286,7 @@ pub struct KiloGram {
 
 /// Electric current quantity in Amperes with prefix (A, mA, μA, kA, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+#[cfg(feature = "electrical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -262,6 +301,7 @@ pub struct Ampere {
 
 /// Thermodynamic temperature quantity in Kelvin with prefix (K, mK, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+#[cfg(feature = "thermal")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -276,6 +316,7 @@ pub struct Kelvin {
 
 /// Amount of substance quantity in mole with prefix (mol, mmol, μmol, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+#[cfg(feature = "chemical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -290,6 +331,7 @@ pub struct Mole {
 
 /// Luminous intensity quantity in candela with prefix (cd, mcd, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+#[cfg(feature = "photometric")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -308,6 +350,7 @@ pub struct Candela {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−1, 1/s
+#[cfg(feature = "time")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -324,6 +367,7 @@ pub struct Hertz {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: 1, m/m
+#[cfg(feature = "angle")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -340,6 +384,7 @@ pub struct Radian {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: (π / 180) rad (≈ 17.5 mrad)
+#[cfg(feature = "angle")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -356,6 +401,7 @@ pub struct Degree {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: 1, m2/m2
+#[cfg(feature = "angle")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -372,6 +418,7 @@ pub struct Steradian {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m⋅s−2, kg⋅m/s2
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -388,6 +435,7 @@ pub struct Newton {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m−1⋅s−2, N/m2
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -404,6 +452,7 @@ pub struct Pascal {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−2, m⋅N, C⋅V, W⋅s
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -420,6 +469,7 @@ pub struct Joule {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−3, J/s, V⋅A
+#[cfg(feature = "electrical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -436,6 +486,7 @@ pub struct Watt {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s⋅A, A⋅s, F⋅V
+#[cfg(feature = "electrical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -452,6 +503,7 @@ pub struct Coulomb {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−3⋅A−1, J/C, W/A
+#[cfg(feature = "electrical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -468,6 +520,7 @@ pub struct Volt {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg−1⋅m−2⋅s4⋅A2, C/V, s/Ω
+#[cfg(feature = "electrical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -484,6 +537,7 @@ pub struct Farad {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−3⋅A−2, V/A, 1/S
+#[cfg(feature = "electrical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -500,6 +554,7 @@ pub struct Ohm {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg−1⋅m−2⋅s3⋅A2, A/V, 1/Ω
+#[cfg(feature = "electrical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -516,6 +571,7 @@ pub struct Siemens {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−2⋅A−1, V⋅s, T⋅m2, J/A
+#[cfg(feature = "electrical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -532,6 +588,7 @@ pub struct Weber {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅s−2⋅A−1, N/(A⋅m), Wb/m2, V⋅s/m2
+#[cfg(feature = "electrical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -548,6 +605,7 @@ pub struct Tesla {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: kg⋅m2⋅s−2⋅A−2, V⋅s/A, Wb/A, Ω⋅s
+#[cfg(feature = "electrical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -564,6 +622,7 @@ pub struct Henry {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: K
+#[cfg(feature = "thermal")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -580,6 +639,7 @@ pub struct DegreeCelsius {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: cd, cd⋅sr
+#[cfg(feature = "photometric")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -596,6 +656,7 @@ pub struct Lumen {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: cd⋅m−2, lm/m2
+#[cfg(feature = "photometric")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -612,6 +673,7 @@ pub struct Lux {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−1, 1/s
+#[cfg(feature = "radiation")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -628,6 +690,7 @@ pub struct Becquerel {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m2⋅s−2, J/kg
+#[cfg(feature = "radiation")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -644,6 +707,7 @@ pub struct Gray {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m2⋅s−2, J/kg
+#[cfg(feature = "radiation")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -660,6 +724,7 @@ pub struct Sievert {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−1⋅mol, mol/s
+#[cfg(feature = "chemical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -675,6 +740,7 @@ pub struct Katal {
 // Related units
 /// Logarithmic ratio quantity
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+#[cfg(feature = "logarithmic")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -688,6 +754,7 @@ pub struct DeciBel {
 
 /// Logarithmic ratio quantity relative to mW
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+#[cfg(feature = "logarithmic")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -703,6 +770,7 @@ pub struct DeciBelmW {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: 0.001 m3
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -719,6 +787,7 @@ pub struct Litre {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: J, kg⋅m2⋅s−2
+#[cfg(feature = "radiation")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -736,6 +805,7 @@ pub struct ElectronVolt {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m⋅s−1
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -752,6 +822,7 @@ pub struct Speed {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m⋅s−2
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -768,6 +839,7 @@ pub struct Acceleration {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m⋅s−3
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -784,6 +856,7 @@ pub struct Jerk {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m⋅s−4
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -800,6 +873,7 @@ pub struct Snap {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m⋅kg⋅s−3
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -816,6 +890,7 @@ pub struct Yank {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−1
+#[cfg(feature = "angle")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -832,6 +907,7 @@ pub struct AngularVelocity {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−2
+#[cfg(feature = "angle")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -848,6 +924,7 @@ pub struct AngularAcceleration {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: s−2
+#[cfg(feature = "time")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -864,6 +941,7 @@ pub struct HertzPerSecond {
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
 /// SI: m3⋅s−1
+#[cfg(feature = "mechanical")]
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -957,8 +1035,29 @@ macro_rules! quantity {
     ($value:literal m $value_ty:ident) => {
         ww_si::Meter { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
+    ($value:literal ms $value_ty:ident) => {
+        ww_si::Second { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
+    ($value:literal us $value_ty:ident) => {
+        ww_si::Second { prefix: ww_si::Prefix::Micro, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
+    ($value:literal ns $value_ty:ident) => {
+        ww_si::Second { prefix: ww_si::Prefix::Nano, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
+    ($value:literal Hz $value_ty:ident) => {
+        ww_si::Hertz { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
+    ($value:literal kHz $value_ty:ident) => {
+        ww_si::Hertz { prefix: ww_si::Prefix::Kilo, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
+    ($value:literal MHz $value_ty:ident) => {
+        ww_si::Hertz { prefix: ww_si::Prefix::Mega, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
     ($value:literal g $value_ty:ident) => {
-        ww_si::Gram { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+        ww_si::KiloGram { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
+    ($value:literal uA $value_ty:ident) => {
+        ww_si::Ampere { prefix: ww_si::Prefix::Micro, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
     ($value:literal mA $value_ty:ident) => {
         ww_si::Ampere { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
@@ -977,7 +1076,7 @@ macro_rules! quantity {
     };
 }
 
-#[cfg(all(test, feature = "u32"))]
+#[cfg(all(test, feature = "u32", feature = "time"))]
 mod tests {
     use super::*;
     use ww_numeric::NumericBaseType;

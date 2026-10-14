@@ -97,14 +97,14 @@
         (docs: [], ident: "UnsupportedClockSource", fields: Unit, discriminant: 3, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "SubTypeKind", signature: [
-        58,
-        27,
-        19,
-        128,
-        201,
-        127,
-        78,
-        54,
+        11,
+        83,
+        74,
+        110,
+        136,
+        22,
+        4,
+        239,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "CANGroupPerformance", fields: Named([
         (ident: Some("min_group_fps"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [

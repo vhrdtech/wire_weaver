@@ -1,6 +1,14 @@
 // ww_si 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_si", items: []), types: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+    "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks",
+    "(`Volt { prefix: Milli, value: U16(3300) }`), so the API says what a value means and each device chooses its own",
+    "resolution and range.",
+    "",
+    "Quantity groups are cargo features (`time`, `electrical`, `mechanical`, `angle`, `thermal`, `chemical`,",
+    "`photometric`, `radiation`, `logarithmic`, `quantities` for all), as are the number types (`u16`, `f32`, ..,",
+    "`all`, see `ww_numeric`) and the host helpers (`host`: [Unwrapper]). `std` enables everything.",
+], crate_idx: 0, trait_name: "ww_si", items: []), types: [
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "Prefix", variants: [
         (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Milli", fields: Unit, discriminant: 1, since: None),
@@ -81,18 +89,29 @@
         ]), discriminant: 30, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "NumericValue", signature: [
-        167,
-        241,
-        183,
-        24,
-        62,
-        237,
-        8,
-        22,
+        42,
+        117,
+        20,
+        127,
+        166,
+        255,
+        111,
+        55,
     ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Time quantity in seconds with prefix (s, ms, μs, ns, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "# As a timestamp",
+        "",
+        "A `Second` in a device API that marks when something happened (a sample, an I2C transaction\'s start and end) is",
+        "the device\'s time since its clock started: one clock per device, so timestamps of all its traits line up. The",
+        "device picks prefix and storage (`U32` of µs, `U64` of ns, ..), they stay the same for a given stream or method.",
+        "",
+        "Fixed-width unsigned storage holds the time modulo `2^bits`, it wraps: a `U32` of µs every 71.6 minutes, a `U16`",
+        "of ms every 65.5 s. `U64` and `UVlq64` don\'t wrap in practice (584 000 years of µs); `UVlq32` wraps like `U32`.",
+        "Timestamps are never signed or floats. The host gets the full time back with [Unwrapper] (feature `host`),",
+        "anchored on a full-width reading of the same clock (`ww_timebase::Clock::now()`).",
     ], ident: "Second", fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),

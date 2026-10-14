@@ -11,14 +11,14 @@
     (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Clock", docs: []),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        120,
-        122,
-        229,
-        235,
-        98,
-        254,
-        103,
-        224,
+        37,
+        124,
+        121,
+        139,
+        82,
+        74,
+        68,
+        74,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "A format a sync line can carry, see `ClockInfo::sync_formats`.",

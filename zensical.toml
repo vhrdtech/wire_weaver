@@ -61,6 +61,7 @@ nav = [
             "transport/ww_framer.md",
             "transport/ww_link.md",
             "transport/usb.md",
+            "transport/follow_reboot.md",
             "transport/rtt.md",
             "transport/websocket.md",
             "transport/udp.md"

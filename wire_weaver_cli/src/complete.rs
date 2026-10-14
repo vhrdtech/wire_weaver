@@ -55,8 +55,24 @@ fn candidates(value: impl Fn(&DeviceInfo) -> Vec<String>) -> Vec<CompletionCandi
         .collect()
 }
 
+/// Serial numbers of WireWeaver devices and of RP2040 / RP2350 boot ROMs in BOOTSEL mode (`ww bootsel`).
 pub(crate) fn serials() -> Vec<CompletionCandidate> {
-    candidates(|d| d.serials.clone())
+    let mut all = candidates(|d| d.serials.clone());
+    if let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
+        let bootsel = rt
+            .block_on(wire_weaver_client::ww_picoboot::usb::list())
+            .unwrap_or_default();
+        for d in bootsel {
+            if let Some(serial) = d.serial_number() {
+                let help = format!("{} (BOOTSEL)", d.product_string().unwrap_or("boot ROM"));
+                all.push(CompletionCandidate::new(serial).help(Some(help.into())));
+            }
+        }
+    }
+    all
 }
 
 pub(crate) fn labels() -> Vec<CompletionCandidate> {

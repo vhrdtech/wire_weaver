@@ -3964,6 +3964,7 @@ dependencies = [
  "console",
  "human-repr",
  "indicatif",
+ "nusb",
  "proc-macro2",
  "ron",
  "semver",

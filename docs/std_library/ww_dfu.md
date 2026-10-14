@@ -103,7 +103,8 @@ The other combinations make no sense, which is why they have no code:
 - **Step order.** A step ahead of its turn is `Error::OutOfOrder(expected)`; a step the node already has is accepted
   again and skipped (its reply was lost), so resending is always harmless.
 - **Reboots.** `BootControl::reboot` answers before the reset; the host then reconnects to the same device (USB serial
-  number, IP address) and finds whatever firmware answers there.
+  number, IP address) and finds whatever firmware answers there. When the updater is a boot ROM that doesn't speak
+  WireWeaver (RP2350 BOOTSEL), see [Following a reboot](../transport/follow_reboot.md).
 
 ## 2C-APP-STEP: Swap Shuttle
 

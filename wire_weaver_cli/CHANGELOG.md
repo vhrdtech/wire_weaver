@@ -8,6 +8,11 @@
 
 ### 🚀 Features
 
+- `ww bootsel list | info | flash | reboot` (CLT-21): RP2040 / RP2350 boot ROMs in BOOTSEL mode over PICOBOOT
+  (`ww_picoboot`), selected with `--serial` as other commands; `flash` writes a UF2 file or a raw binary (`--addr`),
+  verifies it and reboots into it, with a progress bar; `--wait` waits for the boot ROM after the app rebooted into it
+  and `--follow` for the app to come back. Shell completion of `--serial` lists BOOTSEL devices too.
+- `ww --version` shows the git SHA and build time: `ww 0.5.0 (a1b2c3d-dirty, built 3 Oct 2026 18:20 UTC)`.
 - `ww api check` reports `MaxLen` bound changes: lowering or adding one is breaking, raising or removing one
   compatible (SW-19).
 - `ww api tree` shows `#[credit]` sinks; `ww api scaffold` generates their `credit_<name>` handler (API-28).

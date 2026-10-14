@@ -32,7 +32,7 @@ async fn run() -> Result<()> {
     };
     tracing_subscriber::fmt().with_max_level(max_level).init();
     let selection = match &cli.command {
-        Commands::List(_) | Commands::Config(_) => Some(Selection::resolve(
+        Commands::List(_) | Commands::Config(_) | Commands::Bootsel(_) => Some(Selection::resolve(
             &matches,
             matches!(cli.command, Commands::Config(ConfigCommand::Save)),
         )?),
@@ -68,6 +68,9 @@ async fn run() -> Result<()> {
         }
         Commands::Config(config_cmd) => {
             cmd::config::config(config_cmd, selection.as_ref().unwrap())?
+        }
+        Commands::Bootsel(bootsel_cmd) => {
+            cmd::bootsel::bootsel(bootsel_cmd, selection.as_ref().unwrap()).await?
         }
 
         #[cfg(target_os = "linux")]

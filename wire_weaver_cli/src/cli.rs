@@ -1,11 +1,22 @@
 use crate::cmd::api::ApiCommand;
+use crate::cmd::bootsel::BootselCommand;
 use crate::cmd::config::ConfigCommand;
 use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
 use crate::device::DeviceArgs;
 use clap::{Parser, Subcommand};
+/// `0.5.0 (a1b2c3d-dirty, built 3 Oct 2026 18:20 UTC)`
+const VERSION: &str = concat!(
+    env!("CARGO_PKG_VERSION"),
+    " (",
+    env!("GIT_SHA"),
+    ", built ",
+    env!("BUILD_TIME"),
+    ")"
+);
+
 #[derive(Parser)]
-#[command(name = "ww", version, about, long_about = None)]
+#[command(name = "ww", version = VERSION, about, long_about = None)]
 #[command(propagate_version = true)]
 #[command(color = clap::ColorChoice::Auto)]
 #[command(styles = clap::builder::styling::Styles::styled()
@@ -50,6 +61,12 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Config(ConfigCommand),
 
+    /// RP2040 / RP2350 boot ROM in BOOTSEL mode: list, flash over PICOBOOT, reboot
+    ///
+    /// --serial selects the device, as for other commands (the RP2350 boot ROM reports the chip id).
+    #[command(subcommand)]
+    Bootsel(BootselCommand),
+
     /// Print udev rule to the stdout, run 'ww udev --help' for more information
     ///
     /// Create udev rule:
@@ -71,6 +88,7 @@ impl Cli {
             Commands::Api(_) => false,
             Commands::Introspect(_) => true,
             Commands::Config(_) => false,
+            Commands::Bootsel(_) => false,
             #[cfg(target_os = "linux")]
             Commands::Udev => false,
         }

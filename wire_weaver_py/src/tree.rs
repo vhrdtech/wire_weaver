@@ -2,6 +2,7 @@
 //! properties are read and written with `read()` / `write()`, streams are iterated.
 
 use crate::convert::{prefix_err, to_py, to_value, type_name};
+use crate::positioned::PositionedStream;
 use crate::{Conn, RemoteError, WireWeaverError, client_err, err_msg, stream_err};
 use pyo3::exceptions::{PyAttributeError, PyIndexError, PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -9,7 +10,7 @@ use pyo3::types::{PyBytes, PyDict, PyString, PyTuple};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use wire_weaver_client::ww_self::{
-    ApiItemKindOwned, Delivery, PropertyAccess, TypeOwned, ValueOwned,
+    ApiItemKindOwned, ArgumentOwned, Delivery, PropertyAccess, TypeOwned, ValueOwned,
 };
 use wire_weaver_client::{DynResource, DynResourceKind, DynSink, DynStream};
 
@@ -24,6 +25,15 @@ pub(crate) fn wrap(
         DynResourceKind::Array(_) => Py::new(py, Array { res, conn })?.into_any(),
         DynResourceKind::Method { .. } => Py::new(py, Method { res, conn })?.into_any(),
         DynResourceKind::Property { .. } => Py::new(py, Property { res, conn })?.into_any(),
+        DynResourceKind::Stream { is_up: true, .. } if res.delivery().is_some() => Py::new(
+            py,
+            PositionedStream {
+                res,
+                conn,
+                stream: Mutex::new(None),
+            },
+        )?
+        .into_any(),
         DynResourceKind::Stream { is_up: true, .. } => Py::new(
             py,
             Stream {
@@ -46,7 +56,7 @@ pub(crate) fn wrap(
     Ok(obj)
 }
 
-fn conn<'a>(res: &DynResource, conn: &'a Option<Arc<Conn>>) -> PyResult<&'a Arc<Conn>> {
+pub(crate) fn conn<'a>(res: &DynResource, conn: &'a Option<Arc<Conn>>) -> PyResult<&'a Arc<Conn>> {
     conn.as_ref().ok_or_else(|| {
         WireWeaverError::new_err(format!(
             "'{}' belongs to an API loaded offline, connect to a device to use it",
@@ -55,11 +65,11 @@ fn conn<'a>(res: &DynResource, conn: &'a Option<Arc<Conn>>) -> PyResult<&'a Arc<
     })
 }
 
-fn timeout(t: Option<f64>) -> Option<Duration> {
+pub(crate) fn timeout(t: Option<f64>) -> Option<Duration> {
     t.map(Duration::from_secs_f64)
 }
 
-fn docs(res: &DynResource) -> String {
+pub(crate) fn docs(res: &DynResource) -> String {
     res.item()
         .map(|i| {
             i.docs
@@ -122,7 +132,7 @@ pub(crate) fn signature(res: &DynResource) -> String {
     }
 }
 
-fn repr_with_docs(kind: &str, res: &DynResource) -> String {
+pub(crate) fn repr_with_docs(kind: &str, res: &DynResource) -> String {
     let docs = docs(res);
     let docs = if docs.is_empty() {
         String::new()
@@ -281,48 +291,7 @@ impl Method {
         let Ok(DynResourceKind::Method { args: defs, .. }) = self.res.kind() else {
             unreachable!("Method wraps a method");
         };
-        let bundle = self.res.bundle();
-        let name = self.res.path();
-        if args.len() > defs.len() {
-            return Err(PyTypeError::new_err(format!(
-                "{name}() takes {} arguments, got {}",
-                defs.len(),
-                args.len()
-            )));
-        }
-        let mut slots: Vec<Option<Bound<'_, PyAny>>> = args.iter().map(Some).collect();
-        slots.resize(defs.len(), None);
-        if let Some(kwargs) = kwargs {
-            for (k, v) in kwargs.iter() {
-                let k = k.cast::<PyString>()?.to_str()?.to_string();
-                let Some(idx) = defs.iter().position(|d| d.ident == k) else {
-                    return Err(PyTypeError::new_err(format!(
-                        "{name}() got an unexpected keyword argument '{k}'"
-                    )));
-                };
-                if slots[idx].is_some() {
-                    return Err(PyTypeError::new_err(format!(
-                        "{name}() got multiple values for argument '{k}'"
-                    )));
-                }
-                slots[idx] = Some(v);
-            }
-        }
-        defs.iter()
-            .zip(slots)
-            .map(|(def, slot)| {
-                let obj = slot.ok_or_else(|| {
-                    PyTypeError::new_err(format!(
-                        "{name}() missing argument '{}: {}'",
-                        def.ident,
-                        type_name(&def.ty, bundle)
-                    ))
-                })?;
-                to_value(&obj, &def.ty, bundle).map_err(|e| {
-                    prefix_err(obj.py(), e, &format!("{name}() argument '{}'", def.ident))
-                })
-            })
-            .collect()
+        py_args(&self.res, defs, args, kwargs)
     }
 
     fn return_ty(&self) -> Option<TypeOwned> {
@@ -333,27 +302,87 @@ impl Method {
     }
 
     fn return_to_py(&self, py: Python<'_>, value: Option<ValueOwned>) -> PyResult<Py<PyAny>> {
-        let (Some(value), Some(ty)) = (value, self.return_ty()) else {
-            return Ok(py.None());
-        };
-        let bundle = self.res.bundle();
-        // Result<T, E> return: T or raise RemoteError(E)
-        if let (ValueOwned::Result(r), Ok(TypeOwned::Result { ok_ty, err_ty })) =
-            (&value, ty.get_in_line(bundle))
-        {
-            return match r {
-                Ok(v) => Ok(to_py(py, v, ok_ty, bundle)?.unbind()),
-                Err(e) => {
-                    let e = to_py(py, e, err_ty, bundle)?;
-                    let msg = format!("{}() returned an error: {}", self.res.path(), e.repr()?);
-                    let err = RemoteError::new_err(msg);
-                    err.value(py).setattr("value", e)?;
-                    Err(err)
-                }
-            };
-        }
-        Ok(to_py(py, &value, &ty, bundle)?.unbind())
+        return_to_py(py, &self.res, value, self.return_ty().as_ref())
     }
+}
+
+/// Python arguments (positional or by keyword) as values for `defs`.
+pub(crate) fn py_args(
+    res: &DynResource,
+    defs: &[ArgumentOwned],
+    args: &Bound<'_, PyTuple>,
+    kwargs: Option<&Bound<'_, PyDict>>,
+) -> PyResult<Vec<ValueOwned>> {
+    let bundle = res.bundle();
+    let name = res.path();
+    if args.len() > defs.len() {
+        return Err(PyTypeError::new_err(format!(
+            "{name}() takes {} arguments, got {}",
+            defs.len(),
+            args.len()
+        )));
+    }
+    let mut slots: Vec<Option<Bound<'_, PyAny>>> = args.iter().map(Some).collect();
+    slots.resize(defs.len(), None);
+    if let Some(kwargs) = kwargs {
+        for (k, v) in kwargs.iter() {
+            let k = k.cast::<PyString>()?.to_str()?.to_string();
+            let Some(idx) = defs.iter().position(|d| d.ident == k) else {
+                return Err(PyTypeError::new_err(format!(
+                    "{name}() got an unexpected keyword argument '{k}'"
+                )));
+            };
+            if slots[idx].is_some() {
+                return Err(PyTypeError::new_err(format!(
+                    "{name}() got multiple values for argument '{k}'"
+                )));
+            }
+            slots[idx] = Some(v);
+        }
+    }
+    defs.iter()
+        .zip(slots)
+        .map(|(def, slot)| {
+            let obj = slot.ok_or_else(|| {
+                PyTypeError::new_err(format!(
+                    "{name}() missing argument '{}: {}'",
+                    def.ident,
+                    type_name(&def.ty, bundle)
+                ))
+            })?;
+            to_value(&obj, &def.ty, bundle)
+                .map_err(|e| prefix_err(obj.py(), e, &format!("{name}() argument '{}'", def.ident)))
+        })
+        .collect()
+}
+
+/// A return value of type `ty` for Python: `Result<T, E>` gives `T` or raises `RemoteError` with `E` in `value`.
+pub(crate) fn return_to_py(
+    py: Python<'_>,
+    res: &DynResource,
+    value: Option<ValueOwned>,
+    ty: Option<&TypeOwned>,
+) -> PyResult<Py<PyAny>> {
+    let (Some(value), Some(ty)) = (value, ty) else {
+        return Ok(py.None());
+    };
+    let bundle = res.bundle();
+    // Result<T, E> return: T or raise RemoteError(E)
+    if let (ValueOwned::Result(r), Ok(TypeOwned::Result { ok_ty, err_ty })) =
+        (&value, ty.get_in_line(bundle))
+    {
+        return match r {
+            Ok(v) => Ok(to_py(py, v, ok_ty, bundle)?.unbind()),
+            Err(e) => {
+                let e = to_py(py, e, err_ty, bundle)?;
+                let msg = format!("{}() returned an error: {}", res.path(), e.repr()?);
+                let err = RemoteError::new_err(msg);
+                err.value(py).setattr("value", e)?;
+                Err(err)
+            }
+        };
+    }
+    Ok(to_py(py, &value, ty, bundle)?.unbind())
 }
 
 #[pymethods]

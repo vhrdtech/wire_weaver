@@ -213,6 +213,7 @@ impl Commander {
             window: crate::DEFAULT_WINDOW,
             queue_bytes: self.stream_queue_bytes,
             timeout_override: None,
+            raw_fallible: false,
             _phantom: PhantomData,
         }
     }

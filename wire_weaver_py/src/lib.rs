@@ -15,6 +15,7 @@
 //! See `convert` for how values map to Python objects.
 
 mod convert;
+mod positioned;
 mod tree;
 
 use pyo3::create_exception;
@@ -301,6 +302,7 @@ fn wire_weaver_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Method>()?;
     m.add_class::<Property>()?;
     m.add_class::<Stream>()?;
+    m.add_class::<positioned::PositionedStream>()?;
     m.add_class::<Sink>()?;
     m.add("WireWeaverError", m.py().get_type::<WireWeaverError>())?;
     m.add("RemoteError", m.py().get_type::<RemoteError>())?;

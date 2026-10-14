@@ -1,6 +1,7 @@
 pub mod attachment;
 pub mod credit;
 pub mod dyn_client;
+pub mod dyn_positioned;
 pub mod dynamic;
 pub mod introspect;
 pub mod multi_read;

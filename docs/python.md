@@ -114,6 +114,28 @@ with dev.commands as sink:             # stream to the device (sink): open(), se
     sink.send({"Move": {"x": 1, "y": 2}})
 ```
 
+### Counted and reliable streams
+
+A stream marked counted or reliable in the API (its signature says so) gives every item a position, reports what
+was lost and where, and can be resumed from a saved cursor ([Stream reliability](api/stream_reliability.md)):
+
+```python
+s = dev.samples
+s.open(ack="explicit")                 # or open(cursor=saved) after a restart; ack="receive" is the default
+while True:
+    ev = s.recv_event(timeout=1)       # dict: kind "item", "gap", "resumed", "backfill_done", "disconnected", "closed"
+    if ev["kind"] == "item":
+        write(ev["pos"], ev["t"], ev["value"])  # t: device time in seconds, or None
+        s.ack(ev["pos"] + ev["units"])          # explicit: the device may free it now
+        save_cursor(s.cursor)                   # (session, pos), with the data
+    elif ev["kind"] == "gap":
+        print(f'{ev["units"]} lost at {ev["at"]} ({ev["cause"]})')  # device, link, store or host
+s.stats                                # received, lost by cause, duplicates, queued ...
+```
+
+`recv()` and iterating return values only, gaps are counted in `stats`. A resumed reliable stream delivers the
+latest values at once (`run` `"live"`) and the backlog beside them (`run` `"backfill"`), each in order.
+
 Every resource also has `doc` (its doc comment), `path` (e.g. `channel[2].gain`) and, except traits, `signature`.
 Use `dev["name"]` for a resource named like one of the `Device` attributes (`api`, `info`, `disconnect`).
 

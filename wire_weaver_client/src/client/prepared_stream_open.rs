@@ -7,8 +7,10 @@ use std::time::Duration;
 
 use tokio::sync::oneshot;
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UVlq32Backfill};
-use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
+use wire_weaver::shrink_wrap::{
+    BufReader, ElementSize, Error as ShrinkWrapError, SerializeShrinkWrapOwned,
+};
 use ww_client_server::stream::StreamOpenedOwned;
 use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
 use ww_stream::{Opened, StreamCursor};
@@ -54,6 +56,32 @@ impl<A: DeserializeShrinkWrapOwned, E: DeserializeShrinkWrapOwned> StreamOpenRes
 
     fn with<S>(self, stream: S) -> Result<(A, S), E> {
         self.map(|a| (a, stream))
+    }
+}
+
+/// A stream function's result as sent, for the dynamic client, which decodes it from the introspected type; see
+/// `DynResource::positioned_stream`.
+#[doc(hidden)]
+pub struct RawOpenResult(pub Vec<u8>);
+
+impl DeserializeShrinkWrapOwned for RawOpenResult {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+    fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, ShrinkWrapError> {
+        Ok(RawOpenResult(TailBytesOwned::des_shrink_wrap_owned(rd)?.0))
+    }
+}
+
+impl StreamOpenResult for RawOpenResult {
+    type With<S> = (RawOpenResult, S);
+
+    /// Decided by [PreparedStreamOpen::raw_fallible] instead.
+    fn is_open(&self) -> bool {
+        true
+    }
+
+    fn with<S>(self, stream: S) -> (RawOpenResult, S) {
+        (self, stream)
     }
 }
 
@@ -150,6 +178,8 @@ pub struct PreparedStreamOpen<R, S> {
     pub(crate) window: u32,
     pub(crate) queue_bytes: usize,
     pub(crate) timeout_override: Option<Duration>,
+    /// The result is a `Result` the type doesn't know of ([RawOpenResult]): open only when it is `Ok`
+    pub(crate) raw_fallible: bool,
     pub(crate) _phantom: PhantomData<(R, S)>,
 }
 
@@ -193,10 +223,11 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
                     .await?,
             )
         };
+        let open_check = self.open_check();
         let (parts, (cmd, done_rx)) = self.start(plain_rx)?;
         self.transport_cmd_tx.send_command(cmd).await?;
         let response = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning);
-        finish::<R, S>(parts, response)
+        finish::<R, S>(parts, response, open_check)
     }
 
     /// Blocking variant of [Self::call].
@@ -210,12 +241,13 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
                     .register_stream_blocking(&self.path_kind, self.queue_bytes)?,
             )
         };
+        let open_check = self.open_check();
         let (parts, (cmd, done_rx)) = self.start(plain_rx)?;
         self.transport_cmd_tx.send_command_blocking(cmd)?;
         let response = done_rx
             .blocking_recv()
             .map_err(|_| Error::RxDispatcherNotRunning);
-        finish::<R, S>(parts, response)
+        finish::<R, S>(parts, response, open_check)
     }
 
     /// Checks, the open request and what it needs (a plain stream's receiver, registered before the request goes
@@ -283,7 +315,11 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
             bytes: request,
             done_tx,
             timeout,
-            hook: Box::new(StreamOpenHook::new::<R>(shared.clone(), self.resume)),
+            hook: Box::new(StreamOpenHook {
+                shared: shared.clone(),
+                resume: self.resume,
+                is_open: self.open_check(),
+            }),
         };
         let parts = Parts::Positioned {
             transport_cmd_tx: self.transport_cmd_tx.clone(),
@@ -291,6 +327,14 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
             shared,
         };
         Ok((parts, (cmd, done_rx)))
+    }
+
+    /// Whether an answer to the open says the stream is open.
+    fn open_check(&self) -> fn(&[u8]) -> bool {
+        match self.raw_fallible {
+            true => is_ok_result,
+            false => is_open::<R>,
+        }
     }
 }
 
@@ -316,16 +360,22 @@ pub(crate) fn is_open<R: StreamOpenResult>(bytes: &[u8]) -> bool {
         .is_ok_and(|r| r.is_open())
 }
 
+/// Whether the result in an answer to an open is an `Ok` (a `Result` starts with its is-ok flag).
+fn is_ok_result(bytes: &[u8]) -> bool {
+    decode_opened(bytes).is_ok_and(|(_, result)| BufReader::new(&result).read_bool() == Ok(true))
+}
+
 fn finish<R: StreamOpenResult, S: StreamHandle>(
     parts: Parts,
     response: Result<Result<Vec<u8>, Error>, Error>,
+    open_check: fn(&[u8]) -> bool,
 ) -> Result<R::With<S>, Error> {
     let decoded = response.and_then(|r| r).and_then(|bytes| {
         let (_, result) = decode_opened(&bytes)?;
-        Ok(R::from_ww_bytes_owned(&result)?)
+        Ok((R::from_ww_bytes_owned(&result)?, open_check(&bytes)))
     });
     let result = match decoded {
-        Ok(r) if r.is_open() => {
+        Ok((r, true)) => {
             if let Parts::Positioned {
                 transport_cmd_tx,
                 shared,
@@ -341,7 +391,7 @@ fn finish<R: StreamOpenResult, S: StreamHandle>(
             }
             r
         }
-        Ok(r) => {
+        Ok((r, false)) => {
             discard(&parts);
             return Ok(r.with(S::from_parts(HandleParts(parts))));
         }

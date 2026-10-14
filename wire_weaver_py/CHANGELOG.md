@@ -2,6 +2,11 @@
 
 ### 🚀 Features
 
+- Counted and reliable streams (CLT-23): a `PositionedStream` object with `open(*args, cursor=None, ack="receive")`
+  (the stream function's arguments, its result returned and an `Err` raised as `ww.RemoteError`; resume from a saved `(session, pos)` cursor, `ack="explicit"` for `ack(pos)` after saving), `recv_event()`
+  (dicts: items with `pos`, `units`, `t` in seconds, `run`; gaps with `at`, `units`, `cause`; `resumed`,
+  `backfill_done`, `disconnected`, `closed`), `recv()` / iteration for values, `cursor`, `stats`, `delivery`,
+  `close()`, a context manager. See `docs/python.md`.
 - `Stream.open()` opens with `StreamOpen` (API-31); stream functions are named `plain` / `counted` / `reliable
   stream` in signatures.
 - `Delta`, `DeltaOfDelta` and `XorFloat` (SW-50) are lists of `int` / `float` (any iterable accepted), a value out

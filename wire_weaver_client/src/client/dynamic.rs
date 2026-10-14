@@ -17,7 +17,12 @@
 //! # }
 //! ```
 
-use crate::{Commander, CreditConfig, Error, Sink, Stream, StreamError};
+use crate::client::dyn_positioned::{DynPositionedStream, DynStreamOpen};
+use crate::client::prepared_stream_open::RawOpenResult;
+use crate::{
+    AckMode, Commander, CreditConfig, Error, PositionedStream, PreparedStreamOpen, Sink, Stream,
+    StreamCursor, StreamError,
+};
 use std::sync::Arc;
 use std::time::Duration;
 use wire_weaver::ValidIndicesOwned;
@@ -26,8 +31,8 @@ use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::PathKind;
 use ww_numeric::NumericValue;
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, FlowControl,
-    Multiplicity, PropertyAccess, TypeOwned, ValueOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Delivery,
+    FlowControl, Multiplicity, PropertyAccess, TypeOwned, ValueOwned,
 };
 
 /// API root, trait, method, property, stream or an array of them, found by walking an [ApiBundleOwned].
@@ -437,6 +442,139 @@ impl DynResource {
         }
     }
 
+    /// Delivery kind of a counted or reliable stream, None for anything else.
+    pub fn delivery(&self) -> Option<Delivery> {
+        match self.item.as_ref().map(|i| &i.kind) {
+            Some(ApiItemKindOwned::StreamFn { delivery, .. }) if *delivery != Delivery::Plain => {
+                Some(*delivery)
+            }
+            _ => None,
+        }
+    }
+
+    /// Arguments and result type of a stream function.
+    pub fn stream_fn(&self) -> Option<(&[ArgumentOwned], Option<&TypeOwned>)> {
+        match self.item.as_ref().map(|i| &i.kind) {
+            Some(ApiItemKindOwned::StreamFn {
+                args, return_ty, ..
+            }) => Some((args, return_ty.as_ref())),
+            _ => None,
+        }
+    }
+
+    fn stream_fn_args(&self, args: &[ValueOwned]) -> Result<Vec<u8>, Error> {
+        let defs = self.stream_fn().map(|(a, _)| a).unwrap_or_default();
+        if args.len() != defs.len() {
+            return Err(Error::Other(format!(
+                "'{}' takes {} arguments, got {}",
+                self.path,
+                defs.len(),
+                args.len()
+            )));
+        }
+        ValueOwned::ser_shrink_wrap_vec_dyn(args, defs.iter().map(|a| &a.ty), &self.bundle)
+            .map_err(|e| Error::Other(format!("'{}' arguments: {e:#}", self.path)))
+    }
+
+    fn dyn_positioned(&self, stream: PositionedStream<TailBytesOwned>) -> DynPositionedStream {
+        let ty = self
+            .stream_ty(true)
+            .map(|(ty, _)| ty.clone())
+            .expect("checked when opening");
+        DynPositionedStream {
+            stream,
+            is_bytes: ty.is_byte_slice(&self.bundle).unwrap_or(false),
+            ty,
+            bundle: self.bundle.clone(),
+        }
+    }
+
+    /// The stream function's result as sent with the open answer: the stream is open unless it is an `Err`.
+    fn stream_opened(
+        &self,
+        result: Vec<u8>,
+        stream: PositionedStream<TailBytesOwned>,
+    ) -> Result<DynStreamOpen, Error> {
+        let result = match self.stream_fn().and_then(|(_, ty)| ty) {
+            Some(ty) if !result.is_empty() => Some(
+                ValueOwned::des_shrink_wrap_dyn(&result, ty, &self.bundle)
+                    .map_err(|e| Error::Other(format!("'{}' result: {e:#}", self.path)))?,
+            ),
+            _ => None,
+        };
+        Ok(match result {
+            Some(ValueOwned::Result(Err(e))) => DynStreamOpen::Rejected(*e),
+            Some(ValueOwned::Result(Ok(v))) => DynStreamOpen::Open {
+                result: Some(*v),
+                stream: self.dyn_positioned(stream),
+            },
+            result => DynStreamOpen::Open {
+                result,
+                stream: self.dyn_positioned(stream),
+            },
+        })
+    }
+
+    fn prepare_positioned(
+        &self,
+        cmd: &Commander,
+        args: &[ValueOwned],
+        ack_mode: AckMode,
+        resume: Option<StreamCursor>,
+    ) -> Result<PreparedStreamOpen<RawOpenResult, PositionedStream<TailBytesOwned>>, Error> {
+        let delivery = self
+            .delivery()
+            .ok_or_else(|| self.not_a("counted or reliable stream"))?;
+        self.stream_ty(true)?;
+        let fallible = matches!(
+            self.stream_fn()
+                .and_then(|(_, ty)| ty)
+                .map(|ty| ty.get_in_line(&self.bundle)),
+            Some(Ok(TypeOwned::Result { .. }))
+        );
+        let mut open = match resume {
+            // the device keeps the session's arguments
+            Some(cursor) => {
+                let mut open =
+                    cmd.prepare_stream_open(self.path_kind(), Some(delivery), Ok(vec![]));
+                open.resume = Some(cursor);
+                open
+            }
+            None => {
+                cmd.prepare_stream_open(self.path_kind(), Some(delivery), self.stream_fn_args(args))
+            }
+        };
+        open.raw_fallible = fallible;
+        Ok(open.ack_mode(ack_mode))
+    }
+
+    /// Open a counted or reliable stream by calling its stream function with `args` (in the order they are defined
+    /// in), or resume it from `resume` (`args` empty then), see [PositionedStream].
+    pub async fn positioned_stream(
+        &self,
+        cmd: &Commander,
+        args: &[ValueOwned],
+        ack_mode: AckMode,
+        resume: Option<StreamCursor>,
+    ) -> Result<DynStreamOpen, Error> {
+        let open = self.prepare_positioned(cmd, args, ack_mode, resume)?;
+        let (result, stream) = open.call().await?;
+        self.stream_opened(result.0, stream)
+    }
+
+    /// Blocking variant of [Self::positioned_stream].
+    pub fn positioned_stream_blocking(
+        &self,
+        cmd: &Commander,
+        args: &[ValueOwned],
+        ack_mode: AckMode,
+        resume: Option<StreamCursor>,
+    ) -> Result<DynStreamOpen, Error> {
+        let open = self.prepare_positioned(cmd, args, ack_mode, resume)?;
+        let (result, stream) = open.blocking_call()?;
+        self.stream_opened(result.0, stream)
+    }
+
     /// Sink on a device.
     pub async fn sink(&self, cmd: &Commander) -> Result<DynSink, Error> {
         let (ty, flow) = self.stream_ty(false)?;
@@ -513,19 +651,28 @@ impl DynStream {
     }
 
     fn decode(&self, bytes: TailBytesOwned) -> Result<ValueOwned, StreamError> {
-        if self.is_bytes {
-            // sent as is, see TailBytes
-            return Ok(ValueOwned::Vec(
-                bytes
-                    .0
-                    .into_iter()
-                    .map(|b| ValueOwned::Numeric(NumericValue::U8(b)))
-                    .collect(),
-            ));
-        }
-        ValueOwned::des_shrink_wrap_dyn(&bytes, &self.ty, &self.bundle)
-            .map_err(|e| StreamError::Other(Error::Other(format!("{e:#}"))))
+        decode_item(self.is_bytes, &self.ty, &self.bundle, bytes)
     }
+}
+
+/// A stream item as [ValueOwned]: byte streams are sent as is, see TailBytes.
+pub(crate) fn decode_item(
+    is_bytes: bool,
+    ty: &TypeOwned,
+    bundle: &ApiBundleOwned,
+    bytes: TailBytesOwned,
+) -> Result<ValueOwned, StreamError> {
+    if is_bytes {
+        return Ok(ValueOwned::Vec(
+            bytes
+                .0
+                .into_iter()
+                .map(|b| ValueOwned::Numeric(NumericValue::U8(b)))
+                .collect(),
+        ));
+    }
+    ValueOwned::des_shrink_wrap_dyn(&bytes, ty, bundle)
+        .map_err(|e| StreamError::Other(Error::Other(format!("{e:#}"))))
 }
 
 /// Sink on a device taking items as [ValueOwned].

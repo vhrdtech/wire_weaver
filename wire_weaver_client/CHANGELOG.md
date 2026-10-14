@@ -31,6 +31,9 @@
   queues (`DEFAULT_STREAM_QUEUE_BYTES`, 4 MiB). After `disconnect().keep_streams()` the handles of counted and
   reliable streams wait instead of ending; `Commander::resume_streams()` (and `_blocking`) resumes every one of them
   from its cursor on the next connection (the reconnect itself is EX-10), the handle sees `Resumed` and goes on.
+- Dynamic client: `DynResource::positioned_stream(cmd, ack_mode, resume)` (and `_blocking`) opens or resumes a
+  counted or reliable stream as a `DynPositionedStream` (`StreamEvent<ValueOwned>`), `DynResource::delivery()`;
+  `seconds(&Second)` turns a device time into seconds.
 
 - `Delta`, `DeltaOfDelta` and `XorFloat` in APIs (SW-50): the dynamic client reads and writes them as lists of
   numbers; the evolution checker (`ww api check`) and the connect-time check report another codec or element type,

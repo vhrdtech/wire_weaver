@@ -180,6 +180,67 @@ pub trait FixedLayout: Sized {
     fn write_c(prefix: &str, out: &mut dyn Write) -> core::fmt::Result;
 }
 
+/// A number at a byte offset, little endian: how the generated code of the fixed layout and of `head_tail`
+/// (and its views) reads and writes every multi-byte number (SW-53).
+///
+/// On CPUs without unaligned loads (RISC-V, Cortex-M0 / ARMv6-M) a `u32` at an odd offset is four byte loads and
+/// three shifts and ors, some 28 bytes of code, at every field. There `ld` and `st` are functions of their own,
+/// one per type, and a field costs a call; elsewhere they are inlined into the one load or store the CPU has.
+/// `u8` and `i8` are always inlined.
+pub trait Le: Sized {
+    /// The value at `b[off..]`; panics when `b` is too short (generated code passes arrays it checked).
+    fn ld(b: &[u8], off: usize) -> Self;
+    /// Stores the value at `b[off..]`; panics when `b` is too short.
+    fn st(self, b: &mut [u8], off: usize);
+}
+
+macro_rules! le {
+    ($($ty:ty),*) => {$(
+        impl Le for $ty {
+            #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64",
+                all(target_arch = "arm", not(target_feature = "v7"))), inline(never))]
+            #[cfg_attr(not(any(target_arch = "riscv32", target_arch = "riscv64",
+                all(target_arch = "arm", not(target_feature = "v7")))), inline)]
+            fn ld(b: &[u8], off: usize) -> Self {
+                <$ty>::from_le_bytes(take::<{ size_of::<$ty>() }>(b, off))
+            }
+
+            #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64",
+                all(target_arch = "arm", not(target_feature = "v7"))), inline(never))]
+            #[cfg_attr(not(any(target_arch = "riscv32", target_arch = "riscv64",
+                all(target_arch = "arm", not(target_feature = "v7")))), inline)]
+            fn st(self, b: &mut [u8], off: usize) {
+                b[off..off + size_of::<$ty>()].copy_from_slice(&self.to_le_bytes());
+            }
+        }
+    )*};
+}
+le!(u16, u32, u64, i16, i32, i64, f32, f64);
+
+impl Le for u8 {
+    #[inline(always)]
+    fn ld(b: &[u8], off: usize) -> Self {
+        b[off]
+    }
+
+    #[inline(always)]
+    fn st(self, b: &mut [u8], off: usize) {
+        b[off] = self
+    }
+}
+
+impl Le for i8 {
+    #[inline(always)]
+    fn ld(b: &[u8], off: usize) -> Self {
+        b[off] as i8
+    }
+
+    #[inline(always)]
+    fn st(self, b: &mut [u8], off: usize) {
+        b[off] = self as u8
+    }
+}
+
 /// `N` bytes of `b` from `off`. Generated readers call it with const offsets on an array of known length, so the
 /// bounds checks fold away.
 #[inline(always)]

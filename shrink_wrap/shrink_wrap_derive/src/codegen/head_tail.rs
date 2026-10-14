@@ -346,7 +346,7 @@ fn payload_len(p: &Payload, v: &TokenStream, cp: &CratePath) -> TokenStream {
 /// Reads of a head and its tail: `let` statements, one local per field, from `b` (the head, an array) and `tail`.
 fn reads(head: &Head, cp: &CratePath) -> Vec<TokenStream> {
     let ht = cp.item(quote! { head_tail::HeadTail });
-    let take = cp.item(quote! { fixed_layout::take });
+    let le = cp.item(quote! { fixed_layout::Le });
     let list = cp.item(quote! { head_tail::List });
     let fixed = cp.item(quote! { fixed_layout::FixedLayout });
     let error = cp.error();
@@ -361,7 +361,7 @@ fn reads(head: &Head, cp: &CratePath) -> Vec<TokenStream> {
             (HKind::List(_) | HKind::Str, _) => {
                 let off = byte_at(p);
                 let n = count_local(&p.item.name);
-                out.push(quote! { let #n = u16::from_le_bytes(#take::<2>(b, #off)) as usize; });
+                out.push(quote! { let #n = <u16 as #le>::ld(b, #off) as usize; });
             }
             _ => {}
         }

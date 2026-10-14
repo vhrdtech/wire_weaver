@@ -709,7 +709,9 @@ pub(crate) fn read_simple(
         (Kind::Prim(prim), At::Byte(off)) => {
             let n = prim.bytes();
             let ty = prim.rust();
-            quote! { let #local = <#ty>::from_le_bytes(#take::<#n>(b, #off)); }
+            let _ = n;
+            let le = cp.item(quote! { fixed_layout::Le });
+            quote! { let #local = <#ty as #le>::ld(b, #off); }
         }
         (Kind::Array(len, Prim::U8), At::Byte(off)) => {
             quote! { let #local = #take::<{ #len }>(b, #off); }
@@ -717,8 +719,9 @@ pub(crate) fn read_simple(
         (Kind::Array(_, prim), At::Byte(off)) => {
             let n = prim.bytes();
             let ty = prim.rust();
+            let le = cp.item(quote! { fixed_layout::Le });
             quote! {
-                let #local = ::core::array::from_fn(|i| <#ty>::from_le_bytes(#take::<#n>(b, #off + i * #n)));
+                let #local = ::core::array::from_fn(|i| <#ty as #le>::ld(b, #off + i * #n));
             }
         }
         (Kind::Bits(n, bits), At::Bit(off)) => {
@@ -810,18 +813,19 @@ pub(crate) fn write_simple(
 ) -> Option<TokenStream> {
     let put_bits = cp.item(quote! { fixed_layout::put_bits });
     Some(match (kind, at) {
-        (Kind::Prim(prim), At::Byte(off)) => {
-            let n = prim.bytes();
-            quote! { b[#off..#off + #n].copy_from_slice(&(*#acc).to_le_bytes()); }
+        (Kind::Prim(_), At::Byte(off)) => {
+            let le = cp.item(quote! { fixed_layout::Le });
+            quote! { #le::st(*#acc, b, #off); }
         }
         (Kind::Array(len, Prim::U8), At::Byte(off)) => {
             quote! { b[#off..#off + (#len)].copy_from_slice(&(*#acc)[..]); }
         }
         (Kind::Array(_, prim), At::Byte(off)) => {
             let n = prim.bytes();
+            let le = cp.item(quote! { fixed_layout::Le });
             quote! {
                 for (i, v) in (*#acc).iter().enumerate() {
-                    b[#off + i * #n..#off + (i + 1) * #n].copy_from_slice(&v.to_le_bytes());
+                    #le::st(*v, b, #off + i * #n);
                 }
             }
         }

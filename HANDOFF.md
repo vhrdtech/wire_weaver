@@ -21,6 +21,9 @@ children build pieces on branches from here, this branch collects them as plain 
 - Roman's rule (14 Oct): no design/review notes in wire_weaver (public). docs/api/errors.md removed from the branch;
   docs/api/optional_items.md is the article for API-16 (in zensical nav). The main chat writes the errors article.
 - ww_self::Delivery (API-30, from master) got no_future_version.
+- docs/api/errors.md is now the article from the main chat (tpm design/errors_article.md), checked against the code
+  and fixed (636401c); its #[errors] section describes API-32 as planned: check it against the child's work after
+  the cherry-pick. docs/api/optional_items.md has the details of API-16.
 - Last full run (after the 0ac511b rebase): just check, just test (788/788), just lint pass (lint warns about
   ww_firmware_info's Cargo.toml formatting: master's crate, not ours).
 

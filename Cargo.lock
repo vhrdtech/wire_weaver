@@ -4699,16 +4699,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_timebase"
-version = "0.1.0"
-dependencies = [
- "defmt 1.1.1",
- "wire_weaver",
- "ww_date_time",
- "ww_si",
-]
-
-[[package]]
 name = "ww_stream"
 version = "0.5.0"
 dependencies = [
@@ -4718,6 +4708,16 @@ dependencies = [
  "embedded-storage-async",
  "wire_weaver",
  "ww_client_server",
+ "ww_si",
+]
+
+[[package]]
+name = "ww_timebase"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_date_time",
  "ww_si",
 ]
 

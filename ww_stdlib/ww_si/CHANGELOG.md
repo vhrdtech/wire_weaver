@@ -15,7 +15,6 @@
 
 ### 🚀 Features
 
-* `Second` derives `PartialEq` (for `ww_client_server::stream::StreamHead`).
 * Constructors and conversions on every quantity (STD-23): `Volt::new(Prefix::Milli, 3300u16)` (any number type
   through `From<..> for NumericValue`), `to_f64()` / `to_f32()` in the base unit, `to_f64_in(prefix)`,
   `to_i128_in(prefix)` (exact for integers). Named constructors for `Volt` (`volts`, `millivolts`, `microvolts`,

@@ -244,7 +244,7 @@ pub struct Quantity<'i> {
     borrowed,
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug, PartialEq),
+    derive(Copy, Clone, Debug),
     final_structure
 )]
 pub struct Second {

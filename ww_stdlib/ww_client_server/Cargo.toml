@@ -15,4 +15,4 @@ std = ["wire_weaver/std", "ww_si/std"]
 wire_weaver.workspace = true
 ww_global.workspace = true
 # timestamps in stream heads: Second { Micro, U32 } (or U64)
-ww_si = { workspace = true, features = ["u32", "u64"] }
+ww_si = { workspace = true, features = ["time", "u32", "u64"] }

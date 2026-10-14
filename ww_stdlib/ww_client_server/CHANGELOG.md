@@ -53,6 +53,10 @@ Wire-incompatible with 0.1.0.
 * `PathKind::global()`.
 * `COMPACT_VERSION`, using global id `ww_global::WW_CLIENT_SERVER`.
 
+### 🐛 Fixes
+
+* Depend on `ww_si`'s `time` feature (STD-23 gated `Second` behind it), needed for `stream::StreamHead`'s timestamp.
+
 ## [0.1.0] - 2026-01-07
 
 ### 🚀 Features

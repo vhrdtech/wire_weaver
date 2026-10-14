@@ -119,6 +119,7 @@ name = "cannify_micro_g0b1cetxn"
 version = "0.1.0"
 dependencies = [
  "blinky_api",
+ "cnt",
  "cortex-m",
  "cortex-m-rt",
  "defmt 1.1.1",
@@ -165,6 +166,26 @@ name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
+
+[[package]]
+name = "cnt"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c57ebe0c01fec909b51cd496275ad386024228efbd5c25f2d0c0a7ae40863ab0"
+dependencies = [
+ "cnt_macro",
+]
+
+[[package]]
+name = "cnt_macro"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eea5da6a5ce73a385e09f92bc63fd4aeb716f8bcda0ad2883479de4f00499293"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
+]
 
 [[package]]
 name = "console"

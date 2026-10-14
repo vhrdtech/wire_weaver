@@ -1,5 +1,5 @@
 [target.thumbv7em-none-eabihf]
-runner = "probe-rs run --chip STM32H743ZI"
+runner = "cnt run --chip STM32H743ZI"
 
 [build]
 target = "thumbv7em-none-eabihf"

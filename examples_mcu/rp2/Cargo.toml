@@ -33,6 +33,7 @@ embedded-io-async = { version = "0.7", optional = true }
 #embassy-usb = { path = "../../embassy/embassy-usb", features = ["defmt"] }
 #embassy-futures = { path = "../../embassy/embassy-futures" }
 
+cnt = "0.4"
 defmt = "1.1"
 defmt-rtt = { version = "1.3", features = ["disable-blocking-mode"], optional = true }
 rtt-target = { version = "0.6", features = ["defmt"], optional = true }

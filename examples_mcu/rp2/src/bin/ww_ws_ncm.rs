@@ -301,6 +301,7 @@ async fn main(spawner: Spawner) {
 
 #[exception]
 unsafe fn DefaultHandler(irqn: i16) {
+    cnt::cnt!(unhandled_exceptions: u32, warn);
     error!("Unhandled exception (IRQn = {})", irqn);
 }
 

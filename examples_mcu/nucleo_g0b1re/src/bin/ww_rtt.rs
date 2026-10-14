@@ -126,6 +126,7 @@ async fn main(_spawner: embassy_executor::Spawner) {
 
 #[exception]
 unsafe fn DefaultHandler(irqn: i16) {
+    cnt::cnt!(unhandled_exceptions: u32, warn);
     error!("Unhandled exception (IRQn = {})", irqn);
 }
 

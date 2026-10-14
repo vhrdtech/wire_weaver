@@ -27,6 +27,7 @@ async fn main(_spawner: Spawner) {
     let mut led = Output::new(p.PIN_25, Level::Low);
 
     loop {
+        cnt::cnt!(blinks: u32);
         info!("led on!");
         led.set_high();
         Timer::after_millis(500).await;

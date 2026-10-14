@@ -11,5 +11,6 @@ fn main() {
     println!("cargo:rustc-link-arg=-Tlink.x"); // provided by cortex-m-rt
 
     println!("cargo:rustc-link-arg=-Tdefmt.x");
+    println!("cargo:rustc-link-arg=-Tcnt.x"); // counters index allocation (cnt crate)
     println!("cargo:rustc-linker=flip-link");
 }

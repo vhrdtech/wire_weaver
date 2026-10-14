@@ -291,7 +291,7 @@ impl FlexBlocking {
             _ => {}
         }
         if self.event_rx.is_none() {
-            self.event_rx = Some(self.io.event_blocking()?);
+            self.event_rx = Some(self.io.event().blocking_call()?);
         }
         let Some(event_rx) = self.event_rx.as_mut() else {
             return Err(Error::Internal("event_rx is None".into()));

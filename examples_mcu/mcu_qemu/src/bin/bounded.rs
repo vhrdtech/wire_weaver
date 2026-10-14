@@ -119,6 +119,12 @@ impl ServerState {
         Unimplemented.into()
     }
 
+    fn chunks(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+        RpcResult::Ready(())
+    }
+
+    fn close_chunks(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
+
     fn sideband_chunks(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,

@@ -40,12 +40,16 @@
         49 B  01 04 00 00 57 57 44 50 01 92 …
 ← Ok({ steps: 11, resumed: true, resume_from: 192 })
         13 B  01 80 80 0b 00 00 00 80 c0 00 …
+→ bulk.plan_ack: StreamOpen { resume: None, args: tail(0:[]) }
+         5 B  02 04 28 00 02
+← ()
+         6 B  02 80 00 00 00 00
 → bulk.plan: open
-         4 B  02 04 16 02
+         4 B  03 04 16 02
 ← bulk.plan: credit: have 0 bytes, may send 2062 more
          7 B  00 83 41 50 e9 84 02
 ← written
-         2 B  02 81
+         2 B  03 81
 → bulk.plan ⇐ { offset: 192, data: [64 B: 02 04 00 04 00 a8 …] } (sink position 0)
         75 B  00 04 14 00 c0 00 00 00 02 04 …
 → bulk.plan ⇐ { offset: 256, data: [64 B: e7 cd dc bd 9c c5 …] } (sink position 70)
@@ -55,17 +59,17 @@
 ← bulk.plan_ack ⇒ { have: 359, status: Complete }
          9 B  00 82 42 67 01 00 00 20 02
 → bulk.plan: credit query: sent 184 bytes
-         6 B  03 04 16 68 f2 02
+         6 B  04 04 16 68 f2 02
 ← bulk.plan: credit: have 184 bytes, may send 2062 more
-         8 B  03 83 41 58 f2 e9 84 02
+         8 B  04 83 41 58 f2 e9 84 02
 → stage.finish()
-         4 B  04 03 60 02
+         4 B  05 03 60 02
 ← Ok(Staged)
-         3 B  04 80 82
+         3 B  05 80 82
 → boot.reboot(into: App)
-         5 B  05 01 30 00 02
+         5 B  06 01 30 00 02
 ← Ok(())
-         3 B  05 80 80
+         3 B  06 80 80
 ← Disconnect(RequestByUser)
          1 B  02
    ── device resets (into the app)
@@ -86,7 +90,7 @@
 ```
 
 <details markdown="1">
-<summary>Wire bytes: 25 UDP datagrams (link setup and pings left out)</summary>
+<summary>Wire bytes: 27 UDP datagrams (link setup and pings left out)</summary>
 
 ```text
    ── device runs the app
@@ -126,8 +130,10 @@
           5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00 00 00
           00 3c 02
 ←   15 B  08 0d 01 80 80 0b 00 00 00 80 c0 00 00 00 19
-→    5 B  04 02 04 16 02
-←   11 B  07 00 83 41 50 e9 84 02 02 02 81
+→    6 B  05 02 04 28 00 02
+←    7 B  06 02 80 00 00 00 00
+→    5 B  04 03 04 16 02
+←   11 B  07 00 83 41 50 e9 84 02 02 03 81
 →  213 B  08 4b 00 04 14 00 c0 00 00 00 02 04 00 04 00 a8
           09 c6 1b 42 94 29 60 03 05 00 3b f9 a7 bd 49 c0
           f8 87 40 00 6e 65 74 20 76 32 87 6d 7c 5d 3c 65
@@ -140,14 +146,14 @@
           02 c4 ca b6 df 63 f8 00 89 02 08 32 00 04 14 81
           0c 40 01 00 00 d6 1a dc e2 ce f7 7b 10 ee 32 f4
           fa e6 0f 93 28 06 4a 0c 12 fe 27 ab 40 1e 62 24
-          2a 16 3f c3 58 36 7a 3c 42 2e 57 db 7c 02 06 03
+          2a 16 3f c3 58 36 7a 3c 42 2e 57 db 7c 02 06 04
           04 16 68 f2 02
-←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 03 83 41
+←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 04 83 41
           58 f2 e9 84 02
-→    5 B  04 04 03 60 02
-←    4 B  03 04 80 82
-→    6 B  05 05 01 30 00 02
-←    7 B  03 05 80 80 30 c1 02
+→    5 B  04 05 03 60 02
+←    4 B  03 05 80 82
+→    6 B  05 06 01 30 00 02
+←    7 B  03 06 80 80 30 c1 02
    ── device resets (into the app)
    ── bootloader switches to the staged image: swaps the slots' contents page by page
    ── device runs the app

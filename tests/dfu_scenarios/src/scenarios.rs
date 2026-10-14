@@ -138,7 +138,7 @@ async fn swap_freight_2c_app_bulk() {
         .unwrap()
         .unwrap();
     assert_eq!((session.resumed, session.resume_from), (true, half));
-    let mut acks = bulk.plan_ack().await.unwrap();
+    let mut acks = bulk.plan_ack().call().await.unwrap();
     let _sink = send_bulk!(bulk, plan, half, total, max_piece);
     let ack = acks.recv().await.unwrap();
     assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
@@ -245,7 +245,7 @@ async fn flip_freight_2r_app_bulk() {
         .await
         .unwrap()
         .unwrap();
-    let mut acks = bulk.plan_ack().await.unwrap();
+    let mut acks = bulk.plan_ack().call().await.unwrap();
     let sink = send_bulk!(bulk, plan, 0, total, max_piece);
     let ack = acks.recv().await.unwrap();
     assert_eq!(ack.status, BulkStatus::Complete);
@@ -401,7 +401,7 @@ async fn parcel_freight_1s_app_bulk() {
         .await
         .unwrap()
         .unwrap();
-    let mut acks = bulk.plan_ack().await.unwrap();
+    let mut acks = bulk.plan_ack().call().await.unwrap();
     let half = 4 * max_piece;
     let sink = send_bulk!(bulk, plan, 0, half, max_piece);
     drop(sink);
@@ -581,7 +581,7 @@ async fn pit_stop_freight_1l_upd_bulk() {
         .await
         .unwrap()
         .unwrap();
-    let mut acks = bulk.plan_ack().await.unwrap();
+    let mut acks = bulk.plan_ack().call().await.unwrap();
     let sink = send_bulk!(bulk, plan, 0, total, max_piece);
     let ack = acks.recv().await.unwrap();
     assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));

@@ -316,6 +316,21 @@ impl ServerState {
         Ready(level)
     }
 
+    async fn port_pin_event(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _index: [UNib32; 2],
+    ) -> RpcResult<()> {
+        Ready(())
+    }
+
+    async fn close_port_pin_event(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _index: [UNib32; 2],
+    ) {
+    }
+
     async fn sideband_port_pin_event(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,

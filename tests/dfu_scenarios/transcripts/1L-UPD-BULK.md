@@ -31,12 +31,16 @@
         49 B  03 04 00 00 57 57 44 50 01 92 …
 ← Ok({ steps: 10, resumed: false, resume_from: 0 })
         13 B  03 80 80 0a 00 00 00 00 00 00 …
+→ bulk.plan_ack: StreamOpen { resume: None, args: tail(0:[]) }
+         5 B  04 04 28 00 02
+← ()
+         6 B  04 80 00 00 00 00
 → bulk.plan: open
-         4 B  04 04 16 02
+         4 B  05 04 16 02
 ← bulk.plan: credit: have 0 bytes, may send 2062 more
          7 B  00 83 41 50 e9 84 02
 ← written
-         2 B  04 81
+         2 B  05 81
 → bulk.plan ⇐ { offset: 0, data: [32 B: 01 00 00 03 00 00 …] } (sink position 0)
         42 B  00 04 14 00 00 00 00 00 01 00 …
 → bulk.plan ⇐ { offset: 32, data: [32 B: 75 3c f4 e9 e7 7f …] } (sink position 37)
@@ -72,17 +76,17 @@
 ← bulk.plan_ack ⇒ { have: 484, status: Complete }
          9 B  00 82 42 e4 01 00 00 20 02
 → bulk.plan: credit query: sent 564 bytes
-         6 B  05 04 16 6c e8 12
+         6 B  06 04 16 6c e8 12
 ← bulk.plan: credit: have 564 bytes, may send 2062 more
-         8 B  05 83 41 5c e8 1e 98 42
+         8 B  06 83 41 5c e8 1e 98 42
 → stage.finish()
-         4 B  06 03 60 02
+         4 B  07 03 60 02
 ← Ok(Confirmed)
-         3 B  06 80 80
-→ boot.reboot(into: App)
-         5 B  07 01 30 00 02
-← Ok(())
          3 B  07 80 80
+→ boot.reboot(into: App)
+         5 B  08 01 30 00 02
+← Ok(())
+         3 B  08 80 80
 ← Disconnect(RequestByUser)
          1 B  02
    ── device resets (into the app)
@@ -97,7 +101,7 @@
 ```
 
 <details markdown="1">
-<summary>Wire bytes: 40 WebSocket frames (host frames unmasked, mask key zeroed) (link setup and pings left out)</summary>
+<summary>Wire bytes: 42 WebSocket frames (host frames unmasked, mask key zeroed) (link setup and pings left out)</summary>
 
 ```text
    ── device runs the app
@@ -121,9 +125,11 @@
           52 71 00 2c c3 5d 10 9b 6b 17 9f ae b3 bd e4 01
           00 00 00 00 00 00 3c 02
 ←   16 B  82 0e 00 03 80 80 0a 00 00 00 00 00 00 00 00 19
-→   11 B  82 85 00 00 00 00 00 04 04 16 02
+→   12 B  82 86 00 00 00 00 00 04 04 28 00 02
+←    9 B  82 07 00 04 80 00 00 00 00
+→   11 B  82 85 00 00 00 00 00 05 04 16 02
 ←   10 B  82 08 00 00 83 41 50 e9 84 02
-←    5 B  82 03 00 04 81
+←    5 B  82 03 00 05 81
 →   49 B  82 ab 00 00 00 00 00 00 04 14 00 00 00 00 00 01
           00 00 03 00 00 27 80 79 0d 97 ef cf f7 40 00 46
           57 02 00 00 00 2f 86 5d 24 dc d1 cf 67 47 9e 0c
@@ -186,13 +192,13 @@
           0c 02
 →   22 B  82 90 00 00 00 00 00 00 04 14 84 2b e0 01 00 00
           42 2e 57 db 04 02
-→   13 B  82 87 00 00 00 00 00 05 04 16 6c e8 12
+→   13 B  82 87 00 00 00 00 00 06 04 16 6c e8 12
 ←   12 B  82 0a 00 00 82 42 e4 01 00 00 20 02
-←   11 B  82 09 00 05 83 41 5c e8 1e 98 42
-→   11 B  82 85 00 00 00 00 00 06 03 60 02
-←    6 B  82 04 00 06 80 80
-→   12 B  82 86 00 00 00 00 00 07 01 30 00 02
+←   11 B  82 09 00 06 83 41 5c e8 1e 98 42
+→   11 B  82 85 00 00 00 00 00 07 03 60 02
 ←    6 B  82 04 00 07 80 80
+→   12 B  82 86 00 00 00 00 00 08 01 30 00 02
+←    6 B  82 04 00 08 80 80
 ←    4 B  82 02 0c 02
    ── device resets (into the app)
    ── device runs the app

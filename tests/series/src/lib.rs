@@ -89,6 +89,12 @@ mod tests {
                 GetResult::Value(DeltaOfDelta::new(&self.stamps))
             }
 
+            fn samples(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                Ready(())
+            }
+
+            fn close_samples(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
+
             fn sideband_samples(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -238,7 +244,7 @@ mod tests {
     async fn stream() {
         let (device, _data) = start("series/stream");
         let client = connect(&device).await;
-        let mut samples = client.samples().await.unwrap();
+        let mut samples = client.samples().call().await.unwrap();
         let mut scratch = [0u8; 64];
         let values = [512u16, 513, 515, 515, 0, u16::MAX];
         device.send(

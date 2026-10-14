@@ -37,12 +37,33 @@ mod tests {
 
     #[allow(dead_code)]
     impl NoStdSyncServer {
+        fn stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+            Ready(())
+        }
+
+        fn close_stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
+
         fn sideband_stream(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
+        }
+
+        fn array_of_streams(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 1],
+        ) -> RpcResult<()> {
+            Ready(())
+        }
+
+        fn close_array_of_streams(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 1],
+        ) {
         }
 
         fn sideband_array_of_streams(
@@ -54,12 +75,36 @@ mod tests {
             None
         }
 
+        fn subgroup_stream(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+        ) -> RpcResult<()> {
+            Ready(())
+        }
+
+        fn close_subgroup_stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
+
         fn sideband_subgroup_stream(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
+        }
+
+        fn subgroup_array_of_streams(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 1],
+        ) -> RpcResult<()> {
+            Ready(())
+        }
+
+        fn close_subgroup_array_of_streams(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 1],
+        ) {
         }
 
         fn sideband_subgroup_array_of_streams(
@@ -71,6 +116,21 @@ mod tests {
             None
         }
 
+        fn gpio_stream(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 1],
+        ) -> RpcResult<()> {
+            Ready(())
+        }
+
+        fn close_gpio_stream(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 1],
+        ) {
+        }
+
         fn sideband_gpio_stream(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -78,6 +138,21 @@ mod tests {
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
+        }
+
+        fn gpio_array_of_streams(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 2],
+        ) -> RpcResult<()> {
+            Ready(())
+        }
+
+        fn close_gpio_array_of_streams(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 2],
+        ) {
         }
 
         fn sideband_gpio_array_of_streams(
@@ -89,6 +164,21 @@ mod tests {
             None
         }
 
+        fn periph_channel_stream(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 2],
+        ) -> RpcResult<()> {
+            Ready(())
+        }
+
+        fn close_periph_channel_stream(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 2],
+        ) {
+        }
+
         fn sideband_periph_channel_stream(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -96,6 +186,21 @@ mod tests {
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
+        }
+
+        fn periph_channel_array_of_streams(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 3],
+        ) -> RpcResult<()> {
+            Ready(())
+        }
+
+        fn close_periph_channel_array_of_streams(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _index_chain: [UNib32; 3],
+        ) {
         }
 
         fn sideband_periph_channel_array_of_streams(

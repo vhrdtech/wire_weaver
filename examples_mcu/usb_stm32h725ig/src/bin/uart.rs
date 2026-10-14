@@ -158,6 +158,16 @@ impl ServerState {
         ValidIndices::range_u32(0..0)
     }
 
+    async fn uart_rx(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _index: [UNib32; 1],
+    ) -> RpcResult<()> {
+        Ready(())
+    }
+
+    async fn close_uart_rx(&mut self, _cx: &mut Context<'_, impl EventOut>, _index: [UNib32; 1]) {}
+
     async fn sideband_uart_rx(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
@@ -181,6 +191,21 @@ impl ServerState {
         let mut wg = self.tx_producer[index].wait_grant(bytes.len() as u16).await;
         wg.copy_from_slice(bytes);
         wg.commit(bytes.len() as u16);
+    }
+
+    async fn uart_tx_mon(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _index: [UNib32; 1],
+    ) -> RpcResult<()> {
+        Ready(())
+    }
+
+    async fn close_uart_tx_mon(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _index: [UNib32; 1],
+    ) {
     }
 
     async fn sideband_uart_tx_mon(

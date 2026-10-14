@@ -98,6 +98,12 @@ mod tests {
                 GetResult::Value(MaxLen::new(label).unwrap())
             }
 
+            fn chunks(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                Ready(())
+            }
+
+            fn close_chunks(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
+
             fn sideband_chunks(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -340,7 +346,7 @@ mod tests {
     async fn byte_stream_and_sink() {
         let (device, data) = start("bounded/streams");
         let mut client = connect(&device).await;
-        let mut chunks = client.chunks().await.unwrap();
+        let mut chunks = client.chunks().call().await.unwrap();
         assert!(client.emit_chunk(4).call().await.unwrap());
         // too long: not sent
         assert!(!client.emit_chunk(5).call().await.unwrap());

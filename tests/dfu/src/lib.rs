@@ -383,6 +383,15 @@ mod tests {
                 Ready(())
             }
 
+            fn stage_event(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
+                Ready(())
+            }
+
+            fn close_stage_event(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
+
             fn sideband_stage_event(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -433,6 +442,15 @@ mod tests {
                 // credit counts the segment's bytes as sent
                 self.plan_credit.free(self.plan_credit.last_item_len());
             }
+
+            fn bulk_plan_ack(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
+                Ready(())
+            }
+
+            fn close_bulk_plan_ack(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
 
             fn sideband_bulk_plan_ack(
                 &mut self,

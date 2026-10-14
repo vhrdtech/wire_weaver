@@ -119,6 +119,21 @@ impl ServerState {
         ww_unimplemented!()
     }
 
+    fn port_pin_event(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+        _index: [UNib32; 2],
+    ) -> RpcResult<()> {
+        Ready(())
+    }
+
+    fn close_port_pin_event(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+        _index: [UNib32; 2],
+    ) {
+    }
+
     fn sideband_port_pin_event(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,

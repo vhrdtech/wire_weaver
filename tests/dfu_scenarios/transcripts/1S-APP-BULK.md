@@ -15,12 +15,16 @@
         49 B  03 04 00 10 57 57 44 50 01 92 …
 ← Ok({ steps: 10, resumed: false, resume_from: 0 })
         13 B  03 80 80 0a 00 00 00 00 00 00 …
+→ bulk.plan_ack: StreamOpen { resume: None, args: tail(0:[]) }
+         5 B  04 04 28 00 02
+← ()
+         6 B  04 80 00 00 00 00
 → bulk.plan: open
-         4 B  04 04 16 02
+         4 B  05 04 16 02
 ← bulk.plan: credit: have 0 bytes, may send 2062 more
          7 B  00 83 41 50 e9 84 02
 ← written
-         2 B  04 81
+         2 B  05 81
 → bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 03 00 00 …] } (sink position 0)
         75 B  00 04 14 00 00 00 00 00 01 00 …
 → bulk.plan ⇐ { offset: 64, data: [64 B: d5 9c 54 49 47 df …] } (sink position 70)
@@ -30,22 +34,22 @@
 → bulk.plan ⇐ { offset: 192, data: [64 B: f6 b7 40 41 0b 58 …] } (sink position 210)
         76 B  00 04 14 81 52 c0 00 00 00 f6 …
 → bulk.plan: credit query: sent 280 bytes
-         6 B  05 04 16 68 b4 02
+         6 B  06 04 16 68 b4 02
 ← bulk.plan: credit: have 280 bytes, may send 2062 more
-         8 B  05 83 41 58 b4 e9 84 02
+         8 B  06 83 41 58 b4 e9 84 02
    ── half way: the app keeps doing its job and answers anything else
 → node.node()
-         4 B  06 00 00 02
+         4 B  07 00 00 02
 ← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, app_version: Some(1), version_floor: 1,
       manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed, last_result: { outcome: Nothing,
       version: 0 }, offers: { boot_control: true, inventory: true, stage: true, stage_bulk: true } }
-        41 B  06 80 01 73 69 6d 2d 64 66 75 …
+        41 B  07 80 01 73 69 6d 2d 64 66 75 …
 → bulk.plan: open
-         4 B  07 04 16 02
+         4 B  08 04 16 02
 ← bulk.plan: credit: have 0 bytes, may send 2062 more
          7 B  00 83 41 50 e9 84 02
 ← written
-         2 B  07 81
+         2 B  08 81
 → bulk.plan ⇐ { offset: 256, data: [64 B: a8 09 c6 1b 42 94 …] } (sink position 0)
         75 B  00 04 14 00 00 01 00 00 a8 09 …
 → bulk.plan ⇐ { offset: 320, data: [64 B: 46 48 7b 9a 2b 96 …] } (sink position 70)
@@ -57,17 +61,17 @@
 ← bulk.plan_ack ⇒ { have: 484, status: Complete }
          9 B  00 82 42 e4 01 00 00 20 02
 → bulk.plan: credit query: sent 251 bytes
-         6 B  08 04 16 6b f3 02
+         6 B  09 04 16 6b f3 02
 ← bulk.plan: credit: have 251 bytes, may send 2062 more
-         8 B  08 83 41 5b f3 e9 84 02
+         8 B  09 83 41 5b f3 e9 84 02
 → stage.finish()
-         4 B  09 03 60 02
+         4 B  0a 03 60 02
 ← Ok(PlanStored)
-         3 B  09 80 84
+         3 B  0a 80 84
 → boot.reboot(into: App)
-         5 B  0a 01 30 00 02
+         5 B  0b 01 30 00 02
 ← Ok(())
-         3 B  0a 80 80
+         3 B  0b 80 80
 ← Disconnect(RequestByUser)
          1 B  02
    ── device resets (into the app)
@@ -84,7 +88,7 @@
 ```
 
 <details markdown="1">
-<summary>Wire bytes: 22 UDP datagrams (link setup and pings left out)</summary>
+<summary>Wire bytes: 24 UDP datagrams (link setup and pings left out)</summary>
 
 ```text
    ── device runs the app
@@ -99,8 +103,10 @@
           5d 10 9b 6b 17 9f ae b3 bd e4 01 00 00 00 00 00
           00 3c 02
 ←   15 B  08 0d 03 80 80 0a 00 00 00 00 00 00 00 00 19
-→    5 B  04 04 04 16 02
-←   11 B  07 00 83 41 50 e9 84 02 02 04 81
+→    6 B  05 04 04 28 00 02
+←    7 B  06 04 80 00 00 00 00
+→    5 B  04 05 04 16 02
+←   11 B  07 00 83 41 50 e9 84 02 02 05 81
 →  317 B  08 4b 00 04 14 00 00 00 00 00 01 00 00 03 00 00
           27 80 79 0d 97 ef cf f7 40 00 46 57 02 00 00 00
           2f 86 5d 24 dc d1 cf 67 47 9e 75 3c f4 e9 e7 7f
@@ -120,15 +126,15 @@
           70 5e 94 26 e7 70 71 3b 88 76 ac 3e ff 88 89 53
           a0 8e c4 56 17 a0 a1 6b b8 a6 dc 6e 2f b8 b9 83
           02 03 00 05 00 1e c7 0f b2 57 d1 be fc 01 02 00
-          03 04 00 00 89 02 06 05 04 16 68 b4 02
-←   10 B  08 08 05 83 41 58 b4 e9 84 02
+          03 04 00 00 89 02 06 06 04 16 68 b4 02
+←   10 B  08 08 06 83 41 58 b4 e9 84 02
    ── half way: the app keeps doing its job and answers anything else
-→    5 B  04 06 00 00 02
-←   43 B  08 29 06 80 01 73 69 6d 2d 64 66 75 92 10 00 00
+→    5 B  04 07 00 00 02
+←   43 B  08 29 07 80 01 73 69 6d 2d 64 66 75 92 10 00 00
           80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1 e0
           02 14 00 00 00 00 00 00 f0 01 57
-→    5 B  04 07 04 16 02
-←   11 B  07 00 83 41 50 e9 84 02 02 07 81
+→    5 B  04 08 04 16 02
+←   11 B  07 00 83 41 50 e9 84 02 02 08 81
 →  288 B  08 4b 00 04 14 00 00 01 00 00 a8 09 c6 1b 42 94
           29 60 40 00 75 69 83 ee 6e 08 b6 b8 eb 0a 9b 06
           86 20 ce d0 03 22 b3 1e 9e 38 e6 e8 1b 3a cb 36
@@ -146,13 +152,13 @@
           63 f8 d6 1a dc 00 89 02 08 2f 00 04 14 81 52 c0
           01 00 00 e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93 28
           06 4a 0c 12 fe 27 ab 40 1e 62 24 2a 16 3f c3 58
-          36 7a 3c 42 2e 57 db 4c 02 06 08 04 16 6b f3 02
-←   21 B  08 09 00 82 42 e4 01 00 00 20 02 08 08 08 83 41
+          36 7a 3c 42 2e 57 db 4c 02 06 09 04 16 6b f3 02
+←   21 B  08 09 00 82 42 e4 01 00 00 20 02 08 08 09 83 41
           5b f3 e9 84 02
-→    5 B  04 09 03 60 02
-←    4 B  03 09 80 84
-→    6 B  05 0a 01 30 00 02
-←    7 B  03 0a 80 80 30 c1 02
+→    5 B  04 0a 03 60 02
+←    4 B  03 0a 80 84
+→    6 B  05 0b 01 30 00 02
+←    7 B  03 0b 80 80 30 c1 02
    ── device resets (into the app)
    ── bootloader applies the stored plan in place: 10 steps
    ── bootloader: image verified against the descriptor, plan area cleared

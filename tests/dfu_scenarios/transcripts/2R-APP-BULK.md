@@ -16,12 +16,16 @@
         49 B  03 04 00 00 57 57 44 50 01 92 …
 ← Ok({ steps: 11, resumed: false, resume_from: 0 })
         13 B  03 80 80 0b 00 00 00 00 00 00 …
+→ bulk.plan_ack: StreamOpen { resume: None, args: tail(0:[]) }
+         5 B  04 04 28 00 02
+← ()
+         6 B  04 80 00 00 00 00
 → bulk.plan: open
-         4 B  04 04 16 02
+         4 B  05 04 16 02
 ← bulk.plan: credit: have 0 bytes, may send 2062 more
          7 B  00 83 41 50 e9 84 02
 ← written
-         2 B  04 81
+         2 B  05 81
 → bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 01 01 00 …] } (sink position 0)
         75 B  00 04 14 00 00 00 00 00 01 00 …
 → bulk.plan ⇐ { offset: 64, data: [64 B: e6 bd 84 3c 31 2f …] } (sink position 70)
@@ -37,17 +41,17 @@
 ← bulk.plan_ack ⇒ { have: 359, status: Complete }
          9 B  00 82 42 67 01 00 00 20 02
 → bulk.plan: credit query: sent 394 bytes
-         6 B  05 04 16 6a 96 02
+         6 B  06 04 16 6a 96 02
 ← bulk.plan: credit: have 394 bytes, may send 2062 more
-         8 B  05 83 41 5a 96 e9 84 02
+         8 B  06 83 41 5a 96 e9 84 02
 → stage.finish()
-         4 B  06 03 60 02
+         4 B  07 03 60 02
 ← Ok(Staged)
-         3 B  06 80 82
+         3 B  07 80 82
 → boot.reboot(into: App)
-         5 B  07 01 30 00 02
+         5 B  08 01 30 00 02
 ← Ok(())
-         3 B  07 80 80
+         3 B  08 80 80
 ← Disconnect(RequestByUser)
          1 B  02
    ── device resets (into the app)
@@ -86,7 +90,7 @@
 ```
 
 <details markdown="1">
-<summary>Wire bytes: 22 USB packets (high speed, 512 B max) (link setup and pings left out)</summary>
+<summary>Wire bytes: 24 USB packets (high speed, 512 B max) (link setup and pings left out)</summary>
 
 ```text
    ── device runs the app
@@ -101,8 +105,10 @@
           5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00 00 00
           00 3c 02
 ←   15 B  08 0d 03 80 80 0b 00 00 00 00 00 00 00 00 19
-→    5 B  04 04 04 16 02
-←   11 B  07 00 83 41 50 e9 84 02 02 04 81
+→    6 B  05 04 04 28 00 02
+←    7 B  06 04 80 00 00 00 00
+→    5 B  04 05 04 16 02
+←   11 B  07 00 83 41 50 e9 84 02 02 05 81
 →  447 B  08 4b 00 04 14 00 00 00 00 00 01 00 00 01 01 00
           01 02 00 01 03 00 03 00 00 27 80 79 0d 97 ef cf
           f7 40 00 46 57 02 00 00 00 2f 86 5d 24 dc d1 cf
@@ -130,13 +136,13 @@
           f8 00 89 02 08 32 00 04 14 82 5e 40 01 00 00 d6
           1a dc e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93 28 06
           4a 0c 12 fe 27 ab 40 1e 62 24 2a 16 3f c3 58 36
-          7a 3c 42 2e 57 db 7c 02 06 05 04 16 6a 96 02
-←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 05 83 41
+          7a 3c 42 2e 57 db 7c 02 06 06 04 16 6a 96 02
+←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 06 83 41
           5a 96 e9 84 02
-→    5 B  04 06 03 60 02
-←    4 B  03 06 80 82
-→    6 B  05 07 01 30 00 02
-←    7 B  03 07 80 80 30 c1 02
+→    5 B  04 07 03 60 02
+←    4 B  03 07 80 82
+→    6 B  05 08 01 30 00 02
+←    7 B  03 08 80 80 30 c1 02
    ── device resets (into the app)
    ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
    ── device runs the app

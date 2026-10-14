@@ -155,6 +155,12 @@ macro_rules! stage_handlers {
             Ready(())
         }
 
+        fn stage_event(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+            Ready(())
+        }
+
+        fn close_stage_event(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
+
         fn sideband_stage_event(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -208,6 +214,12 @@ macro_rules! stage_handlers {
                     .plan_ack_send_blocking(&ack, cx);
             }
         }
+
+        fn bulk_plan_ack(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+            Ready(())
+        }
+
+        fn close_bulk_plan_ack(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
 
         fn sideband_bulk_plan_ack(
             &mut self,

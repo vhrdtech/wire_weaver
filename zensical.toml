@@ -47,6 +47,7 @@ nav = [
     {
         "Standard library" = [
         "std_library/overview.md",
+        "std_library/io_family.md",
         "std_library/ww_date_time.md",
         "std_library/ww_version.md",
         "std_library/ww_numeric.md",

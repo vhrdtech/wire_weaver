@@ -592,6 +592,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `MAX_PIECE_LEN`, `MAX_HEADER_LEN`, `MAX_CHUNKS_PAGE`, `MAX_PRODUCT_LEN`), so every method has a known largest
   request and reply. `Profile::AB(SlotSwitch::{Copy, Remap})` / `InPlace`. Next: a chunky implementation (chunky
   NET-1).
+- 🚧 **STD-13 IO trait family 0.2** · `v0.5` — `ww_timebase` (new, `Ticks` and `Clock`), `ww_gpio` 0.2, `ww_uart`
+  0.2, `ww_i2c` 0.2, `ww_spi` 0.2, `ww_adc`, `ww_pwm`, `ww_onewire` (new): common error variants (`InUse`, `NoIoLevel`,
+  `Refused`), one `configure(Config) -> Actual` shape, stream items headed by `seq` / `lost` / `t`. Design in review
+  (`docs/std_library/io_family.md`); next: skeleton crates, then per-crate fill-ins. Ships after SW-16.
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

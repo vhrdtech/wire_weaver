@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc fa833f36dd0fd6dba981c3c2815cb7bd74dca1b8311ff4676f313cf5b9ae9c50 # shrinks to value = MixedOwned { addr: Seven(U7(0)), a: U1(0), b: I16(0), list: [U5(0)], c: U31(0), opt: Some(I33(1700861952)), d: 0, frame: Frame { kind: U3(0), offset: Up(U7(0)), reg: Wide { addr: U10(0), write: false, len: U3(0) }, tail: I5(0) }, e: U64(0), f: I64(-42246329224364442) }, cut = Index(17904192777423976569)

@@ -102,6 +102,23 @@ macro_rules! un {
                     Ok([<U $bits>](rd.[<read_un $base_bits _latch>]($bits)))
                 }
             }
+
+            impl From<[<U $bits>]> for [<u $base_bits>] {
+                #[inline(always)]
+                fn from(x: [<U $bits>]) -> Self {
+                    x.0
+                }
+            }
+
+            #[doc = "Fails with [Error::SubtypeOutOfRange] when the number does not fit into " $bits " bits."]
+            impl TryFrom<[<u $base_bits>]> for [<U $bits>] {
+                type Error = Error;
+
+                #[inline(always)]
+                fn try_from(x: [<u $base_bits>]) -> Result<Self, Error> {
+                    Self::new(x).ok_or(Error::SubtypeOutOfRange)
+                }
+            }
         }
     };
 }
@@ -325,6 +342,23 @@ macro_rules! signed_un {
                 #[inline(always)]
                 fn des_shrink_wrap_owned_latch(rd: &mut BufReader<'_>) -> Result<Self, Error> {
                     Ok(Self::sign_extend(rd.[<read_un $base_bits _latch>]($bits)))
+                }
+            }
+
+            impl From<[<I $bits>]> for [<i $base_bits>] {
+                #[inline(always)]
+                fn from(x: [<I $bits>]) -> Self {
+                    x.0
+                }
+            }
+
+            #[doc = "Fails with [Error::SubtypeOutOfRange] when the number does not fit into " $bits " bits."]
+            impl TryFrom<[<i $base_bits>]> for [<I $bits>] {
+                type Error = Error;
+
+                #[inline(always)]
+                fn try_from(x: [<i $base_bits>]) -> Result<Self, Error> {
+                    Self::new(x).ok_or(Error::SubtypeOutOfRange)
                 }
             }
         }

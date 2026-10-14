@@ -11,3 +11,6 @@
 ### 🚀 Features
 
 - `data_bits` property, `baud_rate_actual`, `send_break`, `tx_pending`; `RxFlags` framing, overrun, break; capabilities with buffer sizes.
+- `BaudRate`, `Mode`, `Pin`, `StopBits`, `Parity`, `DataBits` now derive `PartialEq`/`Eq` (Rust-side only, no wire change).
+- Full rustdoc with an `# Errors` section per fallible method, a mock server and in-process tests per trait
+  (`tests/io_uart`), and a docs page (`docs/std_library/ww_uart.md`).

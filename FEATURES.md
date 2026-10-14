@@ -601,8 +601,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww_timebase` (`Clock`), `ww_logic_analyzer`, `ww_signal_generator`; `ww_si` values and timestamps, plain error
   enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Design approved 14 Oct
   (`docs/std_library/io_family.md`); skeletons of every crate written, `ww_i2c` with `I2cWatch` (autonomous
-  reads) and 10-bit addresses (SW-48); per-crate fill-ins next. Stream loss and timestamps wait for
-  ww-stream-reliability, error evolution for ww-errors-plan.
+  reads) and 10-bit addresses (SW-48); `ww_uart` fill-in done (rustdoc, `UartMonitor` mock server and tests in
+  `tests/io_uart`, `docs/std_library/ww_uart.md`); other per-crate fill-ins next. Stream loss and timestamps wait
+  for ww-stream-reliability, error evolution for ww-errors-plan.
 - ✅ **STD-18 `ww_adc`** · `v0.5` — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Fill-in done:
   full rustdoc, `tests/io_adc` mock server (one test per trait), `docs/std_library/ww_adc.md`, API snapshot
   (STD-13).

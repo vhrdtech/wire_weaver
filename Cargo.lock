@@ -2045,6 +2045,9 @@ dependencies = [
  "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client",
+ "ww_client_server",
+ "ww_date_time",
+ "ww_si",
  "ww_timebase",
 ]
 

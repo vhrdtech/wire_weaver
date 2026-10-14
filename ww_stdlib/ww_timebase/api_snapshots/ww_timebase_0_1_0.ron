@@ -20,11 +20,19 @@
         103,
         224,
     ]),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SyncFormat", variants: [
-        (docs: [], ident: "IrigB", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Pps", fields: Unit, discriminant: 1, since: None),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "A format a sync line can carry, see `ClockInfo::sync_formats`.",
+    ], ident: "SyncFormat", variants: [
+        (docs: [
+            "IRIG-B time code.",
+        ], ident: "IrigB", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Pulse-per-second, edge-only: carries phase, not time of day (see `Clock::set_time_of_day`).",
+        ], ident: "Pps", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "ClockInfo", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Static description of a device\'s clock, see `Clock::info`.",
+    ], ident: "ClockInfo", fields: Named([
         (ident: Some("resolution"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Smallest step of the clock.",
         ]),
@@ -35,34 +43,74 @@
             "Sync formats this device can use; empty without a sync line.",
         ]),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SyncState", variants: [
-        (docs: [], ident: "Free", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Acquiring", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "Locked", fields: Unit, discriminant: 2, since: None),
-        (docs: [], ident: "Holdover", fields: Unit, discriminant: 3, since: None),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "State of a device\'s sync line, see `SyncStatus::state` and `TimeMapPoint::state`.",
+    ], ident: "SyncState", variants: [
+        (docs: [
+            "Sync is off, or no signal has been seen yet: `now()` runs free.",
+        ], ident: "Free", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "A signal is present but not yet locked onto: `now()` still runs free.",
+        ], ident: "Acquiring", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Locked: `offset` and `last_lock` of `SyncStatus` are current.",
+        ], ident: "Locked", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "Was locked, lost the signal, and is coasting on the last known offset until it reacquires or times out.",
+        ], ident: "Holdover", fields: Unit, discriminant: 3, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "TimeMapPoint", fields: Named([
-        (ident: Some("local"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
-        (ident: Some("shared"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
-        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One point of the `time_map` stream: this device\'s local time mapped to the shared sync time.",
+    ], ident: "TimeMapPoint", fields: Named([
+        (ident: Some("local"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "This device\'s own time at the point.",
+        ]),
+        (ident: Some("shared"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "The corresponding shared (master) time.",
+        ]),
+        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "Sync state at the point, so a host can tell a real lock from a stale mapping.",
+        ]),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SyncConfig", variants: [
-        (docs: [], ident: "Off", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Master", fields: Named([
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "What a device\'s sync line should do, see `Clock::configure_sync` / `Clock::sync_config`.",
+    ], ident: "SyncConfig", variants: [
+        (docs: [
+            "No synchronisation; `now()` runs free.",
+        ], ident: "Off", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "This device drives the sync line in `format`, so others can lock to it.",
+        ], ident: "Master", fields: Named([
             (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
         ]), discriminant: 1, since: None),
-        (docs: [], ident: "Slave", fields: Named([
+        (docs: [
+            "This device locks `now()` to a master\'s sync line in `format`.",
+        ], ident: "Slave", fields: Named([
             (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "ClockError", variants: [
-        (docs: [], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "InvalidArgument", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "WrongMode", fields: Unit, discriminant: 2, since: None),
-        (docs: [], ident: "InUse", fields: Unit, discriminant: 3, since: None),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
+        "Error returned by `Clock` methods.",
+    ], ident: "ClockError", variants: [
+        (docs: [
+            "No sync line, or the requested `SyncFormat` is not one of `ClockInfo::sync_formats`.",
+        ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "The format is recognized but this device rejects the requested configuration.",
+        ], ident: "InvalidArgument", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "The method only applies in a different `SyncConfig` (e.g. `set_time_of_day` while not `Master`).",
+        ], ident: "WrongMode", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "Sync mode cannot be switched right now (e.g. already locked to something else).",
+        ], ident: "InUse", fields: Unit, discriminant: 3, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SyncStatus", fields: Named([
-        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Current sync state of a device\'s clock, see `Clock::sync_status`.",
+    ], ident: "SyncStatus", fields: Named([
+        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "Current state of the sync state machine.",
+        ]),
         (ident: Some("offset"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
             "Local minus shared time at the last lock, when known.",
         ]),
@@ -81,23 +129,54 @@
         195,
     ]),
 ], traits: [
-    InLine(level: (docs: [], crate_idx: 0, trait_name: "Clock", items: [
+    InLine(level: (docs: [
+        "Device clock: reads device time, and synchronises it with other devices over a sync line (IRIG-B, PPS, ...).",
+        "",
+        "A device has exactly one free-running clock. Every timestamp it reports elsewhere in its API is a [Second]",
+        "since that clock started, in whatever fixed width fits the field (so it wraps: a `U32` of microseconds wraps",
+        "every 71.6 minutes). `now()` gives the full-width value, so a host can unwrap those truncated timestamps and",
+        "correlate device time with its own.",
+    ], crate_idx: 0, trait_name: "Clock", items: [
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0))), multiplicity: Flat, since: None, ident: "now", docs: [
-            "Device time now, full width.",
+            "Device time now, full width: the value every truncated timestamp elsewhere in this device\'s API wraps",
+            "around.",
         ]),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "info", docs: []),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "info", docs: [
+            "Static description of this clock: its resolution, what it calls itself, and which [SyncFormat]s it",
+            "supports.",
+        ]),
         (id: 2, kind: Stream(ty: OutOfLine(type_idx: 4), is_up: true), multiplicity: Flat, since: None, ident: "time_map", docs: [
-            "While synced, and on every sync state change: local time and the shared time it corresponds to.",
+            "Local time mapped to the shared sync time, sent about once a second while synced and on every",
+            "[SyncState] change, so a host can line up this device\'s timeline with others and see the unsynced spans.",
         ]),
         (id: 3, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 5)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "configure_sync", docs: []),
-        (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5))), multiplicity: Flat, since: None, ident: "sync_config", docs: []),
-        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7))), multiplicity: Flat, since: None, ident: "sync_status", docs: []),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "configure_sync", docs: [
+            "Switch sync off, or make this device the master on the sync line, or a slave locking to one, in the given",
+            "[SyncFormat].",
+            "",
+            "# Errors",
+            "",
+            "[ClockError::Unsupported] if this device has no sync line, or does not support the requested",
+            "[SyncFormat] (see `info().sync_formats`); [ClockError::InvalidArgument] for a format the device",
+            "recognizes but whose configuration it rejects; [ClockError::InUse] if sync mode cannot be switched while",
+            "already locked to something else.",
+        ]),
+        (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5))), multiplicity: Flat, since: None, ident: "sync_config", docs: [
+            "Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).",
+        ]),
+        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7))), multiplicity: Flat, since: None, ident: "sync_status", docs: [
+            "Current sync state, with the offset and local time of the last lock, when known.",
+        ]),
         (id: 6, kind: Method(args: [
             (ident: "t", ty: OutOfLine(type_idx: 8)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "set_time_of_day", docs: [
-            "Time of day a master sends on the sync line, set from its host.",
+            "Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while",
+            "sync is off.",
+            "",
+            "# Errors",
+            "",
+            "[ClockError::WrongMode] unless `configure_sync` currently has this device set as `Master`.",
         ]),
     ]), crate_idx: 0),
 ], ext_crates: [

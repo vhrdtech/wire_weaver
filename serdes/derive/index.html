@@ -3349,8 +3349,20 @@ owned version), so it cannot be a field of an ordinary shrink_wrap type or a ww 
 the C reader: head defines and readers as for <code>fixed_layout</code>, and per type a <code>&lt;name&gt;_tail_t</code> and a
 <code>&lt;name&gt;_tail()</code> that walks the tail and points at each variable part
 (<code>shrink_wrap::head_tail::write_c_header</code> writes a whole header).</p>
-<p>On busgen's request and reply enums the codec takes 4626 bytes on a Cortex-M0, a hand-written one 4408 and the
-derived shrink_wrap one 6652 (<a href="../code_size/#head-and-tail">code size</a>).</p>
+<p><strong>Views and writers</strong> (SW-52), for firmware that should not make the whole value first. <code>Utx::view(&amp;bytes)?</code> checks
+the lengths and walks the tail once (counts and flags are the only fields it reads) and gives a <code>UtxView&lt;'_&gt;</code>: a
+reference to the head whose accessors (<code>v.ch()</code>, <code>v.defer()</code>) read each field at its offset when called, and the
+variable parts found on the way (<code>v.perr()</code> a <code>List</code>, <code>v.glitch()</code> an <code>&amp;Option&lt;Wave&gt;</code>, a nested <code>head_tail</code> type
+its own view). An enum's view is an enum of its variants' views: <code>RequestView::Stop(v)</code> with <code>v.mask()</code>, a tuple
+variant of one nested type holds that type's view (<code>RequestView::Utx(UtxView)</code>). Each enum variant also gets a
+writer, <code>Reply::write_run(&amp;mut tx, run, started, mark, lead, mark_line)?</code>, which writes the same bytes as
+<code>to_head_tail</code> of that variant without making the value. Both come from the code of <code>from_head_tail</code> /
+<code>to_head_tail</code> and are tested against it byte for byte. View types are always <code>pub</code> (the <code>View</code> of the public
+<code>HeadTail</code> trait).</p>
+<p>Enum variants may have a <code>#[cfg]</code> (SW-54): a variant compiled out keeps its tag, and a build without it reads that
+tag as an unknown one. One protocol enum can then serve firmware images that each handle a part of it.</p>
+<p>On busgen's request and reply enums the codec takes 4590 bytes on a Cortex-M0 through values and 3894 through views
+and writers, a hand-written one 4408 and the derived shrink_wrap one 6652 (<a href="../code_size/#head-and-tail">code size</a>).</p>
 <h3 id="ww_repr-repr-enums-only"><code>ww_repr = &lt;repr&gt;</code> (enums only)<a class="headerlink" href="#ww_repr-repr-enums-only" title="Permanent link">&para;</a></h3>
 <p>Sets the wire representation of an enum's discriminant. <strong>Required</strong> for every enum - structs must not set it.
 Accepted values: <code>u1</code>..<code>u32</code> (or <code>ub&lt;N&gt;</code> for arbitrary bit widths), <code>nib</code> (4-bit nibble), <code>unib32</code> (<code>UNib32</code>,

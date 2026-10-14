@@ -3925,10 +3925,10 @@ reader and writer):</p>
 </tr>
 <tr>
 <td><code>fixed_de</code></td>
-<td style="text-align: right;">512</td>
-<td style="text-align: right;">378</td>
-<td style="text-align: right;">362</td>
-<td style="text-align: right;">276</td>
+<td style="text-align: right;">580</td>
+<td style="text-align: right;">406</td>
+<td style="text-align: right;">354</td>
+<td style="text-align: right;">228</td>
 <td style="text-align: right;">120</td>
 </tr>
 <tr>
@@ -3941,9 +3941,9 @@ reader and writer):</p>
 </tr>
 <tr>
 <td><code>fixed_ser</code></td>
-<td style="text-align: right;">656</td>
-<td style="text-align: right;">498</td>
-<td style="text-align: right;">478</td>
+<td style="text-align: right;">788</td>
+<td style="text-align: right;">612</td>
+<td style="text-align: right;">548</td>
 <td style="text-align: right;">462</td>
 <td style="text-align: right;">452</td>
 </tr>
@@ -3973,16 +3973,26 @@ reader and writer):</p>
 </tr>
 <tr>
 <td><code>bits_fixed_ser</code></td>
-<td style="text-align: right;">944</td>
-<td style="text-align: right;">698</td>
-<td style="text-align: right;">588</td>
-<td style="text-align: right;">560</td>
-<td style="text-align: right;">614</td>
+<td style="text-align: right;">616</td>
+<td style="text-align: right;">458</td>
+<td style="text-align: right;">430</td>
+<td style="text-align: right;">278</td>
+<td style="text-align: right;">310</td>
 </tr>
 </tbody>
 </table>
 <p>A third to a half less, and the gap grows with the number of types: the fast path has no shared runtime, each type
-is its own straight-line code. The bytes left in <code>fixed_ser</code> are mostly <code>memcpy</code> (see <a href="#build-settings">Build settings</a>).
+is its own straight-line code. The bytes left in <code>fixed_ser</code> are mostly <code>memcpy</code> (see <a href="#build-settings">Build settings</a>).</p>
+<p>Since SW-53 every multi-byte number goes through <code>fixed_layout::Le</code> at the bytes of its field: on RISC-V (no
+unaligned loads, so a <code>u32</code> is four byte loads and three shifts and ors, some 28 bytes) <code>ld</code> and <code>st</code> are one
+function per type and a field is a call with a pointer, elsewhere they are inlined. That costs a type read or
+written once: <code>fixed_de</code> / <code>fixed_ser</code> above grew from 378 / 498 bytes on RV32IC (the two functions per type are
+more than the eight fields save). It pays as soon as fields are read and written in many places, as in a
+firmware: <code>busgen_ht</code> 6004 → 5658 on RV32IC, busgen's own firmware 8.1 KB → 7.7 KB before its views. On a
+Cortex-M0, which has no unaligned loads either, the inlined byte loads of 2-byte instructions take less than the
+calls (<code>busgen_view</code> 3894 inlined, 4196 out of line), so it stays inline there. The bit fields' bytes are now
+cleared once per head or struct instead of per field (<code>bits_fixed_ser</code> 698 → 458 on RV32IC, 560 → 278 on
+Cortex-M0).
 On a real format, chunky_mcu_updater's plan reader (header, signed descriptor, steps) takes 892 bytes on Cortex-M0 with
 the fast path, 840 with its hand-written parser and 1854 through <code>BufReader</code> (its <code>just size-bench</code>).</p>
 <h2 id="head-and-tail">Head and tail<a class="headerlink" href="#head-and-tail" title="Permanent link">&para;</a></h2>
@@ -4024,16 +4034,32 @@ the <code>Option&lt;Wave&gt;</code> are taken from the tail by lengths already r
 <tr>
 <td><code>busgen_ht</code></td>
 <td></td>
-<td style="text-align: right;">8124</td>
-<td style="text-align: right;">6004</td>
-<td style="text-align: right;">5852</td>
-<td style="text-align: right;">4626</td>
-<td style="text-align: right;">3984</td>
+<td style="text-align: right;">7752</td>
+<td style="text-align: right;">5658</td>
+<td style="text-align: right;">5234</td>
+<td style="text-align: right;">4590</td>
+<td style="text-align: right;">3992</td>
+</tr>
+<tr>
+<td><code>busgen_view</code></td>
+<td></td>
+<td style="text-align: right;">6572</td>
+<td style="text-align: right;">4988</td>
+<td style="text-align: right;">4546</td>
+<td style="text-align: right;">3894</td>
+<td style="text-align: right;">3496</td>
 </tr>
 </tbody>
 </table>
-<p>5 % above the hand-written codec on Cortex-M0 and 4 % on RV32IC, 30 % and 27 % below the derived one; on
-Thumb-2 it is the smallest. Unlike the hand-written one it checks every length (a short message is an error, not
+<p><code>busgen_view</code> is the same types and handler through views and the variant writers (SW-52): <code>Request::view(rx)</code>
+checks the lengths and walks the tail, the handler reads each field at its offset when it uses it, and each reply
+is written by <code>Reply::write_&lt;variant&gt;(tx, fields..)</code>, without making a <code>Request</code> or a <code>Reply</code> first. It is the
+smallest of all: 13 % below the hand-written codec on RV32IC, 12 % on Cortex-M0, 19 % on Thumb-2. In busgen's real
+firmware (fpga_tools BUS-12), where the handler also drives the engines, the views take 5608 bytes of <code>.text</code> for
+the UART image and 5090 for the I2C one on RV32IC, against 4552 / 4716 hand-written: the hand-written firmware reads
+a field as one small call and checks no length, the views check every length before the first field is used.</p>
+<p><code>busgen_ht</code> (values: <code>from_head_tail</code>, <code>to_head_tail</code>) is 2 % below the hand-written codec on RV32IC and 4 % above
+on Cortex-M0, 31 % below the derived one; on Thumb-2 it is smaller. Unlike the hand-written one it checks every length (a short message is an error, not
 zeros) and the UTF-8 of the string. Linker relaxation helps it less than the others: its calls are fewer, the code
 is mostly inline loads. Two things were worth taking out of the runtime on the way: a checked multiplication for
 the length of a list (on a Cortex-M0 its overflow check links a 200-byte division routine) and <code>chunks_exact_mut</code>

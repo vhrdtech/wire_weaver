@@ -86,6 +86,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reader (reads with a `Result` return it, no read moves), so a derived decoder with lists or nested types next to
   plain fields returns the first error again, as before SW-34. 20 bytes on a request/reply decoder (RV32IC), four
   forms measured (`docs/serdes/code_size.md`, `shrink_wrap/tests/latched_errors.rs`).
+- ✅ **SW-43 C99 runtime** (first step of API-26): `shrink_wrap/c/shrink_wrap.{h,c}`, the `BufReader` / `BufWriter`
+  of the Rust crate for C: bits, nibbles, `un8`..`un64`, LE integers, floats, `UNib32`, `UVlq32` / `UVlq64`, bytes
+  and strings as borrowed views, `split`, lengths at the back and `finish`, `Unsized` values. No `malloc`, the first
+  error kept as in SW-41 (a failing call moves nothing), octets through accessors so 16-bit `char` (TI C2000) works.
+  Checked against the Rust crate with golden vectors and a proptest cross-check in both directions, also on
+  truncated and corrupted input (`shrink_wrap/c/tests`, part of `just test`; `just lint` builds the C with
+  `-std=c99 -pedantic -Werror`). How to use it: `docs/c.md`. `TailSize`, the series types and the `_latch` /
+  `finish_no_lens` code size tricks are not ported.
 - ✅ **SW-39 Byte-wise `memcpy`, measured, advice for very small targets**: a firmware's own `memcpy` (and
   `__aeabi_memcpy` on Arm) of 22 bytes instead of the word-wise one of `compiler_builtins`: 324 bytes less on
   RV32IC, 304 on Cortex-M0, for every image that moves a value, at the price of speed and of replacing `memcpy` for
@@ -237,7 +245,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   check, e.g. a CRC over the resource identity and arguments (a "strict mode" per resource), or a
   request/response challenge before the call is executed.
 - 💡 **API-25 Refactor codegen to use an IR** · `v0.5.x`.
-- 💡 **API-26 Generate C** · `v0.5.x`, and an **FFI example**.
+- 🚧 **API-26 Generate C** · `v0.5.x`, and an **FFI example**. The C runtime is there (SW-43 c-runtime); generated
+  `.h` / `.c` for an API's types, a device-side dispatcher, introspection as a const blob and `ww_framer` are not.
 - 💡 **API-27 Standalone definition files with custom syntax** — APIs and types in their own files, with a friendlier
   syntax: nested levels, no macro calls, SI units. Tried twice already, approach with care:
   - at the very beginning of this repo, a YAML based language;

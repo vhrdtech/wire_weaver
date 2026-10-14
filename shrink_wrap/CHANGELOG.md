@@ -10,6 +10,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- C99 runtime (SW-43): `shrink_wrap/c/shrink_wrap.h` and `shrink_wrap.c`, `sw_reader` / `sw_writer` with the same
+  bytes as `BufReader` / `BufWriter`, for firmware written in C. No `malloc`, the first error is kept as in SW-41,
+  works with a 16-bit `char`. Checked against the Rust crate by the new `shrink_wrap_c` test crate (not published).
+  See `docs/c.md`.
 - Bounded lists and strings (SW-19): `MaxLen<T, N>` wraps a `RefVec`, `Vec`, `&str` or `String` with at most `N`
   elements (bytes for a string). Same bytes on the wire as `T` alone. A longer value is an error, never cut:
   serializing it and deserializing it (checked before the elements are read) give the new `Error::MaxLenExceeded`,

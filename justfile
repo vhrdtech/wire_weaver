@@ -18,6 +18,11 @@ lint:
     cargo clippy --workspace --all-targets -- -D warnings
     cargo clippy --workspace --all-targets --all-features -- -D warnings
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
+    just lint-c
+
+# Build the shrink_wrap C runtime on its own, warnings are errors (SW-43)
+lint-c:
+    cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -c shrink_wrap/c/shrink_wrap.c -o /dev/null
 
 # Build the Python module (wire_weaver_py) into its own venv and run its tests
 [working-directory('wire_weaver_py')]

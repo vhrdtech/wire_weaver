@@ -114,6 +114,14 @@ dfu_app_api = { version = "0.1.0", path = "./tests/dfu_app_api" }
 dfu_lean_app_api = { version = "0.1.0", path = "./tests/dfu_lean_app_api" }
 dfu_updater_api = { version = "0.1.0", path = "./tests/dfu_updater_api" }
 dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
+io_adc_api = { version = "0.1.0", path = "./tests/io_adc_api" }
+io_gpio_api = { version = "0.1.0", path = "./tests/io_gpio_api" }
+io_i2c_api = { version = "0.1.0", path = "./tests/io_i2c_api" }
+io_onewire_api = { version = "0.1.0", path = "./tests/io_onewire_api" }
+io_pwm_api = { version = "0.1.0", path = "./tests/io_pwm_api" }
+io_spi_api = { version = "0.1.0", path = "./tests/io_spi_api" }
+io_timebase_api = { version = "0.1.0", path = "./tests/io_timebase_api" }
+io_uart_api = { version = "0.1.0", path = "./tests/io_uart_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }
 series_api = { version = "0.1.0", path = "./tests/series_api" }

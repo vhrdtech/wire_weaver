@@ -1907,6 +1907,174 @@ dependencies = [
 ]
 
 [[package]]
+name = "io_adc"
+version = "0.1.0"
+dependencies = [
+ "io_adc_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_adc",
+]
+
+[[package]]
+name = "io_adc_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_adc",
+]
+
+[[package]]
+name = "io_gpio"
+version = "0.1.0"
+dependencies = [
+ "io_gpio_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_gpio",
+]
+
+[[package]]
+name = "io_gpio_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_gpio",
+]
+
+[[package]]
+name = "io_i2c"
+version = "0.1.0"
+dependencies = [
+ "io_i2c_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_i2c",
+]
+
+[[package]]
+name = "io_i2c_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_i2c",
+]
+
+[[package]]
+name = "io_onewire"
+version = "0.1.0"
+dependencies = [
+ "io_onewire_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_onewire",
+]
+
+[[package]]
+name = "io_onewire_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_onewire",
+]
+
+[[package]]
+name = "io_pwm"
+version = "0.1.0"
+dependencies = [
+ "io_pwm_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_pwm",
+]
+
+[[package]]
+name = "io_pwm_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_pwm",
+]
+
+[[package]]
+name = "io_spi"
+version = "0.1.0"
+dependencies = [
+ "io_spi_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_spi",
+]
+
+[[package]]
+name = "io_spi_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_spi",
+]
+
+[[package]]
+name = "io_timebase"
+version = "0.1.0"
+dependencies = [
+ "io_timebase_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_timebase",
+]
+
+[[package]]
+name = "io_timebase_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_timebase",
+]
+
+[[package]]
+name = "io_uart"
+version = "0.1.0"
+dependencies = [
+ "io_uart_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_uart",
+]
+
+[[package]]
+name = "io_uart_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_uart",
+]
+
+[[package]]
 name = "is_executable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

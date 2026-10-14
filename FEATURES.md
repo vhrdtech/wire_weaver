@@ -585,6 +585,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-18 `ww_adc`** — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Fill-in done:
   full rustdoc, `tests/io_adc` mock server (one test per trait), `docs/std_library/ww_adc.md`, API snapshot
   (STD-13).
+- ✅ **STD-20 `ww_onewire`** — `OneWire`: addressed transactions with strong pull-up, reset, paged and
+  bit-level (`triplet`) ROM search, the real Dallas/Maxim search algorithm. Full rustdoc, docs page
+  (`docs/std_library/ww_onewire.md`), API snapshot, in-process test with a mock bus (`tests/io_onewire`).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
@@ -610,7 +613,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reads) and 10-bit addresses (SW-48); `ww_uart` fill-in done (rustdoc, `UartMonitor` mock server and tests in
   `tests/io_uart`, `docs/std_library/ww_uart.md`); other per-crate fill-ins next. Stream loss and timestamps wait
   for ww-stream-reliability, error evolution for ww-errors-plan.
-- 🚧 **STD-20 `ww_onewire`** · `v0.5` — `OneWire`: transactions, search, triplet. Skeleton (STD-13).
 - 📋 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
   `Raw` and `Transitions` encodings (SW-31). Design pass first (STD-13).
 - 📋 **STD-22 `ww_signal_generator`** · `v0.5.x` — `PatternGenerator` (digital, replays analyzer captures),

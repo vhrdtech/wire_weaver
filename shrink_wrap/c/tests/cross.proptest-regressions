@@ -1,0 +1,19 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 0f1f98e71e500943f5b384c3036162d3b58f487c0aab9bf1e7b194f89775054f # shrinks to ops = [RevLen(4096)]
+cc 7d8decad2eac59b9fd682c07fe3846044abaeffd8b486f1612554fa38591815d # shrinks to ops = [Bytes([]), Bool(false), Raw([]), UNib32(16777216), Bool(false), Un32(3, 0), U8(0)], flips = [(Index(0), 1)]
+cc ef703df7f852fcfb9a7a1879f2a3a48eba2c6660f74a1426772450823ce1c57c # shrinks to bytes = [0, 0, 0, 0, 0, 211], ops = [Unsized([]), Bool(false), Un32(15, 0)]
+cc 54aad09e8c510b1a34b298532625097cc02e0631795624ffaacf99db061e908d # shrinks to ops = [RevLen(4096)], cut = Index(6148914691236517206)
+cc 7e634ec6bea221da41001ddf2350a6048d0c478f7d734b2670a91c6fc8bc83d1 # shrinks to ops = [UNib32(8), Bool(false), Unsized([Bytes([0, 0, 0, 0, 0, 0, 0, 0, 0]), UVlq32(0), I32(0), Un64(1, 0), U16(0)]), U32(0), Bool(false), Unsized([U8(0), UNib32(0), I16(0)]), U32(0), Un64(37, 0)], flips = [(Index(8762203435012037018), 32)]
+cc efd0ea4cb30a7c775d8c11bd6c595707615efe958aef8ada1ce1cbbbfe7ee5c7 # shrinks to ops = [RevLen(512), Bytes([]), RevLen(4096), Unsized([UVlq64(128), RevLen(32768), I16(0), U32(0), Un32(25, 0)]), UVlq64(562949953421312), Bytes([0, 0, 0, 0, 0]), UNib32(0), Raw([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), Unsized([I64(0), U64(0)])], cut = Index(5715892529881832896)
+cc 82c9d4a508a13885fcb1036718ed025ae9a57e1500787b467ab7c81364ec1c54 # shrinks to bytes = [0, 0, 144, 128, 128, 128, 0], ops = [Un64(1, 0), U8(0), UVlq32(0)]
+cc 78c483ac47ff5a83c58e6aa9d696a0be2ca7ac6f1f719812ebe0570a85b76c66 # shrinks to ops = [UVlq64(9223372036854775808)], flips = [(Index(0), 2)]
+cc 6a2d1290a903fc8088cf8e1d0e7692d3ce2b13f0273eb6fe36f7dab4700fff66 # shrinks to ops = [I32(-1), Raw([0, 0])], cut = Index(12297829382473034411)
+cc c308af6c54ca3b1002d5202ab763dd7599d47312d2a97baebc669eb03aa08d1a # shrinks to bytes = [0, 0, 0, 0, 0, 0, 0, 128], ops = [I64(0)]
+cc 9424ee54b3379a9c894aae7a6eb096a5190e38fb2c5b72720b8e7bad1bacc2ac # shrinks to ops = [U16(0), I8(0), UVlq64(72057594037927936), Un16(9, 0), Str("𐀀\u{8dca3}ࠀA")], cut = Index(15030680356355930947)
+cc 08387a36f22af40d8c873ec926a1d7a746cbd9e235d5e9ad6e6de2636f5b346b # shrinks to bytes = [194, 128, 1], ops = [Str("")]
+cc 3209241d92e1a575871cfab2f0c6b65ec2c038e97fe29a0d1192d6ea4a52df3d # shrinks to ops = [Unsized([I8(0), Str("ࠀ𐀀")]), UNib32(0), UNib32(512), UNib32(64), UNib32(8), I8(0), UNib32(0), U8(0), Raw([0]), F64(0), U16(0), Un64(49, 0)], flips = [(Index(4099276460824344804), 111)]

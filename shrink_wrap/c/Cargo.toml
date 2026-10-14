@@ -1,0 +1,19 @@
+[package]
+name = "shrink_wrap_c"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Builds the shrink_wrap C99 runtime and checks it against the Rust crate (SW-43)."
+
+[dependencies]
+shrink_wrap = { workspace = true, features = ["std"] }
+
+[build-dependencies]
+cc.workspace = true
+
+[dev-dependencies]
+hex-literal.workspace = true
+proptest.workspace = true

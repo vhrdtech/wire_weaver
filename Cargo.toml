@@ -33,6 +33,7 @@ license = "MIT"
 
 [workspace.dependencies]
 anyhow = "1"
+cc = "1.2"
 clap = "4.5"
 console = "0.16"
 convert_case = "0.11"
@@ -40,6 +41,7 @@ defmt = "1.1"
 hex = { version = "0.4", default-features = false }
 hex-literal = "1"
 proc-macro2 = "1.0"
+proptest = "1.11"
 pyo3 = "0.29"
 quote = "1.0"
 relative-path = "2.0"

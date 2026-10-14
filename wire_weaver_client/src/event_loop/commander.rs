@@ -10,7 +10,10 @@ use crate::event_loop::command::Command;
 use crate::event_loop::rx_dispatcher::ResponseReceiver;
 use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
-use crate::{DEFAULT_REQUEST_TIMEOUT, PreparedRead, PreparedWrite, Sink};
+use crate::{
+    AckMode, DEFAULT_REQUEST_TIMEOUT, PositionedStream, PreparedRead, PreparedStreamOpen,
+    PreparedWrite, Sink,
+};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -21,6 +24,7 @@ use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32, UVlq32Backfill};
 use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKind, PathKindOwned, RequestKindOwned, StreamSideband};
+use ww_stream::StreamCursor;
 use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
 
 // TODO: in tests dispatcher command can arrive later than event with an answer (fixed with delay?), even though cmd are sent first, happens on real hw?
@@ -54,8 +58,11 @@ pub struct Commander {
     /// Connected with [ClientConfig::traits_only](crate::ClientConfig::traits_only): device API unknown, absolute
     /// paths are refused.
     pub(crate) traits_only: bool,
+    /// Bytes of items queued per stream on the host
+    stream_queue_bytes: usize,
 }
 
+#[derive(Clone)]
 pub(crate) struct TransportCommander {
     cmd_tx: mpsc::Sender<Command>,
     default_timeout: Duration,
@@ -73,6 +80,7 @@ impl Commander {
             device_introspect: None,
             api_match: ApiMatch::NoClientApi,
             traits_only: false,
+            stream_queue_bytes: crate::DEFAULT_STREAM_QUEUE_BYTES,
         }
     }
 
@@ -167,46 +175,56 @@ impl Commander {
         }
     }
 
-    /// Subscribe to events on `path_kind`, returns once the event loop routes them to the returned receiver, so that
-    /// nothing the device sends after this is lost.
-    async fn register_stream(
-        &self,
-        path_kind: &PathKindOwned,
-    ) -> Result<StreamUpdateReceiver, Error> {
-        let (tx, rx) = mpsc::unbounded_channel();
-        let (registered_tx, registered_rx) = oneshot::channel();
-        self.transport_cmd_tx
-            .send(Command::OnStreamEvent {
-                path_kind: Box::new(path_kind.clone()),
-                stream_event_tx: tx,
-                registered_tx,
-            })
-            .await
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
-        registered_rx
-            .await
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
-        Ok(rx)
+    fn transport(&self) -> TransportCommander {
+        TransportCommander::new(self.transport_cmd_tx.clone(), self.default_timeout)
     }
 
-    /// Blocking variant of [Self::register_stream].
-    fn register_stream_blocking(
+    /// Bytes of items queued per stream, see [ClientConfig::stream_queue_bytes](crate::ClientConfig::stream_queue_bytes).
+    pub fn set_stream_queue_bytes(&mut self, bytes: usize) {
+        self.stream_queue_bytes = bytes;
+    }
+
+    /// Open a stream by calling its stream function (generated `name(args)`): `delivery` is None for a plain
+    /// stream (handle `S` = [Stream](crate::Stream)), the kind of a counted or reliable one (`S` =
+    /// [PositionedStream](crate::PositionedStream)); `args` are the serialized arguments like
+    /// [Self::prepare_call]'s; `R` is the stream function's result, see [StreamOpenResult](crate::StreamOpenResult).
+    pub fn prepare_stream_open<R, S>(
         &self,
-        path_kind: &PathKindOwned,
-    ) -> Result<StreamUpdateReceiver, Error> {
-        let (tx, rx) = mpsc::unbounded_channel();
-        let (registered_tx, registered_rx) = oneshot::channel();
-        self.transport_cmd_tx
-            .blocking_send(Command::OnStreamEvent {
-                path_kind: Box::new(path_kind.clone()),
-                stream_event_tx: tx,
-                registered_tx,
-            })
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
-        registered_rx
-            .blocking_recv()
-            .map_err(|_| Error::RxDispatcherNotRunning)?;
-        Ok(rx)
+        path: PathKind<'_>,
+        delivery: Option<ww_self::Delivery>,
+        args: Result<Vec<u8>, Error>,
+    ) -> PreparedStreamOpen<R, S> {
+        let (postpone_err, path_kind, args) = match (self.resolve_path(path), args) {
+            (Ok(path_kind), Ok(args)) => (Ok(()), path_kind, args),
+            (Err(e), _) | (_, Err(e)) => (Err(e), PathKindOwned::Absolute { path: vec![] }, vec![]),
+        };
+        PreparedStreamOpen {
+            postpone_err,
+            transport_cmd_tx: self.transport(),
+            path_kind,
+            delivery,
+            args,
+            resume: None,
+            ack_mode: AckMode::default(),
+            window: crate::DEFAULT_WINDOW,
+            queue_bytes: self.stream_queue_bytes,
+            timeout_override: None,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Resume a counted or reliable stream from `cursor` (generated `name_resume(cursor)`), with the arguments
+    /// the device keeps for the session: after a reconnect or a restart of the host program. A cursor of another
+    /// session than the device's opens the device's (`StreamEvent::Resumed { ended, .. }`).
+    pub fn prepare_stream_resume<T>(
+        &self,
+        path: PathKind<'_>,
+        delivery: ww_self::Delivery,
+        cursor: StreamCursor,
+    ) -> PreparedStreamOpen<(), PositionedStream<T>> {
+        let mut open = self.prepare_stream_open(path, Some(delivery), Ok(vec![]));
+        open.resume = Some(cursor);
+        open
     }
 
     pub async fn prepare_stream<T: DeserializeShrinkWrapOwned>(
@@ -214,7 +232,7 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Stream<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.register_stream(&path_kind).await?;
+        let rx = self.transport().register_stream(&path_kind).await?;
         Ok(Stream {
             transport_cmd_tx: TransportCommander::new(
                 self.transport_cmd_tx.clone(),
@@ -231,7 +249,7 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Stream<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.register_stream_blocking(&path_kind)?;
+        let rx = self.transport().register_stream_blocking(&path_kind)?;
         Ok(Stream {
             transport_cmd_tx: TransportCommander::new(
                 self.transport_cmd_tx.clone(),
@@ -248,7 +266,7 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.register_stream(&path_kind).await?;
+        let rx = self.transport().register_stream(&path_kind).await?;
         Ok(self.sink(path_kind, rx, false))
     }
 
@@ -257,7 +275,7 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.register_stream_blocking(&path_kind)?;
+        let rx = self.transport().register_stream_blocking(&path_kind)?;
         Ok(self.sink(path_kind, rx, false))
     }
 
@@ -267,7 +285,7 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.register_stream(&path_kind).await?;
+        let rx = self.transport().register_stream(&path_kind).await?;
         Ok(self.sink(path_kind, rx, true))
     }
 
@@ -277,7 +295,7 @@ impl Commander {
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
         let path_kind = self.resolve_path(path)?;
-        let rx = self.register_stream_blocking(&path_kind)?;
+        let rx = self.transport().register_stream_blocking(&path_kind)?;
         Ok(self.sink(path_kind, rx, true))
     }
 
@@ -518,6 +536,61 @@ impl TransportCommander {
 
     pub(crate) fn default_timeout(&self) -> Duration {
         self.default_timeout
+    }
+
+    pub(crate) async fn send_command(&self, cmd: Command) -> Result<(), Error> {
+        self.cmd_tx
+            .send(cmd)
+            .await
+            .map_err(|_| Error::EventLoopNotRunning)
+    }
+
+    pub(crate) fn send_command_blocking(&self, cmd: Command) -> Result<(), Error> {
+        self.cmd_tx
+            .blocking_send(cmd)
+            .map_err(|_| Error::EventLoopNotRunning)
+    }
+
+    /// Subscribe to events on `path_kind`, returns once the event loop routes them to the returned receiver, so that
+    /// nothing the device sends after this is lost.
+    pub(crate) async fn register_stream(
+        &self,
+        path_kind: &PathKindOwned,
+    ) -> Result<StreamUpdateReceiver, Error> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let (registered_tx, registered_rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::OnStreamEvent {
+                path_kind: Box::new(path_kind.clone()),
+                stream_event_tx: tx,
+                registered_tx,
+            })
+            .await
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        registered_rx
+            .await
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        Ok(rx)
+    }
+
+    /// Blocking variant of [Self::register_stream].
+    pub(crate) fn register_stream_blocking(
+        &self,
+        path_kind: &PathKindOwned,
+    ) -> Result<StreamUpdateReceiver, Error> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let (registered_tx, registered_rx) = oneshot::channel();
+        self.cmd_tx
+            .blocking_send(Command::OnStreamEvent {
+                path_kind: Box::new(path_kind.clone()),
+                stream_event_tx: tx,
+                registered_tx,
+            })
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        registered_rx
+            .blocking_recv()
+            .map_err(|_| Error::RxDispatcherNotRunning)?;
+        Ok(rx)
     }
 
     pub(crate) async fn send_message_expect_response(

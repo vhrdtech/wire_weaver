@@ -18,17 +18,23 @@ pub use client::dyn_client::DynClient;
 pub use client::dynamic::{DynResource, DynResourceKind, DynSink, DynStream};
 pub use client::introspect::Introspect;
 pub use client::multi_read::MultiRead;
+pub use client::positioned::{
+    AckMode, Cause, DEFAULT_STREAM_QUEUE_BYTES, DEFAULT_WINDOW, PositionedStream, Run, Second,
+    StreamEvent, StreamStats,
+};
 pub use client::prepared_call::PreparedCall;
 pub use client::prepared_connection::PreparedConnection;
 pub use client::prepared_disconnect::PreparedDisconnect;
 pub use client::prepared_read::PreparedRead;
+pub use client::prepared_stream_open::{PreparedStreamOpen, StreamHandle, StreamOpenResult};
 pub use client::prepared_write::PreparedWrite;
 pub use client::promise::{Promise, PromiseState};
 pub use client::sink::Sink;
-pub use client::stream::{Stream, StreamError, StreamEvent, TypedStreamEvent};
+pub use client::stream::{RawStreamEvent, Stream, StreamError, TypedStreamEvent};
 pub use config::ClientConfig;
 pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, UsbLocation};
 pub use event_loop::commander::Commander;
+pub use ww_stream::StreamCursor;
 
 #[cfg(feature = "usb")]
 mod usb;

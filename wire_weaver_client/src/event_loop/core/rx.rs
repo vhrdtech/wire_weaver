@@ -122,7 +122,11 @@ impl RxCore {
             Phase::Up => self.last_rx_at.map(|t| t + PEER_TIMEOUT),
             Phase::Idle | Phase::LinkSetup => None,
         };
-        [self.dispatcher.next_prune_at(), peer]
+        let streams = match self.phase {
+            Phase::Up => self.dispatcher.next_stream_poll_at(),
+            Phase::Idle | Phase::LinkSetup => None,
+        };
+        [self.dispatcher.next_prune_at(), peer, streams]
             .into_iter()
             .flatten()
             .min()
@@ -141,6 +145,7 @@ impl RxCore {
                 seq,
                 done_tx,
                 timeout,
+                hook,
             } => {
                 self.dispatcher.handle_cmd(
                     now,
@@ -148,6 +153,7 @@ impl RxCore {
                         seq,
                         done_tx,
                         timeout,
+                        hook,
                     },
                 );
             }
@@ -187,12 +193,12 @@ impl RxCore {
                 self.exit(result, false);
             }
         }
-        self.forward_freed();
+        self.forward_freed(now);
     }
 
     fn on_timer(&mut self, now: Instant) -> anyhow::Result<Option<EventLoopExitReason>> {
         self.dispatcher.prune(now);
-        self.forward_freed();
+        self.forward_freed(now);
         if self.phase == Phase::Up && is_due(self.last_rx_at.map(|t| t + PEER_TIMEOUT), now) {
             warn!("nothing received from device for {PEER_TIMEOUT:?}, exiting");
             return Err(anyhow!(Error::NoPingFromDevice));
@@ -230,7 +236,7 @@ impl RxCore {
                 }
             }
         };
-        self.forward_freed();
+        self.forward_freed(now);
         r
     }
 
@@ -328,9 +334,15 @@ impl RxCore {
 
     // Helpers
 
-    fn forward_freed(&mut self) {
+    /// Freed seq numbers, and what streams send (`Ack`, `ResendFrom`), to tx.
+    fn forward_freed(&mut self, now: Instant) {
         for seq in self.dispatcher.take_freed() {
             self.output.push_back(RxOutput::ToTx(ToTx::Freed(seq)));
+        }
+        if self.phase == Phase::Up {
+            for bytes in self.dispatcher.poll_streams(now) {
+                self.output.push_back(RxOutput::ToTx(ToTx::Send(bytes)));
+            }
         }
     }
 

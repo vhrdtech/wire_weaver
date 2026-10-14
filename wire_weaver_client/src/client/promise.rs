@@ -1,6 +1,6 @@
 use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
-use crate::{Error, StreamEvent};
+use crate::{Error, RawStreamEvent};
 use std::fmt::{Debug, Display, Formatter};
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
@@ -368,12 +368,12 @@ impl<T: DeserializeShrinkWrapOwned + Debug> Promise<T> {
                 on_done,
             } => loop {
                 match rx.try_recv() {
-                    Ok(StreamEvent::Data(chunk)) => {
+                    Ok(RawStreamEvent::Data(chunk)) => {
                         bytes.extend_from_slice(&chunk);
                         *deadline = Instant::now() + *idle_timeout;
                     }
-                    Ok(StreamEvent::Connected) => {}
-                    Ok(StreamEvent::Sideband(StreamSideband::Close)) => {
+                    Ok(RawStreamEvent::Connected) => {}
+                    Ok(RawStreamEvent::Sideband(StreamSideband::Close)) => {
                         self.state = if bytes.is_empty() {
                             StateInner::Err(Error::Other(
                                 "device did not provide introspection data".into(),

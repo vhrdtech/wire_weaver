@@ -1,6 +1,6 @@
 use crate::client::credit::{CreditConfig, CreditTx, Due};
 use crate::event_loop::commander::TransportCommander;
-use crate::{Error, StreamError, StreamEvent};
+use crate::{Error, RawStreamEvent, StreamError};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
@@ -18,9 +18,9 @@ use ww_client_server::{PathKindOwned, StreamSideband};
 pub struct Sink<T> {
     transport_cmd_tx: TransportCommander,
     path_kind: PathKindOwned,
-    sideband_rx: UnboundedReceiver<StreamEvent>,
+    sideband_rx: UnboundedReceiver<RawStreamEvent>,
     /// Events received while waiting for credit, for the user
-    pending: VecDeque<StreamEvent>,
+    pending: VecDeque<RawStreamEvent>,
     credit: Option<CreditTx>,
     _phantom: PhantomData<T>,
 }
@@ -29,7 +29,7 @@ impl<T> Sink<T> {
     pub(crate) fn new(
         transport_cmd_tx: TransportCommander,
         path_kind: PathKindOwned,
-        sideband_rx: UnboundedReceiver<StreamEvent>,
+        sideband_rx: UnboundedReceiver<RawStreamEvent>,
         credit: bool,
     ) -> Self {
         Sink {
@@ -103,7 +103,7 @@ impl<T> Sink<T> {
     }
 
     /// Receive one sideband event from the device: a reply to [Self::sideband] or one sent by the device on its own.
-    /// Skip [StreamEvent::Connected] events. Credit events of a credit sink are used up internally and not returned.
+    /// Skip [RawStreamEvent::Connected] events. Credit events of a credit sink are used up internally and not returned.
     /// Returns an error if a Disconnected event is received instead.
     ///
     /// See [Self::recv_sideband_blocking] for a blocking variant of this method.
@@ -117,7 +117,7 @@ impl<T> Sink<T> {
     }
 
     /// Receive one sideband event from the device in a blocking manner.
-    /// Skip [StreamEvent::Connected] events. Credit events of a credit sink are used up internally and not returned.
+    /// Skip [RawStreamEvent::Connected] events. Credit events of a credit sink are used up internally and not returned.
     /// Returns an error if a Disconnected event is received instead.
     ///
     /// See [Self::recv_sideband] for an asynchronous variant of this method.
@@ -131,7 +131,7 @@ impl<T> Sink<T> {
     }
 
     /// Try to receive one sideband event from the device, `None` if there is none yet.
-    /// Skip [StreamEvent::Connected] events. Credit events of a credit sink are used up internally and not returned.
+    /// Skip [RawStreamEvent::Connected] events. Credit events of a credit sink are used up internally and not returned.
     /// Returns an error if a Disconnected event is received instead.
     pub fn try_recv_sideband(&mut self) -> Result<Option<StreamSideband>, StreamError> {
         loop {
@@ -149,7 +149,7 @@ impl<T> Sink<T> {
     /// Receive one event of any kind: sideband, Connected or Disconnected.
     ///
     /// See [Self::recv_any_blocking] for a blocking variant of this method.
-    pub async fn recv_any(&mut self) -> Result<StreamEvent, StreamError> {
+    pub async fn recv_any(&mut self) -> Result<RawStreamEvent, StreamError> {
         loop {
             if let Some(ev) = self.pending.pop_front() {
                 return Ok(ev);
@@ -162,7 +162,7 @@ impl<T> Sink<T> {
     /// Receive one event of any kind: sideband, Connected or Disconnected.
     ///
     /// See [Self::recv_any] for an asynchronous variant of this method.
-    pub fn recv_any_blocking(&mut self) -> Result<StreamEvent, StreamError> {
+    pub fn recv_any_blocking(&mut self) -> Result<RawStreamEvent, StreamError> {
         loop {
             if let Some(ev) = self.pending.pop_front() {
                 return Ok(ev);
@@ -175,7 +175,7 @@ impl<T> Sink<T> {
         }
     }
 
-    fn try_recv_any(&mut self) -> Result<Option<StreamEvent>, StreamError> {
+    fn try_recv_any(&mut self) -> Result<Option<RawStreamEvent>, StreamError> {
         self.drain()?;
         Ok(self.pending.pop_front())
     }
@@ -429,7 +429,7 @@ impl<T> Sink<T> {
         self.sideband_blocking(sideband)
     }
 
-    fn on_event(&mut self, ev: Option<StreamEvent>) -> Result<(), StreamError> {
+    fn on_event(&mut self, ev: Option<RawStreamEvent>) -> Result<(), StreamError> {
         let ev = ev.ok_or(StreamError::Closed)?;
         self.filter(ev);
         Ok(())
@@ -442,7 +442,7 @@ impl<T> Sink<T> {
         if self.credit().is_opened() {
             Ok(())
         } else {
-            Err(StreamError::UnexpectedEvent(StreamEvent::Disconnected))
+            Err(StreamError::UnexpectedEvent(RawStreamEvent::Disconnected))
         }
     }
 
@@ -458,15 +458,15 @@ impl<T> Sink<T> {
     }
 
     /// Credit events go to the credit state, the rest to the user.
-    fn filter(&mut self, ev: StreamEvent) {
+    fn filter(&mut self, ev: RawStreamEvent) {
         if let Some(credit) = &mut self.credit {
             match &ev {
-                StreamEvent::Sideband(sideband) => {
+                RawStreamEvent::Sideband(sideband) => {
                     if credit.on_sideband(*sideband, Instant::now()) {
                         return;
                     }
                 }
-                StreamEvent::Disconnected => credit.closed(),
+                RawStreamEvent::Disconnected => credit.closed(),
                 _ => {}
             }
         }
@@ -491,10 +491,10 @@ impl<T> Sink<T> {
     }
 }
 
-fn sideband_or_err(ev: StreamEvent) -> Result<Option<StreamSideband>, StreamError> {
+fn sideband_or_err(ev: RawStreamEvent) -> Result<Option<StreamSideband>, StreamError> {
     match ev {
-        StreamEvent::Sideband(sideband) => Ok(Some(sideband)),
-        StreamEvent::Connected => Ok(None),
+        RawStreamEvent::Sideband(sideband) => Ok(Some(sideband)),
+        RawStreamEvent::Connected => Ok(None),
         ev => Err(StreamError::UnexpectedEvent(ev)),
     }
 }

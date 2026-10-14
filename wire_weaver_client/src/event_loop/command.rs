@@ -1,17 +1,21 @@
 use std::any::Any;
 use std::fmt::Debug;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::DisconnectReason;
 use ww_client_server::PathKindOwned;
 use ww_version::FullVersionOwned;
 
+use crate::client::positioned::Shared;
+use crate::client::prepared_stream_open::{StreamOpenResult, is_open};
 use crate::{
     SeqTy,
     device_info::ConnectionInfo,
     event_loop::rx_dispatcher::{ResponseSender, StreamUpdateSender},
     tracing::TraceEvent,
 };
+use ww_stream::StreamCursor;
 
 /// Command for the transport event loop host (USB host, WebSocket client, UDP client).
 /// Generated client code uses [Commander](crate::Commander), which sends out Command's.
@@ -38,6 +42,14 @@ pub enum Command {
         /// If None - the message will be sent with seq = 0
         /// TODO: Timeout per each update or in total for multipart?
         done_tx: Option<(ResponseSender, Duration)>,
+    },
+    /// Open a counted or reliable stream: send the `StreamOpen` request in `bytes` like [Command::SendMessage], and
+    /// route the stream's events to `hook` once the device answered that it is open.
+    OpenStream {
+        bytes: Vec<u8>,
+        done_tx: ResponseSender,
+        timeout: Duration,
+        hook: Box<StreamOpenHook>,
     },
     /// Subscribe to a stream or property change
     OnStreamEvent {
@@ -76,6 +88,38 @@ pub enum Command {
         packet_size: Option<usize>,
         progress_tx: mpsc::UnboundedSender<TestProgress>,
     },
+}
+
+/// Where the events of a counted or reliable stream go once it is open, see [Command::OpenStream].
+#[doc(hidden)]
+pub struct StreamOpenHook {
+    pub(crate) shared: Arc<Shared>,
+    /// Resumed from here
+    pub(crate) resume: Option<StreamCursor>,
+    /// Whether the answer says the stream is open (the stream function returned `Ok`)
+    pub(crate) is_open: fn(&[u8]) -> bool,
+}
+
+impl Debug for StreamOpenHook {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StreamOpenHook")
+            .field("path", &self.shared.lock().path)
+            .field("resume", &self.resume)
+            .finish()
+    }
+}
+
+impl StreamOpenHook {
+    pub(crate) fn new<R: StreamOpenResult>(
+        shared: Arc<Shared>,
+        resume: Option<StreamCursor>,
+    ) -> Self {
+        StreamOpenHook {
+            shared,
+            resume,
+            is_open: is_open::<R>,
+        }
+    }
 }
 
 pub struct EventLoopResidual {

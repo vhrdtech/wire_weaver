@@ -14,12 +14,12 @@ use ww_client_server::{PathKindOwned, StreamSideband};
 pub struct Stream<T> {
     pub(crate) transport_cmd_tx: TransportCommander,
     pub(crate) path_kind: PathKindOwned,
-    pub(crate) rx: UnboundedReceiver<StreamEvent>,
+    pub(crate) rx: UnboundedReceiver<RawStreamEvent>,
     pub(crate) _phantom: PhantomData<T>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub enum StreamEvent {
+pub enum RawStreamEvent {
     /// Data channel from remote device
     Data(Vec<u8>),
     /// Sideband channel from remote device
@@ -49,7 +49,7 @@ pub enum StreamError {
     #[error("Failed to deserialize stream value: {:?}", .0)]
     DeserializeError(SWError),
     #[error("Got unexpected stream event: {:?}", .0)]
-    UnexpectedEvent(StreamEvent),
+    UnexpectedEvent(RawStreamEvent),
     /// A credit sink item never fits: credit counts bytes and items are never split, the device has to be able to
     /// buffer the largest one (`SinkCredit::sized_for` on the device checks it when the bound is known).
     #[error(
@@ -102,17 +102,17 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     }
 
     /// Receive one data event and deserialize it.
-    /// Skip [StreamEvent::Connected] events.
+    /// Skip [RawStreamEvent::Connected] events.
     /// Returns an error if any kind of sideband or Disconnected event is received instead.
     ///
     /// See [Self::recv_blocking] for a blocking variant of this method.
     pub async fn recv(&mut self) -> Result<T, StreamError> {
         let bytes = loop {
             let ev = self.rx.recv().await.ok_or(StreamError::Closed)?;
-            if matches!(ev, StreamEvent::Connected) {
+            if matches!(ev, RawStreamEvent::Connected) {
                 continue;
             }
-            let StreamEvent::Data(bytes) = ev else {
+            let RawStreamEvent::Data(bytes) = ev else {
                 return Err(StreamError::UnexpectedEvent(ev));
             };
             break bytes;
@@ -122,17 +122,17 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     }
 
     /// Receive one data event in a blocking manner and deserialize it.
-    /// Skip [StreamEvent::Connected] events.
+    /// Skip [RawStreamEvent::Connected] events.
     /// Returns an error if any kind of sideband or Disconnected event is received instead.
     ///
     /// See [Self::recv] for an asynchronous variant of this method.
     pub fn recv_blocking(&mut self) -> Result<T, StreamError> {
         let bytes = loop {
             let ev = self.rx.blocking_recv().ok_or(StreamError::Closed)?;
-            if matches!(ev, StreamEvent::Connected) {
+            if matches!(ev, RawStreamEvent::Connected) {
                 continue;
             }
-            let StreamEvent::Data(bytes) = ev else {
+            let RawStreamEvent::Data(bytes) = ev else {
                 return Err(StreamError::UnexpectedEvent(ev));
             };
             break bytes;
@@ -142,7 +142,7 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     }
 
     /// Try to receive one data event and deserialize it.
-    /// Skip [StreamEvent::Connected] events.
+    /// Skip [RawStreamEvent::Connected] events.
     /// Returns an error if any kind of sideband or Disconnected event is received instead.
     ///
     /// See [Self::recv] for an asynchronous variant of this method.
@@ -150,10 +150,10 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
         let bytes = loop {
             match self.rx.try_recv() {
                 Ok(ev) => {
-                    if matches!(ev, StreamEvent::Connected) {
+                    if matches!(ev, RawStreamEvent::Connected) {
                         continue;
                     }
-                    let StreamEvent::Data(bytes) = ev else {
+                    let RawStreamEvent::Data(bytes) = ev else {
                         return Err(StreamError::UnexpectedEvent(ev));
                     };
                     break bytes;
@@ -263,28 +263,28 @@ impl From<SWError> for StreamError {
     }
 }
 
-fn recv_all_inner(ev: StreamEvent, buf: &mut Vec<u8>) -> Result<ControlFlow<()>, StreamError> {
+fn recv_all_inner(ev: RawStreamEvent, buf: &mut Vec<u8>) -> Result<ControlFlow<()>, StreamError> {
     match ev {
-        StreamEvent::Data(b) => {
+        RawStreamEvent::Data(b) => {
             buf.extend_from_slice(&b);
             Ok(ControlFlow::Continue(()))
         }
-        StreamEvent::Connected => Ok(ControlFlow::Continue(())),
-        StreamEvent::Sideband(StreamSideband::Close) => Ok(ControlFlow::Break(())),
+        RawStreamEvent::Connected => Ok(ControlFlow::Continue(())),
+        RawStreamEvent::Sideband(StreamSideband::Close) => Ok(ControlFlow::Break(())),
         e => Err(StreamError::UnexpectedEvent(e)),
     }
 }
 
 fn to_typed<T: DeserializeShrinkWrapOwned>(
-    ev: StreamEvent,
+    ev: RawStreamEvent,
 ) -> Result<TypedStreamEvent<T>, StreamError> {
     match ev {
-        StreamEvent::Data(bytes) => {
+        RawStreamEvent::Data(bytes) => {
             let data = T::from_ww_bytes_owned(&bytes)?;
             Ok(TypedStreamEvent::Data(data))
         }
-        StreamEvent::Sideband(s) => Ok(TypedStreamEvent::Sideband(s)),
-        StreamEvent::Connected => Ok(TypedStreamEvent::Connected),
-        StreamEvent::Disconnected => Ok(TypedStreamEvent::Disconnected),
+        RawStreamEvent::Sideband(s) => Ok(TypedStreamEvent::Sideband(s)),
+        RawStreamEvent::Connected => Ok(TypedStreamEvent::Connected),
+        RawStreamEvent::Disconnected => Ok(TypedStreamEvent::Disconnected),
     }
 }

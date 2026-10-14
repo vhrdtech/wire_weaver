@@ -4131,6 +4131,8 @@ dependencies = [
  "ww_numeric",
  "ww_picoboot",
  "ww_self",
+ "ww_si",
+ "ww_stream",
  "ww_version",
 ]
 

@@ -1,13 +1,31 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- The raw stream event `StreamEvent` (`Data` / `Sideband` / `Connected` / `Disconnected`, from `Sink::recv_any` and
+  in `StreamError::UnexpectedEvent`) is now `RawStreamEvent`; `StreamEvent<T>` is the event of a counted or reliable
+  stream (CLT-23). Code that named it: rename.
+
 ### 🚀 Features
+
+- Counted and reliable streams on the host (CLT-23, API-30), see `docs/api/stream_reliability.md`:
+  `Commander::prepare_stream_open::<R, S>(path, delivery, args)` opens any stream by calling its stream function
+  (`RequestKind::StreamOpen`), `prepare_stream_resume(path, delivery, cursor)` resumes one; `PreparedStreamOpen`
+  (`call()` / `blocking_call()`, `with_timeout`, `ack_mode`, `window`, `queue_bytes`) returns the function's result
+  with the handle (`StreamOpenResult`: `((), S)` or `Result<(A, S), E>`). `PositionedStream<T>`: `recv_event()` with
+  `StreamEvent::Item { pos, units, t, run, value, .. }` / `Gap { at, units, cause, run }` / `Resumed` /
+  `BackfillDone` / `Disconnected` / `Closed`, `recv()` for values only, blocking and `try_` variants, `split()` into
+  the live and the backfill run, `cursor()`, `ack(pos)` (`AckMode::Explicit`), `stats()` (`StreamStats`), `close()`.
+  The event loop runs each stream's `ww_stream::rx::Receiver`: positions, gaps by cause, duplicates, `Ack` and
+  `ResendFrom` for reliable streams, the device's `Query`. `ClientConfig::stream_queue_bytes` bounds what a stream
+  queues (`DEFAULT_STREAM_QUEUE_BYTES`, 4 MiB).
 
 - `Delta`, `DeltaOfDelta` and `XorFloat` in APIs (SW-50): the dynamic client reads and writes them as lists of
   numbers; the evolution checker (`ww api check`) and the connect-time check report another codec or element type,
   or a plain `Vec` instead, as breaking.
 - Counted and reliable streams in introspection data (API-30): the compatibility check and API diffs know
   `ApiItemKind::PositionedStream` (a delivery kind that differs between client and device is incompatible), the
-  dynamic client lists them as streams. Their events (`EventKind::StreamItem`) are dropped until CLT-23.
+  dynamic client lists them as streams.
 - Follow a device across a reboot into other firmware (CLT-21), `follow` module: `Follow::gone()` / `back()` /
   `back_in_bootsel()` / `back_in_wire_weaver()` wait for the device with the same serial number to go away and come
   back as what is expected, on any `follow::Bus` (`UsbBus` for real devices); `Found` tells a WireWeaver device, an

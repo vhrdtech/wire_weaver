@@ -1,18 +1,26 @@
-use crate::{Error, SeqTy, StreamEvent};
+use crate::client::positioned::Shared;
+use crate::client::prepared_stream_open::decode_opened;
+use crate::event_loop::command::StreamOpenHook;
+use crate::{Error, RawStreamEvent, SeqTy};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, trace, warn};
-use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, UNib32};
-use ww_client_server::{EventKind, PathKindOwned};
+use wire_weaver::prelude::UVlq32Backfill;
+use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned, UNib32};
+use ww_client_server::{EventKind, PathKindOwned, RequestKindOwned};
 
 pub(crate) type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
 pub(crate) type ResponseReceiver = oneshot::Receiver<Result<Vec<u8>, Error>>;
 
-pub(crate) type StreamUpdateSender = mpsc::UnboundedSender<StreamEvent>;
-pub(crate) type StreamUpdateReceiver = mpsc::UnboundedReceiver<StreamEvent>;
+pub(crate) type StreamUpdateSender = mpsc::UnboundedSender<RawStreamEvent>;
+pub(crate) type StreamUpdateReceiver = mpsc::UnboundedReceiver<RawStreamEvent>;
 
 const IGNORE_TIMER_DURATION: Duration = Duration::from_millis(1);
+
+/// How often reliable streams' receivers are polled for `Ack` / `ResendFrom` (they decide when to send).
+const STREAM_POLL_INTERVAL: Duration = Duration::from_millis(20);
 
 /// The seq of a timed out request stays in use until a reply to it arrives or this long after it was sent
 /// (or until its own timeout, if longer), so that a late reply is not taken for the answer to a new request
@@ -31,6 +39,8 @@ pub(crate) enum DispatcherCommand {
         seq: SeqTy,
         done_tx: ResponseSender,
         timeout: Duration,
+        /// The request opens a counted or reliable stream
+        hook: Option<Box<StreamOpenHook>>,
     },
     OnStreamEvent {
         path_kind: PathKindOwned,
@@ -76,6 +86,13 @@ pub(crate) struct RxDispatcher {
     is_connected: bool,
     /// Waiting for an answer: response sender, timeout instant and [LATE_REPLY_WINDOW] end.
     response_map: HashMap<SeqTy, (ResponseSenderWrapper, Instant, Instant)>,
+    /// Requests that open a counted or reliable stream, by seq
+    stream_opens: HashMap<SeqTy, Box<StreamOpenHook>>,
+    /// Open counted and reliable streams, by path
+    positioned: HashMap<Vec<UNib32>, Arc<Shared>>,
+    /// Time base of the streams' receivers, and when they were polled last
+    epoch: Option<Instant>,
+    last_stream_poll: Option<Instant>,
     /// Timed out requests, whose seq is not freed until a late reply arrives or [LATE_REPLY_WINDOW] ends.
     timed_out: HashMap<SeqTy, Instant>,
     stream_handlers: HashMap<Vec<UNib32>, Vec<StreamUpdateSender>>,
@@ -105,8 +122,13 @@ impl RxDispatcher {
                 seq,
                 done_tx,
                 timeout,
+                hook,
             } => {
-                self.respond_later(now, seq, done_tx, timeout);
+                if self.respond_later(now, seq, done_tx, timeout)
+                    && let Some(hook) = hook
+                {
+                    self.stream_opens.insert(seq, hook);
+                }
             }
             DispatcherCommand::OnStreamEvent {
                 path_kind,
@@ -136,16 +158,16 @@ impl RxDispatcher {
         seq: SeqTy,
         done_tx: ResponseSender,
         timeout: Duration,
-    ) {
+    ) -> bool {
         if seq == 0 {
             _ = done_tx.send(Err(Error::User(
                 "Requests with seq == 0 will not be answered".into(),
             )));
-            return;
+            return false;
         }
         if !self.is_connected {
             _ = done_tx.send(Err(Error::Disconnected));
-            return;
+            return false;
         }
         let prune_at = now + timeout;
         let release_at = prune_at.max(now + LATE_REPLY_WINDOW);
@@ -159,6 +181,8 @@ impl RxDispatcher {
             )));
             // the seq is still in use by the new request, so it is not freed here
         }
+        self.stream_opens.remove(&seq);
+        true
     }
 
     /// Time out all requests that are due at `now` (or within [IGNORE_TIMER_DURATION] of it) and free the seq numbers
@@ -172,6 +196,7 @@ impl RxDispatcher {
             .map(|(seq, _)| *seq)
             .collect();
         for seq in due {
+            self.stream_opens.remove(&seq);
             if let Some((mut done_tx, _, release_at)) = self.response_map.remove(&seq) {
                 _ = done_tx.send(Err(Error::Timeout));
                 trace!("pruned {seq:?}");
@@ -214,6 +239,11 @@ impl RxDispatcher {
                 }
                 if !self.is_connected {
                     self.cancel_all_requests();
+                    for shared in self.positioned.values() {
+                        shared.lock().disconnected(false);
+                        shared.wake();
+                    }
+                    self.positioned.clear();
                 }
                 self.notify_streams();
                 return;
@@ -239,6 +269,9 @@ impl RxDispatcher {
         match event.result {
             Ok(event_kind) => match event_kind {
                 EventKind::Value { data } => {
+                    if let Some(hook) = self.stream_opens.remove(&event.seq.0) {
+                        self.stream_opened(*hook, data.as_slice());
+                    }
                     if let Some(mut done_tx) = self.take_response(event.seq.0) {
                         let return_or_value_bytes = data.as_slice().to_vec();
                         if done_tx.send(Ok(return_or_value_bytes)).is_err() {
@@ -269,14 +302,21 @@ impl RxDispatcher {
                     }
                     let ev = match event_kind {
                         EventKind::StreamData { data, .. } => {
-                            StreamEvent::Data(data.as_slice().to_vec())
+                            RawStreamEvent::Data(data.as_slice().to_vec())
                         }
                         EventKind::StreamSideband { sideband, .. } => {
-                            StreamEvent::Sideband(sideband)
+                            RawStreamEvent::Sideband(sideband)
                         }
                         _ => unreachable!(),
                     };
                     let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
+                    if let RawStreamEvent::Sideband(sideband) = &ev
+                        && let Some(shared) = self.positioned.get(&path)
+                    {
+                        shared.lock().on_sideband(*sideband);
+                        shared.wake();
+                        return;
+                    }
                     if let Some(listeners) = self.stream_handlers.get_mut(&path) {
                         listeners.retain(|tx| {
                             let keep = tx.send(ev.clone()).is_ok();
@@ -290,9 +330,15 @@ impl RxDispatcher {
                         }
                     }
                 }
-                EventKind::StreamItem { .. } => {
-                    // TODO(CLT-23): positions, gaps and acks through ww_stream::rx
-                    debug!("dropping a counted / reliable stream event, not supported yet");
+                EventKind::StreamItem { path, head, data } => {
+                    let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
+                    match self.positioned.get(&path) {
+                        Some(shared) => {
+                            shared.lock().on_item(head, data.as_slice());
+                            shared.wake();
+                        }
+                        None => trace!("stream event for {path:?}, which is not open"),
+                    }
                 }
             },
             Err(e) => {
@@ -304,6 +350,67 @@ impl RxDispatcher {
                 }
             }
         }
+    }
+
+    /// The device answered a request that opens a counted or reliable stream.
+    fn stream_opened(&mut self, hook: StreamOpenHook, bytes: &[u8]) {
+        if !(hook.is_open)(bytes) {
+            return;
+        }
+        let Ok((opened, _)) = decode_opened(bytes) else {
+            return;
+        };
+        let mut inner = hook.shared.lock();
+        if inner.closed {
+            return;
+        }
+        inner.opened(hook.resume, &opened);
+        let path = inner.path.clone();
+        drop(inner);
+        hook.shared.wake();
+        if let Some(old) = self.positioned.insert(path, hook.shared) {
+            // opened again: the old handle gets nothing more
+            old.lock().disconnected(false);
+            old.wake();
+        }
+    }
+
+    /// Sideband the streams' receivers want to send now (`Ack`, `ResendFrom`), as requests.
+    pub fn poll_streams(&mut self, now: Instant) -> Vec<Vec<u8>> {
+        let epoch = *self.epoch.get_or_insert(now);
+        let now_ms = now.saturating_duration_since(epoch).as_millis() as u64;
+        self.last_stream_poll = Some(now);
+        let mut out = vec![];
+        self.positioned.retain(|path, shared| {
+            let mut inner = shared.lock();
+            if inner.closed {
+                return false;
+            }
+            while let Some(sideband) = inner.poll(now_ms) {
+                let req = ww_client_server::RequestOwned {
+                    seq: UVlq32Backfill(0),
+                    path_kind: PathKindOwned::Absolute { path: path.clone() },
+                    kind: RequestKindOwned::StreamSideband { sideband },
+                };
+                match req.to_ww_bytes_owned() {
+                    Ok(bytes) => out.push(bytes),
+                    Err(e) => warn!("stream sideband not serialized: {e:?}"),
+                }
+            }
+            true
+        });
+        out
+    }
+
+    /// When [Self::poll_streams] should run next: reliable streams acknowledge and ask for resends on time.
+    pub fn next_stream_poll_at(&self) -> Option<Instant> {
+        if !self.is_connected || !self.positioned.values().any(|s| s.lock().is_reliable()) {
+            return None;
+        }
+        Some(
+            self.last_stream_poll
+                .map_or_else(Instant::now, |t| t + STREAM_POLL_INTERVAL),
+        )
     }
 
     fn take_response(&mut self, seq: SeqTy) -> Option<ResponseSenderWrapper> {
@@ -325,6 +432,7 @@ impl RxDispatcher {
 
     fn cancel_all_requests(&mut self) {
         trace!("canceling all requests");
+        self.stream_opens.clear();
         for (seq, (mut done_tx, _, _)) in self.response_map.drain() {
             _ = done_tx.send(Err(Error::Disconnected));
             self.freed.push(seq);
@@ -333,11 +441,11 @@ impl RxDispatcher {
             .extend(self.timed_out.drain().map(|(seq, _)| seq));
     }
 
-    fn is_connected_as_stream_event(&self) -> StreamEvent {
+    fn is_connected_as_stream_event(&self) -> RawStreamEvent {
         if self.is_connected {
-            StreamEvent::Connected
+            RawStreamEvent::Connected
         } else {
-            StreamEvent::Disconnected
+            RawStreamEvent::Disconnected
         }
     }
 
@@ -352,6 +460,16 @@ impl RxDispatcher {
                 }
                 keep
             });
+        }
+    }
+}
+
+impl Drop for RxDispatcher {
+    fn drop(&mut self) {
+        // the event loop is gone: handles see the end once their queue is empty
+        for shared in self.positioned.values() {
+            shared.lock().attached = false;
+            shared.wake();
         }
     }
 }

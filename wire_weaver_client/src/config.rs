@@ -34,6 +34,7 @@ pub struct ClientConfig {
     client_version: Option<Box<FullVersionOwned>>,
     max_seq: Option<SeqTy>,
     traits_only: bool,
+    stream_queue_bytes: Option<usize>,
 }
 
 pub(crate) struct ValidatedConfig {
@@ -44,6 +45,7 @@ pub(crate) struct ValidatedConfig {
     pub(crate) default_timeout: Duration,
     pub(crate) client_version: Box<FullVersionOwned>,
     pub(crate) max_seq: SeqTy,
+    pub(crate) stream_queue_bytes: usize,
     pub(crate) introspect_client: Option<IntrospectBundle>,
     pub(crate) traits_only: bool,
 }
@@ -236,6 +238,9 @@ impl ClientConfig {
             default_timeout: s.default_timeout.unwrap_or(crate::DEFAULT_REQUEST_TIMEOUT),
             client_version,
             max_seq,
+            stream_queue_bytes: s
+                .stream_queue_bytes
+                .unwrap_or(crate::DEFAULT_STREAM_QUEUE_BYTES),
             introspect_client,
             traits_only: s.traits_only,
         })
@@ -426,6 +431,16 @@ impl ClientConfig {
     pub fn max_seq(self, max_seq: SeqTy) -> Self {
         let mut c = self;
         c.max_seq = Some(max_seq);
+        c
+    }
+
+    /// Bytes of items queued per stream on the host, default
+    /// [DEFAULT_STREAM_QUEUE_BYTES](crate::DEFAULT_STREAM_QUEUE_BYTES). A program that doesn't read keeps the
+    /// host's memory bounded: plain and counted streams drop new items (counted ones report a
+    /// `Gap { cause: Host }`), reliable ones stop acknowledging, so the device keeps the data in its store.
+    pub fn stream_queue_bytes(self, bytes: usize) -> Self {
+        let mut c = self;
+        c.stream_queue_bytes = Some(bytes);
         c
     }
 

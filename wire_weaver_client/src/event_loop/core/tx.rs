@@ -12,7 +12,9 @@ use ww_version::{FullVersionOwned, VersionOwned};
 use super::{ToRx, ToTx, Tracers, is_due};
 use crate::DEFAULT_MAX_MESSAGE_SIZE;
 use crate::event_loop::DeviceHandle;
-use crate::event_loop::command::{Command, EventLoopExitReason, EventLoopResidual, TestProgress};
+use crate::event_loop::command::{
+    Command, EventLoopExitReason, EventLoopResidual, StreamOpenHook, TestProgress,
+};
 use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::{Error, SeqTy};
 
@@ -75,7 +77,11 @@ enum Flow {
 }
 
 /// Request bytes and where to report the response, see [TxCore::held_until_up].
-type HeldMessage = (Vec<u8>, Option<(ResponseSender, Duration)>);
+type HeldMessage = (
+    Vec<u8>,
+    Option<(ResponseSender, Duration)>,
+    Option<Box<StreamOpenHook>>,
+);
 
 pub(crate) struct TxCore {
     phase: Phase,
@@ -273,7 +279,15 @@ impl TxCore {
                 return Ok(Flow::Exit(EventLoopExitReason::DisconnectCommand));
             }
             Command::SendMessage { bytes, done_tx } => {
-                self.on_send_message(now, bytes, done_tx);
+                self.on_send_message(now, bytes, done_tx, None);
+            }
+            Command::OpenStream {
+                bytes,
+                done_tx,
+                timeout,
+                hook,
+            } => {
+                self.on_send_message(now, bytes, Some((done_tx, timeout)), Some(hook));
             }
             Command::OnStreamEvent {
                 path_kind,
@@ -301,13 +315,14 @@ impl TxCore {
         now: Instant,
         mut bytes: Vec<u8>,
         done_tx: Option<(ResponseSender, Duration)>,
+        hook: Option<Box<StreamOpenHook>>,
     ) {
         if matches!(
             self.phase,
             Phase::Connecting | Phase::GetDeviceInfo | Phase::LinkSetup
         ) {
             trace!("holding SendMessage until link is up");
-            self.held_until_up.push_back((bytes, done_tx));
+            self.held_until_up.push_back((bytes, done_tx, hook));
             return;
         }
         if self.phase != Phase::Up {
@@ -366,6 +381,7 @@ impl TxCore {
                 seq,
                 done_tx,
                 timeout,
+                hook,
             }));
         }
         self.tracers.request(&bytes);
@@ -422,8 +438,13 @@ impl TxCore {
                 self.phase = Phase::Up;
                 self.next_ping_at = Some(now + PING_INTERVAL);
                 self.tracers.connected();
-                while let Some((bytes, done_tx)) = self.held_until_up.pop_front() {
-                    self.on_send_message(now, bytes, done_tx);
+                while let Some((bytes, done_tx, hook)) = self.held_until_up.pop_front() {
+                    self.on_send_message(now, bytes, done_tx, hook);
+                }
+            }
+            ToTx::Send(bytes) => {
+                if self.phase == Phase::Up {
+                    self.on_send_message(now, bytes, None, None);
                 }
             }
             ToTx::Freed(seq) => {
@@ -554,7 +575,7 @@ impl TxCore {
         self.next_ping_at = None;
         self.next_link_setup_retry_at = None;
         self.in_flight.clear();
-        for (_, done_tx) in self.held_until_up.drain(..) {
+        for (_, done_tx, _) in self.held_until_up.drain(..) {
             if let Some((done_tx, _)) = done_tx {
                 _ = done_tx.send(Err(Error::Disconnected));
             }

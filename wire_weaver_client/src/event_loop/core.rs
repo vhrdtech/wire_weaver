@@ -38,6 +38,7 @@ use ww_link::DeviceInfoOwned;
 use crate::SeqTy;
 use crate::event_loop::command::Command;
 use crate::event_loop::command::EventLoopExitReason;
+use crate::event_loop::command::StreamOpenHook;
 use crate::event_loop::rx_dispatcher::{ResponseSender, StreamUpdateSender};
 use crate::event_loop::transport::{MessageRx, MessageTx, Transport};
 use crate::tracing::TraceEvent;
@@ -60,6 +61,8 @@ pub(crate) enum ToTx {
     LinkReady,
     /// Request with this seq completed, timed out or was cancelled.
     Freed(SeqTy),
+    /// A request without a reply (seq 0), e.g., a stream's `Ack`: sent only while the link is up.
+    Send(Vec<u8>),
     /// Rx is exiting (remote Disconnect, peer timeout, read error, ...) and tx should too,
     /// without sending anything else.
     PeerGone(anyhow::Result<EventLoopExitReason>),
@@ -73,6 +76,8 @@ pub(crate) enum ToRx {
         seq: SeqTy,
         done_tx: ResponseSender,
         timeout: Duration,
+        /// The request opens a counted or reliable stream
+        hook: Option<Box<StreamOpenHook>>,
     },
     OnStreamEvent {
         path_kind: Box<PathKindOwned>,

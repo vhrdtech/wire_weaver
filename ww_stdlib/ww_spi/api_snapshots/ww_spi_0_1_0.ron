@@ -1,24 +1,80 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
 (magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
-    "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, or watches a bus.",
+    "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
+    "one transaction, or watch a bus without taking part.",
     "",
-    "| Trait        | What it is for                                                       | Who implements it        |",
-    "|--------------|----------------------------------------------------------------------|--------------------------|",
-    "| `Spi`        | Configure, full-duplex transfers, transactions with CS held, writes. | Every SPI master         |",
-    "| `SpiMonitor` | Every frame (one CS assertion) on the bus as a stream.               | Sniffers, debug adapters |",
+    "# Traits",
+    "",
+    "| Trait        | What it is for                                                        | Who implements it         |",
+    "|--------------|------------------------------------------------------------------------|----------------------------|",
+    "| `Spi`        | Configure the bus, full-duplex transfers, transactions with CS held, writes. | Every SPI master     |",
+    "| `SpiMonitor` | Every frame (one CS assertion) on the bus as a stream.                | Sniffers, debug adapters  |",
+    "",
+    "Monitoring is its own trait because it is its own function: a sniffer may have no master at all. A host finds",
+    "out what is there through introspection, and what `Spi` supports through `Spi::capabilities`.",
+    "",
+    "```rust,ignore",
+    "#[ww_api_root]",
+    "trait MyAdapter {",
+    "    ww_impl!(spi: ww_spi::Spi);",
+    "    ww_impl!(spi_monitor: ww_spi::SpiMonitor);",
+    "}",
+    "```",
+    "",
+    "# Sizes",
+    "",
+    "Every byte buffer is bounded ([SPI_MAX], [MAX_OPS]), so a device knows the largest request and reply it has to",
+    "build at compile time. A device may support less, see [SpiCapabilities::max_len]. Raising a bound later is a",
+    "compatible change, lowering it is not.",
+    "",
+    "# Time",
+    "",
+    "`SpiMonitor` reports when a frame\'s CS assertion started and ended ([SpiFrame::start], [SpiFrame::end]) as",
+    "[Second]s of device time: time since the device\'s clock started, in the prefix and number type the device picks",
+    "(usually a `u32` of microseconds). A fixed-width value wraps and the host unwraps it.",
+    "",
+    "# Slave mode",
+    "",
+    "`SpiConfig::role` can be [SpiRole::Slave], but data paths for slave mode (what this device sends on the next",
+    "select, what it received) are not defined yet; `Spi::transfer`, `Spi::transaction` and `Spi::write` assume this",
+    "device is the bus master.",
+    "",
+    "# Errors",
+    "",
+    "Both traits return [SpiError]; each method lists the variants it returns.",
 ], crate_idx: 0, trait_name: "ww_spi", items: [
     (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Spi", docs: []),
     (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "SpiMonitor", docs: []),
 ]), types: [
-    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "SpiError", variants: [
-        (docs: [], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "InUse", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "NoIoLevel", fields: Unit, discriminant: 2, since: None),
-        (docs: [], ident: "Refused", fields: Unit, discriminant: 3, since: None),
-        (docs: [], ident: "InvalidArgument", fields: Unit, discriminant: 4, since: None),
-        (docs: [], ident: "WrongMode", fields: Unit, discriminant: 5, since: None),
-        (docs: [], ident: "BufferTooBig", fields: Unit, discriminant: 6, since: None),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
+        "Errors of both traits in this crate. Each method lists the variants it returns.",
+        "",
+        "How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is being",
+        "designed for all of `ww_stdlib` (`ww-errors-plan`); until then this enum stays plain.",
+    ], ident: "SpiError", variants: [
+        (docs: [
+            "This adapter doesn\'t have it ([SpiRole::Slave], a `word_bits`, a [CsMode]).",
+        ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "The pins or the peripheral serve another function.",
+        ], ident: "InUse", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "The level translators have no supply (IO level off).",
+        ], ident: "NoIoLevel", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "A safety rule of the device doesn\'t allow it.",
+        ], ident: "Refused", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "An argument is out of range (frequency, word size, operation count).",
+        ], ident: "InvalidArgument", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "The call needs another mode (e.g. `Spi::set_cs` while [CsMode] isn\'t `Manual`, a transfer while not a",
+            "[SpiRole::Master]).",
+        ], ident: "WrongMode", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "Longer than this device takes, see [SpiCapabilities].",
+        ], ident: "BufferTooBig", fields: Unit, discriminant: 6, since: None),
         (docs: [], ident: "Timeout", fields: Unit, discriminant: 7, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
@@ -31,17 +87,27 @@
         103,
         224,
     ]),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SpiOp", variants: [
-        (docs: [], ident: "Write", fields: Unnamed([
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "One operation of a `Spi::transaction`.",
+    ], ident: "SpiOp", variants: [
+        (docs: [
+            "Write these bytes, ignoring what comes back.",
+        ], ident: "Write", fields: Unnamed([
             (ident: None, default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: []),
         ]), discriminant: 0, since: None),
-        (docs: [], ident: "Read", fields: Unnamed([
+        (docs: [
+            "Read this many bytes.",
+        ], ident: "Read", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
         ]), discriminant: 1, since: None),
-        (docs: [], ident: "Transfer", fields: Unnamed([
+        (docs: [
+            "Full duplex: write these bytes, keep what comes back.",
+        ], ident: "Transfer", fields: Unnamed([
             (ident: None, default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: []),
         ]), discriminant: 2, since: None),
-        (docs: [], ident: "Delay", fields: Unnamed([
+        (docs: [
+            "Wait, without touching the lines; CS stays asserted.",
+        ], ident: "Delay", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
@@ -65,48 +131,78 @@
         81,
         42,
     ]),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SpiCapabilities", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What this bus supports, see `Spi::capabilities`.",
+    ], ident: "SpiCapabilities", fields: Named([
         (ident: Some("min_freq"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
         (ident: Some("max_freq"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
         (ident: Some("min_word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
         (ident: Some("max_word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
         (ident: Some("master"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("slave"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("monitor"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 4))), docs: []),
+        (ident: Some("monitor"), default: None, since: None, ty: Bool, docs: [
+            "`SpiMonitor` is implemented.",
+        ]),
+        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 4))), docs: [
+            "Discrete IO levels the adapter can set (e.g. 1.8 V, 3.3 V, 5 V); empty if it has no level control.",
+        ]),
         (ident: Some("max_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Largest transfer this device does, at most [SPI_MAX].",
         ]),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SpiRole", variants: [
-        (docs: [], ident: "Disabled", fields: Unit, discriminant: 0, since: None),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Bus role, set with `Spi::configure`.",
+    ], ident: "SpiRole", variants: [
+        (docs: [
+            "Controller off, pins released.",
+        ], ident: "Disabled", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Master", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "Slave", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "Data paths are not defined yet, see the crate-level docs.",
+        ], ident: "Slave", fields: Unit, discriminant: 2, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [], ident: "SpiMode", variants: [
-        (docs: [], ident: "Mode0", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Mode1", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "Mode2", fields: Unit, discriminant: 2, since: None),
-        (docs: [], ident: "Mode3", fields: Unit, discriminant: 3, since: None),
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [
+        "Clock polarity and phase (CPOL/CPHA), the usual SPI mode numbering.",
+    ], ident: "SpiMode", variants: [
+        (docs: [
+            "CPOL = 0, CPHA = 0.",
+        ], ident: "Mode0", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "CPOL = 0, CPHA = 1.",
+        ], ident: "Mode1", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "CPOL = 1, CPHA = 0.",
+        ], ident: "Mode2", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "CPOL = 1, CPHA = 1.",
+        ], ident: "Mode3", fields: Unit, discriminant: 3, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [], ident: "BitOrder", variants: [
+    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
+        "Bit order of each word on the wire.",
+    ], ident: "BitOrder", variants: [
         (docs: [], ident: "MsbFirst", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "LsbFirst", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "CsMode", variants: [
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "How CS is driven, set with `Spi::configure`.",
+    ], ident: "CsMode", variants: [
         (docs: [
-            "Asserted for each transfer or transaction.",
+            "Asserted for each `Spi::transfer`, `Spi::write` or `Spi::transaction`, released right after.",
         ], ident: "Auto", fields: Unit, discriminant: 0, since: None),
         (docs: [
-            "`Spi::set_cs`.",
+            "Asserted and released only by `Spi::set_cs`.",
         ], ident: "Manual", fields: Unit, discriminant: 1, since: None),
         (docs: [
-            "Not driven.",
+            "Not driven by this device at all.",
         ], ident: "None", fields: Unit, discriminant: 2, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SpiConfig", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Bus settings, see `Spi::configure`.",
+    ], ident: "SpiConfig", fields: Named([
         (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: []),
-        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "SCL frequency asked for; `Spi::configure` returns what was actually set.",
+        ]),
         (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
         (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
         (ident: Some("word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
@@ -114,69 +210,124 @@
         ]),
         (ident: Some("cs"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: []),
     ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SpiActual", fields: Named([
-        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `Spi::configure` actually set.",
+    ], ident: "SpiActual", fields: Named([
+        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "The frequency the hardware settled on, never above the one asked for.",
+        ]),
     ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SpiFrame", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One frame seen by `SpiMonitor`: from CS asserted to released.",
+    ], ident: "SpiFrame", fields: Named([
         (ident: Some("start"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
-            "CS asserted.",
+            "When CS was asserted.",
         ]),
         (ident: Some("end"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
-            "CS released.",
+            "When CS was released.",
         ]),
         (ident: Some("truncated"), default: None, since: None, ty: Bool, docs: [
             "Longer than [SPI_MAX] bytes, the rest was cut.",
         ]),
-        (ident: Some("mosi"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: []),
-        (ident: Some("miso"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: []),
+        (ident: Some("mosi"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "What the host side (controller) drove, if monitored.",
+        ]),
+        (ident: Some("miso"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "What the device side (peripheral) drove, if monitored.",
+        ]),
     ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SpiMonitorConfig", fields: Named([
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Bus settings for `SpiMonitor::configure_monitor`: everything needed to decode frames correctly, without the",
+        "parts that only apply to driving the bus ([SpiConfig::role], [SpiConfig::cs]).",
+    ], ident: "SpiMonitorConfig", fields: Named([
         (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
         (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
         (ident: Some("word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
     ]))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
-        "An SPI master.",
+        "An SPI master: configure the bus, full-duplex transfer, transactions with CS held, and plain writes.",
+        "",
+        "Several operations under one CS assertion (write a command, then read a response) are one `Spi::transaction`,",
+        "not several calls to `Spi::transfer`: releasing CS between them would end the frame.",
     ], crate_idx: 0, trait_name: "Spi", items: [
         (id: 0, kind: Method(args: [
             (ident: "data", ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8))))),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "transfer", docs: [
-            "Full duplex: writes `data` and returns as many bytes read.",
+            "Full duplex: writes `data`, returns as many bytes as were read. CS is asserted for the call and released",
+            "after, as [CsMode::Auto]; with [CsMode::Manual] the bus must already be selected (`Spi::set_cs`).",
+            "",
+            "# Errors",
+            "",
+            "[SpiError::WrongMode] (not configured as [SpiRole::Master]), [SpiError::BufferTooBig] (`data` longer than",
+            "[SPI_MAX] or this device\'s [SpiCapabilities::max_len]), [SpiError::NoIoLevel], [SpiError::Timeout].",
         ]),
         (id: 1, kind: Method(args: [
             (ident: "ops", ty: MaxLen(max_len: 16, ty: Vec(OutOfLine(type_idx: 2)))),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "transaction", docs: [
-            "CS asserted for all operations; returns the bytes of every `Read` and `Transfer`, concatenated.",
+            "CS asserted for every op of `ops`, released at the end; returns the bytes of every [SpiOp::Read] and",
+            "[SpiOp::Transfer], concatenated in order. [SpiOp::Delay] waits between two ops without touching the lines.",
+            "",
+            "# Errors",
+            "",
+            "As `Spi::transfer`; [SpiError::InvalidArgument] (more than [MAX_OPS] operations, or the reads together",
+            "exceed [SPI_MAX]).",
         ]),
         (id: 2, kind: Method(args: [
             (ident: "data", ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8))))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "write", docs: [
             "Writes `data`, ignoring what comes back.",
+            "",
+            "# Errors",
+            "",
+            "As `Spi::transfer`.",
         ]),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5))), multiplicity: Flat, since: None, ident: "capabilities", docs: []),
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+            "What this bus supports: frequency range, word sizes, master/slave, IO levels.",
+        ]),
         (id: 4, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 10)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "configure", docs: [
-            "Configures the bus and returns what was actually set.",
+            "Configures the bus and returns the frequency actually set (the nearest the hardware can do, never above the",
+            "one asked for). [SpiRole::Disabled] releases the pins.",
+            "",
+            "# Errors",
+            "",
+            "[SpiError::InUse] (the pins or peripheral serve another function), [SpiError::Unsupported] ([SpiRole::Slave],",
+            "this `word_bits`, or this [CsMode] on an adapter without it), [SpiError::InvalidArgument] (`freq` or",
+            "`word_bits` outside [SpiCapabilities]), [SpiError::Refused] (a safety rule of the device).",
         ]),
         (id: 5, kind: Method(args: [
             (ident: "active", ty: Bool),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "set_cs", docs: [
             "Asserts or releases CS, with [CsMode::Manual].",
+            "",
+            "# Errors",
+            "",
+            "[SpiError::WrongMode] (CS isn\'t [CsMode::Manual]).",
         ]),
         (id: 6, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 0))), multiplicity: Flat, since: None, ident: "reference_voltage", docs: [
-            "IO level, on adapters with level translators.",
+            "IO level, on adapters with level translators. [SpiError::Unsupported] if there is no level control,",
+            "[SpiError::Refused] if a safety rule of the device doesn\'t allow the requested level.",
         ]),
     ]), crate_idx: 0),
     InLine(level: (docs: [
-        "Watches an SPI bus: one [SpiFrame] per CS assertion on the `frames` stream. Configured with",
+        "Watches an SPI bus without taking part: one [SpiFrame] per CS assertion on the `frames` stream. Configured with",
         "`SpiMonitor::configure_monitor`; the stream\'s sideband `Open` starts, `Close` stops.",
     ], crate_idx: 0, trait_name: "SpiMonitor", items: [
-        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 12), is_up: true), multiplicity: Flat, since: None, ident: "frames", docs: []),
+        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 12), is_up: true), multiplicity: Flat, since: None, ident: "frames", docs: [
+            "One frame per CS assertion, in bus order.",
+        ]),
         (id: 1, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 13)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "configure_monitor", docs: []),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "configure_monitor", docs: [
+            "Starts or stops monitoring with the bus settings needed to decode frames (the monitor doesn\'t drive CS or",
+            "clock, it only listens).",
+            "",
+            "# Errors",
+            "",
+            "[SpiError::InUse], [SpiError::Unsupported] (this `word_bits`), [SpiError::Refused].",
+        ]),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_spi", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

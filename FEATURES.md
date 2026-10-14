@@ -610,9 +610,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww_timebase` (`Clock`), `ww_logic_analyzer`, `ww_signal_generator`; `ww_si` values and timestamps, plain error
   enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Design approved 14 Oct
   (`docs/std_library/io_family.md`); skeletons of every crate written, `ww_i2c` with `I2cWatch` (autonomous
-  reads) and 10-bit addresses (SW-48); filled in: `ww_gpio`, `ww_uart`, `ww_i2c` (full rustdoc,
-  mock-server tests in `tests/io_<x>`, docs pages `docs/std_library/ww_<x>.md`), `ww_spi` next. Stream loss and timestamps wait
-  for ww-stream-reliability, error evolution for ww-errors-plan.
+  reads) and 10-bit addresses (SW-48); filled in: `ww_gpio`, `ww_uart`, `ww_i2c`, `ww_spi`
+  (full rustdoc, mock-server tests in `tests/io_<x>`, docs pages `docs/std_library/ww_<x>.md`). Stream loss and
+  timestamps wait for ww-stream-reliability, error evolution for ww-errors-plan.
 - 📋 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
   `Raw` and `Transitions` encodings (SW-31). Design pass first (STD-13).
 - 📋 **STD-22 `ww_signal_generator`** · `v0.5.x` — `PatternGenerator` (digital, replays analyzer captures),

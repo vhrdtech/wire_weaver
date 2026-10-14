@@ -2855,6 +2855,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   variants. No wire number of its own, no change to <code>ELEMENT_SIZE</code>, left out of the API model. The <code>ww_self</code>
   dynamic decoder reads an unknown variant of an <code>Unsized</code> enum as <code>&lt;unknown N&gt;</code>. Opt-in per enum, see SW-47 for
   adding it by default. <code>docs/serdes/derive.md#enum-variants-from-a-newer-version</code>, <code>shrink_wrap/tests/evolution.rs</code>.</li>
+<li>✅ <strong>SW-48 Bit-sized fields and variant payloads</strong>: <code>U1</code>..<code>U64</code> / <code>I2</code>..<code>I64</code> (<code>u7</code>, <code>ub10</code>, <code>i2</code>.. in the API
+  model) as struct fields, enum variant payloads and <code>#[ww_trait]</code> method arguments, returns and properties, packed
+  bit after bit with a sub-byte discriminant: <code>enum I2cAddress { Seven(U7), Ten(U10) }</code> with <code>ww_repr = u1,
+  self_describing</code> takes 8 or 11 bits instead of 16 or 24 with <code>u8</code> / <code>u16</code>. Server and client codegen (it panicked
+  on such a method argument), <code>I16</code> (was missing), <code>From</code> / <code>TryFrom</code> to and from the backing integer. The dynamic
+  client and Python already handled them, now tested byte for byte against derived types; the C runtime has the
+  bit reads. Same wire format (<code>shrink_wrap/tests/sub_byte.rs</code>, <code>tests/dynamic</code>, <code>tests/methods</code>,
+  <code>docs/serdes/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address</code>).</li>
 <li>📋 <strong>SW-17 Const / magic type</strong> · <code>v0.5</code> — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the <code>magic</code> field in
   <code>ww_self</code> (a plain <code>u32</code> today).</li>
@@ -3176,6 +3184,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   over NCM).</li>
 <li>✅ <strong>EX-4 NCM UDP example</strong>: <code>examples_mcu/rp2</code> <code>ww_udp_ncm</code>, host side <code>blinky_udp</code>.</li>
 <li>✅ <strong>EX-5 Project layout</strong> of paired <code>&lt;name&gt;_api</code> / <code>&lt;name&gt;</code> crates (<code>docs/api/folder_structure.md</code>).</li>
+<li>✅ <strong>EX-14 cnt counters in MCU examples</strong>: <code>cnt</code> dependency, <code>-Tcnt.x</code> and <code>runner = "cnt run --chip ..."</code> on every probe-rs board (rp2, nucleo_g0b1re, nucleo_h743zi2, usb_stm32h725ig); <code>unhandled_exceptions</code> counter in <code>DefaultHandler</code>. <code>mcu_qemu</code> has no probe, so no counters.</li>
 <li>📋 <strong>EX-6 Example without async</strong> · <code>v0.5</code> — <code>ww_device::blocking::Server</code> exists, no example uses it.</li>
 <li>📋 <strong>EX-7 Example with two media</strong> · <code>v0.5</code>.</li>
 <li>📋 <strong>EX-8 NCM WebSocket + UDP example</strong> · <code>v0.5</code> — both media on one stack, sharing the backend.</li>

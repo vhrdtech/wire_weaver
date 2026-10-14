@@ -2377,6 +2377,11 @@
 <li>Unsigned (four-bit alignment): <code>nib</code></li>
 <li>Signed and unsigned (one-bit alignment): <code>u1</code>, <code>u2</code>, <code>u3</code>, ... <code>ub64</code>, <code>i2</code> ... <code>ib64</code><ul>
 <li><code>u8</code> is byte-aligned, while <code>ub8</code> is bit-aligned</li>
+<li>In Rust: <code>U1</code>..<code>U64</code> and <code>I2</code>..<code>I64</code> (<code>shrink_wrap::un</code>, in the prelude), backed by the smallest standard
+  integer, with checked constructors (<code>U7::new(x)</code>, <code>U7::try_from(x)</code>) and <code>.value()</code> / <code>u8::from(..)</code>.
+  Usable as struct fields, enum variant payloads and method arguments, returns and properties: an
+  <code>enum I2cAddress { Seven(U7), Ten(U10) }</code> with <code>ww_repr = u1</code> takes 8 or 11 bits
+  (see <a href="../serdes/showcase/#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address">showcase</a>)</li>
 </ul>
 </li>
 </ul>

@@ -70,20 +70,23 @@ Continuous capture, streamed while the link keeps up:
 ```rust
 #[ww_trait]
 pub trait LogicStream {
-    stream!(data: StreamChunk<'i>);
+    #[stream(StreamChunk<'i>, counted)]
+    fn data(config: StreamConfig<'i>) -> Result<StreamActual, LaError>;
     fn stream_capabilities() -> StreamCapabilities<'i>;
-    fn configure_stream(config: StreamConfig<'i>) -> Result<StreamActual, LaError>;
-    fn stream_state() -> StreamState<'i>;
 }
 ```
 
-* `data` - captured data in the configured encoding, raw chunks or per-channel transition chunks as they fill.
+* `data` - a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with channels, rate
+  and encoding and gets back what was actually set (or an `LaError`), then receives raw chunks or per-channel
+  transition chunks as they fill. Closing the stream stops sampling, opening it again restarts it with the new
+  configuration.
 * `stream_capabilities` - the highest raw rate per channel count the link carries, and the highest rate with
   `Transitions` (bounded by the edge rate fitting the link, not the sample rate).
-* `configure_stream` - sets channels, rate and encoding and returns what was actually set; applies at once to a
-  running stream. The stream itself starts and stops with its own sideband commands: `data`'s `Open` starts
-  sampling, `Close` stops it.
-* `stream_state` - the current configuration and whether it runs, for a host that joins a running stream.
+
+The stream's unit is a **chunk**: the event head says exactly how many chunks the device dropped and where
+([stream delivery](../api/stream_reliability.md)), and each chunk's own sample range (`RawChunk::first`,
+`TransitionsChunk::from`) tells which samples they covered. The head's `t` is the device time of a chunk's first
+sample.
 
 ## Encodings
 
@@ -99,8 +102,8 @@ conversion:
   channel almost nothing (its start level and an empty list), so the edge rate limits a stream, not the sample
   rate: a busy signal sampled for clean edge timing costs the same at a high rate as at a low one.
 
-Sample indices are `u32`, counted from a capture's first sample or from the start of a stream (where they wrap and
-a host unwraps them, as with any fixed-width timestamp in the family).
+Sample indices are `u32`, counted from a capture's first sample or from the start of a stream session (where they
+wrap and a host unwraps them, as with any fixed-width timestamp in the family).
 
 ## Triggers
 
@@ -157,7 +160,6 @@ shared time base for anything less exact than a sample.
 * `StreamConfig<'i>` - `channels`, `rate: Hertz`, `encoding: Encoding`, `flush_interval: Option<Second>`,
   `threshold: Option<Volt>`.
 * `StreamActual` - `rate: Hertz`, `layout: RawLayout`.
-* `StreamState<'i>` - `config: StreamConfig<'i>`, `actual: StreamActual`, `running: bool`, `t_first: Second`.
 * `Trigger<'i>`, `TriggerStage<'i>`, `ChannelCondition`, `Condition`, `Edge` - see [Triggers](#triggers).
 * `LaError` - `Unsupported`, `InUse`, `NoIoLevel`, `Refused`, `InvalidArgument`, `WrongMode`, `NoSuchChannel`,
   `Busy` (a stream runs while a capture is asked for, or the other way round, on devices that share one sampler);

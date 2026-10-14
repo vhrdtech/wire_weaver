@@ -33,8 +33,9 @@
 //!
 //! # Time
 //!
-//! Timestamps are device time ([Second]) of the device's clock (`ww_timebase::Clock`); sample `k` was taken at
-//! `t_first + k / rate`, with the rate the device actually set.
+//! Timestamps are device time ([Second]) of the device's clock (`ww_timebase::Clock`); sample `k` of a capture was
+//! taken at `t_first + k / rate`, with the rate the device actually set. A stream's chunks carry the time of their
+//! first sample in the event head instead.
 //!
 //! # Errors
 //!
@@ -117,27 +118,23 @@ pub trait LogicAnalyzer {
 
 /// Continuous capture, sent on the `data` stream.
 ///
-/// `LogicStream::configure_stream` sets it up; the `data` stream's sideband `Open` starts sampling and `Close` stops
-/// it. Every chunk carries its first sample index: a gap in them is what a host sees when it couldn't keep up
-/// (loss reporting and backfill are not covered yet).
+/// Opening `data` starts sampling with its configuration, closing it stops; opening it again restarts it with the
+/// new one. Every chunk carries its own sample range, and the stream is counted: the host knows exactly which chunks
+/// the device dropped, and each chunk may carry the device time of its first sample in the event head.
 #[ww_trait]
 pub trait LogicStream {
-    /// Captured data in the configured encoding: raw chunks, or transition chunks of each channel as they fill.
-    stream!(data: StreamChunk<'i>);
-
-    /// Rates, channels and encodings of streaming.
-    fn stream_capabilities() -> StreamCapabilities<'i>;
-
-    /// Sets up streaming and returns what was actually set. Applies at once to a running stream.
+    /// Captured data in `config`'s encoding: raw chunks, or transition chunks of each channel as they fill. Opening
+    /// returns what was actually set. Unit: chunk.
     ///
     /// # Errors
     ///
     /// [LaError::NoSuchChannel], [LaError::InvalidArgument] (rate, channel count or threshold out of range),
     /// [LaError::Unsupported] (encoding), [LaError::Busy] (a capture runs), [LaError::InUse], [LaError::NoIoLevel].
-    fn configure_stream(config: StreamConfig<'i>) -> Result<StreamActual, LaError>;
+    #[stream(StreamChunk<'i>, counted)]
+    fn data(config: StreamConfig<'i>) -> Result<StreamActual, LaError>;
 
-    /// The current stream configuration and whether it runs. For a host that joins a running stream.
-    fn stream_state() -> StreamState<'i>;
+    /// Rates, channels and encodings of streaming.
+    fn stream_capabilities() -> StreamCapabilities<'i>;
 }
 
 /// What a device's analyzer offers, see `LogicAnalyzer::capabilities`.
@@ -478,7 +475,7 @@ pub struct StreamCapabilities<'i> {
     pub transitions_rate: Option<Hertz>,
 }
 
-/// What to stream, see `LogicStream::configure_stream`.
+/// What to stream, see `LogicStream::data`.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
@@ -496,7 +493,7 @@ pub struct StreamConfig<'i> {
     pub threshold: Option<Volt>,
 }
 
-/// What `LogicStream::configure_stream` actually set.
+/// What opening `LogicStream::data` actually set.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -508,21 +505,6 @@ pub struct StreamActual {
     pub rate: Hertz,
     /// Layout of raw chunks.
     pub layout: RawLayout,
-}
-
-/// The stream's configuration, see `LogicStream::stream_state`.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, Clone)
-)]
-pub struct StreamState<'i> {
-    pub config: StreamConfig<'i>,
-    pub actual: StreamActual,
-    /// Sampling runs (the stream is open).
-    pub running: bool,
-    /// When sample 0 of the stream was taken.
-    pub t_first: Second,
 }
 
 /// Errors of both traits in this crate. Each method lists the variants it returns.

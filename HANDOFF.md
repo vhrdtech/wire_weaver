@@ -32,8 +32,9 @@ Prompt common part: $CLAUDE_JOB_DIR/tmp/common.txt (not durable; it is in each c
 
 1. Wait (parked). As children report ready: review their branch, merge into ours (`git merge s/14oct2026-io-<x>`),
    resolve conflicts (FEATURES.md, wire_weaver_snapshots, Cargo.lock likely), `just test`, `just lint`.
-2. Forward logic-analyzer's design doc to Roman for review.
-3. When all are in: `just build-docs` (ask Roman first, serve-docs), streams.md conventions check, review renders,
+2. Once io-gpio, io-uart, io-i2c, io-spi are merged here: tell parent api3-design (it starts WW-4 / STD-14 hl crates from our branch).
+3. Forward logic-analyzer's design doc to Roman for review.
+4. When all are in: `just build-docs` (ask Roman first, serve-docs), streams.md conventions check, review renders,
    tell Roman; `git rm HANDOFF.md`, `tpm work ready`.
 
 ## Coordination

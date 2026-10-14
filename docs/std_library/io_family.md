@@ -9,6 +9,11 @@
 The family: `ww_timebase` (new), `ww_gpio` 0.2, `ww_uart` 0.2, `ww_i2c` 0.2, `ww_spi` 0.2, `ww_adc` (new), `ww_pwm`
 (new), `ww_onewire` (new). `ww_files` is not part of this round (WW-5, v1.0).
 
+**`ww_gpio`, `ww_uart` and `ww_i2c` evolve, they are not redesigned** (Roman, 14 Oct). Their 0.2 keeps every
+resource, index, name and type of 0.1 that works, fills `reserved!` slots and appends what is missing, and changes
+only what can't work for the family; each section has a table of what is kept, changed (and why) and added. Only
+`ww_spi` (an empty stub) and the new crates are designed from scratch, following the family conventions below.
+
 Goal: one device exposing these traits is driven by generic tools (the `ww` CLI, `ww_*_hl` host crates with
 embedded-hal, a GUI) without knowing the device, and every addition the rePort roadmap expects (monitors, PIO
 capture, per-byte timestamps, RS-485, slave modes) is wire-compatible later.
@@ -19,62 +24,56 @@ Recommendations first; each is a question for Roman, the rest of the page follow
 
 | # | Question | Recommendation | Deviates from §4? |
 |---|---|---|---|
-| D1 | Common errors: one shared error type in a common crate, or the same variants in every crate's own enum? | **Same names and discriminants in every crate's own enum** (`Unsupported`=0, `InUse`=1, `NoIoLevel`=2, `Refused`=3, `InvalidArgument`=4, then the crate's own). No extra crate in the dependency chain; generic tools match by name through introspection. | refines |
-| D2 | IO levels: `ww_si::Volt` (gpio, uart today) or millivolts (i2c today)? | **`u16` millivolts everywhere** (`level_mv`), 0 = off. `Volt` is a `NumericValue` + prefix: 3-4 bytes, a float or int a host must interpret, no way to say "off". | yes: `Bank::reference_voltage` becomes `io_level_mv` |
-| D3 | UART configuration as properties (`config`, `mode`) or as `configure() -> Actual` like I2C and SPI? | **`configure(UartConfig) -> Result<UartActual, Error>` + `config() -> UartActual`** in all four bus traits. A property can't answer "you asked 115200, you got 115384"; one shape for all buses helps generic tools. | yes: §4.2 had properties |
+| D1 | Common errors: one shared error type in a common crate, or the same variants in every crate's own enum? | **Same names in every crate's own enum**: `InUse`, `NoIoLevel`, `Refused` appended to the existing error enums (their 0.1 variants keep their positions), first in the new crates. No extra crate in the dependency chain; generic tools match by name through introspection. | refines |
+| D2 | IO levels: `ww_si::Volt` (gpio, uart today) or millivolts (i2c today)? | **Keep what each crate has**: `reference_voltage: Volt` property in `ww_gpio` and `ww_uart`, `io_level_mv` argument of `i2c_configure`. `ww_spi` takes the `Volt` property like uart. Unifying would break working code for a cosmetic gain. | no |
+| D3 | UART configuration: one `configure(Config)` (§4.2) or the per-setting properties of 0.1? | **Keep the 0.1 properties** (`baud_rate`, `mode`, `parity`, `stop_bits`, ...), append `data_bits` and `baud_rate_actual()`. They work, and a GUI shows one property per setting. Half-configured states are avoided by configuring while `mode` is `HighZ`. New traits (`ww_spi`, `ww_onewire`) use `configure(Config) -> Actual`, like `i2c_configure` returning the actual frequency. | yes: §4.2 had a `Config` struct |
 | D4 | What does `seq` count? | **Units of the stream** (bytes, records, frames, sample sets), wrapping `u32`, lost units included. `next.seq == prev.seq + prev.units + next.lost`, so a gap is exact and visible even if one `lost` is missed. | refines |
-| D5 | Lost data: a `Lost` record kind / variant (§4.3, §4.4) or a `lost` field? | **`lost: UNib32` in every stream item**: units dropped right before this item. 4 bits when 0, one rule for every stream, no special records. | yes: drops `RecordKind::Lost`, `FrameFlags::Lost` |
-| D6 | Timestamps | **`Ticks(UVlq64)`, absolute, local, in every item** (as §4.5). Delta-coded timestamps inside an item come later as optional appended fields (SW-31). | no |
-| D7 | Where the timebase lives on a device without `ww_timebase::Clock` | Items still carry `Ticks`; `capabilities()` of each trait says `timestamps: bool`; without them `t` is 0. A `Clock` anywhere in the tree defines the tick rate (one per device). | refines |
-| D8 | Enum growth before SW-16 future-version lands | Every error, mode and kind enum is **`Unsized` with `ww_repr = unib32`** (new variants with data later), and the family ships at 0.2.0 only **after SW-16** (WW-3 ww-evolution), so an old host survives a new error variant. Every growing enum ends with `#[future_version] Unknown(u32)` (SW-16 as planned in WW-3: opt-in, last, no wire number of its own, catches any unknown discriminant). | no (§11.3) |
+| D5 | Lost data: a `Lost` record kind / variant (§4.3, §4.4) or a `lost` field? | **`lost: UNib32` in every new stream item**: units dropped right before this item. 4 bits when 0, one rule for every stream, no special records. | yes: drops `RecordKind::Lost`, `FrameFlags::Lost` |
+| D6 | Timestamps | **`Ticks(UVlq64)`, absolute, local, in every new stream item** (as §4.5). Delta-coded timestamps inside an item come later as optional appended fields (SW-31). | no |
+| D7 | Where the timebase lives on a device without `ww_timebase::Clock` | Items still carry `Ticks`; `capabilities()` says whether timestamps are real (`rx_timestamps` in uart 0.1 already does); without them `t` is 0. A `Clock` anywhere in the tree defines the tick rate (one per device). | refines |
+| D8 | Enum growth before SW-16 future-version lands | Error enums of the family end with `#[future_version] Unknown(u32)` (SW-16 as planned in WW-3: opt-in, last, no wire number, catches any unknown discriminant), and new enums that will grow are `Unsized` with `ww_repr = unib32`. The family ships only **after SW-16**, so an old host survives a new error variant. Existing `sized` / `self_describing` enums (`Level`, `Mode`, `Pull`, `I2cMode`, ...) stay as they are: they can still get unit variants. | no (§11.3) |
 | D9 | `read_inputs` / `write_outputs` width | `u32` (32 pins per bank), as §4.1. Wider banks are split into banks. | no |
 | D10 | Test layout | One test crate pair per trait (`tests/io_gpio` + `tests/io_gpio_api`, ...): parallel fill-ins don't touch each other's files; each mock server is a small loopback simulator that WW-4 (`_hl` crates) reuses. | n/a |
+| D11 | UART `RxChunk`: break it for the stream head (`seq`, `lost`, `t: Ticks` first), or append the head after `bytes` and leave `timestamp: Option<Second>` unused? | **Break it**: `ww_uart` 0.2 breaks anyway (the TX credit sink), the item is read by every UART tool, and a dead `timestamp` field next to `t` would confuse every one of them. | no |
+| D12 | I2C addresses: keep `u8` (7-bit) or an `Address { Seven(u7), Ten(u10) }` enum (§4.3)? | **Keep `u8`**, 7-bit; above `0x7F` is `MalformedRequest` (exists in 0.1). 10-bit devices are rare, and the enum would cost every call a discriminant and every caller a change. 10-bit can come later as appended `i2c_*10` methods. | yes: §4.3 had `Address` |
 
 Not decided here, left to the rePort firmware: board-specific rules behind `Refused` and `InUse` (§5), channel lists.
 
 ## Conventions for every IO trait
 
 These hold for all crates of the family and for IO traits added later; `docs/api/streams.md` gets the stream part.
+Existing crates follow them where 0.1 doesn't already decide otherwise.
 
-**Types.** Every type is `Unsized` unless it is a bit-level leaf (`Level`, `Edge`), `owned(feature = "std")`,
-`borrowed` where it has no lifetime, `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`. Every list,
-byte buffer and string is bounded with `MaxLen` (raising a bound later is compatible, lowering is not). Enums that can
-grow: `ww_repr = unib32`, not `self_describing`/`sized`, ending with `#[future_version] Unknown(u32)`. Pins and channels are indices, never MCU pin names.
+**Types.** Every new type is `Unsized` unless it is a bit-level leaf (`Edge`), `owned(feature = "std")`, `borrowed`
+where it has no lifetime, `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`. Every list, byte buffer and
+string is bounded with `MaxLen` (raising a bound later is compatible, lowering is not). New enums that can grow:
+`ww_repr = unib32`, not `self_describing`/`sized`. Pins and channels are indices, never MCU pin names.
 
-**Configuration** is one struct argument, `configure(Config) -> Result<Actual, Error>`, returning what was really
-set (rounded baud and frequency, the level). `config() -> Actual` reads it back. A config struct gets new fields with
+**Configuration** of a new trait is one struct argument, `configure(Config) -> Result<Actual, Error>`, returning what
+was really set (rounded baud and frequency). `config() -> Actual` reads it back. A config struct gets new fields with
 `#[default = ..]` only. `Disabled` is a mode of the config, not a separate method: disabling releases the pins.
+Existing traits keep their shape (D3).
 
-**Capabilities** are queried, never assumed: `capabilities() -> XCapabilities<'i>` is resource 0 or close to it in
-every trait, and says the ranges, which modes exist, whether timestamps are real, buffer sizes and each stream's
-maximum rate alone.
+**Capabilities** are queried, never assumed: every trait has a `capabilities()` saying the ranges, which modes
+exist, whether timestamps are real, buffer sizes and each stream's maximum rate alone.
 
-**Errors.** Each crate has one `Error` enum, starting with the common variants at fixed positions:
+**Errors.** Each crate keeps (or gets) one error enum. These variants, by these names, are in every one of them:
 
 ```rust
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-                     derive(Copy, Clone, Debug, PartialEq, Eq), ww_repr = unib32)]
-pub enum Error {
-    /// Not supported by this device, mode or channel: check `capabilities()`
-    Unsupported,       // 0
-    /// A pin or peripheral this needs is held by another function (device API says which)
-    InUse,             // 1
+    /// A pin or peripheral this needs is held by another function (the device API says which)
+    InUse,
     /// The translators have no level (IO level off)
-    NoIoLevel,         // 2
-    /// Board-safety rules don't allow it (device API says why)
-    Refused,           // 3
-    /// An argument is out of range or inconsistent with the configuration
-    InvalidArgument,   // 4
-    /// Not configured for this (e.g. a transfer while Disabled, a monitor call in Master mode)
-    WrongMode,         // 5
-    // crate-specific variants follow (Nack, Timeout, ...), appended later as needed
-    /// A variant from a newer version of this API (SW-16)
+    NoIoLevel,
+    /// Board-safety rules don't allow it (the device API says why)
+    Refused,
+    /// A variant from a newer version of this API (SW-16), always last, takes no wire number
     #[future_version]
-    Unknown(u32),      // always last, takes no wire number
-}
+    Unknown(u32),
 ```
 
-Errors stay short and typed (§14 Q14); details come from the device-specific API (`frontend.state()` on rePort).
+Existing enums append them after their 0.1 variants. New crates start with `Unsupported`, `InUse`, `NoIoLevel`,
+`Refused`, `InvalidArgument`, `WrongMode`, then their own. Errors stay short and typed (§14 Q14); details come from the
+device-specific API (`frontend.state()` on rePort).
 
 **Streams carry a head**: every item of a data stream starts with the same three fields, by name, so a generic
 recorder handles them all:
@@ -137,155 +136,159 @@ Host helper (in the crate, `std` feature): `TimeMap` that interpolates captured 
 
 ## `ww_gpio` 0.2
 
-Kept from 0.1: `Bank` with `pin[]`, `Pin` with its first four methods at indices 0-3 (`set_output_level`, `toggle`,
-`output_level`, `input_level`) and `event` at 7, `Level`, `Mode`, `Pull`, `Speed`. Changed and added:
+`ww_gpio` 0.1 is usable and used (`ww_gpio_hl`, `examples/all_gpio`, three `examples_mcu` boards). 0.2 is 0.1 plus
+additions; everything 0.1 sends keeps its bytes. It is a 0.2 and not a 0.1.1 only because `Error` gets variants (a
+Rust break for exhaustive matches, and 0.1 readers can't decode them).
+
+| | Item | Why |
+|---|---|---|
+| kept | `Bank`: `pin[]` at 0, `capabilities()`, `reference_voltage: Volt`, `name()` | works |
+| kept | `Pin`: `set_output_level` 0, `toggle` 1, `output_level` 2, `input_level` 3, `reserved!(4..=6)`, `event` 7, `set_mode`, `mode`, `pull`, `speed`, `configure_events` | works, indices are wire |
+| kept | `Level`, `Mode`, `Pull`, `Speed`, `IoPinEvent`, `IoPinEnabledEvents`, `BankCapabilities`, all `Error` variants | works |
+| added | `Bank::read_inputs() -> u32` in reserved slot 1, `Bank::write_outputs(mask, levels)` in slot 2 | §4.1: parallel buses from the host; low indices for a hot path |
+| added | `Pin::capabilities() -> PinCapabilities` (appended) | §4.1: per-pin modes, direction switch time (rePort IO0-3 vs IO4-7) |
+| added | `Pin::timed_event: TimedPinEvent` stream (appended) | §4.1: edges with `seq` / `lost` / `t`; `event` stays for devices without a timebase |
+| added | `IoPinEnabledEvents`: `#[default] timed: bool`, `#[default] debounce_us: u32` (appended) | `timed` sends edges on `timed_event` instead of `event`; debounce was a `TODO` |
+| added | `BankCapabilities`: `#[default] atomic_write_outputs: bool` (appended) | says whether `write_outputs` is one register write |
+| added | `Error`: `InUse`, `NoIoLevel`, `Refused`, `#[future_version] Unknown(u32)` (appended) | common errors (D1, D8) |
+| changed | — | nothing |
 
 ```rust
 #[ww_trait]
-pub trait Bank {
-    ww_impl!(pin[]: Pin);                    // 0
-    /// 1. Input levels of all pins at once, bit n = pin n
-    fn read_inputs() -> u32;
-    /// 2. Output levels of the pins in `mask`, set at the same instant where the hardware can
-    fn write_outputs(mask: u32, levels: u32) -> Result<(), Error>;
+trait Bank {
+    ww_impl!(pin[]: Pin);                                      // 0  kept
+    /// Input levels of all pins at once, bit n = pin index n (pins of an array without index n read 0)
+    fn read_inputs() -> u32;                                   // 1  new, was reserved
+    /// Sets the outputs of the pins in `mask` at once, where the hardware can (`atomic_write_outputs`)
+    fn write_outputs(mask: u32, levels: u32) -> Result<(), Error>; // 2  new, was reserved
     reserved!(3..=7);
-    fn capabilities() -> BankCapabilities<'i>;
-    /// IO level of the bank in mV (0 = off); writes go through the device's level checks (D2)
-    property!(rw io_level_mv: u16, Error);
-    fn name() -> MaxLen<&'i str, 16>;
+    fn capabilities() -> BankCapabilities<'i>;                 // kept
+    property!(rw reference_voltage: Volt, Error);              // kept
+    fn name() -> &'i str;                                      // kept
 }
 
 #[ww_trait]
 pub trait Pin {
-    fn set_output_level(level: Level);       // 0  (unchanged; errors as before are silent)
-    fn toggle();                             // 1
-    fn output_level() -> Level;              // 2
-    fn input_level() -> Level;               // 3
-    reserved!(4..=6);
-    stream!(event: TimedPinEvent);           // 7  now timestamped (was IoPinEvent)
-    fn set_mode(mode: Mode, initial: Option<Level>) -> Result<(), Error>;
-    fn mode() -> Mode;
-    property!(rw pull: Pull, Error);
-    property!(rw speed: Speed, Error);
-    fn configure_events(events: PinEvents) -> Result<(), Error>;
+    // 0..=7 and set_mode .. configure_events: kept as in 0.1
     /// What this pin can do
-    fn capabilities() -> PinCapabilities<'i>;
+    fn capabilities() -> PinCapabilities<'i>;                  // new
+    /// Edges with their time, if enabled with `IoPinEnabledEvents::timed`
+    stream!(timed_event: TimedPinEvent);                       // new
 }
 
-pub struct TimedPinEvent { pub seq: u32, pub lost: UNib32, pub t: Ticks, pub edge: Edge, pub level_after: Level }
-pub enum Edge { Rising, Falling }            // sized, u1
-pub struct PinEvents { pub rising: bool, pub falling: bool, pub debounce_us: u32 }
+pub struct TimedPinEvent { pub seq: u32, pub lost: UNib32, pub t: Ticks, pub event: IoPinEvent }
 pub struct PinCapabilities<'i> {
     pub modes: MaxLen<RefVec<'i, Mode>, 8>, pub pulls: MaxLen<RefVec<'i, Pull>, 4>,
     pub speeds: MaxLen<RefVec<'i, Speed>, 4>,
     pub dir_switch_ns: u32,                  // how long a direction change takes (open drain emulation)
-    pub events: bool, pub event_timestamps: bool, pub max_event_rate_hz: u32,
+    pub events: bool, pub timed_events: bool, pub max_event_rate_hz: u32,
     pub name: MaxLen<&'i str, 16>,           // "IO4"
-}
-pub struct BankCapabilities<'i> {
-    pub io_levels_mv: MaxLen<RefVec<'i, u16>, 8>, pub io_level_range_mv: Option<(u16, u16)>,
-    pub pin_count: u8, pub atomic_write_outputs: bool,
 }
 ```
 
-`event` changes type in place (0.2 breaks the wire anyway, D2), which keeps it at index 7. `IoPinEnabledEvents` with
-its unbounded `custom` list is gone (custom events: a later appended field). `ww_gpio_hl` follows (same session).
+`TimedPinEvent` reuses `IoPinEvent`, so `Custom` events get timestamps too. `ww_gpio_hl` only needs its `Error`
+matches extended; timed events and `read_inputs` / `write_outputs` are added to it in the same session.
 
 ## `ww_uart` 0.2
+
+`ww_uart` 0.1 is a prototype used by `examples/uart`. 0.2 keeps the trait shape and the per-setting properties (D3),
+and changes the two things that don't work: the TX sink and the RX item.
+
+| | Item | Why |
+|---|---|---|
+| kept | `rx` stream at 0, `capabilities()`, properties `baud_rate`, `mode`, `stop_bits`, `parity`, `prevent_back_feed`, `reference_voltage`, `set_pin_level` | work |
+| kept | `BaudRate`, `Mode` (incl. `Monitor2`, `Monitor4`, `HighZ`, `Test`), `Pin`, `StopBits`, `Parity`, `Capabilities` fields | work |
+| kept | `tx_mon` stream, now defined: in `Monitor2` it carries the second line (rePort: CTS / RX2), in other modes an echo of what the device sent, if `capabilities` say so | covers the two-line monitor of §4.2 without a new stream; the host merges `rx` and `tx_mon` by `t` |
+| changed | `sink!(tx: [u8])` → `#[credit] sink!(tx: MaxLen<RefVec<'i, u8>, 256>)` | a plain sink overruns the device's TX buffer on bulk writes (a file to the UART); API-28 credit sinks exist for exactly this. Wire break (resource kind changes) |
+| changed | `RxChunk { flags: Option<RxFlags>, timestamp: Option<Second>, bytes }` → `RxChunk { seq, lost, t: Ticks, flags: RxFlags, bytes }` | the family stream head (D4-D6, D11); `Second` has no epoch, costs 3+ bytes and can't be correlated across streams. Wire break of the item |
+| changed | `bytes: &'i [u8]` → `MaxLen<RefVec<'i, u8>, 512>` | bounded items (family rule); same bytes on the wire |
+| added | `RxFlags`: `#[default] framing_error`, `overrun`, `break_detected` (appended after `parity_error`) | error flags of §4.2 |
+| added | `property!(rw data_bits: DataBits, Error)`, `fn baud_rate_actual() -> u32`, `fn send_break(duration_us: u32)`, `fn tx_pending() -> u32` (appended) | §4.2; actual baud after the divider; break; TX drained |
+| added | `Capabilities`: `#[default] data_bits`, `rx_buffer`, `tx_buffer` (appended) | |
+| added | `Error`: `InUse`, `NoIoLevel`, `Refused`, `Timeout`, `#[future_version] Unknown(u32)` (appended) | common errors (D1, D8) |
+| not taken | §4.2's `Config` struct and `configure()` | D3 |
 
 ```rust
 #[ww_trait]
 pub trait Uart {
-    stream!(rx: RxChunk<'i>);                                     // 0
-    #[credit] sink!(tx: MaxLen<RefVec<'i, u8>, UART_TX_MAX>);    // 1  UART_TX_MAX = 256
-    stream!(monitor: MonitorChunk<'i>);                           // 2  Mode::Monitor2
-    fn capabilities() -> Capabilities<'i>;                        // 3
-    fn configure(config: UartConfig) -> Result<UartActual, Error>;
-    fn config() -> UartActual;
-    fn send_break(duration_us: u32) -> Result<(), Error>;
-    /// Mode::Test only, outputs only
-    fn set_pin_level(pin: Pin, high: bool) -> Result<(), Error>;
-    /// Bytes waiting in the TX buffer (for a host that wants to know when TX drained)
-    fn tx_pending() -> u32;
+    stream!(rx: RxChunk<'i>);                                  // 0  kept, item changed
+    #[credit] sink!(tx: MaxLen<RefVec<'i, u8>, UART_TX_MAX>); // 1  credit sink now, UART_TX_MAX = 256
+    stream!(tx_mon: RxChunk<'i>);                              // 2  kept, defined for Monitor2
+    fn capabilities() -> Capabilities<'i>;                     // kept
+    property!(rw baud_rate: BaudRate, Error);                  // kept ..
+    property!(rw mode: Mode, Error);
+    property!(rw stop_bits: StopBits, Error);
+    property!(rw parity: Parity, Error);
+    property!(rw prevent_back_feed: bool, Error);
+    property!(rw reference_voltage: Volt, Error);
+    fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>; // .. kept
+    property!(rw data_bits: DataBits, Error);                  // new: Seven, Eight (default), Nine, Five, Six
+    fn baud_rate_actual() -> u32;                              // new
+    fn send_break(duration_us: u32) -> Result<(), Error>;      // new
+    fn tx_pending() -> u32;                                    // new: bytes not sent yet
 }
-
-pub struct UartConfig {
-    pub mode: Mode,                 // Disabled, Normal, Monitor2, Test
-    pub baud: u32,
-    pub data_bits: DataBits,        // Five..Nine
-    pub parity: Parity,             // None, Odd, Even, Mark, Space
-    pub stop_bits: StopBits,        // One, OneAndHalf, Two
-    pub flow: FlowControl,          // None, RtsCts, XonXoff
-    pub idle_bits: u16,             // chunk ends after this much silence; 0 = default (1.5 characters)
-    pub max_chunk: u16,             // 0 = device default
-    pub io_level_mv: Option<u16>,   // None = leave the level as it is (D2)
-    pub prevent_back_feed: bool,    // MON-4, if capabilities say so
-}
-pub struct UartActual { pub config: UartConfig, pub baud_actual: u32 }
-pub struct RxChunk<'i> {
-    pub seq: u32, pub lost: UNib32, pub t: Ticks,
-    pub framing: bool, pub parity: bool, pub overrun: bool, pub break_: bool,
-    pub bytes: MaxLen<RefVec<'i, u8>, UART_CHUNK_MAX>,         // 512
-}
-pub struct MonitorChunk<'i> { pub seq: u32, pub lost: UNib32, pub t: Ticks, pub line: Line,
-                              pub framing: bool, pub parity: bool, pub overrun: bool, pub break_: bool,
-                              pub bytes: MaxLen<RefVec<'i, u8>, UART_CHUNK_MAX> }
-pub enum Line { A, B }              // rePort: A = RX, B = CTS / RX2
-pub enum Pin { Tx, Rx, Rts, Cts }
-pub struct Capabilities<'i> {
-    pub baud_min: u32, pub baud_max: u32, pub modes: MaxLen<RefVec<'i, Mode>, 8>,
-    pub data_bits: MaxLen<RefVec<'i, DataBits>, 5>, pub flow: MaxLen<RefVec<'i, FlowControl>, 3>,
-    pub io_levels_mv: MaxLen<RefVec<'i, u16>, 8>, pub timestamps: bool, pub back_feed_detector: bool,
-    pub rx_buffer: u32, pub tx_buffer: u32,
-}
+pub struct RxChunk<'i> { pub seq: u32, pub lost: UNib32, pub t: Ticks, pub flags: RxFlags,
+                         pub bytes: MaxLen<RefVec<'i, u8>, UART_CHUNK_MAX> }   // 512
 ```
 
-`Monitor4` and `HighZ` are gone (`Disabled` = high-Z); `tx_mon` is gone (the monitor stream covers it). The monitor
-`seq` counts bytes of both lines together. Error-specific variants: `BufferFull` (only for writes outside the credit
-sink), `Timeout`.
+Chunking (§4.2): a chunk ends after 1.5 characters of silence, at `UART_CHUNK_MAX` bytes or on an error flag; `t` is
+the start bit of its first byte; `seq` counts bytes. `StopBits` (`u1`) and `Parity` (`u2`) are full or nearly so:
+1.5 stop bits and mark / space parity would need a new enum, not planned.
 
 ## `ww_i2c` 0.2
 
-As §4.3, with D1, D3, D5 applied:
+`ww_i2c` 0.1 is a prototype; its method set (`i2c_configure`, `i2c_write`, `i2c_read` with `I2cReadKind`,
+`i2c_scan`, `delay_after`) is the right one and stays, with names and order. Its commented `TODO`s already sketch
+most of §4.3 (lines state, wiggle clock, cycle reads); 0.2 fills them in.
+
+| | Item | Why |
+|---|---|---|
+| kept | `i2c_capabilities`, `i2c_configure(mode, io_level_mv) -> u32`, `i2c_write(addr, data, delay_after)`, `i2c_read(addr, kind, len, delay_after)`, `i2c_scan`, order and names | work; `delay_after` is the start of IF-6 polling |
+| kept | `u8` 7-bit addresses (D12), `I2cReadKind`, `I2cMode` (`self_describing`, all four modes), `I2cCapabilities` fields, all `I2cError` variants | work |
+| changed | `Vec<u8>` → `MaxLen<RefVec<'i, u8>, I2C_MAX>` (512) in `i2c_write` and `i2c_scan` (128) | a `no_alloc` device server can't take a `Vec`; bounded sizes (family rule). Adding a bound is a break |
+| changed | `RawTimestamp { ticks: u32 }` → `ww_timebase::Ticks` in `I2cTransactionTimeRange` | one timebase; `u32` wraps after 71 minutes at 1 MHz |
+| changed | the plain structs (`I2cTransactionTimeRange`, `I2cReadEnvelope`, `I2cCapabilities`, `I2cLinesState`) get `#[derive_shrink_wrap]`, `I2cReadEnvelope` its missing `<'i>`, `I2cCapabilities::driver_name` a `MaxLen<&'i str, 32>` | they cross the wire, so they must be proper types; strings bounded |
+| changed | `I2cError` loses `self_describing` (becomes `Unsized`) | SW-16 `Unknown(u32)` and future variants with data (`Nack { at }`) |
+| added | `i2c_transaction(addr, ops)` (appended) | §4.3: repeated starts, embedded-hal `transaction` |
+| added | `i2c_lines_state() -> I2cLinesState`, `i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError>` (appended, the names of the 0.1 `TODO`s) | §4.3 `lines` / `recover` |
+| added | `stream!(i2c_monitor: MonitorRecord)` (appended) | MON-1: `MonitorOnly` and `Master { monitor: true }` already exist as modes, the stream was missing |
+| added | `property!(rw i2c_pullups: bool, I2cError)` (appended), `I2cLinesState`: `#[default] scl_mv`, `sda_mv: Option<u16>` | pull-ups; bus voltages when measurable |
+| added | `I2cError`: `InUse`, `NoIoLevel`, `Refused`, `AddrNack`, `#[future_version] Unknown(u32)` (appended) | common errors (D1, D8); `Nack` stays for data NACKs |
+| later | cycle reads (`i2c_cycle_read` and friends stay commented) | IF-6 i2c-polling, additive |
 
 ```rust
 #[ww_trait]
 pub trait I2c {
-    fn write_read(addr: Address, write: MaxLen<RefVec<'i, u8>, 64>, read_len: u16) -> Result<ReadResult<'i>, Error>; // 0
-    fn write(addr: Address, data: MaxLen<RefVec<'i, u8>, I2C_MAX>) -> Result<Timing, Error>;                       // 1
-    fn read(addr: Address, len: u16) -> Result<ReadResult<'i>, Error>;                                               // 2
-    fn transaction(addr: Address, ops: MaxLen<RefVec<'i, Op<'i>>, 16>) -> Result<TransactionResult<'i>, Error>;     // 3
-    stream!(monitor: MonitorRecord<'i>);                                                                             // 4
-    reserved!(5..=7);
-    fn capabilities() -> Capabilities<'i>;
-    fn configure(config: I2cConfig) -> Result<I2cActual, Error>;
-    fn config() -> I2cActual;
-    fn scan(range: AddrRange) -> Result<MaxLen<RefVec<'i, u8>, 128>, Error>;
-    fn lines() -> LinesState;
-    fn recover() -> Result<LinesState, Error>;
+    fn i2c_capabilities() -> I2cCapabilities<'i>;                                                  // kept
+    fn i2c_configure(mode: I2cMode, io_level_mv: u16) -> Result<u32, I2cError>;                    // kept
+    fn i2c_write(addr: u8, data: MaxLen<RefVec<'i, u8>, I2C_MAX>, delay_after: u32)
+        -> Result<I2cTransactionTimeRange, I2cError>;                                              // Vec -> MaxLen
+    fn i2c_read(addr: u8, kind: I2cReadKind<'i>, len: u16, delay_after: u32)
+        -> Result<I2cReadEnvelope<'i>, I2cError>;                                                  // kept
+    fn i2c_scan() -> Result<MaxLen<RefVec<'i, u8>, 128>, I2cError>;                                // Vec -> MaxLen
+    /// Several operations to one address with repeated starts, one stop at the end
+    fn i2c_transaction(addr: u8, ops: MaxLen<RefVec<'i, I2cOp<'i>>, 16>)
+        -> Result<I2cTransactionResult<'i>, I2cError>;                                             // new
+    fn i2c_lines_state() -> I2cLinesState;                                                         // new
+    /// Up to `count` clocks on SCL, then a stop: frees a slave stuck mid-byte
+    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError>;                            // new
+    stream!(i2c_monitor: MonitorRecord<'i>);                                                       // new
+    property!(rw i2c_pullups: bool, I2cError);                                                     // new
 }
-pub enum Address { Seven(u7), Ten(u10) }
-pub struct I2cConfig { pub mode: I2cMode, pub speed_hz: u32, pub io_level_mv: Option<u16>,
-                       pub pullups: Pullups, pub stretch_timeout_us: u32 }
-pub enum I2cMode { Disabled, Master { monitor: bool }, Slave { addr: Address, monitor: bool }, MonitorOnly }
-pub enum Pullups { Off, On, Keep }
-pub enum Op<'i> { Write(MaxLen<RefVec<'i, u8>, I2C_MAX>), Read(u16) }
-pub struct Timing { pub t_start: Ticks, pub t_end: Ticks }
-pub struct ReadResult<'i> { pub timing: Timing, pub data: MaxLen<RefVec<'i, u8>, I2C_MAX> }
-pub struct TransactionResult<'i> { pub timing: Timing, pub reads: MaxLen<RefVec<'i, MaxLen<RefVec<'i, u8>, I2C_MAX>>, 16> }
-pub struct AddrRange { pub first: u7, pub last: u7, pub include_reserved: bool }
-pub struct LinesState { pub scl_high: bool, pub sda_high: bool, pub scl_mv: Option<u16>, pub sda_mv: Option<u16> }
-pub struct MonitorRecord<'i> { pub seq: u32, pub lost: UNib32, pub t: Ticks, pub t_end: Ticks, pub addr: Address,
+pub enum I2cOp<'i> { Write(MaxLen<RefVec<'i, u8>, I2C_MAX>), Read(u16) }
+pub struct I2cTransactionResult<'i> { pub time: I2cTransactionTimeRange,
+                                      pub reads: MaxLen<RefVec<'i, MaxLen<RefVec<'i, u8>, I2C_MAX>>, 16> }
+pub struct MonitorRecord<'i> { pub seq: u32, pub lost: UNib32, pub t: Ticks, pub t_end: Ticks, pub addr: u8,
                                pub read: bool, pub kind: RecordKind, pub nack_at: Option<u16>,
                                pub bytes: MaxLen<RefVec<'i, u8>, I2C_MAX> }
-pub enum RecordKind { Complete, RepeatedStart, BusError }
-// I2C_MAX = 512; crate errors: Nack { at: u16 }, AddrNack, Arbitration, Timeout, BusStuck
+pub enum RecordKind { Complete, RepeatedStart, BusError }   // unib32, grows
 ```
 
-`write_read` first: the most common call of a register-based sensor. Cycle reads and delays of the 0.1 prototype
-become IF-6 i2c-polling later.
+One monitor record per transaction keeps the stream compact (about 10 bytes plus the data); `seq` counts records.
 
 ## `ww_spi` 0.2
+
+`ww_spi` 0.1 is an empty trait, so there is nothing to keep; designed from §4.4 with the family conventions.
 
 ```rust
 #[ww_trait]
@@ -299,9 +302,10 @@ pub trait Spi {
     fn configure(config: SpiConfig) -> Result<SpiActual, Error>;
     fn config() -> SpiActual;
     fn set_cs(active: bool) -> Result<(), Error>;          // CsMode::Manual
+    property!(rw reference_voltage: Volt, Error);         // as ww_uart (D2)
 }
 pub struct SpiConfig { pub role: Role, pub freq_hz: u32, pub mode: SpiMode, pub bit_order: BitOrder,
-                       pub word_bits: u8, pub cs: CsMode, pub io_level_mv: Option<u16> }
+                       pub word_bits: u8, pub cs: CsMode }
 pub enum Role { Disabled, Master, Slave, Monitor }
 pub enum SpiMode { Mode0, Mode1, Mode2, Mode3 }
 pub enum BitOrder { MsbFirst, LsbFirst }
@@ -416,10 +420,15 @@ pub struct Capabilities<'i> { pub pins: MaxLen<RefVec<'i, MaxLen<&'i str, 16>>, 
 
 ## Versions, compatibility, what breaks
 
-- `ww_gpio`, `ww_uart`, `ww_i2c`, `ww_spi` 0.1 → 0.2: **wire and Rust API breaks**. Affected in this repo:
-  `ww_gpio_hl`, `examples/all_gpio*`, `examples/uart*`, `examples_mcu/{mcu_qemu, nucleo_h743zi2,
-  usb_stm32h725ig}`; outside: `usb_io_fw` (moves to the family in its 0.4.0, FW-1). No deployed device besides rePort
-  rev A boards in-house uses them.
+- `ww_gpio` 0.1 → 0.2: wire-compatible for everything 0.1 sends; only the appended `Error` variants are new to 0.1
+  readers, and exhaustive Rust matches on `Error` need the new arms. `ww_gpio_hl` and the gpio examples barely change.
+- `ww_uart` 0.1 → 0.2: **wire break** of `tx` (credit sink) and of the `RxChunk` item; Rust users of the properties
+  are unaffected. Affected: `examples/uart*`.
+- `ww_i2c` 0.1 → 0.2: **wire break** of `i2c_write` / `i2c_scan` (bounds), the timestamps and `I2cError`. No user in
+  this repo.
+- `ww_spi` 0.1 → 0.2: the empty trait gets its content.
+- Outside this repo: `usb_io_fw` moves to the family in its 0.4.0 (FW-1); `examples_mcu/{mcu_qemu, nucleo_h743zi2,
+  usb_stm32h725ig}` use `ww_gpio` and follow. No deployed device besides rePort rev A boards in-house uses them.
 - New crates start at 0.1.0. All of them (and `ww_timebase` as everyone's dependency) are snapshotted
   (`just save-snapshots`); `ww_timebase` is a dependency of every other crate, so a break there cascades: it is
   kept tiny.
@@ -439,10 +448,9 @@ pub struct Capabilities<'i> { pub pins: MaxLen<RefVec<'i, MaxLen<&'i str, 16>>, 
    examples; `ww_uart` the uart example. Done when `just check`, `just test`, clippy and `just build-docs` pass.
 3. **Review** of the whole family by Roman, then `tpm land` in one go.
 
-Risks the skeleton checks first: `u7` / `u10` inside enum variants and `RefVec` of `MaxLen<RefVec<..>>` in method
-returns through the codegen (no test uses them yet); `#[credit] sink!` of a stdlib trait used by `ww_impl!`; tuple
-`Option<(u16, u16)>` in a struct (the gpio 0.1 code has a TODO saying tuples were not supported: fall back to two
-fields).
+Risks the skeleton checks first: `RefVec` of `MaxLen<RefVec<..>>` in method
+returns through the codegen (no test uses them yet); `#[credit] sink!` of a stdlib trait used by `ww_impl!`; appending
+`#[future_version] Unknown(u32)` to the 0.1 error enums once SW-16 is there.
 
 ## Ideas not asked for
 

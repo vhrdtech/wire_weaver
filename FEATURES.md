@@ -594,7 +594,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   NET-1).
 - 🚧 **STD-13 IO trait family 0.2** · `v0.5` — `ww_timebase` (new, `Ticks` and `Clock`), `ww_gpio` 0.2, `ww_uart`
   0.2, `ww_i2c` 0.2, `ww_spi` 0.2, `ww_adc`, `ww_pwm`, `ww_onewire` (new): common error variants (`InUse`, `NoIoLevel`,
-  `Refused`), one `configure(Config) -> Actual` shape, stream items headed by `seq` / `lost` / `t`. Design in review
+  `Refused`), stream items headed by `seq` / `lost` / `t`; gpio, uart and i2c evolve from 0.1 (kept / changed / added
+  per crate). Design in review
   (`docs/std_library/io_family.md`); next: skeleton crates, then per-crate fill-ins. Ships after SW-16.
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.

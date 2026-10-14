@@ -17,7 +17,13 @@ embassy-time = ["dep:embassy-time"]
 # RTT (SEGGER Real-Time Transfer) medium on top of rtt-target channels
 rtt = ["dep:rtt-target"]
 # WebSocket medium over any TCP-like socket
-ws = ["dep:edge-ws", "dep:edge-http", "dep:httparse", "dep:embassy-sync", "embassy-net?/tcp"]
+ws = [
+    "dep:edge-ws",
+    "dep:edge-http",
+    "dep:httparse",
+    "dep:embassy-sync",
+    "embassy-net?/tcp",
+]
 # UDP medium over any datagram socket
 udp = ["embassy-net?/udp"]
 # embassy-net sockets for the enabled media: WebSocket on a TCP socket, UDP on a UDP socket

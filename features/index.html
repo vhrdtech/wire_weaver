@@ -2952,7 +2952,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
 <li>📋 <strong>API-14 Load API crates from crates.io</strong> · <code>v0.5</code> — the crate walker handles path and workspace dependencies;
   <code>crate = "version"</code> dependencies hit a <code>todo!()</code> in <code>wire_weaver_core/src/transform/crate_walker.rs</code>. Also
-  dependencies from git (backlog).</li>
+  dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
+  done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
+  docs.rs (DOC-6).</li>
 <li>📋 <strong>API-15 Return streams from functions</strong> · <code>v0.5.x</code> — related idea: model streams as functions that can be called
   to change parameters, subscribe, stop.</li>
 <li>📋 <strong>API-16 Feature groups</strong> · <code>v0.5.x</code> — resources behind features (all enabled by default), connected to the user
@@ -3207,8 +3209,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>DOC-5 Open docs <code>TODO</code>s</strong> — export of all API levels with ids (<code>api/addressing.md</code>), splitting traits into
   multiple files (<code>api/traits.md</code>), interrupt vs bulk (<code>transport/usb.md</code>), <code>T</code> → struct containing <code>T</code>
   (<code>evolution/rules.md</code>).</li>
-<li>🔍 <strong>DOC-6 Docs for <code>ww_stdlib</code> crates and resource doc comments</strong> · <code>v0.5.x</code> — the crates are now publishable, so
-  docs.rs builds them; check whether generated resource types carry doc comments.</li>
+<li>🚧 <strong>DOC-6 Docs for <code>ww_stdlib</code> crates and resource doc comments</strong> · <code>v0.5.x</code> — done: <code>#[ww_trait]</code> leaves a Rust
+  trait of the same name for rustdoc, with every resource and its doc comments (properties, streams, sinks and
+  sub-traits as <code>wire_weaver::api_doc</code> markers, see <code>api/traits.md</code>), checked with nightly <code>--cfg docsrs</code> on a
+  crates.io-shaped copy of <code>ww_i2c</code>. Missing: docs.rs builds of crates whose API uses another crate's types or traits
+  (<code>ww_uart</code>, <code>ww_gpio</code>, <code>ww_si</code> types), the macro panics on their <code>version = ".."</code> dependencies, needs API-14.</li>
 </ul>
 <h2 id="testing-ci-and-performance-test">Testing, CI and performance (<code>TEST</code>)<a class="headerlink" href="#testing-ci-and-performance-test" title="Permanent link">&para;</a></h2>
 <ul class="task-list">

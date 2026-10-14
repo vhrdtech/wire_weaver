@@ -1155,6 +1155,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#in-rustdoc" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In rustdoc
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2429,6 +2440,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#in-rustdoc" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In rustdoc
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2526,10 +2548,10 @@
 <p>Traits in WireWeaver are used to define API blocks, as you can see from examples above, entry point for a device API is
 also a trait. They carry similar meaning to Rust traits, in a sense that trait defines some functionality, that server
 "implements" and client code can then interact with.</p>
-<p>But they are not actually traits under the hood, <code>#[ww_trait]</code> macro leaves only some static checks and removes the
-rest.
-Rust syntax is currently used to bypass writing a whole parser from scratch.
-All the magic happens through code generation in the <code>#[ww_api]</code> macro.</p>
+<p>But they are not implemented like Rust traits: Rust syntax is used to bypass writing a whole parser from scratch, and
+all the magic happens through code generation in the <code>ww_codegen!</code> macro, which reads the trait from its source file.
+What <code>#[ww_trait]</code> leaves in place is a Rust trait of the same name that only describes the API, so that <code>cargo doc</code>
+and docs.rs show it, see <a href="#in-rustdoc">In rustdoc</a> below.</p>
 <h2 id="traits-for-api-resources-grouping">Traits for API resources grouping<a class="headerlink" href="#traits-for-api-resources-grouping" title="Permanent link">&para;</a></h2>
 <p>Trait defined in the same file as the API root itself is a way to cleanly group related resources together.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_trait]</span>
@@ -2648,6 +2670,26 @@ per-device generated code, wiring up a trait client dynamically to whatever reso
 global trait.</p>
 <p><strong>This dynamic-introspection path is not implemented yet</strong> - today, obtaining an attachment always goes through
 codegen-produced <code>.attachment()</code> methods.</p>
+<h2 id="in-rustdoc">In rustdoc<a class="headerlink" href="#in-rustdoc" title="Permanent link">&para;</a></h2>
+<p><code>#[ww_trait]</code> and <code>#[ww_api_root]</code> turn the trait into a Rust trait of the same name and visibility, with every
+resource and its doc comment, so an API crate's documentation on docs.rs or from <code>cargo doc</code> shows the whole API.
+Methods keep their signature, the other resources become functions returning a marker from <code>wire_weaver::api_doc</code>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Uart</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">rx</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Stream</span><span class="o">&lt;</span><span class="n">RxChunk</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span><span class="w">               </span><span class="c1">// stream!(rx: RxChunk&lt;&#39;i&gt;);</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">tx</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Sink</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="o">&gt;</span><span class="p">;</span><span class="w">                            </span><span class="c1">// sink!(tx: [u8]);</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">baud_rate</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Property</span><span class="o">&lt;</span><span class="n">BaudRate</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span><span class="w">      </span><span class="c1">// property!(rw baud_rate: BaudRate, Error);</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_pin_level</span><span class="p">(</span><span class="n">pin</span><span class="p">:</span><span class="w"> </span><span class="nc">Pin</span><span class="p">,</span><span class="w"> </span><span class="n">is_high</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">}</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Bank</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">pin</span><span class="p">(</span><span class="n">index</span><span class="p">:</span><span class="w"> </span><span class="nc">UNib32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">impl</span><span class="w"> </span><span class="n">Pin</span><span class="p">;</span><span class="w">                </span><span class="c1">// ww_impl!(pin[]: Pin);</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Access mode, array index, flow control and <code>#[since]</code> are added as the last paragraph of each resource's docs.
+<code>reserved!</code> doesn't show up. The trait is never implemented, handlers are generated by <code>ww_codegen!</code>
+(see <a href="../methods/#server-side">server side</a>), but it can be linked from docs (<code>[Uart]</code>, <code>[Uart::rx]</code>).</p>
+<p>Because it is a real trait, the compiler checks it in the API crate: every type must be valid Rust (<code>RefVec&lt;'i,
+&amp;'i str&gt;</code>, not <code>RefVec&lt;'i, str&gt;</code>, lifetimes written out), and a trait used from another crate through <code>ww_impl!</code> must
+be <code>pub</code>.</p>
 
 
 

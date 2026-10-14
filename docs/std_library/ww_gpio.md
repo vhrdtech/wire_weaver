@@ -65,6 +65,8 @@ pub trait Pin {
     property!(rw speed: Speed, Error);
 
     fn configure_events(enabled: IoPinEnabledEvents<'i>) -> Result<(), Error>;
+
+    fn capabilities() -> PinCapabilities<'i>;
 }
 ```
 
@@ -78,6 +80,8 @@ pub trait Pin {
 * `pull` - pull resistor configuration, can fail with `Error::UnsupportedPull`.
 * `speed` - drive strength/slew rate, can fail with `Error::UnsupportedSpeed`.
 * `configure_events` - enables/disables which edges (and any custom sources) feed the `event` stream.
+* `capabilities()` - what this pin supports: modes, pulls, speeds, whether `event` works, and its name, see
+  `PinCapabilities` under [Types](#types) below.
 
 ## Types
 
@@ -88,10 +92,14 @@ pub trait Pin {
 * `Speed` - `Slow`, `Medium`, `Fast`, `VeryFast`, `Custom(u8)`; `sized`, 1 nibble.
 * `IoPinEvent` - `RisingEdge`, `FallingEdge`, `Custom(u8)`; `sized`, 2 bits.
 * `Error` - `UnsupportedMode`, `UnsupportedPull`, `UnsupportedSpeed`, `UnsupportedEventType`,
-  `UnsupportedReferenceVoltage`, `DifferentModes`, `NotImplemented`, `CustomU8(u8)`, `CustomU32(u32)`; unsized
-  (`unib32` discriminant), evolvable.
+  `UnsupportedReferenceVoltage`, `DifferentModes`, `NotImplemented`, `CustomU8(u8)`, `CustomU32(u32)`, `InUse`
+  (the pin serves another function), `NoIoLevel` (level translators have no supply), `Refused` (a device safety
+  rule doesn't allow it); unsized (`unib32` discriminant), evolvable.
 * `IoPinEnabledEvents<'i>` - which sources feed the `event` stream: `rising: bool`, `falling: bool`, and a
   `custom: RefVec<'i, u8>` list of custom source indices.
+* `PinCapabilities<'i>` - what one pin supports: `modes: MaxLen<RefVec<'i, Mode>, 8>`,
+  `pulls: MaxLen<RefVec<'i, Pull>, 4>`, `speeds: MaxLen<RefVec<'i, Speed>, 5>`, `events: bool` (the `event` stream
+  works on this pin), `name: MaxLen<&'i str, 16>` (e.g. `"IO4"`, `"PB5"`).
 * `BankCapabilities<'i>` - what a bank supports: `voltage: RefVec<'i, Volt>`, `push_pull` / `open_drain` / `input` /
   `individually_configurable_pins: bool`, and `custom_mode` / `custom_pull` / `custom_speed: RefVec<'i, &'i str>`
   describing any `Custom(u8)` variants.

@@ -196,8 +196,15 @@ fn ty_def_numeric_base(base: &NumericBaseType) -> TokenStream {
         NumericBaseType::I128 => quote! { i128 },
         NumericBaseType::F16 => todo!(),
         NumericBaseType::F64 => quote! { f64 },
-        NumericBaseType::UB(_) => todo!(),
-        NumericBaseType::IB(_) => todo!(),
+        // bit-aligned `U1`..`U64` / `I2`..`I64`, `U8` is not `u8` (SW-48)
+        NumericBaseType::UB(bits) => {
+            let ty = Ident::new(&format!("U{}", bits.0), Span::call_site());
+            quote! { wire_weaver::shrink_wrap::un::#ty }
+        }
+        NumericBaseType::IB(bits) => {
+            let ty = Ident::new(&format!("I{}", bits.0), Span::call_site());
+            quote! { wire_weaver::shrink_wrap::un::#ty }
+        }
         NumericBaseType::UN => todo!(),
         NumericBaseType::IN => todo!(),
         NumericBaseType::ULeb32 => todo!(),

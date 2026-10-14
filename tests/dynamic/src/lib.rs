@@ -4,7 +4,8 @@
 #[cfg(test)]
 mod tests {
     use dynamic_api::{
-        CheckError, EverythingOwned, Fixed, FlaggedOwned, InnerOwned, ShapeOwned, Tagged,
+        CheckError, EverythingOwned, Fixed, FlaggedOwned, I2cAddress, InnerOwned, ShapeOwned,
+        Tagged,
     };
     use std::path::Path;
     use std::sync::Arc;
@@ -14,7 +15,7 @@ mod tests {
     use wire_weaver_client::{ClientConfig, DynClient, DynResource, DynResourceKind};
 
     mod server {
-        use dynamic_api::{CheckError, Everything, Flagged};
+        use dynamic_api::{CheckError, Everything, Flagged, I2cAddress};
         use tests_common::TestProcessEvents;
         use wire_weaver::prelude::*;
         use wire_weaver::{GetResult, SetResult};
@@ -57,6 +58,21 @@ mod tests {
             ) -> RpcResult<Everything<'_>> {
                 self.echo = to_bytes(&value);
                 Ready(Everything::from_ww_bytes(&self.echo).unwrap())
+            }
+
+            fn sub_byte(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                addr: I2cAddress,
+                a: U7,
+                b: I10,
+            ) -> RpcResult<U10> {
+                let addr = match addr {
+                    I2cAddress::Seven(x) => x.value() as i32,
+                    I2cAddress::Ten(x) => x.value() as i32,
+                };
+                let sum = addr + a.value() as i32 + b.value() as i32;
+                Ready(U10::new(sum.clamp(0, 1023) as u16).unwrap())
             }
 
             fn check(
@@ -517,6 +533,86 @@ mod tests {
         assert_eq!(bytes, 70_000u32.to_ww_bytes_owned().unwrap());
     }
 
+    /// Bit-sized method arguments and enum payloads (SW-48): the dynamic side writes and reads the same bits as
+    /// the derived types, and rejects a value that does not fit.
+    #[test]
+    fn sub_byte_same_bytes_as_derived() {
+        let root = DynResource::root(bundle());
+        let sub_byte = root.child("sub_byte").unwrap();
+        let DynResourceKind::Method { args, .. } = sub_byte.kind().unwrap() else {
+            panic!()
+        };
+        let addr_ty = &args[0].ty;
+        let unnamed = |v| FieldsValueOwned::Unnamed(vec![v]);
+
+        // discriminant (1 bit) and payload share one byte: 0 1010000
+        let seven = I2cAddress::Seven(U7::new(0x50).unwrap());
+        let seven_value = variant("Seven", unnamed(num(N::U8(0x50))));
+        assert_eq!(seven.to_ww_bytes_owned().unwrap(), [0x50]);
+        assert_eq!(
+            seven_value
+                .ser_shrink_wrap_dyn(addr_ty, root.bundle())
+                .unwrap(),
+            [0x50]
+        );
+        assert_eq!(
+            ValueOwned::des_shrink_wrap_dyn(&[0x50], addr_ty, root.bundle()).unwrap(),
+            seven_value
+        );
+        // 1 1111111111 00000: 11 bits
+        let ten = I2cAddress::Ten(U10::new(0x3ff).unwrap());
+        let ten_value = variant("Ten", unnamed(num(N::U16(0x3ff))));
+        assert_eq!(ten.to_ww_bytes_owned().unwrap(), [0xff, 0xe0]);
+        assert_eq!(
+            ten_value
+                .ser_shrink_wrap_dyn(addr_ty, root.bundle())
+                .unwrap(),
+            [0xff, 0xe0]
+        );
+        assert_eq!(
+            ValueOwned::des_shrink_wrap_dyn(&[0xff, 0xe0], addr_ty, root.bundle()).unwrap(),
+            ten_value
+        );
+
+        // arguments struct: 11 + 7 + 10 bits in 4 bytes, no padding between them
+        #[derive_shrink_wrap(owned)]
+        struct SubByteArgs {
+            addr: I2cAddress,
+            a: U7,
+            b: I10,
+        }
+        let derived = SubByteArgs {
+            addr: ten,
+            a: U7::new(0x55).unwrap(),
+            b: I10::new(-2).unwrap(),
+        }
+        .to_ww_bytes_owned()
+        .unwrap();
+        assert_eq!(derived, [0xff, 0xf5, 0x7f, 0xe0]);
+        let values = [ten_value, num(N::U8(0x55)), num(N::I16(-2))];
+        let dynamic =
+            ValueOwned::ser_shrink_wrap_vec_dyn(&values, args.iter().map(|a| &a.ty), root.bundle())
+                .unwrap();
+        assert_eq!(dynamic, derived);
+        let back = ValueOwned::des_shrink_wrap_vec_dyn(
+            &derived,
+            args.iter().map(|a| &a.ty),
+            root.bundle(),
+        )
+        .unwrap();
+        assert_eq!(back, values);
+
+        for (value, ty) in [
+            (variant("Seven", unnamed(num(N::U8(0x80)))), addr_ty),
+            (num(N::U8(0x80)), &args[1].ty),
+            (num(N::I16(512)), &args[2].ty),
+            (num(N::I16(-513)), &args[2].ty),
+        ] {
+            let err = value.ser_shrink_wrap_dyn(ty, root.bundle()).unwrap_err();
+            assert!(format!("{err:#}").contains("out of range"), "{err:#}");
+        }
+    }
+
     #[test]
     fn walk_errors() {
         let root = DynResource::root(bundle());
@@ -559,6 +655,14 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(r, Some(num(N::I64(38))));
+
+        let sub_byte = root.child("sub_byte").unwrap();
+        let ten = variant("Ten", FieldsValueOwned::Unnamed(vec![num(N::U16(300))]));
+        let r = sub_byte
+            .call(cmd, &[ten, num(N::U8(1)), num(N::I16(-3))])
+            .await
+            .unwrap();
+        assert_eq!(r, Some(num(N::U16(298))));
 
         let echo = root.child("echo").unwrap();
         let r = echo.call(cmd, &[everything_value()]).await.unwrap();

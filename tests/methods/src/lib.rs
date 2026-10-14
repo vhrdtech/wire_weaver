@@ -24,7 +24,7 @@ mod tests {
 
     mod no_std_sync_server {
         use super::*;
-        use methods_api::UserDefined;
+        use methods_api::{I2cAddress, UserDefined};
         use tests_common::TestProcessEvents;
         use wire_weaver::prelude::*;
 
@@ -114,6 +114,21 @@ mod tests {
             fn absent(&mut self, _cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<()> {
                 Unimplemented.into()
             }
+
+            fn sub_byte(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                a: U7,
+                b: I10,
+                addr: I2cAddress,
+            ) -> RpcResult<U10> {
+                let addr = match addr {
+                    I2cAddress::Seven(a) => a.value() as u16,
+                    I2cAddress::Ten(a) => a.value(),
+                };
+                let sum = a.value() as i32 + b.value() as i32 + addr as i32;
+                Ready(U10::new(sum.clamp(0, U10::max().value() as i32) as u16).unwrap())
+            }
         }
 
         pub mod api_impl {
@@ -195,6 +210,37 @@ mod tests {
         StdClient::config(|c| c.in_process_path(device.path()))
             .connect_blocking()
             .expect("connect")
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn sub_byte_args_and_return() {
+        use methods_api::I2cAddress;
+        use wire_weaver::shrink_wrap::un::{I10, U7, U10};
+        let (device, _data) = start("methods/sub_byte");
+        let mut client = connect(&device).await;
+
+        let a = U7::new(0x7f).unwrap();
+        let b = I10::new(-512).unwrap();
+        let seven = I2cAddress::Seven(U7::new(0x50).unwrap());
+        let r = client.sub_byte(a, b, seven).call().await.unwrap();
+        assert_eq!(r, U10::new(0).unwrap()); // 127 - 512 + 80 < 0, clamped
+        let ten = I2cAddress::Ten(U10::new(0x3ff).unwrap());
+        let r = client
+            .sub_byte(a, I10::new(1).unwrap(), ten)
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(r, U10::max()); // 127 + 1 + 1023 does not fit 10 bits
+        let r = client
+            .sub_byte(
+                U7::new(1).unwrap(),
+                I10::new(-3).unwrap(),
+                I2cAddress::Ten(U10::new(300).unwrap()),
+            )
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(r, U10::new(298).unwrap());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

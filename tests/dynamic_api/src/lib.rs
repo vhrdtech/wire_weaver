@@ -7,6 +7,8 @@ trait Dynamic {
     fn add(a: u32, b: i16) -> i64;
     fn echo(value: Everything<'i>) -> Everything<'i>;
     fn check(x: Option<u8>) -> Result<u8, CheckError>;
+    /// Bit-sized arguments, return and enum payloads (SW-48)
+    fn sub_byte(addr: I2cAddress, a: U7, b: I10) -> U10;
     property!(rw speed: u16);
     property!(rw everything: Everything<'i>);
     property!(rw flagged: Flagged<'i>);
@@ -103,4 +105,17 @@ pub enum Tagged {
         first: Option<u8>,
         second: Option<u8>,
     },
+}
+
+/// 7-bit or 10-bit I2C address: 8 or 11 bits (SW-48)
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Clone, Copy),
+    ww_repr = u1,
+    self_describing
+)]
+pub enum I2cAddress {
+    Seven(U7),
+    Ten(U10),
 }

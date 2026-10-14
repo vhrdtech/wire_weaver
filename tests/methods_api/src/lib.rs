@@ -18,10 +18,25 @@ trait Methods {
     fn request_seq() -> u32;
     /// Medium this request came from, as seen by the handler
     fn request_medium() -> u8;
+    /// Bit-sized arguments and return (SW-48)
+    fn sub_byte(a: U7, b: I10, addr: I2cAddress) -> U10;
 }
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq))]
 struct UserDefined<'i> {
     a: u8,
     b: RefVec<'i, u8>,
+}
+
+/// 7-bit or 10-bit I2C address, 8 or 11 bits on the wire (SW-48)
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Copy, Clone),
+    ww_repr = u1,
+    self_describing
+)]
+pub enum I2cAddress {
+    Seven(U7),
+    Ten(U10),
 }

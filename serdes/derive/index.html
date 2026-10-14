@@ -3179,6 +3179,14 @@ without allocation, or vice versa. Typing out two definitions by hand - one usin
 <td><code>Box&lt;T&gt;</code></td>
 </tr>
 <tr>
+<td><code>MaxLen&lt;RefVec&lt;'i, T&gt;, N&gt;</code></td>
+<td><code>MaxLen&lt;Vec&lt;T&gt;, N&gt;</code></td>
+</tr>
+<tr>
+<td><code>MaxLen&lt;&amp;'i str, N&gt;</code></td>
+<td><code>MaxLen&lt;String, N&gt;</code></td>
+</tr>
+<tr>
 <td><code>UserType&lt;'i&gt;</code></td>
 <td><code>UserTypeOwned</code></td>
 </tr>
@@ -3194,6 +3202,10 @@ of <code>shrink_wrap</code> itself follow this scheme too (<code>Delta&lt;'i, T&
 <code>XorFloatOwned&lt;T&gt;</code>).</p>
 <p>Array lengths can be any const expression (<code>[f32; MAX_SERIES]</code>, <code>[u8; N * 2]</code>), not only literals; a <code>sized</code> type's
 <code>ELEMENT_SIZE</code> carries them symbolically.</p>
+<p><code>MaxLen&lt;T, N&gt;</code> (a list or string of at most <code>N</code> elements, <code>N</code> any const expression) has the same bytes as <code>T</code> and is
+checked on serialize and deserialize, see <a href="../../types/#bounded-lists-and-strings-maxlent-n">bounded lists and strings</a>.
+The borrowed type gets a <code>MAX_SIZE</code> (worst-case serialized size, <code>Some</code> when every field is bounded) next to
+<code>ELEMENT_SIZE</code>; the owned one does not have it yet.</p>
 <p><code>TailSize&lt;N&gt;</code> is the same on both sides: a slot the macro fills in with the size of the rest of the value, see
 <a href="../shrink_wrap/#size-of-the-rest-of-a-value-tailsizen">the wire format page</a>. It is only allowed in types without a
 size assumption.</p>

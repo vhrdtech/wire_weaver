@@ -2726,6 +2726,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>SW-33 <code>UVlq64</code></strong>: byte-based variable length <code>u64</code>, same big endian VLQ encoding as <code>UVlq32</code>, 1 to 10 bytes,
   <code>uvlq64</code> field type in <code>#[derive_shrink_wrap(..)]</code>, <code>BufReader::read_uvlq64</code>/<code>BufWriter</code>/<code>BufWriterOwned::write_uvlq64</code>
   (<code>shrink_wrap/src/vlq64.rs</code>, <code>docs/types.md</code>, <code>docs/serdes/showcase.md</code>). No <code>UVlq64Backfill</code> (not asked for).</li>
+<li>✅ <strong>SW-19 Bounded lists and strings <code>MaxLen&lt;T, N&gt;</code></strong>: a <code>RefVec</code>, <code>Vec</code>, <code>&amp;str</code> or <code>String</code> with at most <code>N</code>
+  elements, same bytes as <code>T</code> (a bound can be added, raised or removed without a new wire form), checked on
+  serialize and deserialize (<code>Error::MaxLenExceeded</code>, never truncated). Works in derived types and in every API
+  position (arguments, returns, properties, stream and sink items), visible in introspection
+  (<code>ww_self::Type::MaxLen</code>), honoured by the dynamic client and Python; raising a bound is compatible, lowering or
+  adding one breaking (<code>ww api check</code>). <code>SerializeShrinkWrap::MAX_SIZE: Option&lt;MaxSize&gt;</code>, the worst-case size of a
+  type whose every part is bounded, feeds API-18. <code>docs/types.md</code>, <code>docs/evolution/rules.md</code>,
+  <code>shrink_wrap/tests/max_len.rs</code>, <code>tests/bounded</code>, <code>examples_mcu/mcu_qemu</code> (<code>qemu-bounded</code>).</li>
 <li>🚧 <strong>SW-15 Handle end of buffer when reading evolved fields</strong> · <code>v0.5</code> — fields with <code>#[default = ..]</code> already fall
   back to the default, but on <em>any</em> read error (<code>Field::handle_eob</code> in
   <code>shrink_wrap_derive/src/codegen/item_struct.rs</code>), not only on end of buffer. Missing: fall back only on
@@ -2747,11 +2755,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   each with their own. Readers bound the value by it (a longer buffer stops at the right byte, a truncated one
   errors, newer trailing fields are skipped) or skip it without parsing. Fields before it must be <code>Sized</code> or
   <code>SelfDescribing</code>, checked at compile time. <code>docs/serdes/shrink_wrap.md</code>, showcase.</li>
-<li>📋 <strong>SW-19 Bounded sizes: <code>#[max_size]</code>, bounded <code>String</code>/<code>Vec</code></strong> · <code>v0.5.x</code> — from <code>docs/types.md</code> and
-  <code>docs/api/arrays.md</code>. Enables worst-case buffer size analysis (see <a href="#api-model-and-codegen-api">Codegen</a>).
-  An Unsized record at a fixed file offset already works without it: serialize into a buffer of the capacity
-  (too big fails), read with <code>TailSize&lt;N&gt;</code> (SW-18) bounding the value; what is left here is computing that
-  capacity from the type.</li>
+<li>📋 <strong>SW-42 <code>MAX_SIZE</code> on owned types</strong> · <code>v0.5.x</code> — <code>SerializeShrinkWrapOwned</code> has no worst-case size yet, only
+  the borrowed trait has (SW-19); host code sizing a buffer for an owned value uses the borrowed type's.</li>
 <li>📋 <strong>SW-20 Sub-type numbers</strong> · <code>v0.5.x</code> — numbers restricted to a range, like <code>10..=25</code>, or a set with gaps, like
   <code>0..=8, 12, 16</code>; checked on serialization and deserialization, possibly using fewer bits on the wire
   (<code>docs/types.md</code>, "Subtypes").</li>
@@ -2812,6 +2817,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>API-9 Full name chains</strong> in generated names (fixed the <code>event_sideband</code> collision).</li>
 <li>✅ <strong>API-10 Type paths from Cargo</strong>: trait source path, external types in API crates as full paths.</li>
 <li>✅ <strong>API-11 Sync and async servers, async / blocking / promise clients</strong> from the same trait.</li>
+<li>✅ <strong>API-28 Credit-based flow control for sinks</strong> — <code>#[credit] sink!(..)</code>: the device grants credit in elements
+  (sink values, any type; <code>StreamSideband::Credit { have, grant }</code>), the host waits when out of credit (async,
+  blocking, <code>try_send</code>), writes carry their element index so a lossy medium resumes with go-back-N from <code>have</code>
+  (<code>Resend</code>, <code>CreditQuery</code>), <code>flush()</code> waits for the final ack. Device state in <code>ww_client_server::credit::SinkCredit</code>,
+  queue sized in element slots from <code>stream_data_ser().&lt;sink&gt;_max_element_bytes()</code> (from <code>MAX_SIZE</code>, <code>MaxLen</code>
+  bounds included), dynamic and Python clients too. Used by <code>ww_dfu</code> <code>StageBulk::plan</code>. For bulk transfers (chunky OTA
+  plans over LTE-M/LoRa/UDP), UART bridges, CAN tx. See also CLT-18 backpressure (<code>docs/api/streams.md</code>,
+  <code>tests/credit_sink</code>).</li>
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
@@ -2823,8 +2836,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>API-16 Feature groups</strong> · <code>v0.5.x</code> — resources behind features (all enabled by default), connected to the user
   crate's features in <code>ww_codegen!</code>. Related: <code>#[cfg]</code> in enums, see <a href="#derive_shrink_wrap-macro">derive macro</a>.</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
-<li>📋 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
-  arguments and outputs. Depends on bounded sizes.</li>
+<li>🚧 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
+  arguments and outputs. Done: <code>MAX_SIZE</code> of types (SW-19) and per-method <code>&lt;METHOD&gt;_REQUEST_MAX_LEN</code> /
+  <code>&lt;METHOD&gt;_RESPONSE_MAX_LEN</code> consts in <code>no_alloc</code> servers, checked at compile time against a buffer in
+  <code>tests/bounded</code> and <code>examples_mcu/mcu_qemu</code>. Missing: consts for properties, streams and sinks, the largest of
+  all of them for a whole API (to size <code>ww_device</code> buffers such as <code>UdpBuffers&lt;MAX_MESSAGE_LEN&gt;</code> automatically),
+  paths of nested traits counted exactly (now the worst case of the full path), the same consts on the client.</li>
 <li>📋 <strong>API-19 Change dispatcher match order</strong> to process common requests faster · <code>v0.5.x</code>.</li>
 <li>📋 <strong>API-20 Trait paths on the server side</strong> — <code>TODO</code> in <code>api_server.rs</code>.</li>
 <li>📋 <strong>API-21 <code>no_alloc = false</code> servers</strong> — don't compile today.</li>
@@ -2832,6 +2849,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   when a trait is implemented twice (<code>tests/traits_api</code>).</li>
 <li>⛔ <strong>API-23 Index chain array → named arguments</strong> · <code>v0.5.x</code> — stalled. Generating ad-hoc structs with named index
   fields might be a good ergonomic: users see the names through IDE lookup instead of guessing array indices.</li>
+<li>📋 <strong>API-29 Bounds of resource array indices</strong> · <code>v0.5.x</code> — <code>stream!(adc[8]: u16)</code> or <code>motor[1..=4]</code>, checked by the
+  server before a handler is called and visible in introspection (<code>docs/api/arrays.md</code>). Lengths of lists and
+  strings inside a resource's type are bounded with <code>MaxLen</code> (SW-19).</li>
 <li>💡 <strong>API-24 Guarded calls for critical resources</strong> · <code>v0.5.x</code> — for safety-critical actions, such as starting a motor
   or switching high power, a request that happens to match predefined bytes must not be enough. Add an extra
   check, e.g. a CRC over the resource identity and arguments (a "strict mode" per resource), or a
@@ -2911,8 +2931,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.</li>
 <li>🔍 <strong>CLT-18 Backpressure</strong> — commands already go through a bounded channel (<code>ClientConfig::cmd_queue_size</code>), so
   user code should block or yield when the queue is full; add tests for it. Running out of request ids
-  currently fails the request with an error instead of waiting (<code>TODO</code> in <code>event_loop/core/tx.rs</code>).</li>
+  currently fails the request with an error instead of waiting (<code>TODO</code> in <code>event_loop/core/tx.rs</code>). Flow control
+  towards the device for sinks: API-28 credit-sinks.</li>
 <li>📋 <strong>CLT-19 Connection priority</strong> in the client config (<code>TODO</code> in <code>config.rs</code>).</li>
+<li>📋 <strong>CLT-20 Bound check of generated byte sink writes</strong> · <code>v0.5.x</code> — a <code>sink!(x: MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;)</code> write
+  from a generated client is sent as raw bytes without a length check, the device rejects a longer one
+  (<code>ArgsDesFailed</code>); the dynamic client and Python already check before sending.</li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>
@@ -2996,8 +3020,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>STD-12 <code>ww_dfu</code> firmware update API</strong> — traits <code>UpdateNode</code>, <code>BootControl</code>, <code>Inventory</code>, <code>Stage</code>,
   <code>StageBulk</code>: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored
   plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec (P2625). End to
-  end test <code>tests/dfu</code>. Next: credit-based sinks for <code>StageBulk</code>, bounded sizes for the pieces (SW-19), a chunky
-  implementation (chunky NET-1).</li>
+  end test <code>tests/dfu</code>. <code>StageBulk::plan</code> is a credit sink (API-28 credit-sinks). Next: bounded sizes for the pieces
+  (<code>MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;</code> on <code>PlanSegment::data</code>, <code>Stage::write</code> data and the headers: needs one protocol-wide
+  <code>N</code> next to the per-node <code>max_piece</code>, to be chosen with the chunky spec, SW-19), a chunky implementation (chunky NET-1).</li>
 <li>💡 <strong>STD-10 Device state machine trait</strong> like CANopen.</li>
 <li>💡 <strong>STD-11 Register description registry</strong> — WireWeaver for describing device registers.</li>
 </ul>

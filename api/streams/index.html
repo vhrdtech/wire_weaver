@@ -1106,6 +1106,89 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#credit-based-flow-control-for-sinks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Credit-based flow control for sinks
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Credit-based flow control for sinks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-elements-and-not-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why elements and not bytes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wire-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wire format
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Session
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lossy-media-go-back-n-from-have" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Lossy media: go-back-N from <code>have</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#device-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device side
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#host-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host side
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2389,6 +2472,89 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#credit-based-flow-control-for-sinks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Credit-based flow control for sinks
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Credit-based flow control for sinks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-elements-and-not-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why elements and not bytes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wire-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wire format
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Session
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lossy-media-go-back-n-from-have" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Lossy media: go-back-N from <code>have</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#device-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device side
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#host-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host side
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2498,7 +2664,8 @@ status updates or bytes from USART, frames to be transmitted on CAN bus, etc.</p
 <p>Stream writes are not acknowledged - the write message is sent out, and no response is awaited by a client, server
 publishes a
 stream update and similarly does not wait for any response from a client.
-It is possible, though, to implement a token-based or some other form of backpressure using the sideband channel.</p>
+Sinks marked <code>#[credit]</code> get credit-based flow control instead, see
+<a href="#credit-based-flow-control-for-sinks">below</a>; for other streams, backpressure can be built on the sideband channel.</p>
 <p>Streams can have a beginning and an end, for example, to implement a file IO or firmware update, to deal with small
 chunks
 at a time and yet be able to signal a completion event. It is also possible to send a user-defined delimiter, to be
@@ -2535,6 +2702,7 @@ in addition to a data channel have:</p>
 <li>ChangeRate(ShaperConfig)</li>
 <li>SizeHint(u32)</li>
 <li>User(u32)</li>
+<li>CreditQuery { sent } (credit sinks only, see <a href="#credit-based-flow-control-for-sinks">below</a>)</li>
 </ul>
 <p>All commands are optional, including open and close.
 Depending on the application, it might be beneficial to start a stream automatically without waiting for the command.</p>
@@ -2547,6 +2715,7 @@ Depending on the application, it might be beneficial to start a stream automatic
 <li>FrameSync</li>
 <li>SizeHint(u32)</li>
 <li>User(u32)</li>
+<li>Credit { have, grant } and Resend { have, grant } (credit sinks only)</li>
 </ul>
 <h3 id="handling-sideband-on-the-device">Handling sideband on the device<a class="headerlink" href="#handling-sideband-on-the-device" title="Permanent link">&para;</a></h3>
 <p>A sideband command from the host calls <code>sideband_&lt;name&gt;(cx, sideband)</code> on the server. Returning <code>Some(sideband)</code> sends
@@ -2562,6 +2731,150 @@ the same way as the data methods above:</p>
 returns, events sent before that are not buffered. The first event is always <code>Connected</code> (or <code>Disconnected</code>), which
 <code>recv()</code> skips. <code>Stream::recv_any()</code> returns sideband events along with data, <code>Sink::recv_sideband()</code> (<code>_blocking</code>,
 <code>try_recv_sideband()</code>) returns the ones sent to a sink.</p>
+<h2 id="credit-based-flow-control-for-sinks">Credit-based flow control for sinks<a class="headerlink" href="#credit-based-flow-control-for-sinks" title="Permanent link">&para;</a></h2>
+<p>Plain sinks are not acknowledged: the host writes as fast as it can, and a device that can't keep up has to drop data
+or tell the host to slow down with its own sideband events. A sink marked <code>#[credit]</code> gets flow control and
+acknowledgements built in, for bulk transfers into a device over slow or lossy links: a firmware update plan streamed
+into a single-bank MCU that stalls on every flash write, bytes for a UART bridge, frames for a CAN transmitter.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Updater</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="sd">/// Update plan: steps and data, tens to hundreds of KB</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="cp">#[credit]</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">plan</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]);</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The device grants the host <strong>credit in elements</strong>: one element is one value of the sink's type (one write), whatever
+its type and size. The host may only send as many values as the device said it has slots for. The host waits (async),
+blocks (blocking) or returns "would block" (<code>try_send</code>, for GUIs and promises) when it is out of credit, so it never
+outruns the device's receive queue, however slow the device or fast the link is.</p>
+<h3 id="why-elements-and-not-bytes">Why elements and not bytes<a class="headerlink" href="#why-elements-and-not-bytes" title="Permanent link">&para;</a></h3>
+<p>A sink carries any type, and the device keeps what it received as values of that type, so it thinks in values:</p>
+<ul>
+<li>the device sizes its receive queue in element slots, for the worst-case element size: <code>slots = buffer bytes / max
+  element size</code> (<code>SinkCredit::slots_for</code>). Generated <code>stream_data_ser().&lt;sink&gt;_max_element_bytes()</code> gives that size
+  from the type's <code>MAX_SIZE</code> (<code>None</code> for a type without an upper bound, e.g., <code>[u8]</code>; bound it with
+  <a href="../../types/#bounded-lists-and-strings-maxlent-n"><code>MaxLen</code></a>: <code>MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;</code> gives <code>N</code>), so the user
+  decides the slot size from the API rather than guessing;</li>
+<li>positions count values, so a resend starts at a value boundary by construction, and the numbers stay small (a
+  position costs 1 byte for the first 128 values of a session);</li>
+<li>the host never has to know how the device stores a value.</li>
+</ul>
+<p>The price: a device that queues variable-size values in a byte buffer has to reserve the worst case per slot.</p>
+<h3 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h3>
+<p>A credit sink is a different resource kind from a plain sink (<code>ApiItemKind::FlowSink { ty, flow: FlowControl::Credit
+}</code> in <code>ww_self</code>), so introspection, the dynamic client and the Python client know to speak this protocol, and turning
+a plain sink into a credit sink is an API break (its writes change).</p>
+<p>Each write carries its <strong>position</strong>: the index of this value from the start of the session, followed by the value
+itself, as <code>ww_client_server::CreditWrite { pos: UVlq32, data: TailBytes }</code> inside <code>RequestKind::Write</code>. That costs 1
+byte for the first 128 values of a session, 2 bytes up to 16384, 3 bytes up to 2 M values.</p>
+<p>Three <code>StreamSideband</code> variants are added (appended, so existing values keep their encoding):</p>
+<table>
+<thead>
+<tr>
+<th>Sideband</th>
+<th>Direction</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Credit { have, grant }</code></td>
+<td>device → host</td>
+<td><code>have</code>: values accepted in order since <code>Open</code>; the host may send up to position <code>have + grant</code></td>
+</tr>
+<tr>
+<td><code>CreditQuery { sent }</code></td>
+<td>host → device</td>
+<td>"I have sent up to <code>sent</code>, where are you?"; answered with <code>Credit</code> or <code>Resend</code></td>
+</tr>
+<tr>
+<td><code>Resend { have, grant }</code></td>
+<td>device → host</td>
+<td>data after <code>have</code> was lost: send again from position <code>have</code>, up to <code>have + grant</code></td>
+</tr>
+</tbody>
+</table>
+<p>All three are cumulative: every one of them carries the full state, so losing one is harmless, the next one (or the
+answer to the next query) replaces it. Positions are <code>u32</code>, a session is limited to <code>u32::MAX</code> values, <code>Open</code> starts
+a new one.</p>
+<h3 id="session">Session<a class="headerlink" href="#session" title="Permanent link">&para;</a></h3>
+<ol>
+<li>The host sends <code>Open</code>. The device resets its counters and answers with <code>Credit { have: 0, grant: capacity }</code>
+   (initial credit). Credit events left over from a previous session are ignored by the host until this one arrives.
+   <code>send()</code> on a sink that was never opened opens it first.</li>
+<li>The host sends values while <code>pos &lt; have + grant</code>, keeping a copy of everything after <code>have</code> (at most the device's
+   capacity in values) for a resend.</li>
+<li>The device counts accepted values (<code>have</code>) as writes arrive, and the values it has <strong>freed</strong> (consumed, e.g.,
+   written to flash). Its limit is <code>freed + capacity</code>. When the limit has moved by at least <code>threshold</code> values since
+   the last grant, it sends a new <code>Credit</code>. A large threshold means few acks (a slow link), a small one keeps the pipe full.</li>
+<li>When the host is out of credit and nothing arrives for <code>query_interval</code>, it sends <code>CreditQuery { sent }</code>; the
+   device answers right away with its current state. This recovers from a lost <code>Credit</code>, from a device that freed
+   less than <code>threshold</code>, and detects lost data at the end of a transfer.</li>
+<li><code>flush()</code> sends <code>CreditQuery</code> and waits until the device has accepted everything (<code>have == sent</code>): on a reliable
+   link that is the one and only ack a transfer needs, when the device's capacity covers it. <code>close()</code> flushes,
+   then sends <code>Close</code>.</li>
+</ol>
+<h3 id="lossy-media-go-back-n-from-have">Lossy media: go-back-N from <code>have</code><a class="headerlink" href="#lossy-media-go-back-n-from-have" title="Permanent link">&para;</a></h3>
+<p>On UDP, LoRa or LTE-M a write can be lost. The device only accepts a write at <code>pos == have</code>:</p>
+<ul>
+<li><code>pos &lt; have</code>: a duplicate from a resend, dropped;</li>
+<li><code>pos &gt; have</code>: something before it was lost; the write is dropped and the device sends <code>Resend { have, grant }</code>,
+  once per gap (the next in-order write re-arms it);</li>
+<li>a <code>CreditQuery { sent }</code> with <code>sent &gt; have</code> means writes were lost after the last one that arrived (nothing came
+  after them to reveal the gap), the device answers with <code>Resend</code> instead of <code>Credit</code>.</li>
+</ul>
+<p>On <code>Resend</code> the host goes back to <code>have</code> and sends everything again from its copy. Requests are processed in order,
+so when the device sees a <code>CreditQuery</code>, everything the host sent before it has either arrived or is lost. A plain
+<code>Credit</code> never rewinds the host, even with <code>have &lt; sent</code>: the rest may simply still be in flight.</p>
+<h3 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h3>
+<p>Generated server code does the bookkeeping, user code only says how many values it can queue and when it frees
+some.
+Every credit sink gets one more handler, returning the sink's state, <code>ww_client_server::credit::SinkCredit</code>, usually a
+field of the server struct (arrays of sinks get the index chain, as other handlers do):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">const</span><span class="w"> </span><span class="n">CHUNK</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">256</span><span class="p">;</span><span class="w"> </span><span class="c1">// the host sends the plan in chunks of at most this many bytes</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">const</span><span class="w"> </span><span class="n">SLOTS</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SinkCredit</span><span class="p">::</span><span class="n">slots_for</span><span class="p">(</span><span class="mi">4096</span><span class="p">,</span><span class="w"> </span><span class="n">CHUNK</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Server</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="n">plan_credit</span><span class="p">:</span><span class="w"> </span><span class="nc">SinkCredit</span><span class="p">,</span><span class="w"> </span><span class="c1">// SinkCredit::new(SLOTS), re-granted every SLOTS / 2 values by default</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="n">plan_queue</span><span class="p">:</span><span class="w"> </span><span class="nc">heapless</span><span class="p">::</span><span class="n">Deque</span><span class="o">&lt;</span><span class="n">heapless</span><span class="p">::</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">CHUNK</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">SLOTS</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">}</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="k">impl</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">credit_plan</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">SinkCredit</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">        </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_credit</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">write_plan</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">BlockingEventOut</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">TailBytes</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">        </span><span class="c1">// only called for writes in order, never more values than the credit granted</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_queue</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">heapless</span><span class="p">::</span><span class="nb">Vec</span><span class="p">::</span><span class="n">from_slice</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="mi">0</span><span class="p">).</span><span class="n">unwrap</span><span class="p">()).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_queue</span><span class="p">.</span><span class="n">len</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">SLOTS</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">flash_write</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_queue</span><span class="p">);</span><span class="w"> </span><span class="c1">// stalls for a while, pops what it wrote</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_credit</span><span class="p">.</span><span class="n">free</span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li>On <code>Open</code>, generated code calls <code>SinkCredit::open()</code>, then the user's <code>sideband_&lt;name&gt;</code> as usual (it may change the
+  capacity there), then sends the initial <code>Credit</code>.</li>
+<li><code>CreditQuery</code> is answered by generated code, the user's sideband handler doesn't see it.</li>
+<li>On a write, generated code checks the position, calls <code>write_&lt;name&gt;</code> for accepted writes only, and after it
+  returns sends a <code>Credit</code> if <code>free()</code> moved the limit far enough.</li>
+<li>Data freed outside a handler (e.g., after a flash write in the event loop): <code>if let Some(sb) =
+  credit.take_credit() { stream_data_ser().plan_sideband_send(sb, &amp;mut server.sink()).await?; }</code>. If that is
+  skipped, the host's next <code>CreditQuery</code> picks it up after <code>query_interval</code>.</li>
+<li><code>SinkCredit::overruns()</code> counts values the host sent beyond its credit (should stay 0; such writes are still
+  passed to the handler).</li>
+</ul>
+<h3 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h3>
+<p><code>Sink&lt;T&gt;</code> of a credit sink works like any other one: <code>send()</code> (async), <code>send_blocking()</code>, plus <code>try_send()</code> that
+returns <code>Ok(false)</code> without sending when there is no credit for the value yet, and <code>flush()</code> / <code>flush_blocking()</code>.
+<code>Sink::set_credit_config(CreditConfig { query_interval, stall_timeout })</code> tunes it to the link: <code>query_interval</code>
+(default 1 s) should be longer than the link's round trip, <code>stall_timeout</code> (default 30 s) is how long to wait without
+any progress before <code>send()</code> fails with a timeout, longer than the device's worst stall (an H7 sector erase takes 1-2
+s). <code>credit_progress()</code> returns <code>(accepted, sent)</code> values of the session, e.g., for a progress bar.</p>
+<p>Related: <a href="../../features/#client-host-side-clt">CLT-18 backpressure</a> (the command queue of the client),
+<code>API-28</code> in the <a href="../../features/">features</a> list.</p>
 
 
 

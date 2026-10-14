@@ -1379,6 +1379,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#maximum-lengths-maxlent-n" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Maximum lengths: <code>MaxLen&lt;T, N&gt;</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#finalstructure-selfdescribing-and-sized-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2524,6 +2535,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#maximum-lengths-maxlent-n" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Maximum lengths: <code>MaxLen&lt;T, N&gt;</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#finalstructure-selfdescribing-and-sized-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2820,6 +2842,21 @@ overhead, giving all the nice backwards and forwards compatibility benefits.</p>
 <li>TODO: clarify: <code>T</code> -&gt; struct containing <code>T</code></li>
 <li>Struct fields and enum variants can be renamed (but their position must NOT change).</li>
 </ul>
+<h3 id="maximum-lengths-maxlent-n">Maximum lengths: <code>MaxLen&lt;T, N&gt;</code><a class="headerlink" href="#maximum-lengths-maxlent-n" title="Permanent link">&para;</a></h3>
+<p>A <a href="../../types/#bounded-lists-and-strings-maxlent-n"><code>MaxLen&lt;T, N&gt;</code></a> has the same bytes as <code>T</code>, so a bound never
+changes the wire, only which values the reader accepts (a longer one is an error, never truncated). Whether a change
+is compatible depends on what the old version writes:</p>
+<ul>
+<li><strong>Raising a bound or removing it</strong> (<code>MaxLen&lt;T, 64&gt;</code> -&gt; <code>MaxLen&lt;T, 256&gt;</code> or <code>T</code>): compatible. Everything the old
+  version writes is still read. The checker lists it as <code>max length raised</code>, because values the new version writes
+  beyond the old bound are rejected by the old version (with an error): a new client sending a long piece to an old
+  device gets an error reply, the same as any argument the device refuses.</li>
+<li><strong>Lowering a bound or adding one</strong> (<code>T</code> -&gt; <code>MaxLen&lt;T, 64&gt;</code>, <code>MaxLen&lt;T, 256&gt;</code> -&gt; <code>MaxLen&lt;T, 64&gt;</code>): breaking. Values
+  the old version is allowed to write no longer fit, and nothing on the wire tells the old version so.</li>
+<li>Changing <code>T</code> inside the bound follows the usual rules for <code>T</code>.</li>
+</ul>
+<p>At connect time the client does not refuse a device whose bounds differ from its own: a longer value is rejected when
+it is sent, by whichever side has the smaller bound.</p>
 <h3 id="finalstructure-selfdescribing-and-sized-types">FinalStructure, SelfDescribing and Sized types<a class="headerlink" href="#finalstructure-selfdescribing-and-sized-types" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>Sized</code> can become <code>SelfDescribing</code> and back (<code>sized</code> &lt;-&gt; <code>self_describing</code>): neither gets a size slot from its

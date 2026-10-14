@@ -2324,8 +2324,9 @@ docs (<code>cargo doc -p ww_dfu --open</code>); in short:</p>
 <li><strong>Three update modes:</strong> A/B applied live by the app; in place from a plan the app stores, applied by the
   bootloader after a reset (no transport in the bootloader); in place applied live by a bootloader or recovery app
   with a transport.</li>
-<li><strong>Two ways a plan travels:</strong> one call per step (fast links), or the whole plan in one go with acknowledgements only
-  on gaps, credit and at the end (slow and remote links).</li>
+<li><strong>Two ways a plan travels:</strong> one call per step (fast links), or the whole plan in one go on a credit sink
+  (<a href="../../api/streams/#credit-based-flow-control-for-sinks">flow control</a>: never more segments than the device has
+  room for, lost ones resent) with one acknowledgement at the end (slow and remote links).</li>
 <li><strong>The device trusts nothing it receives:</strong> bounds, hashes, version floor and signature are checked on the device.</li>
 </ul>
 <p>The plan, manifest and descriptor formats are defined in octets by the chunky protocol spec

@@ -2500,7 +2500,7 @@ removed and added.</p>
 </tr>
 <tr>
 <td>Compatible</td>
-<td>new trait, new resource at the end of a trait, new field with <code>#[default]</code> at the end of an <code>Unsized</code> type, new field in unused padding bits of any type, new type, <code>#[since]</code> or <code>#[default]</code> value changed</td>
+<td>new trait, new resource at the end of a trait, new field with <code>#[default]</code> at the end of an <code>Unsized</code> type, new field in unused padding bits of any type, new type, <code>#[since]</code> or <code>#[default]</code> value changed, max length raised or removed</td>
 <td>compatible position (patch before 1.0, minor after)</td>
 </tr>
 <tr>
@@ -2526,6 +2526,8 @@ name. A change is breaking if:</p>
   <code>#[default]</code> at the end of an <code>Unsized</code> type, field added in between old ones outside of unused padding bits (see
   below), field added at the end of a <code>final_structure</code>, <code>self_describing</code> or <code>sized</code> type, enum variant added or
   removed, <code>ww_repr</code> or size kind changed,</li>
+<li>a <a href="../rules/#maximum-lengths-maxlent-n">max length</a> is lowered or added (<code>T</code> -&gt; <code>MaxLen&lt;T, N&gt;</code>): data the old
+  version writes may no longer be read,</li>
 <li>a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g.
   <code>ww_si 0.1</code> -&gt; <code>0.2</code>), or one from the same crate version with a different definition.</li>
 </ul>

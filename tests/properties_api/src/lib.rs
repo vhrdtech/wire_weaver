@@ -15,7 +15,14 @@ trait Properties {
     // () [u8]
     property!(rw custom: Custom<'i>);
     // property!(rw custom: RefVec<'i, u8>);
-    // arrays
+
+    /// Array of channels (CLT-15 multi-request tests: list/range/mask indices through `read_array`/`write_array`)
+    ww_impl!(ch[]: Channel);
+}
+
+#[ww_trait]
+trait Channel {
+    property!(rw level: u8);
 }
 
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = u4)]

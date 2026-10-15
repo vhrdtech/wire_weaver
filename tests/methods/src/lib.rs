@@ -164,7 +164,24 @@ mod tests {
             ) -> RpcResult<Result<(), ListedError<'_>>> {
                 Ready(pick_error(pick))
             }
+
+            fn valid_indices_root_unit(&mut self) -> ValidIndices<'_> {
+                ValidIndices::range_u32(0..UNITS)
+            }
+
+            fn unit_double(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+                value: u8,
+            ) -> RpcResult<u8> {
+                let _ = index_chain;
+                Ready(value.wrapping_mul(2))
+            }
         }
+
+        /// Elements of the `unit[]` array (CLT-15 multi-request tests)
+        pub const UNITS: u32 = 4;
 
         fn pick_error(pick: u8) -> Result<(), ListedError<'static>> {
             match pick {
@@ -183,6 +200,7 @@ mod tests {
                 method_model = "deferred=deferred, deferred_unit=deferred, _=immediate",
                 property_model = "_=get_set",
                 medium = "super::Medium",
+                multi_req = true,
                 // debug_to_file = "../../target/tests_methods_server.rs" // uncomment if you want to see the resulting AST and generated code
             );
         }

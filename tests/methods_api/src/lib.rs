@@ -32,6 +32,14 @@ trait Methods {
     fn all_common(pick: u8) -> Result<(), ListedError<'i>>;
     /// Server returns Unimplemented
     fn fallible_absent() -> Result<(), MethodError>;
+    /// Array of units (CLT-15 multi-request tests: list/range/mask indices through `call_array`)
+    ww_impl!(unit[]: Unit);
+}
+
+#[ww_trait]
+trait Unit {
+    /// `value` doubled, wrapping
+    fn double(value: u8) -> u8;
 }
 
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq), ww_repr = u4)]

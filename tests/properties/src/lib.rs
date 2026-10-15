@@ -8,12 +8,16 @@ mod tests {
     use wire_weaver_client::{CallError, Error, MultiRead};
     use ww_client_server::ErrorKindOwned;
 
+    /// Elements of the `ch[]` array (CLT-15 multi-request tests)
+    const CHANNELS: u32 = 4;
+
     #[derive(Default)]
     struct SharedTestData {
         x: u8,
         y_changed: u8,
         custom: CustomOwned,
         mode: u8,
+        ch_level: [u8; CHANNELS as usize],
     }
 
     /// Same handlers for both servers, they only differ in `multi_req`
@@ -103,6 +107,28 @@ mod tests {
                     0 => GetError(ModeError::NotSet),
                     mode => Value(mode),
                 }
+            }
+
+            fn valid_indices_root_ch(&mut self) -> ValidIndices<'_> {
+                ValidIndices::range_u32(0..CHANNELS)
+            }
+
+            fn set_ch_level(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+                value: u8,
+            ) -> SetResult<()> {
+                self.data.write().unwrap().ch_level[index_chain[0].0 as usize] = value;
+                Set
+            }
+
+            fn get_ch_level(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+            ) -> GetResult<u8, ()> {
+                Value(self.data.read().unwrap().ch_level[index_chain[0].0 as usize])
             }
         };
     }

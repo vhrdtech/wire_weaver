@@ -485,6 +485,7 @@ mod tests {
             use_async: false,
             method_model: String::new(),
             property_model: String::new(),
+            const_model: String::new(),
             medium: None,
             omit: vec!["reset".into(), "i2c.pullups".into()],
         };

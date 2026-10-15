@@ -21,8 +21,8 @@ use crate::client::dyn_positioned::{DynPositionedStream, DynStreamOpen};
 use crate::client::prepared_stream_open::RawOpenResult;
 use crate::error_list;
 use crate::{
-    AckMode, Commander, CreditConfig, Error, PositionedStream, PreparedStreamOpen, Sink, Stream,
-    StreamCursor, StreamError,
+    AckMode, Commander, CreditConfig, Error, PositionedStream, PreparedRead, PreparedStreamOpen,
+    Sink, Stream, StreamCursor, StreamError,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -399,6 +399,15 @@ impl DynResource {
             .map_err(|e| Error::Other(format!("'{}' value: {e:#}", self.path)))
     }
 
+    fn prepare_read(&self, cmd: &Commander) -> Result<PreparedRead<TailBytesOwned>, Error> {
+        let (_, access) = self.property()?;
+        Ok(if matches!(access, PropertyAccess::Const) {
+            cmd.prepare_const_read(self.path_kind()?)
+        } else {
+            cmd.prepare_read(self.path_kind()?)
+        })
+    }
+
     fn encode_property(&self, value: &ValueOwned) -> Result<Vec<u8>, Error> {
         let (ty, _) = self.property()?;
         value
@@ -406,24 +415,19 @@ impl DynResource {
             .map_err(|e| Error::Other(format!("'{}' value: {e:#}", self.path)))
     }
 
-    /// Read a property.
+    /// Read a property. A `const` is read from the device once per connection, later reads return that value.
     pub async fn read(&self, cmd: &Commander) -> Result<ValueOwned, Error> {
-        self.property()?;
-        let bytes = cmd
-            .prepare_read::<TailBytesOwned>(self.path_kind()?)
-            .read()
-            .await?;
+        let bytes = self.prepare_read(cmd)?.read().await?;
         self.decode_property(&bytes)
     }
 
-    /// Read a property.
+    /// Read a property. A `const` is read from the device once per connection, later reads return that value.
     pub fn read_blocking(
         &self,
         cmd: &Commander,
         timeout: Option<Duration>,
     ) -> Result<ValueOwned, Error> {
-        self.property()?;
-        let mut read = cmd.prepare_read::<TailBytesOwned>(self.path_kind()?);
+        let mut read = self.prepare_read(cmd)?;
         if let Some(timeout) = timeout {
             read = read.with_timeout(timeout);
         }

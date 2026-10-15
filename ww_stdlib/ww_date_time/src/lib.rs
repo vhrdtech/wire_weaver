@@ -108,7 +108,7 @@ pub struct NaiveTime {
 // pub struct Secs(U17);
 
 impl DateTime {
-    pub fn from_ymd_hms_utc_opt(
+    pub const fn from_ymd_hms_utc_opt(
         year: i32,
         month: u8,
         day: u8,
@@ -117,9 +117,15 @@ impl DateTime {
         sec: u8,
         nano: u32,
     ) -> Option<Self> {
+        let (Some(date), Some(time)) = (
+            NaiveDate::from_ymd_opt(year, month, day),
+            NaiveTime::from_hms_opt(hour, min, sec, nano),
+        ) else {
+            return None;
+        };
         Some(DateTime {
-            date: NaiveDate::from_ymd_opt(year, month, day)?,
-            time: NaiveTime::from_hms_opt(hour, min, sec, nano)?,
+            date,
+            time,
             timezone: Timezone::UTC,
         })
     }
@@ -142,11 +148,11 @@ impl DateTime {
 }
 
 impl NaiveDate {
-    pub fn from_ymd_opt(year: i32, month: u8, day: u8) -> Option<Self> {
+    pub const fn from_ymd_opt(year: i32, month: u8, day: u8) -> Option<Self> {
         if month == 0 || month > 12 || day == 0 || day > 31 {
             return None;
         }
-        if !(-262_142..=262_141).contains(&year) {
+        if year < -262_142 || year > 262_141 {
             return None;
         }
         Some(NaiveDate {

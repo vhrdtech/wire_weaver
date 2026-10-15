@@ -35,6 +35,9 @@ pub(crate) struct ImplExtArgs {
     pub(crate) property_model: String,
 
     #[darling(default)]
+    pub(crate) const_model: String,
+
+    #[darling(default)]
     pub(crate) debug_to_file: String,
 
     #[darling(default)]

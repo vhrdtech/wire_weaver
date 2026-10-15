@@ -18,14 +18,11 @@ mod tests {
             pub known: bool,
         }
 
-        #[allow(non_snake_case)]
-        impl Server {
-            fn get_board_BOARD(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<BoardSummary<'_>, ()> {
+        /// The board record is read from OTP at boot: a `fn` (`const_model`), served without a handler.
+        impl api_impl::BoardInfoTestConsts for Server {
+            fn board_board(&self) -> BoardSummary<'_> {
                 // what the device doesn't know is empty or None
-                Value(BoardSummary {
+                BoardSummary {
                     name: MaxLen::new_unchecked("B200"),
                     revision: MaxLen::new_unchecked("B"),
                     revision_source: self.revision_source,
@@ -36,7 +33,7 @@ mod tests {
                         ww_board_info::DateTime::from_ymd_hms_utc_opt(2026, 9, 1, 0, 0, 0, 0)
                             .unwrap()
                     }),
-                })
+                }
             }
         }
 
@@ -46,6 +43,7 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
+                const_model = "BOARD=fn",
             );
         }
 

@@ -82,7 +82,7 @@ where
 // implementing separately because partial specialization is not yet supported
 // https://github.com/rust-lang/rust/issues/31844
 impl<'i> RefVec<'i, u8> {
-    pub fn new_bytes(slice: &'i [u8]) -> Self {
+    pub const fn new_bytes(slice: &'i [u8]) -> Self {
         RefVec::Slice { slice }
     }
 

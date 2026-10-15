@@ -65,6 +65,11 @@ pub enum ApiCommand {
         #[arg(long, default_value = "_=get_set")]
         property_model: String,
 
+        /// Const model, see ww_codegen! docs: `BOARD|IDS=fn` for `const` items whose value is fixed at boot or
+        /// link time instead of a Rust const
+        #[arg(long, default_value = "")]
+        const_model: String,
+
         /// Medium type passed to handlers in `Context` (e.g. `crate::Medium`), see ww_codegen! docs
         #[arg(long)]
         medium: Option<String>,
@@ -162,6 +167,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             use_async,
             method_model,
             property_model,
+            const_model,
             medium,
             omit,
             output,
@@ -174,6 +180,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
                 use_async,
                 method_model,
                 property_model,
+                const_model,
                 medium,
                 omit,
             },

@@ -6,6 +6,7 @@ use crate::codegen::server::stream::stream_ser_methods_recursive;
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::codegen::util::{ErrorSeq, add_prefix, maybe_quote, maybe_quote_cl};
 use crate::codegen::{api_common, util};
+use crate::const_model::{ConstModel, ConstModelKind};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
@@ -30,6 +31,8 @@ pub struct GenServerConfig {
     pub method_model: MethodModel,
     /// Configure which properties are using get-set model and which are direct struct field access + on_changed fn model.
     pub property_model: PropertyModel,
+    /// Configure which `const` items are Rust consts and which are `fn`s of the generated `<Trait>Consts` trait.
+    pub const_model: ConstModel,
     /// Path to the user struct on which server dispatcher method will be implemented (process_request_bytes).
     /// Dispatcher expects all the user handlers also to be implemented on this struct by user code.
     pub server_struct_path: String,
@@ -63,6 +66,8 @@ pub struct GenServerConfigRaw {
     pub method_model: MethodModel,
     /// Configure which properties are using get-set model and which are direct struct field access + on_changed fn model.
     pub property_model: PropertyModel,
+    /// Configure which `const` items are Rust consts and which are `fn`s of the generated `<Trait>Consts` trait.
+    pub const_model: ConstModel,
     /// Path to the user struct on which server dispatcher method will be implemented (process_request_bytes).
     /// Dispatcher expects all the user handlers also to be implemented on this struct by user code.
     pub server_struct_path: Path,
@@ -85,6 +90,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             use_async: config.use_async,
             method_model: config.method_model,
             property_model: config.property_model,
+            const_model: config.const_model,
             server_struct_path: super::util::str_to_path(&config.server_struct_path),
             introspect_mode: config.introspect_mode,
             multi_req: config.multi_req,
@@ -138,6 +144,8 @@ pub fn gen_server(
         no_alloc: config.no_alloc,
         use_async: config.use_async,
         property_model: &config.property_model,
+        const_model: &config.const_model,
+        consts_trait: consts_trait_ident(api_level),
         multi_req: config.multi_req,
         medium_ty: medium_ty.clone(),
     };
@@ -195,6 +203,7 @@ pub fn gen_server(
         );
     }
     let poll_streams = poll_streams(api_bundle, cx.use_async);
+    let consts_trait = consts_trait(api_bundle, &omissions, &cx);
     let global_trait_path = global_trait_path(api_bundle);
     let (es1, es2) = (error_seq.next(), error_seq.next());
     let server_struct_path = config.server_struct_path;
@@ -356,6 +365,8 @@ pub fn gen_server(
         #stream_send_methods
 
         #global_trait_path
+
+        #consts_trait
     }
 }
 
@@ -641,6 +652,9 @@ struct ApiServerCGContext<'i> {
     no_alloc: bool,
     use_async: bool,
     property_model: &'i PropertyModel,
+    const_model: &'i ConstModel,
+    /// `<RootTrait>Consts`, implemented by the user on the server struct, with the values of `const` items
+    consts_trait: Ident,
     multi_req: bool,
     /// User medium type or `()`
     medium_ty: TokenStream,
@@ -1047,6 +1061,9 @@ fn handle_property(
     access: PropertyAccess,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
+    if matches!(access, PropertyAccess::Const) {
+        return handle_const(api_bundle, index_chain, cx, ident, ty, error_seq);
+    }
     let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_index_chain_arg = index_chain.fun_argument_call();
     let maybe_index_chain_indices = index_chain.array_indices();
@@ -1137,9 +1154,7 @@ fn handle_property(
     let maybe_get = maybe_quote_cl(
         matches!(
             access,
-            PropertyAccess::Const
-                | PropertyAccess::ReadOnly { .. }
-                | PropertyAccess::ReadWrite { .. }
+            PropertyAccess::ReadOnly { .. } | PropertyAccess::ReadWrite { .. }
         ),
         || {
             let es = error_seq.next();
@@ -1193,6 +1208,161 @@ fn handle_property(
             #maybe_set
             #maybe_get
             _ => { Err(Error::not_supported(#es)) }
+        }
+    }
+}
+
+/// A `const` item (API-36): read only, its value comes from the generated `<Trait>Consts` trait the server struct
+/// implements, an associated const or a `fn`, see [consts_trait].
+fn handle_const(
+    api_bundle: &ApiBundleOwned,
+    index_chain: IndexChain,
+    cx: &ApiServerCGContext,
+    ident: &Ident,
+    ty: &TypeOwned,
+    error_seq: &mut ErrorSeq,
+) -> TokenStream {
+    let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Expr).unwrap();
+    let ser_value = ser_value(cx.multi_req, quote! { value }, error_seq);
+    let ev_kind_builder = cx.prepare_event_kind_builder();
+    let consts_trait = &cx.consts_trait;
+    let (const_ident, fn_ident) = const_idents(cx.ident_prefix.as_ref(), ident);
+    let value = match cx.const_model.pick(&ident.to_string()) {
+        ConstModelKind::Const => quote! { <Self as #consts_trait>::#const_ident },
+        ConstModelKind::Fn => {
+            let maybe_index_chain_arg = index_chain.fun_argument_call();
+            quote! { <Self as #consts_trait>::#fn_ident(self, #maybe_index_chain_arg) }
+        }
+    };
+    let es = error_seq.next();
+    quote! {
+        match &request.kind {
+            RequestKind::Read => {
+                #ev_kind_builder
+                let value: #enforce_ty = #value;
+                #ser_value
+                Ok(WrAction::WrittenOk(event_kind_builder))
+            }
+            _ => { Err(Error::not_supported(#es)) }
+        }
+    }
+}
+
+/// Name of the trait with the values of `const` items: `<RootTrait>Consts`.
+fn consts_trait_ident(root: &ApiLevelOwned) -> Ident {
+    Ident::new(&format!("{}Consts", root.trait_name), Span::call_site())
+}
+
+/// Names of a `const` item in the consts trait, as an associated const (`UPPER_SNAKE`) and as a `fn` (`snake`),
+/// both with the trait item chain prefix: `BOARD` of `board: BoardInfo` is `BOARD_BOARD` / `board_board`.
+fn const_idents(prefix: Option<&String>, ident: &Ident) -> (Ident, Ident) {
+    let name = add_prefix(prefix, ident).to_string();
+    (
+        Ident::new(&name.to_case(Case::UpperSnake), ident.span()),
+        Ident::new(&name.to_case(Case::Snake), ident.span()),
+    )
+}
+
+/// `pub trait <RootTrait>Consts`: one associated const or `fn` (per `const_model`) for every `const` item of the
+/// API, the server struct implements it. Not generated when the API has no `const` items.
+fn consts_trait(
+    api_bundle: &ApiBundleOwned,
+    omissions: &Omissions,
+    cx: &ApiServerCGContext,
+) -> TokenStream {
+    let mut items = TokenStream::new();
+    consts_trait_recursive(
+        api_bundle,
+        &api_bundle.root,
+        omissions,
+        &[],
+        None,
+        IndexChain::new(),
+        cx,
+        &mut items,
+    );
+    if items.is_empty() {
+        return quote! {};
+    }
+    let consts_trait = &cx.consts_trait;
+    let trait_name = &api_bundle.root.trait_name;
+    let doc = format!(
+        " Values of the `const` items of `{trait_name}`, served without a handler: implement it on the server struct."
+    );
+    quote! {
+        #[doc = #doc]
+        #[allow(non_camel_case_types)]
+        pub trait #consts_trait {
+            #items
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn consts_trait_recursive(
+    api_bundle: &ApiBundleOwned,
+    level: &ApiLevelOwned,
+    omissions: &Omissions,
+    item_path: &[String],
+    prefix: Option<&String>,
+    index_chain: IndexChain,
+    cx: &ApiServerCGContext,
+    items: &mut TokenStream,
+) {
+    let omitted = omissions.level(item_path);
+    for item in &level.items {
+        if omitted.contains_key(&item.id.0) {
+            continue;
+        }
+        let mut index_chain = index_chain;
+        if matches!(item.multiplicity, Multiplicity::Array { .. }) {
+            index_chain.increment_length();
+        }
+        match &item.kind {
+            ApiItemKindOwned::Property {
+                ty,
+                access: PropertyAccess::Const,
+                ..
+            } => {
+                let ident = Ident::new(&item.ident, Span::call_site());
+                let (const_ident, fn_ident) = const_idents(prefix, &ident);
+                let docs = item.docs.iter().map(|line| quote! { #[doc = #line] });
+                let item_def = match cx.const_model.pick(&item.ident) {
+                    ConstModelKind::Const => {
+                        let ty = ty_def(api_bundle, ty, false, TyPos::Static).unwrap();
+                        quote! { const #const_ident: #ty; }
+                    }
+                    ConstModelKind::Fn => {
+                        let ty = ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap();
+                        let index_chain_arg = index_chain.fun_argument_def();
+                        quote! { fn #fn_ident(&self, #index_chain_arg) -> #ty; }
+                    }
+                };
+                items.extend(quote! {
+                    #(#docs)*
+                    #item_def
+                });
+            }
+            ApiItemKindOwned::Trait { .. } => {
+                let child = item.get_as_level(api_bundle).unwrap();
+                let prefix = match prefix {
+                    Some(prefix) => format!("{prefix}_{}", item.ident),
+                    None => item.ident.clone(),
+                };
+                let mut item_path = item_path.to_vec();
+                item_path.push(item.ident.clone());
+                consts_trait_recursive(
+                    api_bundle,
+                    child,
+                    omissions,
+                    &item_path,
+                    Some(&prefix),
+                    index_chain,
+                    cx,
+                    items,
+                );
+            }
+            _ => {}
         }
     }
 }

@@ -4,11 +4,13 @@
 
 - Reworked (STD-24, never published): `crc`, `sha256` and the `bedrock_build_info` stream are gone. `FirmwareInfo` is
   now the const items `FIRMWARE: FirmwareSummary`, `BUILD_ID` (GNU build id, the firmware's identity) and
-  `#[optional] BUILD_RECORD` (the `bedrock_build_info` compact record). Servers implement `get_<path>_FIRMWARE` etc.
-  (`ww api scaffold` lists them); image digests live in `ww_dfu`.
+  `#[optional] BUILD_RECORD` (the `bedrock_build_info` compact record). Servers provide them without handlers, in
+  their consts impl (API-36, `BUILD_ID` as a `fn`; `ww api scaffold` prints it); image digests live in `ww_dfu`.
 
 ### 🚀 Features
 
+- `firmware_summary!()` evaluates at compile time: `const FIRMWARE_FIRMWARE: FirmwareSummary<'static> =
+  firmware_summary!();` in the server's consts impl (API-36). `bounded_str` is a `const fn`.
 - `FirmwareSummary` (name, `ww_version::Version`, `GitInfo` commit and dirty flag, build time, `BuildProfile`).
 - `build` feature: `build::emit()` for a firmware's `build.rs` (git, version, `SOURCE_DATE_EPOCH`) and the
   `firmware_summary!()` macro that builds the summary from it. `build-id` feature: `build_id()` reads

@@ -333,6 +333,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`RpcResult<Result<(), I2cError<'_>>>`, an error borrowed from the server), for plain, counted and reliable
   streams, sync and async servers: the generated dispatch takes the `Ok` value out of the result before it opens
   the stream's state (`tests/streams_borrowed_error`). An `Ok` value that borrows from the server still can't.
+- ✅ **API-36 Const items served from a value** · `v0.5` — a `const NAME: T;` of a `#[ww_trait]` is served without a
+  `get_<name>` handler: the server struct implements the generated `<RootTrait>Consts` with `const NAME: T = ..;`
+  (a Rust const) or, picked with `const_model = "NAME=fn"`, `fn name(&self) -> T` for a value fixed at boot or link
+  time (OTP, chip id, build id); names carry the trait item chain prefix (`BOARD_BOARD` / `board_board`).
+  `ww api scaffold --const-model` prints the impl. Clients read a const once per connection, then answer from a
+  cache (generated, dynamic and Python clients, promises too); `ww introspect` shows const values
+  (`tests/consts`, `docs/api/properties.md`). `ww_firmware_info`, `ww_board_info`, `ww_uid`
+  and `ww_user_info` servers use it.
+- 💡 **API-37 Const values in the introspection blob** — a codegen option putting the values of `const` items into
+  the device's introspection data, so `ww info` gets them with the link setup and no extra reads. Costs flash per
+  device, so not a default.
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

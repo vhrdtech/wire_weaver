@@ -20,13 +20,10 @@ mod tests {
             pub ids: Vec<UniqueId<'static>>,
         }
 
-        #[allow(non_snake_case)]
-        impl Server {
-            fn get_uid_IDS(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<MaxLen<RefVec<'_, UniqueId<'_>>, 4>, ()> {
-                Value(MaxLen::new_unchecked(RefVec::Slice { slice: &self.ids }))
+        /// Ids are read from the chip at boot: a `fn` (`const_model`), served without a handler.
+        impl api_impl::UidTestConsts for Server {
+            fn uid_ids(&self) -> MaxLen<RefVec<'_, UniqueId<'_>>, 4> {
+                MaxLen::new_unchecked(RefVec::Slice { slice: &self.ids })
             }
         }
 
@@ -36,6 +33,7 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
+                const_model = "IDS=fn",
             );
         }
 

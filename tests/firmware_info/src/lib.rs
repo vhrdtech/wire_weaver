@@ -34,38 +34,6 @@ mod tests {
 
         #[allow(non_snake_case)]
         impl Server {
-            fn get_firmware_FIRMWARE(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<ww_firmware_info::FirmwareSummary<'_>, ()> {
-                Value(ww_firmware_info::FirmwareSummary {
-                    name: MaxLen::new_unchecked("b200_usb_io"),
-                    version: Version::full(0, 5, 0, Some("alpha.1"), None),
-                    git: Some(GitInfo {
-                        commit: MaxLen::new_unchecked(RefVec::new_bytes(&COMMIT)),
-                        dirty: true,
-                    }),
-                    built: ww_firmware_info::DateTime::from_ymd_hms_utc_opt(
-                        2026, 10, 3, 18, 20, 0, 0,
-                    ),
-                    profile: BuildProfile::Other(MaxLen::new_unchecked("size")),
-                })
-            }
-
-            fn get_firmware_BUILD_ID(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<MaxLen<RefVec<'_, u8>, 32>, ()> {
-                Value(MaxLen::new_unchecked(RefVec::new_bytes(&BUILD_ID)))
-            }
-
-            fn get_firmware_BUILD_RECORD(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<MaxLen<RefVec<'_, u8>, 512>, ()> {
-                Value(MaxLen::new_unchecked(RefVec::new_bytes(b"\xB1\xD0record")))
-            }
-
             fn reset_last_reset(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -102,12 +70,38 @@ mod tests {
             }
         }
 
+        /// Served without handlers (API-36): the summary and record are Rust consts, the build id is known at link
+        /// time only.
+        impl api_impl::FirmwareInfoTestConsts for Server {
+            const FIRMWARE_FIRMWARE: ww_firmware_info::FirmwareSummary<'static> =
+                ww_firmware_info::FirmwareSummary {
+                    name: MaxLen::new_unchecked("b200_usb_io"),
+                    version: Version::full(0, 5, 0, Some("alpha.1"), None),
+                    git: Some(GitInfo {
+                        commit: MaxLen::new_unchecked(RefVec::new_bytes(&COMMIT)),
+                        dirty: true,
+                    }),
+                    built: ww_firmware_info::DateTime::from_ymd_hms_utc_opt(
+                        2026, 10, 3, 18, 20, 0, 0,
+                    ),
+                    profile: BuildProfile::Other(MaxLen::new_unchecked("size")),
+                };
+
+            fn firmware_build_id(&self) -> MaxLen<RefVec<'_, u8>, 32> {
+                MaxLen::new_unchecked(RefVec::new_bytes(&BUILD_ID))
+            }
+
+            const FIRMWARE_BUILD_RECORD: MaxLen<RefVec<'static, u8>, 512> =
+                MaxLen::new_unchecked(RefVec::new_bytes(b"\xB1\xD0record"));
+        }
+
         pub mod api_impl {
             wire_weaver::ww_codegen!(
                 firmware_info_api :: FirmwareInfoTest for super::Server,
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
+                const_model = "BUILD_ID=fn",
             );
         }
 
@@ -209,7 +203,10 @@ mod tests {
     /// `build.rs` ran `ww_firmware_info::build::emit()`, `firmware_summary!()` reads what it set.
     #[test]
     fn firmware_summary_macro() {
-        let fw = ww_firmware_info::firmware_summary!();
+        // a Rust const, as in a firmware's consts impl
+        const FW: ww_firmware_info::FirmwareSummary<'static> =
+            ww_firmware_info::firmware_summary!();
+        let fw = FW;
         assert_eq!(*fw.name, "firmware_info");
         assert_eq!(fw.version, Version::new(0, 1, 0));
         // built in a git checkout: 40 hex digits became 20 bytes

@@ -3,7 +3,9 @@ use anyhow::{Result, anyhow};
 use clap::Args;
 use console::style;
 use shrink_wrap::SerializeShrinkWrapOwned;
-use wire_weaver_client::DynClient;
+use std::collections::HashMap;
+use wire_weaver_client::ww_self::{ApiItemKindOwned, Multiplicity, PropertyAccess};
+use wire_weaver_client::{DynClient, DynResource};
 
 #[derive(Args)]
 pub(crate) struct IntrospectArgs {
@@ -23,6 +25,10 @@ pub(crate) struct IntrospectArgs {
     /// Do not print documentation for each resource
     #[arg(short('d'), long)]
     skip_docs: bool,
+
+    /// Do not read the values of `const` items from the device
+    #[arg(long)]
+    no_values: bool,
 }
 
 pub(crate) async fn introspect(args: IntrospectArgs, device: &DynClient) -> Result<()> {
@@ -39,7 +45,15 @@ pub(crate) async fn introspect(args: IntrospectArgs, device: &DynClient) -> Resu
         return Ok(());
     }
 
-    print!("{}", api_tree::render(bundle, args.skip_docs));
+    let values = if args.no_values {
+        HashMap::new()
+    } else {
+        const_values(device, DynResource::root(bundle.clone())).await
+    };
+    print!(
+        "{}",
+        api_tree::render_with_values(bundle, args.skip_docs, &values)
+    );
     if args.types {
         println!();
         print!("{}", api_tree::render_types(bundle, args.skip_docs));
@@ -64,4 +78,46 @@ pub(crate) async fn introspect(args: IntrospectArgs, device: &DynClient) -> Resu
         introspect.api_hash.no_docs
     );
     Ok(())
+}
+
+/// Values of the `const` items outside of resource arrays, by resource ids from the root, a read error in place of
+/// the value. One read each, cached by the client for the rest of the connection (API-36).
+async fn const_values(device: &DynClient, root: DynResource) -> HashMap<Vec<u32>, String> {
+    let mut values = HashMap::new();
+    let mut levels = vec![root];
+    while let Some(level) = levels.pop() {
+        for item in level.children() {
+            if !matches!(item.multiplicity, Multiplicity::Flat) {
+                continue;
+            }
+            let is_const = matches!(
+                item.kind,
+                ApiItemKindOwned::Property {
+                    access: PropertyAccess::Const,
+                    ..
+                }
+            );
+            let is_trait = matches!(item.kind, ApiItemKindOwned::Trait { .. });
+            if !is_const && !is_trait {
+                continue;
+            }
+            let Ok(child) = level.child(&item.ident) else {
+                continue;
+            };
+            if child.is_omitted() {
+                continue;
+            }
+            if is_trait {
+                levels.push(child);
+                continue;
+            }
+            let path = child.index_chain().iter().map(|id| id.0).collect();
+            let value = match child.read(device.cmd()).await {
+                Ok(value) => crate::value_fmt::fmt_value(&value),
+                Err(e) => style(format!("<{e}>")).red().to_string(),
+            };
+            values.insert(path, value);
+        }
+    }
+    values
 }

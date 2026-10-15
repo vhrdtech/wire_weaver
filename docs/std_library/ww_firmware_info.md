@@ -33,27 +33,32 @@ pub trait FirmwareInfo {
 * `BUILD_RECORD` - the `bedrock_build_info` compact record as stored in flash (crate features, dependencies,
   compiler, target); the full one is in the ELF only. Optional: leave it out with `omit = ["firmware.BUILD_RECORD"]`.
 
-All three are `const` items: they do not change while the firmware runs. Until constant items are served from the
-introspection data (API-36) a server implements them as `get_<path>_FIRMWARE` handlers (`#[allow(non_snake_case)]`);
-`ww api scaffold` lists the exact names.
+All three are [`const` items](../api/properties.md#const-items): they do not change while the firmware runs, a server
+provides them without handlers and a host reads each once per connection. `FIRMWARE` and `BUILD_RECORD` are Rust
+consts, `BUILD_ID` is known at link time only, so it is a `fn` (`const_model = "BUILD_ID=fn"`); `ww api scaffold`
+prints the impl with the exact names.
 
 ### Producing the summary
 
 `build.rs` calls `ww_firmware_info::build::emit()` (feature `build`, std, no extra crates). It runs `git rev-parse
 HEAD` and `git status --porcelain`, reads the package name and version from Cargo, uses `SOURCE_DATE_EPOCH` as the
 build time when set (reproducible builds) and sets `WW_FW_*` variables with `cargo:rustc-env`. It asks Cargo to
-rerun when `.git/HEAD` or `.git/index` changes. The firmware builds the value in its `FIRMWARE` handler:
+rerun when `.git/HEAD` or `.git/index` changes. `firmware_summary!()` builds the value at compile time, for
+`firmware: FirmwareInfo` in the API root `Device`:
 
 ```rust
-fn get_firmware_FIRMWARE(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>)
-    -> GetResult<FirmwareSummary<'_>, ()>
-{
-    Value(ww_firmware_info::firmware_summary!())
+impl api_impl::DeviceConsts for Server {
+    const FIRMWARE_FIRMWARE: FirmwareSummary<'static> = ww_firmware_info::firmware_summary!();
+
+    fn firmware_build_id(&self) -> MaxLen<RefVec<'_, u8>, BUILD_ID_MAX_LEN> {
+        MaxLen::new_unchecked(RefVec::new_bytes(ww_firmware_info::build_id()))
+    }
+
+    const FIRMWARE_BUILD_RECORD: MaxLen<RefVec<'static, u8>, 512> = /* bedrock's COMPACT record */;
 }
 ```
 
-`firmware_summary!()` is not a `const` (the build time is converted at run time); outside git the commit is empty and
-`git` is `None`. Strings are cut at their bounds.
+Outside git the commit is empty and `git` is `None`. Strings are cut at their bounds.
 
 ### Build id
 

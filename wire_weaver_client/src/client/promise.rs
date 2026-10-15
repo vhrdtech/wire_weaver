@@ -46,6 +46,8 @@ pub struct Promise<T, E = Error> {
     decode: Option<DecodeFn<T, E>>,
     /// `#[errors(..)]` of a called method (API-32)
     error_list: Option<ErrorList<E>>,
+    /// A read of a `const` item: its reply goes into the connection's cache (API-36)
+    fill_const_cache: Option<(TransportCommander, PathKindOwned)>,
     // TODO: Add instant
 }
 
@@ -60,6 +62,7 @@ impl<T, E> Default for Promise<T, E> {
             resource: "",
             decode: None,
             error_list: None,
+            fill_const_cache: None,
         }
     }
 }
@@ -122,6 +125,7 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
             resource: "",
             decode: None,
             error_list: None,
+            fill_const_cache: None,
         }
     }
 
@@ -277,7 +281,12 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
                             self.error_list.as_ref(),
                             self.resource,
                         ) {
-                            Ok(reply) => StateInner::Done(Some(reply)),
+                            Ok(reply) => {
+                                if let Some((transport, path_kind)) = &self.fill_const_cache {
+                                    transport.cache_const(path_kind, &bytes);
+                                }
+                                StateInner::Done(Some(reply))
+                            }
                             Err(e) => StateInner::Err(e),
                         },
                         (Ok(_), None) => StateInner::Err(E::from_client(
@@ -547,8 +556,10 @@ impl<T: DeserializeShrinkWrapOwned> Promise<T> {
         path_kind: PathKindOwned,
         timeout: Option<Duration>,
         transport_cmd_tx: TransportCommander,
+        cache: bool,
         marker: &'static str,
     ) -> Self {
+        let fill_const_cache = cache.then(|| (transport_cmd_tx.clone(), path_kind.clone()));
         let state = StateInner::WaitingForSeqRead {
             path_kind: Some(path_kind),
             timeout,
@@ -556,6 +567,7 @@ impl<T: DeserializeShrinkWrapOwned> Promise<T> {
         };
         let mut promise = Self::with_state(state, marker);
         promise.decode = Some(Error::decode_reply);
+        promise.fill_const_cache = fill_const_cache;
         promise
     }
 

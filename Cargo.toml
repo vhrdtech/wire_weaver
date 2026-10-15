@@ -114,6 +114,7 @@ blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved"
 board_info_api = { version = "0.1.0", path = "./tests/board_info_api" }
 bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }
 common_error_api = { version = "0.1.0", path = "./tests/common_error_api" }
+consts_api = { version = "0.1.0", path = "./tests/consts_api" }
 credit_sink_api = { version = "0.1.0", path = "./tests/credit_sink_api" }
 cross_version_api = { version = "0.4.0", path = "./tests/cross_version_api" }
 cross_version_old_api = { version = "0.3.0", path = "./tests/cross_version_old_api" }

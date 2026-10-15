@@ -63,6 +63,7 @@ pub struct Commander {
     /// Bytes of items queued per stream on the host
     stream_queue_bytes: usize,
     streams: StreamRegistry,
+    consts: ConstCache,
 }
 
 #[derive(Clone)]
@@ -71,7 +72,13 @@ pub(crate) struct TransportCommander {
     default_timeout: Duration,
     /// Open counted and reliable streams, see [Commander::resume_streams]
     pub(crate) streams: StreamRegistry,
+    /// Values of `const` items read on this connection, see [Commander::prepare_const_read]
+    pub(crate) consts: ConstCache,
 }
+
+/// Values of `const` items read on a connection (API-36), by request path (serialized [PathKindOwned]): response
+/// bytes, decoded again on each read. Shared by a [Commander] and its clones, a new connection starts empty.
+pub(crate) type ConstCache = Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>;
 
 /// Counted and reliable streams opened through a [Commander] (and its clones), to resume them after a reconnect.
 pub(crate) type StreamRegistry = Arc<Mutex<Vec<Weak<Shared>>>>;
@@ -90,6 +97,7 @@ impl Commander {
             traits_only: false,
             stream_queue_bytes: crate::DEFAULT_STREAM_QUEUE_BYTES,
             streams: StreamRegistry::default(),
+            consts: ConstCache::default(),
         }
     }
 
@@ -157,8 +165,29 @@ impl Commander {
             version_check,
             path_kind,
             timeout_override: None,
+            cache: false,
             _phantom: PhantomData,
         }
+    }
+
+    /// Read of a `const` item (API-36): the device is asked once per connection, later reads (through this
+    /// Commander or its clones) return the value received then, without a request. Errors are not cached.
+    pub fn prepare_const_read<T: DeserializeShrinkWrapOwned>(
+        &self,
+        path: PathKind<'_>,
+    ) -> PreparedRead<T> {
+        PreparedRead {
+            cache: true,
+            ..self.prepare_read(path)
+        }
+    }
+
+    /// Forget the values of `const` items read so far, the next read of each asks the device again.
+    pub fn clear_const_cache(&self) {
+        self.consts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clear();
     }
 
     /// `E` is [Error] for properties without a user error type, [CallError](crate::CallError) for those with one;
@@ -189,6 +218,7 @@ impl Commander {
             cmd_tx: self.transport_cmd_tx.clone(),
             default_timeout: self.default_timeout,
             streams: self.streams.clone(),
+            consts: self.consts.clone(),
         }
     }
 
@@ -620,11 +650,32 @@ impl Commander {
     }
 
     pub fn disconnect(&self) -> PreparedDisconnect {
+        // a reconnect through the same Commander (`keep_streams`) may find other firmware
+        self.clear_const_cache();
         PreparedDisconnect::new(self.transport_cmd_tx.clone())
     }
 }
 
 impl TransportCommander {
+    /// Cached response bytes of a `const` item read, see [Commander::prepare_const_read].
+    pub(crate) fn cached_const(&self, path_kind: &PathKindOwned) -> Option<Vec<u8>> {
+        let key = path_kind.to_ww_bytes_owned().ok()?;
+        self.consts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&key)
+            .cloned()
+    }
+
+    pub(crate) fn cache_const(&self, path_kind: &PathKindOwned, response: &[u8]) {
+        if let Ok(key) = path_kind.to_ww_bytes_owned() {
+            self.consts
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(key, response.to_vec());
+        }
+    }
+
     pub(crate) fn default_timeout(&self) -> Duration {
         self.default_timeout
     }

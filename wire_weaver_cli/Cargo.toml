@@ -34,3 +34,4 @@ wire_weaver_client = { workspace = true, features = ["picoboot"] }
 
 wire_weaver_core.workspace = true
 ww_dfu = { workspace = true, features = ["std"] }
+ww_numeric.workspace = true

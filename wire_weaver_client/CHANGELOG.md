@@ -25,6 +25,10 @@
 
 ### 🚀 Features
 
+- `const` items are read once per connection (API-36): `Commander::prepare_const_read()` (used by generated clients)
+  and `DynResource::read()` / `read_blocking()` on a const keep the value and answer later reads, async, blocking
+  and promises, without a request. The cache is shared by a `Commander`'s clones, dropped by `disconnect()` and
+  `Commander::clear_const_cache()`; errors are not kept.
 - Counted and reliable streams on the host (CLT-23, API-30), see `docs/api/stream_reliability.md`:
   `Commander::prepare_stream_open::<R, S>(path, delivery, args)` opens any stream by calling its stream function
   (`RequestKind::StreamOpen`), `prepare_stream_resume(path, delivery, cursor)` resumes one; `PreparedStreamOpen`

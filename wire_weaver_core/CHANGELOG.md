@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- Generated clients read a `const` item once per connection (API-36): `read_<NAME>()` uses
+  `Commander::prepare_const_read`, later reads answer from the client's cache.
 - `#[errors(Common(InUse, Refused), Nack, ..)]` on a trait method (API-32): parsed and checked against the variants
   of the method's error enum (and of the enum in `Common(..)`), an unknown or repeated name, a list on a method without
   `Result` or on another item is an `ErrorListError` that `#[ww_trait]` shows on the name. The list goes into the
@@ -48,6 +50,12 @@
 
 ### ⚠️ Breaking
 
+- `const` items of a `#[ww_trait]` are served without a `get_<name>` handler (API-36): the generated server code
+  declares `pub trait <RootTrait>Consts` and reads each value from the server struct's impl of it, an associated
+  const (`const BOARD_BOARD: BoardSummary<'static> = ..;`, a Rust const) or a `fn` (`fn board_board(&self) ->
+  BoardSummary<'_>`, a value fixed at boot or link time) as picked by the new `ConstModel` (`const_model = "..."`).
+  Servers move their `get_<path>_<NAME>` handlers into that impl, `ww api scaffold` prints it. `GenServerConfig`,
+  `GenServerConfigRaw` and `ServerScaffoldConfig` have a new field `const_model`.
 - Stream functions (API-31): every stream is opened by calling it with `RequestKind::StreamOpen`. Servers
   implement, for every `stream!`, the open handler named like the stream (`fn <name>(&mut self, cx, ..) ->
   RpcResult<()>`, return `Ready(())` to accept) and `close_<name>(cx)`; sideband `Close` goes to the latter,

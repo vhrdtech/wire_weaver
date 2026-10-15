@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- Reading a `const` item asks the device once per connection, later reads return that value (API-36).
 - Counted and reliable streams (CLT-23): a `PositionedStream` object with `open(*args, cursor=None, ack="receive")`
   (the stream function's arguments, its result returned and an `Err` raised as `ww.RemoteError`; resume from a saved `(session, pos)` cursor, `ack="explicit"` for `ack(pos)` after saving), `recv_event()`
   (dicts: items with `pos`, `units`, `t` in seconds, `run`; gaps with `at`, `units`, `cause`; `resumed`,

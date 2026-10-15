@@ -10,6 +10,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- `RefVec::new_bytes` is a `const fn`, for byte vectors in `const` items (API-36).
 - Bit-sized numbers (SW-48): `I16` (bit-aligned, 16 bits; `I15` and `I17` existed, `I16` was missing), and
   `From<U7> for u8` / `TryFrom<u8> for U7` (`Error::SubtypeOutOfRange` when it doesn't fit) for every `U1`..`U64`
   and `I2`..`I64` and its backing integer. Their use as enum variant payloads next to a sub-byte discriminant is

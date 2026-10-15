@@ -4,6 +4,7 @@
 //! Handler names and signatures must stay in sync with `codegen/api_server.rs`.
 use crate::codegen::omit::{Omissions, Omit};
 use crate::codegen::ty_def::{TyPos, ty_def};
+use crate::const_model::{ConstModel, ConstModelKind};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use anyhow::{Context, Result, anyhow};
@@ -25,6 +26,8 @@ pub struct ServerScaffoldConfig {
     pub method_model: String,
     /// Empty means `_=get_set`.
     pub property_model: String,
+    /// Empty means `_=const`.
+    pub const_model: String,
     /// Path to the medium type passed to handlers in `wire_weaver::Context`, `()` if None.
     pub medium: Option<String>,
     /// `#[optional]` items or groups to leave out, `"i2c.pullups"` (API-16): no stubs for them, passed on to
@@ -55,6 +58,8 @@ pub fn gen_server_scaffold(
         MethodModel::parse(method_model_str).context("failed to parse method model")?;
     let property_model =
         PropertyModel::parse(property_model_str).context("failed to parse property model")?;
+    let const_model =
+        ConstModel::parse(&config.const_model).context("failed to parse const model")?;
 
     let omit: Vec<Omit> = config.omit.iter().map(Omit::always).collect();
     let omissions = Omissions::resolve(api_bundle, &omit).map_err(|e| anyhow!(e))?;
@@ -77,8 +82,10 @@ pub fn gen_server_scaffold(
         cx,
         method_model,
         property_model,
+        const_model,
         omissions,
         fields: String::new(),
+        consts: String::new(),
         handlers: String::new(),
         positioned: false,
     };
@@ -111,6 +118,11 @@ pub fn gen_server_scaffold(
     } else {
         format!("omit = {:?},\n", config.omit)
     };
+    let const_model = if config.const_model.is_empty() {
+        String::new()
+    } else {
+        format!("const_model = {:?},\n", config.const_model)
+    };
     let trait_name = &root.trait_name;
     let mut out = String::new();
     writeln!(
@@ -121,6 +133,14 @@ pub fn gen_server_scaffold(
     )?;
     writeln!(out, "pub struct {server} {{\n{}}}\n", s.fields)?;
     writeln!(out, "impl {server} {{\n{}}}\n", s.handlers)?;
+    if !s.consts.is_empty() {
+        writeln!(
+            out,
+            "/// Values of the `const` items, served without a handler.\n\
+             impl api_impl::{trait_name}Consts for {server} {{\n{}}}\n",
+            s.consts
+        )?;
+    }
     writeln!(
         out,
         "mod api_impl {{\n\
@@ -129,7 +149,7 @@ pub fn gen_server_scaffold(
          server = true, no_alloc = {}, use_async = {},\n\
          method_model = {method_model_str:?},\n\
          property_model = {property_model_str:?},\n\
-         {omit}{medium});\n\
+         {const_model}{omit}{medium});\n\
          }}",
         config.no_alloc, config.use_async
     )?;
@@ -144,8 +164,11 @@ struct Scaffold<'a> {
     cx: String,
     method_model: MethodModel,
     property_model: PropertyModel,
+    const_model: ConstModel,
     omissions: Omissions,
     fields: String,
+    /// Items of the `<Trait>Consts` impl
+    consts: String,
     handlers: String,
     /// A counted or reliable stream was scaffolded: `new_stream_session` is needed
     positioned: bool,
@@ -179,8 +202,20 @@ impl Scaffold<'_> {
             }
             if let Some(optional) = &item.optional {
                 let name = optional.group.as_ref().unwrap_or(&item.ident);
+                let is_const = matches!(
+                    item.kind,
+                    ApiItemKindOwned::Property {
+                        access: PropertyAccess::Const,
+                        ..
+                    }
+                );
+                let out = if is_const {
+                    &mut self.consts
+                } else {
+                    &mut self.handlers
+                };
                 writeln!(
-                    self.handlers,
+                    out,
                     "// optional, can be left out with omit = [\"{}\"]",
                     item_path
                         .iter()
@@ -321,6 +356,9 @@ impl Scaffold<'_> {
         access: PropertyAccess,
         write_err_ty: &Option<TypeOwned>,
     ) -> Result<()> {
+        if matches!(access, PropertyAccess::Const) {
+            return self.const_item(item, name, index_len, ty);
+        }
         let value_ty = self.ty(ty, false)?;
         let err_ty = match write_err_ty {
             Some(ty) => self.ty(ty, false)?,
@@ -386,6 +424,43 @@ impl Scaffold<'_> {
                          {maybe_async}fn changed_{name}(&mut self, {cx}{idx}) {{}}\n",
                     )?;
                 }
+            }
+        }
+        Ok(())
+    }
+
+    /// A `const` item: an associated const or a `fn` of the `<Trait>Consts` impl, as `api_server::consts_trait`.
+    fn const_item(
+        &mut self,
+        item: &ApiItemOwned,
+        name: &str,
+        index_len: usize,
+        ty: &TypeOwned,
+    ) -> Result<()> {
+        for line in &item.docs {
+            writeln!(self.consts, "///{}", doc_line(line))?;
+        }
+        match self.const_model.pick(&item.ident) {
+            ConstModelKind::Const => {
+                let ty = ty_def(self.api_bundle, ty, false, TyPos::Static)?.to_string();
+                writeln!(
+                    self.consts,
+                    "// TODO: a Rust const, or const_model = \"{}=fn\" for a value fixed at boot or link time\n\
+                     const {}: {ty} = todo!();\n",
+                    item.ident,
+                    name.to_case(Case::UpperSnake),
+                )?;
+            }
+            ConstModelKind::Fn => {
+                let ty = self.ty(ty, false)?;
+                writeln!(
+                    self.consts,
+                    "fn {}(&self, {}) -> {ty} {{\n\
+                     todo!()\n\
+                     }}\n",
+                    name.to_case(Case::Snake),
+                    index_chain_arg(index_len),
+                )?;
             }
         }
         Ok(())

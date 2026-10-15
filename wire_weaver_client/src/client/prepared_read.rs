@@ -23,6 +23,9 @@ pub struct PreparedRead<T> {
     pub(crate) version_check: Result<(), Error>,
     pub(crate) path_kind: Result<PathKindOwned, Error>,
     pub(crate) timeout_override: Option<Duration>,
+    /// A `const` item: answered from the connection's cache once read, see
+    /// [Commander::prepare_const_read](crate::Commander::prepare_const_read)
+    pub(crate) cache: bool,
     pub(crate) _phantom: PhantomData<T>,
 }
 
@@ -34,6 +37,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
             version_check: self.version_check,
             path_kind: self.path_kind,
             timeout_override: Some(timeout),
+            cache: self.cache,
             _phantom: PhantomData,
         }
     }
@@ -43,17 +47,25 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
         // late error return, to have more ergonomic dev.fn_name().call()?; instead of dev.fn_name()?.call()?;
         self.version_check?;
         let path_kind = self.path_kind?;
+        if self.cache
+            && let Some(response) = self.transport_cmd_tx.cached_const(&path_kind)
+        {
+            return Ok(T::from_ww_bytes_owned(&response)?);
+        }
 
         // send call to a remote device through transport layer
         let done_rx = self
             .transport_cmd_tx
-            .send_read_request(path_kind, self.timeout_override)
+            .send_read_request(path_kind.clone(), self.timeout_override)
             .await?;
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
         let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
         let reply: T = T::from_ww_bytes_owned(&response)?;
+        if self.cache {
+            self.transport_cmd_tx.cache_const(&path_kind, &response);
+        }
         Ok(reply)
     }
 
@@ -61,11 +73,16 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
     pub fn blocking_read(self) -> Result<T, Error> {
         self.version_check?;
         let path_kind = self.path_kind?;
+        if self.cache
+            && let Some(response) = self.transport_cmd_tx.cached_const(&path_kind)
+        {
+            return Ok(T::from_ww_bytes_owned(&response)?);
+        }
 
         // send call to a remote device through transport layer
         let done_rx = self
             .transport_cmd_tx
-            .send_read_request_blocking(path_kind, self.timeout_override)?;
+            .send_read_request_blocking(path_kind.clone(), self.timeout_override)?;
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx
@@ -73,6 +90,9 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
             .map_err(|_| Error::RxDispatcherNotRunning)?;
         let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
         let reply: T = T::from_ww_bytes_owned(&response)?;
+        if self.cache {
+            self.transport_cmd_tx.cache_const(&path_kind, &response);
+        }
         Ok(reply)
     }
 
@@ -88,11 +108,20 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
         if let Err(e) = self.version_check {
             return Promise::error(e, marker);
         }
+        if self.cache
+            && let Some(response) = self.transport_cmd_tx.cached_const(&path_kind)
+        {
+            return match T::from_ww_bytes_owned(&response) {
+                Ok(value) => Promise::done(value, marker),
+                Err(e) => Promise::error(e.into(), marker),
+            };
+        }
 
         Promise::new_read(
             path_kind,
             self.timeout_override,
             self.transport_cmd_tx,
+            self.cache,
             marker,
         )
     }

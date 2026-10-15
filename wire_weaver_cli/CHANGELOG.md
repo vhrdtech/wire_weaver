@@ -8,6 +8,9 @@
 
 ### 🚀 Features
 
+- `ww introspect` reads the `const` items (outside arrays of traits) and shows their values in the tree,
+  `--no-values` skips that (API-36). `ww api scaffold --const-model "BOARD=fn"` prints the server's
+  `<RootTrait>Consts` impl, a Rust const or a `fn` per item.
 - `ww api tree` shows stream functions with their arguments and result and their delivery kind (API-31).
 - `ww api tree` shows counted and reliable streams as `#[counted] stream` / `#[reliable] stream` (API-30).
 - `ww api tree` and `ww introspect` show a method's `#[errors(..)]` (API-32), and with docs a `# Errors` section with

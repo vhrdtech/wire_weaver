@@ -692,6 +692,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
+name = "consts"
+version = "0.1.0"
+dependencies = [
+ "consts_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "ww_client_server",
+]
+
+[[package]]
+name = "consts_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4450,6 +4471,7 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "ww_dfu",
+ "ww_numeric",
 ]
 
 [[package]]

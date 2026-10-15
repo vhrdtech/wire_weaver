@@ -10,7 +10,9 @@ pub trait Uid {
 }
 ```
 
-`IDS` is a `const` item (served by a `get_<path>_IDS` handler until API-36 lands). At most 4 ids.
+`IDS` is a [`const` item](../api/properties.md#const-items), served without a handler and read by a host once per
+connection. Ids are read from the chip at boot, so a server provides them as a `fn` (`const_model = "IDS=fn"`,
+`fn uid_ids(&self) -> MaxLen<RefVec<'_, UniqueId<'_>>, 4>` for `uid: Uid`). At most 4 ids.
 
 ## The primary id
 

@@ -11,6 +11,7 @@ pub(crate) mod cmd;
 mod complete;
 mod device;
 mod util;
+mod value_fmt;
 
 fn main() -> Result<()> {
     // answers shell completion requests (COMPLETE=<shell> set) and exits, otherwise does nothing

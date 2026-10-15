@@ -14,6 +14,9 @@
 
 ### 🚀 Features
 
+- `ww_codegen!(.., const_model = "SERIAL|BOARD=fn")` (API-36): which `const` items the server provides as a `fn` of
+  the generated `<RootTrait>Consts` trait instead of a Rust const (`_=const` by default), see
+  `docs/api/properties.md`.
 - `#[ww_trait]` accepts `#[stream(T, kind)]` on trait fns and `#[counted]` / `#[reliable]` on `stream!` (API-31), and
   notes them in the rustdoc trait.
 - `#[errors(..)]` on methods of a `#[ww_trait]` (API-32): a wrong list is a compile error pointing at the name in it

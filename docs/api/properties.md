@@ -14,7 +14,8 @@ Property write is acknowledged by a server, unless request ID of 0 is used.
 
 Properties have access mode associated with them:
 
-* Const (`const`) - property is not going to change, observe not available
+* Const (`const NAME: T;` in the trait) - value is fixed for the life of the firmware, observe not available, see
+  [Const items](#const-items)
 * Read only (`ro`) - property can only be read, can change and be observed for changes
 * Write only (`wo`) - property can only be written
 * Read/Write (`rw`) - property can be read, written and observed for changes
@@ -62,3 +63,62 @@ When `Err` variant is encountered, generated server code will serialize user err
 client in `ww_client_server::ErrorKind::UserBytes(err_bytes)`.
 
 When `on_changed` flavor is used, it's signature and behavior is changed accordingly.
+
+### Const items
+
+A `const` item of a trait is a value that doesn't change while the firmware runs: a firmware name and version, a
+board record, chip ids, limits of an implementation.
+
+```rust
+#[ww_api_root]
+trait Device {
+    /// Known at compile time.
+    const LIMITS: Limits<'i>;
+    /// Read from the chip at boot.
+    const SERIAL: &'i str;
+    ww_impl!(board: ww_board_info::BoardInfo);
+}
+```
+
+On the server, no handler is called for it. The value comes from the generated trait `<RootTrait>Consts`, which the
+server struct implements, in one of two forms, picked per item with the `const_model` argument of `ww_codegen!`:
+
+* `const` (the default): a Rust const, `const LIMITS: Limits<'static> = ..;`.
+* `fn`: a value fixed at boot or link time (OTP, a chip id register, the build id in flash), `fn serial(&self) ->
+  &str`. Items in an array of traits get the index chain: `fn channel_gain(&self, index_chain: [UNib32; 1]) -> u8`.
+
+Names carry the trait item chain prefix, as handler names do: `BOARD` of `board: BoardInfo` is `BOARD_BOARD` as a
+const and `board_board` as a `fn`. `const_model` is a comma separated list of `regex=const|fn`, the regex matching
+the whole name of the item as written in its trait (`BOARD`, not `board_BOARD`); `_=fn` changes the default.
+
+```rust
+impl api_impl::DeviceConsts for Server {
+    const LIMITS: Limits<'static> = Limits { max_len: 64, names: RefVec::Slice { slice: &["a", "b"] } };
+
+    fn serial(&self) -> &str {
+        &self.serial
+    }
+
+    fn board_board(&self) -> BoardSummary<'_> {
+        self.board.summary()
+    }
+}
+
+mod api_impl {
+    wire_weaver::ww_codegen!(
+        device_api :: Device for super::Server,
+        server = true, no_alloc = true, use_async = false,
+        const_model = "SERIAL|BOARD=fn",
+    );
+}
+```
+
+`ww api scaffold --const-model "SERIAL|BOARD=fn" <api_crate>` prints this impl with a `todo!()` for every value. An
+`#[optional]` const left out with `omit = [..]` has no item in the trait. A trait without `const` items has no
+`<RootTrait>Consts`.
+
+Clients read a const from the device once per connection and keep the value: later reads of it (generated
+`read_<NAME>()`, async, blocking or as a promise, the dynamic client and Python) return it without a request. A new
+connection, or a `disconnect()` through the same `Commander`, reads it again; `Commander::clear_const_cache()` does
+too. Errors are not kept. `ww introspect` reads the consts that are not in an array of traits and shows their values
+in the tree (`--no-values` to skip them).

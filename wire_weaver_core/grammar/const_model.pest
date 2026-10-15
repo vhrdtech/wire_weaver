@@ -1,0 +1,8 @@
+const_model = _{ SOI ~ (item ~ ","?)* ~ EOI }
+item = { regex ~ "=" ~ model }
+regex = { (!("=" | WHITESPACE) ~ ANY)+ }
+model = { value | fn_ }
+value = { "const" }
+fn_ = { "fn" }
+
+WHITESPACE = _{ " " | "\t" }

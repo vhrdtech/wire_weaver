@@ -615,11 +615,21 @@ fn handle_property(
         PropertyAccess::Const | PropertyAccess::ReadWrite { .. } | PropertyAccess::ReadOnly { .. }
     ) {
         let read_fn_name = Ident::new(&format!("read_{}", prop_name), Span::call_site());
+        // a const is read once per connection, then answered locally (API-36)
+        let (prepare_read, doc) = if matches!(access, PropertyAccess::Const) {
+            (
+                quote! { prepare_const_read },
+                quote! { #[doc = " A const: read from the device once per connection, later reads return that value."] },
+            )
+        } else {
+            (quote! { prepare_read }, quote! {})
+        };
         quote! {
+            #doc
             pub fn #read_fn_name(&self) -> wire_weaver_client::PreparedRead<#ty> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd.prepare_read(path_kind)
+                self.cmd.#prepare_read(path_kind)
             }
         }
     } else {

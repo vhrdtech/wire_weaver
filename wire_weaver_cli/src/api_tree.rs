@@ -2,6 +2,7 @@
 
 use console::style;
 use shrink_wrap::ElementSize;
+use std::collections::HashMap;
 use std::fmt::Write;
 use wire_weaver_client::ww_self::errors::{error_list_docs, fmt_error_list, method_err_ty};
 use wire_weaver_client::ww_self::visit::{self, Visit};
@@ -13,6 +14,15 @@ use wire_weaver_client::ww_self::{
 
 /// Render the resource tree starting from the bundle root, ending with a newline.
 pub(crate) fn render(bundle: &ApiBundleOwned, skip_docs: bool) -> String {
+    render_with_values(bundle, skip_docs, &HashMap::new())
+}
+
+/// [render], with `= value` after the `const` items in `values`, by resource ids from the root.
+pub(crate) fn render_with_values(
+    bundle: &ApiBundleOwned,
+    skip_docs: bool,
+    values: &HashMap<Vec<u32>, String>,
+) -> String {
     let mut printer = TreePrinter {
         bundle,
         skip_docs,
@@ -20,6 +30,8 @@ pub(crate) fn render(bundle: &ApiBundleOwned, skip_docs: bool) -> String {
         prefix: String::new(),
         is_last: false,
         omitted: ids(&bundle.root_omitted),
+        path: vec![],
+        values,
     };
     printer.header();
     printer.visit_api_level(&bundle.root);
@@ -35,6 +47,8 @@ pub(crate) fn render_types(bundle: &ApiBundleOwned, skip_docs: bool) -> String {
         prefix: String::new(),
         is_last: false,
         omitted: vec![],
+        path: vec![],
+        values: &HashMap::new(),
     };
     printer.types();
     printer.out
@@ -82,6 +96,10 @@ struct TreePrinter<'a> {
     is_last: bool,
     /// Ids of the current level's optional items the device leaves out (API-16).
     omitted: Vec<u32>,
+    /// Resource ids from the root to the item being visited
+    path: Vec<u32>,
+    /// Values of `const` items read from a device, shown after their type
+    values: &'a HashMap<Vec<u32>, String>,
 }
 
 fn ids(omitted: &Option<Vec<shrink_wrap::UNib32>>) -> Vec<u32> {
@@ -100,6 +118,7 @@ impl<'a> Visit<'a> for TreePrinter<'a> {
 
     fn visit_api_item(&mut self, item: &'a ApiItemOwned) {
         let is_last = self.is_last;
+        self.path.push(item.id.0);
         self.guide(is_last);
         self.item_line(item);
         self.out.push('\n');
@@ -116,6 +135,7 @@ impl<'a> Visit<'a> for TreePrinter<'a> {
             self.omitted = parent_omitted;
         }
         self.prefix.truncate(parent_prefix_len);
+        self.path.pop();
     }
 
     fn visit_docs(&mut self, docs: &'a Vec<String>) {
@@ -237,6 +257,9 @@ impl TreePrinter<'_> {
                 }
                 if observe {
                     _ = write!(self.out, " {}", style("observable").dim());
+                }
+                if let Some(value) = self.values.get(&self.path) {
+                    _ = write!(self.out, " = {value}");
                 }
             }
             ApiItemKindOwned::Stream { ty, is_up } => {
@@ -546,6 +569,28 @@ mod tests {
     fn traits_api() -> ApiBundleOwned {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/traits_api");
         wire_weaver_core::load(&path, Some("Traits".into()), false).unwrap()
+    }
+
+    #[test]
+    fn renders_const_values() {
+        console::set_colors_enabled(false);
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/consts_api");
+        let bundle = wire_weaver_core::load(&path, Some("ConstsTest".into()), false).unwrap();
+        let values = HashMap::from([
+            (vec![1], "\"E661A410\"".to_string()),
+            (vec![4, 0], "\"info\"".to_string()),
+        ]);
+        let tree = render_with_values(&bundle, true, &values);
+        assert!(
+            tree.contains("├─ 1 const property SERIAL: String = \"E661A410\"\n"),
+            "{tree}"
+        );
+        assert!(
+            tree.contains("└─ 0 const property NAME: String = \"info\"\n"),
+            "{tree}"
+        );
+        assert!(tree.contains("├─ 0 const property LIMITS: "), "{tree}");
+        assert!(!tree.contains("LIMITS: Limits ="), "{tree}");
     }
 
     #[test]

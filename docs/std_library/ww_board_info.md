@@ -10,8 +10,10 @@ pub trait BoardInfo {
 }
 ```
 
-`BOARD` is a `const` item: until constant items are served from the introspection data (API-36) a server implements
-it as `get_<path>_BOARD`. It never fails; what a device does not know is an empty string or `None`.
+`BOARD` is a [`const` item](../api/properties.md#const-items), served without a handler and read by a host once per
+connection. A board read from OTP or straps at boot provides it as a `fn` (`const_model = "BOARD=fn"`,
+`fn board_board(&self) -> BoardSummary<'_>` for `board: BoardInfo`), a firmware for one fixed board as a Rust const.
+It never fails; what a device does not know is an empty string or `None`.
 
 | Field | Meaning |
 |---|---|

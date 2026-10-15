@@ -39,6 +39,12 @@ pub fn ww_api(args: TokenStream) -> TokenStream {
 ///   Depending on the application, it might be more convenient to store property directly as a context struct member and
 ///   use value_on_changed, so that generated code directly reads and writes to it. Notification method is called when the value is changed.
 ///   In other cases, get_set is more useful, allowing to represent GPIO pin as a bool property, for example.
+/// * const_model = "BOARD|IDS=fn" - list of comma separated regex expressions (matching the whole name of a `const`
+///   item) and const or fn keywords, `_=const` if absent. The server struct implements the generated
+///   `<Trait>Consts` trait with the value of every `const` item, no handler is called: `const NAME: T = ..;` for a
+///   Rust const (the default), or `fn name(&self) -> T` with `fn` for a value fixed at boot or link time (OTP, chip
+///   id, build id). Names carry the trait item chain prefix: `BOARD` of `board: BoardInfo` is `BOARD_BOARD` /
+///   `board_board`.
 /// * medium = "crate::Medium" - type (usually an enum) telling handlers which medium (USB, CAN, ...) a request came from,
 ///   `()` if absent. Every handler gets `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` (`BlockingEventOut`
 ///   if `use_async = false`) as the first argument, with request seq, medium and a way to send stream updates.

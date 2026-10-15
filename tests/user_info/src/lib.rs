@@ -62,17 +62,6 @@ mod tests {
 
         #[allow(non_snake_case)]
         impl Server {
-            fn get_user_CAPABILITIES(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<UserInfoCaps, ()> {
-                Value(UserInfoCaps {
-                    name_max: self.name_max,
-                    notes_max: 256,
-                    persistent: true,
-                })
-            }
-
             fn set_user_name(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -107,12 +96,24 @@ mod tests {
             }
         }
 
+        /// A firmware has a Rust const here, the mock is set up per test: a `fn` (`const_model`).
+        impl api_impl::UserInfoTestConsts for Server {
+            fn user_capabilities(&self) -> UserInfoCaps {
+                UserInfoCaps {
+                    name_max: self.name_max,
+                    notes_max: 256,
+                    persistent: true,
+                }
+            }
+        }
+
         pub mod api_impl {
             wire_weaver::ww_codegen!(
                 user_info_api :: UserInfoTest for super::Server,
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
+                const_model = "CAPABILITIES=fn",
             );
         }
 

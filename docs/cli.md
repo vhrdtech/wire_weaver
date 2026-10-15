@@ -123,6 +123,9 @@ api hash: 6e87e4113afd0168
 
 `impl name[]: crate::Trait` is a nested trait (`[]` marking an array of them), properties show their access
 (`const`, `ro`, `rw`, `wo`) and whether they are observable, `stream` is device-to-host and `sink` host-to-device.
+The values of [`const` items](api/properties.md#const-items) outside of arrays of traits are read from the device
+and shown after their type, `const property SERIAL: String = "E661A410"` (byte vectors as hex, struct and enum names
+left out); `--no-values` skips the reads.
 
 With `-t`, all types the API refers to are listed after the tree, by their index in the bundle: structs with their
 fields, enums with their variants and discriminants, and each type's size kind (`unsized`, `final structure`,
@@ -148,6 +151,7 @@ types
 | `-t`, `--types`     | Also print all types the API refers to                                                          |
 | `--raw`             | Print raw introspection data (Rust debug format) instead of the tree                            |
 | `--raw-as-sent`     | Same as `--raw`, but as the device sent it: traits and types known from snapshots are left out  |
+| `--no-values`       | Do not read the values of `const` items                                                         |
 
 Fails with an error if the device did not provide introspection data.
 

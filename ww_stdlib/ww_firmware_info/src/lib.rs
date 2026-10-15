@@ -18,14 +18,21 @@
 //! ww_firmware_info = { version = "0.1", features = ["build"] }
 //! ```
 //!
-//! `build.rs` calls `build::emit`, the firmware builds the value with [firmware_summary!]:
+//! `build.rs` calls `build::emit`, the firmware builds the value with [firmware_summary!], at compile time. The
+//! items of [FirmwareInfo] are `const` items, served without a handler from the server's consts impl (API-36);
+//! the build id is known at link time only, so it is a `fn` there (`const_model = "BUILD_ID=fn"`):
 //!
 //! ```ignore
 //! // build.rs
 //! fn main() { ww_firmware_info::build::emit(); }
 //!
-//! // firmware: in the handler of `FirmwareInfo::FIRMWARE`
-//! let summary = ww_firmware_info::firmware_summary!();
+//! // firmware, `firmware: FirmwareInfo` in the API root `Device`, ww_codegen!(.., const_model = "BUILD_ID=fn")
+//! impl api_impl::DeviceConsts for Server {
+//!     const FIRMWARE_FIRMWARE: FirmwareSummary<'static> = ww_firmware_info::firmware_summary!();
+//!     fn firmware_build_id(&self) -> MaxLen<RefVec<'_, u8>, BUILD_ID_MAX_LEN> {
+//!         MaxLen::new_unchecked(RefVec::new_bytes(ww_firmware_info::build_id()))
+//!     }
+//! }
 //! ```
 //!
 //! # Build id
@@ -143,12 +150,12 @@ pub enum BuildProfile<'i> {
 }
 
 /// Truncate `s` to at most `N` bytes at a char boundary, for values taken from the environment at build time.
-pub fn bounded_str<const N: usize>(s: &str) -> MaxLen<&str, N> {
-    let mut end = s.len().min(N);
+pub const fn bounded_str<const N: usize>(s: &str) -> MaxLen<&str, N> {
+    let mut end = if s.len() < N { s.len() } else { N };
     while !s.is_char_boundary(end) {
         end -= 1;
     }
-    MaxLen::new_unchecked(&s[..end])
+    MaxLen::new_unchecked(s.split_at(end).0)
 }
 
 /// Decode a hex string at compile time into 20 bytes (a git commit), zeros when the string is not 40 hex digits.
@@ -184,27 +191,51 @@ const fn nibble(c: u8) -> u8 {
 /// Build time from the `WW_FW_BUILT` variable of `build::emit` (`YYYY-MM-DDTHH:MM:SS`), `None` when absent or
 /// malformed. Used by [firmware_summary!].
 #[doc(hidden)]
-pub fn parse_built(s: &str) -> Option<DateTime> {
+pub const fn parse_built(s: &str) -> Option<DateTime> {
     let b = s.as_bytes();
     if b.len() != 19 {
         return None;
     }
-    let num = |from: usize, to: usize| -> Option<u32> { s.get(from..to)?.parse().ok() };
+    let (Some(year), Some(month), Some(day), Some(hour), Some(min), Some(sec)) = (
+        digits(b, 0, 4),
+        digits(b, 5, 7),
+        digits(b, 8, 10),
+        digits(b, 11, 13),
+        digits(b, 14, 16),
+        digits(b, 17, 19),
+    ) else {
+        return None;
+    };
     DateTime::from_ymd_hms_utc_opt(
-        num(0, 4)? as i32,
-        num(5, 7)? as u8,
-        num(8, 10)? as u8,
-        num(11, 13)? as u8,
-        num(14, 16)? as u8,
-        num(17, 19)? as u8,
+        year as i32,
+        month as u8,
+        day as u8,
+        hour as u8,
+        min as u8,
+        sec as u8,
         0,
     )
 }
 
+/// Decimal number in `b[from..to]`, `None` if any of it is not a digit.
+const fn digits(b: &[u8], from: usize, to: usize) -> Option<u32> {
+    let mut i = from;
+    let mut v = 0u32;
+    while i < to {
+        if !b[i].is_ascii_digit() {
+            return None;
+        }
+        v = v * 10 + (b[i] - b'0') as u32;
+        i += 1;
+    }
+    Some(v)
+}
+
 /// Build a [FirmwareSummary] from the variables `build::emit` set in the firmware's `build.rs`.
 ///
-/// Not a `const`: the build time is converted at run time. Call it from the handler of
-/// `FirmwareInfo::FIRMWARE`. Values that don't fit their bounds are cut.
+/// Evaluates at compile time: the value of the const item `FirmwareInfo::FIRMWARE`
+/// (`const FIRMWARE: FirmwareSummary<'static> = firmware_summary!();` in the server's consts impl). Values that don't
+/// fit their bounds are cut.
 ///
 /// `$crate::...` needs a firmware crate that depends on `ww_firmware_info`; the variables are read with `env!`, so a
 /// missing `build.rs` call is a compile error.
@@ -234,13 +265,35 @@ macro_rules! firmware_summary {
                 None
             },
             built: $crate::parse_built(env!("WW_FW_BUILT")),
-            profile: match env!("WW_FW_PROFILE") {
-                "release" => $crate::BuildProfile::Release,
-                "debug" => $crate::BuildProfile::Debug,
-                other => $crate::BuildProfile::Other($crate::bounded_str(other)),
-            },
+            profile: $crate::parse_profile(env!("WW_FW_PROFILE")),
         }
     }};
+}
+
+/// Cargo profile from its name, at compile time. Used by [firmware_summary!].
+#[doc(hidden)]
+pub const fn parse_profile(name: &str) -> BuildProfile<'_> {
+    if bytes_eq(name.as_bytes(), b"release") {
+        BuildProfile::Release
+    } else if bytes_eq(name.as_bytes(), b"debug") {
+        BuildProfile::Debug
+    } else {
+        BuildProfile::Other(bounded_str(name))
+    }
+}
+
+const fn bytes_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
 }
 
 /// Parse a decimal `u32` at compile time (a Cargo version component), 0 when malformed. Used by [firmware_summary!].

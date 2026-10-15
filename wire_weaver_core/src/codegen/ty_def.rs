@@ -15,6 +15,7 @@ pub(crate) enum TyPos {
     // Return,     // RefVec<'i, T>
     Annotation, // RefVec<'_, T>
     Expr,       // Turbofish RefVec::<'_, T>
+    Static,     // RefVec<'static, T>
 }
 
 pub(crate) fn ty_def(
@@ -250,5 +251,6 @@ fn lifetime(ty_pos: TyPos) -> TokenStream {
         TyPos::Def /*| TyPos::Return*/ => quote! { 'i },
         TyPos::Arg | TyPos::Expr => quote! { '_ },
         TyPos::Annotation => quote! { '_ },
+        TyPos::Static => quote! { 'static },
     }
 }

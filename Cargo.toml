@@ -96,6 +96,7 @@ ww_firmware_info = { version = "0.1.0", path = "./ww_stdlib/ww_firmware_info", d
 ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = false }
 ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
 ww_i2c = { version = "0.1.0", path = "./ww_stdlib/ww_i2c", default-features = false }
+ww_indication = { version = "0.1.0", path = "./ww_stdlib/ww_indication", default-features = false }
 ww_log = { version = "0.1.0", path = "./ww_stdlib/ww_log", default-features = false }
 ww_logic_analyzer = { version = "0.1.0", path = "./ww_stdlib/ww_logic_analyzer", default-features = false }
 ww_memory = { version = "0.1.0", path = "./ww_stdlib/ww_memory", default-features = false }
@@ -132,6 +133,7 @@ dfu_lean_app_api = { version = "0.1.0", path = "./tests/dfu_lean_app_api" }
 dfu_updater_api = { version = "0.1.0", path = "./tests/dfu_updater_api" }
 dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
 firmware_info_api = { version = "0.1.0", path = "./tests/firmware_info_api" }
+indication_api = { version = "0.1.0", path = "./tests/indication_api" }
 io_adc_api = { version = "0.1.0", path = "./tests/io_adc_api" }
 io_gpio_api = { version = "0.1.0", path = "./tests/io_gpio_api" }
 io_i2c_api = { version = "0.1.0", path = "./tests/io_i2c_api" }

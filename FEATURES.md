@@ -650,10 +650,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     repo: `cnt::ram_used_words()`, word sources and ELF lookup by build id in `cnt_core`, `cnt_view`, and the probe
     path checks the build id too. Docs `docs/std_library/ww_counters.md`, tests `tests/counters`; `cnt_core` /
     `cnt_view` 0.5 from crates.io.
+- ✅ **STD-28 `ww_indication` lightweight rework** — cut to one required item: `mode: Mode` (`AllOff` /
+    `OnlyEssential` / `Normal`). `brightness: Brightness` (5 levels, one setting for all indicators),
+    `identify(duration)` (blink everything to find the unit on a bench, errors on `CommonError`) and `NAMES`
+    (indicator names, API-36) are each their own `#[optional]` item. Dropped `alert_brightness` /
+    `AlertBrightness`, `animation_enable`, `test_mode` / `TestMode` and `HAS_NOT_CONTROLLABLE`. Docs
+    `docs/std_library/ww_indication.md`, tests `tests/indication` (mock servers with only `mode`, and with every
+    optional item).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
-- 🚧 **STD-8 Prototypes**, to be completed later: `ww_can_bus`, `ww_i2c`, `ww_uart`, `ww_indication`,
+- 🚧 **STD-8 Prototypes**, to be completed later: `ww_can_bus`, `ww_i2c`, `ww_uart`,
   `ww_memory` (was `ww_ll`: one word type per trait, optional watches, errors on `CommonError`, docs page),
   Known gaps are `TODO`s in their sources (e.g. SMBus and 7-bit addresses in `ww_i2c`, capabilities and properties
   in `ww_can_bus`). `ww_log` (was `ww_log_bare_metal`) left for STD-26.

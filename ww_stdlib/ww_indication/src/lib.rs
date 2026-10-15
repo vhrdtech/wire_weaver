@@ -1,77 +1,77 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+//! Device indication control (STD-28): one global mode every indicator (LED, buzzer, ...) follows.
+//!
+//! [Indication::mode] is the only item a device must implement. Per-unit [brightness](Indication::brightness),
+//! [identify](Indication::identify) (blink everything to find the unit on a bench) and
+//! [NAMES](Indication::NAMES) are [optional](../api/optional_items.md): a device leaves out what its hardware or
+//! flash budget doesn't support.
 
 use wire_weaver::prelude::*;
+pub use ww_si::Second;
 
+/// Device indication control: a global mode every indicator follows, with optional brightness, identify and
+/// names.
 #[ww_trait]
 pub trait Indication {
-    /// Global operation mode.
+    /// Global operation mode every indicator follows.
     property!(rw mode: Mode);
 
-    /// Brightness control for informational indicators.
-    property!(rw info_brightness: Brightness);
+    /// Brightness of all indicators; one setting covers every one of them. Left out by a device whose
+    /// indicators have no adjustable brightness.
+    #[optional]
+    property!(rw brightness: Brightness);
 
-    /// Brightness control for alert indicators or double use indicators.
-    property!(rw alert_brightness: AlertBrightness);
+    /// Blinks every indicator for `duration` so the unit can be found on a bench or in a rack, then returns to
+    /// `mode`. `Unsupported` on a device with no way to blink its indicators, `Busy` while already identifying.
+    #[optional]
+    fn identify(duration: Second) -> Result<(), CommonError<'i>>;
 
-    /// Global animation enable, optional to implement.
-    property!(rw animation_enable: bool);
-
-    /// Must automatically leave test mode after 5 seconds.
-    property!(rw test_mode: TestMode<'i>);
-
-    /// True if some indicators are hard-wired to power.
-    const HAS_NOT_CONTROLLABLE: bool;
-
-    /// Indicator names: can be left empty for conserving memory.
+    /// Indicator names, in the device's own order. Left out (empty on devices that implement it with nothing to
+    /// name) to save flash.
+    #[optional]
     const NAMES: RefVec<'i, &'i str>;
 }
 
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, PartialEq, Eq), ww_repr = nib)]
-// #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+/// Global operation mode, see [Indication::mode].
+///
+/// `Unsized` (default): a later version may add a mode (e.g. a "Demo" blink pattern) without breaking a host
+/// built against this one, which reads it as `Unknown(u32)` (SW-47).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
 pub enum Mode {
+    /// Every indicator off, including alerts.
     AllOff,
+    /// Only indicators that must stay visible (faults, power) are on.
     OnlyEssential,
+    /// Every indicator behaves as designed.
     Normal,
 }
 
-/// Indicators brightness mode
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, PartialEq, Eq), ww_repr = nib)]
-// #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+/// Indicator brightness, see [Indication::brightness].
+///
+/// `Unsized` (default), for the same reason as [Mode]: room for a level between two of these without breaking
+/// older hosts.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
 pub enum Brightness {
-    /// Night mode, non-distracting
+    /// Night mode, non-distracting.
     Lowest,
-    /// Day mode, non-distracting
+    /// Day mode, non-distracting.
     Low,
-    /// Good visibility inside
+    /// Good visibility inside.
     Normal,
-    /// For alerts inside
+    /// For alerts inside.
     High,
-    /// Visible outside
+    /// Visible outside.
     Highest,
-}
-
-/// Alert indicators brightness mode, relative to info indicators.
-/// (alert indicators cannot have brightness lower than info ones)
-#[derive_shrink_wrap(borrowed, derive(Copy, Clone, Debug, PartialEq, Eq), ww_repr = nib)]
-// #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum AlertBrightness {
-    /// Highest setting of [Brightness](Brightness)
-    Max,
-    P0,
-    P1,
-    P2,
-    P3,
-    P4,
-}
-
-#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), ww_repr = nib)]
-// #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum TestMode<'name> {
-    Off,
-    AllOn,
-    AllOff,
-    AllBlink,
-    SequentialBlink,
-    IndividualOn(&'name str),
-    IndividualBlink(&'name str),
 }

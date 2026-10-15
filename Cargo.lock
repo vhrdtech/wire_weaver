@@ -2513,6 +2513,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "indication"
+version = "0.1.0"
+dependencies = [
+ "indication_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_error",
+ "ww_indication",
+ "ww_si",
+]
+
+[[package]]
+name = "indication_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_indication",
+]
+
+[[package]]
 name = "indoc"
 version = "2.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6084,6 +6108,7 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
+ "ww_si",
 ]
 
 [[package]]

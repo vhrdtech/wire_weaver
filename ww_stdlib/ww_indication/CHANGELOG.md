@@ -2,9 +2,12 @@
 
 ### ⚠️ Breaking
 
-- `Mode`, `Brightness`, `AlertBrightness`, `TestMode` get `Unknown(u32)` from `derive_shrink_wrap` (SW-47): a variant from a newer version of this crate is read
-  into it instead of failing. Exhaustive matches need an `Unknown(_)` arm. Same wire.
-
-### 🐛 Fixes
-
-- `NAMES` is `RefVec<'i, &'i str>` (was `RefVec<'i, str>`, not valid Rust). Same wire format.
+- Reworked to a lightweight API (STD-28): `mode: Mode` (`AllOff` / `OnlyEssential` / `Normal`) is the only item a
+  device must implement. `brightness: Brightness` (5 levels, one setting for all indicators), `identify(duration)`
+  (blink everything to find the unit, errors on `CommonError`) and `NAMES` are now `#[optional]`.
+- Cut `alert_brightness` / `AlertBrightness`, `animation_enable`, `test_mode` / `TestMode`, and
+  `HAS_NOT_CONTROLLABLE`: no replacement, this crate no longer distinguishes alert indicators from informational
+  ones, and a per-indicator test mode belongs to a device-specific API.
+- `Mode` and `Brightness` are `Unsized` (the default): both may grow a variant later (an in-between brightness
+  level, a new mode), and a host built against an older `ww_indication` reads it as `Unknown(u32)` (SW-47) instead
+  of failing. Not `no_future_version`, unlike `ww_client_server`'s closed sets.

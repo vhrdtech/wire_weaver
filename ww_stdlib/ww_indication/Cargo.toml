@@ -2,16 +2,17 @@
 name = "ww_indication"
 version = "0.1.0"
 authors.workspace = true
-description = "Device indication LED control API"
+description = "Device indication (LED, buzzer, ...) control API"
 edition.workspace = true
 license.workspace = true
 repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt"]
+std = ["wire_weaver/std", "ww_si/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_si/defmt"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-wire_weaver.workspace = true
+wire_weaver = { workspace = true, default-features = false }
+ww_si = { workspace = true, default-features = false, features = ["time"] }

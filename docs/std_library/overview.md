@@ -61,7 +61,8 @@ place to look.
   * `ww_defmt_logger` (repo root, device side) — the `defmt` global logger that feeds `LogDefmt::frames`, with an optional tee to RTT
 * [`ww_counters`](ww_counters.md) — `Counters`: the device's `cnt` counters as raw buffer words (RAM and backup),
   decoded on the host with the firmware's ELF found by its build id (`ww counters`)
-* `ww_indication` — `Indication`: device indication LED control (mode, brightness, test mode)
+* [`ww_indication`](ww_indication.md) — `Indication`: device indication control (mode, optional brightness,
+  identify, indicator names)
 * [`ww_dfu`](ww_dfu.md) — `UpdateNode`, `BootControl`, `Inventory`, `Stage`, `StageBulk`: firmware update, A/B or
   in-place, step by step or bulk
 

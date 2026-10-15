@@ -1,0 +1,20 @@
+[package]
+name = "indication"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+indication_api.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
+tracing-subscriber.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_client_server.workspace = true
+ww_error = { workspace = true, features = ["std"] }
+ww_indication = { workspace = true, features = ["std"] }
+ww_si = { workspace = true, features = ["std"] }

@@ -1040,60 +1040,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/errors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Errors
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/optional_items/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../api/properties/" class="md-nav__link">
         
   
@@ -1183,6 +1129,60 @@
     
   
   Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -3275,7 +3275,7 @@ several buses nests it as an array, <code>ww_impl!(spi[]: ww_spi::Spi)</code>, m
   <code>SpiConfig</code> and answers with what was actually set: the frequency the hardware settled on, never above what was
   asked, and the IO level in effect (<code>io_level: None</code> leaves it as it is). <code>SpiRole::Disabled</code> releases the pins.</li>
 <li><code>set_cs</code> - asserts or releases CS, only meaningful with <code>CsMode::Manual</code>.</li>
-<li><code>monitor</code> - <code>#[optional]</code>, a counted <a href="../../api/streams/#opening-a-stream">stream function</a>: the host opens it with
+<li><code>monitor</code> - <code>#[optional]</code>, a counted <a href="../../api/streams/#stream-functions">stream function</a>: the host opens it with
   the bus settings needed to decode frames (mode, bit order, word size, IO level) and receives one <code>SpiFrame</code> per CS
   assertion seen on the bus, in order, until it closes the stream. The monitor doesn't drive CS or the clock itself, it only listens.
   Its unit is a frame: the event head carries when CS was asserted and how many frames the device dropped

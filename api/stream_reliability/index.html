@@ -1045,60 +1045,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../errors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Errors
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../optional_items/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../properties/" class="md-nav__link">
         
   
@@ -1300,17 +1246,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#receiving-on-the-host" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Receiving on the host
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#counting" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1378,6 +1313,60 @@
     
   
   Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -3243,17 +3232,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#receiving-on-the-host" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Receiving on the host
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#counting" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3473,15 +3451,8 @@ what it didn't get, or must get everything.</p>
 <p>Item types carry none of this: positions, loss counts and the time of the first unit are in a small head the framework
 puts in front of every event, so a <code>SampleBlock</code> stays pure data (an item may add a time of its own, such as when a
 UART chunk's last byte arrived).</p>
-<div class="admonition note">
-<p class="admonition-title">Status</p>
-<p>The protocol is built: the wire types in <code>ww_client_server::stream</code>, and the device and host state machines,
-stores and send scheduler in the <code>ww_stream</code> crate, all sans-IO and tested against a simulated lossy link.
-Declaring counted and reliable streams in a <code>#[ww_trait]</code> and the generated code are built too
-(<a href="../streams/">Streams</a>), and the host side in <code>wire_weaver_client</code>
-(<a href="#receiving-on-the-host">Receiving on the host</a>). Credit sinks on the same protocol (API-34) are being built;
-see <a href="../../features/">Features</a>.</p>
-</div>
+<p>This page explains what counted and reliable streams guarantee and how the protocol works. How to declare them, write
+the device's handlers and producers, and open and resume them on the host is in <a href="../streams/">Streams</a>.</p>
 <h2 id="where-stream-data-gets-lost">Where stream data gets lost<a class="headerlink" href="#where-stream-data-gets-lost" title="Permanent link">&para;</a></h2>
 <p>From a producer on the device to user code on the host:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a> producer ──► device buffer ──► event loop ──► framer ──► medium ──► host transport ──► event loop ──► stream queue ──► user code
@@ -3541,7 +3512,7 @@ losses and keep data on the device while it has room.</p>
 <li><strong>reliable</strong>: logs, monitors whose protocol decoders can't recover from a gap, data loggers that collect while no
   host is connected.</li>
 </ul>
-<p>The kind is part of the API, visible in introspection (<code>ApiItemKind::PositionedStream { ty, delivery }</code>), so it is
+<p>The kind is part of the API, visible in introspection (<code>ApiItemKind::StreamFn { delivery, .. }</code>), so it is
 chosen in the API crate. How much a reliable stream keeps, and where, is the device's choice: one device keeps 256 KB
 in RAM, another days of data on an SD card, behind the same API.</p>
 <h2 id="positions-and-units">Positions and units<a class="headerlink" href="#positions-and-units" title="Permanent link">&para;</a></h2>
@@ -3745,30 +3716,11 @@ bytes, since what runs out on the receiving side is memory:</p>
 <p>On USB the link doesn't lose, so <code>ResendFrom</code> never happens and an <code>Ack</code> is a few bytes every half window: a reliable
 stream costs almost nothing more than a counted one there, and adds backfill and bounded host memory.</p>
 <h2 id="stores">Stores<a class="headerlink" href="#stores" title="Permanent link">&para;</a></h2>
-<p>What a reliable stream keeps lives in a store, <code>ww_stream::store::StreamStore</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">StreamStore</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="k">type</span><span class="w"> </span><span class="nc">Error</span><span class="p">;</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="sd">/// Append an event, head and item bytes as they go on the wire.</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">push</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">head</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">StreamHead</span><span class="p">,</span><span class="w"> </span><span class="n">item</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">PushError</span><span class="o">&lt;</span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;</span><span class="p">;</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="sd">/// Copy the event at `pos`, or the first one after it, into `buf`.</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="o">&lt;&#39;</span><span class="na">b</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">pos</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">b</span><span class="w"> </span><span class="nc">mut</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">StoredEvent</span><span class="o">&lt;&#39;</span><span class="na">b</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w"> </span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="sd">/// Events before `pos` are acknowledged and may go.</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">release</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">pos</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="sd">/// Session, oldest and newest kept positions, next position, bytes used and capacity, persistent or not.</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">state</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">StoreState</span><span class="p">;</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="sd">/// A new session: drop everything, positions from 0.</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">session</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="bp">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="p">}</span>
-</span></code></pre></div>
-<ul>
-<li><strong><code>RamRing&lt;N&gt;</code></strong>: a byte ring of <code>N</code> bytes in RAM (each event takes <code>RECORD_OVERHEAD</code> bytes more than its item).
-  Survives host reconnects, not reboots.</li>
-<li><strong><code>LogStore</code></strong>: a log on an SD card or NOR flash that survives reboots and power cuts, keeping session, positions
-  and clock epochs; see <a href="../stream_stores/">Stream stores</a>.</li>
-<li>When a store is full it drops the newest events (<code>FullPolicy::DropNewest</code>, the default: what is kept stays
-  contiguous) or the oldest (<code>DropOldest</code>: the most recent data). Either way the units are counted and reported to the
-  host as lost.</li>
-</ul>
+<p>What a reliable stream keeps lives in a store, a <code>ww_stream::store::StreamStore</code> the device picks per stream: <code>RamRing</code>
+in RAM, <code>PersistentRamRing</code> in RAM that survives a soft reset, <code>LogStore</code> on an SD card or NOR flash that survives
+reboots and power cuts. When a store is full it drops the newest events (<code>FullPolicy::DropNewest</code>, the default) or the
+oldest (<code>DropOldest</code>); either way the units are counted and reported to the host as lost. See
+<a href="../stream_stores/">Stream stores</a>.</p>
 <p>Events are stored as they are sent, head included, so a resent event is bit-identical to the first send: its
 timestamp is the device's time when the data was made, never when it was sent. A reboot restarts the device's clock;
 the first event after one carries the new clock epoch in <code>HeadExt::clock_epoch</code>, so the host can tell the two
@@ -3777,21 +3729,25 @@ timelines apart.</p>
 <p>A <code>ww_stream::tx::Reliable</code> is one state: the producer pushes events into it, whether a host is there or not, and the
 event loop reads the next event out of it and sends it. Shared between tasks, it sits behind the firmware's async
 mutex, held for a push or a store read only, never while the link is busy, so a slow link never stalls a producer.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::{</span><span class="n">store</span><span class="p">::</span><span class="n">RamRing</span><span class="p">,</span><span class="w"> </span><span class="n">sched</span><span class="p">::</span><span class="n">Priority</span><span class="p">,</span><span class="w"> </span><span class="n">tx</span><span class="p">::{</span><span class="n">Reliable</span><span class="p">,</span><span class="w"> </span><span class="n">Pushed</span><span class="p">},</span><span class="w"> </span><span class="n">Run</span><span class="p">};</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="p">:</span><span class="w"> </span><span class="nc">Reliable</span><span class="o">&lt;</span><span class="n">RamRing</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">256</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Reliable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">RamRing</span><span class="p">::</span><span class="n">new</span><span class="p">()).</span><span class="n">priority</span><span class="p">(</span><span class="n">Priority</span><span class="p">::</span><span class="n">Low</span><span class="p">);</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1">// producer: units and time given here, nothing in the item type</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="k">if</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="o">&amp;</span><span class="n">block_bytes</span><span class="p">,</span><span class="w"> </span><span class="n">sets</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">t</span><span class="p">)).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">Pushed</span><span class="p">::</span><span class="n">Lost</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* counted, reported to the host */</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">samples</span><span class="p">.</span><span class="n">lost</span><span class="p">(</span><span class="n">dropped_sets</span><span class="p">);</span><span class="w"> </span><span class="c1">// the producer&#39;s own ring overflowed: goes into the next event&#39;s `lost`</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1">// event loop: what may go out now, then the sideband the host sends</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">ev</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">next_event</span><span class="p">(</span><span class="n">Run</span><span class="p">::</span><span class="n">Live</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* send ev.head and ev.item */</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">samples</span><span class="p">.</span><span class="n">on_sideband</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sideband</span><span class="p">,</span><span class="w"> </span><span class="n">now_ms</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">query</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">poll_query</span><span class="p">(</span><span class="n">now_ms</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* send it */</span><span class="w"> </span><span class="p">}</span>
+<p>Generated code drives it: <code>stream_data_ser().&lt;name&gt;_push(..)</code> pushes, the server's <code>poll_streams</code> sends and the
+dispatcher feeds it the host's sideband (<a href="../streams/#reliable-streams">Reliable streams</a>). Underneath, and for a
+device without generated code, it is:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::{</span><span class="n">store</span><span class="p">::</span><span class="n">RamRing</span><span class="p">,</span><span class="w"> </span><span class="n">sched</span><span class="p">::</span><span class="n">Priority</span><span class="p">,</span><span class="w"> </span><span class="n">tx</span><span class="p">::{</span><span class="n">Reliable</span><span class="p">,</span><span class="w"> </span><span class="n">Pushed</span><span class="p">},</span><span class="w"> </span><span class="n">Run</span><span class="p">};</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="p">:</span><span class="w"> </span><span class="nc">Reliable</span><span class="o">&lt;</span><span class="n">RamRing</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">256</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Reliable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">RamRing</span><span class="p">::</span><span class="n">new</span><span class="p">()).</span><span class="n">priority</span><span class="p">(</span><span class="n">Priority</span><span class="p">::</span><span class="n">Low</span><span class="p">);</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1">// producer: units and time given here, nothing in the item type</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">if</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="o">&amp;</span><span class="n">block_bytes</span><span class="p">,</span><span class="w"> </span><span class="n">sets</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">t</span><span class="p">)).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">Pushed</span><span class="p">::</span><span class="n">Lost</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* counted, reported to the host */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">samples</span><span class="p">.</span><span class="n">lost</span><span class="p">(</span><span class="n">dropped_sets</span><span class="p">);</span><span class="w"> </span><span class="c1">// the producer&#39;s own ring overflowed: goes into the next event&#39;s `lost`</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="c1">// event loop: what may go out now, the host&#39;s Ack / ResendFrom, a Query when the host went silent</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">ev</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">next_event</span><span class="p">(</span><span class="n">Run</span><span class="p">::</span><span class="n">Live</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* send ev.head and ev.item */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="n">samples</span><span class="p">.</span><span class="n">on_host_sideband</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sideband</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">query</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">poll_query</span><span class="p">(</span><span class="n">now_ms</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* send it */</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p><code>ww_stream::tx::Counted</code> is the same for counted streams, without a store: <code>head(units, t)</code> returns the head of the
-next event (<code>None</code> while no host has the stream open: the units count as lost), <code>lost(units)</code> counts drops, <code>unsent(&amp;head)</code> turns an event that couldn't be sent into lost units.</p>
+next event (<code>None</code> while no host has the stream open: the units count as lost), <code>lost(units)</code> counts drops,
+<code>unsent(&amp;head)</code> turns an event that couldn't be sent into lost units.</p>
 <p>With several streams, <code>ww_stream::sched::Scheduler</code> decides which one sends next: by priority class (<code>High</code>, <code>Normal</code>,
 <code>Low</code>, set by the device, not the API), the live run before the backfill run within a class, round-robin between
 streams of one class, up to a byte budget per turn so that requests are read in between. A device puts its log stream
@@ -3799,54 +3755,18 @@ above a bulk ADC stream, a logger the other way round. Plain streams write direc
 needs a priority is counted or reliable.</p>
 <p>On the host, <code>ww_stream::rx::Receiver</code> takes each event's head (<code>on_item</code>) and returns a <code>Verdict</code>: accept (with the
 gaps before it, each with its run, position, size and cause: <code>Device</code>, <code>Link</code>, <code>Store</code> or <code>Host</code>), duplicate, already
-had, late or out of order; <code>poll(now_ms)</code> returns the next <code>Ack</code> or <code>ResendFrom</code> to send.</p>
-<h2 id="receiving-on-the-host">Receiving on the host<a class="headerlink" href="#receiving-on-the-host" title="Permanent link">&para;</a></h2>
-<p>Opening a stream returns a handle: <code>PositionedStream&lt;T&gt;</code> for a counted or reliable one. Generated clients open it by
-calling the stream function (<code>device.samples(config).call().await?</code>); underneath, and for tools without generated
-code, it is <code>Commander::prepare_stream_open(path, delivery, args)</code>, and <code>prepare_stream_resume(path, delivery,
-cursor)</code> to resume. A stream function that returns <code>Result&lt;A, E&gt;</code> gives <code>Result&lt;(A, stream), E&gt;</code>: an <code>Err</code> opens
-nothing. <code>#[errors(..)]</code> on the stream function lists the variants of <code>E</code> it returns, as on methods (API-32, see
-<a href="../errors/#which-errors-a-method-returns">Errors</a>).</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adc</span><span class="p">.</span><span class="n">samples</span><span class="p">(</span><span class="n">config</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">ev</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">recv_event</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="k">match</span><span class="w"> </span><span class="n">ev</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Item</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">run</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* run: Live or Backfill */</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Gap</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">at</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">,</span><span class="w"> </span><span class="n">cause</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* cause: Device, Link, Store, Host */</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Resumed</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">cursor</span><span class="p">,</span><span class="w"> </span><span class="n">ended</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ended: the old session, when the device has a new one */</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">BackfillDone</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Disconnected</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Closed</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">}</span>
-</span></code></pre></div>
-<ul>
-<li><code>recv()</code> returns values only; gaps are logged and counted in <code>stats()</code> (<code>StreamStats</code>: received, lost by cause,
-  duplicates, late, out of order, resend requests, what is queued). Blocking and <code>try_</code> variants of each exist.</li>
-<li><code>cursor()</code> is where to resume from: everything before it was received (counted) or acknowledged (reliable).
-  A recorder saves it with its data and opens with <code>&lt;name&gt;_resume(cursor)</code> after a restart.</li>
-<li><code>ack_mode(AckMode::Explicit)</code> when opening: a reliable stream's data counts as received only when <code>ack(pos)</code>
-  confirms it (after writing it to disk, say), so a crash in between loses nothing. By default it counts when user
-  code takes it.</li>
-<li><code>split()</code> gives one handle per run, each in order: a dashboard reads the live one, a recorder both.</li>
-<li><code>close()</code>, or dropping the handle, closes the stream on the device.</li>
-</ul>
-<p>The receiver runs in the client's event loop, so a program that doesn't read still answers the device. Its memory
-stays bounded: a reliable stream holds at most its window (<code>window(bytes)</code> when opening, 4 MiB by default), and the
-device keeps the rest in its store; a counted stream holds <code>ClientConfig::stream_queue_bytes</code> (4 MiB by default) and
-drops what comes beyond it, reported as one <code>Gap { cause: Host }</code> before the next item that fits. Plain streams have
-the same bound: what they drop is counted (<code>Stream::dropped()</code>) and reported once as <code>RawStreamEvent::Dropped</code>.</p>
-<p>After <code>disconnect().keep_streams()</code> the handles stay open (they see <code>Disconnected</code>, not the end), and
-<code>Commander::resume_streams()</code> on the next connection resumes each from its cursor: the same handle goes on with
-<code>Resumed</code> and whatever the device kept meanwhile. Without <code>keep_streams</code>, a stream ends with the connection.</p>
-<p>The dynamic client has the same as <code>DynResource::positioned_stream</code> (<code>DynPositionedStream</code>, values as <code>ValueOwned</code>),
-Python as a <code>PositionedStream</code> object (<a href="../../python/#counted-and-reliable-streams">Python</a>).</p>
+had, late or out of order; <code>poll(now_ms)</code> returns the next <code>Ack</code> or <code>ResendFrom</code> to send. It runs in the client's
+event loop behind every <code>PositionedStream</code>, see <a href="../streams/#counted-and-reliable-streams-positionedstreamt">Counted and reliable streams on the
+host</a>.</p>
 <h2 id="counting">Counting<a class="headerlink" href="#counting" title="Permanent link">&para;</a></h2>
 <p>Every sending stream keeps <code>TxStats</code> (<code>stats()</code>): units sent and resent, lost by cause (producer, store full, no
 host), bytes acknowledged, resend requests, overruns. With the <code>cnt</code> feature it also counts into typed
 <a href="https://crates.io/crates/cnt"><code>cnt</code></a> instance counters, one set per stream, named by the firmware, so <code>cnt tui</code> shows
 per stream where data went:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">counters</span><span class="p">::</span><span class="n">StreamCnt</span><span class="p">;</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">static</span><span class="w"> </span><span class="n">ADC_SAMPLES_CNT</span><span class="p">:</span><span class="w"> </span><span class="nc">cnt</span><span class="p">::</span><span class="n">Counters</span><span class="o">&lt;</span><span class="n">StreamCnt</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cnt</span><span class="p">::</span><span class="n">counters</span><span class="o">!</span><span class="p">(</span><span class="n">StreamCnt</span><span class="p">,</span><span class="w"> </span><span class="n">adc_samples</span><span class="p">);</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Reliable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">RamRing</span><span class="p">::</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">256</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">()).</span><span class="n">counters</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ADC_SAMPLES_CNT</span><span class="p">);</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">counters</span><span class="p">::</span><span class="n">StreamCnt</span><span class="p">;</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">static</span><span class="w"> </span><span class="n">ADC_SAMPLES_CNT</span><span class="p">:</span><span class="w"> </span><span class="nc">cnt</span><span class="p">::</span><span class="n">Counters</span><span class="o">&lt;</span><span class="n">StreamCnt</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cnt</span><span class="p">::</span><span class="n">counters</span><span class="o">!</span><span class="p">(</span><span class="n">StreamCnt</span><span class="p">,</span><span class="w"> </span><span class="n">adc_samples</span><span class="p">);</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Reliable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">RamRing</span><span class="p">::</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">256</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">()).</span><span class="n">counters</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ADC_SAMPLES_CNT</span><span class="p">);</span>
 </span></code></pre></div>
 <p>The host's <code>Receiver</code> keeps <code>RxStats</code> with the same causes: received, lost on the device, on the link and in the store,
 duplicates, late, out of order.</p>

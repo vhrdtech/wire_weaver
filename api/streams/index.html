@@ -1045,60 +1045,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../errors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Errors
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../optional_items/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../properties/" class="md-nav__link">
         
   
@@ -1185,22 +1131,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#opening-a-stream" class="md-nav__link">
+  <a href="#stream-functions" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Opening a stream
+        Stream functions
       </span>
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Opening a stream">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#device-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device side
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Device side">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#counted-and-reliable-streams-on-the-device" class="md-nav__link">
+  <a href="#plain-streams" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Counted and reliable streams on the device
+        Plain streams
       </span>
     </span>
   </a>
@@ -1208,10 +1165,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#counted-and-reliable-streams-on-the-host" class="md-nav__link">
+  <a href="#counted-streams" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Counted and reliable streams on the host
+        Counted streams
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reliable-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reliable streams
       </span>
     </span>
   </a>
@@ -1224,33 +1192,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sending-stream-updates" class="md-nav__link">
+  <a href="#host-side" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Sending stream updates
+        Host side
       </span>
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sideband-channel" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Sideband channel
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Sideband channel">
+    <nav class="md-nav" aria-label="Host side">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#sideband-commands" class="md-nav__link">
+  <a href="#plain-streams-streamt" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Sideband commands
+        Plain streams: <code>Stream&lt;T&gt;</code>
       </span>
     </span>
   </a>
@@ -1258,10 +1215,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#sideband-events" class="md-nav__link">
+  <a href="#counted-and-reliable-streams-positionedstreamt" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Sideband events
+        Counted and reliable streams: <code>PositionedStream&lt;T&gt;</code>
       </span>
     </span>
   </a>
@@ -1269,10 +1226,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#handling-sideband-on-the-device" class="md-nav__link">
+  <a href="#resuming" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Handling sideband on the device
+        Resuming
       </span>
     </span>
   </a>
@@ -1281,6 +1238,28 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sinks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sinks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flow-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Flow control
+      </span>
+    </span>
+  </a>
   
 </li>
       
@@ -1308,40 +1287,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#wire-format" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Wire format
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#session" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Session
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#lossy-media-go-back-n-from-have" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Lossy media: go-back-N from <code>have</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#device-side" class="md-nav__link">
+  <a href="#device-side_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Device side
@@ -1352,7 +1298,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#host-side" class="md-nav__link">
+  <a href="#host-side_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Host side
@@ -1362,8 +1308,52 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#on-the-wire" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        On the wire
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sideband" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sideband
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arrays-of-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Arrays of streams
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#properties-as-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Properties as streams
+      </span>
+    </span>
+  </a>
   
 </li>
       
@@ -1418,6 +1408,60 @@
     
   
   Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -3195,22 +3239,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#opening-a-stream" class="md-nav__link">
+  <a href="#stream-functions" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Opening a stream
+        Stream functions
       </span>
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Opening a stream">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#device-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device side
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Device side">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#counted-and-reliable-streams-on-the-device" class="md-nav__link">
+  <a href="#plain-streams" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Counted and reliable streams on the device
+        Plain streams
       </span>
     </span>
   </a>
@@ -3218,10 +3273,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#counted-and-reliable-streams-on-the-host" class="md-nav__link">
+  <a href="#counted-streams" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Counted and reliable streams on the host
+        Counted streams
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reliable-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reliable streams
       </span>
     </span>
   </a>
@@ -3234,33 +3300,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sending-stream-updates" class="md-nav__link">
+  <a href="#host-side" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Sending stream updates
+        Host side
       </span>
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sideband-channel" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Sideband channel
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Sideband channel">
+    <nav class="md-nav" aria-label="Host side">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#sideband-commands" class="md-nav__link">
+  <a href="#plain-streams-streamt" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Sideband commands
+        Plain streams: <code>Stream&lt;T&gt;</code>
       </span>
     </span>
   </a>
@@ -3268,10 +3323,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#sideband-events" class="md-nav__link">
+  <a href="#counted-and-reliable-streams-positionedstreamt" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Sideband events
+        Counted and reliable streams: <code>PositionedStream&lt;T&gt;</code>
       </span>
     </span>
   </a>
@@ -3279,10 +3334,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#handling-sideband-on-the-device" class="md-nav__link">
+  <a href="#resuming" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Handling sideband on the device
+        Resuming
       </span>
     </span>
   </a>
@@ -3291,6 +3346,28 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sinks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sinks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flow-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Flow control
+      </span>
+    </span>
+  </a>
   
 </li>
       
@@ -3318,40 +3395,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#wire-format" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Wire format
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#session" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Session
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#lossy-media-go-back-n-from-have" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Lossy media: go-back-N from <code>have</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#device-side" class="md-nav__link">
+  <a href="#device-side_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Device side
@@ -3362,7 +3406,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#host-side" class="md-nav__link">
+  <a href="#host-side_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Host side
@@ -3372,8 +3416,52 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#on-the-wire" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        On the wire
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sideband" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sideband
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arrays-of-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Arrays of streams
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#properties-as-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Properties as streams
+      </span>
+    </span>
+  </a>
   
 </li>
       
@@ -3479,201 +3567,465 @@
 
 
 <h1 id="streams">Streams<a class="headerlink" href="#streams" title="Permanent link">&para;</a></h1>
-<p>Two types of streams are supported - from server to client (<code>stream!</code>) and from client to server (<code>sink!</code>).
-I.e., naming is from the perspective of the device (node) - stream out, sink in.</p>
+<p>A stream carries a sequence of values in one direction. Naming is from the device's point of view: a <strong>stream</strong> goes
+out of the device to the host (<code>stream!</code>), a <strong>sink</strong> goes into the device from the host (<code>sink!</code>).</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">MyDevice</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">byte</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">);</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">word</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">slice</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">);</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">user_defined</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">LedState</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">button</span><span class="p">:</span><span class="w"> </span><span class="nc">ButtonEvent</span><span class="p">);</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">uart_rx</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]);</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">uart_tx</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]);</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">leds</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">LedState</span><span class="o">&gt;</span><span class="p">);</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>Any type supported by the SerDes system works with streams as well. Streams can be used for many things, e.g., sending
-status updates or bytes from USART, frames to be transmitted on CAN bus, etc.</p>
-<p>Stream writes are not acknowledged - the write message is sent out, and no response is awaited by a client, server
-publishes a
-stream update and similarly does not wait for any response from a client.
-Sinks marked <code>#[credit]</code> get credit-based flow control instead, see
-<a href="#credit-based-flow-control-for-sinks">below</a>; for other streams, backpressure can be built on the sideband channel.
-Positions, exact lost-data accounting, reliable delivery and backfill for device → host streams: see
-<a href="../stream_reliability/">Stream delivery</a>.</p>
-<p>Streams can have a beginning and an end, for example, to implement a file IO or firmware update, to deal with small
-chunks
-at a time and yet be able to signal a completion event. It is also possible to send a user-defined delimiter, to be
-delivered in order with stream data, that can be used to implement frame synchronization.</p>
-<p>Another useful property of streams is that they work on the object level. For the <code>slice</code> stream in the example above,
-each individual array size is guaranteed to be preserved, even if multiple stream updates are transferred together at
-transport level. Sending <code>[1, 2, 3]</code>, <code>[4]</code>, <code>[5, 6]</code> will result in the same arrays received on the other end, in the
-same order.</p>
-<h2 id="opening-a-stream">Opening a stream<a class="headerlink" href="#opening-a-stream" title="Permanent link">&para;</a></h2>
-<p>A stream is opened by calling it (API-31): the host sends <code>RequestKind::StreamOpen</code> and the device calls the
-handler named like the stream, <code>close_&lt;name&gt;</code> when the host closes it. A stream can take arguments and return a
-result, and choose its delivery kind, as a stream function:</p>
+<p>Any type the SerDes system supports works as a stream item. Items keep their boundaries: each value sent arrives as
+one value, in order, even when several are packed into one packet on the way. Sending <code>[1, 2, 3]</code>, <code>[4]</code>, <code>[5, 6]</code>
+on <code>uart_rx</code> gives the same three slices on the other end. A byte item (<code>[u8]</code>, <code>Vec&lt;u8&gt;</code>, or
+<a href="../../types/#bounded-lists-and-strings-maxlent-n"><code>MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;</code></a> to bound it) is sent as is, without a
+length prefix.</p>
+<p>Streams and sinks come in kinds that differ in what they promise about delivery:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Declared as</th>
+<th>What is guaranteed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>plain stream</td>
+<td><code>stream!(name: T)</code></td>
+<td>nothing: items go out once, a lost one is gone unnoticed; the latest value wins</td>
+</tr>
+<tr>
+<td>counted stream</td>
+<td><code>#[counted] stream!(..)</code>, <code>#[stream(T, counted)] fn ..</code></td>
+<td>every item has a position: the host learns exactly how much was lost, where and why</td>
+</tr>
+<tr>
+<td>reliable stream</td>
+<td><code>#[reliable] stream!(..)</code>, <code>#[stream(T, reliable)] fn ..</code></td>
+<td>counted, acknowledged and resent; kept in a store on the device while the host is slow or gone</td>
+</tr>
+<tr>
+<td>plain sink</td>
+<td><code>sink!(name: T)</code></td>
+<td>nothing: writes are not acknowledged, the device keeps up or drops</td>
+</tr>
+<tr>
+<td>credit sink</td>
+<td><code>#[credit] sink!(name: T)</code></td>
+<td>flow control: the host never sends more than the device has room for, lost writes are resent</td>
+</tr>
+</tbody>
+</table>
+<p>The kind is part of the API and visible in introspection, so it is chosen in the API crate. What a counted or
+reliable stream guarantees, and how, is the subject of <a href="../stream_reliability/">Stream delivery</a>; this page shows how
+to declare, implement and use every kind.</p>
+<h2 id="stream-functions">Stream functions<a class="headerlink" href="#stream-functions" title="Permanent link">&para;</a></h2>
+<p>A stream is opened by calling it, like a method: the host sends its arguments, the device decides whether to start,
+and answers with a result. A stream that takes arguments or returns a result is declared as a <strong>stream function</strong>, a
+trait <code>fn</code> with a <code>#[stream(ItemType)]</code> or <code>#[stream(ItemType, counted | reliable)]</code> attribute:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Adc</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="sd">/// unit: sample set</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="cp">#[stream(SampleBlock&lt;&#39;i&gt;, reliable)]</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">samples</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">StreamConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">StreamActual</span><span class="p">,</span><span class="w"> </span><span class="n">AdcError</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="cp">#[counted]</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">rx</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">);</span><span class="w">  </span><span class="c1">// short form, no arguments and no result</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1">// host</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">actual</span><span class="p">,</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adc</span><span class="p">.</span><span class="n">samples</span><span class="p">(</span><span class="n">config</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">??</span><span class="p">;</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">rx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adc</span><span class="p">.</span><span class="n">rx</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="sd">/// Sample sets at `config.rate`; unit: sample set</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="cp">#[errors(BadRate, Common(InUse))]</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="cp">#[stream(SampleBlock&lt;&#39;i&gt;, reliable)]</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">samples</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">StreamConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">StreamActual</span><span class="p">,</span><span class="w"> </span><span class="n">AdcError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="sd">/// Bytes as they arrive on the line; unit: byte</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="cp">#[counted]</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">rx</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]);</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>R</code> is nothing or a <code>Result&lt;A, E&gt;</code>. The device decides in its open handler: <code>Ready(Ok(..))</code> / <code>Ready(())</code> starts a
-new session, <code>Ready(Err(..))</code> answers with the error and leaves the stream as it was. Calling a stream again opens it
-again (a new session, e.g. with another configuration). <code>ww api scaffold</code> prints every handler a server needs.</p>
-<p>Plain streams send <code>StreamData</code> events as <a href="#sending-stream-updates">below</a>. Counted and reliable streams carry
-positions in their events, see <a href="../stream_reliability/">stream reliability</a> for what they guarantee.</p>
-<h3 id="counted-and-reliable-streams-on-the-device">Counted and reliable streams on the device<a class="headerlink" href="#counted-and-reliable-streams-on-the-device" title="Permanent link">&para;</a></h3>
-<p>The server keeps each stream's state, a <code>ww_stream::tx::Counted</code> or <code>Reliable&lt;S&gt;</code> (with its store <code>S</code>), and hands
-it to generated code through <code>stream_&lt;name&gt;()</code>. Generated code opens, resumes and closes it, feeds it the host's
-acknowledgements and answers a read on the stream with its <code>StreamStatus</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Server</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="n">rx</span><span class="p">:</span><span class="w"> </span><span class="nc">Counted</span><span class="p">,</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="n">samples</span><span class="p">:</span><span class="w"> </span><span class="nc">Reliable</span><span class="o">&lt;</span><span class="n">RamRing</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">16</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;&gt;</span><span class="p">,</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="n">sessions</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">}</span>
+<p><code>stream!(name: T)</code> is the short form of a stream function without arguments and result, <code>#[counted]</code> /
+<code>#[reliable]</code> above it choose its kind. The return type is either nothing or a <code>Result&lt;A, E&gt;</code>: <code>Ok</code> opens the stream
+and gives the host <code>A</code> (e.g. the rate the device actually picked), <code>Err</code> answers with the error and leaves the stream
+as it was. Calling an open stream again opens it again, a new session, e.g. with another configuration.</p>
+<p><code>#[errors(..)]</code> above a stream function lists the variants of <code>E</code> opening it returns, as on methods (see
+<a href="../errors/#which-errors-a-method-returns">Errors</a>); a <code>stream!</code> has no result, so no list. <code>#[optional]</code> /
+<code>#[optional(group)]</code> lets a device leave a stream or sink out (see <a href="../optional_items/">Optional items</a>). Counted
+streams document their <strong>unit</strong> (byte, sample set, transaction), the doc comments above do so with <code>unit: ..</code>.</p>
+<p>On the wire, opening is a <code>RequestKind::StreamOpen { resume, args }</code> request, answered with a
+<code>ww_client_server::stream::StreamOpened</code> (the session and positions, empty for a plain stream) followed by the
+function's result. Closing is a <code>StreamSideband::Close</code> request from the host, or a <code>Close</code> event from the device
+when the stream ends on its own.</p>
+<h2 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h2>
+<p><code>ww api scaffold &lt;api_crate&gt;</code> prints every handler and state field a server needs, with the right signatures for
+the <code>ww_codegen!</code> options (see <a href="../../cli/#ww-api"><code>ww api</code></a>). For a stream named <code>samples</code> they are:</p>
+<table>
+<thead>
+<tr>
+<th>Handler</th>
+<th>Plain</th>
+<th>Counted</th>
+<th>Reliable</th>
+<th>Called</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fn samples(&amp;mut self, cx, args..) -&gt; RpcResult&lt;R&gt;</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>the host opens the stream</td>
+</tr>
+<tr>
+<td><code>fn close_samples(&amp;mut self, cx)</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>the host closes it</td>
+</tr>
+<tr>
+<td><code>fn sideband_samples(&amp;mut self, cx, sideband) -&gt; Option&lt;StreamSideband&gt;</code></td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>other sideband from the host, see <a href="#sideband">Sideband</a></td>
+</tr>
+<tr>
+<td><code>fn stream_samples(&amp;mut self) -&gt; &amp;mut Counted</code> / <code>&amp;mut Reliable&lt;S&gt;</code></td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>whenever generated code needs the stream's state</td>
+</tr>
+<tr>
+<td><code>fn new_stream_session(&amp;mut self) -&gt; u32</code> (one per server)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>a host opens a counted or reliable stream</td>
+</tr>
+</tbody>
+</table>
+<p>All handlers get <code>cx: &amp;mut Context&lt;'_, impl EventOut, Medium&gt;</code> (<code>impl BlockingEventOut</code> for <code>use_async = false</code>);
+streams in <a href="#arrays-of-streams">arrays</a> get their index chain after it. The open handler answers right away:
+<code>Ready(..)</code> with the result, <code>Unimplemented</code> refuses it; a deferred answer is not supported for an open.</p>
+<h3 id="plain-streams">Plain streams<a class="headerlink" href="#plain-streams" title="Permanent link">&para;</a></h3>
+<p>The generated <code>stream_data_ser()</code> has, for every plain stream, <code>&lt;name&gt;_send(&amp;value, out)</code> (async),
+<code>&lt;name&gt;_send_blocking(&amp;value, out)</code>, and <code>&lt;name&gt;(&amp;value, scratch)</code> returning the serialized event. <code>out</code> is the <code>cx</code> of
+a handler, or <code>server.sink()</code> of the <code>ww_device</code> server anywhere in the event loop (in the snippets, <code>server</code> is the
+<code>ww_device</code> server and <code>state</code> the struct the API is implemented on):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">impl</span><span class="w"> </span><span class="n">ServerState</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">button</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">RpcResult</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">button_open</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">        </span><span class="n">Ready</span><span class="p">(())</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="p">}</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">impl</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">stream_rx</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Counted</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">rx</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">stream_samples</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Reliable</span><span class="o">&lt;</span><span class="n">RamRing</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">16</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">samples</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="sd">/// A new session&#39;s number: put a boot counter into the high bits, so a cursor from before a reboot never matches</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">new_stream_session</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">sessions</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">sessions</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="c1">// open handlers `rx`, `samples` and `close_rx`, `close_samples` as for any stream</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="p">}</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">close_button</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">button_open</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">}</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1">// from a handler, goes out before its reply</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">button_send</span><span class="p">(</span><span class="o">&amp;</span><span class="n">event</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1">// from the event loop</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="k">if</span><span class="w"> </span><span class="n">state</span><span class="p">.</span><span class="n">button_open</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">    </span><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">uart_rx_send</span><span class="p">(</span><span class="o">&amp;</span><span class="n">chunk</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">sink</span><span class="p">()).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Nothing stops the device from sending to a plain stream no host opened: the host drops events no handle waits for.
+Keeping track of whether a host listens is up to the open and close handlers.</p>
+<h3 id="counted-streams">Counted streams<a class="headerlink" href="#counted-streams" title="Permanent link">&para;</a></h3>
+<p>A counted stream's state is a <code>ww_stream::tx::Counted</code>, usually a field of the server, handed to generated code by
+<code>stream_&lt;name&gt;()</code>. Generated code opens it (a new session, numbered by <code>new_stream_session()</code>), resumes it, closes it
+and answers a read on the stream with its <code>StreamStatus</code>. Producers send through it, naming the units of each item and
+the device time of its first unit, if any:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">ServerState</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="n">rx_stream</span><span class="p">:</span><span class="w"> </span><span class="nc">Counted</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">sessions</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">impl</span><span class="w"> </span><span class="n">ServerState</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">rx</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">RpcResult</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">        </span><span class="n">Ready</span><span class="p">(())</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">close_rx</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">stream_rx</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Counted</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">        </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">rx_stream</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">    </span><span class="sd">/// Put a boot counter into the high bits, so that a cursor from before a reboot never matches a new session.</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">new_stream_session</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">sessions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">sessions</span><span class="p">.</span><span class="n">wrapping_add</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">sessions</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="p">}</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="kd">let</span><span class="w"> </span><span class="n">ser</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">();</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="c1">// sent right away; while no host has the stream open, the units are counted as lost instead</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="n">ser</span><span class="p">.</span><span class="n">rx_send</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">state</span><span class="p">.</span><span class="n">rx_stream</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">chunk</span><span class="p">,</span><span class="w"> </span><span class="n">chunk</span><span class="p">.</span><span class="n">len</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">t</span><span class="p">),</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">sink</span><span class="p">()).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="c1">// the producer&#39;s own buffer overflowed: the next event reports it</span>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="n">state</span><span class="p">.</span><span class="n">rx_stream</span><span class="p">.</span><span class="n">lost</span><span class="p">(</span><span class="n">dropped_bytes</span><span class="p">);</span>
 </span></code></pre></div>
 <p><code>stream_&lt;name&gt;()</code> may return anything that dereferences to the state, e.g. a mutex guard when a producer task shares
-it. Reliable streams need an async server (<code>use_async = true</code>), their store is async.</p>
-<p>Producers name the units of each item when they send it (bytes of a chunk, samples of a block) and the device time
-of its first unit, if any:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">ser</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">();</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1">// counted: sent right away; while no host has it open the units are counted as lost</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">ser</span><span class="p">.</span><span class="n">rx_send</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">rx</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">chunk</span><span class="p">,</span><span class="w"> </span><span class="n">chunk</span><span class="p">.</span><span class="n">len</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">t</span><span class="p">),</span><span class="w"> </span><span class="n">cx</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">server</span><span class="p">.</span><span class="n">rx</span><span class="p">.</span><span class="n">lost</span><span class="p">(</span><span class="n">dropped</span><span class="p">);</span><span class="w"> </span><span class="c1">// the producer&#39;s own buffer overflowed: the next event reports it</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1">// reliable: into the store, never waits for the link</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">ser</span><span class="p">.</span><span class="n">samples_push</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">samples</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">block</span><span class="p">,</span><span class="w"> </span><span class="mi">256</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">t</span><span class="p">),</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">scratch</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1">// event loop, between requests: send what the stores have, by priority, and ask a silent host where it is</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">server</span><span class="p">.</span><span class="n">poll_streams</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="n">now_ms</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+it. Counted streams work in sync servers too (<code>&lt;name&gt;_send_blocking</code>).</p>
+<h3 id="reliable-streams">Reliable streams<a class="headerlink" href="#reliable-streams" title="Permanent link">&para;</a></h3>
+<p>A reliable stream's state is a <code>ww_stream::tx::Reliable&lt;S&gt;</code> with a store <code>S</code> that keeps every event until the host
+acknowledges it: <code>RamRing&lt;N&gt;</code> in RAM, <code>PersistentRamRing&lt;N&gt;</code> across a soft reset, or <code>LogStore</code> on an SD card or flash
+(see <a href="../stream_stores/">Stream stores</a>). Stores are async, so reliable streams need an async server
+(<code>use_async = true</code>, a compile error otherwise).</p>
+<p>Producers push into the store and never wait for the link; the generated <code>poll_streams</code> sends what the stores have,
+called from the event loop between requests:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">ServerState</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="n">samples_stream</span><span class="p">:</span><span class="w"> </span><span class="nc">Reliable</span><span class="o">&lt;</span><span class="n">RamRing</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">16</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;&gt;</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">sessions</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">}</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">impl</span><span class="w"> </span><span class="n">ServerState</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">stream_samples</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Reliable</span><span class="o">&lt;</span><span class="n">RamRing</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="mi">16</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">        </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">samples_stream</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="c1">// samples(), close_samples() and new_stream_session() as above</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">}</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1">// producer: `scratch` holds the serialized item on its way into the store</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="kd">let</span><span class="w"> </span><span class="n">pushed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">()</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="p">.</span><span class="n">samples_push</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">state</span><span class="p">.</span><span class="n">samples_stream</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">block</span><span class="p">,</span><span class="w"> </span><span class="mi">256</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">t</span><span class="p">),</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">scratch</span><span class="p">)</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// Pushed::Lost when the store was full: counted, reported to the host</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="c1">// event loop</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="k">loop</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="n">Either</span><span class="p">::</span><span class="n">First</span><span class="p">(</span><span class="n">ready</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">select</span><span class="p">(</span><span class="n">server</span><span class="p">.</span><span class="n">wait</span><span class="p">(),</span><span class="w"> </span><span class="n">Timer</span><span class="p">::</span><span class="n">after_millis</span><span class="p">(</span><span class="mi">5</span><span class="p">)).</span><span class="k">await</span>
+</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">        </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">event</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">handle</span><span class="p">(</span><span class="n">ready</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">).</span><span class="k">await</span>
+</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">        </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="fm">matches!</span><span class="p">(</span><span class="n">event</span><span class="p">,</span><span class="w"> </span><span class="n">LinkEvent</span><span class="p">::</span><span class="n">Down</span><span class="p">(</span><span class="n">_</span><span class="p">))</span>
+</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">        </span><span class="c1">// stop sending, keep the data for the host&#39;s resume</span>
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">        </span><span class="n">state</span><span class="p">.</span><span class="n">samples_stream</span><span class="p">.</span><span class="n">detach</span><span class="p">();</span>
+</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">is_up</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">now_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Instant</span><span class="p">::</span><span class="n">now</span><span class="p">().</span><span class="n">as_millis</span><span class="p">();</span>
+</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="w">        </span><span class="c1">// by priority, live before backlog, up to 2048 bytes of items; `buf` holds the biggest item</span>
+</span><span id="__span-4-30"><a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="w">        </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p">.</span><span class="n">poll_streams</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">sink</span><span class="p">(),</span><span class="w"> </span><span class="n">now_ms</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">2048</span><span class="p">).</span><span class="k">await</span><span class="p">;</span>
+</span><span id="__span-4-31"><a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-32"><a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a><span class="p">}</span>
 </span></code></pre></div>
-<h3 id="counted-and-reliable-streams-on-the-host">Counted and reliable streams on the host<a class="headerlink" href="#counted-and-reliable-streams-on-the-host" title="Permanent link">&para;</a></h3>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">actual</span><span class="p">,</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adc</span><span class="p">.</span><span class="n">samples</span><span class="p">(</span><span class="n">config</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">??</span><span class="p">;</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">cursor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">cursor</span><span class="p">();</span><span class="w">                  </span><span class="c1">// save it with the data</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adc</span><span class="p">.</span><span class="n">samples_resume</span><span class="p">(</span><span class="n">cursor</span><span class="o">?</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">   </span><span class="c1">// after a restart: the backlog and live data</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adc</span><span class="p">.</span><span class="n">samples_status</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// open, session, positions, store use</span>
+<p><code>poll_streams(out, now_ms, buf, budget_bytes)</code> is generated when the API has reliable streams. It also asks a host
+that went silent where it is, and the host's acknowledgements and resend requests reach the store through the
+dispatcher. Detaching on <code>LinkEvent::Down</code> is the firmware's job: a detached stream sends nothing and keeps its data
+for the host's resume.</p>
+<p>A reliable stream only stores once it has a session: from the first open by a host, or from boot on when the
+firmware starts one itself, so that a logger keeps what it records before any host connects:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// at boot, before the event loop</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">session</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p">.</span><span class="n">new_stream_session</span><span class="p">();</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">state</span><span class="p">.</span><span class="n">samples_stream</span><span class="p">.</span><span class="n">start_session</span><span class="p">(</span><span class="n">session</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1">// or, with a store that survives reboots: continue the session it holds</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">state</span><span class="p">.</span><span class="n">samples_stream</span><span class="p">.</span><span class="n">continue_stored_session</span><span class="p">();</span>
 </span></code></pre></div>
-<h2 id="sending-stream-updates">Sending stream updates<a class="headerlink" href="#sending-stream-updates" title="Permanent link">&para;</a></h2>
-<p>The server side generates <code>stream_data_ser()</code>, with <code>&lt;name&gt;_send(&amp;value, out)</code> (async) and <code>&lt;name&gt;_send_blocking</code>
-(sync) for every <code>stream!</code>, and <code>&lt;name&gt;(&amp;value, scratch)</code> returning the serialized event. <code>out</code> is either the <code>cx</code>
-a handler gets, or <code>server.sink()</code> anywhere else in the event loop:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// from a handler, goes out before its reply</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">byte_send</span><span class="p">(</span><span class="o">&amp;</span><span class="mh">0xAA</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1">// from the event loop</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">slice_send</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">sink</span><span class="p">()).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+<p><code>Reliable::new(store).priority(Priority::High)</code> sets the stream's priority against other reliable streams, see
+<a href="../stream_reliability/#sending-producers-the-event-loop-and-priorities">Sending: producers, the event loop and priorities</a>.
+<code>examples_mcu/rp2/src/bin/usb_log.rs</code> is a complete firmware with a reliable log stream.</p>
+<h2 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h2>
+<p>Generated clients have one function per stream. A stream function prepares the open; <code>.call().await</code> (or
+<code>.blocking_call()</code>) sends it and returns the stream handle, together with the function's result when it has one:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">// stream!(button: ButtonEvent): a plain stream, Stream&lt;ButtonEvent&gt;</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">button</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">button</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1">// a counted stream, PositionedStream&lt;TailBytesOwned&gt;</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">rx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">rx</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1">// a fallible stream function: Result&lt;(StreamActual, PositionedStream&lt;..&gt;), AdcError&gt; inside the call&#39;s Result</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">actual</span><span class="p">,</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">samples</span><span class="p">(</span><span class="n">config</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">??</span><span class="p">;</span>
 </span></code></pre></div>
-<p>Streams inside trait arrays are reached the same way as on the client, e.g.,
-<code>stream_data_ser().port(0).pin(7).event_send(&amp;event, cx)</code>.</p>
-<h2 id="sideband-channel">Sideband channel<a class="headerlink" href="#sideband-channel" title="Permanent link">&para;</a></h2>
-<p>In order to facilitate stream open/close operations, frame synchronization and other operations, all streams
-in addition to a data channel have:</p>
+<p>Before <code>.call()</code>, the prepared open takes <code>.with_timeout(..)</code>, <code>.queue_bytes(..)</code> (how much the host queues before it
+drops, plain and counted streams), <code>.window(..)</code> and <code>.ack_mode(..)</code> (reliable streams). Only what the device sends
+after the open reaches the handle; events before it are not buffered.</p>
+<h3 id="plain-streams-streamt">Plain streams: <code>Stream&lt;T&gt;</code><a class="headerlink" href="#plain-streams-streamt" title="Permanent link">&para;</a></h3>
 <ul>
-<li>A sideband command channel</li>
-<li>A sideband event channel</li>
+<li><code>recv()</code> returns the next value, <code>recv_blocking()</code> and <code>try_recv()</code> (<code>None</code> when nothing is there yet) the same
+  without async. They skip <code>Connected</code> and fail on a sideband event or a disconnect.</li>
+<li><code>recv_any()</code> (<code>recv_any_blocking()</code>) returns every event: <code>TypedStreamEvent::Data(value)</code>, <code>Sideband(..)</code>,
+  <code>Connected</code>, <code>Disconnected</code>, <code>Dropped { events, bytes }</code>.</li>
+<li>A byte stream (<code>Stream&lt;TailBytesOwned&gt;</code>) has <code>recv_all_bytes()</code>, collecting everything until the device sends
+  <code>Close</code>, with <code>_blocking</code> and <code>_timeout</code> variants.</li>
+<li><code>close()</code> closes the stream on the device. Dropping the handle doesn't.</li>
 </ul>
-<p>All sideband data is sent in-order with the payloads (no reordering).</p>
-<h3 id="sideband-commands">Sideband commands<a class="headerlink" href="#sideband-commands" title="Permanent link">&para;</a></h3>
-<p>The following stream sideband commands are supported:</p>
-<ul>
-<li>Open</li>
-<li>Close</li>
-<li>FrameSync</li>
-<li>ChangeRate(ShaperConfig)</li>
-<li>SizeHint(u32)</li>
-<li>User(u32)</li>
-<li>CreditQuery { sent } (credit sinks only, see <a href="#credit-based-flow-control-for-sinks">below</a>)</li>
-</ul>
-<p>All commands are optional, including open and close.
-Depending on the application, it might be beneficial to start a stream automatically without waiting for the command.</p>
-<p>See <a href="https://github.com/vhrdtech/ww_stdlib/blob/main/ww_client_server/src/lib.rs#:~:text=StreamSidebandCommand">StreamSidebandCommand</a></p>
-<h3 id="sideband-events">Sideband events<a class="headerlink" href="#sideband-events" title="Permanent link">&para;</a></h3>
-<p>The following stream sideband events are supported:</p>
-<ul>
-<li>Opened</li>
-<li>Closed</li>
-<li>FrameSync</li>
-<li>SizeHint(u32)</li>
-<li>User(u32)</li>
-<li>Credit { have, grant } and Resend { have, grant } (credit sinks only)</li>
-</ul>
-<h3 id="handling-sideband-on-the-device">Handling sideband on the device<a class="headerlink" href="#handling-sideband-on-the-device" title="Permanent link">&para;</a></h3>
-<p>A sideband command from the host calls <code>sideband_&lt;name&gt;(cx, sideband)</code> on the server (<code>Close</code> on a stream calls
-<code>close_&lt;name&gt;</code> instead). Returning <code>Some(sideband)</code> sends
-it back as a sideband event on the same stream, <code>None</code> sends back only an acknowledgement. Either way the host gets an
-answer and releases the request's seq right away; <code>close()</code> and <code>sideband()</code> on the host don't wait for it.</p>
-<p>The device can also send sideband events on its own, for streams and sinks alike: <code>stream_data_ser()</code> has
-<code>&lt;name&gt;_sideband_send(sideband, out)</code>, <code>&lt;name&gt;_sideband_send_blocking</code> and <code>&lt;name&gt;_sideband(sideband, scratch)</code>, used
-the same way as the data methods above:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">// e.g., tell the host a sink&#39;s buffer is full</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">word_sideband_send</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span><span class="w"> </span><span class="n">cx</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+<p>The host queues at most <code>ClientConfig::stream_queue_bytes</code> (4 MiB by default) of a stream's items when user code
+doesn't read; what comes beyond is dropped, counted in <code>dropped()</code> and reported once as <code>Dropped</code>.</p>
+<h3 id="counted-and-reliable-streams-positionedstreamt">Counted and reliable streams: <code>PositionedStream&lt;T&gt;</code><a class="headerlink" href="#counted-and-reliable-streams-positionedstreamt" title="Permanent link">&para;</a></h3>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">ev</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">recv_event</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="k">match</span><span class="w"> </span><span class="n">ev</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Item</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">run</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* run: Live or Backfill */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Gap</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">at</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">,</span><span class="w"> </span><span class="n">cause</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* cause: Device, Link, Store, Host */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Resumed</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">cursor</span><span class="p">,</span><span class="w"> </span><span class="n">ended</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ended: the old session, when the device has a new one */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">BackfillDone</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Disconnected</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Closed</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>On the host, a stream or sink receives everything the device sends after it is opened (e.g.,
-<code>client.byte().call().await</code> or <code>client.word().await</code>) returns, events sent before that are not buffered. The first event is always <code>Connected</code> (or <code>Disconnected</code>), which
-<code>recv()</code> skips. <code>Stream::recv_any()</code> returns sideband events along with data, <code>Sink::recv_sideband()</code> (<code>_blocking</code>,
-<code>try_recv_sideband()</code>) returns the ones sent to a sink.</p>
+<ul>
+<li><code>recv()</code> (<code>_blocking</code>, <code>try_</code>) returns values only; gaps are logged and counted in <code>stats()</code> (<code>StreamStats</code>:
+  received, lost by cause, duplicates, late, out of order, resend requests, queued).</li>
+<li><code>cursor()</code> is where to resume from: everything before it was received (counted) or acknowledged (reliable). A
+  recorder saves it with its data. <code>session()</code> is the device's session number.</li>
+<li><code>.ack_mode(AckMode::Explicit)</code> when opening: a reliable stream's data counts as received only once <code>ack(pos)</code>
+  confirms it, e.g. after writing it to disk, so a crash in between loses nothing. By default (<code>AckMode::OnReceive</code>)
+  it counts when user code takes it.</li>
+<li><code>split()</code> gives one handle per run, each in order: a dashboard reads the live one, a recorder both.</li>
+<li><code>close()</code>, or dropping the last handle, closes the stream on the device.</li>
+</ul>
+<p>The receiver runs in the client's event loop, so a program that doesn't read still answers the device, and its memory
+stays bounded: a reliable stream holds at most its window (<code>.window(bytes)</code>, 4 MiB by default) and the device keeps
+the rest in its store; a counted stream drops what goes beyond its queue and reports it as <code>Gap { cause: Host }</code>.</p>
+<h3 id="resuming">Resuming<a class="headerlink" href="#resuming" title="Permanent link">&para;</a></h3>
+<p>Counted and reliable streams also get <code>&lt;name&gt;_resume(cursor)</code> and <code>&lt;name&gt;_status()</code>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// after a restart: the backlog from the saved cursor, beside live data</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">samples_resume</span><span class="p">(</span><span class="n">saved_cursor</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1">// open or not, session, positions, store use</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">samples_status</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p>A resume continues the session with the arguments it was opened with on the device, so it has no arguments and no
+result. A cursor of an older session (the device opened the stream again or lost its store) starts with the current
+session, and <code>Resumed { ended: Some(old) }</code> says so. Across a reconnect of the same program,
+<code>disconnect().keep_streams()</code> keeps the handles open (they see <code>Disconnected</code>, not the end), and
+<code>Commander::resume_streams()</code> on the next connection resumes each from its cursor: the same handle goes on with
+<code>Resumed</code> and whatever the device kept meanwhile.</p>
+<p>The dynamic client opens streams with <code>DynResource::positioned_stream</code> (<code>DynPositionedStream</code>, values as
+<code>ValueOwned</code>), Python with <code>open()</code> on the stream (<a href="../../python/#counted-and-reliable-streams">Python</a>).</p>
+<h2 id="sinks">Sinks<a class="headerlink" href="#sinks" title="Permanent link">&para;</a></h2>
+<p>A sink is written by the host, one value per write:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">// host</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">leds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">leds</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">            </span><span class="c1">// Sink&lt;Vec&lt;LedState&gt;&gt;, `leds_blocking()` without async</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">leds</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="fm">vec!</span><span class="p">[</span><span class="n">LedState</span><span class="p">::</span><span class="n">On</span><span class="p">,</span><span class="w"> </span><span class="n">LedState</span><span class="p">::</span><span class="n">Off</span><span class="p">]).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">uart_tx</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">           </span><span class="c1">// Sink&lt;TailBytesOwned&gt;</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">tx</span><span class="p">.</span><span class="n">send_bytes</span><span class="p">(</span><span class="s">b&quot;hello&quot;</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p><code>send()</code> / <code>send_blocking()</code> take a borrowed value, <code>send_owned()</code> an owned type (<code>FooOwned</code>), <code>send_bytes()</code> the
+bytes of a byte sink; <code>try_send()</code> (<code>try_send_owned()</code>, <code>try_send_bytes()</code>) returns <code>Ok(false)</code> instead of waiting,
+for GUIs and promise-style code.</p>
+<p>On the device, each write calls <code>write_&lt;name&gt;(cx, value)</code>; a byte sink gets the bytes as <code>&amp;TailBytes&lt;'_&gt;</code>, a byte sink
+with a <code>MaxLen</code> bound refuses a longer write before the handler sees it:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">write_uart_tx</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">BlockingEventOut</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">TailBytes</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">tx_ring</span><span class="p">.</span><span class="n">push_slice</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="mi">0</span><span class="p">).</span><span class="n">is_err</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">tx_dropped</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="c1">// the device can&#39;t push back on a plain sink</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>A plain sink's writes are sent without a request id: the device sends nothing back, and the host doesn't wait. A
+plain sink needs no opening, <code>send()</code> works right away; <code>open()</code> and <code>close()</code> send the <code>Open</code> and <code>Close</code> sideband,
+which reach the device's <code>sideband_&lt;name&gt;</code> handler, for devices that want to know.</p>
+<h2 id="flow-control">Flow control<a class="headerlink" href="#flow-control" title="Permanent link">&para;</a></h2>
+<p>What keeps a fast side from overrunning a slow one depends on the kind:</p>
+<ul>
+<li><strong>Plain streams</strong>: nothing. The device sends what it has, the host queues up to <code>stream_queue_bytes</code> per stream and
+  drops beyond it.</li>
+<li><strong>Counted streams</strong>: nothing slows the device down either, but every loss, on the device, on the link or in the
+  host's queue, is reported with its size and place.</li>
+<li><strong>Reliable streams</strong>: the host grants the device a window of bytes in flight and acknowledges what it received; a
+  host that doesn't read stops granting, and the device keeps the data in its store (see
+  <a href="../stream_reliability/#acknowledgements-and-resends">Acknowledgements and resends</a>).</li>
+<li><strong>Plain sinks</strong>: the host's writes go through the client's bounded command queue (<code>ClientConfig::cmd_queue_size</code>),
+  so a program can't outrun its own link; nothing tells it whether the device keeps up. A device that can't has to drop,
+  or tell the host with its own sideband events.</li>
+<li><strong>Credit sinks</strong>: the device grants room in bytes and the host never sends more, below.</li>
+</ul>
 <h2 id="credit-based-flow-control-for-sinks">Credit-based flow control for sinks<a class="headerlink" href="#credit-based-flow-control-for-sinks" title="Permanent link">&para;</a></h2>
-<p>Plain sinks are not acknowledged: the host writes as fast as it can, and a device that can't keep up has to drop data
-or tell the host to slow down with its own sideband events. A sink marked <code>#[credit]</code> gets flow control and
-acknowledgements built in, for bulk transfers into a device over slow or lossy links: a firmware update plan streamed
-into a single-bank MCU that stalls on every flash write, bytes for a UART bridge, frames for a CAN transmitter.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="cp">#[ww_trait]</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Updater</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="sd">/// Update plan: steps and data, tens to hundreds of KB, in pieces of up to 1 KiB</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="cp">#[credit]</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">plan</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">1024</span><span class="o">&gt;</span><span class="p">);</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">}</span>
+<p>A sink marked <code>#[credit]</code> gets flow control and acknowledgements built in, for bulk transfers into a device over slow
+or lossy links: a firmware update plan streamed into a single-bank MCU that stalls on every flash write, bytes for a
+UART bridge, frames for a CAN transmitter.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Updater</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="sd">/// Update plan: steps and data, tens to hundreds of KB, in pieces of up to 1 KiB</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="cp">#[credit]</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">plan</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">1024</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The device grants the host <strong>credit in bytes</strong>: the bytes of the sink's items, one item being the serialized value of
-one write, as sent. The host may only send as many bytes as the device said it has room for, and never splits an
-item: it sends one only when all of it fits into the credit left. The host waits (async), blocks (blocking) or returns
-"would block" (<code>try_send</code>, for GUIs and promises) when it is out of credit, so it never outruns the device's receive
-buffer, however slow the device or fast the link is.</p>
+one write, as sent. The host sends an item only when all of it fits into the credit left, and never splits one. Out of
+credit, <code>send()</code> waits, <code>send_blocking()</code> blocks and <code>try_send()</code> returns <code>Ok(false)</code>, so the host never outruns the
+device's receive buffer, however slow the device or fast the link.</p>
 <h3 id="why-bytes-and-not-values">Why bytes and not values<a class="headerlink" href="#why-bytes-and-not-values" title="Permanent link">&para;</a></h3>
 <p>What runs out on a device is RAM: the bytes of its receive buffer. Counting values (one slot per write) would make
 the device size every slot for the largest value, so a buffer that holds sixteen 1 KiB pieces would also hold only
-sixteen 20-byte ones. Counting bytes, the same buffer holds as many items as fit, however their sizes vary (a
-<code>ww_dfu</code> bulk plan has segments of up to 1 KiB, but often much smaller ones).</p>
+sixteen 20-byte ones. Counting bytes, the same buffer holds as many items as fit, however their sizes vary.</p>
 <p>The price is one rule, since items are never split: <strong>the device must always be able to grant at least its largest
 item</strong>, or the host could never send it. Three things keep a transfer from getting stuck:</p>
 <ul>
-<li>The buffer holds the largest item. Each credit sink gets the size of its largest item, from the type's <code>MAX_SIZE</code>
-  (<code>None</code> for a type without an upper bound, e.g., <code>[u8]</code>; bound it with
-  <a href="../../types/#bounded-lists-and-strings-maxlent-n"><code>MaxLen</code></a>: <code>MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;</code> gives <code>N</code>, a byte sink
-  sends its bytes as is): <code>&lt;SINK&gt;_MAX_ITEM_BYTES: Option&lt;u32&gt;</code> on the level's <code>&lt;Level&gt;StreamSerializer</code>, also
-  <code>stream_data_ser().&lt;sink&gt;_max_item_bytes()</code> (a <code>const fn</code>). <code>SinkCredit::sized_for(buffer_bytes, max_item)</code> checks
-  it, a compile error in a <code>const</code>, <code>try_sized_for()</code> returns an error for a size known at runtime. For an unbounded
-  type the host checks: a value bigger than the device's buffer (the first credit after <code>Open</code>) fails <code>send()</code> with
-  <code>StreamError::ItemTooBig</code> right away instead of waiting forever.</li>
-<li>A re-grant lets the largest item in. The device re-grants once it freed <code>threshold</code> bytes; <code>sized_for</code> caps the
-  threshold at <code>buffer - largest item + 1</code>, so a host waiting for room for a big item always gets it with the next
-  grant. With an unbounded type, set the threshold that way yourself (<code>with_threshold</code>), or a waiting host only learns
-  of the room from its next <code>CreditQuery</code> (after <code>query_interval</code>).</li>
-<li>The device consumes without waiting for more. A device that collects data before writing it out (a flash page)
+<li><strong>The buffer holds the largest item.</strong> The generated <code>&lt;SINK&gt;_MAX_ITEM_BYTES: Option&lt;u32&gt;</code> on the level's stream
+  serializer (also <code>stream_data_ser().&lt;sink&gt;_max_item_bytes()</code>, a <code>const fn</code>) is the largest item, from the type's
+  <code>MAX_SIZE</code>: <code>MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;</code> gives <code>N</code> (bytes are sent as is), a type without an upper bound (<code>[u8]</code>)
+  <code>None</code>. <code>SinkCredit::sized_for(buffer_bytes, max_item)</code> checks it, a compile error in a <code>const</code>;
+  <code>try_sized_for()</code> returns an error for a size known at runtime. For an unbounded type the host checks: a value
+  bigger than the device's buffer (the first credit of a session) fails <code>send()</code> with <code>StreamError::ItemTooBig</code>
+  instead of waiting forever.</li>
+<li><strong>A re-grant lets the largest item in.</strong> The device re-grants once it freed <code>threshold</code> bytes (half the buffer by
+  default); <code>sized_for</code> caps the threshold at <code>buffer - largest item + 1</code>, so a host waiting for room for a big item
+  always gets it with the next grant. With an unbounded type, set the threshold that way yourself
+  (<code>with_threshold</code>), or a waiting host only learns of the room from its next <code>CreditQuery</code>.</li>
+<li><strong>The device consumes without waiting for more.</strong> A device that collects data before writing it out (a flash page)
   has to write it once less room than the largest item is left: the host can't send the next item before that.</li>
 </ul>
-<p>An empty item (e.g., <code>[]</code>) takes one position, so each item has its own and a lost one is noticed like any other;
-generated code frees that position right away, it needs no room.</p>
-<h3 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h3>
-<p>A credit sink is a different resource kind from a plain sink (<code>ApiItemKind::FlowSink { ty, flow: FlowControl::Credit
-}</code> in <code>ww_self</code>), so introspection, the dynamic client and the Python client know to speak this protocol, and turning
-a plain sink into a credit sink is an API break (its writes change).</p>
-<p>Each write carries its <strong>position</strong>: the byte position of its first byte (bytes of items sent since the start of the
-session), followed by the item itself, as <code>ww_client_server::CreditWrite { pos: UVlq32, data: TailBytes }</code> inside
-<code>RequestKind::Write</code>. That costs 1 byte for the first 128 bytes of a session, 2 bytes up to 16 KiB, 3 bytes up to
-2 MiB, 4 bytes up to 256 MiB.</p>
-<p>Three <code>StreamSideband</code> variants are added (appended, so existing values keep their encoding):</p>
+<h3 id="device-side_1">Device side<a class="headerlink" href="#device-side_1" title="Permanent link">&para;</a></h3>
+<p>Generated server code does the bookkeeping; user code says how many bytes it can buffer and when it frees some. A
+credit sink has one more handler, <code>credit_&lt;name&gt;()</code>, returning its state, a <code>ww_client_server::credit::SinkCredit</code>,
+usually a field of the server (arrays of sinks get the index chain and need one state per index):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">const</span><span class="w"> </span><span class="n">BUF</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4096</span><span class="p">;</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="sd">/// Some(1024), from the API&#39;s MaxLen bound</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="k">const</span><span class="w"> </span><span class="n">LARGEST</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">plan_max_item_bytes</span><span class="p">();</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="sd">/// a buffer smaller than the largest item would not compile</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="k">const</span><span class="w"> </span><span class="n">PLAN_CREDIT</span><span class="p">:</span><span class="w"> </span><span class="nc">SinkCredit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SinkCredit</span><span class="p">::</span><span class="n">sized_for</span><span class="p">(</span><span class="n">BUF</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">LARGEST</span><span class="p">);</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Server</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">    </span><span class="n">plan_credit</span><span class="p">:</span><span class="w"> </span><span class="nc">SinkCredit</span><span class="p">,</span><span class="w"> </span><span class="c1">// PLAN_CREDIT, re-granted every BUF / 2 bytes freed</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">    </span><span class="n">plan_buf</span><span class="p">:</span><span class="w"> </span><span class="nc">heapless</span><span class="p">::</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">BUF</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="p">}</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="k">impl</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">credit_plan</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">SinkCredit</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">        </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_credit</span>
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">write_plan</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">BlockingEventOut</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">TailBytes</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="w">        </span><span class="c1">// only called for writes in order, never more bytes than the credit granted</span>
+</span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_buf</span><span class="p">.</span><span class="n">extend_from_slice</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="mi">0</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-12-20"><a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="w">        </span><span class="c1">// the next item might not fit: write out now, the host can&#39;t send more before that</span>
+</span><span id="__span-12-21"><a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_buf</span><span class="p">.</span><span class="n">len</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">BUF</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">LARGEST</span><span class="p">.</span><span class="n">unwrap</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-22"><a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="w">            </span><span class="n">flash_write</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">plan_buf</span><span class="p">);</span><span class="w"> </span><span class="c1">// stalls for a while</span>
+</span><span id="__span-12-23"><a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_credit</span><span class="p">.</span><span class="n">free</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">plan_buf</span><span class="p">.</span><span class="n">len</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
+</span><span id="__span-12-24"><a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_buf</span><span class="p">.</span><span class="n">clear</span><span class="p">();</span>
+</span><span id="__span-12-25"><a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-12-26"><a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-12-27"><a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>
+</span><span id="__span-12-28"><a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">sideband_plan</span><span class="p">(</span>
+</span><span id="__span-12-29"><a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a><span class="w">        </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-12-30"><a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a><span class="w">        </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">BlockingEventOut</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-12-31"><a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a><span class="w">        </span><span class="n">_sideband</span><span class="p">:</span><span class="w"> </span><span class="nc">StreamSideband</span><span class="p">,</span>
+</span><span id="__span-12-32"><a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a><span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">StreamSideband</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-33"><a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a><span class="w">        </span><span class="nb">None</span>
+</span><span id="__span-12-34"><a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-12-35"><a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>A handler of a typed sink gets the value, not its bytes: <code>SinkCredit::last_item_len()</code> is the size of the item it was
+called with, what to <code>free()</code> once that value is consumed.</p>
+<ul>
+<li>On <code>Open</code>, generated code calls <code>SinkCredit::open()</code> (a new session), then <code>sideband_&lt;name&gt;</code> as for any sideband
+  (it may change the capacity there), then sends the initial credit.</li>
+<li>On a write, generated code checks its position, calls <code>write_&lt;name&gt;</code> for writes in order only, and after it
+  returns sends new credit if <code>free()</code> moved the limit far enough.</li>
+<li><code>CreditQuery</code> is answered by generated code, <code>sideband_&lt;name&gt;</code> doesn't see it.</li>
+<li>Data freed outside a handler (e.g. after a flash write in the event loop):
+  <code>if let Some(sb) = state.plan_credit.take_credit()</code>, send it with
+  <code>stream_data_ser().plan_sideband_send_blocking(sb, out)</code> (<code>plan_sideband_send</code> in an async server).
+  If that is skipped, the host's next <code>CreditQuery</code> picks it up after its query interval.</li>
+<li><code>SinkCredit::overruns()</code> counts bytes the host sent beyond its credit (should stay 0; such writes still reach the
+  handler).</li>
+</ul>
+<h3 id="host-side_1">Host side<a class="headerlink" href="#host-side_1" title="Permanent link">&para;</a></h3>
+<p><code>Sink&lt;T&gt;</code> of a credit sink works like any other: <code>send()</code> opens the session if needed and waits for credit. Besides:</p>
+<ul>
+<li><code>flush()</code> / <code>flush_blocking()</code> / <code>try_flush()</code> waits until the device accepted everything sent so far, resending
+  what was lost; <code>close()</code> flushes first, then sends <code>Close</code>.</li>
+<li><code>credit_progress()</code> returns <code>(accepted, sent)</code> bytes of the session, e.g. for a progress bar.</li>
+<li><code>set_credit_config(CreditConfig { query_interval, stall_timeout })</code> tunes it to the link: <code>query_interval</code> (1 s by
+  default) longer than the link's round trip, <code>stall_timeout</code> (30 s by default) longer than the device's worst stall
+  (a flash sector erase takes 1-2 s); with no progress for that long, <code>send()</code> fails with a timeout.</li>
+</ul>
+<p>The dynamic client and Python speak the same protocol for credit sinks.</p>
+<h3 id="on-the-wire">On the wire<a class="headerlink" href="#on-the-wire" title="Permanent link">&para;</a></h3>
+<p>A credit sink is its own resource kind (<code>ApiItemKind::FlowSink { ty, flow: FlowControl::Credit }</code> in <code>ww_self</code>), so
+turning a plain sink into a credit sink is an API break: its writes change. Each write is a
+<code>ww_client_server::CreditWrite { pos: UVlq32, data: TailBytes }</code> inside <code>RequestKind::Write</code>, <code>pos</code> being the byte
+position of the item's first byte since the session's <code>Open</code> (1 byte for the first 128 bytes of a session, 2 up to
+16 KiB, 3 up to 2 MiB, 4 up to 256 MiB). Three sideband messages carry the rest:</p>
 <table>
 <thead>
 <tr>
@@ -3686,106 +4038,128 @@ session), followed by the item itself, as <code>ww_client_server::CreditWrite { 
 <tr>
 <td><code>Credit { have, grant }</code></td>
 <td>device → host</td>
-<td><code>have</code>: bytes accepted in order since <code>Open</code>; the host may send items up to <code>have + grant</code></td>
+<td><code>have</code> bytes of items accepted in order; the host may send up to byte <code>have + grant</code></td>
 </tr>
 <tr>
 <td><code>CreditQuery { sent }</code></td>
 <td>host → device</td>
-<td>"I have sent up to byte <code>sent</code>, where are you?"; answered with <code>Credit</code> or <code>Resend</code></td>
+<td>"I have sent up to byte <code>sent</code>, where are you?", answered with <code>Credit</code> or <code>Resend</code></td>
 </tr>
 <tr>
 <td><code>Resend { have, grant }</code></td>
 <td>device → host</td>
-<td>data after <code>have</code> was lost: send again from byte <code>have</code> (an item boundary), up to <code>have + grant</code></td>
+<td>writes after <code>have</code> were lost: send again from byte <code>have</code> (an item boundary), up to <code>have + grant</code></td>
 </tr>
 </tbody>
 </table>
-<p>All three are cumulative: every one of them carries the full state, so losing one is harmless, the next one (or the
-answer to the next query) replaces it. Positions are <code>u32</code>, a session is limited to 4 GiB, <code>Open</code> starts a new one.</p>
-<h3 id="session">Session<a class="headerlink" href="#session" title="Permanent link">&para;</a></h3>
+<p>All three carry the whole state, so losing one is harmless: the next one, or the answer to the next query, replaces
+it. Positions are 32 bit, a session is limited to 4 GiB.</p>
 <ol>
-<li>The host sends <code>Open</code>. The device resets its counters and answers with <code>Credit { have: 0, grant: capacity }</code>
-   (initial credit). Credit events left over from a previous session are ignored by the host until this one arrives.
-   <code>send()</code> on a sink that was never opened opens it first.</li>
-<li>The host sends an item while <code>pos + its length &lt;= have + grant</code>, keeping a copy of everything after <code>have</code> (at
-   most the device's capacity in bytes) for a resend.</li>
-<li>The device counts accepted bytes (<code>have</code>) as writes arrive, and the bytes it has <strong>freed</strong> (consumed, e.g.,
-   written to flash). Its limit is <code>freed + capacity</code>. When the limit has moved by at least <code>threshold</code> bytes since
-   the last grant, it sends a new <code>Credit</code>. A large threshold means few acks (a slow link), a small one keeps the pipe full.</li>
-<li>When the host is out of credit and nothing arrives for <code>query_interval</code>, it sends <code>CreditQuery { sent }</code>; the
-   device answers right away with its current state. This recovers from a lost <code>Credit</code>, from a device that freed
-   less than <code>threshold</code>, and detects lost data at the end of a transfer.</li>
-<li><code>flush()</code> sends <code>CreditQuery</code> and waits until the device has accepted everything (<code>have == sent</code>): on a reliable
-   link that is the one and only ack a transfer needs, when the device's capacity covers it. <code>close()</code> flushes,
-   then sends <code>Close</code>.</li>
+<li><code>Open</code> starts a session: the device resets its counters and answers with <code>Credit { have: 0, grant: capacity }</code>.
+   Credit events left over from an earlier session are ignored by the host until this one arrives.</li>
+<li>The host sends an item while <code>pos + its length &lt;= have + grant</code>, keeping a copy of everything after <code>have</code> for a
+   resend (at most the device's capacity).</li>
+<li>The device counts accepted bytes (<code>have</code>) and bytes it <strong>freed</strong> (consumed, e.g. written to flash); its limit is
+   <code>freed + capacity</code>. When the limit has moved by at least <code>threshold</code> since the last grant, it sends a new
+   <code>Credit</code>: a large threshold means few acknowledgements over a slow link, a small one keeps the link full.</li>
+<li>When the host is out of credit and nothing arrives for <code>query_interval</code>, it sends <code>CreditQuery</code>. This recovers from a
+   lost <code>Credit</code>, from a device that freed less than <code>threshold</code>, and finds lost data at the end of a transfer.</li>
+<li><code>flush()</code> sends <code>CreditQuery</code> and waits until <code>have == sent</code>: on a reliable link with a buffer that holds the whole
+   transfer, the one acknowledgement it needs.</li>
 </ol>
-<h3 id="lossy-media-go-back-n-from-have">Lossy media: go-back-N from <code>have</code><a class="headerlink" href="#lossy-media-go-back-n-from-have" title="Permanent link">&para;</a></h3>
-<p>On UDP, LoRa or LTE-M a write can be lost. The device only accepts a write at <code>pos == have</code>:</p>
-<ul>
-<li><code>pos &lt; have</code>: a duplicate from a resend, dropped;</li>
-<li><code>pos &gt; have</code>: something before it was lost; the write is dropped and the device sends <code>Resend { have, grant }</code>,
-  once per gap (the next in-order write re-arms it);</li>
-<li>a <code>CreditQuery { sent }</code> with <code>sent &gt; have</code> means writes were lost after the last one that arrived (nothing came
-  after them to reveal the gap), the device answers with <code>Resend</code> instead of <code>Credit</code>.</li>
-</ul>
-<p>On <code>Resend</code> the host goes back to <code>have</code> and sends everything again from its copy. <code>have</code> is always where an item
-starts: the device accepts whole items only. Requests are processed in order,
-so when the device sees a <code>CreditQuery</code>, everything the host sent before it has either arrived or is lost. A plain
-<code>Credit</code> never rewinds the host, even with <code>have &lt; sent</code>: the rest may simply still be in flight.</p>
-<h3 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h3>
-<p>Generated server code does the bookkeeping, user code only says how many bytes it can buffer and when it frees some.
-Every credit sink gets one more handler, returning the sink's state, <code>ww_client_server::credit::SinkCredit</code>, usually a
-field of the server struct (arrays of sinks get the index chain, as other handlers do):</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">const</span><span class="w"> </span><span class="n">BUF</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4096</span><span class="p">;</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="sd">/// 1024, from the API&#39;s MaxLen bound; a buffer smaller than that is a compile error</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">const</span><span class="w"> </span><span class="n">LARGEST</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">plan_max_item_bytes</span><span class="p">();</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Server</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="n">plan_credit</span><span class="p">:</span><span class="w"> </span><span class="nc">SinkCredit</span><span class="p">,</span><span class="w"> </span><span class="c1">// SinkCredit::sized_for(BUF as u32, LARGEST), re-granted every BUF / 2 bytes freed</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="n">plan_buf</span><span class="p">:</span><span class="w"> </span><span class="nc">heapless</span><span class="p">::</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">BUF</span><span class="o">&gt;</span><span class="p">,</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="p">}</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="k">impl</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">credit_plan</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">SinkCredit</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">        </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_credit</span>
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>
-</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">write_plan</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">BlockingEventOut</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">TailBytes</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">        </span><span class="c1">// only called for writes in order, never more bytes than the credit granted</span>
-</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_buf</span><span class="p">.</span><span class="n">extend_from_slice</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="mi">0</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">        </span><span class="c1">// the next item might not fit: write out now, the host can&#39;t send more before that</span>
-</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_buf</span><span class="p">.</span><span class="n">len</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">BUF</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">LARGEST</span><span class="p">.</span><span class="n">unwrap</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">            </span><span class="n">flash_write</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">plan_buf</span><span class="p">);</span><span class="w"> </span><span class="c1">// stalls for a while</span>
-</span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_credit</span><span class="p">.</span><span class="n">free</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">plan_buf</span><span class="p">.</span><span class="n">len</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
-</span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">plan_buf</span><span class="p">.</span><span class="n">clear</span><span class="p">();</span>
-</span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="w">        </span><span class="p">}</span>
-</span><span id="__span-8-24"><a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-8-25"><a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="p">}</span>
+<p>On a lossy medium (UDP, LoRa, LTE-M) the device accepts a write only at <code>pos == have</code>: one before it is a duplicate
+from a resend and is dropped; one after it means something was lost, so it is dropped too and the device sends
+<code>Resend { have, grant }</code>, once per gap. A <code>CreditQuery { sent }</code> with <code>sent &gt; have</code> means writes were lost after the
+last one that arrived; the device answers with <code>Resend</code> instead of <code>Credit</code>. On <code>Resend</code> the host goes back to <code>have</code>
+and sends everything again from its copy (go-back-N). Requests are processed in order, so when the device sees a
+<code>CreditQuery</code>, everything sent before it has arrived or is lost; a plain <code>Credit</code> never rewinds the host, the rest may
+still be in flight. An empty item takes one position, so its loss is noticed like any other.</p>
+<p>Credit sinks are planned to move onto the positions, acknowledgements and resume of counted and reliable streams
+(<code>API-34</code> in <a href="../../features/">Features</a>).</p>
+<h2 id="sideband">Sideband<a class="headerlink" href="#sideband" title="Permanent link">&para;</a></h2>
+<p>Next to its data, every stream and sink has a sideband channel in both directions, <code>StreamSideband</code> values sent in
+order with the data. Generated code uses it for the protocol, user code may use the rest:</p>
+<table>
+<thead>
+<tr>
+<th>Sideband</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Close</code></td>
+<td>the host closes a stream or sink (<code>close_&lt;name&gt;</code> on a stream, <code>sideband_&lt;name&gt;</code> on a sink); the device ends a stream</td>
+</tr>
+<tr>
+<td><code>Open</code></td>
+<td>the host opens a sink (credit sinks: a new session)</td>
+</tr>
+<tr>
+<td><code>FrameSync</code>, <code>SizeHint(n)</code>, <code>User(n)</code></td>
+<td>free for the API's own meaning: frame boundaries in a byte stream, the size of what follows, application events</td>
+</tr>
+<tr>
+<td><code>Credit</code>, <code>CreditQuery</code>, <code>Resend</code></td>
+<td>credit sinks, handled by generated code</td>
+</tr>
+<tr>
+<td><code>Ack</code>, <code>ResendFrom</code>, <code>Query</code></td>
+<td>counted and reliable streams, handled by generated code</td>
+</tr>
+</tbody>
+</table>
+<p>From the host, plain streams and sinks pass a sideband to the device's <code>sideband_&lt;name&gt;(cx, sideband)</code>: returning
+<code>Some(sideband)</code> sends it back as a sideband event on the same stream, <code>None</code> only acknowledges the request. Either way
+the host's request gets its answer. Counted and reliable streams take only <code>Close</code> and the protocol messages, other
+sideband is refused.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1">// host</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">stream</span><span class="p">.</span><span class="n">sideband</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">5</span><span class="p">))).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="k">match</span><span class="w"> </span><span class="n">stream</span><span class="p">.</span><span class="n">recv_any</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="n">TypedStreamEvent</span><span class="p">::</span><span class="n">Sideband</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">n</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* .. */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">}</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1">// device</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="k">fn</span><span class="w"> </span><span class="nf">sideband_uart_rx</span><span class="p">(</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">    </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">    </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">BlockingEventOut</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">    </span><span class="n">sideband</span><span class="p">:</span><span class="w"> </span><span class="nc">StreamSideband</span><span class="p">,</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">StreamSideband</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">    </span><span class="nb">Some</span><span class="p">(</span><span class="n">sideband</span><span class="p">)</span><span class="w"> </span><span class="c1">// echo</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>A handler of a typed sink gets the value, not its bytes: <code>SinkCredit::last_item_len()</code> is the size of the item it was
-called with, what to <code>free()</code> once that value is consumed.</p>
-<ul>
-<li>On <code>Open</code>, generated code calls <code>SinkCredit::open()</code>, then the user's <code>sideband_&lt;name&gt;</code> as usual (it may change the
-  capacity there), then sends the initial <code>Credit</code>.</li>
-<li><code>CreditQuery</code> is answered by generated code, the user's sideband handler doesn't see it.</li>
-<li>On a write, generated code checks the position, calls <code>write_&lt;name&gt;</code> for accepted writes only, and after it
-  returns sends a <code>Credit</code> if <code>free()</code> moved the limit far enough.</li>
-<li>Data freed outside a handler (e.g., after a flash write in the event loop): <code>if let Some(sb) =
-  credit.take_credit() { stream_data_ser().plan_sideband_send(sb, &amp;mut server.sink()).await?; }</code>. If that is
-  skipped, the host's next <code>CreditQuery</code> picks it up after <code>query_interval</code>.</li>
-<li><code>SinkCredit::overruns()</code> counts bytes the host sent beyond its credit (should stay 0; such writes are still
-  passed to the handler).</li>
-</ul>
-<h3 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h3>
-<p><code>Sink&lt;T&gt;</code> of a credit sink works like any other one: <code>send()</code> (async), <code>send_blocking()</code>, plus <code>try_send()</code> that
-returns <code>Ok(false)</code> without sending when there is no credit for all of the value yet, and <code>flush()</code> / <code>flush_blocking()</code>.
-<code>Sink::set_credit_config(CreditConfig { query_interval, stall_timeout })</code> tunes it to the link: <code>query_interval</code>
-(default 1 s) should be longer than the link's round trip, <code>stall_timeout</code> (default 30 s) is how long to wait without
-any progress before <code>send()</code> fails with a timeout, longer than the device's worst stall (an H7 sector erase takes 1-2
-s). <code>credit_progress()</code> returns <code>(accepted, sent)</code> bytes of the session, e.g., for a progress bar. A value bigger than the
-device's receive buffer fails with <code>StreamError::ItemTooBig</code>.</p>
-<p>Related: <a href="../../features/#client-host-side-clt">CLT-18 backpressure</a> (the command queue of the client),
-<code>API-28</code> in the <a href="../../features/">features</a> list.</p>
+<p>The device sends sideband events on its own with <code>stream_data_ser().&lt;name&gt;_sideband_send(sideband, out)</code>
+(<code>_sideband_send_blocking</code>, <code>&lt;name&gt;_sideband(sideband, scratch)</code>), for streams and sinks alike; a <code>Close</code> this way ends
+a stream on the host (<code>recv_all_bytes()</code> returns, a <code>PositionedStream</code> sees <code>Closed</code>):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1">// e.g. tell the host a sink&#39;s buffer is full</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">uart_tx_sideband_send</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span><span class="w"> </span><span class="n">cx</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p>On the host, a <code>Stream</code> returns sideband events from <code>recv_any()</code>, a <code>Sink</code> from <code>recv_sideband()</code> (<code>_blocking</code>,
+<code>try_recv_sideband()</code>); credit events of a credit sink are used up internally.</p>
+<h2 id="arrays-of-streams">Arrays of streams<a class="headerlink" href="#arrays-of-streams" title="Permanent link">&para;</a></h2>
+<p>Streams and sinks can be <a href="../arrays/">arrays</a>, and sit in arrays of traits:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Board</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="cp">#[counted]</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">adc</span><span class="p">[]:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]);</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">port</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Port</span><span class="p">);</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="p">}</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="k">trait</span><span class="w"> </span><span class="n">Port</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">event</span><span class="p">:</span><span class="w"> </span><span class="nc">PinEvent</span><span class="p">);</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Each index is its own stream: the host opens <code>device.adc(2).call()</code> or <code>device.port(0).event().call()</code>, and every
+device handler gets the index chain after <code>cx</code> (<code>index_chain: [UNib32; 1]</code>), as does <code>stream_adc(index_chain)</code>.
+<code>valid_indices_root_adc()</code> says which indices exist. On the device, send through the same chain:
+<code>stream_data_ser().adc_send(2, &amp;mut state.adc_streams[2], &amp;chunk, units, t, out)</code> for the array itself,
+<code>stream_data_ser().port(0).event_send(&amp;event, cx)</code> inside an array of traits.</p>
+<p>Reliable streams can't be in arrays yet: <code>poll_streams</code> refuses them with a compile error.</p>
+<h2 id="properties-as-streams">Properties as streams<a class="headerlink" href="#properties-as-streams" title="Permanent link">&para;</a></h2>
+<p>An <code>ro</code> or <code>rw</code> property sends its changes as stream data on its own path:
+<code>stream_data_ser().&lt;property&gt;_send(&amp;value, out)</code> on the device, <code>observe_&lt;property&gt;()</code> on the host, a plain
+<code>Stream&lt;T&gt;</code>. See <a href="../properties/#observing-changes">Observing changes</a>.</p>
 
 
 

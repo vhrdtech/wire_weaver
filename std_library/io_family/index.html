@@ -1040,60 +1040,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/errors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Errors
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/optional_items/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../api/properties/" class="md-nav__link">
         
   
@@ -1183,6 +1129,60 @@
     
   
   Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -3236,6 +3236,11 @@ here assumes a particular kind of device.</p>
 <td>Bridge a serial port; watch both lines of a link without driving them (optional)</td>
 </tr>
 <tr>
+<td><a href="../ww_can_bus/"><code>ww_can_bus</code></a></td>
+<td><code>Can</code>, <code>CanGroup</code>, <code>CanTimeTriggered</code>, <code>CanXl</code></td>
+<td>CAN / CAN FD controllers: frames, error state, optional filters, TX events, bus errors, buffers, debugger items; groups sharing a clock; TTCAN; CAN XL</td>
+</tr>
+<tr>
 <td><a href="../ww_i2c/"><code>ww_i2c</code></a></td>
 <td><code>I2c</code>, <code>I2cWatch</code>, <code>I2cMonitor</code></td>
 <td>Master transfers and bus recovery; autonomous polling; bus sniffing</td>
@@ -3296,7 +3301,7 @@ through introspection (global trait paths, left-out items) and, within a trait, 
 doesn't have to special-case devices by name.</p>
 <p><strong>One configuration, answered with what was set.</strong> A bus or bank is configured in one call with one struct,
 not a property per setting: <code>Uart::configure(UartConfig)</code>, <code>I2c::i2c_configure(I2cConfig)</code>,
-<code>Spi::configure(SpiConfig)</code>, <code>Bank::configure(BankConfig)</code>, <code>OneWire::configure(OneWireConfig)</code>. Each answers with the
+<code>Spi::configure(SpiConfig)</code>, <code>Can::configure(CanConfig)</code>, <code>Bank::configure(BankConfig)</code>, <code>OneWire::configure(OneWireConfig)</code>. Each answers with the
 same struct as actually set (the baud rate or clock the divider settled on, the IO level in effect), so a host sees
 the rounding and a port never runs with half a configuration. Stream functions that configure what they watch do the
 same (<code>Uart::monitor</code> answers its <code>MonitorConfig</code>).</p>
@@ -3307,7 +3312,7 @@ control), and the capabilities list what it can be set to in the same three fiel
 generator channels sit on pins of a GPIO bank or bus and use its level; the logic analyzer sets its own input
 threshold per capture.</p>
 <p><strong>Common errors.</strong> Each crate has its own error enum (<code>ww_gpio::GpioError</code>, <code>ww_uart::UartError</code>,
-<code>ww_i2c::I2cError</code>, <code>ww_spi::SpiError</code>, <code>ww_adc::AdcError</code>, <code>ww_pwm::PwmError</code>, <code>ww_onewire::OneWireError</code>,
+<code>ww_i2c::I2cError</code>, <code>ww_spi::SpiError</code>, <code>ww_can_bus::CanError</code>, <code>ww_adc::AdcError</code>, <code>ww_pwm::PwmError</code>, <code>ww_onewire::OneWireError</code>,
 <code>ww_timebase::ClockError</code>, <code>ww_logic_analyzer::LaError</code>, <code>ww_signal_generator::PgError</code> / <code>WgError</code>), and every one
 of them starts with <a href="../../api/errors/#common-errors"><code>ww_error::CommonError</code></a> as its <code>#[common] Common</code> variant for
 the situations every device shares: <code>Unsupported</code> (this device doesn't have the mode, level or feature asked for),
@@ -3333,9 +3338,10 @@ wire.</p>
 <code>Spi::monitor</code>, optional items of the bus trait, and <code>I2cMonitor::records</code>, a trait of its own because I2C
 monitoring also exists without a master (<code>I2cMode::MonitorOnly</code>) and next to the master's own traffic. A monitor
 reports one record per transaction/frame; a master that also wants to see its own traffic sets the matching monitor
-flag where the trait offers one (e.g. <code>I2cMode::Master { monitor: true, .. }</code>).</p>
+flag where the trait offers one (e.g. <code>I2cMode::Master { monitor: true, .. }</code>). On CAN, monitoring is a
+mode of the controller (<code>ww_can_bus::Mode::ListenOnly</code>) on its one <code>rx</code> stream, no separate item.</p>
 <p><strong>Streams are opened with their configuration.</strong> A stream that needs a configuration is a
-<a href="../../api/streams/#opening-a-stream">stream function</a>: the host opens it with the configuration as its arguments and
+<a href="../../api/streams/#stream-functions">stream function</a>: the host opens it with the configuration as its arguments and
 gets back what the device actually set, or an error, and closing the stream stops sampling or monitoring
 (<code>AdcStream::samples</code>, <code>LogicStream::data</code>, <code>Pin::event</code>, <code>PwmCaptureChannel::capture</code>, <code>Spi::monitor</code>,
 <code>I2cMonitor::records</code>, <code>Uart::monitor</code>). Opening it again starts a new session with the new configuration, so

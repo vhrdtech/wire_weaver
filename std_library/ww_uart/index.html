@@ -1040,60 +1040,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/errors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Errors
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/optional_items/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../api/properties/" class="md-nav__link">
         
   
@@ -1183,6 +1129,60 @@
     
   
   Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -3343,7 +3343,7 @@ stream. It composes with the rest of the API using <a href="../../api/traits/"><
   <code>Common(WrongState)</code>.</li>
 <li><code>send_break</code> - holds TX low for <code>duration</code> (a break condition), after the bytes already queued.</li>
 <li><code>tx_pending()</code> - bytes queued for sending and not sent yet.</li>
-<li><code>monitor</code> - <code>#[optional]</code>, a counted <a href="../../api/streams/#opening-a-stream">stream function</a>: the host opens it with the line
+<li><code>monitor</code> - <code>#[optional]</code>, a counted <a href="../../api/streams/#stream-functions">stream function</a>: the host opens it with the line
   settings of the watched link (baud rate, data bits, parity, stop bits, IO level) and gets back what was actually
   set (as <code>Uart::configure</code> does), then both directions of the link (rePort: RX and CTS/RX2) in one stream, in
   the order they arrived: each <code>MonitorChunk</code> says which <code>MonitorLine</code> it came from, so a request and its answer

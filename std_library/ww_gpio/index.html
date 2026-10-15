@@ -1040,60 +1040,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/errors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Errors
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/optional_items/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../api/properties/" class="md-nav__link">
         
   
@@ -1183,6 +1129,60 @@
     
   
   Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -3374,7 +3374,7 @@ defined first, to get more compact resource paths since low path indices take fe
   currently an input, these still act on the output register without changing pin mode.</li>
 <li><code>input_level</code> - reads the input register. If the pin is configured as output and its input buffer is disabled,
   the current output level should be returned instead.</li>
-<li><code>event</code> - a counted <a href="../../api/streams/#opening-a-stream">stream function</a> of <code>IoPinEvent</code>s (rising/falling edge,
+<li><code>event</code> - a counted <a href="../../api/streams/#stream-functions">stream function</a> of <code>IoPinEvent</code>s (rising/falling edge,
   custom sources): the host opens it with the sources to report (<code>Common(Unsupported)</code> for one the pin can't
   generate) and closes it to stop. Its unit is an event: the event head carries the device time of each
   edge and exactly how many edges the device dropped (<a href="../../api/stream_reliability/">stream delivery</a>).</li>

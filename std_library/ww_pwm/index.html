@@ -1040,60 +1040,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/errors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Errors
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/optional_items/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../api/properties/" class="md-nav__link">
         
   
@@ -1183,6 +1129,60 @@
     
   
   Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -3368,7 +3368,7 @@ devices with PWM output don't have spare on every channel, so a plain PWM driver
 <ul>
 <li><code>channel[]</code> - one capture input per channel; channel <code>n</code> is the same index as <code>Pwm</code>'s own <code>channel[]</code>, see
   <code>PwmChannelInfo::capture</code>.</li>
-<li><code>capture</code> - a counted <a href="../../api/streams/#opening-a-stream">stream function</a>: the host opens it with what to
+<li><code>capture</code> - a counted <a href="../../api/streams/#stream-functions">stream function</a>: the host opens it with what to
   measure (<code>CaptureMode</code>) and the measurement window (<code>CaptureConfig::gate</code>), gets back what was actually set, then
   one <code>CaptureValue</code> per window until it closes the stream. Its unit is a measurement; the event head carries the
   end of each window as its time and how many measurements the device dropped

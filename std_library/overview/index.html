@@ -1040,60 +1040,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/errors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Errors
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/optional_items/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../api/properties/" class="md-nav__link">
         
   
@@ -1183,6 +1129,60 @@
     
   
   Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
 
     
   </span>
@@ -3340,7 +3340,7 @@ runtime, one <code>configure()</code> call per bus, common errors, typed <code>w
 <li><a href="../ww_timebase/"><code>ww_timebase</code></a> — <code>Clock</code>: device time, clock sync (master/slave), time-of-day for a master</li>
 <li><a href="../ww_logic_analyzer/"><code>ww_logic_analyzer</code></a> — <code>LogicAnalyzer</code>, <code>LogicStream</code>: timestamped capture of many digital channels, triggered or streamed</li>
 <li><a href="../ww_signal_generator/"><code>ww_signal_generator</code></a> — <code>PatternGenerator</code>, <code>WaveformGenerator</code>: digital pattern playback, DAC waveforms</li>
-<li><a href="../ww_can_bus/"><code>ww_can_bus</code></a> — <code>CANBusInterfaceGroup</code>, <code>CANBusInterface</code>: CAN controller setup and per-interface TX/RX, termination, bus performance</li>
+<li><a href="../ww_can_bus/"><code>ww_can_bus</code></a> — <code>Can</code>, <code>CanGroup</code>, <code>CanTimeTriggered</code>, <code>CanXl</code>: CAN / CAN FD / CAN XL controllers, from simple bridges to bus debuggers; groups sharing clock and message RAM; time-triggered CAN</li>
 </ul>
 <h2 id="device-contract">Device contract<a class="headerlink" href="#device-contract" title="Permanent link">&para;</a></h2>
 <p>Crates every device implements regardless of what it does, so generic tooling (<code>ww list</code>, a support case) has one

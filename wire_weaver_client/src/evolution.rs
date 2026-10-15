@@ -275,7 +275,7 @@ impl<'a> Checker<'a> {
         }
     }
 
-    /// A method's `#[errors(..)]` list (API-32) changing is compatible: nothing on the wire changes and the device
+    /// An `#[errors(..)]` list (API-32) of a method, stream function or property changing is compatible: nothing on the wire changes and the device
     /// never checks it. Reported, since a client of the old version warns about the variants the new one adds.
     fn compare_error_lists(&mut self, path: &str, old: &ApiItemOwned, new: &ApiItemOwned) {
         let (old_list, new_list) = (old.kind.error_list(), new.kind.error_list());
@@ -1016,6 +1016,55 @@ mod tests {
                 ),
                 changed("Mode::B", "name", "B", "Bb"),
             ]
+        );
+    }
+
+    /// `Api` with `items` and the error enums of [error_lists].
+    fn error_list_api(items: &str) -> String {
+        format!(
+            r#"
+                #[ww_api_root]
+                pub trait Api {{
+                    {items}
+                }}
+
+                #[derive_shrink_wrap(ww_repr = u4)]
+                pub enum ReadError {{
+                    Common(Inner),
+                    Nack,
+                    Overrun,
+                }}
+
+                #[derive_shrink_wrap(ww_repr = u4)]
+                pub enum Inner {{
+                    Busy,
+                    InUse,
+                }}
+                "#
+        )
+    }
+
+    /// An `#[errors(..)]` list of a stream function or a property changing is compatible and reported, as for
+    /// methods (API-32).
+    #[test]
+    fn error_lists_of_streams_and_properties() {
+        let compatible = |old: &str, new: &str| {
+            let report = report(&error_list_api(old), &error_list_api(new));
+            assert_eq!(report.change, Change::Compatible, "{report:?}");
+            report.compatible
+        };
+        let stream = "#[stream(u8)] fn samples() -> Result<(), ReadError>;";
+        assert_eq!(
+            compatible(stream, &format!("#[errors(Nack)] {stream}")),
+            ["Api::samples: #[errors(Nack)] added"]
+        );
+        let property = "property!(rw mode: u8, ReadError);";
+        assert_eq!(
+            compatible(
+                &format!("#[errors(Nack)] {property}"),
+                &format!("#[errors(Nack, Overrun)] {property}")
+            ),
+            ["Api::mode: #[errors(..)] adds Overrun (clients of the old version warn about them)"]
         );
     }
 

@@ -1,5 +1,5 @@
 use crate::client::prepared_call::check_error_list;
-use crate::error_list::ErrorList;
+use crate::error_list::{self, ErrorList};
 use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
 use crate::{DecodeReply, Error, OutcomeError, RawStreamEvent};
@@ -293,7 +293,12 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
                             Error::Other("no reply decoder".into()),
                             self.resource,
                         )),
-                        (Err(e), _) => StateInner::Err(E::from_client(e, self.resource)),
+                        (Err(e), _) => {
+                            // a property write's device error comes as a remote error
+                            let e = E::from_client(e, self.resource);
+                            error_list::check(&e, self.error_list.as_ref(), self.resource);
+                            StateInner::Err(e)
+                        }
                     };
                 }
                 Err(oneshot::error::TryRecvError::Empty) => {}
@@ -595,6 +600,7 @@ impl<E: OutcomeError> Promise<(), E> {
         timeout: Option<Duration>,
         transport_cmd_tx: TransportCommander,
         resource: &'static str,
+        error_list: Option<ErrorList<E>>,
         marker: &'static str,
     ) -> Self {
         let state = StateInner::WaitingForSeqWrite {
@@ -605,6 +611,7 @@ impl<E: OutcomeError> Promise<(), E> {
         };
         let mut promise = Self::with_state(state, marker);
         promise.resource = resource;
+        promise.error_list = error_list;
         // a write is answered with no data
         promise.decode = Some(|_| Ok(()));
         promise

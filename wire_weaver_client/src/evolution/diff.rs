@@ -347,6 +347,7 @@ fn item_signature(bundle: &ApiBundleOwned, item: &ApiItemOwned) -> String {
             ty,
             access,
             write_err_ty,
+            ..
         } => {
             let (access, observe) = match access {
                 PropertyAccess::Const => ("const", false),
@@ -378,6 +379,7 @@ fn item_signature(bundle: &ApiBundleOwned, item: &ApiItemOwned) -> String {
             delivery,
             args,
             return_ty,
+            ..
         } => {
             let delivery = match delivery {
                 Delivery::Plain => "",
@@ -482,7 +484,7 @@ fn field_definition(bundle: &ApiBundleOwned, field: &FieldOwned) -> String {
     }
 }
 
-/// `#[errors(..)]` of a method as written, `none` without one.
+/// `#[errors(..)]` of a method, stream function or property as written, `none` without one.
 fn error_list(kind: &ApiItemKindOwned) -> String {
     kind.error_list().map_or_else(
         || "none".into(),

@@ -328,15 +328,18 @@ fn compare_kinds<'a>(
             (to_device, to_client),
         )?,
         (
+            // error lists don't matter, as for methods
             Property {
                 ty,
                 access,
                 write_err_ty,
+                ..
             },
             Property {
                 ty: device_ty,
                 access: device_access,
                 write_err_ty: device_write_err_ty,
+                ..
             },
         ) => {
             let (readable, writable, observable) = capabilities(access);
@@ -394,17 +397,20 @@ fn compare_kinds<'a>(
             to_device.check(ty, device_ty)?;
         }
         (
+            // error lists don't matter, as for methods
             StreamFn {
                 ty,
                 delivery,
                 args,
                 return_ty,
+                ..
             },
             StreamFn {
                 ty: device_ty,
                 delivery: device_delivery,
                 args: device_args,
                 return_ty: device_return_ty,
+                ..
             },
         ) => {
             if delivery != device_delivery {

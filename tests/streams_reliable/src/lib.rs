@@ -55,6 +55,9 @@ mod tests {
                 if config.rate == 0 {
                     return RpcResult::Ready(Err(SampleError::BadRate));
                 }
+                if config.rate == u32::MAX {
+                    return RpcResult::Ready(Err(SampleError::TooFast));
+                }
                 RpcResult::Ready(Ok(SampleActual {
                     rate: config.rate.min(1000),
                 }))
@@ -249,6 +252,18 @@ mod tests {
             StreamEvent::Item { pos, units, .. } => assert_eq!((pos, units), (106, 2)),
             ev => panic!("{ev:?}"),
         }
+    }
+
+    /// tests_common makes the client strict: an open error outside the stream function's `#[errors(..)]` fails the
+    /// test (API-32).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[should_panic(
+        expected = "'StreamsReliable::samples' returned TooFast, which is not in its #[errors(BadRate)]"
+    )]
+    async fn unlisted_open_error_fails_in_tests() {
+        let device = start("streams_reliable/unlisted_open_error");
+        let mut client = connect(&device).await;
+        let _ = client.samples(SampleConfig { rate: u32::MAX }).call().await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -4,7 +4,7 @@ use console::style;
 use shrink_wrap::ElementSize;
 use std::collections::HashMap;
 use std::fmt::Write;
-use wire_weaver_client::ww_self::errors::{error_list_docs, fmt_error_list, method_err_ty};
+use wire_weaver_client::ww_self::errors::{error_list_docs, fmt_error_list};
 use wire_weaver_client::ww_self::visit::{self, Visit};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, Delivery,
@@ -161,18 +161,11 @@ impl TreePrinter<'_> {
 }
 
 impl TreePrinter<'_> {
-    /// `# Errors` with each entry of a method's `#[errors(..)]` and its variant's doc line (API-32), like the docs
-    /// of the generated client.
+    /// `# Errors` with each entry of the `#[errors(..)]` of a method, stream function or property and its variant's
+    /// doc line (API-32), like the docs of the generated client.
     fn error_list_docs(&mut self, item: &ApiItemOwned) {
-        let ApiItemKindOwned::Method {
-            return_ty,
-            errors: Some(errors),
-            ..
-        } = &item.kind
+        let (Some(errors), Some(err_ty)) = (item.kind.error_list(), item.kind.err_ty(self.bundle))
         else {
-            return;
-        };
-        let Some(err_ty) = method_err_ty(return_ty.as_ref(), self.bundle) else {
             return;
         };
         let mut lines = vec![];
@@ -213,16 +206,14 @@ impl TreePrinter<'_> {
             };
             _ = write!(self.out, "{}", style(attr).dim());
         }
+        if let Some(errors) = item.kind.error_list() {
+            let attr = format!("#[errors({})] ", fmt_error_list(errors));
+            _ = write!(self.out, "{}", style(attr).dim());
+        }
         match &item.kind {
             ApiItemKindOwned::Method {
-                args,
-                return_ty,
-                errors,
+                args, return_ty, ..
             } => {
-                if let Some(errors) = errors {
-                    let attr = format!("#[errors({})] ", fmt_error_list(errors));
-                    _ = write!(self.out, "{}", style(attr).dim());
-                }
                 _ = write!(self.out, "{} ", style("fn").blue());
                 self.ident(item);
                 self.out.push('(');
@@ -241,6 +232,7 @@ impl TreePrinter<'_> {
                 ty,
                 access,
                 write_err_ty,
+                ..
             } => {
                 let (access, observe) = match access {
                     PropertyAccess::Const => ("const", false),
@@ -282,6 +274,7 @@ impl TreePrinter<'_> {
                 delivery,
                 args,
                 return_ty,
+                ..
             } => {
                 let delivery = match delivery {
                     Delivery::Plain => "",

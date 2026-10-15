@@ -29,7 +29,7 @@ use std::time::Duration;
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver::prelude::UNib32;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use ww_client_server::PathKind;
+use ww_client_server::{ErrorKindOwned, PathKind};
 use ww_numeric::NumericValue;
 use ww_self::errors::{error_list_contains, error_value_name, fmt_error_list};
 use ww_self::{
@@ -347,20 +347,37 @@ impl DynResource {
         Ok(Some(value))
     }
 
-    /// Warns when the device returned an error outside the method's `#[errors(..)]` (API-32).
+    /// Warns when a method returned an error outside its `#[errors(..)]` (API-32).
     fn check_error_list(&self, value: &ValueOwned) {
-        let (
-            Ok(DynResourceKind::Method {
-                errors: Some(list), ..
-            }),
-            ValueOwned::Result(Err(err)),
-        ) = (self.kind(), value)
-        else {
+        if let ValueOwned::Result(Err(err)) = value {
+            self.check_listed(err);
+        }
+    }
+
+    /// Warns when `err` (of a method, stream function or property write) is outside the item's `#[errors(..)]`.
+    fn check_listed(&self, err: &ValueOwned) {
+        let Some(list) = self.item.as_ref().and_then(|i| i.kind.error_list()) else {
             return;
         };
         if !error_list_contains(list, err) {
             error_list::unlisted(&self.path, &error_value_name(err), &fmt_error_list(list));
         }
+    }
+
+    /// Checks a property read's or write's device error (a `UserBytes` remote error) against its `#[errors(..)]`.
+    fn check_property_error<T>(&self, result: Result<T, Error>) -> Result<T, Error> {
+        if let Err(Error::RemoteError(remote)) = &result
+            && let ErrorKindOwned::UserBytes(bytes) = &remote.kind
+            && let Some(ApiItemKindOwned::Property {
+                write_err_ty: Some(err_ty),
+                errors: Some(_),
+                ..
+            }) = self.item.as_ref().map(|i| &i.kind)
+            && let Ok(err) = ValueOwned::des_shrink_wrap_dyn(bytes, err_ty, &self.bundle)
+        {
+            self.check_listed(&err);
+        }
+        result
     }
 
     /// Call a method with arguments in the order they are defined in, returns None if it returns nothing.
@@ -417,7 +434,7 @@ impl DynResource {
 
     /// Read a property. A `const` is read from the device once per connection, later reads return that value.
     pub async fn read(&self, cmd: &Commander) -> Result<ValueOwned, Error> {
-        let bytes = self.prepare_read(cmd)?.read().await?;
+        let bytes = self.check_property_error(self.prepare_read(cmd)?.read().await)?;
         self.decode_property(&bytes)
     }
 
@@ -431,16 +448,18 @@ impl DynResource {
         if let Some(timeout) = timeout {
             read = read.with_timeout(timeout);
         }
-        let bytes = read.blocking_read()?;
+        let bytes = self.check_property_error(read.blocking_read())?;
         self.decode_property(&bytes)
     }
 
     /// Write a property.
     pub async fn write(&self, cmd: &Commander, value: &ValueOwned) -> Result<(), Error> {
         let bytes = self.encode_property(value)?;
-        cmd.prepare_write::<Error>(self.path_kind()?, Ok(bytes), "")
+        let result = cmd
+            .prepare_write::<Error>(self.path_kind()?, Ok(bytes), "")
             .write()
-            .await
+            .await;
+        self.check_property_error(result)
     }
 
     /// Write a property.
@@ -455,7 +474,7 @@ impl DynResource {
         if let Some(timeout) = timeout {
             write = write.with_timeout(timeout);
         }
-        write.blocking_write()
+        self.check_property_error(write.blocking_write())
     }
 
     /// Read which indices are valid for an array of resources.
@@ -573,7 +592,10 @@ impl DynResource {
             _ => None,
         };
         Ok(match result {
-            Some(ValueOwned::Result(Err(e))) => DynStreamOpen::Rejected(*e),
+            Some(ValueOwned::Result(Err(e))) => {
+                self.check_listed(&e);
+                DynStreamOpen::Rejected(*e)
+            }
             Some(ValueOwned::Result(Ok(v))) => DynStreamOpen::Open {
                 result: Some(*v),
                 stream: Box::new(self.dyn_positioned(stream)),

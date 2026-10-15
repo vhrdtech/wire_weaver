@@ -7,8 +7,8 @@ use syn::{
     Attribute, Error, Expr, FnArg, GenericArgument, ItemTrait, Lifetime, Lit, Meta, PathArguments,
     PathSegment, ReturnType, TraitItem, Type, Visibility, parse2,
 };
-use wire_weaver_core::internal::ww_self::errors::{error_list_docs, method_err_ty};
-use wire_weaver_core::internal::ww_self::{ApiBundleOwned, ApiItemKindOwned};
+use wire_weaver_core::internal::ww_self::ApiBundleOwned;
+use wire_weaver_core::internal::ww_self::errors::error_list_docs;
 use wire_weaver_core::internal::{
     ErrorListError, PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs,
 };
@@ -109,6 +109,11 @@ fn doc_trait(
                 let docs = doc_attrs(&item_macro.attrs);
                 let since = since_note(&item_macro.attrs);
                 let tokens = item_macro.mac.tokens.clone();
+                let errors_of = |name: &Ident| {
+                    api_bundle
+                        .map(|bundle| errors_section(bundle, &name.to_string()))
+                        .unwrap_or_default()
+                };
                 match kind.as_str() {
                     "stream" | "sink" => {
                         let args: StreamAndImplMacroArgs =
@@ -171,8 +176,10 @@ fn doc_trait(
                             PropertyAccess::WriteOnly => "Write-only property.",
                         };
                         let notes = notes([Some(access.to_string()), array, since]);
+                        let errors = errors_of(ident);
                         items.extend(quote! {
                             #(#docs)*
+                            #(#[doc = #errors])*
                             #notes
                             fn #ident #lifetimes (#index) -> wire_weaver::api_doc::Property<#ty #err_ty>;
                         });
@@ -233,23 +240,19 @@ fn doc_trait(
     })
 }
 
-/// `# Errors` of a method with `#[errors(..)]` (API-32), each entry with its variant's doc line, as in the generated
-/// client's docs.
-fn errors_section(api_bundle: &ApiBundleOwned, method: &str) -> Vec<String> {
-    let Some(ApiItemKindOwned::Method {
-        return_ty,
-        errors: Some(errors),
-        ..
-    }) = api_bundle
+/// `# Errors` of a method, stream function or property with `#[errors(..)]` (API-32), each entry with its variant's
+/// doc line, as in the generated client's docs.
+fn errors_section(api_bundle: &ApiBundleOwned, item: &str) -> Vec<String> {
+    let Some(kind) = api_bundle
         .root
         .items
         .iter()
-        .find(|i| i.ident == method)
+        .find(|i| i.ident == item)
         .map(|i| &i.kind)
     else {
         return vec![];
     };
-    let Some(err_ty) = method_err_ty(return_ty.as_ref(), api_bundle) else {
+    let (Some(errors), Some(err_ty)) = (kind.error_list(), kind.err_ty(api_bundle)) else {
         return vec![];
     };
     let mut lines = vec![String::new(), " # Errors".to_string(), String::new()];
@@ -486,6 +489,27 @@ mod tests {
             ]
         );
         assert!(errors_section(&bundle, "fallible_absent").is_empty());
+    }
+
+    #[test]
+    fn errors_section_of_stream_fn_and_property() {
+        let tests = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests");
+        let bundle = load(&tests.join("streams_reliable_api"), None, false).unwrap();
+        assert_eq!(
+            errors_section(&bundle, "samples"),
+            ["", " # Errors", "", " - `BadRate`: Rate 0"]
+        );
+        let bundle = load(&tests.join("properties_api"), None, false).unwrap();
+        assert_eq!(
+            errors_section(&bundle, "mode"),
+            [
+                "",
+                " # Errors",
+                "",
+                " - `TooBig`: Above 10",
+                " - `NotSet`: Not set yet"
+            ]
+        );
     }
 
     #[test]

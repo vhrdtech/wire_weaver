@@ -1,5 +1,5 @@
-//! Per-method error lists (`#[errors(..)]`, API-32): how they read, what they document, and whether an error a
-//! device returned is in one. Used by the generated client's docs, the dynamic client, Python and the ww CLI.
+//! Per-item error lists (`#[errors(..)]` on methods, stream functions and properties, API-32): how they read, what
+//! they document, and whether an error a device returned is in one. Used by the generated client's docs, the dynamic client, Python and the ww CLI.
 
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ErrorVariantOwned, FieldsOwned, FieldsValueOwned,
@@ -7,10 +7,26 @@ use crate::{
 };
 
 impl ApiItemKindOwned {
-    /// `#[errors(..)]` of a method, `None` without one and for other items.
+    /// `#[errors(..)]` of a method, stream function (the open's result) or property (its write), `None` without one
+    /// and for other items.
     pub fn error_list(&self) -> Option<&[ErrorVariantOwned]> {
         match self {
-            ApiItemKindOwned::Method { errors, .. } => errors.as_deref(),
+            ApiItemKindOwned::Method { errors, .. }
+            | ApiItemKindOwned::StreamFn { errors, .. }
+            | ApiItemKindOwned::Property { errors, .. } => errors.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// The error type an `#[errors(..)]` list is about: the `Err` of a method's or stream function's `Result`, a
+    /// property's write error type; `None` for other items and infallible ones.
+    pub fn err_ty<'a>(&'a self, bundle: &'a ApiBundleOwned) -> Option<&'a TypeOwned> {
+        match self {
+            ApiItemKindOwned::Method { return_ty, .. }
+            | ApiItemKindOwned::StreamFn { return_ty, .. } => {
+                method_err_ty(return_ty.as_ref(), bundle)
+            }
+            ApiItemKindOwned::Property { write_err_ty, .. } => write_err_ty.as_ref(),
             _ => None,
         }
     }

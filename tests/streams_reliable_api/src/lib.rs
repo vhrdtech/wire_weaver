@@ -9,6 +9,7 @@ trait StreamsReliable {
     stream!(rx: [u8]);
 
     /// Samples at `config.rate`, kept in the device's store until acknowledged; unit: sample
+    #[errors(BadRate)]
     #[stream(Sample, reliable)]
     fn samples(config: SampleConfig) -> Result<SampleActual, SampleError>;
 
@@ -58,5 +59,8 @@ pub struct SampleActual {
     ww_repr = u4
 )]
 pub enum SampleError {
+    /// Rate 0.
     BadRate,
+    /// Not in the list of `samples`, returned for rate `u32::MAX` to test the client's warning.
+    TooFast,
 }

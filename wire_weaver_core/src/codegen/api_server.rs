@@ -905,6 +905,7 @@ fn level_matcher(
             ty,
             access,
             write_err_ty,
+            ..
         } => handle_property(
             api_bundle,
             index_chain,

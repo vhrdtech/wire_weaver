@@ -9,7 +9,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyString, PyTuple};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use wire_weaver_client::ww_self::errors::{self, method_err_ty};
+use wire_weaver_client::ww_self::errors;
 use wire_weaver_client::ww_self::{
     ApiItemKindOwned, ApiItemOwned, ArgumentOwned, Delivery, PropertyAccess, TypeOwned, ValueOwned,
 };
@@ -84,18 +84,11 @@ pub(crate) fn docs(res: &DynResource) -> String {
     docs
 }
 
-/// `Errors:` with each entry of a method's `#[errors(..)]` (API-32) and its variant's doc line, the variants
-/// `RemoteError.value` can have.
+/// `Errors:` with each entry of the `#[errors(..)]` of a method, stream function or property (its write) (API-32)
+/// and its variant's doc line, the variants `RemoteError.value` can have.
 fn error_list_docs(res: &DynResource, item: &ApiItemOwned) -> String {
-    let ApiItemKindOwned::Method {
-        return_ty,
-        errors: Some(errors),
-        ..
-    } = &item.kind
+    let (Some(errors), Some(err_ty)) = (item.kind.error_list(), item.kind.err_ty(res.bundle()))
     else {
-        return String::new();
-    };
-    let Some(err_ty) = method_err_ty(return_ty.as_ref(), res.bundle()) else {
         return String::new();
     };
     let mut out = String::from(if item.docs.is_empty() {

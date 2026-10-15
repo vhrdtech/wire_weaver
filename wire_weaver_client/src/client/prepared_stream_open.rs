@@ -1,6 +1,7 @@
 //! Opening a stream by calling its stream function (API-31, CLT-23): `RequestKind::StreamOpen`, answered with
 //! `StreamOpened` and the function's result. See `docs/api/stream_reliability.md`.
 
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
@@ -16,6 +17,7 @@ use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
 use ww_stream::{Opened, StreamCursor};
 
 use crate::client::positioned::{AckMode, PositionedConfig, PositionedStream, Shared};
+use crate::error_list::{self, ErrorList};
 use crate::event_loop::command::{Command, StreamOpenHook};
 use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::rx_dispatcher::{ResponseReceiver, StreamUpdateReceiver};
@@ -180,7 +182,26 @@ pub struct PreparedStreamOpen<R, S> {
     pub(crate) timeout_override: Option<Duration>,
     /// The result is a `Result` the type doesn't know of ([RawOpenResult]): open only when it is `Ok`
     pub(crate) raw_fallible: bool,
+    /// `#[errors(..)]` of the stream function (API-32), checked on the device's error, see [Self::with_error_list]
+    pub(crate) error_check: Option<ErrorCheck<R>>,
     pub(crate) _phantom: PhantomData<(R, S)>,
+}
+
+/// Checks a stream function's result against its `#[errors(..)]` list.
+pub(crate) type ErrorCheck<R> = Box<dyn Fn(&R) + Send + Sync>;
+
+impl<A, E: Debug + 'static, S> PreparedStreamOpen<Result<A, E>, S> {
+    /// The stream function's `#[errors(..)]` list (API-32), used by generated client code: a device error outside
+    /// it is logged as a warning (a panic with [set_strict_error_lists](crate::set_strict_error_lists)).
+    /// `resource` names the stream function in the message.
+    pub fn with_error_list(mut self, list: ErrorList<E>, resource: &'static str) -> Self {
+        self.error_check = Some(Box::new(move |result: &Result<A, E>| {
+            if let Err(e) = result {
+                error_list::check(e, Some(&list), resource);
+            }
+        }));
+        self
+    }
 }
 
 impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
@@ -227,7 +248,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
         let (parts, (cmd, done_rx)) = self.start(plain_rx)?;
         self.transport_cmd_tx.send_command(cmd).await?;
         let response = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning);
-        finish::<R, S>(parts, response, open_check)
+        finish::<R, S>(parts, response, open_check, self.error_check.as_ref())
     }
 
     /// Blocking variant of [Self::call].
@@ -247,7 +268,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
         let response = done_rx
             .blocking_recv()
             .map_err(|_| Error::RxDispatcherNotRunning);
-        finish::<R, S>(parts, response, open_check)
+        finish::<R, S>(parts, response, open_check, self.error_check.as_ref())
     }
 
     /// Checks, the open request and what it needs (a plain stream's receiver, registered before the request goes
@@ -369,11 +390,15 @@ fn finish<R: StreamOpenResult, S: StreamHandle>(
     parts: Parts,
     response: Result<Result<Vec<u8>, Error>, Error>,
     open_check: fn(&[u8]) -> bool,
+    error_check: Option<&ErrorCheck<R>>,
 ) -> Result<R::With<S>, Error> {
     let decoded = response.and_then(|r| r).and_then(|bytes| {
         let (_, result) = decode_opened(&bytes)?;
         Ok((R::from_ww_bytes_owned(&result)?, open_check(&bytes)))
     });
+    if let (Ok((r, _)), Some(check)) = (&decoded, error_check) {
+        check(r);
+    }
     let result = match decoded {
         Ok((r, true)) => {
             if let Parts::Positioned {

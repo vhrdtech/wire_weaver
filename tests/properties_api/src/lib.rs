@@ -7,6 +7,7 @@ trait Properties {
 
     property!(rw absent: u8);
     /// Fails with a user error for values above 10, get fails while mode is 0
+    #[errors(TooBig, NotSet)]
     property!(rw mode: u8, ModeError);
 
     // changes pub sub
@@ -19,8 +20,12 @@ trait Properties {
 
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = u4)]
 pub enum ModeError {
+    /// Above 10.
     TooBig,
+    /// Not set yet.
     NotSet,
+    /// Not in the list of `mode`, returned for 99 to test the client's warning.
+    Locked,
 }
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]

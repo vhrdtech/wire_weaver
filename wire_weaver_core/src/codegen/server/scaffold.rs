@@ -242,6 +242,7 @@ impl Scaffold<'_> {
                     ty,
                     access,
                     write_err_ty,
+                    ..
                 } => self.property(item, &name, item_index_len, ty, *access, write_err_ty)?,
                 ApiItemKindOwned::Stream { is_up: true, .. }
                 | ApiItemKindOwned::StreamFn { .. } => {

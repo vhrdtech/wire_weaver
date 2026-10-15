@@ -368,6 +368,7 @@ fn level_method(
             access,
             ty,
             write_err_ty,
+            errors,
         } => handle_property(
             api_bundle,
             model,
@@ -378,6 +379,7 @@ fn level_method(
             &ident,
             ty,
             write_err_ty,
+            errors.as_deref(),
             &resource,
         ),
         ApiItemKindOwned::Stream { is_up: true, .. } | ApiItemKindOwned::StreamFn { .. } => {
@@ -391,6 +393,7 @@ fn level_method(
                 &ident,
                 item.kind.as_stream_fn().expect("a stream"),
                 &item.docs,
+                &resource,
             )
         }
         ApiItemKindOwned::Stream { ty, is_up: false } => handle_stream(
@@ -485,7 +488,17 @@ fn handle_method(
         && let Some(err_ty) = method_err_ty(return_type.as_ref(), api_bundle)
     {
         docs.extend(error_list_doc(errors, err_ty, api_bundle));
-        with_error_list = error_list_check(errors, err_ty, api_bundle);
+        let listed = error_list_patterns(errors, err_ty, api_bundle);
+        let names = fmt_error_list(errors);
+        with_error_list = quote! {
+            .with_error_list(wire_weaver_client::ErrorList {
+                listed: |e| match e {
+                    wire_weaver_client::CallError::Device(e) => matches!(e, #listed),
+                    _ => true,
+                },
+                names: #names,
+            })
+        };
     }
     let docs = docs.iter().map(|s| quote! { #[doc = #s] });
     quote! {
@@ -499,7 +512,8 @@ fn handle_method(
     }
 }
 
-/// `# Errors` section of a method's docs from its `#[errors(..)]` list (API-32), each entry with its variant's doc line.
+/// `# Errors` section of a method's, stream function's or property write's docs from its `#[errors(..)]` list
+/// (API-32), each entry with its variant's doc line.
 fn error_list_doc(
     errors: &[ErrorVariantOwned],
     err_ty: &TypeOwned,
@@ -515,9 +529,9 @@ fn error_list_doc(
     docs
 }
 
-/// `.with_error_list(..)` with a `matches!` over the listed variants (API-32), so that the client warns when a
-/// device returns another one.
-fn error_list_check(
+/// Patterns of the listed variants of `err_ty` (API-32), for a `matches!` in `.with_error_list(..)`, so that the
+/// client warns when a device returns another one.
+fn error_list_patterns(
     errors: &[ErrorVariantOwned],
     err_ty: &TypeOwned,
     api_bundle: &ApiBundleOwned,
@@ -549,16 +563,7 @@ fn error_list_check(
             }
         }
     }
-    let names = fmt_error_list(errors);
-    quote! {
-        .with_error_list(wire_weaver_client::ErrorList {
-            listed: |e| match e {
-                wire_weaver_client::CallError::Device(e) => matches!(e, #(#patterns)|*),
-                _ => true,
-            },
-            names: #names,
-        })
-    }
+    quote! { #(#patterns)|* }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -572,6 +577,7 @@ fn handle_property(
     prop_name: &Ident,
     ty: &TypeOwned,
     user_result_ty: &Option<TypeOwned>,
+    errors: Option<&[ErrorVariantOwned]>,
     resource: &str,
 ) -> TokenStream {
     let path_kind = path_kind(path_mode, gid_paths);
@@ -598,12 +604,31 @@ fn handle_property(
                 let value = #prop_name.to_ww_bytes_owned().map_err(|e| e.into());
             }
         };
+        let mut docs = vec![];
+        let mut with_error_list = quote! {};
+        if let (Some(errors), Some(err_ty)) = (errors, user_result_ty) {
+            docs = error_list_doc(errors, err_ty, api_bundle);
+            docs.remove(0); // no docs above the section
+            let listed = error_list_patterns(errors, err_ty, api_bundle);
+            let names = fmt_error_list(errors);
+            with_error_list = quote! {
+                .with_error_list(wire_weaver_client::ErrorList {
+                    listed: |e| match e {
+                        wire_weaver_client::CallError::Device(e) => matches!(e, #listed),
+                        _ => true,
+                    },
+                    names: #names,
+                })
+            };
+        }
+        let docs = docs.iter().map(|s| quote! { #[doc = #s] });
         quote! {
+            #(#docs)*
             pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client::PreparedWrite<#write_err_ty> {
                 #ser_value
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd.prepare_write(path_kind, value, #resource)
+                self.cmd.prepare_write(path_kind, value, #resource) #with_error_list
             }
         }
     } else {
@@ -686,6 +711,7 @@ fn handle_stream_fn(
     ident: &Ident,
     stream: StreamFnRef<'_>,
     docs: &[String],
+    resource: &str,
 ) -> TokenStream {
     let item_ty = if stream.ty.is_byte_slice(api_bundle).unwrap() {
         quote! { wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned }
@@ -711,6 +737,21 @@ fn handle_stream_fn(
     let (args_ser, args_list, _) = ser_args(api_bundle, ident, &args, model.no_alloc());
     let path_kind = path_kind(path_mode, gid_paths);
     let maybe_mut = maybe_quote(!args.is_empty(), quote! { mut });
+    let mut docs = docs.to_vec();
+    let mut with_error_list = quote! {};
+    if let Some(errors) = stream.errors
+        && let Some(err_ty) = method_err_ty(stream.return_ty, api_bundle)
+    {
+        docs.extend(error_list_doc(errors, err_ty, api_bundle));
+        let listed = error_list_patterns(errors, err_ty, api_bundle);
+        let names = fmt_error_list(errors);
+        with_error_list = quote! {
+            .with_error_list(wire_weaver_client::ErrorList {
+                listed: |e| matches!(e, #listed),
+                names: #names,
+            }, #resource)
+        };
+    }
     let docs = docs.iter().map(|s| quote! { #[doc = #s] });
     let delivery_opt = match &delivery {
         Some(d) => quote! { Some(#d) },
@@ -724,7 +765,7 @@ fn handle_stream_fn(
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;
-            self.cmd.prepare_stream_open(path_kind, #delivery_opt, args_bytes)
+            self.cmd.prepare_stream_open(path_kind, #delivery_opt, args_bytes) #with_error_list
         }
     };
     if let Some(delivery) = delivery {

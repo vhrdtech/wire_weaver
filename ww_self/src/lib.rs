@@ -221,6 +221,10 @@ pub enum ApiItemKind<'i> {
         ty: Type<'i>,
         access: PropertyAccess,
         write_err_ty: Option<Type<'i>>,
+        /// Variants of `write_err_ty` a write (set) returns, `#[errors(..)]` above `property!` in its trait (API-32),
+        /// as for [Method](ApiItemKind::Method).
+        #[default = None]
+        errors: Option<RefVec<'i, ErrorVariant<'i>>>,
     },
     Stream {
         ty: Type<'i>,
@@ -248,6 +252,10 @@ pub enum ApiItemKind<'i> {
         delivery: Delivery,
         args: RefVec<'i, Argument<'i>>,
         return_ty: Option<Type<'i>>,
+        /// Variants of the `Err` type of `return_ty` opening the stream returns, `#[errors(..)]` in its trait
+        /// (API-32), as for [Method](ApiItemKind::Method).
+        #[default = None]
+        errors: Option<RefVec<'i, ErrorVariant<'i>>>,
     },
     // Reserved, no useful info keeping reserved items after IDs are calculated
 }

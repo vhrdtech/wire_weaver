@@ -1,7 +1,7 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    ArgumentOwned, Delivery, FieldOwned, FieldsOwned, FlowControl, ItemEnumOwned, ItemStructOwned,
-    Multiplicity, Repr, TypeLocationOwned, TypeOwned,
+    ArgumentOwned, Delivery, ErrorVariantOwned, FieldOwned, FieldsOwned, FlowControl,
+    ItemEnumOwned, ItemStructOwned, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
 };
 use anyhow::{Result, anyhow};
 use shrink_wrap::ElementSize;
@@ -73,17 +73,20 @@ impl ApiItemKindOwned {
                 delivery,
                 args,
                 return_ty,
+                errors,
             } => Some(StreamFnRef {
                 ty,
                 delivery: *delivery,
                 args,
                 return_ty: return_ty.as_ref(),
+                errors: errors.as_deref(),
             }),
             ApiItemKindOwned::Stream { ty, is_up: true } => Some(StreamFnRef {
                 ty,
                 delivery: Delivery::Plain,
                 args: &[],
                 return_ty: None,
+                errors: None,
             }),
             _ => None,
         }
@@ -108,6 +111,8 @@ pub struct StreamFnRef<'a> {
     pub delivery: Delivery,
     pub args: &'a [ArgumentOwned],
     pub return_ty: Option<&'a TypeOwned>,
+    /// `#[errors(..)]` of the stream function (API-32).
+    pub errors: Option<&'a [ErrorVariantOwned]>,
 }
 
 impl ApiBundleOwned {

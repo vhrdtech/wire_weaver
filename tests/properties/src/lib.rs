@@ -85,6 +85,9 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: u8,
             ) -> SetResult<ModeError> {
+                if value == 99 {
+                    return SetError(ModeError::Locked);
+                }
                 if value > 10 {
                     return SetError(ModeError::TooBig);
                 }
@@ -398,6 +401,29 @@ mod tests {
         println!("multi_read on a server without multi_req: {r:?}");
         assert!(r.is_err(), "server without multi_req must refuse it");
         observe(&client).await;
+    }
+
+    /// tests_common makes the client strict: a device error outside the property's `#[errors(..)]` fails the test
+    /// (API-32).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[should_panic(
+        expected = "'Properties::mode' returned Device(Locked), which is not in its #[errors(TooBig, NotSet)]"
+    )]
+    async fn unlisted_write_error_fails_in_tests() {
+        let (device, _data) = start_multi_req("properties/unlisted_write_error");
+        let client = connect(&device).await;
+        let _ = client.write_mode(99).write().await;
+    }
+
+    #[test]
+    #[should_panic(expected = "'Properties::mode' returned Device(Locked)")]
+    fn unlisted_write_error_fails_in_tests_promise() {
+        let (device, _data) = start_multi_req("properties/unlisted_write_error_promise");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let client = connect_blocking(&device);
+        let mut write = client.write_mode(99).write_promise("write_mode");
+        tests_common::wait_promise(&mut write);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

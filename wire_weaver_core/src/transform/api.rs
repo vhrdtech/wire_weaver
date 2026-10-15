@@ -1,6 +1,6 @@
 use super::{
     crate_walker::{CrateContext, Scratch},
-    errors::{get_errors_attr, reject_errors_attr},
+    errors::{ListedOn, get_errors_attr, reject_errors_attr},
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
     util::{
         collect_docs, get_delivery_attr, get_flow_attr, get_optional_attr, get_since_attr,
@@ -19,7 +19,7 @@ use syn::{
 };
 use ww_self::{
     ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ArgumentOwned, Delivery,
-    Multiplicity, PropertyAccess, TypeOwned,
+    ErrorVariantOwned, Multiplicity, PropertyAccess, TypeOwned,
 };
 
 pub(crate) fn convert_api_items(
@@ -98,8 +98,12 @@ pub(crate) fn convert_api_items(
                 let ty = convert_ty(&trait_item_const.ty, current_crate, scratch)?;
                 let since = get_since_attr(&trait_item_const.attrs, current_crate)?;
                 let docs = collect_docs(&trait_item_const.attrs);
-                reject_errors_attr(&trait_item_const.attrs, &trait_item_const.ident.to_string())
-                    .context(current_crate.err_context())?;
+                reject_errors_attr(
+                    &trait_item_const.attrs,
+                    &trait_item_const.ident.to_string(),
+                    "a const can't fail, only methods, stream functions and properties have error lists",
+                )
+                .context(current_crate.err_context())?;
 
                 items.push(ApiItemOwned {
                     id: UNib32(idx as u32),
@@ -107,6 +111,7 @@ pub(crate) fn convert_api_items(
                         ty,
                         access: PropertyAccess::Const,
                         write_err_ty: None,
+                        errors: None,
                     },
                     multiplicity: Multiplicity::Flat,
                     since,
@@ -152,15 +157,19 @@ fn convert_api_item_fn(
         ReturnType::Default => None,
         ReturnType::Type(_, ty) => Some(convert_ty(ty, current_crate, scratch)?),
     };
+    let stream_fn = get_stream_fn_attr(&item_fn.attrs, current_crate)?;
     let errors = get_errors_attr(
         &item_fn.attrs,
         &item_fn.sig.ident.to_string(),
-        return_ty.as_ref(),
+        ListedOn::Fn {
+            stream: stream_fn.is_some(),
+            return_ty: return_ty.as_ref(),
+        },
         scratch,
     )
     .context(current_crate.err_context())?;
     let since = get_since_attr(&item_fn.attrs, current_crate)?;
-    let kind = match get_stream_fn_attr(&item_fn.attrs, current_crate)? {
+    let kind = match stream_fn {
         Some(_)
             if return_ty
                 .as_ref()
@@ -173,16 +182,13 @@ fn convert_api_item_fn(
             )
             .context(current_crate.err_context()));
         }
-        Some(stream) => {
-            reject_errors_attr(&item_fn.attrs, &item_fn.sig.ident.to_string())
-                .context(current_crate.err_context())?;
-            stream_kind(
-                convert_ty(&stream.ty, current_crate, scratch)?,
-                stream.delivery,
-                args,
-                return_ty,
-            )
-        }
+        Some(stream) => stream_kind(
+            convert_ty(&stream.ty, current_crate, scratch)?,
+            stream.delivery,
+            args,
+            return_ty,
+            errors,
+        ),
         None => ApiItemKindOwned::Method {
             args,
             return_ty,
@@ -220,11 +226,18 @@ fn convert_api_item_stream(
     let docs = collect_docs(&item_macro.attrs);
     let flow = get_flow_attr(&item_macro.attrs, is_up, current_crate)?;
     let delivery = get_delivery_attr(&item_macro.attrs, is_up, current_crate)?;
-    reject_errors_attr(&item_macro.attrs, &args.resource_name.to_string())
-        .context(current_crate.err_context())?;
+    reject_errors_attr(
+        &item_macro.attrs,
+        &args.resource_name.to_string(),
+        &format!(
+            "{macro_name}! has no result to list errors of, a stream function can have one: \
+             #[errors(..)] #[stream(T)] fn name() -> Result<(), E>"
+        ),
+    )
+    .context(current_crate.err_context())?;
     let kind = match flow {
         Some(flow) => ApiItemKindOwned::FlowSink { ty, flow },
-        None if is_up => stream_kind(ty, delivery, vec![], None),
+        None if is_up => stream_kind(ty, delivery, vec![], None, None),
         None => ApiItemKindOwned::Stream { ty, is_up },
     };
 
@@ -246,6 +259,7 @@ fn stream_kind(
     delivery: Delivery,
     args: Vec<ArgumentOwned>,
     return_ty: Option<TypeOwned>,
+    errors: Option<Vec<ErrorVariantOwned>>,
 ) -> ApiItemKindOwned {
     if delivery == Delivery::Plain && args.is_empty() && return_ty.is_none() {
         ApiItemKindOwned::Stream { ty, is_up: true }
@@ -255,6 +269,7 @@ fn stream_kind(
             delivery,
             args,
             return_ty,
+            errors,
         }
     }
 }
@@ -278,8 +293,15 @@ fn convert_api_item_property(
     let multiplicity = convert_multiplicity(&args.multiplicity, current_crate, scratch)?;
     let since = get_since_attr(&item_macro.attrs, current_crate)?;
     let docs = collect_docs(&item_macro.attrs);
-    reject_errors_attr(&item_macro.attrs, &args.resource_name.to_string())
-        .context(current_crate.err_context())?;
+    let errors = get_errors_attr(
+        &item_macro.attrs,
+        &args.resource_name.to_string(),
+        ListedOn::Property {
+            write_err_ty: write_err_ty.as_ref(),
+        },
+        scratch,
+    )
+    .context(current_crate.err_context())?;
 
     Ok(ApiItemOwned {
         id: UNib32(idx),
@@ -287,6 +309,7 @@ fn convert_api_item_property(
             ty,
             access: args.access,
             write_err_ty,
+            errors,
         },
         multiplicity,
         since,
@@ -327,8 +350,12 @@ fn convert_api_item_impl(
     };
     let multiplicity = convert_multiplicity(&args.multiplicity, current_crate, scratch)?;
     let since = get_since_attr(&item_macro.attrs, current_crate)?;
-    reject_errors_attr(&item_macro.attrs, &args.resource_name.to_string())
-        .context(current_crate.err_context())?;
+    reject_errors_attr(
+        &item_macro.attrs,
+        &args.resource_name.to_string(),
+        "ww_impl! is a trait, list the errors on its items",
+    )
+    .context(current_crate.err_context())?;
     if get_optional_attr(&item_macro.attrs, current_crate)?.is_some() {
         return Err(anyhow!(
             "#[optional] on ww_impl!({}: ..): only methods, properties and streams can be optional, \

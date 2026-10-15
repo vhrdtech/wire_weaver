@@ -1,5 +1,5 @@
-//! `#[errors(Common(InUse, Refused), Nack, ..)]` on a trait method (API-32): parsed and checked against the
-//! method's error enum, see `docs/api/errors.md#which-errors-a-method-returns`.
+//! `#[errors(Common(InUse, Refused), Nack, ..)]` on a trait method, stream function or property (API-32): parsed and
+//! checked against the item's error enum, see `docs/api/errors.md#which-errors-a-method-returns`.
 
 use super::crate_walker::Scratch;
 use proc_macro2::Ident;
@@ -12,7 +12,7 @@ use ww_self::{ErrorVariantOwned, FieldsOwned, ItemEnumOwned, TypeLocationOwned, 
 /// A wrong `#[errors(..)]` list. `ww_trait` finds `name` in the attribute to point at it.
 #[derive(Debug)]
 pub struct ErrorListError {
-    /// The method the list is on.
+    /// The method, stream function or property the list is on.
     pub method: String,
     /// The name in the list the error is about (`Nack`, or `InUse` of `Common(InUse)`), `None` for the whole
     /// attribute.
@@ -28,11 +28,24 @@ impl Display for ErrorListError {
 
 impl std::error::Error for ErrorListError {}
 
-/// `#[errors(..)]` of a method, checked against its return type, `None` without the attribute.
+/// What an `#[errors(..)]` list is on, and so where its error type comes from.
+#[derive(Clone, Copy)]
+pub(crate) enum ListedOn<'a> {
+    /// A method's or stream function's return type, a `Result`.
+    Fn {
+        stream: bool,
+        return_ty: Option<&'a TypeOwned>,
+    },
+    /// A property's write error type (`property!(rw name: T, SetError)`).
+    Property { write_err_ty: Option<&'a TypeOwned> },
+}
+
+/// `#[errors(..)]` of a method, stream function or property, checked against its error type, `None` without the
+/// attribute.
 pub(crate) fn get_errors_attr(
     attrs: &[Attribute],
     method: &str,
-    return_ty: Option<&TypeOwned>,
+    on: ListedOn,
     scratch: &Scratch,
 ) -> Result<Option<Vec<ErrorVariantOwned>>, ErrorListError> {
     let Some(attr) = attrs.iter().find(|a| a.path().is_ident("errors")) else {
@@ -49,23 +62,48 @@ pub(crate) fn get_errors_attr(
             format!("expected a list of variants like #[errors(Common, Nack)]: {e}"),
         )
     })?;
+    let noun = match on {
+        ListedOn::Fn { stream: false, .. } => "method",
+        ListedOn::Fn { stream: true, .. } => "stream function",
+        ListedOn::Property { .. } => "property",
+    };
     if list.0.is_empty() {
         return Err(err(
             None,
-            "the list is empty, a method that returns no errors has no Result".into(),
+            match on {
+                ListedOn::Fn { .. } => {
+                    format!("the list is empty, a {noun} that returns no errors has no Result")
+                }
+                ListedOn::Property { .. } => {
+                    "the list is empty, a property whose write can't fail has no error type".into()
+                }
+            },
         ));
     }
     let types = &scratch.root_bundle.types;
-    let Some(TypeOwned::Result { err_ty, .. }) = return_ty.map(|ty| in_line(ty, types)) else {
-        return Err(err(
-            None,
-            "the method doesn't return a Result, there are no errors to list".into(),
-        ));
+    let err_ty = match on {
+        ListedOn::Fn { return_ty, .. } => match return_ty.map(|ty| in_line(ty, types)) {
+            Some(TypeOwned::Result { err_ty, .. }) => err_ty,
+            _ => {
+                return Err(err(
+                    None,
+                    format!("the {noun} doesn't return a Result, there are no errors to list"),
+                ));
+            }
+        },
+        ListedOn::Property { write_err_ty } => write_err_ty.ok_or_else(|| {
+            err(
+                None,
+                "the property has no write error type (property!(rw name: T, SetError)), there are \
+                 no errors to list"
+                    .into(),
+            )
+        })?,
     };
     let TypeOwned::Enum(err_enum) = in_line(err_ty, types) else {
         return Err(err(
             None,
-            "the method's error type is not an enum, there are no variants to list".into(),
+            format!("the {noun}'s error type is not an enum, there are no variants to list"),
         ));
     };
 
@@ -143,13 +181,18 @@ pub(crate) fn get_errors_attr(
     Ok(Some(out))
 }
 
-/// `#[errors(..)]` is for methods only.
-pub(crate) fn reject_errors_attr(attrs: &[Attribute], item: &str) -> Result<(), ErrorListError> {
+/// `#[errors(..)]` is for methods, stream functions and properties only.
+/// `message` says why `item` can't have one.
+pub(crate) fn reject_errors_attr(
+    attrs: &[Attribute],
+    item: &str,
+    message: &str,
+) -> Result<(), ErrorListError> {
     if attrs.iter().any(|a| a.path().is_ident("errors")) {
         return Err(ErrorListError {
             method: item.to_string(),
             name: None,
-            message: "only methods have error lists".into(),
+            message: message.into(),
         });
     }
     Ok(())
@@ -295,6 +338,43 @@ mod tests {
     }
 
     #[test]
+    fn stream_fn_and_property_lists() {
+        let entry = |ident: &str| ErrorVariantOwned {
+            ident: ident.into(),
+            nested: None,
+        };
+        let bundle = load(
+            "stream_fn",
+            "#[errors(Nack)] #[stream(u8, counted)] fn samples(n: u8) -> Result<(), ReadError>;",
+        )
+        .unwrap();
+        assert_eq!(errors(&bundle).unwrap(), [entry("Nack")]);
+
+        let bundle = load(
+            "property_list",
+            "#[errors(Overrun, Common(Busy))] property!(rw value: u8, ReadError);",
+        )
+        .unwrap();
+        assert_eq!(
+            errors(&bundle).unwrap(),
+            [
+                entry("Overrun"),
+                ErrorVariantOwned {
+                    ident: "Common".into(),
+                    nested: Some(vec!["Busy".into()]),
+                }
+            ]
+        );
+
+        let e = list_error(
+            "property_unknown",
+            "#[errors(Timeout)] property!(wo value: u8, ReadError);",
+        );
+        assert_eq!(e.method, "value");
+        assert_eq!(e.name.as_deref(), Some("Timeout"));
+    }
+
+    #[test]
     fn unknown_names_point_at_the_name() {
         let e = list_error(
             "unknown",
@@ -356,7 +436,30 @@ mod tests {
         );
         assert_eq!(
             message("property", "#[errors(Nack)] property!(ro value: u8);"),
-            "only methods have error lists"
+            "the property has no write error type (property!(rw name: T, SetError)), there are no errors to list"
+        );
+        assert_eq!(
+            message(
+                "property_empty",
+                "#[errors()] property!(rw value: u8, ReadError);"
+            ),
+            "the list is empty, a property whose write can't fail has no error type"
+        );
+        assert_eq!(
+            message(
+                "stream_fn",
+                "#[errors(Nack)] #[stream(u8)] fn samples(n: u8);"
+            ),
+            "the stream function doesn't return a Result, there are no errors to list"
+        );
+        assert_eq!(
+            message("stream", "#[errors(Nack)] stream!(samples: u8);"),
+            "ww_stream! has no result to list errors of, a stream function can have one: #[errors(..)] \
+             #[stream(T)] fn name() -> Result<(), E>"
+        );
+        assert_eq!(
+            message("const", "#[errors(Nack)] const LIMIT: u8 = 1;"),
+            "a const can't fail, only methods, stream functions and properties have error lists"
         );
         assert!(
             message(

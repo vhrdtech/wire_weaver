@@ -1,5 +1,8 @@
+use crate::client::prepared_call::check_error_list;
+use crate::error_list::ErrorList;
 use crate::event_loop::commander::TransportCommander;
-use crate::{Error, OutcomeError, Promise};
+use crate::{CallError, Error, OutcomeError, Promise};
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
 use ww_client_server::PathKindOwned;
@@ -23,7 +26,18 @@ pub struct PreparedWrite<E = Error> {
     pub(crate) timeout_override: Option<Duration>,
     /// Names the property in [CallError::Unimplemented](crate::CallError::Unimplemented)
     pub(crate) resource: &'static str,
+    /// `#[errors(..)]` of the property (API-32), checked on the device's error
+    pub(crate) error_list: Option<ErrorList<E>>,
     pub(crate) _phantom_err: PhantomData<E>,
+}
+
+impl<D: wire_weaver::prelude::DeserializeShrinkWrapOwned + Debug> PreparedWrite<CallError<D>> {
+    /// The property's `#[errors(..)]` list (API-32), used by generated client code: a device error outside it is
+    /// logged as a warning (a panic with [set_strict_error_lists](crate::set_strict_error_lists)).
+    pub fn with_error_list(mut self, list: ErrorList<CallError<D>>) -> Self {
+        self.error_list = Some(list);
+        self
+    }
 }
 
 impl<E: OutcomeError> PreparedWrite<E> {
@@ -36,16 +50,19 @@ impl<E: OutcomeError> PreparedWrite<E> {
             value: self.value,
             timeout_override: Some(timeout),
             resource: self.resource,
+            error_list: self.error_list,
             _phantom_err: PhantomData,
         }
     }
 
     /// Send write request, await response (or timeout) and return it.
     pub async fn write(self) -> Result<(), E> {
-        let resource = self.resource;
-        self.write_inner()
+        let (resource, error_list) = (self.resource, self.error_list);
+        let result = self
+            .write_inner()
             .await
-            .map_err(|e| E::from_client(e, resource))
+            .map_err(|e| E::from_client(e, resource));
+        check_error_list(result, error_list.as_ref(), resource)
     }
 
     async fn write_inner(self) -> Result<(), Error> {
@@ -66,9 +83,11 @@ impl<E: OutcomeError> PreparedWrite<E> {
 
     /// Send write request, block the thread until response is received (or timeout) and return it.
     pub fn blocking_write(self) -> Result<(), E> {
-        let resource = self.resource;
-        self.blocking_write_inner()
-            .map_err(|e| E::from_client(e, resource))
+        let (resource, error_list) = (self.resource, self.error_list);
+        let result = self
+            .blocking_write_inner()
+            .map_err(|e| E::from_client(e, resource));
+        check_error_list(result, error_list.as_ref(), resource)
     }
 
     fn blocking_write_inner(self) -> Result<(), Error> {
@@ -121,6 +140,7 @@ impl<E: OutcomeError> PreparedWrite<E> {
             self.timeout_override,
             self.transport_cmd_tx,
             self.resource,
+            self.error_list,
             marker,
         )
     }

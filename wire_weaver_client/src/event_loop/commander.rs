@@ -209,6 +209,7 @@ impl Commander {
             value,
             timeout_override: None,
             resource,
+            error_list: None,
             _phantom_err: PhantomData,
         }
     }
@@ -253,6 +254,7 @@ impl Commander {
             queue_bytes: self.stream_queue_bytes,
             timeout_override: None,
             raw_fallible: false,
+            error_check: None,
             _phantom: PhantomData,
         }
     }

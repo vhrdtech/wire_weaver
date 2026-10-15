@@ -367,7 +367,8 @@
             "# Errors",
             "",
             "`Common(Unsupported)` (a baud rate, mode or parity this monitor can\'t decode), `Common(InUse)`,",
-            "`Common(NoPower)`.",
+            "`Common(NoPower)`. `#[errors(..)]` isn\'t supported on `#[stream(..)]` methods yet (API-32), so this stays a",
+            "hand-written note.",
         ], optional: Some((group: None))),
     ]), crate_idx: 0),
 ], ext_crates: [

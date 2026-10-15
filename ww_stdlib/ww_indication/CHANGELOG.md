@@ -11,3 +11,8 @@
 - `Mode` and `Brightness` are `Unsized` (the default): both may grow a variant later (an in-between brightness
   level, a new mode), and a host built against an older `ww_indication` reads it as `Unknown(u32)` (SW-47) instead
   of failing. Not `no_future_version`, unlike `ww_client_server`'s closed sets.
+
+### 🐛 Fixes
+
+- `Indication::identify` was missing its `#[errors(..)]` list (only a hand-written note); it now has
+  `#[errors(Unsupported, Busy)]`.

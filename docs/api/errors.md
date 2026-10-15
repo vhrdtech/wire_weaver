@@ -60,7 +60,12 @@ The list doesn't change the type or the wire; it goes into the API model, and fr
   `wire_weaver_client::set_strict_error_lists(true)` makes it a panic instead; the test harness
   (`tests_common`) turns that on.
 
-A method without `#[errors]` may return any variant of its error enum.
+A method without `#[errors]` may return any variant of its error enum. A `property!` item, and a method tagged
+`#[stream(..)]` (a stream-opening method, API-31), can't carry `#[errors(..)]` yet; document their errors in a
+hand-written `# Errors` doc line instead.
+
+[`ww_error`](../std_library/ww_error.md#which-errors-a-method-returns) walks through the `Common(..)` nesting and
+real examples from `ww_stdlib`.
 
 ### Messages from doc comments
 

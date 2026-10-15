@@ -374,7 +374,8 @@
             "# Errors",
             "",
             "`NoSuchChannel`, `Common(InvalidArgument)` (rate or channel count out of range), `Common(Unsupported)` (format),",
-            "`Common(Busy)` (a capture runs), `Common(InUse)`, `Common(NoPower)`.",
+            "`Common(Busy)` (a capture runs), `Common(InUse)`, `Common(NoPower)`. `#[errors(..)]` isn\'t supported on",
+            "`#[stream(..)]` methods yet (API-32), so this stays a hand-written note.",
         ], optional: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15)), errors: None), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
             "Rates, formats and limits of streaming.",

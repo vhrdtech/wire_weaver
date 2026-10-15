@@ -144,6 +144,7 @@
             "# Errors",
             "",
             "`Common(Busy)`: another host has the log open, `Common(Unsupported)`: the device logs elsewhere only.",
+            "`#[errors(..)]` isn\'t supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.",
         ], optional: None),
     ]), crate_idx: 0),
     InLine(level: (docs: [
@@ -156,13 +157,15 @@
             "# Errors",
             "",
             "`Common(Busy)`: another host has the log open, `Common(Unsupported)`: the device logs elsewhere only.",
+            "`#[errors(..)]` isn\'t supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.",
         ], optional: None),
         (id: 1, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "level", docs: [
             "Records less severe than this level are not produced (filters compiled into the firmware still apply).",
             "",
             "# Errors",
             "",
-            "Writing: `Common(Unsupported)`, the level is fixed at compile time.",
+            "Writing: `Common(Unsupported)`, the level is fixed at compile time. `#[errors(..)]` isn\'t supported on",
+            "properties yet, so this stays a hand-written note.",
         ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [

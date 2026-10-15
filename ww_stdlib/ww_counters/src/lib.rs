@@ -94,7 +94,8 @@ pub trait Counters {
     /// answers): for slow links where polling [Counters::read] costs too much. A counted stream, unit: event.
     ///
     /// Optional: a device leaves it out (`omit = ["counters.watch"]`), polling `read` works everywhere. Opening
-    /// fails with `Common(Unsupported)` or `Common(Busy)`.
+    /// fails with `Common(Unsupported)` or `Common(Busy)`. `#[errors(..)]` isn't supported on `#[stream(..)]`
+    /// methods yet (API-32), so this stays a hand-written note.
     #[optional]
     #[stream(CounterChanges<'i>, counted)]
     fn watch(period: Second) -> Result<Second, CountersError<'i>>;

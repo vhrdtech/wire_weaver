@@ -7,6 +7,7 @@
   stays. It is no longer `self_describing` (newer variants read as `Unknown(n)`), carries a lifetime (`AdcErrorOwned` on
   hosts), has `Display` from its doc lines, and every method lists its variants with `#[errors(..)]`. Devices return
   `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`).
+
 ### 🚀 Features
 
 - New crate (STD-13 IO trait family, STD-18 fill-in): `Adc` (channels with their `ww_si` unit and range, one

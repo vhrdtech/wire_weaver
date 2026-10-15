@@ -308,6 +308,7 @@ pub trait I2cMonitor {
     /// # Errors
     ///
     /// `Common(InUse)`, `Common(Unsupported)` (this IO level), `Common(Refused)`, `Common(NoPower)`.
+    /// `#[errors(..)]` isn't supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
     #[stream(I2cRecord<'i>, counted)]
     fn records(io_level: Option<Volt>) -> Result<(), I2cError<'i>>;
 }

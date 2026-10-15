@@ -98,7 +98,8 @@ pub trait PwmCaptureChannel {
     /// # Errors
     ///
     /// `Common(Unsupported)` (this mode isn't available on this channel), `Common(InvalidArgument)` (gate out of range,
-    /// or [CaptureMode::Off]), `Common(InUse)`, `Common(Refused)`.
+    /// or [CaptureMode::Off]), `Common(InUse)`, `Common(Refused)`. `#[errors(..)]` isn't supported on
+    /// `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
     #[stream(CaptureValue, counted)]
     fn capture(config: CaptureConfig) -> Result<CaptureConfig, PwmError<'i>>;
 

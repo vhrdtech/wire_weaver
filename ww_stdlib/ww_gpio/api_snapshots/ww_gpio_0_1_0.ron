@@ -233,7 +233,8 @@
             "it happened at, and the host learns exactly how many events the device dropped.",
             "",
             "# Errors",
-            "`Common(Unsupported)` if a requested source (edge or custom) isn\'t available on this pin.",
+            "`Common(Unsupported)` if a requested source (edge or custom) isn\'t available on this pin. `#[errors(..)]`",
+            "isn\'t supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.",
         ], optional: None),
         (id: 8, kind: Method(args: [
             (ident: "mode", ty: OutOfLine(type_idx: 5)),

@@ -315,8 +315,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   error enum when the trait is parsed (a compile error on a wrong name), in the API model (`ww_self` `Method::errors`),
   generated client and rustdoc `# Errors` with each variant's doc line, `ww api tree`, Python `help()`, `ww api check`
   (compatible); the generated and dynamic clients warn when a device returns a variant outside the list, tests fail
-  (`tests_common`). Nothing on the device (`docs/api/methods.md#error-lists`, `tests/methods`). Not yet: the GUI
-  (`wire_weaver_tool`).
+  (`tests_common`). Nothing on the device (`docs/api/methods.md#error-lists`, `tests/methods`). Not yet: a
+  `#[stream(..)]`-tagged method (a stream-opening method, API-31) rejects `#[errors(..)]` today — several
+  `ww_stdlib` crates (`ww_adc`, `ww_counters`, `ww_gpio`, `ww_i2c`, `ww_log`, `ww_logic_analyzer`, `ww_pwm`,
+  `ww_spi`, `ww_uart`) keep a hand-written `# Errors` doc note on their stream-opening methods for this reason; the
+  GUI (`wire_weaver_tool`).
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
 - 📋 **API-13 Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.
@@ -603,7 +606,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver::prelude::CommonError`, nested first in an error enum as `#[common] Common(CommonError)` (the derive
   adds `From<CommonError>` and `HasCommon`); recognised by tools by its type (`ww_self::TypeOwned::is_common_error`):
   Python `RemoteError.common` with the doc line as the message, `ww api tree -t` marks it. Display by hand until
-  DER-12 takes over. Moving the stdlib crates' errors to it is still to do.
+  DER-12 takes over. Every `ww_stdlib` API crate with fallible methods uses it except `ww_dfu` (its `Error` has no
+  lifetime and predates this; only `Unsupported`/`Busy` would map cleanly, left as a follow-up) and `ww_can_bus`
+  (not ready yet); `ww_client_server`'s `ErrorKind` is a framework/link-level error, not an API error, so it is out
+  of scope.
   `docs/std_library/ww_error.md`, `tests/common_error`.
 - ✅ **STD-19 `ww_pwm`** — `Pwm` / `PwmChannel` outputs (`set_output`, `set_duty`, `stop`, `state`), `PwmCapture` /
   `PwmCaptureChannel` measurements (frequency, duty, pulse width, edge count) over a plain stream with sideband

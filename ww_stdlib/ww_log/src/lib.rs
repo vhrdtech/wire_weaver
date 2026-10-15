@@ -72,6 +72,7 @@ pub trait LogDefmt {
     /// # Errors
     ///
     /// `Common(Busy)`: another host has the log open, `Common(Unsupported)`: the device logs elsewhere only.
+    /// `#[errors(..)]` isn't supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
     #[stream(DefmtFrames<'i>, reliable)]
     fn frames() -> Result<(), LogError<'i>>;
 }
@@ -125,6 +126,7 @@ pub trait LogText {
     /// # Errors
     ///
     /// `Common(Busy)`: another host has the log open, `Common(Unsupported)`: the device logs elsewhere only.
+    /// `#[errors(..)]` isn't supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
     #[stream(LogRecord<'i>, reliable)]
     fn records() -> Result<(), LogError<'i>>;
 
@@ -132,7 +134,8 @@ pub trait LogText {
     ///
     /// # Errors
     ///
-    /// Writing: `Common(Unsupported)`, the level is fixed at compile time.
+    /// Writing: `Common(Unsupported)`, the level is fixed at compile time. `#[errors(..)]` isn't supported on
+    /// properties yet, so this stays a hand-written note.
     property!(rw level: LevelFilter, LogError<'i>);
 }
 

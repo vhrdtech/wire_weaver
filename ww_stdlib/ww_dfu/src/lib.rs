@@ -156,6 +156,7 @@ pub trait BootControl {
     ///
     /// [Error::Unsupported] on profiles without a previous image ([Profile::InPlace]), [Error::WrongState] outside
     /// [BootState::Trial] and [BootState::Staged].
+    #[errors(Unsupported, WrongState)]
     fn revert() -> Result<(), Error>;
 
     /// Reset into the app or into the updater.
@@ -167,6 +168,9 @@ pub trait BootControl {
     ///
     /// [BootTarget::App] after a successful `Stage::finish` is what starts the update: the bootloader switches to the
     /// staged image (A/B) or applies the stored plan (in place).
+    ///
+    /// [Error::Unsupported] into [BootTarget::Updater] on an A/B node (there is no separate updater to reboot into).
+    #[errors(Unsupported)]
     fn reboot(into: BootTarget) -> Result<(), Error>;
 }
 
@@ -178,6 +182,9 @@ pub trait BootControl {
 #[ww_trait]
 pub trait Inventory {
     /// Chunk size, chunk count and erase layout of a slot, as this node sees them.
+    ///
+    /// [Error::Unsupported] on [Slot::Inactive] when this node has no previous image to report on.
+    #[errors(Unsupported)]
     fn layout(slot: Slot) -> Result<SlotLayout, Error>;
 
     /// Digest of a slot's manifest, as the protocol spec defines it. Equal digests mean equal manifests, so a host
@@ -185,6 +192,9 @@ pub trait Inventory {
     ///
     /// Hashing a whole slot takes time (about a second per few hundred KB on a small MCU); the node may answer later
     /// and report progress on `Stage`'s `event` stream, if it has one.
+    ///
+    /// [Error::Unsupported] on [Slot::Inactive] when this node has no previous image to report on.
+    #[errors(Unsupported)]
     fn manifest_digest(slot: Slot) -> Result<[u8; 8], Error>;
 
     /// The state of `count` chunks of `slot`, starting at chunk `first`.
@@ -192,6 +202,10 @@ pub trait Inventory {
     /// Paged on purpose: the host sets the pace and asks again for a page whose reply was lost. Fewer entries than
     /// asked for come back at the end of the slot, past [MAX_CHUNKS_PAGE], or when a page would not fit the node's
     /// reply buffer; the host continues from the first chunk it didn't get.
+    ///
+    /// [Error::Unsupported] on [Slot::Inactive] when this node has no previous image to report on,
+    /// [Error::OutOfRange] when `first` is past the end of the slot.
+    #[errors(Unsupported, OutOfRange)]
     fn chunks(
         slot: Slot,
         first: u16,
@@ -216,12 +230,33 @@ pub trait Stage {
     /// geometry against this node's, the image version against the version floor, the descriptor signature, the boot
     /// state ([BootState::may_stage]), the target against [StageLimits], and for [Target::Stored] that the plan fits
     /// the plan area. A refusal here costs the host nothing but this call, which matters on a slow link.
+    ///
+    /// [Error::BadHeader]/[Error::BadSignature]: the header or its signature doesn't parse or verify;
+    /// [Error::Unsupported]: `target` isn't one of [StageLimits::live]/[StageLimits::stored];
+    /// [Error::WrongGeometry]: another flash layout; [Error::BelowFloor]: image version below the floor;
+    /// [Error::PlanTooBig]: [Target::Stored] doesn't fit the plan area; [Error::WrongState]: the boot state
+    /// doesn't allow staging ([BootState::may_stage]).
+    #[errors(
+        BadHeader,
+        BadSignature,
+        Unsupported,
+        WrongGeometry,
+        BelowFloor,
+        PlanTooBig,
+        WrongState
+    )]
     fn begin(
         target: Target,
         header: MaxLen<RefVec<'i, u8>, MAX_HEADER_LEN>,
     ) -> Result<Session, Error>;
 
     /// Step `index`: erase erase-block `block` of the slot being written.
+    ///
+    /// [Error::NoSession]: no session in progress; [Error::OutOfRange]: `index` is past [Session::steps];
+    /// [Error::OutOfOrder]: `index` is ahead of what the node expects; [Error::StepMismatch]: a resend under an
+    /// index the node already has, but a different step; [Error::PlanTooBig]: [Target::Stored] overflows the plan
+    /// area; [Error::Flash]/[Error::Ecc]: the flash itself faulted.
+    #[errors(NoSession, OutOfRange, OutOfOrder, StepMismatch, PlanTooBig, Flash, Ecc)]
     fn erase(index: u32, block: u16) -> Result<(), Error>;
 
     /// Step `index`: copy chunk `src` of the running image into chunk `dst` of the slot being written.
@@ -229,7 +264,17 @@ pub trait Stage {
     /// The node hashes `src` first; when it doesn't match `hash`, nothing is written and the answer is
     /// [Error::SourceMismatch] (the host planned against a manifest that is no longer true; it should read the
     /// manifest again or send the chunk as a WRITE). In place, the planner never copies from a chunk an earlier step
-    /// has overwritten.
+    /// has overwritten. See `erase` for the other step errors.
+    #[errors(
+        NoSession,
+        OutOfRange,
+        OutOfOrder,
+        StepMismatch,
+        SourceMismatch,
+        PlanTooBig,
+        Flash,
+        Ecc
+    )]
     fn copy(index: u32, dst: u16, src: u16, hash: [u8; 8]) -> Result<(), Error>;
 
     /// Step `index`, or a piece of it: program chunk `dst` with data whose whole chunk hashes to `hash`.
@@ -238,6 +283,18 @@ pub trait Stage {
     /// (`offset`, bytes from the chunk's start). The node hashes the chunk as the pieces arrive and checks `hash` when
     /// the last byte of the chunk is in; a mismatch is [Error::HashMismatch] and the host sends the whole chunk again
     /// from offset 0. Every piece repeats `dst` and `hash`, so a piece is never applied to the wrong step.
+    /// [Error::PieceTooBig]: `data` is longer than [StageLimits::max_piece]. See `erase` for the other step errors.
+    #[errors(
+        NoSession,
+        OutOfRange,
+        OutOfOrder,
+        StepMismatch,
+        PieceTooBig,
+        HashMismatch,
+        PlanTooBig,
+        Flash,
+        Ecc
+    )]
     fn write(
         index: u32,
         dst: u16,
@@ -249,6 +306,7 @@ pub trait Stage {
     /// Where the current session stands: the next step the node expects, and how far into it.
     ///
     /// [Error::NoSession] when nothing is in progress.
+    #[errors(NoSession)]
     fn progress() -> Result<Progress, Error>;
 
     /// All steps are in: verify and stage.
@@ -261,6 +319,20 @@ pub trait Stage {
     ///
     /// Verification hashes the whole image and may take a few seconds; the node answers when it is done and reports
     /// progress on `event` meanwhile. The answer is the boot state the node is now in.
+    ///
+    /// [Error::NoSession]: nothing in progress; [Error::Incomplete]: not every step is in yet;
+    /// [Error::VerifyFailed]: the finished image doesn't match its descriptor; [Error::BadHeader]: the stored
+    /// header doesn't parse ([Target::Stored]); [Error::OutOfRange]/[Error::SourceMismatch]/[Error::HashMismatch]:
+    /// the stored plan's own re-check fails ([Target::Stored]).
+    #[errors(
+        NoSession,
+        Incomplete,
+        VerifyFailed,
+        BadHeader,
+        OutOfRange,
+        SourceMismatch,
+        HashMismatch
+    )]
     fn finish() -> Result<BootState, Error>;
 
     /// Drop the current session. What was written stays where it was (an inactive slot or a plan area is just
@@ -289,6 +361,17 @@ pub trait StageBulk {
     /// every so many bytes even when nothing went wrong; `0` means only at the end (and on a failure), the right
     /// choice on a reliable link (one acknowledgement per update). The answer's [Session::resume_from] says from which
     /// byte to start sending (0 for a new session).
+    ///
+    /// Same checks as `Stage::begin`, plus [Error::BadHeader] when `total_len` doesn't match the header.
+    #[errors(
+        BadHeader,
+        BadSignature,
+        Unsupported,
+        WrongGeometry,
+        BelowFloor,
+        PlanTooBig,
+        WrongState
+    )]
     fn begin_bulk(
         target: Target,
         header: MaxLen<RefVec<'i, u8>, MAX_HEADER_LEN>,

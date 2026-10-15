@@ -65,7 +65,8 @@ pub trait Pin {
     /// it happened at, and the host learns exactly how many events the device dropped.
     ///
     /// # Errors
-    /// `Common(Unsupported)` if a requested source (edge or custom) isn't available on this pin.
+    /// `Common(Unsupported)` if a requested source (edge or custom) isn't available on this pin. `#[errors(..)]`
+    /// isn't supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
     #[stream(IoPinEvent, counted)]
     fn event(enabled: IoPinEnabledEvents<'i>) -> Result<(), GpioError<'i>>;
 

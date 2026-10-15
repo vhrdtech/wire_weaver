@@ -103,7 +103,8 @@ pub trait Spi {
     ///
     /// # Errors
     ///
-    /// `Common(InUse)`, `Common(Unsupported)` (this `word_bits`), `Common(Refused)`.
+    /// `Common(InUse)`, `Common(Unsupported)` (this `word_bits`), `Common(Refused)`. `#[errors(..)]` isn't
+    /// supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
     #[optional]
     #[stream(SpiFrame<'i>, counted)]
     fn monitor(config: SpiMonitorConfig) -> Result<(), SpiError<'i>>;

@@ -7,6 +7,7 @@
   It is no longer `self_describing` (newer variants read as `Unknown(n)`), carries a lifetime (`PwmErrorOwned` on
   hosts), has `Display` from its doc lines, and every method lists its variants with `#[errors(..)]`. Devices return
   `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`).
+
 ### 🚀 Features
 
 - New crate (STD-19): `Pwm` with `channel[]: PwmChannel` (`set_output`, `set_duty`, `stop`, `state`), `PwmCapture`

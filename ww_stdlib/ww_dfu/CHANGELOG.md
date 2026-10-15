@@ -21,6 +21,12 @@
 
 ### 🚀 Features
 
+- Every fallible method of `BootControl`, `Inventory`, `Stage` and `StageBulk` now lists its `Error` variants with
+  `#[errors(..)]` (API-32), checked against `Error` and shown in rustdoc, introspection and the client's docs.
+  `Error` doesn't use `#[common] Common(CommonError)` (ww_error): only `Unsupported` and `Busy` would map onto it
+  cleanly, and `Error` has no lifetime today, so nesting `CommonError<'i>` would need one threaded through this
+  crate's whole public API (every trait method, `StageEvent::Failed`) for a two-variant gain — left as a follow-up,
+  not done in this pass.
 - Guide: `docs/std_library/ww_dfu.md` (<https://ww.vhrd.tech/std_library/ww_dfu/>) names the eight update scenarios
   (`2C-APP-STEP` Swap Shuttle, `2C-APP-BULK` Swap Freight, `2R-APP-STEP` Flip Shuttle, `2R-APP-BULK` Flip Freight,
   `1S-APP-STEP` Parcel Shuttle, `1S-APP-BULK` Parcel Freight, `1L-UPD-STEP` Pit-stop Shuttle, `1L-UPD-BULK` Pit-stop

@@ -82,7 +82,10 @@
         ], optional: Some((group: None))),
         (id: 2, kind: Method(args: [
             (ident: "duration", ty: OutOfLine(type_idx: 2)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: None), multiplicity: Flat, since: None, ident: "identify", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
+            (ident: "Unsupported", nested: None),
+            (ident: "Busy", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "identify", docs: [
             "Blinks every indicator for `duration` so the unit can be found on a bench or in a rack, then returns to",
             "`mode`. `Unsupported` on a device with no way to blink its indicators, `Busy` while already identifying.",
         ], optional: Some((group: None))),

@@ -99,7 +99,8 @@ pub trait AdcStream {
     /// # Errors
     ///
     /// `NoSuchChannel`, `Common(InvalidArgument)` (rate or channel count out of range), `Common(Unsupported)` (format),
-    /// `Common(Busy)` (a capture runs), `Common(InUse)`, `Common(NoPower)`.
+    /// `Common(Busy)` (a capture runs), `Common(InUse)`, `Common(NoPower)`. `#[errors(..)]` isn't supported on
+    /// `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
     #[stream(SampleBlock<'i>, counted)]
     fn samples(config: StreamConfig<'i>) -> Result<StreamActual, AdcError<'i>>;
 

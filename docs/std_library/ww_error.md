@@ -95,6 +95,80 @@ fn is_retryable<E: HasCommon<Common = CommonErrorOwned>>(e: &E) -> bool {
 
 `tests/common_error` runs these through a generated server, the generated client and the dynamic client.
 
+## Which errors a method returns
+
+`#[errors(..)]` on a method lists the variants it actually returns, checked against the error enum when the trait is
+parsed: an unknown or repeated name is a compile error pointing at that name, not the whole attribute (see
+[Errors](../api/errors.md#which-errors-a-method-returns) for the full mechanics — the model, the client check, the
+evolution checker). For the `#[common]` variant, name just the `CommonError` cases that apply, or leave them out for
+all of them:
+
+```rust
+#[errors(Common(Busy, NoPower, Timeout), NoSuchChannel)]
+fn read(channel: u8) -> Result<Reading, AdcError<'i>>;
+
+#[errors(Common)]
+fn calibrate() -> Result<(), CommonError<'i>>;
+```
+
+- `Common(Busy, NoPower, Timeout)` — only those three `CommonError` variants, plus the crate's own `NoSuchChannel`.
+- `Common` alone — any `CommonError` variant.
+- An error enum with no `#[common]` case lists only its own variants: `#[errors(WrongAddress, Refused)]`.
+- When the error type *is* `CommonError` directly (no crate enum around it, as `ww_indication::Indication::identify`
+  returns `Result<(), CommonError<'i>>`), the list names `CommonError`'s own variants without nesting:
+  `#[errors(Unsupported, Busy)]`.
+
+### What it does
+
+The list changes neither the type nor the wire: it is metadata in the API model, and from there:
+
+- a `# Errors` section, one line per entry with the variant's own doc comment (its first line, without the final
+  period; `any CommonError` for `Common` alone) — on the trait's own rustdoc (`wire_weaver::api_doc`) and on the
+  generated client's method;
+- introspection: `ww api tree -t`, `ww introspect` and Python's `help()` show the same list next to the method;
+- the evolution checker: a changed `#[errors(..)]` list is reported as a *compatible* change (nothing on the wire
+  moves, and the device never checks it), but worded so the reviewer sees which variants a client of the old list
+  would warn about;
+- a check on the client: a device replying with a variant outside the method's list logs a `tracing` warning
+  (`'<resource>' returned <value>, which is not in its #[errors(..)]`).
+  `wire_weaver_client::set_strict_error_lists(true)` turns it into a panic instead, for the whole process; the
+  `tests_common` end-to-end harness turns it on, so a device that breaks its own contract fails in CI, not in the
+  field.
+
+A method without `#[errors(..)]` may return any variant of its error enum; nothing checks it, and clients get no
+`# Errors` section for it. Two kinds of item can't carry `#[errors(..)]` yet, so they keep a hand-written `# Errors`
+note in their doc comment instead:
+
+- a `property!` item (see `ww_log::LogText::level` or `ww_gpio::GpioBank::pull`);
+- a method tagged `#[stream(..)]` (a stream-opening method, API-31) — most `ww_stdlib` crates with one still note
+  its errors by hand (see `ww_adc::AdcStream::samples`, `ww_i2c::I2cMonitor::records`).
+
+### Real examples
+
+`ww_adc::Adc::read` lists three `CommonError` cases plus the crate's own `NoSuchChannel`:
+
+```rust
+#[errors(Common(Busy, NoPower, Timeout), NoSuchChannel)]
+fn read(channel: u8) -> Result<Reading, AdcError<'i>>;
+```
+
+`ww_adc::AdcCapture::capture` lists five:
+
+```rust
+#[errors(
+    Common(InvalidArgument, Unsupported, Busy, InUse, NoPower),
+    NoSuchChannel
+)]
+fn capture(config: CaptureConfig<'i>) -> Result<CaptureActual, AdcError<'i>>;
+```
+
+`ww_memory::Memory::write_many` has no `Common(..)` nesting, only the crate's own variants alongside one common one:
+
+```rust
+#[errors(WrongAddress, Common(Refused))]
+fn write_many(addr: u8, data: RefVec<'i, u8>) -> Result<(), MemoryError<'i>>;
+```
+
 ## Tools
 
 Tools recognise `ww_error::CommonError` by its type in the API model (crate `ww_error`, any version), also when a

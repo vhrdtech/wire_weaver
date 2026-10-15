@@ -576,6 +576,7 @@
             "# Errors",
             "",
             "`Common(InUse)`, `Common(Unsupported)` (this IO level), `Common(Refused)`, `Common(NoPower)`.",
+            "`#[errors(..)]` isn\'t supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.",
         ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [

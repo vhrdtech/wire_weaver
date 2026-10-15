@@ -276,7 +276,8 @@
             "# Errors",
             "",
             "`Common(Unsupported)` (this mode isn\'t available on this channel), `Common(InvalidArgument)` (gate out of range,",
-            "or [CaptureMode::Off]), `Common(InUse)`, `Common(Refused)`.",
+            "or [CaptureMode::Off]), `Common(InUse)`, `Common(Refused)`. `#[errors(..)]` isn\'t supported on",
+            "`#[stream(..)]` methods yet (API-32), so this stays a hand-written note.",
         ], optional: None),
         (id: 1, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 10)),

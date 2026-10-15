@@ -126,6 +126,10 @@ io_i2c_api = { version = "0.1.0", path = "./tests/io_i2c_api" }
 io_onewire_api = { version = "0.1.0", path = "./tests/io_onewire_api" }
 io_pwm_api = { version = "0.1.0", path = "./tests/io_pwm_api" }
 io_spi_api = { version = "0.1.0", path = "./tests/io_spi_api" }
+board_info_api = { version = "0.1.0", path = "./tests/board_info_api" }
+uid_api = { version = "0.1.0", path = "./tests/uid_api" }
+user_info_api = { version = "0.1.0", path = "./tests/user_info_api" }
+firmware_info_api = { version = "0.1.0", path = "./tests/firmware_info_api" }
 io_timebase_api = { version = "0.1.0", path = "./tests/io_timebase_api" }
 io_uart_api = { version = "0.1.0", path = "./tests/io_uart_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }

@@ -366,6 +366,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "board_info"
+version = "0.1.0"
+dependencies = [
+ "board_info_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_board_info",
+ "ww_client_server",
+]
+
+[[package]]
+name = "board_info_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_board_info",
+]
+
+[[package]]
 name = "borsh"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1303,6 +1325,29 @@ name = "find-msvc-tools"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d45db016d36b838f563236e9193d0ee6ce38f3f68b6c94e914b4929c96bbb890"
+
+[[package]]
+name = "firmware_info"
+version = "0.1.0"
+dependencies = [
+ "firmware_info_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_firmware_info",
+ "ww_si",
+]
+
+[[package]]
+name = "firmware_info_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_firmware_info",
+]
 
 [[package]]
 name = "flate2"
@@ -3877,6 +3922,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e87a2ed6b42ec5e28cc3b94c09982969e9227600b2e3dcbc1db927a84c06bd69"
 
 [[package]]
+name = "uid"
+version = "0.1.0"
+dependencies = [
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "uid_api",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_uid",
+]
+
+[[package]]
+name = "uid_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_uid",
+]
+
+[[package]]
 name = "unarray"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3926,6 +3993,29 @@ name = "unty"
 version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
+
+[[package]]
+name = "user_info"
+version = "0.1.0"
+dependencies = [
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "user_info_api",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_error",
+ "ww_user_info",
+]
+
+[[package]]
+name = "user_info_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_user_info",
+]
 
 [[package]]
 name = "utf8parse"

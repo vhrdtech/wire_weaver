@@ -502,6 +502,46 @@ one `XorFloat` per series holds a minute or an hour of samples, and the block is
 (see [bounding from the inside](#bounding-a-value-from-the-inside-with-tailsize)), so it can sit at any offset of
 a file.
 
+## Sparse updates with `OptionAnyVec`
+
+A trait level with 32 `f32` properties, of which 3 changed since the last update: slots 3, 17 and 30 with `1.0`,
+`2.5` and `-3.0` (12 bytes of values whatever the encoding). The
+[`OptionAnyVec`](shrink_wrap.md#optionanyvec-sparse-slots-of-any-types) header in each mode, and the alternatives:
+
+| Encoding                                              | Bytes | Header / overhead                                       |
+|-------------------------------------------------------|------:|---------------------------------------------------------|
+| `OptionAnyVec`, index list (picked)                   | 16    | `33 3d 1c 10`: mode 3, count 3, deltas 3, 13, 12, pad    |
+| `OptionAnyVec`, two-level                             | 17    | `24 b1 04 00 20`: 4 groups, bits `1011`, 3 group bytes   |
+| `OptionAnyVec`, dense                                 | 18    | `1f 31 00 04 00 20`: len 31, 31 bits                     |
+| `EitherAnyVec` of `Either<(), f32>`                   | 16    | 4 flag bytes, in line; the slot count implied, not stored |
+| 3 `StreamData` events, path `[slot]`                  | 24    | 4 bytes per event (seq, result, kind, path)              |
+| 1 `StreamData` event, path `[]`, the vec as data      | 19    | 3 bytes of event + 4 bytes of header                     |
+
+```rust
+let mut wr = OptionAnyVecWriter::new(&mut buf, [3u32, 17, 30]).unwrap();
+wr.write(3, &1.0f32).unwrap();
+wr.write(17, &2.5f32).unwrap();
+wr.write(30, &-3.0f32).unwrap();
+assert_eq!(
+    wr.finish_and_take().unwrap(),
+    hex!("33 3d 1c 10 00 00 80 3f 00 00 20 40 00 00 40 c0")
+);
+```
+
+The event sizes are without the link's framing, which comes once per message on top, so separate events lose more
+than shown. One level deeper (paths `[2, slot]` and `[2]`) it is 26 against 20 bytes.
+
+With byte-aligned values `EitherAnyVec` takes as much here, but it pays a flag byte per 8 slots whatever is present,
+pads every group to a byte and can't be read by a side with another slot count. Where that shows:
+
+- **Other sets of 32**: slots 0, 1, 2 take 13 bytes (`03`: all, n = 3), slots 29, 30, 31 take 15 (`24 10 70`:
+  two-level), a single slot 3 takes 6 (`14 10`: dense, len 4, bits `0001`); `EitherAnyVec` takes 16, 16 and 8.
+- **Few of many**: slots 3, 70, 120 of 128 take 16 bytes (`33 3a 81 96`: the index list), dense would be 30,
+  `EitherAnyVec` 28.
+- **Bit-sized values**: 3 `bool`s at slots 3, 17, 30 take 4 bytes (`33 3d 1c 1e`: the three `1` bits share the last
+  header byte), `EitherAnyVec` 7.
+- **All present**: 32 `f32`s take 130 bytes, 2 of them header (`08 40`: all, n = 32).
+
 ## Putting it together: real wire sizes
 
 A few real types from `ww_stdlib`, each combining several of the tricks above:

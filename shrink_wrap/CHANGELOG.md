@@ -10,6 +10,16 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- `OptionAnyVec` (SW-55), new module `option_any_vec`: a zero-copy, no-alloc array of `Option` slots of any types
+  (numbers, structs, lists, strings, a nested `OptionAnyVec`), only the present values written, in slot order
+  without padding between them. A presence header first, in the smallest of four modes for the set (all, dense
+  bits, two-level bits, index list), self-delimiting so that readers with fewer or more slots than the writer read
+  it; mode nibbles `4..=15` are reserved (SW-56 tri-state slots). `OptionAnyVecWriter` (own buffer) and
+  `OptionAnyVecBuilder` (in place: `new`, `new_with_mode`, `new_nested`, `write`, `start_slot`, `finish`) take the
+  present slots up front, e.g. `SetBits` over a bitset; `OptionAnyVec::new` checks the header, `iter()` reads slot by
+  slot (`next`, `next_owned`, `next_present`), `present()` lists the present ids. New errors
+  `Error::MalformedOptionAnyVec` (a header that can't have been written) and `Error::OptionAnyVecWrongSlot` (writer
+  misuse), also in the C runtime's `sw_error` (28, 29). See `docs/serdes/shrink_wrap.md`.
 - `RefVec::new_bytes` is a `const fn`, for byte vectors in `const` items (API-36).
 - Bit-sized numbers (SW-48): `I16` (bit-aligned, 16 bits; `I15` and `I17` existed, `I16` was missing), and
   `From<U7> for u8` / `TryFrom<u8> for U7` (`Error::SubtypeOutOfRange` when it doesn't fit) for every `U1`..`U64`

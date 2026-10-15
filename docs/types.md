@@ -40,6 +40,9 @@
         * Usable in derived types and in every API position; the dynamic client and Python see them as lists of
           numbers
 * `Option<T>` and `Result<T, E>`
+* Sparse slots of any types (no alloc, `shrink_wrap` level): `OptionAnyVec<'i>` - only the present values are
+  written, after a header in the smallest of four modes; slots can be appended later
+  (see [wire format](serdes/shrink_wrap.md#optionanyvec-sparse-slots-of-any-types))
 * `RefBox<T>` for self-referential types.
 * User-defined:
     * Struct

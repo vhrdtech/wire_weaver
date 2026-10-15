@@ -305,6 +305,105 @@ instead of trusting the count. Since the elements carry no length of their own, 
 still decode (to other values) when the garbage happens to form valid codes; inside a struct, the enclosing size
 slot or `TailSize` bounds the value and a truncation is caught there.
 
+## `OptionAnyVec`: sparse slots of any types
+
+`shrink_wrap::option_any_vec::OptionAnyVec<'i>` is an array of `Option` slots whose values can be of any type -
+numbers, structs, lists, strings, enums, another `OptionAnyVec` - where only the present values are written. It is
+made for messages that carry "some of these N things": the properties of a trait level that changed since the last
+update, a sparse set of readings. Like `EitherAnyVec` it is low-level machinery: the type of each slot is known to
+both sides and not stored, the slot ids are `u32` from 0.
+
+```rust
+use shrink_wrap::option_any_vec::{OptionAnyVec, OptionAnyVecWriter};
+
+let mut buf = [0u8; 64];
+// the present slots are given up front, in increasing order
+let mut wr = OptionAnyVecWriter::new(&mut buf, [0u32, 2, 3]).unwrap();
+wr.write(0, &0x2Au8).unwrap();
+wr.write(2, &"hi").unwrap();
+wr.write(3, &true).unwrap();
+let bytes = wr.finish_and_take().unwrap();
+assert_eq!(bytes, hex!("14 b0 2a 68 69 82"));
+
+let vec = OptionAnyVec::new(bytes).unwrap(); // checks the header
+let mut slots = vec.iter();
+assert_eq!(slots.next::<u8>(), Ok(Some(0x2A)));
+assert_eq!(slots.next::<u16>(), Ok(None));
+assert_eq!(slots.next::<&str>(), Ok(Some("hi")));
+assert_eq!(slots.next::<bool>(), Ok(Some(true)));
+assert_eq!(slots.next::<u8>(), Ok(None)); // and every slot after the writer's last one
+```
+
+Layout: `|presence header|present values in slot order|reverse lengths|`. The values are written exactly as
+`BufWriter::write` writes them anywhere else (an `Unsized` value with its size, lists and strings with their length
+at the back), one after another without padding between them: a `bool` takes one bit, a `u8` aligns itself to a
+byte as always. Above, `1` `4` is the header's mode and length, `1011` says slots 0, 2 and 3 are present, then
+`2a`, `68 69`, the `true` bit, and the length of `"hi"` in the last nibble.
+
+The header starts with a mode nibble. The writer knows the present set before writing anything and picks the mode
+with the fewest bits for it (on a tie the first one in this table):
+
+| Nibble    | Mode       | Then                                                                                   |
+|-----------|------------|----------------------------------------------------------------------------------------|
+| `0`       | all        | `n: UNib32`: slots `0..n` are present                                                  |
+| `1`       | dense      | `len: UNib32` (last present slot + 1), then `len` bits, one per slot, MSB first         |
+| `2`       | two-level  | `groups: UNib32` (of 8 slots, up to the last present one), a bit per group, then 8 bits for each group whose bit is set, slot `8g` in the MSB |
+| `3`       | index list | `count: UNib32`, then `count` `UNib32`: the first present slot, then for each next one `slot - previous - 1` |
+| `4`..`15` | reserved   | a reader fails with `Error::EnumFutureVersionOrMalformedData`                          |
+
+No present slot at all is written as no bytes (a reader also takes `0 0` and `3 0` as empty). The mode nibble costs
+nothing extra in practice: the `UNib32` after it is nibble-aligned anyway. The reserved codes leave room for slots
+with a third state (absent / value / error, SW-56) without a cost for the two-state vec.
+
+Header bits from a nibble boundary: all `4 + 4·nibbles(n)`, dense `4 + 4·nibbles(len) + len`, two-level
+`4 + 4·nibbles(groups) + groups + 8·(non-empty groups)`, index list `4 + 4·(nibbles(count) + Σ nibbles(delta))`.
+Dense wins for clustered sets up to a few dozen slots, the index list for a few slots among many, two-level for a few
+dense clusters far apart. The [showcase](showcase.md#sparse-updates-with-optionanyvec) has the numbers.
+
+**Evolution.** The header describes the writer's present set on its own, without either side's slot count, so the
+vec is read by older and newer code alike as long as slots are only appended:
+
+- a reader that knows fewer slots reads its own and stops: the values it doesn't know come after all of its slots;
+- a reader that knows more slots sees the new ones as absent: they are not in the header.
+
+A slot's type can't change once released, as for a struct field. Since values carry no length of their own, a
+reader can't skip a present value it doesn't know the type of - which, with append-only slots, it never has to.
+
+**Untrusted input.** `OptionAnyVec::new` (and reading it as a field) parses the whole header and checks every count
+and length against the bytes left before looping over it: a length past the data, an index list past `u32::MAX`, a
+two-level group listed without a slot in it is `Error::MalformedOptionAnyVec`, a truncated header an out-of-bounds
+error, never a panic. Reading the values is bounds-checked like any other read; slot ids from the header are not
+bounded by any slot count, so stop at the last slot you know (`iter().next()` does that by itself).
+
+**Writing in place.** `OptionAnyVecBuilder` writes into a `BufWriter` that holds other things too:
+`OptionAnyVecBuilder::new(&mut wr, present)` for a vec that is the whole buffer, `new_nested` for one that is a
+struct field or a slot of another vec (its size is stored, as for every `Unsized` value), then `write(slot, &value,
+&mut wr)` per present slot, or `start_slot(slot)` and a write of your own (e.g. a nested builder), then
+`finish(&mut wr)`, which fails with `Error::OptionAnyVecWrongSlot` if a present slot got no value. The present set
+is any increasing iterator of slot ids that can be cloned; `SetBits::new(&[u32])` gives one from a bitset.
+`new_with_mode` forces a mode. A child level is one slot holding its own vec:
+
+```rust
+let mut wr = BufWriter::new(&mut buf);
+let mut parent = OptionAnyVecBuilder::new(&mut wr, [0u32, 1]).unwrap();
+parent.write(0, &7u8, &mut wr).unwrap();
+parent.start_slot(1).unwrap();
+let mut child = OptionAnyVecBuilder::new_nested(&mut wr, [2u32]).unwrap();
+child.write(2, &0x1234u16, &mut wr).unwrap();
+child.finish(&mut wr).unwrap();
+parent.finish(&mut wr).unwrap();
+assert_eq!(wr.finish_and_take().unwrap(), hex!("02 07 13 20 34 12 04"));
+```
+
+`0` `2`: all, slots 0 and 1; `07`; the child, 4 bytes: `1` `3` (dense, 3 slots), `001` and padding, `34 12`; the
+child's size `4` in the parent's reverse lengths (after a padding nibble). The same bytes come out of writing the
+child into a buffer of its own first and `parent.write(1, &child_vec, ..)`. Reading: `iter.next::<OptionAnyVec>()`
+gives the child, `child.iter()` its slots; `next_present()` jumps over absent slots, `present()` lists the present
+ids without reading values.
+
+`OptionAnyVec` is `Unsized`; `EitherAnyVec` is the counterpart for `Either` slots that are all present (each
+element `L` or `R`, flags in-line in groups of 8, the element count implied).
+
 ## Next step
 
 Check out the [derive](derive.md) macro that generates all of the above from a plain struct/enum definition, and

@@ -56,7 +56,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   index list), self-delimiting so that readers with fewer or more slots than the writer read it (slots are only
   appended); a malformed header is an error. Writer takes the present set up front (`SetBits` over a bitset, any
   increasing iterator), `OptionAnyVecWriter` / in-place `OptionAnyVecBuilder`. For a trait level's properties in one
-  update (API-38). See `docs/serdes/shrink_wrap.md#optionanyvec`, `docs/serdes/showcase.md`.
+  update (API-38). See `docs/serdes/shrink_wrap.md#optionanyvec-sparse-slots-of-any-types`, `docs/serdes/showcase.md`.
 - ✅ **SW-11 Alloc writer** `BufWriterOwned`, `SerializeShrinkWrap` for `&[u8]`, `String` as UFS.
 - ✅ **SW-12 In-place builders** used by the server codegen (event and error builders), and the manual
   patch-the-discriminant-later pattern (`docs/serdes/showcase.md`).

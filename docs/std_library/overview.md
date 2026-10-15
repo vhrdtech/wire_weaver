@@ -45,7 +45,7 @@ runtime, one `configure()` call per bus, common errors, typed `ww_si` values, co
 * [`ww_timebase`](ww_timebase.md) — `Clock`: device time, clock sync (master/slave), time-of-day for a master
 * [`ww_logic_analyzer`](ww_logic_analyzer.md) — `LogicAnalyzer`, `LogicStream`: timestamped capture of many digital channels, triggered or streamed
 * [`ww_signal_generator`](ww_signal_generator.md) — `PatternGenerator`, `WaveformGenerator`: digital pattern playback, DAC waveforms
-* [`ww_can_bus`](ww_can_bus.md) — `Can`: configure a CAN / CAN FD controller, send and receive frames, error state; optional filters, TX events, bus errors, dedicated buffers, terminator
+* [`ww_can_bus`](ww_can_bus.md) — `Can`, `CanGroup`, `CanTimeTriggered`, `CanXl`: CAN / CAN FD / CAN XL controllers, from simple bridges to bus debuggers; groups sharing clock and message RAM; time-triggered CAN
 
 ## Device contract
 

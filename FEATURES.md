@@ -670,17 +670,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     `AlertBrightness`, `animation_enable`, `test_mode` / `TestMode` and `HAS_NOT_CONTROLLABLE`. Docs
     `docs/std_library/ww_indication.md`, tests `tests/indication` (mock servers with only `mode`, and with every
     optional item).
-- ✅ **STD-29 `ww_can_bus` on the stdlib idioms** — one `Can` trait for a controller with its transceiver
-  (`ww_impl!(can[]: Can)` for several), from simple nodes to analyzers. Six required items: `capabilities()`,
-  `configure(CanConfig)` answering what was set (bit timing as rate or segments, answered as segments; CAN FD with
-  data timing, TDC, ISO / non-ISO; modes incl. restricted, listen-only, loopbacks, test; options; bus-off recovery),
-  `config()`, the observable `status` property (error state, TEC / REC, last protocol errors), the counted `rx`
-  stream (receive time and lost frames in the head) and the `tx` credit sink (frames with a marker). `#[optional]`:
-  `recover`, `tx_abort`, `tx_events`, `bus_errors`, `set_filters` (exact / mask / range, to FIFO / buffer / reject),
-  `rx_buffer`, `tx_buffer` (once or cyclic), terminator, `test_pins`. Errors on `CommonError` + `OutOfFilters`,
-  `BusOff`. `embedded-can` conversions; `defmt` no longer pulls `std`. No group trait (the clock is reported, not
-  chosen) and no analyzer trait (monitoring is a mode). CAN XL frames left for their own optional sink / stream.
-  Docs `docs/std_library/ww_can_bus.md`, tests `tests/io_can` (full and minimal node).
+- ✅ **STD-29 `ww_can_bus` on the stdlib idioms** — from simple bridges to bus debuggers. `Can` is one controller:
+  six required items (`capabilities()`, `configure(CanConfig)` answering what was set, `config()`, the observable
+  `status`, the counted `rx` stream, the `tx` credit sink) and `#[optional]` `set_mode` (incl. `Config` and
+  `Sleep`), `recover`, `tx_abort`, `tx_events` (marker, measured queue time), `bus_errors`, `protocol_status`,
+  `bus_load`, `detect_timing`, `set_filters`, `set_layout`, `rx_buffer`, `tx_buffer` (once or cyclic),
+  transceiver (standby / silent / sleep, wiring faults), terminator, `test_pins`. `CanGroup` (`interface[]: Can`,
+  enable / disable, optional clock source and frequency, performance) for controllers sharing clock, power and
+  message RAM; `CanTimeTriggered` (TTCAN); `CanXl` behind the `xl` feature. Errors on `CommonError` +
+  `OutOfFilters`, `OutOfMemory`, `BusOff`; `defmt` no longer pulls `std`. Docs `docs/std_library/ww_can_bus.md`,
+  tests `tests/io_can` (full and minimal node), `tests/io_can_group` (group, TTCAN, XL).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.

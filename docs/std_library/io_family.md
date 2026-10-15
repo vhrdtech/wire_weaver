@@ -11,7 +11,7 @@ here assumes a particular kind of device.
 |---|---|---|
 | [`ww_gpio`](ww_gpio.md) | `Bank`, `Pin` | Logical-pin GPIO: read, drive, reconfigure, watch edges |
 | [`ww_uart`](ww_uart.md) | `Uart` | Bridge a serial port; watch both lines of a link without driving them (optional) |
-| [`ww_can_bus`](ww_can_bus.md) | `Can` | CAN / CAN FD controller: frames, error state; filters, TX events, bus errors, buffers (optional) |
+| [`ww_can_bus`](ww_can_bus.md) | `Can`, `CanGroup`, `CanTimeTriggered`, `CanXl` | CAN / CAN FD controllers: frames, error state, optional filters, TX events, bus errors, buffers, debugger items; groups sharing a clock; TTCAN; CAN XL |
 | [`ww_i2c`](ww_i2c.md) | `I2c`, `I2cWatch`, `I2cMonitor` | Master transfers and bus recovery; autonomous polling; bus sniffing |
 | [`ww_spi`](ww_spi.md) | `Spi` | Master transfers with CS held across operations; bus sniffing (optional) |
 | [`ww_adc`](ww_adc.md) | `Adc`, `AdcStream`, `AdcCapture` | One calibrated reading; continuous streaming; triggered block capture |

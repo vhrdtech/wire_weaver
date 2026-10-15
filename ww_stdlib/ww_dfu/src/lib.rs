@@ -256,7 +256,15 @@ pub trait Stage {
     /// [Error::OutOfOrder]: `index` is ahead of what the node expects; [Error::StepMismatch]: a resend under an
     /// index the node already has, but a different step; [Error::PlanTooBig]: [Target::Stored] overflows the plan
     /// area; [Error::Flash]/[Error::Ecc]: the flash itself faulted.
-    #[errors(NoSession, OutOfRange, OutOfOrder, StepMismatch, PlanTooBig, Flash, Ecc)]
+    #[errors(
+        NoSession,
+        OutOfRange,
+        OutOfOrder,
+        StepMismatch,
+        PlanTooBig,
+        Flash,
+        Ecc
+    )]
     fn erase(index: u32, block: u16) -> Result<(), Error>;
 
     /// Step `index`: copy chunk `src` of the running image into chunk `dst` of the slot being written.

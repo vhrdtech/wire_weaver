@@ -80,6 +80,7 @@ check-examples-mcu-qemu:
 check-examples-mcu-nucleo-h743zi2:
     # Checking nucleo_h743zi2
     @cargo check
+    @cargo check --features settings
 
 [working-directory('examples_mcu/nucleo_h743zi2')]
 upload-examples-mcu-nucleo-h743zi2:

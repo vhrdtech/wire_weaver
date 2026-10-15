@@ -57,6 +57,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   `ww_settings::Store` in the last 4 pages of bank 2 (`Bank2Region<Async>`, `memory.x` shrinks `FLASH` to keep
   code out of that range); `led_on_at_boot` also drives the board's user LED live. +21016 B flash, +1332 B RAM
   (`.bss`) over `ww_rtt` (release, `llvm-size`).
+- `examples_mcu/nucleo_h743zi2`'s `settings` bin (EX-15): the same API over USB (same transport as `blinky`),
+  backed by a real `ww_settings::Store` in the last 2 sectors of bank 2 (`memory.x` shrinks `FLASH` the same
+  way). +23476 B flash, +2136 B RAM (`.bss`) over `blinky` (release, `llvm-size`). Both MCU bins are behind a new
+  `settings` cargo feature (`dep:settings_api`, `dep:ww_settings`), checked by `just check-examples-mcu`.
 
 ### Fixed
 

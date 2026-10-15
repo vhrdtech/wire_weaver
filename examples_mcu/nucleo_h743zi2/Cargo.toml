@@ -24,16 +24,23 @@ embassy-executor = { version = "0.10", features = [
 embassy-time = { version = "0.5.0", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768"] }
 embassy-sync = { version = "0.8", features = ["defmt"] }
 embassy-usb = { version = "0.6", features = ["defmt"] }
+embassy-futures = "0.1"
 static_cell = "2.1"
 
 blinky_api = { path = "../../examples/blinky_api", default-features = false }
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
+settings_api = { path = "../../examples/settings_api", default-features = false, features = ["defmt"], optional = true }
 wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy" }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
+ww_settings = { path = "../../ww_settings/ww_settings", default-features = false, features = ["defmt"], optional = true }
 ww_stream = { path = "../../ww_stream", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
 ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "f32"] }
+
+[features]
+# settings_api::SettingsDemo kept in flash through ww_settings, for the settings bin
+settings = ["dep:settings_api", "dep:ww_settings"]
 
 [[bin]]
 name = "nucleo-h743zi2-blinky"
@@ -52,6 +59,14 @@ bench = false
 [[bin]]
 name = "nucleo-h743zi2-no-introspect"
 path = "src/bin/no_introspect.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "nucleo-h743zi2-settings"
+path = "src/bin/settings.rs"
+required-features = ["settings"]
 test = false
 doctest = false
 bench = false

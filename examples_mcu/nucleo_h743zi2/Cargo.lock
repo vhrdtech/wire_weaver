@@ -826,9 +826,9 @@ checksum = "a21dea9854beb860f3062d10228ce9b976da520a73474aed3171ec276bc0c032"
 
 [[package]]
 name = "embedded-storage-async"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1763775e2323b7d5f0aa6090657f5e21cfa02ede71f5dc40eead06d64dcd15cc"
+checksum = "69aa7787b8ba0cf4e626c95839f811d853b75e24a0f7312a1eef324fedc13b21"
 dependencies = [
  "embedded-storage",
 ]
@@ -1093,17 +1093,20 @@ dependencies = [
  "defmt 1.1.1",
  "defmt-rtt",
  "embassy-executor",
+ "embassy-futures",
  "embassy-stm32",
  "embassy-sync",
  "embassy-time",
  "embassy-usb",
  "panic-probe",
+ "settings_api",
  "static_cell",
  "stm32-metapac",
  "wire_weaver",
  "wire_weaver_usb_embassy",
  "ww_client_server",
  "ww_gpio",
+ "ww_settings",
  "ww_si",
  "ww_stream",
 ]
@@ -1397,6 +1400,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
 dependencies = [
  "serde_core",
+]
+
+[[package]]
+name = "settings_api"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_settings",
 ]
 
 [[package]]
@@ -2058,6 +2070,26 @@ dependencies = [
  "shrink_wrap",
  "ww_numeric",
  "ww_version",
+]
+
+[[package]]
+name = "ww_settings"
+version = "0.5.0"
+dependencies = [
+ "crc",
+ "defmt 1.1.1",
+ "embedded-storage-async",
+ "shrink_wrap",
+ "ww_settings_derive",
+]
+
+[[package]]
+name = "ww_settings_derive"
+version = "0.5.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
 ]
 
 [[package]]

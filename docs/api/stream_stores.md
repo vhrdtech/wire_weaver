@@ -8,9 +8,10 @@ one device and 32 GB on an SD card on another.
 | Store | Where | Survives | Feature |
 |---|---|---|---|
 | `RamRing<N>` | `N` bytes of RAM | host reconnects | always there |
+| `PersistentRamRing<N>` | `N` bytes of `.uninit` RAM | soft resets (fault → reset), not power cuts | `persistent-ram` |
 | `LogStore<M, BUF>` | SD card, NOR flash | reboots and power cuts | `log-store` (+ `sdmmc` / `nor-flash`) |
 
-Both keep events as they go on the wire, head included, so a resent event is bit-identical: its timestamp is the
+All keep events as they go on the wire, head included, so a resent event is bit-identical: its timestamp is the
 device's time when the data was made, not when it was sent.
 
 When a store is full, it does what its `FullPolicy` says:
@@ -32,6 +33,66 @@ let store = SAMPLES.init(RamRing::new().with_policy(FullPolicy::DropOldest));
 ```
 
 Each event takes its item, its encoded head and 21 bytes (`RECORD_OVERHEAD`).
+
+## RAM across a soft reset: `PersistentRamRing`
+
+A `RamRing` whose bytes sit in RAM the startup code leaves alone, so they are still there after a soft reset: a
+HardFault or panic handler that resets the chip (`SCB::sys_reset`) doesn't take the last logs before the crash with
+it. The next boot takes the events up again and the host gets them when it connects. A power cut loses them; RAM
+after a power-on holds garbage, which is never taken for events.
+
+```toml
+ww_stream = { version = "0.5", features = ["persistent-ram"] }
+```
+
+```rust
+use core::mem::MaybeUninit;
+use ww_stream::store::{FullPolicy, PersistentRamRing, RamArea};
+use ww_stream::tx::Reliable;
+
+// cortex-m-rt leaves `.uninit.*` alone at boot
+#[unsafe(link_section = ".uninit.ww_logs")]
+static mut LOG_AREA: MaybeUninit<RamArea<4096>> = MaybeUninit::uninit();
+
+// once, at boot
+let area = unsafe { RamArea::from_uninit(&mut *core::ptr::addr_of_mut!(LOG_AREA)) };
+let store = PersistentRamRing::attach(area).with_policy(FullPolicy::DropOldest);
+// `store.recovery().formatted`: nothing was kept (a power-on), a new ring was started
+let mut logs = Reliable::new(store);
+// the ring from before the reset: continue its session and positions
+logs.continue_stored_session();
+```
+
+Where the area goes is the firmware's business, and differs per chip: it must be RAM the startup code neither zeroes
+nor copies into (`.bss`, `.data`), nor a firmware's own RAM init (a loop zeroing a whole SRAM bank at boot takes the
+area with it). With `cortex-m-rt`, a `.uninit.*` section is enough. The same area must not be used for anything
+else, and only one store may be attached to it.
+
+### What it keeps
+
+The same as a `LogStore` across a reboot: session, positions, the released position, `dropped_units`, and a new
+**clock epoch** per boot (`clock_epoch()`, 0 for a new ring), which the first event pushed after it carries in
+`HeadExt::clock_epoch` unless the sender set it already. `state().persistent` is true.
+
+### How it checks the RAM
+
+The area holds two 64-byte header slots and the ring. After every change (push, release, reset) the ring's header
+is written to the slot not written last, with a magic, the layout version, `N`, a sequence number and a CRC-32C; at
+boot, the good slot with the higher sequence number wins. A record goes into free room first, and old records a push
+drops to make room are forgotten by a slot written before the new record goes over them, so a reset at any byte
+leaves the state before or after the change, never a mix. Every record has its own CRC-32C, checked at boot too: if
+something wrote over the area before the reset, the ring is cut before the first bad record
+(`recovery().truncated_bytes`) and the stream continues after it.
+
+The host tests (`ww_stream/src/tests/persistent_ram.rs`) carry the area's image over a simulated reset
+(`RamArea::image()`, `load_image()`), fault a push, release and reset after every byte written, and attach to random
+garbage, flipped header bits and records written over.
+
+### Sizing
+
+Each event takes its item, its encoded head and 25 bytes (`PERSISTENT_RECORD_OVERHEAD`); the area is `N` bytes and
+128 for the slots (`RamArea::<N>::SIZE`). Every change also writes a 64-byte slot; a push computes two CRCs
+(over the slot and over the record).
 
 ## SD card or flash: `LogStore`
 

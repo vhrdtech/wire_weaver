@@ -25,3 +25,9 @@
   full. Media through `store::log::LogMedium`: `SdMedium` on an `embedded-sdmmc` `BlockDevice` (feature `sdmmc`),
   `NorMedium` on an `embedded-storage-async` `NorFlash` (feature `nor-flash`), `SimMedium` (`SimSd`, `SimNor`) in
   RAM with power cuts for tests (with `std`).
+- `store::PersistentRamRing` (SRV-16), behind the `persistent-ram` feature: a RAM ring in a `store::RamArea` placed
+  in `.uninit` RAM that survives a soft reset (fault → `sys_reset`), so the logs before a crash reach the host. Two
+  header slots and every record checked by CRC-32C at boot (`RamRecovery`), garbage after a power-on starts a new
+  ring; keeps session, positions, released position and `dropped_units`, starts a new clock epoch per boot and marks
+  the first event after it (`HeadExt::clock_epoch`). `RamArea::image()` / `load_image()` carry it over a simulated
+  reset in tests.

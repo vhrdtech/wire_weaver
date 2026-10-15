@@ -414,6 +414,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `embedded-storage-async` `NorFlash` with `nor-flash`) that keeps session, positions and clock epochs across reboots;
   drop-newest or drop-oldest when full, counted exactly. Tested with a power cut at every write
   (`ww_stream/src/tests/log_store.rs`); `docs/api/stream_stores.md`.
+- ✅ **SRV-16 Persistent RAM store** — `ww_stream::store::PersistentRamRing` (feature `persistent-ram`): a reliable
+  stream's store in `.uninit` RAM that survives a soft reset (fault → reset), for the logs before a crash (STD-26).
+  Header slots and records checked by CRC at boot, so garbage after a power-on is never taken for data; continues
+  session and positions like `LogStore`, a new clock epoch per boot. Tested with a fault after every byte written
+  (`ww_stream/src/tests/persistent_ram.rs`); `docs/api/stream_stores.md`.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:

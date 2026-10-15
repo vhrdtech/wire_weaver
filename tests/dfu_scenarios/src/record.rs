@@ -427,6 +427,10 @@ impl Decoder {
                 let res = self.resolve(&path).ok_or("unknown stream")?;
                 format!("{} at {} ⇒ (not decoded)", res.name, head.pos)
             }
+            EventKind::PropertyUpdate { path, .. } => {
+                let path: Vec<UNib32> = path.iter().map(|p| p.unwrap()).collect();
+                format!("property update of {path:?} ⇒ (not decoded)")
+            }
         })
     }
 }

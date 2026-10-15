@@ -27,7 +27,8 @@ ww_client_server = { version = "0.2", default-features = false }
 * `RequestKind<'i>` - the operation: `Call { args }` / `MultiCall` (same method over an array or several methods
   at once), `Read` / `MultiRead`, `Write { data }` / `MultiWrite`, `StreamSideband { sideband }`, `Introspect`
   (send the `ww_self::ApiBundle` of the addressed resource), `StreamOpen { resume, args }` (open a
-  [counted or reliable stream](../api/stream_reliability.md), optionally resuming a `StreamCursor`). Arguments and
+  [counted or reliable stream](../api/stream_reliability.md), optionally resuming a `StreamCursor`),
+  `Observe { cfg }` (how a trait level's properties are sent, see [below](#observing-properties)). Arguments and
   written values travel as `TailBytes<'i>` - already shrink_wrap-serialized by the generated code on either end,
   opaque to this crate.
 * `MultiIndex<'i>` / `MultiArgs<'i>` - which resources a multi-request covers (`Range`, `List`, or `Mask32`) and
@@ -37,7 +38,8 @@ ww_client_server = { version = "0.2", default-features = false }
   Result<EventKind<'i>, Error<'i>>`.
 * `EventKind<'i>` - `Value { data }` (a call's or read's return value), `Written`, `StreamData { path, data }`
   (plain stream/property update), `StreamSideband { path, sideband }`, `StreamItem { path, head: StreamHead, data
-  }` (one event of a counted/reliable stream, see [below](#counted-and-reliable-streams)).
+  }` (one event of a counted/reliable stream, see [below](#counted-and-reliable-streams)), `PropertyUpdate { path,
+  t, missed, data }` (observed properties of one trait level, see [below](#observing-properties)).
 * `Error<'i>` / `ErrorKind<'i>` - `err_seq` (a per-call-site id for mapping an error back to the generated code
   that raised it) plus a kind: path/argument/property deserialization failures, `Unimplemented` (an
   [optional item](../api/optional_items.md) the device leaves out), `TraitNotFound` (a global path to a trait the
@@ -70,6 +72,30 @@ the value up front and calling `.to_ww_bytes()`.
 * `StreamOpened<'i>` - the answer to `StreamOpen`: the (possibly new) `session`, `oldest` position the device still
   has, `live_from` (where the live run starts), `resume_from` (where backfill starts, `None` without one), and
   `result` (the stream function's own serialized return value).
+
+## Observing properties
+
+The `observe` module (API-38) is the protocol for sending a trait level's properties at the rates a host asks for,
+any subset of them in one event. A level is one trait (the root API or a `ww_impl!` trait), addressed by its path;
+its properties are named by their resource index within the level, as in the introspection data. Only properties
+declared with `+observe` can be observed.
+
+* `ObserveRequest<'i>` - body of `RequestKind::Observe`: `entries` (an `ObserveEntry { index, mode }` per
+  property), `patch` (`true`: properties not listed keep their setting; `false`: they are `Off`) and `budget`
+  (bytes per second the level's updates may take on the link, `None` leaves it to the device).
+* `ObserveMode` - `Off`, `OnChange { min_us }` (on a change, at most every `min_us`), `Periodic { every_us }`,
+  `OnChangeOrBeat { min_us, max_us }` (on a change, and at least every `max_us`). Periods are in microseconds.
+  Evolvable: a mode from a newer host reads as `Unknown(_)` and is refused.
+* `ObserveGranted<'i>` - the answer, in an `EventKind::Value`: every property observed now with its mode as
+  clamped by the device, the `refused` entries with an `ObserveRefusal` (`NoSuchIndex`, `NotObservable`,
+  `ModeNotSupported`, `Duplicate`), and the granted `budget`.
+* `EventKind::PropertyUpdate { path, t, missed, data }` - one level's update: device time `t`, `missed` (sends
+  that were due but didn't fit the budget since the previous update) and `data`, one slot per resource index with
+  the properties sent this time present. `ser_property_update_event` writes it with the data in place. Without
+  `t` and `missed`, the event costs 4 bytes plus its data for a level one deep.
+
+Old hosts never send `Observe`, so they never receive a `PropertyUpdate`. A device without observe support answers
+`Observe` with `OperationNotSupported`.
 
 ## Credit-based flow control for sinks (`credit` module)
 

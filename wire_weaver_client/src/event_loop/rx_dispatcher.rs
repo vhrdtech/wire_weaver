@@ -344,6 +344,10 @@ impl RxDispatcher {
                         None => trace!("stream event for {path:?}, which is not open"),
                     }
                 }
+                EventKind::PropertyUpdate { path, .. } => {
+                    // TODO(CLT-28): route to observe_<level>() streams
+                    trace!("property update for {path:?}, nobody observes");
+                }
             },
             Err(e) => {
                 if let Some(mut done_tx) = self.take_response(event.seq.0) {

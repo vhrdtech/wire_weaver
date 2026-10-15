@@ -5,12 +5,16 @@ pub mod builder;
 pub mod credit;
 pub mod max_len;
 pub mod multi_req;
+pub mod observe;
 pub mod stream;
 pub mod util;
 
 use wire_weaver::{prelude::*, shrink_wrap::tail_bytes::TailBytes};
 use ww_version::{CompactVersion, FullVersion};
 
+use observe::ObserveRequest;
+#[cfg(feature = "std")]
+use observe::ObserveRequestOwned;
 use stream::{StreamCursor, StreamHead};
 
 #[cfg(feature = "std")]
@@ -149,6 +153,11 @@ pub enum RequestKind<'i> {
         /// Arguments of the stream function, serialized like [RequestKind::Call] arguments.
         args: TailBytes<'i>,
     },
+
+    /// Observe properties of the trait level at the path (API-38): how each one is sent from now on, see
+    /// [observe]. Answered with [EventKind::Value] holding [observe::ObserveGranted]; updates arrive as
+    /// [EventKind::PropertyUpdate].
+    Observe { cfg: ObserveRequest<'i> },
 }
 
 /// Index for a multi request. Two kinds of multi requests are possible:
@@ -250,6 +259,19 @@ pub enum EventKind<'i> {
         path: RefVec<'i, UNib32>,
         head: StreamHead,
         /// The serialized item.
+        data: TailBytes<'i>,
+    },
+
+    /// Observed properties of one trait level (API-38), sent when any of them is due, see [observe].
+    PropertyUpdate {
+        /// Path of the trait level, as in its [RequestKind::Observe].
+        path: RefVec<'i, UNib32>,
+        /// When the values were taken, on the device's clock.
+        t: Option<ww_si::Second>,
+        /// Sends of this level's properties that were due but did not fit the budget since the previous update.
+        missed: Option<UNib32>,
+        /// The level's properties: an `OptionAnyVec` with one slot per resource index, the properties sent this
+        /// time present.
         data: TailBytes<'i>,
     },
 }
@@ -547,6 +569,7 @@ impl RequestKind<'_> {
             RequestKind::StreamSideband { .. } => EventKindDiscriminants::StreamSideband,
             RequestKind::Introspect => EventKindDiscriminants::StreamData,
             RequestKind::StreamOpen { .. } => EventKindDiscriminants::Value,
+            RequestKind::Observe { .. } => EventKindDiscriminants::Value,
         }
     }
 }
@@ -594,6 +617,9 @@ impl RequestKind<'_> {
             RequestKind::StreamOpen { resume, args } => RequestKindOwned::StreamOpen {
                 resume: *resume,
                 args: args.make_owned(),
+            },
+            RequestKind::Observe { cfg } => RequestKindOwned::Observe {
+                cfg: cfg.make_owned()?,
             },
         };
         Ok(req)

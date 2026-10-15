@@ -25,6 +25,12 @@ Wire-incompatible with 0.1.0.
 
 ### 🚀 Features
 
+* `observe` module (API-38): `RequestKind::Observe { cfg: ObserveRequest }` asks the device to send a trait
+  level's properties per `ObserveMode` (`Off`, `OnChange`, `Periodic`, `OnChangeOrBeat`) within a byte budget,
+  answered with `ObserveGranted` (the clamped settings and the `ObserveRefused` entries);
+  `EventKind::PropertyUpdate { path, t, missed, data }` carries any subset of a level's properties in one event,
+  `ser_property_update_event` writes it with the data in place. Wire format: both variants are appended, old
+  hosts never send `Observe` and so never receive a `PropertyUpdate`.
 * `stream::StreamStatus` / `StoreStatus` (a read on a counted or reliable stream), `ser_stream_item_event` (a
   `StreamItem` event with its item in place), `StreamOpened::ser_head` (the stream function's result written in place
   after it), `ErrorKind::StreamNoSession` and `StreamStoreFailed` appended (API-31). Streams no longer use sideband

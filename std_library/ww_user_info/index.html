@@ -3134,7 +3134,8 @@
 </span></code></pre></div>
 <p><code>CAPABILITIES</code> (<code>name_max</code>, <code>notes_max</code>, <code>persistent</code>) says what this device keeps: a device may keep less than the
 bounds of 32 and 256 bytes, and a device without room for notes leaves them out with <code>omit = ["user.notes"]</code>
-(<code>notes_max</code> is then 0).</p>
+(<code>notes_max</code> is then 0). It is a <a href="../../api/properties/#const-items"><code>const</code> item</a>, usually a Rust const in the
+server's consts impl.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p>A write returns <code>UserInfoError</code>: <code>Common(CommonError)</code> (see <a href="../ww_error/">ww_error</a>) or <code>TooLong { max }</code> with what
 the device keeps. <code>Common(Busy)</code> means storage can't be touched right now, <code>Common(Fault)</code> that saving failed. The

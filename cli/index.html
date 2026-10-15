@@ -3471,7 +3471,10 @@ hash. Traits and types a device leaves out of its introspection data because the
 </span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>api hash: 6e87e4113afd0168
 </span></code></pre></div>
 <p><code>impl name[]: crate::Trait</code> is a nested trait (<code>[]</code> marking an array of them), properties show their access
-(<code>const</code>, <code>ro</code>, <code>rw</code>, <code>wo</code>) and whether they are observable, <code>stream</code> is device-to-host and <code>sink</code> host-to-device.</p>
+(<code>const</code>, <code>ro</code>, <code>rw</code>, <code>wo</code>) and whether they are observable, <code>stream</code> is device-to-host and <code>sink</code> host-to-device.
+The values of <a href="../api/properties/#const-items"><code>const</code> items</a> outside of arrays of traits are read from the device
+and shown after their type, <code>const property SERIAL: String = "E661A410"</code> (byte vectors as hex, struct and enum names
+left out); <code>--no-values</code> skips the reads.</p>
 <p>With <code>-t</code>, all types the API refers to are listed after the tree, by their index in the bundle: structs with their
 fields, enums with their variants and discriminants, and each type's size kind (<code>unsized</code>, <code>final structure</code>,
 <code>self-describing</code>, <code>sized</code>) and enum repr:</p>
@@ -3510,6 +3513,10 @@ fields, enums with their variants and discriminants, and each type's size kind (
 <tr>
 <td><code>--raw-as-sent</code></td>
 <td>Same as <code>--raw</code>, but as the device sent it: traits and types known from snapshots are left out</td>
+</tr>
+<tr>
+<td><code>--no-values</code></td>
+<td>Do not read the values of <code>const</code> items</td>
 </tr>
 </tbody>
 </table>

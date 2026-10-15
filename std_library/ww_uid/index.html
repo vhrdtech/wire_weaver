@@ -3130,7 +3130,9 @@ can carry several, which one-trait-per-id could not (a trait cannot be implement
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">IDS</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">UniqueId</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>IDS</code> is a <code>const</code> item (served by a <code>get_&lt;path&gt;_IDS</code> handler until API-36 lands). At most 4 ids.</p>
+<p><code>IDS</code> is a <a href="../../api/properties/#const-items"><code>const</code> item</a>, served without a handler and read by a host once per
+connection. Ids are read from the chip at boot, so a server provides them as a <code>fn</code> (<code>const_model = "IDS=fn"</code>,
+<code>fn uid_ids(&amp;self) -&gt; MaxLen&lt;RefVec&lt;'_, UniqueId&lt;'_&gt;&gt;, 4&gt;</code> for <code>uid: Uid</code>). At most 4 ids.</p>
 <h2 id="the-primary-id">The primary id<a class="headerlink" href="#the-primary-id" title="Permanent link">&para;</a></h2>
 <p>The <strong>first id is the primary id</strong>. A device puts its hex (lower case, no separators) into the USB serial number
 string and a host shows it in <code>ww list</code>. When the unit reboots into a ROM bootloader that reports the same id

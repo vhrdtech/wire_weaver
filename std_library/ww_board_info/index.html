@@ -3108,8 +3108,10 @@ It is <code>no_std</code> by default and uses <a href="../ww_date_time/"><code>w
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">BOARD</span><span class="p">:</span><span class="w"> </span><span class="nc">BoardSummary</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>BOARD</code> is a <code>const</code> item: until constant items are served from the introspection data (API-36) a server implements
-it as <code>get_&lt;path&gt;_BOARD</code>. It never fails; what a device does not know is an empty string or <code>None</code>.</p>
+<p><code>BOARD</code> is a <a href="../../api/properties/#const-items"><code>const</code> item</a>, served without a handler and read by a host once per
+connection. A board read from OTP or straps at boot provides it as a <code>fn</code> (<code>const_model = "BOARD=fn"</code>,
+<code>fn board_board(&amp;self) -&gt; BoardSummary&lt;'_&gt;</code> for <code>board: BoardInfo</code>), a firmware for one fixed board as a Rust const.
+It never fails; what a device does not know is an empty string or <code>None</code>.</p>
 <table>
 <thead>
 <tr>

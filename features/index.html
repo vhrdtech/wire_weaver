@@ -3615,6 +3615,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (<code>RpcResult&lt;Result&lt;(), I2cError&lt;'_&gt;&gt;&gt;</code>, an error borrowed from the server), for plain, counted and reliable
   streams, sync and async servers: the generated dispatch takes the <code>Ok</code> value out of the result before it opens
   the stream's state (<code>tests/streams_borrowed_error</code>). An <code>Ok</code> value that borrows from the server still can't.</li>
+<li>✅ <strong>API-36 Const items served from a value</strong> · <code>v0.5</code> — a <code>const NAME: T;</code> of a <code>#[ww_trait]</code> is served without a
+  <code>get_&lt;name&gt;</code> handler: the server struct implements the generated <code>&lt;RootTrait&gt;Consts</code> with <code>const NAME: T = ..;</code>
+  (a Rust const) or, picked with <code>const_model = "NAME=fn"</code>, <code>fn name(&amp;self) -&gt; T</code> for a value fixed at boot or link
+  time (OTP, chip id, build id); names carry the trait item chain prefix (<code>BOARD_BOARD</code> / <code>board_board</code>).
+  <code>ww api scaffold --const-model</code> prints the impl. Clients read a const once per connection, then answer from a
+  cache (generated, dynamic and Python clients, promises too); <code>ww introspect</code> shows const values
+  (<code>tests/consts</code>, <code>docs/api/properties.md</code>). <code>ww_firmware_info</code>, <code>ww_board_info</code>, <code>ww_uid</code>
+  and <code>ww_user_info</code> servers use it.</li>
+<li>💡 <strong>API-37 Const values in the introspection blob</strong> — a codegen option putting the values of <code>const</code> items into
+  the device's introspection data, so <code>ww info</code> gets them with the link setup and no extra reads. Costs flash per
+  device, so not a default.</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
 <li>🚧 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: <code>MAX_SIZE</code> of types (SW-19) and per-method <code>&lt;METHOD&gt;_REQUEST_MAX_LEN</code> /

@@ -1175,6 +1175,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#const-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Const items
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2993,6 +3004,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#const-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Const items
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3105,7 +3127,8 @@
 <p>Property write is acknowledged by a server, unless request ID of 0 is used.</p>
 <p>Properties have access mode associated with them:</p>
 <ul>
-<li>Const (<code>const</code>) - property is not going to change, observe not available</li>
+<li>Const (<code>const NAME: T;</code> in the trait) - value is fixed for the life of the firmware, observe not available, see
+  <a href="#const-items">Const items</a></li>
 <li>Read only (<code>ro</code>) - property can only be read, can change and be observed for changes</li>
 <li>Write only (<code>wo</code>) - property can only be written</li>
 <li>Read/Write (<code>rw</code>) - property can be read, written and observed for changes</li>
@@ -3142,6 +3165,56 @@ when a <code>ro</code> property changes on its own:</p>
 When <code>Err</code> variant is encountered, generated server code will serialize user error into bytes and forward it to
 client in <code>ww_client_server::ErrorKind::UserBytes(err_bytes)</code>.</p>
 <p>When <code>on_changed</code> flavor is used, it's signature and behavior is changed accordingly.</p>
+<h3 id="const-items">Const items<a class="headerlink" href="#const-items" title="Permanent link">&para;</a></h3>
+<p>A <code>const</code> item of a trait is a value that doesn't change while the firmware runs: a firmware name and version, a
+board record, chip ids, limits of an implementation.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="sd">/// Known at compile time.</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LIMITS</span><span class="p">:</span><span class="w"> </span><span class="nc">Limits</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="sd">/// Read from the chip at boot.</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">SERIAL</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">;</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">board</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_board_info</span><span class="p">::</span><span class="n">BoardInfo</span><span class="p">);</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>On the server, no handler is called for it. The value comes from the generated trait <code>&lt;RootTrait&gt;Consts</code>, which the
+server struct implements, in one of two forms, picked per item with the <code>const_model</code> argument of <code>ww_codegen!</code>:</p>
+<ul>
+<li><code>const</code> (the default): a Rust const, <code>const LIMITS: Limits&lt;'static&gt; = ..;</code>.</li>
+<li><code>fn</code>: a value fixed at boot or link time (OTP, a chip id register, the build id in flash), <code>fn serial(&amp;self) -&gt;
+  &amp;str</code>. Items in an array of traits get the index chain: <code>fn channel_gain(&amp;self, index_chain: [UNib32; 1]) -&gt; u8</code>.</li>
+</ul>
+<p>Names carry the trait item chain prefix, as handler names do: <code>BOARD</code> of <code>board: BoardInfo</code> is <code>BOARD_BOARD</code> as a
+const and <code>board_board</code> as a <code>fn</code>. <code>const_model</code> is a comma separated list of <code>regex=const|fn</code>, the regex matching
+the whole name of the item as written in its trait (<code>BOARD</code>, not <code>board_BOARD</code>); <code>_=fn</code> changes the default.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">impl</span><span class="w"> </span><span class="n">api_impl</span><span class="p">::</span><span class="n">DeviceConsts</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LIMITS</span><span class="p">:</span><span class="w"> </span><span class="nc">Limits</span><span class="o">&lt;&#39;</span><span class="nb">static</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Limits</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">max_len</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="n">names</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="p">::</span><span class="n">Slice</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">slice</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="s">&quot;a&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;b&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">serial</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">        </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">serial</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">board_board</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">BoardSummary</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">board</span><span class="p">.</span><span class="n">summary</span><span class="p">()</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p">}</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="k">mod</span><span class="w"> </span><span class="nn">api_impl</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">        </span><span class="n">device_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Device</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">Server</span><span class="p">,</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">        </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">no_alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">use_async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">        </span><span class="n">const_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SERIAL|BOARD=fn&quot;</span><span class="p">,</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>ww api scaffold --const-model "SERIAL|BOARD=fn" &lt;api_crate&gt;</code> prints this impl with a <code>todo!()</code> for every value. An
+<code>#[optional]</code> const left out with <code>omit = [..]</code> has no item in the trait. A trait without <code>const</code> items has no
+<code>&lt;RootTrait&gt;Consts</code>.</p>
+<p>Clients read a const from the device once per connection and keep the value: later reads of it (generated
+<code>read_&lt;NAME&gt;()</code>, async, blocking or as a promise, the dynamic client and Python) return it without a request. A new
+connection, or a <code>disconnect()</code> through the same <code>Commander</code>, reads it again; <code>Commander::clear_const_cache()</code> does
+too. Errors are not kept. <code>ww introspect</code> reads the consts that are not in an array of traits and shows their values
+in the tree (<code>--no-values</code> to skip them).</p>
 
 
 

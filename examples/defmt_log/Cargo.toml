@@ -1,0 +1,27 @@
+[package]
+name = "defmt_log"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+defmt_log_api = { workspace = true, features = ["std"] }
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_log = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+defmt-decoder.workspace = true
+object = { version = "0.36", default-features = false, features = ["read_core", "elf", "std"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+tracing = "0.1"
+tracing-subscriber.workspace = true
+
+[[example]]
+name = "defmt_log"
+path = "examples/defmt_log.rs"

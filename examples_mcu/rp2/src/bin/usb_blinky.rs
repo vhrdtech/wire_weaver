@@ -14,9 +14,7 @@ use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
 use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
-use wire_weaver_usb_embassy::{
-    LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
-};
+use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
 
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => InterruptHandler<USB>;

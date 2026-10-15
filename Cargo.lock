@@ -1060,6 +1060,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "defmt_log"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "defmt-decoder",
+ "defmt_log_api",
+ "object 0.36.7",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_log",
+]
+
+[[package]]
+name = "defmt_log_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_log",
+]
+
+[[package]]
 name = "deranged"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"

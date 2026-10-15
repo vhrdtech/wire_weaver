@@ -1,0 +1,16 @@
+[package]
+name = "defmt_log_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+std = ["wire_weaver/std", "ww_log/std"]
+
+[dependencies]
+wire_weaver.workspace = true
+ww_log.workspace = true

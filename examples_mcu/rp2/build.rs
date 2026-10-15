@@ -31,6 +31,7 @@ fn main() {
 
     println!("cargo:rustc-linker=flip-link");
     println!("cargo:rustc-link-arg=--nmagic");
+    println!("cargo:rustc-link-arg=--build-id=sha1"); // the firmware's identity, kept in flash by memory.x
     println!("cargo:rustc-link-arg=-Tlink.x");
     println!("cargo:rustc-link-arg=-Tdefmt.x");
     println!("cargo:rustc-link-arg=-Tcnt.x"); // counters index allocation (cnt crate)

@@ -73,3 +73,17 @@ SECTIONS {
 
 PROVIDE(start_to_end = __end_block_addr - __start_block_addr);
 PROVIDE(end_to_start = __start_block_addr - __end_block_addr);
+
+SECTIONS {
+    /* ### GNU build id
+     *
+     * The firmware's identity (`--build-id=sha1` in build.rs): hosts find the ELF for defmt logs by it. The firmware
+     * reads it between these two symbols.
+     */
+    .note.gnu.build-id : ALIGN(4)
+    {
+        __build_id_start = .;
+        KEEP(*(.note.gnu.build-id));
+        __build_id_end = .;
+    } > FLASH
+} INSERT AFTER .rodata;

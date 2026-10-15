@@ -101,6 +101,7 @@ check-examples-mcu-rp2:
     @cargo check --features ws_ncm
     @cargo check --features udp_ncm
     @cargo check --no-default-features --features rtt_target --bin rp2_ww_rtt
+    @cargo check --no-default-features --features usb_log --bin rp2_usb_log
 
 [working-directory('examples_mcu/usb_stm32h725ig')]
 upload-examples-mcu-usb-stm32h725ig:

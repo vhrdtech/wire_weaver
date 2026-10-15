@@ -488,6 +488,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "defmt_log_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_log",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1647,6 +1655,7 @@ dependencies = [
  "critical-section",
  "defmt 1.1.1",
  "defmt-rtt",
+ "defmt_log_api",
  "edge-dhcp",
  "edge-http",
  "edge-nal",
@@ -1666,7 +1675,10 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_usb_embassy",
  "ww_client_server",
+ "ww_defmt_logger",
  "ww_device",
+ "ww_log",
+ "ww_stream",
 ]
 
 [[package]]
@@ -2437,6 +2449,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_defmt_logger"
+version = "0.5.0"
+dependencies = [
+ "critical-section",
+ "defmt 1.1.1",
+ "rtt-target",
+ "wire_weaver",
+ "ww_log",
+ "ww_stream",
+]
+
+[[package]]
 name = "ww_device"
 version = "0.5.0"
 dependencies = [
@@ -2495,6 +2519,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_log"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+]
+
+[[package]]
 name = "ww_numeric"
 version = "0.2.0"
 dependencies = [
@@ -2520,6 +2552,15 @@ version = "0.1.0"
 dependencies = [
  "shrink_wrap",
  "ww_numeric",
+]
+
+[[package]]
+name = "ww_stream"
+version = "0.5.0"
+dependencies = [
+ "wire_weaver",
+ "ww_client_server",
+ "ww_si",
 ]
 
 [[package]]

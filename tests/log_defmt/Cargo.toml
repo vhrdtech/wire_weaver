@@ -10,7 +10,7 @@ repository.workspace = true
 [dependencies]
 # a std implementation for DefmtLogger on the host
 critical-section = { version = "1.2", features = ["std"] }
-defmt-decoder = "1.1"
+defmt-decoder.workspace = true
 log_defmt_api.workspace = true
 serde_json.workspace = true
 tests_common.workspace = true

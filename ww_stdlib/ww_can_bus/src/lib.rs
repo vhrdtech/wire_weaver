@@ -339,7 +339,11 @@ impl CanId {
 }
 
 /// A CAN frame: classic data, remote or CAN FD.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), final_structure)]
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    derive(Clone, Debug, PartialEq, Eq),
+    final_structure
+)]
 pub struct Frame<'i> {
     pub id: CanId,
     pub kind: FrameKind,
@@ -556,7 +560,11 @@ pub enum ErrorState {
 }
 
 /// The controller's protocol state, see `Can::protocol_status`.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
 pub struct ProtocolStatus {
     pub status: Status,
     pub activity: Activity,
@@ -600,7 +608,11 @@ pub struct FdFrameFlags {
 }
 
 /// Bus load measured by the device, see `Can::bus_load`.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq)
+)]
 pub struct BusLoad {
     /// Length of the measurement window.
     pub window: Second,
@@ -724,7 +736,11 @@ impl BitTiming {
 }
 
 /// CAN FD settings, see [CanConfig::fd].
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq)
+)]
 pub struct FdConfig {
     /// Bit timing of the data phase of frames with bit rate switch; the same as the nominal one when no frame
     /// switches.
@@ -748,12 +764,19 @@ pub enum Tdc {
     Auto,
     /// Secondary sample point at the measured delay plus `offset`, in minimum time quanta (clock periods);
     /// `filter`: shortest delay accepted as measured.
-    Manual { offset: u8, filter: Option<u8> },
+    Manual {
+        offset: u8,
+        filter: Option<u8>,
+    },
 }
 
 /// Options of a controller, see [CanConfig::options]. A device answers `Unsupported` for one it doesn't have
 /// ([Capabilities]), except where the value asked for is what it always does.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
 pub struct Options {
     /// Send each frame once, no automatic retransmission after an error or lost arbitration.
     pub one_shot: bool,
@@ -810,7 +833,11 @@ pub enum RxOverflow {
 }
 
 /// How a controller's message memory is divided, see `Can::set_layout`; counts in elements.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
 pub struct MemoryLayout {
     pub standard_filters: u16,
     pub extended_filters: u16,
@@ -892,7 +919,9 @@ pub enum FilterAction {
 )]
 pub enum NonMatching {
     /// Into receive FIFO `fifo`.
-    Accept { fifo: u8 },
+    Accept {
+        fifo: u8,
+    },
     Reject,
 }
 
@@ -914,7 +943,11 @@ pub enum TransceiverMode {
 }
 
 /// Transceiver mode and faults, see `Can::transceiver_state`.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
 pub struct TransceiverState {
     pub mode: TransceiverMode,
     /// A bus wiring fault the transceiver reports, if any (and if it can).
@@ -1023,7 +1056,11 @@ pub struct TimingLimits {
 }
 
 /// How the device timestamps frames, see [Capabilities::timestamps].
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq)
+)]
 pub struct TimestampInfo {
     /// Smallest step.
     pub resolution: Second,
@@ -1047,7 +1084,11 @@ pub enum TimestampPoint {
 }
 
 /// Throughput a controller or group guarantees, see `CanGroup::performance` and [Capabilities::performance].
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
 pub struct Performance {
     /// Frames per second received and passed on without loss, at any frame length.
     pub min_frames_per_second: Option<u32>,
@@ -1133,7 +1174,11 @@ pub struct Capabilities<'i> {
 }
 
 /// Which [TransceiverMode]s besides `Normal` a transceiver has.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
 pub struct TransceiverModes {
     pub standby: bool,
     pub silent: bool,
@@ -1141,7 +1186,11 @@ pub struct TransceiverModes {
 }
 
 /// Clock of a [CanGroup]: a source and the frequency the controllers get from it.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq)
+)]
 pub struct GroupClock {
     /// Index into [GroupCapabilities::clock_sources].
     pub source: u8,
@@ -1187,7 +1236,11 @@ pub struct GroupCapabilities<'i> {
 }
 
 /// Time-triggered configuration of a controller, see `CanTimeTriggered::configure_tt`.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
 pub struct TtConfig {
     /// ISO 11898-4 level 1 (time-triggered messaging) or level 2 (plus global time).
     pub level: TtLevel,
@@ -1233,7 +1286,11 @@ pub enum TtRole {
 }
 
 /// One trigger of a time-triggered schedule, see `CanTimeTriggered::set_schedule`.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
 pub struct Trigger {
     /// Time mark within the basic cycle, in cycle time units.
     pub time_mark: u16,
@@ -1268,7 +1325,11 @@ pub enum TriggerKind {
 }
 
 /// State of time-triggered operation, see `CanTimeTriggered::tt_status`.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
 pub struct TtStatus {
     pub sync: TtSync,
     /// This controller is the current time master.
@@ -1346,7 +1407,11 @@ pub struct XlTxFrame<'i> {
 
 /// XL data phase settings, see `CanXl::configure_xl`.
 #[cfg(feature = "xl")]
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq)
+)]
 pub struct XlConfig {
     /// Bit timing of the XL data phase.
     pub data: Timing,
@@ -1360,7 +1425,11 @@ pub struct XlConfig {
 
 /// PWM symbol timing of the XL data phase, in minimum time quanta (clock periods).
 #[cfg(feature = "xl")]
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
 pub struct XlPwm {
     pub short: u8,
     pub long: u8,

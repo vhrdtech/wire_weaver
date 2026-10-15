@@ -1,8 +1,8 @@
 //! Client API for multi requests (`MultiRead`, `MultiCall`, `MultiWrite`, CLT-15): several resources answered in
 //! one request/response pair, each on its own (`Either<ErrorOwned, value>` per index, in index order).
 //!
-//! Two shapes are possible, both reduced to the same wire shape by [split_common]: a request path (the common
-//! prefix), a `multi_idx` (the one path element that differs between indices) and an optional trailing
+//! Two shapes are possible, both reduced to the same wire shape by `split_common` (private): a request path (the
+//! common prefix), a `multi_idx` (the one path element that differs between indices) and an optional trailing
 //! `in_each_array_id` (one more path element, the same for every index).
 //! - **Different resources at one level**: [MultiRead], [MultiCall], [MultiWrite] are implemented for tuples of
 //!   2 to 8 of the generated client's `PreparedRead`/`PreparedCall`/`PreparedWrite` builders, e.g.
@@ -396,7 +396,7 @@ where
 /// Several resources read in one request (CLT-15): implemented for tuples of 2 to 8 of
 /// [PreparedRead](crate::PreparedRead), e.g. `(client.read_x(), client.read_y()).multi_read().await`. Any depth,
 /// as long as every path shares a common prefix and diverges at one position, optionally followed by one more
-/// shared id (see [split_common]).
+/// shared id (see `split_common`, private).
 pub trait MultiRead<Out> {
     fn multi_read(self) -> impl Future<Output = Result<Out, Error>>;
 }

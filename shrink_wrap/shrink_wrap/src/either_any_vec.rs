@@ -281,8 +281,8 @@ impl<'i> EitherAnyVecIter<'i> {
 
     /// Reads the next item's flag and lets the caller deserialize the chosen side itself, given the (correctly
     /// bounded, for an `Unsized` one) reader for it: for an item type not known at compile time (e.g. a value
-    /// deserialized according to a runtime type descriptor), which [next]/[next_owned] can't express as a static
-    /// `L`/`R`. The caller is responsible for bounding its own read the way [BufReader::read] does for a
+    /// deserialized according to a runtime type descriptor), which [Self::next]/[Self::next_owned] can't express as
+    /// a static `L`/`R`. The caller is responsible for bounding its own read the way [BufReader::read] does for a
     /// compile-time type (an `Unsized` one is `rd.split`-bounded by its size in the trailer first).
     pub fn next_with<T>(
         &mut self,

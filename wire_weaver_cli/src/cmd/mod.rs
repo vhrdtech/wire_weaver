@@ -7,4 +7,5 @@ pub(crate) mod elf;
 pub(crate) mod info;
 pub(crate) mod introspect;
 pub(crate) mod list;
+pub(crate) mod observe;
 pub(crate) mod usb_loopback;

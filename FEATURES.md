@@ -513,7 +513,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `<Trait>Observe` typed settings and what was granted, `<Trait>Latest` latest-value cache with receive times;
   subscriptions sent again by `resume_streams()` after a reconnect; `Error::Unsupported` for a device whose API model
   predates API-38 (`wire_weaver_client::observe`, `docs/api/properties.md#observing`, `tests/observe`,
-  `observe_e2e_tests`). Not yet: levels under a resource array, the dynamic client and Python (TOOL-11).
+  `observe_e2e_tests`). Not yet: levels under a resource array.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,
@@ -656,6 +656,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   slow device holds the host back; e2e test against `ww_device::Server` in `device_e2e_tests.rs`), with a summary
   table and tuning options. Works with any device, the link layer answers. Checked on a full-speed board (Donguru,
   3 hubs): about 155 round trips/s, 375 kB/s host → device, 317 kB/s device → host with 1 KiB messages.
+- 🚧 **TOOL-11 Dynamic observe** · `v0.5.x` — decodes a level's `PropertyUpdate` from introspection alone (CLT-28):
+  `DynResource::observe()` / `observe_blocking()` (`observable_properties()` lists what it can ask for), reusing
+  the CLT-28 event-loop routing and subscription sharing through a schema-less `DynUpdate`/`DynConfig` pair; `ww
+  observe <path> [--rate MS]` prints each update's values, rate and link bytes/s (`wire_weaver_client::DynObserver`,
+  `wire_weaver_cli/src/cmd/observe.rs`, `tests/observe`). `ww_self` carries the `sparse` flag a dynamic decoder needs
+  (DER-13). Not yet: `wire_weaver_py`'s `observe(level, cfg)`.
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`.

@@ -8,6 +8,10 @@
 
 ### 🚀 Features
 
+- `ww observe <path> [--rate MS]` (TOOL-11): observes a trait level's `+observe` properties without generated
+  code (`DynResource::observe`), printing each update's present values, the update rate and the link bytes/s it
+  costs, until Ctrl+C. `<path>` is a dotted/indexed resource path (`motor`, `bank[0]`), empty for the API root;
+  without `--rate` every property is observed on change, `--rate` asks for all of them periodically instead.
 - `ww usb-loopback` works again (TOOL-10), on the sans-IO event loop: progress bars per stage and a summary table
   (messages, per second, bytes per second, lost, corrupted); exits with an error on lost or corrupted messages or a
   failed test. Connects to any device without downloading its introspection, the link layer answers.

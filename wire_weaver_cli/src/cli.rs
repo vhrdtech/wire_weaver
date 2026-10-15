@@ -7,6 +7,7 @@ use crate::cmd::elf::ElfCommand;
 use crate::cmd::info::{InfoArgs, ReportArgs};
 use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
+use crate::cmd::observe::ObserveArgs;
 use crate::complete;
 use crate::device::DeviceArgs;
 use clap::{Args, Parser, Subcommand};
@@ -61,6 +62,11 @@ pub(crate) enum Commands {
 
     /// Print the resource tree of the selected device's API, using its introspection data
     Introspect(IntrospectArgs),
+
+    /// Observe a trait level's `+observe` properties, from introspection alone (TOOL-11)
+    ///
+    /// Prints each update's present values, the update rate and the link bytes/s it costs, until Ctrl+C.
+    Observe(ObserveArgs),
 
     /// Firmware update steps (ww_dfu), on any device whatever its API version
     #[command(subcommand)]
@@ -173,6 +179,7 @@ impl Cli {
             Commands::USBLoopback { .. } => true,
             Commands::Api(_) => false,
             Commands::Introspect(_) => true,
+            Commands::Observe(_) => true,
             Commands::Config(_) => false,
             Commands::Bootsel(_) => false,
             Commands::Dfu(_) => true,

@@ -419,6 +419,8 @@
       
         
       
+        
+      
     
     
     
@@ -1522,6 +1524,8 @@
       
         
       
+        
+      
     
     
     
@@ -2194,6 +2198,33 @@
     
   
   ww_counters
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_indication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_indication
 
     
   </span>
@@ -3234,6 +3265,8 @@
       
         
       
+        
+      
     
     
     
@@ -3322,7 +3355,8 @@ place to look.</p>
 <li><code>ww_defmt_logger</code> (repo root, device side) — the <code>defmt</code> global logger that feeds <code>LogDefmt::frames</code>, with an optional tee to RTT</li>
 <li><a href="../ww_counters/"><code>ww_counters</code></a> — <code>Counters</code>: the device's <code>cnt</code> counters as raw buffer words (RAM and backup),
   decoded on the host with the firmware's ELF found by its build id (<code>ww counters</code>)</li>
-<li><code>ww_indication</code> — <code>Indication</code>: device indication LED control (mode, brightness, test mode)</li>
+<li><a href="../ww_indication/"><code>ww_indication</code></a> — <code>Indication</code>: device indication control (mode, optional brightness,
+  identify, indicator names)</li>
 <li><a href="../ww_dfu/"><code>ww_dfu</code></a> — <code>UpdateNode</code>, <code>BootControl</code>, <code>Inventory</code>, <code>Stage</code>, <code>StageBulk</code>: firmware update, A/B or
   in-place, step by step or bulk</li>
 </ul>

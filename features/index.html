@@ -419,6 +419,8 @@
       
         
       
+        
+      
     
     
     
@@ -1723,6 +1725,8 @@
       
         
       
+        
+      
     
     
     
@@ -2268,6 +2272,33 @@
     
   
   ww_counters
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_indication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_indication
 
     
   </span>
@@ -3962,10 +3993,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
     repo: <code>cnt::ram_used_words()</code>, word sources and ELF lookup by build id in <code>cnt_core</code>, <code>cnt_view</code>, and the probe
     path checks the build id too. Docs <code>docs/std_library/ww_counters.md</code>, tests <code>tests/counters</code>; <code>cnt_core</code> /
     <code>cnt_view</code> 0.5 from crates.io.</li>
+<li>✅ <strong>STD-28 <code>ww_indication</code> lightweight rework</strong> — cut to one required item: <code>mode: Mode</code> (<code>AllOff</code> /
+    <code>OnlyEssential</code> / <code>Normal</code>). <code>brightness: Brightness</code> (5 levels, one setting for all indicators),
+    <code>identify(duration)</code> (blink everything to find the unit on a bench, errors on <code>CommonError</code>) and <code>NAMES</code>
+    (indicator names, API-36) are each their own <code>#[optional]</code> item. Dropped <code>alert_brightness</code> /
+    <code>AlertBrightness</code>, <code>animation_enable</code>, <code>test_mode</code> / <code>TestMode</code> and <code>HAS_NOT_CONTROLLABLE</code>. Docs
+    <code>docs/std_library/ww_indication.md</code>, tests <code>tests/indication</code> (mock servers with only <code>mode</code>, and with every
+    optional item).</li>
 <li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing.</li>
 <li>🔍 <strong>STD-7 Interrupt left enabled in <code>ww_gpio_hl</code></strong> · <code>v0.5</code> — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.</li>
-<li>🚧 <strong>STD-8 Prototypes</strong>, to be completed later: <code>ww_can_bus</code>, <code>ww_i2c</code>, <code>ww_uart</code>, <code>ww_indication</code>,
+<li>🚧 <strong>STD-8 Prototypes</strong>, to be completed later: <code>ww_can_bus</code>, <code>ww_i2c</code>, <code>ww_uart</code>,
   <code>ww_memory</code> (was <code>ww_ll</code>: one word type per trait, optional watches, errors on <code>CommonError</code>, docs page),
   Known gaps are <code>TODO</code>s in their sources (e.g. SMBus and 7-bit addresses in <code>ww_i2c</code>, capabilities and properties
   in <code>ww_can_bus</code>). <code>ww_log</code> (was <code>ww_log_bare_metal</code>) left for STD-26.</li>

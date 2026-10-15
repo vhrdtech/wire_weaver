@@ -16,3 +16,8 @@ slow-timeout = { period = "15s", terminate-after = 1 }
 [[profile.default.overrides]]
 filter = 'package(wire_weaver_core) & test(snapshots_are_up_to_date)'
 slow-timeout = { period = "15s", terminate-after = 1 }
+
+# the other snapshot tests re-parse several snapshot crates, 2-2.5 s in debug: over 3 s on a loaded PC
+[[profile.default.overrides]]
+filter = 'package(wire_weaver_core) & test(/^transform::snapshot::tests::/)'
+slow-timeout = { period = "15s", terminate-after = 1 }

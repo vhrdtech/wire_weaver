@@ -263,10 +263,16 @@ fn payload(t: u8, seq: u32) -> Vec<u8> {
 
 /// Producers on several threads log as fast as they can into a small ring while a consumer pumps at its own pace:
 /// every frame arrives whole and in order per producer, none twice, and received + lost is exactly what was logged.
+/// Nothing depends on how fast the threads run (a loaded PC starves the consumer, an idle one keeps up): a burst
+/// bigger than the ring before the consumer starts makes sure frames are dropped, and the consumer drains everything
+/// after the producers stop.
 #[test]
 fn stress_concurrent_producers() {
     const THREADS: u8 = 4;
     const PER_THREAD: u32 = 20_000;
+    /// Producer id and frames of the burst before the consumer starts: far more than 512 bytes
+    const BURST_T: u8 = THREADS;
+    const BURST: u32 = 64;
     static LOGGER: DefmtLogger<512> = DefmtLogger::new();
 
     let mut known = HashMap::new();
@@ -275,6 +281,11 @@ fn stress_concurrent_producers() {
             known.insert(encoded(&payload(t, seq)), (t, seq));
         }
     }
+    for seq in 0..BURST {
+        known.insert(encoded(&payload(BURST_T, seq)), (BURST_T, seq));
+        log(&LOGGER, &payload(BURST_T, seq));
+    }
+    assert!(LOGGER.dropped_frames() > 0, "the burst fits the ring");
 
     let done = Arc::new(AtomicBool::new(false));
     let consumer = {
@@ -338,14 +349,10 @@ fn stress_concurrent_producers() {
             received += 1;
         }
     }
-    let logged = THREADS as u64 * PER_THREAD as u64 + 1;
+    let logged = THREADS as u64 * PER_THREAD as u64 + BURST as u64 + 1;
     assert_eq!(received + lost, logged);
     assert_eq!(lost, LOGGER.dropped_frames() as u64);
-    assert!(
-        lost > 0,
-        "the ring never overflowed, the test is too gentle"
-    );
-    assert!(received > logged / 100, "hardly anything arrived");
+    assert_eq!(LOGGER.pending_bytes(), 0, "drained");
     println!(
         "logged {logged}, received {received}, lost {lost}, events {}",
         events.len()

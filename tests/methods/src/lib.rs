@@ -4,7 +4,8 @@ mod tests {
     use std::sync::{Arc, RwLock};
     use std::time::Duration;
     use tests_common::TestDevice;
-    use wire_weaver_client::{CallError, Error};
+    use wire_weaver::shrink_wrap::UNib32;
+    use wire_weaver_client::{CallError, Error, MultiCall};
     use ww_client_server::ErrorKindOwned;
 
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -631,6 +632,63 @@ mod tests {
         client.answer_deferred(0x37).call().await.unwrap();
         assert_eq!(deferred.await.unwrap().unwrap(), 0x37);
         deferred_unit.await.unwrap().unwrap();
+    }
+
+    /// `MultiCall` over a tuple of different methods (CLT-15), N > 2 (not just 2).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn multi_call_tuple() {
+        let (device, _data) = start("methods/multi_call_tuple");
+        let client = connect(&device).await;
+        let (a, b, c) = (
+            client.plain_return(),
+            client.request_seq(),
+            client.request_medium(),
+        )
+            .multi_call()
+            .await
+            .unwrap();
+        assert_eq!(a.unwrap(), 0xAA);
+        assert_ne!(b.unwrap(), 0);
+        assert_eq!(c.unwrap(), Medium::Can as u8);
+    }
+
+    /// `call_array` over the `unit[]` array (CLT-15): list, range and mask indices, `Same`/`Different` args, and a
+    /// per-item error (`BadIndex` past the array's length).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn multi_call_array() {
+        use wire_weaver_client::multi::call_array;
+        use ww_client_server::MultiIndexOwned;
+
+        let (device, _data) = start("methods/multi_call_array");
+        let client = connect(&device).await;
+
+        // different args: one value per unit, in list order
+        let r = call_array(
+            MultiIndexOwned::List(vec![UNib32(0), UNib32(1), UNib32(2), UNib32(3)]),
+            |i| client.unit(i).double(i as u8 + 1),
+        )
+        .await
+        .unwrap();
+        let r: Vec<u8> = r.into_iter().map(Result::unwrap).collect();
+        assert_eq!(r, vec![2, 4, 6, 8]);
+
+        // same args for every selected unit (mask32: units 0 and 2)
+        let r = call_array(MultiIndexOwned::Mask32(0b101), |i| client.unit(i).double(10)).await.unwrap();
+        let r: Vec<u8> = r.into_iter().map(Result::unwrap).collect();
+        assert_eq!(r, vec![20, 20]);
+
+        // per-item error: index 4 is past the array's length (0..4 valid)
+        let r = call_array(MultiIndexOwned::Range(UNib32(2)..UNib32(5)), |i| {
+            client.unit(i).double(1)
+        })
+        .await
+        .unwrap();
+        assert_eq!(r[0].as_ref().unwrap(), &2);
+        assert_eq!(r[1].as_ref().unwrap(), &2);
+        assert!(
+            matches!(&r[2], Err(e) if matches!(e.kind, ErrorKindOwned::BadIndex)),
+            "{r:?}"
+        );
     }
 
     #[test]

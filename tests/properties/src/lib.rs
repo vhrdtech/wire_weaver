@@ -5,7 +5,7 @@ mod tests {
     use std::time::Duration;
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use wire_weaver_client::{CallError, Error, MultiRead};
+    use wire_weaver_client::{CallError, Error, MultiRead, MultiWrite};
     use ww_client_server::ErrorKindOwned;
 
     /// Elements of the `ch[]` array (CLT-15 multi-request tests)
@@ -412,7 +412,95 @@ mod tests {
             absent.unwrap_err().kind,
             ErrorKindOwned::Unimplemented
         ));
+
+        // N > 2 (CLT-15): any number of resources, not just a 2-tuple
+        let (x, y, mode) = (client.read_x(), client.read_y(), client.read_mode())
+            .multi_read()
+            .await
+            .unwrap();
+        assert_eq!(x.unwrap(), 0xAA);
+        assert_eq!(y.unwrap(), 0xCC);
+        assert_eq!(mode.unwrap(), 5);
+
+        // MultiWrite, also N > 2 (CLT-15); write_mode is skipped here, its CallError<ModeError> isn't a plain
+        // PreparedWrite<Error> (out of scope for the tuple API, see docs/api/properties.md)
+        let custom = CustomOwned {
+            z: 7,
+            inner: vec![],
+        };
+        let (wx, wy, wcustom) = (
+            client.write_x(1),
+            client.write_y(2),
+            client.write_custom(custom.clone()),
+        )
+            .multi_write()
+            .await
+            .unwrap();
+        wx.unwrap();
+        wy.unwrap();
+        wcustom.unwrap();
+        assert_eq!(client.read_x().read().await.unwrap(), 1);
+        assert_eq!(client.read_y().read().await.unwrap(), 2);
+        // get_custom() is hardcoded in this test server (see handlers!), check the stored value instead
+        assert_eq!(data.read().unwrap().custom, custom);
+
         observe(&client).await;
+    }
+
+    /// `read_array`/`write_array` over the `ch[]` array (CLT-15): list, range and mask indices, `Same`/
+    /// `Different` values, and a per-item error (`BadIndex` past the array's length).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn array_multi_requests() {
+        use wire_weaver_client::multi::{read_array, write_array};
+        use ww_client_server::MultiIndexOwned;
+
+        let (device, data) = start_multi_req("properties/array_multi_req");
+        let client = connect(&device).await;
+
+        // write different: one value per channel, in list order
+        let r = write_array(
+            MultiIndexOwned::List(vec![UNib32(0), UNib32(1), UNib32(2), UNib32(3)]),
+            |i| client.ch(i).write_level((i as u8 + 1) * 10),
+        )
+        .await
+        .unwrap();
+        for item in r {
+            item.unwrap();
+        }
+        assert_eq!(data.read().unwrap().ch_level, [10, 20, 30, 40]);
+
+        // read range: same order back
+        let r = read_array(MultiIndexOwned::Range(UNib32(0)..UNib32(4)), |i| {
+            client.ch(i).read_level()
+        })
+        .await
+        .unwrap();
+        let r: Vec<u8> = r.into_iter().map(Result::unwrap).collect();
+        assert_eq!(r, vec![10, 20, 30, 40]);
+
+        // write same: one value to every selected channel (mask32: channels 0 and 2)
+        let r = write_array(MultiIndexOwned::Mask32(0b101), |i| {
+            client.ch(i).write_level(99)
+        })
+        .await
+        .unwrap();
+        for item in r {
+            item.unwrap();
+        }
+        assert_eq!(data.read().unwrap().ch_level, [99, 20, 99, 40]);
+
+        // per-item error: index 4 is past the array's length (0..4 valid)
+        let r = read_array(MultiIndexOwned::Range(UNib32(2)..UNib32(5)), |i| {
+            client.ch(i).read_level()
+        })
+        .await
+        .unwrap();
+        assert_eq!(r[0].as_ref().unwrap(), &99);
+        assert_eq!(r[1].as_ref().unwrap(), &40);
+        assert!(
+            matches!(&r[2], Err(e) if matches!(e.kind, ErrorKindOwned::BadIndex)),
+            "{r:?}"
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

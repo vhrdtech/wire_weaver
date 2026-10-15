@@ -3366,7 +3366,8 @@ clock, so their timestamps line up against each other.</p>
 <code>ww_pwm::Pwm::channel</code>, <code>ww_signal_generator::WaveformGenerator::channel</code>) exposes them as <code>ww_impl!(name[]:
 Trait)</code>, a WireWeaver array of sub-traits. Every other method that addresses one of them takes a plain index into
 that same array, in the order its crate's <code>*Info</code> / <code>*Capabilities</code> type lists them — no bitmasks, no names on the
-wire.</p>
+wire. A method that addresses several at once takes a bounded list of such indices (<code>ww_gpio::Bank::read_inputs</code>,
+<code>write_outputs</code>).</p>
 <p><strong>Monitors.</strong> Watching a bus without taking part in it is a counted stream function: <code>Uart::monitor</code> and
 <code>Spi::monitor</code>, optional items of the bus trait, and <code>I2cMonitor::records</code>, a trait of its own because I2C
 monitoring also exists without a master (<code>I2cMode::MonitorOnly</code>) and next to the master's own traffic. A monitor

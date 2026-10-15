@@ -3737,15 +3737,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   cache (generated, dynamic and Python clients, promises too); <code>ww introspect</code> shows const values
   (<code>tests/consts</code>, <code>docs/api/properties.md</code>). <code>ww_firmware_info</code>, <code>ww_board_info</code>, <code>ww_uid</code>
   and <code>ww_user_info</code> servers use it.</li>
+<li>✅ <strong>API-38 Observe requests</strong> · <code>v0.5.x</code> — <code>RequestKind::Observe</code> on a trait level: per property <code>Off</code>, <code>OnChange</code>,
+  <code>Periodic</code> or <code>OnChangeOrBeat</code> and a byte budget, the device answers with what it granted; updates arrive as one
+  <code>EventKind::PropertyUpdate</code> per level carrying any subset of its properties (SW-55). Only <code>+observe</code> properties
+  can be observed. Protocol <code>ww_client_server::observe</code> (<code>docs/std_library/ww_client_server.md</code>), device side SRV-18,
+  host side CLT-28 (<code>docs/api/properties.md#observing-changes</code>, <code>tests/observe</code>).</li>
 <li>💡 <strong>API-37 Const values in the introspection blob</strong> — a codegen option putting the values of <code>const</code> items into
   the device's introspection data, so <code>ww info</code> gets them with the link setup and no extra reads. Costs flash per
   device, so not a default.</li>
-<li>🚧 <strong>API-38 Observe requests</strong> · <code>v0.5.x</code> — <code>RequestKind::Observe</code> on a trait level: per property <code>Off</code>, <code>OnChange</code>,
-  <code>Periodic</code> or <code>OnChangeOrBeat</code> and a byte budget, the device answers with what it granted; updates arrive as one
-  <code>EventKind::PropertyUpdate</code> per level carrying any subset of its properties (SW-55). Only <code>+observe</code> properties
-  can be observed. The protocol is there (<code>ww_client_server::observe</code>,
-  <code>docs/std_library/ww_client_server.md</code>), the device side too (SRV-18); the host side is
-  CLT-28.</li>
 <li>💡 <strong>API-39 Batched property samples</strong> — K samples of one fast property in one update, compressed with <code>Delta</code> /
   <code>XorFloat</code> (SW-50), for values sampled faster than the link can carry one update each.</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
@@ -3768,7 +3767,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>API-29 Bounds of resource array indices</strong> · <code>v0.5.x</code> — <code>stream!(adc[8]: u16)</code> or <code>motor[1..=4]</code>, checked by the
   server before a handler is called and visible in introspection (<code>docs/api/arrays.md</code>). Lengths of lists and
   strings inside a resource's type are bounded with <code>MaxLen</code> (SW-19). With a bound, observed properties (SRV-18) can
-  get a table per array element: until then a trait level in a resource array can't be observed.</li>
+  get a table per array element: until then a trait level in a resource array can't be observed
+  (STD-31 <code>ww_gpio</code> pin level waits for it).</li>
 <li>🚧 <strong>API-30 Counted and reliable streams</strong> · <code>v0.5</code> — counted streams put a head in every event (flags and a
   length-coded 64-bit <code>pos</code> in units the device names when it sends, the event's <code>units</code>, <code>lost</code>, optional device time
   <code>t</code>), so drops on the device, link losses and duplicates are reported exactly and item types carry no <code>seq</code> /
@@ -3880,6 +3880,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>docs/std_library/device_contract.md</code>, <code>tests/device_report</code>. The stored log is a stream and streams open on the
   absolute path only (CLT-23), so <code>ww report</code> reads the device's introspection data for the log's path; <code>ww info</code>
   needs none. Not yet: fetching the release archive by itself.</li>
+<li>✅ <strong>CLT-28 Observing properties on the host</strong> · <code>v0.5.x</code> — generated std clients have <code>observe(cfg)</code> per trait
+  level with <code>+observe</code> properties (an <code>Observer</code> of the level's <code>&lt;Trait&gt;Update</code>) and <code>observe_&lt;name&gt;(mode)</code> per
+  property, fanned out from the level: one device subscription per level covering all its observers (merged modes,
+  biggest budget), sent again when an observer comes, changes (<code>configure</code>) or goes, <code>Off</code> after the last one;
+  <code>&lt;Trait&gt;Observe</code> typed settings and what was granted, <code>&lt;Trait&gt;Latest</code> latest-value cache with receive times;
+  subscriptions sent again by <code>resume_streams()</code> after a reconnect; <code>Error::Unsupported</code> for a device whose API model
+  predates API-38 (<code>wire_weaver_client::observe</code>, <code>docs/api/properties.md#observing</code>, <code>tests/observe</code>,
+  <code>observe_e2e_tests</code>). Not yet: levels under a resource array, the dynamic client and Python (TOOL-11).</li>
 <li>🚧 <strong>CLT-10 Trait calls that work on any device</strong> · <code>v0.5</code> — serial, user label, a CLI that works with all devices.
   <code>ww list</code> with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: <code>ClientConfig::traits_only()</code>, <code>DynClient::global_attachment()</code> (served through API-20,
@@ -4116,6 +4124,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   message RAM; <code>CanTimeTriggered</code> (TTCAN); <code>CanXl</code> behind the <code>xl</code> feature. Errors on <code>CommonError</code> +
   <code>OutOfFilters</code>, <code>OutOfMemory</code>, <code>BusOff</code>; <code>defmt</code> no longer pulls <code>std</code>. Docs <code>docs/std_library/ww_can_bus.md</code>,
   tests <code>tests/io_can</code> (full and minimal node), <code>tests/io_can_group</code> (group, TTCAN, XL).</li>
+<li>✅ <strong>STD-30 <code>ww_gpio</code> port access</strong> — <code>Bank::read_inputs(pins)</code> answers the input levels of the listed pins (indices
+  into <code>pin[]</code>) in the same order, <code>Bank::write_outputs(levels)</code> sets a list of <code>PinLevel { pin, level }</code>, all or
+  nothing; both at one instant where the hardware allows (one register read / write), which
+  <code>BankCapabilities::simultaneous_read</code> / <code>simultaneous_write</code> say, pin by pin in list order otherwise. For bit-banged
+  parallel buses and strobes from the host, which multi-call can't make simultaneous. Pins by index, no masks on the
+  wire (IO family D9). Bank indices 1 and 2 from its reserved range, capabilities appended with <code>#[default = false]</code>.
+  Docs <code>docs/std_library/ww_gpio.md#port-access</code>, tests <code>tests/io_gpio</code>, STM32 boards in <code>examples_mcu</code> (IDR / BSRR).</li>
 <li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing.</li>
 <li>🔍 <strong>STD-7 Interrupt left enabled in <code>ww_gpio_hl</code></strong> · <code>v0.5</code> — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.</li>
@@ -4158,6 +4173,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>STD-22 <code>ww_signal_generator</code></strong> · <code>v0.5.x</code> — <code>PatternGenerator</code> (digital, replays analyzer captures through
   a credit sink), <code>WaveformGenerator</code> (DAC channels). Skeleton written, docs page
   <code>docs/std_library/ww_signal_generator.md</code>; mock-server test pair still open (STD-13).</li>
+<li>⛔ <strong>STD-31 Observable <code>ww_gpio</code> pin level</strong> · <code>v0.5.x</code> — <code>property!(ro+observe level: Level)</code> on <code>Pin</code> at one of its
+  reserved indices 4..=6, so a host sees input changes without opening the <code>event</code> stream of every pin (slow inputs,
+  a dashboard). Blocked on API-29 array-index-bounds: <code>Pin</code> sits in <code>Bank::pin[]</code> (and banks usually in an array
+  too), and levels under a resource array can't be observed until their bound is known (SRV-18).</li>
 <li>💡 <strong>STD-10 Device state machine trait</strong> like CANopen.</li>
 <li>💡 <strong>STD-11 Register description registry</strong> — WireWeaver for describing device registers.</li>
 </ul>

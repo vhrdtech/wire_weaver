@@ -1181,6 +1181,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Host side">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#observing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Observing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3207,6 +3224,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Host side">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#observing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Observing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3525,8 +3559,9 @@ level budgets, at most <code>ObserveLimits::total_budget</code>; reliable stream
 Polling properties first keeps their short deadlines, and their share bounds what they take from the streams.</p>
 <h4 id="before-observe-requests">Before observe requests<a class="headerlink" href="#before-observe-requests" title="Permanent link">&para;</a></h4>
 <p><code>stream_data_ser().&lt;name&gt;_send(&amp;value, out)</code> (<code>_send_blocking</code> for sync servers) still sends one property's value as
-stream data on its own path, which the generated clients' <code>observe_&lt;name&gt;()</code> receives. It is superseded by observe
-requests and goes once the host side of them (CLT-28) is there.</p>
+stream data on its own path. Generated clients receive it with <code>observe_&lt;name&gt;()</code> for properties without <code>+observe</code>
+(a plain <code>Stream&lt;T&gt;</code>, no request is sent to the device); for <code>+observe</code> properties <code>observe_&lt;name&gt;(mode)</code> is the
+observe request below. It is superseded by observe requests.</p>
 <h2 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h2>
 <p>Generated clients have <code>read_&lt;name&gt;()</code>, <code>write_&lt;name&gt;(value)</code> and <code>observe_&lt;name&gt;()</code> per property, as its access
 allows. Reads and writes are prepared first, then sent async, blocking or as a promise:</p>
@@ -3535,9 +3570,6 @@ allows. Reads and writes are prepared first, then sent async, blocking or as a p
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">device</span><span class="p">.</span><span class="n">write_speed</span><span class="p">(</span><span class="mf">1500.0</span><span class="p">).</span><span class="n">write_forget</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">         </span><span class="c1">// no answer asked for, nothing waited for</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">pressed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">read_button_pressed</span><span class="p">().</span><span class="n">blocking_read</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">read_speed</span><span class="p">().</span><span class="n">read_promise</span><span class="p">(</span><span class="s">&quot;speed&quot;</span><span class="p">);</span><span class="w"> </span><span class="c1">// poll it from a GUI</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">changes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">observe_speed</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">          </span><span class="c1">// a plain Stream&lt;f32&gt;</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">speed</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">changes</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* .. */</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <ul>
 <li>A write to a property with an error type returns <code>Result&lt;(), CallError&lt;E&gt;&gt;</code>: <code>CallError::Device(e)</code> is the
@@ -3568,17 +3600,64 @@ allows. Reads and writes are prepared first, then sent async, blocking or as a p
 </ul>
 <p>The dynamic client and Python have the same per property: <code>dev.speed.read()</code>, <code>dev.speed.write(1500)</code>
 (<a href="../../python/#using-the-api">Python</a>).</p>
+<h3 id="observing">Observing<a class="headerlink" href="#observing" title="Permanent link">&para;</a></h3>
+<p>The host side of <a href="#observing-changes">observing changes</a> (CLT-28). Each trait level with <code>+observe</code> properties gets
+<code>observe(cfg)</code> on its client (the root client, or <code>device.motor()</code>), each <code>+observe</code> property <code>observe_&lt;name&gt;(mode)</code>;
+both are prepared first and <code>.subscribe()</code> (<code>.subscribe_blocking()</code>) returns an <code>Observer</code> once the device answered:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">observe</span><span class="p">::{</span><span class="n">on_change</span><span class="p">,</span><span class="w"> </span><span class="n">on_change_or_beat</span><span class="p">,</span><span class="w"> </span><span class="n">periodic</span><span class="p">};</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">use</span><span class="w"> </span><span class="n">api_client</span><span class="p">::</span><span class="n">motor_api_motor</span><span class="p">::</span><span class="n">MotorObserve</span><span class="p">;</span><span class="w"> </span><span class="c1">// in the level&#39;s client module (`&lt;api crate&gt;_&lt;trait&gt;`)</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Duration</span><span class="p">::</span><span class="n">from_millis</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">motor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="p">.</span><span class="n">observe</span><span class="p">(</span><span class="n">MotorObserve</span><span class="p">::</span><span class="n">default</span><span class="p">().</span><span class="n">speed</span><span class="p">(</span><span class="n">periodic</span><span class="p">(</span><span class="mi">10</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">ms</span><span class="p">)).</span><span class="n">current</span><span class="p">(</span><span class="n">on_change</span><span class="p">(</span><span class="n">ms</span><span class="p">)))</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="p">.</span><span class="n">budget</span><span class="p">(</span><span class="mi">20_000</span><span class="p">)</span><span class="w">                      </span><span class="c1">// bytes per second, the device decides without it</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="p">.</span><span class="n">subscribe</span><span class="p">()</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="kd">let</span><span class="w"> </span><span class="n">granted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">motor</span><span class="p">.</span><span class="n">granted</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span><span class="w">  </span><span class="c1">// what the device applies: Granted { modes: MotorObserve, budget, refused }</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">u</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">motor</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span><span class="w">   </span><span class="c1">// Observed { value: MotorUpdate, t, missed, received }</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">speed</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">u</span><span class="p">.</span><span class="n">value</span><span class="p">.</span><span class="n">speed</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* .. */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="p">}</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="n">motor</span><span class="p">.</span><span class="n">with_latest</span><span class="p">(</span><span class="o">|</span><span class="n">l</span><span class="o">|</span><span class="w"> </span><span class="n">l</span><span class="p">.</span><span class="n">speed</span><span class="p">.</span><span class="n">as_ref</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">s</span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">received</span><span class="p">)));</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">observe_mode</span><span class="p">(</span><span class="n">on_change</span><span class="p">(</span><span class="n">ms</span><span class="p">)).</span><span class="n">subscribe</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// Observer of u8 values</span>
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="kd">let</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mode</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">.</span><span class="n">value</span><span class="p">;</span>
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="n">mode</span><span class="p">.</span><span class="n">configure</span><span class="p">(</span><span class="n">MotorObserve</span><span class="p">::</span><span class="n">default</span><span class="p">().</span><span class="n">mode</span><span class="p">(</span><span class="n">periodic</span><span class="p">(</span><span class="mi">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">ms</span><span class="p">))).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<ul>
+<li><strong>Types</strong>: per level <code>&lt;Trait&gt;Update</code> (<code>&lt;Trait&gt;UpdateOwned</code> when a property holds a <code>String</code> or <code>Vec</code>), the level's
+  <code>PropertyUpdate</code> data, one <code>Option</code> per <code>+observe</code> property, the ones sent present; <code>&lt;Trait&gt;Observe</code>, one
+  <code>Option&lt;ObserveMode&gt;</code> per property with a setter each, for asking and in <code>Granted::modes</code> for what was granted;
+  <code>&lt;Trait&gt;Latest</code>, the latest <code>Sample { value, received, t }</code> of each property. <code>t</code> is the device's time, present when
+  it sends timestamps (<code>ObserveLimits::timestamps</code>).</li>
+<li><strong>One subscription per level</strong>: every observer of a level asks for its own modes, the host sends the device one
+  <code>Observe</code> that covers them all, per property the shortest on-change interval and the shortest period of all of
+  them (<code>OnChange</code> and <code>Periodic</code> give <code>OnChangeOrBeat</code>), the biggest budget. It is sent again when an observer
+  comes, calls <code>configure(..)</code> / <code>configure_with_budget(..)</code>, or is dropped; dropping the last one turns the level
+  <code>Off</code>. Each observer gets every update of its level, a property observer only the updates that carry its
+  property. The settings are what the device applies for all observers together, so an observer may get more often
+  than it asked for.</li>
+<li><strong>Events</strong>: <code>recv()</code> / <code>recv_blocking()</code> / <code>try_recv()</code> give updates, <code>recv_event()</code> also <code>Disconnected</code>, <code>Resumed</code>
+  and <code>Dropped { events }</code> (the observer's queue on the host is bounded like a stream's,
+  <code>ClientConfig::stream_queue_bytes</code>).</li>
+<li><strong>Reconnects</strong>: observers outlive <code>disconnect().keep_streams()</code>; <code>resume_streams()</code> on the next connection sends
+  every level's subscription again (the device may still have it, <code>ObserveState::reset</code> is the device's choice) and
+  the observers see <code>Resumed</code>. A link that goes down for good ends them (<code>StreamError::Closed</code> once drained).</li>
+<li><strong>Old devices</strong>: a device whose API model is <code>ww_client_server</code> before 0.2 can't observe, <code>.subscribe()</code> fails
+  with <code>Error::Unsupported</code>.</li>
+<li><strong>Limits</strong>: levels inside a resource array have no <code>observe()</code> yet, like on the device. Absolute paths only: a
+  trait client (<code>client = "trait_client"</code>) observes once it has a base path (<code>attachment()</code>).</li>
+</ul>
 <h2 id="const-items">Const items<a class="headerlink" href="#const-items" title="Permanent link">&para;</a></h2>
 <p>A <code>const</code> item of a trait is a value that doesn't change while the firmware runs: a firmware name and version, a
 board record, chip ids, limits of an implementation.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="cp">#[ww_api_root]</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="sd">/// Known at compile time.</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LIMITS</span><span class="p">:</span><span class="w"> </span><span class="nc">Limits</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="sd">/// Read from the chip at boot.</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">SERIAL</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">;</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">board</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_board_info</span><span class="p">::</span><span class="n">BoardInfo</span><span class="p">);</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="sd">/// Known at compile time.</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LIMITS</span><span class="p">:</span><span class="w"> </span><span class="nc">Limits</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="sd">/// Read from the chip at boot.</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">SERIAL</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">;</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">board</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_board_info</span><span class="p">::</span><span class="n">BoardInfo</span><span class="p">);</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>On the server, no handler is called for it. The value comes from the generated trait <code>&lt;RootTrait&gt;Consts</code>, which the
 server struct implements, in one of two forms, picked per item with the <code>const_model</code> argument of <code>ww_codegen!</code>:</p>
@@ -3590,25 +3669,25 @@ server struct implements, in one of two forms, picked per item with the <code>co
 <p>Names carry the trait item chain prefix, as handler names do: <code>BOARD</code> of <code>board: BoardInfo</code> is <code>BOARD_BOARD</code> as a
 const and <code>board_board</code> as a <code>fn</code>. <code>const_model</code> is a comma separated list of <code>regex=const|fn</code>, the regex matching
 the whole name of the item as written in its trait (<code>BOARD</code>, not <code>board_BOARD</code>); <code>_=fn</code> changes the default.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">impl</span><span class="w"> </span><span class="n">api_impl</span><span class="p">::</span><span class="n">DeviceConsts</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LIMITS</span><span class="p">:</span><span class="w"> </span><span class="nc">Limits</span><span class="o">&lt;&#39;</span><span class="nb">static</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Limits</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">max_len</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="n">names</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="p">::</span><span class="n">Slice</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">slice</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="s">&quot;a&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;b&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">};</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">serial</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">        </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">serial</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">board_board</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">BoardSummary</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">board</span><span class="p">.</span><span class="n">summary</span><span class="p">()</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="p">}</span>
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="k">mod</span><span class="w"> </span><span class="nn">api_impl</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
-</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">        </span><span class="n">device_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Device</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">Server</span><span class="p">,</span>
-</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">        </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">no_alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">use_async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">        </span><span class="n">const_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SERIAL|BOARD=fn&quot;</span><span class="p">,</span>
-</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">    </span><span class="p">);</span>
-</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">impl</span><span class="w"> </span><span class="n">api_impl</span><span class="p">::</span><span class="n">DeviceConsts</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LIMITS</span><span class="p">:</span><span class="w"> </span><span class="nc">Limits</span><span class="o">&lt;&#39;</span><span class="nb">static</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Limits</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">max_len</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="n">names</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="p">::</span><span class="n">Slice</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">slice</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="s">&quot;a&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;b&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">serial</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">        </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">serial</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">board_board</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">BoardSummary</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">board</span><span class="p">.</span><span class="n">summary</span><span class="p">()</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="p">}</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="k">mod</span><span class="w"> </span><span class="nn">api_impl</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">        </span><span class="n">device_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Device</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">Server</span><span class="p">,</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">        </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">no_alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">use_async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">        </span><span class="n">const_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SERIAL|BOARD=fn&quot;</span><span class="p">,</span>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>ww api scaffold --const-model "SERIAL|BOARD=fn" &lt;api_crate&gt;</code> prints this impl with a <code>todo!()</code> for every value. An
 <code>#[optional]</code> const left out with <code>omit = [..]</code> has no item in the trait. A trait without <code>const</code> items has no

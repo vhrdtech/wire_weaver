@@ -4,11 +4,14 @@
 //!
 //! Three stages, each runs for the test duration:
 //! 1. `loopback`: one message with `repeat = 1` at a time, the device echoes it back; counts round trips,
-//!    lost (no echo within [REPLY_TIMEOUT]) and corrupted echoes.
-//! 2. `tx_speed`: host → device with `repeat = 0` (device discards). Every [MARKER_EVERY] messages, an empty
-//!    `repeat = 1` marker is echoed back, at most [WINDOW] markers are in flight: a device that falls behind slows
-//!    the host down instead of overflowing.
-//! 3. `rx_speed`: device → host, requests of `repeat = `[BATCH] each, at most [WINDOW] batches in flight.
+//!    lost (no echo within [LoopbackParams::echo_timeout]) and corrupted echoes.
+//! 2. `tx_speed`: host → device with `repeat = 0` (device discards). Every [LoopbackParams::marker_every] messages,
+//!    an empty `repeat = 1` marker is echoed back, at most [LoopbackParams::markers_in_flight] are in flight: a
+//!    device that falls behind slows the host down instead of overflowing.
+//! 3. `rx_speed`: device → host, requests of `repeat = `[LoopbackParams::rx_batch] each, at most
+//!    [LoopbackParams::batches_in_flight] in flight.
+//!
+//! Gives up after [LoopbackParams::timeouts_in_a_row] echo timeouts in a row.
 //!
 //! Each message carries `data` that checks itself ([fill] / [is_intact]): the first 4 bytes are a key, the rest
 //! a pseudo-random sequence derived from it. Rx checks it without knowing what tx sent, and the replies of one
@@ -20,24 +23,13 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
-use crate::event_loop::command::TestProgress;
+use crate::event_loop::command::{LoopbackParams, TestProgress};
 
 /// `repeat` and `seq` of a `Loopback` link message, before `data`.
 pub(crate) const LOOPBACK_HEADER_LEN: usize = 8;
-/// An expected echo that did not come back for this long is lost.
-const REPLY_TIMEOUT: Duration = Duration::from_millis(500);
-/// Give up after this many reply timeouts in a row: the device does not answer at all.
-const TIMEOUTS_IN_A_ROW: u32 = 3;
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(50);
 /// Messages emitted per call at most, so that the wrapper gets to handle other inputs in between.
 const BURST: u32 = 16;
-/// `tx_speed`: messages between two markers.
-const MARKER_EVERY: u32 = 32;
-/// `rx_speed`: replies requested with one message.
-const BATCH: u32 = 64;
-/// `tx_speed` markers or `rx_speed` batches in flight at most.
-const WINDOW: usize = 2;
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum Stage {
     RoundTrip,
@@ -86,6 +78,7 @@ struct Counts {
 pub(crate) struct LoopbackTest {
     progress_tx: mpsc::UnboundedSender<TestProgress>,
     duration: Duration,
+    p: LoopbackParams,
     /// `data` length of every message, but `tx_speed` markers that are empty
     data_len: usize,
 
@@ -120,11 +113,13 @@ impl LoopbackTest {
         now: Instant,
         duration: Duration,
         message_len: usize,
+        params: LoopbackParams,
         progress_tx: mpsc::UnboundedSender<TestProgress>,
     ) -> Self {
         let mut test = LoopbackTest {
             progress_tx,
             duration,
+            p: params.normalized(),
             data_len: message_len.saturating_sub(LOOPBACK_HEADER_LEN),
             stage: Stage::RoundTrip,
             started_at: now,
@@ -162,21 +157,22 @@ impl LoopbackTest {
             at = at.min(self.ends_at);
         }
         if self.is_waiting() {
-            at = at.min(self.last_answer_at + REPLY_TIMEOUT);
+            at = at.min(self.last_answer_at + self.p.echo_timeout);
         }
         at
     }
 
     pub fn on_timer(&mut self, now: Instant) -> Status {
         self.last_now = now;
-        if self.is_waiting() && now >= self.last_answer_at + REPLY_TIMEOUT {
+        if self.is_waiting() && now >= self.last_answer_at + self.p.echo_timeout {
             self.on_reply_timeout(now);
-            if self.timeouts_in_a_row >= TIMEOUTS_IN_A_ROW {
+            if self.timeouts_in_a_row >= self.p.timeouts_in_a_row {
                 return self.fail(format!(
-                    "{}: no loopback answer from the device for {} x {REPLY_TIMEOUT:?}, \
+                    "{}: no loopback answer from the device for {} x {:?}, \
                     does it support loopback, does its scratch buffer fit {} bytes?",
                     self.stage.name(),
-                    TIMEOUTS_IN_A_ROW,
+                    self.p.timeouts_in_a_row,
+                    self.p.echo_timeout,
                     LOOPBACK_HEADER_LEN + self.data_len
                 ));
             }
@@ -236,11 +232,12 @@ impl LoopbackTest {
                     debug!("unexpected rx_speed reply {seq}, ignoring");
                     return;
                 }
+                let batch = self.p.rx_batch;
                 let gap =
-                    (seq.wrapping_add(BATCH).wrapping_sub(self.rx_expected_seq) % BATCH) as u64;
+                    (seq.wrapping_add(batch).wrapping_sub(self.rx_expected_seq) % batch) as u64;
                 let gap = gap.min(self.rx_outstanding - 1);
                 self.rx_outstanding -= gap + 1;
-                self.rx_expected_seq = (seq + 1) % BATCH;
+                self.rx_expected_seq = seq.wrapping_add(1) % batch;
                 self.answered(now);
                 if counting {
                     self.counts.received += 1;
@@ -345,8 +342,9 @@ impl LoopbackTest {
             Stage::RxSpeed => self.rx_outstanding,
         };
         warn!(
-            "{}: no answer from device for {REPLY_TIMEOUT:?}",
-            self.stage.name()
+            "{}: no answer from device for {:?}",
+            self.stage.name(),
+            self.p.echo_timeout
         );
         if !self.draining {
             self.counts.lost += lost;
@@ -362,8 +360,10 @@ impl LoopbackTest {
         }
         match self.stage {
             Stage::RoundTrip => self.awaiting.is_empty(),
-            Stage::TxSpeed => self.awaiting.len() < WINDOW,
-            Stage::RxSpeed => self.rx_outstanding < (WINDOW as u64) * BATCH as u64,
+            Stage::TxSpeed => self.awaiting.len() < self.p.markers_in_flight as usize,
+            Stage::RxSpeed => {
+                self.rx_outstanding < self.p.batches_in_flight as u64 * self.p.rx_batch as u64
+            }
         }
     }
 
@@ -385,7 +385,7 @@ impl LoopbackTest {
                     flush = true;
                 }
                 Stage::TxSpeed => {
-                    if self.since_marker >= MARKER_EVERY {
+                    if self.since_marker >= self.p.marker_every {
                         self.since_marker = 0;
                         self.send(1, seq, vec![]);
                         self.awaiting.push_back(seq);
@@ -397,8 +397,8 @@ impl LoopbackTest {
                     }
                 }
                 Stage::RxSpeed => {
-                    self.send(BATCH, seq, self.data(seq));
-                    self.rx_outstanding += BATCH as u64;
+                    self.send(self.p.rx_batch, seq, self.data(seq));
+                    self.rx_outstanding += self.p.rx_batch as u64;
                     self.counts.sent += 1;
                     flush = true;
                 }
@@ -463,6 +463,13 @@ fn next(state: &mut u32) -> u8 {
 mod tests {
     use super::*;
 
+    // defaults of LoopbackParams
+    const REPLY_TIMEOUT: Duration = Duration::from_millis(500);
+    const TIMEOUTS_IN_A_ROW: u32 = 3;
+    const MARKER_EVERY: u32 = 32;
+    const BATCH: u32 = 64;
+    const WINDOW: usize = 2;
+
     const MSG: usize = 64;
     const SEC: Duration = Duration::from_secs(1);
 
@@ -481,7 +488,7 @@ mod tests {
             let (tx, progress) = mpsc::unbounded_channel();
             let now = Instant::now();
             Harness {
-                test: LoopbackTest::new(now, duration, MSG, tx),
+                test: LoopbackTest::new(now, duration, MSG, LoopbackParams::default(), tx),
                 progress,
                 now,
             }
@@ -711,6 +718,85 @@ mod tests {
         }
         h.test.on_echo(h.now, 0, len, true);
         assert_eq!(h.test.counts.lost, 3);
+    }
+
+    #[test]
+    fn params_are_used() {
+        let (tx, mut progress) = mpsc::unbounded_channel();
+        let now = Instant::now();
+        let params = LoopbackParams {
+            echo_timeout: Duration::from_millis(100),
+            timeouts_in_a_row: 1,
+            marker_every: 4,
+            markers_in_flight: 1,
+            rx_batch: 8,
+            batches_in_flight: 3,
+        };
+        let mut test = LoopbackTest::new(now, 10 * SEC, MSG, params, tx);
+        fn sends(test: &mut LoopbackTest) -> Vec<(u32, u32)> {
+            let mut v = vec![];
+            while let Some(o) = test.poll_output() {
+                if let TestOut::Send { repeat, seq, .. } = o {
+                    v.push((repeat, seq));
+                }
+            }
+            v
+        }
+        sends(&mut test);
+        test.start_stage(now, Stage::TxSpeed);
+        let s: Vec<u32> = sends(&mut test).iter().map(|s| s.0).collect();
+        assert_eq!(
+            s,
+            [0, 0, 0, 0, 1],
+            "a marker after 4, then waits for its echo"
+        );
+        test.start_stage(now, Stage::RxSpeed);
+        let s: Vec<u32> = sends(&mut test).iter().map(|s| s.0).collect();
+        assert_eq!(s, [8, 8, 8]);
+        // one timeout of 100 ms is enough to give up
+        assert_eq!(
+            test.on_timer(now + Duration::from_millis(100)),
+            Status::Finished
+        );
+        let last = std::iter::from_fn(|| progress.try_recv().ok()).last();
+        assert!(
+            matches!(last, Some(TestProgress::FatalError(_))),
+            "{last:?}"
+        );
+    }
+
+    #[test]
+    fn params_are_normalized() {
+        let p = LoopbackParams {
+            echo_timeout: SEC,
+            timeouts_in_a_row: 0,
+            marker_every: 0,
+            markers_in_flight: 0,
+            rx_batch: 1,
+            batches_in_flight: 0,
+        }
+        .normalized();
+        assert_eq!(
+            (
+                p.timeouts_in_a_row,
+                p.marker_every,
+                p.markers_in_flight,
+                p.rx_batch,
+                p.batches_in_flight
+            ),
+            (1, 1, 1, 2, 1)
+        );
+        let d = LoopbackParams::default();
+        assert_eq!(d.echo_timeout, REPLY_TIMEOUT);
+        assert_eq!(
+            (
+                d.timeouts_in_a_row,
+                d.marker_every,
+                d.markers_in_flight as usize,
+                d.rx_batch
+            ),
+            (TIMEOUTS_IN_A_ROW, MARKER_EVERY, WINDOW, BATCH)
+        );
     }
 
     #[test]

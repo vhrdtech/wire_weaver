@@ -91,6 +91,8 @@ pub enum Command {
         /// Size of each link message (8 bytes of header and data), capped to what both sides accept, which
         /// is also the default.
         packet_size: Option<usize>,
+        /// Timeouts and flow control
+        params: Box<LoopbackParams>,
         progress_tx: mpsc::UnboundedSender<TestProgress>,
     },
 }
@@ -147,6 +149,51 @@ pub enum EventLoopExitReason {
 const _: () = {
     assert!(size_of::<Command>() <= 64); // was 56
 };
+
+/// Tunables of [Command::LoopbackTest], [Default] has the values `ww usb-loopback` uses unless told otherwise.
+/// Counts of 0 are taken as 1, [LoopbackParams::rx_batch] at least 2.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LoopbackParams {
+    /// An expected echo (round trip, marker or batch reply) that did not come back for this long is lost.
+    pub echo_timeout: Duration,
+    /// Give up after this many echo timeouts in a row: the device does not answer at all.
+    pub timeouts_in_a_row: u32,
+    /// Host → device: messages between two echoed markers.
+    pub marker_every: u32,
+    /// Host → device: markers in flight at most, the host waits for echoes beyond that.
+    pub markers_in_flight: u32,
+    /// Device → host: messages the device sends for one request (`repeat`).
+    pub rx_batch: u32,
+    /// Device → host: requests in flight at most.
+    pub batches_in_flight: u32,
+}
+
+impl Default for LoopbackParams {
+    fn default() -> Self {
+        LoopbackParams {
+            echo_timeout: Duration::from_millis(500),
+            timeouts_in_a_row: 3,
+            marker_every: 32,
+            markers_in_flight: 2,
+            rx_batch: 64,
+            batches_in_flight: 2,
+        }
+    }
+}
+
+impl LoopbackParams {
+    /// Counts the test can work with: `repeat = 1` keeps the request's seq, so a batch is 2 at least.
+    pub(crate) fn normalized(self) -> Self {
+        LoopbackParams {
+            echo_timeout: self.echo_timeout,
+            timeouts_in_a_row: self.timeouts_in_a_row.max(1),
+            marker_every: self.marker_every.max(1),
+            markers_in_flight: self.markers_in_flight.max(1),
+            rx_batch: self.rx_batch.max(2),
+            batches_in_flight: self.batches_in_flight.max(1),
+        }
+    }
+}
 
 /// Progress of [Command::LoopbackTest]. Stages are `loopback`, `tx_speed` (host → device) and `rx_speed`
 /// (device → host).

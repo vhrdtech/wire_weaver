@@ -14,7 +14,7 @@ use super::{ToRx, ToTx, Tracers, is_due};
 use crate::DEFAULT_MAX_MESSAGE_SIZE;
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::{
-    Command, EventLoopExitReason, EventLoopResidual, StreamOpenHook, TestProgress,
+    Command, EventLoopExitReason, EventLoopResidual, LoopbackParams, StreamOpenHook, TestProgress,
 };
 use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::{Error, SeqTy};
@@ -315,8 +315,9 @@ impl TxCore {
             Command::LoopbackTest {
                 test_duration,
                 packet_size,
+                params,
                 progress_tx,
-            } => self.start_loopback_test(now, test_duration, packet_size, progress_tx),
+            } => self.start_loopback_test(now, test_duration, packet_size, *params, progress_tx),
         }
         Ok(Flow::Continue)
     }
@@ -567,6 +568,7 @@ impl TxCore {
         now: Instant,
         duration: Duration,
         packet_size: Option<usize>,
+        params: LoopbackParams,
         progress_tx: tokio::sync::mpsc::UnboundedSender<TestProgress>,
     ) {
         if self.phase != Phase::Up {
@@ -585,7 +587,13 @@ impl TxCore {
         info!("starting loopback test: {duration:?} per stage, {message_len} bytes per message");
         // what was written so far goes out before the test
         self.flush(now);
-        self.loopback = Some(LoopbackTest::new(now, duration, message_len, progress_tx));
+        self.loopback = Some(LoopbackTest::new(
+            now,
+            duration,
+            message_len,
+            params,
+            progress_tx,
+        ));
         _ = self.drive_loopback_test(now, Status::Running);
     }
 

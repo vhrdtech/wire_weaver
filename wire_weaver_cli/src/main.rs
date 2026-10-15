@@ -63,9 +63,15 @@ async fn run() -> Result<()> {
         Commands::USBLoopback {
             duration_sec,
             packet_size,
+            tuning,
         } => {
-            cmd::usb_loopback::usb_loopback(device.as_mut().unwrap(), duration_sec, packet_size)
-                .await?
+            cmd::usb_loopback::usb_loopback(
+                device.as_mut().unwrap(),
+                duration_sec,
+                packet_size,
+                tuning.params(),
+            )
+            .await?
         }
         Commands::Api(api_cmd) => cmd::api::api(api_cmd)?,
         Commands::Introspect(args) => {

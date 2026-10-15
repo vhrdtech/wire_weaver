@@ -502,6 +502,7 @@ async fn loopback_test() {
         .send(Command::LoopbackTest {
             test_duration: Duration::from_millis(300),
             packet_size: None,
+            params: Default::default(),
             progress_tx,
         })
         .await
@@ -589,6 +590,7 @@ async fn loopback_test_needs_a_connection() {
         .send(Command::LoopbackTest {
             test_duration: Duration::from_millis(300),
             packet_size: None,
+            params: Default::default(),
             progress_tx,
         })
         .await

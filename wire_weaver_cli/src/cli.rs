@@ -7,8 +7,9 @@ use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
 use crate::complete;
 use crate::device::DeviceArgs;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use clap_complete::ArgValueCandidates;
+use wire_weaver_client::internal::LoopbackParams;
 
 #[derive(Parser)]
 #[command(name = "ww", version = env!("WW_VERSION"), about, long_about = None)]
@@ -47,6 +48,9 @@ pub(crate) enum Commands {
         /// the device and the host accept
         #[arg(long, default_value = "max", add = ArgValueCandidates::new(complete::packet_sizes))]
         packet_size: String,
+
+        #[command(flatten)]
+        tuning: LoopbackTuning,
     },
 
     /// API-related tools
@@ -87,6 +91,48 @@ pub(crate) enum Commands {
     #[cfg(target_os = "linux")]
     #[command(verbatim_doc_comment)]
     Udev,
+}
+
+/// Timeouts and flow control of `ww usb-loopback`, defaults from [LoopbackParams::default].
+#[derive(Args)]
+#[command(next_help_heading = "Test tuning")]
+pub(crate) struct LoopbackTuning {
+    /// An echo (round trip, marker or device → host reply) missing for this long is lost
+    #[arg(long, value_name = "MS", default_value_t = LoopbackParams::default().echo_timeout.as_millis() as u64)]
+    pub echo_timeout_ms: u64,
+
+    /// Give up after this many echo timeouts in a row
+    #[arg(long, value_name = "N", default_value_t = LoopbackParams::default().timeouts_in_a_row)]
+    pub timeouts_in_a_row: u32,
+
+    /// Host → device: messages between two echoed markers
+    #[arg(long, value_name = "N", default_value_t = LoopbackParams::default().marker_every)]
+    pub marker_every: u32,
+
+    /// Host → device: markers in flight at most, the host waits for their echoes beyond that
+    #[arg(long, value_name = "N", default_value_t = LoopbackParams::default().markers_in_flight)]
+    pub markers_in_flight: u32,
+
+    /// Device → host: messages the device sends for one request (at least 2)
+    #[arg(long, value_name = "N", default_value_t = LoopbackParams::default().rx_batch)]
+    pub rx_batch: u32,
+
+    /// Device → host: requests in flight at most
+    #[arg(long, value_name = "N", default_value_t = LoopbackParams::default().batches_in_flight)]
+    pub batches_in_flight: u32,
+}
+
+impl LoopbackTuning {
+    pub fn params(&self) -> LoopbackParams {
+        LoopbackParams {
+            echo_timeout: std::time::Duration::from_millis(self.echo_timeout_ms),
+            timeouts_in_a_row: self.timeouts_in_a_row,
+            marker_every: self.marker_every,
+            markers_in_flight: self.markers_in_flight,
+            rx_batch: self.rx_batch,
+            batches_in_flight: self.batches_in_flight,
+        }
+    }
 }
 
 impl Cli {

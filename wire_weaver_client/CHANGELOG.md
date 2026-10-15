@@ -36,6 +36,9 @@
   requests, at most 2 in flight). Each stage runs `test_duration`; `packet_size` is the link message size, capped to
   what both sides accept, which is also the default. Other requests wait until the test is over; the test fails
   after 3 reply timeouts in a row or when the link goes down, and `progress_tx` is dropped when it ends.
+  Its tunables (echo timeout, marker interval and markers in flight, batch size and batches in flight, timeouts in a
+  row before giving up) are `Command::LoopbackTest::params`, a `LoopbackParams` (in `internal`) whose `Default`
+  has the values above.
 
 - `const` items are read once per connection (API-36): `Commander::prepare_const_read()` (used by generated clients)
   and `DynResource::read()` / `read_blocking()` on a const keep the value and answer later reads, async, blocking

@@ -225,19 +225,28 @@ workspace-inherited version can't be loaded, and self-referential types (like th
 Checks the link to the selected device in three stages, each with a progress bar, then prints a summary table:
 
 1. `loopback`: one message at a time to the device and back, counting round trips per second, lost echoes (none
-   within 500 ms) and corrupted ones (each message carries data that checks itself).
-2. `tx_speed`: host → device, the device discards the messages. An echoed marker every 32 messages keeps the host
-   from running ahead of a slow device.
-3. `rx_speed`: device → host, the device answers each request with 64 messages; gaps in their numbering are lost.
+   within `--echo-timeout-ms`) and corrupted ones (each message carries data that checks itself).
+2. `tx_speed`: host → device, the device discards the messages. An echoed marker every 32 messages (at most 2 in
+   flight) keeps the host from running ahead of a slow device.
+3. `rx_speed`: device → host, the device answers each request with 64 messages (at most 2 requests in
+   flight); gaps in their numbering are lost.
 
 The device's link layer answers (`Loopback` in [ww_link](transport/ww_link.md)), so this works with any device,
 whatever its API, without downloading its introspection. The command exits with an error when anything was lost or
-corrupted, or when the device stopped answering (3 timeouts in a row).
+corrupted, or when the device stopped answering (3 timeouts in a row). The numbers above are defaults of the tuning
+options in the table below (`--help` lists them under "Test tuning"), e.g. for a slow transport or a device with
+small buffers.
 
 | Option                 | Default | Description                                                                          |
 |------------------------|---------|--------------------------------------------------------------------------------------|
 | `--duration-sec <N>`   | `10`    | How long to run each stage                                                           |
 | `--packet-size <N>`    | `max`   | Size of each link message (8 bytes of header and data), capped to what both sides accept |
+| `--echo-timeout-ms <MS>` | `500` | An echo (round trip, marker or device → host reply) missing for this long is lost   |
+| `--timeouts-in-a-row <N>` | `3`  | Give up after this many echo timeouts in a row                                       |
+| `--marker-every <N>`   | `32`    | Host → device: messages between two echoed markers                                   |
+| `--markers-in-flight <N>` | `2`  | Host → device: markers in flight at most, the host waits for their echoes beyond that |
+| `--rx-batch <N>`       | `64`    | Device → host: messages the device sends for one request (at least 2)                |
+| `--batches-in-flight <N>` | `2`  | Device → host: requests in flight at most                                            |
 
 Lost or corrupted packets usually point at the hardware rather than the software: a bad cable, a malfunctioning
 hub, a powered hub used without power, or power problems on an externally powered device.

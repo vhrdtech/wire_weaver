@@ -968,6 +968,7 @@ mod tests {
             Command::LoopbackTest {
                 test_duration: Duration::from_millis(100),
                 packet_size: Some(20),
+                params: Default::default(),
                 progress_tx,
             },
         );
@@ -983,6 +984,7 @@ mod tests {
             Command::LoopbackTest {
                 test_duration: Duration::from_millis(100),
                 packet_size: Some(20),
+                params: Default::default(),
                 progress_tx,
             },
         );

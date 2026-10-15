@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 use tracing::{error, info};
 use wire_weaver_client::{
     DynClient,
-    internal::{Command, TestProgress},
+    internal::{Command, LoopbackParams, TestProgress},
 };
 
 /// Result of one stage, for the summary at the end.
@@ -24,6 +24,7 @@ pub(crate) async fn usb_loopback(
     device: &DynClient,
     duration_sec: u32,
     packet_size: String,
+    params: LoopbackParams,
 ) -> Result<()> {
     let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
     let packet_size = match packet_size.as_str() {
@@ -37,6 +38,7 @@ pub(crate) async fn usb_loopback(
         .send(Command::LoopbackTest {
             test_duration: Duration::from_secs(duration_sec as u64),
             packet_size,
+            params: Box::new(params),
             progress_tx,
         })
         .await?;

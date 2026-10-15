@@ -3226,6 +3226,9 @@ when a <code>ro</code> property changes on its own:</p>
 <p>Now the expected signature of set method is: <code>set_mode(mode: Mode) -&gt; Result&lt;(), Error&gt;</code>.
 When <code>Err</code> variant is encountered, generated server code will serialize user error into bytes and forward it to
 client in <code>ww_client_server::ErrorKind::UserBytes(err_bytes)</code>.</p>
+<p><code>#[errors(..)]</code> above the <code>property!</code> lists the variants of the error type it returns, on reads and writes alike
+(API-32), as on methods: <code>#[errors(Common(Unsupported), WrongMode)] property!(rw mode: Mode, Error);</code>, see
+<a href="../errors/#which-errors-a-method-returns">Errors</a>.</p>
 <p>When <code>on_changed</code> flavor is used, it's signature and behavior is changed accordingly.</p>
 <h3 id="const-items">Const items<a class="headerlink" href="#const-items" title="Permanent link">&para;</a></h3>
 <p>A <code>const</code> item of a trait is a value that doesn't change while the firmware runs: a firmware name and version, a

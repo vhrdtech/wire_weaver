@@ -3475,7 +3475,8 @@ into the API model and from there into the generated client's docs (<code># Erro
 line), <code>ww api tree</code>, Python's <code>help()</code> and <code>ww api check</code> (a changed list is a compatible change). The device and
 the wire don't see it: a device may still return any variant, the client logs a <code>tracing</code> warning when one is
 outside the list, and <code>tests_common</code> makes that a test failure (<code>wire_weaver_client::set_strict_error_lists</code>).
-Without <code>#[errors]</code> a method may return every variant. More in <a href="../errors/#which-errors-a-method-returns">Errors</a>.</p>
+Without <code>#[errors]</code> a method may return every variant. Stream functions and properties take the same list. More in
+<a href="../errors/#which-errors-a-method-returns">Errors</a>.</p>
 
 
 

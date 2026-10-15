@@ -3655,15 +3655,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   generated and dynamic clients and Python fail locally with <code>NotImplementedByDevice</code>; <code>ww api scaffold --omit</code>, CLI
   tree and Python show them (<code>docs/api/optional_items.md</code>, <code>tests/traits</code>). Not yet: <code>#[optional]</code> on
   <code>ww_impl!</code>, the GUI (<code>wire_weaver_tool</code>).</li>
-<li>✅ <strong>API-32 Per-method error lists</strong> — <code>#[errors(Common(InUse), Nack, ..)]</code> on a trait method: checked against the
-  error enum when the trait is parsed (a compile error on a wrong name), in the API model (<code>ww_self</code> <code>Method::errors</code>),
-  generated client and rustdoc <code># Errors</code> with each variant's doc line, <code>ww api tree</code>, Python <code>help()</code>, <code>ww api check</code>
-  (compatible); the generated and dynamic clients warn when a device returns a variant outside the list, tests fail
-  (<code>tests_common</code>). Nothing on the device (<code>docs/api/methods.md#error-lists</code>, <code>tests/methods</code>). Not yet: a
-  <code>#[stream(..)]</code>-tagged method (a stream-opening method, API-31) rejects <code>#[errors(..)]</code> today — several
-  <code>ww_stdlib</code> crates (<code>ww_adc</code>, <code>ww_counters</code>, <code>ww_gpio</code>, <code>ww_i2c</code>, <code>ww_log</code>, <code>ww_logic_analyzer</code>, <code>ww_pwm</code>,
-  <code>ww_spi</code>, <code>ww_uart</code>) keep a hand-written <code># Errors</code> doc note on their stream-opening methods for this reason; the
-  GUI (<code>wire_weaver_tool</code>).</li>
+<li>✅ <strong>API-32 Per-method error lists</strong> — <code>#[errors(Common(InUse), Nack, ..)]</code> on a trait method, a stream function
+  (the open's <code>Result</code> error) or above a <code>property!</code> with an error type (its reads and writes): checked against the
+  error enum when the trait is parsed (a compile error on a wrong name), in the API model (<code>ww_self</code> <code>Method</code>,
+  <code>StreamFn</code> and <code>Property</code> <code>errors</code>), generated client and rustdoc <code># Errors</code> with each variant's doc line, <code>ww api
+  tree</code>, Python <code>help()</code>, <code>ww api check</code> (compatible); the generated and dynamic clients warn when a device returns a
+  variant outside the list, tests fail (<code>tests_common</code>). Nothing on the device (<code>docs/api/methods.md#error-lists</code>,
+  <code>tests/methods</code>, <code>tests/properties</code>, <code>tests/streams_reliable</code>). Not yet: the generated client's property reads
+  (their errors are raw bytes, so only the dynamic client checks them); the GUI (<code>wire_weaver_tool</code>).</li>
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>

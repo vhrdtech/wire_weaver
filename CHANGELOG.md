@@ -11,7 +11,9 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
-Collected for 0.5.0 (workspace version bumped on 30 Sep 2026, not yet published). See the `## Unreleased` sections of
+## [0.5.0] - 2026-10-15
+
+Workspace version 0.5.0 since 30 Sep 2026, tagged 15 Oct 2026, not on crates.io yet. See the `## Unreleased` sections of
 the per-crate changelogs for details and migration notes. Highlights since 0.4.0:
 
 ### Added

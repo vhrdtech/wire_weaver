@@ -43,7 +43,7 @@ it. The next boot takes the events up again and the host gets them when it conne
 after a power-on holds garbage, which is never taken for events.
 
 ```toml
-ww_stream = { version = "0.7", features = ["persistent-ram"] }
+ww_stream = { version = "0.5", features = ["persistent-ram"] }
 ```
 
 ```rust
@@ -101,7 +101,7 @@ Each event takes its item, its encoded head and 25 bytes (`PERSISTENT_RECORD_OVE
 sampling to its SD card while no host is there, reboots, and the host still gets everything when it connects.
 
 ```toml
-ww_stream = { version = "0.7", features = ["sdmmc"] }      # or "nor-flash"
+ww_stream = { version = "0.5", features = ["sdmmc"] }      # or "nor-flash"
 ```
 
 ```rust

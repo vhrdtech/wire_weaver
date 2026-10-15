@@ -79,6 +79,7 @@ async fn run() -> Result<()> {
                 return Ok(());
             }
         }
+        Commands::Counters(args) => cmd::counters::counters(args, device.as_ref().unwrap()).await?,
         Commands::Config(config_cmd) => {
             cmd::config::config(config_cmd, selection.as_ref().unwrap())?
         }

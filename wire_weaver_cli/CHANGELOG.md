@@ -8,6 +8,10 @@
 
 ### 🚀 Features
 
+- `ww counters [read|watch|tui|reset|info]` (STD-25): the `cnt` counters of any device implementing
+  `ww_counters::Counters`, decoded with the firmware's ELF found by the build id the device reports (`--elf` to
+  give one, checked; `target/`, `WW_ELF_PATH`, `~/.cache/ww/elf` otherwise), a mismatch refused unless `--force`.
+  The same list, watch, TUI and JSON views as `cnt` over a probe (`cnt_view`).
 - `ww introspect` reads the `const` items (outside arrays of traits) and shows their values in the tree,
   `--no-values` skips that (API-36). `ww api scaffold --const-model "BOARD=fn"` prints the server's
   `<RootTrait>Consts` impl, a Rust const or a `fn` per item.

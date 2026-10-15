@@ -15,6 +15,8 @@ path = "src/main.rs"
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { version = "4.6", features = ["unstable-dynamic"] }
+cnt_core.workspace = true
+cnt_view.workspace = true
 console.workspace = true
 human-repr = "1.1"
 indicatif = "0.18"
@@ -33,5 +35,7 @@ wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["picoboot"] }
 
 wire_weaver_core.workspace = true
+ww_counters = { workspace = true, features = ["std", "host"] }
 ww_dfu = { workspace = true, features = ["std"] }
 ww_numeric.workspace = true
+ww_si = { workspace = true, features = ["std"] }

@@ -10,7 +10,9 @@ repository.workspace = true
 [dependencies]
 anyhow.workspace = true
 cnt_core.workspace = true
+cnt_view.workspace = true
 counters_api.workspace = true
+ratatui = "0.30"
 tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
 tracing-subscriber.workspace = true

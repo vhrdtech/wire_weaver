@@ -6,6 +6,8 @@
 mod tests {
     use cnt_core::elf;
     use cnt_core::{Counters, Source, Storage};
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -187,7 +189,12 @@ mod tests {
         }
     }
 
-    fn start(path: &str, build_id: Vec<u8>, ram_used: usize, bkp: bool) -> (TestDevice, Arc<Buffers>) {
+    fn start(
+        path: &str,
+        build_id: Vec<u8>,
+        ram_used: usize,
+        bkp: bool,
+    ) -> (TestDevice, Arc<Buffers>) {
         let _ = tracing_subscriber::fmt::try_init();
         let buffers = Arc::new(Buffers {
             ram: words(ram_used.max(16)),
@@ -226,8 +233,12 @@ mod tests {
         counters
             .blocks()
             .flat_map(|b| {
-                b.values()
-                    .map(move |(c, v)| (format!("{}:{}", b.storage(), c.qualified_name()), v.to_u64()))
+                b.values().map(move |(c, v)| {
+                    (
+                        format!("{}:{}", b.storage(), c.qualified_name()),
+                        v.to_u64(),
+                    )
+                })
             })
             .filter(|(_, v)| *v != 0)
             .collect()
@@ -290,7 +301,10 @@ mod tests {
             ]
         );
         assert_eq!(changes.len(), 3);
-        assert!(changes.iter().all(|(_, e)| *e == cnt_core::Event::Reset), "{changes:?}");
+        assert!(
+            changes.iter().all(|(_, e)| *e == cnt_core::Event::Reset),
+            "{changes:?}"
+        );
         assert_eq!(after_reset, [("BKP:radio/RxBytes".to_string(), 100)]);
     }
 
@@ -305,7 +319,10 @@ mod tests {
         let forced = elf::resolve(Some(&fixture()), Some(&info.build_id), true).unwrap();
         assert!(forced.warning.is_some());
         // Not in any ELF directory either
-        assert_eq!(elf::find_in_dirs(&info.build_id, &[std::env::temp_dir()]), None);
+        assert_eq!(
+            elf::find_in_dirs(&info.build_id, &[std::env::temp_dir()]),
+            None
+        );
     }
 
     /// Firmware without the build id note: nothing to check, the host says so.
@@ -352,5 +369,43 @@ mod tests {
         .unwrap()
         .unwrap();
         assert_eq!(words, (0..150).map(|i| i * 1000).collect::<Vec<u32>>());
+    }
+
+    /// What `ww counters tui` shows: one frame of the TUI drawn from the device's words over WireWeaver.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn tui_shows_the_device_counters() {
+        let (device, buffers) = start("counters/tui", fixture_build_id(), RAM_USED, true);
+        set(&buffers.ram, &[(3, 9), (4, 2)]);
+        let (client, info) = connect(&device).await;
+        let resolved = elf::resolve(Some(&fixture()), Some(&info.build_id), false).unwrap();
+        assert_eq!(resolved.warning, None);
+        let mut counters = Counters::load_elf(&resolved.path).unwrap();
+        let screen = tokio::task::spawn_blocking(move || {
+            let mut source = WwSource::new(Device(client), info);
+            let mut terminal = Terminal::new(TestBackend::new(110, 24)).unwrap();
+            cnt_view::tui::draw_once(&mut terminal, &mut counters, &mut source, "over WireWeaver")
+                .unwrap();
+            let cells: Vec<&str> = terminal
+                .backend()
+                .buffer()
+                .content()
+                .iter()
+                .map(|c| c.symbol())
+                .collect();
+            cells
+                .chunks(110)
+                .map(|line| line.concat() + "\n")
+                .collect::<String>()
+        })
+        .await
+        .unwrap();
+        for text in [
+            "Counters · over WireWeaver · 2 of 8 non-zero",
+            "link/overruns              9",
+            "uart/CrcError              2",
+            "BKP counters",
+        ] {
+            assert!(screen.contains(text), "{text:?} not in\n{screen}");
+        }
     }
 }

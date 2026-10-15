@@ -1,6 +1,7 @@
 use crate::cmd::api::ApiCommand;
 use crate::cmd::bootsel::BootselCommand;
 use crate::cmd::config::ConfigCommand;
+use crate::cmd::counters::CountersArgs;
 use crate::cmd::dfu::DfuCommand;
 use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
@@ -53,6 +54,12 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Dfu(DfuCommand),
 
+    /// The device's cnt counters (ww_counters), decoded with the firmware's ELF found by its build id
+    ///
+    /// Works with any device implementing `ww_counters::Counters` anywhere in its API. Read once (default), watch
+    /// changes, the TUI, reset; the same views as `cnt` shows over a debug probe.
+    Counters(CountersArgs),
+
     /// Show or save device selection in a project ww.toml
     #[command(subcommand)]
     Config(ConfigCommand),
@@ -79,7 +86,7 @@ pub(crate) enum Commands {
 impl Cli {
     /// Commands that only call global traits connect to any device, whatever its API and version
     pub fn traits_only(&self) -> bool {
-        matches!(&self.command, Commands::Dfu(_))
+        matches!(&self.command, Commands::Dfu(_) | Commands::Counters(_))
     }
 
     pub fn need_device(&self) -> bool {
@@ -91,6 +98,7 @@ impl Cli {
             Commands::Config(_) => false,
             Commands::Bootsel(_) => false,
             Commands::Dfu(_) => true,
+            Commands::Counters(_) => true,
             #[cfg(target_os = "linux")]
             Commands::Udev => false,
         }

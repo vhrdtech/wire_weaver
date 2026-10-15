@@ -2,17 +2,22 @@
 name = "ww_counters"
 version = "0.1.0"
 authors.workspace = true
-description = "Event counters API"
+description = "The device's cnt counters over WireWeaver: raw buffer words, decoded on the host with the ELF"
 edition.workspace = true
 license.workspace = true
 repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt"]
+std = ["wire_weaver/std", "ww_error/std", "ww_si/std"]
+# Host side: the device's counters as a cnt_core::Source (ww counters, tests)
+host = ["std", "dep:anyhow", "dep:cnt_core"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt", "ww_si/defmt"]
 
 [dependencies]
+anyhow = { workspace = true, optional = true }
+cnt_core = { workspace = true, optional = true }
 defmt = { workspace = true, optional = true }
 wire_weaver.workspace = true
-ww_log.workspace = true
+ww_error = { workspace = true, default-features = false }
+ww_si = { workspace = true, features = ["time"] }

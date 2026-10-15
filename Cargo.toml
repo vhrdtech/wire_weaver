@@ -38,6 +38,9 @@ anyhow = "1"
 cc = "1.2"
 clap = "4.5"
 cnt = "0.4"
+# The cnt repo next to this one (~/git/cnt): word sources and terminal views of cnt 0.5, not on crates.io yet
+cnt_core = { version = "0.4.1", path = "../cnt/cnt_core" }
+cnt_view = { version = "0.4.1", path = "../cnt/cnt_view" }
 console = "0.16"
 convert_case = "0.11"
 defmt = "1.1"
@@ -86,6 +89,7 @@ ww_self = { version = "0.2.0", path = "./ww_self" }
 ww_adc = { version = "0.1.0", path = "./ww_stdlib/ww_adc", default-features = false }
 ww_board_info = { version = "0.1.0", path = "./ww_stdlib/ww_board_info", default-features = false }
 ww_client_server = { version = "0.2.0", path = "./ww_stdlib/ww_client_server", default-features = false }
+ww_counters = { version = "0.1.0", path = "./ww_stdlib/ww_counters", default-features = false }
 ww_date_time = { version = "0.1.0", path = "./ww_stdlib/ww_date_time", default-features = false }
 ww_dfu = { version = "0.1.0", path = "./ww_stdlib/ww_dfu", default-features = false }
 ww_error = { version = "0.1.0", path = "./ww_stdlib/ww_error", default-features = false }
@@ -117,6 +121,7 @@ blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved"
 board_info_api = { version = "0.1.0", path = "./tests/board_info_api" }
 bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }
 common_error_api = { version = "0.1.0", path = "./tests/common_error_api" }
+counters_api = { version = "0.1.0", path = "./tests/counters_api" }
 consts_api = { version = "0.1.0", path = "./tests/consts_api" }
 credit_sink_api = { version = "0.1.0", path = "./tests/credit_sink_api" }
 cross_version_api = { version = "0.4.0", path = "./tests/cross_version_api" }

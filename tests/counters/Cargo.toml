@@ -1,0 +1,22 @@
+[package]
+name = "counters"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+cnt_core.workspace = true
+counters_api.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
+tracing-subscriber.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_client_server.workspace = true
+ww_counters = { workspace = true, features = ["std", "host"] }
+ww_si = { workspace = true, features = ["std"] }
+ww_stream.workspace = true

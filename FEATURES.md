@@ -485,8 +485,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `cnt elf add`, `cnt_core::elf`). Library crate `ww_report` (`Contract`, `collect_info`, `collect_report`),
   `docs/std_library/device_contract.md`, `tests/device_report`. The stored log is a stream and streams open on the
   absolute path only (CLT-23), so `ww report` reads the device's introspection data for the log's path; `ww info`
-  needs none. Not yet: `ResetRecord::boots_since_crash` in the report (STD-27, not landed), fetching the release
-  archive by itself.
+  needs none. Not yet: fetching the release archive by itself.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,

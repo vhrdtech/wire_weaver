@@ -316,7 +316,7 @@ Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
 Board      rePort rev B (strap 2), BOM std, serial RP-0042
 Ids        chip e6613871235b1c2d (internal, primary)
 Label      "bench 2" (kept over power cycles)
-Last reset Panic, boot 3 since cleared, ran 2.5 s
+Last reset Panic, crash data 2 boots old, boot 3 since cleared, ran 2.5 s
 ```
 
 | Option            | Default | Description                                                                          |

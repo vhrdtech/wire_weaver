@@ -154,6 +154,7 @@ mod tests {
                 _cx: &mut Context<'_, impl EventOut>,
             ) -> RpcResult<ResetRecord<'_>> {
                 RpcResult::Ready(ResetRecord {
+                    boots_since_crash: 2,
                     cause: ResetCause::Panic,
                     build_id: MaxLen::new_unchecked(RefVec::new_bytes(&self.build_id)),
                     uptime: Some(ww_si::Second::milliseconds(2500u32)),
@@ -462,6 +463,7 @@ mod tests {
         assert_eq!(reset.boot_count, Part::Value(3));
         assert_eq!(reset.uptime_s, Some(2.5));
         assert_eq!(reset.stack.len(), 3);
+        assert_eq!(reset.boots_since_crash, 2);
     }
 
     /// Counters decoded with the ELF, the log from before the host connected decoded with the table, the crash's
@@ -523,6 +525,7 @@ mod tests {
         assert!(text.contains("sample 4"), "{text}");
         assert!(text.contains(&function), "{text}");
         assert!(text.contains("Cause: Panic"), "{text}");
+        assert!(text.contains("Boots since the crash: 2"), "{text}");
         // the whole report is JSON-serializable for scripts
         serde_json::to_string(&report).unwrap();
     }

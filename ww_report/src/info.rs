@@ -112,6 +112,8 @@ pub struct LastReset {
     pub fault_addresses: Vec<u32>,
     pub stack: Vec<u32>,
     pub message: String,
+    /// Boots since the crash data was saved: 0 when the last reset was the crash itself
+    pub boots_since_crash: u32,
     /// Boots since the boot counter was cleared
     pub boot_count: Part<u32>,
 }
@@ -316,6 +318,7 @@ async fn last_reset(client: &LastResetClient) -> Part<LastReset> {
         fault_addresses,
         stack: record.stack.as_slice().to_vec(),
         message: record.message.to_string(),
+        boots_since_crash: record.boots_since_crash,
         boot_count,
     })
 }

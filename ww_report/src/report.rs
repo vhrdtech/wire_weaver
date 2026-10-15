@@ -284,6 +284,9 @@ pub fn render_info(info: &DeviceInfo) -> String {
         if let Part::Value(n) = &r.boot_count {
             let _ = write!(o, ", boot {n} since cleared");
         }
+        if r.boots_since_crash > 0 {
+            let _ = write!(o, ", crash data {} boots old", r.boots_since_crash);
+        }
         if let Some(up) = r.uptime_s {
             let _ = write!(o, ", ran {up:.1} s");
         }
@@ -325,6 +328,7 @@ pub fn render_report(report: &Report) -> String {
             if let Part::Value(n) = &r.boot_count {
                 let _ = writeln!(out, "Boots since cleared: {n}");
             }
+            let _ = writeln!(out, "Boots since the crash: {}", r.boots_since_crash);
             if !r.message.is_empty() {
                 let _ = writeln!(out, "Message: {}", r.message);
             }

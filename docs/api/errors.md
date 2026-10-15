@@ -219,7 +219,7 @@ that lacks them leaves them out at code generation, paying neither a dispatch en
 ```rust
 #[ww_trait]
 pub trait I2c {
-    fn i2c_configure(mode: I2cMode, io_level: Option<Volt>) -> Result<u32, I2cError<'i>>;
+    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError<'i>>;
     /// Clocks SCL until SDA is released, then a stop.
     #[optional]
     fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError<'i>>;

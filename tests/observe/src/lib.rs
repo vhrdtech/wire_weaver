@@ -1143,7 +1143,7 @@ mod tests {
         let mut speeds = 0;
         let mut positions = 0;
         while let Some(u) = observer.try_recv().unwrap() {
-            let values: Map<String, ValueOwned> = u.value.into_iter().collect();
+            let values: Map<String, ValueOwned> = u.values.into_iter().collect();
             assert!(!values.contains_key("current"), "not observed");
             if let Some(ValueOwned::Numeric(NumericValue::U32(speed))) = values.get("speed") {
                 let t = match u.t.map(|t| t.value) {

@@ -92,7 +92,19 @@ impl LevelSchema {
 }
 
 /// One decoded update from a [DynObserver]: the level's present properties, by name, in schema order.
-pub type DynObserved = Observed<Vec<(String, ValueOwned)>>;
+#[derive(Debug, Clone)]
+pub struct DynObserved {
+    /// Present properties, by name, in schema (resource index) order.
+    pub values: Vec<(String, ValueOwned)>,
+    /// When the device took the values, on its clock, if it sends timestamps.
+    pub t: Option<Second>,
+    /// Sends of this level that were due but did not fit the budget since the previous update.
+    pub missed: u32,
+    /// When the update arrived.
+    pub received: Instant,
+    /// Bytes of the `PropertyUpdate`'s data (before decoding), e.g. for `ww observe`'s link bytes/s.
+    pub data_len: usize,
+}
 
 /// Observes a trait level's `+observe` properties without generated code (TOOL-11), see
 /// [DynResource::observe](crate::DynResource::observe).
@@ -107,14 +119,16 @@ impl DynObserver {
     }
 
     fn decode(&self, observed: Observed<DynUpdate>) -> Result<DynObserved, StreamError> {
-        let value = self.schema.decode(&observed.value.0).map_err(|e| {
+        let data_len = observed.value.0.len();
+        let values = self.schema.decode(&observed.value.0).map_err(|e| {
             StreamError::Other(Error::User(format!("decoding PropertyUpdate: {e:#}")))
         })?;
-        Ok(Observed {
-            value,
+        Ok(DynObserved {
+            values,
             t: observed.t,
             missed: observed.missed,
             received: observed.received,
+            data_len,
         })
     }
 

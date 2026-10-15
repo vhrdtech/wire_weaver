@@ -26,8 +26,9 @@ MEMORY
   /* SRAM4 (ram) */
   SRAM4 : ORIGIN = 0x38000000, LENGTH = 64K
 
-  /* FLASH (flash) */
-  FLASH : ORIGIN = 0x8000000, LENGTH = 2048K
+  /* FLASH (flash): the last 2 sectors (128K each) of bank 2 are reserved for the `settings` bin's
+     ww_settings::Store, see src/bin/settings.rs; code never links there. */
+  FLASH : ORIGIN = 0x8000000, LENGTH = 1792K
 }
 
 SECTIONS {
@@ -79,4 +80,7 @@ __sram4_end = ORIGIN(SRAM4) + LENGTH(SRAM4);
 
 __flash_start = ORIGIN(FLASH);
 __flash_end = ORIGIN(FLASH) + LENGTH(FLASH);
+
+__settings_start = __flash_end;
+__settings_end = __settings_start + 256K;
 

@@ -17,6 +17,8 @@ pub use ww_settings::Debounce;
 use ww_settings::fake_flash::FakeFlash;
 use ww_settings::{Key, Settings, Store};
 
+use settings_api::UserSettings;
+
 /// Flash word matches the STM32G0 the `nucleo_g0b1re` settings bin uses (8 bytes, ECC); page size is this demo's
 /// own, not a real part's.
 pub type Flash = FakeFlash<8, 4096>;
@@ -25,14 +27,6 @@ pub const PAGES: usize = 2;
 pub const RANGE: core::ops::Range<u32> = 0..(PAGES * 4096) as u32;
 /// Longest message either side sends or receives.
 const MAX_MESSAGE_LEN: usize = 256;
-
-#[derive(ww_settings::Settings, Clone, Debug, PartialEq)]
-pub struct UserSettings {
-    #[setting(slot = 0, default = 100)]
-    pub meter_window_ms: u16,
-    #[setting(slot = 1, default = false)]
-    pub led_on_at_boot: bool,
-}
 
 /// Server side: a plain field per `value_on_changed` property, backed by a [Settings] group written to a [Store].
 pub struct Device {

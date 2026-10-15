@@ -91,6 +91,7 @@ check-examples-mcu-nucleo-g0b1re:
     # Checking nucleo_g0b1re
     @cargo check --features usb
     @cargo check --no-default-features --features nucleo_g0b1re,rtt_target
+    @cargo check --no-default-features --features nucleo_g0b1re,rtt_target,settings
 
 [working-directory('examples_mcu/usb_stm32h725ig')]
 check-examples-mcu-stm32h725ig:

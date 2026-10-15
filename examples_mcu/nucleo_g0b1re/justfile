@@ -17,3 +17,9 @@ run-nucleo-ww_rtt *args:
 
 run-b129a-ww_rtt *args:
     cargo run --bin nucleo-g0b1re-ww-rtt --no-default-features --features "b129a_cannify,rtt_target" {{args}}
+
+run-nucleo-settings *args:
+    cargo run --bin nucleo-g0b1re-settings --no-default-features --features "nucleo_g0b1re,rtt_target,settings" {{args}}
+
+run-b129a-settings *args:
+    cargo run --bin nucleo-g0b1re-settings --no-default-features --features "b129a_cannify,rtt_target,settings" {{args}}

@@ -51,7 +51,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   `ww_settings` on a simulated flash, over the real client/server codepath (`ww_device::Server` +
   `wire_weaver_client`'s `in_process` transport, a simulator use it explicitly supports). `tests/reboot.rs` sets
   both over a connected client, waits past their debounce, and rebuilds the device from the same flash image to
-  check they survived.
+  check they survived. `UserSettings` (the `ww_settings::Settings` group) lives in `settings_api` so every
+  implementation keeps the same record shape.
+- `examples_mcu/nucleo_g0b1re`'s `settings` bin (EX-15): the same `SettingsDemo` API over RTT, backed by a real
+  `ww_settings::Store` in the last 4 pages of bank 2 (`Bank2Region<Async>`, `memory.x` shrinks `FLASH` to keep
+  code out of that range); `led_on_at_boot` also drives the board's user LED live. +21016 B flash, +1332 B RAM
+  (`.bss`) over `ww_rtt` (release, `llvm-size`).
 
 ### Fixed
 

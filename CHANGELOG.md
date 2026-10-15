@@ -16,6 +16,9 @@ the per-crate changelogs for details and migration notes. Highlights since 0.4.0
 
 ### Added
 
+- Observe requests (API-38): a host asks a trait level's properties to be sent on change, periodically or both,
+  within a byte budget, and gets them as one `PropertyUpdate` event per level carrying any subset of them
+  (`ww_client_server::observe`; the device and host sides follow as SRV-18 and CLT-28).
 - `ww_stdlib` back in this repository (Feb 2026), grown to GPIO (low and high level), I2C, SPI, UART, ADC, PWM,
   1-Wire, timebase, counters, indication, board/firmware/user info, UID, DFU, logging, SI units, numeric values,
   date/time, versions and common errors.

@@ -362,15 +362,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   cache (generated, dynamic and Python clients, promises too); `ww introspect` shows const values
   (`tests/consts`, `docs/api/properties.md`). `ww_firmware_info`, `ww_board_info`, `ww_uid`
   and `ww_user_info` servers use it.
+- ✅ **API-38 Observe requests** · `v0.5.x` — `RequestKind::Observe` on a trait level: per property `Off`, `OnChange`,
+  `Periodic` or `OnChangeOrBeat` and a byte budget, the device answers with what it granted; updates arrive as one
+  `EventKind::PropertyUpdate` per level carrying any subset of its properties (SW-55). Only `+observe` properties
+  can be observed. Protocol `ww_client_server::observe` (`docs/std_library/ww_client_server.md`), device side SRV-18,
+  host side CLT-28 (`docs/api/properties.md#observing-changes`, `tests/observe`).
 - 💡 **API-37 Const values in the introspection blob** — a codegen option putting the values of `const` items into
   the device's introspection data, so `ww info` gets them with the link setup and no extra reads. Costs flash per
   device, so not a default.
-- 🚧 **API-38 Observe requests** · `v0.5.x` — `RequestKind::Observe` on a trait level: per property `Off`, `OnChange`,
-  `Periodic` or `OnChangeOrBeat` and a byte budget, the device answers with what it granted; updates arrive as one
-  `EventKind::PropertyUpdate` per level carrying any subset of its properties (SW-55). Only `+observe` properties
-  can be observed. The protocol is there (`ww_client_server::observe`,
-  `docs/std_library/ww_client_server.md`), the device side too (SRV-18); the host side is
-  CLT-28.
 - 💡 **API-39 Batched property samples** — K samples of one fast property in one update, compressed with `Delta` /
   `XorFloat` (SW-50), for values sampled faster than the link can carry one update each.
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
@@ -507,6 +506,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `docs/std_library/device_contract.md`, `tests/device_report`. The stored log is a stream and streams open on the
   absolute path only (CLT-23), so `ww report` reads the device's introspection data for the log's path; `ww info`
   needs none. Not yet: fetching the release archive by itself.
+- ✅ **CLT-28 Observing properties on the host** · `v0.5.x` — generated std clients have `observe(cfg)` per trait
+  level with `+observe` properties (an `Observer` of the level's `<Trait>Update`) and `observe_<name>(mode)` per
+  property, fanned out from the level: one device subscription per level covering all its observers (merged modes,
+  biggest budget), sent again when an observer comes, changes (`configure`) or goes, `Off` after the last one;
+  `<Trait>Observe` typed settings and what was granted, `<Trait>Latest` latest-value cache with receive times;
+  subscriptions sent again by `resume_streams()` after a reconnect; `Error::Unsupported` for a device whose API model
+  predates API-38 (`wire_weaver_client::observe`, `docs/api/properties.md#observing`, `tests/observe`,
+  `observe_e2e_tests`). Not yet: levels under a resource array, the dynamic client and Python (TOOL-11).
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,

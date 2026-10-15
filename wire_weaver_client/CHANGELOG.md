@@ -23,11 +23,28 @@
   memory without limit; `Stream::dropped()` counts them, `recv_any()` reports them once as `Dropped`, `recv()` skips
   that report. Introspection data is never dropped.
 
+- `Error` has a new variant, `Unsupported { what, reason }` (CLT-28), and `internal::Command` one, `ObserveRoute`:
+  exhaustive matches need an arm for them.
+- `Commander::resume_streams()` also subscribes observed trait levels again (CLT-28) and counts them in its result.
+
 - `TestProgress::SpeedReport` (`internal`) has two more fields, `lost_count` and `data_corrupted_count` (`rx_speed`
   only): code that destructures it adds them or `..`.
 
 ### 🚀 Features
 
+- Observing properties (CLT-28), module `observe`: `Commander::prepare_observe(path, cfg, extract)` (what the
+  generated `observe(cfg)` and `observe_<name>(mode)` call) gives a `PreparedObserve` (`.budget(..)`,
+  `.queue_bytes(..)`, `.subscribe()` / `.subscribe_blocking()`) and an `Observer<U, T>`: `recv()`, `recv_blocking()`,
+  `try_recv()` give `Observed { value, t, missed, received }`, `recv_event()` also `ObserveEvent::Disconnected`,
+  `Resumed`, `Dropped`; `granted()` is what the device applies to the level (`Granted { modes, budget, refused }`),
+  `configure(..)` / `configure_with_budget(..)` change what this observer asks for, `with_latest(..)` / `latest()`
+  read the level's latest-value cache (`Sample { value, received, t }`). `EventKind::PropertyUpdate` is routed by the
+  level's path. All observers of a level share one device subscription, `ObserveConfig::merge` of their settings
+  (shortest on-change interval and period per property, biggest budget), sent again when one comes, changes or goes,
+  `Off` after the last one. Observers outlive `disconnect().keep_streams()`, a link that goes down for good ends
+  them. A device whose API model is `ww_client_server` before 0.2 gives `Error::Unsupported`. Helpers `on_change`,
+  `periodic`, `on_change_or_beat` from a `Duration`; traits `LevelUpdate` / `LevelConfig` implemented by generated
+  code.
 - `internal::TraceEvent` is exported, what a tracer registered with `Command::RegisterTracer` receives.
 - Generalized multi-request client API (CLT-15): `MultiRead`/`MultiCall`/`MultiWrite` (`client::multi`) are now
   implemented for tuples of 2 to 8 `PreparedRead`/`PreparedCall`/`PreparedWrite` at any depth (previously

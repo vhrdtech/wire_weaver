@@ -161,6 +161,7 @@ fn client_struct_name(mod_name: &str) -> Ident {
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn client_structs_recursive(
     api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,

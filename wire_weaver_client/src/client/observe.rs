@@ -232,7 +232,8 @@ struct QueueInner {
     items: VecDeque<QueueItem>,
     bytes: usize,
     limit: usize,
-    dropped: u64,
+    /// Dropped since the last item that got in
+    unreported: u64,
     dropped_total: u64,
     /// Nothing more will come
     closed: bool,
@@ -245,7 +246,7 @@ impl Queue {
                 items: VecDeque::new(),
                 bytes: 0,
                 limit,
-                dropped: 0,
+                unreported: 0,
                 dropped_total: 0,
                 closed: false,
             }),
@@ -265,12 +266,12 @@ impl Queue {
             _ => 0,
         };
         if len > 0 && inner.bytes + len > inner.limit {
-            inner.dropped += 1;
+            inner.unreported += 1;
             inner.dropped_total += 1;
             return;
         }
-        if inner.dropped > 0 {
-            let events = std::mem::take(&mut inner.dropped);
+        if inner.unreported > 0 {
+            let events = std::mem::take(&mut inner.unreported);
             warn!("observer queue full, dropped {events} updates");
             inner.items.push_back(QueueItem::Dropped { events });
         }
@@ -448,6 +449,9 @@ impl<U: LevelUpdate> LevelRoute for Level<U> {
     }
 }
 
+/// The answer to a request sent for a level, and the request's generation
+pub(crate) type Wait = Option<(ResponseReceiver, u64)>;
+
 /// A request to send for a level, built under its lock
 pub(crate) struct Pending {
     route: Option<Command>,
@@ -573,7 +577,7 @@ fn parse_granted<C: LevelConfig>(bytes: &[u8]) -> Result<Granted<C>, Error> {
 pub(crate) fn send_pending(
     permits: tokio::sync::mpsc::PermitIterator<'_, Command>,
     pending: Pending,
-) -> Option<(ResponseReceiver, u64)> {
+) -> Wait {
     let mut permits = permits;
     if let Some(route) = pending.route {
         permits.next().expect("2 reserved").send(route);
@@ -654,7 +658,7 @@ impl<U: LevelUpdate, T> PreparedObserve<U, T> {
     fn start(
         &self,
         permits: tokio::sync::mpsc::PermitIterator<'_, Command>,
-    ) -> Result<(Observer<U, T>, Option<(ResponseReceiver, u64)>), Error> {
+    ) -> Result<(Observer<U, T>, Wait), Error> {
         // held until the observer is in, so that the last observer going doesn't remove the level meanwhile
         let mut levels = self
             .transport
@@ -784,7 +788,9 @@ impl<U: LevelUpdate, T> Observer<U, T> {
         self.queue.lock().dropped_total
     }
 
-    /// What the device applies to the level now (for all its observers), None before it answered.
+    /// What the device applies to the level (for all its observers), None before it answered: as of the last
+    /// answer the host waited for (a subscribe, `configure` or resume); the request sent when an observer is dropped
+    /// isn't waited for.
     pub fn granted(&self) -> Option<Granted<U::Config>> {
         self.level.lock().granted.clone()
     }
@@ -807,7 +813,7 @@ impl<U: LevelUpdate, T> Observer<U, T> {
         permits: tokio::sync::mpsc::PermitIterator<'_, Command>,
         cfg: &U::Config,
         budget: Option<Option<u32>>,
-    ) -> Result<Option<(ResponseReceiver, u64)>, Error> {
+    ) -> Result<Wait, Error> {
         let mut state = self.level.lock();
         if let Some((own, _)) = state.observers.get_mut(&self.id) {
             own.entries = cfg.to_entries();

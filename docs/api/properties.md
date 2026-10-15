@@ -196,8 +196,9 @@ Polling properties first keeps their short deadlines, and their share bounds wha
 #### Before observe requests
 
 `stream_data_ser().<name>_send(&value, out)` (`_send_blocking` for sync servers) still sends one property's value as
-stream data on its own path, which the generated clients' `observe_<name>()` receives. It is superseded by observe
-requests and goes once the host side of them (CLT-28) is there.
+stream data on its own path. Generated clients receive it with `observe_<name>()` for properties without `+observe`
+(a plain `Stream<T>`, no request is sent to the device); for `+observe` properties `observe_<name>(mode)` is the
+observe request below. It is superseded by observe requests.
 
 ## Host side
 
@@ -210,9 +211,6 @@ device.write_speed(1500.0).write().await?;                // waits for the devic
 device.write_speed(1500.0).write_forget().await?;         // no answer asked for, nothing waited for
 let pressed = device.read_button_pressed().blocking_read()?;
 let mut read = device.read_speed().read_promise("speed"); // poll it from a GUI
-
-let mut changes = device.observe_speed().await?;          // a plain Stream<f32>
-while let Ok(speed) = changes.recv().await { /* .. */ }
 ```
 
 - A write to a property with an error type returns `Result<(), CallError<E>>`: `CallError::Device(e)` is the
@@ -241,6 +239,56 @@ while let Ok(speed) = changes.recv().await { /* .. */ }
 
 The dynamic client and Python have the same per property: `dev.speed.read()`, `dev.speed.write(1500)`
 ([Python](../python.md#using-the-api)).
+
+### Observing
+
+The host side of [observing changes](#observing-changes) (CLT-28). Each trait level with `+observe` properties gets
+`observe(cfg)` on its client (the root client, or `device.motor()`), each `+observe` property `observe_<name>(mode)`;
+both are prepared first and `.subscribe()` (`.subscribe_blocking()`) returns an `Observer` once the device answered:
+
+```rust
+use wire_weaver_client::observe::{on_change, on_change_or_beat, periodic};
+use api_client::motor_api_motor::MotorObserve; // in the level's client module (`<api crate>_<trait>`)
+
+let ms = Duration::from_millis(1);
+let mut motor = device
+    .observe(MotorObserve::default().speed(periodic(10 * ms)).current(on_change(ms)))
+    .budget(20_000)                      // bytes per second, the device decides without it
+    .subscribe()
+    .await?;
+let granted = motor.granted().unwrap();  // what the device applies: Granted { modes: MotorObserve, budget, refused }
+while let Ok(u) = motor.recv().await {   // Observed { value: MotorUpdate, t, missed, received }
+    if let Some(speed) = u.value.speed { /* .. */ }
+}
+motor.with_latest(|l| l.speed.as_ref().map(|s| (s.value, s.received)));
+
+let mut mode = device.observe_mode(on_change(ms)).subscribe().await?; // Observer of u8 values
+let m = mode.recv().await?.value;
+mode.configure(MotorObserve::default().mode(periodic(100 * ms))).await?;
+```
+
+- **Types**: per level `<Trait>Update` (`<Trait>UpdateOwned` when a property holds a `String` or `Vec`), the level's
+  `PropertyUpdate` data, one `Option` per `+observe` property, the ones sent present; `<Trait>Observe`, one
+  `Option<ObserveMode>` per property with a setter each, for asking and in `Granted::modes` for what was granted;
+  `<Trait>Latest`, the latest `Sample { value, received, t }` of each property. `t` is the device's time, present when
+  it sends timestamps (`ObserveLimits::timestamps`).
+- **One subscription per level**: every observer of a level asks for its own modes, the host sends the device one
+  `Observe` that covers them all, per property the shortest on-change interval and the shortest period of all of
+  them (`OnChange` and `Periodic` give `OnChangeOrBeat`), the biggest budget. It is sent again when an observer
+  comes, calls `configure(..)` / `configure_with_budget(..)`, or is dropped; dropping the last one turns the level
+  `Off`. Each observer gets every update of its level, a property observer only the updates that carry its
+  property. The settings are what the device applies for all observers together, so an observer may get more often
+  than it asked for.
+- **Events**: `recv()` / `recv_blocking()` / `try_recv()` give updates, `recv_event()` also `Disconnected`, `Resumed`
+  and `Dropped { events }` (the observer's queue on the host is bounded like a stream's,
+  `ClientConfig::stream_queue_bytes`).
+- **Reconnects**: observers outlive `disconnect().keep_streams()`; `resume_streams()` on the next connection sends
+  every level's subscription again (the device may still have it, `ObserveState::reset` is the device's choice) and
+  the observers see `Resumed`. A link that goes down for good ends them (`StreamError::Closed` once drained).
+- **Old devices**: a device whose API model is `ww_client_server` before 0.2 can't observe, `.subscribe()` fails
+  with `Error::Unsupported`.
+- **Limits**: levels inside a resource array have no `observe()` yet, like on the device. Absolute paths only: a
+  trait client (`client = "trait_client"`) observes once it has a base path (`attachment()`).
 
 ## Const items
 

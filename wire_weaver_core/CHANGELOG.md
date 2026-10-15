@@ -1,6 +1,19 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- Generated std clients (CLT-28): `observe_<name>()` of a `+observe` property is the observe request now,
+  `observe_<name>(mode)` returns a `PreparedObserve` (`.subscribe().await` gives an `Observer`) instead of a `Stream`
+  of stream data; properties without `+observe` keep the old `observe_<name>()`. The modules of the generated levels
+  (`<api crate>_<trait>`) are `pub`, so their observe types can be named.
+
 ### 🚀 Features
+
+- Observed properties in std clients (CLT-28): per trait level with `+observe` properties (not under a resource
+  array) the client module has `<Trait>Update` (`<Trait>UpdateOwned` with owned fields, the sparse struct of the
+  level's `PropertyUpdate`), `<Trait>Latest` (latest value per property with its receive time) and `<Trait>Observe`
+  (`Option<ObserveMode>` per property, with setters), and the level client gets `observe(cfg)`. See
+  `docs/api/properties.md#observing`.
 
 - Observed properties on the server (SRV-18): for an API with `+observe` properties the generated server answers
   `RequestKind::Observe` on a trait level (validated in full and clamped by `ww_stream::observe`, entries refused one

@@ -346,7 +346,7 @@ impl Commander {
     fn resume_level(
         permits: mpsc::PermitIterator<'_, Command>,
         route: &Arc<dyn LevelRoute>,
-    ) -> Result<Option<(ResponseReceiver, u64)>, Error> {
+    ) -> Result<crate::client::observe::Wait, Error> {
         let pending: Option<Pending> = route.clone().resume(DEFAULT_REQUEST_TIMEOUT)?;
         Ok(pending.and_then(|p| send_pending(permits, p)))
     }

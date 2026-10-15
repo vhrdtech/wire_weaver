@@ -20,6 +20,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   and send one `PropertyUpdate` per trait level from the new `poll_properties`, within each level's budget, earliest
   deadline first, missed sends counted; the requests are validated and clamped as untrusted input. See the
   `wire_weaver_core`, `ww_stream` and `wire_weaver` changelogs, `docs/api/properties.md`.
+- Observed properties on the host (CLT-28): generated clients have `observe(cfg)` per trait level with `+observe`
+  properties and `observe_<name>(mode)` per property, typed settings, a latest-value cache, one device subscription
+  per level shared by all its observers, sent again after a reconnect; together with SRV-18 this completes
+  observe requests (API-38). See the `wire_weaver_client` and `wire_weaver_core` changelogs,
+  `docs/api/properties.md#observing`.
 - `wire_weaver_client`'s multi-request API is generalized (CLT-15): `MultiRead`/`MultiCall`/`MultiWrite` work for
   tuples of 2 to 8 resources at any depth (previously `MultiRead` only, 2-tuple, root level only), plus a new
   array-wide API (`read_array`/`call_array`/`write_array`) for the same resource across many indices

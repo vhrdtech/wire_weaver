@@ -34,11 +34,10 @@ Branch `s/15oct2026-ww-settings`. Plan and datasheet figures: `~/git/tpm/prj/P24
 ## Next
 
 1. Wait for settings-dump and settings-demo to say ready; check their work against the store/record docs.
-2. `just lint` + `just test` for the whole workspace (only ww_settings was linted so far; Cargo.toml moved
-   `embassy-futures`, `embedded-storage-async`, `crc` into workspace deps, ww_device/ww_stream use them from there).
+2. Done (second conversation): `just lint`, `just test` (1101 pass), `just check` all clean on 197d9359.
 3. The docs page refers to `mcu/ww_ecc_flash` (SRV-19, on the ecc-safe-flash branch) and ArrayString (SW-57, on
    sw-array-string): fine once those land.
-4. Update the tpm design doc's Findings to the own-store decision.
+4. Done: tpm design doc Findings updated to the own-store decision.
 5. `git rm HANDOFF.md`, `tpm work ready --note "..."`.
 
 ## Gotchas

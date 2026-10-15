@@ -29,6 +29,15 @@
 ### 🚀 Features
 
 - `internal::TraceEvent` is exported, what a tracer registered with `Command::RegisterTracer` receives.
+- Generalized multi-request client API (CLT-15): `MultiRead`/`MultiCall`/`MultiWrite` (`client::multi`) are now
+  implemented for tuples of 2 to 8 `PreparedRead`/`PreparedCall`/`PreparedWrite` at any depth (previously
+  `MultiRead` only, 2-tuple, root level), e.g. `(client.read_x(), client.pin(3).read_mode()).multi_read().await`.
+  `client::multi::{read_array, call_array, write_array}` (+ `_blocking`) do the same across an array's indices,
+  taking a `MultiIndexOwned` selector (`Range`/`List`/`Mask32`, sent as given) and the existing generated
+  per-index accessor as a closure, e.g. `read_array(MultiIndexOwned::Range(UNib32(0)..UNib32(4)), |i|
+  client.pin(i).read_mode())`. `MultiArgs::Same`/`Different` is picked automatically by comparing each item's
+  serialized bytes. `DynResource` (dynamic client) gets the same through `multi_read`/`multi_call`/`multi_write`.
+
 - `Command::LoopbackTest` works again (TOOL-10): it answered with `FatalError` since the sans-IO event loop. The test
   is a state machine on the tx core (`event_loop/core/loopback.rs`), driven by time and by the `Loopback` echoes rx
   forwards: round trips (`repeat = 1`, one at a time, lost after 500 ms without an echo, corrupted when the

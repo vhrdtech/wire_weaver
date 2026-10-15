@@ -1,4 +1,4 @@
-use crate::client::multi_read::PropertyPath;
+use crate::client::multi::PropertyPath;
 use crate::event_loop::commander::TransportCommander;
 use crate::{Error, Promise};
 use std::fmt::Debug;
@@ -140,7 +140,7 @@ impl<T: DeserializeShrinkWrapOwned> PropertyPath for PreparedRead<T> {
         Some(path.clone())
     }
 
-    fn commander(self) -> TransportCommander {
-        self.transport_cmd_tx
+    fn commander(&self) -> TransportCommander {
+        self.transport_cmd_tx.clone()
     }
 }

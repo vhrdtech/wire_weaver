@@ -66,6 +66,67 @@ impl<'i> Iterator for MultiIndexIter<'i> {
     }
 }
 
+#[cfg(feature = "std")]
+impl crate::MultiIndexOwned {
+    /// Indices this multi-request covers, in order, see [MultiIndex::iter].
+    pub fn iter_u32(&self) -> impl Iterator<Item = u32> + '_ {
+        match self {
+            crate::MultiIndexOwned::Range(range) => {
+                MultiIndexOwnedIter::Range(range.start.0..range.end.0)
+            }
+            crate::MultiIndexOwned::List(list) => MultiIndexOwnedIter::List(list.iter()),
+            crate::MultiIndexOwned::Mask32(mask) => MultiIndexOwnedIter::Mask32 {
+                mask: *mask,
+                pos: 0,
+            },
+        }
+    }
+
+    /// Number of indices this multi-request covers, see [Self::iter_u32].
+    pub fn len(&self) -> usize {
+        match self {
+            crate::MultiIndexOwned::Range(range) => {
+                (range.end.0).saturating_sub(range.start.0) as usize
+            }
+            crate::MultiIndexOwned::List(list) => list.len(),
+            crate::MultiIndexOwned::Mask32(mask) => mask.count_ones() as usize,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+#[cfg(feature = "std")]
+enum MultiIndexOwnedIter<'i> {
+    Range(core::ops::Range<u32>),
+    List(core::slice::Iter<'i, UNib32>),
+    Mask32 { mask: u32, pos: usize },
+}
+
+#[cfg(feature = "std")]
+impl Iterator for MultiIndexOwnedIter<'_> {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            MultiIndexOwnedIter::Range(range) => range.next(),
+            MultiIndexOwnedIter::List(list) => list.next().map(|i| i.0),
+            MultiIndexOwnedIter::Mask32 { mask, pos } => {
+                while *pos < 32 {
+                    let bit = *pos as u32;
+                    *pos += 1;
+                    if *mask & (1 << bit) != 0 {
+                        return Some(bit);
+                    }
+                }
+                None
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

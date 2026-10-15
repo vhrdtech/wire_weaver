@@ -56,6 +56,8 @@ Wire-incompatible with 0.1.0.
 * `Request::peek_seq()` reads the seq of a serialized request without deserializing the rest.
 * `EventBuilder`, `EventKindBuilder` and `ErrorBuilder`.
 * `MultiIndex::iter()`.
+* `MultiIndexOwned::iter_u32()`/`len()`/`is_empty()` (`std`, CLT-15), used by the client's generalized multi-request
+  API (`wire_weaver_client::client::multi`).
 * `PathKind::global()`.
 * `COMPACT_VERSION`, using global id `ww_global::WW_CLIENT_SERVER`.
 

@@ -67,7 +67,11 @@ pub struct Commander {
 }
 
 #[derive(Clone)]
-pub(crate) struct TransportCommander {
+// `pub` (not `pub(crate)`): `client::multi`'s `PropertyPath`/`CallPath`/`WritePath` traits are `pub` (their
+// `Output` associated type leaks into `MultiRead`/`MultiCall`'s public return type) and have a method returning
+// this type, which the `private_interfaces` lint requires to be at least as visible; the `event_loop` module
+// itself stays `pub(crate)`, so this is still unreachable from outside the crate.
+pub struct TransportCommander {
     cmd_tx: mpsc::Sender<Command>,
     default_timeout: Duration,
     /// Open counted and reliable streams, see [Commander::resume_streams]
@@ -878,6 +882,43 @@ impl TransportCommander {
             seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::Read,
+        };
+        let req = req.to_ww_bytes_owned()?;
+        let (done_tx, done_rx) = oneshot::channel();
+        self.send_message_expect_response_blocking(req, done_tx, timeout)?;
+        Ok(done_rx)
+    }
+
+    /// `path_kind` is the request's own path (the common prefix of every index), `kind` is already a fully built
+    /// `RequestKind::MultiRead`/`MultiCall`/`MultiWrite`, see `client::multi`.
+    pub(crate) async fn send_multi_request(
+        &self,
+        path_kind: PathKindOwned,
+        kind: RequestKindOwned,
+        timeout: Option<Duration>,
+    ) -> Result<ResponseReceiver, Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: UVlq32Backfill(0),
+            path_kind,
+            kind,
+        };
+        let req = req.to_ww_bytes_owned()?;
+        let (done_tx, done_rx) = oneshot::channel();
+        self.send_message_expect_response(req, done_tx, timeout)
+            .await?;
+        Ok(done_rx)
+    }
+
+    pub(crate) fn send_multi_request_blocking(
+        &self,
+        path_kind: PathKindOwned,
+        kind: RequestKindOwned,
+        timeout: Option<Duration>,
+    ) -> Result<ResponseReceiver, Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: UVlq32Backfill(0),
+            path_kind,
+            kind,
         };
         let req = req.to_ww_bytes_owned()?;
         let (done_tx, done_rx) = oneshot::channel();

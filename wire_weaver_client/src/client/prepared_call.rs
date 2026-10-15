@@ -1,3 +1,4 @@
+use crate::client::multi::CallPath;
 use crate::error_list::{self, ErrorList};
 use crate::event_loop::commander::TransportCommander;
 use crate::{CallError, DecodeReply, Error, OutcomeError, Promise};
@@ -5,6 +6,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
+use wire_weaver::shrink_wrap::UNib32;
 use ww_client_server::PathKindOwned;
 
 /// Self-contained struct containing all necessary information needed to perform a call:
@@ -160,6 +162,28 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
             self.error_list,
             marker,
         )
+    }
+}
+
+impl<T: DeserializeShrinkWrapOwned> CallPath for PreparedCall<T, Error> {
+    type Output = T;
+
+    fn absolute_path(&self) -> Option<Vec<UNib32>> {
+        if self.postpone_err.is_err() {
+            return None;
+        }
+        match &self.path_kind {
+            PathKindOwned::Absolute { path } => Some(path.clone()),
+            _ => None,
+        }
+    }
+
+    fn args_bytes(&self) -> Vec<u8> {
+        self.args.clone()
+    }
+
+    fn commander(&self) -> TransportCommander {
+        self.transport_cmd_tx.clone()
     }
 }
 

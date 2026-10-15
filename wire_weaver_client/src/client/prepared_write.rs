@@ -1,3 +1,4 @@
+use crate::client::multi::WritePath;
 use crate::client::prepared_call::check_error_list;
 use crate::error_list::ErrorList;
 use crate::event_loop::commander::TransportCommander;
@@ -5,6 +6,7 @@ use crate::{CallError, Error, OutcomeError, Promise};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
+use wire_weaver::shrink_wrap::UNib32;
 use ww_client_server::PathKindOwned;
 
 /// Self-contained struct containing all necessary information needed to perform a write:
@@ -143,5 +145,25 @@ impl<E: OutcomeError> PreparedWrite<E> {
             self.error_list,
             marker,
         )
+    }
+}
+
+impl WritePath for PreparedWrite<Error> {
+    fn absolute_path(&self) -> Option<Vec<UNib32>> {
+        if self.postpone_err.is_err() {
+            return None;
+        }
+        match &self.path_kind {
+            PathKindOwned::Absolute { path } => Some(path.clone()),
+            _ => None,
+        }
+    }
+
+    fn value_bytes(&self) -> Vec<u8> {
+        self.value.clone()
+    }
+
+    fn commander(&self) -> TransportCommander {
+        self.transport_cmd_tx.clone()
     }
 }

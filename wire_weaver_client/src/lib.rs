@@ -19,7 +19,7 @@ pub use client::dyn_client::DynClient;
 pub use client::dyn_positioned::{DynPositionedStream, DynStreamOpen, seconds};
 pub use client::dynamic::{DynResource, DynResourceKind, DynSink, DynStream};
 pub use client::introspect::Introspect;
-pub use client::multi_read::MultiRead;
+pub use client::multi::{self, MultiCall, MultiRead, MultiWrite};
 pub use client::positioned::{
     AckMode, Cause, DEFAULT_STREAM_QUEUE_BYTES, DEFAULT_WINDOW, PositionedStream, Run, Second,
     StreamEvent, StreamStats,

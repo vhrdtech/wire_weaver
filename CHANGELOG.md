@@ -20,6 +20,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   and send one `PropertyUpdate` per trait level from the new `poll_properties`, within each level's budget, earliest
   deadline first, missed sends counted; the requests are validated and clamped as untrusted input. See the
   `wire_weaver_core`, `ww_stream` and `wire_weaver` changelogs, `docs/api/properties.md`.
+- `wire_weaver_client`'s multi-request API is generalized (CLT-15): `MultiRead`/`MultiCall`/`MultiWrite` work for
+  tuples of 2 to 8 resources at any depth (previously `MultiRead` only, 2-tuple, root level only), plus a new
+  array-wide API (`read_array`/`call_array`/`write_array`) for the same resource across many indices
+  (`Range`/`List`/`Mask32`), and a dynamic-client (`DynResource`) equivalent.
 
 ### Fixed
 

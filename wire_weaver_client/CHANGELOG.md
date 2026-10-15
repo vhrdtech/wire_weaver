@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚡ Performance
+
+- The event loop sends a partially filled frame as soon as nothing else is waiting (no command, nothing from the device), instead of at the end of the device's accumulation window: a lone request no longer waits up to 1 ms; back to back messages still share frames (TR-12).
+
 ### ⚠️ Breaking
 
 - New `picoboot` feature (off by default, CLT-21): `follow::rp2_update()` and the `ww_picoboot` re-export now need it.

@@ -273,6 +273,10 @@ async fn tx_task<T: Transport>(
             break result;
         }
 
+        if core.wants_idle_flush() && cmd_rx.is_empty() && from_rx.is_empty() {
+            core.handle(now(), TxInput::Idle);
+            continue;
+        }
         let deadline = core.poll_timeout();
         let timer = async {
             match deadline {
@@ -647,6 +651,43 @@ mod tests {
         // the ping timer was due at the same instant and fired first, that is all that went out
         assert!(kinds(&p.take_sent()).iter().all(|k| *k == Kind::Ping));
         assert!(matches!(p.tx_exit, Some(Err(_))));
+    }
+
+    #[test]
+    fn idle_flushes_without_waiting_for_the_window() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        connect(&mut p, now);
+        assert!(!p.tx.wants_idle_flush(), "nothing written yet");
+
+        // back to back requests share a frame, then the event loop finds nothing else waiting: Idle sends it now
+        for bytes in [request(&[1]), request(&[2])] {
+            p.cmd(
+                now,
+                Command::SendMessage {
+                    bytes,
+                    done_tx: None,
+                },
+            );
+        }
+        assert!(p.tx.wants_idle_flush());
+        let flushes = p.flushes;
+        p.tx.handle(now, TxInput::Idle);
+        p.settle(now);
+        assert_eq!(p.flushes, flushes + 1);
+        let sent = p.take_sent();
+        assert_eq!(sent[0].frame, sent[1].frame);
+        assert!(!p.tx.wants_idle_flush());
+        assert_eq!(
+            p.tx.poll_timeout(),
+            Some(now + PING),
+            "no accumulation deadline left"
+        );
+
+        // Idle with nothing written is a no-op
+        p.tx.handle(now, TxInput::Idle);
+        p.settle(now);
+        assert_eq!(p.flushes, flushes + 1);
     }
 
     #[test]

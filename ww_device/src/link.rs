@@ -438,6 +438,14 @@ impl<'a> DeviceLink<'a> {
         Ok(())
     }
 
+    /// Send what was written so far with the next [Self::poll_transmit] instead of at the end of the accumulation
+    /// window, e.g. replies when no other request is waiting. No-op if nothing is waiting to be flushed.
+    pub fn flush_now(&mut self) {
+        if self.unflushed_since.is_some() {
+            self.pending.flush = true;
+        }
+    }
+
     /// A data message was written into the framer, starts the accumulation window.
     pub fn on_data_written(&mut self, now: Instant) {
         if self.unflushed_since.is_none() {

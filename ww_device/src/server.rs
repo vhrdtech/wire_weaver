@@ -218,6 +218,12 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
                     }
                 }
                 self.rx.consume();
+                // Replies go out at once when no other request is already waiting, instead of at the end of the
+                // accumulation window: a lone request gets its answer without that delay, while back to back
+                // requests still share packets. Events written by user code keep the window.
+                if embassy_futures::poll_once(self.rx.wait_message()).is_pending() {
+                    self.link.flush_now();
+                }
             }
         }
         self.drain_transmit().await;

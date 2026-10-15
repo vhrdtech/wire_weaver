@@ -745,3 +745,191 @@ mod stream {
         assert_eq!(drain(&mut rx), [(2, vec![3, 4])]);
     }
 }
+
+/// Async server with in-memory message transports: the reply to a lone request is flushed at once, back to back
+/// requests share a frame, events from the main loop keep the accumulation window.
+mod async_server {
+    use super::*;
+    use crate::server::{Clock, Server};
+    use crate::transport::{MessageRx, MessageTx};
+    use core::cell::RefCell;
+    use core::task::Poll;
+    use std::collections::VecDeque;
+    use std::rc::Rc;
+    use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
+
+    #[derive(Debug, PartialEq, Eq)]
+    enum Out {
+        Message(Kind),
+        Flush,
+    }
+
+    type Queue = Rc<RefCell<VecDeque<(u8, Vec<u8>)>>>;
+    type Log = Rc<RefCell<Vec<Out>>>;
+
+    fn push(queue: &Queue, m: &Message<'_>) {
+        let mut scratch = [0u8; 256];
+        let (kind, payload) = m.encode(&mut scratch).unwrap();
+        queue.borrow_mut().push_back((kind, payload.to_vec()));
+    }
+
+    struct Rx {
+        queue: Queue,
+        current: Option<(u8, Vec<u8>)>,
+    }
+
+    impl MessageRx for Rx {
+        type Error = ();
+
+        async fn wait_message(&mut self) -> Result<(), ()> {
+            if self.current.is_none() {
+                let next = self.queue.borrow_mut().pop_front();
+                match next {
+                    Some(m) => self.current = Some(m),
+                    None => core::future::pending::<()>().await,
+                }
+            }
+            Ok(())
+        }
+
+        fn message(&self) -> Option<(u8, &[u8])> {
+            self.current.as_ref().map(|(k, m)| (*k, m.as_slice()))
+        }
+
+        fn consume(&mut self) {
+            self.current = None;
+        }
+
+        async fn wait_connected(&mut self) {}
+
+        fn reset(&mut self) {}
+
+        fn max_message_len(&self) -> usize {
+            128
+        }
+    }
+
+    struct Tx(Log);
+
+    impl MessageTx for Tx {
+        type Error = ();
+
+        async fn write_message(&mut self, kind: u8, _message: &[u8]) -> Result<(), ()> {
+            self.0
+                .borrow_mut()
+                .push(Out::Message(Kind::from_repr(kind).unwrap()));
+            Ok(())
+        }
+
+        async fn flush(&mut self) -> Result<(), ()> {
+            self.0.borrow_mut().push(Out::Flush);
+            Ok(())
+        }
+
+        fn reset(&mut self) {}
+    }
+
+    struct FixedClock(Instant);
+
+    impl Clock for FixedClock {
+        fn now(&self) -> Instant {
+            self.0
+        }
+
+        async fn wait_until(&self, _at: Instant) {
+            core::future::pending::<()>().await
+        }
+    }
+
+    /// Echoes the request (seq and args) back as the reply.
+    struct Echo;
+
+    impl WireWeaverAsyncApiBackend for Echo {
+        type Medium = ();
+
+        async fn process_bytes<'a>(
+            &mut self,
+            _out: &mut EventWriter<'_, impl MessageSink>,
+            _medium: (),
+            data: &[u8],
+            scratch: &'a mut [u8],
+        ) -> Result<&'a [u8], ShrinkWrapError> {
+            scratch[..data.len()].copy_from_slice(data);
+            Ok(&scratch[..data.len()])
+        }
+
+        fn version(&self) -> FullVersion<'_> {
+            FullVersion::new("test_api", Version::new(0, 3, 1))
+        }
+    }
+
+    /// Handle everything that is ready now, without any timer firing.
+    fn run_ready(server: &mut Server<'_, Tx, Rx, FixedClock>) {
+        loop {
+            let Poll::Ready(ready) = embassy_futures::poll_once(server.wait()) else {
+                return;
+            };
+            embassy_futures::block_on(server.handle(ready, &mut Echo));
+        }
+    }
+
+    #[test]
+    fn replies_flushed_when_no_request_is_waiting() {
+        let queue = Queue::default();
+        let log = Log::default();
+        let mut scratch = [0u8; 128];
+        let mut event_scratch = [0u8; 128];
+        let rx = Rx {
+            queue: queue.clone(),
+            current: None,
+        };
+        let mut server = Server::new(
+            config(),
+            Tx(log.clone()),
+            rx,
+            FixedClock(Instant::from_millis(10)),
+            &mut scratch,
+            &mut event_scratch,
+        );
+        push(&queue, &Message::GetDeviceInfo);
+        push(
+            &queue,
+            &link_setup(FullVersion::new("test_api", Version::new(0, 3, 0))),
+        );
+        run_ready(&mut server);
+        assert!(server.is_up());
+        log.borrow_mut().clear();
+
+        // back to back requests: the first reply waits for the second, then both go out with one flush
+        for bytes in [&[1u8, 0xAA][..], &[2, 0xBB]] {
+            push(&queue, &Message::Data { channel: 0, bytes });
+        }
+        run_ready(&mut server);
+        assert_eq!(
+            *log.borrow(),
+            [
+                Out::Message(Kind::Data0),
+                Out::Message(Kind::Data0),
+                Out::Flush
+            ]
+        );
+        log.borrow_mut().clear();
+
+        // a lone request: flushed right away
+        push(
+            &queue,
+            &Message::Data {
+                channel: 0,
+                bytes: &[3, 0xCC],
+            },
+        );
+        run_ready(&mut server);
+        assert_eq!(*log.borrow(), [Out::Message(Kind::Data0), Out::Flush]);
+        log.borrow_mut().clear();
+
+        // an event from the main loop waits for the accumulation window
+        embassy_futures::block_on(server.send(&[0, 0x55])).unwrap();
+        run_ready(&mut server);
+        assert_eq!(*log.borrow(), [Out::Message(Kind::Data0)]);
+    }
+}

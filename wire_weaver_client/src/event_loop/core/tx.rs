@@ -36,6 +36,8 @@ pub(crate) enum TxInput {
     FromRx(ToTx),
     /// In response to [TxCore::poll_timeout] deadline.
     Timer,
+    /// Nothing else is waiting to be handled (no command, nothing from rx), see [TxCore::wants_idle_flush].
+    Idle,
 }
 
 pub(crate) enum TxOutput {
@@ -169,6 +171,12 @@ impl TxCore {
             }
             TxInput::FromRx(msg) => self.on_from_rx(now, msg),
             TxInput::Timer => self.on_timer(now),
+            TxInput::Idle => {
+                if self.wants_idle_flush() {
+                    self.flush(now);
+                }
+                Ok(Flow::Continue)
+            }
         };
         match r {
             Ok(Flow::Continue) => {}
@@ -179,6 +187,13 @@ impl TxCore {
 
     pub fn poll_output(&mut self) -> Option<TxOutput> {
         self.output.pop_front()
+    }
+
+    /// A partially filled frame is waiting for the accumulation window to end. Feed [TxInput::Idle] when nothing
+    /// else is waiting to be handled: the frame then goes out at once, as no more messages are coming to fill it,
+    /// e.g. a lone request doesn't wait for the window. Back to back messages still share frames.
+    pub fn wants_idle_flush(&self) -> bool {
+        self.phase == Phase::Up && self.unflushed_since.is_some()
     }
 
     /// Earliest instant at which [TxInput::Timer] should be fed, None if nothing is scheduled.

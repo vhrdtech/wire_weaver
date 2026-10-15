@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚡ Performance
+
+- Async `Server` flushes replies at once when no other request is already waiting, instead of at the end of the accumulation window; back to back requests still share packets, events written from the main loop keep the window. `DeviceLink::flush_now()` (TR-12). On Donguru (STM32G0B1, USB FS): 64-byte loopback round trips 647/s -> 2000/s, 1 KB 247/s -> 330/s.
+
 ### 🚀 Features
 
 - `ws` feature: WebSocket as a medium, `| kind | payload |` per binary message as the `ws` transport of

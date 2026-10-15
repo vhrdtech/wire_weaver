@@ -648,8 +648,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     anything yet); `read_words` / `reset_words` serve `cnt` buffers, feature `host` has `WwSource` (a
     `cnt_core::Source`). `ww counters read|watch|tui|reset|info` shows the `cnt_view` views (CLT-10). In the `cnt`
     repo: `cnt::ram_used_words()`, word sources and ELF lookup by build id in `cnt_core`, `cnt_view`, and the probe
-    path checks the build id too. Docs `docs/std_library/ww_counters.md`, tests `tests/counters`. Needs `cnt` 0.5
-    on crates.io before release (path dependencies on `../cnt` until then).
+    path checks the build id too. Docs `docs/std_library/ww_counters.md`, tests `tests/counters`; `cnt_core` /
+    `cnt_view` 0.5 from crates.io.
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.

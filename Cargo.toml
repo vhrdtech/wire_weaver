@@ -38,9 +38,8 @@ anyhow = "1"
 cc = "1.2"
 clap = "4.5"
 cnt = "0.4"
-# The cnt repo next to this one (~/git/cnt): word sources and terminal views of cnt 0.5, not on crates.io yet
-cnt_core = { version = "0.4.1", path = "../cnt/cnt_core" }
-cnt_view = { version = "0.4.1", path = "../cnt/cnt_view" }
+cnt_core = "0.5"
+cnt_view = "0.5"
 console = "0.16"
 convert_case = "0.11"
 defmt = "1.1"

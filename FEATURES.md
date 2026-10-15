@@ -424,6 +424,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
   Plain Rust with `#[ww_trait]` and `#[derive_shrink_wrap]` is the current answer; revisit only with a concrete
   benefit that outweighs the cost of a parser, tooling and IDE support.
+- 💡 **API-40 `value_on_changed` strings without an allocator** — a `no_alloc` server's field for a
+  `MaxLen<&'i str, N>` property is `&'static str` today, which a write can't fill; generate an
+  `shrink_wrap::ArrayString<N>` field (SW-57) instead, and `ArrayVec<T, N>` for lists, so settings like a device label
+  can be `value_on_changed` too (STD-32).
 
 ## Server / device side (`SRV`)
 
@@ -767,6 +771,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   parallel buses and strobes from the host, which multi-call can't make simultaneous. Pins by index, no masks on the
   wire (IO family D9). Bank indices 1 and 2 from its reserved range, capabilities appended with `#[default = false]`.
   Docs `docs/std_library/ww_gpio.md#port-access`, tests `tests/io_gpio`, STM32 boards in `examples_mcu` (IDR / BSRR).
+- 🧪 **STD-32 `ww_settings` settings store** · `v0.5` — a device's settings in its own NOR flash: `#[derive(Settings)]`
+  on a plain struct (`#[setting(slot = N, default = ..)]`, `#[settings(retired(..))]`), stored as a record of the
+  fields not at their default, each a byte blob in an `OptionAnyVec`, so firmware versions skip and keep each other's
+  slots; `Settings<G, N>` with write-on-change, a debounce and a durable `persist`, factory reset per group (`Key`);
+  served through `value_on_changed` properties. Its own `Store` over an `embedded-storage-async` `NorFlash` (per-key
+  seq in every item, page headers with crc, current records copied off a page before it is erased, loads never
+  write, `maintain()` to erase ahead): power-cut safe at every word written and byte erased in any erase order, which
+  `sequential-storage` 8 isn't. Docs `docs/api/settings.md` (pages, erase stalls on G0 / F4 / H7, big-sector
+  options) and `docs/evolution/rules.md#settings-stored-on-a-device`, tests `ww_settings/tests` (`just
+  test-power-cut`). Hardware check open: real power cuts on a G0B1 (TEST-21), dump decoder (TOOL-12), demo (EX).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
@@ -813,6 +827,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reserved indices 4..=6, so a host sees input changes without opening the `event` stream of every pin (slow inputs,
   a dashboard). Blocked on API-29 array-index-bounds: `Pin` sits in `Bank::pin[]` (and banks usually in an array
   too), and levels under a resource array can't be observed until their bound is known (SRV-18).
+- 💡 **STD-33 `ww_settings` single-sector mode** — a store in one sector with a RAM copy, for a part with exactly
+  one sector to spare; a power cut during its erase loses every group (the window is the whole erase, 1 to 4 s on a
+  128 KiB sector, see `docs/api/settings.md#parts-with-big-sectors`). Only if a device needs it.
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

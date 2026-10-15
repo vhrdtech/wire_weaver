@@ -142,6 +142,9 @@ pub struct EncodeStats {
     pub fields: u16,
     /// Slots this firmware doesn't know, copied unchanged.
     pub unknown_kept: u16,
+    /// Fields at their default whose stored bytes this firmware can't decode (written by a newer one), copied
+    /// unchanged.
+    pub undecodable_kept: u16,
     /// Slots of removed fields dropped.
     pub retired_dropped: u16,
 }
@@ -152,6 +155,8 @@ pub struct EncodeStats {
 /// - A field whose bytes in `previous` decode to its current value is copied byte for byte, so the fields a newer
 ///   firmware appended inside that field's type survive.
 /// - A slot this firmware doesn't know is copied unchanged, a retired one is dropped.
+/// - A field at its default whose bytes in `previous` don't decode (a newer firmware wrote a value this one doesn't
+///   know, a new enum variant say) is copied unchanged, until the field is set to something else.
 ///
 /// `scratch` holds the bytes of one field at a time. `previous` must be a record of [FORMAT] (or `None`).
 pub fn encode<'o, G: SettingsGroup>(
@@ -171,10 +176,15 @@ pub fn encode<'o, G: SettingsGroup>(
     let newest = match previous {
         Some(prev) => {
             for blob in prev.blobs() {
-                let (slot, _) = blob?;
+                let (slot, b) = blob?;
                 if G::is_retired(slot) {
                     stats.retired_dropped += 1;
-                } else if !G::is_known(slot) {
+                } else if G::is_known(slot) {
+                    if !value.is_set(slot) && !G::slot_decodes(slot, b) {
+                        present.insert(slot);
+                        stats.undecodable_kept += 1;
+                    }
+                } else {
                     if !present.insert(slot) {
                         // above MAX_SLOT, can't come from a derive: drop it
                         continue;
@@ -219,7 +229,12 @@ pub fn encode<'o, G: SettingsGroup>(
         }
         if G::is_known(slot) {
             match prev_blob {
-                Some(b) if value.slot_eq(slot, b) => vec.write(slot, &RefVec::new_bytes(b))?,
+                Some(b)
+                    if value.slot_eq(slot, b)
+                        || (!value.is_set(slot) && !G::slot_decodes(slot, b)) =>
+                {
+                    vec.write(slot, &RefVec::new_bytes(b))?
+                }
                 _ => {
                     let bytes = value.write_slot(slot, scratch)?;
                     vec.write(slot, &RefVec::new_bytes(bytes))?;
@@ -241,7 +256,8 @@ pub fn encode<'o, G: SettingsGroup>(
 pub struct DecodeStats {
     /// Fields read from the record.
     pub fields: u16,
-    /// Fields whose bytes didn't decode: left at their default, dropped on the next write.
+    /// Fields whose bytes didn't decode (a newer firmware's value): left at their default, the bytes kept on the
+    /// next write unless the field is set.
     pub bad_fields: u16,
     /// Slots of a newer firmware, kept on the next write.
     pub unknown: u16,

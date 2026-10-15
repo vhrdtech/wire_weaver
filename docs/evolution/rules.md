@@ -247,3 +247,31 @@ E.g., if user_device_api v0.1.0 depends on ww_client_server v0.4.0 and a new maj
 out (v0.5.0), then user_device_api must be bumped to v0.2.0 to use the newer API model. This should only happen to add
 new features though, and if previous version is doing all that it is supposed to, there might not be a need to
 upgrade.
+
+## Settings stored on a device
+
+A [settings store](../api/settings.md) (`ww_settings`, STD-32) keeps a record per group in the device's flash, and
+the record outlives the firmware that wrote it: an update reads the old firmware's record, a downgrade the new one's.
+Each field has a slot, each stored field is a byte blob of its own, so every firmware can step over a slot it
+doesn't know. That makes the rules looser than for a [sparse struct](#sparse-structs):
+
+* **Adding a field**: any slot that was never used, also one in a gap between older slots. Older records read it as
+  its default. An older firmware keeps it unchanged when it writes its record.
+* **Removing a field**: put its slot into `#[settings(retired(..))]`; the derive then refuses to give it to another
+  field. A record that still holds it is read without it, and the slot is dropped on the next write, so a downgrade
+  to a firmware that still has the field finds it at its default.
+* **Changing a field's type**: only the way the type itself may evolve (a struct gets fields with `#[default]`
+  appended, an enum gets variants). An older firmware reads what it knows of the newer value (a struct's first
+  fields, an enum variant it doesn't know as `Unknown(n)`), and as long as it doesn't change the field, it writes the
+  newer bytes back unchanged; if it changes the field, the parts it doesn't know are gone. Bytes it can't decode at all
+  (an enum with `no_future_version`) are kept while the field stays at its default. Any other type change, or a
+  change of what the value means (units, scale): a new slot, and the old one retired.
+* **Changing a default**: a stored record holds only the fields that differ from their default, so every device that
+  never set the field takes the new default, and so does one that set it to exactly the old default. When that is
+  wrong, the field needs a new slot.
+* **Renaming a field** is fine; the slot is what is stored. Moving a field to another group (another `Key`) is a
+  new field there and a retired one here; copying the value over is the firmware's job on load.
+* The **record format** (`ww_settings::record::FORMAT`) and the **store layout** (the page and item headers in
+  `ww_settings::store`) are defined by `ww_settings` itself: a change to either is a breaking change of
+  `ww_settings`, as for `ww_framer` in [layer 3](#layer-3-framework). A firmware that finds a record in a format it
+  doesn't know leaves it alone (`is_read_only`) instead of overwriting it.

@@ -34,6 +34,10 @@ pub trait SettingsGroup: Clone + PartialEq {
     /// Whether `bytes` decode to the current value of the field at `slot`.
     fn slot_eq(&self, slot: u32, bytes: &[u8]) -> bool;
 
+    /// Whether `bytes` decode as the type of the field at `slot`. Bytes a newer firmware wrote that don't (a new
+    /// enum variant, say) are kept as they are while the field is at its default.
+    fn slot_decodes(slot: u32, bytes: &[u8]) -> bool;
+
     /// Put the field at `slot` back to its default.
     fn reset_slot(&mut self, slot: u32);
 

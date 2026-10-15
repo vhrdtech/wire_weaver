@@ -368,3 +368,77 @@ mod evolution {
         );
     }
 }
+
+mod newer_variant {
+    use super::*;
+
+    // an evolvable enum reads a newer variant as `Unknown(n)` and writes it back as is; without one, it fails to
+    // decode, the case this test is about
+    #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone, Copy), ww_repr = u4, no_future_version)]
+    pub enum ModeV1 {
+        Off,
+        On,
+    }
+
+    /// ModeV1 with a variant added
+    #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone, Copy), ww_repr = u4)]
+    pub enum ModeV2 {
+        Off,
+        On,
+        Auto,
+    }
+
+    #[derive(ww_settings::Settings, Clone, Debug, PartialEq)]
+    pub struct V1 {
+        #[setting(slot = 0, default = 1)]
+        pub level: u8,
+        #[setting(slot = 1, default = ModeV1::Off)]
+        pub mode: ModeV1,
+    }
+
+    #[derive(ww_settings::Settings, Clone, Debug, PartialEq)]
+    pub struct V2 {
+        #[setting(slot = 0, default = 1)]
+        pub level: u8,
+        #[setting(slot = 1, default = ModeV2::Off)]
+        pub mode: ModeV2,
+    }
+
+    #[test]
+    fn a_value_an_older_firmware_cannot_read_is_kept() {
+        block_on(async {
+            let mut st = store(G0::new(BASE, 4));
+            let mut v2: Settings<V2, 64> = Settings::new(Key::USER, Debounce::default());
+            v2.load(&mut st).await.unwrap();
+            v2.set(0, |s| s.mode = ModeV2::Auto);
+            v2.persist(&mut st).await.unwrap();
+
+            // V1 doesn't know `Auto`: the field reads as its default
+            let mut v1: Settings<V1, 64> = Settings::new(Key::USER, Debounce::default());
+            let report = v1.load(&mut st).await.unwrap();
+            assert_eq!(report.stats.bad_fields, 1);
+            assert_eq!(v1.get().mode, ModeV1::Off);
+            // V1 writes another field: `Auto` is kept
+            v1.set(0, |s| s.level = 7);
+            assert!(matches!(
+                v1.persist(&mut st).await.unwrap(),
+                Persisted::Written(w) if w.undecodable_kept == 1
+            ));
+            v2.load(&mut st).await.unwrap();
+            assert_eq!(
+                *v2.get(),
+                V2 {
+                    level: 7,
+                    mode: ModeV2::Auto
+                }
+            );
+
+            // V1 sets the field itself: its value replaces it
+            v1.load(&mut st).await.unwrap();
+            v1.set(0, |s| s.mode = ModeV1::On);
+            v1.persist(&mut st).await.unwrap();
+            v2.load(&mut st).await.unwrap();
+            assert_eq!(v2.get().mode, ModeV2::On);
+        });
+    }
+}

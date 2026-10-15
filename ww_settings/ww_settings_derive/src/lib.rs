@@ -187,6 +187,12 @@ fn derive(input: DeriveInput) -> syn::Result<TokenStream2> {
                 .is_ok_and(|v| v == self.#ident)
         }
     });
+    let slot_decodes = fields.iter().map(|f| {
+        let (ty, slot) = (&f.ty, f.slot);
+        quote! {
+            #slot => <#ty as ::ww_settings::shrink_wrap::DeserializeShrinkWrap>::from_ww_bytes(bytes).is_ok()
+        }
+    });
     let reset_slot = fields.iter().map(|f| {
         let (ident, ty, default, slot) = (&f.ident, &f.ty, &f.default, f.slot);
         quote! { #slot => { let d: #ty = #default; self.#ident = d; } }
@@ -240,6 +246,13 @@ fn derive(input: DeriveInput) -> syn::Result<TokenStream2> {
             fn slot_eq(&self, slot: u32, bytes: &[u8]) -> bool {
                 match slot {
                     #(#slot_eq,)*
+                    _ => false,
+                }
+            }
+
+            fn slot_decodes(slot: u32, bytes: &[u8]) -> bool {
+                match slot {
+                    #(#slot_decodes,)*
                     _ => false,
                 }
             }

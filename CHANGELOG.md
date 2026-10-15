@@ -40,6 +40,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   prints each update's values, rate and link bytes/s; `wire_weaver_py`'s `Node.observe(cfg)` iterates the same
   updates as dicts. See the `shrink_wrap`, `ww_self`, `wire_weaver_core`, `wire_weaver_client`, `wire_weaver_cli`
   and `wire_weaver_py` changelogs, `tests/observe`, `docs/api/properties.md#observing`.
+- Settings store for devices (STD-32): `ww_settings` keeps a struct of settings with defaults in NOR flash, as a
+  record of the fields not at their default that every firmware version can read and write back without losing the
+  others' fields, power-cut safe at every word written and byte erased; served through `value_on_changed`
+  properties. See `ww_settings/ww_settings/CHANGELOG.md`, `docs/api/settings.md`.
 
 ### Fixed
 

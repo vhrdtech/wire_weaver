@@ -1246,6 +1246,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ram-across-a-soft-reset-persistentramring" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        RAM across a soft reset: <code>PersistentRamRing</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RAM across a soft reset: PersistentRamRing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-keeps" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it keeps
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-it-checks-the-ram" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How it checks the RAM
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sizing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sizing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sd-card-or-flash-logstore" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1258,7 +1308,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-keeps" class="md-nav__link">
+  <a href="#what-it-keeps_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         What it keeps
@@ -1280,7 +1330,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#sizing" class="md-nav__link">
+  <a href="#sizing_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Sizing
@@ -3033,6 +3083,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ram-across-a-soft-reset-persistentramring" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        RAM across a soft reset: <code>PersistentRamRing</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RAM across a soft reset: PersistentRamRing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-keeps" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it keeps
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-it-checks-the-ram" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How it checks the RAM
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sizing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sizing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sd-card-or-flash-logstore" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3045,7 +3145,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-keeps" class="md-nav__link">
+  <a href="#what-it-keeps_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         What it keeps
@@ -3067,7 +3167,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#sizing" class="md-nav__link">
+  <a href="#sizing_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Sizing
@@ -3216,6 +3316,12 @@ one device and 32 GB on an SD card on another.</p>
 <td>always there</td>
 </tr>
 <tr>
+<td><code>PersistentRamRing&lt;N&gt;</code></td>
+<td><code>N</code> bytes of <code>.uninit</code> RAM</td>
+<td>soft resets (fault → reset), not power cuts</td>
+<td><code>persistent-ram</code></td>
+</tr>
+<tr>
 <td><code>LogStore&lt;M, BUF&gt;</code></td>
 <td>SD card, NOR flash</td>
 <td>reboots and power cuts</td>
@@ -3223,7 +3329,7 @@ one device and 32 GB on an SD card on another.</p>
 </tr>
 </tbody>
 </table>
-<p>Both keep events as they go on the wire, head included, so a resent event is bit-identical: its timestamp is the
+<p>All keep events as they go on the wire, head included, so a resent event is bit-identical: its timestamp is the
 device's time when the data was made, not when it was sent.</p>
 <p>When a store is full, it does what its <code>FullPolicy</code> says:</p>
 <ul>
@@ -3240,28 +3346,74 @@ device's time when the data was made, not when it was sent.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">store</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SAMPLES</span><span class="p">.</span><span class="n">init</span><span class="p">(</span><span class="n">RamRing</span><span class="p">::</span><span class="n">new</span><span class="p">().</span><span class="n">with_policy</span><span class="p">(</span><span class="n">FullPolicy</span><span class="p">::</span><span class="n">DropOldest</span><span class="p">));</span>
 </span></code></pre></div>
 <p>Each event takes its item, its encoded head and 21 bytes (<code>RECORD_OVERHEAD</code>).</p>
+<h2 id="ram-across-a-soft-reset-persistentramring">RAM across a soft reset: <code>PersistentRamRing</code><a class="headerlink" href="#ram-across-a-soft-reset-persistentramring" title="Permanent link">&para;</a></h2>
+<p>A <code>RamRing</code> whose bytes sit in RAM the startup code leaves alone, so they are still there after a soft reset: a
+HardFault or panic handler that resets the chip (<code>SCB::sys_reset</code>) doesn't take the last logs before the crash with
+it. The next boot takes the events up again and the host gets them when it connects. A power cut loses them; RAM
+after a power-on holds garbage, which is never taken for events.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ww_stream</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;persistent-ram&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">use</span><span class="w"> </span><span class="n">core</span><span class="p">::</span><span class="n">mem</span><span class="p">::</span><span class="n">MaybeUninit</span><span class="p">;</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">store</span><span class="p">::{</span><span class="n">FullPolicy</span><span class="p">,</span><span class="w"> </span><span class="n">PersistentRamRing</span><span class="p">,</span><span class="w"> </span><span class="n">RamArea</span><span class="p">};</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">tx</span><span class="p">::</span><span class="n">Reliable</span><span class="p">;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1">// cortex-m-rt leaves `.uninit.*` alone at boot</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="cp">#[unsafe(link_section = </span><span class="s">&quot;.uninit.ww_logs&quot;</span><span class="cp">)]</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">static</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">LOG_AREA</span><span class="p">:</span><span class="w"> </span><span class="nc">MaybeUninit</span><span class="o">&lt;</span><span class="n">RamArea</span><span class="o">&lt;</span><span class="mi">4096</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MaybeUninit</span><span class="p">::</span><span class="n">uninit</span><span class="p">();</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1">// once, at boot</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="kd">let</span><span class="w"> </span><span class="n">area</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">RamArea</span><span class="p">::</span><span class="n">from_uninit</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">core</span><span class="p">::</span><span class="n">ptr</span><span class="p">::</span><span class="n">addr_of_mut</span><span class="o">!</span><span class="p">(</span><span class="n">LOG_AREA</span><span class="p">))</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="kd">let</span><span class="w"> </span><span class="n">store</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PersistentRamRing</span><span class="p">::</span><span class="n">attach</span><span class="p">(</span><span class="n">area</span><span class="p">).</span><span class="n">with_policy</span><span class="p">(</span><span class="n">FullPolicy</span><span class="p">::</span><span class="n">DropOldest</span><span class="p">);</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1">// `store.recovery().formatted`: nothing was kept (a power-on), a new ring was started</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">logs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Reliable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">store</span><span class="p">);</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1">// the ring from before the reset: continue its session and positions</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">logs</span><span class="p">.</span><span class="n">continue_stored_session</span><span class="p">();</span>
+</span></code></pre></div>
+<p>Where the area goes is the firmware's business, and differs per chip: it must be RAM the startup code neither zeroes
+nor copies into (<code>.bss</code>, <code>.data</code>), nor a firmware's own RAM init (a loop zeroing a whole SRAM bank at boot takes the
+area with it). With <code>cortex-m-rt</code>, a <code>.uninit.*</code> section is enough. The same area must not be used for anything
+else, and only one store may be attached to it.</p>
+<h3 id="what-it-keeps">What it keeps<a class="headerlink" href="#what-it-keeps" title="Permanent link">&para;</a></h3>
+<p>The same as a <code>LogStore</code> across a reboot: session, positions, the released position, <code>dropped_units</code>, and a new
+<strong>clock epoch</strong> per boot (<code>clock_epoch()</code>, 0 for a new ring), which the first event pushed after it carries in
+<code>HeadExt::clock_epoch</code> unless the sender set it already. <code>state().persistent</code> is true.</p>
+<h3 id="how-it-checks-the-ram">How it checks the RAM<a class="headerlink" href="#how-it-checks-the-ram" title="Permanent link">&para;</a></h3>
+<p>The area holds two 64-byte header slots and the ring. After every change (push, release, reset) the ring's header
+is written to the slot not written last, with a magic, the layout version, <code>N</code>, a sequence number and a CRC-32C; at
+boot, the good slot with the higher sequence number wins. A record goes into free room first, and old records a push
+drops to make room are forgotten by a slot written before the new record goes over them, so a reset at any byte
+leaves the state before or after the change, never a mix. Every record has its own CRC-32C, checked at boot too: if
+something wrote over the area before the reset, the ring is cut before the first bad record
+(<code>recovery().truncated_bytes</code>) and the stream continues after it.</p>
+<p>The host tests (<code>ww_stream/src/tests/persistent_ram.rs</code>) carry the area's image over a simulated reset
+(<code>RamArea::image()</code>, <code>load_image()</code>), fault a push, release and reset after every byte written, and attach to random
+garbage, flipped header bits and records written over.</p>
+<h3 id="sizing">Sizing<a class="headerlink" href="#sizing" title="Permanent link">&para;</a></h3>
+<p>Each event takes its item, its encoded head and 25 bytes (<code>PERSISTENT_RECORD_OVERHEAD</code>); the area is <code>N</code> bytes and
+128 for the slots (<code>RamArea::&lt;N&gt;::SIZE</code>). Every change also writes a 64-byte slot; a push computes two CRCs
+(over the slot and over the record).</p>
 <h2 id="sd-card-or-flash-logstore">SD card or flash: <code>LogStore</code><a class="headerlink" href="#sd-card-or-flash-logstore" title="Permanent link">&para;</a></h2>
 <p><code>LogStore</code> is a log on a block device that keeps a stream's data across reboots and power cuts: a field logger keeps
 sampling to its SD card while no host is there, reboots, and the host still gets everything when it connects.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ww_stream</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;sdmmc&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w">      </span><span class="c1"># or &quot;nor-flash&quot;</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">ww_stream</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;sdmmc&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w">      </span><span class="c1"># or &quot;nor-flash&quot;</span>
 </span></code></pre></div>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">store</span><span class="p">::</span><span class="n">log</span><span class="p">::{</span><span class="n">LogConfig</span><span class="p">,</span><span class="w"> </span><span class="n">LogStore</span><span class="p">,</span><span class="w"> </span><span class="n">SdMedium</span><span class="p">};</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">store</span><span class="p">::</span><span class="n">FullPolicy</span><span class="p">;</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">tx</span><span class="p">::</span><span class="n">Reliable</span><span class="p">;</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1">// blocks 2048.. of the card are the log&#39;s, the rest is free for a FAT partition</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="kd">let</span><span class="w"> </span><span class="n">medium</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SdMedium</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">sd_card</span><span class="p">,</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span><span class="w"> </span><span class="n">num_blocks</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">2048</span><span class="p">);</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LogConfig</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">segment_size</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="n">policy</span><span class="p">:</span><span class="w"> </span><span class="nc">FullPolicy</span><span class="p">::</span><span class="n">DropNewest</span><span class="w"> </span><span class="p">};</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1">// session 1 is used only when the card holds no log yet</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">store</span><span class="p">:</span><span class="w"> </span><span class="nc">LogStore</span><span class="o">&lt;</span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="mi">512</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LogStore</span><span class="p">::</span><span class="n">mount</span><span class="p">(</span><span class="n">medium</span><span class="p">,</span><span class="w"> </span><span class="n">config</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Reliable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">store</span><span class="p">);</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1">// a log from before the reboot: continue its session and positions</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">samples</span><span class="p">.</span><span class="n">continue_stored_session</span><span class="p">();</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">store</span><span class="p">::</span><span class="n">log</span><span class="p">::{</span><span class="n">LogConfig</span><span class="p">,</span><span class="w"> </span><span class="n">LogStore</span><span class="p">,</span><span class="w"> </span><span class="n">SdMedium</span><span class="p">};</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">store</span><span class="p">::</span><span class="n">FullPolicy</span><span class="p">;</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">tx</span><span class="p">::</span><span class="n">Reliable</span><span class="p">;</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1">// blocks 2048.. of the card are the log&#39;s, the rest is free for a FAT partition</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="kd">let</span><span class="w"> </span><span class="n">medium</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SdMedium</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">sd_card</span><span class="p">,</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span><span class="w"> </span><span class="n">num_blocks</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">2048</span><span class="p">);</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LogConfig</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">segment_size</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="n">policy</span><span class="p">:</span><span class="w"> </span><span class="nc">FullPolicy</span><span class="p">::</span><span class="n">DropNewest</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1">// session 1 is used only when the card holds no log yet</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">store</span><span class="p">:</span><span class="w"> </span><span class="nc">LogStore</span><span class="o">&lt;</span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="mi">512</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LogStore</span><span class="p">::</span><span class="n">mount</span><span class="p">(</span><span class="n">medium</span><span class="p">,</span><span class="w"> </span><span class="n">config</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Reliable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">store</span><span class="p">);</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="c1">// a log from before the reboot: continue its session and positions</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">samples</span><span class="p">.</span><span class="n">continue_stored_session</span><span class="p">();</span>
 </span></code></pre></div>
 <p>On NOR flash, wrap an <code>embedded-storage-async</code> <code>NorFlash</code> (a QSPI chip, or a partition of the MCU's own flash) in
 <code>NorMedium(flash)</code>; segments are then a multiple of the flash's erase size. Any other storage can implement
 <code>LogMedium</code>: its write and erase unit sizes, whether it needs erasing before a write, read, write and erase.</p>
-<h3 id="what-it-keeps">What it keeps<a class="headerlink" href="#what-it-keeps" title="Permanent link">&para;</a></h3>
+<h3 id="what-it-keeps_1">What it keeps<a class="headerlink" href="#what-it-keeps_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Positions and session</strong>: after a reboot <code>state()</code> gives back the session and <code>next</code>, the position the stream
   continues from, so the host sees one session across the reboot, not a new stream.</li>
@@ -3279,7 +3431,7 @@ never saw it.</p>
 <p>This holds for a power cut at any write or erase, which the tests check one by one on a simulated SD card and NOR
 flash (<code>ww_stream/src/tests/log_store.rs</code>). On an SD card it relies on a 512-byte block write either happening or
 not, as SD cards do; on NOR flash nothing is assumed about a cut write.</p>
-<h3 id="sizing">Sizing<a class="headerlink" href="#sizing" title="Permanent link">&para;</a></h3>
+<h3 id="sizing_1">Sizing<a class="headerlink" href="#sizing_1" title="Permanent link">&para;</a></h3>
 <p>The log is a ring of <strong>segments</strong> of <code>segment_size</code> bytes, after two small superblock slots at the start:</p>
 <ul>
 <li>A segment is the unit of room: it is freed once every event in it is acknowledged (or dropped), and the rest of a

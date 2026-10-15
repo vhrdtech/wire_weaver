@@ -15,6 +15,9 @@ mod tests {
         Parity, Pin, RxChunk, StopBits, UartConfig,
     };
 
+    /// One character at 115 200 Bd, in µs.
+    const CHAR_TIME_US: u32 = 87;
+
     /// Device behaviour and what it received, shared with the test.
     struct Model {
         /// What `configure` set last.
@@ -69,7 +72,6 @@ mod tests {
             .unwrap(),
             io_level_min: None,
             io_level_max: None,
-            rx_timestamps: true,
             hw_flow_control: true,
             sw_flow_control: false,
             high_z_mode: true,
@@ -98,10 +100,15 @@ mod tests {
             /// The event loop's producer: bytes the lines received, as chunks of the open streams.
             fn produce(&mut self, out: &mut impl BlockingEventOut) {
                 let received = std::mem::take(&mut self.m.lock().unwrap().received);
-                let t = ww_si::Second::microseconds(self.start.elapsed().as_micros() as u32);
+                // the mock's line runs at 115 200 Bd: 87 µs per character, back to back
+                let mut first_us = self.start.elapsed().as_micros() as u32;
                 let ser = api_impl::stream_data_ser();
                 for (line, bytes) in received {
+                    let t = ww_si::Second::microseconds(first_us);
+                    let end_us = first_us + (bytes.len() as u32 - 1) * CHAR_TIME_US;
+                    first_us = end_us + CHAR_TIME_US;
                     let chunk = RxChunk {
+                        end: ww_si::Second::microseconds(end_us),
                         flags: None,
                         bytes: MaxLen::new(RefVec::new_bytes(&bytes)).unwrap(),
                     };
@@ -443,7 +450,13 @@ mod tests {
                     ..
                 } => {
                     assert_eq!((p, units), (pos, bytes.len() as u64));
-                    assert!(t.is_some());
+                    // first byte in the head, last byte in the chunk, one character time apart per byte
+                    let us = |t: ww_si::Second| t.to_i128_in(ww_si::Prefix::Micro).unwrap();
+                    let first = us(t.expect("every chunk is timestamped"));
+                    assert_eq!(
+                        us(value.end) - first,
+                        (bytes.len() as i128 - 1) * CHAR_TIME_US as i128
+                    );
                     assert_eq!(value.bytes.into_inner().as_slice(), bytes);
                 }
                 ev => panic!("{ev:?}"),

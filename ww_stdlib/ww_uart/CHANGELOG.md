@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+- Received chunks are always timestamped and say so in the API (STD-13): `RxChunk::end: Second` is when the last
+  byte arrived, the event head's time (now always set) when the first one did, both on the device's one clock
+  (`ww_timebase::Clock`). `Capabilities::rx_timestamps` is removed. Devices set `end` and pass the first byte's time
+  to `rx_send` / `monitor_send`.
 - `UartMonitor` is gone: `UartMonitor::lines` is `Uart::monitor`, an `#[optional]` counted stream function of `Uart`
   (STD-13), so an array of ports (`ww_impl!(uart[]: Uart)`) carries monitoring without a second trait. A port
   without monitoring hardware leaves it out with `omit = ["uart.monitor"]`; drop `ww_impl!(..: UartMonitor)`, rename

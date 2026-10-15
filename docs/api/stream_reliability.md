@@ -19,8 +19,9 @@ WireWeaver has three delivery kinds for device → host streams:
 | Extra bytes per event | 0 | 1-8, plus `units`, `lost`, `t` when present | the same |
 | Device state | none | a few counters | counters and a store |
 
-Item types carry none of this: positions, loss counts and timestamps are in a small head the framework puts in front
-of every event, so a `SampleBlock` or an `RxChunk` stays pure data.
+Item types carry none of this: positions, loss counts and the time of the first unit are in a small head the framework
+puts in front of every event, so a `SampleBlock` stays pure data (an item may add a time of its own, such as when a
+UART chunk's last byte arrived).
 
 !!! note "Status"
     The protocol is built: the wire types in `ww_client_server::stream`, and the device and host state machines,

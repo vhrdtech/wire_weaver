@@ -5,8 +5,22 @@
 //! a device with several ports is one array, `ww_impl!(uart[]: ww_uart::Uart)`, monitoring included.
 //!
 //! Received bytes come in chunks ([RxChunk]): a chunk ends after a short silence on the line, when it is full, or on
-//! a line error. The receive streams are counted, in bytes: the event head carries each chunk's position, the device
-//! time of its first byte, and exactly how many bytes the device dropped before it.
+//! a line error. The receive streams are counted, in bytes: the event head carries each chunk's position and exactly
+//! how many bytes the device dropped before it.
+//!
+//! # Time
+//!
+//! Every chunk, on `rx` and on `monitor`, says when it was received, on the device's one clock (`ww_timebase::Clock`)
+//! that timestamps everything else the device captures:
+//!
+//! - when its first byte arrived (the end of that byte's stop bit): the time in the event head, always set;
+//! - when its last byte arrived: [RxChunk::end].
+//!
+//! Both are [Second]s since the device's clock started, in the prefix and number type the device picks (usually a
+//! `u32` of microseconds, which wraps every 71.6 minutes; the host unwraps it around `Clock::now()`). So a host lines up
+//! the bytes of a serial link with the device's other data (a GPIO edge, an ADC sample, an I2C transaction), tells
+//! the request and the answer of a `monitor` link apart in time, and sees the gaps between chunks: a chunk ends on a
+//! silence, so the next chunk's first byte comes after a gap of at least that silence.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -25,7 +39,8 @@ pub const MAX_IO_LEVELS: usize = 8;
 #[ww_trait]
 pub trait Uart {
     /// Received bytes, chunked as they arrive (see [RxChunk]); a chunk ends on a short silence, when it is full, or
-    /// on a line error. A counted stream, unit: byte; the head's time is when the chunk's first byte arrived.
+    /// on a line error. A counted stream, unit: byte; the head's time is when the chunk's first byte arrived (always
+    /// set), [RxChunk::end] when its last one did.
     #[counted]
     stream!(rx: RxChunk<'i>);
 
@@ -70,7 +85,7 @@ pub trait Uart {
     /// directions carry, in the order it arrived, decoded with `config`; each chunk says which line it came from.
     /// Opening starts receiving and answers the configuration actually set (the baud rate the receiver settled on,
     /// the IO level in effect), closing stops it. A counted stream, unit: byte (of both lines); the head's time is
-    /// when the chunk's first byte arrived.
+    /// when the chunk's first byte arrived (always set), [RxChunk::end] when its last one did.
     ///
     /// Optional: a port without monitoring hardware leaves it out (`omit = ["uart.monitor"]`), and a host sees that
     /// in the device's introspection.
@@ -83,9 +98,13 @@ pub trait Uart {
     fn monitor(config: MonitorConfig) -> Result<MonitorConfig, Error>;
 }
 
-/// Received bytes, see `Uart::rx` and `Uart::monitor`. When they arrived is the time in the event head.
+/// Received bytes, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the time in the event head,
+/// when the last one did is `end` (see the crate docs, "Time").
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
 pub struct RxChunk<'i> {
+    /// Device time when the chunk's last byte arrived (the end of its stop bit), on the same clock as the head's time
+    /// of its first byte; the same as the head's for a one-byte chunk.
+    pub end: Second,
     /// Line errors seen while receiving this chunk, if any.
     pub flags: Option<RxFlags>,
     /// The received bytes.
@@ -283,8 +302,6 @@ pub struct Capabilities<'i> {
     pub io_level_min: Option<Volt>,
     /// Highest IO level of an adjustable supply, if the adapter has one.
     pub io_level_max: Option<Volt>,
-    /// Whether `rx` chunks carry the device time of their first byte (the time in the event head).
-    pub rx_timestamps: bool,
     /// Whether [Mode::HardwareFlowControl] is supported.
     pub hw_flow_control: bool,
     /// Whether [Mode::SoftwareFlowControl] is supported.

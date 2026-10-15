@@ -47,7 +47,8 @@ pub trait Uart {
 * `rx` - received bytes, chunked as they arrive (see [`RxChunk`](#types) below). A chunk ends after a short
   silence on the line, when it is full, or on a line error. A counted stream, opened by calling it: its unit is a
   byte, so the event head carries each chunk's byte position, the device time of its first byte, and exactly how
-  many bytes the device dropped before it ([stream delivery](../api/stream_reliability.md)).
+  many bytes the device dropped before it ([stream delivery](../api/stream_reliability.md)); the chunk itself says
+  when its last byte arrived ([Time](#time) below).
 * `tx` - bytes to send, a [credit sink](../api/streams.md) (API-28): the host tracks the device's TX buffer
   (`Capabilities::tx_buffer`) and never sends more than it holds, so a large write (e.g. a file piped to the UART)
   can't overrun it.
@@ -68,6 +69,43 @@ pub trait Uart {
   link they aren't part of: such a device leaves it out with `omit = ["uart.monitor"]` in its `ww_codegen!`, and a
   host sees that in the device's introspection.
 
+## Time
+
+Every received chunk, on `rx` and on `monitor`, says when it arrived, on the device's one clock
+([`ww_timebase::Clock`](ww_timebase.md)) that also timestamps everything else the device captures:
+
+| What | Where | |
+|---|---|---|
+| first byte arrived (end of its stop bit) | the event head's `t` | always set |
+| last byte arrived | `RxChunk::end: Second` | in the item |
+
+Both are `ww_si::Second`s since the device's clock started, in the prefix and number type the device picks (usually
+a `u32` of microseconds, which wraps every 71.6 minutes; the host unwraps it around `Clock::now()`). With them a host:
+
+- lines up serial traffic with the device's other data: a GPIO edge, an ADC sample, an I2C transaction;
+- tells a request and its answer apart in time on a `monitor` link, and measures the turnaround between them;
+- sees the gaps on the line: a chunk ends on a silence, so the next chunk's first byte comes at least that silence
+  after the previous chunk's `end`.
+
+On the client the head's time is the `t` of `StreamEvent::Item` (`rx.recv_event()`), next to the chunk:
+
+```rust
+let mut rx = client.uart().rx().call().await?;
+loop {
+    match rx.recv_event().await? {
+        StreamEvent::Item { t: Some(first), value, .. } => {
+            println!("{} bytes from {:.6} s to {:.6} s", value.bytes.len(), first.to_f64(), value.end.to_f64());
+        }
+        StreamEvent::Gap { units, .. } => println!("{units} bytes lost"),
+        _ => {}
+    }
+}
+```
+
+A device that can't time each byte (a DMA that hands over a block when the line goes idle) times the block's end
+and takes the first byte a character time per byte earlier at the configured baud rate, as
+`examples_mcu/usb_stm32h725ig` does.
+
 ## Types
 
 * `ww_si::Baud` - a baud rate (`Baud::baud(115_200u32)`), in the number type and prefix the caller picks, like every
@@ -80,8 +118,8 @@ pub trait Uart {
 * `DataBits` - `Eight`, `Seven`, `Nine`, `Six`, `Five`.
 * `Error` - `Unsupported`, `UnsupportedMode`, `UnsupportedReferenceVoltage`, `WrongMode`, `CustomU8(u8)`,
   `CustomU32(u32)`, `InUse`, `NoIoLevel`, `Refused`, `Timeout`; each method's rustdoc lists the variants it returns.
-* `RxChunk<'i>` - `flags: Option<RxFlags>`, `bytes: MaxLen<RefVec<'i, u8>, UART_CHUNK_MAX>`; when it was received
-  is the time in the event head.
+* `RxChunk<'i>` - `end: Second` (when the last byte arrived), `flags: Option<RxFlags>`, `bytes: MaxLen<RefVec<'i,
+  u8>, UART_CHUNK_MAX>`; when the first byte arrived is the time in the event head, see [Time](#time).
 * `MonitorChunk<'i>` - `line: MonitorLine` (`A` or `B`, 1 bit), `chunk: RxChunk<'i>`.
 * `RxFlags` - `parity_error`, `framing_error`, `overrun`, `break_detected`, seen while receiving a chunk.
 * `UartConfig` - `baud_rate: Baud`, `data_bits`, `parity`, `stop_bits`, `mode`, `prevent_back_feed: bool`,
@@ -90,7 +128,7 @@ pub trait Uart {
   watches; the argument and the answer of `monitor`.
 * `Capabilities<'i>` - `min_baud_rate` / `max_baud_rate: Baud`, `io_levels: MaxLen<RefVec<'i, Volt>,
   MAX_IO_LEVELS>`, `io_level_min` / `io_level_max: Option<Volt>` (an adjustable supply),
-  `rx_timestamps` (`rx` events carry their time) / `hw_flow_control` / `sw_flow_control` / `high_z_mode` / `test_mode` /
+  `hw_flow_control` / `sw_flow_control` / `high_z_mode` / `test_mode` /
   `back_feed_detector: bool`, `rx_buffer` / `tx_buffer: u32` (device receive and transmit buffer sizes, in bytes).
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")`, so owned (`*Owned`)

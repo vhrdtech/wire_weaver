@@ -24,7 +24,7 @@ use embassy_stm32::{
     usb::Driver,
 };
 use embassy_futures::select::{Either3, select3};
-use embassy_time::Timer;
+use embassy_time::{Instant, Timer};
 use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
@@ -94,8 +94,13 @@ async fn send_received_bytes(
     server: &mut UsbServer<'static, UsbDriver>,
     state: &mut ServerState,
     index: u32,
-    bytes: &[u8],
+    frame: &[u8],
 ) {
+    // see uart_rx_task: device time of the last byte, then the bytes
+    let (end_us, bytes) = frame.split_at(4);
+    let end_us = u32::from_le_bytes([end_us[0], end_us[1], end_us[2], end_us[3]]);
+    // `read_until_idle` doesn't time each byte: the first one arrived a character time per byte before the last
+    let first_us = end_us.wrapping_sub((bytes.len() as u32).saturating_sub(1) * CHAR_TIME_US);
     let rx = &mut state.rx[index as usize];
     let mut out = server.sink();
     if !out.sink.is_up() {
@@ -104,13 +109,15 @@ async fn send_received_bytes(
         return;
     }
     let chunk = RxChunk {
+        end: ww_si::Second::microseconds(end_us),
         flags: None,
         bytes: MaxLen::new_unchecked(RefVec::new_bytes(bytes)),
     };
-    // units: bytes; no clock in this API, so no time
+    // units: bytes; the head's time is the first byte's
+    let first = ww_si::Second::microseconds(first_us);
     let r = server_impl::stream_data_ser()
         .uart(index)
-        .rx_send(rx, &chunk, bytes.len() as u64, None, &mut out)
+        .rx_send(rx, &chunk, bytes.len() as u64, Some(first), &mut out)
         .await;
     if let Err(e) = r {
         error!("send_received_bytes error: {:?}", e);
@@ -225,7 +232,6 @@ impl ServerState {
             }),
             io_level_min: None,
             io_level_max: None,
-            rx_timestamps: false,
             hw_flow_control: false,
             sw_flow_control: false,
             high_z_mode: false,
@@ -279,6 +285,9 @@ type TxProducer = FramedProducer<&'static BBQueue<Inline<TX_BUF_SIZE>, AtomicCoo
 type TxConsumer = FramedConsumer<&'static BBQueue<Inline<TX_BUF_SIZE>, AtomicCoord, MaiNotSpsc>>;
 
 const RX_BUF_SIZE: usize = 512;
+
+/// One character (start, 8 data, stop bit) at the default 115 200 Bd of `UsartConfig`, in µs.
+const CHAR_TIME_US: u32 = 10 * 1_000_000 / 115_200;
 type RxProducer = FramedProducer<&'static BBQueue<Inline<RX_BUF_SIZE>, AtomicCoord, MaiNotSpsc>>;
 type RxConsumer = FramedConsumer<&'static BBQueue<Inline<RX_BUF_SIZE>, AtomicCoord, MaiNotSpsc>>;
 
@@ -304,11 +313,15 @@ async fn uart_rx_task(
 ) {
     loop {
         let mut wg = rx_producer.wait_grant((RX_BUF_SIZE / 2) as u16).await;
-        let r = rx.read_until_idle(&mut wg).await;
+        // a frame is the device time of the last byte (4 bytes, µs, wraps every 71.6 minutes), then the bytes
+        let r = rx.read_until_idle(&mut wg[4..]).await;
         match r {
             Ok(len) => {
+                // the line went idle one character after the last byte
+                let end_us = (Instant::now().as_micros() as u32).wrapping_sub(CHAR_TIME_US);
+                wg[..4].copy_from_slice(&end_us.to_le_bytes());
                 // wakes up ww_server_task
-                wg.commit(len as u16);
+                wg.commit(4 + len as u16);
             }
             Err(e) => {
                 wg.commit(0);
@@ -397,11 +410,6 @@ async fn main(spawner: embassy_executor::Spawner) {
         tx_credit: [SinkCredit::new(TX_BUF_SIZE as u32), SinkCredit::new(TX_BUF_SIZE as u32)],
         rx: [Counted::new(), Counted::new()],
         stream_sessions: 0,
-        // uart_mode: [Mode::Asynchronous; 2],
-        // uart_stop_bits: [StopBits::Stop1; 2],
-        // uart_parity: [Parity::None; 2],
-        // uart_prevent_back_feed: [false; 2],
-        // uart_reference_voltage: [ww_si::quantity!(3300 mV u16); 2],
     };
 
     let _ulpi_rst_n = Output::new(p.PH3, Level::High, Speed::Low); // do not drop

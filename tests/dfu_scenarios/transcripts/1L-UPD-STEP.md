@@ -79,9 +79,9 @@
 → stage.write(index: 7, dst: 4, hash: a809c61b42942960, offset: 32, data: [32 B: 33 52 e3 4e ce 68 …])
         55 B  0f 03 40 07 00 00 00 04 00 a8 …
    ── power cut while the device applies step 7: no reply
-   ── host: the call fails (link lost), reconnects when the device is back
    ── bootloader: an update is under way, the app slot is not bootable: starts the updater
    ── device runs the updater
+   ── host: the call fails (link lost), reconnects when the device is back
    ── link up: dfu_updater_api (link setup not shown, same on every link)
 → node.node()
          4 B  01 00 00 02
@@ -212,9 +212,9 @@
           6a fb 66 e6 80 2e 30 63 82 13 7e fe 98 46 48 7b
           9a 2b 96 16 b0 5e 60 0c 02
    ── power cut while the device applies step 7: no reply
-   ── host: the call fails (link lost), reconnects when the device is back
    ── bootloader: an update is under way, the app slot is not bootable: starts the updater
    ── device runs the updater
+   ── host: the call fails (link lost), reconnects when the device is back
 →    5 B  04 01 00 00 02
 ←   30 B  08 1c 01 80 11 73 69 6d 2d 64 66 75 92 10 00 00
           00 01 00 00 00 05 00 00 00 00 00 f0 01 57

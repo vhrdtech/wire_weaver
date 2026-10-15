@@ -830,6 +830,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **TEST-19 Lossy test medium** · `v0.5` — an in-process medium that drops, duplicates, reorders, stalls and
   disconnects on a seeded schedule, with the stream reliability scenarios S1-S6 as end-to-end tests
   (`docs/api/stream_reliability.md`).
+- 🐛 **TEST-20 DFU transcript 1L-UPD-STEP races**: after the power cut, the host annotation "the call fails (link
+  lost)" and the bootloader's "an update is under way" are recorded in either order, so
+  `scenarios::pit_stop_shuttle_1l_upd_step` fails now and then (~2 in 10 alone, more often under the full parallel
+  `just test`). Seen before the TR-12 changes too. The recorder needs one order for events of the host and the
+  simulated device that happen at the same time. Found 15 Oct 2026.
 - 💡 **TEST-16 Host queue on a slow VM** — does it lead to fewer or no missed packets?
 
 ## Dropped and superseded

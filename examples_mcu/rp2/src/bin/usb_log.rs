@@ -95,11 +95,10 @@ impl ServerState {
         })
     }
 
-    // TODO(API-35): `LogError<'_>` as the scaffold prints it doesn't compile in a stream function
     async fn log_frames(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> RpcResult<Result<(), ww_log::LogError<'static>>> {
+    ) -> RpcResult<Result<(), ww_log::LogError<'_>>> {
         Ready(Ok(()))
     }
 

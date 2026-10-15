@@ -173,11 +173,10 @@ mod tests {
                 })
             }
 
-            // TODO(API-35): `LogError<'_>` as the scaffold prints it doesn't compile in a stream function
             async fn defmt_frames(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> RpcResult<Result<(), ww_log::LogError<'static>>> {
+            ) -> RpcResult<Result<(), ww_log::LogError<'_>>> {
                 RpcResult::Ready(Ok(()))
             }
 
@@ -187,11 +186,10 @@ mod tests {
                 &mut self.defmt_frames_stream
             }
 
-            // TODO(API-35): `LogError<'_>`
             async fn text_records(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> RpcResult<Result<(), ww_log::LogError<'static>>> {
+            ) -> RpcResult<Result<(), ww_log::LogError<'_>>> {
                 RpcResult::Ready(Ok(()))
             }
 
@@ -205,7 +203,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 value: LevelFilter,
-            ) -> SetResult<ww_log::LogError<'static>> {
+            ) -> SetResult<ww_log::LogError<'_>> {
                 self.level = value;
                 SetResult::Set
             }
@@ -213,7 +211,7 @@ mod tests {
             async fn get_text_level(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<LevelFilter, ww_log::LogError<'static>> {
+            ) -> GetResult<LevelFilter, ww_log::LogError<'_>> {
                 GetResult::Value(self.level)
             }
 

@@ -12,6 +12,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   - 💡 idea, not committed to
   - ⛔ blocked (the note says on what)
   - 🔍 probably done or obsolete, needs a check before closing
+  - 🧪 done and tested on the host, the check on hardware is still open (the note says what to check)
 - **Target** is the release an item is planned for: `v0.5` is the next release (the workspace is at 0.5.0,
   crates.io has 0.4.0). `v0.5.x` is the next compatible release after it: `v0.5.1` if nothing turns out to be
   breaking, otherwise the next minor. No tag means not scheduled. `grep '`v0.5`' FEATURES.md` gives the release
@@ -625,7 +626,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     and the persistence rule. Docs `docs/std_library/ww_{firmware_info,board_info,uid,user_info}.md`, tests
     `tests/{firmware_info,board_info,uid,user_info}`. The const items are served by `get_` handlers until constant
     items come from the introspection data; properties cannot carry `#[errors]` yet.
-- 🚧 **STD-26 `ww_log` defmt over reliable streams** · `v0.5` — `ww_log_bare_metal` renamed `ww_log`.
+- 🧪 **STD-26 `ww_log` defmt over reliable streams** · `v0.5` — `ww_log_bare_metal` renamed `ww_log`.
     `LogDefmt { const DEFMT (encoding, build id); frames() }`: a reliable stream whose unit is one `defmt` frame,
     whole frames per item (up to 512 B), so `lost` is the exact number of dropped messages and logs from before the
     host connects arrive by resuming the device's session. `LogText { records(); rw level: LevelFilter }` with
@@ -633,8 +634,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     `ww_defmt_logger` (`global_logger!`, lock-free ring with whole-frame commits, RTT tee, `pump()` into the store,
     drops reported in place), ring stress-tested on the host with concurrent producers. `tests/log_defmt` decodes
     with `defmt-decoder` end to end; `examples/defmt_log` (host) and `examples_mcu/rp2`'s `rp2_usb_log` (USB and RTT
-    at once, build id in flash). `docs/std_library/ww_log.md`. Missing: the hardware check on a Pico 2 (logs over USB
-    and RTT at once, `lost` exact under `--flood`, logs from before connecting); `ww log` in the CLI.
+    at once, build id in flash). `docs/std_library/ww_log.md`. Hardware check open (no Pico 2 probe on the mesh): `just run rp2 usb_log`, then
+    `examples/defmt_log`: logs over USB and RTT at once, `lost` exact under `--flood`, logs from before connecting.
+    `ww log` in the CLI is a later item.
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.

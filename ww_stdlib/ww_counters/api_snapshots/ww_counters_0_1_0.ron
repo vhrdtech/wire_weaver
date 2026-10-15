@@ -1,7 +1,7 @@
 // ww_counters 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
 (magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_counters", items: [
-    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Counters", docs: []),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Counters", docs: [], optional: None),
 ]), types: [
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "u32 or u64 counter value",
@@ -14,14 +14,14 @@
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Severity", signature: [
-        69,
-        42,
-        145,
-        88,
-        160,
-        189,
-        138,
-        174,
+        30,
+        248,
+        235,
+        250,
+        24,
+        192,
+        232,
+        244,
     ]),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Provides a way to select multiple counter indices.",
@@ -79,39 +79,39 @@
         "* Persistent - continue counting after reboot, or even after power cycle.",
         "This trait can then be implemented for each kind.",
     ], crate_idx: 0, trait_name: "Counters", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32)))), multiplicity: Flat, since: None, ident: "len", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "len", docs: [
             "Number of RAM counters that are reset on reboot or power-on",
-        ]),
+        ], optional: None),
         (id: 1, kind: Method(args: [
             (ident: "idx", ty: NumericAny(Base(U32))),
-        ], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "value", docs: [
+        ], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 0))), errors: None), multiplicity: Flat, since: None, ident: "value", docs: [
             "Get current value of one RAM counter or None if idx is out of range.",
-        ]),
+        ], optional: None),
         (id: 2, kind: Method(args: [
             (ident: "filter", ty: OutOfLine(type_idx: 2)),
-        ], return_ty: Some(Vec(OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "values", docs: [
+        ], return_ty: Some(Vec(OutOfLine(type_idx: 0))), errors: None), multiplicity: Flat, since: None, ident: "values", docs: [
             "Get many counters values at once.",
-        ]),
+        ], optional: None),
         (id: 3, kind: Method(args: [
             (ident: "filter", ty: OutOfLine(type_idx: 2)),
-        ], return_ty: Some(Vec(NumericAny(Base(U8))))), multiplicity: Flat, since: None, ident: "values_compressed", docs: [
+        ], return_ty: Some(Vec(NumericAny(Base(U8)))), errors: None), multiplicity: Flat, since: None, ident: "values_compressed", docs: [
             "Get many counters values in a compressed form to save bandwidth. Optional.",
-        ]),
+        ], optional: None),
         (id: 4, kind: Stream(ty: Vec(NumericAny(Base(U32))), is_up: true), multiplicity: Flat, since: None, ident: "values_changed", docs: [
             "Stream of counter values changes. Optional, since it can be expensive to support this functionality.",
             "Stream sideband channel can also optionally be used to configure how often updates are sent, etc.",
-        ]),
-        (id: 5, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "reset", docs: [
+        ], optional: None),
+        (id: 5, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "reset", docs: [
             "Set all counters to zero.",
-        ]),
-        (id: 6, kind: Method(args: [], return_ty: Some(Vec(OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "metadata", docs: [
+        ], optional: None),
+        (id: 6, kind: Method(args: [], return_ty: Some(Vec(OutOfLine(type_idx: 3))), errors: None), multiplicity: Flat, since: None, ident: "metadata", docs: [
             "Get an array, describing each counter. Can be absent to conserve space.",
-        ]),
-        (id: 7, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4))), multiplicity: Flat, since: None, ident: "kind", docs: [
+        ], optional: None),
+        (id: 7, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4)), errors: None), multiplicity: Flat, since: None, ident: "kind", docs: [
             "Counters implementation kind",
-        ]),
+        ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_log_bare_metal", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-])
+], root_omitted: None)

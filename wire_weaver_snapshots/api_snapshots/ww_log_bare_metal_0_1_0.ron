@@ -1,89 +1,171 @@
 // ww_log_bare_metal 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_log_bare_metal", items: [
-    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "LogDefmt", docs: []),
-    (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "LogText", docs: []),
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+    "Logs of bare metal firmware over WireWeaver: defmt frames decoded on the host with the firmware\'s ELF, or text",
+    "records for firmware without defmt.",
+    "",
+    "# Traits",
+    "",
+    "| Trait       | What it is for                                                        | Who implements it                     |",
+    "|-------------|-----------------------------------------------------------------------|---------------------------------------|",
+    "| `LogDefmt`  | The firmware\'s defmt log, whole frames, decoded on the host with the ELF. | Firmware logging with `defmt`      |",
+    "| `LogText`   | Text records with a level filter.                                     | Firmware without defmt (`log` crate, ESP-IDF) |",
+    "",
+    "```rust,ignore",
+    "#[ww_api_root]",
+    "trait MyDevice {",
+    "    ww_impl!(log: ww_log_bare_metal::LogDefmt);",
+    "}",
+    "```",
+    "",
+    "# Reliable streams",
+    "",
+    "Both logs are reliable streams (`docs/api/stream_reliability.md`): the device keeps what it logged in its store",
+    "until the host acknowledges it, also while no host is connected, so the logs from before the host connects",
+    "arrive when it does. When the store is full, the device\'s `FullPolicy` decides what goes (`DropOldest` keeps the",
+    "latest logs, which matter most after a fault), and the stream head\'s `lost` tells the host exactly how many log",
+    "messages it won\'t get: the unit of `LogDefmt::frames` is one defmt frame, the unit of `LogText::records` one",
+    "record. A store on SD or flash keeps the logs across reboots without any change to the API.",
+    "",
+    "A reliable stream needs an async server (`use_async = true`).",
+    "",
+    "# Timestamps",
+    "",
+    "defmt frames carry defmt\'s own `timestamp!` when the firmware defines one, decoded with the ELF; the head\'s `t`",
+    "stays off. Text records have their device time in the head\'s `t`.",
+    "",
+    "# The device side of `LogDefmt`",
+    "",
+    "`ww_defmt_logger` is a `#[defmt::global_logger]` that fills a lock-free ring, tees every frame to an RTT up",
+    "channel (`probe-rs` and `cnt run` keep showing the logs) and moves whole frames from the ring into the stream\'s",
+    "store from the event loop, counting frames that didn\'t fit as lost.",
+    "",
+    "# Errors",
+    "",
+    "Both traits return [LogError].",
+], crate_idx: 0, trait_name: "ww_log_bare_metal", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "LogDefmt", docs: [], optional: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LogText", docs: [], optional: None),
 ]), types: [
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [], ident: "DefmtFormat", variants: [
-        (docs: [], ident: "Raw", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Rzcobs", fields: Unit, discriminant: 1, since: None),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "defmt wire encoding, as chosen by defmt\'s `encoding-raw` / `encoding-rzcobs` cargo feature.",
+    ], ident: "DefmtEncoding", variants: [
+        (docs: [
+            "Frames as defmt writes them, back to back.",
+        ], ident: "Raw", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Each frame rzCOBS-encoded and ended by a `0x00` (defmt\'s default).",
+        ], ident: "Rzcobs", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "DefmtCounters", fields: Named([
-        (ident: Some("events_logged"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
-        (ident: Some("bytes_logged"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
-        (ident: Some("bytes_sent"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "How to decode `LogDefmt::frames`, see `LogDefmt::DEFMT`.",
+    ], ident: "DefmtInfo", fields: Named([
+        (ident: Some("encoding"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "Encoding of the frames.",
+        ]),
+        (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "GNU build id of the firmware (`.note.gnu.build-id`): which ELF decodes the frames. Empty when the firmware",
+            "didn\'t keep the note; a host then falls back to the newest ELF it finds and warns.",
+        ]),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [], ident: "Severity", variants: [
+    SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
+        122,
+        139,
+        242,
+        75,
+        84,
+        91,
+        80,
+        174,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Errors of both traits in this crate. Each item says which variants it returns.",
+    ], ident: "LogError", variants: [
+        (docs: [
+            "{0}",
+        ], ident: "Common", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+        ]), discriminant: 0, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One or more whole defmt frames, back to back, in [DefmtInfo::encoding]. Never half a frame: a decoder fed one",
+        "item after the other never has to resync, also with raw encoding and after a loss.",
+    ], ident: "DefmtFrames", fields: Named([
+        (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "Severity of a [LogRecord], the five levels of `log`, `tracing` and `defmt`.",
+    ], ident: "Severity", variants: [
         (docs: [], ident: "Error", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Warn", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "Info", fields: Unit, discriminant: 2, since: None),
         (docs: [], ident: "Debug", fields: Unit, discriminant: 3, since: None),
         (docs: [], ident: "Trace", fields: Unit, discriminant: 4, since: None),
-        (docs: [], ident: "User", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: []),
-        ]), discriminant: 5, since: None),
     ])), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        37,
-        124,
-        121,
-        139,
-        82,
-        74,
-        68,
-        74,
-    ]),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Message", fields: Named([
-        (ident: Some("severity"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
-        (ident: Some("timestamp"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 3)), docs: []),
-        (ident: Some("contents"), default: None, since: None, ty: String, docs: []),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One text log message, see `LogText::records`.",
+    ], ident: "LogRecord", fields: Named([
+        (ident: Some("severity"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: []),
+        (ident: Some("target"), default: None, since: None, ty: MaxLen(max_len: 48, ty: String), docs: [
+            "Where it was logged, usually the module path (`usb_io_fw::power`). Cut to fit.",
+        ]),
+        (ident: Some("message"), default: None, since: None, ty: MaxLen(max_len: 256, ty: String), docs: [
+            "The formatted message, cut at the device\'s limit (at most [MAX_MESSAGE_LEN] bytes).",
+        ]),
+        (ident: Some("truncated"), default: None, since: None, ty: Bool, docs: [
+            "The message was cut.",
+        ]),
     ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "TextCounters", fields: Named([
-        (ident: Some("errors"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
-        (ident: Some("warnings"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
-        (ident: Some("info"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
-        (ident: Some("debug"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
-        (ident: Some("trace"), default: None, since: None, ty: NumericAny(Base(U64)), docs: []),
-    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "Which records `LogText` produces: `Info` means `Error`, `Warn` and `Info`.",
+    ], ident: "LevelFilter", variants: [
+        (docs: [
+            "Nothing is logged.",
+        ], ident: "Off", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Error", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Warn", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Info", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Debug", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "Trace", fields: Unit, discriminant: 5, since: None),
+    ])), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
-        "defmt based logging.",
-        "Timestamps, if enabled, are encoded into the data stream.",
+        "defmt logs of the firmware, decoded on the host with its ELF (the format strings are interned there).",
     ], crate_idx: 0, trait_name: "LogDefmt", items: [
-        (id: 0, kind: Stream(ty: Vec(NumericAny(Base(U8))), is_up: true), multiplicity: Flat, since: None, ident: "data", docs: [
-            "Data either in raw format or in rzcobs encoding.",
-            "When in raw - each stream event carries one log event.",
-            "When in rzcobs - stream events boundaries do not have meaning, treat as continuous stream of bytes.",
-        ]),
-        (id: 1, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "format", docs: [
-            "Which format is used by firmware.",
-            "Raw can take more space, but requires less processing and framing (which stream provides).",
-            "rzcobs - takes less space, but requires some processing.",
-        ]),
-        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 1))), multiplicity: Flat, since: None, ident: "counters", docs: [
-            "Get current counters.",
-        ]),
-        (id: 3, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "reset_counters", docs: [
-            "Reset counters to 0.",
-        ]),
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 1), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "DEFMT", docs: [
+            "Encoding of the frames (defmt\'s `encoding-*` cargo feature) and the build id of the ELF with the format",
+            "strings.",
+        ], optional: None),
+        (id: 1, kind: StreamFn(ty: OutOfLine(type_idx: 4), delivery: Reliable, args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "frames", docs: [
+            "The log: whole defmt frames, kept in the device\'s store until the host acknowledges them, also those logged",
+            "before the host connected. Unit: defmt frame, so the head\'s `lost` is the exact number of log messages the",
+            "host won\'t get.",
+            "",
+            "# Errors",
+            "",
+            "`Common(Busy)`: another host has the log open, `Common(Unsupported)`: the device logs elsewhere only.",
+        ], optional: None),
     ]), crate_idx: 0),
     InLine(level: (docs: [
-        "Text based logging with configurable levels and optional timestamps.",
+        "Text log for firmware without defmt (the `log` crate on embassy or std targets, ESP-IDF).",
     ], crate_idx: 0, trait_name: "LogText", items: [
-        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 4), is_up: true), multiplicity: Flat, since: None, ident: "message", docs: []),
-        (id: 1, kind: Method(args: [
-            (ident: "severity", ty: OutOfLine(type_idx: 2)),
-            (ident: "enabled", ty: Bool),
-        ], return_ty: None), multiplicity: Flat, since: None, ident: "enable_level", docs: []),
-        (id: 2, kind: Method(args: [], return_ty: Some(Vec(OutOfLine(type_idx: 2)))), multiplicity: Flat, since: None, ident: "enabled_levels", docs: []),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5))), multiplicity: Flat, since: None, ident: "counters", docs: [
-            "Get current counters.",
-        ]),
-        (id: 4, kind: Method(args: [], return_ty: None), multiplicity: Flat, since: None, ident: "reset_counters", docs: [
-            "Reset counters to 0.",
-        ]),
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 6), delivery: Reliable, args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "records", docs: [
+            "The log: one record per message, kept in the device\'s store until the host acknowledges it, also those",
+            "logged before the host connected. Unit: record. The head\'s `t` is the device time of the record.",
+            "",
+            "# Errors",
+            "",
+            "`Common(Busy)`: another host has the log open, `Common(Unsupported)`: the device logs elsewhere only.",
+        ], optional: None),
+        (id: 1, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "level", docs: [
+            "Records less severe than this level are not produced (filters compiled into the firmware still apply).",
+            "",
+            "# Errors",
+            "",
+            "Writing: `Common(Unsupported)`, the level is fixed at compile time.",
+        ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_log_bare_metal", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-])
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None)

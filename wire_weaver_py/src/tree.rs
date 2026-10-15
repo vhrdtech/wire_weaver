@@ -2,11 +2,13 @@
 //! properties are read and written with `read()` / `write()`, streams are iterated.
 
 use crate::convert::{prefix_err, to_py, to_value, type_name};
+use crate::observe::Observer;
 use crate::positioned::PositionedStream;
 use crate::{Conn, RemoteError, WireWeaverError, client_err, err_msg, stream_err};
 use pyo3::exceptions::{PyAttributeError, PyIndexError, PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyString, PyTuple};
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use wire_weaver_client::ww_self::errors;
@@ -263,6 +265,28 @@ impl Node {
     #[getter]
     fn path(&self) -> String {
         self.res.path().to_string()
+    }
+
+    /// This level's `+observe` properties: name -> type name, e.g. `{"speed": "u16"}`.
+    fn observable_properties(&self) -> PyResult<BTreeMap<String, String>> {
+        let bundle = self.res.bundle();
+        Ok(self
+            .res
+            .observable_properties()
+            .map_err(client_err)?
+            .into_iter()
+            .map(|(_, name, ty)| (name, type_name(&ty, bundle)))
+            .collect())
+    }
+
+    /// Observe this level's `+observe` properties (TOOL-11): iterate the result, or call `recv()`, for a dict per
+    /// update (`{"values": {name: value, ...}, "t": seconds or None, "missed": int, "bytes": int}`). `cfg` is a
+    /// dict `{property_name: rate_ms}` (`rate_ms` a number for periodic, `None` for on-change); omitted, every
+    /// observable property is requested on-change, same as `ww observe <path>` without `--rate`.
+    #[pyo3(signature = (cfg=None))]
+    fn observe(&self, py: Python<'_>, cfg: Option<&Bound<'_, PyDict>>) -> PyResult<Observer> {
+        let conn = conn(&self.res, &self.conn)?.clone();
+        Observer::new(self.res.clone(), conn, cfg, py)
     }
 }
 

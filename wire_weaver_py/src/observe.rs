@@ -1,0 +1,248 @@
+//! Observing a trait level's `+observe` properties without generated code (TOOL-11): `Node.observe(cfg)` returns
+//! an [Observer], iterate it for a dict per update.
+
+use crate::convert::to_py;
+use crate::tree::timeout;
+use crate::{Conn, WireWeaverError, client_err, stream_err};
+use pyo3::exceptions::{PyKeyError, PyTimeoutError};
+use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyString, PyTuple};
+use shrink_wrap::UNib32;
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+use wire_weaver_client::observe::ObserveMode;
+use wire_weaver_client::ww_self::TypeOwned;
+use wire_weaver_client::{DynObserved, DynObserver, DynResource, seconds};
+
+/// A level's `+observe` properties, by resource index.
+type Props = Vec<(u32, String, TypeOwned)>;
+
+/// `cfg` (a dict `{property_name: rate_ms}`, `rate_ms` is `None` for on-change instead of periodic) into a request
+/// for every property of `res`'s level named in it, or every observable property on-change when `cfg` is `None`:
+/// the same default `ww observe <path>` (no `--rate`) uses.
+fn parse_cfg(
+    res: &DynResource,
+    cfg: Option<&Bound<'_, PyDict>>,
+) -> PyResult<(Props, BTreeMap<u32, ObserveMode>)> {
+    let props = res.observable_properties().map_err(client_err)?;
+    if props.is_empty() {
+        return Err(WireWeaverError::new_err(format!(
+            "'{}' has no `+observe` properties",
+            res.path()
+        )));
+    }
+    let entries = match cfg {
+        None => props
+            .iter()
+            .map(|(index, ..)| (*index, ObserveMode::OnChange { min_us: UNib32(0) }))
+            .collect(),
+        Some(cfg) => {
+            let mut entries = BTreeMap::new();
+            for (k, v) in cfg.iter() {
+                let name = k.cast::<PyString>()?.to_str()?.to_string();
+                let index = props
+                    .iter()
+                    .find(|(_, n, _)| n == &name)
+                    .map(|(index, ..)| *index)
+                    .ok_or_else(|| {
+                        PyKeyError::new_err(format!(
+                            "'{name}' is not an observable property of '{}'",
+                            res.path()
+                        ))
+                    })?;
+                let mode = if v.is_none() {
+                    ObserveMode::OnChange { min_us: UNib32(0) }
+                } else {
+                    let ms: f64 = v.extract()?;
+                    let every_us = (ms * 1_000.0).clamp(0.0, u32::MAX as f64) as u32;
+                    ObserveMode::Periodic {
+                        every_us: UNib32(every_us),
+                    }
+                };
+                entries.insert(index, mode);
+            }
+            entries
+        }
+    };
+    Ok((props, entries))
+}
+
+/// Observer of a trait level's `+observe` properties (TOOL-11), from [crate::tree::Node::observe]. Iterate it (or
+/// call `recv()`) for a dict per update: `{"values": {name: value, ...}, "t": seconds or None, "missed": int,
+/// "bytes": int}`. Also a context manager; `close()` unsubscribes (so does garbage collection).
+#[pyclass(module = "wire_weaver", frozen)]
+pub struct Observer {
+    res: DynResource,
+    conn: Arc<Conn>,
+    props: Props,
+    observer: Mutex<Option<DynObserver>>,
+}
+
+impl Observer {
+    pub(crate) fn new(
+        res: DynResource,
+        conn: Arc<Conn>,
+        cfg: Option<&Bound<'_, PyDict>>,
+        py: Python<'_>,
+    ) -> PyResult<Self> {
+        let (props, entries) = parse_cfg(&res, cfg)?;
+        let observer = {
+            let res = &res;
+            py.detach(|| res.observe_blocking(conn.client.cmd(), entries))
+                .map_err(client_err)?
+        };
+        Ok(Observer {
+            res,
+            conn,
+            props,
+            observer: Mutex::new(Some(observer)),
+        })
+    }
+
+    fn observed_to_py(&self, py: Python<'_>, observed: DynObserved) -> PyResult<Py<PyAny>> {
+        let bundle = self.res.bundle();
+        let values = PyDict::new(py);
+        for (name, value) in &observed.values {
+            let Some((_, _, ty)) = self.props.iter().find(|(_, n, _)| n == name) else {
+                continue;
+            };
+            values.set_item(name, to_py(py, value, ty, bundle)?)?;
+        }
+        let d = PyDict::new(py);
+        d.set_item("values", values)?;
+        d.set_item("t", observed.t.as_ref().map(seconds))?;
+        d.set_item("missed", observed.missed)?;
+        d.set_item("bytes", observed.data_len)?;
+        Ok(d.into_any().unbind())
+    }
+
+    fn with_observer<T>(&self, f: impl FnOnce(&mut DynObserver) -> PyResult<T>) -> PyResult<T> {
+        let mut guard = self.observer.lock().expect("not poisoned");
+        let observer = guard.as_mut().ok_or_else(|| {
+            WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
+        })?;
+        f(observer)
+    }
+
+    /// Wait for one update, checking for Ctrl+C every 100ms, None on timeout.
+    fn next_inner(&self, py: Python<'_>, timeout: Option<f64>) -> PyResult<Option<DynObserved>> {
+        let deadline = self::timeout(timeout).map(|t| Instant::now() + t);
+        loop {
+            let slice = match deadline {
+                Some(d) => {
+                    let left = d.saturating_duration_since(Instant::now());
+                    if left.is_zero() {
+                        return Ok(None);
+                    }
+                    left.min(Duration::from_millis(100))
+                }
+                None => Duration::from_millis(100),
+            };
+            let got = self.with_observer(|observer| {
+                Ok(py.detach(|| {
+                    self.conn
+                        .runtime
+                        .block_on(async { tokio::time::timeout(slice, observer.recv()).await })
+                }))
+            })?;
+            match got {
+                Ok(observed) => return observed.map(Some).map_err(stream_err),
+                Err(_elapsed) => py.check_signals()?,
+            }
+        }
+    }
+}
+
+#[pymethods]
+impl Observer {
+    /// Wait for the next update, `timeout` in seconds (None waits forever), raises TimeoutError.
+    #[pyo3(signature = (timeout=None))]
+    fn recv(&self, py: Python<'_>, timeout: Option<f64>) -> PyResult<Py<PyAny>> {
+        match self.next_inner(py, timeout)? {
+            Some(observed) => self.observed_to_py(py, observed),
+            None => Err(PyTimeoutError::new_err(format!(
+                "no update from '{}'",
+                self.res.path()
+            ))),
+        }
+    }
+
+    /// Next update if one is already received, None otherwise.
+    fn try_recv(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        let observed = self.with_observer(|o| o.try_recv().map_err(stream_err))?;
+        observed.map(|o| self.observed_to_py(py, o)).transpose()
+    }
+
+    /// Change what this observer asks for (same shape as `observe()`'s `cfg`), its budget stays; returns the new
+    /// budget in bytes/s.
+    fn configure(&self, py: Python<'_>, cfg: Option<&Bound<'_, PyDict>>) -> PyResult<u32> {
+        let (_, entries) = parse_cfg(&self.res, cfg)?;
+        let granted = self.with_observer(|o| {
+            py.detach(|| o.configure_blocking(entries))
+                .map_err(client_err)
+        })?;
+        Ok(granted.budget)
+    }
+
+    /// Bytes per second the level's updates may take on the link, None before the device answered or after `close()`.
+    #[getter]
+    fn budget(&self) -> Option<u32> {
+        self.observer
+            .lock()
+            .expect("not poisoned")
+            .as_ref()?
+            .granted()
+            .map(|g| g.budget)
+    }
+
+    /// Updates dropped because this observer's queue on the host was full.
+    #[getter]
+    fn dropped(&self) -> u64 {
+        self.observer
+            .lock()
+            .expect("not poisoned")
+            .as_ref()
+            .map(DynObserver::dropped)
+            .unwrap_or_default()
+    }
+
+    /// Unsubscribe from the device; also done when the last reference is garbage collected.
+    fn close(&self) {
+        self.observer.lock().expect("not poisoned").take();
+    }
+
+    fn __enter__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    #[pyo3(signature = (*_args))]
+    fn __exit__(&self, _args: &Bound<'_, PyTuple>) -> bool {
+        self.close();
+        false
+    }
+
+    fn __iter__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    fn __next__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        match self.next_inner(py, None) {
+            Ok(Some(observed)) => self.observed_to_py(py, observed),
+            Ok(None) => unreachable!("no timeout"),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<observer {}: {}>",
+            self.res.path(),
+            self.props
+                .iter()
+                .map(|(_, name, _)| name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}

@@ -51,6 +51,7 @@ spaces or quotes are inserted quoted, and values after `@` or `:` complete too (
 | [`ww list`](#ww-list)              | no (not opened)| Lists connected devices matching the device selection              |
 | [`ww introspect`](#ww-introspect)  | yes            | Prints the device's resource tree from its introspection data      |
 | [`ww api`](#ww-api)                | no             | Prints the resource tree or AST of an API crate, saves, checks and diffs snapshots, from source |
+| [`ww observe`](#ww-observe)        | yes            | Observes a trait level's `+observe` properties: values, rate, link bytes/s |
 | [`ww usb-loopback`](#ww-usb-loopback) | yes, any API | Runs link loopback and throughput tests                            |
 | [`ww dfu`](#ww-dfu)                | yes, any API   | Firmware update steps through `ww_dfu` traits: `ww dfu reboot`     |
 | [`ww counters`](#ww-counters)      | yes, any API   | The device's `cnt` counters, decoded with its ELF: read, watch, TUI, reset |
@@ -222,6 +223,24 @@ lists every change, doc comments included, see [listing all changes](evolution/c
 Current limitations, same as for codegen: traits are only found in `src/lib.rs`, a dependency reached through another
 crate's re-export is only resolved for the ones `wire_weaver` re-exports (`ww_version`, `shrink_wrap`), crates with a
 workspace-inherited version can't be loaded, and self-referential types (like the ones in `ww_self`) are not supported.
+
+### `ww observe`
+
+Observes a trait level's `+observe` properties ([Observing changes](api/properties.md#observing-changes)) from
+introspection alone, no generated code needed (TOOL-11, the same dynamic client [Python](python.md#observing) uses):
+
+```
+$ ww observe motor --rate 10
+observing motor (3 properties): speed, current, position
+budget: 20.0 kB/s
+Ctrl+C to stop
+{speed: 1500, current: 3, position: 1024}  rate 98.2/s  link 982/s
+```
+
+`<path>` is dotted/indexed (`motor`, `bank[0]`), empty for the API root. Without `--rate` every observable property
+is asked for on-change; with it, all of them periodically at that rate (milliseconds). Prints each update's present
+values, the measured update rate and the link bytes/s it costs, until Ctrl+C. See
+[Observing](api/properties.md#observing) for the host-side model this reuses.
 
 ### `ww usb-loopback`
 

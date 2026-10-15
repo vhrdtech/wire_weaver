@@ -2,6 +2,12 @@
 
 ### 🚀 Features
 
+- `Node.observe(cfg)` (TOOL-11): observes a trait level's `+observe` properties without generated code, from
+  introspection alone. Iterate the result (or call `recv()` / `try_recv()`) for a dict per update (`{"values": {name:
+  value, ...}, "t": seconds or None, "missed": int, "bytes": int}`); `cfg` is a dict `{property_name: rate_ms}`
+  (`rate_ms` a number for periodic, `None` for on-change), or `None` to observe every observable property on-change.
+  `budget`, `dropped`, `configure(cfg)`. `Node.observable_properties()` lists a level's `+observe` properties by
+  name and type. See `docs/python.md#observing`.
 - Reading a `const` item asks the device once per connection, later reads return that value (API-36).
 - Counted and reliable streams (CLT-23): a `PositionedStream` object with `open(*args, cursor=None, ack="receive")`
   (the stream function's arguments, its result returned and an `Err` raised as `ww.RemoteError`; resume from a saved `(session, pos)` cursor, `ack="explicit"` for `ack(pos)` after saving), `recv_event()`

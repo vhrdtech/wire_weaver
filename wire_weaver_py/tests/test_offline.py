@@ -216,3 +216,14 @@ def test_error_lists():
     )
     assert api.all_common.doc.endswith("Errors:\n    Common: any CommonError")
     assert "Errors:" not in api.fallible_absent.doc
+
+
+def test_observable_properties():
+    # TOOL-11: introspection alone (no device), `plain` is left out (no `+observe`)
+    api = ww.load_api(str(API_CRATE.parent / "observe_api"), "Observe")
+    assert api.observable_properties() == {"temp": "f32", "mode": "u8", "label": "String"}
+    assert api.motor.observable_properties() == {
+        "speed": "u32",
+        "current": "u32",
+        "position": "u32",
+    }

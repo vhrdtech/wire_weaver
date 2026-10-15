@@ -15,6 +15,7 @@
 //! See `convert` for how values map to Python objects.
 
 mod convert;
+mod observe;
 mod positioned;
 mod tree;
 
@@ -304,6 +305,7 @@ fn wire_weaver_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Stream>()?;
     m.add_class::<positioned::PositionedStream>()?;
     m.add_class::<Sink>()?;
+    m.add_class::<observe::Observer>()?;
     m.add("WireWeaverError", m.py().get_type::<WireWeaverError>())?;
     m.add("RemoteError", m.py().get_type::<RemoteError>())?;
     Ok(())

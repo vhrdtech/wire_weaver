@@ -137,6 +137,25 @@ s.stats                                # received, lost by cause, duplicates, qu
 `recv()` and iterating return values only, gaps are counted in `stats`. A resumed reliable stream delivers the
 latest values at once (`run` `"live"`) and the backlog beside them (`run` `"backfill"`), each in order.
 
+### Observing
+
+A trait level's `+observe` properties ([Observing changes](api/properties.md#observing-changes)) can be watched as
+a group, from introspection alone (TOOL-11):
+
+```python
+m = dev.motor
+m.observable_properties()                          # {"speed": "u32", "current": "u32", "position": "u32"}
+with m.observe({"speed": 10, "current": None}) as obs:  # speed periodically every 10ms, current on change
+    for u in obs:
+        print(u["values"], u["t"], u["missed"])     # {"speed": 1500, "current": 3}, seconds or None, due sends that missed budget
+obs.budget                                          # bytes/s the device applies to the whole level
+```
+
+`observe()` without `cfg` asks for every observable property on-change (what `ww observe <path>` does without
+`--rate`). `recv(timeout=...)` / `try_recv()` are also available. One device subscription is shared per level
+([One subscription per level](api/properties.md#observing)); dropping the last observer (garbage collection)
+unsubscribes.
+
 Every resource also has `doc` (its doc comment), `path` (e.g. `channel[2].gain`) and, except traits, `signature`.
 Use `dev["name"]` for a resource named like one of the `Device` attributes (`api`, `info`, `disconnect`).
 
@@ -200,6 +219,6 @@ resource of an offline API raises `WireWeaverError`.
 ## Not supported yet
 
 - `f16`, `UN`/`IN` and LEB128 numbers.
-- Typed (non-integer) array indices, property write errors (not decoded, same as generated clients), property
-  observation.
+- Typed (non-integer) array indices, property write errors (not decoded, same as generated clients).
+- Observing a level inside a resource array ([Limits](api/properties.md#observing)).
 - asyncio: calls block the calling thread (with the GIL released).

@@ -295,6 +295,23 @@ mode.configure(MotorObserve::default().mode(periodic(100 * ms))).await?;
 - **Limits**: levels inside a resource array have no `observe()` yet, like on the device. Absolute paths only: a
   trait client (`client = "trait_client"`) observes once it has a base path (`attachment()`).
 
+#### Without generated code
+
+The dynamic client, `ww` and Python have the same, decoding a level's `PropertyUpdate` from introspection alone
+instead of a generated `<Trait>Update`/`<Trait>Observe` (TOOL-11): a level's resource indices and types come from
+`ApiBundleOwned`, reusing the `Level<U>`/`Observer<U, T>` machinery above unchanged — one device subscription per
+level, `t` unwrapped, reconnect/resume included.
+
+- **`DynResource`**: `observable_properties()` lists a level's `+observe` properties (`(resource index, name,
+  type)`, what `entries` below addresses); `observe(cmd, entries)` / `observe_blocking(..)` (`entries`:
+  `BTreeMap<u32, ObserveMode>`) build a `wire_weaver_client::DynObserver`, decoding each update's sparse
+  `OptionAnyVec` (DER-13) by resource index instead of a generated struct's fields.
+- **`DynObserved`**: `values` (`Vec<(String, ValueOwned)>`, present properties by name, in resource-index order),
+  `t`, `missed`, `received`, and `data_len` (the update's raw byte length, e.g. for measuring link bytes/s).
+- **CLI**: [`ww observe <path> [--rate MS]`](../cli.md#ww-observe) prints each update's values, the measured update
+  rate and the link bytes/s it costs, until Ctrl+C.
+- **Python**: [`node.observe(cfg)`](../python.md#observing) iterates the same updates as dicts.
+
 ## Const items
 
 A `const` item of a trait is a value that doesn't change while the firmware runs: a firmware name and version, a

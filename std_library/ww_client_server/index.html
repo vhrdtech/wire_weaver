@@ -2374,6 +2374,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#observing-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Observing properties
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#credit-based-flow-control-for-sinks-credit-module" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3111,6 +3122,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#observing-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Observing properties
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#credit-based-flow-control-for-sinks-credit-module" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3301,7 +3323,8 @@ though some types (<code>StreamCursor</code>, <code>SinkCredit</code>, the <code
 <li><code>RequestKind&lt;'i&gt;</code> - the operation: <code>Call { args }</code> / <code>MultiCall</code> (same method over an array or several methods
   at once), <code>Read</code> / <code>MultiRead</code>, <code>Write { data }</code> / <code>MultiWrite</code>, <code>StreamSideband { sideband }</code>, <code>Introspect</code>
   (send the <code>ww_self::ApiBundle</code> of the addressed resource), <code>StreamOpen { resume, args }</code> (open a
-  <a href="../../api/stream_reliability/">counted or reliable stream</a>, optionally resuming a <code>StreamCursor</code>). Arguments and
+  <a href="../../api/stream_reliability/">counted or reliable stream</a>, optionally resuming a <code>StreamCursor</code>),
+  <code>Observe { cfg }</code> (how a trait level's properties are sent, see <a href="#observing-properties">below</a>). Arguments and
   written values travel as <code>TailBytes&lt;'i&gt;</code> - already shrink_wrap-serialized by the generated code on either end,
   opaque to this crate.</li>
 <li><code>MultiIndex&lt;'i&gt;</code> / <code>MultiArgs&lt;'i&gt;</code> - which resources a multi-request covers (<code>Range</code>, <code>List</code>, or <code>Mask32</code>) and
@@ -3311,7 +3334,8 @@ though some types (<code>StreamCursor</code>, <code>SinkCredit</code>, the <code
   Result&lt;EventKind&lt;'i&gt;, Error&lt;'i&gt;&gt;</code>.</li>
 <li><code>EventKind&lt;'i&gt;</code> - <code>Value { data }</code> (a call's or read's return value), <code>Written</code>, <code>StreamData { path, data }</code>
   (plain stream/property update), <code>StreamSideband { path, sideband }</code>, <code>StreamItem { path, head: StreamHead, data
-  }</code> (one event of a counted/reliable stream, see <a href="#counted-and-reliable-streams">below</a>).</li>
+  }</code> (one event of a counted/reliable stream, see <a href="#counted-and-reliable-streams">below</a>), <code>PropertyUpdate { path,
+  t, missed, data }</code> (observed properties of one trait level, see <a href="#observing-properties">below</a>).</li>
 <li><code>Error&lt;'i&gt;</code> / <code>ErrorKind&lt;'i&gt;</code> - <code>err_seq</code> (a per-call-site id for mapping an error back to the generated code
   that raised it) plus a kind: path/argument/property deserialization failures, <code>Unimplemented</code> (an
   <a href="../../api/optional_items/">optional item</a> the device leaves out), <code>TraitNotFound</code> (a global path to a trait the
@@ -3342,6 +3366,28 @@ the value up front and calling <code>.to_ww_bytes()</code>.</p>
   has, <code>live_from</code> (where the live run starts), <code>resume_from</code> (where backfill starts, <code>None</code> without one), and
   <code>result</code> (the stream function's own serialized return value).</li>
 </ul>
+<h2 id="observing-properties">Observing properties<a class="headerlink" href="#observing-properties" title="Permanent link">&para;</a></h2>
+<p>The <code>observe</code> module (API-38) is the protocol for sending a trait level's properties at the rates a host asks for,
+any subset of them in one event. A level is one trait (the root API or a <code>ww_impl!</code> trait), addressed by its path;
+its properties are named by their resource index within the level, as in the introspection data. Only properties
+declared with <code>+observe</code> can be observed.</p>
+<ul>
+<li><code>ObserveRequest&lt;'i&gt;</code> - body of <code>RequestKind::Observe</code>: <code>entries</code> (an <code>ObserveEntry { index, mode }</code> per
+  property), <code>patch</code> (<code>true</code>: properties not listed keep their setting; <code>false</code>: they are <code>Off</code>) and <code>budget</code>
+  (bytes per second the level's updates may take on the link, <code>None</code> leaves it to the device).</li>
+<li><code>ObserveMode</code> - <code>Off</code>, <code>OnChange { min_us }</code> (on a change, at most every <code>min_us</code>), <code>Periodic { every_us }</code>,
+  <code>OnChangeOrBeat { min_us, max_us }</code> (on a change, and at least every <code>max_us</code>). Periods are in microseconds.
+  Evolvable: a mode from a newer host reads as <code>Unknown(_)</code> and is refused.</li>
+<li><code>ObserveGranted&lt;'i&gt;</code> - the answer, in an <code>EventKind::Value</code>: every property observed now with its mode as
+  clamped by the device, the <code>refused</code> entries with an <code>ObserveRefusal</code> (<code>NoSuchIndex</code>, <code>NotObservable</code>,
+  <code>ModeNotSupported</code>, <code>Duplicate</code>), and the granted <code>budget</code>.</li>
+<li><code>EventKind::PropertyUpdate { path, t, missed, data }</code> - one level's update: device time <code>t</code>, <code>missed</code> (sends
+  that were due but didn't fit the budget since the previous update) and <code>data</code>, one slot per resource index with
+  the properties sent this time present. <code>ser_property_update_event</code> writes it with the data in place. Without
+  <code>t</code> and <code>missed</code>, the event costs 4 bytes plus its data for a level one deep.</li>
+</ul>
+<p>Old hosts never send <code>Observe</code>, so they never receive a <code>PropertyUpdate</code>. A device without observe support answers
+<code>Observe</code> with <code>OperationNotSupported</code>.</p>
 <h2 id="credit-based-flow-control-for-sinks-credit-module">Credit-based flow control for sinks (<code>credit</code> module)<a class="headerlink" href="#credit-based-flow-control-for-sinks-credit-module" title="Permanent link">&para;</a></h2>
 <p><code>SinkCredit</code> is the sans-IO device-side state machine behind a <code>#[credit] sink!(..)</code> (<a href="../../api/streams/#credit-based-flow-control-for-sinks">credit sinks</a>):
 generated code feeds it every write's byte position and length via <code>on_write</code> (returning a <code>CreditVerdict</code>:

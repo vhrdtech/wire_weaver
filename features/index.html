@@ -3691,6 +3691,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>API-37 Const values in the introspection blob</strong> — a codegen option putting the values of <code>const</code> items into
   the device's introspection data, so <code>ww info</code> gets them with the link setup and no extra reads. Costs flash per
   device, so not a default.</li>
+<li>🚧 <strong>API-38 Observe requests</strong> · <code>v0.5.x</code> — <code>RequestKind::Observe</code> on a trait level: per property <code>Off</code>, <code>OnChange</code>,
+  <code>Periodic</code> or <code>OnChangeOrBeat</code> and a byte budget, the device answers with what it granted; updates arrive as one
+  <code>EventKind::PropertyUpdate</code> per level carrying any subset of its properties (SW-55). Only <code>+observe</code> properties
+  can be observed. The protocol is there (<code>ww_client_server::observe</code>,
+  <code>docs/std_library/ww_client_server.md</code>); the device side is SRV-18, the host side
+  CLT-28.</li>
+<li>💡 <strong>API-39 Batched property samples</strong> — K samples of one fast property in one update, compressed with <code>Delta</code> /
+  <code>XorFloat</code> (SW-50), for values sampled faster than the link can carry one update each.</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
 <li>🚧 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: <code>MAX_SIZE</code> of types (SW-19) and per-method <code>&lt;METHOD&gt;_REQUEST_MAX_LEN</code> /

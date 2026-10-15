@@ -1073,4 +1073,90 @@ mod tests {
             .unwrap();
         assert!(level.granted().unwrap().refused.is_empty());
     }
+
+    // Dynamic client (TOOL-11): the same `PropertyUpdate`s, decoded from introspection alone.
+
+    use std::collections::BTreeMap as Map;
+    use wire_weaver_client::DynResource;
+    use wire_weaver_client::ww_numeric::NumericValue;
+    use wire_weaver_client::ww_self::ValueOwned;
+
+    fn dyn_root(b: &Bench) -> DynResource {
+        let bundle = b
+            .client
+            .cmd
+            .device_introspect()
+            .expect("introspection enabled")
+            .api_bundle
+            .clone();
+        DynResource::root(bundle)
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dynamic_client_observable_properties() {
+        let b = Bench::start("observe/dynamic_observable_properties", limits()).await;
+        let root = dyn_root(&b);
+        let motor = root.child("motor").unwrap();
+        let props: Vec<(u32, String)> = motor
+            .observable_properties()
+            .unwrap()
+            .into_iter()
+            .map(|(index, name, _ty)| (index, name))
+            .collect();
+        assert_eq!(
+            props,
+            [
+                (SPEED, "speed".to_string()),
+                (CURRENT, "current".to_string()),
+                (POSITION, "position".to_string()),
+            ]
+        );
+        // not a trait level
+        assert!(
+            root.child("plain")
+                .unwrap()
+                .observable_properties()
+                .is_err()
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dynamic_client_observes_a_level() {
+        let b = Bench::start("observe/dynamic_observes_a_level", limits()).await;
+        let motor = dyn_root(&b).child("motor").unwrap();
+        let entries = Map::from([
+            (
+                SPEED,
+                ObserveMode::Periodic {
+                    every_us: UNib32(10_000),
+                },
+            ),
+            (
+                POSITION,
+                ObserveMode::Periodic {
+                    every_us: UNib32(20_000),
+                },
+            ),
+        ]);
+        let mut observer = motor.observe(&b.client.cmd, entries).await.unwrap();
+        b.run(1_000, 40_000, 1_000).await;
+        let mut speeds = 0;
+        let mut positions = 0;
+        while let Some(u) = observer.try_recv().unwrap() {
+            let values: Map<String, ValueOwned> = u.value.into_iter().collect();
+            assert!(!values.contains_key("current"), "not observed");
+            if let Some(ValueOwned::Numeric(NumericValue::U32(speed))) = values.get("speed") {
+                let t = match u.t.map(|t| t.value) {
+                    Some(NumericValue::U64(t)) => t,
+                    t => panic!("timestamp {t:?}"),
+                };
+                assert_eq!(*speed as u64, t / 1_000);
+                speeds += 1;
+            }
+            positions += values.contains_key("position") as u32;
+            assert_eq!(u.missed, 0);
+        }
+        assert!((4..=5).contains(&speeds), "{speeds}");
+        assert!((2..=3).contains(&positions), "{positions}");
+    }
 }

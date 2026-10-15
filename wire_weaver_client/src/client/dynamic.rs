@@ -17,13 +17,16 @@
 //! # }
 //! ```
 
+use crate::client::dyn_observe::{DynConfig, DynObserver, DynUpdate, LevelSchema};
 use crate::client::dyn_positioned::{DynPositionedStream, DynStreamOpen};
 use crate::client::prepared_stream_open::RawOpenResult;
 use crate::error_list;
+use crate::observe::ObserveMode;
 use crate::{
     AckMode, Commander, CreditConfig, Error, PositionedStream, PreparedRead, PreparedStreamOpen,
     Sink, Stream, StreamCursor, StreamError,
 };
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 use wire_weaver::ValidIndicesOwned;
@@ -496,6 +499,64 @@ impl DynResource {
         }
         cmd.prepare_read::<ValidIndicesOwned>(self.path_kind()?)
             .blocking_read()
+    }
+
+    /// This level's `+observe` properties, by resource index (TOOL-11): what [Self::observe]'s `entries` addresses
+    /// and what a [DynObserver] decodes a `PropertyUpdate` against.
+    pub fn observable_properties(&self) -> Result<Vec<(u32, String, TypeOwned)>, Error> {
+        Ok(self.observe_schema()?.props().to_vec())
+    }
+
+    fn observe_schema(&self) -> Result<LevelSchema, Error> {
+        let level = self.level()?;
+        let props = level
+            .items
+            .iter()
+            .filter(|item| matches!(item.multiplicity, Multiplicity::Flat))
+            .filter_map(|item| match &item.kind {
+                ApiItemKindOwned::Property {
+                    ty,
+                    access:
+                        PropertyAccess::ReadOnly { observe: true }
+                        | PropertyAccess::ReadWrite { observe: true },
+                    ..
+                } => Some((item.id.0, item.ident.clone(), ty.clone())),
+                _ => None,
+            })
+            .collect();
+        Ok(LevelSchema::new(self.bundle.clone(), props))
+    }
+
+    /// Observe this trait level's `+observe` properties without generated code (TOOL-11): one device subscription
+    /// for the whole level, decoded from introspection alone. `entries` is the mode to request per resource index
+    /// (see [Self::observable_properties]); an index that isn't `+observe` is refused by the device.
+    pub async fn observe(
+        &self,
+        cmd: &Commander,
+        entries: BTreeMap<u32, ObserveMode>,
+    ) -> Result<DynObserver, Error> {
+        let schema = self.observe_schema()?;
+        let prepared = cmd.prepare_observe::<DynUpdate, DynUpdate>(
+            self.path_kind()?,
+            DynConfig(entries),
+            Some,
+        );
+        Ok(DynObserver::new(prepared.subscribe().await?, schema))
+    }
+
+    /// Blocking variant of [Self::observe].
+    pub fn observe_blocking(
+        &self,
+        cmd: &Commander,
+        entries: BTreeMap<u32, ObserveMode>,
+    ) -> Result<DynObserver, Error> {
+        let schema = self.observe_schema()?;
+        let prepared = cmd.prepare_observe::<DynUpdate, DynUpdate>(
+            self.path_kind()?,
+            DynConfig(entries),
+            Some,
+        );
+        Ok(DynObserver::new(prepared.subscribe_blocking()?, schema))
     }
 
     /// Open a plain stream from a device (a `stream!` without arguments): the device starts it.

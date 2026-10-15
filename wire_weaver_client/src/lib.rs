@@ -18,6 +18,7 @@ mod tracing;
 pub use client::attachment::Attachment;
 pub use client::credit::CreditConfig;
 pub use client::dyn_client::DynClient;
+pub use client::dyn_observe::{DynConfig, DynObserved, DynObserver};
 pub use client::dyn_positioned::{DynPositionedStream, DynStreamOpen, seconds};
 pub use client::dynamic::{
     DynMultiArgs, DynMultiValue, DynResource, DynResourceKind, DynSink, DynStream,

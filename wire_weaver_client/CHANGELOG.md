@@ -48,6 +48,14 @@
   them. A device whose API model is `ww_client_server` before 0.2 gives `Error::Unsupported`. Helpers `on_change`,
   `periodic`, `on_change_or_beat` from a `Duration`; traits `LevelUpdate` / `LevelConfig` implemented by generated
   code.
+- `DynResource::observe()` / `observe_blocking()` (TOOL-11): observes a trait level's `+observe` properties
+  without generated code, by resource index (`observable_properties()` lists them with their type), reusing the
+  CLT-28 event-loop routing and subscription sharing through a schema-less `DynUpdate`/`DynConfig` pair instead of
+  a generated `<Trait>Update`/`<Trait>Observe`. `DynObserver` (`recv()`, `recv_blocking()`, `try_recv()`,
+  `granted()`, `configure()` / `configure_blocking()`, `dropped()`) decodes each `PropertyUpdate` into its present
+  properties, by name, from the level's introspection alone (`ww_self::ValueOwned::des_shrink_wrap_field_dyn`
+  through the new `OptionAnyVecIter::read_slot_with`), the same bytes a generated client's sparse `<Trait>Update`
+  would decode.
 - `internal::TraceEvent` is exported, what a tracer registered with `Command::RegisterTracer` receives.
 - Generalized multi-request client API (CLT-15): `MultiRead`/`MultiCall`/`MultiWrite` (`client::multi`) are now
   implemented for tuples of 2 to 8 `PreparedRead`/`PreparedCall`/`PreparedWrite` at any depth (previously

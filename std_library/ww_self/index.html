@@ -2287,6 +2287,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_self
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -2302,6 +2319,92 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-api-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The API model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-type-and-value-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The type and value model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dynamic-access-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dynamic access helpers
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#signatures-and-putting-skipped-definitions-back" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Signatures, and putting skipped definitions back
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visiting-the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Visiting the model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-relates-to-the-rest" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How it relates to the rest
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2920,6 +3023,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2931,6 +3039,80 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-api-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The API model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-type-and-value-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The type and value model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dynamic-access-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dynamic access helpers
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#signatures-and-putting-skipped-definitions-back" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Signatures, and putting skipped definitions back
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visiting-the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Visiting the model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-relates-to-the-rest" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How it relates to the rest
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -3062,6 +3244,110 @@
 
 
 <h1 id="ww_self">ww_self<a class="headerlink" href="#ww_self" title="Permanent link">&para;</a></h1>
+<p><code>ww_self</code> is WireWeaver's own AST: a self-describing model of an API (its traits, methods, properties, streams)
+and of the data types it uses, serializable with <code>shrink_wrap</code> like any other wire type. The codegen builds one
+from a <code>#[ww_trait]</code>/<code>#[ww_api_root]</code> definition at compile time, a device can send its own as introspection data,
+and tools (the dynamic client, the <code>ww</code> CLI, the Python bindings) walk it to call methods, decode values and show
+an API without any generated code for it. It lives in the <code>wire_weaver</code> repo root, not <code>ww_stdlib/</code>, but is
+versioned and published the same way; add it with:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_self</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.2&quot;</span>
+</span></code></pre></div>
+<h2 id="the-api-model">The API model<a class="headerlink" href="#the-api-model" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>ApiBundle&lt;'i&gt;</code> - one API as serialized/introspected: <code>magic</code> (<code>ww_self::MAGIC</code>), <code>ww_self_version</code>
+  (the <code>ww_self</code> version the bundle was built with, so a reader knows which format it's in), <code>root: ApiLevel&lt;'i&gt;</code>
+  (the entry point), a deduplicated <code>types: RefVec&lt;TypeLocation&lt;'i&gt;&gt;</code> and <code>traits: RefVec&lt;ApiLevelLocation&lt;'i&gt;&gt;</code>
+  (referred to by index from elsewhere in the model), <code>ext_crates: RefVec&lt;FullVersion&lt;'i&gt;&gt;</code> (every external crate a
+  type or trait in the bundle comes from), and <code>root_omitted</code> (ids of the root's
+  <a href="../../api/optional_items/">optional items</a> this device leaves out).</li>
+<li><code>ApiLevel&lt;'i&gt;</code> - one trait's worth of API: <code>docs</code>, <code>crate_idx</code> (into <code>ext_crates</code>), <code>trait_name</code>, and
+  <code>items: RefVec&lt;ApiItem&lt;'i&gt;&gt;</code>.</li>
+<li><code>ApiItem&lt;'i&gt;</code> - one item of a level: <code>id</code>, <code>kind: ApiItemKind&lt;'i&gt;</code>, <code>multiplicity</code> (<code>Flat</code> or <code>Array {
+  index_type_idx }</code> for a <code>ww_impl!(x[]: ..)</code> array), <code>since</code> (the version it was added in), <code>ident</code>, <code>docs</code>, and
+  <code>optional</code> (<code>#[optional]</code>/<code>#[optional(group)]</code>, see <a href="../../api/optional_items/">optional items</a>).</li>
+<li><code>ApiItemKind&lt;'i&gt;</code> - what kind of item: <code>Method { args, return_ty, errors }</code>, <code>Property { ty, access, write_err_ty
+  }</code>, <code>Stream { ty, is_up }</code>, <code>Trait { trait_idx, omitted }</code> (a nested level), <code>FlowSink { ty, flow }</code> (a credit
+  sink), or <code>StreamFn { ty, delivery, args, return_ty }</code> (a stream opened by calling it, with its own arguments and
+  <code>Delivery</code>: <code>Plain</code>, <code>Counted</code> or <code>Reliable</code>).</li>
+<li><code>TypeLocation&lt;'i&gt;</code> / <code>ApiLevelLocation&lt;'i&gt;</code> - either <code>InLine</code> (the actual <code>Type</code>/<code>ApiLevel</code>, plus which
+  <code>ext_crates</code> entry it's from) or <code>Skipped{FullVersion,CompactVersion}</code> (name/id and version only, plus a
+  <a href="#signatures-and-putting-skipped-definitions-back"><code>signature</code></a> hash) - how a device leaves out a definition the
+  host is expected to already know (from a published crate), to save flash, while still letting the host check it's
+  the exact same definition.</li>
+</ul>
+<h2 id="the-type-and-value-model">The type and value model<a class="headerlink" href="#the-type-and-value-model" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>Type&lt;'i&gt;</code> - every shape a value on the wire can have: <code>Bool</code>, <code>NumericAny</code> (any <code>ww_numeric</code> number type),
+  <code>String</code>, <code>Vec</code>, <code>Array { len, ty }</code>, <code>Tuple</code>, <code>Struct(ItemStruct)</code>, <code>Enum(ItemEnum)</code>, <code>Option { some_ty }</code>,
+  <code>Result { ok_ty, err_ty }</code>, <code>Box</code> (self-referential types), <code>Range</code>/<code>RangeInclusive</code>, <code>MaxLen { max_len, ty }</code>,
+  <code>Delta</code>/<code>DeltaOfDelta</code>/<code>XorFloat</code> (the compressed number sequences of <code>shrink_wrap</code>, SW-31/SW-32), <code>OutOfLine {
+  type_idx }</code> (a reference into <code>ApiBundle::types</code>, how recursive and shared types stay out of the inline tree),
+  and <code>Flag</code> (a relocated <code>Option</code>/<code>Result</code> presence bit, <a href="../../serdes/showcase/#relocating-presence-flags-with-flag"><code>#[flag]</code></a> -
+  marks a named field, never appears in a value).</li>
+<li><code>Value&lt;'i&gt;</code> - a value matching some <code>Type</code>: <code>Bool</code>, <code>Numeric(NumericValue)</code>, <code>String</code>, <code>Vec</code>/<code>Array</code>/<code>Tuple</code> (of
+  <code>Value</code>s), <code>Struct { fields: FieldsValue }</code>, <code>Enum { variant, fields }</code>, <code>Option</code>, <code>Result</code>, <code>Range</code>/
+  <code>RangeInclusive</code> (of <code>NumericValue</code>). This is what a dynamic client builds from wire bytes plus a <code>Type</code>, without
+  generated Rust types for the API at hand.</li>
+<li><code>ItemStruct&lt;'i&gt;</code> / <code>ItemEnum&lt;'i&gt;</code> - a struct's/enum's own <code>size: ElementSize</code> (the same
+  <a href="../../serdes/derive/#size-assumptions-final_structure-self_describing-sized">size assumption</a> <code>#[derive_shrink_wrap]</code>
+  picks), <code>crate_idx</code>, <code>docs</code>, <code>ident</code>, and <code>fields</code>/(<code>repr: Repr</code>, <code>variants: RefVec&lt;Variant&gt;</code>).</li>
+<li><code>Field&lt;'i&gt;</code> / <code>Variant&lt;'i&gt;</code> - <code>ident</code>, <code>ty</code>, <code>docs</code>, <code>since</code>; a <code>Field</code> also carries its <code>default: Option&lt;Value&gt;</code>
+  (for a <code>#[default = ..]</code> field) and relocates its own presence flags with <code>#[flag]</code> the same way <code>ww_version::Version</code>
+  does.</li>
+</ul>
+<p>Every enum in this model is <code>no_future_version</code> (SW-47): rather than tolerating an unknown future variant the usual
+shrink_wrap way, a bundle names its own <code>ww_self_version</code> and a reader is expected to walk the whole model, so a
+newer kind of item or type can't silently be skipped - that tolerance is handled one layer up instead
+(introspection version negotiation, INT-8).</p>
+<h2 id="dynamic-access-helpers">Dynamic access helpers<a class="headerlink" href="#dynamic-access-helpers" title="Permanent link">&para;</a></h2>
+<p>With the <code>std</code> feature, owned types (<code>TypeOwned</code>, <code>ValueOwned</code>, <code>ApiBundleOwned</code>, ...) get methods for walking the
+model without generated code:</p>
+<ul>
+<li><code>ApiBundleOwned::get_item(id_chain)</code> / <code>get_trait</code> / <code>get_ty</code> / <code>crate_name</code> / <code>crate_version</code> - resolve an item
+  path, a nested trait, an out-of-line type, or an <code>ext_crates</code> entry by index.</li>
+<li><code>TypeOwned::get_in_line(bundle)</code> - follows an <code>OutOfLine</code> reference to the actual <code>Type</code>.</li>
+<li><code>TypeOwned::human_name</code> / <code>human_definition</code> - a Rust-like name (<code>"Option&lt;Vec&lt;u8&gt;&gt;"</code>) or full definition, with or
+  without the owning crate's name, for display in a tool.</li>
+<li><code>TypeOwned::is_lifetime</code> / <code>is_unsized</code> / <code>is_byte_slice</code> / <code>max_len</code> - what the type needs structurally (does it
+  borrow, is its size written to the FIFO, is it <code>Vec&lt;u8&gt;</code>/<code>MaxLen&lt;Vec&lt;u8&gt;, N&gt;</code>, what bound a <code>MaxLen</code> carries).</li>
+<li><code>TypeOwned::is_common_error</code> / <code>ValueOwned::common_error</code> / <code>doc_message</code> - recognise <code>ww_error::CommonError</code>
+  (by crate and type name, any version, even when its definition was left out) inside an API's own error enum, and
+  turn an error variant's first doc line into a message with its fields filled in (<code>doc_message</code>, used for
+  <code>Display</code> on generated error types; <code>fill</code> in <code>ww_self::common</code> does the <code>{field}</code> substitution).</li>
+<li><code>ww_self::errors</code> - per-method <code>#[errors(..)]</code> lists (API-32): <code>ApiItemKindOwned::error_list</code>,
+  <code>error_list_docs</code> (one doc line per entry, <code>"any CommonError"</code> for a bare <code>Common</code>), <code>error_list_contains</code>
+  (whether a returned error value matches the list), <code>error_value_name</code>.</li>
+<li><code>ApiItemKindOwned::as_stream_fn</code> / <code>as_stream</code> - see any device-to-host stream (a plain <code>stream!</code>, a <code>#[stream]</code>
+  method, or a <code>StreamFn</code>) uniformly as a <code>StreamFnRef</code> (item type, <code>Delivery</code>, arguments, return type), or as a
+  stream/sink with its direction and flow control.</li>
+</ul>
+<h2 id="signatures-and-putting-skipped-definitions-back">Signatures, and putting skipped definitions back<a class="headerlink" href="#signatures-and-putting-skipped-definitions-back" title="Permanent link">&para;</a></h2>
+<p><code>ww_self::signature</code> computes a signature for a trait or type: a truncated SHA-256 (<code>SIGNATURE_LEN</code>, 8 bytes) of a
+<em>canonical</em> bundle holding just that definition and everything it refers to, in-line, with indices renumbered in
+the order of first use - so the signature depends only on the definition, not on where it sat in the original
+bundle or what else was alongside it. <code>trait_signature</code>/<code>type_signature</code> take a <code>Resolve</code> callback to look up
+<code>Skipped*</code> definitions (e.g. from a crate's published <a href="../../evolution/checker_tool/">snapshot</a>) along the way.</p>
+<p><code>ww_self::inline::inline_skipped</code> uses the same signatures to put <code>Skipped*</code> locations back: it resolves each one,
+checks its signature matches what was stored, and replaces it in place (appending whatever the restored
+definition itself refers to). Anything not found, or found with a different signature, comes back as a
+<code>NotInlined</code> (kind, crate/version if known, name, reason) instead of being substituted silently.</p>
+<h2 id="visiting-the-model">Visiting the model<a class="headerlink" href="#visiting-the-model" title="Permanent link">&para;</a></h2>
+<p><code>ww_self::visit::Visit</code> (read-only) and <code>ww_self::visit_mut::VisitMut</code> (mutable) are exhaustive visitor traits
+over every node kind above, generated from one <code>define_visitor!</code> macro definition: each has a default per-node
+method (<code>visit_type</code>, <code>visit_api_item_kind</code>, ...) that recurses into its children, plus leaf methods
+(<code>visit_ident</code>, <code>visit_docs</code>) that do nothing by default - override just the node kinds you care about and call
+the matching free function (<code>visit::visit_api_bundle</code>, ...) to keep recursing into the rest. <code>Canonical</code> (behind
+<code>signature</code>) and the remapping pass in <code>inline</code> are both built this way, overriding only <code>visit_type</code>/
+<code>visit_api_item_kind</code>/etc. to rewrite the handful of index fields (<code>type_idx</code>, <code>trait_idx</code>, <code>crate_idx</code>) that need
+remapping.</p>
+<h2 id="how-it-relates-to-the-rest">How it relates to the rest<a class="headerlink" href="#how-it-relates-to-the-rest" title="Permanent link">&para;</a></h2>
+<p><code>wire_weaver_core</code>'s codegen (<code>transform</code>/<code>codegen</code>) builds an <code>ApiBundle</code> from the trait source it parses and
+hands it to both the server (introspection data a device can send) and client codegen; <code>wire_weaver_client</code> uses
+it for the dynamic client, compatibility/evolution checks against a cached bundle, and the generated client's own
+layout; <code>wire_weaver_cli</code> and <code>wire_weaver_py</code> walk it to print an API tree, introspect a live device, and expose
+it to Python. <code>wire_weaver_snapshots</code> stores published crates' bundles so devices can skip their definitions and
+hosts can still resolve and verify them via the signatures above.</p>
 
 
 

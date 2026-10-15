@@ -2314,6 +2314,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_version
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -2329,6 +2346,81 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Types
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Compatibility checks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-current-crates-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reading the current crate's version
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#on-the-wire" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        On the wire
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Features
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2920,6 +3012,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2931,6 +3028,69 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Types
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Compatibility checks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-current-crates-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reading the current crate's version
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#on-the-wire" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        On the wire
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Features
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -3062,6 +3222,86 @@
 
 
 <h1 id="ww_version">ww_version<a class="headerlink" href="#ww_version" title="Permanent link">&para;</a></h1>
+<p><code>ww_version</code> is SemVer for <code>no_std</code> targets: a nibble-packed <code>Version</code>/<code>FullVersion</code> pair that compiles into every
+<code>#[ww_trait]</code>/<code>#[ww_api_root]</code> to identify an API's crate and version on the wire, plus <code>CompactVersion</code> for
+identifying it even more cheaply once it has a <a href="../../api/addressing/">global type id</a>. It is <code>no_std</code> by default
+and depends only on <code>shrink_wrap</code> and <code>ww_global</code> (for <code>GlobalTypeId</code>).</p>
+<p>Add it to a device API crate with:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.2&quot;</span>
+</span></code></pre></div>
+<h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>Version&lt;'i&gt;</code> - <code>major</code> / <code>minor</code> / <code>patch: UNib32</code>, optional <code>pre</code> / <code>build: Option&lt;&amp;'i str&gt;</code> (the <code>-alpha.1</code> and
+  <code>+zstd.1.5.0</code> parts of a SemVer string); <code>final_structure</code>. <code>pre</code> participates in compatibility checks,
+  <code>build</code> is metadata only.</li>
+<li><code>FullVersion&lt;'i&gt;</code> - <code>crate_id: &amp;'i str</code>, <code>version: Version&lt;'i&gt;</code>; <code>final_structure</code>. Identifies an API crate by
+  name and version, the same two pieces of information that make a crate's identity on crates.io.</li>
+<li><code>CompactVersion</code> - <code>gid: GlobalTypeId</code>, <code>major</code> / <code>minor</code> / <code>patch: UNib32</code>; <code>final_structure</code>. Stands in for a
+  <code>FullVersion</code> once the API has a <a href="../../api/addressing/">global type id</a>, for requests made often or over a
+  bandwidth-limited link.</li>
+<li><code>VersionTriplet</code> - plain <code>major</code> / <code>minor</code> / <code>patch: UNib32</code>, no crate name; <code>final_structure</code>. For comparing
+  versions where a name isn't needed.</li>
+<li><code>ApiHashPair&lt;'i&gt;</code> - <code>no_docs</code> / <code>with_docs: ApiHash&lt;'i&gt;</code>; <code>final_structure</code>. Two hashes of a device's
+  <a href="../ww_self/"><code>ApiBundle</code></a>, with and without doc strings, so a client can detect <em>any</em> change to the API (not just
+  ones that bumped the version) while still being able to drop doc strings to save flash and fall back to a cached
+  full <code>ApiBundle</code> for compatibility checks.</li>
+<li><code>ApiHash&lt;'i&gt;</code> - <code>hash: RefVec&lt;'i, u8&gt;</code>; <code>final_structure</code>. One hash value, <code>Debug</code>-formatted as hex.</li>
+</ul>
+<p>Every struct derives <code>PartialEq, Eq</code> (except <code>ApiHash</code>, no <code>Eq</code>) and <code>Clone</code>; the borrowed variants also derive
+<code>Copy</code>. Enabling <code>std</code> adds owned (<code>*Owned</code>) counterparts (<code>String</code> instead of <code>&amp;str</code>, <code>Vec&lt;u8&gt;</code> instead of
+<code>RefVec</code>).</p>
+<h2 id="compatibility-checks">Compatibility checks<a class="headerlink" href="#compatibility-checks" title="Permanent link">&para;</a></h2>
+<p><code>Version::is_protocol_compatible</code> implements SemVer's own rule: once <code>major &gt;= 1</code>, two versions are compatible when
+<code>major</code> matches; below 1.0, <code>minor</code> must match too (pre-1.0 minor is the breaking position, same convention this
+project's own crates follow). <code>pre</code> is not compared by this rule - it answers "can these talk to each other",
+not "are these the exact same build". <code>FullVersion::is_protocol_compatible</code> additionally requires the same
+<code>crate_id</code>, and <code>CompactVersion::is_protocol_compatible</code> the same <code>gid</code>.</p>
+<h2 id="reading-the-current-crates-version">Reading the current crate's version<a class="headerlink" href="#reading-the-current-crates-version" title="Permanent link">&para;</a></h2>
+<p><code>Version</code>, <code>FullVersion</code> and <code>CompactVersion</code> all have a <code>const fn new(..)</code> (plus <code>Version::full</code> for <code>pre</code>/<code>build</code>
+and <code>CompactVersion</code>/<code>VersionTriplet</code> likewise), but code using WireWeaver's codegen rarely builds one directly.
+<code>wire_weaver::full_version!()</code> and <code>wire_weaver::compact_version!(gid)</code> (from <code>wire_weaver_derive</code>) expand to a
+<code>FullVersion</code>/<code>Option&lt;CompactVersion&gt;</code> built from the calling crate's own <code>Cargo.toml</code> version (<code>CARGO_PKG_NAME</code>,
+<code>CARGO_PKG_VERSION_*</code>) at compile time. <code>#[ww_trait]</code> and <code>#[ww_api_root]</code> use exactly these macros to emit a
+<code>&lt;TRAIT&gt;_FULL_GID: FullVersion</code> and <code>&lt;TRAIT&gt;_COMPACT_GID: Option&lt;CompactVersion&gt;</code> constant next to every API trait -
+<code>compact_version!</code> returns <code>None</code> unless the trait was given a global type id (<code>#[ww_trait(gid)]</code>).</p>
+<h2 id="on-the-wire">On the wire<a class="headerlink" href="#on-the-wire" title="Permanent link">&para;</a></h2>
+<p><code>Version</code> packs <code>major</code>/<code>minor</code>/<code>patch</code> as <code>UNib32</code> (one nibble each for values below 8) with the two <code>Option</code>
+presence flags for <code>pre</code>/<code>build</code> relocated next to them via <a href="../../serdes/showcase/#relocating-presence-flags-with-flag"><code>#[flag]</code></a>,
+so <code>0.1.2</code> with no pre-release or build metadata is <strong>2 bytes</strong> total; a fully populated version only grows by
+exactly the bytes its <code>pre</code>/<code>build</code> strings need. <code>final_structure</code> on every type here means no reverse-length is
+written for the type itself when it's the last field of something else - see
+<a href="../../serdes/derive/#size-assumptions-final_structure-self_describing-sized">size assumptions</a>.</p>
+<p><code>ww_client_server</code>'s own <code>Request</code>/<code>Event</code> model uses <code>CompactVersion</code> for the common case of addressing a
+global trait by id (2 extra bytes when every number is ≤ 7) and falls back to <code>FullVersion</code> only for the one-off
+case of calling into an arbitrary crates.io trait by name - see <a href="../ww_client_server/"><code>ww_client_server</code></a>.</p>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>std</code></td>
+<td>(default) owned (<code>*Owned</code>) type variants, plus <code>hex</code>-based <code>Display</code> for <code>ApiHashOwned</code></td>
+</tr>
+<tr>
+<td><code>defmt</code></td>
+<td><code>defmt::Format</code> on the borrowed types</td>
+</tr>
+<tr>
+<td><code>serde</code></td>
+<td><code>serde::Serialize</code>/<code>Deserialize</code> (owned types for <code>Version</code>/<code>FullVersion</code>; directly on <code>CompactVersion</code>/<code>VersionTriplet</code>, which hold no borrowed data)</td>
+</tr>
+<tr>
+<td><code>semver</code></td>
+<td><code>TryFrom&lt;semver::Version&gt;</code>/<code>TryInto&lt;semver::Version&gt;</code> for <code>VersionOwned</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

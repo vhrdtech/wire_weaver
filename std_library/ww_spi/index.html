@@ -1778,6 +1778,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Traits">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spi" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Spi</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Types
+      </span>
+    </span>
+  </a>
+  
 </li>
       
     </ul>
@@ -3000,6 +3028,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Traits">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spi" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Spi</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Types
+      </span>
+    </span>
+  </a>
+  
 </li>
       
     </ul>
@@ -3146,35 +3202,34 @@ the <code>Hertz</code>, <code>Second</code> and <code>Volt</code> quantity types
 <p><code>Spi</code> is one bus: configure it, full-duplex transfers, transactions with CS held, writes, and, on adapters with the
 hardware for it, every frame on the bus on the <a href="../../api/optional_items/">optional</a> <code>monitor</code> stream. A device with
 several buses nests it as an array, <code>ww_impl!(spi[]: ww_spi::Spi)</code>, monitoring included:</p>
-<p>```rust,ignore</p>
-<h1 id="ww_api_root">[ww_api_root]<a class="headerlink" href="#ww_api_root" title="Permanent link">&para;</a></h1>
-<p>trait MyAdapter {
-    ww_impl!(spi: ww_spi::Spi);
-}</p>
-<p>// an adapter without monitoring hardware
-ww_codegen!(my_adapter_api::MyAdapter for Server, server = true, omit = ["spi.monitor"]);
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>### `Spi`
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>```rust
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>#[ww_trait]
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>pub trait Spi {
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    fn transfer(data: MaxLen&lt;RefVec&lt;&#39;i, u8&gt;, SPI_MAX&gt;) -&gt; Result&lt;MaxLen&lt;RefVec&lt;&#39;i, u8&gt;, SPI_MAX&gt;, SpiError&gt;;
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    fn transaction(ops: MaxLen&lt;RefVec&lt;&#39;i, SpiOp&lt;&#39;i&gt;&gt;, MAX_OPS&gt;) -&gt; Result&lt;MaxLen&lt;RefVec&lt;&#39;i, u8&gt;, SPI_MAX&gt;, SpiError&gt;;
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    fn write(data: MaxLen&lt;RefVec&lt;&#39;i, u8&gt;, SPI_MAX&gt;) -&gt; Result&lt;(), SpiError&gt;;
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    fn capabilities() -&gt; SpiCapabilities&lt;&#39;i&gt;;
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    fn configure(config: SpiConfig) -&gt; Result&lt;SpiConfig, SpiError&gt;;
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    fn set_cs(active: bool) -&gt; Result&lt;(), SpiError&gt;;
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    #[optional]
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    #[stream(SpiFrame&lt;&#39;i&gt;, counted)]
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    fn monitor(config: SpiMonitorConfig) -&gt; Result&lt;(), SpiError&gt;;
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>}
-</span></code></pre></div></p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">MyAdapter</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">spi</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_spi</span><span class="p">::</span><span class="n">Spi</span><span class="p">);</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">}</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1">// an adapter without monitoring hardware</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span><span class="n">my_adapter_api</span><span class="p">::</span><span class="n">MyAdapter</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Server</span><span class="p">,</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">omit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;spi.monitor&quot;</span><span class="p">]);</span>
+</span></code></pre></div>
+<h3 id="spi"><code>Spi</code><a class="headerlink" href="#spi" title="Permanent link">&para;</a></h3>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Spi</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">transfer</span><span class="p">(</span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">SPI_MAX</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">SPI_MAX</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">SpiError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">transaction</span><span class="p">(</span><span class="n">ops</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">SpiOp</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_OPS</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">SPI_MAX</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">SpiError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">SPI_MAX</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">SpiError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">capabilities</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">SpiCapabilities</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">SpiConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">SpiConfig</span><span class="p">,</span><span class="w"> </span><span class="n">SpiError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_cs</span><span class="p">(</span><span class="n">active</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">SpiError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="cp">#[optional]</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">    </span><span class="cp">#[stream(SpiFrame&lt;&#39;i&gt;, counted)]</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">monitor</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">SpiMonitorConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">SpiError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="p">}</span>
+</span></code></pre></div>
 <ul>
 <li><code>transfer</code> - full duplex: writes <code>data</code>, returns as many bytes as were read. CS is asserted for the call and
   released after (<code>CsMode::Auto</code>); with <code>CsMode::Manual</code> the bus must already be selected through <code>set_cs</code>.</li>

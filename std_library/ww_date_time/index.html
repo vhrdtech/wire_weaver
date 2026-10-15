@@ -2206,6 +2206,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_date_time
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -2221,6 +2238,81 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Types
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sizes-on-the-wire" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sizes on the wire
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Construction
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chrono-interop" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>chrono</code> interop
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Features
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2920,6 +3012,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2931,6 +3028,69 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Types
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sizes-on-the-wire" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sizes on the wire
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Construction
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chrono-interop" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>chrono</code> interop
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Features
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -3062,6 +3222,118 @@
 
 
 <h1 id="ww_date_time">ww_date_time<a class="headerlink" href="#ww_date_time" title="Permanent link">&para;</a></h1>
+<p><code>ww_date_time</code> gives device APIs a compact ISO 8601 date and time, nibble-packed instead of a fixed-width
+timestamp: <code>DateTime</code>, built from a <code>NaiveDate</code>, a <code>NaiveTime</code>, and an optional <code>Timezone</code>. It is <code>no_std</code> by
+default and depends only on <code>shrink_wrap</code>; an optional <code>chrono</code> feature adds conversions to and from the <code>chrono</code>
+crate's own date/time types for host-side code.</p>
+<p>Add it to a device API crate with:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_date_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span>
+</span></code></pre></div>
+<h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>DateTime</code> - <code>date: NaiveDate</code>, <code>time: NaiveTime</code>, <code>timezone: Timezone</code>; <code>self_describing</code>.</li>
+<li><code>NaiveDate</code> - an ISO 8601 calendar date without timezone: <code>year: Year</code>, <code>month: U4</code> (1-12), <code>day: U5</code> (1-31);
+  <code>self_describing</code>.</li>
+<li><code>Year</code> - a signed year, <code>-262_142..=262_141</code>, stored as a <code>UNib32</code> shifted by 2025 so that years close to now take
+  the fewest nibbles; a year before 2025 is masked into the low 19 bits instead, so it always costs the same extra
+  nibbles regardless of how far back it is (see <a href="#sizes-on-the-wire">sizes</a> below). <code>Year::new</code> constructs one
+  (bounds-checked), <code>Year::year()</code> reads it back as <code>i32</code>.</li>
+<li><code>NaiveTime</code> - an ISO 8601 time without timezone: <code>secs: U17</code> (seconds since midnight, 0-86399), <code>frac: Option&lt;U31&gt;</code>
+  (sub-second part in nanoseconds, omitted entirely when zero); <code>self_describing</code>.</li>
+<li><code>Timezone</code> - <code>UTC</code> (preferred, costs only 1 bit) or <code>Other(OtherTimezone)</code>; <code>self_describing</code>, <code>ww_repr = u1</code>.</li>
+<li><code>OtherTimezone</code> - <code>Naive</code> (no timezone information at all) or <code>FixedOffset { secs: I18 }</code> (offset from UTC in
+  seconds); <code>self_describing</code>, <code>ww_repr = u3</code> leaves room to add up to 6 more kinds later without breaking
+  compatibility.</li>
+</ul>
+<p>All of the above derive <code>Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash</code> (<code>Timezone</code>/<code>OtherTimezone</code> also
+<code>Debug</code>), and get owned (<code>*Owned</code>) counterparts when the <code>std</code> feature is enabled.</p>
+<h2 id="sizes-on-the-wire">Sizes on the wire<a class="headerlink" href="#sizes-on-the-wire" title="Permanent link">&para;</a></h2>
+<p><code>DateTime</code>'s size depends on how far the year is from 2025 and on which fields are present, since <code>Year</code>, the
+<code>Option&lt;U31&gt;</code> fraction and the <code>Timezone</code> enum are all self-describing rather than fixed-width:</p>
+<table>
+<thead>
+<tr>
+<th>Year range</th>
+<th style="text-align: center;">UTC, no nanoseconds</th>
+<th style="text-align: center;">naive/fixed-offset, no nanoseconds</th>
+<th style="text-align: center;">UTC, with nanoseconds</th>
+<th style="text-align: center;">naive/fixed-offset, with nanoseconds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2025-2032</td>
+<td style="text-align: center;">32 bits (minimum)</td>
+<td style="text-align: center;">53 bits</td>
+<td style="text-align: center;">63 bits</td>
+<td style="text-align: center;">84 bits (maximum)</td>
+</tr>
+<tr>
+<td>2033-2088 and so on</td>
+<td style="text-align: center;">+4 bits per range</td>
+<td style="text-align: center;">+4 bits per range</td>
+<td style="text-align: center;">+4 bits per range</td>
+<td style="text-align: center;">+4 bits per range</td>
+</tr>
+<tr>
+<td>before 2025</td>
+<td style="text-align: center;">+24 bits</td>
+<td style="text-align: center;">+24 bits</td>
+<td style="text-align: center;">+24 bits</td>
+<td style="text-align: center;">+24 bits</td>
+</tr>
+</tbody>
+</table>
+<p><code>NaiveDate</code> alone is 13 bits minimum (2025-2032), 17 bits for 2033-2088, and up to 37 bits for the widest years.
+<code>NaiveTime</code> alone is 18 bits without a fractional part, 49 bits with one.</p>
+<p>A real <code>DateTime</code> for 2025-05-30 16:20:00 UTC (no fractional seconds) serializes to exactly 4 bytes (<code>05 F3 96 C0</code>),
+matching the 32-bit minimum above - <code>ww_date_time</code>'s own test suite checks this against a real <code>ser_shrink_wrap()</code>
+call.</p>
+<h2 id="construction">Construction<a class="headerlink" href="#construction" title="Permanent link">&para;</a></h2>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_date_time</span><span class="p">::{</span><span class="n">DateTime</span><span class="p">,</span><span class="w"> </span><span class="n">Timezone</span><span class="p">};</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">utc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DateTime</span><span class="p">::</span><span class="n">from_ymd_hms_utc_opt</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">utc</span><span class="p">.</span><span class="n">timezone</span><span class="p">,</span><span class="w"> </span><span class="n">Timezone</span><span class="p">::</span><span class="n">UTC</span><span class="p">);</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="kd">let</span><span class="w"> </span><span class="n">naive</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DateTime</span><span class="p">::</span><span class="n">from_ymd_hms_naive_opt</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span></code></pre></div>
+<p><code>from_ymd_hms_utc_opt</code> is a <code>const fn</code> (so it can build a <code>DateTime</code> in a <code>const</code> item, e.g. a compile-time build
+timestamp), <code>from_ymd_hms_naive_opt</code> is not, since it always picks <code>Timezone::Other(OtherTimezone::Naive)</code>. Both
+return <code>None</code> on an out-of-range month, day, hour, minute, second or nanosecond, same as <code>NaiveDate::from_ymd_opt</code>
+and <code>NaiveTime::from_hms_opt</code> they build on.</p>
+<p><code>Debug</code> is implemented by hand for compact, human-readable output rather than deriving it: a <code>NaiveDate</code> prints as
+<code>2025-M5-D30</code>, a <code>NaiveTime</code> as <code>14:0:0</code> (<code>.123</code> appended when a fractional part is present), and <code>DateTime</code> as the
+two joined with the timezone.</p>
+<h2 id="chrono-interop"><code>chrono</code> interop<a class="headerlink" href="#chrono-interop" title="Permanent link">&para;</a></h2>
+<p>With the <code>chrono</code> feature (on by default), <code>ww_date_time</code> re-exports the <code>chrono</code> crate and adds <code>From</code>/<code>Into</code>
+conversions in both directions: <code>chrono::NaiveDate</code> ↔ <code>NaiveDate</code>, <code>chrono::NaiveTime</code> ↔ <code>NaiveTime</code>,
+<code>chrono::NaiveDateTime</code> ↔ <code>DateTime</code> (as <code>Timezone::Other(OtherTimezone::Naive)</code>), and
+<code>chrono::DateTime&lt;Utc&gt;</code> / <code>chrono::DateTime&lt;FixedOffset&gt;</code> → <code>DateTime</code>. This is what lets host-side code build a
+<code>DateTime</code> from <code>chrono::Utc::now()</code> without touching the wire representation directly.</p>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>std</code></td>
+<td>(default) owned (<code>*Owned</code>) type variants, via <code>shrink_wrap/std</code></td>
+</tr>
+<tr>
+<td><code>chrono</code></td>
+<td>(default) the <code>chrono</code> interop above</td>
+</tr>
+<tr>
+<td><code>defmt</code></td>
+<td><code>defmt::Format</code> on the borrowed types, via <code>shrink_wrap/defmt</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

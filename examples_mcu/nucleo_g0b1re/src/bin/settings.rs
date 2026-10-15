@@ -5,6 +5,10 @@
 //!
 //! Run with `just run nucleo settings`, then stop `probe-rs run` (Ctrl+C, the firmware keeps running) and connect
 //! `examples/settings`'s `Client` over RTT (`Client::config(|c| c.rtt("STM32G0B1RETx", None)).connect()`).
+//!
+//! A demo, not a product: it reads the flash with embassy-stm32's plain driver. On this part's ECC flash a power
+//! cut while a word is written leaves a word that faults when read, so the next boot hangs in the fault handler;
+//! a device needs the ECC-aware driver of `mcu/ww_ecc_flash` (SRV-19), see the settings store docs page.
 #![no_std]
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
@@ -25,7 +29,7 @@ use wire_weaver::prelude::*;
 use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
 use ww_device::rtt::{RttBuffers, RttConfig, rtt_server};
 use ww_device::{EmbassyClock, LinkConfig};
-use ww_settings::{Debounce, Key, Settings, Store};
+use ww_settings::{Debounce, Key, Persisted, Settings, Store};
 
 /// Maximum WireWeaver message length, RTT channels below must be able to hold a whole message
 /// plus its framing (see `ww_device::rtt`), and should be at least that size for `NoBlockSkip`.
@@ -102,10 +106,16 @@ impl ServerState {
         self.settings.set(now, |s| s.led_on_at_boot = value);
     }
 
-    /// Write the current value if its debounce is over; the main loop's periodic tick calls this.
+    /// Write the current value if its debounce is over, then erase the page the next compaction moves to (if it
+    /// needs it), so the slow erase happens now and not inside a later write; the main loop's periodic tick calls this.
     async fn persist_if_due(&mut self) {
         let now = self.now_ms();
         match self.settings.persist_if_due(&mut self.store, now).await {
+            Ok(Some(Persisted::Written(_))) => {
+                if let Err(e) = self.store.maintain().await {
+                    error!("settings erase ahead failed: {:?}", Debug2Format(&e));
+                }
+            }
             Ok(_) => {}
             Err(e) => error!("settings persist failed: {:?}", Debug2Format(&e)),
         }
@@ -196,11 +206,8 @@ async fn main(_spawner: embassy_executor::Spawner) {
             embassy_futures::select::Either::First(ready) => {
                 server.handle(ready, &mut state).await;
             }
-            embassy_futures::select::Either::Second(()) => {
-                if server.is_up() {
-                    state.persist_if_due().await;
-                }
-            }
+            // also while no host is connected: a change made just before it left must still reach the flash
+            embassy_futures::select::Either::Second(()) => state.persist_if_due().await,
         }
     }
 }

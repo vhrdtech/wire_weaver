@@ -159,11 +159,8 @@ pub async fn serve(
             ready = server.wait() => {
                 server.handle(ready, &mut backend).await;
             }
-            _ = tick.tick() => {
-                if server.is_up() {
-                    backend.device.persist_if_due().await;
-                }
-            }
+            // also while no host is connected: a change made just before it left must still reach the flash
+            _ = tick.tick() => backend.device.persist_if_due().await,
             () = &mut stop => break,
         }
     }

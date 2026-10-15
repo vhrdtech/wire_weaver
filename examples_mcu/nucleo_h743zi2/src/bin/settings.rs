@@ -3,6 +3,10 @@
 //! drives the board's user LED live, so a change is visible without a reboot.
 //!
 //! `cargo run --bin nucleo-h743zi2-settings --features settings`
+//!
+//! A demo, not a product: it reads the flash with embassy-stm32's plain driver. On this part's ECC flash a power
+//! cut while a word is written leaves a word that faults when read, so the next boot hangs in the fault handler;
+//! a device needs the ECC-aware driver of `mcu/ww_ecc_flash` (SRV-19), see the settings store docs page.
 #![no_std]
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
@@ -24,7 +28,7 @@ use settings_api::UserSettings;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
 use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
-use ww_settings::{Debounce, Key, Settings, Store};
+use ww_settings::{Debounce, Key, Persisted, Settings, Store};
 
 bind_interrupts!(struct Irqs {
     OTG_FS => usb::InterruptHandler<USB_OTG_FS>;
@@ -58,11 +62,8 @@ async fn ww_server_task(
             embassy_futures::select::Either::First(ready) => {
                 server.handle(ready, &mut state).await;
             }
-            embassy_futures::select::Either::Second(()) => {
-                if server.is_up() {
-                    state.persist_if_due().await;
-                }
-            }
+            // also while no host is connected: a change made just before it left must still reach the flash
+            embassy_futures::select::Either::Second(()) => state.persist_if_due().await,
         }
     }
 }
@@ -127,10 +128,16 @@ impl ServerState {
         self.settings.set(now, |s| s.led_on_at_boot = value);
     }
 
-    /// Write the current value if its debounce is over; `ww_server_task`'s periodic tick calls this.
+    /// Write the current value if its debounce is over, then erase the page the next compaction moves to (if it
+    /// needs it), so the slow erase happens now and not inside a later write; `ww_server_task`'s periodic tick calls this.
     async fn persist_if_due(&mut self) {
         let now = self.now_ms();
         match self.settings.persist_if_due(&mut self.store, now).await {
+            Ok(Some(Persisted::Written(_))) => {
+                if let Err(e) = self.store.maintain().await {
+                    error!("settings erase ahead failed: {:?}", Debug2Format(&e));
+                }
+            }
             Ok(_) => {}
             Err(e) => error!("settings persist failed: {:?}", Debug2Format(&e)),
         }

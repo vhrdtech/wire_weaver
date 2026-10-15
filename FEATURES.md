@@ -233,7 +233,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SW-21 Multi-dimensional arrays** (2D, 3D).
 - 🚧 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` has one `shrink_wrap` target, `shrink-wrap-tail-size` (`TailSize` types
   round-tripped, random bytes into their readers); `shrink-wrap-series` (SW-31, SW-32) and `shrink-wrap-ref-vec`
-  (SW-37) came with their features. Round-trip every built-in type and the derive's features.
+  (SW-37) came with their features, `shrink-wrap-option-any-vec` with SW-55. Round-trip every built-in type and the derive's features.
 - 🔍 **SW-23 Tuple enum variants evolution** — check that tuple variants evolve as `docs/evolution/rules.md` says
   (fields can be appended) and add a test.
 - 💡 **SW-24 ZigZag encoding for signed variable length numbers** — consider ZigZag (as in protobuf) so that small

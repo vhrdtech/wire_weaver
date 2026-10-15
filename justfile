@@ -170,6 +170,11 @@ fuzz-shrink-wrap-series:
 fuzz-shrink-wrap-ref-vec:
     cargo +nightly fuzz run shrink-wrap-ref-vec -- -max_len=4096
 
+# Fuzz shrink_wrap OptionAnyVec: random headers into the reader, round trips of any present set in every mode (SW-55)
+[working-directory('fuzz')]
+fuzz-shrink-wrap-option-any-vec:
+    cargo +nightly fuzz run shrink-wrap-option-any-vec -- -max_len=4096
+
 # Fuzz shrink_wrap's latched reads of U1..U64 / I2..I64 against reads with a Result (SW-38)
 [working-directory('fuzz')]
 fuzz-shrink-wrap-latched:

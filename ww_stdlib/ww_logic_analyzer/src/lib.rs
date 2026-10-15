@@ -121,7 +121,10 @@ pub trait LogicStream {
     /// Captured data in `config`'s encoding: raw chunks, or transition chunks of each channel as they fill. Opening
     /// returns what was actually set. Unit: chunk. `InvalidArgument` for a rate, channel count or threshold out of
     /// range, `Unsupported` for the encoding, `Busy` while a capture runs.
-    #[errors(NoSuchChannel, Common(InvalidArgument, Unsupported, Busy, InUse, NoPower))]
+    #[errors(
+        NoSuchChannel,
+        Common(InvalidArgument, Unsupported, Busy, InUse, NoPower)
+    )]
     #[stream(StreamChunk<'i>, counted)]
     fn data(config: StreamConfig<'i>) -> Result<StreamActual, LaError<'i>>;
 

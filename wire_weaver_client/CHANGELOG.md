@@ -60,6 +60,11 @@
   `set_strict_error_lists(true)` panics instead, for tests (`tests_common` turns it on). `ww api check` (`compare`)
   reports a list that changed as compatible, naming the entries added (old clients warn about them) and dropped;
   `diff` lists it as a `#[errors]` change.
+- Error lists of stream functions and properties (API-32): `PreparedStreamOpen::with_error_list(ErrorList<E>, resource)`
+  (on a stream function returning `Result<A, E>`) and `PreparedWrite::with_error_list(ErrorList<CallError<E>>)` (also
+  for `write_promise()`), used by generated clients. The dynamic client (and so Python) checks a stream function's open
+  error and a property's read and write errors. `ww api check` reports their changed lists as compatible, as for
+  methods.
 - `Error::is_unimplemented()`: the device has no implementation of an item without an error type (its handler
   returned `Unimplemented`, or `NotImplementedByDevice`). `CallError::device()` and `CallError::is_unimplemented()`.
   `OutcomeError` / `DecodeReply` tie an error type to how a reply is decoded (implemented for `Error` and

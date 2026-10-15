@@ -292,7 +292,8 @@ Opening a stream returns a handle: `PositionedStream<T>` for a counted or reliab
 calling the stream function (`device.samples(config).call().await?`); underneath, and for tools without generated
 code, it is `Commander::prepare_stream_open(path, delivery, args)`, and `prepare_stream_resume(path, delivery,
 cursor)` to resume. A stream function that returns `Result<A, E>` gives `Result<(A, stream), E>`: an `Err` opens
-nothing.
+nothing. `#[errors(..)]` on the stream function lists the variants of `E` it returns, as on methods (API-32, see
+[Errors](errors.md#which-errors-a-method-returns)).
 
 ```rust
 let mut samples = adc.samples(config).call().await?;

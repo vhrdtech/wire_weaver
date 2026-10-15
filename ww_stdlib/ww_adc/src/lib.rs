@@ -96,7 +96,10 @@ pub trait AdcStream {
     /// the order of [StreamConfig::channels]. Opening returns what was actually set (the nearest rate the hardware
     /// can do), closing stops sampling (blocks already sampled are still sent). Unit: sample set. `InvalidArgument`
     /// for a rate or channel count out of range, `Unsupported` for the format, `Busy` while a capture runs.
-    #[errors(NoSuchChannel, Common(InvalidArgument, Unsupported, Busy, InUse, NoPower))]
+    #[errors(
+        NoSuchChannel,
+        Common(InvalidArgument, Unsupported, Busy, InUse, NoPower)
+    )]
     #[stream(SampleBlock<'i>, counted)]
     fn samples(config: StreamConfig<'i>) -> Result<StreamActual, AdcError<'i>>;
 

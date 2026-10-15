@@ -311,15 +311,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   generated and dynamic clients and Python fail locally with `NotImplementedByDevice`; `ww api scaffold --omit`, CLI
   tree and Python show them (`docs/api/optional_items.md`, `tests/traits`). Not yet: `#[optional]` on
   `ww_impl!`, the GUI (`wire_weaver_tool`).
-- ✅ **API-32 Per-method error lists** — `#[errors(Common(InUse), Nack, ..)]` on a trait method: checked against the
-  error enum when the trait is parsed (a compile error on a wrong name), in the API model (`ww_self` `Method::errors`),
-  generated client and rustdoc `# Errors` with each variant's doc line, `ww api tree`, Python `help()`, `ww api check`
-  (compatible); the generated and dynamic clients warn when a device returns a variant outside the list, tests fail
-  (`tests_common`). Nothing on the device (`docs/api/methods.md#error-lists`, `tests/methods`). Not yet: a
-  `#[stream(..)]`-tagged method (a stream-opening method, API-31) rejects `#[errors(..)]` today — several
-  `ww_stdlib` crates (`ww_adc`, `ww_counters`, `ww_gpio`, `ww_i2c`, `ww_log`, `ww_logic_analyzer`, `ww_pwm`,
-  `ww_spi`, `ww_uart`) keep a hand-written `# Errors` doc note on their stream-opening methods for this reason; the
-  GUI (`wire_weaver_tool`).
+- ✅ **API-32 Per-method error lists** — `#[errors(Common(InUse), Nack, ..)]` on a trait method, a stream function
+  (the open's `Result` error) or above a `property!` with an error type (its reads and writes): checked against the
+  error enum when the trait is parsed (a compile error on a wrong name), in the API model (`ww_self` `Method`,
+  `StreamFn` and `Property` `errors`), generated client and rustdoc `# Errors` with each variant's doc line, `ww api
+  tree`, Python `help()`, `ww api check` (compatible); the generated and dynamic clients warn when a device returns a
+  variant outside the list, tests fail (`tests_common`). Nothing on the device (`docs/api/methods.md#error-lists`,
+  `tests/methods`, `tests/properties`, `tests/streams_reliable`). Not yet: the generated client's property reads
+  (their errors are raw bytes, so only the dynamic client checks them); the GUI (`wire_weaver_tool`).
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
 - 📋 **API-13 Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.

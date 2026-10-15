@@ -10,6 +10,12 @@
   model (`ApiItemKind::Method::errors`). Generated clients document it (`# Errors`, each entry with its variant's doc
   line) and check it: a device error outside the list logs a warning (`PreparedCall::with_error_list`). Nothing
   changes on the device or on the wire. `internal::ww_self` re-exported for `wire_weaver_derive`.
+- `#[errors(..)]` also on stream functions (`#[stream(..)] fn`, about the `Err` of the open's `Result`) and above a
+  `property!` with an error type (about that type, for reads and writes) (API-32), with the same checks, into
+  `ApiItemKind::StreamFn::errors` / `Property::errors`. Generated clients document them (`# Errors` on the stream
+  function and on `write_<property>`) and check them: `PreparedStreamOpen::with_error_list`,
+  `PreparedWrite::with_error_list`. `#[errors(..)]` on `stream!`, `sink!`, a `const` or `ww_impl!` stays an error, now
+  saying why.
 - Accepts the `display` directive of `#[derive_shrink_wrap(..)]` (DER-12): a type using it is no longer rejected
   with "unsupported directive 'display'" when introspected from a trait. It has no effect on the API model or
   generated server/client code (`core::fmt::Display`/`core::error::Error` are Rust-only, not wire-defining).

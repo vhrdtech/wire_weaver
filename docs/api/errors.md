@@ -60,9 +60,25 @@ The list doesn't change the type or the wire; it goes into the API model, and fr
   `wire_weaver_client::set_strict_error_lists(true)` makes it a panic instead; the test harness
   (`tests_common`) turns that on.
 
-A method without `#[errors]` may return any variant of its error enum. A `property!` item, and a method tagged
-`#[stream(..)]` (a stream-opening method, API-31), can't carry `#[errors(..)]` yet; document their errors in a
-hand-written `# Errors` doc line instead.
+A method without `#[errors]` may return any variant of its error enum.
+
+Stream functions and properties take the same list, with the same outputs. On a stream function
+(`#[stream(..)] fn`, API-31) it is about the `Err` of its `Result`, which opening the stream answers; the client checks
+the open's result. Above a `property!` with an error type (`property!(rw mode: Mode, ModeError)`) it is about that
+type: a property has one error type for reading and writing, so one list covers both. The generated client checks
+writes (its reads return the error as raw bytes), the dynamic client reads and writes.
+
+```rust
+#[ww_trait]
+pub trait I2cMonitor {
+    #[errors(Common(InUse, Unsupported))]
+    #[stream(I2cRecord<'i>, counted)]
+    fn records(io_level: Option<Volt>) -> Result<(), I2cError<'i>>;
+
+    #[errors(Common(Unsupported, Busy))]
+    property!(rw speed_hz: u32, I2cError<'i>);
+}
+```
 
 [`ww_error`](../std_library/ww_error.md#which-errors-a-method-returns) walks through the `Common(..)` nesting and
 real examples from `ww_stdlib`.

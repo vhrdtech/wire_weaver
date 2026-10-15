@@ -62,6 +62,10 @@ Now the expected signature of set method is: `set_mode(mode: Mode) -> Result<(),
 When `Err` variant is encountered, generated server code will serialize user error into bytes and forward it to
 client in `ww_client_server::ErrorKind::UserBytes(err_bytes)`.
 
+`#[errors(..)]` above the `property!` lists the variants of the error type it returns, on reads and writes alike
+(API-32), as on methods: `#[errors(Common(Unsupported), WrongMode)] property!(rw mode: Mode, Error);`, see
+[Errors](errors.md#which-errors-a-method-returns).
+
 When `on_changed` flavor is used, it's signature and behavior is changed accordingly.
 
 ### Const items

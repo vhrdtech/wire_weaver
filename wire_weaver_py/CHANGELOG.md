@@ -15,6 +15,8 @@
 - Signatures of counted and reliable streams say so (`counted stream x: T`, API-30).
 - A method's `#[errors(..)]` (API-32) is in its docs (`help()`, `.doc`): `Errors:` with each entry and its variant's
   doc line. A device returning an error outside the list logs a warning.
+- The `#[errors(..)]` of stream functions and properties (API-32) is in their docs too; an error outside the list from
+  opening a counted or reliable stream, or reading or writing a property, logs a warning.
 - Optional items (API-16): signatures end in `(optional)`, or `(left out by this device)` for one the device leaves
   out; calling such an item raises without sending a request.
 - `RemoteError.common` (STD-16): the `ww_error::CommonError` in a method's error (`{"InUse": {"by": "USART2"}}`),

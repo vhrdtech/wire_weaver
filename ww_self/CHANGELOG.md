@@ -22,6 +22,11 @@
   has what tools share: `fmt_error_list()` (as written), `error_list_docs()` (each entry with its variant's doc line),
   `error_list_contains()` (whether a dynamic error value is in a list), `error_value_name()`, `method_err_ty()` and
   `ApiItemKindOwned::error_list()`.
+* Error lists of stream functions and properties (API-32): `ApiItemKind::StreamFn` and `ApiItemKind::Property` get
+  `errors: Option<RefVec<ErrorVariant>>` too (`#[default = None]`, older bundles read as before); a stream function's
+  list is about the `Err` of `return_ty`, a property's about `write_err_ty`. Rust code matching these variants without
+  `..` needs it, struct literals the new field (`None`); `StreamFnRef` gets `errors`. `ApiItemKindOwned::error_list()`
+  returns the lists of all three, new `ApiItemKindOwned::err_ty()` the error type a list is about.
 * Optional items (API-16): `ApiItemKind::Trait` gets `omitted: Option<RefVec<UNib32>>`, `ApiItem` gets
   `optional: Option<Optional>` and `ApiBundle` gets `root_omitted`, all `#[default = None]`, so older bundles and
   snapshots read as before. Rust code matching `Trait { trait_idx }` needs `..`, struct literals of `ApiItemOwned`,

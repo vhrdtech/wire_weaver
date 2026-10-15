@@ -641,6 +641,30 @@ trait Traits traits_api@0.1.0
         }
     }
 
+    /// `#[errors(..)]` of a property and a stream function (API-32), with its `# Errors`.
+    #[test]
+    fn renders_error_lists_of_properties_and_stream_fns() {
+        console::set_colors_enabled(false);
+        let tests = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests");
+        let bundle = wire_weaver_core::load(&tests.join("properties_api"), None, false).unwrap();
+        let tree = render(&bundle, false);
+        for line in [
+            "#[errors(TooBig, NotSet)] rw property mode: u8, write error: ModeError\n",
+            "/// # Errors\n",
+            "/// - `NotSet`: Not set yet\n",
+        ] {
+            assert!(tree.contains(line), "{line}{tree}");
+        }
+        let bundle =
+            wire_weaver_core::load(&tests.join("streams_reliable_api"), None, false).unwrap();
+        let tree = render(&bundle, false);
+        assert!(
+            tree.contains("#[errors(BadRate)] #[reliable] stream samples(config: "),
+            "{tree}"
+        );
+        assert!(tree.contains("/// - `BadRate`: Rate 0\n"), "{tree}");
+    }
+
     #[test]
     fn renders_types() {
         console::set_colors_enabled(false);
@@ -650,7 +674,11 @@ trait Traits traits_api@0.1.0
 types
 ├─ 0 enum properties_api::ModeError unsized, repr u4
 │  ├─ 0 TooBig
-│  └─ 1 NotSet
+│  │  /// Above 10.
+│  ├─ 1 NotSet
+│  │  /// Not set yet.
+│  └─ 2 Locked
+│     /// Not in the list of `mode`, returned for 99 to test the client's warning.
 ├─ 1 struct properties_api::Inner unsized
 │  ├─ u: u8
 │  └─ v: String

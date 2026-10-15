@@ -136,12 +136,27 @@ The list changes neither the type nor the wire: it is metadata in the API model,
   field.
 
 A method without `#[errors(..)]` may return any variant of its error enum; nothing checks it, and clients get no
-`# Errors` section for it. Two kinds of item can't carry `#[errors(..)]` yet, so they keep a hand-written `# Errors`
-note in their doc comment instead:
+`# Errors` section for it.
 
-- a `property!` item (see `ww_log::LogText::level` or `ww_gpio::GpioBank::pull`);
-- a method tagged `#[stream(..)]` (a stream-opening method, API-31) — most `ww_stdlib` crates with one still note
-  its errors by hand (see `ww_adc::AdcStream::samples`, `ww_i2c::I2cMonitor::records`).
+The same list goes on the two other items that return errors, with the same meaning and outputs:
+
+- a stream function (`#[stream(..)] fn`, API-31): the list is about the `Err` of its `Result`, the answer to opening
+  the stream (`ww_adc::AdcStream::samples`, `ww_i2c::I2cMonitor::records`);
+- a `property!` with an error type: one list above the `property!`, about that type. A property has one error type
+  for reading and writing (`GetResult<T, E>`, `SetResult<E>`), so one list covers both
+  (`ww_gpio::Pin::pull`, `ww_log::LogText::level`, `ww_user_info::UserInfo::name`).
+
+```rust
+#[errors(NoSuchChannel, Common(InvalidArgument, Unsupported, Busy, InUse, NoPower))]
+#[stream(SampleBlock<'i>, counted)]
+fn samples(config: StreamConfig<'i>) -> Result<StreamActual, AdcError<'i>>;
+
+#[errors(TooLong, Common(Busy, Fault))]
+property!(rw name: MaxLen<&'i str, MAX_NAME_LEN>, UserInfoError<'i>);
+```
+
+A plain `stream!`, a `sink!`, a `const` and `ww_impl!` have no error to list, `#[errors(..)]` on them is a compile
+error.
 
 ### Real examples
 

@@ -19,6 +19,8 @@
 - `ww api tree` shows counted and reliable streams as `#[counted] stream` / `#[reliable] stream` (API-30).
 - `ww api tree` and `ww introspect` show a method's `#[errors(..)]` (API-32), and with docs a `# Errors` section with
   each entry's doc line; `ww api check` reports changed lists as compatible.
+- `ww api tree` and `ww introspect` also show the `#[errors(..)]` of stream functions and properties (API-32), with
+  their `# Errors` sections.
 - `ww api scaffold --omit i2c.pullups,reset` (API-16): no stubs for these optional items, `omit = [..]` in the
   generated `ww_codegen!`; stubs of the optional items it keeps name their omit path. `ww api tree` and
   `ww introspect` show `#[optional]` / `#[optional(group)]` and `(left out by this device)`.

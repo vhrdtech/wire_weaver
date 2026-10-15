@@ -40,6 +40,8 @@ pub mod record;
 mod settings;
 pub mod store;
 
+#[cfg(feature = "dump")]
+pub mod dump;
 #[cfg(feature = "fake-flash")]
 pub mod fake_flash;
 

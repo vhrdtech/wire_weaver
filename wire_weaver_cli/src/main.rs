@@ -93,6 +93,7 @@ async fn run() -> Result<()> {
         Commands::Config(config_cmd) => {
             cmd::config::config(config_cmd, selection.as_ref().unwrap())?
         }
+        Commands::Settings(settings_cmd) => cmd::settings::settings(settings_cmd)?,
         Commands::Bootsel(bootsel_cmd) => {
             cmd::bootsel::bootsel(bootsel_cmd, selection.as_ref().unwrap()).await?
         }

@@ -20,3 +20,9 @@
       erase ahead, `Full` / `TooManyKeys` without touching what is stored.
     - `fake_flash::FakeFlash` (feature `fake-flash`): NOR flash in RAM with power cuts at any word written or byte
       erased, three erase orders, ECC words, a hard error on a second write.
+- `dump` feature (TOOL-12): a host decoder of a `Store` flash dump. `dump::analyze(image, base, word_size,
+  page_size)` reports the current record of every key (run through a real `Store` over the bytes, via
+  `fake_flash::FakeFlash`, so it is exactly what a device would read) plus a raw, word-by-word walk of every page
+  and item slot (`Valid` / `Cut` / `Garbage` / `Erased`) for forensics, including pages `Store` itself never looks
+  at (an invalid header). `dump::decode_group` decodes a current record's bytes into a concrete `SettingsGroup` for
+  a caller that knows the type. `ww settings dump` in `wire_weaver_cli` is the CLI front end.

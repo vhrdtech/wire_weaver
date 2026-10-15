@@ -5996,6 +5996,7 @@ dependencies = [
  "ww_dfu",
  "ww_numeric",
  "ww_report",
+ "ww_settings",
  "ww_si",
 ]
 

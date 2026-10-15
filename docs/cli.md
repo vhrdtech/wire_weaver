@@ -58,6 +58,7 @@ spaces or quotes are inserted quoted, and values after `@` or `:` complete too (
 | [`ww info`](#ww-info)              | yes, any API   | What the device is: firmware, board, ids, label, last reset        |
 | [`ww report`](#ww-report)          | yes, any API   | A bug report in one file: info, counters, stored log, crash, decoded with the ELF |
 | [`ww elf`](#ww-elf)                | no             | The ELF directory: `ww elf add` a release archive, `ww elf id`     |
+| [`ww settings`](#ww-settings)      | no             | Decodes a `ww_settings::Store` flash dump                          |
 | [`ww config`](#ww-config)          | no             | Shows or saves the device selection in a project `ww.toml`         |
 
 `ww help <command>` or `ww <command> --help` prints all options of a command.
@@ -377,6 +378,38 @@ ww elf id target/release/usb_io_fw       # its build id, and whether it is in th
 
 `--dir DIR` adds to another directory. A file without a build id is listed as skipped. See the [release
 archive](std_library/device_contract.md#the-release-archive).
+
+### `ww settings`
+
+`ww settings dump` decodes a `ww_settings::Store` flash dump: no device needed, just the raw bytes of the store's
+flash range (read off the chip, from a `.bin` or a debug probe dump). The word and page size aren't in the dump
+itself, so they are given on the command line (completion suggests the sizes `Store` supports, with a chip example
+each):
+
+```
+$ ww settings dump settings.bin --word-size 8 --page-size 2048 --base 0x08078000
+2 pages, word 8 bytes, page 2048 bytes, base 0x08078000
+page 0 @ 0x08078000: page_seq 1
+  0x08078010 +48     valid, stale key 0 seq 1 len 30
+  ...
+  0x080787f0 +16     erased
+page 1 @ 0x08078800: page_seq 2 (current)
+  0x08078810 +24     valid, stale key 1 seq 28 len 10
+  ...
+  0x08078b40 +48     valid, current key 0 seq 40 len 30
+  0x08078b70 +24     valid, current key 1 seq 40 len 10
+  0x08078b88 +1144   erased
+
+current record per key:
+  key 0 @ 0x08078b40 (page 1), seq 40, 30 bytes: 27272727...
+  key 1 @ 0x08078b70 (page 1), seq 40, 10 bytes: d8d8d8d8...
+```
+
+Every item slot is shown, valid or not (`cut`: a write a power loss interrupted; `garbage`: neither a valid item
+nor erased), including on a page whose header is itself invalid, which a device's own `Store` never looks at. The
+"current record per key" section is cross-checked against a real `Store` run over the same bytes, so it is exactly
+what the device would read; a mismatch is a bug in the decoder, not a sign of a bad dump, and is reported as an
+error. `--format json` gives the same information as JSON instead.
 
 ### `ww config`
 

@@ -670,6 +670,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   observe <path> [--rate MS]` prints each update's values, rate and link bytes/s (`wire_weaver_client::DynObserver`,
   `wire_weaver_cli/src/cmd/observe.rs`, `tests/observe`); `wire_weaver_py`'s `Node.observe(cfg)` iterates the same
   updates as dicts. `ww_self` carries the `sparse` flag a dynamic decoder needs (DER-13).
+- ✅ **TOOL-12 `ww settings dump`** · `v0.5` — host decoder of a `ww_settings::Store` flash dump, no device needed:
+  `ww_settings::dump::analyze` (pages, every item slot valid/cut/garbage/erased, the current record of every key
+  cross-checked against a real `Store` over the same bytes through `fake_flash::FakeFlash`) and `decode_group` for
+  a caller that knows the concrete `SettingsGroup` type; `ww settings dump FILE --word-size --page-size [--base]
+  [--format text|json]` in `wire_weaver_cli` (`docs/cli.md#ww-settings`).
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`.

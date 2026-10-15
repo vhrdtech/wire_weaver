@@ -8,6 +8,7 @@ use crate::cmd::info::{InfoArgs, ReportArgs};
 use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
 use crate::cmd::observe::ObserveArgs;
+use crate::cmd::settings::SettingsCommand;
 use crate::complete;
 use crate::device::DeviceArgs;
 use clap::{Args, Parser, Subcommand};
@@ -98,6 +99,10 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Config(ConfigCommand),
 
+    /// Tools around ww_settings::Store, device flash dumps included
+    #[command(subcommand)]
+    Settings(SettingsCommand),
+
     /// RP2040 / RP2350 boot ROM in BOOTSEL mode: list, flash over PICOBOOT, reboot
     ///
     /// --serial selects the device, as for other commands (the RP2350 boot ROM reports the chip id).
@@ -185,6 +190,7 @@ impl Cli {
             Commands::Dfu(_) => true,
             Commands::Counters(_) | Commands::Info(_) | Commands::Report(_) => true,
             Commands::Elf(_) => false,
+            Commands::Settings(_) => false,
             #[cfg(target_os = "linux")]
             Commands::Udev => false,
         }

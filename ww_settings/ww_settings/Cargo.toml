@@ -13,10 +13,13 @@ std = ["shrink_wrap/std"]
 defmt = ["dep:defmt", "shrink_wrap/defmt"]
 # fake_flash::FakeFlash: a NorFlash in RAM with power cuts, ECC and a write-once check, for tests
 fake-flash = ["std"]
+# dump: a host decoder of a Store flash dump (TOOL-12), on top of fake-flash's RAM NorFlash
+dump = ["fake-flash", "dep:embassy-futures"]
 
 [dependencies]
 crc.workspace = true
 defmt = { workspace = true, optional = true }
+embassy-futures = { workspace = true, optional = true }
 embedded-storage-async.workspace = true
 shrink_wrap.workspace = true
 ww_settings_derive.workspace = true
@@ -24,4 +27,4 @@ ww_settings_derive.workspace = true
 [dev-dependencies]
 embassy-futures.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
-ww_settings = { path = ".", features = ["fake-flash"] }
+ww_settings = { path = ".", features = ["dump"] }

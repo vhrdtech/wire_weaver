@@ -44,6 +44,9 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   record of the fields not at their default that every firmware version can read and write back without losing the
   others' fields, power-cut safe at every word written and byte erased; served through `value_on_changed`
   properties. See `ww_settings/ww_settings/CHANGELOG.md`, `docs/api/settings.md`.
+- `ww settings dump` (TOOL-12): a host decoder of a `ww_settings::Store` flash dump, no device needed — pages,
+  every item slot (valid, cut, garbage, erased) and the current record of every key, cross-checked against a real
+  `Store` over the same bytes. See `ww_settings/CHANGELOG.md` (`dump` feature) and `wire_weaver_cli/CHANGELOG.md`.
 
 ### Fixed
 

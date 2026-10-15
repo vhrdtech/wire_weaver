@@ -12,6 +12,10 @@
   code (`DynResource::observe`), printing each update's present values, the update rate and the link bytes/s it
   costs, until Ctrl+C. `<path>` is a dotted/indexed resource path (`motor`, `bank[0]`), empty for the API root;
   without `--rate` every property is observed on change, `--rate` asks for all of them periodically instead.
+- `ww settings dump FILE --word-size --page-size [--base] [--format text|json]` (TOOL-12): decodes a
+  `ww_settings::Store` flash dump, no device needed. Pages (header, sequence number, whether it's current), every
+  item slot (valid, cut, garbage or erased, with offset, key, seq, length) and the current record of every key,
+  cross-checked against a real `Store` over the same bytes (`ww_settings::dump`, which does the actual decoding).
 - `ww usb-loopback` works again (TOOL-10), on the sans-IO event loop: progress bars per stage and a summary table
   (messages, per second, bytes per second, lost, corrupted); exits with an error on lost or corrupted messages or a
   failed test. Connects to any device without downloading its introspection, the link layer answers.

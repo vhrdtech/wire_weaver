@@ -317,6 +317,34 @@ pub(crate) fn packet_sizes() -> Vec<CompletionCandidate> {
     .collect()
 }
 
+/// `ww settings dump --word-size`: the flash word sizes `ww_settings::Store` supports, with a chip example each.
+pub(crate) fn settings_word_sizes() -> Vec<CompletionCandidate> {
+    [
+        ("1", "no ECC, e.g. SPI NOR flash (W25Q128JV)"),
+        ("4", "STM32F4"),
+        ("8", "STM32G0"),
+        ("16", ""),
+        ("32", "STM32H7"),
+    ]
+    .into_iter()
+    .map(|(v, help)| CompletionCandidate::new(v).help((!help.is_empty()).then(|| help.into())))
+    .collect()
+}
+
+/// `ww settings dump --page-size`: the flash page (erase unit) sizes `ww_settings::Store` supports.
+pub(crate) fn settings_page_sizes() -> Vec<CompletionCandidate> {
+    [
+        ("2048", "e.g. STM32H7A3/7B3"),
+        ("4096", ""),
+        ("8192", "e.g. STM32G0B1"),
+        ("16384", "e.g. STM32F405/407 small sectors"),
+        ("131072", "e.g. STM32F4/H7 large sectors"),
+    ]
+    .into_iter()
+    .map(|(v, help)| CompletionCandidate::new(v).help((!help.is_empty()).then(|| help.into())))
+    .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

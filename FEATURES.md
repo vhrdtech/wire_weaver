@@ -940,7 +940,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     `src/bin/reset_cut.rs` showed why no word ever failed its ECC check: on G0 a system reset waits for the flash
     operation (73 page erases cut 1-20 ms into their ~22 ms all left the page fully erased, programs only stop
     between double words).
-  - [ ] real power cut, so the zeros path of SRV-19 runs on hardware: the B129A powered through the Donguru plug
+  - [ ] real power cut against `ww_settings::Store` on `EccSafeFlash`, so the zeros path of SRV-19 runs on
+    hardware: the B129A powered through the Donguru plug
     VBUS switch (U601, AOZ1375), switched from the PC in a loop with Donguru's `plug.vbus_mode` (typec_dongle
     API-11, in progress). The device can't keep its counters across a power cut: a host program reads the loaded
     and committed sequence numbers and the ECC count over SWD (Donguru CMSIS-DAP, session ended before each cut so

@@ -3894,11 +3894,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   commented out in <code>tests/traits</code>. Its generated code serializes arguments into a fixed 128 byte scratch and
   then calls <code>.to_vec()</code>, which isn't <code>no_std</code>; it should write into a caller-provided buffer instead. The std
   clients (<code>std_client</code>, <code>trait_client</code>) already serialize with <code>to_ww_bytes_owned()</code> and have no size limit.</li>
-<li>🚧 <strong>CLT-15 Multi read/write/call</strong> · <code>v0.5.x</code> — servers with <code>multi_req = true</code> dispatch <code>MultiRead</code>, <code>MultiCall</code>
+<li>✅ <strong>CLT-15 Multi read/write/call</strong> · <code>v0.5.x</code> — servers with <code>multi_req = true</code> dispatch <code>MultiRead</code>, <code>MultiCall</code>
   and <code>MultiWrite</code> (<code>Same</code> or <code>Different</code> args), each index answered on its own (<code>Either&lt;Error, value&gt;</code>), and answer
-  malformed multi requests with errors instead of panicking (<code>tests/multi_req</code>). Missing: the client API for multi
-  write and call (<code>multi_read()</code> takes 2-tuples at the root only), deferred methods inside a multi request (refused
-  with <code>OperationNotSupported</code>), and full multi-property support.</li>
+  malformed multi requests with errors instead of panicking (<code>tests/multi_req</code>). Client side: generic <code>MultiRead</code>/
+  <code>MultiCall</code>/<code>MultiWrite</code> tuple traits (any arity 2..=8, any depth, not just root 2-tuples), <code>read_array</code>/
+  <code>call_array</code>/<code>write_array</code> for homogeneous requests across an array's indices (<code>List</code>/<code>Range</code>/<code>Mask32</code>, <code>Same</code> or
+  <code>Different</code> args chosen automatically), and a <code>DynResource</code> equivalent for the dynamic client
+  (<code>tests/properties</code>, <code>tests/methods</code>, <code>tests/dynamic</code>). Deferred methods inside a multi request are refused with
+  <code>OperationNotSupported</code>.</li>
 <li>📋 <strong>CLT-16 Verify the hash of a cached API bundle</strong> · <code>v0.5.x</code> (<code>wire_weaver_client/src/local_registry.rs</code>).</li>
 <li>📋 <strong>CLT-17 Reliable requests over unreliable media</strong> · <code>v0.5.x</code> — a second, non-increasing seq number to guard against
   a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.</li>

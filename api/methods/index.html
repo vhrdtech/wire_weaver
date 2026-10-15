@@ -1163,6 +1163,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#several-calls-in-one-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Several calls in one request
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#error-lists" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3227,6 +3238,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#several-calls-in-one-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Several calls in one request
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#error-lists" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3491,6 +3513,16 @@ A deferred call that is never answered times out on the client.</p>
 without <code>Result</code> tell an unimplemented method apart with <code>wire_weaver_client::Error::is_unimplemented()</code>. A property
 with a user error type (<code>property!(rw mode: u8, ModeError)</code>) gives the same <code>CallError&lt;ModeError&gt;</code> from <code>write()</code>.
 See <a href="../errors/">Errors</a> for declaring errors, common errors and errors of newer firmware.</p>
+<h3 id="several-calls-in-one-request">Several calls in one request<a class="headerlink" href="#several-calls-in-one-request" title="Permanent link">&para;</a></h3>
+<p>When the server is generated with <code>multi_req = true</code> (a server without it refuses the request), several methods
+can be called in one request/response pair, each answered on its own (<code>Result&lt;T, ErrorOwned&gt;</code> per item, in order):
+<code>(client.inc(), client.dec()).multi_call().await</code>, implemented for tuples of 2 to 8 of <code>PreparedCall</code>, at any depth
+(any methods that share a common path prefix and diverge at exactly one element). To call the same method across a
+whole array, use <code>call_array(multi_idx, |i| client.pin(i).double())</code> (<code>multi_idx</code> is a <code>Range</code>/<code>List</code>/<code>Mask32</code>
+selector) — see <a href="../properties/#host-side">Properties</a> for the full set of multi-request helpers, which is shared
+with methods and properties alike (<code>multi_read</code>/<code>multi_call</code>/<code>multi_write</code>, <code>read_array</code>/<code>call_array</code>/<code>write_array</code>,
+and the dynamic-client equivalents). A method with a custom <code>#[errors(..)]</code> result (<code>CallError&lt;E&gt;</code>) can't go into a
+tuple multi-call; call it on its own instead.</p>
 <h3 id="error-lists">Error lists<a class="headerlink" href="#error-lists" title="Permanent link">&para;</a></h3>
 <p><code>#[errors(..)]</code> on a method names the variants of its error enum it returns (API-32), <code>Common(InUse, Refused)</code> the
 variants of the enum a <code>Common(CommonError)</code> variant holds, <code>Common</code> all of them:</p>

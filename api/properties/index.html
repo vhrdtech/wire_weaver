@@ -3548,8 +3548,21 @@ allows. Reads and writes are prepared first, then sent async, blocking or as a p
 <li><code>ErrorKind::Unimplemented</code> (<code>CallError::Unimplemented { .. }</code> for writes) is a handler returning <code>Unimplemented</code>, or a
   property the device left out.</li>
 <li><code>.with_timeout(..)</code> overrides the request timeout for one read or write.</li>
-<li>Several properties in one request: <code>(device.read_x(), device.read_y()).multi_read().await</code>, when the server is
-  generated with <code>multi_req = true</code> (a server without it refuses the request).</li>
+<li>Several resources in one request, when the server is generated with <code>multi_req = true</code> (a server without it
+  refuses the request): each index is answered on its own (<code>Result&lt;T, ErrorOwned&gt;</code> per item, in order).<ul>
+<li>Different resources at the same level: <code>(device.read_x(), device.read_y(), device.read_mode()).multi_read().await</code>
+  and the <code>multi_call</code>/<code>multi_write</code> equivalents, implemented for tuples of 2 to 8 of the generated
+  <code>PreparedRead</code>/<code>PreparedCall</code>/<code>PreparedWrite</code> builders, at any depth (any resources that share a common path
+  prefix and diverge at exactly one element, optionally followed by one more shared element — e.g. the same
+  property across two array elements).</li>
+<li>The same resource across a whole array: <code>read_array</code>/<code>call_array</code>/<code>write_array</code> (+ <code>_blocking</code>) take a
+  <code>MultiIndexOwned</code> selector (<code>Range</code>/<code>List</code>/<code>Mask32</code>) and the existing generated per-index accessor, e.g.
+  <code>read_array(MultiIndexOwned::Range(UNib32(0)..UNib32(4)), |i| client.pin(i).read_mode()).await</code>. The dynamic
+  client has the same as <code>DynResource::multi_read</code>/<code>multi_write</code>/<code>multi_call</code>.</li>
+<li>Whether each index carries the same argument/value or a different one per index (<code>MultiArgs::Same</code>/
+  <code>Different</code>) is chosen automatically from the serialized bytes.</li>
+</ul>
+</li>
 <li>With an <code>#[errors(..)]</code> list, the generated client warns when a write fails with a variant outside it (the dynamic
   client checks reads too).</li>
 </ul>

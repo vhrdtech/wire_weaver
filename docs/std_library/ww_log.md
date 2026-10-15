@@ -96,9 +96,9 @@ SECTIONS {
 } INSERT AFTER .rodata;
 ```
 
-The note between the two symbols is 16 bytes of ELF note header followed by the id (20 bytes with sha1).
-`examples_mcu/rp2` does all three steps (`build.rs`, `memory.x`, `build_id()` in `src/bin/usb_log.rs`). Without
-the note, `build_id` is empty and a host can only guess the ELF.
+`ww_firmware_info::build_id()` (its `build-id` feature) reads the id between the two symbols. `examples_mcu/rp2`
+does all three steps (`build.rs`, `memory.x`, `src/bin/usb_log.rs`). Without the note, `build_id` is empty and a
+host can only guess the ELF.
 
 ## The device side: `ww_defmt_logger`
 

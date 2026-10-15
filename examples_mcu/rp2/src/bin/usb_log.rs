@@ -22,6 +22,7 @@ use wire_weaver::prelude::*;
 use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
 use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbTimings, usb_init};
 use ww_device::LinkEvent;
+use ww_firmware_info::build_id;
 use ww_stream::store::{FullPolicy, RamRing};
 use ww_stream::tx::Reliable;
 
@@ -40,25 +41,6 @@ type LogStream = Reliable<RamRing<LOG_STORE_LEN>>;
 
 static USB_BUFFERS: StaticCell<UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>> = StaticCell::new();
 static STATE: StaticCell<ServerState> = StaticCell::new();
-
-/// GNU build id from the `.note.gnu.build-id` section `memory.x` keeps in flash (`--build-id=sha1` in build.rs).
-// TODO(STD-24): ww_firmware_info::build_id() once it lands
-fn build_id() -> &'static [u8] {
-    unsafe extern "C" {
-        static __build_id_start: u8;
-        static __build_id_end: u8;
-    }
-    let start = &raw const __build_id_start;
-    let end = &raw const __build_id_end;
-    // safety: the linker script puts both symbols around the note in flash
-    let note = unsafe { core::slice::from_raw_parts(start, end as usize - start as usize) };
-    // ELF note: name size, id size, type (u32 each), "GNU\0", then the id
-    if note.len() < 16 {
-        return &[];
-    }
-    let id_len = u32::from_le_bytes([note[4], note[5], note[6], note[7]]) as usize;
-    note.get(16..16 + id_len).unwrap_or(&[])
-}
 
 struct ServerState {
     log_frames_stream: LogStream,

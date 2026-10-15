@@ -1677,6 +1677,7 @@ dependencies = [
  "ww_client_server",
  "ww_defmt_logger",
  "ww_device",
+ "ww_firmware_info",
  "ww_log",
  "ww_stream",
 ]
@@ -2449,6 +2450,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_date_time"
+version = "0.1.0"
+dependencies = [
+ "shrink_wrap",
+]
+
+[[package]]
 name = "ww_defmt_logger"
 version = "0.5.0"
 dependencies = [
@@ -2485,6 +2493,16 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
+]
+
+[[package]]
+name = "ww_firmware_info"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_date_time",
+ "ww_si",
+ "ww_version",
 ]
 
 [[package]]

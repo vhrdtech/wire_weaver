@@ -6271,7 +6271,7 @@ dependencies = [
 
 [[package]]
 name = "ww_report"
-version = "0.5.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "cnt_core",

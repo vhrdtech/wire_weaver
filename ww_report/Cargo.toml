@@ -1,6 +1,6 @@
 [package]
 name = "ww_report"
-version = "0.5.0"
+version.workspace = true
 authors.workspace = true
 description = "Device info and bug report of any WireWeaver device: firmware, board, ids, counters, log and last reset decoded with its ELF"
 edition.workspace = true

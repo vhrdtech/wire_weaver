@@ -243,6 +243,36 @@ its length at the back of the buffer, which is not where the value ends when the
 its position and `N` are part of the layout: put it in the first version of a type. The
 [showcase](showcase.md#bounding-a-value-from-the-inside-with-tailsize) has the bytes.
 
+## `ArrayString`/`ArrayVec`: owned no-alloc values
+
+`&str`/`RefVec<'i, T>` borrow from the buffer they were read from, and `String`/`Vec<T>` need an allocator. Neither
+fits a field that must own its bytes without one: a `value_on_changed` field of a string or list property in a
+`no_alloc` server (which can't hold a `&'static str`), or a settings value kept in RAM between loads. `ArrayString<N>`
+and `ArrayVec<T, N>` are the owned, no-alloc alternative: a fixed-size `[u8; N]` / `[MaybeUninit<T>; N]` plus a
+length, the same bytes on the wire as `&str`/`String` and `Vec<T>` (`UnsizedFinalStructure`: the elements, then the
+count at the back), so a field can move between the borrowed, owned and array-backed forms without changing a single
+byte:
+
+```rust
+use shrink_wrap::prelude::*;
+
+let mut s: ArrayString<8> = ArrayString::new();
+s.push_str("abc").unwrap();
+assert_eq!(s.as_str(), "abc");
+
+let mut buf = [0u8; 16];
+let bytes = s.to_ww_bytes(&mut buf).unwrap();
+assert_eq!(bytes, "abc".to_ww_bytes(&mut [0u8; 16]).unwrap());
+```
+
+A value longer than `N` is never cut: it fails with `Error::MaxLenExceeded`, the same error whether it happens in
+`push_str`/`push`, `ArrayString::try_from`, serializing, or deserializing one that is too long for this reader's
+`N` (a smaller `N` than the writer used, same check [`MaxLen`](../types.md#bounded-lists-and-strings-maxlent-n)
+makes for a wrapped list or string). Both have a `CAPACITY` const, `Deref` to `str`/`[T]`, and set `MAX_SIZE` from
+`N` (`write_max_size::<T>()` per element for `ArrayVec`), so a type built out of them has a
+[compile-time worst-case size](../types.md#bounded-lists-and-strings-maxlent-n) like any other bounded type.
+`ArrayVec<T, N>` drops its elements in place like a normal container; `T` does not need `Copy`.
+
 ## Compressed sequences: `Delta`, `DeltaOfDelta` and `XorFloat`
 
 A `Vec<T>` of readings taken one after another is mostly redundancy: the next value is usually the previous one

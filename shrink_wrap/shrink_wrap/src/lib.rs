@@ -4,6 +4,10 @@
 // So that the code `#[derive_shrink_wrap(..)]` generates can name this crate as `::shrink_wrap` from inside it too.
 extern crate self as shrink_wrap;
 
+pub mod array_string;
+pub use array_string::ArrayString;
+pub mod array_vec;
+pub use array_vec::ArrayVec;
 pub mod buf_reader;
 
 pub use buf_reader::BufReader;
@@ -144,6 +148,8 @@ impl Error {
 pub mod prelude {
     pub use crate::Error as ShrinkWrapError;
     pub use crate::any_on_stack::AnyOnStack;
+    pub use crate::array_string::ArrayString;
+    pub use crate::array_vec::ArrayVec;
     pub use crate::buf_reader::BufReader;
     pub use crate::buf_writer::BufWriter;
     #[cfg(feature = "std")]

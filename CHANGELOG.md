@@ -61,6 +61,9 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   backed by a real `ww_settings::Store` in the last 2 sectors of bank 2 (`memory.x` shrinks `FLASH` the same
   way). +23476 B flash, +2136 B RAM (`.bss`) over `blinky` (release, `llvm-size`). Both MCU bins are behind a new
   `settings` cargo feature (`dep:settings_api`, `dep:ww_settings`), checked by `just check-examples-mcu`.
+- `shrink_wrap::ArrayString<N>` / `ArrayVec<T, N>` (SW-57): owned, no-alloc string/list types with the same wire
+  bytes as `&str`/`String` and `Vec<T>`, for owned no-alloc fields (e.g. settings values, `value_on_changed` of a
+  string/list property). shrink_wrap/CHANGELOG.md, section Unreleased.
 
 ### Fixed
 

@@ -10,6 +10,14 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- `ArrayString<N>` / `ArrayVec<T, N>` (SW-57), new modules `array_string` and `array_vec`: owned, no-alloc values
+  backed by a fixed-size `[u8; N]` / `[MaybeUninit<T>; N]`, same bytes on the wire as `&str`/`String` and
+  `Vec<T>`, for places an owned value is needed without an allocator (a `value_on_changed` field of a string or
+  list property in a `no_alloc` server, a settings value). `ArrayString::new`/`push_str`/`as_str`,
+  `TryFrom<&str>`, `Deref<Target = str>`; `ArrayVec::new`/`push`/`as_slice`, `Deref<Target = [T]>`; both have a
+  `CAPACITY` const and fail with `Error::MaxLenExceeded` (serializing, deserializing, `push_str`/`push`,
+  `TryFrom`) rather than cutting a value that is too long. Re-exported at the crate root and in the prelude. See
+  `docs/serdes/shrink_wrap.md#arraystring-arrayvec-owned-no-alloc-values`.
 - `EitherAnyVecIter::next_with()` (CLT-15): reads the next item's flag and hands the caller a bounded `BufReader`
   for whichever side it is (already `rd.split`-bounded to its own size when unsized), for item types not known at
   compile time (e.g. a value deserialized according to a runtime type descriptor), which `next()`/`next_owned()`

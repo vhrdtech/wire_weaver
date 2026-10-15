@@ -2,6 +2,9 @@
 
 ### ⚠️ Breaking
 
+- `Bank::configure(config: BankConfig) -> Result<BankConfig, Error>` with `BankConfig::io_level: Option<Volt>`
+  instead of the `reference_voltage` property (STD-13); the answer is the level in effect. `BankCapabilities::voltage`
+  is `io_levels: MaxLen<RefVec<Volt>, MAX_IO_LEVELS>`, with `io_level_min` / `io_level_max`.
 - `Error` get `Unknown(u32)` from `derive_shrink_wrap` (SW-47): a variant from a newer version of this crate is read
   into it instead of failing. Exhaustive matches need an `Unknown(_)` arm. Same wire.
 - `Error` gains `InUse`, `NoIoLevel`, `Refused` (STD-13).

@@ -34,8 +34,7 @@ use wire_weaver_usb_embassy::{
 use ww_client_server::StreamSideband;
 use ww_stream::tx::Counted;
 use ww_client_server::credit::SinkCredit;
-use ww_si::Volt;
-use ww_uart::{Baud, Capabilities, DataBits, Mode, Parity, RxChunk, StopBits};
+use ww_uart::{Baud, Capabilities, RxChunk, UartConfig};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
@@ -125,12 +124,7 @@ struct ServerState {
     /// Position and loss accounting of each counted `rx` stream
     rx: [Counted; 2],
     stream_sessions: u32,
-    // uart_baud_rate: [Baud; 2],
-    // uart_mode: [Mode; 2],
-    // uart_stop_bits: [StopBits; 2],
-    // uart_parity: [Parity; 2],
-    // uart_prevent_back_feed: [bool; 2],
-    // uart_reference_voltage: [Volt; 2],
+    // uart_config: [UartConfig; 2],
 }
 
 mod server_impl {
@@ -224,9 +218,11 @@ impl ServerState {
         let cap = Capabilities {
             min_baud_rate: Baud::baud(1200u32),
             max_baud_rate: Baud::megabaud(12u32),
-            voltages: MaxLen::new_unchecked(RefVec::Slice {
+            io_levels: MaxLen::new_unchecked(RefVec::Slice {
                 slice: &[ww_si::quantity!(3.3 V f32)],
             }),
+            io_level_min: None,
+            io_level_max: None,
             rx_timestamps: false,
             hw_flow_control: false,
             sw_flow_control: false,
@@ -239,87 +235,12 @@ impl ServerState {
         Ready(cap)
     }
 
-    async fn set_uart_baud_rate(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
+    async fn uart_configure(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
-        _baud_rate: Baud,
-    ) -> SetResult<ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn get_uart_baud_rate(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-    ) -> GetResult<Baud, ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn set_uart_mode(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-        _mode: Mode,
-    ) -> SetResult<ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn get_uart_mode(&mut self, _cx: &mut Context<'_, impl EventOut>, _index: [UNib32; 1]) -> GetResult<Mode, ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn set_uart_stop_bits(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-        _stop_bits: StopBits,
-    ) -> SetResult<ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn get_uart_stop_bits(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-    ) -> GetResult<StopBits, ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn set_uart_parity(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-        _parity: Parity,
-    ) -> SetResult<ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn get_uart_parity(&mut self, _cx: &mut Context<'_, impl EventOut>, _index: [UNib32; 1]) -> GetResult<Parity, ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn set_uart_prevent_back_feed(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-        _baud_rate: bool,
-    ) -> SetResult<ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn get_uart_prevent_back_feed(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-    ) -> GetResult<bool, ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn set_uart_reference_voltage(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-        _voltage: Volt,
-    ) -> SetResult<ww_uart::Error> {
-        SetError(ww_uart::Error::UnsupportedReferenceVoltage)
-    }
-
-    async fn get_uart_reference_voltage(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-    ) -> GetResult<Volt, ww_uart::Error> {
+        _config: UartConfig,
+    ) -> RpcResult<Result<UartConfig, ww_uart::Error>> {
         ww_unimplemented!()
     }
 
@@ -330,31 +251,6 @@ impl ServerState {
         _pin: ww_uart::Pin,
         _is_high: bool,
     ) -> RpcResult<Result<(), ww_uart::Error>> {
-        ww_unimplemented!()
-    }
-
-    async fn set_uart_data_bits(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-        _data_bits: DataBits,
-    ) -> SetResult<ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn get_uart_data_bits(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-    ) -> GetResult<DataBits, ww_uart::Error> {
-        ww_unimplemented!()
-    }
-
-    async fn uart_baud_rate_actual(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
-    ) -> RpcResult<Baud> {
         ww_unimplemented!()
     }
 
@@ -499,7 +395,6 @@ async fn main(spawner: embassy_executor::Spawner) {
         tx_credit: [SinkCredit::new(TX_BUF_SIZE as u32), SinkCredit::new(TX_BUF_SIZE as u32)],
         rx: [Counted::new(), Counted::new()],
         stream_sessions: 0,
-        // uart_baud_rate: [Baud::baud(115_200u32); 2],
         // uart_mode: [Mode::Asynchronous; 2],
         // uart_stop_bits: [StopBits::Stop1; 2],
         // uart_parity: [Parity::None; 2],

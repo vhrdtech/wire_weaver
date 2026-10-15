@@ -3,7 +3,7 @@ use crate::ww::{BankClient, GpioClient};
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver_client::{Attachment, PositionedStream};
 use ww_gpio::{
-    BankCapabilitiesOwned, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull, Volt,
+    BankCapabilitiesOwned, BankConfig, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull, Volt,
 };
 
 /// GPIO configured as Push-Pull output.
@@ -443,17 +443,25 @@ impl BankBlocking {
         }
     }
 
-    /// Get bank reference voltage, requested from a remote device.
-    pub fn reference_voltage(&self) -> Result<Volt, Error> {
-        Ok(self.bank.read_reference_voltage().blocking_read()?)
+    /// Sets the IO level of every pin of the bank, if supported by hardware, and returns the level in effect
+    /// (`None` on a bank without level control).
+    pub fn set_io_level(&mut self, level: Volt) -> Result<Option<Volt>, Error> {
+        let actual = self
+            .bank
+            .configure(BankConfig {
+                io_level: Some(level),
+            })
+            .blocking_call()?;
+        Ok(actual.io_level)
     }
 
-    /// Set reference voltage for all pins of the bank, if supported by hardware.
-    pub fn set_reference_voltage(&mut self, voltage: Volt) -> Result<(), Error> {
-        self.bank
-            .write_reference_voltage(voltage)
-            .blocking_write()?;
-        Ok(())
+    /// IO level of the bank now (`None` on a bank without level control): a `configure` that changes nothing.
+    pub fn io_level(&mut self) -> Result<Option<Volt>, Error> {
+        let actual = self
+            .bank
+            .configure(BankConfig { io_level: None })
+            .blocking_call()?;
+        Ok(actual.io_level)
     }
 
     /// Get pin at `pin_idx` as a [FlexBlocking], assuming unknown mode.

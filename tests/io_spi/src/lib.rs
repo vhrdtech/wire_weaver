@@ -11,7 +11,7 @@ mod tests {
     use ww_numeric::NumericValue;
     use ww_si::{Prefix, Second, Volt};
     use ww_spi::{
-        BitOrder, CsMode, SpiActual, SpiCapabilities, SpiConfig, SpiError, SpiFrame, SpiMode,
+        BitOrder, CsMode, SpiCapabilities, SpiConfig, SpiError, SpiFrame, SpiMode,
         SpiMonitorConfig, SpiOp, SpiRole,
     };
     use ww_stream::tx::Counted;
@@ -44,7 +44,6 @@ mod tests {
     struct Model {
         configured: Option<SpiConfig>,
         cs_active: bool,
-        reference_voltage: Option<Volt>,
         /// Bytes of every `Spi::write`, in order.
         writes: Vec<Vec<u8>>,
         /// Set while the `frames` stream is open.
@@ -186,6 +185,8 @@ mod tests {
                     slave: false,
                     monitor: true,
                     io_levels: MaxLen::new(RefVec::Slice { slice: &IO_LEVELS }).unwrap(),
+                    io_level_min: None,
+                    io_level_max: None,
                     max_len: MAX_LEN as u32,
                 })
             }
@@ -194,16 +195,25 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiConfig,
-            ) -> RpcResult<Result<SpiActual, SpiError>> {
+            ) -> RpcResult<Result<SpiConfig, SpiError>> {
                 if matches!(config.role, SpiRole::Slave) {
                     return Ready(Err(SpiError::Unsupported));
                 }
                 if config.word_bits != 8 {
                     return Ready(Err(SpiError::InvalidArgument));
                 }
-                let freq = config.freq;
-                self.data.lock().unwrap().configured = Some(config);
-                Ready(Ok(SpiActual { freq }))
+                // this mock's only IO level is 3.3 V, and that is what it runs at
+                let io_level = match config.io_level {
+                    None => volt(3.3),
+                    Some(level) if level == volt(3.3) => level,
+                    Some(_) => return Ready(Err(SpiError::Unsupported)),
+                };
+                let actual = SpiConfig {
+                    io_level: Some(io_level),
+                    ..config
+                };
+                self.data.lock().unwrap().configured = Some(actual);
+                Ready(Ok(actual))
             }
 
             fn spi_set_cs(
@@ -218,33 +228,6 @@ mod tests {
                 }
                 model.cs_active = active;
                 Ready(Ok(()))
-            }
-
-            fn set_spi_reference_voltage(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                value: Volt,
-            ) -> SetResult<SpiError> {
-                let supported =
-                    matches!(value.value, NumericValue::F32(v) if (v - 3.3).abs() < 0.01);
-                if !supported {
-                    return SetError(SpiError::Unsupported);
-                }
-                self.data.lock().unwrap().reference_voltage = Some(value);
-                Set
-            }
-
-            fn get_spi_reference_voltage(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Volt, SpiError> {
-                Value(
-                    self.data
-                        .lock()
-                        .unwrap()
-                        .reference_voltage
-                        .unwrap_or(volt(3.3)),
-                )
             }
 
             fn spi_monitor_frames(
@@ -369,6 +352,7 @@ mod tests {
             bit_order: BitOrder::MsbFirst,
             word_bits: 8,
             cs,
+            io_level: None,
         }
     }
 
@@ -492,29 +476,30 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn reference_voltage_property() {
-        let (device, _data) = start("io_spi/reference_voltage");
+    async fn io_level_in_the_config() {
+        let (device, data) = start("io_spi/io_level");
         let client = connect(&device).await;
 
-        // default before it is ever set
-        let v = client.spi().read_reference_voltage().read().await.unwrap();
-        assert_eq!(v.value, NumericValue::F32(3.3));
-
-        let err = client
+        // `None` keeps the level, the answer says which one is in effect
+        let actual = client
             .spi()
-            .write_reference_voltage(volt(5.0))
-            .write()
-            .await;
-        assert!(err.is_err());
-
-        client
-            .spi()
-            .write_reference_voltage(volt(3.3))
-            .write()
+            .configure(configured_master(CsMode::Auto))
+            .call()
             .await
             .unwrap();
-        let v = client.spi().read_reference_voltage().read().await.unwrap();
-        assert_eq!(v.value, NumericValue::F32(3.3));
+        assert_eq!(actual.io_level, Some(volt(3.3)));
+
+        let at_5v = SpiConfig {
+            io_level: Some(volt(5.0)),
+            ..configured_master(CsMode::Auto)
+        };
+        let err = client.spi().configure(at_5v).call().await;
+        assert!(matches!(
+            err.unwrap_err().device(),
+            Some(SpiError::Unsupported)
+        ));
+        let configured = data.lock().unwrap().configured.unwrap();
+        assert_eq!(configured.io_level, Some(volt(3.3)));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -525,6 +510,7 @@ mod tests {
             mode: SpiMode::Mode0,
             bit_order: BitOrder::MsbFirst,
             word_bits,
+            io_level: None,
         };
         let r = client.spi_monitor().frames(config(9)).call().await.unwrap();
         assert!(matches!(r, Err(SpiError::Unsupported)), "{:?}", r.err());

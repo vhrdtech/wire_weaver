@@ -91,18 +91,15 @@ pub trait I2c {
     /// What this adapter supports: modes, frequencies, IO levels, buffer sizes, 10-bit addresses, pull-ups.
     fn i2c_capabilities() -> I2cCapabilities<'i>;
 
-    /// Configures the bus and returns the SCL frequency actually set (the nearest the hardware can do, never above
-    /// the one asked for).
-    ///
-    /// `io_level` sets the bus voltage on adapters with level translators; `None` leaves it as it is (and is the only
-    /// choice on a device without them). [I2cMode::Disabled] releases the pins.
+    /// Configures the bus and returns what was actually set: the SCL frequency the hardware settled on (the nearest
+    /// it can do, never above the one asked for) and the IO level in effect. [I2cMode::Disabled] releases the pins.
     ///
     /// # Errors
     ///
     /// [I2cError::UnsupportedMode], [I2cError::UnsupportedSpeed], [I2cError::UnsupportedIoLevel],
     /// [I2cError::InUse] (the pins serve another function), [I2cError::Refused] (e.g. the bus already sits at a higher
     /// voltage than `io_level`).
-    fn i2c_configure(mode: I2cMode, io_level: Option<Volt>) -> Result<Hertz, I2cError>;
+    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError>;
 
     /// Writes `data` to the device at `addr`: start, address, data, stop.
     ///
@@ -312,7 +309,7 @@ pub struct I2cWatchEvent<'i> {
 #[ww_trait]
 pub trait I2cMonitor {
     /// One record per transaction, in bus order. Opening starts monitoring, closing stops it. `io_level` as in
-    /// `I2c::i2c_configure`; the adapter's pull-ups stay as they are (the watched bus has its own). A counted
+    /// [I2cConfig::io_level]; the adapter's pull-ups stay as they are (the watched bus has its own). A counted
     /// stream, unit: transaction; the head's time is the start condition, and the host learns exactly how many
     /// records the device dropped.
     ///
@@ -352,7 +349,22 @@ impl I2cAddress {
     }
 }
 
-/// Bus mode, set with `I2c::i2c_configure`.
+/// Everything the bus is configured with, see `I2c::i2c_configure`: what is asked for going in, what was actually
+/// set coming back.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, PartialEq, Copy, Clone)
+)]
+pub struct I2cConfig {
+    pub mode: I2cMode,
+    /// Bus voltage on adapters with level translators ([I2cCapabilities::io_levels]); `None` leaves it as it is going
+    /// in (the only choice on a device without them), and is the answer of a device without them.
+    pub io_level: Option<Volt>,
+}
+
+/// Bus mode, part of [I2cConfig].
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),

@@ -2,6 +2,12 @@
 
 ### ⚠️ Breaking
 
+- One `configure(config: UartConfig) -> Result<UartConfig, Error>` instead of the `baud_rate`, `mode`,
+  `stop_bits`, `parity`, `data_bits`, `prevent_back_feed` and `reference_voltage` properties and `baud_rate_actual()`
+  (STD-13): the answer is what was actually set (baud rate after the divider, IO level in effect).
+  `UartConfig::io_level: Option<Volt>` replaces `reference_voltage`; `MonitorConfig` gets `io_level` too and
+  `UartMonitor::lines` answers the actual `MonitorConfig` instead of a `Baud`. `Capabilities::voltages` is
+  `io_levels` (bounded by `MAX_IO_LEVELS`), with `io_level_min` / `io_level_max`.
 - Baud rates are `ww_si::Baud` (STD-13): the `BaudRate` enum is gone, `baud_rate`, `MonitorConfig::baud_rate`,
   `baud_rate_actual()`, `UartMonitor::lines` and `Capabilities::min_baud_rate` / `max_baud_rate` take or return a
   `Baud` (`Baud::baud(115_200u32)`) instead of `BaudRate` or a `u32`.

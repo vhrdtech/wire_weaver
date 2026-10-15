@@ -18,7 +18,7 @@ use wire_weaver_usb_embassy::{
     LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
 };
 use ww_stream::tx::Counted;
-use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed, Volt};
+use ww_gpio::{BankCapabilities, BankConfig, Error, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
@@ -214,9 +214,11 @@ impl ServerState {
         _index: [UNib32; 1],
     ) -> RpcResult<BankCapabilities<'_>> {
         Ready(BankCapabilities {
-            voltage: RefVec::Slice {
+            io_levels: MaxLen::new_unchecked(RefVec::Slice {
                 slice: &[ww_si::quantity!(3.3 V f32)],
-            },
+            }),
+            io_level_min: None,
+            io_level_max: None,
             push_pull: true,
             open_drain: true,
             input: true,
@@ -227,16 +229,17 @@ impl ServerState {
         })
     }
 
-    async fn get_port_reference_voltage(&mut self, _cx: &mut Context<'_, impl EventOut>, _index: [UNib32; 1]) -> GetResult<Volt, Error> {
-        Value(ww_si::quantity!(3.3 V f32))
-    }
-
-    async fn set_port_reference_voltage(
-        &mut self, _cx: &mut Context<'_, impl EventOut>,
+    async fn port_configure(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
-        _quantity: Volt,
-    ) -> SetResult<Error> {
-        SetError(Error::UnsupportedReferenceVoltage)
+        config: BankConfig,
+    ) -> RpcResult<Result<BankConfig, Error>> {
+        // fixed 3.3 V, no level translators
+        if config.io_level.is_some() {
+            return Ready(Err(Error::UnsupportedReferenceVoltage));
+        }
+        Ready(Ok(BankConfig { io_level: None }))
     }
 
     async fn port_name(

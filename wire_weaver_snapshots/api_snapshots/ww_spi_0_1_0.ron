@@ -44,8 +44,8 @@
     "",
     "Both traits return [SpiError]; each method lists the variants it returns.",
 ], crate_idx: 0, trait_name: "ww_spi", items: [
-    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Spi", docs: []),
-    (id: 1, kind: Trait(trait_idx: 1), multiplicity: Flat, since: None, ident: "SpiMonitor", docs: []),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Spi", docs: [], optional: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "SpiMonitor", docs: [], optional: None),
 ]), types: [
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
         "Errors of both traits in this crate. Each method lists the variants it returns.",
@@ -146,6 +146,12 @@
         (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 4))), docs: [
             "Discrete IO levels the adapter can set (e.g. 1.8 V, 3.3 V, 5 V); empty if it has no level control.",
         ]),
+        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
+            "Lowest IO level of an adjustable supply, if the adapter has one.",
+        ]),
+        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
+            "Highest IO level of an adjustable supply, if the adapter has one.",
+        ]),
         (ident: Some("max_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Largest transfer this device does, at most [SPI_MAX].",
         ]),
@@ -197,11 +203,12 @@
         ], ident: "None", fields: Unit, discriminant: 2, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Bus settings, see `Spi::configure`.",
+        "Everything the bus is configured with, see `Spi::configure`: what is asked for going in, what was actually set",
+        "coming back.",
     ], ident: "SpiConfig", fields: Named([
         (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: []),
         (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
-            "SCL frequency asked for; `Spi::configure` returns what was actually set.",
+            "SCK frequency asked for; `Spi::configure` answers with what was actually set.",
         ]),
         (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
         (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
@@ -209,12 +216,9 @@
             "Bits per word; words above 8 bits travel as 2 bytes, little-endian.",
         ]),
         (ident: Some("cs"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: []),
-    ]))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What `Spi::configure` actually set.",
-    ], ident: "SpiActual", fields: Named([
-        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
-            "The frequency the hardware settled on, never above the one asked for.",
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
+            "Voltage of the lines on adapters with level translators ([SpiCapabilities::io_levels]); `None` leaves it as",
+            "it is going in (the only choice on a device without them), and is the answer of a device without them.",
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -224,6 +228,9 @@
         (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
         (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
         (ident: Some("word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
+            "Input threshold level, as [SpiConfig::io_level].",
+        ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One frame seen by `SpiMonitor`: from CS asserted to released.",
@@ -250,7 +257,7 @@
     ], crate_idx: 0, trait_name: "Spi", items: [
         (id: 0, kind: Method(args: [
             (ident: "data", ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8))))),
-        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "transfer", docs: [
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 0))), errors: None), multiplicity: Flat, since: None, ident: "transfer", docs: [
             "Full duplex: writes `data`, returns as many bytes as were read. CS is asserted for the call and released",
             "after, as [CsMode::Auto]; with [CsMode::Manual] the bus must already be selected (`Spi::set_cs`).",
             "",
@@ -258,10 +265,10 @@
             "",
             "[SpiError::WrongMode] (not configured as [SpiRole::Master]), [SpiError::BufferTooBig] (`data` longer than",
             "[SPI_MAX] or this device\'s [SpiCapabilities::max_len]), [SpiError::NoIoLevel], [SpiError::Timeout].",
-        ]),
+        ], optional: None),
         (id: 1, kind: Method(args: [
             (ident: "ops", ty: MaxLen(max_len: 16, ty: Vec(OutOfLine(type_idx: 2)))),
-        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "transaction", docs: [
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 0))), errors: None), multiplicity: Flat, since: None, ident: "transaction", docs: [
             "CS asserted for every op of `ops`, released at the end; returns the bytes of every [SpiOp::Read] and",
             "[SpiOp::Transfer], concatenated in order. [SpiOp::Delay] waits between two ops without touching the lines.",
             "",
@@ -269,50 +276,47 @@
             "",
             "As `Spi::transfer`; [SpiError::InvalidArgument] (more than [MAX_OPS] operations, or the reads together",
             "exceed [SPI_MAX]).",
-        ]),
+        ], optional: None),
         (id: 2, kind: Method(args: [
             (ident: "data", ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8))))),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "write", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: None), multiplicity: Flat, since: None, ident: "write", docs: [
             "Writes `data`, ignoring what comes back.",
             "",
             "# Errors",
             "",
             "As `Spi::transfer`.",
-        ]),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        ], optional: None),
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What this bus supports: frequency range, word sizes, master/slave, IO levels.",
-        ]),
+        ], optional: None),
         (id: 4, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 10)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "configure", docs: [
-            "Configures the bus and returns the frequency actually set (the nearest the hardware can do, never above the",
-            "one asked for). [SpiRole::Disabled] releases the pins.",
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 10), err_ty: OutOfLine(type_idx: 0))), errors: None), multiplicity: Flat, since: None, ident: "configure", docs: [
+            "Configures the bus and returns what was actually set: the frequency the hardware settled on (the nearest it",
+            "can do, never above the one asked for) and the IO level in effect. [SpiRole::Disabled] releases the pins.",
             "",
             "# Errors",
             "",
             "[SpiError::InUse] (the pins or peripheral serve another function), [SpiError::Unsupported] ([SpiRole::Slave],",
-            "this `word_bits`, or this [CsMode] on an adapter without it), [SpiError::InvalidArgument] (`freq` or",
-            "`word_bits` outside [SpiCapabilities]), [SpiError::Refused] (a safety rule of the device).",
-        ]),
+            "this `word_bits`, this [CsMode] or an IO level the adapter doesn\'t have), [SpiError::InvalidArgument] (`freq` or",
+            "`word_bits` outside [SpiCapabilities]), [SpiError::Refused] (a safety rule of the device, e.g. the bus already",
+            "sits at a higher voltage than `io_level`).",
+        ], optional: None),
         (id: 5, kind: Method(args: [
             (ident: "active", ty: Bool),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "set_cs", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: None), multiplicity: Flat, since: None, ident: "set_cs", docs: [
             "Asserts or releases CS, with [CsMode::Manual].",
             "",
             "# Errors",
             "",
             "[SpiError::WrongMode] (CS isn\'t [CsMode::Manual]).",
-        ]),
-        (id: 6, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 0))), multiplicity: Flat, since: None, ident: "reference_voltage", docs: [
-            "IO level, on adapters with level translators. [SpiError::Unsupported] if there is no level control,",
-            "[SpiError::Refused] if a safety rule of the device doesn\'t allow the requested level.",
-        ]),
+        ], optional: None),
     ]), crate_idx: 0),
     InLine(level: (docs: [
         "Watches an SPI bus without taking part: one [SpiFrame] per CS assertion on the `frames` stream.",
     ], crate_idx: 0, trait_name: "SpiMonitor", items: [
-        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 13), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 12)),
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 12), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 11)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0)))), multiplicity: Flat, since: None, ident: "frames", docs: [
             "One frame per CS assertion, in bus order, decoded with `config` (the monitor doesn\'t drive CS or clock, it",
             "only listens). Opening starts monitoring, closing stops it. A counted stream, unit: frame; the head\'s time is",
@@ -321,9 +325,9 @@
             "# Errors",
             "",
             "[SpiError::InUse], [SpiError::Unsupported] (this `word_bits`), [SpiError::Refused].",
-        ]),
+        ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_spi", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-])
+], root_omitted: None)

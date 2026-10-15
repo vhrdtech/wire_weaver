@@ -43,11 +43,9 @@ pub trait Spi {
 
     fn capabilities() -> SpiCapabilities<'i>;
 
-    fn configure(config: SpiConfig) -> Result<SpiActual, SpiError>;
+    fn configure(config: SpiConfig) -> Result<SpiConfig, SpiError>;
 
     fn set_cs(active: bool) -> Result<(), SpiError>;
-
-    property!(rw reference_voltage: Volt, SpiError);
 }
 ```
 
@@ -58,11 +56,10 @@ pub trait Spi {
   register address, then read it) stays under one CS assertion instead of two separate `transfer` calls.
 * `write` - like `transfer`, ignoring what comes back.
 * `capabilities` - frequency range, word sizes, master/slave support, IO levels; see [Types](#types) below.
-* `configure` - sets the bus (role, frequency, mode 0-3, bit order, word size, CS mode) and returns the frequency
-  actually set, the nearest the hardware can do without going above what was asked. `SpiRole::Disabled` releases
-  the pins.
+* `configure` - sets the bus (role, frequency, mode 0-3, bit order, word size, CS mode, IO level) in one
+  `SpiConfig` and answers with what was actually set: the frequency the hardware settled on, never above what was
+  asked, and the IO level in effect (`io_level: None` leaves it as it is). `SpiRole::Disabled` releases the pins.
 * `set_cs` - asserts or releases CS, only meaningful with `CsMode::Manual`.
-* `reference_voltage` - IO level, on adapters with level translators.
 
 ### `SpiMonitor`
 
@@ -75,7 +72,7 @@ pub trait SpiMonitor {
 ```
 
 * `frames` - a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with the bus
-  settings needed to decode frames (mode, bit order, word size) and receives one `SpiFrame` per CS assertion seen on
+  settings needed to decode frames (mode, bit order, word size, IO level) and receives one `SpiFrame` per CS assertion seen on
   the bus, in order, until it closes the stream. The monitor doesn't drive CS or the clock itself, it only listens.
   Its unit is a frame: the event head carries when CS was asserted and how many frames the device dropped
   ([stream delivery](../api/stream_reliability.md)).
@@ -83,9 +80,8 @@ pub trait SpiMonitor {
 ## Types
 
 * `SpiConfig` - `role: SpiRole`, `freq: Hertz`, `mode: SpiMode`, `bit_order: BitOrder`, `word_bits: u8`,
-  `cs: CsMode`; given to `Spi::configure`.
-* `SpiActual` - `freq: Hertz`, the frequency `Spi::configure` actually set.
-* `SpiMonitorConfig` - `mode`, `bit_order`, `word_bits`: the subset of `SpiConfig` a monitor needs to decode frames,
+  `cs: CsMode`, `io_level: Option<Volt>`; the argument and the answer of `Spi::configure`.
+* `SpiMonitorConfig` - `mode`, `bit_order`, `word_bits`, `io_level`: the subset of `SpiConfig` a monitor needs to decode frames,
   the argument of `SpiMonitor::frames`.
 * `SpiRole` - `Disabled`, `Master`, `Slave`. Data paths for slave mode are not defined yet.
 * `SpiMode` - `Mode0`..`Mode3`, the usual CPOL/CPHA numbering; `sized`, 2 bits.
@@ -96,7 +92,8 @@ pub trait SpiMonitor {
 * `SpiFrame<'i>` - one frame seen by `SpiMonitor`: `end: Second` (CS released; asserted is the head's time), `truncated`,
   `mosi` / `miso: MaxLen<RefVec<'i, u8>, SPI_MAX>`.
 * `SpiCapabilities<'i>` - `min_freq` / `max_freq: Hertz`, `min_word_bits` / `max_word_bits: u8`, `master` /
-  `slave` / `monitor: bool`, `io_levels: MaxLen<RefVec<'i, Volt>, 8>`, `max_len: u32` (largest transfer this
+  `slave` / `monitor: bool`, `io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>`, `io_level_min` /
+  `io_level_max: Option<Volt>` (an adjustable supply), `max_len: u32` (largest transfer this
   device does, at most `SPI_MAX`).
 * `SpiError` - `Unsupported`, `InUse`, `NoIoLevel`, `Refused`, `InvalidArgument`, `WrongMode`, `BufferTooBig`,
   `Timeout`; unsized (`unib32` discriminant), evolvable. Each method's rustdoc lists the variants it returns.

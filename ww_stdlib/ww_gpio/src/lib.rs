@@ -6,8 +6,11 @@
 use wire_weaver::prelude::*;
 pub use ww_si::Volt;
 
+/// Most discrete IO levels a bank lists in [BankCapabilities::io_levels].
+pub const MAX_IO_LEVELS: usize = 8;
+
 /// A bank of related IO pins.
-/// Each pin in a bank is using the same reference voltage, that can be adjusted if supported by hardware.
+/// Every pin of a bank uses the same IO level, adjustable on hardware with level translators ([BankConfig]).
 #[ww_trait]
 pub trait Bank {
     /// Array of individual pins.
@@ -21,11 +24,12 @@ pub trait Bank {
     /// Capabilities that each pin of the bank supports.
     fn capabilities() -> BankCapabilities<'i>;
 
-    /// Reference voltage for all pins of the bank.
+    /// Configures what the pins of the bank share and returns what was actually set: the IO level in effect.
     ///
     /// # Errors
-    /// `Error::UnsupportedReferenceVoltage` if the bank's hardware can't drive the requested voltage (`set` only).
-    property!(rw reference_voltage: Volt, Error);
+    /// `Error::UnsupportedReferenceVoltage` if the bank's hardware can't drive the requested level, `Error::Refused`
+    /// when a safety rule of the device doesn't allow it.
+    fn configure(config: BankConfig) -> Result<BankConfig, Error>;
 
     /// User-friendly bank name, e.g. `"PA"`.
     fn name() -> &'i str;
@@ -165,7 +169,7 @@ pub enum Error {
     UnsupportedSpeed,
     /// `Pin::event` was opened with an edge or custom source this pin can't generate.
     UnsupportedEventType,
-    /// `Bank::reference_voltage` was set to a voltage this bank can't drive.
+    /// `Bank::configure` asked for an IO level this bank can't drive.
     UnsupportedReferenceVoltage,
     /// Pins of a bank were requested to use different modes when only one mode at a time is supported.
     DifferentModes,
@@ -258,15 +262,34 @@ pub struct IoPinEnabledEvents<'i> {
     // TODO: add GPIO filter configuration
 }
 
-/// GPIO bank capabilities: supported voltages, modes, custom modes, etc.
+/// Everything a bank is configured with, see `Bank::configure`: what is asked for going in, what was actually set
+/// coming back.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug)
+)]
+pub struct BankConfig {
+    /// IO level of every pin of the bank, on hardware with level translators ([BankCapabilities::io_levels]); `None`
+    /// leaves it as it is going in (the only choice on a bank without them), and is the answer of such a bank.
+    pub io_level: Option<Volt>,
+}
+
+/// GPIO bank capabilities: supported IO levels, modes, custom modes, etc.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Clone, Debug)
 )]
 pub struct BankCapabilities<'i> {
-    /// Reference voltages the bank can be set to with `Bank::reference_voltage`.
-    pub voltage: RefVec<'i, Volt>,
+    /// Discrete IO levels [BankConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the bank has no
+    /// level control.
+    pub io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>,
+    /// Lowest IO level of an adjustable supply, if the bank has one.
+    pub io_level_min: Option<Volt>,
+    /// Highest IO level of an adjustable supply, if the bank has one.
+    pub io_level_max: Option<Volt>,
 
     /// At least one pin of the bank supports `Mode::PushPullOutput`.
     pub push_pull: bool,

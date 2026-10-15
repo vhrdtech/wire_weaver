@@ -224,6 +224,9 @@ mod tests {
                     &[MaxLen::new_unchecked("A"), MaxLen::new_unchecked("B")];
                 Ready(ww_onewire::OneWireCapabilities {
                     pins: MaxLen::new(RefVec::Slice { slice: PINS }).unwrap(),
+                    io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
+                    io_level_min: None,
+                    io_level_max: None,
                     overdrive: true,
                     strong_pullup: true,
                 })
@@ -233,12 +236,16 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: OneWireConfig,
-            ) -> RpcResult<Result<(), OneWireError>> {
+            ) -> RpcResult<Result<OneWireConfig, OneWireError>> {
                 if config.pin > 1 {
                     return Ready(Err(OneWireError::InvalidArgument));
                 }
+                // no level translators: no IO level to set, none to answer
+                if config.io_level.is_some() {
+                    return Ready(Err(OneWireError::Unsupported));
+                }
                 self.bus.write().unwrap().configured = Some(config);
-                Ready(Ok(()))
+                Ready(Ok(config))
             }
 
             fn onewire_triplet(
@@ -453,15 +460,18 @@ mod tests {
         assert!(caps.overdrive);
         assert!(caps.strong_pullup);
 
-        onewire
+        let actual = onewire
             .configure(OneWireConfig {
                 enabled: true,
                 pin: 1,
                 speed: OneWireSpeed::Overdrive,
+                io_level: None,
             })
             .call()
             .await
             .unwrap();
+        assert_eq!(actual.pin, 1);
+        assert_eq!(actual.io_level, None);
         assert_eq!(bus.read().unwrap().configured.unwrap().pin, 1);
 
         let err = onewire
@@ -469,6 +479,7 @@ mod tests {
                 enabled: true,
                 pin: 7,
                 speed: OneWireSpeed::Standard,
+                io_level: None,
             })
             .call()
             .await;

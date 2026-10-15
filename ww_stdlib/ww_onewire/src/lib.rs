@@ -42,7 +42,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-pub use ww_si::Second;
+pub use ww_si::{Second, Volt};
 
 /// Largest write or read of one transaction, in bytes.
 pub const OW_MAX: usize = 256;
@@ -52,6 +52,9 @@ pub const MAX_ROMS: usize = 16;
 
 /// Most pins a bus can be put on.
 pub const MAX_PINS: usize = 8;
+
+/// Most discrete IO levels a device lists in [OneWireCapabilities::io_levels].
+pub const MAX_IO_LEVELS: usize = 8;
 
 /// A 1-Wire master: reset the bus, find the devices on it, and run addressed transactions.
 #[ww_trait]
@@ -89,17 +92,19 @@ pub trait OneWire {
         family: Option<u8>,
     ) -> Result<SearchPage<'i>, OneWireError>;
 
-    /// What this bus supports: pins it can be put on, overdrive, strong pull-up.
+    /// What this bus supports: pins it can be put on, IO levels, overdrive, strong pull-up.
     fn capabilities() -> OneWireCapabilities<'i>;
 
-    /// Puts the bus on one of [OneWireCapabilities::pins] at the given speed, or disables it (`enabled: false`).
+    /// Puts the bus on one of [OneWireCapabilities::pins] at the given speed and IO level, or disables it
+    /// (`enabled: false`), and returns what was actually set (the IO level in effect).
     ///
     /// # Errors
     ///
     /// [OneWireError::InvalidArgument] (`pin` outside [OneWireCapabilities::pins]), [OneWireError::Unsupported]
-    /// (`speed: Overdrive` without [OneWireCapabilities::overdrive]), [OneWireError::InUse] (the pin serves another
-    /// function), [OneWireError::Refused] (a transaction or search is running).
-    fn configure(config: OneWireConfig) -> Result<(), OneWireError>;
+    /// (`speed: Overdrive` without [OneWireCapabilities::overdrive], or an IO level the adapter doesn't have),
+    /// [OneWireError::InUse] (the pin serves another function), [OneWireError::Refused] (a transaction or search is
+    /// running).
+    fn configure(config: OneWireConfig) -> Result<OneWireConfig, OneWireError>;
 
     /// One search step at bit level, for a search run on the host: after `OneWire::reset` and writing the `Search
     /// ROM` command (`0xF0`) through `OneWire::transaction`, call this up to 64 times, once per ROM bit. `id_bit`
@@ -166,13 +171,17 @@ pub struct Triplet {
     pub direction: bool,
 }
 
-/// Bus pin and speed, set with `OneWire::configure`.
+/// Everything the bus is configured with, see `OneWire::configure`: what is asked for going in, what was actually
+/// set coming back.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug))]
 pub struct OneWireConfig {
     pub enabled: bool,
     /// Index into [OneWireCapabilities::pins].
     pub pin: u8,
     pub speed: OneWireSpeed,
+    /// Voltage of the bus on adapters with level translators ([OneWireCapabilities::io_levels]); `None` leaves it as
+    /// it is going in (the only choice on a device without them), and is the answer of a device without them.
+    pub io_level: Option<Volt>,
 }
 
 /// 1-Wire bus timing.
@@ -192,6 +201,13 @@ pub enum OneWireSpeed {
 pub struct OneWireCapabilities<'i> {
     /// Pins the bus can be put on, by name.
     pub pins: MaxLen<RefVec<'i, MaxLen<&'i str, 16>>, MAX_PINS>,
+    /// Discrete IO levels [OneWireConfig::io_level] can be set to (e.g. 3.3 V, 5 V); empty if the adapter has no
+    /// level control.
+    pub io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>,
+    /// Lowest IO level of an adjustable supply, if the adapter has one.
+    pub io_level_min: Option<Volt>,
+    /// Highest IO level of an adjustable supply, if the adapter has one.
+    pub io_level_max: Option<Volt>,
     pub overdrive: bool,
     pub strong_pullup: bool,
 }

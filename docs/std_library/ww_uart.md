@@ -35,16 +35,9 @@ pub trait Uart {
 
     fn capabilities() -> Capabilities<'i>;
 
-    property!(rw baud_rate: Baud, Error);
-    property!(rw mode: Mode, Error);
-    property!(rw stop_bits: StopBits, Error);
-    property!(rw parity: Parity, Error);
-    property!(rw data_bits: DataBits, Error);
-    property!(rw prevent_back_feed: bool, Error);
-    property!(rw reference_voltage: Volt, Error);
+    fn configure(config: UartConfig) -> Result<UartConfig, Error>;
 
     fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>;
-    fn baud_rate_actual() -> Baud;
     fn send_break(duration: Second) -> Result<(), Error>;
     fn tx_pending() -> u32;
 }
@@ -57,10 +50,11 @@ pub trait Uart {
 * `tx` - bytes to send, a [credit sink](../api/streams.md) (API-28): the host tracks the device's TX buffer
   (`Capabilities::tx_buffer`) and never sends more than it holds, so a large write (e.g. a file piped to the UART)
   can't overrun it.
-* `capabilities()` - what this device supports: baud rate range, flow control modes, reference voltages, buffer
-  sizes.
-* `baud_rate` / `mode` / `stop_bits` / `parity` / `data_bits` / `prevent_back_feed` / `reference_voltage` - line
-  configuration; the hardware rounds the requested baud rate, so `baud_rate_actual()` says what it actually set.
+* `capabilities()` - what this device supports: baud rate range, flow control modes, IO levels, buffer sizes.
+* `configure` - the whole line configuration in one [`UartConfig`](#types) (baud rate, data bits, parity, stop bits,
+  mode, back-feed detector, IO level), answered with what was actually set: the hardware rounds the baud rate to
+  what its divider can do, and `io_level: None` keeps the level and is answered with the level in effect. One call
+  instead of a property per setting, so a port never runs with half a configuration.
 * `set_pin_level` - manual control of a pin, only in [`Mode::Test`](#types); every other mode answers
   [`Error::WrongMode`](#types).
 * `send_break` - holds TX low for `duration` (a break condition), after the bytes already queued.
@@ -72,13 +66,13 @@ pub trait Uart {
 #[ww_trait]
 pub trait UartMonitor {
     #[stream(MonitorChunk<'i>, counted)]
-    fn lines(config: MonitorConfig) -> Result<Baud, Error>;
+    fn lines(config: MonitorConfig) -> Result<MonitorConfig, Error>;
 }
 ```
 
 * `lines` - a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with the line
-  settings of the watched link (baud rate, data bits, parity, stop bits) and gets back the baud rate actually set
-  (same as `Uart::baud_rate_actual`), then both directions of the link (rePort: RX and CTS/RX2) in one stream, in
+  settings of the watched link (baud rate, data bits, parity, stop bits, IO level) and gets back what was actually
+  set (as `Uart::configure` does), then both directions of the link (rePort: RX and CTS/RX2) in one stream, in
   the order they arrived: each `MonitorChunk` says which `MonitorLine` it came from, so a request and its answer
   stay in order. Closing the stream stops receiving. The unit is a byte of either line.
 
@@ -101,8 +95,12 @@ bridges can't sniff a link they aren't part of.
   is the time in the event head.
 * `MonitorChunk<'i>` - `line: MonitorLine` (`A` or `B`, 1 bit), `chunk: RxChunk<'i>`.
 * `RxFlags` - `parity_error`, `framing_error`, `overrun`, `break_detected`, seen while receiving a chunk.
-* `MonitorConfig` - `baud_rate`, `data_bits`, `parity`, `stop_bits` of the link `UartMonitor::lines` watches.
-* `Capabilities<'i>` - `min_baud_rate` / `max_baud_rate: Baud`, `voltages: MaxLen<RefVec<'i, Volt>, 8>`,
+* `UartConfig` - `baud_rate: Baud`, `data_bits`, `parity`, `stop_bits`, `mode`, `prevent_back_feed: bool`,
+  `io_level: Option<Volt>`; the argument and the answer of `configure`.
+* `MonitorConfig` - `baud_rate`, `data_bits`, `parity`, `stop_bits`, `io_level` of the link `UartMonitor::lines`
+  watches; the argument and the answer of `lines`.
+* `Capabilities<'i>` - `min_baud_rate` / `max_baud_rate: Baud`, `io_levels: MaxLen<RefVec<'i, Volt>,
+  MAX_IO_LEVELS>`, `io_level_min` / `io_level_max: Option<Volt>` (an adjustable supply),
   `rx_timestamps` (`rx` events carry their time) / `hw_flow_control` / `sw_flow_control` / `high_z_mode` / `test_mode` /
   `back_feed_detector: bool`, `rx_buffer` / `tx_buffer: u32` (device receive and transmit buffer sizes, in bytes).
 
@@ -137,7 +135,6 @@ let mut tx = device.uart(0).tx().await?;
 tx.send_bytes(b"abc000def").await?;
 ```
 
-Receiving chunks from `rx` and reading/writing properties looks the same as any other nested trait and credit
-sink/stream (see [properties](../api/properties.md) and [streams](../api/streams.md)); for a non-array `uart`
-resource (as in `tests/io_uart_api`) the same calls drop the index: `client.uart().rx()`,
-`client.uart().write_baud_rate(Baud::baud(115_200u32))`.
+Receiving chunks from `rx` and configuring the port look the same as any other nested trait, method and
+stream (see [streams](../api/streams.md)); for a non-array `uart` resource (as in `tests/io_uart_api`) the same
+calls drop the index: `client.uart().rx()`, `client.uart().configure(config)`.

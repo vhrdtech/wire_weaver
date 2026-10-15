@@ -39,6 +39,20 @@ out what a device actually has through introspection (global trait paths) and, w
 `WaveformGenerator::capabilities`) describing ranges, rates, formats and which optional behaviors work, so a host
 doesn't have to special-case devices by name.
 
+**One configuration, answered with what was set.** A bus or bank is configured in one call with one struct,
+not a property per setting: `Uart::configure(UartConfig)`, `I2c::i2c_configure(I2cConfig)`,
+`Spi::configure(SpiConfig)`, `Bank::configure(BankConfig)`, `OneWire::configure(OneWireConfig)`. Each answers with the
+same struct as actually set (the baud rate or clock the divider settled on, the IO level in effect), so a host sees
+the rounding and a port never runs with half a configuration. Stream functions that configure what they watch do the
+same (`UartMonitor::lines` answers its `MonitorConfig`).
+
+**IO level in the configuration.** On adapters with level translators the IO level is a field of that
+configuration, `io_level: Option<Volt>` (`None` leaves it as it is, and is the answer of a device without level
+control), and the capabilities list what it can be set to in the same three fields everywhere: `io_levels`
+(discrete levels), `io_level_min` / `io_level_max` (an adjustable supply). PWM, ADC, logic analyzer and signal
+generator channels sit on pins of a GPIO bank or bus and use its level; the logic analyzer sets its own input
+threshold per capture.
+
 **Common error variants.** Each crate defines its own plain error enum (`ww_gpio::Error`, `ww_uart::Error`,
 `ww_i2c::I2cError`, `ww_spi::Error`, `ww_adc::AdcError`, `ww_pwm::PwmError`, `ww_onewire::OneWireError`,
 `ww_timebase::ClockError`, `ww_logic_analyzer::LaError`, `ww_signal_generator::PgError` / `WgError`), but every one

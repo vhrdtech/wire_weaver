@@ -8,7 +8,7 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_gpio::{
-        BankCapabilities, Error, IoPinEnabledEvents, IoPinEvent, Level, Mode, PinCapabilities,
+        BankCapabilities, BankConfig, Error, IoPinEnabledEvents, IoPinEvent, Level, Mode, PinCapabilities,
         Pull, Speed, Volt,
     };
     use ww_stream::tx::Counted;
@@ -44,12 +44,12 @@ mod tests {
         vec![
             BankModel {
                 name: "PA",
-                reference_voltage: ww_si::quantity!(3.3 V f32),
+                reference_voltage: ww_si::quantity!(3300 mV u16),
                 pins: vec![PinModel::default(); 4],
             },
             BankModel {
                 name: "PB",
-                reference_voltage: ww_si::quantity!(1.8 V f32),
+                reference_voltage: ww_si::quantity!(1800 mV u16),
                 pins: vec![PinModel::default(); 2],
             },
         ]
@@ -147,9 +147,12 @@ mod tests {
                 _index_chain: [UNib32; 1],
             ) -> RpcResult<BankCapabilities<'_>> {
                 Ready(BankCapabilities {
-                    voltage: RefVec::Slice {
-                        slice: &[ww_si::quantity!(3.3 V f32), ww_si::quantity!(1.8 V f32)],
-                    },
+                    io_levels: MaxLen::new(RefVec::Slice {
+                        slice: &[ww_si::quantity!(3300 mV u16), ww_si::quantity!(1800 mV u16)],
+                    })
+                    .unwrap(),
+                    io_level_min: None,
+                    io_level_max: None,
                     push_pull: true,
                     open_drain: true,
                     input: true,
@@ -160,24 +163,24 @@ mod tests {
                 })
             }
 
-            fn set_bank_reference_voltage(
+            fn bank_configure(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
-                value: Volt,
-            ) -> SetResult<Error> {
+                config: BankConfig,
+            ) -> RpcResult<Result<BankConfig, Error>> {
                 let bank = index_chain[0].0 as usize;
-                self.banks.lock().unwrap()[bank].reference_voltage = value;
-                Set
-            }
-
-            fn get_bank_reference_voltage(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
-            ) -> GetResult<Volt, Error> {
-                let bank = index_chain[0].0 as usize;
-                Value(self.banks.lock().unwrap()[bank].reference_voltage)
+                let mut banks = self.banks.lock().unwrap();
+                if let Some(level) = config.io_level {
+                    let supported = [ww_si::quantity!(3300 mV u16), ww_si::quantity!(1800 mV u16)];
+                    if !supported.contains(&level) {
+                        return Ready(Err(Error::UnsupportedReferenceVoltage));
+                    }
+                    banks[bank].reference_voltage = level;
+                }
+                Ready(Ok(BankConfig {
+                    io_level: Some(banks[bank].reference_voltage),
+                }))
             }
 
             fn bank_name(
@@ -466,27 +469,37 @@ mod tests {
         assert!(caps.input);
         assert!(caps.individually_configurable_pins);
 
-        let v = client
+        // `None` changes nothing and answers the level in effect
+        let actual = client
             .bank(0)
-            .read_reference_voltage()
-            .read()
+            .configure(BankConfig { io_level: None })
+            .call()
             .await
             .unwrap();
-        assert_eq!(v.value, ww_si::quantity!(3.3 V f32).value);
+        assert_eq!(actual.io_level, Some(ww_si::Volt::millivolts(3300u16)));
 
-        client
+        let actual = client
             .bank(0)
-            .write_reference_voltage(ww_si::quantity!(2.5 V f32))
-            .write()
+            .configure(BankConfig {
+                io_level: Some(ww_si::Volt::millivolts(1800u16)),
+            })
+            .call()
             .await
             .unwrap();
-        let v = client
+        assert_eq!(actual.io_level, Some(ww_si::Volt::millivolts(1800u32)));
+
+        let err = client
             .bank(0)
-            .read_reference_voltage()
-            .read()
+            .configure(BankConfig {
+                io_level: Some(ww_si::Volt::volts(5u8)),
+            })
+            .call()
             .await
-            .unwrap();
-        assert_eq!(v.value, ww_si::quantity!(2.5 V f32).value);
+            .unwrap_err();
+        assert!(matches!(
+            err.device(),
+            Some(Error::UnsupportedReferenceVoltage)
+        ));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -1,5 +1,11 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- The IO level is `SpiConfig::io_level: Option<Volt>` instead of the `reference_voltage` property, and
+  `Spi::configure` answers the actual `SpiConfig` instead of `SpiActual` (removed) (STD-13). `SpiMonitorConfig` gets
+  `io_level`; `SpiCapabilities::io_levels` is bounded by `MAX_IO_LEVELS` and gets `io_level_min` / `io_level_max`.
+
 ### 🚀 Features
 
 - The empty `Spi` trait gets its API (STD-13, skeleton): `transfer`, `transaction` (CS held), `write`, `configure` returning the frequency actually set, manual CS, `reference_voltage`; `SpiMonitor` with `frames(config)`, a counted stream function (API-31), one `SpiFrame` per CS assertion (when CS was asserted is the time in the event head).

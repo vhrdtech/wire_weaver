@@ -4,6 +4,9 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### ⚠️ Breaking
 
+- `i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError>` takes `I2cConfig { mode, io_level }` instead of
+  two arguments and answers what was actually set (the SCL frequency inside the mode, the IO level in effect)
+  instead of a bare frequency (STD-13).
 - `I2cWatchReport::Matches { bytes }` holds one `I2cMatchByte { mask, value }` per byte read (a `sized` pair, two
   bytes) instead of two parallel `mask` and `value` vectors that had to be the same length.
 - `I2cWatch` holds up to `MAX_WATCHES = 512` watches (was 16): `I2cWatchCapabilities::max_watches` is a `u32`, and

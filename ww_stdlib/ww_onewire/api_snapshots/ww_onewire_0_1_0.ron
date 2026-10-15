@@ -43,7 +43,7 @@
     "",
     "Every method returns [OneWireError]; each lists the variants it returns.",
 ], crate_idx: 0, trait_name: "ww_onewire", items: [
-    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "OneWire", docs: []),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "OneWire", docs: [], optional: None),
 ]), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A 1-Wire ROM id: an 8-bit family code, a 48-bit serial number, and a CRC8 of the other seven bytes",
@@ -124,11 +124,31 @@
             "Where to continue, `None` when all devices were found.",
         ]),
     ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
+        4,
+        154,
+        42,
+        148,
+        246,
+        214,
+        139,
+        181,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a bus supports, see `OneWire::capabilities`.",
     ], ident: "OneWireCapabilities", fields: Named([
         (ident: Some("pins"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(MaxLen(max_len: 16, ty: String))), docs: [
             "Pins the bus can be put on, by name.",
+        ]),
+        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 6))), docs: [
+            "Discrete IO levels [OneWireConfig::io_level] can be set to (e.g. 3.3 V, 5 V); empty if the adapter has no",
+            "level control.",
+        ]),
+        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 6)), docs: [
+            "Lowest IO level of an adjustable supply, if the adapter has one.",
+        ]),
+        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 6)), docs: [
+            "Highest IO level of an adjustable supply, if the adapter has one.",
         ]),
         (ident: Some("overdrive"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("strong_pullup"), default: None, since: None, ty: Bool, docs: []),
@@ -140,13 +160,18 @@
         (docs: [], ident: "Overdrive", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Bus pin and speed, set with `OneWire::configure`.",
+        "Everything the bus is configured with, see `OneWire::configure`: what is asked for going in, what was actually",
+        "set coming back.",
     ], ident: "OneWireConfig", fields: Named([
         (ident: Some("enabled"), default: None, since: None, ty: Bool, docs: []),
         (ident: Some("pin"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Index into [OneWireCapabilities::pins].",
         ]),
-        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
+        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 6)), docs: [
+            "Voltage of the bus on adapters with level translators ([OneWireCapabilities::io_levels]); `None` leaves it as",
+            "it is going in (the only choice on a device without them), and is the answer of a device without them.",
+        ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of one `OneWire::triplet` step.",
@@ -167,7 +192,7 @@
     ], crate_idx: 0, trait_name: "OneWire", items: [
         (id: 0, kind: Method(args: [
             (ident: "t", ty: OutOfLine(type_idx: 2)),
-        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 256, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "transaction", docs: [
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 256, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 3))), errors: None), multiplicity: Flat, since: None, ident: "transaction", docs: [
             "Reset, ROM select (or skip ROM), write, read `read_len` bytes, optional strong pull-up after the last byte.",
             "",
             "# Errors",
@@ -177,18 +202,18 @@
             "configured, see `OneWire::configure`), [OneWireError::NoIoLevel],",
             "[OneWireError::InvalidArgument] (`write.len() + read_len` over [OW_MAX], or `strong_pullup` on a device",
             "without [OneWireCapabilities::strong_pullup]), [OneWireError::Refused].",
-        ]),
-        (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Bool, err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "reset", docs: [
+        ], optional: None),
+        (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Bool, err_ty: OutOfLine(type_idx: 3))), errors: None), multiplicity: Flat, since: None, ident: "reset", docs: [
             "Reset pulse; true when a device answered with a presence pulse.",
             "",
             "# Errors",
             "",
             "[OneWireError::ShortCircuit], [OneWireError::InUse], [OneWireError::WrongMode], [OneWireError::NoIoLevel].",
-        ]),
+        ], optional: None),
         (id: 2, kind: Method(args: [
             (ident: "from", ty: Option(some_ty: OutOfLine(type_idx: 4))),
             (ident: "family", ty: Option(some_ty: NumericAny(Base(U8)))),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 5), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "search", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 5), err_ty: OutOfLine(type_idx: 3))), errors: None), multiplicity: Flat, since: None, ident: "search", docs: [
             "ROM search, one page at a time: start with `from: None`, continue with the page\'s `next` until it comes back",
             "`None`. `family`, when given, only returns ids whose first byte matches.",
             "",
@@ -197,24 +222,26 @@
             "[OneWireError::NoPresence] (nothing answered the reset before this page\'s search), [OneWireError::ShortCircuit],",
             "[OneWireError::InUse], [OneWireError::WrongMode], [OneWireError::NoIoLevel],",
             "[OneWireError::CrcMismatch] (a found id\'s own CRC8 did not check out).",
-        ]),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6))), multiplicity: Flat, since: None, ident: "capabilities", docs: [
-            "What this bus supports: pins it can be put on, overdrive, strong pull-up.",
-        ]),
+        ], optional: None),
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+            "What this bus supports: pins it can be put on, IO levels, overdrive, strong pull-up.",
+        ], optional: None),
         (id: 4, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 8)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "configure", docs: [
-            "Puts the bus on one of [OneWireCapabilities::pins] at the given speed, or disables it (`enabled: false`).",
+            (ident: "config", ty: OutOfLine(type_idx: 9)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 9), err_ty: OutOfLine(type_idx: 3))), errors: None), multiplicity: Flat, since: None, ident: "configure", docs: [
+            "Puts the bus on one of [OneWireCapabilities::pins] at the given speed and IO level, or disables it",
+            "(`enabled: false`), and returns what was actually set (the IO level in effect).",
             "",
             "# Errors",
             "",
             "[OneWireError::InvalidArgument] (`pin` outside [OneWireCapabilities::pins]), [OneWireError::Unsupported]",
-            "(`speed: Overdrive` without [OneWireCapabilities::overdrive]), [OneWireError::InUse] (the pin serves another",
-            "function), [OneWireError::Refused] (a transaction or search is running).",
-        ]),
+            "(`speed: Overdrive` without [OneWireCapabilities::overdrive], or an IO level the adapter doesn\'t have),",
+            "[OneWireError::InUse] (the pin serves another function), [OneWireError::Refused] (a transaction or search is",
+            "running).",
+        ], optional: None),
         (id: 5, kind: Method(args: [
             (ident: "direction", ty: Bool),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 9), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "triplet", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 10), err_ty: OutOfLine(type_idx: 3))), errors: None), multiplicity: Flat, since: None, ident: "triplet", docs: [
             "One search step at bit level, for a search run on the host: after `OneWire::reset` and writing the `Search",
             "ROM` command (`0xF0`) through `OneWire::transaction`, call this up to 64 times, once per ROM bit. `id_bit`",
             "and `cmp_bit` are read back from the bus for this bit position (both set when every remaining device agrees",
@@ -225,9 +252,9 @@
             "",
             "[OneWireError::WrongMode] (no `Search ROM` command was sent since the last reset, or more than 64 calls",
             "since), [OneWireError::ShortCircuit], [OneWireError::NoIoLevel], [OneWireError::Refused].",
-        ]),
+        ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_onewire", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-])
+], root_omitted: None)

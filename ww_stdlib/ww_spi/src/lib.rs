@@ -52,6 +52,9 @@ pub const SPI_MAX: usize = 512;
 /// Most operations in one `Spi::transaction`.
 pub const MAX_OPS: usize = 16;
 
+/// Most discrete IO levels a device lists in [SpiCapabilities::io_levels].
+pub const MAX_IO_LEVELS: usize = 8;
+
 /// An SPI master: configure the bus, full-duplex transfer, transactions with CS held, and plain writes.
 ///
 /// Several operations under one CS assertion (write a command, then read a response) are one `Spi::transaction`,
@@ -90,15 +93,16 @@ pub trait Spi {
     /// What this bus supports: frequency range, word sizes, master/slave, IO levels.
     fn capabilities() -> SpiCapabilities<'i>;
 
-    /// Configures the bus and returns the frequency actually set (the nearest the hardware can do, never above the
-    /// one asked for). [SpiRole::Disabled] releases the pins.
+    /// Configures the bus and returns what was actually set: the frequency the hardware settled on (the nearest it
+    /// can do, never above the one asked for) and the IO level in effect. [SpiRole::Disabled] releases the pins.
     ///
     /// # Errors
     ///
     /// [SpiError::InUse] (the pins or peripheral serve another function), [SpiError::Unsupported] ([SpiRole::Slave],
-    /// this `word_bits`, or this [CsMode] on an adapter without it), [SpiError::InvalidArgument] (`freq` or
-    /// `word_bits` outside [SpiCapabilities]), [SpiError::Refused] (a safety rule of the device).
-    fn configure(config: SpiConfig) -> Result<SpiActual, SpiError>;
+    /// this `word_bits`, this [CsMode] or an IO level the adapter doesn't have), [SpiError::InvalidArgument] (`freq` or
+    /// `word_bits` outside [SpiCapabilities]), [SpiError::Refused] (a safety rule of the device, e.g. the bus already
+    /// sits at a higher voltage than `io_level`).
+    fn configure(config: SpiConfig) -> Result<SpiConfig, SpiError>;
 
     /// Asserts or releases CS, with [CsMode::Manual].
     ///
@@ -106,10 +110,6 @@ pub trait Spi {
     ///
     /// [SpiError::WrongMode] (CS isn't [CsMode::Manual]).
     fn set_cs(active: bool) -> Result<(), SpiError>;
-
-    /// IO level, on adapters with level translators. [SpiError::Unsupported] if there is no level control,
-    /// [SpiError::Refused] if a safety rule of the device doesn't allow the requested level.
-    property!(rw reference_voltage: Volt, SpiError);
 }
 
 /// Watches an SPI bus without taking part: one [SpiFrame] per CS assertion on the `frames` stream.
@@ -126,24 +126,21 @@ pub trait SpiMonitor {
     fn frames(config: SpiMonitorConfig) -> Result<(), SpiError>;
 }
 
-/// Bus settings, see `Spi::configure`.
+/// Everything the bus is configured with, see `Spi::configure`: what is asked for going in, what was actually set
+/// coming back.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug))]
 pub struct SpiConfig {
     pub role: SpiRole,
-    /// SCL frequency asked for; `Spi::configure` returns what was actually set.
+    /// SCK frequency asked for; `Spi::configure` answers with what was actually set.
     pub freq: Hertz,
     pub mode: SpiMode,
     pub bit_order: BitOrder,
     /// Bits per word; words above 8 bits travel as 2 bytes, little-endian.
     pub word_bits: u8,
     pub cs: CsMode,
-}
-
-/// What `Spi::configure` actually set.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug))]
-pub struct SpiActual {
-    /// The frequency the hardware settled on, never above the one asked for.
-    pub freq: Hertz,
+    /// Voltage of the lines on adapters with level translators ([SpiCapabilities::io_levels]); `None` leaves it as
+    /// it is going in (the only choice on a device without them), and is the answer of a device without them.
+    pub io_level: Option<Volt>,
 }
 
 /// Bus settings for `SpiMonitor::frames`: everything needed to decode frames correctly, without the
@@ -153,6 +150,8 @@ pub struct SpiMonitorConfig {
     pub mode: SpiMode,
     pub bit_order: BitOrder,
     pub word_bits: u8,
+    /// Input threshold level, as [SpiConfig::io_level].
+    pub io_level: Option<Volt>,
 }
 
 /// Bus role, set with `Spi::configure`.
@@ -256,7 +255,11 @@ pub struct SpiCapabilities<'i> {
     /// `SpiMonitor` is implemented.
     pub monitor: bool,
     /// Discrete IO levels the adapter can set (e.g. 1.8 V, 3.3 V, 5 V); empty if it has no level control.
-    pub io_levels: MaxLen<RefVec<'i, Volt>, 8>,
+    pub io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>,
+    /// Lowest IO level of an adjustable supply, if the adapter has one.
+    pub io_level_min: Option<Volt>,
+    /// Highest IO level of an adjustable supply, if the adapter has one.
+    pub io_level_max: Option<Volt>,
     /// Largest transfer this device does, at most [SPI_MAX].
     pub max_len: u32,
 }

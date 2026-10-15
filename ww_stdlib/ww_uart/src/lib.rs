@@ -19,6 +19,9 @@ pub const UART_TX_MAX: usize = 256;
 /// Largest chunk of received bytes.
 pub const UART_CHUNK_MAX: usize = 512;
 
+/// Most discrete IO levels a device lists in [Capabilities::io_levels].
+pub const MAX_IO_LEVELS: usize = 8;
+
 /// A serial port: configure, receive on `rx`, send on the `tx` credit sink.
 #[ww_trait]
 pub trait Uart {
@@ -32,59 +35,19 @@ pub trait Uart {
     #[credit]
     sink!(tx: MaxLen<RefVec<'i, u8>, UART_TX_MAX>);
 
-    /// Supported baud rates, modes and other features.
+    /// Supported baud rates, modes, IO levels and other features.
     fn capabilities() -> Capabilities<'i>;
 
-    /// Baud rate configuration; `Uart::baud_rate_actual` says what the divider made of it.
+    /// Configures the port in one step and returns what was actually set: the baud rate the divider settled on
+    /// (the nearest it can do), and the IO level now in effect.
     ///
     /// # Errors
     ///
-    /// [Error::Unsupported] (not in [Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate] or this device
-    /// only offers a fixed set), [Error::InUse], [Error::NoIoLevel].
-    property!(rw baud_rate: Baud, Error);
-
-    /// Mode configuration.
-    ///
-    /// # Errors
-    ///
-    /// [Error::UnsupportedMode], [Error::InUse], [Error::NoIoLevel].
-    property!(rw mode: Mode, Error);
-
-    /// Stop bits configuration.
-    ///
-    /// # Errors
-    ///
-    /// [Error::Unsupported], [Error::InUse].
-    property!(rw stop_bits: StopBits, Error);
-
-    /// Parity configuration.
-    ///
-    /// # Errors
-    ///
-    /// [Error::Unsupported], [Error::InUse].
-    property!(rw parity: Parity, Error);
-
-    /// Data bits per character.
-    ///
-    /// # Errors
-    ///
-    /// [Error::Unsupported], [Error::InUse].
-    property!(rw data_bits: DataBits, Error);
-
-    /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
-    /// Optional, check [Capabilities] if supported.
-    ///
-    /// # Errors
-    ///
-    /// [Error::Unsupported] (this device has no back-feed detector).
-    property!(rw prevent_back_feed: bool, Error);
-
-    /// Reference voltage configuration, if supported.
-    ///
-    /// # Errors
-    ///
-    /// [Error::UnsupportedReferenceVoltage], [Error::NoIoLevel].
-    property!(rw reference_voltage: Volt, Error);
+    /// [Error::Unsupported] (a baud rate outside [Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate], or
+    /// a mode, parity, bit count, back-feed detector or IO level this device doesn't have),
+    /// [Error::UnsupportedMode], [Error::UnsupportedReferenceVoltage], [Error::InUse], [Error::NoIoLevel],
+    /// [Error::Refused] (e.g. the line already sits at a higher voltage than `io_level`).
+    fn configure(config: UartConfig) -> Result<UartConfig, Error>;
 
     /// Manually control pins, only in [Mode::Test].
     ///
@@ -92,9 +55,6 @@ pub trait Uart {
     ///
     /// [Error::WrongMode] (not in [Mode::Test]), [Error::InUse], [Error::NoIoLevel].
     fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>;
-
-    /// The baud rate actually set (the nearest the divider can do).
-    fn baud_rate_actual() -> Baud;
 
     /// Holds TX low for `duration` (a break), after the bytes already queued.
     ///
@@ -112,14 +72,15 @@ pub trait Uart {
 #[ww_trait]
 pub trait UartMonitor {
     /// What both directions of the link carry, in the order it arrived, decoded with `config`; each chunk says
-    /// which line it came from. Opening starts receiving and answers the baud rate actually set, closing stops it.
+    /// which line it came from. Opening starts receiving and answers the configuration actually set (the baud rate
+    /// the receiver settled on, the IO level in effect), closing stops it.
     /// A counted stream, unit: byte (of both lines); the head's time is when the chunk's first byte arrived.
     ///
     /// # Errors
     ///
     /// [Error::Unsupported] (baud rate, mode or parity this monitor can't decode), [Error::InUse], [Error::NoIoLevel].
     #[stream(MonitorChunk<'i>, counted)]
-    fn lines(config: MonitorConfig) -> Result<Baud, Error>;
+    fn lines(config: MonitorConfig) -> Result<MonitorConfig, Error>;
 }
 
 /// Received bytes, see `Uart::rx` and `UartMonitor::lines`. When they arrived is the time in the event head.
@@ -166,6 +127,24 @@ pub struct RxFlags {
     pub break_detected: bool,
 }
 
+/// Everything a port is configured with, see `Uart::configure`: what is asked for going in, what was actually set
+/// coming back.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug))]
+pub struct UartConfig {
+    pub baud_rate: Baud,
+    pub data_bits: DataBits,
+    pub parity: Parity,
+    pub stop_bits: StopBits,
+    /// Flow control, high-Z or manual pin control.
+    pub mode: Mode,
+    /// Detect RX low for more than one byte interval and hold TX low, so a device asleep isn't powered through TX
+    /// ([Capabilities::back_feed_detector]).
+    pub prevent_back_feed: bool,
+    /// Voltage of the lines on adapters with level translators ([Capabilities::io_levels]); `None` leaves it as it
+    /// is going in (the only choice on a device without them), and is the answer of a device without them.
+    pub io_level: Option<Volt>,
+}
+
 /// Line settings of the watched link, the argument of `UartMonitor::lines`.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug))]
 pub struct MonitorConfig {
@@ -177,6 +156,8 @@ pub struct MonitorConfig {
     pub parity: Parity,
     /// Stop bits of the watched link.
     pub stop_bits: StopBits,
+    /// Input threshold level, as [UartConfig::io_level].
+    pub io_level: Option<Volt>,
 }
 
 #[derive_shrink_wrap(
@@ -269,7 +250,7 @@ pub enum Error {
     Unsupported,
     /// The [Mode] asked for isn't supported.
     UnsupportedMode,
-    /// The [Volt] asked for isn't in [Capabilities::voltages].
+    /// The IO level asked for isn't one of [Capabilities::io_levels] or in their range.
     UnsupportedReferenceVoltage,
     /// The call needs a different [Mode] than the one currently set (e.g. `Uart::set_pin_level` outside
     /// [Mode::Test]).
@@ -295,8 +276,13 @@ pub struct Capabilities<'i> {
     pub min_baud_rate: Baud,
     /// Highest baud rate this device can set.
     pub max_baud_rate: Baud,
-    /// Reference voltages this device's `reference_voltage` property can be set to; empty if it isn't adjustable.
-    pub voltages: MaxLen<RefVec<'i, Volt>, 8>,
+    /// Discrete IO levels [UartConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the adapter has
+    /// no level control.
+    pub io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>,
+    /// Lowest IO level of an adjustable supply, if the adapter has one.
+    pub io_level_min: Option<Volt>,
+    /// Highest IO level of an adjustable supply, if the adapter has one.
+    pub io_level_max: Option<Volt>,
     /// Whether `rx` chunks carry the device time of their first byte (the time in the event head).
     pub rx_timestamps: bool,
     /// Whether [Mode::HardwareFlowControl] is supported.
@@ -307,7 +293,7 @@ pub struct Capabilities<'i> {
     pub high_z_mode: bool,
     /// Whether [Mode::Test] and `Uart::set_pin_level` are supported.
     pub test_mode: bool,
-    /// Whether the `prevent_back_feed` property is supported.
+    /// Whether [UartConfig::prevent_back_feed] is supported.
     pub back_feed_detector: bool,
     /// Device receive buffer, in bytes.
     pub rx_buffer: u32,

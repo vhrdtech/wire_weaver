@@ -45,7 +45,7 @@ several operations without releasing the bus in between (repeated starts).
 #[ww_trait]
 pub trait I2c {
     fn i2c_capabilities() -> I2cCapabilities<'i>;
-    fn i2c_configure(mode: I2cMode, io_level: Option<Volt>) -> Result<Hertz, I2cError>;
+    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError>;
     fn i2c_write(addr: I2cAddress, data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>, delay_after: Option<Second>)
         -> Result<I2cTransactionTimeRange, I2cError>;
     fn i2c_read(addr: I2cAddress, kind: I2cReadKind<'i>, len: u16, delay_after: Option<Second>)
@@ -62,8 +62,9 @@ pub trait I2c {
 
 * `i2c_capabilities` - static description of what the adapter supports: modes, frequency range, IO levels, buffer
   sizes, 10-bit addresses, pull-ups, bus recovery; see `I2cCapabilities` under [Types](#types).
-* `i2c_configure` - sets the bus mode and, on adapters with level translators, the bus voltage (`None` leaves it as
-  it is); returns the SCL frequency actually set (never above the one asked for).
+* `i2c_configure` - sets the bus mode and, on adapters with level translators, the bus voltage, in one
+  [`I2cConfig`](#types) (`io_level: None` leaves the level as it is); answers with what was actually set: the SCL
+  frequency the hardware settled on (never above the one asked for) and the IO level in effect.
 * `i2c_write` - start, address, data, stop; `delay_after` makes the next transfer to the *same* address wait (an
   EEPROM page write needs ~5 ms) while transfers to other addresses go ahead meanwhile.
 * `i2c_read` - plain read, or a register read (write a few bytes, repeated start, read) through
@@ -137,7 +138,7 @@ pub trait I2cMonitor {
 ```
 
 `records` is a counted [stream function](../api/streams.md#opening-a-stream): opening it starts monitoring (at
-`io_level`, as in `i2c_configure`; the adapter's pull-ups stay as they are, the watched bus has its own), closing it
+`io_level`, as in `I2cConfig`; the adapter's pull-ups stay as they are, the watched bus has its own), closing it
 stops. Its unit is a transaction: the event head carries the time of each start condition and exactly how many
 records the device dropped and where ([stream delivery](../api/stream_reliability.md)).
 
@@ -169,6 +170,7 @@ up with the device's other data.
 
 ## Types
 
+* `I2cConfig` - `mode: I2cMode`, `io_level: Option<Volt>`; the argument and the answer of `i2c_configure`.
 * `I2cMode` - `Disabled` (pins released), `Master { speed: Hertz, monitor }`, `Slave { addr, monitor }` (data paths
   for slave mode are not defined yet), `MonitorOnly`.
 * `I2cReadKind<'i>` - `Plain` (start, address+read, `len` bytes, stop) or `RepeatedStart { write }` (start,

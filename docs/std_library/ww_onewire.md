@@ -40,7 +40,7 @@ pub trait OneWire {
 
     fn capabilities() -> OneWireCapabilities<'i>;
 
-    fn configure(config: OneWireConfig) -> Result<(), OneWireError>;
+    fn configure(config: OneWireConfig) -> Result<OneWireConfig, OneWireError>;
 
     fn triplet(direction: bool) -> Result<Triplet, OneWireError>;
 }
@@ -52,8 +52,9 @@ pub trait OneWire {
   bus is a normal `false`).
 * `search` - paged ROM search: start with `from: None`, continue with each page's `next` until it comes back
   `None`. `family`, when given, only returns ids whose first byte matches.
-* `capabilities` - pins the bus can be put on, and whether overdrive / strong pull-up are supported.
-* `configure` - puts the bus on one of `capabilities().pins` at a given speed, or disables it.
+* `capabilities` - pins the bus can be put on, IO levels, and whether overdrive / strong pull-up are supported.
+* `configure` - puts the bus on one of `capabilities().pins` at a given speed and IO level (`io_level: None` leaves
+  it as it is), or disables it; answers with what was actually set, as the `configure` of the other IO crates does.
 * `triplet` - one search step at bit level, for a search run on the host instead of the device (see
   [The protocol, briefly](#the-protocol-briefly)).
 
@@ -75,9 +76,11 @@ the transaction's last byte; `OneWireCapabilities::strong_pullup` says whether i
   devices were found).
 * `Triplet` - one `triplet` step's result: `id_bit`, `cmp_bit` (both set when every remaining device agrees on this
   bit, both clear at a fork), `direction` (the bit this step actually drove onto the bus).
-* `OneWireConfig` - `enabled: bool`, `pin: u8` (index into `OneWireCapabilities::pins`), `speed: OneWireSpeed`.
+* `OneWireConfig` - `enabled: bool`, `pin: u8` (index into `OneWireCapabilities::pins`), `speed: OneWireSpeed`,
+  `io_level: Option<Volt>`; the argument and the answer of `configure`.
 * `OneWireSpeed` - `Standard` / `Overdrive`; `sized`, 1 bit.
-* `OneWireCapabilities<'i>` - `pins: MaxLen<RefVec<'i, MaxLen<&'i str, 16>>, MAX_PINS>` (by name), `overdrive: bool`,
+* `OneWireCapabilities<'i>` - `pins: MaxLen<RefVec<'i, MaxLen<&'i str, 16>>, MAX_PINS>` (by name), `io_levels:
+  MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>`, `io_level_min` / `io_level_max: Option<Volt>`, `overdrive: bool`,
   `strong_pullup: bool`.
 * `OneWireError` - `Unsupported`, `InUse`, `NoIoLevel`, `Refused`, `InvalidArgument`, `WrongMode`, `NoPresence`,
   `CrcMismatch`, `ShortCircuit`; self-describing (`unib32` discriminant).

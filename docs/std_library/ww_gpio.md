@@ -2,7 +2,7 @@
 
 `ww_gpio` is a global WireWeaver trait for controlling GPIO pins remotely: reading and setting output levels,
 reading input levels, configuring pin mode / pull / drive strength, and observing edge events as a stream. It is
-`no_std` by default and depends only on `wire_weaver` and `ww_si` (for the `Volt` reference-voltage type).
+`no_std` by default and depends only on `wire_weaver` and `ww_si` (for the `Volt` IO level).
 
 Add it to a device API crate with:
 
@@ -19,7 +19,7 @@ so they compose with the rest of the API using [`ww_impl!`](../api/traits.md) an
 
 ### `Bank`
 
-One bank (port) of pins sharing the same reference voltage:
+One bank (port) of pins sharing the same IO level:
 
 ```rust
 #[ww_trait]
@@ -28,7 +28,7 @@ trait Bank {
 
     fn capabilities() -> BankCapabilities<'i>;
 
-    property!(rw reference_voltage: Volt, Error);
+    fn configure(config: BankConfig) -> Result<BankConfig, Error>;
 
     fn name() -> &'i str;
 }
@@ -37,9 +37,11 @@ trait Bank {
 * `pin[]` - array of individual pins in the bank, indexed 0-based; see [`Pin`](#pin) below. Indexing can either
   follow the natural range of a bank (e.g. an IO expander) or a list of specific indices (e.g. exposing only `PB1`
   and `PB5` of an MCU port).
-* `capabilities()` - static description of what the bank supports: which voltages, modes and custom
+* `capabilities()` - static description of what the bank supports: which IO levels, modes and custom
   mode/pull/speed strings, see `BankCapabilities` under [Types](#types) below.
-* `reference_voltage` - reference voltage used by the whole bank, adjustable if the hardware supports it.
+* `configure` - what the pins of the bank share, in a `BankConfig`: the IO level, adjustable if the hardware has
+  level translators (`io_level: None` leaves it as it is). Answers with what was actually set, so `configure` with
+  `None` reads the level in effect. Same shape as the `configure` of `ww_uart`, `ww_i2c`, `ww_spi`.
 * `name()` - user-friendly bank name (e.g. `"PA"`).
 
 ### `Pin`
@@ -101,7 +103,9 @@ pub trait Pin {
 * `PinCapabilities<'i>` - what one pin supports: `modes: MaxLen<RefVec<'i, Mode>, 8>`,
   `pulls: MaxLen<RefVec<'i, Pull>, 4>`, `speeds: MaxLen<RefVec<'i, Speed>, 5>`, `events: bool` (the `event` stream
   works on this pin), `name: MaxLen<&'i str, 16>` (e.g. `"IO4"`, `"PB5"`).
-* `BankCapabilities<'i>` - what a bank supports: `voltage: RefVec<'i, Volt>`, `push_pull` / `open_drain` / `input` /
+* `BankConfig` - `io_level: Option<Volt>`; the argument and the answer of `Bank::configure`.
+* `BankCapabilities<'i>` - what a bank supports: `io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>`,
+  `io_level_min` / `io_level_max: Option<Volt>` (an adjustable supply), `push_pull` / `open_drain` / `input` /
   `individually_configurable_pins: bool`, and `custom_mode` / `custom_pull` / `custom_speed: RefVec<'i, &'i str>`
   describing any `Custom(u8)` variants.
 
@@ -225,7 +229,7 @@ fn valid_indices_root_port_pin(&mut self, index: [UNib32; 1]) -> ValidIndices<'_
 }
 ```
 
-In this example, `capabilities()` and `reference_voltage` are hardcoded (3.3V, push-pull/open-drain/input all
+In this example, `capabilities()` and `configure` are hardcoded (3.3V without level control, push-pull/open-drain/input all
 supported, no custom modes), `set_mode`/`mode` and `pull`/`speed` are translated to/from the STM32 `MODER` /
 `OTYPER` / `PUPDR` / `OSPEEDR` registers, and the `event` stream never opens (`port_pin_event` answers
 `Error::UnsupportedEventType`, one `Counted` state serves every pin) since the example does not wire up EXTI

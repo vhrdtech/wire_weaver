@@ -12,18 +12,13 @@ mod tests {
     use ww_stream::tx::Counted;
     use ww_uart::{
         Baud, Capabilities, DataBits, Error, Mode, MonitorChunk, MonitorConfig, MonitorLine,
-        Parity, Pin, RxChunk, StopBits,
+        Parity, Pin, RxChunk, StopBits, UartConfig,
     };
 
     /// Device behaviour and what it received, shared with the test.
     struct Model {
-        baud_rate: Baud,
-        mode: Mode,
-        stop_bits: StopBits,
-        parity: Parity,
-        data_bits: DataBits,
-        prevent_back_feed: bool,
-        reference_voltage: ww_si::Volt,
+        /// What `configure` set last.
+        config: UartConfig,
         /// `(pin, is_high)` of every `set_pin_level` call accepted in [Mode::Test].
         pin_levels: Vec<(Pin, bool)>,
         send_break_calls: Vec<ww_si::Second>,
@@ -40,13 +35,15 @@ mod tests {
     impl Default for Model {
         fn default() -> Self {
             Model {
-                baud_rate: Baud::baud(115_200u32),
-                mode: Mode::Asynchronous,
-                stop_bits: StopBits::Stop1,
-                parity: Parity::None,
-                data_bits: DataBits::Eight,
-                prevent_back_feed: false,
-                reference_voltage: ww_si::quantity!(3300 mV u16),
+                config: UartConfig {
+                    baud_rate: Baud::baud(115_200u32),
+                    data_bits: DataBits::Eight,
+                    parity: Parity::None,
+                    stop_bits: StopBits::Stop1,
+                    mode: Mode::Asynchronous,
+                    prevent_back_feed: false,
+                    io_level: Some(ww_si::quantity!(3300 mV u16)),
+                },
                 pin_levels: vec![],
                 send_break_calls: vec![],
                 tx_bytes: vec![],
@@ -63,10 +60,15 @@ mod tests {
         Capabilities {
             min_baud_rate: Baud::baud(110u32),
             max_baud_rate: Baud::baud(921_600u32),
-            voltages: MaxLen::new(RefVec::Slice {
-                slice: &[ww_si::quantity!(3300 mV u16)],
+            io_levels: MaxLen::new(RefVec::Slice {
+                slice: &[
+                    ww_si::quantity!(1800 mV u16),
+                    ww_si::quantity!(3300 mV u16),
+                ],
             })
             .unwrap(),
+            io_level_min: None,
+            io_level_max: None,
             rx_timestamps: true,
             hw_flow_control: true,
             sw_flow_control: false,
@@ -168,119 +170,25 @@ mod tests {
                 Ready(capabilities())
             }
 
-            fn set_uart_baud_rate(
+            fn uart_configure(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                value: Baud,
-            ) -> SetResult<Error> {
-                if value > capabilities().max_baud_rate {
-                    return SetResult::SetError(Error::Unsupported);
+                config: UartConfig,
+            ) -> RpcResult<Result<UartConfig, Error>> {
+                let caps = capabilities();
+                if config.baud_rate > caps.max_baud_rate || config.baud_rate < caps.min_baud_rate {
+                    return Ready(Err(Error::Unsupported));
                 }
-                self.m.lock().unwrap().baud_rate = value;
-                Set
-            }
-
-            fn get_uart_baud_rate(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Baud, Error> {
-                Value(self.m.lock().unwrap().baud_rate)
-            }
-
-            fn set_uart_mode(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                value: Mode,
-            ) -> SetResult<Error> {
-                self.m.lock().unwrap().mode = value;
-                Set
-            }
-
-            fn get_uart_mode(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Mode, Error> {
-                Value(self.m.lock().unwrap().mode)
-            }
-
-            fn set_uart_stop_bits(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                value: StopBits,
-            ) -> SetResult<Error> {
-                self.m.lock().unwrap().stop_bits = value;
-                Set
-            }
-
-            fn get_uart_stop_bits(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<StopBits, Error> {
-                Value(self.m.lock().unwrap().stop_bits)
-            }
-
-            fn set_uart_parity(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                value: Parity,
-            ) -> SetResult<Error> {
-                self.m.lock().unwrap().parity = value;
-                Set
-            }
-
-            fn get_uart_parity(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Parity, Error> {
-                Value(self.m.lock().unwrap().parity)
-            }
-
-            fn set_uart_data_bits(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                value: DataBits,
-            ) -> SetResult<Error> {
-                self.m.lock().unwrap().data_bits = value;
-                Set
-            }
-
-            fn get_uart_data_bits(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<DataBits, Error> {
-                Value(self.m.lock().unwrap().data_bits)
-            }
-
-            fn set_uart_prevent_back_feed(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                value: bool,
-            ) -> SetResult<Error> {
-                self.m.lock().unwrap().prevent_back_feed = value;
-                Set
-            }
-
-            fn get_uart_prevent_back_feed(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<bool, Error> {
-                Value(self.m.lock().unwrap().prevent_back_feed)
-            }
-
-            fn set_uart_reference_voltage(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                value: ww_si::Volt,
-            ) -> SetResult<Error> {
-                self.m.lock().unwrap().reference_voltage = value;
-                Set
-            }
-
-            fn get_uart_reference_voltage(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<ww_si::Volt, Error> {
-                Value(self.m.lock().unwrap().reference_voltage)
+                if let Some(level) = config.io_level
+                    && !caps.io_levels.iter().any(|l| l == Ok(level))
+                {
+                    return Ready(Err(Error::UnsupportedReferenceVoltage));
+                }
+                let mut m = self.m.lock().unwrap();
+                let io_level = config.io_level.or(m.config.io_level);
+                // the divider of this mock hits every rate exactly
+                m.config = UartConfig { io_level, ..config };
+                Ready(Ok(m.config.clone()))
             }
 
             fn uart_set_pin_level(
@@ -290,20 +198,11 @@ mod tests {
                 is_high: bool,
             ) -> RpcResult<Result<(), Error>> {
                 let mut m = self.m.lock().unwrap();
-                if !matches!(m.mode, Mode::Test) {
+                if !matches!(m.config.mode, Mode::Test) {
                     return Ready(Err(Error::WrongMode));
                 }
                 m.pin_levels.push((pin, is_high));
                 Ready(Ok(()))
-            }
-
-            fn uart_baud_rate_actual(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Baud> {
-                // the divider of this mock hits every rate exactly
-                let actual = self.m.lock().unwrap().baud_rate;
-                Ready(actual)
             }
 
             fn uart_send_break(
@@ -326,13 +225,16 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: MonitorConfig,
-            ) -> RpcResult<Result<Baud, Error>> {
+            ) -> RpcResult<Result<MonitorConfig, Error>> {
                 // this monitor decodes from 300 Bd up
                 if config.baud_rate < Baud::baud(300u32) {
                     return Ready(Err(Error::Unsupported));
                 }
-                let actual = config.baud_rate;
-                self.m.lock().unwrap().monitor_config = Some(config);
+                let actual = MonitorConfig {
+                    io_level: config.io_level.or(Some(ww_si::quantity!(3300 mV u16))),
+                    ..config
+                };
+                self.m.lock().unwrap().monitor_config = Some(actual.clone());
                 Ready(Ok(actual))
             }
 
@@ -439,34 +341,47 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn capabilities_and_properties() {
-        let (device, m) = start("io_uart/properties", Model::default());
+    async fn capabilities_and_configure() {
+        let (device, m) = start("io_uart/configure", Model::default());
         let client = connect(&device).await;
 
         let caps = client.uart().capabilities().call().await.unwrap();
         assert_eq!(caps.min_baud_rate, Baud::baud(110u32));
         assert_eq!(caps.max_baud_rate, Baud::baud(921_600u64));
+        assert_eq!(caps.io_levels.len(), 2);
 
-        client
-            .uart()
-            .write_baud_rate(Baud::baud(9600u32))
-            .write()
-            .await
-            .unwrap();
-        assert_eq!(m.lock().unwrap().baud_rate, Baud::baud(9600u16));
-        let baud = client.uart().read_baud_rate().read().await.unwrap();
-        assert_eq!(baud, Baud::baud(9600u32));
+        let config = UartConfig {
+            baud_rate: Baud::baud(9600u32),
+            data_bits: DataBits::Seven,
+            parity: Parity::Even,
+            stop_bits: StopBits::Stop2,
+            mode: Mode::HardwareFlowControl,
+            prevent_back_feed: true,
+            io_level: None,
+        };
+        let actual = client.uart().configure(config.clone()).call().await.unwrap();
+        // `None` keeps the IO level, the answer says which one is in effect
+        assert_eq!(actual.io_level, Some(ww_si::Volt::millivolts(3300u16)));
+        assert_eq!(actual.baud_rate, Baud::baud(9600u16));
+        assert!(matches!(actual.mode, Mode::HardwareFlowControl));
+        assert!(matches!(m.lock().unwrap().config.parity, Parity::Even));
 
-        client
-            .uart()
-            .write_mode(Mode::HardwareFlowControl)
-            .write()
-            .await
-            .unwrap();
-        assert!(matches!(m.lock().unwrap().mode, Mode::HardwareFlowControl));
+        let too_fast = UartConfig {
+            baud_rate: Baud::megabaud(3u8),
+            ..config.clone()
+        };
+        let r = client.uart().configure(too_fast).call().await;
+        assert!(matches!(r.unwrap_err().device(), Some(Error::Unsupported)));
 
-        let actual = client.uart().baud_rate_actual().call().await.unwrap();
-        assert_eq!(actual, Baud::baud(9600u32));
+        let at_5v = UartConfig {
+            io_level: Some(ww_si::Volt::volts(5u8)),
+            ..config
+        };
+        let r = client.uart().configure(at_5v).call().await;
+        assert!(matches!(
+            r.unwrap_err().device(),
+            Some(Error::UnsupportedReferenceVoltage)
+        ));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -478,7 +393,11 @@ mod tests {
         assert!(matches!(r.unwrap_err().device(), Some(Error::WrongMode)));
         assert!(m.lock().unwrap().pin_levels.is_empty());
 
-        client.uart().write_mode(Mode::Test).write().await.unwrap();
+        let test_mode = UartConfig {
+            mode: Mode::Test,
+            ..m.lock().unwrap().config.clone()
+        };
+        client.uart().configure(test_mode).call().await.unwrap();
         let r = client.uart().set_pin_level(Pin::Tx, true).call().await;
         assert!(r.is_ok());
         assert_eq!(m.lock().unwrap().pin_levels, vec![(Pin::Tx, true)]);
@@ -544,6 +463,7 @@ mod tests {
             data_bits: DataBits::Eight,
             parity: Parity::None,
             stop_bits: StopBits::Stop1,
+            io_level: None,
         };
         let r = client
             .uart_monitor()
@@ -560,7 +480,8 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(actual, Baud::baud(115_200u32));
+        assert_eq!(actual.baud_rate, Baud::baud(115_200u32));
+        assert_eq!(actual.io_level, Some(ww_si::Volt::millivolts(3300u16)));
         assert_eq!(
             m.lock()
                 .unwrap()

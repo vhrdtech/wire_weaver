@@ -10,7 +10,7 @@ use wire_weaver::prelude::*;
 use ww_stream::tx::Counted;
 use ww_client_server::stream::StreamHead;
 use ww_gpio::IoPinEvent;
-use ww_gpio::{BankCapabilities, Error, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed, Volt};
+use ww_gpio::{BankCapabilities, BankConfig, Error, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed};
 
 #[entry]
 fn main() -> ! {
@@ -59,9 +59,11 @@ impl ServerState {
         _index: [UNib32; 1],
     ) -> RpcResult<BankCapabilities<'_>> {
         let cap = BankCapabilities {
-            voltage: RefVec::Slice {
+            io_levels: MaxLen::new_unchecked(RefVec::Slice {
                 slice: &[ww_si::quantity!(3.3 V f32)],
-            },
+            }),
+            io_level_min: None,
+            io_level_max: None,
             push_pull: true,
             open_drain: true,
             input: true,
@@ -73,16 +75,17 @@ impl ServerState {
         Ready(cap)
     }
 
-    fn get_port_reference_voltage(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 1]) -> GetResult<Volt, Error> {
-        Value(ww_si::quantity!(3.3 V f32))
-    }
-
-    fn set_port_reference_voltage(
-        &mut self, _cx: &mut Context<'_, impl BlockingEventOut>,
+    fn port_configure(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 1],
-        _quantity: Volt,
-    ) -> SetResult<Error> {
-        SetError(Error::UnsupportedReferenceVoltage)
+        config: BankConfig,
+    ) -> RpcResult<Result<BankConfig, Error>> {
+        // fixed 3.3 V, no level translators
+        if config.io_level.is_some() {
+            return Ready(Err(Error::UnsupportedReferenceVoltage));
+        }
+        Ready(Ok(BankConfig { io_level: None }))
     }
 
     fn port_name(

@@ -8,7 +8,7 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_i2c::{
-        I2cAddress, I2cCapabilities, I2cError, I2cLinesState, I2cMode, I2cOp, I2cReadEnvelope,
+        I2cAddress, I2cCapabilities, I2cConfig, I2cError, I2cLinesState, I2cMode, I2cOp, I2cReadEnvelope,
         I2cReadKind, I2cReadKindOwned, I2cRecord, I2cRecordKind, I2cTransactionResult,
         I2cTransactionTimeRange, I2cWatchCapabilities, I2cWatchConfig, I2cWatchConfigOwned,
         I2cMatchByte, I2cWatchEvent, I2cWatchReportOwned, MAX_READ_LEN, MAX_SCAN, MAX_WATCHES, Second, Hertz,
@@ -196,16 +196,26 @@ mod tests {
             fn i2c_i2c_configure(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                mode: I2cMode,
-                _io_level: Option<ww_si::Volt>,
-            ) -> RpcResult<Result<Hertz, I2cError>> {
+                config: I2cConfig,
+            ) -> RpcResult<Result<I2cConfig, I2cError>> {
+                // a fixed 3.3 V bus: no level control, so the answer's IO level is `None`
+                if config.io_level.is_some() {
+                    return Ready(Err(I2cError::UnsupportedIoLevel));
+                }
                 let max = Hertz::kilohertz(400u16);
-                Ready(match mode {
-                    I2cMode::Disabled | I2cMode::MonitorOnly => Ok(Hertz::hertz(0u8)),
-                    I2cMode::Master { speed, .. } if speed > max => Ok(max),
-                    I2cMode::Master { speed, .. } => Ok(speed),
-                    I2cMode::Slave { .. } | I2cMode::Unknown(_) => Err(I2cError::UnsupportedMode),
-                })
+                let mode = match config.mode {
+                    I2cMode::Master { speed, monitor } if speed > max => {
+                        I2cMode::Master { speed: max, monitor }
+                    }
+                    I2cMode::Slave { .. } | I2cMode::Unknown(_) => {
+                        return Ready(Err(I2cError::UnsupportedMode));
+                    }
+                    mode => mode,
+                };
+                Ready(Ok(I2cConfig {
+                    mode,
+                    io_level: None,
+                }))
             }
 
             fn i2c_i2c_write(
@@ -695,6 +705,44 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(read.data.as_slice(), &[1, 2, 3]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn i2c_configure_answers_what_was_set() {
+        let (device, _model) = start("io_i2c/configure");
+        let client = connect(&device).await;
+
+        let actual = client
+            .i2c()
+            .i2c_configure(I2cConfig {
+                mode: I2cMode::Master {
+                    speed: Hertz::megahertz(1u8),
+                    monitor: false,
+                },
+                io_level: None,
+            })
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(
+            actual.mode,
+            I2cMode::Master {
+                speed: Hertz::kilohertz(400u16),
+                monitor: false
+            }
+        );
+        assert_eq!(actual.io_level, None);
+
+        let err = client
+            .i2c()
+            .i2c_configure(I2cConfig {
+                mode: I2cMode::Disabled,
+                io_level: Some(ww_si::Volt::millivolts(1800u16)),
+            })
+            .call()
+            .await
+            .unwrap_err();
+        assert_eq!(err.device(), Some(&I2cError::UnsupportedIoLevel));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

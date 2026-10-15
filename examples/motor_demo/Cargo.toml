@@ -1,0 +1,29 @@
+[package]
+name = "motor_demo"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "A VESC-like FOC controller driving a simulated motor, its ~50 variables observed over wire_weaver (EX-11)"
+
+[[bin]]
+name = "motor_demo"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+clap_complete = "4.6"
+console.workspace = true
+motor_demo_api = { workspace = true, features = ["std"] }
+motor_sim = { git = "ssh://git@github.com/vhrdtech/motor_sim.git", tag = "v0.1.0" }
+tokio = { workspace = true, features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+tracing-subscriber.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client = { workspace = true, features = ["in_process", "udp"] }
+ww_client_server.workspace = true
+ww_device = { workspace = true, features = ["udp"] }
+ww_si.workspace = true
+ww_stream = { workspace = true, features = ["std"] }

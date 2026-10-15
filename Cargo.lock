@@ -3227,6 +3227,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "motor_demo"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "console",
+ "motor_demo_api",
+ "motor_sim",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_device",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
+name = "motor_demo_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
+name = "motor_sim"
+version = "0.1.0"
+source = "git+ssh://git@github.com/vhrdtech/motor_sim.git?tag=v0.1.0#84fe370f105c1fb1575e4749ed0a76f5943f0169"
+dependencies = [
+ "libm",
+]
+
+[[package]]
 name = "multi_req"
 version = "0.1.0"
 dependencies = [

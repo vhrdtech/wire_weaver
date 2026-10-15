@@ -1,0 +1,14 @@
+[package]
+name = "motor_demo_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+std = ["wire_weaver/std"]
+
+[dependencies]
+wire_weaver.workspace = true

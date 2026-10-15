@@ -1,2 +1,6 @@
 [alias]
 ww = 'run -p wire_weaver_cli --bin ww --'
+# motor_sim (examples/motor_demo) is a private git dependency for now, fetched over ssh: cargo's own git client
+# doesn't use the ssh setup git does. Goes once motor_sim is public or on crates.io (EX-11).
+[net]
+git-fetch-with-cli = true

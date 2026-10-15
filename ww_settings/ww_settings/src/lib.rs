@@ -47,5 +47,5 @@ pub use group::{SettingsGroup, Slot, Version};
 pub use sequential_storage;
 pub use settings::{Debounce, Error, LoadReport, Persisted, Settings};
 pub use shrink_wrap;
-pub use store::{Key, Store, StoreError};
+pub use store::{Fetched, Key, Store, StoreError};
 pub use ww_settings_derive::Settings;

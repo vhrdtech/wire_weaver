@@ -11,8 +11,10 @@
 //! - With [ecc](FakeFlash::ecc) on (STM32G0: 8-byte words, STM32H7: 32-byte words), a word a cut left half
 //!   written or half erased reads as all zeros: what an ECC-aware flash driver returns for a word with an
 //!   uncorrectable error, instead of a fault (see the docs page). Off: the half-done bits read as they are.
-//! - A write to a word that isn't erased, written or not, is [FakeError::NotErased]: the STM32 flash controllers
-//!   refuse it (G0 `PROGERR`), and on ECC flash a second write corrupts the word.
+//! - A cut erase leaves a word that reads all `0xff` erased (an erase of erased cells stays erased).
+//! - With `ecc`, a write to a word that isn't erased, written or not, is [FakeError::NotErased]: the STM32G0/H7
+//!   flash controllers refuse it (G0 `PROGERR`), and a second write would corrupt the ECC. Without `ecc` such a
+//!   write clears bits, as on the STM32F4, and is counted in [Stats::rewrites].
 
 use embedded_storage_async::nor_flash::{
     ErrorType, NorFlash, NorFlashError, NorFlashErrorKind, ReadNorFlash,
@@ -25,6 +27,9 @@ pub enum EraseOrder {
     Forward,
     /// Last byte first.
     Backward,
+    /// All bytes at once, as a real sector erase: at a cut after `k` of `n` steps, each byte is erased with
+    /// probability `k / n`, else left as it was.
+    Random,
 }
 
 /// Errors of [FakeFlash].
@@ -55,6 +60,9 @@ impl NorFlashError for FakeError {
 pub struct Stats {
     pub word_writes: u64,
     pub page_erases: u64,
+    /// Words written again without an erase in between (only accepted without [ecc](FakeFlash::ecc), and only
+    /// when the write clears bits: what non-ECC flash such as the STM32F4's does).
+    pub rewrites: u64,
     /// Steps taken: words written and bytes erased.
     pub steps: u64,
 }
@@ -224,7 +232,10 @@ impl<const WORD: usize, const PAGE: usize> NorFlash for FakeFlash<WORD, PAGE> {
             let start = r.start + k * WORD;
             let w = start / WORD;
             if self.used[w] || self.data[start..start + WORD].iter().any(|b| *b != 0xff) {
-                return Err(FakeError::NotErased(self.base + start as u32));
+                if self.ecc {
+                    return Err(FakeError::NotErased(self.base + start as u32));
+                }
+                self.stats.rewrites += 1;
             }
             self.used[w] = true;
             self.stats.word_writes += 1;
@@ -258,21 +269,35 @@ impl<const WORD: usize, const PAGE: usize> NorFlash for FakeFlash<WORD, PAGE> {
             self.stats.page_erases += 1;
             for k in 0..PAGE {
                 let i = match self.erase_order {
-                    EraseOrder::Forward => page + k,
+                    EraseOrder::Forward | EraseOrder::Random => page + k,
                     EraseOrder::Backward => page + PAGE - 1 - k,
                 };
+                if self.erase_order == EraseOrder::Random {
+                    if self.step() {
+                        continue;
+                    }
+                    self.cut_random_erase(page, k);
+                    return Err(FakeError::PowerCut);
+                }
                 if self.step() {
                     self.data[i] = 0xff;
                 } else {
                     let mask = self.rand();
                     self.data[i] |= mask;
-                    // the word with the cut byte is half erased; words done before it are clean
+                    // the word with the cut byte is half erased, unless it reads erased (it was erased already,
+                    // or the cut happened to finish it); words done before it are clean
                     let w = i / WORD;
-                    self.broken[w] = true;
-                    self.used[w] = true;
+                    let erased = self.data[w * WORD..(w + 1) * WORD]
+                        .iter()
+                        .all(|b| *b == 0xff);
+                    self.broken[w] = !erased;
+                    self.used[w] = !erased;
                     self.mark_erased_words(page, k, i);
                     return Err(FakeError::PowerCut);
                 }
+            }
+            if self.erase_order == EraseOrder::Random {
+                self.data[page..page + PAGE].fill(0xff);
             }
             self.mark_erased_words(page, PAGE, usize::MAX);
         }
@@ -281,11 +306,30 @@ impl<const WORD: usize, const PAGE: usize> NorFlash for FakeFlash<WORD, PAGE> {
 }
 
 impl<const WORD: usize, const PAGE: usize> FakeFlash<WORD, PAGE> {
+    /// A cut [EraseOrder::Random] erase after `done` of `PAGE` steps.
+    fn cut_random_erase(&mut self, page: usize, done: usize) {
+        for w in page / WORD..(page + PAGE) / WORD {
+            for i in w * WORD..(w + 1) * WORD {
+                // erased with probability done / PAGE
+                let r = (self.rand() as usize) << 8 | self.rand() as usize;
+                if r % PAGE < done {
+                    self.data[i] = 0xff;
+                }
+            }
+            let erased = self.data[w * WORD..(w + 1) * WORD]
+                .iter()
+                .all(|b| *b == 0xff);
+            // a word that was erased stays clean, one caught in between is broken (ECC)
+            self.broken[w] = !erased;
+            self.used[w] = !erased;
+        }
+    }
+
     /// After `done` bytes of the page at `page` were erased (the byte at `cut` half): every word whose bytes are
     /// all erased is clean again.
     fn mark_erased_words(&mut self, page: usize, done: usize, cut: usize) {
         let (lo, hi) = match self.erase_order {
-            EraseOrder::Forward => (page, page + done),
+            EraseOrder::Forward | EraseOrder::Random => (page, page + done),
             EraseOrder::Backward => (page + PAGE - done, page + PAGE),
         };
         let first = lo.div_ceil(WORD);

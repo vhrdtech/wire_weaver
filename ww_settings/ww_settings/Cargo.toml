@@ -12,7 +12,7 @@ default = []
 std = ["shrink_wrap/std"]
 defmt = ["dep:defmt", "shrink_wrap/defmt", "sequential-storage/defmt"]
 # fake_flash::FakeFlash: a NorFlash in RAM with power cuts, ECC and a write-once check, for tests
-fake-flash = ["std"]
+fake-flash = ["std", "sequential-storage/std"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }

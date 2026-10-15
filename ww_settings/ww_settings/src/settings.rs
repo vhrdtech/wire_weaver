@@ -91,6 +91,8 @@ pub struct Settings<G: SettingsGroup, const N: usize> {
     read_only: bool,
     /// Write even an empty record (after a reset)
     force: bool,
+    /// `seq` of the newest record of the key, 0: none
+    seq: u32,
     /// Time of the first change not written yet, of the last change
     first_change_ms: Option<u64>,
     last_change_ms: u64,
@@ -108,6 +110,7 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
             next: [0; N],
             read_only: false,
             force: false,
+            seq: 0,
             first_change_ms: None,
             last_change_ms: 0,
         }
@@ -122,10 +125,13 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
         self.value = G::defaults();
         self.read_only = false;
         self.force = false;
+        self.seq = 0;
         self.first_change_ms = None;
         self.stored_len = 0;
         let mut report = LoadReport::default();
-        let Some(len) = store.fetch(self.key, &mut self.stored).await? else {
+        let fetched = store.fetch(self.key, &mut self.stored).await?;
+        self.seq = fetched.max_seq;
+        let Some(len) = fetched.len else {
             return Ok(report);
         };
         self.stored_len = len;
@@ -236,7 +242,31 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
         } else {
             None
         };
+        // the record as it would be with the stored record's `seq`: the same bytes mean nothing changed. Nothing
+        // stored reads as all defaults. A reset writes an empty record over whatever is stored.
+        if !self.force {
+            let unchanged = match previous.as_ref() {
+                Some(prev) => {
+                    let (bytes, _) = record::encode(
+                        prev.seq,
+                        &self.value,
+                        Some(prev),
+                        &mut self.next,
+                        store.scratch(),
+                    )
+                    .map_err(Error::TooBig)?;
+                    *bytes == self.stored[..self.stored_len]
+                }
+                None => G::SLOTS.iter().all(|s| !self.value.is_set(s.id)),
+            };
+            if unchanged {
+                self.first_change_ms = None;
+                return Ok(Persisted::Unchanged);
+            }
+        }
+        let seq = self.seq.wrapping_add(1);
         let (bytes, stats) = record::encode(
+            seq,
             &self.value,
             previous.as_ref(),
             &mut self.next,
@@ -244,18 +274,8 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
         )
         .map_err(Error::TooBig)?;
         let len = bytes.len();
-        // nothing stored reads as all defaults; a reset writes an empty record over whatever is stored
-        let unchanged = !self.force
-            && if previous.is_some() {
-                self.next[..len] == self.stored[..self.stored_len]
-            } else {
-                stats.fields == 0
-            };
-        if unchanged {
-            self.first_change_ms = None;
-            return Ok(Persisted::Unchanged);
-        }
         store.store(self.key, &self.next[..len]).await?;
+        self.seq = seq;
         core::mem::swap(&mut self.stored, &mut self.next);
         self.stored_len = len;
         self.force = false;

@@ -1,9 +1,12 @@
 //! The record of one settings group, as stored as the value of its key.
 //!
 //! ```text
-//! | format: u8 = 1 | writer: 3 × UNib32 | newest: 3 × UNib32 | pad to a byte | slots: OptionAnyVec |
+//! | format: u8 = 1 | seq: UNib32 | writer: 3 × UNib32 | newest: 3 × UNib32 | pad to a byte | slots: OptionAnyVec |
 //! ```
 //!
+//! - `seq` counts the writes of the key: the record with the highest `seq` is the newest. The store picks it by
+//!   `seq`, not by where it sits in flash, so a page left half erased by a power cut can't make an older record
+//!   look current (see [Store::fetch](crate::Store::fetch)).
 //! - `writer` is the [Version] of the struct's crate that wrote the record, `newest` the highest version whose data
 //!   is in it (a downgraded firmware keeps the slots of a newer one, so `newest` stays).
 //! - `slots` is an [OptionAnyVec] whose every present slot is a byte blob ([RefVec]`<u8>`): the shrink_wrap bytes
@@ -23,6 +26,8 @@ pub const FORMAT: u8 = 1;
 /// A record read from flash.
 #[derive(Copy, Clone, Debug)]
 pub struct Record<'i> {
+    /// Writes of this key so far, the newest record has the highest.
+    pub seq: u32,
     /// Version of the crate that wrote this record.
     pub writer: Version,
     /// Highest version whose data is in this record.
@@ -55,12 +60,14 @@ impl<'i> Record<'i> {
         if format != FORMAT {
             return Err(RecordError::UnknownFormat(format));
         }
+        let seq = rd.read_unib32()?;
         let writer = read_version(&mut rd)?;
         let newest = read_version(&mut rd)?;
         rd.align_byte();
         let (pos, _) = rd.pos();
         let slots = OptionAnyVec::new(&bytes[pos..])?;
         Ok(Record {
+            seq,
             writer,
             newest,
             slots,
@@ -155,6 +162,7 @@ pub struct EncodeStats {
 ///
 /// `scratch` holds the bytes of one field at a time. `previous` must be a record of [FORMAT] (or `None`).
 pub fn encode<'o, G: SettingsGroup>(
+    seq: u32,
     value: &G,
     previous: Option<&Record<'_>>,
     out: &'o mut [u8],
@@ -189,6 +197,7 @@ pub fn encode<'o, G: SettingsGroup>(
 
     let mut wr = BufWriter::new(out);
     wr.write_u8(FORMAT)?;
+    wr.write_unib32(seq)?;
     write_version(&mut wr, G::VERSION)?;
     write_version(&mut wr, newest)?;
     let header_len = wr.finish_and_take()?.len();
@@ -269,4 +278,13 @@ pub fn decode<G: SettingsGroup>(record: &Record<'_>, value: &mut G) -> Result<De
         }
     }
     Ok(stats)
+}
+
+/// The `seq` of a record of [FORMAT], `None` for another format or a record too short.
+pub fn peek_seq(bytes: &[u8]) -> Option<u32> {
+    let mut rd = BufReader::new(bytes);
+    if rd.read_u8().ok()? != FORMAT {
+        return None;
+    }
+    rd.read_unib32().ok()
 }

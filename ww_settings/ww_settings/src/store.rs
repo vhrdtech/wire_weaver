@@ -35,6 +35,16 @@ impl<E> From<sequential_storage::Error<E>> for StoreError<E> {
     }
 }
 
+/// What [Store::fetch] found.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct Fetched {
+    /// Length of the newest record, `None` when none is stored.
+    pub len: Option<usize>,
+    /// Highest `seq` of any record of the key still in flash: the next record takes a higher one.
+    pub max_seq: u32,
+}
+
 /// The records of every settings group in `range` of `flash`, one per [Key]: a `sequential-storage` 8 map.
 ///
 /// Pages are written in turn, a record at a time; each write appends a new record for its key, and the newest
@@ -92,18 +102,43 @@ impl<S: NorFlash, const B: usize> Store<S, B> {
         self.map.destroy().0
     }
 
-    /// Read the newest record of `key` into `out`, its length. `None` when none is stored.
+    /// Read the newest record of `key` into `out`.
+    ///
+    /// The newest is the valid record with the highest [seq](crate::record::Record::seq), from all pages. Not
+    /// simply the one the map returns: after a power cut in the middle of a page erase, a half-erased page can look
+    /// current to the map while it holds an older record than the page the records were just copied to. A record
+    /// of another (newer) format, if the map returns one, is returned as it is.
     pub async fn fetch(
         &mut self,
         key: crate::Key,
         out: &mut [u8],
-    ) -> Result<Option<usize>, StoreError<S::Error>> {
-        let Some(bytes) = self.map.fetch_item::<&[u8]>(&mut self.buf, &key.0).await? else {
-            return Ok(None);
-        };
-        let out = out.get_mut(..bytes.len()).ok_or(StoreError::TooBig)?;
-        out.copy_from_slice(bytes);
-        Ok(Some(bytes.len()))
+    ) -> Result<Fetched, StoreError<S::Error>> {
+        let mut fetched = Fetched::default();
+        if let Some(bytes) = self.map.fetch_item::<&[u8]>(&mut self.buf, &key.0).await?
+            && crate::record::peek_seq(bytes).is_none()
+        {
+            let out = out.get_mut(..bytes.len()).ok_or(StoreError::TooBig)?;
+            out.copy_from_slice(bytes);
+            fetched.len = Some(bytes.len());
+        }
+        let other_format = fetched.len.is_some();
+        let mut items = self.map.fetch_all_items(&mut self.buf).await?;
+        while let Some((k, bytes)) = items.next::<&[u8]>(&mut self.buf).await? {
+            if k != key.0 {
+                continue;
+            }
+            let Some(seq) = crate::record::peek_seq(bytes) else {
+                continue;
+            };
+            // pages are walked oldest first: on a tie the later one wins
+            if fetched.len.is_none() || (!other_format && seq >= fetched.max_seq) {
+                let out = out.get_mut(..bytes.len()).ok_or(StoreError::TooBig)?;
+                out.copy_from_slice(bytes);
+                fetched.len = Some(bytes.len());
+            }
+            fetched.max_seq = fetched.max_seq.max(seq);
+        }
+        Ok(fetched)
     }
 
     /// Append `record` as the newest one of `key`.
@@ -113,6 +148,12 @@ impl<S: NorFlash, const B: usize> Store<S, B> {
         record: &[u8],
     ) -> Result<(), StoreError<S::Error>> {
         Ok(self.map.store_item(&mut self.buf, &key.0, &record).await?)
+    }
+
+    /// Every item in flash, page by page, for debugging tests.
+    #[cfg(feature = "fake-flash")]
+    pub async fn print_items(&mut self) -> String {
+        self.map.print_items().await
     }
 
     /// The buffer, for the bytes of one field while a record is put together.

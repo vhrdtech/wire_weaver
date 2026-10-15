@@ -37,8 +37,9 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Dynamic observe (TOOL-11): `ww_self` carries the `sparse` flag a dynamic decoder needs to read an
   `OptionAnyVec`-encoded struct (DER-13); `DynResource::observe()` decodes a trait level's `PropertyUpdate` from
   introspection alone, reusing CLT-28's event-loop routing and subscription sharing; `ww observe <path> [--rate MS]`
-  prints each update's values, rate and link bytes/s. See the `shrink_wrap`, `ww_self`, `wire_weaver_core`,
-  `wire_weaver_client` and `wire_weaver_cli` changelogs, `tests/observe`.
+  prints each update's values, rate and link bytes/s; `wire_weaver_py`'s `Node.observe(cfg)` iterates the same
+  updates as dicts. See the `shrink_wrap`, `ww_self`, `wire_weaver_core`, `wire_weaver_client`, `wire_weaver_cli`
+  and `wire_weaver_py` changelogs, `tests/observe`, `docs/api/properties.md#observing`.
 
 ### Fixed
 

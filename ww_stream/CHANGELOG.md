@@ -4,6 +4,12 @@
 
 ### 🚀 Features
 
+- `observe` module (SRV-18), the device side of observed properties for generated servers: `ObserveTable<N>` per
+  trait level (`apply` validates an `ObserveRequest` in full before changing anything and clamps it to
+  `ObserveLimits`, `granted`, `mark_changed`, `reset`), `plan` / `Selection` / `commit` for `poll_properties`
+  (token bucket per level, earliest deadline first, missed sends counted), `LevelDesc`, `max_write_len`, `measure`,
+  `event_overhead`. Properties have a reserved share of the link (`ObserveLimits::total_budget`), stored streams get
+  what `poll_streams` is given.
 - For generated code (API-31): `Counted::status()` / `Reliable::status()` (`StreamStatus`), `Reliable::on_host_sideband`
   (an `Ack` / `ResendFrom` where no clock is at hand, the time is taken at the next `poll_query`), `tx::PushItemError`,
   `Second` and `StreamStatus` re-exported.

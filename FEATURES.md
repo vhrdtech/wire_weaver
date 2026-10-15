@@ -272,8 +272,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   is one slot. Fields are only appended. A non-`Option` field or a combination with `final_structure` / `sized` /
   `self_describing` / `fixed_layout` / `head_tail` is a compile error. For the per trait level `<Level>Update` of
   SRV-18 (`docs/serdes/derive.md`, `docs/evolution/rules.md`; test `shrink_wrap/tests/sparse.rs`, fuzz
-  `shrink-wrap-option-any-vec`). API types can't use it yet: `wire_weaver_core` doesn't take the directive and
-  `ww_self` has no sparse struct for introspection.
+  `shrink-wrap-option-any-vec`). API types may use it, but `ww_self` has no sparse struct yet: introspection
+  describes one as a plain struct of `Option`s, so dynamic clients decode it wrong until TOOL-11.
 - 📋 **DER-5 `#[since = "x.y.z"]` on fields** — generate correct evolution code from it (`TODO` in
   `shrink_wrap_derive/src/lib.rs`).
 - 📋 **DER-6 Check that `TailBytes` ends the outer type too** — a struct ending in `TailBytes` used as a non-last field
@@ -369,7 +369,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Periodic` or `OnChangeOrBeat` and a byte budget, the device answers with what it granted; updates arrive as one
   `EventKind::PropertyUpdate` per level carrying any subset of its properties (SW-55). Only `+observe` properties
   can be observed. The protocol is there (`ww_client_server::observe`,
-  `docs/std_library/ww_client_server.md`); the device side is SRV-18, the host side
+  `docs/std_library/ww_client_server.md`), the device side too (SRV-18); the host side is
   CLT-28.
 - 💡 **API-39 Batched property samples** — K samples of one fast property in one update, compressed with `Delta` /
   `XorFloat` (SW-50), for values sampled faster than the link can carry one update each.
@@ -392,7 +392,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   fields might be a good ergonomic: users see the names through IDE lookup instead of guessing array indices.
 - 📋 **API-29 Bounds of resource array indices** · `v0.5.x` — `stream!(adc[8]: u16)` or `motor[1..=4]`, checked by the
   server before a handler is called and visible in introspection (`docs/api/arrays.md`). Lengths of lists and
-  strings inside a resource's type are bounded with `MaxLen` (SW-19).
+  strings inside a resource's type are bounded with `MaxLen` (SW-19). With a bound, observed properties (SRV-18) can
+  get a table per array element: until then a trait level in a resource array can't be observed.
 - 🚧 **API-30 Counted and reliable streams** · `v0.5` — counted streams put a head in every event (flags and a
   length-coded 64-bit `pos` in units the device names when it sends, the event's `units`, `lost`, optional device time
   `t`), so drops on the device, link losses and duplicates are reported exactly and item types carry no `seq` /
@@ -447,6 +448,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Header slots and records checked by CRC at boot, so garbage after a power-on is never taken for data; continues
   session and positions like `LogStore`, a new clock epoch per boot. Tested with a fault after every byte written
   (`ww_stream/src/tests/persistent_ram.rs`); `docs/api/stream_stores.md`.
+- ✅ **SRV-18 Observed properties on the device** — servers of APIs with `+observe` properties answer `Observe`
+  requests (API-38) and send `PropertyUpdate`s from the generated `poll_properties`: `ObserveState` with one table
+  per trait level sized at compile time, a sparse `<Trait>Update` per level (DER-13), `mark_changed_<name>()` (called
+  for `value_on_changed` writes), periodic properties sampled through their getter. A token bucket per level at the
+  granted budget, earliest deadline first, at most one update per level per call, the rest slips and counts as
+  missed; properties have a reserved share of the link (`ObserveLimits::total_budget`) next to stored streams.
+  `Observe` is untrusted input: validated in full before anything changes, clamped, bounded work, refused per
+  entry. Levels under a resource array answer `OperationNotSupported` until their bound is known (API-29), `+observe`
+  properties in an array or `#[optional]` aren't observable yet. `ww_stream::observe`,
+  `docs/api/properties.md#observing-changes`; tests `tests/observe` (fake clock, real host event loop),
+  `ww_stream/src/observe/tests.rs`.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:

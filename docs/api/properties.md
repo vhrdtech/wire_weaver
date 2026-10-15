@@ -17,12 +17,13 @@ trait MyDevice {
 
 | Access | Declared as | Read | Write | Observe |
 |---|---|---|---|---|
-| read/write | `property!(rw name: T)` | ✓ | ✓ | ✓ |
-| read only | `property!(ro name: T)` | ✓ | | ✓ |
+| read/write | `property!(rw name: T)` | ✓ | ✓ | with `rw+observe` |
+| read only | `property!(ro name: T)` | ✓ | | with `ro+observe` |
 | write only | `property!(wo name: T)` | | ✓ | |
 | const | `const NAME: T;` | ✓, once per connection | | |
 
 `ro` means read only for the host: the device changes the value whenever it likes, and may tell observers about it.
+`+observe` lets hosts observe it, see [Observing changes](#observing-changes).
 A `const` never changes while the firmware runs, see [Const items](#const-items).
 
 Any type the SerDes system supports can be a property. A second type after the value's, `property!(rw mode: u8,
@@ -114,25 +115,88 @@ does.
 
 ### Observing changes
 
-`ro` and `rw` properties send their changes as stream data on their own path. The server side generates
-`stream_data_ser().<name>_send(&value, out)` (`_send_blocking` for sync servers); sending is up to the device, from a
-handler through its `cx`, or from the event loop through `server.sink()` when an `ro` value changes by itself:
+A host observes the `+observe` properties of a trait level (the root API, or a trait implemented with `ww_impl!`)
+with one `Observe` request to the level's path: per property `Off`, `OnChange { min_us }`, `Periodic { every_us }` or
+`OnChangeOrBeat { min_us, max_us }`, and a budget in bytes per second for the level. The device answers with what it
+granted and from then on sends one `PropertyUpdate` event per level whenever any of its observed properties is due,
+carrying just those: a sparse `<Trait>Update` with an `Option` per observable property, at the slot of its resource
+index (wire format: `ww_client_server::observe`, API-38).
 
 ```rust
-fn changed_speed(&mut self, cx: &mut Context<'_, impl BlockingEventOut>) {
-    self.motor.set_speed(self.speed);
-    _ = server_impl::stream_data_ser().speed_send_blocking(&self.speed, cx);
-}
-
-// event loop
-if button_pressed != state.last_button {
-    state.last_button = button_pressed;
-    server_impl::stream_data_ser().button_pressed_send(&button_pressed, &mut server.sink()).await?;
+#[ww_trait]
+trait Motor {
+    property!(ro+observe speed: f32);
+    property!(ro+observe current: f32);
+    property!(rw+observe mode: u8);
+    property!(rw gain: f32); // not observable
 }
 ```
 
-The device doesn't know who observes: observing is a local subscription on the host, events nobody waits for are
-dropped there.
+For an API with `+observe` properties the generated server needs the `ww_stream` crate and three things from the
+user: an `api_impl::ObserveState` in the server struct, handed out by `observe_state()`, a call to the generated
+`poll_properties` in the event loop, and a `mark_changed_<name>()` call where the device changes a value by itself.
+`ww api scaffold` prints the field and `observe_state()`.
+
+```rust
+struct Server {
+    observe: api_impl::ObserveState,
+    // ..
+}
+
+impl Server {
+    fn observe_state(&mut self) -> &mut api_impl::ObserveState {
+        &mut self.observe
+    }
+
+    fn on_new_measurement(&mut self, current: f32) {
+        self.current = current;
+        self.mark_changed_current(); // sent to hosts observing it on change
+    }
+}
+
+let mut server = Server {
+    // shortest period, per level and total budget (the properties' share of the link), timestamps
+    observe: api_impl::ObserveState::new(ww_stream::observe::ObserveLimits::DEFAULT),
+    // ..
+};
+
+// event loop, every millisecond or so, between requests
+let mut buf = [0u8; 256]; // as big as the biggest update the link carries
+server.poll_properties(&mut ww_server.sink(), medium, now_us, &mut buf).await?;
+server.poll_streams(&mut ww_server.sink(), now_ms, &mut stream_buf, 4096).await?; // stored streams after
+```
+
+- **When a property is due**: `Periodic` on a fixed grid, never early; `OnChange` after `mark_changed_<name>()` and at
+  least `min_us` after its previous send; `OnChangeOrBeat` also once `max_us` passed without a send. `value_on_changed`
+  properties are marked changed by the generated code after a write that changed them; `get_set` ones by the device.
+  A property that starts being observed is sent once right away, so the host has a value to start from.
+- **Values**: `get_set` properties are read through their getter when they are sent (values without a size bound,
+  such as strings, also once before that to measure them), `value_on_changed` ones from their field. A getter that
+  fails skips that send.
+- **Budget**: each level has a token bucket at its granted bytes per second, holding a tenth of a second of it (64
+  bytes at least); all levels together get at most `ObserveLimits::total_budget`. Each `poll_properties` call sends at
+  most one update per level: its due properties earliest deadline first, as many as fit the bucket and `buf`. The rest
+  slips to a later call; a property left out keeps its deadline, so it goes first then, and none starves.
+- **Missed**: a property due and left out counts one missed send, a periodic one also every whole period it falls
+  behind; the count goes to the host in the next update's `missed`.
+- **Untrusted input**: an `Observe` request is checked in full before anything changes. Entries for an unknown index,
+  a property without `+observe`, an index given twice or a mode the device doesn't know are refused one by one and
+  listed in the answer; periods are raised to `ObserveLimits::min_period_us` and the budget is clamped. A request that
+  doesn't decode, or has more than 16 refused entries, fails with `ArgsDesFailed` / `BadIndex` and changes nothing.
+- **Limits**: a level inside a resource array (`ww_impl!(bank[]: Bank)`) can't be observed yet (the bound of its
+  indices isn't known, API-29), `Observe` there answers `OperationNotSupported`; nor can `+observe` properties that are
+  in an array themselves or `#[optional]`. Observing stays set while the link is down; `ObserveState::reset()` stops
+  it all.
+
+**Sharing the link with stored streams**: properties have a reserved share of the link, the sum of the granted
+level budgets, at most `ObserveLimits::total_budget`; reliable streams get what `poll_streams` is given per turn.
+Polling properties first keeps their short deadlines, and their share bounds what they take from the streams.
+
+#### Before observe requests
+
+`stream_data_ser().<name>_send(&value, out)` (`_send_blocking` for sync servers) still sends one property's value as
+stream data on its own path, which the generated clients' `observe_<name>()` receives. It is superseded by observe
+requests and goes once the host side of them (CLT-28) is there.
 
 ## Host side
 

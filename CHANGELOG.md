@@ -16,6 +16,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Sparse structs (DER-13): `#[derive_shrink_wrap(sparse)]` on a struct of `Option` fields writes only the present
   ones, as an `OptionAnyVec`, at slots given by declaration order or `#[slot = N]`; the base of the per trait level
   update type of observe requests (SRV-18). shrink_wrap/CHANGELOG.md, section Unreleased.
+- Observed properties on the device (SRV-18): servers of APIs with `+observe` properties answer `Observe` requests
+  and send one `PropertyUpdate` per trait level from the new `poll_properties`, within each level's budget, earliest
+  deadline first, missed sends counted; the requests are validated and clamped as untrusted input. See the
+  `wire_weaver_core`, `ww_stream` and `wire_weaver` changelogs, `docs/api/properties.md`.
 
 ### Fixed
 

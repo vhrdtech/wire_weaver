@@ -28,6 +28,7 @@
 
 ### 🚀 Features
 
+- `internal::TraceEvent` is exported, what a tracer registered with `Command::RegisterTracer` receives.
 - `Command::LoopbackTest` works again (TOOL-10): it answered with `FatalError` since the sans-IO event loop. The test
   is a state machine on the tx core (`event_loop/core/loopback.rs`), driven by time and by the `Loopback` echoes rx
   forwards: round trips (`repeat = 1`, one at a time, lost after 500 ms without an echo, corrupted when the

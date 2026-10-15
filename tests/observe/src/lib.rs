@@ -525,15 +525,19 @@ mod tests {
         assert_eq!(budget, 10_000);
         b.run(1_000, 200_000, 1_000).await;
         let sends = motor_sends(&b.drain().await);
-        // first poll at 1 ms sends all, then on the grid from there, held to the period
+        // the first poll after the request sends all (at 0 or 1 ms, the device polls while the clock still stands
+        // at 0), then on the grid from there, held to the period
+        let start = sends["speed"][0];
+        assert!(start == 0 || start == 1_000, "{start}");
         let grid = |every: u64| {
             (0..)
-                .map(move |i| 1_000 + i * every)
+                .map(move |i| start + i * every)
                 .take_while(|t| *t <= 200_000)
+                .collect::<Vec<_>>()
         };
-        assert_eq!(sends["speed"], grid(10_000).collect::<Vec<_>>());
-        assert_eq!(sends["current"], grid(20_000).collect::<Vec<_>>());
-        assert_eq!(sends["position"], grid(5_000).collect::<Vec<_>>());
+        assert_eq!(sends["speed"], grid(10_000));
+        assert_eq!(sends["current"], grid(20_000));
+        assert_eq!(sends["position"], grid(5_000));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

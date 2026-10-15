@@ -137,9 +137,9 @@ worked examples of any specific combination before writing new codegen-invoking 
 
 The generated server dispatcher calls handlers the user implements on the server struct (`fn <name>`,
 `get_`/`set_<name>`, `changed_<name>`, `sideband_`/`write_<name>`, `valid_indices_root_<..>`, prefixed with the trait
-item chain for nested traits). Their exact names and signatures depend on the `ww_codegen!` arguments, so don't write
-them by hand — `ww api scaffold <api_crate> [--name Trait]` (`cargo ww api scaffold ...`) prints the struct, a stub for
-every handler (`Unimplemented.into()`, empty bodies, no valid indices) and the matching `ww_codegen!` call. Pass the
+item chain for nested traits; `observe_state()` once for an API with `+observe` properties). Their exact names and
+signatures depend on the `ww_codegen!` arguments, so don't write them by hand — `ww api scaffold <api_crate>
+[--name Trait]` (`cargo ww api scaffold ...`) prints the struct, a stub for every handler (`Unimplemented.into()`, empty bodies, no valid indices) and the matching `ww_codegen!` call. Pass the
 same options the target `ww_codegen!` uses: `--use-async`, `--method-model`, `--property-model`, `--server <Struct>`,
 `--alloc` for `no_alloc = false`.
 

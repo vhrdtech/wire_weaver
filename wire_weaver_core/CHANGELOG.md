@@ -2,6 +2,17 @@
 
 ### 🚀 Features
 
+- Observed properties on the server (SRV-18): for an API with `+observe` properties the generated server answers
+  `RequestKind::Observe` on a trait level (validated in full and clamped by `ww_stream::observe`, entries refused one
+  by one, a malformed request or more than 16 refused entries fail as a whole with nothing changed, a level under a
+  resource array answers `OperationNotSupported`) and generates `ObserveState` (one table per level, sized at compile
+  time), a sparse `<Trait>Update` per level, `mark_changed_<name>()` (called after a `value_on_changed` write that
+  changed the value) and `poll_properties(out, medium, now_us, buf)`, which sends one `PropertyUpdate` per level per
+  call, earliest deadline first within the level's budget. The user's server provides
+  `fn observe_state(&mut self) -> &mut api_impl::ObserveState` and depends on `ww_stream`; `ww api scaffold` prints
+  both. See `docs/api/properties.md#observing-changes`.
+- `sparse` (DER-13) is accepted in `#[derive_shrink_wrap(..)]` of API types; the API model describes such a struct as
+  a plain struct of `Option`s until TOOL-11.
 - Generated clients read a `const` item once per connection (API-36): `read_<NAME>()` uses
   `Commander::prepare_const_read`, later reads answer from the client's cache.
 - `#[errors(Common(InUse, Refused), Nack, ..)]` on a trait method (API-32): parsed and checked against the variants

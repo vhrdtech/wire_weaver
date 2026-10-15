@@ -218,6 +218,7 @@ pub(crate) fn stream_ser_methods_recursive(
         is_root,
         quote! {
             /// Serializers of stream updates and property change notifications (sent as stream data on the property's path).
+            /// The property ones are superseded by observe requests (`+observe`, `poll_properties`, SRV-18).
             pub const fn stream_data_ser() -> #ser_struct_name {
                 #ser_struct_name {}
             }

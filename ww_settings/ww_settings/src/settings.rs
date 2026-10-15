@@ -91,8 +91,6 @@ pub struct Settings<G: SettingsGroup, const N: usize> {
     read_only: bool,
     /// Write even an empty record (after a reset)
     force: bool,
-    /// `seq` of the newest record of the key, 0: none
-    seq: u32,
     /// Time of the first change not written yet, of the last change
     first_change_ms: Option<u64>,
     last_change_ms: u64,
@@ -110,7 +108,6 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
             next: [0; N],
             read_only: false,
             force: false,
-            seq: 0,
             first_change_ms: None,
             last_change_ms: 0,
         }
@@ -118,20 +115,17 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
 
     /// Read the group's record from `store`. Every field not in it is at its default. Fails only when the flash
     /// fails; a record this firmware can't read is reported in [LoadReport::unreadable].
-    pub async fn load<S: NorFlash, const B: usize>(
+    pub async fn load<S: NorFlash, const B: usize, const K: usize>(
         &mut self,
-        store: &mut Store<S, B>,
+        store: &mut Store<S, B, K>,
     ) -> Result<LoadReport, Error<S::Error>> {
         self.value = G::defaults();
         self.read_only = false;
         self.force = false;
-        self.seq = 0;
         self.first_change_ms = None;
         self.stored_len = 0;
         let mut report = LoadReport::default();
-        let fetched = store.fetch(self.key, &mut self.stored).await?;
-        self.seq = fetched.max_seq;
-        let Some(len) = fetched.len else {
+        let Some(len) = store.fetch(self.key, &mut self.stored).await? else {
             return Ok(report);
         };
         self.stored_len = len;
@@ -215,9 +209,9 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
     }
 
     /// [persist](Self::persist) when the [Debounce] is over, `Ok(None)` otherwise.
-    pub async fn persist_if_due<S: NorFlash, const B: usize>(
+    pub async fn persist_if_due<S: NorFlash, const B: usize, const K: usize>(
         &mut self,
-        store: &mut Store<S, B>,
+        store: &mut Store<S, B, K>,
         now_ms: u64,
     ) -> Result<Option<Persisted>, Error<S::Error>> {
         match self.due_at() {
@@ -229,9 +223,9 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
     /// Write the record now if it differs from the stored one. Once this returns `Ok`, the value survives a power
     /// cut. On an error the value stays dirty and the stored record is the previous one (or, after a power cut,
     /// either one).
-    pub async fn persist<S: NorFlash, const B: usize>(
+    pub async fn persist<S: NorFlash, const B: usize, const K: usize>(
         &mut self,
-        store: &mut Store<S, B>,
+        store: &mut Store<S, B, K>,
     ) -> Result<Persisted, Error<S::Error>> {
         if self.read_only {
             return Err(Error::ReadOnly);
@@ -242,19 +236,14 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
         } else {
             None
         };
-        // the record as it would be with the stored record's `seq`: the same bytes mean nothing changed. Nothing
-        // stored reads as all defaults. A reset writes an empty record over whatever is stored.
+        // the same bytes as the stored record: nothing changed. Nothing stored reads as all defaults. A reset
+        // writes an empty record over whatever is stored.
         if !self.force {
             let unchanged = match previous.as_ref() {
                 Some(prev) => {
-                    let (bytes, _) = record::encode(
-                        prev.seq,
-                        &self.value,
-                        Some(prev),
-                        &mut self.next,
-                        store.scratch(),
-                    )
-                    .map_err(Error::TooBig)?;
+                    let (bytes, _) =
+                        record::encode(&self.value, Some(prev), &mut self.next, store.scratch())
+                            .map_err(Error::TooBig)?;
                     *bytes == self.stored[..self.stored_len]
                 }
                 None => G::SLOTS.iter().all(|s| !self.value.is_set(s.id)),
@@ -264,9 +253,7 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
                 return Ok(Persisted::Unchanged);
             }
         }
-        let seq = self.seq.wrapping_add(1);
         let (bytes, stats) = record::encode(
-            seq,
             &self.value,
             previous.as_ref(),
             &mut self.next,
@@ -275,7 +262,6 @@ impl<G: SettingsGroup, const N: usize> Settings<G, N> {
         .map_err(Error::TooBig)?;
         let len = bytes.len();
         store.store(self.key, &self.next[..len]).await?;
-        self.seq = seq;
         core::mem::swap(&mut self.stored, &mut self.next);
         self.stored_len = len;
         self.force = false;

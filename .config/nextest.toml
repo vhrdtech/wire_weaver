@@ -6,10 +6,10 @@ slow-timeout = { period = "3s", terminate-after = 1 }
 slow-timeout = { period = "15s", terminate-after = 2 }
 fail-fast = false
 
-# property and random-buffer tests run hundreds of cases each, the LogStore power-cut tests one per write: give them
-# more time, keep 3 s for everything else
+# property and random-buffer tests run hundreds of cases each, the LogStore and ww_settings power-cut tests one per
+# write: give them more time, keep 3 s for everything else
 [[profile.default.overrides]]
-filter = '(package(shrink_wrap_c) & binary(cross)) | (package(shrink_wrap) & (binary(latched_reads) | binary(sub_byte) | binary(ref_vec_skip))) | (package(ww_stream) & test(/power_cut_/))'
+filter = '(package(shrink_wrap_c) & binary(cross)) | (package(shrink_wrap) & (binary(latched_reads) | binary(sub_byte) | binary(ref_vec_skip))) | (package(ww_stream) & test(/power_cut_/)) | (package(ww_settings) & binary(power_cut))'
 slow-timeout = { period = "15s", terminate-after = 1 }
 
 # re-parses every saved API snapshot's crate (ww_global and all of ww_stdlib), about 6 s in debug
@@ -21,3 +21,12 @@ slow-timeout = { period = "15s", terminate-after = 1 }
 [[profile.default.overrides]]
 filter = 'package(wire_weaver_core) & test(/^transform::snapshot::tests::/)'
 slow-timeout = { period = "15s", terminate-after = 1 }
+
+# `just test-power-cut`: ww_settings power cuts at every step in release, tens of seconds per test
+[profile.power-cut]
+slow-timeout = { period = "60s", terminate-after = 5 }
+fail-fast = false
+
+[[profile.power-cut.overrides]]
+filter = 'package(ww_settings)'
+slow-timeout = { period = "60s", terminate-after = 5 }

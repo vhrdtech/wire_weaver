@@ -99,7 +99,7 @@ fn write_on_change_only() {
         assert!(
             matches!(s.persist(&mut st).await.unwrap(), Persisted::Written(st) if st.fields == 0)
         );
-        assert_eq!(s.stored_record().len(), 5);
+        assert_eq!(s.stored_record().len(), 4);
     });
 }
 

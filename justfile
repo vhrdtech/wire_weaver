@@ -6,6 +6,10 @@ default:
 test:
     cargo nextest run --workspace --no-fail-fast
 
+# ww_settings power cuts at every step of every write and erase (release; `just test` samples them in debug)
+test-power-cut:
+    cargo nextest run -p ww_settings --release --profile power-cut --test power_cut
+
 # Regenerate the ww_dfu scenario transcripts (tests/dfu_scenarios/transcripts, included by docs/std_library/ww_dfu.md)
 dfu-transcripts:
     DFU_TRANSCRIPTS=update cargo nextest run -p dfu_scenarios

@@ -3,6 +3,9 @@
 //! sectors, sampled). After the cut and a reboot, every group must load as its value from before the write or the
 //! one being written, never anything else, never an error, and the store must keep working. No word is ever
 //! written twice between erases (the fake flash fails such a write).
+//!
+//! A debug build samples the steps (every 11th, and the first and last 16 of each write) to stay within the test
+//! timeout; `just test-power-cut` runs every step in release.
 
 use embassy_futures::block_on;
 use ww_settings::fake_flash::{EraseOrder, FakeFlash};
@@ -21,6 +24,9 @@ pub struct Factory {
     #[setting(slot = 0, default = 0)]
     pub cal: i32,
 }
+
+/// Every step in release builds, a sample in debug ones.
+const EVERY_STEP: bool = !cfg!(debug_assertions);
 
 #[derive(Copy, Clone, Debug)]
 enum Op {
@@ -153,12 +159,18 @@ impl<const W: usize, const P: usize> Rig<W, P> {
             // the clean run: a snapshot and the steps of each op
             let mut snapshots = Vec::new();
             let mut states = Vec::new();
+            let mut steps_of = Vec::new();
             let mut st = self.store(flash);
             let mut state = self.state(&mut st, "clean").await;
             for &op in ops {
                 snapshots.push(st.flash().clone());
                 states.push(state.clone());
-                self.boot_and_apply(&mut st, op).await.unwrap();
+                let s0 = st.flash().stats().steps;
+                // a fresh store per op: what the cut runs do
+                let mut s = self.store(st.into_flash());
+                self.boot_and_apply(&mut s, op).await.unwrap();
+                steps_of.push(s.flash().stats().steps - s0);
+                st = s;
                 state = Self::state_after(&state, op);
             }
             assert_eq!(self.state(&mut st, "clean").await, state);
@@ -178,15 +190,12 @@ impl<const W: usize, const P: usize> Rig<W, P> {
             for (j, &op) in ops.iter().enumerate() {
                 let before = &states[j];
                 let after = Self::state_after(before, op);
-                // steps of this op, measured on its own
-                let f = snapshots[j].clone();
-                let s0 = f.stats().steps;
-                let mut s = self.store(f);
-                self.boot_and_apply(&mut s, op).await.unwrap();
-                let steps = s.flash().stats().steps - s0;
+                let steps = steps_of[j];
 
                 for c in 1..=steps {
-                    if !cut_at(c, steps) {
+                    if !cut_at(c, steps)
+                        || !(EVERY_STEP || c <= 16 || c + 16 > steps || c % 11 == 0)
+                    {
                         continue;
                     }
                     report.cuts += 1;
@@ -204,6 +213,11 @@ impl<const W: usize, const P: usize> Rig<W, P> {
                     let ctx = format!("op {j} {op:?} cut at {c}/{steps}");
 
                     nth_cut += 1;
+                    let second_every = if EVERY_STEP {
+                        second_every
+                    } else {
+                        second_every * 7
+                    };
                     if second_every > 0 && nth_cut.is_multiple_of(second_every) {
                         // a second cut while booting and writing again after the first one
                         let next = Op::User(1_000_000 + j as u32, c % 2 == 0);
@@ -258,6 +272,7 @@ impl<const W: usize, const P: usize> Rig<W, P> {
 }
 
 #[derive(Debug, Default)]
+#[allow(dead_code)] // printed
 struct Report {
     ops: usize,
     erases: u64,
@@ -286,7 +301,7 @@ fn g0_every_step_4_pages() {
         base: G0_BASE,
         pages: 4,
     };
-    let r = rig.run(true, EraseOrder::Forward, &ops(400), |_, _| true, 97);
+    let r = rig.run(true, EraseOrder::Forward, &ops(600), |_, _| true, 97);
     println!("{r:?}");
     assert!(r.erases >= 4, "{r:?}");
 }
@@ -297,9 +312,9 @@ fn g0_every_step_2_pages_backward_erase() {
         base: G0_BASE,
         pages: 2,
     };
-    let r = rig.run(true, EraseOrder::Backward, &ops(120), |_, _| true, 89);
+    let r = rig.run(true, EraseOrder::Backward, &ops(300), |_, _| true, 89);
     println!("{r:?}");
-    assert!(r.erases >= 2, "{r:?}");
+    assert!(r.erases >= if EVERY_STEP { 2 } else { 1 }, "{r:?}");
 }
 
 #[test]
@@ -308,7 +323,7 @@ fn g0_without_ecc_half_written_bits_read_as_they_are() {
         base: G0_BASE,
         pages: 3,
     };
-    let r = rig.run(false, EraseOrder::Forward, &ops(160), |_, _| true, 0);
+    let r = rig.run(false, EraseOrder::Forward, &ops(400), |_, _| true, 0);
     println!("{r:?}");
 }
 
@@ -319,76 +334,36 @@ fn h7_words_every_step() {
         base: 0x081e_0000,
         pages: 2,
     };
-    let r = rig.run(true, EraseOrder::Backward, &ops(180), |_, _| true, 71);
+    let r = rig.run(
+        true,
+        EraseOrder::Backward,
+        &ops(if EVERY_STEP { 400 } else { 260 }),
+        |_, _| true,
+        71,
+    );
     println!("{r:?}");
-    assert!(r.erases >= 2, "{r:?}");
+    assert!(r.erases >= if EVERY_STEP { 2 } else { 1 }, "{r:?}");
 }
 
 #[test]
 fn f4_16k_sectors_sampled() {
-    // F4 sectors 1 and 2 (16 KiB each), 4-byte words, no ECC; the erases are sampled: every 97th byte and the
-    // ends, where the page markers are
+    // F4 sectors 1 and 2 (16 KiB each), 4-byte words, no ECC, random erase order; the erases are sampled: every
+    // 97th byte and the ends of each write (a debug build only cuts the writes that start a page)
     let rig = Rig::<4, 16384> {
         base: 0x0800_4000,
         pages: 2,
     };
     let r = rig.run(
         false,
-        EraseOrder::Forward,
-        &ops(700),
-        |c, steps| c <= 64 || c + 64 >= steps || c.is_multiple_of(97),
+        EraseOrder::Random,
+        &ops(if EVERY_STEP { 1600 } else { 1300 }),
+        |c, steps| {
+            (EVERY_STEP || steps > 20) && (c <= 64 || c + 64 >= steps || c.is_multiple_of(97))
+        },
         0,
     );
     println!("{r:?}");
-    assert!(r.erases >= 2, "{r:?}");
-}
-
-#[test]
-fn dbg_clean_2_pages() {
-    let rig = Rig::<8, 2048> {
-        base: G0_BASE,
-        pages: 2,
-    };
-    block_on(async {
-        let mut st = rig.store(FakeFlash::new(G0_BASE, 2));
-        for (j, op) in ops(120).into_iter().enumerate() {
-            if let Err(e) = rig.boot_and_apply(&mut st, op).await {
-                panic!("op {j} {op:?}: {e} {:?}", st.flash().stats());
-            }
-        }
-    });
-}
-
-#[test]
-fn dbg_one_cut() {
-    let rig = Rig::<32, 4096> {
-        base: 0x081e_0000,
-        pages: 2,
-    };
-    let (j, c) = (54usize, 39u64);
-    block_on(async {
-        let all = ops(180);
-        let mut f = FakeFlash::new(0x081e_0000, 2);
-        f.erase_order = EraseOrder::Backward;
-        let mut st = rig.store(f);
-        for &op in &all[..j] {
-            rig.boot_and_apply(&mut st, op).await.unwrap();
-        }
-        println!("before: {}", st.print_items().await);
-        let mut f = st.into_flash();
-        f.seed(c * 7919 + j as u64);
-        f.cut_after(c);
-        let mut st = rig.store(f);
-        let r = rig.boot_and_apply(&mut st, all[j]).await;
-        println!("cut: {r:?}");
-        let mut f = st.into_flash();
-        f.power_on();
-        let mut st = rig.store(f);
-        println!("after cut: {}", st.print_items().await);
-        let r = rig.boot_and_apply(&mut st, all[j]).await;
-        println!("redo: {r:?}");
-        println!("{}", st.print_items().await);
-    });
+    assert!(r.erases >= if EVERY_STEP { 2 } else { 1 }, "{r:?}");
 }
 
 #[test]
@@ -397,7 +372,7 @@ fn g0_random_erase_2_pages() {
         base: G0_BASE,
         pages: 2,
     };
-    let r = rig.run(true, EraseOrder::Random, &ops(120), |_, _| true, 0);
+    let r = rig.run(true, EraseOrder::Random, &ops(300), |_, _| true, 61);
     println!("{r:?}");
 }
 
@@ -407,6 +382,6 @@ fn g0_random_erase_4_pages() {
         base: G0_BASE,
         pages: 4,
     };
-    let r = rig.run(true, EraseOrder::Random, &ops(400), |c, _| c % 3 == 0, 0);
+    let r = rig.run(true, EraseOrder::Random, &ops(600), |_, _| true, 0);
     println!("{r:?}");
 }

@@ -4,10 +4,10 @@
 //!
 //! - [`#[derive(Settings)]`](derive@Settings) on a plain struct: `#[setting(slot = N, default = ..)]` per field,
 //!   `#[settings(retired(..))]` for the slots of removed fields.
-//! - [Settings]: one group's value in RAM, [set](Settings::set) with write-on-change and a [Debounce],
+//! - [Settings](struct@Settings): one group's value in RAM, [set](Settings::set) with write-on-change and a [Debounce],
 //!   [persist](Settings::persist) for a write that has to be done before answering.
-//! - [Store]: the records of all groups in a range of flash, a `sequential-storage` map over an
-//!   `embedded-storage-async` `NorFlash`, one [Key] per group.
+//! - [Store]: the records of all groups in a range of flash (an `embedded-storage-async` `NorFlash`), one [Key]
+//!   per group, a small log that survives a power cut at any point.
 //! - [record]: the stored format.
 //!
 //! See `docs/std_library/ww_settings.md` for how many pages to give it, what an erase stalls on STM32G0 / F4 / H7,
@@ -38,14 +38,13 @@ extern crate self as ww_settings;
 pub mod group;
 pub mod record;
 mod settings;
-mod store;
+pub mod store;
 
 #[cfg(feature = "fake-flash")]
 pub mod fake_flash;
 
 pub use group::{SettingsGroup, Slot, Version};
-pub use sequential_storage;
 pub use settings::{Debounce, Error, LoadReport, Persisted, Settings};
 pub use shrink_wrap;
-pub use store::{Fetched, Key, Store, StoreError};
+pub use store::{ConfigError, Key, Store, StoreError};
 pub use ww_settings_derive::Settings;

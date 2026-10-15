@@ -10,14 +10,14 @@ repository.workspace = true
 [features]
 default = []
 std = ["shrink_wrap/std"]
-defmt = ["dep:defmt", "shrink_wrap/defmt", "sequential-storage/defmt"]
+defmt = ["dep:defmt", "shrink_wrap/defmt"]
 # fake_flash::FakeFlash: a NorFlash in RAM with power cuts, ECC and a write-once check, for tests
-fake-flash = ["std", "sequential-storage/std"]
+fake-flash = ["std"]
 
 [dependencies]
+crc.workspace = true
 defmt = { workspace = true, optional = true }
 embedded-storage-async.workspace = true
-sequential-storage.workspace = true
 shrink_wrap.workspace = true
 ww_settings_derive.workspace = true
 

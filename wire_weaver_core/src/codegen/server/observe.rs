@@ -218,7 +218,7 @@ impl Observe {
 
                 /// Bytes per second granted to all levels together.
                 pub fn budget_in_use(&self) -> u32 {
-                    0 #(+ self.#fields.budget())*
+                    0u32 #(.saturating_add(self.#fields.budget()))*
                 }
             }
 
@@ -294,7 +294,7 @@ impl Observe {
                 quote! {
                     let state = self.observe_state();
                     let limits = state.limits;
-                    let others = state.budget_in_use() - state.#field.budget();
+                    let others = state.budget_in_use().saturating_sub(state.#field.budget());
                     let table = &mut state.#field;
                 }
             };

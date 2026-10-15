@@ -364,7 +364,8 @@ impl<const N: usize> ObserveTable<N> {
         if self.last_refill.is_none_or(|last| now_us > last) {
             self.last_refill = Some(now_us);
         }
-        let add = (elapsed as i64).saturating_mul(self.budget as i64);
+        let elapsed = i64::try_from(elapsed).unwrap_or(i64::MAX);
+        let add = elapsed.saturating_mul(self.budget as i64);
         self.tokens = self
             .tokens
             .saturating_add(add)

@@ -14,7 +14,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Instant;
 use wire_weaver::shrink_wrap::option_any_vec::OptionAnyVec;
-use wire_weaver::shrink_wrap::{BufReader, DeserializeShrinkWrapOwned, ElementSize, Error as SWError};
+use wire_weaver::shrink_wrap::{
+    BufReader, DeserializeShrinkWrapOwned, ElementSize, Error as SWError,
+};
 use ww_self::{ApiBundleOwned, TypeOwned, ValueOwned};
 
 /// Raw bytes of a level's `PropertyUpdate`, kept undecoded until [LevelSchema::decode] runs against the level's
@@ -158,12 +160,18 @@ impl DynObserver {
     }
 
     /// Change what this observer asks for, its budget stays.
-    pub async fn configure(&self, entries: BTreeMap<u32, ObserveMode>) -> Result<Granted<DynConfig>, Error> {
+    pub async fn configure(
+        &self,
+        entries: BTreeMap<u32, ObserveMode>,
+    ) -> Result<Granted<DynConfig>, Error> {
         self.inner.configure(DynConfig(entries)).await
     }
 
     /// Blocking variant of [Self::configure].
-    pub fn configure_blocking(&self, entries: BTreeMap<u32, ObserveMode>) -> Result<Granted<DynConfig>, Error> {
+    pub fn configure_blocking(
+        &self,
+        entries: BTreeMap<u32, ObserveMode>,
+    ) -> Result<Granted<DynConfig>, Error> {
         self.inner.configure_blocking(DynConfig(entries))
     }
 

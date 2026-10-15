@@ -623,7 +623,13 @@ fn ser_inner(
             let ValueOwned::Struct { fields } = value else {
                 return Err(mismatch());
             };
-            ser_sparse_fields(wr, fields, &item_struct.fields, &item_struct.ident, api_bundle)?;
+            ser_sparse_fields(
+                wr,
+                fields,
+                &item_struct.fields,
+                &item_struct.ident,
+                api_bundle,
+            )?;
         }
         TypeOwned::Struct(item_struct) => {
             let ValueOwned::Struct { fields } = value else {

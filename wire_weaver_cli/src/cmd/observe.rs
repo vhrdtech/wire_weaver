@@ -12,7 +12,7 @@ use wire_weaver_client::{DynClient, DynResource};
 
 #[derive(Args)]
 pub(crate) struct ObserveArgs {
-    /// Path to a trait level, e.g. "motor" or "bank[0]"; empty observes the API root
+    /// Path to a trait level, e.g. "motor" or "bank\[0\]"; empty observes the API root
     #[arg(default_value = "")]
     path: String,
 

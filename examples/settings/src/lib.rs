@@ -1,7 +1,7 @@
 //! Two settings kept across a reboot by `ww_settings`, on a simulated flash, over the real client/server codepath
 //! (`docs/std_library/ww_settings.md`): [Device] holds `meter_window_ms` / `led_on_at_boot` as plain fields,
-//! written directly by the generated `value_on_changed` property setters; `changed_<name>` tells [Settings] about
-//! the change, and [serve]'s periodic tick writes it once the [Debounce] is over. `tests/reboot.rs` connects a
+//! written directly by the generated `value_on_changed` property setters; `changed_<name>` tells [struct@Settings]
+//! about the change, and [serve]'s periodic tick writes it once the [Debounce] is over. `tests/reboot.rs` connects a
 //! [Client], sets both, waits past the debounce, stops the device, and reopens it from the same flash image.
 
 use std::future::Future;
@@ -28,7 +28,8 @@ pub const RANGE: core::ops::Range<u32> = 0..(PAGES * 4096) as u32;
 /// Longest message either side sends or receives.
 const MAX_MESSAGE_LEN: usize = 256;
 
-/// Server side: a plain field per `value_on_changed` property, backed by a [Settings] group written to a [Store].
+/// Server side: a plain field per `value_on_changed` property, backed by a [struct@Settings] group written to a
+/// [Store].
 pub struct Device {
     /// Averaging window of a sensor reading, milliseconds.
     pub meter_window_ms: u16,

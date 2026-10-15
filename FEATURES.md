@@ -852,6 +852,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `motor_demo` CLI observes chosen sets at chosen rates and shows achieved rates, updates and bytes per second
   against the budget, missed sends and the cost as one `StreamData` per value (`docs/examples/motor_demo.md`).
 - ✅ **EX-14 cnt counters in MCU examples**: `cnt` dependency, `-Tcnt.x` and `runner = "cnt run --chip ..."` on every probe-rs board (rp2, nucleo_g0b1re, nucleo_h743zi2, usb_stm32h725ig); `unhandled_exceptions` counter in `DefaultHandler`. `mcu_qemu` has no probe, so no counters.
+- ✅ **EX-15 `ww_settings` demo**: `examples/settings_api` (`SettingsDemo`, two `value_on_changed` properties) +
+  `examples/settings` (host, a simulated flash over the real client/server codepath, `tests/reboot.rs` checks
+  values survive a reboot) + a `settings` bin in `examples_mcu/nucleo_g0b1re` (RTT, last 4 pages of bank 2) and
+  `examples_mcu/nucleo_h743zi2` (USB, last 2 sectors of bank 2), both behind a `settings` cargo feature.
+  `UserSettings` lives in `settings_api` so every implementation shares the same record shape.
 - 📋 **EX-6 Example without async** · `v0.5` — `ww_device::blocking::Server` exists, no example uses it.
 - 📋 **EX-7 Example with two media** · `v0.5`.
 - 📋 **EX-8 NCM WebSocket + UDP example** · `v0.5` — both media on one stack, sharing the backend.

@@ -3343,8 +3343,9 @@ rerun when <code>.git/HEAD</code> or <code>.git/index</code> changes. <code>firm
 </span></code></pre></div>
 <p><code>ResetRecord</code> has the <code>cause</code> (<code>PowerOn</code>, <code>Brownout</code>, <code>Pin</code>, <code>Watchdog</code>, <code>Software</code>, <code>Lockup</code>, <code>Fault</code>, <code>Panic</code>,
 <code>Updated</code>, <code>Undetermined</code>), the <code>build_id</code> of the firmware that crashed (the record may be older than an update),
-<code>uptime</code> at the crash, the architecture's <code>fault</code> registers, up to 32 words of <code>stack</code> and a <code>message</code> of up to 128
-bytes. <code>boot_count</code> with the cause tells a reset loop from a single crash; <code>clear</code> forgets both once the host saved
+<code>uptime</code> at the crash, the architecture's <code>fault</code> registers, up to 32 words of <code>stack</code>, a <code>message</code> of up to 128
+bytes and <code>boots_since_crash</code> (0: the last reset was the crash; a crash kept across later normal resets shows a
+<code>cause</code> other than <code>Fault</code> / <code>Panic</code> and a count above 0). <code>boot_count</code> with the cause tells a reset loop from a single crash; <code>clear</code> forgets both once the host saved
 them. Capturing the record (a fault or panic handler writing into RAM that survives a reset) is firmware
 infrastructure; this trait only reports it.</p>
 <p><code>Fault</code> has one variant per architecture behind a cargo feature: <code>CortexM(CortexMFault)</code> (<code>cortex-m</code>) and

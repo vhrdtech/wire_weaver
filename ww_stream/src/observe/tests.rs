@@ -329,3 +329,55 @@ fn measure_bounds() {
     assert_eq!(measure(&s, &mut buf), Some(6 + LEN_SLOT));
     assert!(event_overhead(&mut buf, &[UNib32(1)], None, None).unwrap() <= 4);
 }
+
+#[test]
+fn overload_rotates() {
+    let mut t = ObserveTable::<3>::new();
+    // the same period for all, room for about one value per period: earliest deadline first takes turns
+    apply(
+        &mut t,
+        &DESC,
+        &[
+            entry(1, periodic(10_000)),
+            entry(3, periodic(10_000)),
+            entry(4, periodic(10_000)),
+        ],
+        false,
+        Some(1_500),
+    )
+    .unwrap();
+    let mut sent = vec![];
+    let mut now = 0;
+    while now < 2_000_000 {
+        now += 1_000;
+        let (chosen, _) = poll(&mut t, &DESC, now, |_| 10);
+        sent.extend(chosen);
+    }
+    let counts: Vec<usize> = (0..3)
+        .map(|k| sent.iter().filter(|s| **s == k).count())
+        .collect();
+    let (min, max) = (counts.iter().min().unwrap(), counts.iter().max().unwrap());
+    assert!(max - min <= 2, "{counts:?}");
+    assert!(*min > 50, "{counts:?}");
+}
+
+#[test]
+fn malformed_entries_change_nothing() {
+    use wire_weaver::shrink_wrap::BufReader;
+    let mut t = ObserveTable::<3>::new();
+    apply(&mut t, &DESC, &[entry(4, on_change(500))], false, None).unwrap();
+    // says 1000 entries, has none
+    let req = ObserveRequest {
+        entries: RefVec::Buf {
+            buf: BufReader::new(&[]),
+            elements_count: 1000,
+        },
+        patch: false,
+        budget: None,
+    };
+    assert!(matches!(
+        t.apply(&req, &DESC, &LIMITS, 0, &mut []),
+        Err(ObserveError::Malformed(_))
+    ));
+    assert_eq!(granted(&t, &DESC), [entry(4, on_change(500))]);
+}

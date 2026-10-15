@@ -313,7 +313,9 @@ impl Parse for Args {
                 }
                 "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
                 | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants"
-                | "crate_path" | "non_exhaustive" | "no_future_version" | "display" => {
+                | "crate_path" | "non_exhaustive" | "no_future_version" | "display"
+                // TODO(TOOL-11): a sparse struct is described as a plain struct of `Option`s in the API model
+                | "sparse" => {
                     // Directives irrelevant to wire_weaver_core's introspection (it only cares
                     // about `ww_repr` and the size assumption) - skip their arguments, if any.
                     if input.peek(syn::token::Paren) {
@@ -349,7 +351,7 @@ impl Parse for Args {
 }
 
 const SUPPORTED_DIRECTIVES: &str =
-    "final_structure, self_describing, sized, ww_repr=<u1,u2,..,nib,unib32,u8,..>";
+    "final_structure, self_describing, sized, sparse, ww_repr=<u1,u2,..,nib,unib32,u8,..>";
 
 /// Sets `size_assumption`, erroring if it was already set by an earlier directive since
 /// `final_structure`, `self_describing` and `sized` are mutually exclusive.

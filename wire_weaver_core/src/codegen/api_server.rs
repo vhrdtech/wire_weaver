@@ -2,6 +2,7 @@
 //! * Server's index chain contains only array indices on the way to a resource
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::omit::{Omission, Omissions, Omit};
+use crate::codegen::server::observe::{Observe, mark_changed_ident};
 use crate::codegen::server::stream::stream_ser_methods_recursive;
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::codegen::util::{ErrorSeq, add_prefix, maybe_quote, maybe_quote_cl};
@@ -12,7 +13,7 @@ use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use syn::{Lit, LitInt, Path};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
@@ -139,7 +140,9 @@ pub fn gen_server(
         Some(path) => quote! { #path },
         None => quote! { () },
     };
+    let observe = Observe::collect(api_bundle, &omissions, &config.property_model);
     let cx = ApiServerCGContext {
+        observable: observe.observable(),
         ident_prefix: None,
         no_alloc: config.no_alloc,
         use_async: config.use_async,
@@ -204,6 +207,29 @@ pub fn gen_server(
         );
     }
     let poll_streams = poll_streams(api_bundle, cx.use_async);
+    let observe_items = observe.items(api_bundle, config.no_alloc);
+    let observe_methods = observe.methods(api_bundle, cx.use_async, &medium_ty, &mut error_seq);
+    let observe_arm = maybe_quote_cl(observe.is_enabled(), || {
+        quote! {
+            RequestKind::Observe { cfg } => {
+                match self.observe_request(path, cfg, &mut wr) {
+                    Ok(()) => {
+                        if request.seq.0 == 0 {
+                            return Ok(&[])
+                        }
+                        event_builder.finish(true, &mut wr);
+                        wr.finish_and_take()
+                    }
+                    Err(e) => {
+                        wr.restore_state(before_process);
+                        wr.write(&e)?;
+                        event_builder.finish(false, &mut wr);
+                        wr.finish_and_take()
+                    }
+                }
+            }
+        }
+    });
     let consts_trait = consts_trait(api_bundle, &omissions, &cx);
     let global_trait_path = global_trait_path(api_bundle);
     let (es1, es2) = (error_seq.next(), error_seq.next());
@@ -321,6 +347,7 @@ pub fn gen_server(
                 let before_process = wr.save_state();
                 match &request.kind {
                     #maybe_multi_req
+                    #observe_arm
                     _ => {
                         match self.process_root(path, &mut iter, &request, &mut wr, #maybe_in_multi_false &mut cx)#maybe_await {
                             Ok(WrAction::WrittenOk(event_kind_builder)) => {
@@ -363,7 +390,11 @@ pub fn gen_server(
             #deferred_return_methods
 
             #poll_streams
+
+            #observe_methods
         }
+
+        #observe_items
 
         #stream_send_methods
 
@@ -718,6 +749,8 @@ fn multi_req_handlers(maybe_await: &TokenStream, error_seq: &mut ErrorSeq) -> To
 
 #[derive(Clone)]
 struct ApiServerCGContext<'i> {
+    /// Prefixed names of observable properties (SRV-18), they have a `mark_changed_<name>()`
+    observable: BTreeSet<String>,
     ident_prefix: Option<String>,
     no_alloc: bool,
     use_async: bool,
@@ -1215,6 +1248,11 @@ fn handle_property(
                     }
                 }
                 PropertyModelKind::ValueOnChanged => {
+                    let mark_changed =
+                        maybe_quote_cl(cx.observable.contains(&prefixed_ident.to_string()), || {
+                            let mark_changed = mark_changed_ident(&prefixed_ident);
+                            quote! { self.#mark_changed(); }
+                        });
                     let changed_property = Ident::new(
                         format!("changed_{}", prefixed_ident).as_str(),
                         Span::call_site(),
@@ -1227,6 +1265,7 @@ fn handle_property(
                         let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
                         if self.#prefixed_ident #maybe_index_chain_indices != value {
                             self.#prefixed_ident #maybe_index_chain_indices = value;
+                            #mark_changed
                             self.#changed_property(cx, #maybe_index_chain_arg)#maybe_await;
                         }
                         Ok(WrAction::WrittenOk(event_kind_builder))

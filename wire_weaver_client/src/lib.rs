@@ -77,6 +77,7 @@ pub use ww_version;
 pub mod internal {
     pub use crate::device_info::ConnectionInfo;
     pub use crate::event_loop::command::{Command, LoopbackParams, TestProgress};
+    pub use crate::tracing::TraceEvent;
 }
 
 pub trait WwClient {

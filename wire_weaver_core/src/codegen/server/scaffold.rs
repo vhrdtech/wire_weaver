@@ -63,6 +63,8 @@ pub fn gen_server_scaffold(
 
     let omit: Vec<Omit> = config.omit.iter().map(Omit::always).collect();
     let omissions = Omissions::resolve(api_bundle, &omit).map_err(|e| anyhow!(e))?;
+    let observe =
+        super::observe::Observe::collect(api_bundle, &omissions, &property_model).is_enabled();
 
     let root = &api_bundle.root;
     let crate_name = root.crate_name(api_bundle)?.replace('-', "_");
@@ -104,6 +106,21 @@ pub fn gen_server_scaffold(
              // before a reboot doesn't match a new session\n\
              self.stream_sessions = self.stream_sessions.wrapping_add(1);\n\
              self.stream_sessions\n\
+             }}\n"
+        )?;
+    }
+
+    if observe {
+        writeln!(
+            s.fields,
+            "/// Observed properties (SRV-18): what hosts observe and when it is due, see `poll_properties`
+             pub observe: api_impl::ObserveState,"
+        )?;
+        writeln!(
+            s.handlers,
+            "/// Settings and send state of observed properties, for `Observe` requests and `poll_properties`.\n\
+             fn observe_state(&mut self) -> &mut api_impl::ObserveState {{\n\
+             &mut self.observe\n\
              }}\n"
         )?;
     }

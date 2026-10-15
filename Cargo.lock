@@ -3456,6 +3456,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "observe"
+version = "0.1.0"
+dependencies = [
+ "observe_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
+name = "observe_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

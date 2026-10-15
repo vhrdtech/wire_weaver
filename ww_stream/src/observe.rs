@@ -11,7 +11,8 @@
 //!   value to start from.
 //! - **Budget**: a token bucket per level, filled at the granted bytes per second, holding at most a tenth of a
 //!   second of it ([MIN_BURST] at least). An update is sent only when it fits the bucket and the buffer; due
-//!   properties go in earliest deadline first, the first one that doesn't fit ends the update and it and the rest
+//!   properties go in earliest deadline first (a property left out keeps its deadline until it is sent, so none
+//!   starves), the first one that doesn't fit ends the update and it and the rest
 //!   slip to the next poll. A property too big for the bucket's capacity goes alone when the bucket is full (the
 //!   bucket goes negative for it, the rate over time still holds).
 //! - **Missed**: a property that was due and left out of a poll's update counts one missed send (once until it is
@@ -168,6 +169,9 @@ struct Slot {
     dirty: bool,
     /// Due and left out of an update, already counted as missed.
     slipped: bool,
+    /// Deadline of the oldest due send that was left out, until a send: what earliest deadline first goes by, so
+    /// that a property waiting longer goes first even after its period moved on.
+    waiting: Option<u64>,
     /// Just started being observed: sent once at the next poll.
     start: bool,
 }
@@ -210,6 +214,7 @@ impl<const N: usize> ObserveTable<N> {
                 last_sent: None,
                 dirty: false,
                 slipped: false,
+                waiting: None,
                 start: false,
             }; N],
             budget: 0,
@@ -429,6 +434,7 @@ impl<const N: usize> ObserveTable<N> {
                 },
             };
             if let Some(deadline) = due {
+                let deadline = slot.waiting.map_or(deadline, |w| w.min(deadline));
                 // insertion by deadline, ties in slot order
                 let mut i = plan.len;
                 while i > 0 && plan.deadline[i - 1] > deadline {
@@ -458,7 +464,7 @@ impl<const N: usize> ObserveTable<N> {
                 self.missed = self.missed.saturating_add(chosen);
             }
         }
-        for &k in plan.edf() {
+        for (&k, &deadline) in plan.edf().iter().zip(&plan.deadline) {
             let slot = &mut self.slots[k];
             if sel.chosen[k] || sel.dropped[k] {
                 if sel.dropped[k] {
@@ -466,13 +472,17 @@ impl<const N: usize> ObserveTable<N> {
                 }
                 slot.dirty = false;
                 slot.slipped = false;
+                slot.waiting = None;
                 slot.last_sent = Some(now_us);
                 if let Mode::Periodic { every } = slot.mode {
                     slot.next_due = slot.next_due.saturating_add(every as u64);
                 }
-            } else if !slot.slipped {
-                slot.slipped = true;
-                self.missed = self.missed.saturating_add(1);
+            } else {
+                slot.waiting.get_or_insert(deadline);
+                if !slot.slipped {
+                    slot.slipped = true;
+                    self.missed = self.missed.saturating_add(1);
+                }
             }
         }
     }

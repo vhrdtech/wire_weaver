@@ -268,7 +268,7 @@ mod tests {
         // The ELF directory has the firmware's ELF under its build id
         let dir = std::env::temp_dir().join(format!("ww-counters-test-{}", std::process::id()));
         elf::add(&fixture(), &dir).unwrap();
-        let found = elf::find_in_dirs(&info.build_id, &[dir.clone()]).unwrap();
+        let found = elf::find_in_dirs(&info.build_id, std::slice::from_ref(&dir)).unwrap();
         let mut counters = Counters::load_elf(&found).unwrap();
         std::fs::remove_dir_all(&dir).unwrap();
 

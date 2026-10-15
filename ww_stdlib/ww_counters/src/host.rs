@@ -90,7 +90,8 @@ impl<D: CountersDevice> Source for WwSource<D> {
         let mut done = 0;
         while done < words.len() {
             let at = offset + done as u64;
-            let at = u16::try_from(at).map_err(|_| anyhow!("word {at} is past what Counters::read reaches"))?;
+            let at = u16::try_from(at)
+                .map_err(|_| anyhow!("word {at} is past what Counters::read reaches"))?;
             let page = self.device.read(buffer(storage), at)?;
             if page.is_empty() {
                 bail!(

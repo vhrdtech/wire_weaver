@@ -53,6 +53,7 @@ spaces or quotes are inserted quoted, and values after `@` or `:` complete too (
 | [`ww api`](#ww-api)                | no             | Prints the resource tree or AST of an API crate, saves, checks and diffs snapshots, from source |
 | [`ww usb-loopback`](#ww-usb-loopback) | yes         | Runs USB loopback and throughput tests                             |
 | [`ww dfu`](#ww-dfu)                | yes, any API   | Firmware update steps through `ww_dfu` traits: `ww dfu reboot`     |
+| [`ww counters`](#ww-counters)      | yes, any API   | The device's `cnt` counters, decoded with its ELF: read, watch, TUI, reset |
 | [`ww config`](#ww-config)          | no             | Shows or saves the device selection in a project `ww.toml`         |
 
 `ww help <command>` or `ww <command> --help` prints all options of a command.
@@ -251,6 +252,34 @@ blinky_api@0.1.0 reboots into the updater
 
 A device without `ww_dfu::BootControl`, or with an incompatible version of `ww_dfu`, answers that it doesn't implement
 the trait. Following the device into its updater and flashing it is not done yet (CLT-21).
+
+### `ww counters`
+
+The `cnt` counters of any device implementing [`ww_counters::Counters`](std_library/ww_counters.md) anywhere in its
+API (a global trait, like `ww dfu`), decoded with the firmware's ELF found by the build id the device reports, and
+shown with the same views as `cnt` over a debug probe.
+
+```
+$ ww counters --serial 4B333720
+Using ELF target/thumbv8m.main-none-eabihf/release/usb_io_fw
+📍 RAM counters at 0x20000000, 64 B
+INFO  boots         3
+...
+```
+
+| Command / option     | Default | Description                                                                         |
+|----------------------|---------|-------------------------------------------------------------------------------------|
+| `read`               | yes     | All counters once                                                                   |
+| `watch [--interval MS]` | 100  | All counters, then each change until `q` or Ctrl+C (`reset` / `decrease` marked)   |
+| `tui`                |         | Terminal UI, a table per buffer; `r` / `R` reset RAM / backup counters              |
+| `reset [--bkp]`      |         | Zero the RAM counters, with `--bkp` the backup ones too                             |
+| `info`               |         | Buffers, `cnt` format, build id, and the ELF that matches                           |
+| `--elf PATH`         |         | The ELF to use; refused if its build id differs from the device's                   |
+| `--force`            |         | Use the ELF anyway, or the newest under `target/` when no ELF matches               |
+| `--format FORMAT`    | `text`  | `json` (one document) or `jsonl` (one object per counter, `watch` events)           |
+
+Without `--elf`, the ELF comes from `WW_ELF_PATH`, the ELF directory `~/.cache/ww/elf` (filled by `cnt elf add`)
+or `target/` of the cargo project in the current directory. See [ww_counters](std_library/ww_counters.md#on-the-host).
 
 ### `ww config`
 

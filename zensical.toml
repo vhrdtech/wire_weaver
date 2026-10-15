@@ -64,6 +64,7 @@ nav = [
         "std_library/ww_uid.md",
         "std_library/ww_user_info.md",
         "std_library/ww_log.md",
+        "std_library/ww_counters.md",
         "std_library/ww_dfu.md",
         "std_library/ww_memory.md",
         "std_library/ww_si.md",

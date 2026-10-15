@@ -461,8 +461,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,
-  `tests/cross_version`) and `ww dfu reboot`. Missing: CLI commands for the other `ww_stdlib` traits (firmware and
-  board info, GPIO, UART, ...).
+  `tests/cross_version`), `ww dfu reboot` and `ww counters` (STD-25). Missing: CLI commands for the other
+  `ww_stdlib` traits (firmware and board info, GPIO, UART, ...).
 - 📋 **CLT-11 Typed property handles** · `v0.5` — `RwProperty`/`RoProperty`/`WoProperty` so that
   `.prop_name().read()`, `.prepare_write(1).blocking()`, `.asynch().await` work.
 - 📋 **CLT-12 Stream receive timeout** · `v0.5` — and a beat timeout between updates.
@@ -642,10 +642,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     at once, build id in flash). `docs/std_library/ww_log.md`. Hardware check open (no Pico 2 probe on the mesh): `just run rp2 usb_log`, then
     `examples/defmt_log`: logs over USB and RTT at once, `lost` exact under `--flood`, logs from before connecting.
     `ww log` in the CLI is a later item.
+- ✅ **STD-25 `ww_counters` on `cnt` words** · `v0.5` — the device's `cnt` counters as raw buffer words, decoded on
+    the host with the firmware's ELF found by its build id: `Counters::INFO` (format, used/capacity words of RAM and
+    backup, build id), `read(buffer, offset)` pages of `UVlq32`, `reset`, optional `watch` stream (not served by
+    anything yet); `read_words` / `reset_words` serve `cnt` buffers, feature `host` has `WwSource` (a
+    `cnt_core::Source`). `ww counters read|watch|tui|reset|info` shows the `cnt_view` views (CLT-10). In the `cnt`
+    repo: `cnt::ram_used_words()`, word sources and ELF lookup by build id in `cnt_core`, `cnt_view`, and the probe
+    path checks the build id too. Docs `docs/std_library/ww_counters.md`, tests `tests/counters`. Needs `cnt` 0.5
+    on crates.io before release (path dependencies on `../cnt` until then).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
-- 🚧 **STD-8 Prototypes**, to be completed later: `ww_can_bus`, `ww_i2c`, `ww_uart`, `ww_counters`, `ww_indication`,
+- 🚧 **STD-8 Prototypes**, to be completed later: `ww_can_bus`, `ww_i2c`, `ww_uart`, `ww_indication`,
   `ww_memory` (was `ww_ll`: one word type per trait, optional watches, errors on `CommonError`, docs page),
   Known gaps are `TODO`s in their sources (e.g. SMBus and 7-bit addresses in `ww_i2c`, capabilities and properties
   in `ww_can_bus`). `ww_log` (was `ww_log_bare_metal`) left for STD-26.

@@ -213,6 +213,10 @@ say what users must change. Create the file if a crate doesn't have one yet. Que
 "what changed since X" are answered from these changelogs, newest sections first (the user's version or date as
 the cutoff), with FEATURES.md for current status.
 
+The root `CHANGELOG.md` is the project's history as a whole (eras back to 2017, one summary per release); it is
+not where individual changes go. When a version is released, add a short summary section for it there, pointing at
+the per-crate changelogs. `cliff.toml` is not used to generate it, don't run `git cliff -o` over it.
+
 Every change to a crate also bumps its **minor** version (`0.4.0` → `0.5.0`; pre-1.0, minor is the SemVer-breaking
 position, so don't try to decide whether a patch bump would do). Exceptions, see `docs/evolution/rules.md`: purely
 additive changes to `shrink_wrap`/`shrink_wrap_derive` and wire-compatible additions to API crates (`ww_stdlib/*`,

@@ -23,6 +23,8 @@ WireWeaver is a collection of crates for designing `#[no_std]` APIs:
 
 Current state is - approaching alpha release.
 See [FEATURES.md](./FEATURES.md) for what works today, what is in progress and what is planned.
+[CHANGELOG.md](./CHANGELOG.md) tells the project's history, from its 2017 YAML beginnings to the latest release;
+each crate's own `CHANGELOG.md` has the details.
 
 ## TLDR
 

@@ -18,7 +18,7 @@ ww_spi = "0.1"
 hardware for it, every frame on the bus on the [optional](../api/optional_items.md) `monitor` stream. A device with
 several buses nests it as an array, `ww_impl!(spi[]: ww_spi::Spi)`, monitoring included:
 
-```rust,ignore
+```rust
 #[ww_api_root]
 trait MyAdapter {
     ww_impl!(spi: ww_spi::Spi);

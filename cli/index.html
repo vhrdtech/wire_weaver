@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1516,6 +1518,8 @@
       
         
       
+        
+      
     
     
     
@@ -2034,6 +2038,33 @@
     
   
   ww_log
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_counters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_counters
 
     
   </span>
@@ -2934,6 +2965,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#ww-counters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww counters</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ww-config" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3195,6 +3237,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#ww-counters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww counters</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ww-config" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3395,6 +3448,11 @@ spaces or quotes are inserted quoted, and values after <code>@</code> or <code>:
 <td><a href="#ww-dfu"><code>ww dfu</code></a></td>
 <td>yes, any API</td>
 <td>Firmware update steps through <code>ww_dfu</code> traits: <code>ww dfu reboot</code></td>
+</tr>
+<tr>
+<td><a href="#ww-counters"><code>ww counters</code></a></td>
+<td>yes, any API</td>
+<td>The device's <code>cnt</code> counters, decoded with its ELF: read, watch, TUI, reset</td>
 </tr>
 <tr>
 <td><a href="#ww-config"><code>ww config</code></a></td>
@@ -3627,11 +3685,74 @@ check and calls the trait through a <a href="../api/addressing/">global trait pa
 </table>
 <p>A device without <code>ww_dfu::BootControl</code>, or with an incompatible version of <code>ww_dfu</code>, answers that it doesn't implement
 the trait. Following the device into its updater and flashing it is not done yet (CLT-21).</p>
+<h3 id="ww-counters"><code>ww counters</code><a class="headerlink" href="#ww-counters" title="Permanent link">&para;</a></h3>
+<p>The <code>cnt</code> counters of any device implementing <a href="../std_library/ww_counters/"><code>ww_counters::Counters</code></a> anywhere in its
+API (a global trait, like <code>ww dfu</code>), decoded with the firmware's ELF found by the build id the device reports, and
+shown with the same views as <code>cnt</code> over a debug probe.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>$ ww counters --serial 4B333720
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>Using ELF target/thumbv8m.main-none-eabihf/release/usb_io_fw
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>📍 RAM counters at 0x20000000, 64 B
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>INFO  boots         3
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>...
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Command / option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>read</code></td>
+<td>yes</td>
+<td>All counters once</td>
+</tr>
+<tr>
+<td><code>watch [--interval MS]</code></td>
+<td>100</td>
+<td>All counters, then each change until <code>q</code> or Ctrl+C (<code>reset</code> / <code>decrease</code> marked)</td>
+</tr>
+<tr>
+<td><code>tui</code></td>
+<td></td>
+<td>Terminal UI, a table per buffer; <code>r</code> / <code>R</code> reset RAM / backup counters</td>
+</tr>
+<tr>
+<td><code>reset [--bkp]</code></td>
+<td></td>
+<td>Zero the RAM counters, with <code>--bkp</code> the backup ones too</td>
+</tr>
+<tr>
+<td><code>info</code></td>
+<td></td>
+<td>Buffers, <code>cnt</code> format, build id, and the ELF that matches</td>
+</tr>
+<tr>
+<td><code>--elf PATH</code></td>
+<td></td>
+<td>The ELF to use; refused if its build id differs from the device's</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td></td>
+<td>Use the ELF anyway, or the newest under <code>target/</code> when no ELF matches</td>
+</tr>
+<tr>
+<td><code>--format FORMAT</code></td>
+<td><code>text</code></td>
+<td><code>json</code> (one document) or <code>jsonl</code> (one object per counter, <code>watch</code> events)</td>
+</tr>
+</tbody>
+</table>
+<p>Without <code>--elf</code>, the ELF comes from <code>WW_ELF_PATH</code>, the ELF directory <code>~/.cache/ww/elf</code> (filled by <code>cnt elf add</code>)
+or <code>target/</code> of the cargo project in the current directory. See <a href="../std_library/ww_counters/#on-the-host">ww_counters</a>.</p>
 <h3 id="ww-config"><code>ww config</code><a class="headerlink" href="#ww-config" title="Permanent link">&para;</a></h3>
 <p>Manages the <a href="#project-config-wwtoml">project config file</a>:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
 </span></code></pre></div>
 <p><code>ww config save</code> writes into the <code>--config</code> file if given, otherwise into the <code>ww.toml</code> found in the current
 directory or its closest parent, otherwise creates <code>ww.toml</code> in the current directory. Only flags from the command
@@ -3717,11 +3838,11 @@ narrow the selection together. Each setting is taken from the first place that h
 <h3 id="project-config-wwtoml">Project config: <code>ww.toml</code><a class="headerlink" href="#project-config-wwtoml" title="Permanent link">&para;</a></h3>
 <p>Device selection that stays the same for a project goes into the <code>[device]</code> table of a <code>ww.toml</code>, using the keys
 from the table above:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># ww.toml</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">[device]</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># ww.toml</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">[device]</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
 </span></code></pre></div>
 <p><code>ww.toml</code> is looked up in the current directory and then its parents, so one file at the project root covers the
 whole project. <code>--config &lt;path&gt;</code> (or <code>WW_CONFIG</code>) uses another file, <code>--no-config</code> ignores it. Unknown keys are

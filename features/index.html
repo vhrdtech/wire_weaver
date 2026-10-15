@@ -417,6 +417,8 @@
       
         
       
+        
+      
     
     
     
@@ -1719,6 +1721,8 @@
       
         
       
+        
+      
     
     
     
@@ -2237,6 +2241,33 @@
     
   
   ww_log
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_counters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_counters
 
     
   </span>
@@ -3742,8 +3773,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>CLT-10 Trait calls that work on any device</strong> · <code>v0.5</code> — serial, user label, a CLI that works with all devices.
   <code>ww list</code> with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: <code>ClientConfig::traits_only()</code>, <code>DynClient::global_attachment()</code> (served through API-20,
-  <code>tests/cross_version</code>) and <code>ww dfu reboot</code>. Missing: CLI commands for the other <code>ww_stdlib</code> traits (firmware and
-  board info, GPIO, UART, ...).</li>
+  <code>tests/cross_version</code>), <code>ww dfu reboot</code> and <code>ww counters</code> (STD-25). Missing: CLI commands for the other
+  <code>ww_stdlib</code> traits (firmware and board info, GPIO, UART, ...).</li>
 <li>📋 <strong>CLT-11 Typed property handles</strong> · <code>v0.5</code> — <code>RwProperty</code>/<code>RoProperty</code>/<code>WoProperty</code> so that
   <code>.prop_name().read()</code>, <code>.prepare_write(1).blocking()</code>, <code>.asynch().await</code> work.</li>
 <li>📋 <strong>CLT-12 Stream receive timeout</strong> · <code>v0.5</code> — and a beat timeout between updates.</li>
@@ -3923,10 +3954,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
     at once, build id in flash). <code>docs/std_library/ww_log.md</code>. Hardware check open (no Pico 2 probe on the mesh): <code>just run rp2 usb_log</code>, then
     <code>examples/defmt_log</code>: logs over USB and RTT at once, <code>lost</code> exact under <code>--flood</code>, logs from before connecting.
     <code>ww log</code> in the CLI is a later item.</li>
+<li>✅ <strong>STD-25 <code>ww_counters</code> on <code>cnt</code> words</strong> · <code>v0.5</code> — the device's <code>cnt</code> counters as raw buffer words, decoded on
+    the host with the firmware's ELF found by its build id: <code>Counters::INFO</code> (format, used/capacity words of RAM and
+    backup, build id), <code>read(buffer, offset)</code> pages of <code>UVlq32</code>, <code>reset</code>, optional <code>watch</code> stream (not served by
+    anything yet); <code>read_words</code> / <code>reset_words</code> serve <code>cnt</code> buffers, feature <code>host</code> has <code>WwSource</code> (a
+    <code>cnt_core::Source</code>). <code>ww counters read|watch|tui|reset|info</code> shows the <code>cnt_view</code> views (CLT-10). In the <code>cnt</code>
+    repo: <code>cnt::ram_used_words()</code>, word sources and ELF lookup by build id in <code>cnt_core</code>, <code>cnt_view</code>, and the probe
+    path checks the build id too. Docs <code>docs/std_library/ww_counters.md</code>, tests <code>tests/counters</code>; <code>cnt_core</code> /
+    <code>cnt_view</code> 0.5 from crates.io.</li>
 <li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing.</li>
 <li>🔍 <strong>STD-7 Interrupt left enabled in <code>ww_gpio_hl</code></strong> · <code>v0.5</code> — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.</li>
-<li>🚧 <strong>STD-8 Prototypes</strong>, to be completed later: <code>ww_can_bus</code>, <code>ww_i2c</code>, <code>ww_uart</code>, <code>ww_counters</code>, <code>ww_indication</code>,
+<li>🚧 <strong>STD-8 Prototypes</strong>, to be completed later: <code>ww_can_bus</code>, <code>ww_i2c</code>, <code>ww_uart</code>, <code>ww_indication</code>,
   <code>ww_memory</code> (was <code>ww_ll</code>: one word type per trait, optional watches, errors on <code>CommonError</code>, docs page),
   Known gaps are <code>TODO</code>s in their sources (e.g. SMBus and 7-bit addresses in <code>ww_i2c</code>, capabilities and properties
   in <code>ww_can_bus</code>). <code>ww_log</code> (was <code>ww_log_bare_metal</code>) left for STD-26.</li>

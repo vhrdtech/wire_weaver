@@ -58,6 +58,7 @@ place to look.
 * [`ww_uid`](ww_uid.md) — `Uid`: the unit's unique ids (chip id, MAC, EUI-64, ...), one trait carrying several
 * [`ww_user_info`](ww_user_info.md) — `UserInfo`: a name and notes the user gives a unit, with persistence rules
 * [`ww_log`](ww_log.md) — `LogDefmt`, `LogText`: device logging over a reliable stream, raw `defmt` frames or text
+  * `ww_defmt_logger` (repo root, device side) — the `defmt` global logger that feeds `LogDefmt::frames`, with an optional tee to RTT
 * `ww_counters` — `Counters`: event counters running on the device (error/packet counts), RAM or persistent
 * `ww_indication` — `Indication`: device indication LED control (mode, brightness, test mode)
 * [`ww_dfu`](ww_dfu.md) — `UpdateNode`, `BootControl`, `Inventory`, `Stage`, `StageBulk`: firmware update, A/B or

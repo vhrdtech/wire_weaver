@@ -2,8 +2,9 @@
 
 How much code `shrink_wrap` costs on a CPU with a few kilobytes of memory, where the bytes go, what was changed
 because of it and what is left. Measured in October 2026 for a softcore firmware with 8 KB of RAM for code, data and
-stack (the QERV RISC-V of fpga_tools' `busgen`), whose request/reply codec is hand-written because the derived one did
-not fit.
+stack (the QERV RISC-V of fpga_tools' `busgen`). Its request/reply codec was hand-written because the derived one did
+not fit; since fpga_tools 0.9.0 (BUS-12) the firmware runs on `head_tail` views and variant writers (SW-52, SW-53,
+SW-54), and no hand-written codec is left.
 
 Summary:
 
@@ -443,6 +444,9 @@ cleared once per head or struct instead of per field (`bits_fixed_ser` 698 → 4
 Cortex-M0).
 On a real format, chunky_mcu_updater's plan reader (header, signed descriptor, steps) takes 892 bytes on Cortex-M0 with
 the fast path, 840 with its hand-written parser and 1854 through `BufReader` (its `just size-bench`).
+Since chunky 0.9.0 its steps are a `head_tail` enum read through `Step::view` (a WRITE's data is a `List<u8>`, the
+same wire bytes), and the reader is 734 bytes on Cortex-M0 and 912 on RV32IMC: below format 1's hand-written 840 /
+1252 and below the fast path's 892 / 1086 (chunky_mcu_updater `FEATURES.md`, PROTO-3).
 
 ## Head and tail
 
@@ -613,7 +617,11 @@ The options that were on the table, and why none became a cargo feature:
 
 ## What is left
 
-`busgen` is still 3.0 to 3.3 KB above the hand-written codec on RV32IC. In order of what they would bring:
+With views and writers (SW-52, [Head and tail](#head-and-tail)) the derived codec fits the 8 KB softcore: busgen's
+firmware is 5608 bytes (UART) and 5090 (I2C) on RV32IC, against 4552 / 4716 hand-written, with a ceiling of about
+6.3 KB. What is left below is for the value path (`BufReader`, `from_ww_bytes`) and evolvable types, which the views
+do not use; the sizes quoted in the list are of `busgen` through that path, still 3.0 to 3.3 KB above the
+hand-written codec on RV32IC. In order of what they would bring:
 
 1. **`RefVec<T>` of `Sized` structs and enums without a decode pass**: not planned. It was done for plain
    numbers only (SW-37, [above](#lists-of-plain-numbers-time-for-bytes)), where it is provably the same as the
@@ -636,9 +644,27 @@ The options that were on the table, and why none became a cargo feature:
    `write_rev_len` 126 bytes on RV32IC. Most of what is left is byte loads and stores, which have no compressed
    form there, and two checks against the end of the buffer.
 
-For a softcore with 8 KB in all, the hand-written codec stays the right choice today: the firmware it was measured
-for is 4.65 KB as shipped, and the derived codec alone would be 7.3 KB at best. With 16 KB, or on a Cortex-M0 with
-32 KB of flash, the derived codec fits with room to spare.
+For a softcore with 8 KB in all the derived codec is the right choice now, through views: the firmware it was
+measured for is 4.55 KB (UART image) with the hand-written codec and 5.6 KB with views. The value path alone (derived
+`BufReader` codec, 7.3 KB at best) would not fit, and nothing in the list above changes that. With 16 KB, or on a
+Cortex-M0 with 32 KB of flash, either fits with room to spare.
+
+**Where the views' last kilobyte goes.** In the real UART image the views are about 1 KB above the hand-written
+codec (symbol diff of fpga_tools v0.8.0 and v0.9.0, 14 October 2026, RV32IC):
+
+- `main` is 802 bytes larger: the handler reads each field inline, so the byte loads and stores of `u8` fields, tags
+  and headers (`lbu` 33 → 50, `sb` 47 → 58) are in the dispatch itself, where the hand-written one calls a small
+  function. The reply buffers are built with a few `memcpy` and `memset` calls (4 and 2).
+- A few `__mulsi3` calls: this RISC-V has no multiplier, so every multiplication by a non-constant is a call. They
+  do not come from walking a list (`ListIter` advances a cursor and divides nothing). The remaining places are
+  `List::get(i)`, which multiplies the index by the item length, and `take_items`, a count times an item length
+  (a constant per list type, so mostly shifts). Which of them produced the four calls was not looked at.
+- `ListIter<Wave>` and `ListIter<u16>` together are 244 bytes; `Wave::from_fixed` is 150 against 92 for the
+  `BufReader` read of the same struct, since every multi-byte field goes through `Le` (SW-53).
+
+Ideas to win some of it back (fewer inline byte accesses, an index without the multiplication, replies written
+straight into the output buffer) are tracked in the project's task list, estimated at 300 to 500 bytes; the firmware
+fits without them.
 
 ## A small UART transport
 

@@ -411,7 +411,7 @@ a test fail.
 
 ## Fixed-layout fast path
 
-A type whose encoding is a fixed byte layout (SW-44, [derive](derive.md#fixed_layout-a-fixed-byte-layout-and-its-fast-path))
+A type whose encoding is a fixed byte layout (SW-44, [derive](derive.md#fixed_layout-fields-at-fixed-offsets-and-the-fast-path))
 does not need `BufReader` or `BufWriter` at all: each field is a load or store at a constant offset. The cases
 `header_de` / `header_ser` read and write `Header` (a `[u8; 4]`, two `u8`, a `u16`, four `u32` and a `u64`) through
 the reader and writer, `fixed_de` / `fixed_ser` the same type with `from_fixed` / `to_fixed`. `bits_fixed_*` is the

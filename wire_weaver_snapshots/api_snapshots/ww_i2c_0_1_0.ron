@@ -284,13 +284,13 @@
         "A result of a watch, on the `I2cWatch` `changes` stream; when the read started is the time in the event head. An error is reported once, when the watch starts to",
         "fail, and the next successful read is reported whatever the rule.",
     ], ident: "I2cWatchEvent", fields: Named([
-        (ident: Some("slot"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        (ident: Some("slot"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
         (ident: Some("result"), default: None, since: None, ty: Result(ok_ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 4)), docs: []),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `I2cWatch` can do.",
     ], ident: "I2cWatchCapabilities", fields: Named([
-        (ident: Some("max_watches"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+        (ident: Some("max_watches"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Watches held at once, at most [MAX_WATCHES].",
         ]),
         (ident: Some("max_len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
@@ -494,7 +494,7 @@
         ], optional: None),
         (id: 2, kind: Method(args: [
             (ident: "watch", ty: OutOfLine(type_idx: 16)),
-        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U8)), err_ty: OutOfLine(type_idx: 4))), errors: None), multiplicity: Flat, since: None, ident: "watch_add", docs: [
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 4))), errors: None), multiplicity: Flat, since: None, ident: "watch_add", docs: [
             "Adds a watch and returns its slot, used by the other methods and in [I2cWatchEvent::slot].",
             "",
             "# Errors",
@@ -504,7 +504,7 @@
             "read length), [I2cError::WrongMode] (not a master).",
         ], optional: None),
         (id: 3, kind: Method(args: [
-            (ident: "slot", ty: NumericAny(Base(U8))),
+            (ident: "slot", ty: NumericAny(Base(U32))),
             (ident: "watch", ty: OutOfLine(type_idx: 16)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: None), multiplicity: Flat, since: None, ident: "watch_modify", docs: [
             "Replaces a watch\'s configuration; its previous result is forgotten, so the next read is reported.",
@@ -514,7 +514,7 @@
             "[I2cError::InvalidCycleSlot], and as `I2cWatch::watch_add`.",
         ], optional: None),
         (id: 4, kind: Method(args: [
-            (ident: "slot", ty: NumericAny(Base(U8))),
+            (ident: "slot", ty: NumericAny(Base(U32))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: None), multiplicity: Flat, since: None, ident: "watch_remove", docs: [
             "Removes a watch.",
             "",
@@ -522,7 +522,7 @@
             "",
             "[I2cError::InvalidCycleSlot].",
         ], optional: None),
-        (id: 5, kind: Method(args: [], return_ty: Some(MaxLen(max_len: 16, ty: Vec(NumericAny(Base(U8))))), errors: None), multiplicity: Flat, since: None, ident: "watch_list", docs: [
+        (id: 5, kind: Method(args: [], return_ty: Some(MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U32))))), errors: None), multiplicity: Flat, since: None, ident: "watch_list", docs: [
             "Slots in use.",
         ], optional: None),
     ]), crate_idx: 0),

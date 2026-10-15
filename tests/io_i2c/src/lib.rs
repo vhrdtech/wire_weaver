@@ -150,7 +150,7 @@ mod tests {
             pub watches: Vec<Option<WatchSlot>>,
             read_scratch: [u8; MAX_READ_LEN],
             scan_scratch: [u8; MAX_SCAN],
-            watch_list_scratch: [u8; MAX_WATCHES],
+            watch_list_scratch: [u32; MAX_WATCHES],
             records: Counted,
             changes: Counted,
             stream_sessions: u32,
@@ -163,7 +163,7 @@ mod tests {
                     watches: (0..MAX_WATCHES).map(|_| None).collect(),
                     read_scratch: [0u8; MAX_READ_LEN],
                     scan_scratch: [0u8; MAX_SCAN],
-                    watch_list_scratch: [0u8; MAX_WATCHES],
+                    watch_list_scratch: [0u32; MAX_WATCHES],
                     records: Counted::new(),
                     changes: Counted::new(),
                     stream_sessions: 0,
@@ -407,7 +407,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<I2cWatchCapabilities> {
                 Ready(I2cWatchCapabilities {
-                    max_watches: MAX_WATCHES as u8,
+                    max_watches: MAX_WATCHES as u32,
                     max_len: MAX_WATCH_LEN as u16,
                     min_period: secs(0),
                 })
@@ -417,7 +417,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 watch: I2cWatchConfig<'_>,
-            ) -> RpcResult<Result<u8, I2cError>> {
+            ) -> RpcResult<Result<u32, I2cError>> {
                 let config = match watch_config_to_owned(&watch) {
                     Ok(config) => config,
                     Err(e) => return Ready(Err(e)),
@@ -431,13 +431,13 @@ mod tests {
                     last_match: None,
                     in_error: false,
                 });
-                Ready(Ok(slot as u8))
+                Ready(Ok(slot as u32))
             }
 
             fn i2c_watch_watch_modify(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                slot: u8,
+                slot: u32,
                 watch: I2cWatchConfig<'_>,
             ) -> RpcResult<Result<(), I2cError>> {
                 let Some(entry) = self.watches.get_mut(slot as usize) else {
@@ -462,7 +462,7 @@ mod tests {
             fn i2c_watch_watch_remove(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                slot: u8,
+                slot: u32,
             ) -> RpcResult<Result<(), I2cError>> {
                 let Some(entry) = self.watches.get_mut(slot as usize) else {
                     return Ready(Err(I2cError::InvalidCycleSlot));
@@ -477,16 +477,21 @@ mod tests {
             fn i2c_watch_watch_list(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<MaxLen<RefVec<'_, u8>, MAX_WATCHES>> {
-                let list: Vec<u8> = self
+            ) -> RpcResult<MaxLen<RefVec<'_, u32>, MAX_WATCHES>> {
+                let list: Vec<u32> = self
                     .watches
                     .iter()
                     .enumerate()
-                    .filter_map(|(i, w)| w.as_ref().map(|_| i as u8))
+                    .filter_map(|(i, w)| w.as_ref().map(|_| i as u32))
                     .collect();
                 self.watch_list_scratch[..list.len()].copy_from_slice(&list);
                 let len = list.len();
-                Ready(MaxLen::new(RefVec::new_bytes(&self.watch_list_scratch[..len])).unwrap())
+                Ready(
+                    MaxLen::new(RefVec::Slice {
+                        slice: &self.watch_list_scratch[..len],
+                    })
+                    .unwrap(),
+                )
             }
 
             fn i2c_monitor_records(
@@ -585,7 +590,7 @@ mod tests {
                             Err(e) => Err(e),
                         };
                         let event = I2cWatchEvent {
-                            slot: slot_idx as u8,
+                            slot: slot_idx as u32,
                             result,
                         };
                         api_impl::stream_data_ser()

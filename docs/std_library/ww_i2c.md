@@ -94,10 +94,10 @@ pub trait I2cWatch {
     #[counted]
     stream!(changes: I2cWatchEvent<'i>);
     fn watch_capabilities() -> I2cWatchCapabilities;
-    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u8, I2cError>;
-    fn watch_modify(slot: u8, watch: I2cWatchConfig<'i>) -> Result<(), I2cError>;
-    fn watch_remove(slot: u8) -> Result<(), I2cError>;
-    fn watch_list() -> MaxLen<RefVec<'i, u8>, MAX_WATCHES>;
+    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u32, I2cError>;
+    fn watch_modify(slot: u32, watch: I2cWatchConfig<'i>) -> Result<(), I2cError>;
+    fn watch_remove(slot: u32) -> Result<(), I2cError>;
+    fn watch_list() -> MaxLen<RefVec<'i, u32>, MAX_WATCHES>;
 }
 ```
 
@@ -181,7 +181,7 @@ up with the device's other data.
 * `I2cCapabilities<'i>` - `io_levels`, `io_level_min` / `io_level_max`, `max_write_len`, `max_read_len`,
   `min_freq` / `max_freq: Hertz`, `driver_name` (bounded by `MAX_NAME_LEN`), `master_supported` /
   `slave_supported` / `monitor_supported`, `ten_bit_addresses`, `pullups`, `bus_recovery`.
-* `I2cWatchCapabilities` - `max_watches` (at most `MAX_WATCHES`), `max_len` (at most `MAX_WATCH_LEN`), `min_period`.
+* `I2cWatchCapabilities` - `max_watches: u32` (at most `MAX_WATCHES`, 512), `max_len` (at most `MAX_WATCH_LEN`), `min_period`.
 * `I2cWatchConfig<'i>` - `addr`, `kind: I2cReadKind<'i>`, `len`, `period: Second`, `report: I2cWatchReport<'i>`.
 * `I2cWatchReport<'i>` - `Always`, `Changed { mask }`, `Matches { mask, value }`, see [`I2cWatch`](#i2cwatch) above.
 * `I2cWatchEvent<'i>` - `slot`, `result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>`.

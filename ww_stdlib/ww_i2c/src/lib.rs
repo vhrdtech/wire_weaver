@@ -70,7 +70,7 @@ pub const MAX_SCAN: usize = 128;
 pub const MAX_RECORD_LEN: usize = 512;
 
 /// Most watches one `I2cWatch` device holds at once (it may hold fewer, see [I2cWatchCapabilities]).
-pub const MAX_WATCHES: usize = 16;
+pub const MAX_WATCHES: usize = 512;
 
 /// Longest read of one watch, in bytes.
 pub const MAX_WATCH_LEN: usize = 32;
@@ -204,24 +204,24 @@ pub trait I2cWatch {
     /// [I2cError::OutOfCycleSlots] (all slots taken), [I2cError::BufferTooBig] (read longer than this device
     /// watches), [I2cError::MalformedRequest] (period below the device's minimum, mask and value lengths not the
     /// read length), [I2cError::WrongMode] (not a master).
-    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u8, I2cError>;
+    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u32, I2cError>;
 
     /// Replaces a watch's configuration; its previous result is forgotten, so the next read is reported.
     ///
     /// # Errors
     ///
     /// [I2cError::InvalidCycleSlot], and as `I2cWatch::watch_add`.
-    fn watch_modify(slot: u8, watch: I2cWatchConfig<'i>) -> Result<(), I2cError>;
+    fn watch_modify(slot: u32, watch: I2cWatchConfig<'i>) -> Result<(), I2cError>;
 
     /// Removes a watch.
     ///
     /// # Errors
     ///
     /// [I2cError::InvalidCycleSlot].
-    fn watch_remove(slot: u8) -> Result<(), I2cError>;
+    fn watch_remove(slot: u32) -> Result<(), I2cError>;
 
     /// Slots in use.
-    fn watch_list() -> MaxLen<RefVec<'i, u8>, MAX_WATCHES>;
+    fn watch_list() -> MaxLen<RefVec<'i, u32>, MAX_WATCHES>;
 }
 
 /// What `I2cWatch` can do.
@@ -233,7 +233,7 @@ pub trait I2cWatch {
 )]
 pub struct I2cWatchCapabilities {
     /// Watches held at once, at most [MAX_WATCHES].
-    pub max_watches: u8,
+    pub max_watches: u32,
     /// Longest read of one watch, at most [MAX_WATCH_LEN].
     pub max_len: u16,
     /// Shortest period of one watch.
@@ -287,7 +287,7 @@ pub enum I2cWatchReport<'i> {
     derive(Debug, Clone)
 )]
 pub struct I2cWatchEvent<'i> {
-    pub slot: u8,
+    pub slot: u32,
     pub result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>,
 }
 

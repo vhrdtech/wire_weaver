@@ -59,6 +59,7 @@ nav = [
         "std_library/ww_logic_analyzer.md",
         "std_library/ww_signal_generator.md",
         "std_library/ww_can_bus.md",
+        "std_library/device_contract.md",
         "std_library/ww_firmware_info.md",
         "std_library/ww_board_info.md",
         "std_library/ww_uid.md",

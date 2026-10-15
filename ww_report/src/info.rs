@@ -290,8 +290,21 @@ async fn last_reset(client: &LastResetClient) -> Part<LastReset> {
     };
     let boot_count = Part::from_result(client.boot_count().call().await);
     let (fault, fault_addresses) = match &record.fault {
-        Some(f @ Fault::CortexM(c)) => (Some(format!("{f:?}")), vec![c.pc, c.lr]),
-        Some(f @ Fault::RiscV(r)) => (Some(format!("{f:?}")), vec![r.mepc, r.ra]),
+        Some(Fault::CortexM(c)) => (
+            Some(format!(
+                "Cortex-M fault: pc {:#010x} lr {:#010x} sp {:#010x} xpsr {:#010x} cfsr {:#010x} hfsr {:#010x} \
+                 mmfar {:#010x} bfar {:#010x} exc_return {:#010x}",
+                c.pc, c.lr, c.sp, c.xpsr, c.cfsr, c.hfsr, c.mmfar, c.bfar, c.exc_return
+            )),
+            vec![c.pc, c.lr],
+        ),
+        Some(Fault::RiscV(r)) => (
+            Some(format!(
+                "RISC-V trap: mepc {:#010x} mcause {:#010x} mtval {:#010x} ra {:#010x} sp {:#010x}",
+                r.mepc, r.mcause, r.mtval, r.ra, r.sp
+            )),
+            vec![r.mepc, r.ra],
+        ),
         Some(other) => (Some(format!("{other:?}")), vec![]),
         None => (None, vec![]),
     };

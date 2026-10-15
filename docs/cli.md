@@ -54,6 +54,9 @@ spaces or quotes are inserted quoted, and values after `@` or `:` complete too (
 | [`ww usb-loopback`](#ww-usb-loopback) | yes, any API | Runs link loopback and throughput tests                            |
 | [`ww dfu`](#ww-dfu)                | yes, any API   | Firmware update steps through `ww_dfu` traits: `ww dfu reboot`     |
 | [`ww counters`](#ww-counters)      | yes, any API   | The device's `cnt` counters, decoded with its ELF: read, watch, TUI, reset |
+| [`ww info`](#ww-info)              | yes, any API   | What the device is: firmware, board, ids, label, last reset        |
+| [`ww report`](#ww-report)          | yes, any API   | A bug report in one file: info, counters, stored log, crash, decoded with the ELF |
+| [`ww elf`](#ww-elf)                | no             | The ELF directory: `ww elf add` a release archive, `ww elf id`     |
 | [`ww config`](#ww-config)          | no             | Shows or saves the device selection in a project `ww.toml`         |
 
 `ww help <command>` or `ww <command> --help` prints all options of a command.
@@ -296,8 +299,65 @@ INFO  boots         3
 | `--force`            |         | Use the ELF anyway, or the newest under `target/` when no ELF matches               |
 | `--format FORMAT`    | `text`  | `json` (one document) or `jsonl` (one object per counter, `watch` events)           |
 
-Without `--elf`, the ELF comes from `WW_ELF_PATH`, the ELF directory `~/.cache/ww/elf` (filled by `cnt elf add`)
+Without `--elf`, the ELF comes from `WW_ELF_PATH`, the ELF directory `~/.cache/ww/elf` (filled by `ww elf add` or `cnt elf add`)
 or `target/` of the cargo project in the current directory. See [ww_counters](std_library/ww_counters.md#on-the-host).
+
+### `ww info`
+
+Firmware, board, ids, user label and last reset of any device, through the [device
+contract](std_library/device_contract.md) traits (global trait paths, like `ww dfu`: whatever the device's API and
+version, no ELF needed).
+
+```
+$ ww info --serial 4B333720
+API        usb_io_api@0.5.0
+Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
+Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
+Board      rePort rev B (strap 2), BOM std, serial RP-0042
+Ids        chip e6613871235b1c2d (internal, primary)
+Label      "bench 2" (kept over power cycles)
+Last reset Panic, boot 3 since cleared, ran 2.5 s
+```
+
+| Option            | Default | Description                                                                          |
+|-------------------|---------|--------------------------------------------------------------------------------------|
+| `--format FORMAT` | `text`  | `json` for scripts; each part says `value`, `not_implemented` or `error`             |
+
+A part the device doesn't implement says so, the rest is still shown.
+
+### `ww report`
+
+`ww info` plus the counters, the device's stored `defmt` log and the last reset's fault and stack addresses named
+with the ELF, as one text a tester sends with a bug report. The ELF is found by the build id the device reports
+([where](std_library/device_contract.md#where-ww-looks-for-the-elf)); a part whose ELF isn't found says so and
+names the places searched.
+
+```sh
+ww report --serial 4B333720 -o report.md
+```
+
+| Option             | Default | Description                                                                         |
+|--------------------|---------|-------------------------------------------------------------------------------------|
+| `-o`, `--output F` | stdout  | Write the report to a file                                                          |
+| `--elf PATH`       |         | The ELF to use for everything; refused if its build id differs from the device's    |
+| `--force`          |         | Use the ELF anyway                                                                  |
+| `--format FORMAT`  | `text`  | `json` for scripts                                                                  |
+
+Reading the log does not empty the device's store.
+
+### `ww elf`
+
+The ELF directory (`~/.cache/ww/elf`, or the ones in `WW_ELF_PATH`), where firmware ELFs are found by build id for
+`ww counters`, `ww report` and `cnt`.
+
+```sh
+ww elf add usb_io_fw-0.5.0-elf.tar.zst   # every ELF of a release, stored as <build id>.elf
+ww elf add target/release/usb_io_fw      # one ELF
+ww elf id target/release/usb_io_fw       # its build id, and whether it is in the directory
+```
+
+`--dir DIR` adds to another directory. A file without a build id is listed as skipped. See the [release
+archive](std_library/device_contract.md#the-release-archive).
 
 ### `ww config`
 

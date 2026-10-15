@@ -16,8 +16,8 @@ host-side code.
 
 Start from what the device actually has:
 
-- Every device implements the **device contract** crates — `ww_firmware_info`, `ww_board_info`, `ww_uid`,
-  `ww_user_info`, and `ww_log` for logging — so `ww list` and a support case have one place to look, regardless of
+- Every device implements the [**device contract**](device_contract.md) crates — `ww_firmware_info`, `ww_board_info`,
+  `ww_uid`, `ww_user_info`, `ww_counters` and `ww_log` — so `ww list` and a support case have one place to look, regardless of
   what the device does.
 - Add **IO family** traits matching the hardware exposed over the wire (a GPIO bank, a UART bridge, an I2C master,
   ...). Pick only what is actually bridged; a thermometer implements `Adc`, not `AdcStream` as well.

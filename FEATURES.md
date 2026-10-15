@@ -478,11 +478,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   with a user error type the same from `write` and `write_promise`, instead of `Result<Result<T, E>, Error>` and `??`;
   `Error::is_unimplemented()` for items without an error type (`docs/api/methods.md#client-side`,
   `tests/methods`).
+- ✅ **CLT-25 `ww info` and `ww report`** · `v0.5` — `ww info` shows firmware, board, ids, label and last reset of
+  any device by global trait path, whatever its API version; `ww report` adds the counters, the stored `defmt` log
+  and the crash's addresses named with the ELF, found by build id, as one file a tester sends; `ww elf add
+  <elf|archive>` fills the ELF directory from an ELF or a release's `<firmware>-<version>-elf.tar.zst` (shared with
+  `cnt elf add`, `cnt_core::elf`). Library crate `ww_report` (`Contract`, `collect_info`, `collect_report`),
+  `docs/std_library/device_contract.md`, `tests/device_report`. The stored log is a stream and streams open on the
+  absolute path only (CLT-23), so `ww report` reads the device's introspection data for the log's path; `ww info`
+  needs none. Not yet: `ResetRecord::boots_since_crash` in the report (STD-27, not landed), fetching the release
+  archive by itself.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,
-  `tests/cross_version`), `ww dfu reboot` and `ww counters` (STD-25). Missing: CLI commands for the other
-  `ww_stdlib` traits (firmware and board info, GPIO, UART, ...).
+  `tests/cross_version`), `ww dfu reboot`, `ww counters` (STD-25) and `ww info` / `ww report` (CLT-25).
+  Missing: CLI commands for the other `ww_stdlib` traits (GPIO, UART, ...).
 - 📋 **CLT-11 Typed property handles** · `v0.5` — `RwProperty`/`RoProperty`/`WoProperty` so that
   `.prop_name().read()`, `.prepare_write(1).blocking()`, `.asynch().await` work.
 - 📋 **CLT-12 Stream receive timeout** · `v0.5` — and a beat timeout between updates.

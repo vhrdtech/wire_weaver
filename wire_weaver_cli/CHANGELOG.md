@@ -17,6 +17,14 @@
   `--markers-in-flight` (2), `--rx-batch` (64), `--batches-in-flight` (2). Rates are always per second (no
   `/min` or `/d` for small ones); a stalled test hints at the tuning options instead of the cable.
 
+- `ww info [--format json]` (CLT-25): firmware, board, ids, user label and last reset of any device, through the global
+  `ww_firmware_info`, `ww_board_info`, `ww_uid` and `ww_user_info` traits, whatever the device's API and version; a
+  trait the device doesn't implement is said so and the rest is shown.
+- `ww report [-o FILE] [--elf PATH] [--force] [--format json]` (CLT-25): `ww info` plus the counters, the device's
+  stored `defmt` log and the last reset's fault and stack addresses named with the ELF, decoded with the ELF found by
+  the build id the device reports, in one file for a bug report. A part whose ELF isn't found says so.
+- `ww elf add <elf|archive>` and `ww elf id` (CLT-25): the ELF directory `~/.cache/ww/elf`, filled from single ELFs
+  or a release's `<firmware>-<version>-elf.tar.zst` (`cnt_core::elf`, shared with `cnt elf add`).
 - `ww counters [read|watch|tui|reset|info]` (STD-25): the `cnt` counters of any device implementing
   `ww_counters::Counters`, decoded with the firmware's ELF found by the build id the device reports (`--elf` to
   give one, checked; `target/`, `WW_ELF_PATH`, `~/.cache/ww/elf` otherwise), a mismatch refused unless `--force`.

@@ -206,10 +206,10 @@ fn part<T>(out: &mut String, part: &Part<T>, show: impl FnOnce(&mut String, &T))
 pub fn render_info(info: &DeviceInfo) -> String {
     let mut out = String::new();
     if let Some(api) = &info.api {
-        let _ = writeln!(out, "API       {api}");
+        let _ = writeln!(out, "API        {api}");
     }
     if let Part::Value(f) = &info.firmware {
-        let _ = write!(out, "Firmware  {} {}", f.name, f.version);
+        let _ = write!(out, "Firmware   {} {}", f.name, f.version);
         if let Some(git) = &f.git {
             let _ = write!(out, " ({git}");
             if let Some(built) = &f.built {
@@ -225,12 +225,12 @@ pub fn render_info(info: &DeviceInfo) -> String {
         } else {
             &f.build_id
         };
-        let _ = writeln!(out, "Build id  {id}");
+        let _ = writeln!(out, "Build id   {id}");
     } else {
-        out.push_str("Firmware  ");
+        out.push_str("Firmware   ");
         part(&mut out, &info.firmware, |_, _| {});
     }
-    out.push_str("Board     ");
+    out.push_str("Board      ");
     part(&mut out, &info.board, |o, b| {
         let _ = write!(o, "{} rev {} ({})", b.name, b.revision, b.revision_source);
         for (label, v) in [("variant", &b.variant), ("BOM", &b.bom_variant)] {
@@ -247,24 +247,24 @@ pub fn render_info(info: &DeviceInfo) -> String {
         o.push('\n');
     });
     match &info.ids {
-        Part::Value(ids) if ids.is_empty() => out.push_str("Ids       none\n"),
+        Part::Value(ids) if ids.is_empty() => out.push_str("Ids        none\n"),
         Part::Value(ids) => {
             for (i, id) in ids.iter().enumerate() {
-                let label = if i == 0 { "Ids      " } else { "         " };
+                let label = if i == 0 { "Ids        " } else { "           " };
                 let primary = if i == 0 { ", primary" } else { "" };
                 let _ = writeln!(
                     out,
-                    "{label} {} {} ({}{primary})",
+                    "{label}{} {} ({}{primary})",
                     id.kind, id.value, id.source
                 );
             }
         }
         other => {
-            out.push_str("Ids       ");
+            out.push_str("Ids        ");
             part(&mut out, other, |_, _| {});
         }
     }
-    out.push_str("Label     ");
+    out.push_str("Label      ");
     part(&mut out, &info.label, |o, l| {
         let _ = write!(o, "{:?}", l.name);
         if let Part::Value(n) = &l.notes
@@ -289,10 +289,10 @@ pub fn render_info(info: &DeviceInfo) -> String {
         }
         o.push('\n');
         if !r.message.is_empty() {
-            let _ = writeln!(o, "           message: {}", r.message);
+            let _ = writeln!(o, "            message: {}", r.message);
         }
         if let Some(f) = &r.fault {
-            let _ = writeln!(o, "           {f}");
+            let _ = writeln!(o, "            {f}");
         }
     });
     out

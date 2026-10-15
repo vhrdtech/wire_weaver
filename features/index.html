@@ -3394,6 +3394,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>SW-10 <code>EitherAnyVec</code></strong>: zero-copy, no-alloc array of <code>Either</code> elements of any types, with the L/R flags packed
   in groups of 8 instead of padding each element. Packs e.g. a list of <code>Result</code>s tightly; used for multi-read
   and multi-call results (only multi-read exists so far).</li>
+<li>✅ <strong>SW-55 <code>OptionAnyVec</code></strong>: zero-copy, no-alloc array of <code>Option</code> slots of any types (numbers, structs, lists,
+  strings, a nested <code>OptionAnyVec</code> for a child level), only the present values written, in slot order without
+  padding between them. A presence header up front in the smallest of four modes (all, dense bits, two-level bits,
+  index list), self-delimiting so that readers with fewer or more slots than the writer read it (slots are only
+  appended); a malformed header is an error. Writer takes the present set up front (<code>SetBits</code> over a bitset, any
+  increasing iterator), <code>OptionAnyVecWriter</code> / in-place <code>OptionAnyVecBuilder</code>. For a trait level's properties in one
+  update (API-38). See <code>docs/serdes/shrink_wrap.md#optionanyvec-sparse-slots-of-any-types</code>, <code>docs/serdes/showcase.md</code>.</li>
 <li>✅ <strong>SW-11 Alloc writer</strong> <code>BufWriterOwned</code>, <code>SerializeShrinkWrap</code> for <code>&amp;[u8]</code>, <code>String</code> as UFS.</li>
 <li>✅ <strong>SW-12 In-place builders</strong> used by the server codegen (event and error builders), and the manual
   patch-the-discriminant-later pattern (<code>docs/serdes/showcase.md</code>).</li>
@@ -3570,7 +3577,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>SW-21 Multi-dimensional arrays</strong> (2D, 3D).</li>
 <li>🚧 <strong>SW-22 Fuzz <code>shrink_wrap</code></strong> — <code>fuzz/</code> has one <code>shrink_wrap</code> target, <code>shrink-wrap-tail-size</code> (<code>TailSize</code> types
   round-tripped, random bytes into their readers); <code>shrink-wrap-series</code> (SW-31, SW-32) and <code>shrink-wrap-ref-vec</code>
-  (SW-37) came with their features. Round-trip every built-in type and the derive's features.</li>
+  (SW-37) came with their features, <code>shrink-wrap-option-any-vec</code> with SW-55. Round-trip every built-in type and the derive's features.</li>
 <li>🔍 <strong>SW-23 Tuple enum variants evolution</strong> — check that tuple variants evolve as <code>docs/evolution/rules.md</code> says
   (fields can be appended) and add a test.</li>
 <li>💡 <strong>SW-24 ZigZag encoding for signed variable length numbers</strong> — consider ZigZag (as in protobuf) so that small
@@ -3585,6 +3592,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>SW-29 Flatten support</strong> — apply a type's layout across struct/enum boundaries.</li>
 <li>💡 <strong>SW-30 <code>derive_shrink_wrap</code> on a whole module at once</strong>. For definitions in separate files with own syntax, see
   <a href="#api-model-and-codegen-api">standalone definition files</a>.</li>
+<li>💡 <strong>SW-56 Tri-state slots in <code>OptionAnyVec</code></strong> — absent / value / error per slot, e.g. a property update that says
+  why one value is missing. The header has room for it: mode nibbles <code>4..=15</code> are reserved (a reader fails on them
+  today), so 2-valued vecs don't pay for it.</li>
 <li>✅ <strong>DER-1 <code>#[derive_shrink_wrap(..)]</code> attribute</strong> with clear syntax, no hidden magic and good error messages
   (<code>docs/serdes/derive.md</code>); replaced <code>#[derive(ShrinkWrap)]</code>.</li>
 <li>✅ <strong>DER-2 Discriminant checks</strong>: discriminants must fit <code>ww_repr</code>, implicit ones are numbered like in Rust.</li>

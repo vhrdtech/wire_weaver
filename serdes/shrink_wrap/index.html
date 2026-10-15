@@ -879,6 +879,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optionanyvec-sparse-slots-of-any-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>OptionAnyVec</code>: sparse slots of any types
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-step" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3233,6 +3244,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optionanyvec-sparse-slots-of-any-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>OptionAnyVec</code>: sparse slots of any types
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-step" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3605,6 +3627,118 @@ rejected before anything is allocated (<code>Error::MalformedSeries</code>), and
 instead of trusting the count. Since the elements carry no length of their own, a truncated <em>top-level</em> buffer may
 still decode (to other values) when the garbage happens to form valid codes; inside a struct, the enclosing size
 slot or <code>TailSize</code> bounds the value and a truncation is caught there.</p>
+<h2 id="optionanyvec-sparse-slots-of-any-types"><code>OptionAnyVec</code>: sparse slots of any types<a class="headerlink" href="#optionanyvec-sparse-slots-of-any-types" title="Permanent link">&para;</a></h2>
+<p><code>shrink_wrap::option_any_vec::OptionAnyVec&lt;'i&gt;</code> is an array of <code>Option</code> slots whose values can be of any type -
+numbers, structs, lists, strings, enums, another <code>OptionAnyVec</code> - where only the present values are written. It is
+made for messages that carry "some of these N things": the properties of a trait level that changed since the last
+update, a sparse set of readings. Like <code>EitherAnyVec</code> it is low-level machinery: the type of each slot is known to
+both sides and not stored, the slot ids are <code>u32</code> from 0.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">use</span><span class="w"> </span><span class="n">shrink_wrap</span><span class="p">::</span><span class="n">option_any_vec</span><span class="p">::{</span><span class="n">OptionAnyVec</span><span class="p">,</span><span class="w"> </span><span class="n">OptionAnyVecWriter</span><span class="p">};</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">64</span><span class="p">];</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1">// the present slots are given up front, in increasing order</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">OptionAnyVecWriter</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u32</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">wr</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="mh">0x2A</span><span class="k">u8</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">wr</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="s">&quot;hi&quot;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">wr</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="kc">true</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;14 b0 2a 68 69 82&quot;</span><span class="p">));</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="kd">let</span><span class="w"> </span><span class="n">vec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">OptionAnyVec</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">bytes</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w"> </span><span class="c1">// checks the header</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">slots</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vec</span><span class="p">.</span><span class="n">iter</span><span class="p">();</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">slots</span><span class="p">.</span><span class="n">next</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="mh">0x2A</span><span class="p">)));</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">slots</span><span class="p">.</span><span class="n">next</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="nb">None</span><span class="p">));</span>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">slots</span><span class="p">.</span><span class="n">next</span><span class="p">::</span><span class="o">&lt;&amp;</span><span class="kt">str</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="s">&quot;hi&quot;</span><span class="p">)));</span>
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">slots</span><span class="p">.</span><span class="n">next</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="kc">true</span><span class="p">)));</span>
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">slots</span><span class="p">.</span><span class="n">next</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="nb">None</span><span class="p">));</span><span class="w"> </span><span class="c1">// and every slot after the writer&#39;s last one</span>
+</span></code></pre></div>
+<p>Layout: <code>|presence header|present values in slot order|reverse lengths|</code>. The values are written exactly as
+<code>BufWriter::write</code> writes them anywhere else (an <code>Unsized</code> value with its size, lists and strings with their length
+at the back), one after another without padding between them: a <code>bool</code> takes one bit, a <code>u8</code> aligns itself to a
+byte as always. Above, <code>1</code> <code>4</code> is the header's mode and length, <code>1011</code> says slots 0, 2 and 3 are present, then
+<code>2a</code>, <code>68 69</code>, the <code>true</code> bit, and the length of <code>"hi"</code> in the last nibble.</p>
+<p>The header starts with a mode nibble. The writer knows the present set before writing anything and picks the mode
+with the fewest bits for it (on a tie the first one in this table):</p>
+<table>
+<thead>
+<tr>
+<th>Nibble</th>
+<th>Mode</th>
+<th>Then</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>all</td>
+<td><code>n: UNib32</code>: slots <code>0..n</code> are present</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>dense</td>
+<td><code>len: UNib32</code> (last present slot + 1), then <code>len</code> bits, one per slot, MSB first</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>two-level</td>
+<td><code>groups: UNib32</code> (of 8 slots, up to the last present one), a bit per group, then 8 bits for each group whose bit is set, slot <code>8g</code> in the MSB</td>
+</tr>
+<tr>
+<td><code>3</code></td>
+<td>index list</td>
+<td><code>count: UNib32</code>, then <code>count</code> <code>UNib32</code>: the first present slot, then for each next one <code>slot - previous - 1</code></td>
+</tr>
+<tr>
+<td><code>4</code>..<code>15</code></td>
+<td>reserved</td>
+<td>a reader fails with <code>Error::EnumFutureVersionOrMalformedData</code></td>
+</tr>
+</tbody>
+</table>
+<p>No present slot at all is written as no bytes (a reader also takes <code>0 0</code> and <code>3 0</code> as empty). The mode nibble costs
+nothing extra in practice: the <code>UNib32</code> after it is nibble-aligned anyway. The reserved codes leave room for slots
+with a third state (absent / value / error, SW-56) without a cost for the two-state vec.</p>
+<p>Header bits from a nibble boundary: all <code>4 + 4·nibbles(n)</code>, dense <code>4 + 4·nibbles(len) + len</code>, two-level
+<code>4 + 4·nibbles(groups) + groups + 8·(non-empty groups)</code>, index list <code>4 + 4·(nibbles(count) + Σ nibbles(delta))</code>.
+Dense wins for clustered sets up to a few dozen slots, the index list for a few slots among many, two-level for a few
+dense clusters far apart. The <a href="../showcase/#sparse-updates-with-optionanyvec">showcase</a> has the numbers.</p>
+<p><strong>Evolution.</strong> The header describes the writer's present set on its own, without either side's slot count, so the
+vec is read by older and newer code alike as long as slots are only appended:</p>
+<ul>
+<li>a reader that knows fewer slots reads its own and stops: the values it doesn't know come after all of its slots;</li>
+<li>a reader that knows more slots sees the new ones as absent: they are not in the header.</li>
+</ul>
+<p>A slot's type can't change once released, as for a struct field. Since values carry no length of their own, a
+reader can't skip a present value it doesn't know the type of - which, with append-only slots, it never has to.</p>
+<p><strong>Untrusted input.</strong> <code>OptionAnyVec::new</code> (and reading it as a field) parses the whole header and checks every count
+and length against the bytes left before looping over it: a length past the data, an index list past <code>u32::MAX</code>, a
+two-level group listed without a slot in it is <code>Error::MalformedOptionAnyVec</code>, a truncated header an out-of-bounds
+error, never a panic. Reading the values is bounds-checked like any other read; slot ids from the header are not
+bounded by any slot count, so stop at the last slot you know (<code>iter().next()</code> does that by itself).</p>
+<p><strong>Writing in place.</strong> <code>OptionAnyVecBuilder</code> writes into a <code>BufWriter</code> that holds other things too:
+<code>OptionAnyVecBuilder::new(&amp;mut wr, present)</code> for a vec that is the whole buffer, <code>new_nested</code> for one that is a
+struct field or a slot of another vec (its size is stored, as for every <code>Unsized</code> value), then <code>write(slot, &amp;value,
+&amp;mut wr)</code> per present slot, or <code>start_slot(slot)</code> and a write of your own (e.g. a nested builder), then
+<code>finish(&amp;mut wr)</code>, which fails with <code>Error::OptionAnyVecWrongSlot</code> if a present slot got no value. The present set
+is any increasing iterator of slot ids that can be cloned; <code>SetBits::new(&amp;[u32])</code> gives one from a bitset.
+<code>new_with_mode</code> forces a mode. A child level is one slot holding its own vec:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BufWriter</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">);</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">OptionAnyVecBuilder</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u32</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">parent</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="mi">7</span><span class="k">u8</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">parent</span><span class="p">.</span><span class="n">start_slot</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">child</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">OptionAnyVecBuilder</span><span class="p">::</span><span class="n">new_nested</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="k">u32</span><span class="p">]).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">child</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="mh">0x1234</span><span class="k">u16</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">child</span><span class="p">.</span><span class="n">finish</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">parent</span><span class="p">.</span><span class="n">finish</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;02 07 13 20 34 12 04&quot;</span><span class="p">));</span>
+</span></code></pre></div>
+<p><code>0</code> <code>2</code>: all, slots 0 and 1; <code>07</code>; the child, 4 bytes: <code>1</code> <code>3</code> (dense, 3 slots), <code>001</code> and padding, <code>34 12</code>; the
+child's size <code>4</code> in the parent's reverse lengths (after a padding nibble). The same bytes come out of writing the
+child into a buffer of its own first and <code>parent.write(1, &amp;child_vec, ..)</code>. Reading: <code>iter.next::&lt;OptionAnyVec&gt;()</code>
+gives the child, <code>child.iter()</code> its slots; <code>next_present()</code> jumps over absent slots, <code>present()</code> lists the present
+ids without reading values.</p>
+<p><code>OptionAnyVec</code> is <code>Unsized</code>; <code>EitherAnyVec</code> is the counterpart for <code>Either</code> slots that are all present (each
+element <code>L</code> or <code>R</code>, flags in-line in groups of 8, the element count implied).</p>
 <h2 id="next-step">Next step<a class="headerlink" href="#next-step" title="Permanent link">&para;</a></h2>
 <p>Check out the <a href="../derive/">derive</a> macro that generates all of the above from a plain struct/enum definition, and
 the <a href="../showcase/">showcase</a> for worked, byte-verified examples of the tricks this format enables, and the

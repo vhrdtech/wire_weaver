@@ -993,6 +993,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sparse-updates-with-optionanyvec" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sparse updates with <code>OptionAnyVec</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#putting-it-together-real-wire-sizes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3299,6 +3310,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sparse-updates-with-optionanyvec" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sparse updates with <code>OptionAnyVec</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#putting-it-together-real-wire-sizes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3792,6 +3814,73 @@ to, say, <code>0x0004_0000</code>, it would fit that window and cost <code>10</c
 one <code>XorFloat</code> per series holds a minute or an hour of samples, and the block is bounded by a <code>TailSize</code> slot
 (see <a href="#bounding-a-value-from-the-inside-with-tailsize">bounding from the inside</a>), so it can sit at any offset of
 a file.</p>
+<h2 id="sparse-updates-with-optionanyvec">Sparse updates with <code>OptionAnyVec</code><a class="headerlink" href="#sparse-updates-with-optionanyvec" title="Permanent link">&para;</a></h2>
+<p>A trait level with 32 <code>f32</code> properties, of which 3 changed since the last update: slots 3, 17 and 30 with <code>1.0</code>,
+<code>2.5</code> and <code>-3.0</code> (12 bytes of values whatever the encoding). The
+<a href="../shrink_wrap/#optionanyvec-sparse-slots-of-any-types"><code>OptionAnyVec</code></a> header in each mode, and the alternatives:</p>
+<table>
+<thead>
+<tr>
+<th>Encoding</th>
+<th style="text-align: right;">Bytes</th>
+<th>Header / overhead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OptionAnyVec</code>, index list (picked)</td>
+<td style="text-align: right;">16</td>
+<td><code>33 3d 1c 10</code>: mode 3, count 3, deltas 3, 13, 12, pad</td>
+</tr>
+<tr>
+<td><code>OptionAnyVec</code>, two-level</td>
+<td style="text-align: right;">17</td>
+<td><code>24 b1 04 00 20</code>: 4 groups, bits <code>1011</code>, 3 group bytes</td>
+</tr>
+<tr>
+<td><code>OptionAnyVec</code>, dense</td>
+<td style="text-align: right;">18</td>
+<td><code>1f 31 00 04 00 20</code>: len 31, 31 bits</td>
+</tr>
+<tr>
+<td><code>EitherAnyVec</code> of <code>Either&lt;(), f32&gt;</code></td>
+<td style="text-align: right;">16</td>
+<td>4 flag bytes, in line; the slot count implied, not stored</td>
+</tr>
+<tr>
+<td>3 <code>StreamData</code> events, path <code>[slot]</code></td>
+<td style="text-align: right;">24</td>
+<td>4 bytes per event (seq, result, kind, path)</td>
+</tr>
+<tr>
+<td>1 <code>StreamData</code> event, path <code>[]</code>, the vec as data</td>
+<td style="text-align: right;">19</td>
+<td>3 bytes of event + 4 bytes of header</td>
+</tr>
+</tbody>
+</table>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">OptionAnyVecWriter</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="k">u32</span><span class="p">,</span><span class="w"> </span><span class="mi">17</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">]).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="n">wr</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="mf">1.0</span><span class="k">f32</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="n">wr</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">17</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="mf">2.5</span><span class="k">f32</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="n">wr</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;-</span><span class="mf">3.0</span><span class="k">f32</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="fm">assert_eq!</span><span class="p">(</span>
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="w">    </span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">(),</span>
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="w">    </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;33 3d 1c 10 00 00 80 3f 00 00 20 40 00 00 40 c0&quot;</span><span class="p">)</span>
+</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="p">);</span>
+</span></code></pre></div>
+<p>The event sizes are without the link's framing, which comes once per message on top, so separate events lose more
+than shown. One level deeper (paths <code>[2, slot]</code> and <code>[2]</code>) it is 26 against 20 bytes.</p>
+<p>With byte-aligned values <code>EitherAnyVec</code> takes as much here, but it pays a flag byte per 8 slots whatever is present,
+pads every group to a byte and can't be read by a side with another slot count. Where that shows:</p>
+<ul>
+<li><strong>Other sets of 32</strong>: slots 0, 1, 2 take 13 bytes (<code>03</code>: all, n = 3), slots 29, 30, 31 take 15 (<code>24 10 70</code>:
+  two-level), a single slot 3 takes 6 (<code>14 10</code>: dense, len 4, bits <code>0001</code>); <code>EitherAnyVec</code> takes 16, 16 and 8.</li>
+<li><strong>Few of many</strong>: slots 3, 70, 120 of 128 take 16 bytes (<code>33 3a 81 96</code>: the index list), dense would be 30,
+  <code>EitherAnyVec</code> 28.</li>
+<li><strong>Bit-sized values</strong>: 3 <code>bool</code>s at slots 3, 17, 30 take 4 bytes (<code>33 3d 1c 1e</code>: the three <code>1</code> bits share the last
+  header byte), <code>EitherAnyVec</code> 7.</li>
+<li><strong>All present</strong>: 32 <code>f32</code>s take 130 bytes, 2 of them header (<code>08 40</code>: all, n = 32).</li>
+</ul>
 <h2 id="putting-it-together-real-wire-sizes">Putting it together: real wire sizes<a class="headerlink" href="#putting-it-together-real-wire-sizes" title="Permanent link">&para;</a></h2>
 <p>A few real types from <code>ww_stdlib</code>, each combining several of the tricks above:</p>
 <ul>
@@ -3801,8 +3890,8 @@ a file.</p>
 <li><strong><code>ww_date_time::DateTime</code></strong> - <code>self_describing</code>, a <code>Year</code> newtype storing years as <code>UNib32</code> shifted by 2025 (so
   "now" costs a handful of bits, ancient or far-future dates cost more), and a <code>Timezone</code> that's <code>UTC</code> in 1 bit for
   the common case. A full UTC timestamp with second-level precision packs into <strong>4 bytes</strong>:
-  <div class="language-rust highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">dt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DateTime</span><span class="p">::</span><span class="n">from_ymd_hms_utc_opt</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">dt</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;05 F3 96 C0&quot;</span><span class="p">));</span>
+  <div class="language-rust highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">dt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DateTime</span><span class="p">::</span><span class="n">from_ymd_hms_utc_opt</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">dt</span><span class="p">.</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;05 F3 96 C0&quot;</span><span class="p">));</span>
 </span></code></pre></div></li>
 <li><strong><code>ww_client_server::PathKind</code></strong> - <code>ww_repr = nib</code> picking between three addressing modes (<code>Absolute</code>,
   <code>GlobalCompact</code>, <code>GlobalFull</code>), each shaped so the cheapest, most common case (a short absolute path) costs a

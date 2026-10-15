@@ -3106,6 +3106,9 @@
 </ul>
 </li>
 <li><code>Option&lt;T&gt;</code> and <code>Result&lt;T, E&gt;</code></li>
+<li>Sparse slots of any types (no alloc, <code>shrink_wrap</code> level): <code>OptionAnyVec&lt;'i&gt;</code> - only the present values are
+  written, after a header in the smallest of four modes; slots can be appended later
+  (see <a href="../serdes/shrink_wrap/#optionanyvec-sparse-slots-of-any-types">wire format</a>)</li>
 <li><code>RefBox&lt;T&gt;</code> for self-referential types.</li>
 <li>
 <p>User-defined:</p>

@@ -47,6 +47,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww settings dump` (TOOL-12): a host decoder of a `ww_settings::Store` flash dump, no device needed — pages,
   every item slot (valid, cut, garbage, erased) and the current record of every key, cross-checked against a real
   `Store` over the same bytes. See `ww_settings/CHANGELOG.md` (`dump` feature) and `wire_weaver_cli/CHANGELOG.md`.
+- `examples/settings_api` + `examples/settings` (EX-15): two `value_on_changed` properties persisted through
+  `ww_settings` on a simulated flash, over the real client/server codepath (`ww_device::Server` +
+  `wire_weaver_client`'s `in_process` transport, a simulator use it explicitly supports). `tests/reboot.rs` sets
+  both over a connected client, waits past their debounce, and rebuilds the device from the same flash image to
+  check they survived.
 
 ### Fixed
 

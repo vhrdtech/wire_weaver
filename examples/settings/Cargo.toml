@@ -1,0 +1,20 @@
+[package]
+name = "settings"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+settings_api.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process"] }
+ww_client_server = { workspace = true, features = ["std"] }
+ww_device.workspace = true
+ww_settings = { workspace = true, features = ["fake-flash"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

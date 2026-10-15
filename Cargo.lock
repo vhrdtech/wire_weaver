@@ -4501,6 +4501,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "settings"
+version = "0.1.0"
+dependencies = [
+ "settings_api",
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_device",
+ "ww_settings",
+]
+
+[[package]]
+name = "settings_api"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+]
+
+[[package]]
 name = "sha1"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

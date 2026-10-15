@@ -1,0 +1,16 @@
+[package]
+name = "settings_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+std = ["wire_weaver/std"]
+defmt = ["wire_weaver/defmt", "dep:defmt"]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+wire_weaver = { workspace = true }

@@ -25,6 +25,7 @@
 //! Either side may decide to exit; it tells the other ([ToRx::Stop] / [ToTx::PeerGone]) and the
 //! wrapper joins both. Rx always tells the dispatcher `Disconnected` on the way out.
 
+pub(crate) mod loopback;
 pub(crate) mod rx;
 pub(crate) mod tx;
 
@@ -63,6 +64,8 @@ pub(crate) enum ToTx {
     Freed(SeqTy),
     /// A request without a reply (seq 0), e.g., a stream's `Ack`: sent only while the link is up.
     Send(Vec<u8>),
+    /// `Loopback` message received, for a running loopback test. `intact` is [loopback::is_intact] of its data.
+    Loopback { seq: u32, len: usize, intact: bool },
     /// Rx is exiting (remote Disconnect, peer timeout, read error, ...) and tx should too,
     /// without sending anything else.
     PeerGone(anyhow::Result<EventLoopExitReason>),
@@ -951,6 +954,82 @@ mod tests {
         assert!(p.rx_exited);
         assert!(matches!(p.tx_exit, Some(Err(_))));
         assert!(connected_rx.try_recv().unwrap().result.is_err());
+    }
+
+    /// Loopback test runs on tx, echoes reach it through rx, other requests wait until it is over.
+    #[test]
+    fn loopback_test_holds_requests_and_gets_echoes() {
+        use crate::event_loop::command::TestProgress;
+        let now = Instant::now();
+        let mut p = Pair::new();
+        let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
+        p.cmd(
+            now,
+            Command::LoopbackTest {
+                test_duration: Duration::from_millis(100),
+                packet_size: Some(20),
+                progress_tx,
+            },
+        );
+        assert!(matches!(
+            progress_rx.try_recv(),
+            Ok(TestProgress::FatalError(_))
+        ));
+
+        connect(&mut p, now);
+        let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
+        p.cmd(
+            now,
+            Command::LoopbackTest {
+                test_duration: Duration::from_millis(100),
+                packet_size: Some(20),
+                progress_tx,
+            },
+        );
+        assert!(matches!(
+            progress_rx.try_recv(),
+            Ok(TestProgress::TestStarted("loopback"))
+        ));
+        let sent = p.take_sent();
+        assert_eq!(kinds(&sent), [Kind::Loopback]);
+        assert_eq!(sent[0].payload.len(), 20);
+        let Message::Loopback { repeat, seq, data } =
+            Message::decode(Kind::Loopback as u8, &sent[0].payload).unwrap()
+        else {
+            panic!()
+        };
+        assert_eq!(repeat, 1);
+
+        let (done_tx, _done_rx) = oneshot::channel();
+        p.cmd(
+            now,
+            Command::SendMessage {
+                bytes: request(&[0xAA]),
+                done_tx: Some((done_tx, Duration::from_secs(1))),
+            },
+        );
+        assert!(p.take_sent().is_empty(), "held while the test runs");
+
+        // the echo goes rx -> tx -> test, which sends the next one
+        let data = data.to_vec();
+        p.feed_from_device(
+            now,
+            &Message::Loopback {
+                repeat: 0,
+                seq,
+                data: &data,
+            },
+        );
+        assert_eq!(kinds(&p.take_sent()), [Kind::Loopback]);
+
+        // link down: the test is aborted
+        p.feed_from_device(now, &Message::Disconnect(DisconnectReason::RequestByUser));
+        let mut last = None;
+        while let Ok(m) = progress_rx.try_recv() {
+            last = Some(m);
+        }
+        assert!(matches!(last, Some(TestProgress::FatalError(_))));
+        assert!(progress_rx.try_recv().is_err());
     }
 
     /// Rx half of a transport over a channel of whole messages.

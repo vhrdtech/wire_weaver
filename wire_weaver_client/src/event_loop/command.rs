@@ -83,8 +83,13 @@ pub enum Command {
 
     // RecycleBuffer(Vec<u8>),
     // GetStats,
+    /// Link loopback and speed test: round trips, host → device and device → host, `test_duration` each.
+    /// Other requests are held until it is done. Progress and results go to `progress_tx`, which is dropped
+    /// when the test is over.
     LoopbackTest {
         test_duration: Duration,
+        /// Size of each link message (8 bytes of header and data), capped to what both sides accept, which
+        /// is also the default.
         packet_size: Option<usize>,
         progress_tx: mpsc::UnboundedSender<TestProgress>,
     },
@@ -143,23 +148,36 @@ const _: () = {
     assert!(size_of::<Command>() <= 64); // was 56
 };
 
+/// Progress of [Command::LoopbackTest]. Stages are `loopback`, `tx_speed` (host → device) and `rx_speed`
+/// (device → host).
 #[derive(Debug)]
 pub enum TestProgress {
     TestStarted(&'static str),
+    /// Stage name and how much of its time is over, 0.0 to 1.0
     Completion(&'static str, f32),
     TestCompleted(&'static str),
+    /// The test is aborted.
     FatalError(String),
+    /// Result of the `loopback` stage.
     LoopbackReport {
+        /// Round trips started
         tx_count: u64,
         per_s: f32,
         lost_count: u64,
         data_corrupted_count: u64,
     },
+    /// Result of the `tx_speed` and `rx_speed` stages.
     SpeedReport {
         name: &'static str,
+        /// Messages sent (`tx_speed`) or received (`rx_speed`)
         count: u64,
         per_s: f32,
+        /// Link message bytes (header and data), without framing overhead
         bytes_per_s: f32,
+        /// `rx_speed` only: replies missing in the sequence
+        lost_count: u64,
+        /// `rx_speed` only
+        data_corrupted_count: u64,
     },
 }
 

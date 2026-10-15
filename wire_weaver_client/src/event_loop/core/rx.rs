@@ -322,7 +322,16 @@ impl RxCore {
                 }
                 self.output.push_back(RxOutput::ToTx(ToTx::LinkReady));
             }
-            Message::Loopback { .. } => {} // ignore when not testing
+            Message::Loopback { seq, data, .. } => {
+                if self.phase == Phase::Up {
+                    // tx ignores it when no test is running
+                    self.output.push_back(RxOutput::ToTx(ToTx::Loopback {
+                        seq,
+                        len: data.len(),
+                        intact: super::loopback::is_intact(data),
+                    }));
+                }
+            }
             Message::GetDeviceInfo
             | Message::LinkSetup(_)
             | Message::GetStats

@@ -8,6 +8,12 @@
 
 ### 🚀 Features
 
+- `ww usb-loopback` works again (TOOL-10), on the sans-IO event loop: progress bars per stage and a summary table
+  (messages, per second, bytes per second, lost, corrupted); exits with an error on lost or corrupted messages or a
+  failed test. Connects to any device without downloading its introspection, the link layer answers.
+  `--packet-size` is the size of a link message (`max` by default: the largest both sides accept), with completion
+  of `max` and a few sizes; a value that is not a number is an error instead of silently meaning `max`.
+
 - `ww counters [read|watch|tui|reset|info]` (STD-25): the `cnt` counters of any device implementing
   `ww_counters::Counters`, decoded with the firmware's ELF found by the build id the device reports (`--elf` to
   give one, checked; `target/`, `WW_ELF_PATH`, `~/.cache/ww/elf` otherwise), a mismatch refused unless `--force`.

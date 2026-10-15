@@ -304,6 +304,19 @@ fn quote(v: &str) -> String {
     }
 }
 
+/// `ww usb-loopback --packet-size`: `max` or a few common sizes.
+pub(crate) fn packet_sizes() -> Vec<CompletionCandidate> {
+    [
+        ("max", "largest message both the device and the host accept"),
+        ("64", "small messages, rate of messages counts"),
+        ("512", "medium messages"),
+        ("1024", "large messages, rate of bytes counts"),
+    ]
+    .into_iter()
+    .map(|(v, help)| CompletionCandidate::new(v).help(Some(help.into())))
+    .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

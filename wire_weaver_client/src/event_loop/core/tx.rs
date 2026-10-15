@@ -9,6 +9,7 @@ use tracing::{debug, error, info, trace, warn};
 use ww_link::{DisconnectReason, LinkSetup, Message};
 use ww_version::{FullVersionOwned, VersionOwned};
 
+use super::loopback::{LOOPBACK_HEADER_LEN, LoopbackTest, Status, TestOut};
 use super::{ToRx, ToTx, Tracers, is_due};
 use crate::DEFAULT_MAX_MESSAGE_SIZE;
 use crate::event_loop::DeviceHandle;
@@ -113,9 +114,13 @@ pub(crate) struct TxCore {
     /// Messages sent while link setup is in progress, sent out once the link is up.
     /// RxCore reports the connection to the user before LinkReady reaches tx, so the first
     /// requests can legitimately arrive here a bit early.
+    /// Also messages sent while a loopback test runs, sent out once it is done.
     held_until_up: VecDeque<HeldMessage>,
     /// Requests that wait for a seq number to be freed (all are in flight), sent in order as seqs come back.
     waiting_for_seq: VecDeque<HeldMessage>,
+
+    /// Running [Command::LoopbackTest], only while the link is up
+    loopback: Option<LoopbackTest>,
 }
 
 impl Default for TxCore {
@@ -145,6 +150,7 @@ impl TxCore {
             in_flight: HashSet::new(),
             held_until_up: VecDeque::new(),
             waiting_for_seq: VecDeque::new(),
+            loopback: None,
         }
     }
 
@@ -183,6 +189,7 @@ impl TxCore {
                 self.unflushed_since
                     .map(|t| t + self.frame_accumulation_time),
                 self.next_ping_at,
+                self.loopback.as_ref().map(|t| t.poll_timeout()),
             ]
             .into_iter()
             .flatten()
@@ -305,12 +312,11 @@ impl TxCore {
                     registered_tx,
                 }));
             }
-            Command::LoopbackTest { progress_tx, .. } => {
-                // TODO: port loopback test onto the sans-IO cores
-                _ = progress_tx.send(TestProgress::FatalError(
-                    "loopback test is not supported by this event loop yet".into(),
-                ));
-            }
+            Command::LoopbackTest {
+                test_duration,
+                packet_size,
+                progress_tx,
+            } => self.start_loopback_test(now, test_duration, packet_size, progress_tx),
         }
         Ok(Flow::Continue)
     }
@@ -325,8 +331,9 @@ impl TxCore {
         if matches!(
             self.phase,
             Phase::Connecting | Phase::GetDeviceInfo | Phase::LinkSetup
-        ) {
-            trace!("holding SendMessage until link is up");
+        ) || self.loopback.is_some()
+        {
+            trace!("holding SendMessage until link is up and no loopback test runs");
             self.held_until_up.push_back((bytes, done_tx, hook));
             return;
         }
@@ -458,6 +465,14 @@ impl TxCore {
                     self.on_send_message(now, bytes, None, None);
                 }
             }
+            ToTx::Loopback { seq, len, intact } => {
+                if let Some(test) = self.loopback.as_mut() {
+                    test.on_echo(now, seq, len, intact);
+                    self.drive_loopback_test(now, Status::Running)?;
+                } else {
+                    debug!("loopback message while no test runs, ignoring");
+                }
+            }
             ToTx::Freed(seq) => {
                 self.in_flight.remove(&seq);
                 if self.phase == Phase::Up {
@@ -494,6 +509,12 @@ impl TxCore {
                 }
             }
             Phase::Up => {
+                if let Some(test) = self.loopback.as_mut()
+                    && is_due(Some(test.poll_timeout()), now)
+                {
+                    let status = test.on_timer(now);
+                    self.drive_loopback_test(now, status)?;
+                }
                 let accumulated_due = is_due(
                     self.unflushed_since
                         .map(|t| t + self.frame_accumulation_time),
@@ -539,6 +560,68 @@ impl TxCore {
             }
         }
         (cycle_max + 1..=self.max_seq).find(|seq| self.in_flight.insert(*seq))
+    }
+
+    fn start_loopback_test(
+        &mut self,
+        now: Instant,
+        duration: Duration,
+        packet_size: Option<usize>,
+        progress_tx: tokio::sync::mpsc::UnboundedSender<TestProgress>,
+    ) {
+        if self.phase != Phase::Up {
+            _ = progress_tx.send(TestProgress::FatalError("not connected".into()));
+            return;
+        }
+        if self.loopback.is_some() {
+            _ = progress_tx.send(TestProgress::FatalError(
+                "a loopback test is already running".into(),
+            ));
+            return;
+        }
+        // the device echoes messages back as they are, so both sides must accept them
+        let max = self.device_max_message_len.min(DEFAULT_MAX_MESSAGE_SIZE);
+        let message_len = packet_size.unwrap_or(max).clamp(LOOPBACK_HEADER_LEN, max);
+        info!("starting loopback test: {duration:?} per stage, {message_len} bytes per message");
+        // what was written so far goes out before the test
+        self.flush(now);
+        self.loopback = Some(LoopbackTest::new(now, duration, message_len, progress_tx));
+        _ = self.drive_loopback_test(now, Status::Running);
+    }
+
+    /// Send what the loopback test wants, and end it when it is finished.
+    fn drive_loopback_test(&mut self, now: Instant, status: Status) -> Result<(), Error> {
+        let Some(test) = self.loopback.as_mut() else {
+            return Ok(());
+        };
+        let mut outs = vec![];
+        while let Some(o) = test.poll_output() {
+            outs.push(o);
+        }
+        for o in outs {
+            match o {
+                TestOut::Send { repeat, seq, data } => {
+                    self.send(&Message::Loopback {
+                        repeat,
+                        seq,
+                        data: &data,
+                    })?;
+                    if self.unflushed_since.is_none() {
+                        self.unflushed_since = Some(now);
+                    }
+                }
+                TestOut::Flush => self.flush(now),
+            }
+        }
+        if status == Status::Finished {
+            info!("loopback test finished");
+            // drops progress_tx, which tells the user it is over
+            self.loopback = None;
+            while let Some((bytes, done_tx, hook)) = self.held_until_up.pop_front() {
+                self.on_send_message(now, bytes, done_tx, hook);
+            }
+        }
+        Ok(())
     }
 
     /// Encode a link message and queue it for the wrapper's framer.
@@ -590,6 +673,9 @@ impl TxCore {
             Err(e) => error!("tx exiting with: {e:?}"),
         }
         self.phase = Phase::Exited;
+        if let Some(test) = self.loopback.take() {
+            test.abort("link is down");
+        }
         self.unflushed_since = None;
         self.next_ping_at = None;
         self.next_link_setup_retry_at = None;

@@ -23,7 +23,19 @@
   memory without limit; `Stream::dropped()` counts them, `recv_any()` reports them once as `Dropped`, `recv()` skips
   that report. Introspection data is never dropped.
 
+- `TestProgress::SpeedReport` (`internal`) has two more fields, `lost_count` and `data_corrupted_count` (`rx_speed`
+  only): code that destructures it adds them or `..`.
+
 ### 🚀 Features
+
+- `Command::LoopbackTest` works again (TOOL-10): it answered with `FatalError` since the sans-IO event loop. The test
+  is a state machine on the tx core (`event_loop/core/loopback.rs`), driven by time and by the `Loopback` echoes rx
+  forwards: round trips (`repeat = 1`, one at a time, lost after 500 ms without an echo, corrupted when the
+  self-checking data doesn't match), host → device speed (`repeat = 0`, with an echoed marker every 32 messages and
+  at most 2 in flight, so a slow device holds the host back on any transport), device → host speed (`repeat = 64`
+  requests, at most 2 in flight). Each stage runs `test_duration`; `packet_size` is the link message size, capped to
+  what both sides accept, which is also the default. Other requests wait until the test is over; the test fails
+  after 3 reply timeouts in a row or when the link goes down, and `progress_tx` is dropped when it ends.
 
 - `const` items are read once per connection (API-36): `Commander::prepare_const_read()` (used by generated clients)
   and `DynResource::read()` / `read_blocking()` on a const keep the value and answer later reads, async, blocking

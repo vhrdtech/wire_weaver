@@ -581,6 +581,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **TOOL-4 Python module** talking to any device, API built from introspection, dynamic values serdes, RTT built in
   (`wire_weaver_py`, `docs/python.md`).
 - ✅ **TOOL-5 Runtime literals**: values to bytes at runtime (`eval`, dynamic values).
+- 🧪 **TOOL-10 `ww usb-loopback` link test** · `v0.5` — round trips with lost and corrupted counts, host → device and
+  device → host speed, on the sans-IO event loop (`wire_weaver_client/src/event_loop/core/loopback.rs`, windowed so a
+  slow device holds the host back; e2e test against `ww_device::Server` in `device_e2e_tests.rs`), with a summary
+  table. Works with any device, the link layer answers. Still wants a run on a USB board.
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`.

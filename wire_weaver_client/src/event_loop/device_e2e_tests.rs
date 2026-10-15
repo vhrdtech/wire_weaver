@@ -21,7 +21,7 @@ use ww_version::{
 
 use crate::device_info::ConnectionInfo;
 use crate::event_loop::DeviceHandle;
-use crate::event_loop::command::Command;
+use crate::event_loop::command::{Command, TestProgress};
 use crate::event_loop::stream::{self, BlockingStreamIo, StreamConfig, StreamRx, StreamTx};
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Transport};
 
@@ -187,7 +187,8 @@ pub(crate) async fn serve(
     rx: impl ww_device::MessageRx,
     events_tx: mpsc::UnboundedSender<LinkEvent>,
 ) {
-    let mut scratch = [0u8; 512];
+    // a reply as big as the largest request fits, e.g. a loopback echo
+    let mut scratch = [0u8; DEV_MAX_MESSAGE];
     let mut event_scratch = [0u8; 512];
     let config = LinkConfig::new(
         FullVersion::new("test_api", Version::new(0, 3, 1)),
@@ -486,6 +487,117 @@ pub(crate) async fn talk(
         .expect("host did not exit")
         .unwrap();
     dev.abort();
+}
+
+/// All three stages of the loopback test against the device's loopback replies (repeat 1, 0 and N), over the
+/// packet pipe with real framers; a request sent meanwhile waits for the test to end.
+#[tokio::test]
+async fn loopback_test() {
+    let (cmd_tx, mut events_rx, dev, _host) = start();
+    connect(&cmd_tx, (0, 3)).await.result.unwrap();
+    assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
+
+    let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
+    cmd_tx
+        .send(Command::LoopbackTest {
+            test_duration: Duration::from_millis(300),
+            packet_size: None,
+            progress_tx,
+        })
+        .await
+        .unwrap();
+    let (done_tx, mut done_rx) = oneshot::channel();
+    cmd_tx
+        .send(Command::SendMessage {
+            bytes: [0u8; UVlq32Backfill::LEN].into_iter().chain([7]).collect(),
+            done_tx: Some((done_tx, Duration::from_secs(1))),
+        })
+        .await
+        .unwrap();
+
+    let mut log = vec![];
+    // progress_tx is dropped when the test is over
+    while let Some(p) = tokio::time::timeout(Duration::from_secs(5), progress_rx.recv())
+        .await
+        .expect("test is stuck")
+    {
+        match p {
+            TestProgress::Completion(..) => {
+                assert!(done_rx.try_recv().is_err(), "request held during the test");
+            }
+            TestProgress::FatalError(e) => panic!("{e}"),
+            TestProgress::LoopbackReport {
+                tx_count,
+                lost_count,
+                data_corrupted_count,
+                ..
+            } => {
+                assert!(tx_count > 10, "{tx_count}");
+                assert_eq!((lost_count, data_corrupted_count), (0, 0));
+                log.push("loopback report".to_string());
+            }
+            TestProgress::SpeedReport {
+                name,
+                count,
+                bytes_per_s,
+                per_s,
+                lost_count,
+                data_corrupted_count,
+            } => {
+                assert!(count > 10, "{name}: {count}");
+                assert_eq!(
+                    bytes_per_s,
+                    per_s * DEV_MAX_MESSAGE as f32,
+                    "max by default"
+                );
+                assert_eq!((lost_count, data_corrupted_count), (0, 0), "{name}");
+                log.push(format!("{name} report"));
+            }
+            TestProgress::TestStarted(name) => log.push(format!("{name} started")),
+            TestProgress::TestCompleted(name) => log.push(format!("{name} completed")),
+        }
+    }
+    assert_eq!(
+        log,
+        [
+            "loopback started",
+            "loopback report",
+            "loopback completed",
+            "tx_speed started",
+            "tx_speed report",
+            "tx_speed completed",
+            "rx_speed started",
+            "rx_speed report",
+            "rx_speed completed",
+        ]
+    );
+    let reply = tokio::time::timeout(Duration::from_secs(1), done_rx)
+        .await
+        .expect("held request is sent after the test")
+        .unwrap()
+        .unwrap();
+    assert_eq!(reply[0], 7);
+    dev.abort();
+}
+
+#[tokio::test]
+async fn loopback_test_needs_a_connection() {
+    let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
+    let _host = tokio::spawn(crate::event_loop::core::worker(cmd_rx, PipeTransport(None)));
+    let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
+    cmd_tx
+        .send(Command::LoopbackTest {
+            test_duration: Duration::from_millis(300),
+            packet_size: None,
+            progress_tx,
+        })
+        .await
+        .unwrap();
+    assert!(matches!(
+        progress_rx.recv().await,
+        Some(TestProgress::FatalError(_))
+    ));
+    assert!(progress_rx.recv().await.is_none());
 }
 
 #[tokio::test]

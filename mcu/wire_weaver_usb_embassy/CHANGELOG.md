@@ -18,6 +18,8 @@
 
 ### 🚀 Features
 
+- `WireWeaverClass::with_endpoints()`: same as `new()` with the OUT and IN endpoints allocated by a closure on the class's interface, e.g. double-buffered bulk endpoints of newer embassy-usb / embassy-stm32 (2x the throughput on an STM32G0B1). `new()` is unchanged (TR-12).
+
 - API id served as the WireWeaver interface string, so hosts can identify the device, its API and user label without
   opening it.
 - `WireWeaverClass::into_server()`, to set up the server manually alongside other USB classes.

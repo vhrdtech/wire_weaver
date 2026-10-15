@@ -571,9 +571,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   64 MHz, USB FS behind the board's HS hub, 15 Oct 2026). Done: U2Head encodes and decodes whole bytes in u32
   instead of bit by bit (`ww_framer` `framed.rs`, was ~15% of the device's CPU per packet); the async device server
   flushes replies at once when no other request waits instead of after the accumulation window (`ww_device`
-  `Server::handle`; DFU transcripts +1-2 packets). Next: double-buffered bulk endpoints in
-  `wire_weaver_usb_embassy` once embassy-usb releases `endpoint_bulk_*_double_buffered` and embassy-stm32 supports
-  them on usb_v4 (raw bulk 500 -> 950 kB/s OUT on the G0); CRC through a pluggable checksum so MCUs can use their
+  `Server::handle`; DFU transcripts +1-2 packets). `WireWeaverClass::with_endpoints()` lets
+  firmware allocate the endpoints, e.g. double-buffered bulk ones (Donguru, embassy-rs/embassy#7275: raw bulk 500 ->
+  950 kB/s OUT on the G0). Next: CRC through a pluggable checksum so MCUs can use their
   CRC unit (~13% of the CPU per packet on the M0+); a host-side flush for lone requests that keeps packetization
   deterministic (flushing whenever the event loop goes idle made the DFU transcripts vary between runs); the same
   reply flush for the blocking server.

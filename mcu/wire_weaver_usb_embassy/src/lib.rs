@@ -19,7 +19,7 @@ pub use ww_device::{self, LinkConfig};
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
 use embassy_usb::msos::windows_version;
 use embassy_usb::types::{InterfaceNumber, StringIndex};
-use embassy_usb::{Builder, Handler, msos};
+use embassy_usb::{Builder, Handler, InterfaceAltBuilder, msos};
 use wire_weaver::full_version;
 use wire_weaver::prelude::FullVersion;
 
@@ -92,6 +92,55 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         user_protocol: &FullVersion<'_>,
         api_id: &'static str,
     ) -> Self {
+        Self::with_endpoints(
+            builder,
+            state,
+            write_timeout,
+            user_protocol,
+            api_id,
+            |alt| {
+                if use_bulk {
+                    let max_packet_size = if max_packet_size > 512 {
+                        warn!("Bulk max packet size is 512, correcting");
+                        512
+                    } else {
+                        max_packet_size
+                    };
+                    (
+                        alt.endpoint_bulk_out(None, max_packet_size),
+                        alt.endpoint_bulk_in(None, max_packet_size),
+                    )
+                } else {
+                    // Should be 2^(interval_ms - 1) 125μs units for High-Speed devices, so 125μs in this case
+                    (
+                        alt.endpoint_interrupt_out(None, max_packet_size, 1),
+                        alt.endpoint_interrupt_in(None, max_packet_size, 1),
+                    )
+                }
+            },
+        )
+    }
+
+    /// Same as [Self::new], with the OUT and IN endpoints allocated by `endpoints` on the class's interface,
+    /// for drivers with endpoint kinds beyond plain bulk and interrupt. E.g. double-buffered bulk endpoints (newer
+    /// embassy-usb and embassy-stm32), which let the USB peripheral take the next packet while the previous one
+    /// is processed:
+    ///
+    /// ```ignore
+    /// let ww = WireWeaverClass::with_endpoints(&mut builder, &mut state, timeout, &version, API_ID, |alt| {
+    ///     (alt.endpoint_bulk_out_double_buffered(None, 64), alt.endpoint_bulk_in_double_buffered(None, 64))
+    /// });
+    /// ```
+    ///
+    /// Both endpoints must have the same max packet size.
+    pub fn with_endpoints(
+        builder: &mut Builder<'d, D>,
+        state: &'d mut State,
+        write_timeout: Duration,
+        user_protocol: &FullVersion<'_>,
+        api_id: &'static str,
+        endpoints: impl FnOnce(&mut InterfaceAltBuilder<'_, 'd, D>) -> (D::EndpointOut, D::EndpointIn),
+    ) -> Self {
         defmt::debug_assert!(builder.control_buf_len() >= 7);
         defmt::assert!(
             builder.control_buf_len() > 2 + 2 * api_id.encode_utf16().count(),
@@ -135,24 +184,8 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             USB_PROTOCOL_WIRE_WEAVER,
             Some(api_id_index),
         );
-        let (read_ep, write_ep) = if use_bulk {
-            let max_packet_size = if max_packet_size > 512 {
-                warn!("Bulk max packet size is 512, correcting");
-                512
-            } else {
-                max_packet_size
-            };
-            (
-                alt.endpoint_bulk_out(None, max_packet_size),
-                alt.endpoint_bulk_in(None, max_packet_size),
-            )
-        } else {
-            // Should be 2^(interval_ms - 1) 125μs units for High-Speed devices, so 125μs in this case
-            (
-                alt.endpoint_interrupt_out(None, max_packet_size, 1),
-                alt.endpoint_interrupt_in(None, max_packet_size, 1),
-            )
-        };
+        let (read_ep, write_ep) = endpoints(&mut alt);
+        defmt::debug_assert!(read_ep.info().max_packet_size == write_ep.info().max_packet_size);
 
         let self_version = [
             b'w',

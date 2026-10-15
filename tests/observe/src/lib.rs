@@ -808,4 +808,60 @@ mod tests {
         let m = MotorUpdate::from_ww_bytes(data.0).unwrap();
         assert_eq!((m.speed, m.current, m.position), (Some(1), None, Some(3)));
     }
+
+    /// When the answer to `Observe` doesn't fit the reply buffer, the settings are not applied: the device only
+    /// observes what the host was told.
+    #[test]
+    fn answer_that_does_not_fit_applies_nothing() {
+        let mut server = blocking_server::Server {
+            mode: 0,
+            observe: blocking_server::api_impl::ObserveState::new(ObserveLimits::DEFAULT),
+        };
+        let path = [UNib32(MOTOR)];
+        let req = Request {
+            seq: UVlq32Backfill(1),
+            path_kind: PathKind::Absolute {
+                path: RefVec::Slice { slice: &path },
+            },
+            kind: RequestKind::Observe {
+                cfg: ObserveRequest {
+                    entries: RefVec::Slice {
+                        slice: &[
+                            periodic(SPEED, 1_000_000),
+                            periodic(CURRENT, 2_000_000),
+                            periodic(POSITION, 3_000_000),
+                        ],
+                    },
+                    patch: false,
+                    budget: Some(UNib32(1_000_000_000)),
+                },
+            },
+        };
+        let mut buf = [0u8; 128];
+        let req = req.to_ww_bytes(&mut buf).unwrap().to_vec();
+        let mut applied_at = None;
+        for len in 1..=64 {
+            server.observe.reset();
+            let mut scratch = vec![0u8; len];
+            let mut queue_buf = [0u8; 256];
+            let mut queue = wire_weaver::EventQueue::new(&mut queue_buf);
+            let ok = match server.process_request_bytes(&req, &mut scratch, &mut queue, ()) {
+                Ok(reply) => matches!(
+                    Event::from_ww_bytes(reply).map(|e| e.result),
+                    Ok(Ok(EventKind::Value { .. }))
+                ),
+                Err(_) => false,
+            };
+            assert_eq!(
+                server.observe.root_motor.is_active(),
+                ok,
+                "reply buffer of {len}"
+            );
+            if ok && applied_at.is_none() {
+                applied_at = Some(len);
+            }
+        }
+        // the full answer is bigger than its header: some sizes failed after the table was set
+        assert!(applied_at.is_some_and(|len| len > 8), "{applied_at:?}");
+    }
 }

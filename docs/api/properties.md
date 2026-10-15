@@ -183,6 +183,7 @@ server.poll_streams(&mut ww_server.sink(), now_ms, &mut stream_buf, 4096).await?
   a property without `+observe`, an index given twice or a mode the device doesn't know are refused one by one and
   listed in the answer; periods are raised to `ObserveLimits::min_period_us` and the budget is clamped. A request that
   doesn't decode, or has more than 16 refused entries, fails with `ArgsDesFailed` / `BadIndex` and changes nothing.
+  When the answer doesn't fit the reply buffer, the request fails with `ResponseSerFailed` and is undone too.
 - **Limits**: a level inside a resource array (`ww_impl!(bank[]: Bank)`) can't be observed yet (the bound of its
   indices isn't known, API-29), `Observe` there answers `OperationNotSupported`; nor can `+observe` properties that are
   in an array themselves or `#[optional]`. Observing stays set while the link is down; `ObserveState::reset()` stops

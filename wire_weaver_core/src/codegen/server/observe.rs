@@ -302,6 +302,9 @@ impl Observe {
                 [#(UNib32(#path)),*] => {
                     #desc
                     #table
+                    // put back when the answer can't be written: the host must not get an error for settings the
+                    // device applied
+                    let before = table.clone();
                     let refused_len = match table.apply(cfg, &DESC, &limits, others, &mut refused) {
                         Ok(len) => len,
                         Err(ww_stream::observe::ObserveError::Malformed(_)) => {
@@ -313,13 +316,15 @@ impl Observe {
                     };
                     let mut entries = [ObserveEntry { index: UNib32(0), mode: ObserveMode::Off }; #n];
                     let len = table.granted(&DESC, &mut entries);
-                    ObserveGranted {
+                    let granted = ObserveGranted {
                         entries: wire_weaver::shrink_wrap::RefVec::Slice { slice: &entries[..len] },
                         refused: wire_weaver::shrink_wrap::RefVec::Slice { slice: &refused[..refused_len] },
                         budget: UNib32(table.budget()),
+                    };
+                    if granted.ser_shrink_wrap(wr).is_err() {
+                        *table = before;
+                        return Err(Error::new(#es_ser, ErrorKind::ResponseSerFailed));
                     }
-                    .ser_shrink_wrap(wr)
-                    .map_err(|_| Error::new(#es_ser, ErrorKind::ResponseSerFailed))?;
                 }
             }
         });

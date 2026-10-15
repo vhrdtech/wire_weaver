@@ -173,7 +173,7 @@ mod tests {
                 })
             }
 
-            // TODO(SRV-17): `LogError<'_>` as the scaffold prints it doesn't compile in a stream function
+            // TODO(API-35): `LogError<'_>` as the scaffold prints it doesn't compile in a stream function
             async fn defmt_frames(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
@@ -187,7 +187,7 @@ mod tests {
                 &mut self.defmt_frames_stream
             }
 
-            // TODO(SRV-17): `LogError<'_>`
+            // TODO(API-35): `LogError<'_>`
             async fn text_records(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,

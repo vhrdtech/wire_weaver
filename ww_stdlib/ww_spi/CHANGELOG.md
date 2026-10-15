@@ -2,6 +2,12 @@
 
 ### ⚠️ Breaking
 
+- `SpiError<'i>`: the first variant is `#[common] Common(CommonError<'i>)` (STD-16): `Unsupported`, `InvalidArgument`,
+  `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from `ww_error::CommonError`; `BufferTooBig`
+  stays. It is no longer `self_describing` (newer variants read as `Unknown(n)`), carries a lifetime (`SpiErrorOwned` on
+  hosts), has `Display` from its doc lines, and every method lists its variants with `#[errors(..)]`. Devices return
+  `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`); stream-function handlers return
+  `SpiError<'static>` for now (API-35).
 - `SpiMonitor` is gone: `SpiMonitor::frames` is `Spi::monitor`, an `#[optional]` counted stream function of `Spi`
   (STD-13), so an array of buses carries monitoring without a second trait. An adapter without monitoring hardware
   leaves it out with `omit = ["spi.monitor"]`; `SpiCapabilities::monitor` is removed (introspection says whether the

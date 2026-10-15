@@ -9,7 +9,8 @@ mod tests {
     use std::sync::{Arc, RwLock};
     use wire_weaver::prelude::*;
     use ww_onewire::{
-        OneWireConfig, OneWireError, OneWireSpeed, OneWireTransactionOwned, RomId, SearchState,
+        OneWireConfig, OneWireError, OneWireErrorOwned, OneWireSpeed, OneWireTransactionOwned,
+        RomId, SearchState,
     };
 
     /// Family code used by every simulated device in these tests.
@@ -132,7 +133,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 t: ww_onewire::OneWireTransaction<'_>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_onewire::OW_MAX }>, OneWireError>>
+            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_onewire::OW_MAX }>, OneWireError<'_>>>
             {
                 let mut bus = self.bus.write().unwrap();
                 if bus.roms.is_empty() {
@@ -146,7 +147,11 @@ mod tests {
                 let write = t.write.as_slice();
                 let read_len = t.read_len as usize;
                 if write.len() + read_len > ww_onewire::OW_MAX {
-                    return Ready(Err(OneWireError::InvalidArgument));
+                    return Ready(Err(CommonError::InvalidArgument {
+                        arg: 0,
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into()));
                 }
                 // `Search ROM` (0xF0) with no read starts a bit-level search session for `triplet`.
                 if write == [0xF0] && read_len == 0 {
@@ -169,7 +174,7 @@ mod tests {
             fn onewire_reset(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<bool, OneWireError>> {
+            ) -> RpcResult<Result<bool, OneWireError<'_>>> {
                 let mut bus = self.bus.write().unwrap();
                 bus.triplet_session = None;
                 Ready(Ok(!bus.roms.is_empty()))
@@ -180,7 +185,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 from: Option<SearchState>,
                 family: Option<u8>,
-            ) -> RpcResult<Result<ww_onewire::SearchPage<'_>, OneWireError>> {
+            ) -> RpcResult<Result<ww_onewire::SearchPage<'_>, OneWireError<'_>>> {
                 let bus = self.bus.read().unwrap();
                 if bus.roms.is_empty() {
                     return Ready(Err(OneWireError::NoPresence));
@@ -236,13 +241,17 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: OneWireConfig,
-            ) -> RpcResult<Result<OneWireConfig, OneWireError>> {
+            ) -> RpcResult<Result<OneWireConfig, OneWireError<'_>>> {
                 if config.pin > 1 {
-                    return Ready(Err(OneWireError::InvalidArgument));
+                    return Ready(Err(CommonError::InvalidArgument {
+                        arg: 0,
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into()));
                 }
                 // no level translators: no IO level to set, none to answer
                 if config.io_level.is_some() {
-                    return Ready(Err(OneWireError::Unsupported));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 self.bus.write().unwrap().configured = Some(config);
                 Ready(Ok(config))
@@ -252,7 +261,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 direction: bool,
-            ) -> RpcResult<Result<ww_onewire::Triplet, OneWireError>> {
+            ) -> RpcResult<Result<ww_onewire::Triplet, OneWireError<'_>>> {
                 let mut bus = self.bus.write().unwrap();
                 let Bus {
                     roms,
@@ -260,10 +269,16 @@ mod tests {
                     ..
                 } = &mut *bus;
                 let Some(session) = triplet_session.as_mut() else {
-                    return Ready(Err(OneWireError::WrongMode));
+                    return Ready(Err(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into()));
                 };
                 if session.bit_index >= 64 {
-                    return Ready(Err(OneWireError::WrongMode));
+                    return Ready(Err(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into()));
                 }
                 let i = session.bit_index;
                 let prefix = RomId {
@@ -394,7 +409,10 @@ mod tests {
             })
             .call()
             .await;
-        assert_eq!(err.unwrap_err().device(), Some(&OneWireError::NoPresence));
+        assert_eq!(
+            err.unwrap_err().device(),
+            Some(&OneWireErrorOwned::NoPresence)
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -446,7 +464,7 @@ mod tests {
         let err = client.onewire().search(None, None).call().await;
         assert!(matches!(
             err.unwrap_err().device(),
-            Some(OneWireError::NoPresence)
+            Some(OneWireErrorOwned::NoPresence)
         ));
     }
 
@@ -483,10 +501,12 @@ mod tests {
             })
             .call()
             .await;
-        assert_eq!(
+        assert!(matches!(
             err.unwrap_err().device(),
-            Some(&OneWireError::InvalidArgument)
-        );
+            Some(OneWireErrorOwned::Common(
+                CommonErrorOwned::InvalidArgument { .. }
+            ))
+        ));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -523,7 +543,9 @@ mod tests {
         let err = onewire.triplet(false).call().await;
         assert!(matches!(
             err.unwrap_err().device(),
-            Some(OneWireError::WrongMode)
+            Some(OneWireErrorOwned::Common(
+                CommonErrorOwned::WrongState { .. }
+            ))
         ));
     }
 
@@ -533,7 +555,9 @@ mod tests {
         let err = client.onewire().triplet(false).call().await;
         assert!(matches!(
             err.unwrap_err().device(),
-            Some(OneWireError::WrongMode)
+            Some(OneWireErrorOwned::Common(
+                CommonErrorOwned::WrongState { .. }
+            ))
         ));
     }
 }

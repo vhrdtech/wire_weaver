@@ -26,7 +26,7 @@
 //! [I2cAddress] is 7-bit (`0x50` for a 24C02 EEPROM, not `0xA0`) or 10-bit, as in the I2C specification and
 //! embedded-hal (`SevenBitAddress`, `TenBitAddress`): `I2cAddress::seven(0x50)`, `I2cAddress::ten(0x350)`. A 7-bit
 //! address takes one byte on the wire, as a plain `u8` would. An adapter without 10-bit support answers
-//! [I2cError::Unsupported].
+//! `CommonError::Unsupported`.
 //!
 //! # Sizes
 //!
@@ -44,7 +44,9 @@
 //!
 //! # Errors
 //!
-//! Both traits return [I2cError]; each method lists the variants it returns.
+//! Every trait returns [I2cError]: the framework's `CommonError` (in use, no power, refused, ...) as
+//! [I2cError::Common], plus what is specific to I2C (`Nack`, `Arbitration`, ...). Each method lists the variants
+//! it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -93,85 +95,83 @@ pub trait I2c {
 
     /// Configures the bus and returns what was actually set: the SCL frequency the hardware settled on (the nearest
     /// it can do, never above the one asked for) and the IO level in effect. [I2cMode::Disabled] releases the pins.
-    ///
-    /// # Errors
-    ///
-    /// [I2cError::UnsupportedMode], [I2cError::UnsupportedSpeed], [I2cError::UnsupportedIoLevel],
-    /// [I2cError::InUse] (the pins serve another function), [I2cError::Refused] (e.g. the bus already sits at a higher
-    /// voltage than `io_level`).
-    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError>;
+    /// A mode or IO level this adapter doesn't have is `Unsupported`, a frequency outside its range an
+    /// `InvalidArgument`; `Refused` when e.g. the bus already sits at a higher voltage than `io_level`.
+    #[errors(Common(Unsupported, InvalidArgument, InUse, Refused))]
+    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError<'i>>;
 
     /// Writes `data` to the device at `addr`: start, address, data, stop.
     ///
     /// `delay_after`: the next transfer to the same address waits this long (an EEPROM page write needs ~5 ms).
-    /// Transfers to other addresses go ahead meanwhile.
-    ///
-    /// # Errors
-    ///
-    /// [I2cError::Nack] (address or data not acknowledged), [I2cError::Arbitration], [I2cError::Bus],
-    /// [I2cError::Timeout] (clock stretched too long), [I2cError::WrongMode] (not a master),
-    /// [I2cError::BufferTooBig] (longer than this device takes), [I2cError::Unsupported] (10-bit address on an adapter without), [I2cError::NoIoLevel].
+    /// Transfers to other addresses go ahead meanwhile. A 10-bit address on an adapter without them is
+    /// `Unsupported`, a call while not a master `WrongState`, a clock stretched too long `Timeout`.
+    #[errors(
+        Common(Unsupported, WrongState, NoPower, Timeout),
+        Nack,
+        Arbitration,
+        Bus,
+        BufferTooBig
+    )]
     fn i2c_write(
         addr: I2cAddress,
         data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>,
         delay_after: Option<Second>,
-    ) -> Result<I2cTransactionTimeRange, I2cError>;
+    ) -> Result<I2cTransactionTimeRange, I2cError<'i>>;
 
     /// Reads `len` bytes from the device at `addr`, either plainly or after writing a few bytes with a repeated start
     /// (a register read).
     ///
-    /// `delay_after` as in `I2c::i2c_write`.
-    ///
-    /// # Errors
-    ///
-    /// As `I2c::i2c_write`, and [I2cError::ZeroLengthTransfer] for `len == 0`.
+    /// `delay_after` as in `I2c::i2c_write`. Errors as there, and `InvalidArgument` for `len == 0`.
+    #[errors(
+        Common(Unsupported, InvalidArgument, WrongState, NoPower, Timeout),
+        Nack,
+        Arbitration,
+        Bus,
+        BufferTooBig
+    )]
     fn i2c_read(
         addr: I2cAddress,
         kind: I2cReadKind<'i>,
         len: u16,
         delay_after: Option<Second>,
-    ) -> Result<I2cReadEnvelope<'i>, I2cError>;
+    ) -> Result<I2cReadEnvelope<'i>, I2cError<'i>>;
 
     /// 7-bit addresses that acknowledged a one-byte read, in ascending order. The reserved addresses (`0x00..=0x07`,
     /// `0x78..=0x7F`) are skipped.
-    ///
-    /// # Errors
-    ///
-    /// [I2cError::WrongMode], [I2cError::Bus], [I2cError::Timeout], [I2cError::NoIoLevel].
-    fn i2c_scan() -> Result<MaxLen<RefVec<'i, u8>, MAX_SCAN>, I2cError>;
+    #[errors(Common(WrongState, NoPower, Timeout), Bus)]
+    fn i2c_scan() -> Result<MaxLen<RefVec<'i, u8>, MAX_SCAN>, I2cError<'i>>;
 
     /// Several operations to one address with repeated starts in between and one stop at the end, like
     /// `embedded_hal::i2c::I2c::transaction`. The bytes of all [I2cOp::Read]s come back concatenated, in order.
     ///
-    /// # Errors
-    ///
-    /// As `I2c::i2c_write`; [I2cError::BufferTooBig] when the reads together exceed [MAX_READ_LEN] or the device's
+    /// Errors as `I2c::i2c_write`; `BufferTooBig` when the reads together exceed [MAX_READ_LEN] or the device's
     /// limit.
+    #[errors(
+        Common(Unsupported, InvalidArgument, WrongState, NoPower, Timeout),
+        Nack,
+        Arbitration,
+        Bus,
+        BufferTooBig
+    )]
     fn i2c_transaction(
         addr: I2cAddress,
         ops: MaxLen<RefVec<'i, I2cOp<'i>>, MAX_OPS>,
-    ) -> Result<I2cTransactionResult<'i>, I2cError>;
+    ) -> Result<I2cTransactionResult<'i>, I2cError<'i>>;
 
     /// Levels of SCL and SDA now. Both are high on an idle bus; a line held low means a slave is stuck mid-byte,
     /// pull-ups are missing or unpowered, or something shorts it.
     fn i2c_lines_state() -> I2cLinesState;
 
     /// Clocks SCL up to `count` times (9 is enough for any stuck byte) until SDA is released, then sends a stop.
-    /// Returns the line levels afterwards.
-    ///
-    /// # Errors
-    ///
-    /// [I2cError::WrongMode] (a transfer or the monitor uses the bus), [I2cError::Unsupported] (the controller
-    /// can't drive SCL directly), [I2cError::NoIoLevel].
-    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError>;
+    /// Returns the line levels afterwards. `WrongState` while a transfer or the monitor uses the bus,
+    /// `Unsupported` when the controller can't drive SCL directly.
+    #[errors(Common(Unsupported, WrongState, NoPower))]
+    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError<'i>>;
 
-    /// Switches the adapter's own pull-up resistors on SCL and SDA.
-    ///
-    /// # Errors
-    ///
-    /// [I2cError::Unsupported] (no switchable pull-ups, see [I2cCapabilities::pullups]), [I2cError::Refused] (e.g.
-    /// the pull-ups would feed a bus that sits at another voltage).
-    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError>;
+    /// Switches the adapter's own pull-up resistors on SCL and SDA. `Unsupported` without switchable pull-ups (see
+    /// [I2cCapabilities::pullups]), `Refused` when e.g. the pull-ups would feed a bus that sits at another voltage.
+    #[errors(Common(Unsupported, Refused))]
+    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError<'i>>;
 
     /// Whether the adapter's pull-ups are on (false if it has none).
     fn i2c_pullups() -> bool;
@@ -195,27 +195,19 @@ pub trait I2cWatch {
     fn watch_capabilities() -> I2cWatchCapabilities;
 
     /// Adds a watch and returns its slot, used by the other methods and in [I2cWatchEvent::slot].
-    ///
-    /// # Errors
-    ///
-    /// [I2cError::OutOfCycleSlots] (all slots taken), [I2cError::BufferTooBig] (read longer than this device
-    /// watches), [I2cError::MalformedRequest] (period below the device's minimum, a mask or match rule not as long as
-    /// the read), [I2cError::WrongMode] (not a master).
-    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u32, I2cError>;
+    /// `InvalidArgument` for a period below the device's minimum or a mask or match rule not as long as the read,
+    /// `BufferTooBig` for a read longer than this device watches, `WrongState` while not a master.
+    #[errors(Common(InvalidArgument, WrongState), OutOfWatchSlots, BufferTooBig)]
+    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u32, I2cError<'i>>;
 
-    /// Replaces a watch's configuration; its previous result is forgotten, so the next read is reported.
-    ///
-    /// # Errors
-    ///
-    /// [I2cError::InvalidCycleSlot], and as `I2cWatch::watch_add`.
-    fn watch_modify(slot: u32, watch: I2cWatchConfig<'i>) -> Result<(), I2cError>;
+    /// Replaces a watch's configuration; its previous result is forgotten, so the next read is reported. Errors as
+    /// `I2cWatch::watch_add`.
+    #[errors(Common(InvalidArgument, WrongState), InvalidWatchSlot, BufferTooBig)]
+    fn watch_modify(slot: u32, watch: I2cWatchConfig<'i>) -> Result<(), I2cError<'i>>;
 
     /// Removes a watch.
-    ///
-    /// # Errors
-    ///
-    /// [I2cError::InvalidCycleSlot].
-    fn watch_remove(slot: u32) -> Result<(), I2cError>;
+    #[errors(InvalidWatchSlot)]
+    fn watch_remove(slot: u32) -> Result<(), I2cError<'i>>;
 
     /// Slots in use.
     fn watch_list() -> MaxLen<RefVec<'i, u32>, MAX_WATCHES>;
@@ -299,7 +291,7 @@ pub struct I2cMatchByte {
 )]
 pub struct I2cWatchEvent<'i> {
     pub slot: u32,
-    pub result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>,
+    pub result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError<'i>>,
 }
 
 /// Watches the bus without taking part: every transaction becomes one [I2cRecord] on the `records` stream.
@@ -315,9 +307,9 @@ pub trait I2cMonitor {
     ///
     /// # Errors
     ///
-    /// [I2cError::InUse], [I2cError::UnsupportedIoLevel], [I2cError::Refused], [I2cError::NoIoLevel].
+    /// `Common(InUse)`, `Common(Unsupported)` (this IO level), `Common(Refused)`, `Common(NoPower)`.
     #[stream(I2cRecord<'i>, counted)]
-    fn records(io_level: Option<Volt>) -> Result<(), I2cError>;
+    fn records(io_level: Option<Volt>) -> Result<(), I2cError<'i>>;
 }
 
 /// A 7-bit or 10-bit I2C address.
@@ -536,57 +528,35 @@ pub struct I2cCapabilities<'i> {
     pub bus_recovery: bool,
 }
 
-/// Errors of both traits in this crate. Each method lists the variants it returns.
-///
-/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is
-/// still open for `ww_stdlib`; until then this enum stays plain.
+/// Errors of every trait in this crate: the common ones first, then what is specific to I2C. Each method lists the
+/// variants it returns.
 #[derive_shrink_wrap(
-    borrowed,
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Copy, Clone),
-    self_describing,
-    ww_repr = unib32
+    derive(Debug, PartialEq, Eq, Clone),
+    ww_repr = unib32,
+    display
 )]
-pub enum I2cError {
-    /// The mode isn't supported by this adapter.
-    UnsupportedMode,
-    /// The call needs another mode (e.g. a write while not a master).
-    WrongMode,
-    /// The frequency is out of the adapter's range.
-    UnsupportedSpeed,
-    /// All `I2cWatch` slots are taken.
-    OutOfCycleSlots,
-    /// No `I2cWatch` with this slot.
-    InvalidCycleSlot,
-    /// An argument is out of range.
-    MalformedRequest,
-    /// Longer than this device takes, see [I2cCapabilities].
-    BufferTooBig,
-    /// The IO level can't be set on this adapter.
-    UnsupportedIoLevel,
-    /// Bus error: a start or stop where it doesn't belong.
-    Bus,
-    /// Arbitration lost to another master.
-    Arbitration,
+pub enum I2cError<'i> {
+    /// {0}
+    #[common]
+    Common(CommonError<'i>),
     /// The address or a data byte was not acknowledged.
     Nack,
-    /// A slave stretched the clock too long, or the bus stayed busy.
-    Timeout,
+    /// Arbitration lost to another master.
+    Arbitration,
+    /// Bus error: a start or stop where it doesn't belong.
+    Bus,
     /// Packet error check (SMBus PEC) failed.
     Crc,
     /// Data came faster than the adapter could take it (slave mode).
     Overrun,
-    /// A read or write of zero bytes.
-    ZeroLengthTransfer,
-    /// The pins or the controller serve another function.
-    InUse,
-    /// The level translators have no supply (IO level off).
-    NoIoLevel,
-    /// A safety rule of the device doesn't allow it.
-    Refused,
-    /// This adapter doesn't have it (10-bit addresses, switchable pull-ups, bus recovery).
-    Unsupported,
+    /// Longer than this device takes, see its capabilities.
+    BufferTooBig,
+    /// All watch slots are taken.
+    OutOfWatchSlots,
+    /// No watch in this slot.
+    InvalidWatchSlot,
 }
 
 #[cfg(test)]

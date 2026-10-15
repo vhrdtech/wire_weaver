@@ -42,7 +42,8 @@
     "",
     "# Errors",
     "",
-    "Both traits return [LaError]; each method lists the variants it returns.",
+    "Both traits return [LaError]: the framework\'s `CommonError` as [LaError::Common], plus `NoSuchChannel`. Each",
+    "method lists the variants it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_logic_analyzer", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "LogicAnalyzer", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LogicStream", docs: [], optional: None),
@@ -285,36 +286,28 @@
             "Layout of [RawChunk::data].",
         ]),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
-        "Errors of both traits in this crate. Each method lists the variants it returns.",
-        "",
-        "How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is",
-        "still open for `ww_stdlib`; until then this enum stays plain.",
+    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
+        122,
+        139,
+        242,
+        75,
+        84,
+        91,
+        80,
+        174,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Errors of both traits in this crate: the common ones first, then `NoSuchChannel`. Each method lists the variants",
+        "it returns.",
     ], ident: "LaError", variants: [
         (docs: [
-            "Not supported by this device (an encoding, a trigger stage).",
-        ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
-        (docs: [
-            "The pins serve another function in a way sampling can\'t share (a threshold, a pull).",
-        ], ident: "InUse", fields: Unit, discriminant: 1, since: None),
-        (docs: [
-            "The input buffers or translators have no supply.",
-        ], ident: "NoIoLevel", fields: Unit, discriminant: 2, since: None),
-        (docs: [
-            "A safety rule of the device doesn\'t allow it.",
-        ], ident: "Refused", fields: Unit, discriminant: 3, since: None),
-        (docs: [
-            "An argument is out of range (rate, depth, range, threshold).",
-        ], ident: "InvalidArgument", fields: Unit, discriminant: 4, since: None),
-        (docs: [
-            "The call needs another state (reading a capture that isn\'t done, `rearm` before any `capture`).",
-        ], ident: "WrongMode", fields: Unit, discriminant: 5, since: None),
+            "{0}",
+        ], ident: "Common", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 18), docs: []),
+        ]), discriminant: 0, since: None),
         (docs: [
             "No channel with this index.",
-        ], ident: "NoSuchChannel", fields: Unit, discriminant: 6, since: None),
-        (docs: [
-            "The sampler is taken by a stream or a capture.",
-        ], ident: "Busy", fields: Unit, discriminant: 7, since: None),
+        ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
         37,
@@ -338,13 +331,13 @@
         (docs: [
             "Triggered at `t`, taking the rest.",
         ], ident: "Triggered", fields: Named([
-            (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: []),
+            (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: []),
         ]), discriminant: 2, since: None),
         (docs: [
             "Done: sample 0 was taken at `t_first`, the trigger fired at sample `trigger_at` (`None` for",
             "[Trigger::Now]). `samples` may be fewer than asked when transition storage filled up.",
         ], ident: "Done", fields: Named([
-            (ident: Some("t_first"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: []),
+            (ident: Some("t_first"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: []),
             (ident: Some("trigger_at"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: []),
             (ident: Some("samples"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
         ]), discriminant: 3, since: None),
@@ -366,7 +359,7 @@
             "`samples` words as in [RawLayout].",
         ]),
     ]))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "Level", signature: [
+    SkippedFullVersion(crate_idx: 4, type_name: "Level", signature: [
         41,
         149,
         183,
@@ -382,7 +375,7 @@
         (ident: Some("channel"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Index into the configuration\'s channel list.",
         ]),
-        (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [
+        (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [
             "Level at sample `from`.",
         ]),
         (ident: Some("from"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
@@ -403,7 +396,7 @@
             "Samples per second.",
         ]),
         (ident: Some("encoding"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: []),
-        (ident: Some("flush_interval"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 19)), docs: [
+        (ident: Some("flush_interval"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 20)), docs: [
             "Send a chunk at least this often even if it isn\'t full; `None` lets the device choose.",
         ]),
         (ident: Some("threshold"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
@@ -424,10 +417,10 @@
         "One item of the `LogicStream::data` stream.",
     ], ident: "StreamChunk", variants: [
         (docs: [], ident: "Raw", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 22), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 23), docs: []),
         ]), discriminant: 0, since: None),
         (docs: [], ident: "Transitions", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 24), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 25), docs: []),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -451,49 +444,62 @@
         ], optional: None),
         (id: 1, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 15)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 17), err_ty: OutOfLine(type_idx: 18))), errors: None), multiplicity: Flat, since: None, ident: "capture", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 17), err_ty: OutOfLine(type_idx: 19))), errors: Some([
+            (ident: "Common", nested: Some([
+                "InvalidArgument",
+                "Unsupported",
+                "Busy",
+                "InUse",
+                "NoPower",
+            ])),
+            (ident: "NoSuchChannel", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "capture", docs: [
             "Arms a capture, replacing the previous one and its data, and returns what was actually set. With",
             "[Trigger::Now] it starts at once; otherwise it samples `pre_trigger` samples continuously and keeps them,",
             "waits for the trigger, then takes the rest.",
-            "",
-            "# Errors",
-            "",
-            "[LaError::NoSuchChannel], [LaError::InvalidArgument] (rate, depth, threshold or trigger out of range),",
-            "[LaError::Unsupported] (a trigger stage or condition), [LaError::Busy] (a stream runs), [LaError::InUse],",
-            "[LaError::NoIoLevel].",
+            "`InvalidArgument`: rate, depth, threshold or trigger out of range; `Unsupported`: a trigger stage or condition;",
+            "`Busy`: a stream runs.",
         ], optional: None),
-        (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 17), err_ty: OutOfLine(type_idx: 18))), errors: None), multiplicity: Flat, since: None, ident: "rearm", docs: [
+        (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 17), err_ty: OutOfLine(type_idx: 19))), errors: Some([
+            (ident: "Common", nested: Some([
+                "WrongState",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "rearm", docs: [
             "Arms again with the configuration of the last `capture`, for repeated captures of the same event.",
-            "",
-            "# Errors",
-            "",
-            "[LaError::WrongMode] (nothing was configured yet), and those of `capture`.",
+            "`WrongState`: nothing was configured yet.",
         ], optional: None),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 20)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 21)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "Where the capture stands.",
         ], optional: None),
         (id: 4, kind: Method(args: [
-            (ident: "range", ty: OutOfLine(type_idx: 21)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 22), err_ty: OutOfLine(type_idx: 18))), errors: None), multiplicity: Flat, since: None, ident: "read_raw", docs: [
+            (ident: "range", ty: OutOfLine(type_idx: 22)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 23), err_ty: OutOfLine(type_idx: 19))), errors: Some([
+            (ident: "Common", nested: Some([
+                "WrongState",
+                "InvalidArgument",
+                "Unsupported",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "read_raw", docs: [
             "Samples of `range` of a finished capture as raw words, at most [MAX_READ_LEN] bytes: the chunk may hold",
             "fewer samples than asked, a whole number of words.",
-            "",
-            "# Errors",
-            "",
-            "[LaError::WrongMode] (no finished capture), [LaError::InvalidArgument] (outside the capture),",
-            "[LaError::Unsupported] (the device doesn\'t give raw words).",
+            "`WrongState`: no finished capture; `InvalidArgument`: outside the capture; `Unsupported`: the device doesn\'t",
+            "give raw words.",
         ], optional: None),
         (id: 5, kind: Method(args: [
             (ident: "channel", ty: NumericAny(Base(U8))),
             (ident: "from", ty: NumericAny(Base(U32))),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 24), err_ty: OutOfLine(type_idx: 18))), errors: None), multiplicity: Flat, since: None, ident: "read_transitions", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 25), err_ty: OutOfLine(type_idx: 19))), errors: Some([
+            (ident: "Common", nested: Some([
+                "WrongState",
+                "InvalidArgument",
+                "Unsupported",
+            ])),
+            (ident: "NoSuchChannel", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "read_transitions", docs: [
             "Edges of `channel` (an index into [CaptureConfig::channels]) from sample `from` on, up to [MAX_EDGES]",
             "edges or a full reply; [TransitionsChunk::scanned_to] says where the next call starts.",
-            "",
-            "# Errors",
-            "",
-            "[LaError::WrongMode] (no finished capture), [LaError::InvalidArgument] (outside the capture),",
-            "[LaError::NoSuchChannel], [LaError::Unsupported] (the device doesn\'t give transitions).",
+            "`WrongState`: no finished capture; `InvalidArgument`: outside the capture; `Unsupported`: the device doesn\'t",
+            "give transitions.",
         ], optional: None),
         (id: 6, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "abort", docs: [
             "Stops an armed or running capture and drops its data.",
@@ -506,18 +512,18 @@
         "new one. Every chunk carries its own sample range, and the stream is counted: the host knows exactly which chunks",
         "the device dropped, and each chunk may carry the device time of its first sample in the event head.",
     ], crate_idx: 0, trait_name: "LogicStream", items: [
-        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 27), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 25)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 26), err_ty: OutOfLine(type_idx: 18)))), multiplicity: Flat, since: None, ident: "data", docs: [
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 28), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 26)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 27), err_ty: OutOfLine(type_idx: 19)))), multiplicity: Flat, since: None, ident: "data", docs: [
             "Captured data in `config`\'s encoding: raw chunks, or transition chunks of each channel as they fill. Opening",
             "returns what was actually set. Unit: chunk.",
             "",
             "# Errors",
             "",
-            "[LaError::NoSuchChannel], [LaError::InvalidArgument] (rate, channel count or threshold out of range),",
-            "[LaError::Unsupported] (encoding), [LaError::Busy] (a capture runs), [LaError::InUse], [LaError::NoIoLevel].",
+            "`NoSuchChannel`, `Common(InvalidArgument)` (rate, channel count or threshold out of range),",
+            "`Common(Unsupported)` (encoding), `Common(Busy)` (a capture runs), `Common(InUse)`, `Common(NoPower)`.",
         ], optional: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 28)), errors: None), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 29)), errors: None), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
             "Rates, channels and encodings of streaming.",
         ], optional: None),
     ]), crate_idx: 0),
@@ -525,5 +531,6 @@
     (crate_id: "ww_logic_analyzer", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_i2c", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_gpio", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

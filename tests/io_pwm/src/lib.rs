@@ -9,7 +9,7 @@ mod tests {
     use wire_weaver_client::StreamEvent;
     use ww_pwm::{
         CaptureConfig, CaptureMode, CaptureSample, CaptureValue, Hertz, PwmActual, PwmCapabilities,
-        PwmChannelInfo, PwmError, PwmOutput, PwmState, Second,
+        PwmChannelInfo, PwmError, PwmErrorOwned, PwmOutput, PwmState, Second,
     };
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
@@ -130,7 +130,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
                 output: PwmOutput,
-            ) -> RpcResult<Result<PwmActual, PwmError>> {
+            ) -> RpcResult<Result<PwmActual, PwmError<'_>>> {
                 let idx = index_chain[0].0 as usize;
                 let actual = PwmActual {
                     freq: output.freq,
@@ -145,7 +145,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
                 duty: u16,
-            ) -> RpcResult<Result<u16, PwmError>> {
+            ) -> RpcResult<Result<u16, PwmError<'_>>> {
                 let idx = index_chain[0].0 as usize;
                 let mut m = self.m.lock().unwrap();
                 match &mut m.channels[idx] {
@@ -153,7 +153,10 @@ mod tests {
                         actual.duty = duty;
                         Ready(Ok(duty))
                     }
-                    None => Ready(Err(PwmError::WrongMode)),
+                    None => Ready(Err(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into())),
                 }
             }
 
@@ -162,7 +165,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
                 _idle_high: bool,
-            ) -> RpcResult<Result<(), PwmError>> {
+            ) -> RpcResult<Result<(), PwmError<'_>>> {
                 let idx = index_chain[0].0 as usize;
                 self.m.lock().unwrap().channels[idx] = None;
                 Ready(Ok(()))
@@ -190,9 +193,14 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
                 config: CaptureConfig,
-            ) -> RpcResult<Result<CaptureConfig, PwmError>> {
+                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
+            ) -> RpcResult<Result<CaptureConfig, PwmError<'static>>> {
                 if config.mode == CaptureMode::Off {
-                    return Ready(Err(PwmError::InvalidArgument));
+                    return Ready(Err(CommonError::InvalidArgument {
+                        arg: 0,
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into()));
                 }
                 let idx = index_chain[0].0 as usize;
                 self.m.lock().unwrap().streaming[idx] = Some(config);
@@ -220,7 +228,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
                 config: CaptureConfig,
-            ) -> RpcResult<Result<CaptureConfig, PwmError>> {
+            ) -> RpcResult<Result<CaptureConfig, PwmError<'_>>> {
                 let idx = index_chain[0].0 as usize;
                 self.m.lock().unwrap().capture_config[idx] = Some(config);
                 Ready(Ok(config))
@@ -230,11 +238,14 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
-            ) -> RpcResult<Result<CaptureSample, PwmError>> {
+            ) -> RpcResult<Result<CaptureSample, PwmError<'_>>> {
                 let idx = index_chain[0].0 as usize;
                 match self.m.lock().unwrap().capture_sample[idx] {
                     Some(sample) => Ready(Ok(sample)),
-                    None => Ready(Err(PwmError::WrongMode)),
+                    None => Ready(Err(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into())),
                 }
             }
         }
@@ -374,7 +385,10 @@ mod tests {
         let pwm = client.pwm();
         let mut channel = pwm.channel(1);
         let err = channel.set_duty(100).call().await;
-        assert_eq!(err.unwrap_err().device(), Some(&PwmError::WrongMode));
+        assert!(matches!(
+            err.unwrap_err().device(),
+            Some(PwmErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+        ));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -399,7 +413,10 @@ mod tests {
 
         // no measurement taken yet
         let err = channel.read_capture().call().await;
-        assert_eq!(err.unwrap_err().device(), Some(&PwmError::WrongMode));
+        assert!(matches!(
+            err.unwrap_err().device(),
+            Some(PwmErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+        ));
 
         // the device "measures" something; nothing here models real hardware, so the test sets it directly
         let sample = CaptureSample {
@@ -437,7 +454,16 @@ mod tests {
             .call()
             .await
             .unwrap();
-        assert!(matches!(r, Err(PwmError::InvalidArgument)), "{:?}", r.err());
+        assert!(
+            matches!(
+                r,
+                Err(PwmErrorOwned::Common(
+                    CommonErrorOwned::InvalidArgument { .. }
+                ))
+            ),
+            "{:?}",
+            r.err()
+        );
 
         let (actual, mut stream) = channel
             .capture(config(CaptureMode::DutyCycle))

@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- `Error::Gpio` holds `ww_gpio::GpioErrorOwned` (the `CommonError`-based error of `ww_gpio`, STD-16) instead of
+  `ww_gpio::Error`; `FlexPromise::set_mode_promise()` returns `&Promise<(), CallError<GpioErrorOwned>>`.
 - `BankBlocking::reference_voltage` / `set_reference_voltage` are `io_level` / `set_io_level`, on `ww_gpio`'s
   `Bank::configure` (STD-13); both answer the level in effect, `None` on a bank without level control.
 - Calls of `ww_gpio` methods returning `Result` take one `?` (CLT-24): `Error` converts from

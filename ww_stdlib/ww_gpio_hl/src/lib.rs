@@ -8,8 +8,8 @@ pub use ww_gpio;
 pub enum Error {
     #[error("client error: '{:?}'", .0)]
     Client(#[from] wire_weaver_client::Error),
-    #[error("ww_gpio error: '{:?}'", .0)]
-    Gpio(ww_gpio::Error),
+    #[error("ww_gpio: {0}")]
+    Gpio(ww_gpio::GpioErrorOwned),
     #[error("'{resource}' is not implemented by the device")]
     Unimplemented { resource: String },
     #[error(transparent)]
@@ -22,14 +22,14 @@ pub enum Error {
     Internal(String),
 }
 
-impl From<ww_gpio::Error> for Error {
-    fn from(e: ww_gpio::Error) -> Self {
+impl From<ww_gpio::GpioErrorOwned> for Error {
+    fn from(e: ww_gpio::GpioErrorOwned) -> Self {
         Error::Gpio(e)
     }
 }
 
-impl From<wire_weaver_client::CallError<ww_gpio::Error>> for Error {
-    fn from(e: wire_weaver_client::CallError<ww_gpio::Error>) -> Self {
+impl From<wire_weaver_client::CallError<ww_gpio::GpioErrorOwned>> for Error {
+    fn from(e: wire_weaver_client::CallError<ww_gpio::GpioErrorOwned>) -> Self {
         use wire_weaver_client::CallError;
         match e {
             CallError::Device(e) => Error::Gpio(e),

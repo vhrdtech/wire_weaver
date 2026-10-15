@@ -27,49 +27,28 @@
             "Indices of device-specific sources to report as `IoPinEvent::Custom`.",
         ]),
     ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
+        122,
+        139,
+        242,
+        75,
+        84,
+        91,
+        80,
+        174,
+    ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "GPIO error",
-    ], ident: "Error", variants: [
+        "Errors of `Bank` and `Pin`: the common ones first (unsupported mode, pull, speed, event or IO level; in use; no",
+        "power; refused), then what is specific to GPIO. Each method lists the variants it returns.",
+    ], ident: "GpioError", variants: [
         (docs: [
-            "`Pin::set_mode` was called with a `Mode` this pin doesn\'t support.",
-        ], ident: "UnsupportedMode", fields: Unit, discriminant: 0, since: None),
+            "{0}",
+        ], ident: "Common", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+        ]), discriminant: 0, since: None),
         (docs: [
-            "`Pin::pull` was set to a `Pull` this pin doesn\'t support.",
-        ], ident: "UnsupportedPull", fields: Unit, discriminant: 1, since: None),
-        (docs: [
-            "`Pin::speed` was set to a `Speed` this pin doesn\'t support.",
-        ], ident: "UnsupportedSpeed", fields: Unit, discriminant: 2, since: None),
-        (docs: [
-            "`Pin::event` was opened with an edge or custom source this pin can\'t generate.",
-        ], ident: "UnsupportedEventType", fields: Unit, discriminant: 3, since: None),
-        (docs: [
-            "`Bank::configure` asked for an IO level this bank can\'t drive.",
-        ], ident: "UnsupportedReferenceVoltage", fields: Unit, discriminant: 4, since: None),
-        (docs: [
-            "Pins of a bank were requested to use different modes when only one mode at a time is supported.",
-        ], ident: "DifferentModes", fields: Unit, discriminant: 5, since: None),
-        (docs: [
-            "The method or property exists on the device but isn\'t implemented yet.",
-        ], ident: "NotImplemented", fields: Unit, discriminant: 6, since: None),
-        (docs: [
-            "Device-specific error code, 8-bit.",
-        ], ident: "CustomU8", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        ]), discriminant: 7, since: None),
-        (docs: [
-            "Device-specific error code, 32-bit.",
-        ], ident: "CustomU32", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
-        ]), discriminant: 8, since: None),
-        (docs: [
-            "The pin serves another function.",
-        ], ident: "InUse", fields: Unit, discriminant: 9, since: None),
-        (docs: [
-            "The level translators have no supply (IO level off).",
-        ], ident: "NoIoLevel", fields: Unit, discriminant: 10, since: None),
-        (docs: [
-            "A safety rule of the device doesn\'t allow it.",
-        ], ident: "Refused", fields: Unit, discriminant: 11, since: None),
+            "The pins of this bank share one mode, and another pin is in a different one.",
+        ], ident: "DifferentModes", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "IO pin asynchronous event (interrupt reason), sent on the `Pin::event` stream; when it happened is in the event\'s",
@@ -149,13 +128,13 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What one pin can do, see `Pin::capabilities`.",
     ], ident: "PinCapabilities", fields: Named([
-        (ident: Some("modes"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 4))), docs: [
+        (ident: Some("modes"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 5))), docs: [
             "Modes the pin can be switched to with `Pin::set_mode`.",
         ]),
-        (ident: Some("pulls"), default: None, since: None, ty: MaxLen(max_len: 4, ty: Vec(OutOfLine(type_idx: 5))), docs: [
+        (ident: Some("pulls"), default: None, since: None, ty: MaxLen(max_len: 4, ty: Vec(OutOfLine(type_idx: 6))), docs: [
             "Pull configurations the pin\'s `pull` property accepts.",
         ]),
-        (ident: Some("speeds"), default: None, since: None, ty: MaxLen(max_len: 5, ty: Vec(OutOfLine(type_idx: 6))), docs: [
+        (ident: Some("speeds"), default: None, since: None, ty: MaxLen(max_len: 5, ty: Vec(OutOfLine(type_idx: 7))), docs: [
             "Drive strengths the pin\'s `speed` property accepts.",
         ]),
         (ident: Some("events"), default: None, since: None, ty: Bool, docs: [
@@ -165,7 +144,7 @@
             "Name printed on the board or in the datasheet: \"IO4\", \"PB5\".",
         ]),
     ]))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "Volt", signature: [
         4,
         154,
         42,
@@ -178,14 +157,14 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "GPIO bank capabilities: supported IO levels, modes, custom modes, etc.",
     ], ident: "BankCapabilities", fields: Named([
-        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 8))), docs: [
+        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 9))), docs: [
             "Discrete IO levels [BankConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the bank has no",
             "level control.",
         ]),
-        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 8)), docs: [
+        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
             "Lowest IO level of an adjustable supply, if the bank has one.",
         ]),
-        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 8)), docs: [
+        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
             "Highest IO level of an adjustable supply, if the bank has one.",
         ]),
         (ident: Some("push_pull"), default: None, since: None, ty: Bool, docs: [
@@ -214,7 +193,7 @@
         "Everything a bank is configured with, see `Bank::configure`: what is asked for going in, what was actually set",
         "coming back.",
     ], ident: "BankConfig", fields: Named([
-        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 8)), docs: [
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
             "IO level of every pin of the bank, on hardware with level translators ([BankCapabilities::io_levels]); `None`",
             "leaves it as it is going in (the only choice on a bank without them), and is the answer of such a bank.",
         ]),
@@ -246,42 +225,49 @@
             "Note that when a pin is configured as output, input buffer might be disabled, resulting in incorrect input level reported.",
             "If this is the case, current output level must be returned.",
         ], optional: None),
-        (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 3), delivery: Counted, args: [
+        (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 4), delivery: Counted, args: [
             (ident: "enabled", ty: OutOfLine(type_idx: 1)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2)))), multiplicity: Flat, since: None, ident: "event", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "event", docs: [
             "7. Edges (and device-specific sources) of this pin, as they happen: opening the stream enables the sources",
             "in `enabled`, closing it disables them. A counted stream, unit: event; each event may carry the device time",
             "it happened at, and the host learns exactly how many events the device dropped.",
             "",
             "# Errors",
-            "`Error::UnsupportedEventType` if a requested source (edge or custom) isn\'t available on this pin.",
+            "`Common(Unsupported)` if a requested source (edge or custom) isn\'t available on this pin.",
         ], optional: None),
         (id: 8, kind: Method(args: [
-            (ident: "mode", ty: OutOfLine(type_idx: 4)),
+            (ident: "mode", ty: OutOfLine(type_idx: 5)),
             (ident: "initial", ty: Option(some_ty: OutOfLine(type_idx: 0))),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2))), errors: None), multiplicity: Flat, since: None, ident: "set_mode", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Unsupported",
+                "InUse",
+                "NoPower",
+                "Refused",
+            ])),
+            (ident: "DifferentModes", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "set_mode", docs: [
             "Mode configuration, input, high-z, push-pull, open-drain or custom.",
             "Optionally set the initial level before changing pin mode.",
-            "",
-            "# Errors",
-            "`Error::UnsupportedMode` if the pin can\'t be switched to the requested mode.",
+            "`Unsupported` if the pin can\'t be switched to the requested mode, `DifferentModes` if the bank\'s pins share one",
+            "mode and this one differs.",
         ], optional: None),
-        (id: 9, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4)), errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
+        (id: 9, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
             "Get current mode.",
         ], optional: None),
-        (id: 10, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "pull", docs: [
+        (id: 10, kind: Property(ty: OutOfLine(type_idx: 6), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "pull", docs: [
             "Pull resistors selection.",
             "",
             "# Errors",
-            "`Error::UnsupportedPull` if the pin doesn\'t support the requested pull (`set` only).",
+            "`Common(Unsupported)` if the pin doesn\'t support the requested pull (`set` only).",
         ], optional: None),
-        (id: 11, kind: Property(ty: OutOfLine(type_idx: 6), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "speed", docs: [
+        (id: 11, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "speed", docs: [
             "Drive strength selection.",
             "",
             "# Errors",
-            "`Error::UnsupportedSpeed` if the pin doesn\'t support the requested drive strength (`set` only).",
+            "`Common(Unsupported)` if the pin doesn\'t support the requested drive strength (`set` only).",
         ], optional: None),
-        (id: 12, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 12, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What this pin can do: modes, pulls, speeds, whether it sends events, and its name.",
         ], optional: None),
     ]), crate_idx: 0),
@@ -295,17 +281,20 @@
             "* Range - useful when a device has sequentially marked IOs (e.g., IO expander)",
             "* List - when exposing some pins of an MCU, (e.g., PB1 and PB5, having indices 1 and 5 is less confusing than 0 and 1)",
         ], optional: None),
-        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 9)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Capabilities that each pin of the bank supports.",
         ], optional: None),
         (id: 9, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 10)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 10), err_ty: OutOfLine(type_idx: 2))), errors: None), multiplicity: Flat, since: None, ident: "configure", docs: [
+            (ident: "config", ty: OutOfLine(type_idx: 11)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 3))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Unsupported",
+                "Refused",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "configure", docs: [
             "Configures what the pins of the bank share and returns what was actually set: the IO level in effect.",
-            "",
-            "# Errors",
-            "`Error::UnsupportedReferenceVoltage` if the bank\'s hardware can\'t drive the requested level, `Error::Refused`",
-            "when a safety rule of the device doesn\'t allow it.",
+            "`Unsupported` for an IO level the bank\'s hardware can\'t drive, `Refused` when a safety rule of the device",
+            "doesn\'t allow it.",
         ], optional: None),
         (id: 10, kind: Method(args: [], return_ty: Some(String), errors: None), multiplicity: Flat, since: None, ident: "name", docs: [
             "User-friendly bank name, e.g. `\"PA\"`.",
@@ -313,5 +302,6 @@
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_gpio", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

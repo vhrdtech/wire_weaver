@@ -55,13 +55,16 @@ control), and the capabilities list what it can be set to in the same three fiel
 generator channels sit on pins of a GPIO bank or bus and use its level; the logic analyzer sets its own input
 threshold per capture.
 
-**Common error variants.** Each crate defines its own plain error enum (`ww_gpio::Error`, `ww_uart::Error`,
-`ww_i2c::I2cError`, `ww_spi::Error`, `ww_adc::AdcError`, `ww_pwm::PwmError`, `ww_onewire::OneWireError`,
-`ww_timebase::ClockError`, `ww_logic_analyzer::LaError`, `ww_signal_generator::PgError` / `WgError`), but every one
-of them carries the same handful of variants for the same situations: `Unsupported` (this device doesn't have the
-feature asked for), `InUse` (the pins or peripheral already serve another function), `NoIoLevel` (the level
-translators or output buffers have no supply), `Refused` (a safety rule of the device declines the request). Each
-method's rustdoc lists under `# Errors` which variants it can return.
+**Common errors.** Each crate has its own error enum (`ww_gpio::GpioError`, `ww_uart::UartError`,
+`ww_i2c::I2cError`, `ww_spi::SpiError`, `ww_adc::AdcError`, `ww_pwm::PwmError`, `ww_onewire::OneWireError`,
+`ww_timebase::ClockError`, `ww_logic_analyzer::LaError`, `ww_signal_generator::PgError` / `WgError`), and every one
+of them starts with [`ww_error::CommonError`](../api/errors.md#common-errors) as its `#[common] Common` variant for
+the situations every device shares: `Unsupported` (this device doesn't have the mode, level or feature asked for),
+`InvalidArgument`, `InUse` (the pins or peripheral already serve another function), `Busy`, `WrongState`,
+`NoPower` (the level translators or output buffers have no supply), `Refused` (a safety rule of the device declines
+the request), `Timeout`. Only what a caller acts on specifically stays crate-specific: `Nack` and `Arbitration` for
+I2C, `NoPresence` for 1-Wire, `NoSuchChannel`, `SharedTimer`. Host code handles the common part of any of them the
+same way (`e.common()`), and each method lists the variants it can return with `#[errors(..)]`.
 
 **Typed values through `ww_si`.** Voltages, frequencies, baud rates and durations are `ww_si` quantities (`Volt`,
 `Hertz`, `Baud`, `Second`), never a bare integer with an implied unit. The device reports in whatever storage and prefix are

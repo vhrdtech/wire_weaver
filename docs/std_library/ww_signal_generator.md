@@ -114,8 +114,8 @@ faster than it plays, a `once` table is a streamed DAC output. Table codes are r
 * `PgActual` - `rate: Hertz`, `width: u8` (the raw word width the generator expects).
 * `PgStatus` - `Idle`, `Loading { samples: u32 }`, `Ready`, `Running { repeat: u32, t_start: Second }`, `Done {
   t_start: Second }`, `Underrun`; `sized` (`unib32` discriminant).
-* `PgError` - `Unsupported`, `InUse`, `NoIoLevel`, `Refused`, `InvalidArgument`, `WrongMode`, `NoSuchChannel`,
-  `Busy`; `self_describing` (`unib32` discriminant), shared by `PatternGenerator`.
+* `PgError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `NoSuchChannel`; unsized
+  (`unib32` discriminant), evolvable, used by `PatternGenerator`.
 * `WgCapabilities<'i>` - `channels: MaxLen<RefVec<'i, WgChannelInfo<'i>>, MAX_CHANNELS>`.
 * `WgChannelInfo<'i>` - `name`, `min` / `max: Volt`, `max_freq: Hertz`, `max_sample_rate: Hertz`, `bits: u8`,
   `table_len: u32`, `code_to_volt: Linear`, `formats: MaxLen<RefVec<'i, SampleFormat>, MAX_FORMATS>`.
@@ -126,8 +126,8 @@ faster than it plays, a `once` table is a streamed DAC output. Table codes are r
 * `WaveformActual` - `freq: Hertz`, `amplitude: Volt`, `offset: Volt`.
 * `WaveformState` - `Stopped { level: Volt }`, `Held { waveform: Waveform }`, `Running { waveform: Waveform, actual:
   WaveformActual }`; `sized` (`unib32` discriminant).
-* `WgError` - `Unsupported`, `InUse`, `NoIoLevel`, `Refused`, `InvalidArgument`, `WrongMode`, `NoSuchChannel`;
-  `self_describing` (`unib32` discriminant), shared by `WaveformGenerator` and `WaveformChannel`.
+* `WgError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `NoSuchChannel`; unsized
+  (`unib32` discriminant), evolvable, shared by `WaveformGenerator` and `WaveformChannel`.
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")` and
 `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`, so owned (`*Owned`) variants and `defmt::Format` are

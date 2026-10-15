@@ -633,18 +633,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `MAX_PIECE_LEN`, `MAX_HEADER_LEN`, `MAX_CHUNKS_PAGE`, `MAX_PRODUCT_LEN`), so every method has a known largest
   request and reply. `Profile::AB(SlotSwitch::{Copy, Remap})` / `InPlace`. Next: a chunky implementation (chunky
   NET-1).
-- 🚧 **STD-13 IO trait family** · `v0.5` — `ww_gpio`, `ww_uart` (+ `UartMonitor`), `ww_i2c` (+ `I2cWatch`,
-  `I2cMonitor`, 10-bit addresses), `ww_spi` (+ `SpiMonitor`), `ww_adc` (STD-18), `ww_pwm` (STD-19), `ww_onewire`
-  (STD-20), `ww_timebase` (STD-17), `ww_logic_analyzer` / `ww_signal_generator` (STD-21, STD-22); `ww_si` values
-  and timestamps (STD-23), plain error enums with `InUse` / `NoIoLevel` / `Refused` / `Unsupported`. Family overview
-  in `docs/std_library/io_family.md`; every crate filled in with full rustdoc, a mock-server test pair
-  `tests/io_<x>` and a docs page `docs/std_library/ww_<x>.md`; `examples_mcu` GPIO and UART boards follow.
-  Streams with a configuration are counted stream functions (API-31: `AdcStream::samples`, `LogicStream::data`,
-  `Pin::event`, `PwmCaptureChannel::capture`, `SpiMonitor::frames`, `I2cMonitor::records`, `UartMonitor::lines`),
-  `Uart::rx` and `I2cWatch::changes` are counted: positions, device losses and timestamps in the event head.
-  Clients take one `?` per call (CLT-24 `CallError`), `Unsized` enums read newer variants as `Unknown(u32)`
-  (SW-47). Open: the error enums are `self_describing` and not yet on `ww_error::CommonError` (STD-16), so a newer
-  error variant doesn't decode on an older host; `*_hl` crates are STD-14.
+- 🚧 **STD-13 IO trait family** · `v0.5` — `ww_gpio`, `ww_uart` (optional `Uart::monitor`), `ww_i2c` (+ `I2cWatch`,
+  `I2cMonitor`, 10-bit addresses), `ww_spi` (optional `Spi::monitor`), `ww_adc` (STD-18), `ww_pwm` (STD-19),
+  `ww_onewire` (STD-20), `ww_timebase` (STD-17), `ww_logic_analyzer` / `ww_signal_generator` (STD-21, STD-22);
+  `ww_si` values and timestamps (STD-23): frequencies `Hertz`, baud rates `Baud`. Family overview in
+  `docs/std_library/io_family.md`; every crate filled in with full rustdoc, a mock-server test pair `tests/io_<x>`
+  and a docs page `docs/std_library/ww_<x>.md`; `examples_mcu` GPIO and UART boards follow. A bus or bank is
+  configured with one `configure(XConfig)` answering what was actually set, the IO level inside it
+  (`io_level: Option<Volt>`, capabilities `io_levels` / `io_level_min` / `io_level_max`). Every crate's error enum
+  starts with `#[common] Common(CommonError)` (STD-16) and keeps only what is specific (`Nack`, `NoPresence`,
+  `NoSuchChannel`, ...), methods list their variants with `#[errors(..)]` (API-32). Streams with a configuration are
+  counted stream functions (API-31: `AdcStream::samples`, `LogicStream::data`, `Pin::event`,
+  `PwmCaptureChannel::capture`, `Spi::monitor`, `I2cMonitor::records`, `Uart::monitor`), `Uart::rx` and
+  `I2cWatch::changes` are counted: positions, device losses and the time of the first unit in the event head; UART
+  chunks also carry the time of their last byte (`RxChunk::end`). Clients take one `?` per call (CLT-24
+  `CallError`), `Unsized` enums read newer variants as `Unknown(u32)` (SW-47). Review round 1 (15 Oct 2026) done.
+  Open: stream-function handlers return their error as `'static` until API-35; `*_hl` crates are STD-14.
 - 🚧 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
   `Raw` and per-channel `Transitions` encodings (SW-31 `DeltaOfDelta`), staged pattern triggers and protocol
   stages (UART byte, I2C address, SPI first byte). Skeleton written, transitions as `DeltaOfDelta` (SW-50), docs

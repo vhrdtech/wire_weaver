@@ -49,7 +49,7 @@ pub trait PwmChannel {
   ([`PwmChannelInfo::group`](#types)) share its frequency: setting a different frequency on another channel of the
   same group fails with `PwmError::SharedTimer`.
 * `set_duty` - changes only the duty, keeping the frequency, and returns the duty actually set. Fails with
-  `PwmError::WrongMode` if the channel is currently idle.
+  `Common(WrongState)` if the channel is currently idle.
 * `stop` - stops the output, leaving the pin high or low.
 * `state` - the channel's current output, or `PwmState::Idle`.
 
@@ -80,7 +80,7 @@ pub trait PwmCaptureChannel {
   ([stream delivery](../api/stream_reliability.md)).
 * `set_capture` - picks what to measure and the window without a stream, for polling with `read_capture`, and
   returns what was actually set.
-* `read_capture` - the last measurement, without waiting on the stream. Fails with `PwmError::WrongMode` before the
+* `read_capture` - the last measurement, without waiting on the stream. Fails with `Common(WrongState)` before the
   first measurement completes.
 
 ## Types
@@ -99,9 +99,8 @@ pub trait PwmCaptureChannel {
 * `CaptureSample` - `t: Second` (end of the window), `value: CaptureValue`.
 * `CaptureValue` - `Frequency(Hertz)`, `DutyCycle(u16)`, `PulseWidth(Second)`, `EdgeCount(u32)`; the variant always
   matches `CaptureConfig::mode`. `unib32` discriminant.
-* `PwmError` - `Unsupported`, `InUse`, `NoIoLevel`, `Refused`, `InvalidArgument`, `WrongMode`, `SharedTimer`; unsized
-  (`unib32` discriminant, `self_describing`), evolvable. Error evolution (per-method lists, errors carrying a
-  reason) is still open for `ww_stdlib`; until then this enum stays plain.
+* `PwmError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `SharedTimer`; unsized
+  (`unib32` discriminant), evolvable. Each method lists the variants it returns (`#[errors]`).
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")` and
 `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`, so owned (`*Owned`) variants and `defmt::Format` are

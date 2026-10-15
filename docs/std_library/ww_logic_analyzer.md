@@ -48,8 +48,8 @@ pub trait LogicAnalyzer {
 * `rearm` - arms again with the last configuration, for repeated captures of the same event without resending it.
 * `status` - `Idle`, `Armed`, `Triggered { t }`, or `Done { t_first, trigger_at, samples }` once the data is ready
   — a host polls this until `Done`.
-* `read_raw` - samples of a sample range as raw words, at most `MAX_READ_LEN` bytes (`LaError::WrongMode` before a
-  capture is done, `LaError::InvalidArgument` outside it, `LaError::Unsupported` if the device only keeps
+* `read_raw` - samples of a sample range as raw words, at most `MAX_READ_LEN` bytes (`Common(WrongState)` before a
+  capture is done, `Common(InvalidArgument)` outside it, `Common(Unsupported)` if the device only keeps
   transitions).
 * `read_transitions` - edges of one channel from a sample index on, up to `MAX_EDGES` or a full reply;
   `TransitionsChunk::scanned_to` says where the next call starts (same error set, plus `LaError::NoSuchChannel`).
@@ -161,9 +161,9 @@ shared time base for anything less exact than a sample.
   `threshold: Option<Volt>`.
 * `StreamActual` - `rate: Hertz`, `layout: RawLayout`.
 * `Trigger<'i>`, `TriggerStage<'i>`, `ChannelCondition`, `Condition`, `Edge` - see [Triggers](#triggers).
-* `LaError` - `Unsupported`, `InUse`, `NoIoLevel`, `Refused`, `InvalidArgument`, `WrongMode`, `NoSuchChannel`,
-  `Busy` (a stream runs while a capture is asked for, or the other way round, on devices that share one sampler);
-  `self_describing` (`unib32` discriminant), shared by both traits.
+* `LaError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)) (`Busy`: a stream runs while a
+  capture is asked for, or the other way round, on devices that share one sampler), `NoSuchChannel`; unsized (`unib32`
+  discriminant), evolvable, shared by both traits.
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")` and
 `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`, so owned (`*Owned`) variants and `defmt::Format` are

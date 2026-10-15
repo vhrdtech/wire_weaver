@@ -2,6 +2,13 @@
 
 ### ⚠️ Breaking
 
+- `Error` is `UartError<'i>`, whose only variant so far is the `#[common] Common(CommonError<'i>)` (STD-16):
+  `Unsupported`, `InvalidArgument`, `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from
+  `ww_error::CommonError`; `UnsupportedMode`, `UnsupportedReferenceVoltage`, `WrongMode`, `CustomU8`, `CustomU32`,
+  `NoIoLevel` are gone. It is no longer `self_describing` (newer variants read as `Unknown(n)`), carries a lifetime
+  (`UartErrorOwned` on hosts), has `Display` from its doc lines, and every method lists its variants with
+  `#[errors(..)]`. Devices return `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`);
+  stream-function handlers return `UartError<'static>` for now (API-35).
 - Received chunks are always timestamped and say so in the API (STD-13): `RxChunk::end: Second` is when the last
   byte arrived, the event head's time (now always set) when the first one did, both on the device's one clock
   (`ww_timebase::Clock`). `Capabilities::rx_timestamps` is removed. Devices set `end` and pass the first byte's time

@@ -39,7 +39,8 @@
 //!
 //! # Errors
 //!
-//! Both traits return [LaError]; each method lists the variants it returns.
+//! Both traits return [LaError]: the framework's `CommonError` as [LaError::Common], plus `NoSuchChannel`. Each
+//! method lists the variants it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -76,41 +77,35 @@ pub trait LogicAnalyzer {
     /// Arms a capture, replacing the previous one and its data, and returns what was actually set. With
     /// [Trigger::Now] it starts at once; otherwise it samples `pre_trigger` samples continuously and keeps them,
     /// waits for the trigger, then takes the rest.
-    ///
-    /// # Errors
-    ///
-    /// [LaError::NoSuchChannel], [LaError::InvalidArgument] (rate, depth, threshold or trigger out of range),
-    /// [LaError::Unsupported] (a trigger stage or condition), [LaError::Busy] (a stream runs), [LaError::InUse],
-    /// [LaError::NoIoLevel].
-    fn capture(config: CaptureConfig<'i>) -> Result<CaptureActual, LaError>;
+    /// `InvalidArgument`: rate, depth, threshold or trigger out of range; `Unsupported`: a trigger stage or condition;
+    /// `Busy`: a stream runs.
+    #[errors(
+        Common(InvalidArgument, Unsupported, Busy, InUse, NoPower),
+        NoSuchChannel
+    )]
+    fn capture(config: CaptureConfig<'i>) -> Result<CaptureActual, LaError<'i>>;
 
     /// Arms again with the configuration of the last `capture`, for repeated captures of the same event.
-    ///
-    /// # Errors
-    ///
-    /// [LaError::WrongMode] (nothing was configured yet), and those of `capture`.
-    fn rearm() -> Result<CaptureActual, LaError>;
+    /// `WrongState`: nothing was configured yet.
+    #[errors(Common(WrongState))]
+    fn rearm() -> Result<CaptureActual, LaError<'i>>;
 
     /// Where the capture stands.
     fn status() -> CaptureStatus;
 
     /// Samples of `range` of a finished capture as raw words, at most [MAX_READ_LEN] bytes: the chunk may hold
     /// fewer samples than asked, a whole number of words.
-    ///
-    /// # Errors
-    ///
-    /// [LaError::WrongMode] (no finished capture), [LaError::InvalidArgument] (outside the capture),
-    /// [LaError::Unsupported] (the device doesn't give raw words).
-    fn read_raw(range: SampleRange) -> Result<RawChunk<'i>, LaError>;
+    /// `WrongState`: no finished capture; `InvalidArgument`: outside the capture; `Unsupported`: the device doesn't
+    /// give raw words.
+    #[errors(Common(WrongState, InvalidArgument, Unsupported))]
+    fn read_raw(range: SampleRange) -> Result<RawChunk<'i>, LaError<'i>>;
 
     /// Edges of `channel` (an index into [CaptureConfig::channels]) from sample `from` on, up to [MAX_EDGES]
     /// edges or a full reply; [TransitionsChunk::scanned_to] says where the next call starts.
-    ///
-    /// # Errors
-    ///
-    /// [LaError::WrongMode] (no finished capture), [LaError::InvalidArgument] (outside the capture),
-    /// [LaError::NoSuchChannel], [LaError::Unsupported] (the device doesn't give transitions).
-    fn read_transitions(channel: u8, from: u32) -> Result<TransitionsChunk<'i>, LaError>;
+    /// `WrongState`: no finished capture; `InvalidArgument`: outside the capture; `Unsupported`: the device doesn't
+    /// give transitions.
+    #[errors(Common(WrongState, InvalidArgument, Unsupported), NoSuchChannel)]
+    fn read_transitions(channel: u8, from: u32) -> Result<TransitionsChunk<'i>, LaError<'i>>;
 
     /// Stops an armed or running capture and drops its data.
     fn abort();
@@ -128,10 +123,10 @@ pub trait LogicStream {
     ///
     /// # Errors
     ///
-    /// [LaError::NoSuchChannel], [LaError::InvalidArgument] (rate, channel count or threshold out of range),
-    /// [LaError::Unsupported] (encoding), [LaError::Busy] (a capture runs), [LaError::InUse], [LaError::NoIoLevel].
+    /// `NoSuchChannel`, `Common(InvalidArgument)` (rate, channel count or threshold out of range),
+    /// `Common(Unsupported)` (encoding), `Common(Busy)` (a capture runs), `Common(InUse)`, `Common(NoPower)`.
     #[stream(StreamChunk<'i>, counted)]
-    fn data(config: StreamConfig<'i>) -> Result<StreamActual, LaError>;
+    fn data(config: StreamConfig<'i>) -> Result<StreamActual, LaError<'i>>;
 
     /// Rates, channels and encodings of streaming.
     fn stream_capabilities() -> StreamCapabilities<'i>;
@@ -508,33 +503,19 @@ pub struct StreamActual {
     pub layout: RawLayout,
 }
 
-/// Errors of both traits in this crate. Each method lists the variants it returns.
-///
-/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is
-/// still open for `ww_stdlib`; until then this enum stays plain.
+/// Errors of both traits in this crate: the common ones first, then `NoSuchChannel`. Each method lists the variants
+/// it returns.
 #[derive_shrink_wrap(
-    borrowed,
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Copy, Clone),
-    self_describing,
-    ww_repr = unib32
+    derive(Debug, PartialEq, Eq, Clone),
+    ww_repr = unib32,
+    display
 )]
-pub enum LaError {
-    /// Not supported by this device (an encoding, a trigger stage).
-    Unsupported,
-    /// The pins serve another function in a way sampling can't share (a threshold, a pull).
-    InUse,
-    /// The input buffers or translators have no supply.
-    NoIoLevel,
-    /// A safety rule of the device doesn't allow it.
-    Refused,
-    /// An argument is out of range (rate, depth, range, threshold).
-    InvalidArgument,
-    /// The call needs another state (reading a capture that isn't done, `rearm` before any `capture`).
-    WrongMode,
+pub enum LaError<'i> {
+    /// {0}
+    #[common]
+    Common(CommonError<'i>),
     /// No channel with this index.
     NoSuchChannel,
-    /// The sampler is taken by a stream or a capture.
-    Busy,
 }

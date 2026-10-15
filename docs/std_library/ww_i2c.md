@@ -149,7 +149,7 @@ embedded-hal (`SevenBitAddress` / `TenBitAddress`): `I2cAddress::seven(0x50)`, `
 returning `None` above the respective range. It is bit-packed (SW-48, sub-byte fields): a 7-bit address takes
 **one byte** on the wire, exactly as a plain `u8` would, and a 10-bit one 11 bits (2 bytes) - `ww_i2c`'s own test
 suite checks both sizes against a real `to_ww_bytes()` call. An adapter without 10-bit support answers
-`I2cError::Unsupported` (see `I2cCapabilities::ten_bit_addresses`). `i2c_scan` still only returns 7-bit addresses (a
+`Common(Unsupported)` (see `I2cCapabilities::ten_bit_addresses`). `i2c_scan` still only returns 7-bit addresses (a
 10-bit scan is rarely useful and would need 1024 single-byte reads).
 
 ## Sizes
@@ -193,10 +193,9 @@ up with the device's other data.
   (index of the first byte not acknowledged, `Some(0)` = the address), `bytes` (without the address).
 * `I2cRecordKind` - `Complete`, `RepeatedStart` (the next record continues the transaction), `Truncated` (more than
   `MAX_RECORD_LEN` bytes), `BusError`.
-* `I2cError` - `UnsupportedMode`, `WrongMode`, `UnsupportedSpeed`, `OutOfCycleSlots`, `InvalidCycleSlot`,
-  `MalformedRequest`, `BufferTooBig`, `UnsupportedIoLevel`, `Bus`, `Arbitration`, `Nack`, `Timeout`, `Crc`,
-  `Overrun`, `ZeroLengthTransfer`, `InUse`, `NoIoLevel`, `Refused`, `Unsupported`; unsized (`unib32` discriminant),
-  plain for now (see [below](#errors)).
+* `I2cError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), then `Nack`, `Arbitration`,
+  `Bus`, `Crc`, `Overrun`, `BufferTooBig`, `OutOfWatchSlots`, `InvalidWatchSlot`; unsized (`unib32` discriminant),
+  evolvable, `Display` from the doc lines (see [below](#errors)).
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")` and
 `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`, so owned (`*Owned`) variants and `defmt::Format` are
@@ -204,9 +203,20 @@ available by enabling the crate's `std` / `defmt` features.
 
 ## Errors
 
-Both `I2c` and `I2cWatch` return `I2cError`; every method's rustdoc lists the variants it actually returns. How
-errors evolve (variants added in newer versions, per-method error lists, errors that carry a reason) is still open
-for `ww_stdlib`; until then `I2cError` stays a plain enum.
+Every trait returns `I2cError`: [`CommonError`](../api/errors.md#common-errors) as its `#[common] Common` variant
+(unsupported mode or IO level, invalid argument, in use, wrong state, no power, refused, timeout), then what is
+specific to I2C and a caller acts on: `Nack` (retry an EEPROM busy with a page write), `Arbitration`, `Bus`, `Crc`,
+`Overrun`, `BufferTooBig` (split the transfer), `OutOfWatchSlots`, `InvalidWatchSlot`. Each method lists the variants
+it returns with `#[errors(..)]`, shown in its rustdoc and checked on the client. The enum is unsized, so a newer
+device's variant reads as `Unknown(n)` on an older host instead of failing the call.
+
+```rust
+match dev.i2c().i2c_write(addr, data.clone(), None).call().await {
+    Err(CallError::Device(I2cErrorOwned::Nack)) => { /* not there, or busy */ }
+    Err(CallError::Device(e)) if e.common().is_some() => { /* the same handling as for any other crate */ }
+    r => { r?; }
+}
+```
 
 ## Composing into a device API, and testing (`tests/io_i2c`)
 
@@ -227,7 +237,7 @@ a tiny bus of addressable byte registers in a shared `Model`. The generated clie
 event loop end to end:
 
 * `i2c_write_read_roundtrip`, `i2c_nack_and_zero_length`, `i2c_scan_and_lines` - `I2c` write/read/scan/lines/pullups,
-  and the `Nack` / `ZeroLengthTransfer` error paths.
+  and the `Nack` / `Common(InvalidArgument)` (zero length) error paths.
 * `i2c_monitor_records_writes_and_reads` - opening `I2cMonitor::records` turns transactions into `I2cRecord`s on it.
 * `i2c_watch_always_reports_every_read`, `i2c_watch_changed_reports_only_on_change`,
   `i2c_watch_matches_reports_on_transition_only`, `i2c_watch_error_reported_once_then_recovery_always_reports`,

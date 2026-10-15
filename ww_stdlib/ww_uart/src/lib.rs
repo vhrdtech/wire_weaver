@@ -53,30 +53,23 @@ pub trait Uart {
     fn capabilities() -> Capabilities<'i>;
 
     /// Configures the port in one step and returns what was actually set: the baud rate the divider settled on
-    /// (the nearest it can do), and the IO level now in effect.
-    ///
-    /// # Errors
-    ///
-    /// [Error::Unsupported] (a baud rate outside [Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate], or
-    /// a mode, parity, bit count, back-feed detector or IO level this device doesn't have),
-    /// [Error::UnsupportedMode], [Error::UnsupportedReferenceVoltage], [Error::InUse], [Error::NoIoLevel],
-    /// [Error::Refused] (e.g. the line already sits at a higher voltage than `io_level`).
-    fn configure(config: UartConfig) -> Result<UartConfig, Error>;
+    /// (the nearest it can do), and the IO level now in effect. A baud rate outside
+    /// [Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate], or a mode, parity, bit count, back-feed detector
+    /// or IO level this device doesn't have is `Unsupported`; `Refused` when e.g. the line already sits at a higher
+    /// voltage than `io_level`.
+    #[errors(Common(Unsupported, InUse, NoPower, Refused))]
+    fn configure(config: UartConfig) -> Result<UartConfig, UartError<'i>>;
 
     /// Manually control pins, only in [Mode::Test].
     ///
-    /// # Errors
-    ///
-    /// [Error::WrongMode] (not in [Mode::Test]), [Error::InUse], [Error::NoIoLevel].
-    fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>;
+    /// `WrongState` in any other mode.
+    #[errors(Common(WrongState, InUse, NoPower))]
+    fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), UartError<'i>>;
 
     /// Holds TX low for `duration` (a break), after the bytes already queued.
-    ///
-    /// # Errors
-    ///
-    /// [Error::WrongMode] (e.g. currently in [Mode::HighZ] or [Mode::Test]), [Error::InUse], [Error::NoIoLevel],
-    /// [Error::Refused] (longer than this device allows).
-    fn send_break(duration: Second) -> Result<(), Error>;
+    /// `WrongState` in [Mode::HighZ] or [Mode::Test], `Refused` when longer than this device allows.
+    #[errors(Common(WrongState, InUse, NoPower, Refused))]
+    fn send_break(duration: Second) -> Result<(), UartError<'i>>;
 
     /// Bytes queued for sending and not sent yet.
     fn tx_pending() -> u32;
@@ -92,10 +85,11 @@ pub trait Uart {
     ///
     /// # Errors
     ///
-    /// [Error::Unsupported] (baud rate, mode or parity this monitor can't decode), [Error::InUse], [Error::NoIoLevel].
+    /// `Common(Unsupported)` (a baud rate, mode or parity this monitor can't decode), `Common(InUse)`,
+    /// `Common(NoPower)`.
     #[optional]
     #[stream(MonitorChunk<'i>, counted)]
-    fn monitor(config: MonitorConfig) -> Result<MonitorConfig, Error>;
+    fn monitor(config: MonitorConfig) -> Result<MonitorConfig, UartError<'i>>;
 }
 
 /// Received bytes, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the time in the event head,
@@ -261,31 +255,18 @@ pub enum DataBits {
     Five,
 }
 
-/// Errors returned by `Uart` methods; each method's doc lists the variants it returns.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug), ww_repr = u4)]
-pub enum Error {
-    /// This device doesn't have the feature asked for (e.g. a baud rate, mode, parity or bit count outside
-    /// [Capabilities]).
-    Unsupported,
-    /// The [Mode] asked for isn't supported.
-    UnsupportedMode,
-    /// The IO level asked for isn't one of [Capabilities::io_levels] or in their range.
-    UnsupportedReferenceVoltage,
-    /// The call needs a different [Mode] than the one currently set (e.g. `Uart::set_pin_level` outside
-    /// [Mode::Test]).
-    WrongMode,
-    /// A device-specific error, carried as a single byte.
-    CustomU8(u8),
-    /// A device-specific error, carried as four bytes.
-    CustomU32(u32),
-    /// The pins serve another function.
-    InUse,
-    /// The level translators have no supply (IO level off).
-    NoIoLevel,
-    /// A safety rule of the device doesn't allow it.
-    Refused,
-    /// The line stayed busy (e.g. CTS held off too long).
-    Timeout,
+/// Errors of `Uart`: the common ones (unsupported, in use, no power, refused, ...); each method lists the variants it
+/// returns. Line errors of received data are not errors of a call, they are [RxFlags] of the chunk.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Clone),
+    ww_repr = unib32,
+    display
+)]
+pub enum UartError<'i> {
+    /// {0}
+    #[common]
+    Common(CommonError<'i>),
 }
 
 /// What a `Uart` implementation supports, see `Uart::capabilities`.

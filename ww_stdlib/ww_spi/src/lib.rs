@@ -33,7 +33,8 @@
 //!
 //! # Errors
 //!
-//! Every method returns [SpiError]; each lists the variants it returns.
+//! Every method returns [SpiError]: the framework's `CommonError` as [SpiError::Common], plus `BufferTooBig`. Each
+//! method lists the variants it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -57,53 +58,40 @@ pub const MAX_IO_LEVELS: usize = 8;
 pub trait Spi {
     /// Full duplex: writes `data`, returns as many bytes as were read. CS is asserted for the call and released
     /// after, as [CsMode::Auto]; with [CsMode::Manual] the bus must already be selected (`Spi::set_cs`).
-    ///
-    /// # Errors
-    ///
-    /// [SpiError::WrongMode] (not configured as [SpiRole::Master]), [SpiError::BufferTooBig] (`data` longer than
-    /// [SPI_MAX] or this device's [SpiCapabilities::max_len]), [SpiError::NoIoLevel], [SpiError::Timeout].
+    /// `WrongState` while not configured as [SpiRole::Master], `BufferTooBig` for `data` longer than [SPI_MAX] or
+    /// this device's [SpiCapabilities::max_len].
+    #[errors(Common(WrongState, NoPower, Timeout), BufferTooBig)]
     fn transfer(
         data: MaxLen<RefVec<'i, u8>, SPI_MAX>,
-    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError>;
+    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError<'i>>;
 
     /// CS asserted for every op of `ops`, released at the end; returns the bytes of every [SpiOp::Read] and
     /// [SpiOp::Transfer], concatenated in order. [SpiOp::Delay] waits between two ops without touching the lines.
-    ///
-    /// # Errors
-    ///
-    /// As `Spi::transfer`; [SpiError::InvalidArgument] (more than [MAX_OPS] operations, or the reads together
-    /// exceed [SPI_MAX]).
+    /// Errors as `Spi::transfer`; `BufferTooBig` also when the reads together exceed [SPI_MAX], `Unsupported` for an
+    /// operation of a newer version.
+    #[errors(Common(Unsupported, WrongState, NoPower, Timeout), BufferTooBig)]
     fn transaction(
         ops: MaxLen<RefVec<'i, SpiOp<'i>>, MAX_OPS>,
-    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError>;
+    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError<'i>>;
 
-    /// Writes `data`, ignoring what comes back.
-    ///
-    /// # Errors
-    ///
-    /// As `Spi::transfer`.
-    fn write(data: MaxLen<RefVec<'i, u8>, SPI_MAX>) -> Result<(), SpiError>;
+    /// Writes `data`, ignoring what comes back. Errors as `Spi::transfer`.
+    #[errors(Common(WrongState, NoPower, Timeout), BufferTooBig)]
+    fn write(data: MaxLen<RefVec<'i, u8>, SPI_MAX>) -> Result<(), SpiError<'i>>;
 
     /// What this bus supports: frequency range, word sizes, master/slave, IO levels.
     fn capabilities() -> SpiCapabilities<'i>;
 
     /// Configures the bus and returns what was actually set: the frequency the hardware settled on (the nearest it
     /// can do, never above the one asked for) and the IO level in effect. [SpiRole::Disabled] releases the pins.
-    ///
-    /// # Errors
-    ///
-    /// [SpiError::InUse] (the pins or peripheral serve another function), [SpiError::Unsupported] ([SpiRole::Slave],
-    /// this `word_bits`, this [CsMode] or an IO level the adapter doesn't have), [SpiError::InvalidArgument] (`freq` or
-    /// `word_bits` outside [SpiCapabilities]), [SpiError::Refused] (a safety rule of the device, e.g. the bus already
-    /// sits at a higher voltage than `io_level`).
-    fn configure(config: SpiConfig) -> Result<SpiConfig, SpiError>;
+    /// `Unsupported` for [SpiRole::Slave], a `word_bits`, a [CsMode] or an IO level the adapter doesn't have,
+    /// `InvalidArgument` for a `freq` outside [SpiCapabilities], `Refused` when e.g. the bus already sits at a higher
+    /// voltage than `io_level`.
+    #[errors(Common(Unsupported, InvalidArgument, InUse, Refused))]
+    fn configure(config: SpiConfig) -> Result<SpiConfig, SpiError<'i>>;
 
-    /// Asserts or releases CS, with [CsMode::Manual].
-    ///
-    /// # Errors
-    ///
-    /// [SpiError::WrongMode] (CS isn't [CsMode::Manual]).
-    fn set_cs(active: bool) -> Result<(), SpiError>;
+    /// Asserts or releases CS, with [CsMode::Manual]; `WrongState` with another [CsMode].
+    #[errors(Common(WrongState))]
+    fn set_cs(active: bool) -> Result<(), SpiError<'i>>;
 
     /// Watches the bus without taking part: one [SpiFrame] per CS assertion, in bus order, decoded with `config` (the
     /// monitor doesn't drive CS or clock, it only listens). Opening starts monitoring, closing stops it. A counted
@@ -115,10 +103,10 @@ pub trait Spi {
     ///
     /// # Errors
     ///
-    /// [SpiError::InUse], [SpiError::Unsupported] (this `word_bits`), [SpiError::Refused].
+    /// `Common(InUse)`, `Common(Unsupported)` (this `word_bits`), `Common(Refused)`.
     #[optional]
     #[stream(SpiFrame<'i>, counted)]
-    fn monitor(config: SpiMonitorConfig) -> Result<(), SpiError>;
+    fn monitor(config: SpiMonitorConfig) -> Result<(), SpiError<'i>>;
 }
 
 /// Everything the bus is configured with, see `Spi::configure`: what is asked for going in, what was actually set
@@ -257,32 +245,17 @@ pub struct SpiCapabilities<'i> {
     pub max_len: u32,
 }
 
-/// Errors of both traits in this crate. Each method lists the variants it returns.
-///
-/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is
-/// still open for `ww_stdlib`; until then this enum stays plain.
+/// Errors of `Spi`: the common ones first, then what is specific to SPI. Each method lists the variants it returns.
 #[derive_shrink_wrap(
-    borrowed,
     owned(feature = "std"),
-    derive(Copy, Clone, Debug, PartialEq, Eq),
-    self_describing,
-    ww_repr = unib32
+    derive(Debug, PartialEq, Eq, Clone),
+    ww_repr = unib32,
+    display
 )]
-pub enum SpiError {
-    /// This adapter doesn't have it ([SpiRole::Slave], a `word_bits`, a [CsMode]).
-    Unsupported,
-    /// The pins or the peripheral serve another function.
-    InUse,
-    /// The level translators have no supply (IO level off).
-    NoIoLevel,
-    /// A safety rule of the device doesn't allow it.
-    Refused,
-    /// An argument is out of range (frequency, word size, operation count).
-    InvalidArgument,
-    /// The call needs another mode (e.g. `Spi::set_cs` while [CsMode] isn't `Manual`, a transfer while not a
-    /// [SpiRole::Master]).
-    WrongMode,
-    /// Longer than this device takes, see [SpiCapabilities].
+pub enum SpiError<'i> {
+    /// {0}
+    #[common]
+    Common(CommonError<'i>),
+    /// Longer than this device takes, see its capabilities.
     BufferTooBig,
-    Timeout,
 }

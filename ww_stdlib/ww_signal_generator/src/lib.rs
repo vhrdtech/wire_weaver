@@ -27,7 +27,8 @@
 //!
 //! # Errors
 //!
-//! `PatternGenerator` returns [PgError], `WaveformGenerator` [WgError]; each method lists the variants it returns.
+//! `PatternGenerator` returns [PgError], `WaveformGenerator` [WgError]: the framework's `CommonError` as their
+//! `Common` variant, plus `NoSuchChannel`. Each method lists the variants it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -61,13 +62,12 @@ pub trait PatternGenerator {
 
     /// Sets channels, rate, repetition, idle levels and the start condition, and returns what was actually set.
     /// Drops a loaded pattern.
-    ///
-    /// # Errors
-    ///
-    /// [PgError::NoSuchChannel], [PgError::InvalidArgument] (rate or channel count out of range),
-    /// [PgError::Unsupported] (start condition), [PgError::Busy] (a pattern plays), [PgError::InUse],
-    /// [PgError::NoIoLevel].
-    fn configure(config: PgConfig<'i>) -> Result<PgActual, PgError>;
+    /// `InvalidArgument`: rate or channel count out of range; `Unsupported`: start condition; `Busy`: a pattern plays.
+    #[errors(
+        Common(InvalidArgument, Unsupported, Busy, InUse, NoPower),
+        NoSuchChannel
+    )]
+    fn configure(config: PgConfig<'i>) -> Result<PgActual, PgError<'i>>;
 
     /// Pattern data, appended in order. The credit is the free pattern memory.
     #[credit]
@@ -75,11 +75,9 @@ pub trait PatternGenerator {
 
     /// Starts output now, or waits for [PgConfig::start]. Started before the pattern is complete, it plays what it
     /// has while the sink keeps filling, and stops with [PgStatus::Underrun] if the host falls behind.
-    ///
-    /// # Errors
-    ///
-    /// [PgError::WrongMode] (not configured, or nothing loaded), [PgError::Refused].
-    fn start() -> Result<(), PgError>;
+    /// `WrongState`: not configured, or nothing loaded.
+    #[errors(Common(WrongState, Refused))]
+    fn start() -> Result<(), PgError<'i>>;
 
     /// Stops output; the channels go to their idle levels.
     fn stop();
@@ -98,30 +96,24 @@ pub trait WaveformGenerator {
 
     /// Starts every channel in `channels` (already `set`, held) on the same sample clock tick, so their phases line
     /// up.
-    ///
-    /// # Errors
-    ///
-    /// [WgError::NoSuchChannel], [WgError::Unsupported] (the channels don't share a clock), [WgError::WrongMode].
-    fn start_together(channels: MaxLen<RefVec<'i, u8>, MAX_CHANNELS>) -> Result<(), WgError>;
+    /// `Unsupported`: the channels don't share a clock.
+    #[errors(Common(Unsupported, WrongState), NoSuchChannel)]
+    fn start_together(channels: MaxLen<RefVec<'i, u8>, MAX_CHANNELS>) -> Result<(), WgError<'i>>;
 }
 
 /// One DAC output.
 #[ww_trait]
 pub trait WaveformChannel {
     /// Starts or changes the output and returns what the DAC actually does.
-    ///
-    /// # Errors
-    ///
-    /// [WgError::InvalidArgument] (frequency or levels out of range), [WgError::Unsupported] (shape or format),
-    /// [WgError::WrongMode] (an `Arbitrary` shape with no table), [WgError::InUse], [WgError::Refused].
-    fn set(waveform: Waveform) -> Result<WaveformActual, WgError>;
+    /// `InvalidArgument`: frequency or levels out of range; `Unsupported`: shape or format; `WrongState`: an
+    /// `Arbitrary` shape with no table.
+    #[errors(Common(InvalidArgument, Unsupported, WrongState, InUse, Refused))]
+    fn set(waveform: Waveform) -> Result<WaveformActual, WgError<'i>>;
 
     /// Stops and holds `level`; returns the level actually held.
-    ///
-    /// # Errors
-    ///
-    /// [WgError::InvalidArgument] (out of range), [WgError::Refused].
-    fn stop(level: Volt) -> Result<Volt, WgError>;
+    /// `InvalidArgument`: out of range.
+    #[errors(Common(InvalidArgument, Refused))]
+    fn stop(level: Volt) -> Result<Volt, WgError<'i>>;
 
     fn state() -> WaveformState;
 
@@ -253,35 +245,21 @@ pub enum PgStatus {
     Underrun,
 }
 
-/// Errors of `PatternGenerator`. Each method lists the variants it returns.
-///
-/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is
-/// still open for `ww_stdlib`; until then this enum stays plain.
+/// Errors of `PatternGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it
+/// returns.
 #[derive_shrink_wrap(
-    borrowed,
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Copy, Clone),
-    self_describing,
-    ww_repr = unib32
+    derive(Debug, PartialEq, Eq, Clone),
+    ww_repr = unib32,
+    display
 )]
-pub enum PgError {
-    /// Not supported by this device (an encoding, a start condition).
-    Unsupported,
-    /// The pins serve another function.
-    InUse,
-    /// The output drivers or translators have no supply.
-    NoIoLevel,
-    /// A safety rule of the device doesn't allow it.
-    Refused,
-    /// An argument is out of range (rate, channel count).
-    InvalidArgument,
-    /// The call needs another state (`start` with nothing loaded).
-    WrongMode,
+pub enum PgError<'i> {
+    /// {0}
+    #[common]
+    Common(CommonError<'i>),
     /// No channel with this index.
     NoSuchChannel,
-    /// A pattern plays.
-    Busy,
 }
 
 /// What a device's DACs offer, see `WaveformGenerator::capabilities`.
@@ -401,31 +379,19 @@ pub enum WaveformState {
     },
 }
 
-/// Errors of `WaveformGenerator`. Each method lists the variants it returns.
-///
-/// How errors evolve (variants from newer versions, per-method error lists, errors that carry a reason) is
-/// still open for `ww_stdlib`; until then this enum stays plain.
+/// Errors of `WaveformGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it
+/// returns.
 #[derive_shrink_wrap(
-    borrowed,
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Copy, Clone),
-    self_describing,
-    ww_repr = unib32
+    derive(Debug, PartialEq, Eq, Clone),
+    ww_repr = unib32,
+    display
 )]
-pub enum WgError {
-    /// Not supported by this device (a shape, a format).
-    Unsupported,
-    /// The output serves another function.
-    InUse,
-    /// The output stage has no supply.
-    NoIoLevel,
-    /// A safety rule of the device doesn't allow it (a level beyond what the load may see).
-    Refused,
-    /// An argument is out of range (frequency, levels).
-    InvalidArgument,
-    /// The call needs another state (an arbitrary shape with no table).
-    WrongMode,
+pub enum WgError<'i> {
+    /// {0}
+    #[common]
+    Common(CommonError<'i>),
     /// No channel with this index.
     NoSuchChannel,
 }

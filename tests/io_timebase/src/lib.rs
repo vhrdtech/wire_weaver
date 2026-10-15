@@ -10,8 +10,8 @@ mod tests {
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{Prefix, Second};
     use ww_timebase::{
-        ClockError, ClockInfo, DateTime, SyncConfig, SyncFormat, SyncState, SyncStatus,
-        TimeMapPoint,
+        ClockError, ClockErrorOwned, ClockInfo, DateTime, SyncConfig, SyncFormat, SyncState,
+        SyncStatus, TimeMapPoint,
     };
 
     fn micros(value: u32) -> Second {
@@ -125,17 +125,17 @@ mod tests {
                 &mut self,
                 cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SyncConfig,
-            ) -> RpcResult<Result<(), ClockError>> {
+            ) -> RpcResult<Result<(), ClockError<'_>>> {
                 let format = match config {
                     SyncConfig::Off => None,
                     SyncConfig::Master { format } | SyncConfig::Slave { format } => Some(format),
                     // a config from a newer API version
-                    SyncConfig::Unknown(_) => return Ready(Err(ClockError::Unsupported)),
+                    SyncConfig::Unknown(_) => return Ready(Err(CommonError::Unsupported.into())),
                 };
                 if let Some(format) = format
                     && !self.formats.contains(&format)
                 {
-                    return Ready(Err(ClockError::Unsupported));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 self.m.lock().unwrap().sync_config = config;
                 match config {
@@ -228,10 +228,13 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 t: DateTime,
-            ) -> RpcResult<Result<(), ClockError>> {
+            ) -> RpcResult<Result<(), ClockError<'_>>> {
                 let mut m = self.m.lock().unwrap();
                 if !matches!(m.sync_config, SyncConfig::Master { .. }) {
-                    return Ready(Err(ClockError::WrongMode));
+                    return Ready(Err(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked("not a sync master"),
+                    }
+                    .into()));
                 }
                 m.times_of_day.push(t);
                 Ready(Ok(()))
@@ -397,7 +400,10 @@ mod tests {
             })
             .call()
             .await;
-        assert_eq!(result.unwrap_err().device(), Some(&ClockError::Unsupported));
+        assert_eq!(
+            result.unwrap_err().device(),
+            Some(&ClockErrorOwned::Common(CommonErrorOwned::Unsupported))
+        );
         assert_eq!(
             client.clock().sync_status().call().await.unwrap().state,
             SyncState::Free
@@ -411,7 +417,10 @@ mod tests {
         let t = DateTime::from_ymd_hms_utc_opt(2026, 10, 14, 12, 0, 0, 0).unwrap();
 
         let result = client.clock().set_time_of_day(t).call().await;
-        assert_eq!(result.unwrap_err().device(), Some(&ClockError::WrongMode));
+        assert!(matches!(
+            result.unwrap_err().device(),
+            Some(ClockErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+        ));
 
         client
             .clock()

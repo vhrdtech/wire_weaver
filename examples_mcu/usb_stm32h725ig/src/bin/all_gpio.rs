@@ -18,7 +18,7 @@ use wire_weaver_usb_embassy::{
     LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
 };
 use ww_stream::tx::Counted;
-use ww_gpio::{BankCapabilities, BankConfig, Error, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed};
+use ww_gpio::{BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
@@ -234,10 +234,10 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         config: BankConfig,
-    ) -> RpcResult<Result<BankConfig, Error>> {
+    ) -> RpcResult<Result<BankConfig, GpioError<'_>>> {
         // fixed 3.3 V, no level translators
         if config.io_level.is_some() {
-            return Ready(Err(Error::UnsupportedReferenceVoltage));
+            return Ready(Err(CommonError::Unsupported.into()));
         }
         Ready(Ok(BankConfig { io_level: None }))
     }
@@ -335,8 +335,9 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 2],
         _enabled: IoPinEnabledEvents<'_>,
-    ) -> RpcResult<Result<(), Error>> {
-        Ready(Err(Error::UnsupportedEventType))
+        // TODO(API-35): `'_` doesn't compile for a stream function's error yet
+    ) -> RpcResult<Result<(), GpioError<'static>>> {
+        Ready(Err(CommonError::Unsupported.into()))
     }
 
     async fn close_port_pin_event(
@@ -363,7 +364,7 @@ impl ServerState {
         index: [UNib32; 2],
         mode: Mode,
         initial: Option<Level>,
-    ) -> RpcResult<Result<(), Error>> {
+    ) -> RpcResult<Result<(), GpioError<'_>>> {
         if let Some(initial) = initial {
             self.port_pin_set_output_level(_cx, index, initial)
                 .await;
@@ -385,7 +386,7 @@ impl ServerState {
             Mode::Input => Moder::INPUT,
             Mode::HighZ => Moder::ANALOG,
             Mode::Analog => Moder::ANALOG,
-            Mode::Custom(_) => return Ready(Err(Error::UnsupportedMode)),
+            Mode::Custom(_) => return Ready(Err(CommonError::Unsupported.into())),
         };
         self.bank[bank_idx]
             .moder()
@@ -417,14 +418,14 @@ impl ServerState {
         Ready(mode)
     }
 
-    async fn set_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2], pull: Pull) -> SetResult<Error> {
+    async fn set_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2], pull: Pull) -> SetResult<GpioError<'_>> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let pull = match pull {
             Pull::None => Pupdr::FLOATING,
             Pull::Up => Pupdr::PULL_UP,
             Pull::Down => Pupdr::PULL_DOWN,
-            Pull::Custom(_) => return SetError(Error::UnsupportedPull),
+            Pull::Custom(_) => return SetError(CommonError::Unsupported.into()),
         };
         self.bank[bank_idx]
             .pupdr()
@@ -432,7 +433,7 @@ impl ServerState {
         Set
     }
 
-    async fn get_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2]) -> GetResult<Pull, Error> {
+    async fn get_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2]) -> GetResult<Pull, GpioError<'_>> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let pull = self.bank[bank_idx].pupdr().read().pupdr(pin_idx);
@@ -445,7 +446,7 @@ impl ServerState {
         Value(pull)
     }
 
-    async fn set_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2], speed: Speed) -> SetResult<Error> {
+    async fn set_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2], speed: Speed) -> SetResult<GpioError<'_>> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let speed = match speed {
@@ -453,7 +454,7 @@ impl ServerState {
             Speed::Medium => Ospeedr::MEDIUM_SPEED,
             Speed::Fast => Ospeedr::HIGH_SPEED,
             Speed::VeryFast => Ospeedr::VERY_HIGH_SPEED,
-            Speed::Custom(_) => return SetError(Error::UnsupportedSpeed),
+            Speed::Custom(_) => return SetError(CommonError::Unsupported.into()),
         };
         self.bank[bank_idx]
             .ospeedr()
@@ -461,7 +462,7 @@ impl ServerState {
         Set
     }
 
-    async fn get_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2]) -> GetResult<Speed, Error> {
+    async fn get_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2]) -> GetResult<Speed, GpioError<'_>> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let speed = self.bank[bank_idx].ospeedr().read().ospeedr(pin_idx);

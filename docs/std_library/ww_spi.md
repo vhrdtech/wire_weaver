@@ -86,8 +86,8 @@ pub trait Spi {
 * `SpiCapabilities<'i>` - `min_freq` / `max_freq: Hertz`, `min_word_bits` / `max_word_bits: u8`, `master` /
   `slave: bool`, `io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>`, `io_level_min` / `io_level_max: Option<Volt>`
   (an adjustable supply), `max_len: u32` (largest transfer this device does, at most `SPI_MAX`).
-* `SpiError` - `Unsupported`, `InUse`, `NoIoLevel`, `Refused`, `InvalidArgument`, `WrongMode`, `BufferTooBig`,
-  `Timeout`; unsized (`unib32` discriminant), evolvable. Each method's rustdoc lists the variants it returns.
+* `SpiError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `BufferTooBig`; unsized
+  (`unib32` discriminant), evolvable. Each method lists the variants it returns (`#[errors]`).
 
 `SPI_MAX` (512 bytes) bounds every transfer, write and the reads of one transaction concatenated; `MAX_OPS` (16)
 bounds the operations of one `Spi::transaction`. Both are compatible to raise later, not to lower.

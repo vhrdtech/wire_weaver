@@ -146,7 +146,7 @@ impl FlexBlocking {
 
     /// Change the mode of the pin.
     /// Optionally, set the initial level before changing pin mode.
-    /// This method may fail with [UnsupportedMode](ww_gpio::Error::UnsupportedMode) error.
+    /// This method may fail with an unsupported-mode error (`GpioErrorOwned::Common(CommonErrorOwned::Unsupported)`).
     fn set_mode(&mut self, mode: Mode, initial: Option<Level>) -> Result<(), Error> {
         self.io.set_mode(mode, initial).blocking_call()?;
         Ok(())

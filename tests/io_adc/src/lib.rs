@@ -130,9 +130,9 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 channel: u8,
-            ) -> RpcResult<Result<Reading, AdcError>> {
+            ) -> RpcResult<Result<Reading, AdcError<'_>>> {
                 if self.busy() {
-                    return Ready(Err(AdcError::Busy));
+                    return Ready(Err(CommonError::Busy.into()));
                 }
                 let Some(ch) = self.channels.get(channel as usize) else {
                     return Ready(Err(AdcError::NoSuchChannel));
@@ -166,9 +166,10 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: StreamConfig<'_>,
-            ) -> RpcResult<Result<StreamActual, AdcError>> {
+                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
+            ) -> RpcResult<Result<StreamActual, AdcError<'static>>> {
                 if self.busy() {
-                    return Ready(Err(AdcError::Busy));
+                    return Ready(Err(CommonError::Busy.into()));
                 }
                 for &ch in config.channels.as_slice() {
                     if ch as usize >= self.channels.len() {
@@ -176,10 +177,14 @@ mod tests {
                     }
                 }
                 if config.channels.len() as u8 > self.channels.len() as u8 {
-                    return Ready(Err(AdcError::InvalidArgument));
+                    return Ready(Err(CommonError::InvalidArgument {
+                        arg: 0,
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into()));
                 }
                 if !matches!(config.format, SampleFormat::U8 | SampleFormat::U16) {
-                    return Ready(Err(AdcError::Unsupported));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 // the mock "rounds" like real hardware would: caps at 500 kHz total
                 let requested =
@@ -279,9 +284,9 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: CaptureConfig<'_>,
-            ) -> RpcResult<Result<CaptureActual, AdcError>> {
+            ) -> RpcResult<Result<CaptureActual, AdcError<'_>>> {
                 if self.stream.running {
-                    return Ready(Err(AdcError::Busy));
+                    return Ready(Err(CommonError::Busy.into()));
                 }
                 for &ch in config.channels.as_slice() {
                     if ch as usize >= self.channels.len() {
@@ -289,12 +294,16 @@ mod tests {
                     }
                 }
                 if !matches!(config.format, SampleFormat::U8 | SampleFormat::U16) {
-                    return Ready(Err(AdcError::Unsupported));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 let per_set = sample_bytes(config.format) * config.channels.len();
                 let bytes = per_set * config.sets as usize;
                 if bytes > 4096 {
-                    return Ready(Err(AdcError::InvalidArgument));
+                    return Ready(Err(CommonError::InvalidArgument {
+                        arg: 0,
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into()));
                 }
                 let data: Vec<u8> = (0..bytes).map(|i| (i * 7) as u8).collect();
                 let actual = CaptureActual {
@@ -345,15 +354,22 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 offset: u32,
                 len: u16,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, MAX_CAPTURE_READ_LEN>, AdcError>>
+            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, MAX_CAPTURE_READ_LEN>, AdcError<'_>>>
             {
                 if !matches!(self.capture.status, CaptureStatus::Done { .. }) {
-                    return Ready(Err(AdcError::WrongMode));
+                    return Ready(Err(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into()));
                 }
                 let start = offset as usize;
                 let end = start + len as usize;
                 let Some(slice) = self.capture.data.get(start..end) else {
-                    return Ready(Err(AdcError::InvalidArgument));
+                    return Ready(Err(CommonError::InvalidArgument {
+                        arg: 0,
+                        reason: MaxLen::new_unchecked(""),
+                    }
+                    .into()));
                 };
                 Ready(Ok(MaxLen::new(RefVec::new_bytes(slice)).unwrap()))
             }
@@ -475,7 +491,7 @@ mod tests {
 
         assert_eq!(
             adc.read(9).call().await.unwrap_err().device(),
-            Some(&AdcError::NoSuchChannel)
+            Some(&AdcErrorOwned::NoSuchChannel)
         );
     }
 
@@ -502,7 +518,11 @@ mod tests {
             .call()
             .await
             .unwrap();
-        assert!(matches!(r, Err(AdcError::Unsupported)), "{:?}", r.err());
+        assert!(
+            matches!(r, Err(AdcErrorOwned::Common(CommonErrorOwned::Unsupported))),
+            "{:?}",
+            r.err()
+        );
 
         let (actual, mut samples) = adc_stream
             .samples(config(SampleFormat::U16))
@@ -515,7 +535,7 @@ mod tests {
         // sampling runs: single readings are refused
         assert_eq!(
             client.adc().read(0).call().await.unwrap_err().device(),
-            Some(&AdcError::Busy)
+            Some(&AdcErrorOwned::Common(CommonErrorOwned::Busy))
         );
 
         match samples.recv_event().await.unwrap() {
@@ -571,26 +591,28 @@ mod tests {
         let data = adc_capture.capture_read(0, 4).call().await.unwrap();
         assert_eq!(data.as_slice(), &[0, 7, 14, 21]);
 
-        assert_eq!(
+        assert!(matches!(
             adc_capture
                 .capture_read(2, 10)
                 .call()
                 .await
                 .unwrap_err()
                 .device(),
-            Some(&AdcError::InvalidArgument)
-        );
+            Some(AdcErrorOwned::Common(
+                CommonErrorOwned::InvalidArgument { .. }
+            ))
+        ));
 
         adc_capture.capture_abort().call().await.unwrap();
-        assert_eq!(
+        assert!(matches!(
             adc_capture
                 .capture_read(0, 1)
                 .call()
                 .await
                 .unwrap_err()
                 .device(),
-            Some(&AdcError::WrongMode)
-        );
+            Some(AdcErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+        ));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

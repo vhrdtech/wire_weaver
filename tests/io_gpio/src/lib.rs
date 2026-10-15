@@ -8,8 +8,8 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_gpio::{
-        BankCapabilities, BankConfig, Error, IoPinEnabledEvents, IoPinEvent, Level, Mode, PinCapabilities,
-        Pull, Speed, Volt,
+        BankCapabilities, BankConfig, GpioError, GpioErrorOwned, IoPinEnabledEvents, IoPinEvent,
+        Level, Mode, PinCapabilities, Pull, Speed, Volt,
     };
     use ww_stream::tx::Counted;
 
@@ -168,13 +168,13 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
                 config: BankConfig,
-            ) -> RpcResult<Result<BankConfig, Error>> {
+            ) -> RpcResult<Result<BankConfig, GpioError<'_>>> {
                 let bank = index_chain[0].0 as usize;
                 let mut banks = self.banks.lock().unwrap();
                 if let Some(level) = config.io_level {
                     let supported = [ww_si::quantity!(3300 mV u16), ww_si::quantity!(1800 mV u16)];
                     if !supported.contains(&level) {
-                        return Ready(Err(Error::UnsupportedReferenceVoltage));
+                        return Ready(Err(CommonError::Unsupported.into()));
                     }
                     banks[bank].reference_voltage = level;
                 }
@@ -246,10 +246,11 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 2],
                 enabled: IoPinEnabledEvents<'_>,
-            ) -> RpcResult<Result<(), Error>> {
+                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
+            ) -> RpcResult<Result<(), GpioError<'static>>> {
                 if !enabled.custom.is_empty() {
                     // The mock pins have no device-specific sources.
-                    return Ready(Err(Error::UnsupportedEventType));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 let (bank, pin) = Self::idx(index_chain);
                 let events = &mut self.events[bank][pin];
@@ -280,10 +281,10 @@ mod tests {
                 index_chain: [UNib32; 2],
                 mode: Mode,
                 initial: Option<Level>,
-            ) -> RpcResult<Result<(), Error>> {
+            ) -> RpcResult<Result<(), GpioError<'_>>> {
                 if matches!(mode, Mode::Analog) {
                     // The mock pins don't support Analog, exercised by `set_mode_unsupported`.
-                    return Ready(Err(Error::UnsupportedMode));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 self.with_pin_mut(index_chain, |pin| {
                     pin.mode = mode;
@@ -307,7 +308,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 2],
                 value: Pull,
-            ) -> SetResult<Error> {
+            ) -> SetResult<GpioError<'_>> {
                 self.with_pin_mut(index_chain, |pin| pin.pull = value);
                 Set
             }
@@ -316,7 +317,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 2],
-            ) -> GetResult<Pull, Error> {
+            ) -> GetResult<Pull, GpioError<'_>> {
                 Value(self.pin(index_chain).pull)
             }
 
@@ -325,7 +326,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 2],
                 value: Speed,
-            ) -> SetResult<Error> {
+            ) -> SetResult<GpioError<'_>> {
                 self.with_pin_mut(index_chain, |pin| pin.speed = value);
                 Set
             }
@@ -334,7 +335,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 2],
-            ) -> GetResult<Speed, Error> {
+            ) -> GetResult<Speed, GpioError<'_>> {
                 Value(self.pin(index_chain).speed)
             }
 
@@ -498,7 +499,7 @@ mod tests {
             .unwrap_err();
         assert!(matches!(
             err.device(),
-            Some(Error::UnsupportedReferenceVoltage)
+            Some(GpioErrorOwned::Common(CommonErrorOwned::Unsupported))
         ));
     }
 
@@ -540,7 +541,7 @@ mod tests {
         let err = pin.set_mode(Mode::Analog, None).call().await;
         assert!(matches!(
             err.unwrap_err().device(),
-            Some(Error::UnsupportedMode)
+            Some(GpioErrorOwned::Common(CommonErrorOwned::Unsupported))
         ));
 
         pin.write_pull(Pull::Up).write().await.unwrap();
@@ -571,7 +572,10 @@ mod tests {
             .await
             .unwrap();
         assert!(
-            matches!(r, Err(Error::UnsupportedEventType)),
+            matches!(
+                r,
+                Err(GpioErrorOwned::Common(CommonErrorOwned::Unsupported))
+            ),
             "{:?}",
             r.err()
         );

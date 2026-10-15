@@ -11,8 +11,8 @@ mod tests {
     use ww_client_server::StreamSideband;
     use ww_stream::tx::Counted;
     use ww_uart::{
-        Baud, Capabilities, DataBits, Error, Mode, MonitorChunk, MonitorConfig, MonitorLine,
-        Parity, Pin, RxChunk, StopBits, UartConfig,
+        Baud, Capabilities, DataBits, Mode, MonitorChunk, MonitorConfig, MonitorLine, Parity, Pin,
+        RxChunk, StopBits, UartConfig, UartError, UartErrorOwned,
     };
 
     /// One character at 115 200 Bd, in µs.
@@ -64,10 +64,7 @@ mod tests {
             min_baud_rate: Baud::baud(110u32),
             max_baud_rate: Baud::baud(921_600u32),
             io_levels: MaxLen::new(RefVec::Slice {
-                slice: &[
-                    ww_si::quantity!(1800 mV u16),
-                    ww_si::quantity!(3300 mV u16),
-                ],
+                slice: &[ww_si::quantity!(1800 mV u16), ww_si::quantity!(3300 mV u16)],
             })
             .unwrap(),
             io_level_min: None,
@@ -181,15 +178,15 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: UartConfig,
-            ) -> RpcResult<Result<UartConfig, Error>> {
+            ) -> RpcResult<Result<UartConfig, UartError<'_>>> {
                 let caps = capabilities();
                 if config.baud_rate > caps.max_baud_rate || config.baud_rate < caps.min_baud_rate {
-                    return Ready(Err(Error::Unsupported));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 if let Some(level) = config.io_level
                     && !caps.io_levels.iter().any(|l| l == Ok(level))
                 {
-                    return Ready(Err(Error::UnsupportedReferenceVoltage));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 let mut m = self.m.lock().unwrap();
                 let io_level = config.io_level.or(m.config.io_level);
@@ -203,10 +200,13 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 pin: Pin,
                 is_high: bool,
-            ) -> RpcResult<Result<(), Error>> {
+            ) -> RpcResult<Result<(), UartError<'_>>> {
                 let mut m = self.m.lock().unwrap();
                 if !matches!(m.config.mode, Mode::Test) {
-                    return Ready(Err(Error::WrongMode));
+                    return Ready(Err(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked("not in Mode::Test"),
+                    }
+                    .into()));
                 }
                 m.pin_levels.push((pin, is_high));
                 Ready(Ok(()))
@@ -216,7 +216,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 duration: ww_si::Second,
-            ) -> RpcResult<Result<(), Error>> {
+            ) -> RpcResult<Result<(), UartError<'_>>> {
                 self.m.lock().unwrap().send_break_calls.push(duration);
                 Ready(Ok(()))
             }
@@ -232,10 +232,11 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: MonitorConfig,
-            ) -> RpcResult<Result<MonitorConfig, Error>> {
+                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
+            ) -> RpcResult<Result<MonitorConfig, UartError<'static>>> {
                 // this monitor decodes from 300 Bd up
                 if config.baud_rate < Baud::baud(300u32) {
-                    return Ready(Err(Error::Unsupported));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 let actual = MonitorConfig {
                     io_level: config.io_level.or(Some(ww_si::quantity!(3300 mV u16))),
@@ -366,7 +367,12 @@ mod tests {
             prevent_back_feed: true,
             io_level: None,
         };
-        let actual = client.uart().configure(config.clone()).call().await.unwrap();
+        let actual = client
+            .uart()
+            .configure(config.clone())
+            .call()
+            .await
+            .unwrap();
         // `None` keeps the IO level, the answer says which one is in effect
         assert_eq!(actual.io_level, Some(ww_si::Volt::millivolts(3300u16)));
         assert_eq!(actual.baud_rate, Baud::baud(9600u16));
@@ -378,7 +384,10 @@ mod tests {
             ..config.clone()
         };
         let r = client.uart().configure(too_fast).call().await;
-        assert!(matches!(r.unwrap_err().device(), Some(Error::Unsupported)));
+        assert!(matches!(
+            r.unwrap_err().device(),
+            Some(UartErrorOwned::Common(CommonErrorOwned::Unsupported))
+        ));
 
         let at_5v = UartConfig {
             io_level: Some(ww_si::Volt::volts(5u8)),
@@ -387,7 +396,7 @@ mod tests {
         let r = client.uart().configure(at_5v).call().await;
         assert!(matches!(
             r.unwrap_err().device(),
-            Some(Error::UnsupportedReferenceVoltage)
+            Some(UartErrorOwned::Common(CommonErrorOwned::Unsupported))
         ));
     }
 
@@ -397,7 +406,10 @@ mod tests {
         let client = connect(&device).await;
 
         let r = client.uart().set_pin_level(Pin::Tx, true).call().await;
-        assert!(matches!(r.unwrap_err().device(), Some(Error::WrongMode)));
+        assert!(matches!(
+            r.unwrap_err().device(),
+            Some(UartErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+        ));
         assert!(m.lock().unwrap().pin_levels.is_empty());
 
         let test_mode = UartConfig {
@@ -484,7 +496,14 @@ mod tests {
             .call()
             .await
             .unwrap();
-        assert!(matches!(r, Err(Error::Unsupported)), "{:?}", r.err());
+        assert!(
+            matches!(
+                r,
+                Err(UartErrorOwned::Common(CommonErrorOwned::Unsupported))
+            ),
+            "{:?}",
+            r.err()
+        );
 
         let (actual, mut lines) = client
             .uart()

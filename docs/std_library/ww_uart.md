@@ -58,7 +58,7 @@ pub trait Uart {
   what its divider can do, and `io_level: None` keeps the level and is answered with the level in effect. One call
   instead of a property per setting, so a port never runs with half a configuration.
 * `set_pin_level` - manual control of a pin, only in [`Mode::Test`](#types); every other mode answers
-  [`Error::WrongMode`](#types).
+  `Common(WrongState)`.
 * `send_break` - holds TX low for `duration` (a break condition), after the bytes already queued.
 * `tx_pending()` - bytes queued for sending and not sent yet.
 * `monitor` - `#[optional]`, a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with the line
@@ -116,8 +116,9 @@ and takes the first byte a character time per byte earlier at the configured bau
 * `StopBits` - `Stop1`, `Stop2`.
 * `Parity` - `None`, `Odd`, `Even`.
 * `DataBits` - `Eight`, `Seven`, `Nine`, `Six`, `Five`.
-* `Error` - `Unsupported`, `UnsupportedMode`, `UnsupportedReferenceVoltage`, `WrongMode`, `CustomU8(u8)`,
-  `CustomU32(u32)`, `InUse`, `NoIoLevel`, `Refused`, `Timeout`; each method's rustdoc lists the variants it returns.
+* `UartError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)); unsized, evolvable. Each
+  method lists the variants it returns (`#[errors]`); line errors of received data are `RxFlags` of the chunk, not
+  errors.
 * `RxChunk<'i>` - `end: Second` (when the last byte arrived), `flags: Option<RxFlags>`, `bytes: MaxLen<RefVec<'i,
   u8>, UART_CHUNK_MAX>`; when the first byte arrived is the time in the event head, see [Time](#time).
 * `MonitorChunk<'i>` - `line: MonitorLine` (`A` or `B`, 1 bit), `chunk: RxChunk<'i>`.

@@ -131,7 +131,7 @@ pub struct FlexPromise {
     pin_idx: u32,
     mode: Promise<Mode>,
     mode_cached: Option<Mode>,
-    set_mode: Promise<(), CallError<ww_gpio::Error>>,
+    set_mode: Promise<(), CallError<ww_gpio::GpioErrorOwned>>,
     output_level: Promise<Level>,
     output_level_cached: Option<Level>,
     set_output_level: Promise<()>,
@@ -140,10 +140,10 @@ pub struct FlexPromise {
     input_level_cached: Option<Level>,
     speed: Promise<Speed>,
     speed_cached: Option<Speed>,
-    set_speed: Promise<(), CallError<ww_gpio::Error>>,
+    set_speed: Promise<(), CallError<ww_gpio::GpioErrorOwned>>,
     pull: Promise<Pull>,
     pull_cached: Option<Pull>,
-    set_pull: Promise<(), CallError<ww_gpio::Error>>,
+    set_pull: Promise<(), CallError<ww_gpio::GpioErrorOwned>>,
 }
 
 impl FlexPromiseRef<'_> {
@@ -206,7 +206,7 @@ impl FlexPromise {
         self.mode = self.bank.pin(self.pin_idx).mode().call_promise("");
     }
 
-    pub fn set_mode_promise(&self) -> &Promise<(), CallError<ww_gpio::Error>> {
+    pub fn set_mode_promise(&self) -> &Promise<(), CallError<ww_gpio::GpioErrorOwned>> {
         &self.set_mode
     }
 

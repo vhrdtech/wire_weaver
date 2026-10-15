@@ -11,7 +11,7 @@ mod tests {
     use ww_numeric::NumericValue;
     use ww_si::{Prefix, Second, Volt};
     use ww_spi::{
-        BitOrder, CsMode, SpiCapabilities, SpiConfig, SpiError, SpiFrame, SpiMode,
+        BitOrder, CsMode, SpiCapabilities, SpiConfig, SpiError, SpiErrorOwned, SpiFrame, SpiMode,
         SpiMonitorConfig, SpiOp, SpiRole,
     };
     use ww_stream::tx::Counted;
@@ -31,6 +31,13 @@ mod tests {
             prefix,
             value: NumericValue::U32(value),
         }
+    }
+
+    fn wrong_state() -> SpiError<'static> {
+        CommonError::WrongState {
+            reason: MaxLen::new_unchecked("not a master"),
+        }
+        .into()
     }
 
     fn leak_bytes(data: Vec<u8>) -> RefVec<'static, u8> {
@@ -73,15 +80,13 @@ mod tests {
                         mosi: MaxLen::new(RefVec::Slice { slice: &mosi }).unwrap(),
                         miso: MaxLen::new(RefVec::Slice { slice: &miso }).unwrap(),
                     };
-                    let _ = api_impl::stream_data_ser()
-                        .spi()
-                        .monitor_send_blocking(
-                            &mut self.frames,
-                            &frame,
-                            1,
-                            Some(second(Prefix::Micro, start_us)),
-                            out,
-                        );
+                    let _ = api_impl::stream_data_ser().spi().monitor_send_blocking(
+                        &mut self.frames,
+                        &frame,
+                        1,
+                        Some(second(Prefix::Micro, start_us)),
+                        out,
+                    );
                 }
             }
 
@@ -96,14 +101,14 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError>>
+            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
             {
                 let master = matches!(
                     self.data.lock().unwrap().configured.map(|c| c.role),
                     Some(SpiRole::Master)
                 );
                 if !master {
-                    return Ready(Err(SpiError::WrongMode));
+                    return Ready(Err(wrong_state()));
                 }
                 let bytes = data.into_inner().as_slice().to_vec();
                 if bytes.len() > MAX_LEN {
@@ -117,14 +122,14 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 ops: MaxLen<RefVec<'_, SpiOp<'_>>, { ww_spi::MAX_OPS }>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError>>
+            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
             {
                 let master = matches!(
                     self.data.lock().unwrap().configured.map(|c| c.role),
                     Some(SpiRole::Master)
                 );
                 if !master {
-                    return Ready(Err(SpiError::WrongMode));
+                    return Ready(Err(wrong_state()));
                 }
                 let mut read_bytes = Vec::new();
                 for op in ops.into_inner().iter() {
@@ -139,7 +144,7 @@ mod tests {
                         }
                         SpiOp::Delay(_) => {}
                         // an op of a newer API version
-                        SpiOp::Unknown(_) => return Ready(Err(SpiError::Unsupported)),
+                        SpiOp::Unknown(_) => return Ready(Err(CommonError::Unsupported.into())),
                     }
                 }
                 Ready(Ok(MaxLen::new(leak_bytes(read_bytes)).unwrap()))
@@ -149,13 +154,13 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
-            ) -> RpcResult<Result<(), SpiError>> {
+            ) -> RpcResult<Result<(), SpiError<'_>>> {
                 let master = matches!(
                     self.data.lock().unwrap().configured.map(|c| c.role),
                     Some(SpiRole::Master)
                 );
                 if !master {
-                    return Ready(Err(SpiError::WrongMode));
+                    return Ready(Err(wrong_state()));
                 }
                 let bytes = data.into_inner().as_slice().to_vec();
                 self.data.lock().unwrap().writes.push(bytes);
@@ -194,18 +199,22 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiConfig,
-            ) -> RpcResult<Result<SpiConfig, SpiError>> {
+            ) -> RpcResult<Result<SpiConfig, SpiError<'_>>> {
                 if matches!(config.role, SpiRole::Slave) {
-                    return Ready(Err(SpiError::Unsupported));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 if config.word_bits != 8 {
-                    return Ready(Err(SpiError::InvalidArgument));
+                    return Ready(Err(CommonError::InvalidArgument {
+                        arg: 0,
+                        reason: MaxLen::new_unchecked("word_bits"),
+                    }
+                    .into()));
                 }
                 // this mock's only IO level is 3.3 V, and that is what it runs at
                 let io_level = match config.io_level {
                     None => volt(3.3),
                     Some(level) if level == volt(3.3) => level,
-                    Some(_) => return Ready(Err(SpiError::Unsupported)),
+                    Some(_) => return Ready(Err(CommonError::Unsupported.into())),
                 };
                 let actual = SpiConfig {
                     io_level: Some(io_level),
@@ -219,11 +228,11 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 active: bool,
-            ) -> RpcResult<Result<(), SpiError>> {
+            ) -> RpcResult<Result<(), SpiError<'_>>> {
                 let mut model = self.data.lock().unwrap();
                 let manual = matches!(model.configured.map(|c| c.cs), Some(CsMode::Manual));
                 if !manual {
-                    return Ready(Err(SpiError::WrongMode));
+                    return Ready(Err(wrong_state()));
                 }
                 model.cs_active = active;
                 Ready(Ok(()))
@@ -233,9 +242,10 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiMonitorConfig,
-            ) -> RpcResult<Result<(), SpiError>> {
+                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
+            ) -> RpcResult<Result<(), SpiError<'static>>> {
                 if config.word_bits != 8 {
-                    return Ready(Err(SpiError::Unsupported));
+                    return Ready(Err(CommonError::Unsupported.into()));
                 }
                 self.data.lock().unwrap().monitor_config = Some(config);
                 Ready(Ok(()))
@@ -380,7 +390,7 @@ mod tests {
         let err = client.spi().configure(slave).call().await;
         assert!(matches!(
             err.unwrap_err().device(),
-            Some(SpiError::Unsupported)
+            Some(SpiErrorOwned::Common(CommonErrorOwned::Unsupported))
         ));
     }
 
@@ -418,7 +428,10 @@ mod tests {
             .transfer(MaxLen::new(too_long).unwrap())
             .call()
             .await;
-        assert_eq!(err.unwrap_err().device(), Some(&SpiError::BufferTooBig));
+        assert_eq!(
+            err.unwrap_err().device(),
+            Some(&SpiErrorOwned::BufferTooBig)
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -460,7 +473,10 @@ mod tests {
             .unwrap();
 
         let err = client.spi().set_cs(true).call().await;
-        assert_eq!(err.unwrap_err().device(), Some(&SpiError::WrongMode));
+        assert!(matches!(
+            err.unwrap_err().device(),
+            Some(SpiErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+        ));
 
         client
             .spi()
@@ -495,7 +511,7 @@ mod tests {
         let err = client.spi().configure(at_5v).call().await;
         assert!(matches!(
             err.unwrap_err().device(),
-            Some(SpiError::Unsupported)
+            Some(SpiErrorOwned::Common(CommonErrorOwned::Unsupported))
         ));
         let configured = data.lock().unwrap().configured.unwrap();
         assert_eq!(configured.io_level, Some(volt(3.3)));
@@ -512,7 +528,11 @@ mod tests {
             io_level: None,
         };
         let r = client.spi().monitor(config(9)).call().await.unwrap();
-        assert!(matches!(r, Err(SpiError::Unsupported)), "{:?}", r.err());
+        assert!(
+            matches!(r, Err(SpiErrorOwned::Common(CommonErrorOwned::Unsupported))),
+            "{:?}",
+            r.err()
+        );
 
         let ((), mut stream) = client
             .spi()

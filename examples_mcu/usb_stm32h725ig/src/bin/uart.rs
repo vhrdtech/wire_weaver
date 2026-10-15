@@ -248,7 +248,7 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _config: UartConfig,
-    ) -> RpcResult<Result<UartConfig, ww_uart::Error>> {
+    ) -> RpcResult<Result<UartConfig, ww_uart::UartError<'_>>> {
         ww_unimplemented!()
     }
 
@@ -258,7 +258,7 @@ impl ServerState {
         _index: [UNib32; 1],
         _pin: ww_uart::Pin,
         _is_high: bool,
-    ) -> RpcResult<Result<(), ww_uart::Error>> {
+    ) -> RpcResult<Result<(), ww_uart::UartError<'_>>> {
         ww_unimplemented!()
     }
 
@@ -267,7 +267,7 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
         _duration: ww_si::Second,
-    ) -> RpcResult<Result<(), ww_uart::Error>> {
+    ) -> RpcResult<Result<(), ww_uart::UartError<'_>>> {
         ww_unimplemented!()
     }
 

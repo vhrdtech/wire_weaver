@@ -198,45 +198,25 @@
             "is going in (the only choice on a device without them), and is the answer of a device without them.",
         ]),
     ]))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
-        "Errors returned by `Uart` methods; each method\'s doc lists the variants it returns.",
-    ], ident: "Error", variants: [
+    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+        122,
+        139,
+        242,
+        75,
+        84,
+        91,
+        80,
+        174,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Errors of `Uart`: the common ones (unsupported, in use, no power, refused, ...); each method lists the variants it",
+        "returns. Line errors of received data are not errors of a call, they are [RxFlags] of the chunk.",
+    ], ident: "UartError", variants: [
         (docs: [
-            "This device doesn\'t have the feature asked for (e.g. a baud rate, mode, parity or bit count outside",
-            "[Capabilities]).",
-        ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
-        (docs: [
-            "The [Mode] asked for isn\'t supported.",
-        ], ident: "UnsupportedMode", fields: Unit, discriminant: 1, since: None),
-        (docs: [
-            "The IO level asked for isn\'t one of [Capabilities::io_levels] or in their range.",
-        ], ident: "UnsupportedReferenceVoltage", fields: Unit, discriminant: 2, since: None),
-        (docs: [
-            "The call needs a different [Mode] than the one currently set (e.g. `Uart::set_pin_level` outside",
-            "[Mode::Test]).",
-        ], ident: "WrongMode", fields: Unit, discriminant: 3, since: None),
-        (docs: [
-            "A device-specific error, carried as a single byte.",
-        ], ident: "CustomU8", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        ]), discriminant: 4, since: None),
-        (docs: [
-            "A device-specific error, carried as four bytes.",
-        ], ident: "CustomU32", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
-        ]), discriminant: 5, since: None),
-        (docs: [
-            "The pins serve another function.",
-        ], ident: "InUse", fields: Unit, discriminant: 6, since: None),
-        (docs: [
-            "The level translators have no supply (IO level off).",
-        ], ident: "NoIoLevel", fields: Unit, discriminant: 7, since: None),
-        (docs: [
-            "A safety rule of the device doesn\'t allow it.",
-        ], ident: "Refused", fields: Unit, discriminant: 8, since: None),
-        (docs: [
-            "The line stayed busy (e.g. CTS held off too long).",
-        ], ident: "Timeout", fields: Unit, discriminant: 9, since: None),
+            "{0}",
+        ], ident: "Common", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 11), docs: []),
+        ]), discriminant: 0, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
         "Pin selector used in test mode (`Uart::set_pin_level`).",
@@ -286,7 +266,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bytes of one line of the watched link, see `Uart::monitor`.",
     ], ident: "MonitorChunk", fields: Named([
-        (ident: Some("line"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: []),
+        (ident: Some("line"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: []),
         (ident: Some("chunk"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
     ]))), crate_idx: 0),
 ], traits: [
@@ -307,43 +287,53 @@
         ], optional: None),
         (id: 3, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 10)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 10), err_ty: OutOfLine(type_idx: 11))), errors: None), multiplicity: Flat, since: None, ident: "configure", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 10), err_ty: OutOfLine(type_idx: 12))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Unsupported",
+                "InUse",
+                "NoPower",
+                "Refused",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "configure", docs: [
             "Configures the port in one step and returns what was actually set: the baud rate the divider settled on",
-            "(the nearest it can do), and the IO level now in effect.",
-            "",
-            "# Errors",
-            "",
-            "[Error::Unsupported] (a baud rate outside [Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate], or",
-            "a mode, parity, bit count, back-feed detector or IO level this device doesn\'t have),",
-            "[Error::UnsupportedMode], [Error::UnsupportedReferenceVoltage], [Error::InUse], [Error::NoIoLevel],",
-            "[Error::Refused] (e.g. the line already sits at a higher voltage than `io_level`).",
+            "(the nearest it can do), and the IO level now in effect. A baud rate outside",
+            "[Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate], or a mode, parity, bit count, back-feed detector",
+            "or IO level this device doesn\'t have is `Unsupported`; `Refused` when e.g. the line already sits at a higher",
+            "voltage than `io_level`.",
         ], optional: None),
         (id: 4, kind: Method(args: [
-            (ident: "pin", ty: OutOfLine(type_idx: 12)),
+            (ident: "pin", ty: OutOfLine(type_idx: 13)),
             (ident: "is_high", ty: Bool),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 11))), errors: None), multiplicity: Flat, since: None, ident: "set_pin_level", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 12))), errors: Some([
+            (ident: "Common", nested: Some([
+                "WrongState",
+                "InUse",
+                "NoPower",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "set_pin_level", docs: [
             "Manually control pins, only in [Mode::Test].",
             "",
-            "# Errors",
-            "",
-            "[Error::WrongMode] (not in [Mode::Test]), [Error::InUse], [Error::NoIoLevel].",
+            "`WrongState` in any other mode.",
         ], optional: None),
         (id: 5, kind: Method(args: [
             (ident: "duration", ty: OutOfLine(type_idx: 0)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 11))), errors: None), multiplicity: Flat, since: None, ident: "send_break", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 12))), errors: Some([
+            (ident: "Common", nested: Some([
+                "WrongState",
+                "InUse",
+                "NoPower",
+                "Refused",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "send_break", docs: [
             "Holds TX low for `duration` (a break), after the bytes already queued.",
-            "",
-            "# Errors",
-            "",
-            "[Error::WrongMode] (e.g. currently in [Mode::HighZ] or [Mode::Test]), [Error::InUse], [Error::NoIoLevel],",
-            "[Error::Refused] (longer than this device allows).",
+            "`WrongState` in [Mode::HighZ] or [Mode::Test], `Refused` when longer than this device allows.",
         ], optional: None),
         (id: 6, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "tx_pending", docs: [
             "Bytes queued for sending and not sent yet.",
         ], optional: None),
-        (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 15), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 13)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 11)))), multiplicity: Flat, since: None, ident: "monitor", docs: [
+        (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 16), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 14)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 12)))), multiplicity: Flat, since: None, ident: "monitor", docs: [
             "Both lines of a serial link between two other devices, received without driving them: what both",
             "directions carry, in the order it arrived, decoded with `config`; each chunk says which line it came from.",
             "Opening starts receiving and answers the configuration actually set (the baud rate the receiver settled on,",
@@ -355,10 +345,12 @@
             "",
             "# Errors",
             "",
-            "[Error::Unsupported] (baud rate, mode or parity this monitor can\'t decode), [Error::InUse], [Error::NoIoLevel].",
+            "`Common(Unsupported)` (a baud rate, mode or parity this monitor can\'t decode), `Common(InUse)`,",
+            "`Common(NoPower)`.",
         ], optional: Some((group: None))),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_uart", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

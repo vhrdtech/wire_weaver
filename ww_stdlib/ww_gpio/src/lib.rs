@@ -25,11 +25,10 @@ pub trait Bank {
     fn capabilities() -> BankCapabilities<'i>;
 
     /// Configures what the pins of the bank share and returns what was actually set: the IO level in effect.
-    ///
-    /// # Errors
-    /// `Error::UnsupportedReferenceVoltage` if the bank's hardware can't drive the requested level, `Error::Refused`
-    /// when a safety rule of the device doesn't allow it.
-    fn configure(config: BankConfig) -> Result<BankConfig, Error>;
+    /// `Unsupported` for an IO level the bank's hardware can't drive, `Refused` when a safety rule of the device
+    /// doesn't allow it.
+    #[errors(Common(Unsupported, Refused))]
+    fn configure(config: BankConfig) -> Result<BankConfig, GpioError<'i>>;
 
     /// User-friendly bank name, e.g. `"PA"`.
     fn name() -> &'i str;
@@ -66,30 +65,30 @@ pub trait Pin {
     /// it happened at, and the host learns exactly how many events the device dropped.
     ///
     /// # Errors
-    /// `Error::UnsupportedEventType` if a requested source (edge or custom) isn't available on this pin.
+    /// `Common(Unsupported)` if a requested source (edge or custom) isn't available on this pin.
     #[stream(IoPinEvent, counted)]
-    fn event(enabled: IoPinEnabledEvents<'i>) -> Result<(), Error>;
+    fn event(enabled: IoPinEnabledEvents<'i>) -> Result<(), GpioError<'i>>;
 
     /// Mode configuration, input, high-z, push-pull, open-drain or custom.
     /// Optionally set the initial level before changing pin mode.
-    ///
-    /// # Errors
-    /// `Error::UnsupportedMode` if the pin can't be switched to the requested mode.
-    fn set_mode(mode: Mode, initial: Option<Level>) -> Result<(), Error>;
+    /// `Unsupported` if the pin can't be switched to the requested mode, `DifferentModes` if the bank's pins share one
+    /// mode and this one differs.
+    #[errors(Common(Unsupported, InUse, NoPower, Refused), DifferentModes)]
+    fn set_mode(mode: Mode, initial: Option<Level>) -> Result<(), GpioError<'i>>;
     /// Get current mode.
     fn mode() -> Mode;
 
     /// Pull resistors selection.
     ///
     /// # Errors
-    /// `Error::UnsupportedPull` if the pin doesn't support the requested pull (`set` only).
-    property!(rw pull: Pull, Error);
+    /// `Common(Unsupported)` if the pin doesn't support the requested pull (`set` only).
+    property!(rw pull: Pull, GpioError<'i>);
 
     /// Drive strength selection.
     ///
     /// # Errors
-    /// `Error::UnsupportedSpeed` if the pin doesn't support the requested drive strength (`set` only).
-    property!(rw speed: Speed, Error);
+    /// `Common(Unsupported)` if the pin doesn't support the requested drive strength (`set` only).
+    property!(rw speed: Speed, GpioError<'i>);
 
     /// What this pin can do: modes, pulls, speeds, whether it sends events, and its name.
     fn capabilities() -> PinCapabilities<'i>;
@@ -152,39 +151,21 @@ pub enum Mode {
     Custom(u8),
 }
 
-/// GPIO error
+/// Errors of `Bank` and `Pin`: the common ones first (unsupported mode, pull, speed, event or IO level; in use; no
+/// power; refused), then what is specific to GPIO. Each method lists the variants it returns.
 #[derive_shrink_wrap(
-    borrowed,
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Clone, Debug),
-    ww_repr = unib32
+    derive(Debug, PartialEq, Eq, Clone),
+    ww_repr = unib32,
+    display
 )]
-pub enum Error {
-    /// `Pin::set_mode` was called with a `Mode` this pin doesn't support.
-    UnsupportedMode,
-    /// `Pin::pull` was set to a `Pull` this pin doesn't support.
-    UnsupportedPull,
-    /// `Pin::speed` was set to a `Speed` this pin doesn't support.
-    UnsupportedSpeed,
-    /// `Pin::event` was opened with an edge or custom source this pin can't generate.
-    UnsupportedEventType,
-    /// `Bank::configure` asked for an IO level this bank can't drive.
-    UnsupportedReferenceVoltage,
-    /// Pins of a bank were requested to use different modes when only one mode at a time is supported.
+pub enum GpioError<'i> {
+    /// {0}
+    #[common]
+    Common(CommonError<'i>),
+    /// The pins of this bank share one mode, and another pin is in a different one.
     DifferentModes,
-    /// The method or property exists on the device but isn't implemented yet.
-    NotImplemented,
-    /// Device-specific error code, 8-bit.
-    CustomU8(u8),
-    /// Device-specific error code, 32-bit.
-    CustomU32(u32),
-    /// The pin serves another function.
-    InUse,
-    /// The level translators have no supply (IO level off).
-    NoIoLevel,
-    /// A safety rule of the device doesn't allow it.
-    Refused,
 }
 
 /// IO pin pull configuration (pull-up, pull-down, etc.)

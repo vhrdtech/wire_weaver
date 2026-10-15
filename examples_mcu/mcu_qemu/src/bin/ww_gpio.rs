@@ -10,7 +10,7 @@ use wire_weaver::prelude::*;
 use ww_stream::tx::Counted;
 use ww_client_server::stream::StreamHead;
 use ww_gpio::IoPinEvent;
-use ww_gpio::{BankCapabilities, BankConfig, Error, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed};
+use ww_gpio::{BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed};
 
 #[entry]
 fn main() -> ! {
@@ -80,10 +80,10 @@ impl ServerState {
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 1],
         config: BankConfig,
-    ) -> RpcResult<Result<BankConfig, Error>> {
+    ) -> RpcResult<Result<BankConfig, GpioError<'_>>> {
         // fixed 3.3 V, no level translators
         if config.io_level.is_some() {
-            return Ready(Err(Error::UnsupportedReferenceVoltage));
+            return Ready(Err(CommonError::Unsupported.into()));
         }
         Ready(Ok(BankConfig { io_level: None }))
     }
@@ -135,8 +135,9 @@ impl ServerState {
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 2],
         _enabled: IoPinEnabledEvents<'_>,
-    ) -> RpcResult<Result<(), Error>> {
-        Ready(Err(Error::UnsupportedEventType))
+        // TODO(API-35): `'_` doesn't compile for a stream function's error yet
+    ) -> RpcResult<Result<(), GpioError<'static>>> {
+        Ready(Err(CommonError::Unsupported.into()))
     }
 
     fn close_port_pin_event(
@@ -163,7 +164,7 @@ impl ServerState {
         _index: [UNib32; 2],
         _mode: Mode,
         _initial: Option<Level>,
-    ) -> RpcResult<Result<(), Error>> {
+    ) -> RpcResult<Result<(), GpioError<'_>>> {
         ww_unimplemented!()
     }
 
@@ -175,19 +176,19 @@ impl ServerState {
         ww_unimplemented!()
     }
 
-    fn set_port_pin_pull(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2], _pull: Pull) -> SetResult<Error> {
+    fn set_port_pin_pull(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2], _pull: Pull) -> SetResult<GpioError<'_>> {
         ww_unimplemented!()
     }
 
-    fn get_port_pin_pull(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2]) -> GetResult<Pull, Error> {
+    fn get_port_pin_pull(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2]) -> GetResult<Pull, GpioError<'_>> {
         ww_unimplemented!()
     }
 
-    fn set_port_pin_speed(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2], _speed: Speed) -> SetResult<Error> {
+    fn set_port_pin_speed(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2], _speed: Speed) -> SetResult<GpioError<'_>> {
         ww_unimplemented!()
     }
 
-    fn get_port_pin_speed(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2]) -> GetResult<Speed, Error> {
+    fn get_port_pin_speed(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2]) -> GetResult<Speed, GpioError<'_>> {
         ww_unimplemented!()
     }
 

@@ -9,7 +9,7 @@
     "timestamps and correlate with host time), and synchronise several devices: one is the master on a sync line,",
     "the others lock to it and publish `time_map` points that map their local time to the shared one.",
 ], crate_idx: 0, trait_name: "ww_timebase", items: [
-    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Clock", docs: []),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Clock", docs: [], optional: None),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
         37,
@@ -90,21 +90,25 @@
             (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
-        "Error returned by `Clock` methods.",
+    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+        122,
+        139,
+        242,
+        75,
+        84,
+        91,
+        80,
+        174,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Errors of `Clock`: the common ones (unsupported sync line or format, invalid configuration, in use, wrong",
+        "state); each method lists the variants it returns.",
     ], ident: "ClockError", variants: [
         (docs: [
-            "No sync line, or the requested `SyncFormat` is not one of `ClockInfo::sync_formats`.",
-        ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
-        (docs: [
-            "The format is recognized but this device rejects the requested configuration.",
-        ], ident: "InvalidArgument", fields: Unit, discriminant: 1, since: None),
-        (docs: [
-            "The method only applies in a different `SyncConfig` (e.g. `set_time_of_day` while not `Master`).",
-        ], ident: "WrongMode", fields: Unit, discriminant: 2, since: None),
-        (docs: [
-            "Sync mode cannot be switched right now (e.g. already locked to something else).",
-        ], ident: "InUse", fields: Unit, discriminant: 3, since: None),
+            "{0}",
+        ], ident: "Common", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 6), docs: []),
+        ]), discriminant: 0, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Current sync state of a device\'s clock, see `Clock::sync_status`.",
@@ -119,7 +123,7 @@
             "Local time of the last lock.",
         ]),
     ]))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "DateTime", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "DateTime", signature: [
         211,
         75,
         69,
@@ -138,50 +142,52 @@
         "every 71.6 minutes). `now()` gives the full-width value, so a host can unwrap those truncated timestamps and",
         "correlate device time with its own.",
     ], crate_idx: 0, trait_name: "Clock", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0))), multiplicity: Flat, since: None, ident: "now", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0)), errors: None), multiplicity: Flat, since: None, ident: "now", docs: [
             "Device time now, full width: the value every truncated timestamp elsewhere in this device\'s API wraps",
             "around.",
-        ]),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "info", docs: [
+        ], optional: None),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2)), errors: None), multiplicity: Flat, since: None, ident: "info", docs: [
             "Static description of this clock: its resolution, what it calls itself, and which [SyncFormat]s it",
             "supports.",
-        ]),
+        ], optional: None),
         (id: 2, kind: Stream(ty: OutOfLine(type_idx: 4), is_up: true), multiplicity: Flat, since: None, ident: "time_map", docs: [
             "Local time mapped to the shared sync time, sent about once a second while synced and on every",
             "[SyncState] change, so a host can line up this device\'s timeline with others and see the unsynced spans.",
-        ]),
+        ], optional: None),
         (id: 3, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 5)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "configure_sync", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 7))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Unsupported",
+                "InvalidArgument",
+                "InUse",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "configure_sync", docs: [
             "Switch sync off, or make this device the master on the sync line, or a slave locking to one, in the given",
-            "[SyncFormat].",
-            "",
-            "# Errors",
-            "",
-            "[ClockError::Unsupported] if this device has no sync line, or does not support the requested",
-            "[SyncFormat] (see `info().sync_formats`); [ClockError::InvalidArgument] for a format the device",
-            "recognizes but whose configuration it rejects; [ClockError::InUse] if sync mode cannot be switched while",
-            "already locked to something else.",
-        ]),
-        (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5))), multiplicity: Flat, since: None, ident: "sync_config", docs: [
+            "[SyncFormat]. `Unsupported` if this device has no sync line or doesn\'t support the requested [SyncFormat]",
+            "(see `info().sync_formats`), `InvalidArgument` for a format the device recognizes but whose configuration it",
+            "rejects, `InUse` if sync mode cannot be switched while already locked to something else.",
+        ], optional: None),
+        (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "sync_config", docs: [
             "Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).",
-        ]),
-        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7))), multiplicity: Flat, since: None, ident: "sync_status", docs: [
+        ], optional: None),
+        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "sync_status", docs: [
             "Current sync state, with the offset and local time of the last lock, when known.",
-        ]),
+        ], optional: None),
         (id: 6, kind: Method(args: [
-            (ident: "t", ty: OutOfLine(type_idx: 8)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "set_time_of_day", docs: [
+            (ident: "t", ty: OutOfLine(type_idx: 9)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 7))), errors: Some([
+            (ident: "Common", nested: Some([
+                "WrongState",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "set_time_of_day", docs: [
             "Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while",
-            "sync is off.",
-            "",
-            "# Errors",
-            "",
-            "[ClockError::WrongMode] unless `configure_sync` currently has this device set as `Master`.",
-        ]),
+            "sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.",
+        ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_timebase", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-])
+], root_omitted: None)

@@ -32,15 +32,11 @@ pub trait Clock {
     stream!(time_map: TimeMapPoint);
 
     /// Switch sync off, or make this device the master on the sync line, or a slave locking to one, in the given
-    /// [SyncFormat].
-    ///
-    /// # Errors
-    ///
-    /// [ClockError::Unsupported] if this device has no sync line, or does not support the requested
-    /// [SyncFormat] (see `info().sync_formats`); [ClockError::InvalidArgument] for a format the device
-    /// recognizes but whose configuration it rejects; [ClockError::InUse] if sync mode cannot be switched while
-    /// already locked to something else.
-    fn configure_sync(config: SyncConfig) -> Result<(), ClockError>;
+    /// [SyncFormat]. `Unsupported` if this device has no sync line or doesn't support the requested [SyncFormat]
+    /// (see `info().sync_formats`), `InvalidArgument` for a format the device recognizes but whose configuration it
+    /// rejects, `InUse` if sync mode cannot be switched while already locked to something else.
+    #[errors(Common(Unsupported, InvalidArgument, InUse))]
+    fn configure_sync(config: SyncConfig) -> Result<(), ClockError<'i>>;
 
     /// Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).
     fn sync_config() -> SyncConfig;
@@ -49,12 +45,9 @@ pub trait Clock {
     fn sync_status() -> SyncStatus;
 
     /// Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while
-    /// sync is off.
-    ///
-    /// # Errors
-    ///
-    /// [ClockError::WrongMode] unless `configure_sync` currently has this device set as `Master`.
-    fn set_time_of_day(t: DateTime) -> Result<(), ClockError>;
+    /// sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.
+    #[errors(Common(WrongState))]
+    fn set_time_of_day(t: DateTime) -> Result<(), ClockError<'i>>;
 }
 
 /// Static description of a device's clock, see `Clock::info`.
@@ -138,21 +131,16 @@ pub struct TimeMapPoint {
     pub state: SyncState,
 }
 
-/// Error returned by `Clock` methods.
+/// Errors of `Clock`: the common ones (unsupported sync line or format, invalid configuration, in use, wrong
+/// state); each method lists the variants it returns.
 #[derive_shrink_wrap(
-    borrowed,
     owned(feature = "std"),
-    derive(Copy, Clone, Debug, PartialEq, Eq),
-    self_describing,
-    ww_repr = unib32
+    derive(Debug, PartialEq, Eq, Clone),
+    ww_repr = unib32,
+    display
 )]
-pub enum ClockError {
-    /// No sync line, or the requested `SyncFormat` is not one of `ClockInfo::sync_formats`.
-    Unsupported,
-    /// The format is recognized but this device rejects the requested configuration.
-    InvalidArgument,
-    /// The method only applies in a different `SyncConfig` (e.g. `set_time_of_day` while not `Master`).
-    WrongMode,
-    /// Sync mode cannot be switched right now (e.g. already locked to something else).
-    InUse,
+pub enum ClockError<'i> {
+    /// {0}
+    #[common]
+    Common(CommonError<'i>),
 }

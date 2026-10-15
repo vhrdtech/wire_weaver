@@ -536,14 +536,14 @@ mod tests {
             .iter()
             .map(|c| c.crate_id.as_str())
             .collect();
-        assert_eq!(crates, ["ww_uart", "ww_si"]);
+        assert_eq!(crates, ["ww_uart", "ww_si", "ww_error"]);
 
-        // own types in-line, ww_si ones only referenced, nothing ww_si types refer to is left over
+        // own types in-line, ww_si and ww_error ones only referenced, nothing they refer to is left over
         for location in &bundle.types {
             match location {
                 TypeLocationOwned::InLine { crate_idx, .. } => assert_eq!(crate_idx.0, 0),
                 TypeLocationOwned::SkippedFullVersion { crate_idx, .. } => {
-                    assert_eq!(crate_idx.0, 1)
+                    assert!([1, 2].contains(&crate_idx.0))
                 }
             }
         }
@@ -554,6 +554,7 @@ mod tests {
         };
         assert!(skipped("Volt"));
         assert!(skipped("Second"));
+        assert!(skipped("CommonError"));
 
         // every index points to an existing entry
         let mut refs = Refs::default();
@@ -662,6 +663,7 @@ mod tests {
             load("../ww_stdlib/ww_gpio"),
             load("../ww_stdlib/ww_si"),
             load("../ww_stdlib/ww_numeric"),
+            load("../ww_stdlib/ww_error"),
         ];
         let resolve = from_snapshots(&snapshots);
         assert_eq!(
@@ -679,7 +681,8 @@ mod tests {
 
     #[test]
     fn trait_signature_resolves_through_several_snapshots() {
-        // uart_api uses ww_uart traits, which refer to ww_si types, which refer to ww_numeric types
+        // uart_api uses ww_uart traits, which refer to ww_si types, which refer to ww_numeric types, and to
+        // ww_error's CommonError
         let uart_api = load("../examples/uart_api");
         let (idx, signature) = uart_api
             .traits
@@ -696,6 +699,7 @@ mod tests {
             load("../ww_stdlib/ww_uart"),
             load("../ww_stdlib/ww_si"),
             load("../ww_stdlib/ww_numeric"),
+            load("../ww_stdlib/ww_error"),
         ];
         let resolve = from_snapshots(&snapshots);
         assert_eq!(

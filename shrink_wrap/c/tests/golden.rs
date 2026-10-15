@@ -351,6 +351,8 @@ fn error_numbers() {
         (LenFifoNotEmpty, "LEN_FIFO_NOT_EMPTY"),
         (EnumVariantDisabled, "ENUM_VARIANT_DISABLED"),
         (MaxLenExceeded, "MAX_LEN_EXCEEDED"),
+        (MalformedOptionAnyVec, "MALFORMED_OPTION_ANY_VEC"),
+        (OptionAnyVecWrongSlot, "OPTION_ANY_VEC_WRONG_SLOT"),
     ];
     for (e, name) in names {
         let line = format!("SW_ERR_{name} = {},", e as u32);

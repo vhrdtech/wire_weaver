@@ -31,6 +31,7 @@ pub use ref_vec::{RefVec, RefVecIter};
 pub mod either_any_vec;
 pub mod fixed_layout;
 pub mod head_tail;
+pub mod option_any_vec;
 pub mod traits;
 pub use shrink_wrap_derive::{derive_shrink_wrap, ww_repr};
 #[cfg(feature = "std")]
@@ -95,6 +96,13 @@ pub enum Error {
     /// A [MaxLen] list or string is longer than its maximum: when serializing or deserializing it, or in
     /// [MaxLen::new]. A longer value is never cut.
     MaxLenExceeded,
+    /// The presence header of an [OptionAnyVec](option_any_vec::OptionAnyVec) cannot have been written by the
+    /// writer: a count or length past the end of the data, a slot id past `u32::MAX`, an empty group in the
+    /// two-level mode.
+    MalformedOptionAnyVec,
+    /// A value written for a slot of an [OptionAnyVec](option_any_vec::OptionAnyVec) that is not the next present
+    /// one, a present slot left without a value, or present slot ids that don't increase.
+    OptionAnyVecWrongSlot,
 }
 
 impl Display for Error {

@@ -50,6 +50,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **SW-10 `EitherAnyVec`**: zero-copy, no-alloc array of `Either` elements of any types, with the L/R flags packed
   in groups of 8 instead of padding each element. Packs e.g. a list of `Result`s tightly; used for multi-read
   and multi-call results (only multi-read exists so far).
+- ✅ **SW-55 `OptionAnyVec`**: zero-copy, no-alloc array of `Option` slots of any types (numbers, structs, lists,
+  strings, a nested `OptionAnyVec` for a child level), only the present values written, in slot order without
+  padding between them. A presence header up front in the smallest of four modes (all, dense bits, two-level bits,
+  index list), self-delimiting so that readers with fewer or more slots than the writer read it (slots are only
+  appended); a malformed header is an error. Writer takes the present set up front (`SetBits` over a bitset, any
+  increasing iterator), `OptionAnyVecWriter` / in-place `OptionAnyVecBuilder`. For a trait level's properties in one
+  update (API-38). See `docs/serdes/shrink_wrap.md#optionanyvec`, `docs/serdes/showcase.md`.
 - ✅ **SW-11 Alloc writer** `BufWriterOwned`, `SerializeShrinkWrap` for `&[u8]`, `String` as UFS.
 - ✅ **SW-12 In-place builders** used by the server codegen (event and error builders), and the manual
   patch-the-discriminant-later pattern (`docs/serdes/showcase.md`).
@@ -241,6 +248,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **SW-29 Flatten support** — apply a type's layout across struct/enum boundaries.
 - 💡 **SW-30 `derive_shrink_wrap` on a whole module at once**. For definitions in separate files with own syntax, see
   [standalone definition files](#api-model-and-codegen-api).
+- 💡 **SW-56 Tri-state slots in `OptionAnyVec`** — absent / value / error per slot, e.g. a property update that says
+  why one value is missing. The header has room for it: mode nibbles `4..=15` are reserved (a reader fails on them
+  today), so 2-valued vecs don't pay for it.
 - ✅ **DER-1 `#[derive_shrink_wrap(..)]` attribute** with clear syntax, no hidden magic and good error messages
   (`docs/serdes/derive.md`); replaced `#[derive(ShrinkWrap)]`.
 - ✅ **DER-2 Discriminant checks**: discriminants must fit `ww_repr`, implicit ones are numbered like in Rust.

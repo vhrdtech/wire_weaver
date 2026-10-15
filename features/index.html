@@ -387,6 +387,26 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1659,6 +1679,26 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1718,6 +1758,33 @@
     
   
   Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/io_family/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  IO trait family
 
     
   </span>
@@ -1880,6 +1947,249 @@
     
   
   ww_gpio
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_uart
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_i2c
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_spi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_spi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_adc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_adc
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_pwm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_pwm
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_onewire/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_onewire
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_timebase/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_timebase
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_logic_analyzer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_logic_analyzer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_signal_generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_signal_generator
 
     
   </span>
@@ -3391,6 +3701,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   Python <code>RemoteError.common</code> with the doc line as the message, <code>ww api tree -t</code> marks it. Display by hand until
   DER-12 takes over. Moving the stdlib crates' errors to it is still to do.
   <code>docs/std_library/ww_error.md</code>, <code>tests/common_error</code>.</li>
+<li>✅ <strong>STD-19 <code>ww_pwm</code></strong> — <code>Pwm</code> / <code>PwmChannel</code> outputs (<code>set_output</code>, <code>set_duty</code>, <code>stop</code>, <code>state</code>), <code>PwmCapture</code> /
+  <code>PwmCaptureChannel</code> measurements (frequency, duty, pulse width, edge count) over a plain stream with sideband
+  <code>Open</code> / <code>Close</code>. Full rustdoc, mock server and in-process tests (<code>tests/io_pwm</code>), docs page
+  (<code>docs/std_library/ww_pwm.md</code>) (STD-13).</li>
+<li>✅ <strong>STD-17 <code>ww_timebase</code></strong> — <code>Clock</code>: device time as <code>ww_si::Second</code> (full width via <code>now()</code>, truncated
+  elsewhere), sync master / slave (IRIG-B, PPS), <code>sync_status</code>, a <code>time_map</code> stream mapping device time to
+  shared time, <code>set_time_of_day</code> for a master. <code>tests/io_timebase</code>, <code>docs/std_library/ww_timebase.md</code>.</li>
+<li>✅ <strong>STD-18 <code>ww_adc</code></strong> — <code>Adc</code>, <code>AdcStream</code> (sideband <code>Open</code> / <code>Close</code>), <code>AdcCapture</code>. Fill-in done:
+  full rustdoc, <code>tests/io_adc</code> mock server (one test per trait), <code>docs/std_library/ww_adc.md</code>, API snapshot
+  (STD-13).</li>
+<li>✅ <strong>STD-20 <code>ww_onewire</code></strong> — <code>OneWire</code>: addressed transactions with strong pull-up, reset, paged and
+  bit-level (<code>triplet</code>) ROM search, the real Dallas/Maxim search algorithm. Full rustdoc, docs page
+  (<code>docs/std_library/ww_onewire.md</code>), API snapshot, in-process test with a mock bus (<code>tests/io_onewire</code>).</li>
+<li>✅ <strong>STD-23 <code>ww_si</code> / <code>ww_numeric</code> extended</strong> · <code>v0.5</code> — quantity groups and host helpers as cargo features,
+  <code>Second</code> as a device timestamp (wrap rule, host <code>Unwrapper</code>), constructors, conversions and comparisons across
+  prefixes and storage, <code>UVlq32</code> / <code>UVlq64</code> storage (STD-13). <code>docs/std_library/ww_si.md</code>,
+  <code>docs/std_library/ww_numeric.md</code>. Zero-overhead typed quantities (<code>Volt&lt;u16, Milli&gt;</code>) are not part of it.</li>
 <li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing.</li>
 <li>🔍 <strong>STD-7 Interrupt left enabled in <code>ww_gpio_hl</code></strong> · <code>v0.5</code> — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.</li>
@@ -3408,6 +3735,25 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>MAX_PIECE_LEN</code>, <code>MAX_HEADER_LEN</code>, <code>MAX_CHUNKS_PAGE</code>, <code>MAX_PRODUCT_LEN</code>), so every method has a known largest
   request and reply. <code>Profile::AB(SlotSwitch::{Copy, Remap})</code> / <code>InPlace</code>. Next: a chunky implementation (chunky
   NET-1).</li>
+<li>🚧 <strong>STD-13 IO trait family</strong> · <code>v0.5</code> — <code>ww_gpio</code>, <code>ww_uart</code> (+ <code>UartMonitor</code>), <code>ww_i2c</code> (+ <code>I2cWatch</code>,
+  <code>I2cMonitor</code>, 10-bit addresses), <code>ww_spi</code> (+ <code>SpiMonitor</code>), <code>ww_adc</code> (STD-18), <code>ww_pwm</code> (STD-19), <code>ww_onewire</code>
+  (STD-20), <code>ww_timebase</code> (STD-17), <code>ww_logic_analyzer</code> / <code>ww_signal_generator</code> (STD-21, STD-22); <code>ww_si</code> values
+  and timestamps (STD-23), plain error enums with <code>InUse</code> / <code>NoIoLevel</code> / <code>Refused</code> / <code>Unsupported</code>. Family overview
+  in <code>docs/std_library/io_family.md</code>; every crate filled in with full rustdoc, a mock-server test pair
+  <code>tests/io_&lt;x&gt;</code> and a docs page <code>docs/std_library/ww_&lt;x&gt;.md</code>; <code>examples_mcu</code> GPIO and UART boards follow.
+  Streams with a configuration are counted stream functions (API-31: <code>AdcStream::samples</code>, <code>LogicStream::data</code>,
+  <code>Pin::event</code>, <code>PwmCaptureChannel::capture</code>, <code>SpiMonitor::frames</code>, <code>I2cMonitor::records</code>, <code>UartMonitor::lines</code>),
+  <code>Uart::rx</code> and <code>I2cWatch::changes</code> are counted: positions, device losses and timestamps in the event head.
+  Clients take one <code>?</code> per call (CLT-24 <code>CallError</code>), <code>Unsized</code> enums read newer variants as <code>Unknown(u32)</code>
+  (SW-47). Open: the error enums are <code>self_describing</code> and not yet on <code>ww_error::CommonError</code> (STD-16), so a newer
+  error variant doesn't decode on an older host; <code>*_hl</code> crates are STD-14.</li>
+<li>🚧 <strong>STD-21 <code>ww_logic_analyzer</code></strong> · <code>v0.5.x</code> — <code>LogicAnalyzer</code> (triggered capture into RAM), <code>LogicStream</code>;
+  <code>Raw</code> and per-channel <code>Transitions</code> encodings (SW-31 <code>DeltaOfDelta</code>), staged pattern triggers and protocol
+  stages (UART byte, I2C address, SPI first byte). Skeleton written, transitions as <code>DeltaOfDelta</code> (SW-50), docs
+  page <code>docs/std_library/ww_logic_analyzer.md</code>; mock-server test pair still open (STD-13).</li>
+<li>🚧 <strong>STD-22 <code>ww_signal_generator</code></strong> · <code>v0.5.x</code> — <code>PatternGenerator</code> (digital, replays analyzer captures through
+  a credit sink), <code>WaveformGenerator</code> (DAC channels). Skeleton written, docs page
+  <code>docs/std_library/ww_signal_generator.md</code>; mock-server test pair still open (STD-13).</li>
 <li>💡 <strong>STD-10 Device state machine trait</strong> like CANopen.</li>
 <li>💡 <strong>STD-11 Register description registry</strong> — WireWeaver for describing device registers.</li>
 </ul>

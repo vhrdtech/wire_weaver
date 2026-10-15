@@ -82,7 +82,13 @@
         <loc>https://ww.vhrd.tech/serdes/use_cases/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/io_family/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/overview/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_adc/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_can_bus/</loc>
@@ -103,16 +109,40 @@
         <loc>https://ww.vhrd.tech/std_library/ww_gpio/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_i2c/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/ww_log_baremetal/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_logic_analyzer/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/ww_numeric/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_onewire/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_pwm/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_self/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_si/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_signal_generator/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_spi/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_timebase/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_uart/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_version/</loc>

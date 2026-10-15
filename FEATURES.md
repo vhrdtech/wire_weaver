@@ -327,6 +327,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **API-33 Narrow error types per method** — generated per-method error enums with the crate enum's
   discriminants, as server handler return types only (`narrow_errors = true`), for a compile-time contract on the
   device. Explored and not recommended for clients: friction in every driver crate.
+- 🐛 **API-35 Stream functions with a borrowed error type don't compile on the server** · `v0.5` — a stream
+  function whose `Result` error has a lifetime (`#[stream(I2cRecord<'i>, counted)] fn records(..) -> Result<(),
+  I2cError<'i>>`, every IO family error since it holds `CommonError<'i>`) fails to compile with the handler
+  signature `ww api scaffold` emits (`RpcResult<Result<(), I2cError<'_>>>`): the generated dispatch keeps the
+  handler's output, which borrows `&mut self`, alive across `self.new_stream_session()` and
+  `self.stream_<name>().open(..)`. Workaround: the handler returns `I2cError<'static>` (the `tests/io_*` mocks do,
+  marked `TODO(API-35)`). Fix, one of: the scaffold emits `'static` for a stream function's error, or the
+  dispatch serializes the result before it touches `self` again (open the session first, write the head after).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

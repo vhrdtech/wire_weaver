@@ -814,6 +814,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   over NCM).
 - ✅ **EX-4 NCM UDP example**: `examples_mcu/rp2` `ww_udp_ncm`, host side `blinky_udp`.
 - ✅ **EX-5 Project layout** of paired `<name>_api` / `<name>` crates (`docs/api/folder_structure.md`).
+- ✅ **EX-11 Multi-property observe demo**: `examples/motor_demo` (+ `motor_demo_api`), a VESC-like FOC controller on
+  [motor_sim](https://github.com/vhrdtech/motor_sim) with 52 `+observe` properties in three trait levels by rate tier
+  (25 kHz, 1 kHz, 50 Hz), on simulated time faster or slower than real time, in-process and over UDP; the
+  `motor_demo` CLI observes chosen sets at chosen rates and shows achieved rates, updates and bytes per second
+  against the budget, missed sends and the cost as one `StreamData` per value (`docs/examples/motor_demo.md`).
 - ✅ **EX-14 cnt counters in MCU examples**: `cnt` dependency, `-Tcnt.x` and `runner = "cnt run --chip ..."` on every probe-rs board (rp2, nucleo_g0b1re, nucleo_h743zi2, usb_stm32h725ig); `unhandled_exceptions` counter in `DefaultHandler`. `mcu_qemu` has no probe, so no counters.
 - 📋 **EX-6 Example without async** · `v0.5` — `ww_device::blocking::Server` exists, no example uses it.
 - 📋 **EX-7 Example with two media** · `v0.5`.
@@ -821,8 +826,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **EX-9 WebSocket over Ethernet example** for some board · `v0.5.x` — the `ws` medium already runs on
   `embassy-net`, so Ethernet needs no transport work, only an example.
 - 📋 **EX-10 Reconnect demo** · `v0.5.x` — keep reconnecting with streams and UI feedback; `disconnect_keep_streams`.
-- 📋 **EX-11 Multi-property observe demo** · `v0.5.x` — timers and previous values, analog and digital signals, a
-  dynamic rate for each property.
 - 📋 **EX-12 Hubris based example** with sync code · `v0.5.x`.
 - 📋 **EX-13 Advanced example / project template**.
 

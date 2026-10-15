@@ -589,28 +589,29 @@ pub fn spawn(medium: Medium, opts: Options) -> anyhow::Result<DeviceThread> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
-    let socket = match &medium {
+    // bound or registered before the thread starts, so a host can connect as soon as this returns
+    let (bound, udp_addr) = match &medium {
         Medium::Udp(addr) => {
             let socket = std::net::UdpSocket::bind(addr)?;
             socket.set_nonblocking(true)?;
-            Some(socket)
+            let addr = socket.local_addr()?;
+            (Bound::Udp(socket), Some(addr))
         }
-        Medium::InProcess(_) => None,
+        Medium::InProcess(path) => {
+            let (tx, rx) = in_process::device(path, MAX_MESSAGE_LEN);
+            (Bound::InProcess(tx, rx), None)
+        }
     };
-    let udp_addr = socket.as_ref().map(|s| s.local_addr()).transpose()?;
     let thread = std::thread::Builder::new()
         .name("motor_demo device".into())
         .spawn(move || {
             rt.block_on(async move {
                 let mut device = Device::new(opts);
-                match (medium, socket) {
-                    (Medium::Udp(_), Some(socket)) => {
+                match bound {
+                    Bound::Udp(socket) => {
                         serve_udp(UdpSocket::from_std(socket)?, &mut device, &stop2).await
                     }
-                    (Medium::InProcess(path), _) => {
-                        serve_in_process(&path, &mut device, &stop2).await
-                    }
-                    (Medium::Udp(_), None) => unreachable!(),
+                    Bound::InProcess(tx, rx) => serve_in_process(tx, rx, &mut device, &stop2).await,
                 }
             })
         })?;
@@ -629,12 +630,18 @@ fn link_config() -> LinkConfig<'static> {
     )
 }
 
+/// A medium ready to serve
+enum Bound {
+    Udp(std::net::UdpSocket),
+    InProcess(in_process::DeviceTx, in_process::DeviceRx),
+}
+
 async fn serve_in_process(
-    path: &str,
+    tx: in_process::DeviceTx,
+    rx: in_process::DeviceRx,
     device: &mut Device,
     stop: &AtomicBool,
 ) -> anyhow::Result<()> {
-    let (tx, rx) = in_process::device(path, MAX_MESSAGE_LEN);
     let mut scratch = [0u8; MAX_MESSAGE_LEN];
     let mut event_scratch = [0u8; MAX_MESSAGE_LEN];
     let server = ww_device::Server::new(

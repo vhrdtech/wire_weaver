@@ -93,6 +93,7 @@ nav = [
     {
         "Examples and templates" = [
             "examples/examples.md",
+            "examples/motor_demo.md",
             { "wire_weaver_template repo" = "https://github.com/vhrdtech/wire_weaver_template" }
         ]
     },

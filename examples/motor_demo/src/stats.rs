@@ -167,7 +167,7 @@ pub fn property_update_len(level: Level, t: Option<&Second>, missed: u32, data: 
             prefix: ww_si::Prefix::Micro,
             value: NumericValue::U32(us as u32),
         },
-        _ => t.clone(),
+        _ => *t,
     });
     let event = Event {
         seq: UVlq32(0),
@@ -305,7 +305,7 @@ impl Stats {
 
     /// The counts so far, starting over.
     pub fn take(&mut self) -> Stats {
-        std::mem::replace(self, Stats::new())
+        std::mem::take(self)
     }
 }
 

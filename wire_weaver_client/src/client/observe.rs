@@ -980,7 +980,7 @@ mod tests {
             prefix: Prefix::Milli,
             value: NumericValue::U32(7),
         };
-        assert_eq!(unwrap_t(&mut last, ms.clone()), ms);
+        assert_eq!(unwrap_t(&mut last, ms), ms);
     }
 
     #[test]

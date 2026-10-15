@@ -13,6 +13,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Motor controller demo (EX-11), `examples/motor_demo` and `motor_demo_api`: a VESC-like FOC controller driving a
+  simulated motor ([motor_sim](https://github.com/vhrdtech/motor_sim)), its 52 variables observed in three rate
+  tiers through one trait level each, on simulated time faster or slower than real time, in-process or over UDP. The
+  `motor_demo` CLI shows achieved rates, bytes against the budget, missed sends and the comparison with one
+  `StreamData` per value; measured numbers in `docs/examples/motor_demo.md`.
 - Sparse structs (DER-13): `#[derive_shrink_wrap(sparse)]` on a struct of `Option` fields writes only the present
   ones, as an `OptionAnyVec`, at slots given by declaration order or `#[slot = N]`; the base of the per trait level
   update type of observe requests (SRV-18). shrink_wrap/CHANGELOG.md, section Unreleased.

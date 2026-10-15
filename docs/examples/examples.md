@@ -15,6 +15,7 @@ a `<name>` crate with the host client using it (see [folder structure](../api/fo
 | `blinky_py`                                       | Python wheel wrapping the `blinky` client                                   |
 | `all_gpio_api`, `all_gpio`                        | Arrays of [traits](../api/traits.md) from the [standard library](../std_library/ww_gpio.md) |
 | `uart_api`, `uart`                                | USB/Ethernet/CAN to UART bridge                                             |
+| `motor_demo_api`, `motor_demo`                    | [Motor controller demo](motor_demo.md): ~50 properties observed in three rate tiers, on a simulated motor |
 
 ## Firmware ([`examples_mcu/`](https://github.com/vhrdtech/wire_weaver/tree/master/examples_mcu))
 

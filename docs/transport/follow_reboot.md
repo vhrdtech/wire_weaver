@@ -26,6 +26,12 @@ app (WireWeaver)        boot ROM (BOOTSEL)               app (WireWeaver), new i
 
 ## What the host does
 
+`follow::rp2_update()` and the `wire_weaver_client::ww_picoboot` re-export need the `picoboot` Cargo feature of
+`wire_weaver_client` (off by default, pulls in `ww_picoboot` and its `nusb`-backed PICOBOOT transport): most host apps
+that only talk WireWeaver over USB never flash an RP2040 / RP2350 boot ROM, so they shouldn't pay for it.
+`follow::rp2_update_with()` and `follow::Follow`/`Bus`/`Found` stay available without it — that is what
+`tests/follow_reboot` runs against a simulated device.
+
 ```rust
 use wire_weaver_client::follow;
 use wire_weaver_client::ww_picoboot::{Image, image::family};
@@ -55,7 +61,9 @@ The pieces work on their own too:
 - `ww_picoboot` is the PICOBOOT host on its own: `usb::open(Some(serial))` gives a `Picoboot` with `flash()` (erase
   the touched 4 KiB sectors, write 256-byte pages, read back, with a progress callback), `read`, `write`,
   `flash_erase`, `chip_id`, `reboot2`. `Image` comes from a UF2 file (blocks of the given families; picotool's
-  RP2350-E10 dummy block is skipped) or a raw binary at an address. No libusb: nusb, pure Rust.
+  RP2350-E10 dummy block is skipped) or a raw binary at an address. No libusb: nusb, pure Rust. It lives in its own
+  repo, [picoboot_host](https://github.com/vhrdtech/picoboot_host) (crate name `picoboot_host`, re-exported here as
+  `ww_picoboot`), with no WireWeaver dependency of its own.
 
 ## From the command line
 

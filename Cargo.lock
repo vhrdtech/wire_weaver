@@ -1327,6 +1327,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "dfu_lean_app_api",
+ "picoboot_host",
  "semver",
  "tokio",
  "tracing-subscriber",
@@ -1335,7 +1336,6 @@ dependencies = [
  "ww_client_server",
  "ww_device",
  "ww_dfu",
- "ww_picoboot",
 ]
 
 [[package]]
@@ -2571,6 +2571,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e04d3a0849e241d7dfce834c83b1c5edc8622009e8dd51a12ba1927c32f05496"
 dependencies = [
  "pest",
+]
+
+[[package]]
+name = "picoboot_host"
+version = "0.1.0"
+dependencies = [
+ "nusb",
+ "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]
@@ -4344,6 +4353,7 @@ dependencies = [
  "iceoryx2",
  "iceoryx2-bb-container",
  "nusb",
+ "picoboot_host",
  "probe-rs",
  "rand",
  "ron",
@@ -4362,7 +4372,6 @@ dependencies = [
  "ww_framer",
  "ww_link",
  "ww_numeric",
- "ww_picoboot",
  "ww_self",
  "ww_si",
  "ww_stream",
@@ -4643,15 +4652,6 @@ dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
  "ww_si",
-]
-
-[[package]]
-name = "ww_picoboot"
-version = "0.1.0"
-dependencies = [
- "nusb",
- "thiserror 2.0.20",
- "tokio",
 ]
 
 [[package]]

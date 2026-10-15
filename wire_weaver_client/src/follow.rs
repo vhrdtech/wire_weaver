@@ -242,7 +242,7 @@ impl Default for Timeouts {
 }
 
 /// [rp2_update_with] on real USB devices.
-#[cfg(feature = "usb")]
+#[cfg(feature = "picoboot")]
 pub async fn rp2_update(
     serial: &str,
     image: &Image,

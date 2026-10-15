@@ -2,6 +2,13 @@
 
 ### ⚠️ Breaking
 
+- New `picoboot` feature (off by default, CLT-21): `follow::rp2_update()` and the `ww_picoboot` re-export now need it.
+  Previously they came with the `usb` feature (on by default), so every host app that just talks WireWeaver over USB
+  also pulled in PICOBOOT (`ww_picoboot`, `nusb`-backed RP2040 / RP2350 boot ROM flashing). `follow::rp2_update_with()`,
+  `Follow`, `Bus` and `Found` are unaffected — they don't need `ww_picoboot`'s `usb` feature, which is what
+  `tests/follow_reboot` relies on to test CLT-21 against a simulated device without it.
+- `ww_picoboot` moved out of this workspace into its own repo, [picoboot_host](https://github.com/vhrdtech/picoboot_host);
+  the dependency is unchanged on this side (still `ww_picoboot` in source), only where it comes from.
 - `Stream::open()` / `open_blocking()` are gone: a stream is opened by its generated call (API-31),
   `client.<name>().call().await` returns it. For `stream!` (`()` result) opening returns the stream itself, not
   `((), stream)`. `DynResource::stream()` opens plain streams with `StreamOpen`; `DynStream::open()` is gone. Stream

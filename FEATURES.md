@@ -466,7 +466,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reconnect to the same device by serial number, whatever answers there, with a timeout. Done for USB:
   `wire_weaver_client::follow` (`Follow`, `Bus`, `Found`), and the RP2350 / RP2040 boot ROM as the updater:
   `ww_picoboot` (PICOBOOT host on nusb, `SimRp2350` for tests), `follow::rp2_update()`, `ww bootsel`, tested end to end
-  on a simulated device (`tests/follow_reboot`, `docs/transport/follow_reboot.md`). Missing: a run against a Pico 2 /
+  on a simulated device (`tests/follow_reboot`, `docs/transport/follow_reboot.md`). The PICOBOOT host moved to its
+  own repo, [picoboot_host](https://github.com/vhrdtech/picoboot_host) (evaluated the crates.io `picoboot` 0.3.0
+  crate first: no sans-IO boundary to put `SimRp2350` behind, no `Image`/UF2 handling, no orchestrated flash+verify,
+  no `chip_id`/`GET_INFO` — adopting it would have meant donating most of `ww_picoboot` upstream anyway); wire_weaver
+  depends on it as `ww_picoboot` (a path dependency for now, no GitHub release or crates.io version yet). `wire_weaver_client`'s `picoboot`
+  feature (off by default) gates `follow::rp2_update()` and the `ww_picoboot` re-export, so a host app that only
+  talks WireWeaver over USB doesn't pull in PICOBOOT; `ww bootsel` turns it on, and `follow::rp2_update_with()` (what
+  `tests/follow_reboot` runs against a simulated device) needs neither it nor `usb`. Missing: a run against a Pico 2 /
   rePort; RTT (another control block: a second ELF or a RAM scan) and UDP / WebSocket (the port may change); asking
   for the reboot from the CLI needs CLT-10.
 - 📋 **CLT-22 One `Sink::send` for borrowed and owned items** — owned types (`FooOwned`) implement only

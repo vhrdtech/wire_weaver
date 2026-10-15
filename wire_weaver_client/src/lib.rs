@@ -69,6 +69,7 @@ pub use error_list::{ErrorList, set_strict_error_lists};
 pub use wire_weaver_snapshots as snapshots;
 pub use ww_client_server;
 pub use ww_numeric;
+#[cfg(feature = "picoboot")]
 pub use ww_picoboot;
 pub use ww_self;
 pub use ww_version;

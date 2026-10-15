@@ -29,7 +29,7 @@ use std::time::Duration;
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver::prelude::UNib32;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use ww_client_server::{ErrorKindOwned, PathKind};
+use ww_client_server::{ErrorKindOwned, ErrorOwned, MultiIndexOwned, PathKind, RequestKindOwned};
 use ww_numeric::NumericValue;
 use ww_self::errors::{error_list_contains, error_value_name, fmt_error_list};
 use ww_self::{
@@ -689,6 +689,259 @@ impl DynResource {
             Some(FlowControl::Credit) => cmd.prepare_credit_sink_blocking(self.path_kind()?)?,
         };
         Ok(DynSink::new(self, sink, ty))
+    }
+
+    /// This array's own absolute path (an `#[optional]` one checked first), the request path of every multi
+    /// request on it, see [Self::multi_read]/[Self::multi_write]/[Self::multi_call].
+    fn array_path(&self) -> Result<Vec<UNib32>, Error> {
+        if !matches!(self.node, Node::Array) {
+            return Err(self.not_a("array"));
+        }
+        // reuses path_kind()'s `#[optional]` check (API-16); an array is always addressed by Absolute path
+        match self.path_kind()? {
+            PathKind::Absolute { path } => path
+                .iter()
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| Error::Other(format!("{e:#}"))),
+            _ => unreachable!("DynResource paths are always Absolute"),
+        }
+    }
+
+    /// Looks up a resource by name inside this array's trait level (array-of-trait, e.g. `pin[].mode`), or this
+    /// array's own kind when `child` is `None` (array of a flat property/method/stream, e.g.
+    /// `property!(led[]: bool)`). Returns the resource's id for `in_each_array_id` (`None` for the flat case)
+    /// together with its kind. Bypasses [Self::kind], which always reports [DynResourceKind::Array] for an array
+    /// node regardless of what its element actually is.
+    fn array_child(&self, child: Option<&str>) -> Result<(Option<UNib32>, &ApiItemKindOwned), Error> {
+        if !matches!(self.node, Node::Array) {
+            return Err(self.not_a("array"));
+        }
+        let item = self.item.as_ref().expect("array node always has an item");
+        match child {
+            None => Ok((None, &item.kind)),
+            Some(name) => {
+                let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind else {
+                    return Err(Error::Other(format!(
+                        "'{}' is not an array of a trait, pass child: None to address it directly",
+                        self.display_path()
+                    )));
+                };
+                let level = self.bundle.get_trait(trait_idx.0).map_err(other)?;
+                let found = level.items.iter().find(|i| i.ident == name).ok_or_else(|| {
+                    let names: Vec<_> = level.items.iter().map(|i| i.ident.as_str()).collect();
+                    Error::Other(format!(
+                        "'{}' has no resource '{name}', available: {}",
+                        self.display_path(),
+                        names.join(", ")
+                    ))
+                })?;
+                Ok((Some(found.id), &found.kind))
+            }
+        }
+    }
+
+    fn array_property(&self, child: Option<&str>) -> Result<(Option<UNib32>, &TypeOwned), Error> {
+        let (id, kind) = self.array_child(child)?;
+        match kind {
+            ApiItemKindOwned::Property { ty, .. } => Ok((id, ty)),
+            _ => Err(self.not_a("property")),
+        }
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn array_method(
+        &self,
+        child: Option<&str>,
+    ) -> Result<(Option<UNib32>, &[ArgumentOwned], Option<&TypeOwned>), Error> {
+        let (id, kind) = self.array_child(child)?;
+        match kind {
+            ApiItemKindOwned::Method {
+                args, return_ty, ..
+            } => Ok((id, args, return_ty.as_ref())),
+            _ => Err(self.not_a("method")),
+        }
+    }
+
+    /// Read the same property (or flat array element, `child: None`) across an array (CLT-15): `multi_idx`
+    /// selects which elements (`Range`/`List`/`Mask32`, at least 2), `child` names one of the array's trait's
+    /// resources (`None` for an array of a flat property, e.g. `property!(led[]: bool)`).
+    pub async fn multi_read(
+        &self,
+        cmd: &Commander,
+        multi_idx: MultiIndexOwned,
+        child: Option<&str>,
+    ) -> Result<Vec<Result<ValueOwned, ErrorOwned>>, Error> {
+        let path = self.array_path()?;
+        let (in_each_array_id, ty) = self.array_property(child)?;
+        let ty = ty.clone();
+        let count = multi_idx.len();
+        let bytes = crate::client::multi::send_multi(
+            cmd.transport(),
+            path,
+            RequestKindOwned::MultiRead {
+                multi_idx,
+                in_each_array_id,
+            },
+            None,
+        )
+        .await?;
+        self.decode_multi_values(&ty, crate::client::multi::decode_items::<TailBytesOwned>(&bytes, count)?)
+    }
+
+    /// Write the same property (or flat array element) across an array (CLT-15): see [Self::multi_read].
+    /// `values` gives one value for every element (`Same`) or one per element in `multi_idx` order (`Different`).
+    pub async fn multi_write(
+        &self,
+        cmd: &Commander,
+        multi_idx: MultiIndexOwned,
+        child: Option<&str>,
+        values: DynMultiValue<'_>,
+    ) -> Result<Vec<Result<(), ErrorOwned>>, Error> {
+        let path = self.array_path()?;
+        let (in_each_array_id, ty) = self.array_property(child)?;
+        let count = multi_idx.len();
+        let multi_data = crate::client::multi::merge_args(values.encode(ty, &self.bundle, count)?)?;
+        let bytes = crate::client::multi::send_multi(
+            cmd.transport(),
+            path,
+            RequestKindOwned::MultiWrite {
+                multi_idx,
+                in_each_array_id,
+                multi_data,
+            },
+            None,
+        )
+        .await?;
+        crate::client::multi::decode_items(&bytes, count)
+    }
+
+    /// Call the same method across an array (CLT-15): see [Self::multi_read]. `args` gives one argument list for
+    /// every element (`Same`) or one per element in `multi_idx` order (`Different`); `Ok(None)` per index for a
+    /// method without a return value.
+    pub async fn multi_call(
+        &self,
+        cmd: &Commander,
+        multi_idx: MultiIndexOwned,
+        child: Option<&str>,
+        args: DynMultiArgs<'_>,
+    ) -> Result<Vec<Result<Option<ValueOwned>, ErrorOwned>>, Error> {
+        let path = self.array_path()?;
+        let (in_each_array_id, defs, return_ty) = self.array_method(child)?;
+        let defs = defs.to_vec();
+        let return_ty = return_ty.cloned();
+        let count = multi_idx.len();
+        let multi_args = crate::client::multi::merge_args(args.encode(&defs, &self.bundle, count)?)?;
+        let bytes = crate::client::multi::send_multi(
+            cmd.transport(),
+            path,
+            RequestKindOwned::MultiCall {
+                multi_idx,
+                in_each_array_id,
+                multi_args,
+            },
+            None,
+        )
+        .await?;
+        let raw = crate::client::multi::decode_items::<TailBytesOwned>(&bytes, count)?;
+        let mut out = Vec::with_capacity(raw.len());
+        for item in raw {
+            out.push(match item {
+                Ok(bytes) => Ok(match &return_ty {
+                    Some(ty) => Some(
+                        ValueOwned::des_shrink_wrap_dyn(&bytes, ty, &self.bundle)
+                            .map_err(|e| Error::Other(format!("'{}' return value: {e:#}", self.path)))?,
+                    ),
+                    None => None,
+                }),
+                Err(e) => Err(e),
+            });
+        }
+        Ok(out)
+    }
+
+    fn decode_multi_values(
+        &self,
+        ty: &TypeOwned,
+        raw: Vec<Result<TailBytesOwned, ErrorOwned>>,
+    ) -> Result<Vec<Result<ValueOwned, ErrorOwned>>, Error> {
+        let mut out = Vec::with_capacity(raw.len());
+        for item in raw {
+            out.push(match item {
+                Ok(bytes) => Ok(ValueOwned::des_shrink_wrap_dyn(&bytes, ty, &self.bundle)
+                    .map_err(|e| Error::Other(format!("'{}' value: {e:#}", self.path)))?),
+                Err(e) => Err(e),
+            });
+        }
+        Ok(out)
+    }
+}
+
+/// Arguments for [DynResource::multi_call]: one argument list used for every index (`Same`), or one per index in
+/// `multi_idx` order (`Different`).
+pub enum DynMultiArgs<'a> {
+    Same(&'a [ValueOwned]),
+    Different(&'a [Vec<ValueOwned>]),
+}
+
+impl DynMultiArgs<'_> {
+    fn encode(
+        &self,
+        defs: &[ArgumentOwned],
+        bundle: &ApiBundleOwned,
+        count: usize,
+    ) -> Result<Vec<Vec<u8>>, Error> {
+        let ser_one = |args: &[ValueOwned]| -> Result<Vec<u8>, Error> {
+            if args.len() != defs.len() {
+                return Err(Error::Other(format!(
+                    "takes {} arguments, got {}",
+                    defs.len(),
+                    args.len()
+                )));
+            }
+            ValueOwned::ser_shrink_wrap_vec_dyn(args, defs.iter().map(|a| &a.ty), bundle)
+                .map_err(|e| Error::Other(format!("arguments: {e:#}")))
+        };
+        match self {
+            DynMultiArgs::Same(args) => Ok(vec![ser_one(args)?; count]),
+            DynMultiArgs::Different(list) => {
+                if list.len() != count {
+                    return Err(Error::MultiReq(format!(
+                        "multi_idx covers {count} indices, got {} argument lists",
+                        list.len()
+                    )));
+                }
+                list.iter().map(|args| ser_one(args)).collect()
+            }
+        }
+    }
+}
+
+/// Values for [DynResource::multi_write]: one value used for every index (`Same`), or one per index in
+/// `multi_idx` order (`Different`).
+pub enum DynMultiValue<'a> {
+    Same(&'a ValueOwned),
+    Different(&'a [ValueOwned]),
+}
+
+impl DynMultiValue<'_> {
+    fn encode(&self, ty: &TypeOwned, bundle: &ApiBundleOwned, count: usize) -> Result<Vec<Vec<u8>>, Error> {
+        let ser_one = |value: &ValueOwned| -> Result<Vec<u8>, Error> {
+            value
+                .ser_shrink_wrap_dyn(ty, bundle)
+                .map_err(|e| Error::Other(format!("value: {e:#}")))
+        };
+        match self {
+            DynMultiValue::Same(value) => Ok(vec![ser_one(value)?; count]),
+            DynMultiValue::Different(list) => {
+                if list.len() != count {
+                    return Err(Error::MultiReq(format!(
+                        "multi_idx covers {count} indices, got {} values",
+                        list.len()
+                    )));
+                }
+                list.iter().map(ser_one).collect()
+            }
+        }
     }
 }
 

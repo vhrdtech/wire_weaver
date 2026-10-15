@@ -70,5 +70,32 @@ automatically by comparing each item's serialized bytes (all equal → `Same`, s
 - `docs/api/properties.md` (already mentions `multi_read`, update), `docs/api/methods.md` (add a short mention).
 
 ## Status / progress
-See TodoWrite in-session task list. Update this section before ending a work session; `git rm` this file before
-`tpm work ready`.
+
+Done (both commits build clean, `cargo check --workspace` and `cargo clippy -p wire_weaver_client --all-features`
+pass, existing `properties`/`methods`/`multi_req` tests still pass):
+- Commit 1 (`feat(client): generalize multi-request client API, any depth/arity (CLT-15)`): everything under
+  "Design (implemented)" points 1 and 2 above (tuple macro + array free functions), `ww_client_server`'s
+  `MultiIndexOwned::iter_u32`/`len`/`is_empty`, CHANGELOGs (root, `wire_weaver_client`, `ww_client_server`).
+- Commit 2 (uncommitted at the point of the soft-stop pause, about to be committed): point 3, `DynResource`
+  (`client/dynamic.rs`) gets `multi_read`/`multi_write`/`multi_call` for a `Node::Array` resource, with
+  `child: Option<&str>` (array-of-trait vs flat array), `DynMultiArgs`/`DynMultiValue` (`Same`/`Different`).
+  `Commander::transport()` is now `pub(crate)` (was private) so `dynamic.rs` can reach `client::multi::send_multi`/
+  `decode_items`/`merge_args` (also bumped to `pub(crate)`).
+
+Not started yet (tasks #8-#11 in the session's TaskList):
+- No new tests at all yet for anything in this file (tuple N>2, array read/call/write with
+  List/Range/Mask32 + per-item errors, dynamic client). `properties_api`/`methods_api` have no array trait today -
+  needs adding one to each (see "Design" above: `Channel`/`Unit`), with `multi_req = true` server handlers
+  (model closely on `tests/multi_req`'s `Pin` handlers and `tests/multi_req_api`).
+- FEATURES.md CLT-15 still 🚧, not yet ✅ - flip it only once tests land (the missing items it lists are now done,
+  but flipping before there's a test for each would be premature).
+- `docs/api/properties.md` (L161-162, already mentions 2-tuple-only `multi_read`) and `docs/api/methods.md` (no
+  mention yet) need updating for the generalized API.
+- Blocking + Promise variants of the tuple traits (`MultiRead`/`MultiCall`/`MultiWrite`) don't exist, only async -
+  matches the prior `MultiRead`'s shape, not a regression, but worth a mention if the user asks for them.
+- `just test`/`just lint` not run for the full workspace yet (only `cargo check`/`clippy` on the touched crates
+  and the 3 directly relevant test crates).
+
+Next step for whoever picks this up: tackle task #8 (add `Channel` to `properties_api`, `Unit` to `methods_api`,
+with `multi_req = true` server variants in `tests/properties`/`tests/methods`), then #9 (the actual tests), in that
+order - the test fixtures are the long pole, the tests themselves are comparatively quick once they exist.

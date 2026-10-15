@@ -218,7 +218,7 @@ impl Commander {
         }
     }
 
-    fn transport(&self) -> TransportCommander {
+    pub(crate) fn transport(&self) -> TransportCommander {
         TransportCommander {
             cmd_tx: self.transport_cmd_tx.clone(),
             default_timeout: self.default_timeout,

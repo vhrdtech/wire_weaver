@@ -130,7 +130,7 @@ pub(crate) fn merge_args(items: Vec<Vec<u8>>) -> Result<MultiArgsOwned, Error> {
 }
 
 /// Sends an already built multi request and returns the raw response bytes (an `EitherAnyVec`).
-async fn send_multi(
+pub(crate) async fn send_multi(
     commander: TransportCommander,
     prefix: Vec<UNib32>,
     kind: RequestKindOwned,
@@ -142,7 +142,7 @@ async fn send_multi(
     done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?
 }
 
-fn send_multi_blocking(
+pub(crate) fn send_multi_blocking(
     commander: TransportCommander,
     prefix: Vec<UNib32>,
     kind: RequestKindOwned,
@@ -156,7 +156,7 @@ fn send_multi_blocking(
 }
 
 /// Decodes `count` items (in order) of an `EitherAnyVec` response into `Result<T, ErrorOwned>`.
-fn decode_items<T: DeserializeShrinkWrapOwned>(
+pub(crate) fn decode_items<T: DeserializeShrinkWrapOwned>(
     bytes: &[u8],
     count: usize,
 ) -> Result<Vec<Result<T, ErrorOwned>>, Error> {

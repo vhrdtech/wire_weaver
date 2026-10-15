@@ -223,8 +223,19 @@ while let Ok(speed) = changes.recv().await { /* .. */ }
 - `ErrorKind::Unimplemented` (`CallError::Unimplemented { .. }` for writes) is a handler returning `Unimplemented`, or a
   property the device left out.
 - `.with_timeout(..)` overrides the request timeout for one read or write.
-- Several properties in one request: `(device.read_x(), device.read_y()).multi_read().await`, when the server is
-  generated with `multi_req = true` (a server without it refuses the request).
+- Several resources in one request, when the server is generated with `multi_req = true` (a server without it
+  refuses the request): each index is answered on its own (`Result<T, ErrorOwned>` per item, in order).
+    - Different resources at the same level: `(device.read_x(), device.read_y(), device.read_mode()).multi_read().await`
+      and the `multi_call`/`multi_write` equivalents, implemented for tuples of 2 to 8 of the generated
+      `PreparedRead`/`PreparedCall`/`PreparedWrite` builders, at any depth (any resources that share a common path
+      prefix and diverge at exactly one element, optionally followed by one more shared element — e.g. the same
+      property across two array elements).
+    - The same resource across a whole array: `read_array`/`call_array`/`write_array` (+ `_blocking`) take a
+      `MultiIndexOwned` selector (`Range`/`List`/`Mask32`) and the existing generated per-index accessor, e.g.
+      `read_array(MultiIndexOwned::Range(UNib32(0)..UNib32(4)), |i| client.pin(i).read_mode()).await`. The dynamic
+      client has the same as `DynResource::multi_read`/`multi_write`/`multi_call`.
+    - Whether each index carries the same argument/value or a different one per index (`MultiArgs::Same`/
+      `Different`) is chosen automatically from the serialized bytes.
 - With an `#[errors(..)]` list, the generated client warns when a write fails with a variant outside it (the dynamic
   client checks reads too).
 

@@ -176,6 +176,19 @@ match client.move_motor(1.0).call().await {
 without `Result` tell an unimplemented method apart with `wire_weaver_client::Error::is_unimplemented()`. A property
 with a user error type (`property!(rw mode: u8, ModeError)`) gives the same `CallError<ModeError>` from `write()`.
 See [Errors](errors.md) for declaring errors, common errors and errors of newer firmware.
+
+### Several calls in one request
+
+When the server is generated with `multi_req = true` (a server without it refuses the request), several methods
+can be called in one request/response pair, each answered on its own (`Result<T, ErrorOwned>` per item, in order):
+`(client.inc(), client.dec()).multi_call().await`, implemented for tuples of 2 to 8 of `PreparedCall`, at any depth
+(any methods that share a common path prefix and diverge at exactly one element). To call the same method across a
+whole array, use `call_array(multi_idx, |i| client.pin(i).double())` (`multi_idx` is a `Range`/`List`/`Mask32`
+selector) — see [Properties](properties.md#host-side) for the full set of multi-request helpers, which is shared
+with methods and properties alike (`multi_read`/`multi_call`/`multi_write`, `read_array`/`call_array`/`write_array`,
+and the dynamic-client equivalents). A method with a custom `#[errors(..)]` result (`CallError<E>`) can't go into a
+tuple multi-call; call it on its own instead.
+
 ### Error lists
 
 `#[errors(..)]` on a method names the variants of its error enum it returns (API-32), `Common(InUse, Refused)` the

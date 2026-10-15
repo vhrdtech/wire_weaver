@@ -13,6 +13,7 @@ members = [
     "wire_weaver_derive",
     "wire_weaver_py",
     "wire_weaver_snapshots",
+    "ww_defmt_logger",
     "ww_device",
     "ww_framer",
     "ww_global",
@@ -68,6 +69,7 @@ wire_weaver_client = { version = "0.5.0", path = "./wire_weaver_client" }
 wire_weaver_core = { version = "0.5.0", path = "./wire_weaver_core" }
 wire_weaver_derive = { version = "0.5.0", path = "./wire_weaver_derive" }
 wire_weaver_snapshots = { version = "0.5.0", path = "./wire_weaver_snapshots" }
+ww_defmt_logger = { version = "0.5.0", path = "./ww_defmt_logger" }
 ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }
 ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }

@@ -1,0 +1,24 @@
+[package]
+name = "ww_defmt_logger"
+version.workspace = true
+authors.workspace = true
+description = "defmt global logger for WireWeaver devices: whole frames into a reliable LogDefmt stream, teed to RTT"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+# tee every frame to an rtt-target up channel (`probe-rs`, `cnt run`)
+rtt = ["dep:rtt-target"]
+
+[dependencies]
+critical-section = "1.2"
+defmt.workspace = true
+rtt-target = { version = "0.6", optional = true }
+wire_weaver.workspace = true
+ww_log_bare_metal.workspace = true
+ww_stream.workspace = true
+
+[dev-dependencies]
+critical-section = { version = "1.2", features = ["std"] }

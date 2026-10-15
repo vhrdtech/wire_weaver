@@ -4630,6 +4630,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_defmt_logger"
+version = "0.5.0"
+dependencies = [
+ "critical-section",
+ "defmt 1.1.1",
+ "rtt-target",
+ "wire_weaver",
+ "ww_log_bare_metal",
+ "ww_stream",
+]
+
+[[package]]
 name = "ww_device"
 version = "0.5.0"
 dependencies = [

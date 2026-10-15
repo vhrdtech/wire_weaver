@@ -33,10 +33,10 @@ Everything below is committed on this branch (`s/15oct2026-dynamic-observe`).
 
 Verified per-crate: `cargo nextest run -p shrink_wrap -p ww_self -p wire_weaver_core -p wire_weaver_client -p
 observe` (all green, including `snapshots_are_up_to_date` and the two new dynamic tests), `cargo clippy` and
-`cargo fmt --check` clean for every touched crate. `just check` (whole-workspace, slower: `mcu/`,
-`examples_mcu/`) was kicked off in the background right before this note and never confirmed — **run it (and
-`just test`, `just lint`) before `tpm work ready`**, nothing touched here should affect `mcu/`/`examples_mcu/`
-but it hasn't actually been checked.
+`cargo fmt --check` clean for every touched crate. `just check` (whole-workspace, including `mcu/` and
+`examples_mcu/`) has since come back clean too (exit 0; the only note is a pre-existing `proc-macro-error2`
+future-incompat warning from an unrelated transitive dependency). **Still need `just test` and `just lint`
+(whole-workspace) before `tpm work ready`** — not run yet this session.
 
 ## Next
 

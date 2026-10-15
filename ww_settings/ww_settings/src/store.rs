@@ -36,6 +36,8 @@
 //!   the erase left, in whatever order it cleared the bytes, is older than the current records or a copy of one.
 //! - A cut while copying: the page copied from is untouched; the next write finishes the copy first.
 //! - Loading never writes: a device that boots in a loop doesn't wear or erase anything.
+//! - A write or [maintain](Store::maintain) future dropped half way (a `select!` with a timeout) leaves the flash
+//!   as a power cut at that point would, and the store goes on from there.
 //!
 //! Every word is written once between erases, as STM32G0 / H7 ECC flash needs, and only words that read erased
 //! are written. A page that holds a current record is never erased.
@@ -466,14 +468,16 @@ impl<S: NorFlash, const B: usize, const K: usize> Store<S, B, K> {
         self.buf[4..8].copy_from_slice(&page_seq.to_le_bytes());
         let crc = CRC.checksum(&self.buf[..8]);
         self.buf[8..12].copy_from_slice(&crc.to_le_bytes());
+        self.flash
+            .write(r.start, &self.buf[..n])
+            .await
+            .map_err(StoreError::Flash)?;
+        // only now: a write future dropped before this point leaves the store as a power cut would
         self.state = Some(State {
             current: Some((page, page_seq)),
             free: n,
         });
-        self.flash
-            .write(r.start, &self.buf[..n])
-            .await
-            .map_err(StoreError::Flash)
+        Ok(())
     }
 
     /// Move to the page after `current`, carrying over the current records of the page after that one, but the

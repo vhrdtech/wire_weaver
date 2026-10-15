@@ -91,7 +91,7 @@
 ```
 
 <details markdown="1">
-<summary>Wire bytes: 42 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
+<summary>Wire bytes: 43 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
 
 ```text
    ── device runs the app
@@ -168,7 +168,8 @@
 →    5 B  04 10 03 60 02
 ←    4 B  03 10 80 84
 →    6 B  05 11 01 30 00 02
-←    7 B  03 11 80 80 30 c1 02
+←    4 B  03 11 80 80
+←    3 B  30 c1 02
    ── device resets (into the app)
    ── bootloader applies the stored plan in place: 10 steps
    ── power cut while the bootloader applies step 5

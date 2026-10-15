@@ -566,13 +566,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   wake (an update plan, config), replies queued on the broker. Look at MQTT-SN and LwM2M first.
 - 🚧 **TR-12 USB throughput on small MCUs** — measured with `ww usb-loopback` on Donguru (STM32G0B1, Cortex-M0+
   64 MHz, USB FS behind the board's HS hub, 15 Oct 2026). Done: U2Head encodes and decodes whole bytes in u32
-  instead of bit by bit (`ww_framer` `framed.rs`, was ~15% of the device's CPU per packet); a partial frame goes
-  out at once when the sender has nothing else waiting instead of after the full accumulation window (device
-  replies in `ww_device` `Server::handle`, host in the event loop: `TxInput::Idle`). Next: double-buffered bulk
-  endpoints in `wire_weaver_usb_embassy` once embassy-usb releases `endpoint_bulk_*_double_buffered` and
-  embassy-stm32 supports them on usb_v4 (raw bulk 500 -> 950 kB/s OUT on the G0); CRC through a pluggable
-  checksum so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+); the same idle flush for the
-  blocking server.
+  instead of bit by bit (`ww_framer` `framed.rs`, was ~15% of the device's CPU per packet); the async device server
+  flushes replies at once when no other request waits instead of after the accumulation window (`ww_device`
+  `Server::handle`; DFU transcripts +1-2 packets). Next: double-buffered bulk endpoints in
+  `wire_weaver_usb_embassy` once embassy-usb releases `endpoint_bulk_*_double_buffered` and embassy-stm32 supports
+  them on usb_v4 (raw bulk 500 -> 950 kB/s OUT on the G0); CRC through a pluggable checksum so MCUs can use their
+  CRC unit (~13% of the CPU per packet on the M0+); a host-side flush for lone requests that keeps packetization
+  deterministic (flushing whenever the event loop goes idle made the DFU transcripts vary between runs); the same
+  reply flush for the blocking server.
 
 ## Introspection (`ww_self`, `INT`)
 

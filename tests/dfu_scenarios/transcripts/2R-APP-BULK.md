@@ -90,7 +90,7 @@
 ```
 
 <details markdown="1">
-<summary>Wire bytes: 24 USB packets (high speed, 512 B max) (link setup and pings left out)</summary>
+<summary>Wire bytes: 26 USB packets (high speed, 512 B max) (link setup and pings left out)</summary>
 
 ```text
    ── device runs the app
@@ -142,7 +142,8 @@
 →    5 B  04 07 03 60 02
 ←    4 B  03 07 80 82
 →    6 B  05 08 01 30 00 02
-←    7 B  03 08 80 80 30 c1 02
+←    4 B  03 08 80 80
+←    3 B  30 c1 02
    ── device resets (into the app)
    ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
    ── device runs the app
@@ -154,7 +155,8 @@
 →    5 B  04 02 01 20 02
 ←    4 B  03 02 80 80
 →    6 B  05 03 01 30 00 02
-←    7 B  03 03 80 80 30 c1 02
+←    4 B  03 03 80 80
+←    3 B  30 c1 02
    ── device resets (into the app)
    ── bootloader the trial image did not confirm: switches back: maps bank 0 to the boot address, nothing is copied
    ── device runs the app

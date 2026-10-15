@@ -90,7 +90,7 @@
 ```
 
 <details markdown="1">
-<summary>Wire bytes: 27 UDP datagrams (link setup and pings left out)</summary>
+<summary>Wire bytes: 28 UDP datagrams (link setup and pings left out)</summary>
 
 ```text
    ── device runs the app
@@ -153,7 +153,8 @@
 →    5 B  04 05 03 60 02
 ←    4 B  03 05 80 82
 →    6 B  05 06 01 30 00 02
-←    7 B  03 06 80 80 30 c1 02
+←    4 B  03 06 80 80
+←    3 B  30 c1 02
    ── device resets (into the app)
    ── bootloader switches to the staged image: swaps the slots' contents page by page
    ── device runs the app

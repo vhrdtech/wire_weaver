@@ -79,9 +79,9 @@
 → stage.write(index: 7, dst: 4, hash: a809c61b42942960, offset: 32, data: [32 B: 33 52 e3 4e ce 68 …])
         55 B  0f 03 40 07 00 00 00 04 00 a8 …
    ── power cut while the device applies step 7: no reply
+   ── host: the call fails (link lost), reconnects when the device is back
    ── bootloader: an update is under way, the app slot is not bootable: starts the updater
    ── device runs the updater
-   ── host: the call fails (link lost), reconnects when the device is back
    ── link up: dfu_updater_api (link setup not shown, same on every link)
 → node.node()
          4 B  01 00 00 02
@@ -139,7 +139,7 @@
 ```
 
 <details markdown="1">
-<summary>Wire bytes: 55 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
+<summary>Wire bytes: 57 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
 
 ```text
    ── device runs the app
@@ -148,7 +148,8 @@
           80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1 e0
           02 14 00 00 00 00 00 00 80 01 57
 →    6 B  05 02 01 30 10 02
-←    7 B  03 02 80 80 30 c1 02
+←    4 B  03 02 80 80
+←    3 B  30 c1 02
    ── device resets (into the updater)
    ── device runs the updater
    ── host reconnects to the same device: the updater answers
@@ -211,9 +212,9 @@
           6a fb 66 e6 80 2e 30 63 82 13 7e fe 98 46 48 7b
           9a 2b 96 16 b0 5e 60 0c 02
    ── power cut while the device applies step 7: no reply
+   ── host: the call fails (link lost), reconnects when the device is back
    ── bootloader: an update is under way, the app slot is not bootable: starts the updater
    ── device runs the updater
-   ── host: the call fails (link lost), reconnects when the device is back
 →    5 B  04 01 00 00 02
 ←   30 B  08 1c 01 80 11 73 69 6d 2d 64 66 75 92 10 00 00
           00 01 00 00 00 05 00 00 00 00 00 f0 01 57
@@ -254,7 +255,8 @@
 →    5 B  04 09 03 60 02
 ←    4 B  03 09 80 80
 →    6 B  05 0a 01 30 00 02
-←    7 B  03 0a 80 80 30 c1 02
+←    4 B  03 0a 80 80
+←    3 B  30 c1 02
    ── device resets (into the app)
    ── device runs the app
 →    5 B  04 01 00 00 02

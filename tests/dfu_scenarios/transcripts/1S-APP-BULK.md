@@ -88,7 +88,7 @@
 ```
 
 <details markdown="1">
-<summary>Wire bytes: 24 UDP datagrams (link setup and pings left out)</summary>
+<summary>Wire bytes: 25 UDP datagrams (link setup and pings left out)</summary>
 
 ```text
    ── device runs the app
@@ -158,7 +158,8 @@
 →    5 B  04 0a 03 60 02
 ←    4 B  03 0a 80 84
 →    6 B  05 0b 01 30 00 02
-←    7 B  03 0b 80 80 30 c1 02
+←    4 B  03 0b 80 80
+←    3 B  30 c1 02
    ── device resets (into the app)
    ── bootloader applies the stored plan in place: 10 steps
    ── bootloader: image verified against the descriptor, plan area cleared

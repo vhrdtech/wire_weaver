@@ -10,7 +10,10 @@ license.workspace = true
 [features]
 default = ["usb"]
 usb = [] # USB (using nusb)
-picoboot = ["usb", "ww_picoboot/usb"] # PICOBOOT flashing (RP2040/RP2350 boot ROM): follow::rp2_update(), ww_picoboot re-export
+picoboot = [
+    "usb",
+    "ww_picoboot/usb",
+] # PICOBOOT flashing (RP2040/RP2350 boot ROM): follow::rp2_update(), ww_picoboot re-export
 ws = [
     "dep:tokio-tungstenite",
     "dep:futures-util",

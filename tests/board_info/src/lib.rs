@@ -32,9 +32,10 @@ mod tests {
                     variant: MaxLen::new_unchecked(if self.known { "usb-io" } else { "" }),
                     bom_variant: MaxLen::new_unchecked(""),
                     serial: MaxLen::new_unchecked(if self.known { "B200-0042" } else { "" }),
-                    build_date: self
-                        .known
-                        .then(|| ww_board_info::DateTime::from_ymd_hms_utc_opt(2026, 9, 1, 0, 0, 0, 0).unwrap()),
+                    build_date: self.known.then(|| {
+                        ww_board_info::DateTime::from_ymd_hms_utc_opt(2026, 9, 1, 0, 0, 0, 0)
+                            .unwrap()
+                    }),
                 })
             }
         }
@@ -101,7 +102,10 @@ mod tests {
         let _ = tracing_subscriber::fmt::try_init();
         tests_common::start_device(
             path,
-            server::Server { revision_source, known },
+            server::Server {
+                revision_source,
+                known,
+            },
             board_info_api::BOARD_INFO_TEST_FULL_GID,
             server::api_impl::api_hash(),
         )
@@ -122,7 +126,11 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn revision_from_strap_keeps_raw_value() {
-        let device = start("board_info/strap", RevisionSource::Strap { value: 0x2a5 }, true);
+        let device = start(
+            "board_info/strap",
+            RevisionSource::Strap { value: 0x2a5 },
+            true,
+        );
         let client = connect(&device).await;
         let b = client.board().read_BOARD().read().await.unwrap();
         assert_eq!(b.revision_source, RevisionSource::Strap { value: 0x2a5 });
@@ -146,6 +154,9 @@ mod tests {
         wr.write(&RevisionSource::Strap { value: 0x2a5 }).unwrap();
         let bytes = wr.finish_and_take().unwrap();
         let mut rd = BufReader::new(bytes);
-        assert_eq!(rd.read::<RevisionSource>().unwrap(), RevisionSource::Strap { value: 0x2a5 });
+        assert_eq!(
+            rd.read::<RevisionSource>().unwrap(),
+            RevisionSource::Strap { value: 0x2a5 }
+        );
     }
 }

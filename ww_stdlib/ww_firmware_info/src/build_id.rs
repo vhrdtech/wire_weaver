@@ -46,7 +46,10 @@ mod tests {
         let mut note = vec![4, 0, 0, 0, 20, 0, 0, 0, 3, 0, 0, 0];
         note.extend_from_slice(b"GNU\0");
         note.extend(0..20u8);
-        assert_eq!(parse_build_id_note(&note), Some(&(0..20u8).collect::<Vec<_>>()[..]));
+        assert_eq!(
+            parse_build_id_note(&note),
+            Some(&(0..20u8).collect::<Vec<_>>()[..])
+        );
     }
 
     #[test]

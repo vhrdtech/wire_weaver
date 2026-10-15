@@ -12,14 +12,20 @@ pub fn facts() -> Vec<(&'static str, String)> {
     let env = |k: &str| std::env::var(k).unwrap_or_default();
     let git = |args: &[&str]| -> Option<String> {
         let out = Command::new("git").args(args).output().ok()?;
-        out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
     };
     let commit = git(&["rev-parse", "HEAD"]).unwrap_or_default();
     let dirty = git(&["status", "--porcelain"]).is_some_and(|s| !s.is_empty());
     let secs = std::env::var("SOURCE_DATE_EPOCH")
         .ok()
         .and_then(|s| s.parse::<i64>().ok())
-        .unwrap_or_else(|| SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64));
+        .unwrap_or_else(|| {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |d| d.as_secs() as i64)
+        });
     vec![
         ("WW_FW_NAME", env("CARGO_PKG_NAME")),
         ("WW_FW_VERSION_MAJOR", env("CARGO_PKG_VERSION_MAJOR")),
@@ -27,7 +33,10 @@ pub fn facts() -> Vec<(&'static str, String)> {
         ("WW_FW_VERSION_PATCH", env("CARGO_PKG_VERSION_PATCH")),
         ("WW_FW_VERSION_PRE", env("CARGO_PKG_VERSION_PRE")),
         ("WW_FW_GIT_COMMIT", commit),
-        ("WW_FW_GIT_DIRTY", if dirty { "1".into() } else { String::new() }),
+        (
+            "WW_FW_GIT_DIRTY",
+            if dirty { "1".into() } else { String::new() },
+        ),
         ("WW_FW_BUILT", format_utc(secs)),
         ("WW_FW_PROFILE", env("PROFILE")),
     ]
@@ -38,7 +47,12 @@ pub fn emit() {
     for (k, v) in facts() {
         println!("cargo:rustc-env={k}={v}");
     }
-    if let Some(git_dir) = Command::new("git").args(["rev-parse", "--git-dir"]).output().ok().filter(|o| o.status.success()) {
+    if let Some(git_dir) = Command::new("git")
+        .args(["rev-parse", "--git-dir"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+    {
         let dir = String::from_utf8_lossy(&git_dir.stdout).trim().to_string();
         println!("cargo:rerun-if-changed={dir}/HEAD");
         println!("cargo:rerun-if-changed={dir}/index");
@@ -59,7 +73,12 @@ pub fn format_utc(secs: i64) -> String {
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = if mp < 10 { mp + 3 } else { mp - 9 };
     let year = yoe + era * 400 + i64::from(month <= 2);
-    format!("{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}", rem / 3600, rem % 3600 / 60, rem % 60)
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}",
+        rem / 3600,
+        rem % 3600 / 60,
+        rem % 60
+    )
 }
 
 #[cfg(test)]

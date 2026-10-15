@@ -17,10 +17,7 @@ pub trait BoardInfo {
 }
 
 /// The PCB and its assembly, see [BoardInfo::BOARD].
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    derive(Clone, Debug, PartialEq, Eq)
-)]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
 pub struct BoardSummary<'i> {
     /// Board series, `B200`.
     pub name: MaxLen<&'i str, 32>,

@@ -45,7 +45,9 @@ mod tests {
                         commit: MaxLen::new_unchecked(RefVec::new_bytes(&COMMIT)),
                         dirty: true,
                     }),
-                    built: ww_firmware_info::DateTime::from_ymd_hms_utc_opt(2026, 10, 3, 18, 20, 0, 0),
+                    built: ww_firmware_info::DateTime::from_ymd_hms_utc_opt(
+                        2026, 10, 3, 18, 20, 0, 0,
+                    ),
                     profile: BuildProfile::Other(MaxLen::new_unchecked("size")),
                 })
             }
@@ -70,7 +72,11 @@ mod tests {
             ) -> RpcResult<ResetRecord<'_>> {
                 let crash = self.crash.lock().unwrap();
                 Ready(ResetRecord {
-                    cause: if crash.is_some() { ResetCause::Fault } else { ResetCause::PowerOn },
+                    cause: if crash.is_some() {
+                        ResetCause::Fault
+                    } else {
+                        ResetCause::PowerOn
+                    },
                     build_id: MaxLen::new_unchecked(RefVec::new_bytes(&BUILD_ID)),
                     uptime: Some(ww_si::Second::milliseconds(1500u32)),
                     fault: crash.as_ref().map(|c| c.fault.clone()),
@@ -86,7 +92,10 @@ mod tests {
                 Ready(*self.boots.lock().unwrap())
             }
 
-            fn reset_clear(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+            fn reset_clear(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
                 *self.crash.lock().unwrap() = None;
                 *self.boots.lock().unwrap() = 0;
                 Ready(())
@@ -147,7 +156,10 @@ mod tests {
     fn start(path: &str, fault: Option<Fault>) -> (TestDevice, Arc<Mutex<Option<Crash>>>) {
         let _ = tracing_subscriber::fmt::try_init();
         let crash = Arc::new(Mutex::new(fault.map(|fault| Crash { fault })));
-        let srv = server::Server { crash: crash.clone(), boots: Arc::new(Mutex::new(3)) };
+        let srv = server::Server {
+            crash: crash.clone(),
+            boots: Arc::new(Mutex::new(3)),
+        };
         let device = tests_common::start_device(
             path,
             srv,
@@ -171,13 +183,22 @@ mod tests {
 
         let fw = client.firmware().read_FIRMWARE().read().await.unwrap();
         assert_eq!(fw.name.as_str(), "b200_usb_io");
-        assert_eq!((fw.version.major.0, fw.version.minor.0, fw.version.patch.0), (0, 5, 0));
+        assert_eq!(
+            (fw.version.major.0, fw.version.minor.0, fw.version.patch.0),
+            (0, 5, 0)
+        );
         assert_eq!(fw.version.pre.as_deref(), Some("alpha.1"));
         let git = fw.git.unwrap();
         assert_eq!(git.commit.as_slice(), COMMIT);
         assert!(git.dirty);
-        assert_eq!(fw.built, ww_firmware_info::DateTime::from_ymd_hms_utc_opt(2026, 10, 3, 18, 20, 0, 0).map(Into::into));
-        assert_eq!(fw.profile, ww_firmware_info::BuildProfileOwned::Other(MaxLen::new_unchecked("size".to_string())));
+        assert_eq!(
+            fw.built,
+            ww_firmware_info::DateTime::from_ymd_hms_utc_opt(2026, 10, 3, 18, 20, 0, 0)
+        );
+        assert_eq!(
+            fw.profile,
+            ww_firmware_info::BuildProfileOwned::Other(MaxLen::new_unchecked("size".to_string()))
+        );
 
         let id = client.firmware().read_BUILD_ID().read().await.unwrap();
         assert_eq!(id.as_slice(), BUILD_ID);
@@ -215,7 +236,7 @@ mod tests {
         let r = client.reset().last_reset().call().await.unwrap();
         assert_eq!(r.cause, ResetCause::Fault);
         assert_eq!(r.message.as_str(), "HardFault");
-        assert_eq!(r.fault.as_ref().map(|f| f.clone().into()), Some(fault));
+        assert_eq!(r.fault.clone(), Some(fault));
         assert!(r.uptime.is_some());
 
         client.reset().clear().call().await.unwrap();

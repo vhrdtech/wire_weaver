@@ -10,8 +10,21 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 [features]
 default = ["std"]
 # every architecture's fault record, the host has to read all of them
-std = ["wire_weaver/std", "ww_date_time/std", "ww_si/std", "ww_version/std", "cortex-m", "riscv"]
-defmt = ["dep:defmt", "wire_weaver/defmt", "ww_date_time/defmt", "ww_si/defmt", "ww_version/defmt"]
+std = [
+    "wire_weaver/std",
+    "ww_date_time/std",
+    "ww_si/std",
+    "ww_version/std",
+    "cortex-m",
+    "riscv",
+]
+defmt = [
+    "dep:defmt",
+    "wire_weaver/defmt",
+    "ww_date_time/defmt",
+    "ww_si/defmt",
+    "ww_version/defmt",
+]
 # `build::emit()` for a firmware's build.rs (runs on the build machine: needs std and git)
 build = ["std"]
 # `build_id()` reads the GNU build note through the linker's `__build_id_start` / `__build_id_end` symbols

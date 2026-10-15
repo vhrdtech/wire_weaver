@@ -58,9 +58,9 @@ pub mod build;
 mod build_id;
 mod last_reset;
 
-pub use build_id::parse_build_id_note;
 #[cfg(all(feature = "build-id", not(feature = "std")))]
 pub use build_id::build_id;
+pub use build_id::parse_build_id_note;
 pub use last_reset::*;
 
 /// Longest build id carried on the wire (sha1 is 20 bytes, `--build-id=sha256` 32).
@@ -101,10 +101,7 @@ pub trait LastReset {
 }
 
 /// What `--version` shows of a firmware, see `FirmwareInfo::FIRMWARE`.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    derive(Clone, Debug, PartialEq, Eq)
-)]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
 pub struct FirmwareSummary<'i> {
     /// Package or product firmware name, `b200_usb_io`.
     pub name: MaxLen<&'i str, 32>,

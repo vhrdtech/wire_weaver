@@ -66,7 +66,11 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> GetResult<UserInfoCaps, ()> {
-                Value(UserInfoCaps { name_max: self.name_max, notes_max: 256, persistent: true })
+                Value(UserInfoCaps {
+                    name_max: self.name_max,
+                    notes_max: 256,
+                    persistent: true,
+                })
             }
 
             fn set_user_name(
@@ -183,12 +187,31 @@ mod tests {
         let (device, storage) = start("user_info/roundtrip", 16);
         let client = connect(&device).await;
         let caps = client.user().read_CAPABILITIES().read().await.unwrap();
-        assert_eq!((caps.name_max, caps.notes_max, caps.persistent), (16, 256, true));
+        assert_eq!(
+            (caps.name_max, caps.notes_max, caps.persistent),
+            (16, 256, true)
+        );
 
-        client.user().write_name(MaxLen::new("bench rePort".to_string()).unwrap()).write().await.unwrap();
-        client.user().write_notes(MaxLen::new("left USB port".to_string()).unwrap()).write().await.unwrap();
-        assert_eq!(&*client.user().read_name().read().await.unwrap(), "bench rePort");
-        assert_eq!(&*client.user().read_notes().read().await.unwrap(), "left USB port");
+        client
+            .user()
+            .write_name(MaxLen::new("bench rePort".to_string()).unwrap())
+            .write()
+            .await
+            .unwrap();
+        client
+            .user()
+            .write_notes(MaxLen::new("left USB port".to_string()).unwrap())
+            .write()
+            .await
+            .unwrap();
+        assert_eq!(
+            &*client.user().read_name().read().await.unwrap(),
+            "bench rePort"
+        );
+        assert_eq!(
+            &*client.user().read_notes().read().await.unwrap(),
+            "left USB port"
+        );
         assert_eq!(storage.lock().unwrap().name, "bench rePort");
     }
 
@@ -196,13 +219,31 @@ mod tests {
     async fn too_long_for_this_device_names_the_limit() {
         let (device, storage) = start("user_info/too_long", 8);
         let client = connect(&device).await;
-        let r = client.user().write_name(MaxLen::new("0123456789".to_string()).unwrap()).write().await;
+        let r = client
+            .user()
+            .write_name(MaxLen::new("0123456789".to_string()).unwrap())
+            .write()
+            .await;
         assert!(
-            matches!(r, Err(CallError::Device(ww_user_info::UserInfoErrorOwned::TooLong { max: 8 }))),
+            matches!(
+                r,
+                Err(CallError::Device(
+                    ww_user_info::UserInfoErrorOwned::TooLong { max: 8 }
+                ))
+            ),
             "{r:?}"
         );
-        assert_eq!(storage.lock().unwrap().flash_writes, 0, "a refused write touches nothing");
-        client.user().write_name(MaxLen::new("01234567".to_string()).unwrap()).write().await.unwrap();
+        assert_eq!(
+            storage.lock().unwrap().flash_writes,
+            0,
+            "a refused write touches nothing"
+        );
+        client
+            .user()
+            .write_name(MaxLen::new("01234567".to_string()).unwrap())
+            .write()
+            .await
+            .unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -214,7 +255,12 @@ mod tests {
         client.user().write_name(name()).write().await.unwrap();
         client.user().write_name(name()).write().await.unwrap();
         assert_eq!(storage.lock().unwrap().flash_writes, 1);
-        client.user().write_name(MaxLen::new("unit 8".to_string()).unwrap()).write().await.unwrap();
+        client
+            .user()
+            .write_name(MaxLen::new("unit 8".to_string()).unwrap())
+            .write()
+            .await
+            .unwrap();
         assert_eq!(storage.lock().unwrap().flash_writes, 2);
     }
 
@@ -224,17 +270,43 @@ mod tests {
         use ww_user_info::UserInfoErrorOwned;
         let (device, storage) = start("user_info/busy_fault", 32);
         let client = connect(&device).await;
-        client.user().write_name(MaxLen::new("old".to_string()).unwrap()).write().await.unwrap();
+        client
+            .user()
+            .write_name(MaxLen::new("old".to_string()).unwrap())
+            .write()
+            .await
+            .unwrap();
 
         storage.lock().unwrap().busy = true;
-        let r = client.user().write_name(MaxLen::new("new".to_string()).unwrap()).write().await;
-        assert!(matches!(r, Err(CallError::Device(UserInfoErrorOwned::Common(CommonErrorOwned::Busy)))), "{r:?}");
+        let r = client
+            .user()
+            .write_name(MaxLen::new("new".to_string()).unwrap())
+            .write()
+            .await;
+        assert!(
+            matches!(
+                r,
+                Err(CallError::Device(UserInfoErrorOwned::Common(
+                    CommonErrorOwned::Busy
+                )))
+            ),
+            "{r:?}"
+        );
         storage.lock().unwrap().busy = false;
 
         storage.lock().unwrap().fail_next = true;
-        let r = client.user().write_name(MaxLen::new("new".to_string()).unwrap()).write().await;
+        let r = client
+            .user()
+            .write_name(MaxLen::new("new".to_string()).unwrap())
+            .write()
+            .await;
         assert!(
-            matches!(r, Err(CallError::Device(UserInfoErrorOwned::Common(CommonErrorOwned::Fault { code: 7 })))),
+            matches!(
+                r,
+                Err(CallError::Device(UserInfoErrorOwned::Common(
+                    CommonErrorOwned::Fault { code: 7 }
+                )))
+            ),
             "{r:?}"
         );
         assert_eq!(&*client.user().read_name().read().await.unwrap(), "old");

@@ -8,12 +8,12 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-user_info_api.workspace = true
 tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
 tracing-subscriber.workspace = true
+user_info_api.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
 ww_client_server.workspace = true
-ww_user_info = { workspace = true, features = ["std"] }
 ww_error = { workspace = true, features = ["std"] }
+ww_user_info = { workspace = true, features = ["std"] }

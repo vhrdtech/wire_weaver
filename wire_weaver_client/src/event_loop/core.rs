@@ -88,6 +88,10 @@ pub(crate) enum ToRx {
         registered_tx: oneshot::Sender<()>,
     },
     RegisterTracer(mpsc::UnboundedSender<TraceEvent>),
+    /// Route a trait level's `PropertyUpdate` events to its observers
+    ObserveRoute {
+        hook: Box<crate::client::observe::ObserveRouteHook>,
+    },
     /// Transport is up, rx should start expecting link setup messages.
     TransportUp {
         /// Used for the compatibility check against DeviceInfo, empty crate_id = skip
@@ -159,7 +163,7 @@ impl Tracers {
 
 /// Current time on tokio's clock, which is the wall clock unless a test paused it (`start_paused`): the cores and
 /// the timers they ask for then run on virtual time together.
-fn now() -> Instant {
+pub(crate) fn now() -> Instant {
     tokio::time::Instant::now().into_std()
 }
 

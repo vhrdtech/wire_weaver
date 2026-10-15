@@ -314,6 +314,10 @@ impl TxCore {
                     registered_tx,
                 }));
             }
+            Command::ObserveRoute { hook } => {
+                self.output
+                    .push_back(TxOutput::ToRx(ToRx::ObserveRoute { hook }));
+            }
             Command::LoopbackTest {
                 test_duration,
                 packet_size,

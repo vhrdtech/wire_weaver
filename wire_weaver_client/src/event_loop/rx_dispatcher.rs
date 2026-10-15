@@ -1,3 +1,4 @@
+use crate::client::observe::{LevelRoute, ObserveRouteHook};
 use crate::client::positioned::Shared;
 use crate::client::prepared_stream_open::decode_opened;
 use crate::event_loop::command::StreamOpenHook;
@@ -47,6 +48,9 @@ pub(crate) enum DispatcherCommand {
         path_kind: PathKindOwned,
         stream_event_tx: StreamUpdateSender,
         registered_tx: oneshot::Sender<()>,
+    },
+    ObserveRoute {
+        hook: Box<ObserveRouteHook>,
     },
 }
 
@@ -99,6 +103,8 @@ pub(crate) struct RxDispatcher {
     /// Timed out requests, whose seq is not freed until a late reply arrives or [LATE_REPLY_WINDOW] ends.
     timed_out: HashMap<SeqTy, Instant>,
     stream_handlers: HashMap<Vec<UNib32>, Vec<StreamUpdateSender>>,
+    /// Observed trait levels, by path (CLT-28)
+    observe_routes: HashMap<Vec<UNib32>, Arc<dyn LevelRoute>>,
     /// Seq numbers whose requests completed, were cancelled or timed out and passed [LATE_REPLY_WINDOW] since the
     /// last [Self::take_freed].
     /// The tx side allocates seq numbers and needs to know when they can be reused.
@@ -146,6 +152,9 @@ impl RxDispatcher {
                 }
                 // TODO: other path kinds
                 _ = registered_tx.send(());
+            }
+            DispatcherCommand::ObserveRoute { hook } => {
+                self.observe_routes.insert(hook.path, hook.route);
             }
         }
     }
@@ -248,6 +257,10 @@ impl RxDispatcher {
                     }
                     // kept ones are registered again when they are resumed
                     self.positioned.clear();
+                    for route in self.observe_routes.values() {
+                        route.on_disconnected(self.keep_streams);
+                    }
+                    self.observe_routes.clear();
                 }
                 self.notify_streams();
                 return;
@@ -344,9 +357,22 @@ impl RxDispatcher {
                         None => trace!("stream event for {path:?}, which is not open"),
                     }
                 }
-                EventKind::PropertyUpdate { path, .. } => {
-                    // TODO(CLT-28): route to observe_<level>() streams
-                    trace!("property update for {path:?}, nobody observes");
+                EventKind::PropertyUpdate {
+                    path,
+                    t,
+                    missed,
+                    data,
+                } => {
+                    let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
+                    match self.observe_routes.get(&path) {
+                        Some(route) => route.on_update(
+                            crate::event_loop::core::now(),
+                            t,
+                            missed.map_or(0, |m| m.0),
+                            data.as_slice(),
+                        ),
+                        None => trace!("property update for {path:?}, nobody observes"),
+                    }
                 }
             },
             Err(e) => {
@@ -478,6 +504,9 @@ impl Drop for RxDispatcher {
         for shared in self.positioned.values() {
             shared.lock().attached = false;
             shared.wake();
+        }
+        for route in self.observe_routes.values() {
+            route.on_detached();
         }
     }
 }

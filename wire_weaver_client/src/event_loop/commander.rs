@@ -3,6 +3,9 @@ use crate::Introspect;
 use crate::PreparedCall;
 use crate::PreparedDisconnect;
 use crate::Stream;
+use crate::client::observe::{
+    LevelRoute, LevelUpdate, ObserveConfig, ObserveRegistry, Pending, PreparedObserve, send_pending,
+};
 use crate::client::positioned::Shared;
 use crate::compat::{ApiCompat, ApiMatch, Verdict};
 use crate::config::IntrospectBundle;
@@ -64,6 +67,7 @@ pub struct Commander {
     stream_queue_bytes: usize,
     streams: StreamRegistry,
     consts: ConstCache,
+    observes: ObserveRegistry,
 }
 
 #[derive(Clone)]
@@ -78,6 +82,8 @@ pub struct TransportCommander {
     pub(crate) streams: StreamRegistry,
     /// Values of `const` items read on this connection, see [Commander::prepare_const_read]
     pub(crate) consts: ConstCache,
+    /// Observed trait levels, see [Commander::prepare_observe]
+    pub(crate) observes: ObserveRegistry,
 }
 
 /// Values of `const` items read on a connection (API-36), by request path (serialized [PathKindOwned]): response
@@ -102,6 +108,7 @@ impl Commander {
             stream_queue_bytes: crate::DEFAULT_STREAM_QUEUE_BYTES,
             streams: StreamRegistry::default(),
             consts: ConstCache::default(),
+            observes: ObserveRegistry::default(),
         }
     }
 
@@ -224,6 +231,7 @@ impl Commander {
             default_timeout: self.default_timeout,
             streams: self.streams.clone(),
             consts: self.consts.clone(),
+            observes: self.observes.clone(),
         }
     }
 
@@ -281,7 +289,9 @@ impl Commander {
     /// open, each from its cursor, after a reconnect that followed `disconnect().keep_streams()`. Their handles
     /// go on as before and see [StreamEvent::Resumed](crate::StreamEvent::Resumed), and gaps if the device didn't
     /// keep everything. A stream the device can't resume ends (its handle returns `StreamError::Closed` once
-    /// drained). Returns how many were resumed.
+    /// drained). Observed trait levels (CLT-28) are subscribed again too, their observers see
+    /// [ObserveEvent::Resumed](crate::observe::ObserveEvent::Resumed). Returns how many streams and levels were
+    /// resumed.
     // TODO(EX-10): the reconnect itself calls this once it exists
     pub async fn resume_streams(&self) -> Result<usize, Error> {
         let mut resumed = 0;
@@ -289,6 +299,15 @@ impl Commander {
             self.transport().send_command(cmd).await?;
             let ok = matches!(done_rx.await, Ok(Ok(_)));
             resumed += self.resumed(&shared, ok);
+        }
+        let transport = self.transport();
+        for route in self.observed_levels() {
+            let permits = transport.reserve(2).await?;
+            if let Some(wait) = Self::resume_level(permits, &route)? {
+                let (done_rx, generation) = wait;
+                let answer = done_rx.await.unwrap_or(Err(Error::EventLoopNotRunning));
+                resumed += Self::level_resumed(&route, generation, answer);
+            }
         }
         Ok(resumed)
     }
@@ -301,7 +320,105 @@ impl Commander {
             let ok = matches!(done_rx.blocking_recv(), Ok(Ok(_)));
             resumed += self.resumed(&shared, ok);
         }
+        let transport = self.transport();
+        for route in self.observed_levels() {
+            let permits = futures_lite::future::block_on(transport.reserve(2))?;
+            if let Some(wait) = Self::resume_level(permits, &route)? {
+                let (done_rx, generation) = wait;
+                let answer = done_rx
+                    .blocking_recv()
+                    .unwrap_or(Err(Error::EventLoopNotRunning));
+                resumed += Self::level_resumed(&route, generation, answer);
+            }
+        }
         Ok(resumed)
+    }
+
+    fn observed_levels(&self) -> Vec<Arc<dyn LevelRoute>> {
+        self.observes
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .cloned()
+            .collect()
+    }
+
+    fn resume_level(
+        permits: mpsc::PermitIterator<'_, Command>,
+        route: &Arc<dyn LevelRoute>,
+    ) -> Result<Option<(ResponseReceiver, u64)>, Error> {
+        let pending: Option<Pending> = route.clone().resume(DEFAULT_REQUEST_TIMEOUT)?;
+        Ok(pending.and_then(|p| send_pending(permits, p)))
+    }
+
+    fn level_resumed(
+        route: &Arc<dyn LevelRoute>,
+        generation: u64,
+        answer: Result<Vec<u8>, Error>,
+    ) -> usize {
+        match route.resumed(generation, answer) {
+            Ok(()) => 1,
+            Err(e) => {
+                warn!("observing a level could not be resumed: {e}");
+                0
+            }
+        }
+    }
+
+    /// Observe the properties of the trait level at `path` (CLT-28, generated `observe(cfg)` and
+    /// `observe_<name>(mode)`): `cfg` is what this observer asks for, `extract` picks what it receives from each
+    /// update (the update itself, or one property). `.subscribe().await` returns the [Observer](crate::observe::Observer)
+    /// once the device answered.
+    pub fn prepare_observe<U: LevelUpdate, T>(
+        &self,
+        path: PathKind<'_>,
+        cfg: U::Config,
+        extract: fn(U) -> Option<T>,
+    ) -> PreparedObserve<U, T> {
+        let resolved = self
+            .check_observe_supported()
+            .and_then(|()| self.resolve_path(path));
+        let (postpone_err, path) = match resolved {
+            Ok(PathKindOwned::Absolute { path }) => (Ok(()), path),
+            Ok(other) => (
+                Err(Error::User(format!(
+                    "observing needs an absolute path or a trait client with a base path, got {other:?}"
+                ))),
+                vec![],
+            ),
+            Err(e) => (Err(e), vec![]),
+        };
+        PreparedObserve {
+            postpone_err,
+            transport: self.transport(),
+            path,
+            cfg: ObserveConfig {
+                entries: crate::observe::LevelConfig::to_entries(&cfg),
+                budget: None,
+            },
+            queue_bytes: self.stream_queue_bytes,
+            extract,
+        }
+    }
+
+    /// Observing needs `ww_client_server` 0.2 (API-38) on the device.
+    fn check_observe_supported(&self) -> Result<(), Error> {
+        let model = &self.connected_device.api_model_version;
+        if model.crate_id.is_empty() {
+            // not connected through link setup (tests), nothing known
+            return Ok(());
+        }
+        let v = &model.version;
+        if (v.major.0, v.minor.0) < (0, 2) {
+            return Err(Error::Unsupported {
+                what: "observing properties",
+                reason: format!(
+                    "the device's API model is ww_client_server {}.{}.{}, observing needs 0.2 or newer",
+                    v.major.0, v.minor.0, v.patch.0
+                ),
+            });
+        }
+        Ok(())
     }
 
     fn resume_commands(&self) -> Result<Vec<(Arc<Shared>, Command, ResponseReceiver)>, Error> {
@@ -986,6 +1103,29 @@ impl TransportCommander {
             .await
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
+    }
+
+    /// `n` places in the command queue, so that commands built later under a lock keep their order.
+    pub(crate) async fn reserve(
+        &self,
+        n: usize,
+    ) -> Result<mpsc::PermitIterator<'_, Command>, Error> {
+        self.cmd_tx
+            .reserve_many(n)
+            .await
+            .map_err(|_| Error::EventLoopNotRunning)
+    }
+
+    /// `n` places in the command queue, None if it is full.
+    pub(crate) fn try_reserve_many(
+        &self,
+        n: usize,
+    ) -> Result<Option<mpsc::PermitIterator<'_, Command>>, Error> {
+        match self.cmd_tx.try_reserve_many(n) {
+            Ok(permits) => Ok(Some(permits)),
+            Err(mpsc::error::TrySendError::Full(())) => Ok(None),
+            Err(mpsc::error::TrySendError::Closed(())) => Err(Error::EventLoopNotRunning),
+        }
     }
 
     /// A place in the command queue, None if it is full, for [Self::write_forget_command] and

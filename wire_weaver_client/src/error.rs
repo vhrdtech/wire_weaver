@@ -75,6 +75,12 @@ pub enum Error {
         "Connected with `traits_only()`, only global trait calls are possible, not absolute path '{}'", .0
     )]
     AbsolutePathInTraitsOnly(String),
+    #[error("{what} is not supported by the connected device: {reason}")]
+    Unsupported {
+        /// What was tried, e.g. `observing properties`
+        what: &'static str,
+        reason: String,
+    },
 }
 
 fn describe_not_found(filters: &[String], unmatched: &[DeviceInfo]) -> String {

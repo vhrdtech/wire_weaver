@@ -1,6 +1,7 @@
 //! # Implementation details:
 //! * Client's index chain contains all indices up to last level (resource IDs + array index if used)
 use crate::codegen::api_common::args_structs;
+use crate::codegen::client::observe as client_observe;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::server::introspect::{IntrospectTs, introspect_prepare};
 use crate::codegen::ty_def::{TyPos, ty_def, ty_def_by_idx};
@@ -126,6 +127,7 @@ pub fn gen_client(
         path_mode,
         Some(&client_struct_path),
         None,
+        false,
     );
     quote! {
         #[allow(unused_imports)]
@@ -167,8 +169,18 @@ fn client_structs_recursive(
     path_mode: ClientPathMode,
     is_at_root: Option<&Path>,
     root_gid_paths: Option<&GidPaths>,
+    under_array: bool,
 ) -> TokenStream {
     let mut ts = TokenStream::new();
+    // observing a level under a resource array isn't possible yet (SRV-18)
+    let observable = model != ClientModel::Raw
+        && !under_array
+        && !client_observe::observable_props(api_level).is_empty();
+    let observe_types = if observable {
+        client_observe::level_types(api_bundle, api_level)
+    } else {
+        quote! {}
+    };
     let args_structs = args_structs(api_bundle, api_level, model.no_alloc());
 
     let crate_name = api_level.crate_name(api_bundle).unwrap();
@@ -202,6 +214,7 @@ fn client_structs_recursive(
         model,
         path_mode,
         root_gid_paths,
+        observable,
     );
 
     // call before increment_length so that root level does not have it
@@ -215,7 +228,8 @@ fn client_structs_recursive(
         let level = item.get_as_level(api_bundle).unwrap();
         let mut index_chain = index_chain;
         index_chain.increment_length();
-        if matches!(item.multiplicity, Multiplicity::Array { .. }) {
+        let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
+        if is_array {
             index_chain.increment_length();
         }
         child_ts.extend(client_structs_recursive(
@@ -226,6 +240,7 @@ fn client_structs_recursive(
             path_mode,
             None,
             Some(root_gid_paths),
+            under_array || is_array,
         ));
     }
 
@@ -283,6 +298,7 @@ fn client_structs_recursive(
 
             use wire_weaver::shrink_wrap::prelude::*;
             #args_structs
+            #observe_types
 
             #impl_new_or_user_struct
 
@@ -299,7 +315,16 @@ fn level_methods(
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &GidPaths,
+    observable: bool,
 ) -> TokenStream {
+    // the level's own path, for observing it
+    let level_chain = observable.then(|| {
+        if index_chain.is_empty() {
+            quote! { let index_chain: [UNib32; 0] = []; }
+        } else {
+            quote! { let index_chain = self.index_chain; }
+        }
+    });
     let handlers = api_level.items.iter().map(|item| {
         level_method(
             api_bundle,
@@ -309,13 +334,24 @@ fn level_methods(
             model,
             path_mode,
             gid_paths,
+            level_chain.as_ref(),
+        )
+    });
+    let observe_fn = level_chain.as_ref().map(|level_chain| {
+        client_observe::level_observe_fn(
+            api_bundle,
+            api_level,
+            level_chain.clone(),
+            &path_kind(path_mode, gid_paths),
         )
     });
     quote! {
         #(#handlers)*
+        #observe_fn
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn level_method(
     api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
@@ -324,6 +360,7 @@ fn level_method(
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &GidPaths,
+    level_chain: Option<&TokenStream>,
 ) -> TokenStream {
     let id = item.id.0;
     let index_chain_push_pre = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
@@ -371,6 +408,9 @@ fn level_method(
             errors,
         } => handle_property(
             api_bundle,
+            api_level,
+            // observed through the level, see client::observe
+            level_chain.filter(|_| item.multiplicity == Multiplicity::Flat),
             model,
             path_mode,
             gid_paths,
@@ -569,6 +609,8 @@ fn error_list_patterns(
 #[allow(clippy::too_many_arguments)]
 fn handle_property(
     api_bundle: &ApiBundleOwned,
+    api_level: &ApiLevelOwned,
+    level_chain: Option<&TokenStream>,
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &GidPaths,
@@ -581,6 +623,7 @@ fn handle_property(
     resource: &str,
 ) -> TokenStream {
     let path_kind = path_kind(path_mode, gid_paths);
+    let def_ty = ty_def(api_bundle, ty, !model.no_alloc(), TyPos::Def).unwrap();
     let ty = ty_def(api_bundle, ty, !model.no_alloc(), TyPos::Arg).unwrap();
 
     let write_fns = if matches!(
@@ -661,11 +704,24 @@ fn handle_property(
         quote! {}
     };
 
-    // devices send property updates as stream data on the property's path
-    let observe_fns = if matches!(
+    let observe_fns = if let (
+        Some(level_chain),
+        PropertyAccess::ReadWrite { observe: true } | PropertyAccess::ReadOnly { observe: true },
+    ) = (level_chain, access)
+    {
+        client_observe::property_observe_fn(
+            api_bundle,
+            api_level,
+            prop_name,
+            &def_ty,
+            level_chain.clone(),
+            &path_kind,
+        )
+    } else if matches!(
         access,
         PropertyAccess::ReadWrite { .. } | PropertyAccess::ReadOnly { .. }
     ) {
+        // without `+observe`: change notifications a device sends by hand as stream data on the property's path
         let observe = Ident::new(&format!("observe_{}", prop_name), Span::call_site());
         let observe_blocking = Ident::new(
             &format!("observe_{}_blocking", prop_name),

@@ -172,6 +172,9 @@ impl RxCore {
                 );
             }
             ToRx::RegisterTracer(tx) => self.tracers.register(tx),
+            ToRx::ObserveRoute { hook } => self
+                .dispatcher
+                .handle_cmd(now, DispatcherCommand::ObserveRoute { hook }),
             ToRx::KeepStreams => self.dispatcher.keep_streams = true,
             ToRx::TransportUp {
                 client_version,

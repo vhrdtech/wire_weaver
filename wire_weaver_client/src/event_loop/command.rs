@@ -7,6 +7,7 @@ use wire_weaver::DisconnectReason;
 use ww_client_server::PathKindOwned;
 use ww_version::FullVersionOwned;
 
+use crate::client::observe::ObserveRouteHook;
 use crate::client::positioned::Shared;
 use crate::client::prepared_stream_open::{StreamOpenResult, is_open};
 use crate::{
@@ -59,6 +60,9 @@ pub enum Command {
         /// that are not delivered.
         registered_tx: oneshot::Sender<()>,
     },
+
+    /// Route `PropertyUpdate` events of a trait level to its observers (CLT-28), on this connection.
+    ObserveRoute { hook: Box<ObserveRouteHook> },
 
     /// Close a device connection and stop the worker task. All outstanding requests will return with Error,
     /// and streams will stop. Use when shutting down the whole application.

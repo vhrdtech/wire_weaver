@@ -5,6 +5,7 @@ pub mod dyn_positioned;
 pub mod dynamic;
 pub mod introspect;
 pub mod multi;
+pub mod observe;
 pub mod positioned;
 pub mod prepared_call;
 pub mod prepared_connection;

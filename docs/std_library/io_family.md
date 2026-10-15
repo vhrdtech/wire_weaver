@@ -102,7 +102,7 @@ let (actual, mut samples) = adc.adc_stream().samples(config).call().await??;
 or received data is counted ([stream delivery](../api/stream_reliability.md)): each event's head carries its
 position in the stream's unit (a sample set, a byte, a frame, an edge, as the stream's rustdoc says), how many units
 the device dropped right before it, and the device time of its first unit. Item types carry no positions or losses,
-and only the time that is their own: an `RxChunk` is bytes, line flags and when its last byte arrived, an
+and only the time that is their own: an `RxChunk` is bytes, line flags and, if the device measures it, when its last byte arrived, an
 `I2cRecord` / `SpiFrame` when the transaction ended, a `SampleBlock` raw samples. A host sees exactly what it missed and where
 (`StreamEvent::Gap`), whether the device dropped it (no host, a full buffer) or the link lost it.
 

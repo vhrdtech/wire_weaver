@@ -7,9 +7,11 @@
     "for it, watch both lines of a link between two other devices on the optional `monitor` stream. Being one trait,",
     "a device with several ports is one array, `ww_impl!(uart[]: ww_uart::Uart)`, monitoring included.",
     "",
-    "Received bytes come in chunks ([RxChunk]): a chunk ends after a short silence on the line, when it is full, or on",
-    "a line error. The receive streams are counted, in bytes: the event head carries each chunk\'s position and exactly",
-    "how many bytes the device dropped before it.",
+    "Received bytes come in chunks ([RxChunk]): a chunk ends when the line stays idle for more than",
+    "[UartConfig::idle_chars] character times, when it is full, or on a line error. So a chunk is one burst of",
+    "back-to-back characters (a frame of most protocols), or the part of a longer one that fit. The receive streams are",
+    "counted, in bytes: the event head carries each chunk\'s position and exactly how many bytes the device dropped",
+    "before it.",
     "",
     "# Time",
     "",
@@ -17,13 +19,23 @@
     "that timestamps everything else the device captures:",
     "",
     "- when its first byte arrived (the end of that byte\'s stop bit): the time in the event head, always set;",
-    "- when its last byte arrived: [RxChunk::end].",
+    "- when its last byte arrived: [RxChunk::end], set by devices that measure it, `None` from those that don\'t.",
     "",
-    "Both are [Second]s since the device\'s clock started, in the prefix and number type the device picks (usually a",
+    "The bytes of a chunk came back to back, so the time of each one follows from the first: byte `i` (from 0) of a",
+    "chunk of `n` arrived at",
+    "",
+    "- `first + i * (end - first) / (n - 1)` when `end` is set (this takes up the sender\'s baud rate error: 2-3 % off",
+    "  the nominal rate, which UARTs accept, adds up to milliseconds over a long burst);",
+    "- `first + i * frame_bits / baud` when it isn\'t, `frame_bits` being start + data + parity + stop bits",
+    "  ([UartConfig::frame_bits]) and `baud` the rate `configure` answered. The chunk\'s last byte is then at",
+    "  `first + (n - 1) * frame_bits / baud`.",
+    "",
+    "All are [Second]s since the device\'s clock started, in the prefix and number type the device picks (usually a",
     "`u32` of microseconds, which wraps every 71.6 minutes; the host unwraps it around `Clock::now()`). So a host lines up",
     "the bytes of a serial link with the device\'s other data (a GPIO edge, an ADC sample, an I2C transaction), tells",
     "the request and the answer of a `monitor` link apart in time, and sees the gaps between chunks: a chunk ends on a",
-    "silence, so the next chunk\'s first byte comes after a gap of at least that silence.",
+    "silence of more than [UartConfig::idle_chars] character times, so the next chunk\'s first byte comes at least that",
+    "much after the previous chunk\'s last one.",
 ], crate_idx: 0, trait_name: "ww_uart", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uart", docs: [], optional: None),
 ]), types: [
@@ -54,12 +66,13 @@
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Received bytes, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the time in the event head,",
-        "when the last one did is `end` (see the crate docs, \"Time\").",
+        "Received bytes that came back to back, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the",
+        "time in the event head, when the last one did is `end` (see the crate docs, \"Time\").",
     ], ident: "RxChunk", fields: Named([
-        (ident: Some("end"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+        (ident: Some("end"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
             "Device time when the chunk\'s last byte arrived (the end of its stop bit), on the same clock as the head\'s time",
-            "of its first byte; the same as the head\'s for a one-byte chunk.",
+            "of its first byte; the same as the head\'s for a one-byte chunk. `None` from a device that doesn\'t measure it:",
+            "the last byte is then `(n - 1) * frame_bits / baud` after the first (see the crate docs, \"Time\").",
         ]),
         (ident: Some("flags"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "Line errors seen while receiving this chunk, if any.",
@@ -197,6 +210,10 @@
             "Voltage of the lines on adapters with level translators ([Capabilities::io_levels]); `None` leaves it as it",
             "is going in (the only choice on a device without them), and is the answer of a device without them.",
         ]),
+        (ident: Some("idle_chars"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Idle time on RX that ends a chunk, in character times (`frame_bits / baud` each): a gap longer than this ends",
+            "the chunk, a shorter one doesn\'t. [IDLE_CHARS_DEFAULT] (2) unless a protocol asks for another; 0 is taken as 1.",
+        ]),
     ]))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         122,
@@ -252,6 +269,9 @@
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
             "Input threshold level, as [UartConfig::io_level].",
         ]),
+        (ident: Some("idle_chars"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Idle time on either line that ends a chunk of that line, as [UartConfig::idle_chars].",
+        ]),
     ]))), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Which line of the watched link a [MonitorChunk] came from.",
@@ -274,9 +294,9 @@
         "A serial port: configure, receive on `rx`, send on the `tx` credit sink.",
     ], crate_idx: 0, trait_name: "Uart", items: [
         (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 2), delivery: Counted, args: [], return_ty: None), multiplicity: Flat, since: None, ident: "rx", docs: [
-            "Received bytes, chunked as they arrive (see [RxChunk]); a chunk ends on a short silence, when it is full, or",
-            "on a line error. A counted stream, unit: byte; the head\'s time is when the chunk\'s first byte arrived (always",
-            "set), [RxChunk::end] when its last one did.",
+            "Received bytes, chunked as they arrive (see [RxChunk]); a chunk ends when the line is idle for more than",
+            "[UartConfig::idle_chars] character times, when it is full, or on a line error. A counted stream, unit: byte;",
+            "the head\'s time is when the chunk\'s first byte arrived (always set), [RxChunk::end] when its last one did.",
         ], optional: None),
         (id: 1, kind: FlowSink(ty: MaxLen(max_len: 256, ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "tx", docs: [
             "Bytes to send. Credit-based (API-28): the host never sends more than the device\'s TX buffer",
@@ -296,7 +316,8 @@
             ])),
         ])), multiplicity: Flat, since: None, ident: "configure", docs: [
             "Configures the port in one step and returns what was actually set: the baud rate the divider settled on",
-            "(the nearest it can do), and the IO level now in effect. A baud rate outside",
+            "(the nearest it can do), the idle time that ends a chunk (the nearest the receiver can time), and the IO",
+            "level now in effect. A baud rate outside",
             "[Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate], or a mode, parity, bit count, back-feed detector",
             "or IO level this device doesn\'t have is `Unsupported`; `Refused` when e.g. the line already sits at a higher",
             "voltage than `io_level`.",

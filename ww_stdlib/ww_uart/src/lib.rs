@@ -4,9 +4,11 @@
 //! for it, watch both lines of a link between two other devices on the optional `monitor` stream. Being one trait,
 //! a device with several ports is one array, `ww_impl!(uart[]: ww_uart::Uart)`, monitoring included.
 //!
-//! Received bytes come in chunks ([RxChunk]): a chunk ends after a short silence on the line, when it is full, or on
-//! a line error. The receive streams are counted, in bytes: the event head carries each chunk's position and exactly
-//! how many bytes the device dropped before it.
+//! Received bytes come in chunks ([RxChunk]): a chunk ends when the line stays idle for more than
+//! [UartConfig::idle_chars] character times, when it is full, or on a line error. So a chunk is one burst of
+//! back-to-back characters (a frame of most protocols), or the part of a longer one that fit. The receive streams are
+//! counted, in bytes: the event head carries each chunk's position and exactly how many bytes the device dropped
+//! before it.
 //!
 //! # Time
 //!
@@ -14,13 +16,23 @@
 //! that timestamps everything else the device captures:
 //!
 //! - when its first byte arrived (the end of that byte's stop bit): the time in the event head, always set;
-//! - when its last byte arrived: [RxChunk::end].
+//! - when its last byte arrived: [RxChunk::end], set by devices that measure it, `None` from those that don't.
 //!
-//! Both are [Second]s since the device's clock started, in the prefix and number type the device picks (usually a
+//! The bytes of a chunk came back to back, so the time of each one follows from the first: byte `i` (from 0) of a
+//! chunk of `n` arrived at
+//!
+//! - `first + i * (end - first) / (n - 1)` when `end` is set (this takes up the sender's baud rate error: 2-3 % off
+//!   the nominal rate, which UARTs accept, adds up to milliseconds over a long burst);
+//! - `first + i * frame_bits / baud` when it isn't, `frame_bits` being start + data + parity + stop bits
+//!   ([UartConfig::frame_bits]) and `baud` the rate `configure` answered. The chunk's last byte is then at
+//!   `first + (n - 1) * frame_bits / baud`.
+//!
+//! All are [Second]s since the device's clock started, in the prefix and number type the device picks (usually a
 //! `u32` of microseconds, which wraps every 71.6 minutes; the host unwraps it around `Clock::now()`). So a host lines up
 //! the bytes of a serial link with the device's other data (a GPIO edge, an ADC sample, an I2C transaction), tells
 //! the request and the answer of a `monitor` link apart in time, and sees the gaps between chunks: a chunk ends on a
-//! silence, so the next chunk's first byte comes after a gap of at least that silence.
+//! silence of more than [UartConfig::idle_chars] character times, so the next chunk's first byte comes at least that
+//! much after the previous chunk's last one.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -32,15 +44,21 @@ pub const UART_TX_MAX: usize = 256;
 /// Largest chunk of received bytes.
 pub const UART_CHUNK_MAX: usize = 512;
 
+/// Suggested [UartConfig::idle_chars]: a gap of more than two character times ends a chunk. One would split the
+/// output of senders that leave a short pause between characters (a CPU feeding its UART byte by byte, a USB-serial
+/// bridge between its USB packets), more would merge frames of protocols that keep only a short gap between them
+/// (Modbus RTU separates frames by 3.5 character times, this still splits them).
+pub const IDLE_CHARS_DEFAULT: u8 = 2;
+
 /// Most discrete IO levels a device lists in [Capabilities::io_levels].
 pub const MAX_IO_LEVELS: usize = 8;
 
 /// A serial port: configure, receive on `rx`, send on the `tx` credit sink.
 #[ww_trait]
 pub trait Uart {
-    /// Received bytes, chunked as they arrive (see [RxChunk]); a chunk ends on a short silence, when it is full, or
-    /// on a line error. A counted stream, unit: byte; the head's time is when the chunk's first byte arrived (always
-    /// set), [RxChunk::end] when its last one did.
+    /// Received bytes, chunked as they arrive (see [RxChunk]); a chunk ends when the line is idle for more than
+    /// [UartConfig::idle_chars] character times, when it is full, or on a line error. A counted stream, unit: byte;
+    /// the head's time is when the chunk's first byte arrived (always set), [RxChunk::end] when its last one did.
     #[counted]
     stream!(rx: RxChunk<'i>);
 
@@ -53,7 +71,8 @@ pub trait Uart {
     fn capabilities() -> Capabilities<'i>;
 
     /// Configures the port in one step and returns what was actually set: the baud rate the divider settled on
-    /// (the nearest it can do), and the IO level now in effect. A baud rate outside
+    /// (the nearest it can do), the idle time that ends a chunk (the nearest the receiver can time), and the IO
+    /// level now in effect. A baud rate outside
     /// [Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate], or a mode, parity, bit count, back-feed detector
     /// or IO level this device doesn't have is `Unsupported`; `Refused` when e.g. the line already sits at a higher
     /// voltage than `io_level`.
@@ -92,13 +111,14 @@ pub trait Uart {
     fn monitor(config: MonitorConfig) -> Result<MonitorConfig, UartError<'i>>;
 }
 
-/// Received bytes, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the time in the event head,
-/// when the last one did is `end` (see the crate docs, "Time").
+/// Received bytes that came back to back, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the
+/// time in the event head, when the last one did is `end` (see the crate docs, "Time").
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
 pub struct RxChunk<'i> {
     /// Device time when the chunk's last byte arrived (the end of its stop bit), on the same clock as the head's time
-    /// of its first byte; the same as the head's for a one-byte chunk.
-    pub end: Second,
+    /// of its first byte; the same as the head's for a one-byte chunk. `None` from a device that doesn't measure it:
+    /// the last byte is then `(n - 1) * frame_bits / baud` after the first (see the crate docs, "Time").
+    pub end: Option<Second>,
     /// Line errors seen while receiving this chunk, if any.
     pub flags: Option<RxFlags>,
     /// The received bytes.
@@ -156,6 +176,9 @@ pub struct UartConfig {
     /// Voltage of the lines on adapters with level translators ([Capabilities::io_levels]); `None` leaves it as it
     /// is going in (the only choice on a device without them), and is the answer of a device without them.
     pub io_level: Option<Volt>,
+    /// Idle time on RX that ends a chunk, in character times (`frame_bits / baud` each): a gap longer than this ends
+    /// the chunk, a shorter one doesn't. [IDLE_CHARS_DEFAULT] (2) unless a protocol asks for another; 0 is taken as 1.
+    pub idle_chars: u8,
 }
 
 /// Line settings of the watched link, the argument and the answer of `Uart::monitor`.
@@ -171,6 +194,44 @@ pub struct MonitorConfig {
     pub stop_bits: StopBits,
     /// Input threshold level, as [UartConfig::io_level].
     pub io_level: Option<Volt>,
+    /// Idle time on either line that ends a chunk of that line, as [UartConfig::idle_chars].
+    pub idle_chars: u8,
+}
+
+impl UartConfig {
+    /// Bits of one character on the line: start + data + parity + stop; `None` for a setting from a newer version of
+    /// this crate. A character takes `frame_bits / baud_rate` seconds.
+    pub fn frame_bits(&self) -> Option<u32> {
+        frame_bits(self.data_bits, self.parity, self.stop_bits)
+    }
+}
+
+impl MonitorConfig {
+    /// Bits of one character of the watched link, as [UartConfig::frame_bits].
+    pub fn frame_bits(&self) -> Option<u32> {
+        frame_bits(self.data_bits, self.parity, self.stop_bits)
+    }
+}
+
+fn frame_bits(data_bits: DataBits, parity: Parity, stop_bits: StopBits) -> Option<u32> {
+    let data = match data_bits {
+        DataBits::Five => 5,
+        DataBits::Six => 6,
+        DataBits::Seven => 7,
+        DataBits::Eight => 8,
+        DataBits::Nine => 9,
+        DataBits::Unknown(_) => return None,
+    };
+    let parity = match parity {
+        Parity::None => 0,
+        Parity::Odd | Parity::Even => 1,
+        Parity::Unknown(_) => return None,
+    };
+    let stop = match stop_bits {
+        StopBits::Stop1 => 1,
+        StopBits::Stop2 => 2,
+    };
+    Some(1 + data + parity + stop)
 }
 
 #[derive_shrink_wrap(

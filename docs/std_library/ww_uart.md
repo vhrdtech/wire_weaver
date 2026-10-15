@@ -44,18 +44,19 @@ pub trait Uart {
 }
 ```
 
-* `rx` - received bytes, chunked as they arrive (see [`RxChunk`](#types) below). A chunk ends after a short
-  silence on the line, when it is full, or on a line error. A counted stream, opened by calling it: its unit is a
+* `rx` - received bytes, chunked as they arrive (see [`RxChunk`](#types) below). A chunk ends when the line stays
+  idle for more than `UartConfig::idle_chars` character times, when it is full, or on a line error, so each chunk is
+  one burst of back-to-back characters (a frame of most protocols, or the part of it that fit). A counted stream, opened by calling it: its unit is a
   byte, so the event head carries each chunk's byte position, the device time of its first byte, and exactly how
   many bytes the device dropped before it ([stream delivery](../api/stream_reliability.md)); the chunk itself says
-  when its last byte arrived ([Time](#time) below).
+  when its last byte arrived, if the device measures it ([Time](#time) below).
 * `tx` - bytes to send, a [credit sink](../api/streams.md) (API-28): the host tracks the device's TX buffer
   (`Capabilities::tx_buffer`) and never sends more than it holds, so a large write (e.g. a file piped to the UART)
   can't overrun it.
 * `capabilities()` - what this device supports: baud rate range, flow control modes, IO levels, buffer sizes.
 * `configure` - the whole line configuration in one [`UartConfig`](#types) (baud rate, data bits, parity, stop bits,
-  mode, back-feed detector, IO level), answered with what was actually set: the hardware rounds the baud rate to
-  what its divider can do, and `io_level: None` keeps the level and is answered with the level in effect. One call
+  mode, back-feed detector, IO level, the idle time that ends a chunk), answered with what was actually set: the
+  hardware rounds the baud rate to what its divider can do and the idle time to what its receiver can time, and `io_level: None` keeps the level and is answered with the level in effect. One call
   instead of a property per setting, so a port never runs with half a configuration.
 * `set_pin_level` - manual control of a pin, only in [`Mode::Test`](#types); every other mode answers
   `Common(WrongState)`.
@@ -77,24 +78,40 @@ Every received chunk, on `rx` and on `monitor`, says when it arrived, on the dev
 | What | Where | |
 |---|---|---|
 | first byte arrived (end of its stop bit) | the event head's `t` | always set |
-| last byte arrived | `RxChunk::end: Second` | in the item |
+| last byte arrived | `RxChunk::end: Option<Second>` | set by devices that measure it |
 
-Both are `ww_si::Second`s since the device's clock started, in the prefix and number type the device picks (usually
+The bytes of a chunk came back to back, so the time of each one follows from the first. Byte `i` (from 0) of a chunk
+of `n` bytes arrived at:
+
+- `first + i * (end - first) / (n - 1)` when `end` is set. This takes up the sender's baud rate error: UARTs accept
+  2-3 % off the nominal rate, which adds up to milliseconds over a long burst, so a device that can time the last
+  byte does.
+- `first + i * frame_bits / baud` when it isn't: `frame_bits` is start + data + parity + stop bits
+  (`UartConfig::frame_bits()`, 10 for 8N1) and `baud` the rate `configure` answered. The last byte is then at
+  `first + (n - 1) * frame_bits / baud`.
+
+All are `ww_si::Second`s since the device's clock started, in the prefix and number type the device picks (usually
 a `u32` of microseconds, which wraps every 71.6 minutes; the host unwraps it around `Clock::now()`). With them a host:
 
 - lines up serial traffic with the device's other data: a GPIO edge, an ADC sample, an I2C transaction;
 - tells a request and its answer apart in time on a `monitor` link, and measures the turnaround between them;
-- sees the gaps on the line: a chunk ends on a silence, so the next chunk's first byte comes at least that silence
-  after the previous chunk's `end`.
+- sees the gaps on the line: a chunk ends on a silence of more than `idle_chars` character times, so the next
+  chunk's first byte comes at least that much after the previous chunk's last one.
 
 On the client the head's time is the `t` of `StreamEvent::Item` (`rx.recv_event()`), next to the chunk:
 
 ```rust
+let actual = client.uart().configure(config).call().await??;
+let char_time = actual.frame_bits().unwrap() as f64 / actual.baud_rate.to_f64();
 let mut rx = client.uart().rx().call().await?;
 loop {
     match rx.recv_event().await? {
         StreamEvent::Item { t: Some(first), value, .. } => {
-            println!("{} bytes from {:.6} s to {:.6} s", value.bytes.len(), first.to_f64(), value.end.to_f64());
+            let n = value.bytes.len();
+            // measured, or one character time per byte after the first
+            let last = value.end.map(|end| end.to_f64())
+                .unwrap_or(first.to_f64() + (n - 1) as f64 * char_time);
+            println!("{n} bytes from {:.6} s to {last:.6} s", first.to_f64());
         }
         StreamEvent::Gap { units, .. } => println!("{units} bytes lost"),
         _ => {}
@@ -103,8 +120,13 @@ loop {
 ```
 
 A device that can't time each byte (a DMA that hands over a block when the line goes idle) times the block's end
-and takes the first byte a character time per byte earlier at the configured baud rate, as
-`examples_mcu/usb_stm32h725ig` does.
+from the idle interrupt, sends it as `end`, and takes the first byte a character time per byte earlier at the
+configured baud rate, as `examples_mcu/usb_stm32h725ig` does.
+
+`idle_chars` defaults to `IDLE_CHARS_DEFAULT` (2): a gap of one character time would split the output of senders
+that pause briefly between characters (a CPU feeding its UART byte by byte, a USB-serial bridge between its USB
+packets), more would merge the frames of protocols that keep only a short gap between them (Modbus RTU separates
+frames by 3.5 character times, which 2 still splits). A protocol with its own rule sets it in `UartConfig`.
 
 ## Types
 
@@ -119,13 +141,14 @@ and takes the first byte a character time per byte earlier at the configured bau
 * `UartError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)); unsized, evolvable. Each
   method lists the variants it returns (`#[errors]`); line errors of received data are `RxFlags` of the chunk, not
   errors.
-* `RxChunk<'i>` - `end: Second` (when the last byte arrived), `flags: Option<RxFlags>`, `bytes: MaxLen<RefVec<'i,
+* `RxChunk<'i>` - `end: Option<Second>` (when the last byte arrived, if the device measures it), `flags: Option<RxFlags>`, `bytes: MaxLen<RefVec<'i,
   u8>, UART_CHUNK_MAX>`; when the first byte arrived is the time in the event head, see [Time](#time).
 * `MonitorChunk<'i>` - `line: MonitorLine` (`A` or `B`, 1 bit), `chunk: RxChunk<'i>`.
 * `RxFlags` - `parity_error`, `framing_error`, `overrun`, `break_detected`, seen while receiving a chunk.
 * `UartConfig` - `baud_rate: Baud`, `data_bits`, `parity`, `stop_bits`, `mode`, `prevent_back_feed: bool`,
-  `io_level: Option<Volt>`; the argument and the answer of `configure`.
-* `MonitorConfig` - `baud_rate`, `data_bits`, `parity`, `stop_bits`, `io_level` of the link `Uart::monitor`
+  `io_level: Option<Volt>`, `idle_chars: u8` (idle character times that end a chunk); the argument and the answer
+  of `configure`. `frame_bits()` is the bits of one character on the line (start + data + parity + stop).
+* `MonitorConfig` - `baud_rate`, `data_bits`, `parity`, `stop_bits`, `io_level`, `idle_chars` of the link `Uart::monitor`
   watches; the argument and the answer of `monitor`.
 * `Capabilities<'i>` - `min_baud_rate` / `max_baud_rate: Baud`, `io_levels: MaxLen<RefVec<'i, Volt>,
   MAX_IO_LEVELS>`, `io_level_min` / `io_level_max: Option<Volt>` (an adjustable supply),

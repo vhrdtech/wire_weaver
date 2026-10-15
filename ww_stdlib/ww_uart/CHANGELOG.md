@@ -2,6 +2,11 @@
 
 ### ⚠️ Breaking
 
+- Received chunks end on line idle (STD-13): `UartConfig::idle_chars: u8` and `MonitorConfig::idle_chars` set how
+  many idle character times end a chunk (`IDLE_CHARS_DEFAULT` = 2; 0 is taken as 1), and `configure` / `monitor`
+  answer what the receiver set, so each chunk is one back-to-back burst. `RxChunk::end` is `Option<Second>`: devices
+  that measure the last byte's time set it, others send `None` and hosts take the last byte at
+  `first + (n - 1) * frame_bits / baud`. Devices fill `idle_chars` in their configs and wrap `end` in `Some`.
 - `Error` is `UartError<'i>`, whose only variant so far is the `#[common] Common(CommonError<'i>)` (STD-16):
   `Unsupported`, `InvalidArgument`, `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from
   `ww_error::CommonError`; `UnsupportedMode`, `UnsupportedReferenceVoltage`, `WrongMode`, `CustomU8`, `CustomU32`,
@@ -39,6 +44,8 @@
 
 ### 🚀 Features
 
+- `UartConfig::frame_bits()` / `MonitorConfig::frame_bits()`: bits of one character on the line (start + data +
+  parity + stop), for the time of each byte of a chunk (crate docs, "Time").
 - `data_bits` property, `baud_rate_actual`, `send_break`, `tx_pending`; `RxFlags` framing, overrun, break; capabilities with buffer sizes.
 - `BaudRate`, `Mode`, `Pin`, `StopBits`, `Parity`, `DataBits` now derive `PartialEq`/`Eq` (Rust-side only, no wire change).
 - Full rustdoc with an `# Errors` section per fallible method, a mock server and in-process tests per trait

@@ -18,6 +18,25 @@ mod tests {
     /// One character at 115 200 Bd, in µs.
     const CHAR_TIME_US: u32 = 87;
 
+    /// Bytes that arrive back to back on a line.
+    struct Burst {
+        line: Option<MonitorLine>,
+        bytes: Vec<u8>,
+        /// The character time the sender actually ran at, in µs, which the mock measures and reports as
+        /// `RxChunk::end`; `None`: the mock doesn't measure it.
+        measured_char_us: Option<u32>,
+    }
+
+    impl Burst {
+        fn rx(bytes: &[u8], measured_char_us: Option<u32>) -> Self {
+            Burst {
+                line: None,
+                bytes: bytes.to_vec(),
+                measured_char_us,
+            }
+        }
+    }
+
     /// Device behaviour and what it received, shared with the test.
     struct Model {
         /// What `configure` set last.
@@ -31,8 +50,8 @@ mod tests {
         rx_open: bool,
         /// Set while `Uart::monitor` is open.
         monitor_config: Option<MonitorConfig>,
-        /// Bytes the test makes arrive, sent on `rx` or `lines` (with `Some(line)`) before the next request.
-        received: Vec<(Option<MonitorLine>, Vec<u8>)>,
+        /// Bursts the test makes arrive, sent on `rx` or `lines` (with `Some(line)`) before the next request.
+        received: Vec<Burst>,
     }
 
     impl Default for Model {
@@ -46,6 +65,7 @@ mod tests {
                     mode: Mode::Asynchronous,
                     prevent_back_feed: false,
                     io_level: Some(ww_si::quantity!(3300 mV u16)),
+                    idle_chars: ww_uart::IDLE_CHARS_DEFAULT,
                 },
                 pin_levels: vec![],
                 send_break_calls: vec![],
@@ -97,15 +117,22 @@ mod tests {
             /// The event loop's producer: bytes the lines received, as chunks of the open streams.
             fn produce(&mut self, out: &mut impl BlockingEventOut) {
                 let received = std::mem::take(&mut self.m.lock().unwrap().received);
-                // the mock's line runs at 115 200 Bd: 87 µs per character, back to back
+                // the mock's line runs at about 115 200 Bd: 87 µs per character, back to back, bursts a few
+                // character times apart
                 let mut first_us = self.start.elapsed().as_micros() as u32;
                 let ser = api_impl::stream_data_ser();
-                for (line, bytes) in received {
+                for Burst {
+                    line,
+                    bytes,
+                    measured_char_us,
+                } in received
+                {
                     let t = ww_si::Second::microseconds(first_us);
-                    let end_us = first_us + (bytes.len() as u32 - 1) * CHAR_TIME_US;
-                    first_us = end_us + CHAR_TIME_US;
+                    let char_us = measured_char_us.unwrap_or(CHAR_TIME_US);
+                    let end_us = first_us + (bytes.len() as u32 - 1) * char_us;
+                    first_us = end_us + 4 * char_us;
                     let chunk = RxChunk {
-                        end: ww_si::Second::microseconds(end_us),
+                        end: measured_char_us.map(|_| ww_si::Second::microseconds(end_us)),
                         flags: None,
                         bytes: MaxLen::new(RefVec::new_bytes(&bytes)).unwrap(),
                     };
@@ -190,8 +217,13 @@ mod tests {
                 }
                 let mut m = self.m.lock().unwrap();
                 let io_level = config.io_level.or(m.config.io_level);
-                // the divider of this mock hits every rate exactly
-                m.config = UartConfig { io_level, ..config };
+                // the divider of this mock hits every rate exactly, its idle timer counts whole characters
+                let idle_chars = config.idle_chars.max(1);
+                m.config = UartConfig {
+                    io_level,
+                    idle_chars,
+                    ..config
+                };
                 Ready(Ok(m.config.clone()))
             }
 
@@ -366,6 +398,7 @@ mod tests {
             mode: Mode::HardwareFlowControl,
             prevent_back_feed: true,
             io_level: None,
+            idle_chars: 0,
         };
         let actual = client
             .uart()
@@ -376,6 +409,10 @@ mod tests {
         // `None` keeps the IO level, the answer says which one is in effect
         assert_eq!(actual.io_level, Some(ww_si::Volt::millivolts(3300u16)));
         assert_eq!(actual.baud_rate, Baud::baud(9600u16));
+        // 0 idle characters is taken as 1
+        assert_eq!(actual.idle_chars, 1);
+        // start + 7 data + parity + 2 stop
+        assert_eq!(actual.frame_bits(), Some(11));
         assert!(matches!(actual.mode, Mode::HardwareFlowControl));
         assert!(matches!(m.lock().unwrap().config.parity, Parity::Even));
 
@@ -448,11 +485,20 @@ mod tests {
         let mut rx = client.uart().rx().call().await.unwrap();
         assert!(m.lock().unwrap().rx_open);
 
-        m.lock().unwrap().received.push((None, b"abc".to_vec()));
-        m.lock().unwrap().received.push((None, b"de".to_vec()));
+        // the sender runs 2 % fast (85 µs per character instead of 87): the first burst's end is measured, the
+        // second one's isn't
+        m.lock()
+            .unwrap()
+            .received
+            .push(Burst::rx(b"abcdef", Some(85)));
+        m.lock().unwrap().received.push(Burst::rx(b"gh", None));
         // any request lets the mock's event loop send them
         client.uart().tx_pending().call().await.unwrap();
-        for (pos, bytes) in [(0, &b"abc"[..]), (3, b"de")] {
+        let config = m.lock().unwrap().config.clone();
+        let char_time_us = config.frame_bits().unwrap() as i128 * 1_000_000
+            / config.baud_rate.to_i128_in(ww_si::Prefix::Unit).unwrap();
+        assert_eq!(char_time_us, CHAR_TIME_US as i128 - 1); // 86.8 µs, rounded down
+        for (pos, bytes, end_us) in [(0, &b"abcdef"[..], Some(5 * 85)), (6, b"gh", None)] {
             match rx.recv_event().await.unwrap() {
                 StreamEvent::Item {
                     pos: p,
@@ -462,13 +508,17 @@ mod tests {
                     ..
                 } => {
                     assert_eq!((p, units), (pos, bytes.len() as u64));
-                    // first byte in the head, last byte in the chunk, one character time apart per byte
+                    // first byte in the head, last byte in the chunk if measured
                     let us = |t: ww_si::Second| t.to_i128_in(ww_si::Prefix::Micro).unwrap();
                     let first = us(t.expect("every chunk is timestamped"));
-                    assert_eq!(
-                        us(value.end) - first,
-                        (bytes.len() as i128 - 1) * CHAR_TIME_US as i128
-                    );
+                    assert_eq!(value.end.map(|end| us(end) - first), end_us);
+                    // not measured: one character time (frame bits / baud) per byte after the first, as the
+                    // mock's line sent them (to within the rounding of the character time)
+                    if value.end.is_none() {
+                        let n = bytes.len() as i128 - 1;
+                        let estimated = n * char_time_us;
+                        assert!((n * CHAR_TIME_US as i128 - estimated).abs() <= n);
+                    }
                     assert_eq!(value.bytes.into_inner().as_slice(), bytes);
                 }
                 ev => panic!("{ev:?}"),
@@ -489,6 +539,7 @@ mod tests {
             parity: Parity::None,
             stop_bits: StopBits::Stop1,
             io_level: None,
+            idle_chars: ww_uart::IDLE_CHARS_DEFAULT,
         };
         let r = client
             .uart()
@@ -524,21 +575,25 @@ mod tests {
         );
 
         // a request on line A, the answer on line B, in the order they arrived
-        m.lock()
-            .unwrap()
-            .received
-            .push((Some(MonitorLine::A), b"xyz".to_vec()));
-        m.lock()
-            .unwrap()
-            .received
-            .push((Some(MonitorLine::B), b"ok".to_vec()));
+        m.lock().unwrap().received.push(Burst {
+            line: Some(MonitorLine::A),
+            bytes: b"xyz".to_vec(),
+            measured_char_us: Some(CHAR_TIME_US),
+        });
+        m.lock().unwrap().received.push(Burst {
+            line: Some(MonitorLine::B),
+            bytes: b"ok".to_vec(),
+            measured_char_us: None,
+        });
         client.uart().tx_pending().call().await.unwrap();
         let a = lines.recv().await.unwrap();
         assert_eq!(a.line, MonitorLine::A);
         assert_eq!(a.chunk.bytes.into_inner().as_slice(), b"xyz");
+        assert!(a.chunk.end.is_some());
         let b = lines.recv().await.unwrap();
         assert_eq!(b.line, MonitorLine::B);
         assert_eq!(b.chunk.bytes.into_inner().as_slice(), b"ok");
+        assert!(b.chunk.end.is_none());
 
         lines.close().await.unwrap();
         eventually(&m, |m| m.monitor_config.is_none()).await;

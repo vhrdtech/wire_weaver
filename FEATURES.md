@@ -646,7 +646,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   counted stream functions (API-31: `AdcStream::samples`, `LogicStream::data`, `Pin::event`,
   `PwmCaptureChannel::capture`, `Spi::monitor`, `I2cMonitor::records`, `Uart::monitor`), `Uart::rx` and
   `I2cWatch::changes` are counted: positions, device losses and the time of the first unit in the event head; UART
-  chunks also carry the time of their last byte (`RxChunk::end`). Clients take one `?` per call (CLT-24
+  chunks end on line idle (`UartConfig::idle_chars`, one back-to-back burst each) and carry the time of their last
+  byte when the device measures it (`RxChunk::end`). Clients take one `?` per call (CLT-24
   `CallError`), `Unsized` enums read newer variants as `Unknown(u32)` (SW-47). Review round 1 (15 Oct 2026) done.
   Open: stream-function handlers return their error as `'static` until API-35; `*_hl` crates are STD-14.
 - 🚧 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;

@@ -109,7 +109,8 @@ async fn send_received_bytes(
         return;
     }
     let chunk = RxChunk {
-        end: ww_si::Second::microseconds(end_us),
+        // measured: the idle interrupt came one character after it
+        end: Some(ww_si::Second::microseconds(end_us)),
         flags: None,
         bytes: MaxLen::new_unchecked(RefVec::new_bytes(bytes)),
     };
@@ -314,6 +315,8 @@ async fn uart_rx_task(
     loop {
         let mut wg = rx_producer.wait_grant((RX_BUF_SIZE / 2) as u16).await;
         // a frame is the device time of the last byte (4 bytes, µs, wraps every 71.6 minutes), then the bytes
+        // the STM32 IDLE flag ends a chunk after one idle character, whatever `UartConfig::idle_chars` asks for
+        // (`configure` isn't implemented in this example)
         let r = rx.read_until_idle(&mut wg[4..]).await;
         match r {
             Ok(len) => {

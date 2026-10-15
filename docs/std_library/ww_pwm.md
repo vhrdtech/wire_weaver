@@ -73,7 +73,7 @@ pub trait PwmCaptureChannel {
 
 * `channel[]` - one capture input per channel; channel `n` is the same index as `Pwm`'s own `channel[]`, see
   `PwmChannelInfo::capture`.
-* `capture` - a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with what to
+* `capture` - a counted [stream function](../api/streams.md#stream-functions): the host opens it with what to
   measure (`CaptureMode`) and the measurement window (`CaptureConfig::gate`), gets back what was actually set, then
   one `CaptureValue` per window until it closes the stream. Its unit is a measurement; the event head carries the
   end of each window as its time and how many measurements the device dropped

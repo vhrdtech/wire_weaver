@@ -137,7 +137,7 @@ pub trait I2cMonitor {
 }
 ```
 
-`records` is a counted [stream function](../api/streams.md#opening-a-stream): opening it starts monitoring (at
+`records` is a counted [stream function](../api/streams.md#stream-functions): opening it starts monitoring (at
 `io_level`, as in `I2cConfig`; the adapter's pull-ups stay as they are, the watched bus has its own), closing it
 stops. Its unit is a transaction: the event head carries the time of each start condition and exactly how many
 records the device dropped and where ([stream delivery](../api/stream_reliability.md)).

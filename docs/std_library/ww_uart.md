@@ -62,7 +62,7 @@ pub trait Uart {
   `Common(WrongState)`.
 * `send_break` - holds TX low for `duration` (a break condition), after the bytes already queued.
 * `tx_pending()` - bytes queued for sending and not sent yet.
-* `monitor` - `#[optional]`, a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with the line
+* `monitor` - `#[optional]`, a counted [stream function](../api/streams.md#stream-functions): the host opens it with the line
   settings of the watched link (baud rate, data bits, parity, stop bits, IO level) and gets back what was actually
   set (as `Uart::configure` does), then both directions of the link (rePort: RX and CTS/RX2) in one stream, in
   the order they arrived: each `MonitorChunk` says which `MonitorLine` it came from, so a request and its answer

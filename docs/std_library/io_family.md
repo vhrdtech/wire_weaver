@@ -90,7 +90,7 @@ flag where the trait offers one (e.g. `I2cMode::Master { monitor: true, .. }`). 
 mode of the controller (`ww_can_bus::Mode::ListenOnly`) on its one `rx` stream, no separate item.
 
 **Streams are opened with their configuration.** A stream that needs a configuration is a
-[stream function](../api/streams.md#opening-a-stream): the host opens it with the configuration as its arguments and
+[stream function](../api/streams.md#stream-functions): the host opens it with the configuration as its arguments and
 gets back what the device actually set, or an error, and closing the stream stops sampling or monitoring
 (`AdcStream::samples`, `LogicStream::data`, `Pin::event`, `PwmCaptureChannel::capture`, `Spi::monitor`,
 `I2cMonitor::records`, `Uart::monitor`). Opening it again starts a new session with the new configuration, so

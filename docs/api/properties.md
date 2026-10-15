@@ -1,74 +1,172 @@
 # Properties
 
-Properties of any type can be defined as follows:
+A property is a value of the device the host reads, writes or both: a setting, a measured state, a mode.
 
 ```rust
 #[ww_trait]
 trait MyDevice {
     property!(ro button_pressed: bool);
     property!(rw speed: f32);
+    property!(wo beep: u16);
+    #[errors(TooBig, NotSet)]
+    property!(rw mode: u8, ModeError);
+    /// Known at compile time, never changes while the firmware runs.
+    const LIMITS: Limits<'i>;
 }
 ```
 
-Property write is acknowledged by a server, unless request ID of 0 is used.
+| Access | Declared as | Read | Write | Observe |
+|---|---|---|---|---|
+| read/write | `property!(rw name: T)` | ✓ | ✓ | ✓ |
+| read only | `property!(ro name: T)` | ✓ | | ✓ |
+| write only | `property!(wo name: T)` | | ✓ | |
+| const | `const NAME: T;` | ✓, once per connection | | |
 
-Properties have access mode associated with them:
+`ro` means read only for the host: the device changes the value whenever it likes, and may tell observers about it.
+A `const` never changes while the firmware runs, see [Const items](#const-items).
 
-* Const (`const NAME: T;` in the trait) - value is fixed for the life of the firmware, observe not available, see
-  [Const items](#const-items)
-* Read only (`ro`) - property can only be read, can change and be observed for changes
-* Write only (`wo`) - property can only be written
-* Read/Write (`rw`) - property can be read, written and observed for changes
+Any type the SerDes system supports can be a property. A second type after the value's, `property!(rw mode: u8,
+ModeError)`, is the property's error type: reads and writes may fail with it. `#[errors(..)]` above such a property
+lists the variants it returns, as on methods (see [Errors](errors.md#which-errors-a-method-returns)). `#[optional]` /
+`#[optional(group)]` lets a device leave a property out (see [Optional items](optional_items.md)), and a property can
+be an [array](arrays.md), `property!(rw gain[]: f32)`.
 
-There are two supported way of implementing properties on the server side:
+## Device side
 
-* get / set - user code provides `get_speed` and `set_speed` implementation.
-* value / on_changed - generated code directly reads and writes `speed` field and calls user provided `speed_changed`
-  implementation.
+A server implements each property in one of two ways, picked per property with the `property_model` argument of
+`ww_codegen!`: a comma separated list of `regex=get_set|value_on_changed`, the regex matching the property's name, `_`
+for the rest; `get_set` is the default.
+
+```rust
+mod server_impl {
+    wire_weaver::ww_codegen!(
+        my_device_api :: MyDevice for super::Server,
+        server = true, no_alloc = true, use_async = false,
+        property_model = "speed=value_on_changed, _=get_set",
+    );
+}
+```
+
+`ww api scaffold <api_crate> --property-model ".."` prints the handlers and fields either way.
+
+### `get_set`: handlers
+
+User code provides `get_<name>` for reads and `set_<name>` for writes:
+
+```rust
+impl Server {
+    fn get_button_pressed(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> GetResult<bool, ()> {
+        Value(self.button.is_low())
+    }
+
+    fn set_beep(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, freq: u16) -> SetResult<()> {
+        self.buzzer.start(freq);
+        Set
+    }
+
+    fn get_mode(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> GetResult<u8, ModeError> {
+        match self.mode {
+            0 => GetError(ModeError::NotSet),
+            mode => Value(mode),
+        }
+    }
+
+    fn set_mode(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, mode: u8) -> SetResult<ModeError> {
+        if mode > 10 {
+            return SetError(ModeError::TooBig);
+        }
+        self.mode = mode;
+        Set
+    }
+}
+```
+
+- `GetResult<T, E>`: `Value(v)` answers the read with `v`; `GetError(e)` answers with the error; `Unimplemented`
+  answers `ErrorKind::Unimplemented`.
+- `SetResult<E>`: `Set` acknowledges the write; `SetError(e)` answers with the error, the value is not applied unless
+  the handler did so; `Unimplemented` answers `ErrorKind::Unimplemented`.
+- `E` is the property's error type, `()` without one. The error goes to the host serialized, as
+  `ErrorKind::UserBytes`.
+
+Both answer right away: a property has no deferred answer. Handlers get `cx: &mut Context<'_, impl BlockingEventOut,
+Medium>` (`impl EventOut` and `async fn` for `use_async = true`), properties in arrays their index chain after it.
+
+### `value_on_changed`: a field
+
+Generated code reads and writes a field of the server struct named like the property, and calls `changed_<name>`
+after a write that changed the value (the type needs `PartialEq`; writing the same value calls nothing):
+
+```rust
+struct Server {
+    speed: f32,
+}
+
+impl Server {
+    fn changed_speed(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+        self.motor.set_speed(self.speed);
+    }
+}
+```
+
+Reads and writes can't fail with this model: a property whose writes have to be checked uses `get_set`. Properties of
+nested traits carry the trait item chain in their names (`self.motor_speed`, `changed_motor_speed`), as every handler
+does.
 
 ### Observing changes
 
-`ro` and `rw` property updates are sent as stream data on the property's path: the server side generates
-`stream_data_ser().<property>_send(&value, out)` (`_send_blocking` for sync servers) and the client
-`observe_<property>()` / `observe_<property>_blocking()`, returning a `Stream` of new values. Sending is up to the
-server, e.g., from `set_speed` or `changed_speed` through their `cx`, or from the event loop through `server.sink()`
-when a `ro` property changes on its own:
+`ro` and `rw` properties send their changes as stream data on their own path. The server side generates
+`stream_data_ser().<name>_send(&value, out)` (`_send_blocking` for sync servers); sending is up to the device, from a
+handler through its `cx`, or from the event loop through `server.sink()` when an `ro` value changes by itself:
 
 ```rust
-fn set_speed(&mut self, cx: &mut Context<'_, impl BlockingEventOut>, speed: f32) -> SetResult<()> {
-    self.speed = speed;
-    _ = server_impl::stream_data_ser().speed_send_blocking(&speed, cx);
-    Set
+fn changed_speed(&mut self, cx: &mut Context<'_, impl BlockingEventOut>) {
+    self.motor.set_speed(self.speed);
+    _ = server_impl::stream_data_ser().speed_send_blocking(&self.speed, cx);
+}
+
+// event loop
+if button_pressed != state.last_button {
+    state.last_button = button_pressed;
+    server_impl::stream_data_ser().button_pressed_send(&button_pressed, &mut server.sink()).await?;
 }
 ```
 
+The device doesn't know who observes: observing is a local subscription on the host, events nobody waits for are
+dropped there.
+
+## Host side
+
+Generated clients have `read_<name>()`, `write_<name>(value)` and `observe_<name>()` per property, as its access
+allows. Reads and writes are prepared first, then sent async, blocking or as a promise:
+
 ```rust
-let mut speed = client.observe_speed().await?;
-while let Ok(speed) = speed.recv().await { /* .. */ }
+let speed = device.read_speed().read().await?;            // Result<f32, Error>
+device.write_speed(1500.0).write().await?;                // waits for the device's acknowledgement
+device.write_speed(1500.0).write_forget().await?;         // no answer asked for, nothing waited for
+let pressed = device.read_button_pressed().blocking_read()?;
+let mut read = device.read_speed().read_promise("speed"); // poll it from a GUI
+
+let mut changes = device.observe_speed().await?;          // a plain Stream<f32>
+while let Ok(speed) = changes.recv().await { /* .. */ }
 ```
 
-### Fallible property set
+- A write to a property with an error type returns `Result<(), CallError<E>>`: `CallError::Device(e)` is the
+  device's error, decoded, see [Errors](errors.md#on-the-client-one-per-call). Without one it returns
+  `Result<(), Error>`.
+- A read returns `Result<T, Error>`; a device's error arrives as `Error::RemoteError` with `ErrorKind::UserBytes`,
+  the error's bytes (`E::from_ww_bytes`).
+- `ErrorKind::Unimplemented` (`CallError::Unimplemented { .. }` for writes) is a handler returning `Unimplemented`, or a
+  property the device left out.
+- `.with_timeout(..)` overrides the request timeout for one read or write.
+- Several properties in one request: `(device.read_x(), device.read_y()).multi_read().await`, when the server is
+  generated with `multi_req = true` (a server without it refuses the request).
+- With an `#[errors(..)]` list, the generated client warns when a write fails with a variant outside it (the dynamic
+  client checks reads too).
 
-Sometimes setting a property can result in an error, in such cases user defined error can be specified as well:
+The dynamic client and Python have the same per property: `dev.speed.read()`, `dev.speed.write(1500)`
+([Python](../python.md#using-the-api)).
 
-```rust
-#[ww_trait]
-trait MyDevice {
-    property!(rw mode: Mode, Error);
-}
-```
-
-Now the expected signature of set method is: `set_mode(mode: Mode) -> Result<(), Error>`.
-When `Err` variant is encountered, generated server code will serialize user error into bytes and forward it to
-client in `ww_client_server::ErrorKind::UserBytes(err_bytes)`.
-
-`#[errors(..)]` above the `property!` lists the variants of the error type it returns, on reads and writes alike
-(API-32), as on methods: `#[errors(Common(Unsupported), WrongMode)] property!(rw mode: Mode, Error);`, see
-[Errors](errors.md#which-errors-a-method-returns).
-
-When `on_changed` flavor is used, it's signature and behavior is changed accordingly.
-
-### Const items
+## Const items
 
 A `const` item of a trait is a value that doesn't change while the firmware runs: a firmware name and version, a
 board record, chip ids, limits of an implementation.
@@ -87,8 +185,8 @@ trait Device {
 On the server, no handler is called for it. The value comes from the generated trait `<RootTrait>Consts`, which the
 server struct implements, in one of two forms, picked per item with the `const_model` argument of `ww_codegen!`:
 
-* `const` (the default): a Rust const, `const LIMITS: Limits<'static> = ..;`.
-* `fn`: a value fixed at boot or link time (OTP, a chip id register, the build id in flash), `fn serial(&self) ->
+- `const` (the default): a Rust const, `const LIMITS: Limits<'static> = ..;`.
+- `fn`: a value fixed at boot or link time (OTP, a chip id register, the build id in flash), `fn serial(&self) ->
   &str`. Items in an array of traits get the index chain: `fn channel_gain(&self, index_chain: [UNib32; 1]) -> u8`.
 
 Names carry the trait item chain prefix, as handler names do: `BOARD` of `board: BoardInfo` is `BOARD_BOARD` as a
@@ -119,7 +217,7 @@ mod api_impl {
 
 `ww api scaffold --const-model "SERIAL|BOARD=fn" <api_crate>` prints this impl with a `todo!()` for every value. An
 `#[optional]` const left out with `omit = [..]` has no item in the trait. A trait without `const` items has no
-`<RootTrait>Consts`.
+`<RootTrait>Consts`. A const can't fail, so it has no error type and no `#[errors(..)]`.
 
 Clients read a const from the device once per connection and keep the value: later reads of it (generated
 `read_<NAME>()`, async, blocking or as a promise, the dynamic client and Python) return it without a request. A new

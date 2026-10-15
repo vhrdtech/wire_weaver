@@ -2,8 +2,9 @@
 
 A reliable stream ([Stream delivery](stream_reliability.md)) keeps every event it sends until the host acknowledges
 it, so it can send it again after a loss and send the backlog after a reconnect. Where these events are kept is a
-**store**, a `ww_stream::store::StreamStore` the device picks for each stream. The API doesn't change with the store: the same stream can keep 256 KB in RAM on
-one device and 32 GB on an SD card on another.
+**store**, a `ww_stream::store::StreamStore` the device picks for each stream: it is the `S` of the stream's
+`ww_stream::tx::Reliable<S>` state ([Reliable streams](streams.md#reliable-streams)). The API doesn't change with the
+store: the same stream can keep 256 KB in RAM on one device and 32 GB on an SD card on another.
 
 | Store | Where | Survives | Feature |
 |---|---|---|---|
@@ -42,7 +43,7 @@ it. The next boot takes the events up again and the host gets them when it conne
 after a power-on holds garbage, which is never taken for events.
 
 ```toml
-ww_stream = { version = "0.5", features = ["persistent-ram"] }
+ww_stream = { version = "0.6", features = ["persistent-ram"] }
 ```
 
 ```rust
@@ -100,7 +101,7 @@ Each event takes its item, its encoded head and 25 bytes (`PERSISTENT_RECORD_OVE
 sampling to its SD card while no host is there, reboots, and the host still gets everything when it connects.
 
 ```toml
-ww_stream = { version = "0.5", features = ["sdmmc"] }      # or "nor-flash"
+ww_stream = { version = "0.6", features = ["sdmmc"] }      # or "nor-flash"
 ```
 
 ```rust
@@ -166,3 +167,27 @@ an SD card or to the write size on NOR flash.
 With the `std` feature, `SimSd` and `SimNor` are an SD card and a NOR flash in RAM. `cut_power_at(n)` makes the
 `n`-th write or erase the one the power fails in (it is torn, every later call fails), and `image()` /
 `from_image()` carry the content over a reboot, so a device's own power-cut tests run on the host.
+
+## Other stores
+
+Any storage can hold a reliable stream by implementing `StreamStore` (for a block device, implementing `LogMedium`
+for `LogStore` is usually less work):
+
+```rust
+pub trait StreamStore {
+    type Error;
+    /// Append an event, head and item bytes as they go on the wire.
+    async fn push(&mut self, head: &StreamHead, item: &[u8]) -> Result<(), PushError<Self::Error>>;
+    /// Copy the event at `pos`, or the first one after it, into `buf`.
+    async fn read<'b>(&mut self, pos: u64, buf: &'b mut [u8]) -> Result<Option<StoredEvent<'b>>, Self::Error>;
+    /// Events before `pos` are acknowledged and may go.
+    async fn release(&mut self, pos: u64) -> Result<(), Self::Error>;
+    /// Session, oldest and newest kept positions, next position, bytes used and capacity, persistent or not.
+    fn state(&self) -> StoreState;
+    /// A new session: drop everything, positions from 0.
+    async fn reset(&mut self, session: u32) -> Result<(), Self::Error>;
+}
+```
+
+A full store either refuses the push with `PushError::Full` (drop newest) or forgets its oldest events and moves
+`state().oldest` on, counting their units in `dropped_units` (drop oldest).

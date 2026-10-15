@@ -75,7 +75,7 @@ pub trait Pin {
   currently an input, these still act on the output register without changing pin mode.
 * `input_level` - reads the input register. If the pin is configured as output and its input buffer is disabled,
   the current output level should be returned instead.
-* `event` - a counted [stream function](../api/streams.md#opening-a-stream) of `IoPinEvent`s (rising/falling edge,
+* `event` - a counted [stream function](../api/streams.md#stream-functions) of `IoPinEvent`s (rising/falling edge,
   custom sources): the host opens it with the sources to report (`Common(Unsupported)` for one the pin can't
   generate) and closes it to stop. Its unit is an event: the event head carries the device time of each
   edge and exactly how many edges the device dropped ([stream delivery](../api/stream_reliability.md)).

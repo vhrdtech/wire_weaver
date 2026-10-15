@@ -76,7 +76,7 @@ pub trait LogicStream {
 }
 ```
 
-* `data` - a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with channels, rate
+* `data` - a counted [stream function](../api/streams.md#stream-functions): the host opens it with channels, rate
   and encoding and gets back what was actually set (or an `LaError`), then receives raw chunks or per-channel
   transition chunks as they fill. Closing the stream stops sampling, opening it again restarts it with the new
   configuration.

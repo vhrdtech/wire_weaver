@@ -23,13 +23,8 @@ Item types carry none of this: positions, loss counts and the time of the first 
 puts in front of every event, so a `SampleBlock` stays pure data (an item may add a time of its own, such as when a
 UART chunk's last byte arrived).
 
-!!! note "Status"
-    The protocol is built: the wire types in `ww_client_server::stream`, and the device and host state machines,
-    stores and send scheduler in the `ww_stream` crate, all sans-IO and tested against a simulated lossy link.
-    Declaring counted and reliable streams in a `#[ww_trait]` and the generated code are built too
-    ([Streams](streams.md)), and the host side in `wire_weaver_client`
-    ([Receiving on the host](#receiving-on-the-host)). Credit sinks on the same protocol (API-34) are being built;
-    see [Features](../features.md).
+This page explains what counted and reliable streams guarantee and how the protocol works. How to declare them, write
+the device's handlers and producers, and open and resume them on the host is in [Streams](streams.md).
 
 ## Where stream data gets lost
 
@@ -66,7 +61,7 @@ Choose by what a missing piece costs:
 - **reliable**: logs, monitors whose protocol decoders can't recover from a gap, data loggers that collect while no
   host is connected.
 
-The kind is part of the API, visible in introspection (`ApiItemKind::PositionedStream { ty, delivery }`), so it is
+The kind is part of the API, visible in introspection (`ApiItemKind::StreamFn { delivery, .. }`), so it is
 chosen in the API crate. How much a reliable stream keeps, and where, is the device's choice: one device keeps 256 KB
 in RAM, another days of data on an SD card, behind the same API.
 
@@ -221,31 +216,11 @@ stream costs almost nothing more than a counted one there, and adds backfill and
 
 ## Stores
 
-What a reliable stream keeps lives in a store, `ww_stream::store::StreamStore`:
-
-```rust
-pub trait StreamStore {
-    type Error;
-    /// Append an event, head and item bytes as they go on the wire.
-    async fn push(&mut self, head: &StreamHead, item: &[u8]) -> Result<(), PushError<Self::Error>>;
-    /// Copy the event at `pos`, or the first one after it, into `buf`.
-    async fn read<'b>(&mut self, pos: u64, buf: &'b mut [u8]) -> Result<Option<StoredEvent<'b>>, Self::Error>;
-    /// Events before `pos` are acknowledged and may go.
-    async fn release(&mut self, pos: u64) -> Result<(), Self::Error>;
-    /// Session, oldest and newest kept positions, next position, bytes used and capacity, persistent or not.
-    fn state(&self) -> StoreState;
-    /// A new session: drop everything, positions from 0.
-    async fn reset(&mut self, session: u32) -> Result<(), Self::Error>;
-}
-```
-
-- **`RamRing<N>`**: a byte ring of `N` bytes in RAM (each event takes `RECORD_OVERHEAD` bytes more than its item).
-  Survives host reconnects, not reboots.
-- **`LogStore`**: a log on an SD card or NOR flash that survives reboots and power cuts, keeping session, positions
-  and clock epochs; see [Stream stores](stream_stores.md).
-- When a store is full it drops the newest events (`FullPolicy::DropNewest`, the default: what is kept stays
-  contiguous) or the oldest (`DropOldest`: the most recent data). Either way the units are counted and reported to the
-  host as lost.
+What a reliable stream keeps lives in a store, a `ww_stream::store::StreamStore` the device picks per stream: `RamRing`
+in RAM, `PersistentRamRing` in RAM that survives a soft reset, `LogStore` on an SD card or NOR flash that survives
+reboots and power cuts. When a store is full it drops the newest events (`FullPolicy::DropNewest`, the default) or the
+oldest (`DropOldest`); either way the units are counted and reported to the host as lost. See
+[Stream stores](stream_stores.md).
 
 Events are stored as they are sent, head included, so a resent event is bit-identical to the first send: its
 timestamp is the device's time when the data was made, never when it was sent. A reboot restarts the device's clock;
@@ -258,6 +233,10 @@ A `ww_stream::tx::Reliable` is one state: the producer pushes events into it, wh
 event loop reads the next event out of it and sends it. Shared between tasks, it sits behind the firmware's async
 mutex, held for a push or a store read only, never while the link is busy, so a slow link never stalls a producer.
 
+Generated code drives it: `stream_data_ser().<name>_push(..)` pushes, the server's `poll_streams` sends and the
+dispatcher feeds it the host's sideband ([Reliable streams](streams.md#reliable-streams)). Underneath, and for a
+device without generated code, it is:
+
 ```rust
 use ww_stream::{store::RamRing, sched::Priority, tx::{Reliable, Pushed}, Run};
 
@@ -267,14 +246,15 @@ let mut samples: Reliable<RamRing<{ 256 * 1024 }>> = Reliable::new(RamRing::new(
 if samples.push(&block_bytes, sets, Some(t)).await? == Pushed::Lost { /* counted, reported to the host */ }
 samples.lost(dropped_sets); // the producer's own ring overflowed: goes into the next event's `lost`
 
-// event loop: what may go out now, then the sideband the host sends
+// event loop: what may go out now, the host's Ack / ResendFrom, a Query when the host went silent
 if let Some(ev) = samples.next_event(Run::Live, &mut buf).await? { /* send ev.head and ev.item */ }
-samples.on_sideband(&sideband, now_ms).await?;
+samples.on_host_sideband(&sideband).await?;
 if let Some(query) = samples.poll_query(now_ms) { /* send it */ }
 ```
 
 `ww_stream::tx::Counted` is the same for counted streams, without a store: `head(units, t)` returns the head of the
-next event (`None` while no host has the stream open: the units count as lost), `lost(units)` counts drops, `unsent(&head)` turns an event that couldn't be sent into lost units.
+next event (`None` while no host has the stream open: the units count as lost), `lost(units)` counts drops,
+`unsent(&head)` turns an event that couldn't be sent into lost units.
 
 With several streams, `ww_stream::sched::Scheduler` decides which one sends next: by priority class (`High`, `Normal`,
 `Low`, set by the device, not the API), the live run before the backfill run within a class, round-robin between
@@ -284,51 +264,9 @@ needs a priority is counted or reliable.
 
 On the host, `ww_stream::rx::Receiver` takes each event's head (`on_item`) and returns a `Verdict`: accept (with the
 gaps before it, each with its run, position, size and cause: `Device`, `Link`, `Store` or `Host`), duplicate, already
-had, late or out of order; `poll(now_ms)` returns the next `Ack` or `ResendFrom` to send.
-
-## Receiving on the host
-
-Opening a stream returns a handle: `PositionedStream<T>` for a counted or reliable one. Generated clients open it by
-calling the stream function (`device.samples(config).call().await?`); underneath, and for tools without generated
-code, it is `Commander::prepare_stream_open(path, delivery, args)`, and `prepare_stream_resume(path, delivery,
-cursor)` to resume. A stream function that returns `Result<A, E>` gives `Result<(A, stream), E>`: an `Err` opens
-nothing. `#[errors(..)]` on the stream function lists the variants of `E` it returns, as on methods (API-32, see
-[Errors](errors.md#which-errors-a-method-returns)).
-
-```rust
-let mut samples = adc.samples(config).call().await?;
-while let Ok(ev) = samples.recv_event().await {
-    match ev {
-        StreamEvent::Item { pos, units, t, run, value, .. } => { /* run: Live or Backfill */ }
-        StreamEvent::Gap { at, units, cause, .. } => { /* cause: Device, Link, Store, Host */ }
-        StreamEvent::Resumed { cursor, ended, .. } => { /* ended: the old session, when the device has a new one */ }
-        StreamEvent::BackfillDone | StreamEvent::Disconnected | StreamEvent::Closed => {}
-    }
-}
-```
-
-- `recv()` returns values only; gaps are logged and counted in `stats()` (`StreamStats`: received, lost by cause,
-  duplicates, late, out of order, resend requests, what is queued). Blocking and `try_` variants of each exist.
-- `cursor()` is where to resume from: everything before it was received (counted) or acknowledged (reliable).
-  A recorder saves it with its data and opens with `<name>_resume(cursor)` after a restart.
-- `ack_mode(AckMode::Explicit)` when opening: a reliable stream's data counts as received only when `ack(pos)`
-  confirms it (after writing it to disk, say), so a crash in between loses nothing. By default it counts when user
-  code takes it.
-- `split()` gives one handle per run, each in order: a dashboard reads the live one, a recorder both.
-- `close()`, or dropping the handle, closes the stream on the device.
-
-The receiver runs in the client's event loop, so a program that doesn't read still answers the device. Its memory
-stays bounded: a reliable stream holds at most its window (`window(bytes)` when opening, 4 MiB by default), and the
-device keeps the rest in its store; a counted stream holds `ClientConfig::stream_queue_bytes` (4 MiB by default) and
-drops what comes beyond it, reported as one `Gap { cause: Host }` before the next item that fits. Plain streams have
-the same bound: what they drop is counted (`Stream::dropped()`) and reported once as `RawStreamEvent::Dropped`.
-
-After `disconnect().keep_streams()` the handles stay open (they see `Disconnected`, not the end), and
-`Commander::resume_streams()` on the next connection resumes each from its cursor: the same handle goes on with
-`Resumed` and whatever the device kept meanwhile. Without `keep_streams`, a stream ends with the connection.
-
-The dynamic client has the same as `DynResource::positioned_stream` (`DynPositionedStream`, values as `ValueOwned`),
-Python as a `PositionedStream` object ([Python](../python.md#counted-and-reliable-streams)).
+had, late or out of order; `poll(now_ms)` returns the next `Ack` or `ResendFrom` to send. It runs in the client's
+event loop behind every `PositionedStream`, see [Counted and reliable streams on the
+host](streams.md#counted-and-reliable-streams-positionedstreamt).
 
 ## Counting
 

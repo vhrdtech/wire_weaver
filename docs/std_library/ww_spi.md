@@ -62,7 +62,7 @@ pub trait Spi {
   `SpiConfig` and answers with what was actually set: the frequency the hardware settled on, never above what was
   asked, and the IO level in effect (`io_level: None` leaves it as it is). `SpiRole::Disabled` releases the pins.
 * `set_cs` - asserts or releases CS, only meaningful with `CsMode::Manual`.
-* `monitor` - `#[optional]`, a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with
+* `monitor` - `#[optional]`, a counted [stream function](../api/streams.md#stream-functions): the host opens it with
   the bus settings needed to decode frames (mode, bit order, word size, IO level) and receives one `SpiFrame` per CS
   assertion seen on the bus, in order, until it closes the stream. The monitor doesn't drive CS or the clock itself, it only listens.
   Its unit is a frame: the event head carries when CS was asserted and how many frames the device dropped

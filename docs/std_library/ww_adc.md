@@ -52,7 +52,7 @@ pub trait AdcStream {
 }
 ```
 
-* `samples` - a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with the channels,
+* `samples` - a counted [stream function](../api/streams.md#stream-functions): the host opens it with the channels,
   rate and format to sample and gets back what was actually set (the nearest rate the hardware can do), or an
   `AdcError`. Each `SampleBlock` holds whole sample sets interleaved in the order of `StreamConfig::channels`,
   packed as `StreamConfig::format`. Closing the stream stops sampling (blocks already sampled are still sent);

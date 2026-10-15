@@ -2996,6 +2996,11 @@ is up. This is CLT-21 in the <a href="../../features/">features</a>, and the "up
 <li>Keep <strong>PICOBOOT enabled</strong> in BOOTSEL (don't pass <code>BOOTSEL_FLAG_DISABLE_PICOBOOT_INTERFACE</code>, don't disable it in OTP).</li>
 </ul>
 <h2 id="what-the-host-does">What the host does<a class="headerlink" href="#what-the-host-does" title="Permanent link">&para;</a></h2>
+<p><code>follow::rp2_update()</code> and the <code>wire_weaver_client::ww_picoboot</code> re-export need the <code>picoboot</code> Cargo feature of
+<code>wire_weaver_client</code> (off by default, pulls in <code>ww_picoboot</code> and its <code>nusb</code>-backed PICOBOOT transport): most host apps
+that only talk WireWeaver over USB never flash an RP2040 / RP2350 boot ROM, so they shouldn't pay for it.
+<code>follow::rp2_update_with()</code> and <code>follow::Follow</code>/<code>Bus</code>/<code>Found</code> stay available without it — that is what
+<code>tests/follow_reboot</code> runs against a simulated device.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">follow</span><span class="p">;</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">ww_picoboot</span><span class="p">::{</span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">image</span><span class="p">::</span><span class="n">family</span><span class="p">};</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
@@ -3022,7 +3027,9 @@ still running because it ignored the reboot request.</p>
 <li><code>ww_picoboot</code> is the PICOBOOT host on its own: <code>usb::open(Some(serial))</code> gives a <code>Picoboot</code> with <code>flash()</code> (erase
   the touched 4 KiB sectors, write 256-byte pages, read back, with a progress callback), <code>read</code>, <code>write</code>,
   <code>flash_erase</code>, <code>chip_id</code>, <code>reboot2</code>. <code>Image</code> comes from a UF2 file (blocks of the given families; picotool's
-  RP2350-E10 dummy block is skipped) or a raw binary at an address. No libusb: nusb, pure Rust.</li>
+  RP2350-E10 dummy block is skipped) or a raw binary at an address. No libusb: nusb, pure Rust. It lives in its own
+  repo, <a href="https://github.com/vhrdtech/picoboot_host">picoboot_host</a> (crate name <code>picoboot_host</code>, re-exported here as
+  <code>ww_picoboot</code>), with no WireWeaver dependency of its own.</li>
 </ul>
 <h2 id="from-the-command-line">From the command line<a class="headerlink" href="#from-the-command-line" title="Permanent link">&para;</a></h2>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>list<span class="w">                                   </span><span class="c1"># boot ROMs in BOOTSEL mode with their serial numbers</span>

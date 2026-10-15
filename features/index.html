@@ -3592,7 +3592,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   reconnect to the same device by serial number, whatever answers there, with a timeout. Done for USB:
   <code>wire_weaver_client::follow</code> (<code>Follow</code>, <code>Bus</code>, <code>Found</code>), and the RP2350 / RP2040 boot ROM as the updater:
   <code>ww_picoboot</code> (PICOBOOT host on nusb, <code>SimRp2350</code> for tests), <code>follow::rp2_update()</code>, <code>ww bootsel</code>, tested end to end
-  on a simulated device (<code>tests/follow_reboot</code>, <code>docs/transport/follow_reboot.md</code>). Missing: a run against a Pico 2 /
+  on a simulated device (<code>tests/follow_reboot</code>, <code>docs/transport/follow_reboot.md</code>). The PICOBOOT host moved to its
+  own repo, <a href="https://github.com/vhrdtech/picoboot_host">picoboot_host</a> (evaluated the crates.io <code>picoboot</code> 0.3.0
+  crate first: no sans-IO boundary to put <code>SimRp2350</code> behind, no <code>Image</code>/UF2 handling, no orchestrated flash+verify,
+  no <code>chip_id</code>/<code>GET_INFO</code> — adopting it would have meant donating most of <code>ww_picoboot</code> upstream anyway); wire_weaver
+  depends on it as <code>ww_picoboot</code> (a git dependency on github.com/vhrdtech/picoboot_host until it is on crates.io). <code>wire_weaver_client</code>'s <code>picoboot</code>
+  feature (off by default) gates <code>follow::rp2_update()</code> and the <code>ww_picoboot</code> re-export, so a host app that only
+  talks WireWeaver over USB doesn't pull in PICOBOOT; <code>ww bootsel</code> turns it on, and <code>follow::rp2_update_with()</code> (what
+  <code>tests/follow_reboot</code> runs against a simulated device) needs neither it nor <code>usb</code>. Missing: a run against a Pico 2 /
   rePort; RTT (another control block: a second ELF or a RAM scan) and UDP / WebSocket (the port may change); asking
   for the reboot from the CLI needs CLT-10.</li>
 <li>📋 <strong>CLT-22 One <code>Sink::send</code> for borrowed and owned items</strong> — owned types (<code>FooOwned</code>) implement only

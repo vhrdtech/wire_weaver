@@ -2,18 +2,19 @@
 name = "ww_can_bus"
 version = "0.1.0"
 authors.workspace = true
-description = "CAN Bus types and API"
+description = "CAN bus API: configure, send, receive, filters, status, for simple nodes up to analyzers"
 edition.workspace = true
 license.workspace = true
 repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt", "ww_numeric/std"]
+std = ["wire_weaver/std", "ww_si/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_si/defmt"]
+embedded-can = ["dep:embedded-can"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-wire_weaver = { workspace = true }
-ww_numeric.workspace = true
-ww_version.workspace = true
+embedded-can = { version = "0.4", optional = true }
+wire_weaver = { workspace = true, default-features = false }
+ww_si = { workspace = true, default-features = false, features = ["time", "electrical"] }

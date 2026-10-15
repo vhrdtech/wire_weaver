@@ -1613,6 +1613,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-can"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9d2e857f87ac832df68fa498d18ddc679175cf3d2e4aa893988e5601baf9438"
+dependencies = [
+ "nb 1.1.0",
+]
+
+[[package]]
 name = "embedded-hal"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2599,6 +2608,30 @@ version = "0.1.0"
 dependencies = [
  "wire_weaver",
  "ww_adc",
+]
+
+[[package]]
+name = "io_can"
+version = "0.1.0"
+dependencies = [
+ "io_can_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_can_bus",
+ "ww_client_server",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
+name = "io_can_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_can_bus",
 ]
 
 [[package]]
@@ -5956,9 +5989,9 @@ name = "ww_can_bus"
 version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
+ "embedded-can",
  "wire_weaver",
- "ww_numeric",
- "ww_version",
+ "ww_si",
 ]
 
 [[package]]

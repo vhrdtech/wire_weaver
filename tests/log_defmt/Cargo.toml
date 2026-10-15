@@ -1,0 +1,24 @@
+[package]
+name = "log_defmt"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# a std implementation for DefmtLogger on the host
+critical-section = { version = "1.2", features = ["std"] }
+defmt-decoder = "1.1"
+log_defmt_api.workspace = true
+serde_json.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
+tracing-subscriber.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_client_server.workspace = true
+ww_defmt_logger.workspace = true
+ww_log = { workspace = true, features = ["std"] }
+ww_stream = { workspace = true, features = ["std"] }

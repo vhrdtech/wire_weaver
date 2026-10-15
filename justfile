@@ -61,7 +61,10 @@ check-core:
 [working-directory('mcu')]
 check-mcu:
     # Checking mcu
-    @cargo check
+    @cargo check --workspace --exclude ww_ecc_flash
+    # ww_ecc_flash needs its MCU family
+    @cargo check -p ww_ecc_flash --features nmi-handler --target thumbv6m-none-eabi
+    @cargo check -p ww_ecc_flash --features stm32h7 --target thumbv7em-none-eabihf
 
 check-examples-mcu:
     # Checking examples-mcu
@@ -70,6 +73,7 @@ check-examples-mcu:
     @just check-examples-mcu-nucleo-g0b1re
     @just check-examples-mcu-stm32h725ig
     @just check-examples-mcu-rp2
+    @just check-examples-mcu-ecc-flash-g0b1
 
 [working-directory('examples_mcu/mcu_qemu')]
 check-examples-mcu-qemu:
@@ -93,6 +97,11 @@ check-examples-mcu-nucleo-g0b1re:
     @cargo check --features usb
     @cargo check --no-default-features --features nucleo_g0b1re,rtt_target
     @cargo check --no-default-features --features nucleo_g0b1re,rtt_target,settings
+
+[working-directory('examples_mcu/ecc_flash_g0b1')]
+check-examples-mcu-ecc-flash-g0b1:
+    # Checking ecc_flash_g0b1
+    @cargo check --bins
 
 [working-directory('examples_mcu/usb_stm32h725ig')]
 check-examples-mcu-stm32h725ig:

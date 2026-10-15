@@ -472,6 +472,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `_send_return_blocking` and `_ser_return_event` are generated for deferred methods on nested trait levels too, named
   like the handler (`plug_vbus_cycle_send_return`); `method_model` patterns match the prefixed name. Test
   `tests/methods` (`deferred_on_nested_level`), `docs/api/methods.md#deferred`.
+- 🧪 **SRV-19 ECC-safe STM32 flash for stores** — `mcu/ww_ecc_flash`: `EccSafeFlash` wraps any `NorFlash` (embassy-stm32's
+  `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
+  or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature
+  `nmi-handler`) or a bus error (STM32H7, `DBECCERR`, ignored under FAULTMASK + `BFHFNMIGN`), so sequential-storage
+  skips it. Never `MultiwriteNorFlash`. Blocking and async. `docs/api/ecc_flash.md`. On hardware: a G0B1 (B153A)
+  store survives 3000 resets in the middle of its programs and erases (TEST-21), but a reset never tears a G0 flash
+  word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is built, not run on hardware.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:
@@ -925,6 +932,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `scenarios::pit_stop_shuttle_1l_upd_step` fails now and then (~2 in 10 alone, more often under the full parallel
   `just test`). Seen before the TR-12 changes too. The recorder needs one order for events of the host and the
   simulated device that happen at the same time. Found 15 Oct 2026.
+- 🚧 **TEST-21 Power cuts against a flash store on STM32** — `examples_mcu/ecc_flash_g0b1`, a sequential-storage map on
+  `ww_ecc_flash` (SRV-19) in bank 2 of a G0B1:
+  - [x] reset loop: every boot loads and checks all keys against what earlier boots committed, then a SysTick
+    reset at a random time cuts the stores. 3000 boots on the B153A (J-Link, 15 Oct 2026): 655 stores, resets
+    during 28 programs, 453 erases and 1537 reads, every committed value loaded, none corrupted.
+    `src/bin/reset_cut.rs` showed why no word ever failed its ECC check: on G0 a system reset waits for the flash
+    operation (73 page erases cut 1-20 ms into their ~22 ms all left the page fully erased, programs only stop
+    between double words).
+  - [ ] real power cut, so the zeros path of SRV-19 runs on hardware: the B129A powered through the Donguru plug
+    VBUS (Q101/Q102), switched from the PC in a loop; needs a way to switch it (Donguru plug power API or a pin
+    poke over SWD).
 - 💡 **TEST-16 Host queue on a slow VM** — does it lead to fewer or no missed packets?
 
 ## Dropped and superseded

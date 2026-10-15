@@ -1,0 +1,25 @@
+[package]
+name = "ww_ecc_flash"
+version = "0.1.0"
+edition = "2024"
+authors = ["Roman Isaikin <romix.lab@gmail.com>"]
+description = "STM32 NorFlash wrapper for stores: a flash word with an uncorrectable ECC error reads as zeros instead of NMI / bus error"
+license = "MIT"
+repository = "https://github.com/vhrdtech/wire_weaver"
+
+[dependencies]
+cortex-m = "0.7"
+cortex-m-rt = { version = "0.7", optional = true }
+embedded-storage = "0.3"
+embedded-storage-async = "0.4"
+
+[features]
+# STM32G0 (and other parts that raise an NMI on a double ECC error, with FLASH_ECCR / FLASH_ECCR2): reads go through
+# `on_nmi()`, called from the application's NMI handler, or from the one `nmi-handler` defines
+stm32g0 = []
+# STM32H7 (32-byte flash words on H74x/H75x/H72x/H73x, 16 bytes on H7A3/B0): the bus error of a read is ignored
+# (FAULTMASK + CCR.BFHFNMIGN) and FLASH_SR.DBECCERR checked
+stm32h7 = []
+# defines `NonMaskableInt` (cortex-m-rt), calling `on_nmi()` and panicking on any other NMI; leave off when the
+# application has its own NMI handler and call `on_nmi()` from there
+nmi-handler = ["stm32g0", "dep:cortex-m-rt"]

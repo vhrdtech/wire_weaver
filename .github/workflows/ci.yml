@@ -147,7 +147,12 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           cache-workspaces: mcu
-      - run: cargo check
+          target: thumbv6m-none-eabi,thumbv7em-none-eabihf
+      - run: cargo check --workspace --exclude ww_ecc_flash
+        working-directory: mcu
+      - run: cargo check -p ww_ecc_flash --features nmi-handler --target thumbv6m-none-eabi
+        working-directory: mcu
+      - run: cargo check -p ww_ecc_flash --features stm32h7 --target thumbv7em-none-eabihf
         working-directory: mcu
 
   examples-mcu:
@@ -164,6 +169,8 @@ jobs:
             args: --features usb
           - board: nucleo_g0b1re
             args: --no-default-features --features nucleo_g0b1re,rtt_target
+          - board: ecc_flash_g0b1
+            args: --bins
     steps:
       - uses: actions/checkout@v7
       # toolchain (nightly) and target come from the board's rust-toolchain.toml

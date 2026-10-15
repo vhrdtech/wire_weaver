@@ -1,0 +1,35 @@
+[package]
+name = "ecc_flash_g0b1"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7"
+defmt = "1.1"
+defmt-rtt = "1.3"
+panic-probe = { version = "1.0", features = ["print-defmt"] }
+embassy-stm32 = { version = "0.6", features = ["defmt", "stm32g0b1ce", "unstable-pac"] }
+embassy-futures = "0.1"
+embedded-storage = "0.3"
+embedded-storage-async = "0.4"
+sequential-storage = { version = "8.0", features = ["defmt"] }
+ww_ecc_flash = { path = "../../mcu/ww_ecc_flash", features = ["nmi-handler"] }
+
+[profile.dev]
+codegen-units = 1
+debug = 2
+debug-assertions = true
+incremental = false
+opt-level = 3
+overflow-checks = true
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false
+incremental = false
+lto = "fat"
+opt-level = 3
+overflow-checks = false

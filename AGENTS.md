@@ -94,6 +94,9 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
   lives in the separate `mcu` workspace). Host-side transports (USB, RTT, WebSocket, UDP, in-process) live in
   `wire_weaver_client` behind features, each a `Transport` impl (`event_loop/transport.rs`) driven by the shared
   event loop core.
+- **`mcu/ww_ecc_flash`** — `EccSafeFlash`, a `NorFlash` wrapper for stores in STM32 flash: a word with an
+  uncorrectable ECC error (power cut) reads as zeros instead of an NMI (G0) or bus error (H7), see
+  `docs/api/ecc_flash.md`; hardware test `examples_mcu/ecc_flash_g0b1`. Needs a family feature (`stm32g0`/`stm32h7`).
 - **`wire_weaver_cli/`** (package `wire_weaver_cli`, binary name `ww`, run via `cargo ww` alias from `.cargo/config.toml`) — CLI with
   introspection and USB loopback subcommands (`src/cmd/`).
 - **`wire_weaver_tool/`** — egui-based GUI (Trunk-buildable) for viewing parsed AST / generated code side by side,

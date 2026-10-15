@@ -33,6 +33,7 @@ nav = [
             "api/stream_reliability.md",
             "api/stream_stores.md",
             "api/settings.md",
+            "api/ecc_flash.md",
             "api/errors.md",
             "api/optional_items.md",
             "api/traits.md",

@@ -3,6 +3,7 @@ resolver = "3"
 
 members = [
     "wire_weaver_usb_embassy",
+    "ww_ecc_flash",
 ]
 
 [workspace.dependencies]

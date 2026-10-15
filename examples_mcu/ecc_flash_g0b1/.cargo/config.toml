@@ -1,0 +1,9 @@
+[target.thumbv6m-none-eabi]
+# pick the probe with PROBE_RS_PROBE=VID:PID[:SERIAL] when more than one is connected
+runner = "probe-rs run --chip STM32G0B1CETx --no-catch-reset"
+
+[build]
+target = "thumbv6m-none-eabi"
+
+[env]
+DEFMT_LOG = "info"

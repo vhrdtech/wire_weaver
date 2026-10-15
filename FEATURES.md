@@ -656,6 +656,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     repo: `cnt::ram_used_words()`, word sources and ELF lookup by build id in `cnt_core`, `cnt_view`, and the probe
     path checks the build id too. Docs `docs/std_library/ww_counters.md`, tests `tests/counters`; `cnt_core` /
     `cnt_view` 0.5 from crates.io.
+- ✅ **STD-27 `reset-record-age`** · `v0.5` — `ww_firmware_info::ResetRecord::boots_since_crash`: boots since the
+    crash data was saved (0 = the last reset was the crash), so a record kept across later normal resets shows how old
+    it is. `bedrock_crash` counts it (`Crash::boots_since`) and the firmware template fills it.
 - ✅ **STD-28 `ww_indication` lightweight rework** — cut to one required item: `mode: Mode` (`AllOff` /
     `OnlyEssential` / `Normal`). `brightness: Brightness` (5 levels, one setting for all indicators),
     `identify(duration)` (blink everything to find the unit on a bench, errors on `CommonError`) and `NAMES`

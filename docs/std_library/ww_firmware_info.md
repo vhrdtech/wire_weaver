@@ -97,8 +97,9 @@ pub trait LastReset {
 
 `ResetRecord` has the `cause` (`PowerOn`, `Brownout`, `Pin`, `Watchdog`, `Software`, `Lockup`, `Fault`, `Panic`,
 `Updated`, `Undetermined`), the `build_id` of the firmware that crashed (the record may be older than an update),
-`uptime` at the crash, the architecture's `fault` registers, up to 32 words of `stack` and a `message` of up to 128
-bytes. `boot_count` with the cause tells a reset loop from a single crash; `clear` forgets both once the host saved
+`uptime` at the crash, the architecture's `fault` registers, up to 32 words of `stack`, a `message` of up to 128
+bytes and `boots_since_crash` (0: the last reset was the crash; a crash kept across later normal resets shows a
+`cause` other than `Fault` / `Panic` and a count above 0). `boot_count` with the cause tells a reset loop from a single crash; `clear` forgets both once the host saved
 them. Capturing the record (a fault or panic handler writing into RAM that survives a reset) is firmware
 infrastructure; this trait only reports it.
 

@@ -50,6 +50,7 @@ mod tests {
                     fault: crash.as_ref().map(|c| c.fault.clone()),
                     stack: MaxLen::new_unchecked(RefVec::Slice { slice: &STACK }),
                     message: MaxLen::new_unchecked(if crash.is_some() { "HardFault" } else { "" }),
+                    boots_since_crash: 0,
                 })
             }
 

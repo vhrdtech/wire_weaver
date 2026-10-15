@@ -23,6 +23,10 @@ pub struct ResetRecord<'i> {
     pub stack: MaxLen<RefVec<'i, u32>, 32>,
     /// Panic message or fault text, cut at the bound.
     pub message: MaxLen<&'i str, 128>,
+    /// Boots since the crash data was saved: 0 when the last reset was the crash itself, 1 after one normal reset,
+    /// and so on. A record kept across later resets shows with a `cause` other than `Fault` / `Panic`; this says how
+    /// old it is. 0 when there is no crash data.
+    pub boots_since_crash: u32,
 }
 
 /// Cause of a reset.

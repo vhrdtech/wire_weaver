@@ -252,6 +252,11 @@
         (ident: Some("message"), default: None, since: None, ty: MaxLen(max_len: 128, ty: String), docs: [
             "Panic message or fault text, cut at the bound.",
         ]),
+        (ident: Some("boots_since_crash"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Boots since the crash data was saved: 0 when the last reset was the crash itself, 1 after one normal reset,",
+            "and so on. A record kept across later resets shows with a `cause` other than `Fault` / `Panic`; this says how",
+            "old it is. 0 when there is no crash data.",
+        ]),
     ]))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [

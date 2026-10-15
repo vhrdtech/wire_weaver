@@ -7,6 +7,9 @@
   `#[optional] BUILD_RECORD` (the `bedrock_build_info` compact record). Servers provide them without handlers, in
   their consts impl (API-36, `BUILD_ID` as a `fn`; `ww api scaffold` prints it); image digests live in `ww_dfu`.
 
+- `ResetRecord::boots_since_crash` (STD-27, never published): boots since the crash data was saved, 0 = the last
+  reset was the crash. Servers fill it; hosts use it to tell a fresh crash from an old one kept across resets.
+
 ### 🚀 Features
 
 - `firmware_summary!()` evaluates at compile time: `const FIRMWARE_FIRMWARE: FirmwareSummary<'static> =

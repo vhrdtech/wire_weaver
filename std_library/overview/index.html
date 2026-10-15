@@ -2155,14 +2155,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../ww_log_baremetal/" class="md-nav__link">
+      <a href="../ww_log/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  ww_log_baremetal
+  ww_log
 
     
   </span>
@@ -3286,6 +3286,7 @@ place to look.</p>
 <li><a href="../ww_uid/"><code>ww_uid</code></a> — <code>Uid</code>: the unit's unique ids (chip id, MAC, EUI-64, ...), one trait carrying several</li>
 <li><a href="../ww_user_info/"><code>ww_user_info</code></a> — <code>UserInfo</code>: a name and notes the user gives a unit, with persistence rules</li>
 <li><a href="../ww_log/"><code>ww_log</code></a> — <code>LogDefmt</code>, <code>LogText</code>: device logging over a reliable stream, raw <code>defmt</code> frames or text</li>
+<li><code>ww_defmt_logger</code> (repo root, device side) — the <code>defmt</code> global logger that feeds <code>LogDefmt::frames</code>, with an optional tee to RTT</li>
 <li><code>ww_counters</code> — <code>Counters</code>: event counters running on the device (error/packet counts), RAM or persistent</li>
 <li><code>ww_indication</code> — <code>Indication</code>: device indication LED control (mode, brightness, test mode)</li>
 <li><a href="../ww_dfu/"><code>ww_dfu</code></a> — <code>UpdateNode</code>, <code>BootControl</code>, <code>Inventory</code>, <code>Stage</code>, <code>StageBulk</code>: firmware update, A/B or

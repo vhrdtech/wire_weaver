@@ -2229,14 +2229,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../std_library/ww_log_baremetal/" class="md-nav__link">
+      <a href="../std_library/ww_log/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  ww_log_baremetal
+  ww_log
 
     
   </span>
@@ -3294,6 +3294,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 idea, not committed to</li>
 <li>⛔ blocked (the note says on what)</li>
 <li>🔍 probably done or obsolete, needs a check before closing</li>
+<li>🧪 done and tested on the host, the check on hardware is still open (the note says what to check)</li>
 <li><strong>Target</strong> is the release an item is planned for: <code>v0.5</code> is the next release (the workspace is at 0.5.0,
   crates.io has 0.4.0). <code>v0.5.x</code> is the next compatible release after it: <code>v0.5.1</code> if nothing turns out to be
   breaking, otherwise the next minor. No tag means not scheduled. <code>grep '</code>v0.5<code>' FEATURES.md</code> gives the release
@@ -3906,13 +3907,24 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
     and the persistence rule. Docs <code>docs/std_library/ww_{firmware_info,board_info,uid,user_info}.md</code>, tests
     <code>tests/{firmware_info,board_info,uid,user_info}</code>. The const items are served by <code>get_</code> handlers until constant
     items come from the introspection data; properties cannot carry <code>#[errors]</code> yet.</li>
+<li>🧪 <strong>STD-26 <code>ww_log</code> defmt over reliable streams</strong> · <code>v0.5</code> — <code>ww_log_bare_metal</code> renamed <code>ww_log</code>.
+    <code>LogDefmt { const DEFMT (encoding, build id); frames() }</code>: a reliable stream whose unit is one <code>defmt</code> frame,
+    whole frames per item (up to 512 B), so <code>lost</code> is the exact number of dropped messages and logs from before the
+    host connects arrive by resuming the device's session. <code>LogText { records(); rw level: LevelFilter }</code> with
+    bounded <code>LogRecord</code>, <code>Severity</code> without <code>User</code>, <code>LogError</code> on <code>CommonError</code>. Device side: new crate
+    <code>ww_defmt_logger</code> (<code>global_logger!</code>, lock-free ring with whole-frame commits, RTT tee, <code>pump()</code> into the store,
+    drops reported in place), ring stress-tested on the host with concurrent producers. <code>tests/log_defmt</code> decodes
+    with <code>defmt-decoder</code> end to end; <code>examples/defmt_log</code> (host) and <code>examples_mcu/rp2</code>'s <code>rp2_usb_log</code> (USB and RTT
+    at once, build id in flash). <code>docs/std_library/ww_log.md</code>. Hardware check open (no Pico 2 probe on the mesh): <code>just run rp2 usb_log</code>, then
+    <code>examples/defmt_log</code>: logs over USB and RTT at once, <code>lost</code> exact under <code>--flood</code>, logs from before connecting.
+    <code>ww log</code> in the CLI is a later item.</li>
 <li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing.</li>
 <li>🔍 <strong>STD-7 Interrupt left enabled in <code>ww_gpio_hl</code></strong> · <code>v0.5</code> — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.</li>
 <li>🚧 <strong>STD-8 Prototypes</strong>, to be completed later: <code>ww_can_bus</code>, <code>ww_i2c</code>, <code>ww_uart</code>, <code>ww_counters</code>, <code>ww_indication</code>,
   <code>ww_memory</code> (was <code>ww_ll</code>: one word type per trait, optional watches, errors on <code>CommonError</code>, docs page),
-  <code>ww_log_bare_metal</code>. Known gaps are <code>TODO</code>s in their sources (e.g. SMBus and 7-bit addresses in <code>ww_i2c</code>,
-  capabilities and properties in <code>ww_can_bus</code>).</li>
+  Known gaps are <code>TODO</code>s in their sources (e.g. SMBus and 7-bit addresses in <code>ww_i2c</code>, capabilities and properties
+  in <code>ww_can_bus</code>). <code>ww_log</code> (was <code>ww_log_bare_metal</code>) left for STD-26.</li>
 <li>💡 <strong>STD-9 Stubs</strong>, for later: <code>ww_spi</code> (<code>ww_board_info</code>, <code>ww_firmware_info</code>, <code>ww_user_info</code> and <code>ww_uid</code> moved to STD-24).</li>
 <li>🚧 <strong>STD-12 <code>ww_dfu</code> firmware update API</strong> — traits <code>UpdateNode</code>, <code>BootControl</code>, <code>Inventory</code>, <code>Stage</code>,
   <code>StageBulk</code>: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored

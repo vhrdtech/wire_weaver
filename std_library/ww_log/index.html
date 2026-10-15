@@ -12,7 +12,7 @@
         <meta name="author" content="Roman Isaikin">
       
       
-        <link rel="canonical" href="https://ww.vhrd.tech/std_library/ww_log_baremetal/">
+        <link rel="canonical" href="https://ww.vhrd.tech/std_library/ww_log/">
       
       
       
@@ -30,7 +30,7 @@
     
     
       
-        <title>ww_log_baremetal - WireWeaver</title>
+        <title>ww_log - WireWeaver</title>
       
     
     
@@ -117,7 +117,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ww_log_baremetal
+              ww_log
             
           </span>
         </div>
@@ -2040,6 +2040,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_log
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -2047,7 +2064,7 @@
   <span class="md-ellipsis">
     
   
-  ww_log_baremetal
+  ww_log
 
     
   </span>
@@ -2055,6 +2072,109 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#logdefmt" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>LogDefmt</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LogDefmt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#logs-from-before-the-host-connects" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Logs from before the host connects
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decoding-on-the-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Decoding on the host
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-build-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The build id
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-device-side-ww_defmt_logger" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The device side: <code>ww_defmt_logger</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#logtext" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>LogText</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Errors
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2889,6 +3009,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2900,6 +3025,97 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#logdefmt" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>LogDefmt</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LogDefmt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#logs-from-before-the-host-connects" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Logs from before the host connects
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decoding-on-the-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Decoding on the host
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-build-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The build id
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-device-side-ww_defmt_logger" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The device side: <code>ww_defmt_logger</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#logtext" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>LogText</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Errors
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -3028,7 +3244,157 @@
   
 
 
-<h1 id="ww_log_baremetal">ww_log_baremetal<a class="headerlink" href="#ww_log_baremetal" title="Permanent link">&para;</a></h1>
+<h1 id="ww_log">ww_log<a class="headerlink" href="#ww_log" title="Permanent link">&para;</a></h1>
+<p><code>ww_log</code> is the log of a device: its <code>defmt</code> frames, decoded on the host with the firmware's ELF (<code>LogDefmt</code>), or
+text records for firmware without <code>defmt</code> (<code>LogText</code>). Both are <a href="../../api/stream_reliability/">reliable streams</a>:
+the device keeps what it logged until the host has it, also while no host is connected, and tells the host exactly
+how many messages it dropped and where. It is <code>no_std</code> by default and depends only on <code>wire_weaver</code>.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span>
+</span></code></pre></div>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">MyDevice</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">log</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_log</span><span class="p">::</span><span class="n">LogDefmt</span><span class="p">);</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The device side of <code>LogDefmt</code> is the <code>ww_defmt_logger</code> crate: the firmware's <code>defmt</code> global logger, which also
+tees every frame to RTT (see <a href="#the-device-side-ww_defmt_logger">below</a>).</p>
+<h2 id="logdefmt"><code>LogDefmt</code><a class="headerlink" href="#logdefmt" title="Permanent link">&para;</a></h2>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">LogDefmt</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">DEFMT</span><span class="p">:</span><span class="w"> </span><span class="nc">DefmtInfo</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="cp">#[stream(DefmtFrames&lt;&#39;i&gt;, reliable)]</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">frames</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">LogError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">}</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">DefmtInfo</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">encoding</span><span class="p">:</span><span class="w"> </span><span class="nc">DefmtEncoding</span><span class="p">,</span><span class="w">                          </span><span class="c1">// Raw, Rzcobs</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">build_id</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">}</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">DefmtFrames</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">bytes</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">512</span><span class="o">&gt;</span><span class="p">,</span><span class="w">               </span><span class="c1">// one or more whole frames</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><code>DEFMT</code> - the encoding <code>defmt</code> is built with (its <code>encoding-raw</code> / <code>encoding-rzcobs</code> cargo feature), and the
+  GNU build id of the firmware: the host takes the ELF with this build id to decode the frames (the format
+  strings are interned there, not sent).</li>
+<li><code>frames</code> - the log. <strong>Its unit is one <code>defmt</code> frame</strong>, so the stream head's <code>units</code> is the number of frames in an
+  item and its <code>lost</code> is the exact number of log messages the host won't get. An item never holds half a frame: a
+  decoder fed one item after the other never loses sync, also with raw encoding and after a loss.</li>
+</ul>
+<p>Timestamps are <code>defmt</code>'s own (<code>defmt::timestamp!</code>), inside each frame; the head's <code>t</code> stays off.</p>
+<h3 id="logs-from-before-the-host-connects">Logs from before the host connects<a class="headerlink" href="#logs-from-before-the-host-connects" title="Permanent link">&para;</a></h3>
+<p>The device starts the stream's session at boot, without a host, and keeps logging into the store. A host that
+wants these logs <strong>resumes</strong> that session from its start instead of opening the stream (opening starts a new
+session and empties the store):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">log</span><span class="p">().</span><span class="n">frames_status</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">cursor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">StreamCursor</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">session</span><span class="p">:</span><span class="w"> </span><span class="nc">status</span><span class="p">.</span><span class="n">session</span><span class="p">.</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">pos</span><span class="p">:</span><span class="w"> </span><span class="nc">UVlq64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">frames</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">log</span><span class="p">().</span><span class="n">frames_resume</span><span class="p">(</span><span class="n">cursor</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p>The backlog arrives as the backfill run while new logs come live, see
+<a href="../../api/stream_reliability/">stream reliability</a>. When the store is full, its <code>FullPolicy</code> decides: with
+<code>DropOldest</code> it keeps the latest logs, which matter most after a fault, and the host gets the dropped ones as one
+gap. A store on SD or NOR flash (<code>ww_stream</code>'s <code>LogStore</code>) keeps the logs across reboots and power cuts with nothing
+changed in the API.</p>
+<h3 id="decoding-on-the-host">Decoding on the host<a class="headerlink" href="#decoding-on-the-host" title="Permanent link">&para;</a></h3>
+<p><code>defmt-decoder</code> does the decoding: <code>Table::parse(&amp;elf)</code> for the table, a stream decoder fed with the bytes of each
+item, frames out of it until it needs more bytes. <code>examples/defmt_log</code> is a complete host program: it reads
+<code>DEFMT</code>, refuses an ELF whose build id differs from the device's (<code>--force</code> to use it anyway), resumes the session
+and prints decoded frames and gaps, something like:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>INFO  heartbeat 41
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>--- 312 log messages lost (Device) ---
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>INFO  flood 189 of 500
+</span></code></pre></div>
+<h3 id="the-build-id">The build id<a class="headerlink" href="#the-build-id" title="Permanent link">&para;</a></h3>
+<p>The linker writes a GNU build id when asked (<code>-C link-arg=--build-id=sha1</code>, a hash of the linked output: it
+changes with every byte of code); a section in <code>memory.x</code> puts it into flash where the firmware reads it at run
+time:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>SECTIONS {
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    .note.gnu.build-id : ALIGN(4)
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    {
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        __build_id_start = .;
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        KEEP(*(.note.gnu.build-id));
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        __build_id_end = .;
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    } &gt; FLASH
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>} INSERT AFTER .rodata;
+</span></code></pre></div>
+<p><code>ww_firmware_info::build_id()</code> (its <code>build-id</code> feature) reads the id between the two symbols. <code>examples_mcu/rp2</code>
+does all three steps (<code>build.rs</code>, <code>memory.x</code>, <code>src/bin/usb_log.rs</code>). Without the note, <code>build_id</code> is empty and a
+host can only guess the ELF.</p>
+<h2 id="the-device-side-ww_defmt_logger">The device side: <code>ww_defmt_logger</code><a class="headerlink" href="#the-device-side-ww_defmt_logger" title="Permanent link">&para;</a></h2>
+<p><code>defmt</code> allows one global logger, called from any context, interrupts included, and it can't wait; a reliable
+stream's store is async. <code>ww_defmt_logger</code> sits between them:</p>
+<ol>
+<li><code>global_logger!(LOG, 4096)</code> makes a <code>DefmtLogger</code> with a ring of 4 KiB the <code>#[defmt::global_logger]</code>. A <code>defmt</code>
+   macro takes a critical section (as <code>defmt-rtt</code> does), encodes the frame into the ring and, with the <code>rtt</code>
+   feature, into an RTT up channel. The whole frame is committed at once; a frame that doesn't fit the free space
+   (or is longer than 512 bytes) is dropped whole and counted.</li>
+<li><code>LOG.pump(&amp;mut stream)</code> in the event loop takes the committed frames out of the ring, without a critical section,
+   packs up to 512 bytes of whole frames into one <code>DefmtFrames</code> item and pushes it into the store, <code>units</code> =
+   frames. Frames the ring dropped become the stream's <code>lost</code> exactly where they were dropped.</li>
+</ol>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">ww_defmt_logger</span><span class="p">::</span><span class="n">global_logger</span><span class="o">!</span><span class="p">(</span><span class="n">LOG</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1">// at boot</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">channels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rtt_init</span><span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">up</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">size</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="n">mode</span><span class="p">:</span><span class="w"> </span><span class="nc">NoBlockSkip</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;defmt&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">LOG</span><span class="p">.</span><span class="n">set_rtt_channel</span><span class="p">(</span><span class="n">channels</span><span class="p">.</span><span class="n">up</span><span class="p">.</span><span class="mi">0</span><span class="p">);</span><span class="w">       </span><span class="c1">// probe-rs and `cnt run` keep showing the logs</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">state</span><span class="p">.</span><span class="n">log_stream</span><span class="p">.</span><span class="n">start_session</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// keep logs until a host resumes</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1">// the event loop</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="k">loop</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="n">Either</span><span class="p">::</span><span class="n">First</span><span class="p">(</span><span class="n">ready</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">select</span><span class="p">(</span><span class="n">server</span><span class="p">.</span><span class="n">wait</span><span class="p">(),</span><span class="w"> </span><span class="n">Timer</span><span class="p">::</span><span class="n">after_millis</span><span class="p">(</span><span class="mi">5</span><span class="p">)).</span><span class="k">await</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">        </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">LinkEvent</span><span class="p">::</span><span class="n">Down</span><span class="p">(</span><span class="n">_</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">handle</span><span class="p">(</span><span class="n">ready</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">).</span><span class="k">await</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">        </span><span class="n">state</span><span class="p">.</span><span class="n">log_stream</span><span class="p">.</span><span class="n">detach</span><span class="p">();</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">    </span><span class="n">LOG</span><span class="p">.</span><span class="n">pump</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">state</span><span class="p">.</span><span class="n">log_stream</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">is_up</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">        </span><span class="n">state</span><span class="p">.</span><span class="n">poll_streams</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">sink</span><span class="p">(),</span><span class="w"> </span><span class="n">now_ms</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">2048</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><strong>RAM</strong>: the ring (a power of two; each frame takes its encoded length plus 6 bytes) and about 1 KiB for packing
+  an item. The ring only has to hold what is logged between two pumps; the store holds the rest.</li>
+<li><strong>Encoding</strong>: <code>ww_defmt_logger::encoding()</code> tells which one <code>defmt</code> is built with, for <code>DEFMT</code>. With rzCOBS the
+  very first frame after boot starts with an extra <code>0x00</code> (defmt's resync marker), which decoders skip.</li>
+<li><strong>Contexts</strong>: frames from an interrupt never interleave with one being written. A <code>defmt</code> macro inside a <code>defmt</code>
+  macro panics, as with <code>defmt-rtt</code>. <code>defmt::flush()</code> doesn't wait, the ring is emptied by <code>pump</code> only.</li>
+<li><strong>Other global loggers</strong>: none may be linked next to it: not <code>defmt-rtt</code>, not <code>rtt-target</code>'s <code>defmt</code> feature.</li>
+<li><strong>Async server</strong>: a reliable stream needs <code>use_async = true</code>.</li>
+</ul>
+<p>The ring is tested on the host with four threads logging into a 512-byte ring while another pumps: every frame
+arrives whole and in order, and received plus lost is exactly what was logged. <code>examples_mcu/rp2</code>'s <code>rp2_usb_log</code>
+logs over USB and RTT at once (<code>just run rp2 usb_log</code>, host: <code>examples/defmt_log</code>, <code>--flood 500</code> to overload it).</p>
+<h2 id="logtext"><code>LogText</code><a class="headerlink" href="#logtext" title="Permanent link">&para;</a></h2>
+<p>For firmware without <code>defmt</code>: the <code>log</code> crate on embassy or std targets, ESP-IDF.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">LogText</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="cp">#[stream(LogRecord&lt;&#39;i&gt;, reliable)]</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">records</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">LogError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">level</span><span class="p">:</span><span class="w"> </span><span class="nc">LevelFilter</span><span class="p">,</span><span class="w"> </span><span class="n">LogError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">}</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">LogRecord</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">severity</span><span class="p">:</span><span class="w"> </span><span class="nc">Severity</span><span class="p">,</span><span class="w">               </span><span class="c1">// Error, Warn, Info, Debug, Trace</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">target</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;&amp;&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="mi">48</span><span class="o">&gt;</span><span class="p">,</span><span class="w">      </span><span class="c1">// module path</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">message</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;&amp;&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="mi">256</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">truncated</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w">                  </span><span class="c1">// the message was cut at the device&#39;s limit</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="p">}</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">LevelFilter</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">Off</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="p">,</span><span class="w"> </span><span class="n">Warn</span><span class="p">,</span><span class="w"> </span><span class="n">Info</span><span class="p">,</span><span class="w"> </span><span class="n">Debug</span><span class="p">,</span><span class="w"> </span><span class="n">Trace</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><code>records</code> - one record per message, unit: record. The head's <code>t</code> carries the device time of the record. Logs from
+  before the host connects come the same way as with <code>LogDefmt</code>, by resuming.</li>
+<li><code>level</code> - records less severe than this are not produced (<code>LevelFilter::allows(severity)</code>); filters compiled into
+  the firmware still apply. Writing it may fail with <code>Common(Unsupported)</code> when the level is fixed at compile time.</li>
+</ul>
+<p><code>Severity</code> and <code>LevelFilter</code> are complete as they are (<code>no_future_version</code>): the five levels of <code>log</code>, <code>tracing</code>
+and <code>defmt</code>.</p>
+<h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
+<p><code>LogError</code> has only <code>Common(CommonError)</code> for now (<a href="../ww_error/">common errors</a>): <code>Busy</code> when another host has the
+log open, <code>Unsupported</code> when the device logs elsewhere only. It stays an enum so variants can be added.</p>
 
 
 

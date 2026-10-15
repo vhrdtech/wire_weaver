@@ -85,6 +85,9 @@ fn generate_inner(
     name: String,
     mut args: Args,
 ) -> Result<TokenStream, String> {
+    if args.sparse {
+        check_sparse_args(&item, &args)?;
+    }
     if args.head_tail {
         return head_tail_inner(item, ty_kind, name, args);
     }
@@ -253,7 +256,7 @@ fn generate_inner(
             if args.ww_repr.is_some() {
                 return Err("structs must not have a ww_repr".into());
             }
-            let mut ww_item_struct = ItemStruct::from_syn(item_struct)?;
+            let mut ww_item_struct = ItemStruct::from_syn(item_struct, args.sparse)?;
             let has_tail_size = ww_item_struct
                 .fields
                 .iter()
@@ -383,7 +386,7 @@ fn head_tail_inner(
             if args.ww_repr.is_some() {
                 return Err("structs must not have a ww_repr".into());
             }
-            let ww_item_struct = ItemStruct::from_syn(item_struct)?;
+            let ww_item_struct = ItemStruct::from_syn(item_struct, false)?;
             let cg = seed.cg_struct(&ww_item_struct);
             ts.append_all(cg.def_rust(true));
             ts.append_all(head_tail::ht_struct(
@@ -395,6 +398,24 @@ fn head_tail_inner(
         _ => {}
     }
     Ok(ts)
+}
+
+/// `sparse` (DER-13) is a struct encoding of its own: none of the other encodings or size assumptions go with it.
+fn check_sparse_args(item: &Item, args: &Args) -> Result<(), String> {
+    if !matches!(item, Item::Struct(_)) {
+        return Err("sparse: only a struct can be sparse".into());
+    }
+    if args.size_assumption.is_some() {
+        return Err(
+            "sparse: a sparse struct is Unsized, so that fields can be appended; remove sized, final_structure or \
+             self_describing"
+                .into(),
+        );
+    }
+    if args.fixed_layout || args.head_tail {
+        return Err("sparse: a type is sparse, fixed_layout or head_tail, only one of them".into());
+    }
+    Ok(())
 }
 
 /// The last field is an `Option` or `Result`: a struct with `fixed_layout` is then `self_describing` by default.
@@ -544,6 +565,7 @@ impl<'a> CGSeed<'a> {
             docs: &ww_item_struct.docs,
             ident: &self.ident,
             fields: &ww_item_struct.fields,
+            sparse_slots: ww_item_struct.sparse_slots.as_deref(),
             cfg: self.cfg.as_ref(),
             cfg_attr: &self.cfg_attr,
             derive: &self.derive,
@@ -752,5 +774,121 @@ mod display_tests {
             },
         );
         assert!(!ts.to_string().contains("compile_error"));
+    }
+}
+
+#[cfg(test)]
+mod sparse_tests {
+    use super::shrink_wrap_attr;
+    use proc_macro2::TokenStream;
+    use quote::quote;
+
+    fn error_of(args: TokenStream, item: TokenStream) -> Option<String> {
+        let s = shrink_wrap_attr(args, item).to_string();
+        s.contains("compile_error").then_some(s)
+    }
+
+    #[test]
+    fn option_fields_with_slots_compile() {
+        let item = quote! {
+            struct S<'i> {
+                a: Option<u8>,
+                #[slot = 4]
+                b: Option<&'i str>,
+                c: Option<RefVec<'i, u8>>,
+            }
+        };
+        assert_eq!(error_of(quote! { sparse, owned }, item), None);
+    }
+
+    #[test]
+    fn non_option_field_is_an_error() {
+        let e = error_of(
+            quote! { sparse, borrowed },
+            quote! { struct S { a: Option<u8>, b: u8 } },
+        );
+        assert!(e.unwrap().contains("sparse field `b` must be an Option<T>"));
+        let e = error_of(
+            quote! { sparse, borrowed },
+            quote! { struct S { a: Result<u8, u8> } },
+        );
+        assert!(e.unwrap().contains("must be an Option<T>"));
+    }
+
+    #[test]
+    fn other_encodings_are_an_error() {
+        let item = quote! { struct S { a: Option<u8> } };
+        for args in [
+            quote! { sparse, borrowed, final_structure },
+            quote! { sparse, borrowed, sized },
+            quote! { sparse, borrowed, self_describing },
+        ] {
+            assert!(error_of(args, item.clone()).unwrap().contains("Unsized"));
+        }
+        for args in [
+            quote! { sparse, borrowed, head_tail },
+            quote! { sparse, borrowed, fixed_layout },
+        ] {
+            assert!(
+                error_of(args, item.clone())
+                    .unwrap()
+                    .contains("only one of them")
+            );
+        }
+        let e = error_of(
+            quote! { sparse, borrowed, ww_repr = u8 },
+            quote! { enum E { A } },
+        );
+        assert!(e.unwrap().contains("only a struct"));
+    }
+
+    #[test]
+    fn slots_must_increase() {
+        let e = error_of(
+            quote! { sparse, borrowed },
+            quote! { struct S { #[slot = 3] a: Option<u8>, #[slot = 3] b: Option<u8> } },
+        );
+        assert!(
+            e.unwrap()
+                .contains("must be after the previous field's slot 3")
+        );
+        let e = error_of(
+            quote! { sparse, borrowed },
+            quote! { struct S { #[slot = 3] a: Option<u8>, #[slot = 1] b: Option<u8> } },
+        );
+        assert!(e.is_some());
+        let e = error_of(
+            quote! { sparse, borrowed },
+            quote! { struct S { #[slot = 4294967295] a: Option<u8> } },
+        );
+        assert!(e.unwrap().contains("below u32::MAX"));
+        let e = error_of(
+            quote! { sparse, borrowed },
+            quote! { struct S { #[slot = "1"] a: Option<u8> } },
+        );
+        assert!(e.unwrap().contains("integer literal"));
+    }
+
+    #[test]
+    fn slot_without_sparse_is_an_error() {
+        let e = error_of(
+            quote! { borrowed },
+            quote! { struct S { #[slot = 1] a: Option<u8> } },
+        );
+        assert!(e.unwrap().contains("only the fields of a `sparse` struct"));
+    }
+
+    #[test]
+    fn default_and_flag_are_an_error() {
+        let e = error_of(
+            quote! { sparse, borrowed },
+            quote! { struct S { #[default = None] a: Option<u8> } },
+        );
+        assert!(e.unwrap().contains("#[default]"));
+        let e = error_of(
+            quote! { sparse, borrowed },
+            quote! { struct S { #[flag] a_flag: bool, a: Option<u8> } },
+        );
+        assert!(e.unwrap().contains("#[flag]"));
     }
 }

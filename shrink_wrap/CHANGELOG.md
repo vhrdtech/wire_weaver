@@ -20,6 +20,17 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   slot (`next`, `next_owned`, `next_present`), `present()` lists the present ids. New errors
   `Error::MalformedOptionAnyVec` (a header that can't have been written) and `Error::OptionAnyVecWrongSlot` (writer
   misuse), also in the C runtime's `sw_error` (28, 29). See `docs/serdes/shrink_wrap.md`.
+- Sparse structs (DER-13): `#[derive_shrink_wrap(sparse, ..)]` on a struct whose fields are all `Option<T>`
+  (borrowed and owned) writes it as an `OptionAnyVec`, one slot per field in declaration order, or at
+  `#[slot = N]` (increasing, gaps allowed); only the present fields take space, a nested sparse struct is one slot,
+  fields are only appended. A non-`Option` field, `#[flag]`, `#[default]`, an enum or a combination with
+  `final_structure`, `sized`, `self_describing`, `fixed_layout` or `head_tail` is a compile error. See
+  `docs/serdes/derive.md` ("sparse") and `docs/evolution/rules.md` ("Sparse structs").
+- `OptionAnyVec` additions for sparse structs: `OptionAnyVecIter::read_slot` / `read_slot_owned` read a slot past
+  absent ones (for a reader whose slots have gaps), `OptionAnyVecBuilderOwned` builds into a `BufWriterOwned` (same
+  bytes), and `Error::OptionAnyVecUnknownSlot` (C: `SW_ERR_OPTION_ANY_VEC_UNKNOWN_SLOT`, 30) for a present slot in a
+  reader's gap. `OptionAnyVec`, `OptionAnyVecBuilder` and `OptionAnyVecBuilderOwned` are re-exported at the crate
+  root and in the prelude.
 - `RefVec::new_bytes` is a `const fn`, for byte vectors in `const` items (API-36).
 - Bit-sized numbers (SW-48): `I16` (bit-aligned, 16 bits; `I15` and `I17` existed, `I16` was missing), and
   `From<U7> for u8` / `TryFrom<u8> for U7` (`Error::SubtypeOutOfRange` when it doesn't fit) for every `U1`..`U64`

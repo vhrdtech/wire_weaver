@@ -538,3 +538,54 @@ fn every_byte_pattern_parses_or_fails() {
         }
     }
 }
+
+#[test]
+fn read_slot_skips_absent_gaps() {
+    let mut buf = [0u8; 64];
+    let bytes = write_u8s(&mut buf, &[1, 4, 9], None);
+    let vec = OptionAnyVec::new(bytes).unwrap();
+    // a reader that knows slots 1, 4, 7 and 9: 7 is absent, the rest present
+    let mut iter = vec.iter();
+    assert_eq!(iter.read_slot::<u8>(1), Ok(Some(3)));
+    assert_eq!(iter.read_slot::<u8>(4), Ok(Some(12)));
+    assert_eq!(iter.read_slot::<u8>(7), Ok(None));
+    assert_eq!(iter.read_slot::<u8>(9), Ok(Some(27)));
+    assert_eq!(iter.read_slot::<u8>(20), Ok(None));
+    // back to an earlier slot
+    assert_eq!(iter.read_slot::<u8>(3), Err(Error::OptionAnyVecWrongSlot));
+    // a reader that knows slots 1 and 9: present slot 4 in between can't be skipped
+    let mut iter = vec.iter();
+    assert_eq!(iter.read_slot::<u8>(1), Ok(Some(3)));
+    assert_eq!(iter.read_slot::<u8>(9), Err(Error::OptionAnyVecUnknownSlot));
+    // a reader that knows slots 1 and 4 only stops there
+    let mut iter = vec.iter();
+    assert_eq!(iter.read_slot::<u8>(1), Ok(Some(3)));
+    assert_eq!(iter.read_slot::<u8>(4), Ok(Some(12)));
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn owned_builder_writes_the_same_bytes() {
+    let present = [0u32, 2, 3, 17];
+    let mut buf = [0u8; 64];
+    let mut wr = BufWriter::new(&mut buf);
+    let mut b = OptionAnyVecBuilder::new_nested(&mut wr, present).unwrap();
+    let mut wr_owned = crate::BufWriterOwned::new();
+    let mut b_owned = OptionAnyVecBuilderOwned::new_nested(&mut wr_owned, present).unwrap();
+    for slot in present {
+        let s = "x".repeat(slot as usize);
+        b.write(slot, &s.as_str(), &mut wr).unwrap();
+        b_owned.write(slot, &s, &mut wr_owned).unwrap();
+    }
+    b.finish(&mut wr).unwrap();
+    b_owned.finish(&mut wr_owned).unwrap();
+    assert_eq!(wr.finish_and_take().unwrap(), wr_owned.finish().unwrap());
+
+    let mut wr_owned = crate::BufWriterOwned::new();
+    let mut b_owned = OptionAnyVecBuilderOwned::new(&mut wr_owned, [1u32]).unwrap();
+    assert_eq!(b_owned.next_slot(), Some(1));
+    assert_eq!(
+        b_owned.write(2, &0u8, &mut wr_owned),
+        Err(Error::OptionAnyVecWrongSlot)
+    );
+}

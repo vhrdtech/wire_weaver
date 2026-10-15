@@ -11,6 +11,8 @@ pub(crate) struct ItemStruct {
     pub(crate) fields: Vec<Field>,
     /// `#[display("..")]` override (DER-12), takes precedence over the first doc line.
     pub(crate) display: Option<String>,
+    /// `sparse` (DER-13): the `OptionAnyVec` slot of each field, increasing.
+    pub(crate) sparse_slots: Option<Vec<u32>>,
 }
 
 impl ItemStruct {

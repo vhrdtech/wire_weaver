@@ -11,6 +11,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+### Added
+
+- Sparse structs (DER-13): `#[derive_shrink_wrap(sparse)]` on a struct of `Option` fields writes only the present
+  ones, as an `OptionAnyVec`, at slots given by declaration order or `#[slot = N]`; the base of the per trait level
+  update type of observe requests (SRV-18). shrink_wrap/CHANGELOG.md, section Unreleased.
+
 ### Fixed
 
 - Malformed multi requests from a host no longer panic a `multi_req = true` device (CLT-15): a `Range` or `Mask32`

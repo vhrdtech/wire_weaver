@@ -192,8 +192,8 @@ case.
 to the parser, but the codebase consistently writes them in this order (and so do the examples below):
 
 ```text
-borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized, ww_repr, discriminants,
-display, no_future_version|future_version
+borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse, ww_repr,
+discriminants, display, no_future_version|future_version
 ```
 
 ### `borrowed`, `borrowed(<cfg predicate>)`
@@ -516,6 +516,52 @@ tag as an unknown one. One protocol enum can then serve firmware images that eac
 
 On busgen's request and reply enums the codec takes 4590 bytes on a Cortex-M0 through values and 3894 through views
 and writers, a hand-written one 4408 and the derived shrink_wrap one 6652 ([code size](code_size.md#head-and-tail)).
+
+### `sparse`: a struct of optional fields
+
+`sparse` (DER-13) encodes a struct whose fields are all `Option<T>` as an
+[`OptionAnyVec`](shrink_wrap.md#optionanyvec-sparse-slots-of-any-types): a presence header, then only the present
+values. Each field is one slot, in declaration order, and `#[slot = N]` places a field at slot `N` instead (slots
+increase, gaps are allowed). It is made for updates that carry any subset of many values, as the per trait level
+`<Level>Update` of an observe request, whose slots are the level's resource indices with methods and streams in
+between:
+
+```rust
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Default), sparse)]
+struct MotorUpdate<'i> {
+    speed: Option<u16>,    // slot 0
+    name: Option<&'i str>, // slot 1
+    #[slot = 5]
+    current: Option<f32>,  // slot 5, slots 2..=4 are never present
+    on: Option<bool>,      // slot 6
+}
+
+let update = MotorUpdate { speed: Some(1500), on: Some(true), ..Default::default() };
+assert_eq!(update.to_ww_bytes(&mut buf)?, [0x17, 0x82, 0xdc, 0x05, 0x80]);
+```
+
+`1` `7`: the dense header mode, 7 slots, then a bit per slot, `1000001` and a padding bit (`82`); `dc 05` is `speed`,
+the `80` bit `on`. With all four fields present it is `17 c6 dc 05 4c 00 00 c0 3f 81`: the bits `1100011`, `speed`,
+`"L"`, `1.5f32`, the `on` bit, and the length of `"L"` in the last nibble. One field present is three bytes
+(`MotorUpdate { speed: Some(1500), .. }` is `01 dc 05`: the all mode, one slot), none is no bytes at all. The writer
+picks the header mode with the fewest bits for the present set (dense, all, two-level or an index list, see the
+[wire format](shrink_wrap.md#optionanyvec-sparse-slots-of-any-types)).
+
+A field may be any type, including another `sparse` struct: a child level is then one slot holding its own sparse
+struct, so one message carries any subset of a tree of levels. The borrowed and the owned type write the same bytes.
+
+Rules, checked at compile time:
+
+- every field is an `Option<T>`; `#[flag]` and `#[default = ..]` don't apply (any field can be absent, a field
+  added later reads as `None` from older data);
+- `sparse` is an encoding of its own: no `final_structure`, `self_describing`, `sized`, `fixed_layout` or
+  `head_tail` with it, and no enums. The struct is `Unsized`;
+- `#[slot = N]` is an integer literal past the previous field's slot, below `u32::MAX`, and only on `sparse` fields.
+
+**Evolution**: fields are only appended, after the last slot (see [the rules](../evolution/rules.md#sparse-structs)).
+An older reader reads the fields it knows and ignores the rest, a newer reader reads the new fields as `None`. A
+reader whose struct has a gap where the data has a present value fails with `Error::OptionAnyVecUnknownSlot`: a gap
+is never filled later.
 
 ### `ww_repr = <repr>` (enums only)
 

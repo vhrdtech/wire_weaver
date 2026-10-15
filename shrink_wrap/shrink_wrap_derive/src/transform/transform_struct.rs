@@ -5,7 +5,7 @@ use crate::ast::item_struct::Field;
 use crate::ast::item_struct::ItemStruct;
 use crate::ast::ty::Type;
 use crate::transform::syn_util::{
-    collect_docs_attrs, collect_unknown_attributes, take_display_attr,
+    collect_docs_attrs, collect_unknown_attributes, take_display_attr, take_slot_attr,
 };
 use crate::transform::util::{
     FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, check_tail_bytes_position,
@@ -13,7 +13,21 @@ use crate::transform::util::{
 };
 
 impl ItemStruct {
-    pub(crate) fn from_syn(item_struct: &syn::ItemStruct) -> Result<Self, String> {
+    /// `sparse`: the struct has the `sparse` directive (DER-13), see [Self::from_syn_sparse].
+    pub(crate) fn from_syn(item_struct: &syn::ItemStruct, sparse: bool) -> Result<Self, String> {
+        if sparse {
+            return Self::from_syn_sparse(item_struct);
+        }
+        if let Some(field) = item_struct
+            .fields
+            .iter()
+            .find(|f| f.attrs.iter().any(|a| a.path().is_ident("slot")))
+        {
+            return Err(format!(
+                "#[slot = N] on `{}`: only the fields of a `sparse` struct have slots",
+                field_name(field)
+            ));
+        }
         let mut fields = vec![];
         let mut explicit_flags = vec![];
         for (def_order_idx, field_syn) in item_struct.fields.iter().enumerate() {
@@ -51,8 +65,85 @@ impl ItemStruct {
             // ident: item_struct.ident.clone(),
             fields,
             display,
+            sparse_slots: None,
         })
     }
+
+    /// A `sparse` struct (DER-13): every field is an `Option<T>`, written as one slot of an `OptionAnyVec`, so there
+    /// are no flag fields. A field's slot is its `#[slot = N]`, or the one after the previous field's (0 for the
+    /// first); slots increase, gaps are allowed.
+    fn from_syn_sparse(item_struct: &syn::ItemStruct) -> Result<Self, String> {
+        let mut fields = vec![];
+        let mut slots: Vec<u32> = vec![];
+        for (def_order_idx, field_syn) in item_struct.fields.iter().enumerate() {
+            let name = field_name(field_syn);
+            let mut field_syn = field_syn.clone();
+            let slot = take_slot_attr(&mut field_syn.attrs)
+                .map_err(|e| format!("sparse field `{name}`: {e}"))?;
+            for attr in ["flag", "default"] {
+                if field_syn.attrs.iter().any(|a| a.path().is_ident(attr)) {
+                    return Err(format!(
+                        "sparse field `{name}`: #[{attr}] is not used in a sparse struct, every field is a slot that \
+                         can be absent (a field added later is None in older data)"
+                    ));
+                }
+            }
+            let next = match slots.last() {
+                Some(last) => last.checked_add(1),
+                None => Some(0),
+            };
+            let slot = match (slot, next) {
+                (Some(slot), Some(next)) if slot < next => {
+                    return Err(format!(
+                        "sparse field `{name}`: #[slot = {slot}] must be after the previous field's slot {}",
+                        next - 1
+                    ));
+                }
+                (Some(slot), _) => slot,
+                (None, Some(next)) => next,
+                (None, None) => return Err(format!("sparse field `{name}`: slot past u32::MAX")),
+            };
+            if slot == u32::MAX {
+                return Err(format!("sparse field `{name}`: slots are below u32::MAX"));
+            }
+            let path = FieldPath::new(FieldPathRoot::NamedField(field_syn.ident.clone().unwrap()));
+            let (field, _) = transform_field(def_order_idx as u32, &field_syn, &path)?;
+            if !matches!(field.ty, Type::Option(_, _)) {
+                return Err(format!(
+                    "sparse field `{name}` must be an Option<T>: every field of a sparse struct is a slot that can \
+                     be absent"
+                ));
+            }
+            if field.ty.contains_tail_size()
+                || field.ty.contains_tail_bytes()
+                || field.ty.contains_backfill()
+            {
+                return Err(format!(
+                    "sparse field `{name}`: TailSize, TailBytes and UVlq32Backfill can't be a slot"
+                ));
+            }
+            slots.push(slot);
+            fields.push(field);
+        }
+        let mut attrs = item_struct.attrs.clone();
+        let docs = collect_docs_attrs(&mut attrs);
+        let display = take_display_attr(&mut attrs)?;
+        collect_unknown_attributes(&mut attrs);
+        Ok(ItemStruct {
+            docs,
+            fields,
+            display,
+            sparse_slots: Some(slots),
+        })
+    }
+}
+
+fn field_name(field: &syn::Field) -> String {
+    field
+        .ident
+        .as_ref()
+        .map(|i| i.to_string())
+        .unwrap_or_default()
 }
 
 /// Fields with `#[default = ..]` were added in a later version: they and the fields after them can be missing
@@ -123,7 +214,7 @@ mod tests {
 
     fn from_tokens(ts: proc_macro2::TokenStream) -> Result<ItemStruct, String> {
         let item: syn::ItemStruct = syn::parse2(ts).map_err(|e| e.to_string())?;
-        ItemStruct::from_syn(&item)
+        ItemStruct::from_syn(&item, false)
     }
 
     #[test]

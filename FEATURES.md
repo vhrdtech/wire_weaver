@@ -233,7 +233,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SW-21 Multi-dimensional arrays** (2D, 3D).
 - 🚧 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` has one `shrink_wrap` target, `shrink-wrap-tail-size` (`TailSize` types
   round-tripped, random bytes into their readers); `shrink-wrap-series` (SW-31, SW-32) and `shrink-wrap-ref-vec`
-  (SW-37) came with their features, `shrink-wrap-option-any-vec` with SW-55. Round-trip every built-in type and the derive's features.
+  (SW-37) came with their features, `shrink-wrap-option-any-vec` with SW-55 and DER-13 (sparse structs). Round-trip every built-in type and the derive's features.
 - 🔍 **SW-23 Tuple enum variants evolution** — check that tuple variants evolve as `docs/evolution/rules.md` says
   (fields can be appended) and add a test.
 - 💡 **SW-24 ZigZag encoding for signed variable length numbers** — consider ZigZag (as in protobuf) so that small
@@ -266,6 +266,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `core::error::Error` (borrowed and owned) from the first doc line of each variant/struct, `{field}` filled in,
   `#[display("..")]` to override; a variant with neither is a compile error. Error enums need no hand-written
   `Display` on hosts (`docs/serdes/derive.md`; test `shrink_wrap/tests/display.rs`).
+- ✅ **DER-13 Sparse structs**: `#[derive_shrink_wrap(sparse, ..)]` on a struct of `Option<T>` fields (borrowed and
+  owned) encodes it as an `OptionAnyVec` (SW-55), one slot per field in declaration order or at `#[slot = N]`
+  (increasing, gaps allowed, a present value in a gap is `Error::OptionAnyVecUnknownSlot`); a nested sparse struct
+  is one slot. Fields are only appended. A non-`Option` field or a combination with `final_structure` / `sized` /
+  `self_describing` / `fixed_layout` / `head_tail` is a compile error. For the per trait level `<Level>Update` of
+  SRV-18 (`docs/serdes/derive.md`, `docs/evolution/rules.md`; test `shrink_wrap/tests/sparse.rs`, fuzz
+  `shrink-wrap-option-any-vec`). API types can't use it yet: `wire_weaver_core` doesn't take the directive and
+  `ww_self` has no sparse struct for introspection.
 - 📋 **DER-5 `#[since = "x.y.z"]` on fields** — generate correct evolution code from it (`TODO` in
   `shrink_wrap_derive/src/lib.rs`).
 - 📋 **DER-6 Check that `TailBytes` ends the outer type too** — a struct ending in `TailBytes` used as a non-last field

@@ -16,6 +16,8 @@ pub(crate) struct CGItemStruct<'i> {
     pub(crate) docs: &'i Docs,
     pub(crate) ident: &'i Ident,
     pub(crate) fields: &'i [Field],
+    /// `sparse` (DER-13): the slot of each field
+    pub(crate) sparse_slots: Option<&'i [u32]>,
     pub(crate) cfg: Option<&'i TokenStream>,
     pub(crate) cfg_attr: &'i [TokenStream],
     pub(crate) derive: &'i [Path],
@@ -68,6 +70,9 @@ impl<'i> CGItemStruct<'i> {
     }
 
     pub(crate) fn serdes_rust(&self, is_ref: bool) -> TokenStream {
+        if let Some(slots) = self.sparse_slots {
+            return self.sparse_serdes_rust(slots, is_ref);
+        }
         let struct_name = &self.ident;
         let struct_ser = CGStructSer {
             item_struct: self,
@@ -96,6 +101,63 @@ impl<'i> CGItemStruct<'i> {
             is_ref,
             is_ref && !self.ambiguous,
             self.crate_path,
+        )
+    }
+
+    /// `sparse` (DER-13): an `OptionAnyVec` with the present fields in their slots, written in place.
+    fn sparse_serdes_rust(&self, slots: &[u32], is_ref: bool) -> TokenStream {
+        let cp = self.crate_path;
+        let struct_name = &self.ident;
+        let idents: Vec<_> = self.fields.iter().map(|f| &f.ident).collect();
+        let count = slots.len();
+        let builder = if is_ref {
+            cp.item(quote! { OptionAnyVecBuilder })
+        } else {
+            cp.item(quote! { OptionAnyVecBuilderOwned })
+        };
+        let ser = quote! {
+            let __present: [Option<u32>; #count] = [#(self.#idents.as_ref().map(|_| #slots)),*];
+            let mut __builder = #builder::new(wr, __present.iter().flatten().copied())?;
+            #(
+                if let Some(value) = &self.#idents {
+                    __builder.write(#slots, value, wr)?;
+                }
+            )*
+            __builder.finish(wr)
+        };
+        let option_any_vec = cp.item(quote! { OptionAnyVec });
+        let des_trait = cp.item(quote! { DeserializeShrinkWrap });
+        let read_slot = if is_ref {
+            quote! { read_slot }
+        } else {
+            quote! { read_slot_owned }
+        };
+        let des = quote! {
+            let __vec = <#option_any_vec<'_> as #des_trait<'_>>::des_shrink_wrap(rd)?;
+            let mut __slots = __vec.iter();
+            #(let #idents = __slots.#read_slot(#slots)?;)*
+            Ok(#struct_name { #(#idents),* })
+        };
+        // the header is never longer than the dense mode's: a mode nibble, `UNib32` slot count, a bit per slot
+        let len = slots.last().map_or(0, |last| last + 1);
+        let len_nibbles = (32 - len.leading_zeros()).div_ceil(3).max(1) as usize;
+        let header_bits = 4 + 4 * len_nibbles + len as usize;
+        let max_size_ty = cp.item(quote! { MaxSize });
+        let fields_max_size = Type::seq_max_size(self.fields.iter().map(|f| &f.ty), cp);
+        let max_size = quote! {
+            #max_size_ty::seq(Some(#max_size_ty::bits(#header_bits)), #fields_max_size)
+        };
+        serdes_scaffold(
+            struct_name,
+            ser,
+            des,
+            self.cfg,
+            ObjectSize::Unsized.tokens(cp),
+            Type::any_pushes_len(self.fields.iter().map(|f| &f.ty), cp),
+            max_size,
+            is_ref,
+            is_ref && !self.ambiguous,
+            cp,
         )
     }
 

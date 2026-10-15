@@ -399,7 +399,15 @@ assert_eq!(wr.finish_and_take().unwrap(), hex!("02 07 13 20 34 12 04"));
 child's size `4` in the parent's reverse lengths (after a padding nibble). The same bytes come out of writing the
 child into a buffer of its own first and `parent.write(1, &child_vec, ..)`. Reading: `iter.next::<OptionAnyVec>()`
 gives the child, `child.iter()` its slots; `next_present()` jumps over absent slots, `present()` lists the present
-ids without reading values.
+ids without reading values. `OptionAnyVecBuilderOwned` is the same builder for a `BufWriterOwned`, the bytes are
+the same.
+
+**Slots with gaps.** A reader that knows slots 0, 1 and 5 but not 2..=4 reads them with `iter.read_slot::<T>(slot)`,
+which steps over the absent slots in between. A present slot in such a gap can't be stepped over (its type, so its
+size, is unknown): `read_slot` fails with `Error::OptionAnyVecUnknownSlot`. Gaps are for slots that are never
+present, as the methods between the properties of a trait level, never for slots a newer version might fill.
+
+A [`sparse` struct](derive.md#sparse-a-struct-of-optional-fields) is an `OptionAnyVec` with a field per slot.
 
 `OptionAnyVec` is `Unsized`; `EitherAnyVec` is the counterpart for `Either` slots that are all present (each
 element `L` or `R`, flags in-line in groups of 8, the element count implied).

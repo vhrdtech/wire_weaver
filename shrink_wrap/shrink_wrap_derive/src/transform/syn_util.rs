@@ -58,6 +58,28 @@ pub(crate) fn take_default_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Optio
     Ok(Some(name_value.value))
 }
 
+/// Take `#[slot = N]` (DER-13, a field of a `sparse` struct) and return `N`.
+pub(crate) fn take_slot_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<u32>, String> {
+    let Some(attr_idx) = attrs.iter().position(|a| a.path().is_ident("slot")) else {
+        return Ok(None);
+    };
+    let attr = attrs.remove(attr_idx);
+    if attrs.iter().any(|a| a.path().is_ident("slot")) {
+        return Err("more than one #[slot = N]".into());
+    }
+    if let Meta::NameValue(name_value) = attr.meta
+        && let Expr::Lit(expr_lit) = name_value.value
+        && let Lit::Int(lit_int) = expr_lit.lit
+    {
+        let slot = lit_int
+            .base10_parse::<u32>()
+            .map_err(|e| format!("#[slot = N]: {e}"))?;
+        Ok(Some(slot))
+    } else {
+        Err("expected #[slot = N] with an integer literal N".into())
+    }
+}
+
 /// Take `#[display("..")]` attribute (DER-12) and return its format string literal, overriding the first doc
 /// line as the `display` message.
 pub(crate) fn take_display_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<String>, String> {

@@ -42,6 +42,8 @@ mod ww_repr;
 /// * `head_tail` - the head+tail encoding instead of shrink_wrap's: every fixed-width field at a constant offset in a
 ///   head, lists (`head_tail::List`), strings and option payloads one after another in a tail (`from_head_tail` /
 ///   `to_head_tail`, `HeadTail`, a C reader); no `SerializeShrinkWrap`, see `shrink_wrap::head_tail`.
+/// * `sparse` - a struct whose fields are all `Option<T>` as an `OptionAnyVec`: one slot per field (or at
+///   `#[slot = N]` on the field, increasing, gaps allowed), only the present ones written. Fields are only appended.
 /// * `ww_repr = <u1,u2.. | nib | unib32 | u8 | u16 ..>` - set the enum discriminant representation.
 /// * `discriminants` - additionally generate a `MyTypeDiscriminants` enum (enum items only).
 /// * `display` - generate `core::fmt::Display` and `core::error::Error` from the first doc line of each

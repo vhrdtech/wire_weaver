@@ -199,6 +199,19 @@ Each has bytes of its own, so `Vec<T>` -> `Delta<T>`, `Delta<T>` -> `DeltaOfDelt
 `Delta<u64>` is breaking (`ww api check` reports it), unlike the borrowed / owned form (`Delta<'i, T>` /
 `DeltaOwned<T>`), which is the same type.
 
+### Sparse structs
+
+A [`sparse` struct](../serdes/derive.md#sparse-a-struct-of-optional-fields) (DER-13) has a slot per field, all of
+them `Option<T>`:
+
+* New fields can be appended after the last slot, without `#[default]`: older data reads them as `None`, older
+  readers ignore them.
+* A field can't be inserted before the last slot, also not into a gap left by `#[slot = N]`: a reader that doesn't
+  know the slot can't step over a present value in it and fails with `Error::OptionAnyVecUnknownSlot`. Removing a
+  field breaks too: data from an older writer can still have it present.
+* A field's slot and its `T` can't change (`T` evolves by its own rules); fields can be renamed.
+* Turning an ordinary struct into a `sparse` one or back changes every byte: breaking.
+
 ### FinalStructure, SelfDescribing and Sized types
 
 * `Sized` can become `SelfDescribing` and back (`sized` <-> `self_describing`): neither gets a size slot from its

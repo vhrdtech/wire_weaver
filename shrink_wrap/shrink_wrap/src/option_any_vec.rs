@@ -363,6 +363,39 @@ impl<'i> OptionAnyVecIter<'i> {
         }
     }
 
+    /// Read slot `slot`, at or after [slot](Self::slot): `None` when it is absent. The slots before it must be
+    /// absent, [Error::OptionAnyVecUnknownSlot] otherwise, as their values can't be skipped without their types:
+    /// for a reader that knows a set of slots with gaps, as a `sparse` struct with `#[slot = N]` (DER-13).
+    pub fn read_slot<T: DeserializeShrinkWrap<'i>>(
+        &mut self,
+        slot: u32,
+    ) -> Result<Option<T>, Error> {
+        self.skip_absent_to(slot)?;
+        self.next()
+    }
+
+    /// [read_slot](Self::read_slot) for [DeserializeShrinkWrapOwned] types.
+    #[cfg(feature = "std")]
+    pub fn read_slot_owned<T: DeserializeShrinkWrapOwned>(
+        &mut self,
+        slot: u32,
+    ) -> Result<Option<T>, Error> {
+        self.skip_absent_to(slot)?;
+        self.next_owned()
+    }
+
+    fn skip_absent_to(&mut self, slot: u32) -> Result<(), Error> {
+        if slot < self.slot {
+            return Err(Error::OptionAnyVecWrongSlot);
+        }
+        // the upcoming present slot is never before the current one
+        if self.upcoming.is_some_and(|upcoming| upcoming < slot) {
+            return Err(Error::OptionAnyVecUnknownSlot);
+        }
+        self.slot = slot;
+        Ok(())
+    }
+
     /// Skip the absent slots up to the next present one and return its id, the next call to [next](Self::next)
     /// reads its value. `None` when there is no present slot left.
     pub fn next_present(&mut self) -> Option<u32> {
@@ -504,6 +537,85 @@ impl<I: Iterator<Item = u32> + Clone> OptionAnyVecBuilder<I> {
 
     /// Check that every present slot got its value, and fill in the size of a [nested](Self::new_nested) vec.
     pub fn finish(mut self, wr: &mut BufWriter<'_>) -> Result<(), Error> {
+        if self.pending.next().is_some() {
+            return Err(Error::OptionAnyVecWrongSlot);
+        }
+        if let Some(size) = self.size {
+            size.finish(wr)?;
+        }
+        Ok(())
+    }
+}
+
+/// [OptionAnyVecBuilder] for a [BufWriterOwned](crate::BufWriterOwned), writing
+/// [SerializeShrinkWrapOwned](crate::SerializeShrinkWrapOwned) values: same bytes.
+#[cfg(feature = "std")]
+pub struct OptionAnyVecBuilderOwned<I> {
+    pending: I,
+    size: Option<crate::buf_writer_owned::UnsizedBuilderOwned>,
+}
+
+#[cfg(feature = "std")]
+impl<I: Iterator<Item = u32> + Clone> OptionAnyVecBuilderOwned<I> {
+    /// See [OptionAnyVecBuilder::new].
+    pub fn new<P: IntoIterator<IntoIter = I>>(
+        wr: &mut crate::BufWriterOwned,
+        present: P,
+    ) -> Result<Self, Error> {
+        Self::start(wr, present.into_iter(), None)
+    }
+
+    /// See [OptionAnyVecBuilder::new_nested].
+    pub fn new_nested<P: IntoIterator<IntoIter = I>>(
+        wr: &mut crate::BufWriterOwned,
+        present: P,
+    ) -> Result<Self, Error> {
+        let size = crate::buf_writer_owned::UnsizedBuilderOwned::new(wr)?;
+        Self::start(wr, present.into_iter(), Some(size))
+    }
+
+    fn start(
+        wr: &mut crate::BufWriterOwned,
+        present: I,
+        size: Option<crate::buf_writer_owned::UnsizedBuilderOwned>,
+    ) -> Result<Self, Error> {
+        let stats = SlotStats::scan(present.clone())?;
+        if stats.count > 0 {
+            write_header(wr, present.clone(), &stats, stats.smallest_mode())?;
+        }
+        Ok(OptionAnyVecBuilderOwned {
+            pending: present,
+            size,
+        })
+    }
+
+    /// The next slot that needs a value, `None` when all are written.
+    pub fn next_slot(&self) -> Option<u32> {
+        self.pending.clone().next()
+    }
+
+    /// See [OptionAnyVecBuilder::write].
+    pub fn write<T: crate::SerializeShrinkWrapOwned>(
+        &mut self,
+        slot: u32,
+        value: &T,
+        wr: &mut crate::BufWriterOwned,
+    ) -> Result<(), Error> {
+        self.start_slot(slot)?;
+        wr.write(value)
+    }
+
+    /// See [OptionAnyVecBuilder::start_slot].
+    pub fn start_slot(&mut self, slot: u32) -> Result<(), Error> {
+        if self.pending.next() == Some(slot) {
+            Ok(())
+        } else {
+            Err(Error::OptionAnyVecWrongSlot)
+        }
+    }
+
+    /// See [OptionAnyVecBuilder::finish].
+    pub fn finish(mut self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
         if self.pending.next().is_some() {
             return Err(Error::OptionAnyVecWrongSlot);
         }
@@ -660,33 +772,72 @@ fn unib32_nibbles(val: u32) -> u32 {
     crate::nib32::UNib32(val).len_nibbles() as u32
 }
 
+/// What the header needs of [BufWriter] and [BufWriterOwned](crate::BufWriterOwned)
+trait HeaderOut {
+    fn nib(&mut self, val: u8) -> Result<(), Error>;
+    fn unib32(&mut self, val: u32) -> Result<(), Error>;
+    fn bit(&mut self, val: bool) -> Result<(), Error>;
+    fn byte(&mut self, val: u8) -> Result<(), Error>;
+}
+
+impl HeaderOut for BufWriter<'_> {
+    fn nib(&mut self, val: u8) -> Result<(), Error> {
+        self.write_nib_masked(val)
+    }
+    fn unib32(&mut self, val: u32) -> Result<(), Error> {
+        self.write_unib32(val)
+    }
+    fn bit(&mut self, val: bool) -> Result<(), Error> {
+        self.write_bool(val)
+    }
+    fn byte(&mut self, val: u8) -> Result<(), Error> {
+        self.write_un8(8, val)
+    }
+}
+
+#[cfg(feature = "std")]
+impl HeaderOut for crate::BufWriterOwned {
+    fn nib(&mut self, val: u8) -> Result<(), Error> {
+        self.write_nib_masked(val)
+    }
+    fn unib32(&mut self, val: u32) -> Result<(), Error> {
+        self.write_unib32(val)
+    }
+    fn bit(&mut self, val: bool) -> Result<(), Error> {
+        self.write_bool(val)
+    }
+    fn byte(&mut self, val: u8) -> Result<(), Error> {
+        self.write_un8(8, val)
+    }
+}
+
 fn write_header(
-    wr: &mut BufWriter<'_>,
+    wr: &mut impl HeaderOut,
     present: impl Iterator<Item = u32> + Clone,
     stats: &SlotStats,
     mode: PresenceMode,
 ) -> Result<(), Error> {
-    wr.write_nib_masked(mode as u8)?;
+    wr.nib(mode as u8)?;
     match mode {
-        PresenceMode::All => wr.write_unib32(stats.count)?,
+        PresenceMode::All => wr.unib32(stats.count)?,
         PresenceMode::Dense => {
-            wr.write_unib32(stats.len)?;
+            wr.unib32(stats.len)?;
             let mut present = present.peekable();
             for slot in 0..stats.len {
                 let is_present = present.next_if_eq(&slot).is_some();
-                wr.write_bool(is_present)?;
+                wr.bit(is_present)?;
             }
         }
         PresenceMode::TwoLevel => {
             let groups = stats.len.div_ceil(8);
-            wr.write_unib32(groups)?;
+            wr.unib32(groups)?;
             let mut slots = present.clone().peekable();
             for group in 0..groups {
                 let mut non_empty = false;
                 while slots.next_if(|slot| slot / 8 == group).is_some() {
                     non_empty = true;
                 }
-                wr.write_bool(non_empty)?;
+                wr.bit(non_empty)?;
             }
             let mut slots = present.peekable();
             while let Some(first) = slots.peek().copied() {
@@ -695,14 +846,14 @@ fn write_header(
                 while let Some(slot) = slots.next_if(|slot| slot / 8 == group) {
                     byte |= 0x80 >> (slot % 8);
                 }
-                wr.write_un8(8, byte)?;
+                wr.byte(byte)?;
             }
         }
         PresenceMode::IndexList => {
-            wr.write_unib32(stats.count)?;
+            wr.unib32(stats.count)?;
             let mut next = 0;
             for slot in present {
-                wr.write_unib32(slot - next)?;
+                wr.unib32(slot - next)?;
                 next = slot + 1;
             }
         }

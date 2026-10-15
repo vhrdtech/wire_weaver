@@ -40,6 +40,8 @@ pub(crate) struct Args {
     pub(crate) fixed_layout: bool,
     /// `head_tail`: a fixed head and a sequential tail (SW-46) instead of shrink_wrap's own encoding.
     pub(crate) head_tail: bool,
+    /// `sparse` (DER-13): a struct of `Option` fields, encoded as an `OptionAnyVec`, one slot per field.
+    pub(crate) sparse: bool,
 }
 
 impl Parse for Args {
@@ -58,6 +60,7 @@ impl Parse for Args {
         let mut crate_path = None;
         let mut fixed_layout = false;
         let mut head_tail = false;
+        let mut sparse = false;
         let mut future_version = FutureVersionArg::Default;
         let mut display = false;
 
@@ -119,6 +122,9 @@ impl Parse for Args {
                 "head_tail" => {
                     head_tail = true;
                 }
+                "sparse" => {
+                    sparse = true;
+                }
                 "discriminants" => {
                     discriminants_enum = true;
                 }
@@ -174,6 +180,7 @@ impl Parse for Args {
             crate_path,
             fixed_layout,
             head_tail,
+            sparse,
         })
     }
 }
@@ -181,7 +188,7 @@ impl Parse for Args {
 const SUPPORTED_DIRECTIVES: &str = "borrowed(..), owned, owned(..), \
 cfg_attr(..), cfg_attr_owned(..), cfg_attr_borrowed(..), \
 derive(..), derive_owned(..), derive_borrowed(..), \
-final_structure, self_describing, sized, fixed_layout, head_tail, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, display, non_exhaustive, no_future_version, future_version = <Name>, crate_path(..)";
+final_structure, self_describing, sized, fixed_layout, head_tail, sparse, ww_repr=<u1,u2,..,nib,unib32,u8,..>, discriminants, display, non_exhaustive, no_future_version, future_version = <Name>, crate_path(..)";
 
 /// Enum argument about the variant that holds discriminants from a newer version (SW-16, SW-47).
 #[derive(Clone, Debug, Default)]

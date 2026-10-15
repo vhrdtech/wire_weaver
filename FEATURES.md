@@ -625,13 +625,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     and the persistence rule. Docs `docs/std_library/ww_{firmware_info,board_info,uid,user_info}.md`, tests
     `tests/{firmware_info,board_info,uid,user_info}`. The const items are served by `get_` handlers until constant
     items come from the introspection data; properties cannot carry `#[errors]` yet.
+- 🚧 **STD-26 `ww_log` defmt over reliable streams** · `v0.5` — `ww_log_bare_metal` renamed `ww_log`.
+    `LogDefmt { const DEFMT (encoding, build id); frames() }`: a reliable stream whose unit is one `defmt` frame,
+    whole frames per item (up to 512 B), so `lost` is the exact number of dropped messages and logs from before the
+    host connects arrive by resuming the device's session. `LogText { records(); rw level: LevelFilter }` with
+    bounded `LogRecord`, `Severity` without `User`, `LogError` on `CommonError`. Device side: new crate
+    `ww_defmt_logger` (`global_logger!`, lock-free ring with whole-frame commits, RTT tee, `pump()` into the store,
+    drops reported in place), ring stress-tested on the host with concurrent producers. `tests/log_defmt` decodes
+    with `defmt-decoder` end to end; `examples/defmt_log` (host) and `examples_mcu/rp2`'s `rp2_usb_log` (USB and RTT
+    at once, build id in flash). `docs/std_library/ww_log.md`. Missing: the hardware check on a Pico 2 (logs over USB
+    and RTT at once, `lost` exact under `--flood`, logs from before connecting); `ww log` in the CLI.
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
 - 🚧 **STD-8 Prototypes**, to be completed later: `ww_can_bus`, `ww_i2c`, `ww_uart`, `ww_counters`, `ww_indication`,
   `ww_memory` (was `ww_ll`: one word type per trait, optional watches, errors on `CommonError`, docs page),
-  `ww_log`. Known gaps are `TODO`s in their sources (e.g. SMBus and 7-bit addresses in `ww_i2c`,
-  capabilities and properties in `ww_can_bus`).
+  Known gaps are `TODO`s in their sources (e.g. SMBus and 7-bit addresses in `ww_i2c`, capabilities and properties
+  in `ww_can_bus`). `ww_log` (was `ww_log_bare_metal`) left for STD-26.
 - 💡 **STD-9 Stubs**, for later: `ww_spi` (`ww_board_info`, `ww_firmware_info`, `ww_user_info` and `ww_uid` moved to STD-24).
 - 🚧 **STD-12 `ww_dfu` firmware update API** — traits `UpdateNode`, `BootControl`, `Inventory`, `Stage`,
   `StageBulk`: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored

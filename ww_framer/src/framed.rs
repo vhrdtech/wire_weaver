@@ -133,12 +133,14 @@ const LARGE: bool = cfg!(any(feature = "large", test));
 const VERY_LARGE: bool = cfg!(any(feature = "very_large", test));
 
 /// [U2Head] as a big-endian bit string in the lowest `8 * n` bits of the result, with its length `n` in bytes,
-/// when it starts at a byte boundary. None if `len` is too big for the enabled forms.
-fn encode(kind: MessageKind, user_kind: u8, len: usize) -> Option<(u64, u32)> {
-    let (mut bits, mut nbits) = if user_kind <= 2 {
-        (((kind as u64) << 2) | user_kind as u64, 4)
+/// when it starts at a byte boundary. None if `len` is too big for the enabled forms, or for the only form longer
+/// than 32 bits (extended user kind with a 24-bit length), left to the bit writer: u32 only, as 64-bit shifts are
+/// library calls on small MCUs.
+fn encode(kind: MessageKind, user_kind: u8, len: usize) -> Option<(u32, u32)> {
+    let (bits, nbits) = if user_kind <= 2 {
+        (((kind as u32) << 2) | user_kind as u32, 4)
     } else {
-        (((kind as u64) << 10) | (0b11 << 8) | user_kind as u64, 12)
+        (((kind as u32) << 10) | (0b11 << 8) | user_kind as u32, 12)
     };
     let (prefix, prefix_bits, len_bits) = if len <= 7 {
         (0b0, 1, 3)
@@ -146,15 +148,13 @@ fn encode(kind: MessageKind, user_kind: u8, len: usize) -> Option<(u64, u32)> {
         (0b10, 2, 10)
     } else if LARGE && len < 131_072 {
         (0b110, 3, 17)
-    } else if VERY_LARGE && len < 16_777_216 {
+    } else if VERY_LARGE && len < 16_777_216 && nbits == 4 {
         (0b1110, 4, 24)
     } else {
         return None;
     };
-    bits = (bits << prefix_bits) | prefix;
-    bits = (bits << len_bits) | len as u64;
-    nbits += prefix_bits + len_bits;
-    Some((bits, nbits / 8))
+    let bits = (((bits << prefix_bits) | prefix) << len_bits) | len as u32;
+    Some((bits, (nbits + prefix_bits + len_bits) / 8))
 }
 
 /// Reads a [U2Head] starting at a byte boundary from whole bytes. None if there is not enough data or the

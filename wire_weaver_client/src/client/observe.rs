@@ -33,7 +33,9 @@ use wire_weaver::shrink_wrap::{
 use ww_client_server::observe::{ObserveEntry, ObserveGrantedOwned, ObserveRequestOwned};
 pub use ww_client_server::observe::{ObserveMode, ObserveRefusal, ObserveRefused};
 use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
+use ww_si::Prefix;
 pub use ww_si::Second;
+use ww_si::ww_numeric::NumericValue;
 
 /// `ObserveMode::OnChange`: sent when the value changes, at most once every `min`.
 pub fn on_change(min: Duration) -> ObserveMode {
@@ -170,12 +172,38 @@ pub struct Granted<C> {
 pub struct Observed<T> {
     /// The level's `<Trait>Update`, or one property's value.
     pub value: T,
-    /// When the device took the values, on its clock, if it sends timestamps.
+    /// When the device took the values, on its clock, if it sends timestamps. Microseconds the device sends as a
+    /// wrapping `u32` come unwrapped, as a `u64` counting on across wraps.
     pub t: Option<Second>,
     /// Sends of this level that were due but did not fit the budget since the previous update.
     pub missed: u32,
     /// When the update arrived.
     pub received: Instant,
+}
+
+/// A device time of `Second { Micro, U32 }`, which wraps every 71.6 minutes, as microseconds since the device's
+/// clock started counting: `Second { Micro, U64 }`, given the previous one in `last`. Other times stay as they are.
+fn unwrap_t(last: &mut Option<u64>, t: Second) -> Second {
+    let (Prefix::Micro, NumericValue::U32(us)) = (&t.prefix, &t.value) else {
+        return t;
+    };
+    let us = *us as u64;
+    let unwrapped = match *last {
+        None => us,
+        Some(prev) => {
+            let mut at = (prev & !0xffff_ffff) | us;
+            // wrapped since: more than half the range back
+            if at + (1 << 31) < prev {
+                at += 1 << 32;
+            }
+            at
+        }
+    };
+    *last = Some(unwrapped);
+    Second {
+        prefix: Prefix::Micro,
+        value: NumericValue::U64(unwrapped),
+    }
 }
 
 /// The latest value of one property, in a level's `<Trait>Latest`.
@@ -384,6 +412,8 @@ struct LevelState<U: LevelUpdate> {
     routed: bool,
     /// The next answer is to a resume
     resuming: bool,
+    /// Device time of the last update, µs, unwrapped (see [unwrap_t])
+    last_t: Option<u64>,
 }
 
 impl<U: LevelUpdate> Level<U> {
@@ -394,13 +424,14 @@ impl<U: LevelUpdate> Level<U> {
 
 impl<U: LevelUpdate> LevelRoute for Level<U> {
     fn on_update(&self, received: Instant, t: Option<Second>, missed: u32, data: &[u8]) {
+        let mut state = self.lock();
+        let t = t.map(|t| unwrap_t(&mut state.last_t, t));
         let raw = Arc::new(RawUpdate {
             data: data.to_vec(),
             t,
             missed,
             received,
         });
-        let mut state = self.lock();
         match U::from_ww_bytes_owned(data) {
             Ok(update) => update.update_latest(&mut state.latest, received, t),
             Err(e) => warn!("property update of {:?} not decoded: {e:?}", self.path),
@@ -414,6 +445,8 @@ impl<U: LevelUpdate> LevelRoute for Level<U> {
         let mut state = self.lock();
         state.routed = false;
         state.sent = None;
+        // the device may have restarted its clock
+        state.last_t = None;
         for (_, queue) in state.observers.values() {
             queue.push(QueueItem::Disconnected);
             if !keep {
@@ -611,6 +644,7 @@ fn level_of<U: LevelUpdate>(
             granted_gen: 0,
             routed: false,
             resuming: false,
+            last_t: None,
         }),
     });
     levels.insert(path.to_vec(), level.clone());
@@ -919,6 +953,35 @@ mod tests {
     }
 
     const MS: Duration = Duration::from_millis(1);
+
+    #[test]
+    fn device_time_unwrapped() {
+        let us32 = |v: u32| Second {
+            prefix: Prefix::Micro,
+            value: NumericValue::U32(v),
+        };
+        let us = |t: &Second| match t.value {
+            NumericValue::U64(v) => v,
+            _ => panic!("{t:?}"),
+        };
+        let mut last = None;
+        assert_eq!(us(&unwrap_t(&mut last, us32(5))), 5);
+        assert_eq!(
+            us(&unwrap_t(&mut last, us32(u32::MAX - 10))),
+            u32::MAX as u64 - 10
+        );
+        // wrapped
+        assert_eq!(us(&unwrap_t(&mut last, us32(20))), (1 << 32) + 20);
+        assert_eq!(us(&unwrap_t(&mut last, us32(1_000))), (1 << 32) + 1_000);
+        // a little back (not expected, but not a wrap)
+        assert_eq!(us(&unwrap_t(&mut last, us32(900))), (1 << 32) + 900);
+        // other times as they are
+        let ms = Second {
+            prefix: Prefix::Milli,
+            value: NumericValue::U32(7),
+        };
+        assert_eq!(unwrap_t(&mut last, ms.clone()), ms);
+    }
 
     #[test]
     fn merge_gives_everyone_at_least_what_it_asked_for() {

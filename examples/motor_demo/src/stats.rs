@@ -158,14 +158,22 @@ pub fn find(name: &str) -> Option<&'static Prop> {
     found.next().is_none().then_some(first)
 }
 
-/// Bytes of the `PropertyUpdate` event that carried `data`.
+/// Bytes of the `PropertyUpdate` event that carried `data`. The host unwraps the device's microseconds, on the wire
+/// they are a wrapping `u32`.
 pub fn property_update_len(level: Level, t: Option<&Second>, missed: u32, data: &[u8]) -> usize {
     let path = [UNib32(level as u32)];
+    let t = t.map(|t| match (t.prefix, t_us(Some(t))) {
+        (ww_si::Prefix::Micro, Some(us)) => Second {
+            prefix: ww_si::Prefix::Micro,
+            value: NumericValue::U32(us as u32),
+        },
+        _ => t.clone(),
+    });
     let event = Event {
         seq: UVlq32(0),
         result: Ok(EventKind::PropertyUpdate {
             path: RefVec::Slice { slice: &path },
-            t: t.cloned(),
+            t,
             missed: (missed > 0).then_some(UNib32(missed)),
             data: TailBytes(data),
         }),

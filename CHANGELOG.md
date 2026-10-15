@@ -32,6 +32,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Fixed
 
+- Observed properties short of budget (SRV-18) no longer send one value per update: a level holds until all its due
+  properties fit or its bucket is full, and a property held back counts as missed only once it really falls behind;
+  `PropertyUpdate.t` is a wrapping `u32` of microseconds (4 bytes less), unwrapped by the host. Found with the motor
+  demo (EX-11). See the `ww_stream` and `wire_weaver_client` changelogs.
 - Malformed multi requests from a host no longer panic a `multi_req = true` device (CLT-15): a `Range` or `Mask32`
   index, a path at the depth limit or a deferred method inside one are answered with errors. `MultiCall` and
   `MultiWrite` are dispatched as calls and writes (they ran as reads), each index answered on its own like in

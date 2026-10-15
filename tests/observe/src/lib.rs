@@ -359,8 +359,9 @@ mod tests {
                         data,
                     }) = event.result
                     {
+                        // microseconds as a wrapping u32 on the wire (the tests run far shorter than a wrap)
                         let t = match t.map(|t| t.value) {
-                            Some(ww_si::ww_numeric::NumericValue::U64(t)) => t,
+                            Some(ww_si::ww_numeric::NumericValue::U32(t)) => t as u64,
                             t => panic!("timestamp {t:?}"),
                         };
                         _ = updates_tx.send(Update {

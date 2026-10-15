@@ -12,12 +12,18 @@
 //! - **Budget**: a token bucket per level, filled at the granted bytes per second, holding at most a tenth of a
 //!   second of it ([MIN_BURST] at least). An update is sent only when it fits the bucket and the buffer; due
 //!   properties go in earliest deadline first (a property left out keeps its deadline until it is sent, so none
-//!   starves), the first one that doesn't fit ends the update and it and the rest
-//!   slip to the next poll. A property too big for the bucket's capacity goes alone when the bucket is full (the
-//!   bucket goes negative for it, the rate over time still holds).
-//! - **Missed**: a property that was due and left out of a poll's update counts one missed send (once until it is
-//!   sent), and a periodic one also counts every whole period it fell behind. A send skipped because the value
-//!   could not be read or serialized counts too. The count goes to the host in the next update's `missed`.
+//!   starves). When not all of them fit the bucket and it isn't full yet, nothing is sent: the level holds until
+//!   they all fit or the bucket is full, so a level short of budget sends fewer, fuller updates instead of one
+//!   value per poll (each update has a header of its own). From a full bucket, or when the buffer is what limits,
+//!   the first property that doesn't fit ends the update and it and the rest slip to the next poll. A property too
+//!   big for the bucket's capacity goes alone when the bucket is full (the bucket goes negative for it, the rate
+//!   over time still holds).
+//! - **Missed**: a periodic property counts one missed send for every whole period it fell behind, an on-change
+//!   one when it was held back or left out for its `min` or longer (once until it is sent). Held back for less,
+//!   it is only late, so polling often doesn't inflate the count. A send skipped because the value could not be
+//!   read or serialized counts too. The count goes to the host in the next update's `missed`.
+//! - **Time**: `t` of an update is the device's microseconds as a `u32` (`Second { Micro, U32 }`, 5 bytes), it
+//!   wraps every 71.6 minutes; the host unwraps it.
 //! - **Untrusted input**: [ObserveTable::apply] validates an `ObserveRequest` completely before it changes
 //!   anything (every entry decoded, index known, `+observe`, no duplicate, mode known), clamps periods and the
 //!   budget to [ObserveLimits], and does work linear in the request's length; a malformed request changes nothing.
@@ -413,14 +419,15 @@ impl<const N: usize> ObserveTable<N> {
                 }
                 Mode::OnChange { min } => match slot.last_sent {
                     _ if !slot.dirty => None,
-                    None => Some(0),
+                    // the initial value: due since observing started
+                    None => Some(slot.next_due),
                     Some(last) => {
                         let at = last.saturating_add(min as u64);
                         (now_us >= at).then_some(at)
                     }
                 },
                 Mode::OnChangeOrBeat { min, max } => match slot.last_sent {
-                    None => Some(0),
+                    None => Some(slot.next_due),
                     Some(last) => {
                         let at_min = last.saturating_add(min as u64);
                         let at_max = last.saturating_add(max as u64);
@@ -480,7 +487,13 @@ impl<const N: usize> ObserveTable<N> {
                 }
             } else {
                 slot.waiting.get_or_insert(deadline);
-                if !slot.slipped {
+                // late by its `min` or more: one missed send (a periodic one counts in `plan`, per whole period)
+                let grace = match slot.mode {
+                    Mode::OnChange { min } | Mode::OnChangeOrBeat { min, .. } => Some(min as u64),
+                    Mode::Periodic { .. } | Mode::Off => None,
+                };
+                let late = now_us.saturating_sub(slot.waiting.unwrap_or(deadline));
+                if !slot.slipped && grace.is_some_and(|g| late >= g) {
                     slot.slipped = true;
                     self.missed = self.missed.saturating_add(1);
                 }
@@ -518,11 +531,12 @@ impl<const N: usize> Plan<N> {
         (self.missed > 0).then_some(UNib32(self.missed))
     }
 
-    /// `t` of the update, with [ObserveLimits::timestamps].
+    /// `t` of the update, with [ObserveLimits::timestamps]: microseconds as a wrapping `u32`, as stream heads have
+    /// it.
     pub fn t(&self) -> Option<ww_si::Second> {
         self.t.map(|us| ww_si::Second {
             prefix: ww_si::Prefix::Micro,
-            value: ww_si::ww_numeric::NumericValue::U64(us),
+            value: ww_si::ww_numeric::NumericValue::U32(us as u32),
         })
     }
 
@@ -539,6 +553,7 @@ impl<const N: usize> Plan<N> {
             max_len: buf_len.saturating_add(overhead),
             fixed,
             full: self.full,
+            held: false,
             done: false,
         }
     }
@@ -559,6 +574,7 @@ pub struct Selection<const N: usize> {
     /// Estimate of an update without values.
     fixed: usize,
     full: bool,
+    held: bool,
     done: bool,
 }
 
@@ -590,6 +606,13 @@ impl<const N: usize> Selection<N> {
             self.est = est;
             self.done = true;
             false
+        } else if !self.full && est <= self.max_len {
+            // the bucket is what limits and it isn't full: hold, send nothing, rather than part of what is due
+            self.chosen = [false; N];
+            self.count = 0;
+            self.held = true;
+            self.done = true;
+            false
         } else {
             self.done = true;
             false
@@ -598,6 +621,11 @@ impl<const N: usize> Selection<N> {
 
     pub fn is_empty(&self) -> bool {
         self.count == 0
+    }
+
+    /// Nothing goes out this poll: the level waits for its bucket to hold everything due.
+    pub fn is_held(&self) -> bool {
+        self.held
     }
 
     /// Whether slot `k` goes into the update.

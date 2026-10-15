@@ -285,18 +285,107 @@ fn earliest_deadline_first_and_missed() {
         Some(100),
     )
     .unwrap();
-    // both due at 0: slot 0 first (tie, slot order), slot 1 slips and counts one missed
+    // both due at 0: slot 0 first (tie, slot order) from the full bucket, slot 1 slips; only late, not missed yet
     assert_eq!(poll(&mut t, &desc, 0, |_| 36), (vec![0], 40));
     let plan = t.plan(0, &LIMITS);
-    assert_eq!(plan.missed(), Some(UNib32(1)));
+    assert_eq!(plan.missed(), None);
     // 400 ms later the bucket is full again; slot 0 fell 3 whole periods behind (100, 200, 300 ms: 3 missed) and
-    // is due at 400 ms, slot 1's occurrence at 0 is lost (counted at its slip) and the one at 300 ms is due first
+    // is due at 400 ms, slot 1's occurrence at 0 is lost (1 missed) and the one at 300 ms is due first
     let (chosen, _) = poll(&mut t, &desc, 400_000, |_| 36);
     assert_eq!(chosen, [1]);
+    // counted at this poll, they go with the next update; slot 0, late by less than a period, isn't missed
     let plan = t.plan(400_000, &LIMITS);
-    // the update just sent carried the first 1, these are new: slot 0's 3 periods and its slip now
     assert_eq!(plan.missed(), Some(UNib32(4)));
     assert_eq!(plan.edf(), [0]);
+}
+
+/// A level short of budget, polled often: it holds until everything due fits, so each update carries all of it,
+/// and nothing counts as missed while it keeps up on average.
+#[test]
+fn short_budget_sends_full_updates() {
+    let desc = LevelDesc::<4> {
+        item_count: 4,
+        observable: [0, 1, 2, 3],
+    };
+    let mut t = ObserveTable::<4>::new();
+    // 4 values of 4 B every ms: 20 B per update, 20 kB/s; 10 kB/s granted
+    let entries: Vec<_> = (0..4).map(|i| entry(i, periodic(1_000))).collect();
+    apply(&mut t, &desc, &entries, false, Some(10_000)).unwrap();
+    let mut updates = vec![];
+    let mut missed = 0;
+    let mut now = 0;
+    while now < 1_000_000 {
+        now += 40;
+        // what the update of this poll carries
+        let carried = t.plan(now, &LIMITS).missed().map_or(0, |m| m.0);
+        let (chosen, len) = poll(&mut t, &desc, now, |_| 4);
+        if len > 0 {
+            updates.push(chosen.len());
+            missed += carried;
+        }
+    }
+    // after the initial burst every update has all four
+    assert!(updates[10..].iter().all(|n| *n == 4), "{updates:?}");
+    // 10 kB/s / 20 B: 500 updates (and the bucket's capacity at the start)
+    assert!((495..=560).contains(&updates.len()), "{}", updates.len());
+    // every other period can't be sent: one missed per property and whole period behind
+    assert!((1_800..=2_100).contains(&missed), "{missed}");
+}
+
+/// On change: held back for less than `min` is late, not missed; for `min` or longer one missed send.
+#[test]
+fn hold_is_not_a_miss() {
+    let desc = LevelDesc::<2> {
+        item_count: 2,
+        observable: [0, 1],
+    };
+    let mut t = ObserveTable::<2>::new();
+    // 64 B bucket at 100 B/s, 40 B values: one per 400 ms
+    apply(
+        &mut t,
+        &desc,
+        &[entry(0, on_change(100_000)), entry(1, on_change(100_000))],
+        false,
+        Some(100),
+    )
+    .unwrap();
+    // initial values: slot 0 from the full bucket, slot 1 left out
+    assert_eq!(poll(&mut t, &desc, 0, |_| 36).0, [0]);
+    assert_eq!(poll(&mut t, &desc, 50_000, |_| 36).0, Vec::<usize>::new());
+    assert_eq!(t.plan(50_000, &LIMITS).missed(), None);
+    // held 100 ms: one missed, only once
+    assert_eq!(poll(&mut t, &desc, 100_000, |_| 36).0, Vec::<usize>::new());
+    assert_eq!(poll(&mut t, &desc, 200_000, |_| 36).0, Vec::<usize>::new());
+    assert_eq!(t.plan(200_000, &LIMITS).missed(), Some(UNib32(1)));
+}
+
+#[test]
+fn t_is_a_wrapping_u32() {
+    let mut t = ObserveTable::<3>::new();
+    apply(&mut t, &DESC, &[entry(1, periodic(1_000))], false, None).unwrap();
+    let limits = ObserveLimits {
+        timestamps: true,
+        ..LIMITS
+    };
+    let plan = t.plan((1 << 32) + 5, &limits);
+    assert_eq!(
+        plan.t(),
+        Some(ww_si::Second {
+            prefix: ww_si::Prefix::Micro,
+            value: ww_si::ww_numeric::NumericValue::U32(5),
+        })
+    );
+    // prefix and number type in one byte, then the u32: 4 bytes less than a u64
+    let mut buf = [0u8; 32];
+    let t32 = event_overhead(&mut buf, &[UNib32(1)], plan.t(), None).unwrap();
+    let t64 = ww_si::Second {
+        prefix: ww_si::Prefix::Micro,
+        value: ww_si::ww_numeric::NumericValue::U64(5),
+    };
+    let t64 = event_overhead(&mut buf, &[UNib32(1)], Some(t64), None).unwrap();
+    let without = event_overhead(&mut buf, &[UNib32(1)], None, None).unwrap();
+    assert_eq!(t64 - t32, 4);
+    assert!(t32 - without <= 6, "{t32} {without}");
 }
 
 #[test]

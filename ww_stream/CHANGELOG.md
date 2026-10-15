@@ -37,3 +37,15 @@
   ring; keeps session, positions, released position and `dropped_units`, starts a new clock epoch per boot and marks
   the first event after it (`HeadExt::clock_epoch`). `RamArea::image()` / `load_image()` carry it over a simulated
   reset in tests.
+
+### 🐛 Fixes
+
+- `observe` (SRV-18): a level short of budget and polled often sent one value per update, each with its own header,
+  so it put more bytes on the link than one `StreamData` per value would (motor demo, EX-11: 8 values every ms in
+  30 kB/s, `poll_properties` every 40 µs: 1432 updates/s of 1.4 values, 7280 missed/s). When not every due property
+  fits the bucket and it isn't full, `Selection` now holds (`is_held()`): nothing goes out until they all fit or the
+  bucket is full (same case: 666 updates/s of 8 values, 2.7 times the values in the same bytes). A property held
+  back or left out is late, not missed: a periodic one counts once per whole period it falls behind, an on-change
+  one once it waited its `min`; frequent polls no longer inflate `missed`.
+- `observe`: `Plan::t()` is `Second { Micro, U32 }`, the device's microseconds as a wrapping `u32` as stream heads
+  have them: the `PropertyUpdate` header is 10 bytes instead of 14 (4 without `t`).

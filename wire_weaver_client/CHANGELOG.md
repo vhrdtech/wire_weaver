@@ -32,6 +32,9 @@
 
 ### 🚀 Features
 
+- `Observed::t` and `Sample::t` of observers: device microseconds sent as a wrapping `u32` (`Second { Micro, U32 }`,
+  what `ww_stream::observe` sends) come unwrapped, as a `u64` that counts on across the 71.6 minute wraps, per
+  level and connection.
 - Observing properties (CLT-28), module `observe`: `Commander::prepare_observe(path, cfg, extract)` (what the
   generated `observe(cfg)` and `observe_<name>(mode)` call) gives a `PreparedObserve` (`.budget(..)`,
   `.queue_bytes(..)`, `.subscribe()` / `.subscribe_blocking()`) and an `Observer<U, T>`: `recv()`, `recv_blocking()`,

@@ -175,10 +175,14 @@ server.poll_streams(&mut ww_server.sink(), now_ms, &mut stream_buf, 4096).await?
   fails skips that send.
 - **Budget**: each level has a token bucket at its granted bytes per second, holding a tenth of a second of it (64
   bytes at least); all levels together get at most `ObserveLimits::total_budget`. Each `poll_properties` call sends at
-  most one update per level: its due properties earliest deadline first, as many as fit the bucket and `buf`. The rest
+  most one update per level: its due properties earliest deadline first, as many as fit the bucket and `buf`. When
+  they don't all fit the bucket and it isn't full yet, the level sends nothing and holds until they fit or the bucket
+  is full: a level short of budget sends fewer updates that carry everything due, rather than one value per call,
+  each with its own header (see the [motor demo](../examples/motor_demo.md#a-level-short-of-budget)). What is left out
   slips to a later call; a property left out keeps its deadline, so it goes first then, and none starves.
-- **Missed**: a property due and left out counts one missed send, a periodic one also every whole period it falls
-  behind; the count goes to the host in the next update's `missed`.
+- **Missed**: a periodic property counts one missed send for every whole period it falls behind, an on-change one
+  when it waited its `min` or longer; held back for less, it is only late. The count goes to the host in the next
+  update's `missed`.
 - **Untrusted input**: an `Observe` request is checked in full before anything changes. Entries for an unknown index,
   a property without `+observe`, an index given twice or a mode the device doesn't know are refused one by one and
   listed in the answer; periods are raised to `ObserveLimits::min_period_us` and the budget is clamped. A request that
@@ -271,7 +275,8 @@ mode.configure(MotorObserve::default().mode(periodic(100 * ms))).await?;
   `PropertyUpdate` data, one `Option` per `+observe` property, the ones sent present; `<Trait>Observe`, one
   `Option<ObserveMode>` per property with a setter each, for asking and in `Granted::modes` for what was granted;
   `<Trait>Latest`, the latest `Sample { value, received, t }` of each property. `t` is the device's time, present when
-  it sends timestamps (`ObserveLimits::timestamps`).
+  it sends timestamps (`ObserveLimits::timestamps`): microseconds, a wrapping `u32` on the wire, unwrapped into a
+  `u64` on the host.
 - **One subscription per level**: every observer of a level asks for its own modes, the host sends the device one
   `Observe` that covers them all, per property the shortest on-change interval and the shortest period of all of
   them (`OnChange` and `Periodic` give `OnChangeOrBeat`), the biggest budget. It is sent again when an observer

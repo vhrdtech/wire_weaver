@@ -421,6 +421,8 @@
       
         
       
+        
+      
     
     
     
@@ -1526,6 +1528,8 @@
       
         
       
+        
+      
     
     
     
@@ -2036,6 +2040,33 @@
     
   
   ww_can_bus
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../device_contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Device contract
 
     
   </span>
@@ -3267,6 +3298,8 @@
       
         
       
+        
+      
     
     
     
@@ -3312,8 +3345,8 @@ host-side code.</p>
 <h2 id="picking-crates">Picking crates<a class="headerlink" href="#picking-crates" title="Permanent link">&para;</a></h2>
 <p>Start from what the device actually has:</p>
 <ul>
-<li>Every device implements the <strong>device contract</strong> crates — <code>ww_firmware_info</code>, <code>ww_board_info</code>, <code>ww_uid</code>,
-  <code>ww_user_info</code>, and <code>ww_log</code> for logging — so <code>ww list</code> and a support case have one place to look, regardless of
+<li>Every device implements the <a href="../device_contract/"><strong>device contract</strong></a> crates — <code>ww_firmware_info</code>, <code>ww_board_info</code>,
+  <code>ww_uid</code>, <code>ww_user_info</code>, <code>ww_counters</code> and <code>ww_log</code> — so <code>ww list</code> and a support case have one place to look, regardless of
   what the device does.</li>
 <li>Add <strong>IO family</strong> traits matching the hardware exposed over the wire (a GPIO bank, a UART bridge, an I2C master,
   ...). Pick only what is actually bridged; a thermometer implements <code>Adc</code>, not <code>AdcStream</code> as well.</li>

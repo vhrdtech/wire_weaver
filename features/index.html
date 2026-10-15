@@ -421,6 +421,8 @@
       
         
       
+        
+      
     
     
     
@@ -1727,6 +1729,8 @@
       
         
       
+        
+      
     
     
     
@@ -2110,6 +2114,33 @@
     
   
   ww_can_bus
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/device_contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Device contract
 
     
   </span>
@@ -3821,11 +3852,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   with a user error type the same from <code>write</code> and <code>write_promise</code>, instead of <code>Result&lt;Result&lt;T, E&gt;, Error&gt;</code> and <code>??</code>;
   <code>Error::is_unimplemented()</code> for items without an error type (<code>docs/api/methods.md#client-side</code>,
   <code>tests/methods</code>).</li>
+<li>✅ <strong>CLT-25 <code>ww info</code> and <code>ww report</code></strong> · <code>v0.5</code> — <code>ww info</code> shows firmware, board, ids, label and last reset of
+  any device by global trait path, whatever its API version; <code>ww report</code> adds the counters, the stored <code>defmt</code> log
+  and the crash's addresses named with the ELF, found by build id, as one file a tester sends; <code>ww elf add
+  &lt;elf|archive&gt;</code> fills the ELF directory from an ELF or a release's <code>&lt;firmware&gt;-&lt;version&gt;-elf.tar.zst</code> (shared with
+  <code>cnt elf add</code>, <code>cnt_core::elf</code>). Library crate <code>ww_report</code> (<code>Contract</code>, <code>collect_info</code>, <code>collect_report</code>),
+  <code>docs/std_library/device_contract.md</code>, <code>tests/device_report</code>. The stored log is a stream and streams open on the
+  absolute path only (CLT-23), so <code>ww report</code> reads the device's introspection data for the log's path; <code>ww info</code>
+  needs none. Not yet: fetching the release archive by itself.</li>
 <li>🚧 <strong>CLT-10 Trait calls that work on any device</strong> · <code>v0.5</code> — serial, user label, a CLI that works with all devices.
   <code>ww list</code> with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: <code>ClientConfig::traits_only()</code>, <code>DynClient::global_attachment()</code> (served through API-20,
-  <code>tests/cross_version</code>), <code>ww dfu reboot</code> and <code>ww counters</code> (STD-25). Missing: CLI commands for the other
-  <code>ww_stdlib</code> traits (firmware and board info, GPIO, UART, ...).</li>
+  <code>tests/cross_version</code>), <code>ww dfu reboot</code>, <code>ww counters</code> (STD-25) and <code>ww info</code> / <code>ww report</code> (CLT-25).
+  Missing: CLI commands for the other <code>ww_stdlib</code> traits (GPIO, UART, ...).</li>
 <li>📋 <strong>CLT-11 Typed property handles</strong> · <code>v0.5</code> — <code>RwProperty</code>/<code>RoProperty</code>/<code>WoProperty</code> so that
   <code>.prop_name().read()</code>, <code>.prepare_write(1).blocking()</code>, <code>.asynch().await</code> work.</li>
 <li>📋 <strong>CLT-12 Stream receive timeout</strong> · <code>v0.5</code> — and a beat timeout between updates.</li>

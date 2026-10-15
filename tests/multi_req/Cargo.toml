@@ -1,0 +1,21 @@
+[package]
+name = "multi_req"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+multi_req_api.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "test-util"] }
+tracing-subscriber.workspace = true
+wire_weaver.workspace = true
+wire_weaver_client.workspace = true
+ww_client_server.workspace = true

@@ -64,7 +64,10 @@ where
                 in_each_array_id: None,
             }
         } else {
-            todo!()
+            // TODO(CLT-15): resources below the root level
+            return Err(Error::MultiReq(
+                "Only resources at the root level are supported yet".into(),
+            ));
         };
 
         let cmd = self.0.commander();
@@ -77,10 +80,9 @@ where
         let (done_tx, done_rx) = oneshot::channel();
         cmd.send_message_expect_response(req, done_tx, None).await?;
         let response = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)??;
-        println!("{response:02x?}");
 
         let mut rd = BufReader::new(&response);
-        let either_any_vec = EitherAnyVec::des_shrink_wrap(&mut rd).unwrap();
+        let either_any_vec = EitherAnyVec::des_shrink_wrap(&mut rd)?;
         let mut iter = either_any_vec.iter();
         let ao = iter.next_owned::<ww_client_server::ErrorOwned, AO>()?;
         let ao: Result<AO, ww_client_server::ErrorOwned> = ao.into();

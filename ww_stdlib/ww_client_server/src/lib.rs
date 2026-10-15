@@ -182,6 +182,14 @@ pub enum RequestKind<'i> {
 /// # Different resources at one API level
 /// Can make a MultiCall:: request to '0/3' (third pin in the array) with MultiIndex::List(0, 1).
 /// To call set_level(args0) and then set_mode(args1) in one request.
+///
+/// # Answer
+/// Each index is processed as a [RequestKind::Call], [RequestKind::Read] or [RequestKind::Write] of its own, on the
+/// request's path plus the index (plus `in_each_array_id`). The answer is one [EventKind::Value] with an
+/// `EitherAnyVec` of `Either<Error, value>`, one per index in order (a write's value is empty): an index that fails
+/// doesn't stop the others. The whole request fails with [ErrorKind::BadPath] when the path gets deeper than the
+/// server handles, and with [ErrorKind::ResponseSerFailed] when the answers don't fit into its buffer (a huge
+/// `Range`). A deferred method can't answer inside a multi request yet, it gets [ErrorKind::OperationNotSupported].
 // An index form this side doesn't know fails the request, instead of selecting nothing (SW-47)
 #[derive_shrink_wrap(
     owned(feature = "std"),
@@ -199,7 +207,9 @@ pub enum MultiIndex<'i> {
 /// Serialized arguments / property or stream data for a multi-request.
 /// Same can be used when all arguments are equal (e.g., calling set_mode(Output) for multiple pins).
 ///
-/// `Different` reuses a BufReader, while `Same` resets it to the beginning before processing a request.
+/// `Same` holds the arguments (or data) once, used for every index. `Different` holds a serialized `Vec<Vec<u8>>`,
+/// the arguments of each index in index order: an index without an entry is answered with
+/// [ErrorKind::ArgsDesFailed], and the whole request fails with it when the list doesn't deserialize.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug), ww_repr = u1)]
 pub enum MultiArgs<'i> {
     Same(RefVec<'i, u8>),
@@ -226,7 +236,8 @@ pub struct Event<'i> {
     discriminants
 )]
 pub enum EventKind<'i> {
-    /// Sent in response to [RequestKind::Call] or [RequestKind::Read], unless request ID is 0.
+    /// Sent in response to [RequestKind::Call] or [RequestKind::Read] and to the multi requests (see [MultiIndex]),
+    /// unless request ID is 0.
     Value {
         /// Serialized return value of a method.
         // TODO: add is_multipart: bool, is_end: bool or enum Kind { SinglePart, MultiPart, MultiPartEnd(crc) }?
@@ -565,7 +576,8 @@ impl RequestKind<'_> {
             RequestKind::Read => EventKindDiscriminants::Value,
             RequestKind::MultiRead { .. } => EventKindDiscriminants::Value,
             RequestKind::Write { .. } => EventKindDiscriminants::Written,
-            RequestKind::MultiWrite { .. } => EventKindDiscriminants::Written,
+            // answers of each index, like MultiRead
+            RequestKind::MultiWrite { .. } => EventKindDiscriminants::Value,
             RequestKind::StreamSideband { .. } => EventKindDiscriminants::StreamSideband,
             RequestKind::Introspect => EventKindDiscriminants::StreamData,
             RequestKind::StreamOpen { .. } => EventKindDiscriminants::Value,

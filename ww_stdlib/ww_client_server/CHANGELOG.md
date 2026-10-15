@@ -61,6 +61,11 @@ Wire-incompatible with 0.1.0.
 
 ### 🐛 Fixes
 
+* `MultiIndex::iter()` over a `Range` or `Mask32` panicked with `todo!()` (CLT-15), on a device that's host
+  input: a `Range` yields `start..end` (none when `start >= end`), a `Mask32` its set bits, lowest first.
+* `RequestKind::discriminants()` of `MultiWrite` is `Value`: it is answered with a value per index, like
+  `MultiRead`. The docs of `MultiIndex` and `MultiArgs` describe the answer and the format of `MultiArgs::Different`.
+
 * Depend on `ww_si`'s `time` feature (STD-23 gated `Second` behind it), needed for `stream::StreamHead`'s timestamp.
 
 ## [0.1.0] - 2026-01-07

@@ -500,8 +500,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   commented out in `tests/traits`. Its generated code serializes arguments into a fixed 128 byte scratch and
   then calls `.to_vec()`, which isn't `no_std`; it should write into a caller-provided buffer instead. The std
   clients (`std_client`, `trait_client`) already serialize with `to_ww_bytes_owned()` and have no size limit.
-- 🚧 **CLT-15 Multi read/write/call** · `v0.5.x` — `MultiRead` exists as a prototype; multi write and call are missing,
-  and full multi-property support.
+- 🚧 **CLT-15 Multi read/write/call** · `v0.5.x` — servers with `multi_req = true` dispatch `MultiRead`, `MultiCall`
+  and `MultiWrite` (`Same` or `Different` args), each index answered on its own (`Either<Error, value>`), and answer
+  malformed multi requests with errors instead of panicking (`tests/multi_req`). Missing: the client API for multi
+  write and call (`multi_read()` takes 2-tuples at the root only), deferred methods inside a multi request (refused
+  with `OperationNotSupported`), and full multi-property support.
 - 📋 **CLT-16 Verify the hash of a cached API bundle** · `v0.5.x` (`wire_weaver_client/src/local_registry.rs`).
 - 📋 **CLT-17 Reliable requests over unreliable media** · `v0.5.x` — a second, non-increasing seq number to guard against
   a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.

@@ -280,6 +280,8 @@
 
 ### 🐛 Fixes
 
+- `multi_read()` returns an error instead of panicking when the device's answer doesn't deserialize, or for
+  resources below the root level (not supported yet), and no longer prints the answer to stdout (CLT-15).
 - A request sent while every seq number is in flight waits for one instead of failing with "No more request IDs
   available" (CLT-18), and goes out in order once a reply frees one. A fire-and-forget stream sideband sent right
   after a call returned could get lost this way with a small `ClientConfig::max_seq`.

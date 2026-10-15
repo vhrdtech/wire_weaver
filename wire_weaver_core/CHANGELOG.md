@@ -22,6 +22,14 @@
 
 ### 🐛 Fixes
 
+- `multi_req = true` servers no longer panic on host input (CLT-15): a multi request on a path at the depth limit
+  (16) is answered with `BadPath` instead of indexing out of bounds, a deferred method inside a multi request with
+  `OperationNotSupported` (a method the `method_model` defers is not called at all) instead of `todo!()`. An index
+  that fails is answered with an error in its own slot and the others go on; answers that don't fit into the scratch
+  buffer fail the request with `ResponseSerFailed`.
+- `MultiCall` and `MultiWrite` are dispatched as calls and writes with their `MultiArgs` (they ran as reads), each
+  index answered like in `MultiRead`; `MultiWrite` answers with `EventKind::Value`. `MultiArgs::Different` is a
+  serialized `Vec<Vec<u8>>` with the arguments of each index.
 - Server code of a stream function whose error type borrows (`fn frames() -> Result<(), LogError<'i>>`) compiles with
   the handler signature `ww api scaffold` prints (`RpcResult<Result<(), LogError<'_>>>`) (API-35): the generated
   `StreamOpen` dispatch kept the handler's result, which borrows `self`, alive across `new_stream_session()` and

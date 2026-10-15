@@ -143,6 +143,7 @@ pub fn gen_server(
         ident_prefix: None,
         no_alloc: config.no_alloc,
         use_async: config.use_async,
+        method_model: &config.method_model,
         property_model: &config.property_model,
         const_model: &config.const_model,
         consts_trait: consts_trait_ident(api_level),
@@ -207,8 +208,10 @@ pub fn gen_server(
     let global_trait_path = global_trait_path(api_bundle);
     let (es1, es2) = (error_seq.next(), error_seq.next());
     let server_struct_path = config.server_struct_path;
-    let maybe_use_ser_shrink_wrap = maybe_quote_cl(cx.multi_req, || quote! { false, });
-    let maybe_multi_req = maybe_quote_cl(cx.multi_req, || multi_req_handlers(&maybe_await));
+    let maybe_in_multi_false = maybe_quote_cl(cx.multi_req, || quote! { false, });
+    let maybe_multi_req = maybe_quote_cl(cx.multi_req, || {
+        multi_req_handlers(&maybe_await, &mut error_seq)
+    });
     let written_ok_variant = if cx.multi_req {
         quote! { WrittenOk(Option<EventKindBuilder>) }
     } else {
@@ -319,7 +322,7 @@ pub fn gen_server(
                 match &request.kind {
                     #maybe_multi_req
                     _ => {
-                        match self.process_root(path, &mut iter, &request, &mut wr, #maybe_use_ser_shrink_wrap &mut cx)#maybe_await {
+                        match self.process_root(path, &mut iter, &request, &mut wr, #maybe_in_multi_false &mut cx)#maybe_await {
                             Ok(WrAction::WrittenOk(event_kind_builder)) => {
                                 if request.seq.0 == 0 {
                                     return Ok(&[])
@@ -582,7 +585,15 @@ fn global_traits_recursive(
     }
 }
 
-fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
+/// `MultiCall`, `MultiRead` and `MultiWrite`: each index is one more path element after the request's path (plus
+/// `in_each_array_id` after it), processed as a `Call`, `Read` or `Write` on its own. Answered with
+/// `EventKind::Value` holding an `EitherAnyVec` with `Either<Error, value>` per index, in index order (a write's
+/// value is empty). An index that fails answers with an error in its slot, the others go on; `MultiArgs::Different`
+/// is a serialized `Vec<Vec<u8>>` with the arguments (or data) of each index. The whole request fails when the path
+/// gets too deep, `Different` doesn't deserialize, or the answer doesn't fit into the scratch buffer.
+fn multi_req_handlers(maybe_await: &TokenStream, error_seq: &mut ErrorSeq) -> TokenStream {
+    let (es_depth, es_args, es_deferred) = (error_seq.next(), error_seq.next(), error_seq.next());
+    let es_overflow = error_seq.next();
     quote! {
         RequestKind::MultiCall {
             multi_idx,
@@ -596,50 +607,109 @@ fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
             in_each_array_id,
             ..
         } => {
-            let event_kind_builder = EventKindBuilder::new(&mut wr)?;
-            let mut either_any_builder = wire_weaver::shrink_wrap::either_any_vec::EitherAnyVecBuilder::new(&mut wr);
-            for index_or_glob in multi_idx.iter() {
-                path_arr[path_len] = index_or_glob;
-                let path = if let Some(resource_id) = *in_each_array_id {
-                    path_arr[path_len + 1] = resource_id;
-                    &path_arr[..path_len + 2]
-                } else {
-                    &path_arr[..path_len + 1]
-                };
-                // let path = &path_arr[..path_len];
-                let mut iter = path.iter();
-                let marker = either_any_builder.write_item_start(&mut wr)?;
-                let request = Request {
-                    seq: request.seq,
-                    path_kind: PathKind::Absolute { path: RefVec::Slice { slice: &[] } },
-                    kind: RequestKind::Read
-                };
-                match self
-                    .process_root(path, &mut iter, &request, &mut wr, true, &mut cx)
-                    #maybe_await
-                {
-                    Ok(WrAction::WrittenOk(_) | WrAction::Acknowledged) => {
-                        either_any_builder.write_item_finish(marker, true, &mut wr);
-                    }
-                    Ok(WrAction::WrittenErr) => {
-                        either_any_builder.write_item_finish(marker, false, &mut wr);
-                    }
-                    Ok(WrAction::Deferred) => { // TODO: return error here?
-                        todo!()
-                    }
-                    Err(e) => {
-                        wr.restore_state(before_process); // handler could have started to write to wr but failed
-                        wr.write(&e)?;
-                        event_builder.finish(false, &mut wr);
-                        return wr.finish_and_take();
+            let item_path_len = path_len + 1 + in_each_array_id.is_some() as usize;
+            if item_path_len > MAX_DEPTH {
+                wr.write(&Error::new(#es_depth, ErrorKind::BadPath))?;
+                event_builder.finish(false, &mut wr);
+                return wr.finish_and_take();
+            }
+            if let Some(resource_id) = *in_each_array_id {
+                path_arr[path_len + 1] = resource_id;
+            }
+            let multi_args = match &request.kind {
+                RequestKind::MultiCall { multi_args, .. } => Some(multi_args),
+                RequestKind::MultiWrite { multi_data, .. } => Some(multi_data),
+                _ => None,
+            };
+            let mut different = match multi_args {
+                Some(ww_client_server::MultiArgs::Different(bytes)) => {
+                    let mut rd = BufReader::new(bytes.as_slice());
+                    match wire_weaver::shrink_wrap::RefVec::<'_, wire_weaver::shrink_wrap::RefVec<'_, u8>>::des_shrink_wrap(&mut rd) {
+                        Ok(list) => Some(list.iter()),
+                        Err(_) => {
+                            wr.write(&Error::new(#es_args, ErrorKind::ArgsDesFailed))?;
+                            event_builder.finish(false, &mut wr);
+                            return wr.finish_and_take();
+                        }
                     }
                 }
+                _ => None,
+            };
+            let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+            let mut items = wire_weaver::shrink_wrap::either_any_vec::EitherAnyVecBuilder::new(&wr);
+            let mut overflow = false;
+            for index in multi_idx.iter() {
+                path_arr[path_len] = index;
+                let path = &path_arr[..item_path_len];
+                let mut iter = path.iter();
+                let item_args = match (multi_args, different.as_mut()) {
+                    (Some(ww_client_server::MultiArgs::Same(bytes)), _) => Some(Some(*bytes)),
+                    (_, Some(list)) => match list.next() {
+                        Some(Ok(bytes)) => Some(Some(bytes)),
+                        // fewer arguments than indices, or a broken entry
+                        _ => None,
+                    },
+                    _ => Some(None),
+                };
+                let item_kind = match (&request.kind, &item_args) {
+                    (RequestKind::MultiRead { .. }, _) => Some(RequestKind::Read),
+                    (RequestKind::MultiCall { .. }, Some(Some(args))) => {
+                        Some(RequestKind::Call { args: TailBytes(args.as_slice()) })
+                    }
+                    (RequestKind::MultiWrite { .. }, Some(Some(data))) => {
+                        Some(RequestKind::Write { data: TailBytes(data.as_slice()) })
+                    }
+                    _ => None,
+                };
+                let Ok(marker) = items.write_item_start(&mut wr) else {
+                    overflow = true;
+                    break;
+                };
+                let item_start = wr.save_state();
+                let result = match item_kind {
+                    Some(kind) => {
+                        let item_request = Request {
+                            seq: request.seq,
+                            path_kind: PathKind::Absolute { path: wire_weaver::shrink_wrap::RefVec::Slice { slice: &[] } },
+                            kind,
+                        };
+                        self.process_root(path, &mut iter, &item_request, &mut wr, true, &mut cx)#maybe_await
+                    }
+                    None => Err(Error::new(#es_args, ErrorKind::ArgsDesFailed)),
+                };
+                let item_err = match result {
+                    Ok(WrAction::WrittenOk(_) | WrAction::Acknowledged) => None,
+                    Ok(WrAction::WrittenErr) => {
+                        items.write_item_finish(marker, false, &mut wr);
+                        continue;
+                    }
+                    // TODO(CLT-15): a deferred answer inside a multi request, the handler answers later with the
+                    // multi request's seq, which the host doesn't expect
+                    Ok(WrAction::Deferred) => Some(Error::not_supported(#es_deferred)),
+                    Err(e) => Some(e),
+                };
+                let is_ok = item_err.is_none();
+                if let Some(e) = item_err {
+                    // the handler could have started to write before it failed
+                    wr.restore_state(item_start);
+                    if wr.write(&e).is_err() {
+                        overflow = true;
+                        break;
+                    }
+                }
+                items.write_item_finish(marker, is_ok, &mut wr);
+            }
+            if overflow {
+                wr.restore_state(before_process);
+                wr.write(&Error::response_ser_failed(#es_overflow))?;
+                event_builder.finish(false, &mut wr);
+                return wr.finish_and_take();
             }
             if request.seq.0 == 0 {
                 return Ok(&[])
             }
-            either_any_builder.finish(&mut wr);
-            event_kind_builder.finish_with_kind(request.kind.discriminants(), &mut wr);
+            items.finish(&mut wr);
+            event_kind_builder.finish_with_kind(EventKindDiscriminants::Value, &mut wr);
             event_builder.finish(true, &mut wr);
             wr.finish_and_take()
         }
@@ -651,6 +721,7 @@ struct ApiServerCGContext<'i> {
     ident_prefix: Option<String>,
     no_alloc: bool,
     use_async: bool,
+    method_model: &'i MethodModel,
     property_model: &'i PropertyModel,
     const_model: &'i ConstModel,
     /// `<RootTrait>Consts`, implemented by the user on the server struct, with the values of `const` items
@@ -701,9 +772,11 @@ fn process_request_inner_recursive(
         Span::call_site(),
     );
     let es = error_seq.next();
-    let maybe_use_read = maybe_quote_cl(cx.multi_req, || quote! { use_write: bool, });
+    let maybe_in_multi = maybe_quote_cl(cx.multi_req, || quote! { in_multi: bool, });
     let context_ty = cx.context_ty();
     let mut ts = quote! {
+        // index chain and in_multi make 8 below an array
+        #[allow(clippy::too_many_arguments)]
         #maybe_async fn #process_fn_name<'a>(
             &mut self,
             #maybe_index_chain_def
@@ -711,7 +784,7 @@ fn process_request_inner_recursive(
             path_iter: &mut Iter<'_, UNib32>,
             request: &Request<'_>,
             wr: &mut BufWriter<'_>,
-            #maybe_use_read
+            #maybe_in_multi
             cx: &mut #context_ty,
         ) -> Result<WrAction, Error<'a>> {
             match path_iter.next().copied() {
@@ -954,9 +1027,9 @@ fn level_matcher(
             );
             let maybe_await = maybe_quote(cx.use_async, quote! { .await });
             let maybe_index_chain_arg = index_chain.fun_argument_call();
-            let maybe_use_write = maybe_quote_cl(cx.multi_req, || quote! { use_write, });
+            let maybe_in_multi = maybe_quote_cl(cx.multi_req, || quote! { in_multi, });
             quote! {
-                Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, wr, #maybe_use_write cx)#maybe_await?)
+                Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, wr, #maybe_in_multi cx)#maybe_await?)
             }
         }
     }
@@ -976,7 +1049,7 @@ impl ApiServerCGContext<'_> {
     fn prepare_event_kind_builder(&self) -> TokenStream {
         if self.multi_req {
             quote! {
-                let event_kind_builder = if use_write {
+                let event_kind_builder = if in_multi {
                     None
                 } else {
                     Some(EventKindBuilder::new(wr).map_err(|_| Error::new(0, ErrorKind::ResponseSerFailed))?)
@@ -1019,6 +1092,21 @@ fn handle_method(
         quote! { args }
     };
 
+    // a deferred method answers later with the request's seq, a multi request can't carry that yet: refused before
+    // the handler runs (a handler that defers anyway is answered with the same error in multi_req_handlers)
+    let maybe_refuse_in_multi = if cx.multi_req
+        && cx.method_model.pick(&ident.to_string()) == Some(MethodModelKind::Deferred)
+    {
+        let es = error_seq.next();
+        quote! {
+            // TODO(CLT-15): deferred methods in a multi request
+            if in_multi {
+                return Err(Error::not_supported(#es));
+            }
+        }
+    } else {
+        quote! {}
+    };
     let ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let es = error_seq.next();
     let ser_output = ser_value(cx.multi_req, quote! { output }, error_seq);
@@ -1026,6 +1114,7 @@ fn handle_method(
     quote! {
         match &request.kind {
             RequestKind::Call { #maybe_args } => {
+                #maybe_refuse_in_multi
                 #args_des
                 match self.#ident(cx, #maybe_index_chain_arg #args_list)#maybe_await {
                     RpcResult::Ready(output) => {
@@ -2006,7 +2095,7 @@ fn ser_value(multi_req: bool, ident: TokenStream, error_seq: &mut ErrorSeq) -> T
     let es = error_seq.next();
     if multi_req {
         quote! {
-            if use_write {
+            if in_multi {
                 wr.write(& #ident).map_err(|_| Error::response_ser_failed(#es))?;
             } else {
                 #ident.ser_shrink_wrap(wr).map_err(|_| Error::response_ser_failed(#es))?;

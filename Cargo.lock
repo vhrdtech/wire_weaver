@@ -3227,6 +3227,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "multi_req"
+version = "0.1.0"
+dependencies = [
+ "multi_req_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+]
+
+[[package]]
+name = "multi_req_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "multiversion_no_op"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

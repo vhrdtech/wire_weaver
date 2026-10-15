@@ -150,6 +150,7 @@ io_timebase_api = { version = "0.1.0", path = "./tests/io_timebase_api" }
 io_uart_api = { version = "0.1.0", path = "./tests/io_uart_api" }
 log_defmt_api = { version = "0.1.0", path = "./tests/log_defmt_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
+multi_req_api = { version = "0.1.0", path = "./tests/multi_req_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }
 series_api = { version = "0.1.0", path = "./tests/series_api" }
 streams_api = { version = "0.1.0", path = "./tests/streams_api" }

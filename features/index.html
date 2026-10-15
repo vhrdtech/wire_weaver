@@ -3609,14 +3609,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>API-33 Narrow error types per method</strong> — generated per-method error enums with the crate enum's
   discriminants, as server handler return types only (<code>narrow_errors = true</code>), for a compile-time contract on the
   device. Explored and not recommended for clients: friction in every driver crate.</li>
-<li>🐛 <strong>API-35 Stream functions with a borrowed error type don't compile on the server</strong> · <code>v0.5</code> — a stream
-  function whose <code>Result</code> error has a lifetime (<code>#[stream(I2cRecord&lt;'i&gt;, counted)] fn records(..) -&gt; Result&lt;(),
-  I2cError&lt;'i&gt;&gt;</code>, every IO family error since it holds <code>CommonError&lt;'i&gt;</code>) fails to compile with the handler
-  signature <code>ww api scaffold</code> emits (<code>RpcResult&lt;Result&lt;(), I2cError&lt;'_&gt;&gt;&gt;</code>): the generated dispatch keeps the
-  handler's output, which borrows <code>&amp;mut self</code>, alive across <code>self.new_stream_session()</code> and
-  <code>self.stream_&lt;name&gt;().open(..)</code>. Workaround: the handler returns <code>I2cError&lt;'static&gt;</code> (the <code>tests/io_*</code> mocks do,
-  marked <code>TODO(API-35)</code>). Fix, one of: the scaffold emits <code>'static</code> for a stream function's error, or the
-  dispatch serializes the result before it touches <code>self</code> again (open the session first, write the head after).</li>
+<li>✅ <strong>API-35 Stream functions with a borrowed error type</strong> · <code>v0.5</code> — a stream function whose <code>Result</code> error has a
+  lifetime (<code>#[stream(I2cRecord&lt;'i&gt;, counted)] fn records(..) -&gt; Result&lt;(), I2cError&lt;'i&gt;&gt;</code>, every IO family error
+  since it holds <code>CommonError&lt;'i&gt;</code>) compiles on the server with the handler signature <code>ww api scaffold</code> prints
+  (<code>RpcResult&lt;Result&lt;(), I2cError&lt;'_&gt;&gt;&gt;</code>, an error borrowed from the server), for plain, counted and reliable
+  streams, sync and async servers: the generated dispatch takes the <code>Ok</code> value out of the result before it opens
+  the stream's state (<code>tests/streams_borrowed_error</code>). An <code>Ok</code> value that borrows from the server still can't.</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
 <li>🚧 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: <code>MAX_SIZE</code> of types (SW-19) and per-method <code>&lt;METHOD&gt;_REQUEST_MAX_LEN</code> /
@@ -3931,7 +3929,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   chunks end on line idle (<code>UartConfig::idle_chars</code>, one back-to-back burst each) and carry the time of their last
   byte when the device measures it (<code>RxChunk::end</code>). Clients take one <code>?</code> per call (CLT-24
   <code>CallError</code>), <code>Unsized</code> enums read newer variants as <code>Unknown(u32)</code> (SW-47). Review round 1 (15 Oct 2026) done.
-  Open: stream-function handlers return their error as <code>'static</code> until API-35; <code>*_hl</code> crates are STD-14.</li>
+  Open: <code>*_hl</code> crates are STD-14.</li>
 <li>🚧 <strong>STD-21 <code>ww_logic_analyzer</code></strong> · <code>v0.5.x</code> — <code>LogicAnalyzer</code> (triggered capture into RAM), <code>LogicStream</code>;
   <code>Raw</code> and per-channel <code>Transitions</code> encodings (SW-31 <code>DeltaOfDelta</code>), staged pattern triggers and protocol
   stages (UART byte, I2C address, SPI first byte). Skeleton written, transitions as <code>DeltaOfDelta</code> (SW-50), docs

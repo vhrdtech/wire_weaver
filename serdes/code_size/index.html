@@ -3371,8 +3371,9 @@
 <h1 id="code-size-on-small-cpus">Code size on small CPUs<a class="headerlink" href="#code-size-on-small-cpus" title="Permanent link">&para;</a></h1>
 <p>How much code <code>shrink_wrap</code> costs on a CPU with a few kilobytes of memory, where the bytes go, what was changed
 because of it and what is left. Measured in October 2026 for a softcore firmware with 8 KB of RAM for code, data and
-stack (the QERV RISC-V of fpga_tools' <code>busgen</code>), whose request/reply codec is hand-written because the derived one did
-not fit.</p>
+stack (the QERV RISC-V of fpga_tools' <code>busgen</code>). Its request/reply codec was hand-written because the derived one did
+not fit; since fpga_tools 0.9.0 (BUS-12) the firmware runs on <code>head_tail</code> views and variant writers (SW-52, SW-53,
+SW-54), and no hand-written codec is left.</p>
 <p>Summary:</p>
 <ul>
 <li>The derived codec of that firmware went from 11.3 KB to 9.0 KB on RV32IC (15.1 → 12.5 KB on RV32I, 9.3 → 7.3 KB
@@ -4517,7 +4518,7 @@ one by one with <code>?</code>: the result (error included) and the reader of ev
 and 20 000 random buffers; an enum without a variant 0 after a failed field. Removing any one of the checks makes
 a test fail.</p>
 <h2 id="fixed-layout-fast-path">Fixed-layout fast path<a class="headerlink" href="#fixed-layout-fast-path" title="Permanent link">&para;</a></h2>
-<p>A type whose encoding is a fixed byte layout (SW-44, <a href="../derive/#fixed_layout-a-fixed-byte-layout-and-its-fast-path">derive</a>)
+<p>A type whose encoding is a fixed byte layout (SW-44, <a href="../derive/#fixed_layout-fields-at-fixed-offsets-and-the-fast-path">derive</a>)
 does not need <code>BufReader</code> or <code>BufWriter</code> at all: each field is a load or store at a constant offset. The cases
 <code>header_de</code> / <code>header_ser</code> read and write <code>Header</code> (a <code>[u8; 4]</code>, two <code>u8</code>, a <code>u16</code>, four <code>u32</code> and a <code>u64</code>) through
 the reader and writer, <code>fixed_de</code> / <code>fixed_ser</code> the same type with <code>from_fixed</code> / <code>to_fixed</code>. <code>bits_fixed_*</code> is the
@@ -4614,7 +4615,10 @@ calls (<code>busgen_view</code> 3894 inlined, 4196 out of line), so it stays inl
 cleared once per head or struct instead of per field (<code>bits_fixed_ser</code> 698 → 458 on RV32IC, 560 → 278 on
 Cortex-M0).
 On a real format, chunky_mcu_updater's plan reader (header, signed descriptor, steps) takes 892 bytes on Cortex-M0 with
-the fast path, 840 with its hand-written parser and 1854 through <code>BufReader</code> (its <code>just size-bench</code>).</p>
+the fast path, 840 with its hand-written parser and 1854 through <code>BufReader</code> (its <code>just size-bench</code>).
+Since chunky 0.9.0 its steps are a <code>head_tail</code> enum read through <code>Step::view</code> (a WRITE's data is a <code>List&lt;u8&gt;</code>, the
+same wire bytes), and the reader is 734 bytes on Cortex-M0 and 912 on RV32IMC: below format 1's hand-written 840 /
+1252 and below the fast path's 892 / 1086 (chunky_mcu_updater <code>FEATURES.md</code>, PROTO-3).</p>
 <h2 id="head-and-tail">Head and tail<a class="headerlink" href="#head-and-tail" title="Permanent link">&para;</a></h2>
 <p><code>busgen_ht</code> is <code>busgen</code> with <code>head_tail</code> types (SW-46, <a href="../derive/#head_tail-a-fixed-head-and-a-sequential-tail">derive</a>):
 the plain structs <code>fixed_layout</code>, <code>Utx</code>, <code>I2c</code>, <code>I2cSlave</code>, <code>Request</code> and <code>Reply</code> <code>head_tail</code>, lists as
@@ -5007,7 +5011,11 @@ difference small: <code>examples_mcu/usb_stm32h725ig</code>'s <code>all_gpio</co
 </tbody>
 </table>
 <h2 id="what-is-left">What is left<a class="headerlink" href="#what-is-left" title="Permanent link">&para;</a></h2>
-<p><code>busgen</code> is still 3.0 to 3.3 KB above the hand-written codec on RV32IC. In order of what they would bring:</p>
+<p>With views and writers (SW-52, <a href="#head-and-tail">Head and tail</a>) the derived codec fits the 8 KB softcore: busgen's
+firmware is 5608 bytes (UART) and 5090 (I2C) on RV32IC, against 4552 / 4716 hand-written, with a ceiling of about
+6.3 KB. What is left below is for the value path (<code>BufReader</code>, <code>from_ww_bytes</code>) and evolvable types, which the views
+do not use; the sizes quoted in the list are of <code>busgen</code> through that path, still 3.0 to 3.3 KB above the
+hand-written codec on RV32IC. In order of what they would bring:</p>
 <ol>
 <li><strong><code>RefVec&lt;T&gt;</code> of <code>Sized</code> structs and enums without a decode pass</strong>: not planned. It was done for plain
    numbers only (SW-37, <a href="#lists-of-plain-numbers-time-for-bytes">above</a>), where it is provably the same as the
@@ -5030,9 +5038,26 @@ difference small: <code>examples_mcu/usb_stm32h725ig</code>'s <code>all_gpio</co
    <code>write_rev_len</code> 126 bytes on RV32IC. Most of what is left is byte loads and stores, which have no compressed
    form there, and two checks against the end of the buffer.</li>
 </ol>
-<p>For a softcore with 8 KB in all, the hand-written codec stays the right choice today: the firmware it was measured
-for is 4.65 KB as shipped, and the derived codec alone would be 7.3 KB at best. With 16 KB, or on a Cortex-M0 with
-32 KB of flash, the derived codec fits with room to spare.</p>
+<p>For a softcore with 8 KB in all the derived codec is the right choice now, through views: the firmware it was
+measured for is 4.55 KB (UART image) with the hand-written codec and 5.6 KB with views. The value path alone (derived
+<code>BufReader</code> codec, 7.3 KB at best) would not fit, and nothing in the list above changes that. With 16 KB, or on a
+Cortex-M0 with 32 KB of flash, either fits with room to spare.</p>
+<p><strong>Where the views' last kilobyte goes.</strong> In the real UART image the views are about 1 KB above the hand-written
+codec (symbol diff of fpga_tools v0.8.0 and v0.9.0, 14 October 2026, RV32IC):</p>
+<ul>
+<li><code>main</code> is 802 bytes larger: the handler reads each field inline, so the byte loads and stores of <code>u8</code> fields, tags
+  and headers (<code>lbu</code> 33 → 50, <code>sb</code> 47 → 58) are in the dispatch itself, where the hand-written one calls a small
+  function. The reply buffers are built with a few <code>memcpy</code> and <code>memset</code> calls (4 and 2).</li>
+<li>A few <code>__mulsi3</code> calls: this RISC-V has no multiplier, so every multiplication by a non-constant is a call. They
+  do not come from walking a list (<code>ListIter</code> advances a cursor and divides nothing). The remaining places are
+  <code>List::get(i)</code>, which multiplies the index by the item length, and <code>take_items</code>, a count times an item length
+  (a constant per list type, so mostly shifts). Which of them produced the four calls was not looked at.</li>
+<li><code>ListIter&lt;Wave&gt;</code> and <code>ListIter&lt;u16&gt;</code> together are 244 bytes; <code>Wave::from_fixed</code> is 150 against 92 for the
+  <code>BufReader</code> read of the same struct, since every multi-byte field goes through <code>Le</code> (SW-53).</li>
+</ul>
+<p>Ideas to win some of it back (fewer inline byte accesses, an index without the multiplication, replies written
+straight into the output buffer) are tracked in the project's task list, estimated at 300 to 500 bytes; the firmware
+fits without them.</p>
 <h2 id="a-small-uart-transport">A small UART transport<a class="headerlink" href="#a-small-uart-transport" title="Permanent link">&para;</a></h2>
 <p>The softcore talks over a UART with its own framing: <code>COBS(seq, message, crc16) 0x00</code>, CRC-16/XMODEM a nibble at a
 time from a 16-entry table, streaming on both sides (no second buffer), a reply carries the <code>seq</code> of its request.

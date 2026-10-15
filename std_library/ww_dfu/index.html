@@ -2455,6 +2455,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#the-other-side-chunky" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The other side: chunky
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3519,6 +3530,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#the-other-side-chunky" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The other side: chunky
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3663,8 +3685,9 @@ turn what the device holds into the new image:</p>
 <li><strong>WRITE</strong> a chunk whose data comes with the step.</li>
 </ul>
 <p>A plain full image is a plan made only of ERASE and WRITE, so a node that doesn't do deltas implements the same traits
-and simply never sees a COPY. The plan, manifest and descriptor formats are defined in octets by the chunky protocol
-spec (<code>SPEC.md</code> in <code>chunky_mcu_updater</code>); <code>ww_dfu</code> only carries them, as raw bytes.</p>
+and simply never sees a COPY. The plan, manifest and descriptor are records of the chunky protocol, defined in octets by
+<a href="https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky_format/src/lib.rs"><code>chunky_format</code></a>; <code>ww_dfu</code> only
+carries them, as raw bytes. See <a href="#the-other-side-chunky">The other side: chunky</a> at the end of this page.</p>
 <table>
 <thead>
 <tr>
@@ -3868,7 +3891,9 @@ digest and which traits are there (<code>Offers</code>). On a slow link that is 
   (<code>Error::SourceMismatch</code>, <code>Error::HashMismatch</code>), the plan header against its geometry, its version floor and the
   release signature before the first step (<code>Error::WrongGeometry</code>, <code>Error::BelowFloor</code>, <code>Error::BadSignature</code>), and
   the finished image against the signed descriptor before it is staged (<code>Error::VerifyFailed</code>). Per-chunk hashes are
-  not a trust boundary on their own; the signed descriptor over the whole image is.</li>
+  not a trust boundary on their own; the signed descriptor over the whole image is. Chunky's device core refuses
+  what needs no key (magic, format, signature scheme, reserved bytes, image length) on the raw bytes before it
+  verifies the signature, so a junk plan never costs a signature check.</li>
 <li><strong>A session is identified by its plan header.</strong> <code>Stage::begin</code> (or <code>StageBulk::begin_bulk</code>) with the header of an
   unfinished session does not start over: it answers <code>Session { resumed: true, resume_from }</code> and the host continues
   from there.</li>
@@ -5672,13 +5697,40 @@ one and the change is looked at. So the bytes here are the bytes the current cod
   (<code>tests/dfu_app_api</code>, <code>tests/dfu_lean_app_api</code>, <code>tests/dfu_updater_api</code>).</li>
 <li><strong>The plan format</strong> is a small stand-in for chunky's (a 35-byte header with a toy signature; steps <code>01 block</code>,
   <code>02 dst src hash</code>, <code>03 dst hash len data</code>), so the step bytes in the transcripts are readable. Hashes are SHA-256
-  truncated to 8 bytes, as in the spec.</li>
+  truncated to 8 bytes, as in chunky's format 2. The real records are in
+  <a href="#the-other-side-chunky">The other side: chunky</a>.</li>
 <li><strong>The links</strong> are the real ones from <code>ww_device</code> up: WebSocket and UDP on localhost through <code>wire_weaver_client</code>'s
   <code>ws</code> and <code>udp</code> transports; USB is simulated by <code>wire_weaver_client::in_process::usb_device</code>, which runs the real USB
   framing on both ends with full-speed (64 B) or high-speed (512 B) packets, but not USB itself (enumeration, data
   toggles, NAKs). RTT is not used: with a debug probe attached a device is flashed directly, without a bootloader.</li>
 <li><strong>Changing a scenario's link</strong> is one line, <code>const LINK: Link = ...</code> in its test (UART and CAN will join <code>Link</code>).</li>
 </ul>
+<h2 id="the-other-side-chunky">The other side: chunky<a class="headerlink" href="#the-other-side-chunky" title="Permanent link">&para;</a></h2>
+<p><code>ww_dfu</code> is the transport half of an update. What it carries, and the code that checks and applies it on the device,
+is <a href="https://github.com/romixlab/chunky_mcu_updater">chunky</a> (<code>chunky_mcu_updater</code>, public).</p>
+<ul>
+<li><a href="https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky_format/src/lib.rs"><code>chunky_format/src/lib.rs</code></a>
+  defines the records. They are <code>shrink_wrap</code> types with a fixed little endian layout, and the same bytes are read by
+  Rust (with or without <code>BufReader</code>) and by a generated C reader:<ul>
+<li><strong>Descriptor</strong> (<code>CKY2</code>): a 64-byte body (product, version, security counter, image length, geometry, SHA-256
+  of the image) and a 64-byte seal over a domain string and exactly the body's bytes. The scheme is Ed25519, or
+  SHA-256 only for an unsigned build, which a signed device refuses.</li>
+<li><strong>Plan</strong> (<code>CKP2</code>): a 145-byte header (geometry, step count, body length, the descriptor), then the steps.
+  A step is a <code>head_tail</code> enum read through <code>Step::view</code>: ERASE is 3 bytes, COPY 13, WRITE 13 plus one chunk.</li>
+<li><strong>Manifest</strong> (<code>CKM2</code>): a 13-byte header and one entry per chunk, a hash (8 bytes of SHA-256), blank or
+  unreadable.</li>
+</ul>
+</li>
+<li><a href="https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky/src/apply.rs"><code>chunky/src/apply.rs</code></a> is the apply
+  engine: it runs an untrusted plan against the DFU slot over <code>embedded_storage</code>, one step per call, checking the
+  descriptor first, then every COPY source and WRITE hash, then the whole image.</li>
+</ul>
+<p>The raw octets that <code>Stage::begin</code>, <code>Stage::write</code> and <code>StageBulk::plan</code> carry are these records, and what a
+node answers with <code>Error::BadSignature</code>, <code>BelowFloor</code>, <code>WrongGeometry</code> or <code>VerifyFailed</code> is what chunky decides.</p>
+<p><strong>Status.</strong> Chunky does not implement the <code>ww_dfu</code> traits yet (chunky NET-1 is open): it is the device core and the
+record format that <code>ww_dfu</code> carries, and the server side that exposes them as <code>UpdateNode</code>, <code>Stage</code> and the rest is
+to come. Until then the exchanges on this page are recorded with the stand-in plan above.</p>
+<p>The code of the API itself: <a href="https://github.com/vhrdtech/wire_weaver/blob/master/ww_stdlib/ww_dfu/src/lib.rs"><code>ww_stdlib/ww_dfu/src/lib.rs</code></a>.</p>
 
 
 

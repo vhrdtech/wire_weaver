@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2138,6 +2142,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3180,6 +3211,8 @@
       
         
       
+        
+      
     
     
     
@@ -3214,7 +3247,7 @@
 <h1 id="ww_gpio">ww_gpio<a class="headerlink" href="#ww_gpio" title="Permanent link">&para;</a></h1>
 <p><code>ww_gpio</code> is a global WireWeaver trait for controlling GPIO pins remotely: reading and setting output levels,
 reading input levels, configuring pin mode / pull / drive strength, and observing edge events as a stream. It is
-<code>no_std</code> by default and depends only on <code>wire_weaver</code> and <code>ww_si</code> (for the <code>Volt</code> reference-voltage type).</p>
+<code>no_std</code> by default and depends only on <code>wire_weaver</code> and <code>ww_si</code> (for the <code>Volt</code> IO level).</p>
 <p>Add it to a device API crate with:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_gpio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span>
@@ -3224,14 +3257,14 @@ reading input levels, configuring pin mode / pull / drive strength, and observin
 so they compose with the rest of the API using <a href="../../api/traits/"><code>ww_impl!</code></a> and can be nested as
 <a href="../../api/arrays/">arrays</a>.</p>
 <h3 id="bank"><code>Bank</code><a class="headerlink" href="#bank" title="Permanent link">&para;</a></h3>
-<p>One bank (port) of pins sharing the same reference voltage:</p>
+<p>One bank (port) of pins sharing the same IO level:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Bank</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">pin</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Pin</span><span class="p">);</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">capabilities</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">BankCapabilities</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">reference_voltage</span><span class="p">:</span><span class="w"> </span><span class="nc">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="p">);</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">BankConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">BankConfig</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">name</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">;</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">}</span>
@@ -3240,9 +3273,11 @@ so they compose with the rest of the API using <a href="../../api/traits/"><code
 <li><code>pin[]</code> - array of individual pins in the bank, indexed 0-based; see <a href="#pin"><code>Pin</code></a> below. Indexing can either
   follow the natural range of a bank (e.g. an IO expander) or a list of specific indices (e.g. exposing only <code>PB1</code>
   and <code>PB5</code> of an MCU port).</li>
-<li><code>capabilities()</code> - static description of what the bank supports: which voltages, modes and custom
+<li><code>capabilities()</code> - static description of what the bank supports: which IO levels, modes and custom
   mode/pull/speed strings, see <code>BankCapabilities</code> under <a href="#types">Types</a> below.</li>
-<li><code>reference_voltage</code> - reference voltage used by the whole bank, adjustable if the hardware supports it.</li>
+<li><code>configure</code> - what the pins of the bank share, in a <code>BankConfig</code>: the IO level, adjustable if the hardware has
+  level translators (<code>io_level: None</code> leaves it as it is). Answers with what was actually set, so <code>configure</code> with
+  <code>None</code> reads the level in effect. Same shape as the <code>configure</code> of <code>ww_uart</code>, <code>ww_i2c</code>, <code>ww_spi</code>.</li>
 <li><code>name()</code> - user-friendly bank name (e.g. <code>"PA"</code>).</li>
 </ul>
 <h3 id="pin"><code>Pin</code><a class="headerlink" href="#pin" title="Permanent link">&para;</a></h3>
@@ -3274,13 +3309,14 @@ defined first, to get more compact resource paths since low path indices take fe
 <li><code>input_level</code> - reads the input register. If the pin is configured as output and its input buffer is disabled,
   the current output level should be returned instead.</li>
 <li><code>event</code> - a counted <a href="../../api/streams/#opening-a-stream">stream function</a> of <code>IoPinEvent</code>s (rising/falling edge,
-  custom sources): the host opens it with the sources to report (<code>Error::UnsupportedEventType</code> for one the pin
-  can't generate) and closes it to stop. Its unit is an event: the event head carries the device time of each
+  custom sources): the host opens it with the sources to report (<code>Common(Unsupported)</code> for one the pin can't
+  generate) and closes it to stop. Its unit is an event: the event head carries the device time of each
   edge and exactly how many edges the device dropped (<a href="../../api/stream_reliability/">stream delivery</a>).</li>
 <li><code>set_mode</code> / <code>mode</code> - switch between push-pull, open-drain, input, high-z, analog or a custom mode, optionally
-  setting the initial output level before the switch. Can fail with <code>Error::UnsupportedMode</code>.</li>
-<li><code>pull</code> - pull resistor configuration, can fail with <code>Error::UnsupportedPull</code>.</li>
-<li><code>speed</code> - drive strength/slew rate, can fail with <code>Error::UnsupportedSpeed</code>.</li>
+  setting the initial output level before the switch. Can fail with <code>Common(Unsupported)</code>, or <code>DifferentModes</code> on a
+  bank whose pins share one mode.</li>
+<li><code>pull</code> - pull resistor configuration, can fail with <code>Common(Unsupported)</code>.</li>
+<li><code>speed</code> - drive strength/slew rate, can fail with <code>Common(Unsupported)</code>.</li>
 <li><code>capabilities()</code> - what this pin supports: modes, pulls, speeds, whether <code>event</code> works, and its name, see
   <code>PinCapabilities</code> under <a href="#types">Types</a> below.</li>
 </ul>
@@ -3292,16 +3328,17 @@ defined first, to get more compact resource paths since low path indices take fe
 <li><code>Pull</code> - <code>None</code>, <code>Up</code>, <code>Down</code>, <code>Custom(u8)</code>; <code>sized</code>, 2 bits.</li>
 <li><code>Speed</code> - <code>Slow</code>, <code>Medium</code>, <code>Fast</code>, <code>VeryFast</code>, <code>Custom(u8)</code>; <code>sized</code>, 1 nibble.</li>
 <li><code>IoPinEvent</code> - <code>RisingEdge</code>, <code>FallingEdge</code>, <code>Custom(u8)</code>; <code>sized</code>, 2 bits.</li>
-<li><code>Error</code> - <code>UnsupportedMode</code>, <code>UnsupportedPull</code>, <code>UnsupportedSpeed</code>, <code>UnsupportedEventType</code>,
-  <code>UnsupportedReferenceVoltage</code>, <code>DifferentModes</code>, <code>NotImplemented</code>, <code>CustomU8(u8)</code>, <code>CustomU32(u32)</code>, <code>InUse</code>
-  (the pin serves another function), <code>NoIoLevel</code> (level translators have no supply), <code>Refused</code> (a device safety
-  rule doesn't allow it); unsized (<code>unib32</code> discriminant), evolvable.</li>
+<li><code>GpioError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>DifferentModes</code>; unsized
+  (<code>unib32</code> discriminant), evolvable, <code>Display</code> from the doc lines. Each method lists the variants it returns
+  (<code>#[errors]</code>).</li>
 <li><code>IoPinEnabledEvents&lt;'i&gt;</code> - which sources the <code>event</code> stream reports, its argument: <code>rising: bool</code>, <code>falling: bool</code>, and a
   <code>custom: RefVec&lt;'i, u8&gt;</code> list of custom source indices.</li>
 <li><code>PinCapabilities&lt;'i&gt;</code> - what one pin supports: <code>modes: MaxLen&lt;RefVec&lt;'i, Mode&gt;, 8&gt;</code>,
   <code>pulls: MaxLen&lt;RefVec&lt;'i, Pull&gt;, 4&gt;</code>, <code>speeds: MaxLen&lt;RefVec&lt;'i, Speed&gt;, 5&gt;</code>, <code>events: bool</code> (the <code>event</code> stream
   works on this pin), <code>name: MaxLen&lt;&amp;'i str, 16&gt;</code> (e.g. <code>"IO4"</code>, <code>"PB5"</code>).</li>
-<li><code>BankCapabilities&lt;'i&gt;</code> - what a bank supports: <code>voltage: RefVec&lt;'i, Volt&gt;</code>, <code>push_pull</code> / <code>open_drain</code> / <code>input</code> /
+<li><code>BankConfig</code> - <code>io_level: Option&lt;Volt&gt;</code>; the argument and the answer of <code>Bank::configure</code>.</li>
+<li><code>BankCapabilities&lt;'i&gt;</code> - what a bank supports: <code>io_levels: MaxLen&lt;RefVec&lt;'i, Volt&gt;, MAX_IO_LEVELS&gt;</code>,
+  <code>io_level_min</code> / <code>io_level_max: Option&lt;Volt&gt;</code> (an adjustable supply), <code>push_pull</code> / <code>open_drain</code> / <code>input</code> /
   <code>individually_configurable_pins: bool</code>, and <code>custom_mode</code> / <code>custom_pull</code> / <code>custom_speed: RefVec&lt;'i, &amp;'i str&gt;</code>
   describing any <code>Custom(u8)</code> variants.</li>
 </ul>
@@ -3396,10 +3433,10 @@ The <code>[bank_index, pin_index]</code> addressing is passed in as <code>index:
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="n">ValidIndices</span><span class="p">::</span><span class="n">range_u32</span><span class="p">(</span><span class="mi">0</span><span class="o">..</span><span class="mi">16</span><span class="p">)</span>
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>In this example, <code>capabilities()</code> and <code>reference_voltage</code> are hardcoded (3.3V, push-pull/open-drain/input all
+<p>In this example, <code>capabilities()</code> and <code>configure</code> are hardcoded (3.3V without level control, push-pull/open-drain/input all
 supported, no custom modes), <code>set_mode</code>/<code>mode</code> and <code>pull</code>/<code>speed</code> are translated to/from the STM32 <code>MODER</code> /
 <code>OTYPER</code> / <code>PUPDR</code> / <code>OSPEEDR</code> registers, and the <code>event</code> stream never opens (<code>port_pin_event</code> answers
-<code>Error::UnsupportedEventType</code>, one <code>Counted</code> state serves every pin) since the example does not wire up EXTI
+<code>Common(Unsupported)</code>, one <code>Counted</code> state serves every pin) since the example does not wire up EXTI
 interrupts.</p>
 
 

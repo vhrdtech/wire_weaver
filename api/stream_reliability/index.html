@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1707,6 +1709,8 @@
       
         
       
+        
+      
     
     
     
@@ -2198,6 +2202,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3377,8 +3408,9 @@ what it didn't get, or must get everything.</p>
 </tr>
 </tbody>
 </table>
-<p>Item types carry none of this: positions, loss counts and timestamps are in a small head the framework puts in front
-of every event, so a <code>SampleBlock</code> or an <code>RxChunk</code> stays pure data.</p>
+<p>Item types carry none of this: positions, loss counts and the time of the first unit are in a small head the framework
+puts in front of every event, so a <code>SampleBlock</code> stays pure data (an item may add a time of its own, such as when a
+UART chunk's last byte arrived).</p>
 <div class="admonition note">
 <p class="admonition-title">Status</p>
 <p>The protocol is built: the wire types in <code>ww_client_server::stream</code>, and the device and host state machines,

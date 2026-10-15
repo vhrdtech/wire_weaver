@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2127,6 +2131,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3158,6 +3189,8 @@
       
         
       
+        
+      
     
     
     
@@ -3247,7 +3280,7 @@ devices with PWM output don't have spare on every channel, so a plain PWM driver
   (<a href="#types"><code>PwmChannelInfo::group</code></a>) share its frequency: setting a different frequency on another channel of the
   same group fails with <code>PwmError::SharedTimer</code>.</li>
 <li><code>set_duty</code> - changes only the duty, keeping the frequency, and returns the duty actually set. Fails with
-  <code>PwmError::WrongMode</code> if the channel is currently idle.</li>
+  <code>Common(WrongState)</code> if the channel is currently idle.</li>
 <li><code>stop</code> - stops the output, leaving the pin high or low.</li>
 <li><code>state</code> - the channel's current output, or <code>PwmState::Idle</code>.</li>
 </ul>
@@ -3276,7 +3309,7 @@ devices with PWM output don't have spare on every channel, so a plain PWM driver
   (<a href="../../api/stream_reliability/">stream delivery</a>).</li>
 <li><code>set_capture</code> - picks what to measure and the window without a stream, for polling with <code>read_capture</code>, and
   returns what was actually set.</li>
-<li><code>read_capture</code> - the last measurement, without waiting on the stream. Fails with <code>PwmError::WrongMode</code> before the
+<li><code>read_capture</code> - the last measurement, without waiting on the stream. Fails with <code>Common(WrongState)</code> before the
   first measurement completes.</li>
 </ul>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
@@ -3295,9 +3328,8 @@ devices with PWM output don't have spare on every channel, so a plain PWM driver
 <li><code>CaptureSample</code> - <code>t: Second</code> (end of the window), <code>value: CaptureValue</code>.</li>
 <li><code>CaptureValue</code> - <code>Frequency(Hertz)</code>, <code>DutyCycle(u16)</code>, <code>PulseWidth(Second)</code>, <code>EdgeCount(u32)</code>; the variant always
   matches <code>CaptureConfig::mode</code>. <code>unib32</code> discriminant.</li>
-<li><code>PwmError</code> - <code>Unsupported</code>, <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>InvalidArgument</code>, <code>WrongMode</code>, <code>SharedTimer</code>; unsized
-  (<code>unib32</code> discriminant, <code>self_describing</code>), evolvable. Error evolution (per-method lists, errors carrying a
-  reason) is still open for <code>ww_stdlib</code>; until then this enum stays plain.</li>
+<li><code>PwmError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>SharedTimer</code>; unsized
+  (<code>unib32</code> discriminant), evolvable. Each method lists the variants it returns (<code>#[errors]</code>).</li>
 </ul>
 <p>All enums and structs are behind <code>#[derive_shrink_wrap]</code> with <code>owned(feature = "std")</code> and
 <code>cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))</code>, so owned (<code>*Owned</code>) variants and <code>defmt::Format</code> are

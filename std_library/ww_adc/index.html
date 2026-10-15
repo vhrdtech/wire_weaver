@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2138,6 +2142,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3180,6 +3211,8 @@
       
         
       
+        
+      
     
     
     
@@ -3232,8 +3265,8 @@ API tree costs it nothing.</p>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <ul>
-<li><code>read</code> - one calibrated reading of <code>channel</code>, in the channel's unit (<code>AdcError::NoSuchChannel</code>,
-  <code>AdcError::Busy</code> if a stream or capture can't be interrupted, <code>AdcError::NoIoLevel</code>, <code>AdcError::Timeout</code>).</li>
+<li><code>read</code> - one calibrated reading of <code>channel</code>, in the channel's unit (<code>NoSuchChannel</code>,
+  <code>Common(Busy)</code> if a stream or capture can't be interrupted, <code>Common(NoPower)</code>, <code>Common(Timeout)</code>).</li>
 <li><code>capabilities</code> - the channels, their units, ranges and calibration, see <code>AdcCapabilities</code> under
   <a href="#types">Types</a> below.</li>
 </ul>
@@ -3294,7 +3327,7 @@ and the device time of a block's first set travel in the event head the framewor
   sets }</code> once the data is ready — a host polls this until <code>Done</code>.</li>
 <li><code>capture_read</code> - reads <code>len</code> bytes of the captured data from <code>offset</code>; raw samples, interleaved in the order of
   <code>CaptureConfig::channels</code>, <code>CaptureActual::bytes</code> long, with the first <code>pre_trigger</code> sets before the trigger
-  (<code>AdcError::WrongMode</code> before a capture is done, <code>AdcError::InvalidArgument</code> outside the data).</li>
+  (<code>Common(WrongState)</code> before a capture is done, <code>Common(InvalidArgument)</code> outside the data).</li>
 <li><code>capture_abort</code> - stops an armed or running capture and drops its data.</li>
 </ul>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
@@ -3325,8 +3358,8 @@ and the device time of a block's first set travel in the event head the framewor
 <li><code>CaptureActual</code> - <code>rate: Hertz</code>, <code>bytes: u32</code> (size of the data once done).</li>
 <li><code>CaptureStatus</code> - <code>Idle</code>, <code>Armed</code>, <code>Triggered { t: Second }</code>, <code>Done { t_first: Second, t_trigger:
   Option&lt;Second&gt;, sets: u32 }</code>; <code>sized</code> (<code>unib32</code> discriminant).</li>
-<li><code>AdcError</code> - <code>Unsupported</code>, <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>InvalidArgument</code>, <code>WrongMode</code>, <code>NoSuchChannel</code>,
-  <code>Busy</code>, <code>Timeout</code>; <code>self_describing</code> (<code>unib32</code> discriminant), shared by every trait in the crate.</li>
+<li><code>AdcError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>NoSuchChannel</code>; unsized
+  (<code>unib32</code> discriminant), evolvable, shared by every trait in the crate.</li>
 </ul>
 <p>All enums and structs are behind <code>#[derive_shrink_wrap]</code> with <code>owned(feature = "std")</code> and
 <code>cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))</code>, so owned (<code>*Owned</code>) variants (<code>ChannelInfoOwned</code>,
@@ -3356,7 +3389,7 @@ another worked example of the pattern). It is a convenient reference for wiring 
   <code>AdcError::Busy</code> while the stream runs.</li>
 <li><code>capture_now_trigger_and_read</code> - <code>AdcCapture::capture</code> with <code>Trigger::Now</code> completes immediately
   (<code>CaptureStatus::Done</code>), <code>capture_read</code> returns the data with bounds checking
-  (<code>AdcError::InvalidArgument</code> past the end), and <code>capture_abort</code> drops it (<code>AdcError::WrongMode</code> after).</li>
+  (<code>Common(InvalidArgument)</code> past the end), and <code>capture_abort</code> drops it (<code>Common(WrongState)</code> after).</li>
 <li><code>capture_polled_trigger_progresses_to_done</code> - a non-<code>Now</code> trigger (<code>Trigger::Rising</code>) arms the capture; the mock
   advances <code>Armed</code> -&gt; <code>Triggered</code> -&gt; <code>Done</code> one step per <code>capture_status</code> poll, standing in for the real wait on
   the trigger, the same way a host would poll a real device.</li>

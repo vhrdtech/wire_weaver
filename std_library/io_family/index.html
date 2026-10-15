@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2088,6 +2092,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3080,6 +3111,8 @@
       
         
       
+        
+      
     
     
     
@@ -3133,8 +3166,8 @@ here assumes a particular kind of device.</p>
 </tr>
 <tr>
 <td><a href="../ww_uart/"><code>ww_uart</code></a></td>
-<td><code>Uart</code>, <code>UartMonitor</code></td>
-<td>Bridge a serial port; watch both lines of a link without driving them</td>
+<td><code>Uart</code></td>
+<td>Bridge a serial port; watch both lines of a link without driving them (optional)</td>
 </tr>
 <tr>
 <td><a href="../ww_i2c/"><code>ww_i2c</code></a></td>
@@ -3143,8 +3176,8 @@ here assumes a particular kind of device.</p>
 </tr>
 <tr>
 <td><a href="../ww_spi/"><code>ww_spi</code></a></td>
-<td><code>Spi</code>, <code>SpiMonitor</code></td>
-<td>Master transfers with CS held across operations; bus sniffing</td>
+<td><code>Spi</code></td>
+<td>Master transfers with CS held across operations; bus sniffing (optional)</td>
 </tr>
 <tr>
 <td><a href="../ww_adc/"><code>ww_adc</code></a></td>
@@ -3180,12 +3213,14 @@ here assumes a particular kind of device.</p>
 </table>
 <p><a href="../ww_si/"><code>ww_si</code></a> and <a href="../ww_numeric/"><code>ww_numeric</code></a> underpin all of them: every physical value on the wire is a
 typed <code>ww_si</code> quantity, not a raw integer with an implied unit.</p>
-<p>A trait that only some devices have is its own trait rather than a method that answers "not supported" on most
-implementers: <code>AdcStream</code> and <code>AdcCapture</code> are separate from <code>Adc</code>, <code>UartMonitor</code> from <code>Uart</code>, <code>I2cMonitor</code> and
-<code>I2cWatch</code> from <code>I2c</code>, <code>SpiMonitor</code> from <code>Spi</code>, <code>PwmCapture</code> from <code>Pwm</code>. A thermometer implements <code>Adc</code> only; a
-data logger adds <code>AdcStream</code>; a bus sniffer may implement only a monitor trait with no master at all. A host finds
-out what a device actually has through introspection (global trait paths) and, within a trait, through its
-<code>capabilities()</code> method.</p>
+<p>What only some devices have is never a method that answers "not supported" on most implementers. A function with
+state, configuration and several items of its own is its own trait: <code>AdcStream</code> and <code>AdcCapture</code> are separate from
+<code>Adc</code>, <code>I2cMonitor</code> and <code>I2cWatch</code> from <code>I2c</code>, <code>PwmCapture</code> from <code>Pwm</code>. A thermometer implements <code>Adc</code> only; a data
+logger adds <code>AdcStream</code>; an I2C sniffer may implement only <code>I2cMonitor</code> with no master at all. A function that is one
+stream is an <a href="../../api/optional_items/">optional item</a> of the main trait instead (<code>Uart::monitor</code>, <code>Spi::monitor</code>),
+so an array of ports (<code>ww_impl!(uart[]: Uart)</code>) carries it without a second array or trait to keep in step, and a
+device without the hardware leaves it out (<code>omit = ["uart.monitor"]</code>). A host finds out what a device actually has
+through introspection (global trait paths, left-out items) and, within a trait, through its <code>capabilities()</code> method.</p>
 <h2 id="shared-conventions">Shared conventions<a class="headerlink" href="#shared-conventions" title="Permanent link">&para;</a></h2>
 <p><strong>Capabilities are queried, never assumed.</strong> Every core trait has a <code>capabilities()</code>-shaped method (<code>Bank::capabilities</code>,
 <code>Pin::capabilities</code>, <code>I2c::i2c_capabilities</code>, <code>Spi::capabilities</code>, <code>Adc::capabilities</code> /
@@ -3193,15 +3228,30 @@ out what a device actually has through introspection (global trait paths) and, w
 <code>Clock::info</code>, <code>LogicAnalyzer::capabilities</code> / <code>LogicStream::stream_capabilities</code>, <code>PatternGenerator::capabilities</code>,
 <code>WaveformGenerator::capabilities</code>) describing ranges, rates, formats and which optional behaviors work, so a host
 doesn't have to special-case devices by name.</p>
-<p><strong>Common error variants.</strong> Each crate defines its own plain error enum (<code>ww_gpio::Error</code>, <code>ww_uart::Error</code>,
-<code>ww_i2c::I2cError</code>, <code>ww_spi::Error</code>, <code>ww_adc::AdcError</code>, <code>ww_pwm::PwmError</code>, <code>ww_onewire::OneWireError</code>,
-<code>ww_timebase::ClockError</code>, <code>ww_logic_analyzer::LaError</code>, <code>ww_signal_generator::PgError</code> / <code>WgError</code>), but every one
-of them carries the same handful of variants for the same situations: <code>Unsupported</code> (this device doesn't have the
-feature asked for), <code>InUse</code> (the pins or peripheral already serve another function), <code>NoIoLevel</code> (the level
-translators or output buffers have no supply), <code>Refused</code> (a safety rule of the device declines the request). Each
-method's rustdoc lists under <code># Errors</code> which variants it can return.</p>
-<p><strong>Typed values through <code>ww_si</code>.</strong> Voltages, frequencies and durations are <code>ww_si</code> quantities (<code>Volt</code>, <code>Hertz</code>,
-<code>Second</code>), never a bare integer with an implied unit. The device reports in whatever storage and prefix are
+<p><strong>One configuration, answered with what was set.</strong> A bus or bank is configured in one call with one struct,
+not a property per setting: <code>Uart::configure(UartConfig)</code>, <code>I2c::i2c_configure(I2cConfig)</code>,
+<code>Spi::configure(SpiConfig)</code>, <code>Bank::configure(BankConfig)</code>, <code>OneWire::configure(OneWireConfig)</code>. Each answers with the
+same struct as actually set (the baud rate or clock the divider settled on, the IO level in effect), so a host sees
+the rounding and a port never runs with half a configuration. Stream functions that configure what they watch do the
+same (<code>Uart::monitor</code> answers its <code>MonitorConfig</code>).</p>
+<p><strong>IO level in the configuration.</strong> On adapters with level translators the IO level is a field of that
+configuration, <code>io_level: Option&lt;Volt&gt;</code> (<code>None</code> leaves it as it is, and is the answer of a device without level
+control), and the capabilities list what it can be set to in the same three fields everywhere: <code>io_levels</code>
+(discrete levels), <code>io_level_min</code> / <code>io_level_max</code> (an adjustable supply). PWM, ADC, logic analyzer and signal
+generator channels sit on pins of a GPIO bank or bus and use its level; the logic analyzer sets its own input
+threshold per capture.</p>
+<p><strong>Common errors.</strong> Each crate has its own error enum (<code>ww_gpio::GpioError</code>, <code>ww_uart::UartError</code>,
+<code>ww_i2c::I2cError</code>, <code>ww_spi::SpiError</code>, <code>ww_adc::AdcError</code>, <code>ww_pwm::PwmError</code>, <code>ww_onewire::OneWireError</code>,
+<code>ww_timebase::ClockError</code>, <code>ww_logic_analyzer::LaError</code>, <code>ww_signal_generator::PgError</code> / <code>WgError</code>), and every one
+of them starts with <a href="../../api/errors/#common-errors"><code>ww_error::CommonError</code></a> as its <code>#[common] Common</code> variant for
+the situations every device shares: <code>Unsupported</code> (this device doesn't have the mode, level or feature asked for),
+<code>InvalidArgument</code>, <code>InUse</code> (the pins or peripheral already serve another function), <code>Busy</code>, <code>WrongState</code>,
+<code>NoPower</code> (the level translators or output buffers have no supply), <code>Refused</code> (a safety rule of the device declines
+the request), <code>Timeout</code>. Only what a caller acts on specifically stays crate-specific: <code>Nack</code> and <code>Arbitration</code> for
+I2C, <code>NoPresence</code> for 1-Wire, <code>NoSuchChannel</code>, <code>SharedTimer</code>. Host code handles the common part of any of them the
+same way (<code>e.common()</code>), and each method lists the variants it can return with <code>#[errors(..)]</code>.</p>
+<p><strong>Typed values through <code>ww_si</code>.</strong> Voltages, frequencies, baud rates and durations are <code>ww_si</code> quantities (<code>Volt</code>,
+<code>Hertz</code>, <code>Baud</code>, <code>Second</code>), never a bare integer with an implied unit. The device reports in whatever storage and prefix are
 convenient for it (a <code>u32</code> of µs, an <code>f32</code> of volts); the host reads any of them. Timestamps, in method results
 and in stream heads alike, are <code>ww_si::Second</code>:
 time since the device's own clock started, in the prefix and number type the device picks. A fixed-width value
@@ -3213,24 +3263,25 @@ clock, so their timestamps line up against each other.</p>
 Trait)</code>, a WireWeaver array of sub-traits. Every other method that addresses one of them takes a plain index into
 that same array, in the order its crate's <code>*Info</code> / <code>*Capabilities</code> type lists them — no bitmasks, no names on the
 wire.</p>
-<p><strong>Monitor traits.</strong> Watching a bus without taking part in it (<code>UartMonitor</code>, <code>I2cMonitor</code>, <code>SpiMonitor</code>) is kept
-separate from driving it, because a device can be one without the other: a protocol sniffer often has no master
-of its own, and most masters have no monitoring hardware. A monitor reports one record per transaction/frame on
-its own stream; a master that also wants to see its own traffic sets the matching monitor flag where the trait
-offers one (e.g. <code>I2cMode::Master { monitor: true, .. }</code>).</p>
+<p><strong>Monitors.</strong> Watching a bus without taking part in it is a counted stream function: <code>Uart::monitor</code> and
+<code>Spi::monitor</code>, optional items of the bus trait, and <code>I2cMonitor::records</code>, a trait of its own because I2C
+monitoring also exists without a master (<code>I2cMode::MonitorOnly</code>) and next to the master's own traffic. A monitor
+reports one record per transaction/frame; a master that also wants to see its own traffic sets the matching monitor
+flag where the trait offers one (e.g. <code>I2cMode::Master { monitor: true, .. }</code>).</p>
 <p><strong>Streams are opened with their configuration.</strong> A stream that needs a configuration is a
 <a href="../../api/streams/#opening-a-stream">stream function</a>: the host opens it with the configuration as its arguments and
 gets back what the device actually set, or an error, and closing the stream stops sampling or monitoring
-(<code>AdcStream::samples</code>, <code>LogicStream::data</code>, <code>Pin::event</code>, <code>PwmCaptureChannel::capture</code>, <code>SpiMonitor::frames</code>,
-<code>I2cMonitor::records</code>, <code>UartMonitor::lines</code>). Opening it again starts a new session with the new configuration, so
+(<code>AdcStream::samples</code>, <code>LogicStream::data</code>, <code>Pin::event</code>, <code>PwmCaptureChannel::capture</code>, <code>Spi::monitor</code>,
+<code>I2cMonitor::records</code>, <code>Uart::monitor</code>). Opening it again starts a new session with the new configuration, so
 there is no separate configure / start / stop to keep in sync.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">actual</span><span class="p">,</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">samples</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adc</span><span class="p">.</span><span class="n">adc_stream</span><span class="p">().</span><span class="n">samples</span><span class="p">(</span><span class="n">config</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">??</span><span class="p">;</span>
 </span></code></pre></div>
 <p><strong>Counted streams: positions, losses and time in the head.</strong> Every device → host stream of the family with measured
 or received data is counted (<a href="../../api/stream_reliability/">stream delivery</a>): each event's head carries its
 position in the stream's unit (a sample set, a byte, a frame, an edge, as the stream's rustdoc says), how many units
-the device dropped right before it, and the device time of its first unit. Item types carry none of this: an
-<code>RxChunk</code> is bytes and line flags, a <code>SampleBlock</code> raw samples. A host sees exactly what it missed and where
+the device dropped right before it, and the device time of its first unit. Item types carry no positions or losses,
+and only the time that is their own: an <code>RxChunk</code> is bytes, line flags and, if the device measures it, when its last byte arrived, an
+<code>I2cRecord</code> / <code>SpiFrame</code> when the transaction ended, a <code>SampleBlock</code> raw samples. A host sees exactly what it missed and where
 (<code>StreamEvent::Gap</code>), whether the device dropped it (no host, a full buffer) or the link lost it.</p>
 <p><strong>Credit sinks for bulk host → device data.</strong> Where the host sends more than fits one reply — a UART's <code>tx</code> bytes,
 a <code>PatternGenerator</code>'s pattern, a <code>WaveformChannel</code>'s arbitrary table — the method is a <code>#[credit] sink!(..)</code>

@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2110,6 +2114,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3124,6 +3155,8 @@
       
         
       
+        
+      
     
     
     
@@ -3211,8 +3244,8 @@ truncated timestamp and correlate device time with its own.</p>
   <code>last_lock: Option&lt;Second&gt;</code>.</li>
 <li><code>SyncState</code> - <code>Free</code>, <code>Acquiring</code>, <code>Locked</code>, <code>Holdover</code>; <code>unib32</code> discriminant, evolvable.</li>
 <li><code>TimeMapPoint</code> - one <code>time_map</code> item: <code>local: Second</code>, <code>shared: Second</code>, <code>state: SyncState</code>.</li>
-<li><code>ClockError</code> - <code>Unsupported</code>, <code>InvalidArgument</code>, <code>WrongMode</code>, <code>InUse</code>; <code>self_describing</code>, <code>unib32</code>
-  discriminant, evolvable (plain error enum for now; error evolution is still open for <code>ww_stdlib</code>).</li>
+<li><code>ClockError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>); unsized (<code>unib32</code>
+  discriminant), evolvable.</li>
 </ul>
 <p>All enums and structs are behind <code>#[derive_shrink_wrap]</code> with <code>owned(feature = "std")</code>, so owned (<code>*Owned</code>)
 variants are available by enabling the crate's <code>std</code> feature.</p>

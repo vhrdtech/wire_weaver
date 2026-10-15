@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2066,6 +2070,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3036,6 +3067,8 @@
       
         
       
+        
+      
     
     
     
@@ -3077,35 +3110,16 @@ the <code>Hertz</code>, <code>Second</code> and <code>Volt</code> quantity types
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_spi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span>
 </span></code></pre></div>
 <h2 id="traits">Traits<a class="headerlink" href="#traits" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Trait</th>
-<th>What it is for</th>
-<th>Who implements it</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Spi</code></td>
-<td>Configure the bus, full-duplex transfers, transactions with CS held, writes.</td>
-<td>Every SPI master</td>
-</tr>
-<tr>
-<td><code>SpiMonitor</code></td>
-<td>Every frame (one CS assertion) on the bus as a stream.</td>
-<td>Sniffers, debug adapters</td>
-</tr>
-</tbody>
-</table>
-<p>Monitoring is its own trait because it is its own function: a sniffer may have no master at all. A device picks
-the traits it implements:</p>
+<p><code>Spi</code> is one bus: configure it, full-duplex transfers, transactions with CS held, writes, and, on adapters with the
+hardware for it, every frame on the bus on the <a href="../../api/optional_items/">optional</a> <code>monitor</code> stream. A device with
+several buses nests it as an array, <code>ww_impl!(spi[]: ww_spi::Spi)</code>, monitoring included:</p>
 <p>```rust,ignore</p>
 <h1 id="ww_api_root">[ww_api_root]<a class="headerlink" href="#ww_api_root" title="Permanent link">&para;</a></h1>
 <p>trait MyAdapter {
     ww_impl!(spi: ww_spi::Spi);
-    ww_impl!(spi_monitor: ww_spi::SpiMonitor);
-}
+}</p>
+<p>// an adapter without monitoring hardware
+ww_codegen!(my_adapter_api::MyAdapter for Server, server = true, omit = ["spi.monitor"]);
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>### `Spi`
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>```rust
@@ -3119,12 +3133,14 @@ the traits it implements:</p>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    fn capabilities() -&gt; SpiCapabilities&lt;&#39;i&gt;;
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    fn configure(config: SpiConfig) -&gt; Result&lt;SpiActual, SpiError&gt;;
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    fn configure(config: SpiConfig) -&gt; Result&lt;SpiConfig, SpiError&gt;;
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
 </span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    fn set_cs(active: bool) -&gt; Result&lt;(), SpiError&gt;;
 </span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    property!(rw reference_voltage: Volt, SpiError);
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>}
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    #[optional]
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    #[stream(SpiFrame&lt;&#39;i&gt;, counted)]
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    fn monitor(config: SpiMonitorConfig) -&gt; Result&lt;(), SpiError&gt;;
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>}
 </span></code></pre></div></p>
 <ul>
 <li><code>transfer</code> - full duplex: writes <code>data</code>, returns as many bytes as were read. CS is asserted for the call and
@@ -3134,46 +3150,36 @@ the traits it implements:</p>
   register address, then read it) stays under one CS assertion instead of two separate <code>transfer</code> calls.</li>
 <li><code>write</code> - like <code>transfer</code>, ignoring what comes back.</li>
 <li><code>capabilities</code> - frequency range, word sizes, master/slave support, IO levels; see <a href="#types">Types</a> below.</li>
-<li><code>configure</code> - sets the bus (role, frequency, mode 0-3, bit order, word size, CS mode) and returns the frequency
-  actually set, the nearest the hardware can do without going above what was asked. <code>SpiRole::Disabled</code> releases
-  the pins.</li>
+<li><code>configure</code> - sets the bus (role, frequency, mode 0-3, bit order, word size, CS mode, IO level) in one
+  <code>SpiConfig</code> and answers with what was actually set: the frequency the hardware settled on, never above what was
+  asked, and the IO level in effect (<code>io_level: None</code> leaves it as it is). <code>SpiRole::Disabled</code> releases the pins.</li>
 <li><code>set_cs</code> - asserts or releases CS, only meaningful with <code>CsMode::Manual</code>.</li>
-<li><code>reference_voltage</code> - IO level, on adapters with level translators.</li>
-</ul>
-<h3 id="spimonitor"><code>SpiMonitor</code><a class="headerlink" href="#spimonitor" title="Permanent link">&para;</a></h3>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_trait]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">SpiMonitor</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="cp">#[stream(SpiFrame&lt;&#39;i&gt;, counted)]</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">frames</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">SpiMonitorConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">SpiError</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">}</span>
-</span></code></pre></div>
-<ul>
-<li><code>frames</code> - a counted <a href="../../api/streams/#opening-a-stream">stream function</a>: the host opens it with the bus
-  settings needed to decode frames (mode, bit order, word size) and receives one <code>SpiFrame</code> per CS assertion seen on
-  the bus, in order, until it closes the stream. The monitor doesn't drive CS or the clock itself, it only listens.
+<li><code>monitor</code> - <code>#[optional]</code>, a counted <a href="../../api/streams/#opening-a-stream">stream function</a>: the host opens it with
+  the bus settings needed to decode frames (mode, bit order, word size, IO level) and receives one <code>SpiFrame</code> per CS
+  assertion seen on the bus, in order, until it closes the stream. The monitor doesn't drive CS or the clock itself, it only listens.
   Its unit is a frame: the event head carries when CS was asserted and how many frames the device dropped
-  (<a href="../../api/stream_reliability/">stream delivery</a>).</li>
+  (<a href="../../api/stream_reliability/">stream delivery</a>). A device without monitoring hardware leaves it out, and a
+  host sees that in the device's introspection.</li>
 </ul>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>SpiConfig</code> - <code>role: SpiRole</code>, <code>freq: Hertz</code>, <code>mode: SpiMode</code>, <code>bit_order: BitOrder</code>, <code>word_bits: u8</code>,
-  <code>cs: CsMode</code>; given to <code>Spi::configure</code>.</li>
-<li><code>SpiActual</code> - <code>freq: Hertz</code>, the frequency <code>Spi::configure</code> actually set.</li>
-<li><code>SpiMonitorConfig</code> - <code>mode</code>, <code>bit_order</code>, <code>word_bits</code>: the subset of <code>SpiConfig</code> a monitor needs to decode frames,
-  the argument of <code>SpiMonitor::frames</code>.</li>
+  <code>cs: CsMode</code>, <code>io_level: Option&lt;Volt&gt;</code>; the argument and the answer of <code>Spi::configure</code>.</li>
+<li><code>SpiMonitorConfig</code> - <code>mode</code>, <code>bit_order</code>, <code>word_bits</code>, <code>io_level</code>: the subset of <code>SpiConfig</code> a monitor needs to
+  decode frames, the argument of <code>Spi::monitor</code>.</li>
 <li><code>SpiRole</code> - <code>Disabled</code>, <code>Master</code>, <code>Slave</code>. Data paths for slave mode are not defined yet.</li>
 <li><code>SpiMode</code> - <code>Mode0</code>..<code>Mode3</code>, the usual CPOL/CPHA numbering; <code>sized</code>, 2 bits.</li>
 <li><code>BitOrder</code> - <code>MsbFirst</code>, <code>LsbFirst</code>; <code>sized</code>, 1 bit.</li>
 <li><code>CsMode</code> - <code>Auto</code> (asserted per transfer/transaction, released after), <code>Manual</code> (only <code>Spi::set_cs</code>), <code>None</code> (not
   driven by this device).</li>
 <li><code>SpiOp&lt;'i&gt;</code> - one operation of a <code>Spi::transaction</code>: <code>Write</code>, <code>Read(u16)</code>, <code>Transfer</code>, <code>Delay(Second)</code>.</li>
-<li><code>SpiFrame&lt;'i&gt;</code> - one frame seen by <code>SpiMonitor</code>: <code>end: Second</code> (CS released; asserted is the head's time), <code>truncated</code>,
-  <code>mosi</code> / <code>miso: MaxLen&lt;RefVec&lt;'i, u8&gt;, SPI_MAX&gt;</code>.</li>
+<li><code>SpiFrame&lt;'i&gt;</code> - one frame seen by <code>Spi::monitor</code>: <code>end: Second</code> (CS released; asserted is the head's time),
+  <code>truncated</code>, <code>mosi</code> / <code>miso: MaxLen&lt;RefVec&lt;'i, u8&gt;, SPI_MAX&gt;</code>.</li>
 <li><code>SpiCapabilities&lt;'i&gt;</code> - <code>min_freq</code> / <code>max_freq: Hertz</code>, <code>min_word_bits</code> / <code>max_word_bits: u8</code>, <code>master</code> /
-  <code>slave</code> / <code>monitor: bool</code>, <code>io_levels: MaxLen&lt;RefVec&lt;'i, Volt&gt;, 8&gt;</code>, <code>max_len: u32</code> (largest transfer this
-  device does, at most <code>SPI_MAX</code>).</li>
-<li><code>SpiError</code> - <code>Unsupported</code>, <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>InvalidArgument</code>, <code>WrongMode</code>, <code>BufferTooBig</code>,
-  <code>Timeout</code>; unsized (<code>unib32</code> discriminant), evolvable. Each method's rustdoc lists the variants it returns.</li>
+  <code>slave: bool</code>, <code>io_levels: MaxLen&lt;RefVec&lt;'i, Volt&gt;, MAX_IO_LEVELS&gt;</code>, <code>io_level_min</code> / <code>io_level_max: Option&lt;Volt&gt;</code>
+  (an adjustable supply), <code>max_len: u32</code> (largest transfer this device does, at most <code>SPI_MAX</code>).</li>
+<li><code>SpiError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>BufferTooBig</code>; unsized
+  (<code>unib32</code> discriminant), evolvable. Each method lists the variants it returns (<code>#[errors]</code>).</li>
 </ul>
 <p><code>SPI_MAX</code> (512 bytes) bounds every transfer, write and the reads of one transaction concatenated; <code>MAX_OPS</code> (16)
 bounds the operations of one <code>Spi::transaction</code>. Both are compatible to raise later, not to lower.</p>

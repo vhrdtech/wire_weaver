@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2099,6 +2103,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3102,6 +3133,8 @@
       
         
       
+        
+      
     
     
     
@@ -3158,7 +3191,7 @@ whether that is a <code>u16</code> of mV or an <code>f32</code> of V, and the ho
 <tbody>
 <tr>
 <td><code>time</code></td>
-<td><code>Second</code>, <code>Hertz</code>, <code>HertzPerSecond</code></td>
+<td><code>Second</code>, <code>Hertz</code>, <code>HertzPerSecond</code>, <code>Baud</code></td>
 </tr>
 <tr>
 <td><code>electrical</code></td>
@@ -3243,11 +3276,17 @@ whether that is a <code>u16</code> of mV or an <code>f32</code> of V, and the ho
 <td><code>Second</code></td>
 <td><code>seconds</code>, <code>milliseconds</code>, <code>microseconds</code>, <code>nanoseconds</code>, <code>picoseconds</code>, <code>seconds_f32</code></td>
 </tr>
+<tr>
+<td><code>Baud</code></td>
+<td><code>baud</code>, <code>kilobaud</code>, <code>megabaud</code>, <code>baud_f32</code></td>
+</tr>
 </tbody>
 </table>
 <p><code>PartialEq</code> and <code>PartialOrd</code> compare values across prefixes and number types: <code>Volt::millivolts(1000u16) ==
 Volt::volts(1u8)</code>. Two integers are compared exactly, even 60 orders of magnitude apart; otherwise through <code>f64</code>.</p>
-<p>The <code>quantity!</code> macro is a shorthand for literals: <code>quantity!(3300 mV u16)</code>, <code>quantity!(400 kHz u32)</code>.</p>
+<p>The <code>quantity!</code> macro is a shorthand for literals: <code>quantity!(3300 mV u16)</code>, <code>quantity!(400 kHz u32)</code>, <code>quantity!(115200 Bd u32)</code>.</p>
+<p><code>Baud</code> is a symbol rate, the baud rate of a UART or a protocol decoder, kept apart from <code>Hertz</code> so a baud rate
+is never taken for a clock frequency (and a tool shows <code>115200 Bd</code>, not <code>115.2 kHz</code>).</p>
 <h2 id="second-as-a-timestamp"><code>Second</code> as a timestamp<a class="headerlink" href="#second-as-a-timestamp" title="Permanent link">&para;</a></h2>
 <p>A <code>Second</code> that marks when something happened (an ADC sample, the start and end of an I2C transaction) is the
 device's time since its clock started. A device has one clock, so the timestamps of all its traits line up, and

@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2121,6 +2125,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3146,6 +3177,8 @@
       
         
       
+        
+      
     
     
     
@@ -3209,7 +3242,7 @@ early once it has found the family code it is looking for).</p>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">capabilities</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">OneWireCapabilities</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">OneWireConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">OneWireError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">OneWireConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">OneWireConfig</span><span class="p">,</span><span class="w"> </span><span class="n">OneWireError</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">triplet</span><span class="p">(</span><span class="n">direction</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Triplet</span><span class="p">,</span><span class="w"> </span><span class="n">OneWireError</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="p">}</span>
@@ -3221,8 +3254,9 @@ early once it has found the family code it is looking for).</p>
   bus is a normal <code>false</code>).</li>
 <li><code>search</code> - paged ROM search: start with <code>from: None</code>, continue with each page's <code>next</code> until it comes back
   <code>None</code>. <code>family</code>, when given, only returns ids whose first byte matches.</li>
-<li><code>capabilities</code> - pins the bus can be put on, and whether overdrive / strong pull-up are supported.</li>
-<li><code>configure</code> - puts the bus on one of <code>capabilities().pins</code> at a given speed, or disables it.</li>
+<li><code>capabilities</code> - pins the bus can be put on, IO levels, and whether overdrive / strong pull-up are supported.</li>
+<li><code>configure</code> - puts the bus on one of <code>capabilities().pins</code> at a given speed and IO level (<code>io_level: None</code> leaves
+  it as it is), or disables it; answers with what was actually set, as the <code>configure</code> of the other IO crates does.</li>
 <li><code>triplet</code> - one search step at bit level, for a search run on the host instead of the device (see
   <a href="#the-protocol-briefly">The protocol, briefly</a>).</li>
 </ul>
@@ -3242,12 +3276,14 @@ the transaction's last byte; <code>OneWireCapabilities::strong_pullup</code> say
   devices were found).</li>
 <li><code>Triplet</code> - one <code>triplet</code> step's result: <code>id_bit</code>, <code>cmp_bit</code> (both set when every remaining device agrees on this
   bit, both clear at a fork), <code>direction</code> (the bit this step actually drove onto the bus).</li>
-<li><code>OneWireConfig</code> - <code>enabled: bool</code>, <code>pin: u8</code> (index into <code>OneWireCapabilities::pins</code>), <code>speed: OneWireSpeed</code>.</li>
+<li><code>OneWireConfig</code> - <code>enabled: bool</code>, <code>pin: u8</code> (index into <code>OneWireCapabilities::pins</code>), <code>speed: OneWireSpeed</code>,
+  <code>io_level: Option&lt;Volt&gt;</code>; the argument and the answer of <code>configure</code>.</li>
 <li><code>OneWireSpeed</code> - <code>Standard</code> / <code>Overdrive</code>; <code>sized</code>, 1 bit.</li>
-<li><code>OneWireCapabilities&lt;'i&gt;</code> - <code>pins: MaxLen&lt;RefVec&lt;'i, MaxLen&lt;&amp;'i str, 16&gt;&gt;, MAX_PINS&gt;</code> (by name), <code>overdrive: bool</code>,
+<li><code>OneWireCapabilities&lt;'i&gt;</code> - <code>pins: MaxLen&lt;RefVec&lt;'i, MaxLen&lt;&amp;'i str, 16&gt;&gt;, MAX_PINS&gt;</code> (by name), <code>io_levels:
+  MaxLen&lt;RefVec&lt;'i, Volt&gt;, MAX_IO_LEVELS&gt;</code>, <code>io_level_min</code> / <code>io_level_max: Option&lt;Volt&gt;</code>, <code>overdrive: bool</code>,
   <code>strong_pullup: bool</code>.</li>
-<li><code>OneWireError</code> - <code>Unsupported</code>, <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>InvalidArgument</code>, <code>WrongMode</code>, <code>NoPresence</code>,
-  <code>CrcMismatch</code>, <code>ShortCircuit</code>; self-describing (<code>unib32</code> discriminant).</li>
+<li><code>OneWireError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>NoPresence</code>,
+  <code>CrcMismatch</code>, <code>ShortCircuit</code>; unsized (<code>unib32</code> discriminant), evolvable.</li>
 </ul>
 <p>Constants: <code>OW_MAX</code> (256, largest write or read of one transaction), <code>MAX_ROMS</code> (16, most ROM ids in one search
 page), <code>MAX_PINS</code> (8, most pins a bus can be put on).</p>

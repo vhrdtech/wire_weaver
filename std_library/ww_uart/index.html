@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -1865,19 +1869,19 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#uartmonitor" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#time" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>UartMonitor</code>
+        Time
       </span>
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2127,6 +2131,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3013,19 +3044,19 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#uartmonitor" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#time" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>UartMonitor</code>
+        Time
       </span>
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3158,6 +3189,8 @@
       
         
       
+        
+      
     
     
     
@@ -3192,36 +3225,17 @@
 <h1 id="ww_uart">ww_uart<a class="headerlink" href="#ww_uart" title="Permanent link">&para;</a></h1>
 <p>Part of the <a href="../io_family/">IO trait family</a>. <code>ww_uart</code> is a WireWeaver trait for bridging a UART (serial port) to
 the host, and for watching both lines of a serial link without driving them. It is <code>no_std</code> by default and depends
-on <code>wire_weaver</code> and <code>ww_si</code> (for the <code>Volt</code> reference-voltage type and <code>Second</code> timestamps).</p>
+on <code>wire_weaver</code> and <code>ww_si</code> (for <code>Baud</code> rates, the <code>Volt</code> reference-voltage type and <code>Second</code> timestamps).</p>
 <p>Add it to a device API crate with:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_uart</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span>
 </span></code></pre></div>
 <h2 id="traits">Traits<a class="headerlink" href="#traits" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Trait</th>
-<th>What it is for</th>
-<th>Who implements it</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Uart</code></td>
-<td>Configure, receive on <code>rx</code>, send on the <code>tx</code> credit sink.</td>
-<td>Every UART bridge</td>
-</tr>
-<tr>
-<td><code>UartMonitor</code></td>
-<td>Both lines of a serial link as two streams, without driving them.</td>
-<td>Sniffers, debug adapters</td>
-</tr>
-</tbody>
-</table>
-<p>Both compose with the rest of the API using <a href="../../api/traits/"><code>ww_impl!</code></a> and can be nested as
-<a href="../../api/arrays/">arrays</a> when a device has more than one UART (<code>ww_impl!(uart[]: ww_uart::Uart)</code>, as
-<code>examples/uart_api</code> does).</p>
+<p><code>Uart</code> is one port: configure it, receive on <code>rx</code>, send on the <code>tx</code> credit sink, and, on ports with the hardware for
+it, watch both lines of a link between two other devices on the <a href="../../api/optional_items/">optional</a> <code>monitor</code>
+stream. It composes with the rest of the API using <a href="../../api/traits/"><code>ww_impl!</code></a> and is nested as an
+<a href="../../api/arrays/">array</a> when a device has more than one UART (<code>ww_impl!(uart[]: ww_uart::Uart)</code>, as
+<code>examples/uart_api</code> does); monitoring comes with each element, no second array or trait to keep in step.</p>
 <h3 id="uart"><code>Uart</code><a class="headerlink" href="#uart" title="Permanent link">&para;</a></h3>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Uart</span><span class="w"> </span><span class="p">{</span>
@@ -3233,84 +3247,150 @@ on <code>wire_weaver</code> and <code>ww_si</code> (for the <code>Volt</code> re
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">capabilities</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Capabilities</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">baud_rate</span><span class="p">:</span><span class="w"> </span><span class="nc">BaudRate</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="p">);</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">mode</span><span class="p">:</span><span class="w"> </span><span class="nc">Mode</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="p">);</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">stop_bits</span><span class="p">:</span><span class="w"> </span><span class="nc">StopBits</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="p">);</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">parity</span><span class="p">:</span><span class="w"> </span><span class="nc">Parity</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="p">);</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">data_bits</span><span class="p">:</span><span class="w"> </span><span class="nc">DataBits</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="p">);</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">prevent_back_feed</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="p">);</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">reference_voltage</span><span class="p">:</span><span class="w"> </span><span class="nc">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="p">);</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_pin_level</span><span class="p">(</span><span class="n">pin</span><span class="p">:</span><span class="w"> </span><span class="nc">Pin</span><span class="p">,</span><span class="w"> </span><span class="n">is_high</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">baud_rate_actual</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span>
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">send_break</span><span class="p">(</span><span class="n">duration</span><span class="p">:</span><span class="w"> </span><span class="nc">Second</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">tx_pending</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span>
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="p">}</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">UartConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">UartConfig</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_pin_level</span><span class="p">(</span><span class="n">pin</span><span class="p">:</span><span class="w"> </span><span class="nc">Pin</span><span class="p">,</span><span class="w"> </span><span class="n">is_high</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">send_break</span><span class="p">(</span><span class="n">duration</span><span class="p">:</span><span class="w"> </span><span class="nc">Second</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">tx_pending</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="cp">#[optional]</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="cp">#[stream(MonitorChunk&lt;&#39;i&gt;, counted)]</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">monitor</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">MonitorConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">MonitorConfig</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">}</span>
 </span></code></pre></div>
 <ul>
-<li><code>rx</code> - received bytes, chunked as they arrive (see <a href="#types"><code>RxChunk</code></a> below). A chunk ends after a short
-  silence on the line, when it is full, or on a line error. A counted stream, opened by calling it: its unit is a
+<li><code>rx</code> - received bytes, chunked as they arrive (see <a href="#types"><code>RxChunk</code></a> below). A chunk ends when the line stays
+  idle for more than <code>UartConfig::idle_chars</code> character times, when it is full, or on a line error, so each chunk is
+  one burst of back-to-back characters (a frame of most protocols, or the part of it that fit). A counted stream, opened by calling it: its unit is a
   byte, so the event head carries each chunk's byte position, the device time of its first byte, and exactly how
-  many bytes the device dropped before it (<a href="../../api/stream_reliability/">stream delivery</a>).</li>
+  many bytes the device dropped before it (<a href="../../api/stream_reliability/">stream delivery</a>); the chunk itself says
+  when its last byte arrived, if the device measures it (<a href="#time">Time</a> below).</li>
 <li><code>tx</code> - bytes to send, a <a href="../../api/streams/">credit sink</a> (API-28): the host tracks the device's TX buffer
   (<code>Capabilities::tx_buffer</code>) and never sends more than it holds, so a large write (e.g. a file piped to the UART)
   can't overrun it.</li>
-<li><code>capabilities()</code> - what this device supports: baud rate range, flow control modes, reference voltages, buffer
-  sizes.</li>
-<li><code>baud_rate</code> / <code>mode</code> / <code>stop_bits</code> / <code>parity</code> / <code>data_bits</code> / <code>prevent_back_feed</code> / <code>reference_voltage</code> - line
-  configuration; the hardware rounds the requested baud rate, so <code>baud_rate_actual()</code> says what it actually set.</li>
+<li><code>capabilities()</code> - what this device supports: baud rate range, flow control modes, IO levels, buffer sizes.</li>
+<li><code>configure</code> - the whole line configuration in one <a href="#types"><code>UartConfig</code></a> (baud rate, data bits, parity, stop bits,
+  mode, back-feed detector, IO level, the idle time that ends a chunk), answered with what was actually set: the
+  hardware rounds the baud rate to what its divider can do and the idle time to what its receiver can time, and <code>io_level: None</code> keeps the level and is answered with the level in effect. One call
+  instead of a property per setting, so a port never runs with half a configuration.</li>
 <li><code>set_pin_level</code> - manual control of a pin, only in <a href="#types"><code>Mode::Test</code></a>; every other mode answers
-  <a href="#types"><code>Error::WrongMode</code></a>.</li>
+  <code>Common(WrongState)</code>.</li>
 <li><code>send_break</code> - holds TX low for <code>duration</code> (a break condition), after the bytes already queued.</li>
 <li><code>tx_pending()</code> - bytes queued for sending and not sent yet.</li>
-</ul>
-<h3 id="uartmonitor"><code>UartMonitor</code><a class="headerlink" href="#uartmonitor" title="Permanent link">&para;</a></h3>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_trait]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">UartMonitor</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="cp">#[stream(MonitorChunk&lt;&#39;i&gt;, counted)]</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">lines</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">MonitorConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">}</span>
-</span></code></pre></div>
-<ul>
-<li><code>lines</code> - a counted <a href="../../api/streams/#opening-a-stream">stream function</a>: the host opens it with the line
-  settings of the watched link (baud rate, data bits, parity, stop bits) and gets back the baud rate actually set
-  (same as <code>Uart::baud_rate_actual</code>), then both directions of the link (rePort: RX and CTS/RX2) in one stream, in
+<li><code>monitor</code> - <code>#[optional]</code>, a counted <a href="../../api/streams/#opening-a-stream">stream function</a>: the host opens it with the line
+  settings of the watched link (baud rate, data bits, parity, stop bits, IO level) and gets back what was actually
+  set (as <code>Uart::configure</code> does), then both directions of the link (rePort: RX and CTS/RX2) in one stream, in
   the order they arrived: each <code>MonitorChunk</code> says which <code>MonitorLine</code> it came from, so a request and its answer
-  stay in order. Closing the stream stops receiving. The unit is a byte of either line.</li>
+  stay in order. Closing the stream stops receiving. The unit is a byte of either line. Most bridges can't sniff a
+  link they aren't part of: such a device leaves it out with <code>omit = ["uart.monitor"]</code> in its <code>ww_codegen!</code>, and a
+  host sees that in the device's introspection.</li>
 </ul>
-<p>Monitoring is its own trait because it is its own function: a sniffer may have no UART master at all, and most
-bridges can't sniff a link they aren't part of.</p>
+<h2 id="time">Time<a class="headerlink" href="#time" title="Permanent link">&para;</a></h2>
+<p>Every received chunk, on <code>rx</code> and on <code>monitor</code>, says when it arrived, on the device's one clock
+(<a href="../ww_timebase/"><code>ww_timebase::Clock</code></a>) that also timestamps everything else the device captures:</p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Where</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>first byte arrived (end of its stop bit)</td>
+<td>the event head's <code>t</code></td>
+<td>always set</td>
+</tr>
+<tr>
+<td>last byte arrived</td>
+<td><code>RxChunk::end: Option&lt;Second&gt;</code></td>
+<td>set by devices that measure it</td>
+</tr>
+</tbody>
+</table>
+<p>The bytes of a chunk came back to back, so the time of each one follows from the first. Byte <code>i</code> (from 0) of a chunk
+of <code>n</code> bytes arrived at:</p>
+<ul>
+<li><code>first + i * (end - first) / (n - 1)</code> when <code>end</code> is set. This takes up the sender's baud rate error: UARTs accept
+  2-3 % off the nominal rate, which adds up to milliseconds over a long burst, so a device that can time the last
+  byte does.</li>
+<li><code>first + i * frame_bits / baud</code> when it isn't: <code>frame_bits</code> is start + data + parity + stop bits
+  (<code>UartConfig::frame_bits()</code>, 10 for 8N1) and <code>baud</code> the rate <code>configure</code> answered. The last byte is then at
+  <code>first + (n - 1) * frame_bits / baud</code>.</li>
+</ul>
+<p>All are <code>ww_si::Second</code>s since the device's clock started, in the prefix and number type the device picks (usually
+a <code>u32</code> of microseconds, which wraps every 71.6 minutes; the host unwraps it around <code>Clock::now()</code>). With them a host:</p>
+<ul>
+<li>lines up serial traffic with the device's other data: a GPIO edge, an ADC sample, an I2C transaction;</li>
+<li>tells a request and its answer apart in time on a <code>monitor</code> link, and measures the turnaround between them;</li>
+<li>sees the gaps on the line: a chunk ends on a silence of more than <code>idle_chars</code> character times, so the next
+  chunk's first byte comes at least that much after the previous chunk's last one.</li>
+</ul>
+<p>On the client the head's time is the <code>t</code> of <code>StreamEvent::Item</code> (<code>rx.recv_event()</code>), next to the chunk:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">actual</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">uart</span><span class="p">().</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">??</span><span class="p">;</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">char_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">actual</span><span class="p">.</span><span class="n">frame_bits</span><span class="p">().</span><span class="n">unwrap</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">f64</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">actual</span><span class="p">.</span><span class="n">baud_rate</span><span class="p">.</span><span class="n">to_f64</span><span class="p">();</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">rx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">uart</span><span class="p">().</span><span class="n">rx</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">loop</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="k">match</span><span class="w"> </span><span class="n">rx</span><span class="p">.</span><span class="n">recv_event</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Item</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">first</span><span class="p">),</span><span class="w"> </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="p">.</span><span class="n">bytes</span><span class="p">.</span><span class="n">len</span><span class="p">();</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">            </span><span class="c1">// measured, or one character time per byte after the first</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">last</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="p">.</span><span class="n">end</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">end</span><span class="o">|</span><span class="w"> </span><span class="n">end</span><span class="p">.</span><span class="n">to_f64</span><span class="p">())</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">                </span><span class="p">.</span><span class="n">unwrap_or</span><span class="p">(</span><span class="n">first</span><span class="p">.</span><span class="n">to_f64</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">f64</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">char_time</span><span class="p">);</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">            </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;{n} bytes from {:.6} s to {last:.6} s&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">first</span><span class="p">.</span><span class="n">to_f64</span><span class="p">());</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">        </span><span class="n">StreamEvent</span><span class="p">::</span><span class="n">Gap</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">units</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;{units} bytes lost&quot;</span><span class="p">),</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>A device that can't time each byte (a DMA that hands over a block when the line goes idle) times the block's end
+from the idle interrupt, sends it as <code>end</code>, and takes the first byte a character time per byte earlier at the
+configured baud rate, as <code>examples_mcu/usb_stm32h725ig</code> does.</p>
+<p><code>idle_chars</code> defaults to <code>IDLE_CHARS_DEFAULT</code> (2): a gap of one character time would split the output of senders
+that pause briefly between characters (a CPU feeding its UART byte by byte, a USB-serial bridge between its USB
+packets), more would merge the frames of protocols that keep only a short gap between them (Modbus RTU separates
+frames by 3.5 character times, which 2 still splits). A protocol with its own rule sets it in <code>UartConfig</code>.</p>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>BaudRate</code> - common rates (<code>Baud110</code> .. <code>Baud921600</code>) encode in a nibble; anything else is
-  <code>BaudOther(u32)</code> in baud.</li>
+<li><code>ww_si::Baud</code> - a baud rate (<code>Baud::baud(115_200u32)</code>), in the number type and prefix the caller picks, like every
+  other <code>ww_si</code> quantity.</li>
 <li><code>Mode</code> - <code>Asynchronous</code> (no flow control), <code>HardwareFlowControl</code> (RTS/CTS), <code>SoftwareFlowControl</code> (XON/XOFF),
   <code>HighZ</code> (all pins High-Z), <code>Test</code> (manual pin control through <code>set_pin_level</code>).</li>
 <li><code>Pin</code> - <code>Tx</code>, <code>Rx</code>, <code>Rts</code>, <code>Cts</code>, used by <code>set_pin_level</code>.</li>
 <li><code>StopBits</code> - <code>Stop1</code>, <code>Stop2</code>.</li>
 <li><code>Parity</code> - <code>None</code>, <code>Odd</code>, <code>Even</code>.</li>
 <li><code>DataBits</code> - <code>Eight</code>, <code>Seven</code>, <code>Nine</code>, <code>Six</code>, <code>Five</code>.</li>
-<li><code>Error</code> - <code>Unsupported</code>, <code>UnsupportedMode</code>, <code>UnsupportedReferenceVoltage</code>, <code>WrongMode</code>, <code>CustomU8(u8)</code>,
-  <code>CustomU32(u32)</code>, <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>Timeout</code>; each method's rustdoc lists the variants it returns.</li>
-<li><code>RxChunk&lt;'i&gt;</code> - <code>flags: Option&lt;RxFlags&gt;</code>, <code>bytes: MaxLen&lt;RefVec&lt;'i, u8&gt;, UART_CHUNK_MAX&gt;</code>; when it was received
-  is the time in the event head.</li>
+<li><code>UartError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>); unsized, evolvable. Each
+  method lists the variants it returns (<code>#[errors]</code>); line errors of received data are <code>RxFlags</code> of the chunk, not
+  errors.</li>
+<li><code>RxChunk&lt;'i&gt;</code> - <code>end: Option&lt;Second&gt;</code> (when the last byte arrived, if the device measures it), <code>flags: Option&lt;RxFlags&gt;</code>, <code>bytes: MaxLen&lt;RefVec&lt;'i,
+  u8&gt;, UART_CHUNK_MAX&gt;</code>; when the first byte arrived is the time in the event head, see <a href="#time">Time</a>.</li>
 <li><code>MonitorChunk&lt;'i&gt;</code> - <code>line: MonitorLine</code> (<code>A</code> or <code>B</code>, 1 bit), <code>chunk: RxChunk&lt;'i&gt;</code>.</li>
 <li><code>RxFlags</code> - <code>parity_error</code>, <code>framing_error</code>, <code>overrun</code>, <code>break_detected</code>, seen while receiving a chunk.</li>
-<li><code>MonitorConfig</code> - <code>baud_rate</code>, <code>data_bits</code>, <code>parity</code>, <code>stop_bits</code> of the link <code>UartMonitor::lines</code> watches.</li>
-<li><code>Capabilities&lt;'i&gt;</code> - <code>min_baud_rate</code> / <code>max_baud_rate: u32</code>, <code>voltages: MaxLen&lt;RefVec&lt;'i, Volt&gt;, 8&gt;</code>,
-  <code>rx_timestamps</code> (<code>rx</code> events carry their time) / <code>hw_flow_control</code> / <code>sw_flow_control</code> / <code>high_z_mode</code> / <code>test_mode</code> /
+<li><code>UartConfig</code> - <code>baud_rate: Baud</code>, <code>data_bits</code>, <code>parity</code>, <code>stop_bits</code>, <code>mode</code>, <code>prevent_back_feed: bool</code>,
+  <code>io_level: Option&lt;Volt&gt;</code>, <code>idle_chars: u8</code> (idle character times that end a chunk); the argument and the answer
+  of <code>configure</code>. <code>frame_bits()</code> is the bits of one character on the line (start + data + parity + stop).</li>
+<li><code>MonitorConfig</code> - <code>baud_rate</code>, <code>data_bits</code>, <code>parity</code>, <code>stop_bits</code>, <code>io_level</code>, <code>idle_chars</code> of the link <code>Uart::monitor</code>
+  watches; the argument and the answer of <code>monitor</code>.</li>
+<li><code>Capabilities&lt;'i&gt;</code> - <code>min_baud_rate</code> / <code>max_baud_rate: Baud</code>, <code>io_levels: MaxLen&lt;RefVec&lt;'i, Volt&gt;,
+  MAX_IO_LEVELS&gt;</code>, <code>io_level_min</code> / <code>io_level_max: Option&lt;Volt&gt;</code> (an adjustable supply),
+  <code>hw_flow_control</code> / <code>sw_flow_control</code> / <code>high_z_mode</code> / <code>test_mode</code> /
   <code>back_feed_detector: bool</code>, <code>rx_buffer</code> / <code>tx_buffer: u32</code> (device receive and transmit buffer sizes, in bytes).</li>
 </ul>
 <p>All enums and structs are behind <code>#[derive_shrink_wrap]</code> with <code>owned(feature = "std")</code>, so owned (<code>*Owned</code>)
-variants are available by enabling the crate's <code>std</code> feature; the plain configuration enums (<code>BaudRate</code>, <code>Mode</code>,
+variants are available by enabling the crate's <code>std</code> feature; the plain configuration enums (<code>Mode</code>,
 <code>Pin</code>, <code>StopBits</code>, <code>Parity</code>, <code>DataBits</code>) also derive <code>PartialEq</code>/<code>Eq</code>.</p>
 <h2 id="composing-into-a-device-api">Composing into a device API<a class="headerlink" href="#composing-into-a-device-api" title="Permanent link">&para;</a></h2>
-<p>A device exposes a UART by implementing <code>Uart</code> (and, for a sniffer, <code>UartMonitor</code>) on its API root:</p>
+<p>A device exposes a UART by implementing <code>Uart</code> on its API root:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">MyDeviceApi</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">uart</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_uart</span><span class="p">::</span><span class="n">Uart</span><span class="p">);</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">uart_monitor</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_uart</span><span class="p">::</span><span class="n">UartMonitor</span><span class="p">);</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">}</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1">// a port without monitoring hardware</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span><span class="n">my_device_api</span><span class="p">::</span><span class="n">MyDeviceApi</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Server</span><span class="p">,</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">omit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;uart.monitor&quot;</span><span class="p">]);</span>
 </span></code></pre></div>
 <p><code>tests/io_uart_api</code> is exactly this shape (used by <code>tests/io_uart</code>'s mock server and in-process tests); a device
 with more than one UART nests it as an array instead (<code>ww_impl!(uart[]: ww_uart::Uart)</code>, see <code>examples/uart_api</code>).</p>
@@ -3322,10 +3402,9 @@ with more than one UART nests it as an array instead (<code>ww_impl!(uart[]: ww_
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">uart</span><span class="p">(</span><span class="mi">0</span><span class="p">).</span><span class="n">tx</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">tx</span><span class="p">.</span><span class="n">send_bytes</span><span class="p">(</span><span class="s">b&quot;abc000def&quot;</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
-<p>Receiving chunks from <code>rx</code> and reading/writing properties looks the same as any other nested trait and credit
-sink/stream (see <a href="../../api/properties/">properties</a> and <a href="../../api/streams/">streams</a>); for a non-array <code>uart</code>
-resource (as in <code>tests/io_uart_api</code>) the same calls drop the index: <code>client.uart().rx()</code>,
-<code>client.uart().write_baud_rate(BaudRate::Baud115200)</code>.</p>
+<p>Receiving chunks from <code>rx</code> and configuring the port look the same as any other nested trait, method and
+stream (see <a href="../../api/streams/">streams</a>); for a non-array <code>uart</code> resource (as in <code>tests/io_uart_api</code>) the same
+calls drop the index: <code>client.uart().rx()</code>, <code>client.uart().configure(config)</code>.</p>
 
 
 

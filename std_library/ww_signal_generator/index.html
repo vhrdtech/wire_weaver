@@ -19,7 +19,7 @@
         <link rel="prev" href="../ww_logic_analyzer/">
       
       
-        <link rel="next" href="../ww_client_server/">
+        <link rel="next" href="../ww_memory/">
       
       
         
@@ -362,6 +362,8 @@
   
     
       
+      
+        
       
         
       
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2123,6 +2127,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3136,6 +3167,8 @@
       
         
       
+        
+      
     
     
     
@@ -3265,8 +3298,8 @@ faster than it plays, a <code>once</code> table is a streamed DAC output. Table 
 <li><code>PgActual</code> - <code>rate: Hertz</code>, <code>width: u8</code> (the raw word width the generator expects).</li>
 <li><code>PgStatus</code> - <code>Idle</code>, <code>Loading { samples: u32 }</code>, <code>Ready</code>, <code>Running { repeat: u32, t_start: Second }</code>, <code>Done {
   t_start: Second }</code>, <code>Underrun</code>; <code>sized</code> (<code>unib32</code> discriminant).</li>
-<li><code>PgError</code> - <code>Unsupported</code>, <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>InvalidArgument</code>, <code>WrongMode</code>, <code>NoSuchChannel</code>,
-  <code>Busy</code>; <code>self_describing</code> (<code>unib32</code> discriminant), shared by <code>PatternGenerator</code>.</li>
+<li><code>PgError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>NoSuchChannel</code>; unsized
+  (<code>unib32</code> discriminant), evolvable, used by <code>PatternGenerator</code>.</li>
 <li><code>WgCapabilities&lt;'i&gt;</code> - <code>channels: MaxLen&lt;RefVec&lt;'i, WgChannelInfo&lt;'i&gt;&gt;, MAX_CHANNELS&gt;</code>.</li>
 <li><code>WgChannelInfo&lt;'i&gt;</code> - <code>name</code>, <code>min</code> / <code>max: Volt</code>, <code>max_freq: Hertz</code>, <code>max_sample_rate: Hertz</code>, <code>bits: u8</code>,
   <code>table_len: u32</code>, <code>code_to_volt: Linear</code>, <code>formats: MaxLen&lt;RefVec&lt;'i, SampleFormat&gt;, MAX_FORMATS&gt;</code>.</li>
@@ -3277,8 +3310,8 @@ faster than it plays, a <code>once</code> table is a streamed DAC output. Table 
 <li><code>WaveformActual</code> - <code>freq: Hertz</code>, <code>amplitude: Volt</code>, <code>offset: Volt</code>.</li>
 <li><code>WaveformState</code> - <code>Stopped { level: Volt }</code>, <code>Held { waveform: Waveform }</code>, <code>Running { waveform: Waveform, actual:
   WaveformActual }</code>; <code>sized</code> (<code>unib32</code> discriminant).</li>
-<li><code>WgError</code> - <code>Unsupported</code>, <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>InvalidArgument</code>, <code>WrongMode</code>, <code>NoSuchChannel</code>;
-  <code>self_describing</code> (<code>unib32</code> discriminant), shared by <code>WaveformGenerator</code> and <code>WaveformChannel</code>.</li>
+<li><code>WgError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>NoSuchChannel</code>; unsized
+  (<code>unib32</code> discriminant), evolvable, shared by <code>WaveformGenerator</code> and <code>WaveformChannel</code>.</li>
 </ul>
 <p>All enums and structs are behind <code>#[derive_shrink_wrap]</code> with <code>owned(feature = "std")</code> and
 <code>cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))</code>, so owned (<code>*Owned</code>) variants and <code>defmt::Format</code> are
@@ -3350,13 +3383,13 @@ out in a shared encoding and feed it straight to the <code>pattern</code> sink, 
         
         
           
-          <a href="../ww_client_server/" class="md-footer__link md-footer__link--next" aria-label="Next: ww_client_server">
+          <a href="../ww_memory/" class="md-footer__link md-footer__link--next" aria-label="Next: ww_memory">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ww_client_server
+                ww_memory
               </div>
             </div>
             <div class="md-footer__button md-icon">

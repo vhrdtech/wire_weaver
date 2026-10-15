@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2138,6 +2142,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3180,6 +3211,8 @@
       
         
       
+        
+      
     
     
     
@@ -3223,7 +3256,7 @@ a protocol trigger stage).</p>
 <p>It sits next to <a href="../ww_gpio/"><code>ww_gpio</code></a> rather than inside it because GPIO is one pin, one call, no timing; here
 the whole point is timing: every sample of every channel lands on one grid. Protocol decoding (UART, I2C, SPI, CAN
 on top of captured edges) stays on the host; a device that decodes a protocol itself implements that protocol's own
-monitor trait (<code>UartMonitor</code>, <code>I2cMonitor</code>, <code>SpiMonitor</code>) instead.</p>
+monitor (<code>Uart::monitor</code>, <code>I2cMonitor</code>, <code>Spi::monitor</code>) instead.</p>
 <h2 id="traits">Traits<a class="headerlink" href="#traits" title="Permanent link">&para;</a></h2>
 <p>A device with only capture memory implements <code>LogicAnalyzer</code>; one that can stream while sampling adds
 <code>LogicStream</code>. Both follow the same conventions as the rest of the <a href="../io_family/">IO trait family</a>.</p>
@@ -3250,8 +3283,8 @@ configuration, poll the status, read the data out, abort.</p>
 <li><code>rearm</code> - arms again with the last configuration, for repeated captures of the same event without resending it.</li>
 <li><code>status</code> - <code>Idle</code>, <code>Armed</code>, <code>Triggered { t }</code>, or <code>Done { t_first, trigger_at, samples }</code> once the data is ready
   — a host polls this until <code>Done</code>.</li>
-<li><code>read_raw</code> - samples of a sample range as raw words, at most <code>MAX_READ_LEN</code> bytes (<code>LaError::WrongMode</code> before a
-  capture is done, <code>LaError::InvalidArgument</code> outside it, <code>LaError::Unsupported</code> if the device only keeps
+<li><code>read_raw</code> - samples of a sample range as raw words, at most <code>MAX_READ_LEN</code> bytes (<code>Common(WrongState)</code> before a
+  capture is done, <code>Common(InvalidArgument)</code> outside it, <code>Common(Unsupported)</code> if the device only keeps
   transitions).</li>
 <li><code>read_transitions</code> - edges of one channel from a sample index on, up to <code>MAX_EDGES</code> or a full reply;
   <code>TransitionsChunk::scanned_to</code> says where the next call starts (same error set, plus <code>LaError::NoSuchChannel</code>).</li>
@@ -3349,9 +3382,9 @@ shared time base for anything less exact than a sample.</p>
   <code>threshold: Option&lt;Volt&gt;</code>.</li>
 <li><code>StreamActual</code> - <code>rate: Hertz</code>, <code>layout: RawLayout</code>.</li>
 <li><code>Trigger&lt;'i&gt;</code>, <code>TriggerStage&lt;'i&gt;</code>, <code>ChannelCondition</code>, <code>Condition</code>, <code>Edge</code> - see <a href="#triggers">Triggers</a>.</li>
-<li><code>LaError</code> - <code>Unsupported</code>, <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>InvalidArgument</code>, <code>WrongMode</code>, <code>NoSuchChannel</code>,
-  <code>Busy</code> (a stream runs while a capture is asked for, or the other way round, on devices that share one sampler);
-  <code>self_describing</code> (<code>unib32</code> discriminant), shared by both traits.</li>
+<li><code>LaError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>) (<code>Busy</code>: a stream runs while a
+  capture is asked for, or the other way round, on devices that share one sampler), <code>NoSuchChannel</code>; unsized (<code>unib32</code>
+  discriminant), evolvable, shared by both traits.</li>
 </ul>
 <p>All enums and structs are behind <code>#[derive_shrink_wrap]</code> with <code>owned(feature = "std")</code> and
 <code>cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))</code>, so owned (<code>*Owned</code>) variants and <code>defmt::Format</code> are

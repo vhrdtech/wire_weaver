@@ -415,6 +415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1514,6 +1516,8 @@
       
         
       
+        
+      
     
     
     
@@ -2171,6 +2175,33 @@
     
   
   ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
 
     
   </span>
@@ -3246,6 +3277,8 @@
       
         
       
+        
+      
     
     
     
@@ -3332,7 +3365,7 @@ several operations without releasing the bus in between (repeated starts).</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">I2c</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">i2c_capabilities</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">I2cCapabilities</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">i2c_configure</span><span class="p">(</span><span class="n">mode</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cMode</span><span class="p">,</span><span class="w"> </span><span class="n">io_level</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">i2c_configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">I2cConfig</span><span class="p">,</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">i2c_write</span><span class="p">(</span><span class="n">addr</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cAddress</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_WRITE_LEN</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">delay_after</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Second</span><span class="o">&gt;</span><span class="p">)</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">        </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">I2cTransactionTimeRange</span><span class="p">,</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">i2c_read</span><span class="p">(</span><span class="n">addr</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cAddress</span><span class="p">,</span><span class="w"> </span><span class="n">kind</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cReadKind</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">len</span><span class="p">:</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">delay_after</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Second</span><span class="o">&gt;</span><span class="p">)</span>
@@ -3349,8 +3382,9 @@ several operations without releasing the bus in between (repeated starts).</p>
 <ul>
 <li><code>i2c_capabilities</code> - static description of what the adapter supports: modes, frequency range, IO levels, buffer
   sizes, 10-bit addresses, pull-ups, bus recovery; see <code>I2cCapabilities</code> under <a href="#types">Types</a>.</li>
-<li><code>i2c_configure</code> - sets the bus mode and, on adapters with level translators, the bus voltage (<code>None</code> leaves it as
-  it is); returns the SCL frequency actually set (never above the one asked for).</li>
+<li><code>i2c_configure</code> - sets the bus mode and, on adapters with level translators, the bus voltage, in one
+  <a href="#types"><code>I2cConfig</code></a> (<code>io_level: None</code> leaves the level as it is); answers with what was actually set: the SCL
+  frequency the hardware settled on (never above the one asked for) and the IO level in effect.</li>
 <li><code>i2c_write</code> - start, address, data, stop; <code>delay_after</code> makes the next transfer to the <em>same</em> address wait (an
   EEPROM page write needs ~5 ms) while transfers to other addresses go ahead meanwhile.</li>
 <li><code>i2c_read</code> - plain read, or a register read (write a few bytes, repeated start, read) through
@@ -3378,10 +3412,10 @@ ones and see no more delay than one watch read.</p>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="cp">#[counted]</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">changes</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cWatchEvent</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">);</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">watch_capabilities</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">I2cWatchCapabilities</span><span class="p">;</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">watch_add</span><span class="p">(</span><span class="n">watch</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cWatchConfig</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">watch_modify</span><span class="p">(</span><span class="n">slot</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cWatchConfig</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">watch_remove</span><span class="p">(</span><span class="n">slot</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">watch_list</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_WATCHES</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">watch_add</span><span class="p">(</span><span class="n">watch</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cWatchConfig</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">watch_modify</span><span class="p">(</span><span class="n">slot</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cWatchConfig</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">watch_remove</span><span class="p">(</span><span class="n">slot</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">watch_list</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_WATCHES</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">}</span>
 </span></code></pre></div>
 <ul>
@@ -3397,8 +3431,9 @@ ones and see no more delay than one watch read.</p>
 <li><code>Always</code> - every read.</li>
 <li><code>Changed { mask }</code> - when <code>data &amp; mask</code> differs from the <em>previous reported</em> read's (<code>mask</code> as long as the read;
   all-ones to see any change).</li>
-<li><code>Matches { mask, value }</code> - when <code>data &amp; mask == value</code> starts or stops being true (an alert bit set, a status
-  reaching a state) - a transition, not every read while it holds.</li>
+<li><code>Matches { bytes }</code> - when <code>data[i] &amp; bytes[i].mask == bytes[i].value</code> for every byte starts or stops being true
+  (an alert bit set, a status reaching a state) - a transition, not every read while it holds. One <code>I2cMatchByte
+  { mask, value }</code> per byte read, two bytes each on the wire; a <code>mask</code> of <code>0x00</code> ignores that byte.</li>
 </ul>
 <p>An error is reported once, when the watch starts to fail, and the next successful read is reported unconditionally
 whatever the rule - and that recovery read becomes the new baseline, so a later unchanged read goes quiet again
@@ -3415,7 +3450,7 @@ too), for devices that only sniff and implement no <code>I2c</code>.</p>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>records</code> is a counted <a href="../../api/streams/#opening-a-stream">stream function</a>: opening it starts monitoring (at
-<code>io_level</code>, as in <code>i2c_configure</code>; the adapter's pull-ups stay as they are, the watched bus has its own), closing it
+<code>io_level</code>, as in <code>I2cConfig</code>; the adapter's pull-ups stay as they are, the watched bus has its own), closing it
 stops. Its unit is a transaction: the event head carries the time of each start condition and exactly how many
 records the device dropped and where (<a href="../../api/stream_reliability/">stream delivery</a>).</p>
 <h2 id="addresses">Addresses<a class="headerlink" href="#addresses" title="Permanent link">&para;</a></h2>
@@ -3424,7 +3459,7 @@ embedded-hal (<code>SevenBitAddress</code> / <code>TenBitAddress</code>): <code>
 returning <code>None</code> above the respective range. It is bit-packed (SW-48, sub-byte fields): a 7-bit address takes
 <strong>one byte</strong> on the wire, exactly as a plain <code>u8</code> would, and a 10-bit one 11 bits (2 bytes) - <code>ww_i2c</code>'s own test
 suite checks both sizes against a real <code>to_ww_bytes()</code> call. An adapter without 10-bit support answers
-<code>I2cError::Unsupported</code> (see <code>I2cCapabilities::ten_bit_addresses</code>). <code>i2c_scan</code> still only returns 7-bit addresses (a
+<code>Common(Unsupported)</code> (see <code>I2cCapabilities::ten_bit_addresses</code>). <code>i2c_scan</code> still only returns 7-bit addresses (a
 10-bit scan is rarely useful and would need 1024 single-byte reads).</p>
 <h2 id="sizes">Sizes<a class="headerlink" href="#sizes" title="Permanent link">&para;</a></h2>
 <p>Every byte buffer is bounded (<code>MAX_WRITE_LEN</code>, <code>MAX_READ_LEN</code>, <code>MAX_WRITE_READ_LEN</code>, <code>MAX_OPS</code>, <code>MAX_SCAN</code>,
@@ -3440,8 +3475,9 @@ and number type the device picks (usually a <code>u32</code> of microseconds). A
 up with the device's other data.</p>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>I2cMode</code> - <code>Disabled</code> (pins released), <code>Master { speed_hz, monitor }</code>, <code>Slave { addr, monitor }</code> (data paths for
-  slave mode are not defined yet), <code>MonitorOnly</code>; <code>self_describing</code>.</li>
+<li><code>I2cConfig</code> - <code>mode: I2cMode</code>, <code>io_level: Option&lt;Volt&gt;</code>; the argument and the answer of <code>i2c_configure</code>.</li>
+<li><code>I2cMode</code> - <code>Disabled</code> (pins released), <code>Master { speed: Hertz, monitor }</code>, <code>Slave { addr, monitor }</code> (data paths
+  for slave mode are not defined yet), <code>MonitorOnly</code>.</li>
 <li><code>I2cReadKind&lt;'i&gt;</code> - <code>Plain</code> (start, address+read, <code>len</code> bytes, stop) or <code>RepeatedStart { write }</code> (start,
   address+write, <code>write</code>, repeated start, address+read, <code>len</code> bytes, stop), bounded by <code>MAX_WRITE_READ_LEN</code>.</li>
 <li><code>I2cOp&lt;'i&gt;</code> - <code>Write(MaxLen&lt;RefVec&lt;'i, u8&gt;, MAX_WRITE_LEN&gt;)</code> or <code>Read(u16)</code>, one operation of <code>i2c_transaction</code>.</li>
@@ -3451,36 +3487,45 @@ up with the device's other data.</p>
 <li><code>I2cLinesState</code> - <code>is_scl_high</code> / <code>is_sda_high: bool</code>, <code>scl</code> / <code>sda: Option&lt;Volt&gt;</code> (measured level, where the
   adapter can).</li>
 <li><code>I2cCapabilities&lt;'i&gt;</code> - <code>io_levels</code>, <code>io_level_min</code> / <code>io_level_max</code>, <code>max_write_len</code>, <code>max_read_len</code>,
-  <code>min_frequency_hz</code> / <code>max_frequency_hz</code>, <code>driver_name</code> (bounded by <code>MAX_NAME_LEN</code>), <code>master_supported</code> /
+  <code>min_freq</code> / <code>max_freq: Hertz</code>, <code>driver_name</code> (bounded by <code>MAX_NAME_LEN</code>), <code>master_supported</code> /
   <code>slave_supported</code> / <code>monitor_supported</code>, <code>ten_bit_addresses</code>, <code>pullups</code>, <code>bus_recovery</code>.</li>
-<li><code>I2cWatchCapabilities</code> - <code>max_watches</code> (at most <code>MAX_WATCHES</code>), <code>max_len</code> (at most <code>MAX_WATCH_LEN</code>), <code>min_period</code>.</li>
+<li><code>I2cWatchCapabilities</code> - <code>max_watches: u32</code> (at most <code>MAX_WATCHES</code>, 512), <code>max_len</code> (at most <code>MAX_WATCH_LEN</code>), <code>min_period</code>.</li>
 <li><code>I2cWatchConfig&lt;'i&gt;</code> - <code>addr</code>, <code>kind: I2cReadKind&lt;'i&gt;</code>, <code>len</code>, <code>period: Second</code>, <code>report: I2cWatchReport&lt;'i&gt;</code>.</li>
-<li><code>I2cWatchReport&lt;'i&gt;</code> - <code>Always</code>, <code>Changed { mask }</code>, <code>Matches { mask, value }</code>, see <a href="#i2cwatch"><code>I2cWatch</code></a> above.</li>
+<li><code>I2cWatchReport&lt;'i&gt;</code> - <code>Always</code>, <code>Changed { mask }</code>, <code>Matches { bytes }</code>, see <a href="#i2cwatch"><code>I2cWatch</code></a> above.</li>
+<li><code>I2cMatchByte</code> - <code>mask</code>, <code>value: u8</code>, one byte of a <code>Matches</code> rule; <code>sized</code>, two bytes.</li>
 <li><code>I2cWatchEvent&lt;'i&gt;</code> - <code>slot</code>, <code>result: Result&lt;MaxLen&lt;RefVec&lt;'i, u8&gt;, MAX_WATCH_LEN&gt;, I2cError&gt;</code>.</li>
 <li><code>I2cRecord&lt;'i&gt;</code> - <code>end: Second</code> (stop or repeated start; the start condition is the head's time), <code>addr</code>, <code>read: bool</code>, <code>kind: I2cRecordKind</code>, <code>nack_at: Option&lt;u16&gt;</code>
   (index of the first byte not acknowledged, <code>Some(0)</code> = the address), <code>bytes</code> (without the address).</li>
 <li><code>I2cRecordKind</code> - <code>Complete</code>, <code>RepeatedStart</code> (the next record continues the transaction), <code>Truncated</code> (more than
   <code>MAX_RECORD_LEN</code> bytes), <code>BusError</code>.</li>
-<li><code>I2cError</code> - <code>UnsupportedMode</code>, <code>WrongMode</code>, <code>UnsupportedSpeed</code>, <code>OutOfCycleSlots</code>, <code>InvalidCycleSlot</code>,
-  <code>MalformedRequest</code>, <code>BufferTooBig</code>, <code>UnsupportedIoLevel</code>, <code>Bus</code>, <code>Arbitration</code>, <code>Nack</code>, <code>Timeout</code>, <code>Crc</code>,
-  <code>Overrun</code>, <code>ZeroLengthTransfer</code>, <code>InUse</code>, <code>NoIoLevel</code>, <code>Refused</code>, <code>Unsupported</code>; unsized (<code>unib32</code> discriminant),
-  plain for now (see <a href="#errors">below</a>).</li>
+<li><code>I2cError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), then <code>Nack</code>, <code>Arbitration</code>,
+  <code>Bus</code>, <code>Crc</code>, <code>Overrun</code>, <code>BufferTooBig</code>, <code>OutOfWatchSlots</code>, <code>InvalidWatchSlot</code>; unsized (<code>unib32</code> discriminant),
+  evolvable, <code>Display</code> from the doc lines (see <a href="#errors">below</a>).</li>
 </ul>
 <p>All enums and structs are behind <code>#[derive_shrink_wrap]</code> with <code>owned(feature = "std")</code> and
 <code>cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))</code>, so owned (<code>*Owned</code>) variants and <code>defmt::Format</code> are
 available by enabling the crate's <code>std</code> / <code>defmt</code> features.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
-<p>Both <code>I2c</code> and <code>I2cWatch</code> return <code>I2cError</code>; every method's rustdoc lists the variants it actually returns. How
-errors evolve (variants added in newer versions, per-method error lists, errors that carry a reason) is still open
-for <code>ww_stdlib</code>; until then <code>I2cError</code> stays a plain enum.</p>
+<p>Every trait returns <code>I2cError</code>: <a href="../../api/errors/#common-errors"><code>CommonError</code></a> as its <code>#[common] Common</code> variant
+(unsupported mode or IO level, invalid argument, in use, wrong state, no power, refused, timeout), then what is
+specific to I2C and a caller acts on: <code>Nack</code> (retry an EEPROM busy with a page write), <code>Arbitration</code>, <code>Bus</code>, <code>Crc</code>,
+<code>Overrun</code>, <code>BufferTooBig</code> (split the transfer), <code>OutOfWatchSlots</code>, <code>InvalidWatchSlot</code>. Each method lists the variants
+it returns with <code>#[errors(..)]</code>, shown in its rustdoc and checked on the client. The enum is unsized, so a newer
+device's variant reads as <code>Unknown(n)</code> on an older host instead of failing the call.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">match</span><span class="w"> </span><span class="n">dev</span><span class="p">.</span><span class="n">i2c</span><span class="p">().</span><span class="n">i2c_write</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">clone</span><span class="p">(),</span><span class="w"> </span><span class="nb">None</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">I2cErrorOwned</span><span class="p">::</span><span class="n">Nack</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* not there, or busy */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">e</span><span class="p">))</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">common</span><span class="p">().</span><span class="n">is_some</span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* the same handling as for any other crate */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">r</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">r</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
+</span></code></pre></div>
 <h2 id="composing-into-a-device-api-and-testing-testsio_i2c">Composing into a device API, and testing (<code>tests/io_i2c</code>)<a class="headerlink" href="#composing-into-a-device-api-and-testing-testsio_i2c" title="Permanent link">&para;</a></h2>
 <p>A device exposes the traits it implements on its API root, see <code>tests/io_i2c_api</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[ww_api_root]</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">IoI2cTest</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2c</span><span class="p">);</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c_watch</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2cWatch</span><span class="p">);</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c_monitor</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2cMonitor</span><span class="p">);</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">IoI2cTest</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2c</span><span class="p">);</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c_watch</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2cWatch</span><span class="p">);</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c_monitor</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2cMonitor</span><span class="p">);</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>tests/io_i2c</code> runs a mock server implementing all three traits on <code>ww_device::Server</code> (through
 <code>tests_common::start_device</code>, the same in-process harness <code>tests/credit_sink</code> and <code>tests/streams</code> use), simulating
@@ -3488,7 +3533,7 @@ a tiny bus of addressable byte registers in a shared <code>Model</code>. The gen
 event loop end to end:</p>
 <ul>
 <li><code>i2c_write_read_roundtrip</code>, <code>i2c_nack_and_zero_length</code>, <code>i2c_scan_and_lines</code> - <code>I2c</code> write/read/scan/lines/pullups,
-  and the <code>Nack</code> / <code>ZeroLengthTransfer</code> error paths.</li>
+  and the <code>Nack</code> / <code>Common(InvalidArgument)</code> (zero length) error paths.</li>
 <li><code>i2c_monitor_records_writes_and_reads</code> - opening <code>I2cMonitor::records</code> turns transactions into <code>I2cRecord</code>s on it.</li>
 <li><code>i2c_watch_always_reports_every_read</code>, <code>i2c_watch_changed_reports_only_on_change</code>,
   <code>i2c_watch_matches_reports_on_transition_only</code>, <code>i2c_watch_error_reported_once_then_recovery_always_reports</code>,

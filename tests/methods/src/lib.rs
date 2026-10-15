@@ -673,7 +673,11 @@ mod tests {
         assert_eq!(r, vec![2, 4, 6, 8]);
 
         // same args for every selected unit (mask32: units 0 and 2)
-        let r = call_array(MultiIndexOwned::Mask32(0b101), |i| client.unit(i).double(10)).await.unwrap();
+        let r = call_array(MultiIndexOwned::Mask32(0b101), |i| {
+            client.unit(i).double(10)
+        })
+        .await
+        .unwrap();
         let r: Vec<u8> = r.into_iter().map(Result::unwrap).collect();
         assert_eq!(r, vec![20, 20]);
 

@@ -28,9 +28,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver::prelude::{DeserializeShrinkWrap, UNib32};
+use wire_weaver::shrink_wrap::BufReader;
 use wire_weaver::shrink_wrap::either_any_vec::EitherAnyVec;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use wire_weaver::shrink_wrap::BufReader;
 use ww_client_server::{ErrorKindOwned, ErrorOwned, MultiIndexOwned, PathKind, RequestKindOwned};
 use ww_numeric::NumericValue;
 use ww_self::errors::{error_list_contains, error_value_name, fmt_error_list};
@@ -714,7 +714,10 @@ impl DynResource {
     /// `property!(led[]: bool)`). Returns the resource's id for `in_each_array_id` (`None` for the flat case)
     /// together with its kind. Bypasses [Self::kind], which always reports [DynResourceKind::Array] for an array
     /// node regardless of what its element actually is.
-    fn array_child(&self, child: Option<&str>) -> Result<(Option<UNib32>, &ApiItemKindOwned), Error> {
+    fn array_child(
+        &self,
+        child: Option<&str>,
+    ) -> Result<(Option<UNib32>, &ApiItemKindOwned), Error> {
         if !matches!(self.node, Node::Array) {
             return Err(self.not_a("array"));
         }
@@ -729,14 +732,18 @@ impl DynResource {
                     )));
                 };
                 let level = self.bundle.get_trait(trait_idx.0).map_err(other)?;
-                let found = level.items.iter().find(|i| i.ident == name).ok_or_else(|| {
-                    let names: Vec<_> = level.items.iter().map(|i| i.ident.as_str()).collect();
-                    Error::Other(format!(
-                        "'{}' has no resource '{name}', available: {}",
-                        self.display_path(),
-                        names.join(", ")
-                    ))
-                })?;
+                let found = level
+                    .items
+                    .iter()
+                    .find(|i| i.ident == name)
+                    .ok_or_else(|| {
+                        let names: Vec<_> = level.items.iter().map(|i| i.ident.as_str()).collect();
+                        Error::Other(format!(
+                            "'{}' has no resource '{name}', available: {}",
+                            self.display_path(),
+                            names.join(", ")
+                        ))
+                    })?;
                 Ok((Some(found.id), &found.kind))
             }
         }
@@ -802,7 +809,8 @@ impl DynResource {
         let path = self.array_path()?;
         let (in_each_array_id, ty) = self.array_property(child)?;
         let count = multi_idx.len();
-        let multi_data = crate::client::multi::merge_args(values.encode(ty, &self.bundle, count)?)?;
+        let multi_data =
+            crate::client::multi::merge_args(values.encode(ty, &self.bundle, count)?)?;
         let bytes = crate::client::multi::send_multi(
             cmd.transport(),
             path,
@@ -832,7 +840,8 @@ impl DynResource {
         let defs = defs.to_vec();
         let return_ty = return_ty.cloned();
         let count = multi_idx.len();
-        let multi_args = crate::client::multi::merge_args(args.encode(&defs, &self.bundle, count)?)?;
+        let multi_args =
+            crate::client::multi::merge_args(args.encode(&defs, &self.bundle, count)?)?;
         let bytes = crate::client::multi::send_multi(
             cmd.transport(),
             path,
@@ -847,10 +856,7 @@ impl DynResource {
         match &return_ty {
             Some(ty) => {
                 let values = self.decode_dyn_items(&bytes, count, ty)?;
-                Ok(values
-                    .into_iter()
-                    .map(|r| r.map(Some))
-                    .collect())
+                Ok(values.into_iter().map(|r| r.map(Some)).collect())
             }
             // no return type: every item is just an error flag with nothing on the Ok side
             None => crate::client::multi::decode_items::<()>(&bytes, count)
@@ -941,7 +947,12 @@ pub enum DynMultiValue<'a> {
 }
 
 impl DynMultiValue<'_> {
-    fn encode(&self, ty: &TypeOwned, bundle: &ApiBundleOwned, count: usize) -> Result<Vec<Vec<u8>>, Error> {
+    fn encode(
+        &self,
+        ty: &TypeOwned,
+        bundle: &ApiBundleOwned,
+        count: usize,
+    ) -> Result<Vec<Vec<u8>>, Error> {
         let ser_one = |value: &ValueOwned| -> Result<Vec<u8>, Error> {
             value
                 .ser_shrink_wrap_dyn(ty, bundle)

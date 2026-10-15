@@ -795,7 +795,11 @@ mod tests {
 
         // read range: same order back
         let r = channel
-            .multi_read(cmd, MultiIndexOwned::Range(UNib32(0)..UNib32(3)), Some("gain"))
+            .multi_read(
+                cmd,
+                MultiIndexOwned::Range(UNib32(0)..UNib32(3)),
+                Some("gain"),
+            )
             .await
             .unwrap();
         assert_eq!(
@@ -843,7 +847,11 @@ mod tests {
 
         // per-item error: index 3 is past valid_indices (0..3)
         let r = channel
-            .multi_read(cmd, MultiIndexOwned::Range(UNib32(2)..UNib32(4)), Some("gain"))
+            .multi_read(
+                cmd,
+                MultiIndexOwned::Range(UNib32(2)..UNib32(4)),
+                Some("gain"),
+            )
             .await
             .unwrap();
         assert_eq!(r[0].as_ref().unwrap(), &num(N::F32(0.5)));
@@ -854,7 +862,9 @@ mod tests {
     }
 
     /// Unwraps every item of a multi-request answer, panicking with the error on the first one that failed.
-    fn unwrap_all<T: std::fmt::Debug>(items: Vec<Result<T, ww_client_server::ErrorOwned>>) -> Vec<T> {
+    fn unwrap_all<T: std::fmt::Debug>(
+        items: Vec<Result<T, ww_client_server::ErrorOwned>>,
+    ) -> Vec<T> {
         items
             .into_iter()
             .map(|r| r.unwrap_or_else(|e| panic!("{e:?}")))

@@ -476,7 +476,7 @@ mod tests {
     #[test]
     fn errors_section_from_the_list() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/methods_api");
-        let bundle = load(&path, None, false).unwrap();
+        let bundle = load(&path, Some("Methods".into()), false).unwrap();
         assert_eq!(
             errors_section(&bundle, "listed_errors"),
             [
@@ -499,7 +499,12 @@ mod tests {
             errors_section(&bundle, "samples"),
             ["", " # Errors", "", " - `BadRate`: Rate 0"]
         );
-        let bundle = load(&tests.join("properties_api"), None, false).unwrap();
+        let bundle = load(
+            &tests.join("properties_api"),
+            Some("Properties".into()),
+            false,
+        )
+        .unwrap();
         assert_eq!(
             errors_section(&bundle, "mode"),
             [

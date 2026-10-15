@@ -148,8 +148,11 @@ pub(crate) fn send_multi_blocking(
     kind: RequestKindOwned,
     timeout: Option<Duration>,
 ) -> Result<Vec<u8>, Error> {
-    let done_rx =
-        commander.send_multi_request_blocking(PathKindOwned::Absolute { path: prefix }, kind, timeout)?;
+    let done_rx = commander.send_multi_request_blocking(
+        PathKindOwned::Absolute { path: prefix },
+        kind,
+        timeout,
+    )?;
     done_rx
         .blocking_recv()
         .map_err(|_| Error::RxDispatcherNotRunning)?
@@ -169,7 +172,12 @@ pub(crate) fn decode_items<T: DeserializeShrinkWrapOwned>(
 }
 
 /// `(commander, prefix, trailing id, per-index bytes)`, see [materialize].
-type MaterializeResult = (TransportCommander, Vec<UNib32>, Option<UNib32>, Vec<Vec<u8>>);
+type MaterializeResult = (
+    TransportCommander,
+    Vec<UNib32>,
+    Option<UNib32>,
+    Vec<Vec<u8>>,
+);
 
 /// Materializes every index of `multi_idx` into (path, bytes, commander) triples via `leaf` (the existing
 /// generated per-index accessor, e.g. `|i| client.pin(i).read_mode()`), locally only - no network traffic - then

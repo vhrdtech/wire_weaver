@@ -646,7 +646,12 @@ trait Traits traits_api@0.1.0
     fn renders_error_lists_of_properties_and_stream_fns() {
         console::set_colors_enabled(false);
         let tests = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests");
-        let bundle = wire_weaver_core::load(&tests.join("properties_api"), None, false).unwrap();
+        let bundle = wire_weaver_core::load(
+            &tests.join("properties_api"),
+            Some("Properties".into()),
+            false,
+        )
+        .unwrap();
         let tree = render(&bundle, false);
         for line in [
             "#[errors(TooBig, NotSet)] rw property mode: u8, write error: ModeError\n",
@@ -669,7 +674,7 @@ trait Traits traits_api@0.1.0
     fn renders_types() {
         console::set_colors_enabled(false);
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/properties_api");
-        let mut bundle = wire_weaver_core::load(&path, None, false).unwrap();
+        let mut bundle = wire_weaver_core::load(&path, Some("Properties".into()), false).unwrap();
         let expected = "\
 types
 ├─ 0 enum properties_api::ModeError unsized, repr u4
@@ -717,7 +722,7 @@ types
     fn renders_error_lists() {
         console::set_colors_enabled(false);
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/methods_api");
-        let bundle = wire_weaver_core::load(&path, None, false).unwrap();
+        let bundle = wire_weaver_core::load(&path, Some("Methods".into()), false).unwrap();
         let tree = render(&bundle, false);
         let expected = "\
 ├─ 13 #[errors(Common(Busy, InUse), Nack)] fn listed_errors(pick: u8) -> Result<(), ListedError>

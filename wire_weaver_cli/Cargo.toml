@@ -24,9 +24,10 @@ nusb.workspace = true
 proc-macro2.workspace = true
 ron.workspace = true
 semver.workspace = true
+serde_json.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
 syn.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
 toml = "1"
 toml_edit = "0.25"
 tracing = "0.1"
@@ -38,4 +39,5 @@ wire_weaver_core.workspace = true
 ww_counters = { workspace = true, features = ["std", "host"] }
 ww_dfu = { workspace = true, features = ["std"] }
 ww_numeric.workspace = true
+ww_report.workspace = true
 ww_si = { workspace = true, features = ["std"] }

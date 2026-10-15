@@ -1341,6 +1341,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "device_report"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cnt_core",
+ "critical-section",
+ "defmt-decoder",
+ "device_report_api",
+ "object 0.40.0",
+ "rustc-demangle",
+ "serde_json",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_board_info",
+ "ww_client_server",
+ "ww_counters",
+ "ww_defmt_logger",
+ "ww_firmware_info",
+ "ww_log",
+ "ww_report",
+ "ww_si",
+ "ww_stream",
+ "ww_uid",
+ "ww_user_info",
+]
+
+[[package]]
+name = "device_report_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_board_info",
+ "ww_counters",
+ "ww_firmware_info",
+ "ww_log",
+ "ww_uid",
+ "ww_user_info",
+]
+
+[[package]]
 name = "dfu"
 version = "0.1.0"
 dependencies = [
@@ -5860,6 +5903,7 @@ dependencies = [
  "proc-macro2",
  "ron",
  "semver",
+ "serde_json",
  "shrink_wrap",
  "syn 3.0.3",
  "tokio",
@@ -5873,6 +5917,7 @@ dependencies = [
  "ww_counters",
  "ww_dfu",
  "ww_numeric",
+ "ww_report",
  "ww_si",
 ]
 
@@ -6222,6 +6267,29 @@ dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
  "ww_si",
+]
+
+[[package]]
+name = "ww_report"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "cnt_core",
+ "defmt-decoder",
+ "object 0.40.0",
+ "rustc-demangle",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_board_info",
+ "ww_counters",
+ "ww_firmware_info",
+ "ww_log",
+ "ww_si",
+ "ww_uid",
+ "ww_user_info",
 ]
 
 [[package]]

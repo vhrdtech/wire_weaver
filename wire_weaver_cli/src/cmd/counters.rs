@@ -7,10 +7,13 @@ use cnt_core::{Counters, Storage, elf};
 use cnt_view::{Format, output};
 use console::style;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
-use wire_weaver_client::{CallError, Commander, DynClient};
-use ww_counters::CounterBuffer;
-use ww_counters::host::{CountersDevice, WwSource};
+use tokio::sync::Mutex;
+use wire_weaver_client::DynClient;
+use ww_counters::host::WwSource;
+use ww_report::clients::CountersClient;
+use ww_report::counters::BlockingCounters;
 
 #[derive(Args)]
 pub(crate) struct CountersArgs {
@@ -57,11 +60,7 @@ pub(crate) enum CountersCommand {
 }
 
 pub(crate) async fn counters(args: CountersArgs, device: &DynClient) -> Result<()> {
-    let client = CountersClient {
-        cmd: device
-            .global_attachment(ww_counters::COUNTERS_FULL_GID, "Counters")
-            .cmd_tx_take(),
-    };
+    let client = CountersClient::new(device);
     let info = client.read_INFO().read().await.map_err(|e| {
         anyhow!("{e}").context(
             "the device doesn't implement ww_counters::Counters (or not in a compatible version)",
@@ -84,7 +83,7 @@ pub(crate) async fn counters(args: CountersArgs, device: &DynClient) -> Result<(
         print_info(&info, &counters);
         return Ok(());
     }
-    let source = WwSource::new(Device(client), info);
+    let source = WwSource::new(BlockingCounters(Arc::new(Mutex::new(client))), info);
     if let Err(e) = source.check(&counters, &elf_path) {
         if !args.force {
             return Err(e.context("pass the device's ELF, or --force to use this one anyway"));
@@ -105,7 +104,7 @@ fn show(
     command: CountersCommand,
     format: Format,
     mut counters: Counters,
-    mut source: WwSource<Device>,
+    mut source: WwSource<BlockingCounters>,
     elf_path: &std::path::Path,
 ) -> Result<()> {
     match command {
@@ -189,45 +188,4 @@ fn print_info(info: &ww_counters::CountersInfoOwned, counters: &Counters) {
             ),
         }
     }
-}
-
-/// `ww_counters::Counters` trait client, calls carry a global trait path
-pub(crate) struct CountersClient {
-    cmd: Commander,
-}
-
-/// The calls `WwSource` makes, blocking: run from `spawn_blocking`.
-pub(crate) struct Device(CountersClient);
-
-fn call_error<E: std::fmt::Debug>(e: CallError<E>) -> anyhow::Error {
-    match e {
-        CallError::Device(e) => anyhow!("the device refused: {e:?}"),
-        CallError::Unimplemented { resource } => anyhow!("the device doesn't implement {resource}"),
-        CallError::Client(e) => e.into(),
-    }
-}
-
-impl CountersDevice for Device {
-    fn read(&mut self, buffer: CounterBuffer, offset: u16) -> Result<Vec<u32>> {
-        let page = self
-            .0
-            .read(buffer, offset)
-            .blocking_call()
-            .map_err(call_error)?;
-        Ok(page.iter().map(|w| w.0).collect())
-    }
-
-    fn reset(&mut self, buffer: CounterBuffer) -> Result<()> {
-        self.0.reset(buffer).blocking_call().map_err(call_error)
-    }
-}
-
-mod counters_client {
-    use super::*;
-    wire_weaver::ww_codegen!(
-        ww_counters :: Counters for CountersClient,
-        client = "trait_client",
-        no_alloc = false,
-        use_async = true,
-    );
 }

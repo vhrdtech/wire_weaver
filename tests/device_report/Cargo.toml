@@ -1,0 +1,34 @@
+[package]
+name = "device_report"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+cnt_core.workspace = true
+critical-section = { version = "1.2", features = ["std"] }
+defmt-decoder.workspace = true
+device_report_api.workspace = true
+object = { version = "0.40", default-features = false, features = ["read_core", "elf", "std"] }
+rustc-demangle = "0.1"
+serde_json.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
+tracing-subscriber.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_board_info = { workspace = true, features = ["std"] }
+ww_client_server.workspace = true
+ww_counters = { workspace = true, features = ["std", "host"] }
+ww_defmt_logger.workspace = true
+ww_firmware_info = { workspace = true, features = ["std"] }
+ww_log = { workspace = true, features = ["std"] }
+ww_report.workspace = true
+ww_si = { workspace = true, features = ["std"] }
+ww_stream = { workspace = true, features = ["std"] }
+ww_uid = { workspace = true, features = ["std"] }
+ww_user_info = { workspace = true, features = ["std"] }

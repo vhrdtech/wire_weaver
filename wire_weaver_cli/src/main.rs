@@ -86,6 +86,9 @@ async fn run() -> Result<()> {
             }
         }
         Commands::Counters(args) => cmd::counters::counters(args, device.as_ref().unwrap()).await?,
+        Commands::Info(args) => cmd::info::info(args, device.as_ref().unwrap()).await?,
+        Commands::Report(args) => cmd::info::report(args, device.as_ref().unwrap()).await?,
+        Commands::Elf(elf_cmd) => cmd::elf::elf(elf_cmd)?,
         Commands::Config(config_cmd) => {
             cmd::config::config(config_cmd, selection.as_ref().unwrap())?
         }

@@ -3,6 +3,8 @@ use crate::cmd::bootsel::BootselCommand;
 use crate::cmd::config::ConfigCommand;
 use crate::cmd::counters::CountersArgs;
 use crate::cmd::dfu::DfuCommand;
+use crate::cmd::elf::ElfCommand;
+use crate::cmd::info::{InfoArgs, ReportArgs};
 use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
 use crate::complete;
@@ -70,6 +72,22 @@ pub(crate) enum Commands {
     /// changes, the TUI, reset; the same views as `cnt` shows over a debug probe.
     Counters(CountersArgs),
 
+    /// What the device is: firmware, board, ids, label and last reset, whatever its API and version
+    ///
+    /// Works with any device implementing the `ww_firmware_info`, `ww_board_info`, `ww_uid` and `ww_user_info`
+    /// traits anywhere in its API; what it doesn't implement is said so.
+    Info(InfoArgs),
+
+    /// A bug report of the device in one file: info, counters, the stored log and last reset, decoded with its ELF
+    ///
+    /// The ELF is found by the build id the device reports (see `ww elf add`); parts that need an ELF that can't be
+    /// found say so, the rest is still there.
+    Report(ReportArgs),
+
+    /// The ELF directory: firmware ELFs stored by build id, for counters, log and crash decoding
+    #[command(subcommand)]
+    Elf(ElfCommand),
+
     /// Show or save device selection in a project ww.toml
     #[command(subcommand)]
     Config(ConfigCommand),
@@ -136,12 +154,16 @@ impl LoopbackTuning {
 }
 
 impl Cli {
-    /// Commands that only call global traits connect to any device, whatever its API and version
+    /// Commands that only call global traits connect to any device, whatever its API and version. `report` reads
+    /// the device's introspection data as well: the stored log is a stream, opened on the trait's absolute path.
     pub fn traits_only(&self) -> bool {
         // the loopback test does not call the API at all, the link layer answers
         matches!(
             &self.command,
-            Commands::Dfu(_) | Commands::Counters(_) | Commands::USBLoopback { .. }
+            Commands::Dfu(_)
+                | Commands::Counters(_)
+                | Commands::Info(_)
+                | Commands::USBLoopback { .. }
         )
     }
 
@@ -154,7 +176,8 @@ impl Cli {
             Commands::Config(_) => false,
             Commands::Bootsel(_) => false,
             Commands::Dfu(_) => true,
-            Commands::Counters(_) => true,
+            Commands::Counters(_) | Commands::Info(_) | Commands::Report(_) => true,
+            Commands::Elf(_) => false,
             #[cfg(target_os = "linux")]
             Commands::Udev => false,
         }

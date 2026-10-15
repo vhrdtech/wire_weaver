@@ -1,0 +1,29 @@
+[package]
+name = "device_report_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "wire_weaver/std",
+    "ww_board_info/std",
+    "ww_counters/std",
+    "ww_firmware_info/std",
+    "ww_log/std",
+    "ww_uid/std",
+    "ww_user_info/std",
+]
+
+[dependencies]
+wire_weaver.workspace = true
+ww_board_info.workspace = true
+ww_counters.workspace = true
+ww_firmware_info.workspace = true
+ww_log.workspace = true
+ww_uid.workspace = true
+ww_user_info.workspace = true

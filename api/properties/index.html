@@ -1195,6 +1195,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Observing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#without-generated-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Without generated code
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -3267,6 +3284,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Observing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#without-generated-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Without generated code
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -3682,6 +3716,22 @@ both are prepared first and <code>.subscribe()</code> (<code>.subscribe_blocking
   with <code>Error::Unsupported</code>.</li>
 <li><strong>Limits</strong>: levels inside a resource array have no <code>observe()</code> yet, like on the device. Absolute paths only: a
   trait client (<code>client = "trait_client"</code>) observes once it has a base path (<code>attachment()</code>).</li>
+</ul>
+<h4 id="without-generated-code">Without generated code<a class="headerlink" href="#without-generated-code" title="Permanent link">&para;</a></h4>
+<p>The dynamic client, <code>ww</code> and Python have the same, decoding a level's <code>PropertyUpdate</code> from introspection alone
+instead of a generated <code>&lt;Trait&gt;Update</code>/<code>&lt;Trait&gt;Observe</code> (TOOL-11): a level's resource indices and types come from
+<code>ApiBundleOwned</code>, reusing the <code>Level&lt;U&gt;</code>/<code>Observer&lt;U, T&gt;</code> machinery above unchanged — one device subscription per
+level, <code>t</code> unwrapped, reconnect/resume included.</p>
+<ul>
+<li><strong><code>DynResource</code></strong>: <code>observable_properties()</code> lists a level's <code>+observe</code> properties (<code>(resource index, name,
+  type)</code>, what <code>entries</code> below addresses); <code>observe(cmd, entries)</code> / <code>observe_blocking(..)</code> (<code>entries</code>:
+  <code>BTreeMap&lt;u32, ObserveMode&gt;</code>) build a <code>wire_weaver_client::DynObserver</code>, decoding each update's sparse
+  <code>OptionAnyVec</code> (DER-13) by resource index instead of a generated struct's fields.</li>
+<li><strong><code>DynObserved</code></strong>: <code>values</code> (<code>Vec&lt;(String, ValueOwned)&gt;</code>, present properties by name, in resource-index order),
+  <code>t</code>, <code>missed</code>, <code>received</code>, and <code>data_len</code> (the update's raw byte length, e.g. for measuring link bytes/s).</li>
+<li><strong>CLI</strong>: <a href="../../cli/#ww-observe"><code>ww observe &lt;path&gt; [--rate MS]</code></a> prints each update's values, the measured update
+  rate and the link bytes/s it costs, until Ctrl+C.</li>
+<li><strong>Python</strong>: <a href="../../python/#observing"><code>node.observe(cfg)</code></a> iterates the same updates as dicts.</li>
 </ul>
 <h2 id="const-items">Const items<a class="headerlink" href="#const-items" title="Permanent link">&para;</a></h2>
 <p>A <code>const</code> item of a trait is a value that doesn't change while the firmware runs: a firmware name and version, a

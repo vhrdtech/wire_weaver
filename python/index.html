@@ -3046,6 +3046,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#observing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Observing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3228,6 +3239,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Counted and reliable streams
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Observing
       </span>
     </span>
   </a>
@@ -3508,6 +3530,20 @@ was lost and where, and can be resumed from a saved cursor (<a href="../api/stre
 </span></code></pre></div>
 <p><code>recv()</code> and iterating return values only, gaps are counted in <code>stats</code>. A resumed reliable stream delivers the
 latest values at once (<code>run</code> <code>"live"</code>) and the backlog beside them (<code>run</code> <code>"backfill"</code>), each in order.</p>
+<h3 id="observing">Observing<a class="headerlink" href="#observing" title="Permanent link">&para;</a></h3>
+<p>A trait level's <code>+observe</code> properties (<a href="../api/properties/#observing-changes">Observing changes</a>) can be watched as
+a group, from introspection alone (TOOL-11):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">m</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">motor</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">m</span><span class="o">.</span><span class="n">observable_properties</span><span class="p">()</span>                          <span class="c1"># {&quot;speed&quot;: &quot;u32&quot;, &quot;current&quot;: &quot;u32&quot;, &quot;position&quot;: &quot;u32&quot;}</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">with</span> <span class="n">m</span><span class="o">.</span><span class="n">observe</span><span class="p">({</span><span class="s2">&quot;speed&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span> <span class="k">as</span> <span class="n">obs</span><span class="p">:</span>  <span class="c1"># speed periodically every 10ms, current on change</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">obs</span><span class="p">:</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;t&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;missed&quot;</span><span class="p">])</span>     <span class="c1"># {&quot;speed&quot;: 1500, &quot;current&quot;: 3}, seconds or None, due sends that missed budget</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">obs</span><span class="o">.</span><span class="n">budget</span>                                          <span class="c1"># bytes/s the device applies to the whole level</span>
+</span></code></pre></div>
+<p><code>observe()</code> without <code>cfg</code> asks for every observable property on-change (what <code>ww observe &lt;path&gt;</code> does without
+<code>--rate</code>). <code>recv(timeout=...)</code> / <code>try_recv()</code> are also available. One device subscription is shared per level
+(<a href="../api/properties/#observing">One subscription per level</a>); dropping the last observer (garbage collection)
+unsubscribes.</p>
 <p>Every resource also has <code>doc</code> (its doc comment), <code>path</code> (e.g. <code>channel[2].gain</code>) and, except traits, <code>signature</code>.
 Use <code>dev["name"]</code> for a resource named like one of the <code>Device</code> attributes (<code>api</code>, <code>info</code>, <code>disconnect</code>).</p>
 <p>Blocking calls release the GIL, and waiting on a stream can be interrupted with Ctrl+C.</p>
@@ -3588,20 +3624,20 @@ Use <code>dev["name"]</code> for a resource named like one of the <code>Device</
 </table>
 <h2 id="api-from-source-offline-use">API from source, offline use<a class="headerlink" href="#api-from-source-offline-use" title="Permanent link">&para;</a></h2>
 <p>A device with introspection disabled needs its API from the crate source:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">api</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">load_api</span><span class="p">(</span><span class="s2">&quot;path/to/my_api&quot;</span><span class="p">,</span> <span class="s2">&quot;MyApi&quot;</span><span class="p">)</span>   <span class="c1"># trait name is needed if the crate has several</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="n">api</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">api</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">load_api</span><span class="p">(</span><span class="s2">&quot;path/to/my_api&quot;</span><span class="p">,</span> <span class="s2">&quot;MyApi&quot;</span><span class="p">)</span>   <span class="c1"># trait name is needed if the crate has several</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="n">api</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>load_api()</code> alone works without a device: browse the API the same way, and serialize values to see what goes over
 the wire, or decode captured bytes:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">load_api</span><span class="p">(</span><span class="s2">&quot;tests/dynamic_api&quot;</span><span class="p">,</span> <span class="s2">&quot;Dynamic&quot;</span><span class="p">)</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">encode_args</span><span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="n">b</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="s1">&#39;28000000feff&#39;</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="mi">1500</span><span class="p">)</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="sa">b</span><span class="s1">&#39;</span><span class="se">\xdc\x05</span><span class="s1">&#39;</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\xdc\x05</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="mi">1500</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">check</span><span class="o">.</span><span class="n">decode_return</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x00\x00\x01</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">{</span><span class="s1">&#39;Err&#39;</span><span class="p">:</span> <span class="s1">&#39;TooBig&#39;</span><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">load_api</span><span class="p">(</span><span class="s2">&quot;tests/dynamic_api&quot;</span><span class="p">,</span> <span class="s2">&quot;Dynamic&quot;</span><span class="p">)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">encode_args</span><span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="n">b</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="s1">&#39;28000000feff&#39;</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="mi">1500</span><span class="p">)</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="sa">b</span><span class="s1">&#39;</span><span class="se">\xdc\x05</span><span class="s1">&#39;</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">speed</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\xdc\x05</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="mi">1500</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">api</span><span class="o">.</span><span class="n">check</span><span class="o">.</span><span class="n">decode_return</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x00\x00\x01</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="p">{</span><span class="s1">&#39;Err&#39;</span><span class="p">:</span> <span class="s1">&#39;TooBig&#39;</span><span class="p">}</span>
 </span></code></pre></div>
 <p>Methods have <code>encode_args()</code> / <code>decode_return()</code>, properties <code>encode()</code> / <code>decode()</code>, streams <code>decode()</code> and sinks
 <code>encode()</code>. Calling a
@@ -3609,8 +3645,8 @@ resource of an offline API raises <code>WireWeaverError</code>.</p>
 <h2 id="not-supported-yet">Not supported yet<a class="headerlink" href="#not-supported-yet" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>f16</code>, <code>UN</code>/<code>IN</code> and LEB128 numbers.</li>
-<li>Typed (non-integer) array indices, property write errors (not decoded, same as generated clients), property
-  observation.</li>
+<li>Typed (non-integer) array indices, property write errors (not decoded, same as generated clients).</li>
+<li>Observing a level inside a resource array (<a href="../api/properties/#observing">Limits</a>).</li>
 <li>asyncio: calls block the calling thread (with the GIL released).</li>
 </ul>
 

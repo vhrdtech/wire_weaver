@@ -366,7 +366,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Periodic` or `OnChangeOrBeat` and a byte budget, the device answers with what it granted; updates arrive as one
   `EventKind::PropertyUpdate` per level carrying any subset of its properties (SW-55). Only `+observe` properties
   can be observed. Protocol `ww_client_server::observe` (`docs/std_library/ww_client_server.md`), device side SRV-18,
-  host side CLT-28 (`docs/api/properties.md#observing-changes`, `tests/observe`).
+  host side CLT-28 (`docs/api/observing.md`, `tests/observe`).
 - 💡 **API-37 Const values in the introspection blob** — a codegen option putting the values of `const` items into
   the device's introspection data, so `ww info` gets them with the link setup and no extra reads. Costs flash per
   device, so not a default.
@@ -457,7 +457,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Observe` is untrusted input: validated in full before anything changes, clamped, bounded work, refused per
   entry. Levels under a resource array answer `OperationNotSupported` until their bound is known (API-29), `+observe`
   properties in an array or `#[optional]` aren't observable yet. `ww_stream::observe`,
-  `docs/api/properties.md#observing-changes`; tests `tests/observe` (fake clock, real host event loop),
+  `docs/api/observing.md#the-device-side`; tests `tests/observe` (fake clock, real host event loop),
   `ww_stream/src/observe/tests.rs`.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
@@ -512,7 +512,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   biggest budget), sent again when an observer comes, changes (`configure`) or goes, `Off` after the last one;
   `<Trait>Observe` typed settings and what was granted, `<Trait>Latest` latest-value cache with receive times;
   subscriptions sent again by `resume_streams()` after a reconnect; `Error::Unsupported` for a device whose API model
-  predates API-38 (`wire_weaver_client::observe`, `docs/api/properties.md#observing`, `tests/observe`,
+  predates API-38 (`wire_weaver_client::observe`, `docs/api/observing.md#the-host-side`, `tests/observe`,
   `observe_e2e_tests`). Not yet: levels under a resource array.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
@@ -534,7 +534,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `MultiCall`/`MultiWrite` tuple traits (any arity 2..=8, any depth, not just root 2-tuples), `read_array`/
   `call_array`/`write_array` for homogeneous requests across an array's indices (`List`/`Range`/`Mask32`, `Same` or
   `Different` args chosen automatically), and a `DynResource` equivalent for the dynamic client
-  (`tests/properties`, `tests/methods`, `tests/dynamic`). Deferred methods inside a multi request are refused with
+  (`docs/api/multi_requests.md`, `tests/properties`, `tests/methods`, `tests/dynamic`). Deferred methods inside a multi request are refused with
   `OperationNotSupported`.
 - 📋 **CLT-16 Verify the hash of a cached API bundle** · `v0.5.x` (`wire_weaver_client/src/local_registry.rs`).
 - 📋 **CLT-17 Reliable requests over unreliable media** · `v0.5.x` — a second, non-increasing seq number to guard against

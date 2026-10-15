@@ -1,8 +1,7 @@
 # Motor controller demo
 
 A VESC-like field oriented controller drives a simulated motor, and its ~50 variables are
-[observed](../api/properties.md#observing-changes) by a host, each at the rate it asks for, within a byte budget per
-trait level. It shows what observing many fast-changing properties costs on the link, and what it would cost as one
+[observed](../api/observing.md) by a host, each at the rate it asks for, within a byte budget per trait level. It shows what observing many fast-changing properties costs on the link, and what it would cost as one
 `StreamData` event per value.
 
 - `examples/motor_demo_api`: the API, 52 `+observe` properties in three trait levels, one per rate tier.

@@ -141,7 +141,7 @@ sampling of many pins a [logic analyzer](ww_logic_analyzer.md).
 
 A `property!(ro+observe level: Level)` on `Pin`, at one of its reserved indices 4..=6, would let a host watch slow
 inputs without opening the `event` stream of every pin. It waits for array index bounds (API-29): `Pin` sits in the
-`Bank::pin[]` array, and [observed properties](../api/properties.md#observing-changes) under a resource array aren't
+`Bank::pin[]` array, and [observed properties](../api/observing.md#the-device-side) under a resource array aren't
 supported yet (STD-31).
 
 ## Types

@@ -27,6 +27,8 @@ nav = [
             "api/overview.md",
             "api/methods.md",
             "api/properties.md",
+            "api/observing.md",
+            "api/multi_requests.md",
             "api/streams.md",
             "api/stream_reliability.md",
             "api/stream_stores.md",

@@ -576,4 +576,4 @@ Reliable streams can't be in arrays yet: `poll_streams` refuses them with a comp
 
 An `ro` or `rw` property sends its changes as stream data on its own path:
 `stream_data_ser().<property>_send(&value, out)` on the device, `observe_<property>()` on the host, a plain
-`Stream<T>`. See [Observing changes](properties.md#observing-changes).
+`Stream<T>`. See [Observing properties](../api/observing.md), superseded by `+observe` for properties that have it.

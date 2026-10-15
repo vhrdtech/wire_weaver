@@ -14,6 +14,11 @@
 
 ### 🐛 Fixes
 
+- Server code of a stream function whose error type borrows (`fn frames() -> Result<(), LogError<'i>>`) compiles with
+  the handler signature `ww api scaffold` prints (`RpcResult<Result<(), LogError<'_>>>`) (API-35): the generated
+  `StreamOpen` dispatch kept the handler's result, which borrows `self`, alive across `new_stream_session()` and
+  `stream_<name>().open(..)` (E0499), so handlers had to return `'static` errors. The `Ok` value is now taken out of
+  the result before the stream's state is touched. Nothing changes on the wire.
 - Bit-sized numbers `U1`..`U64` / `I2`..`I64` (`u7`, `ub10`, `i2`, ..) used directly as a method argument, return
   value, property, stream or sink type generate `wire_weaver::shrink_wrap::un::U7` etc. in server and client code;
   `ww_codegen!` panicked with `not yet implemented` (SW-48). Types that only contained them were fine.

@@ -1238,11 +1238,6 @@ fn handle_stream_fn(
         Some(ty) => ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap(),
         None => quote! { () },
     };
-    let is_ok = if stream.return_ty.is_some() {
-        quote! { output.is_ok() }
-    } else {
-        quote! { true }
-    };
     let es_ser = error_seq.next();
     let es_store = error_seq.next();
     let closed_opened = quote! {
@@ -1254,27 +1249,30 @@ fn handle_stream_fn(
             result: TailBytes(&[]),
         }
     };
-    let open_state = match delivery {
-        Delivery::Plain => quote! { let opened = #closed_opened; },
+    let new_session = match delivery {
+        Delivery::Plain => quote! {},
         Delivery::Counted => quote! {
-            let opened = if #is_ok {
-                let session = self.new_stream_session();
-                self.#state_fn(#idx)#maybe_await.open(session).to_wire(&[])
-            } else {
-                // the stream stays as it was
-                #closed_opened
-            };
+            let session = self.new_stream_session();
+            self.#state_fn(#idx)#maybe_await.open(session).to_wire(&[])
         },
         Delivery::Reliable => quote! {
-            let opened = if #is_ok {
-                let session = self.new_stream_session();
-                match self.#state_fn(#idx).await.open(session).await {
-                    Ok(opened) => opened.to_wire(&[]),
-                    Err(_) => return Err(Error::new(#es_store, ErrorKind::StreamStoreFailed)),
-                }
-            } else {
+            let session = self.new_stream_session();
+            match self.#state_fn(#idx).await.open(session).await {
+                Ok(opened) => opened.to_wire(&[]),
+                Err(_) => return Err(Error::new(#es_store, ErrorKind::StreamStoreFailed)),
+            }
+        },
+    };
+    let open_state = match (delivery, stream.return_ty.is_some()) {
+        (Delivery::Plain, _) => quote! { let opened = #closed_opened; },
+        (_, false) => quote! { let opened = { #new_session }; },
+        // The handler's result may borrow from `self` (an error type with a lifetime, API-35): take the `Ok` value
+        // out of it before the stream's state is touched, so the borrow ends on that path.
+        (_, true) => quote! {
+            let (opened, output): (_, #enforce_ty) = match output {
+                Ok(value) => ({ #new_session }, Ok(value)),
                 // the stream stays as it was
-                #closed_opened
+                Err(e) => (#closed_opened, Err(e)),
             };
         },
     };

@@ -135,6 +135,7 @@ methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }
 series_api = { version = "0.1.0", path = "./tests/series_api" }
 streams_api = { version = "0.1.0", path = "./tests/streams_api" }
+streams_borrowed_error_api = { version = "0.1.0", path = "./tests/streams_borrowed_error_api" }
 streams_reliable_api = { version = "0.1.0", path = "./tests/streams_reliable_api" }
 tests_common = { version = "0.1.0", path = "./tests/tests_common" }
 traits_api = { version = "0.1.0", path = "./tests/traits_api" }

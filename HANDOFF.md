@@ -2,22 +2,24 @@
 
 One commit per review point on branch s/15oct2026-ww-io-review1.
 
-## Done
-- (1) Hertz everywhere, new `ww_si::Baud` for baud rates (UART, LA UartByte trigger). ww_can_bus left as is
-  (not part of the IO family 0.2, its `set_clock(u32)` / `valid_clocks() -> SubTypeKind` is old prototype code).
+## Done (commits on the branch)
+- (1) Hertz everywhere, new `ww_si::Baud` for baud rates. ww_can_bus left as is (old prototype, not in the family).
 - (2) `MAX_WATCHES = 512`, `max_watches: u32`, slots `u32`.
 - (3) `Matches { bytes: [I2cMatchByte { mask, value }] }`, `sized`.
+- API-35 filed in FEATURES (stream fn + borrowed error codegen bug).
+- (5) `configure(XConfig) -> Result<XConfig, E>` for UART, I2C, SPI, GPIO bank, 1-Wire; `io_level: Option<Volt>`
+  inside; capabilities `io_levels` + `io_level_min/max` everywhere.
+- (7) `Uart::monitor`, `Spi::monitor` as `#[optional]` stream fns; traits removed; I2cMonitor kept.
+- (6) `RxChunk::end`, head time always set, `rx_timestamps` gone, Time section.
 
 ## Next
-- (4) `#[common] Common(CommonError<'i>)` in every IO error enum; drop variants CommonError covers
-  (Unsupported, InUse, NoIoLevel -> NoPower, Refused, InvalidArgument/MalformedRequest, WrongMode -> WrongState,
-  Timeout, Busy); `# Errors` prose -> `#[errors(..)]` (tests_common makes unlisted variants panic!).
-- (5) `UartConfig` + `configure(config) -> Result<UartConfig, E>` returning the actual config; same shape for
-  I2C (`I2cConfig { mode, io_level }`) and SPI (`SpiConfig` + `io_level`, drop `SpiActual` and the
-  `reference_voltage` property); GPIO bank `reference_voltage` property -> config too.
-- (6) UART: `RxChunk::end: Second` (last byte), first byte time in the head, mandatory; docs "Timing" section
-  naming `ww_timebase::Clock`; drop `Capabilities::rx_timestamps`.
-- (7) `UartMonitor::lines` / `SpiMonitor::frames` -> `#[optional]` stream functions in `Uart` / `Spi`.
+- (4) CommonError in every IO error enum. Started for ww_i2c: patch in the job tmp dir (point4-i2c.patch, from
+  before point 5; re-do by hand, configure lines changed). Mapping: Unsupported/UnsupportedMode/UnsupportedIoLevel
+  -> Common(Unsupported); InvalidArgument/MalformedRequest/ZeroLengthTransfer/UnsupportedSpeed -> InvalidArgument;
+  InUse; NoIoLevel -> NoPower; Refused; WrongMode -> WrongState; Busy; Timeout; drop CustomU8/U32/NotImplemented.
+  Rename crate errors to `<Crate>Error` (GpioError, UartError). `#[errors(..)]` on methods (not on stream fns or
+  properties: codegen rejects it there, keep prose). Stream-fn handlers return `E<'static>` with `// TODO(API-35)`.
+- Then: FEATURES STD-13 note, just test / lint / check, remove HANDOFF.md, tpm work ready.
 
 ## Gotchas
 - Snapshots: `just save-snapshots --force` (nothing published yet).

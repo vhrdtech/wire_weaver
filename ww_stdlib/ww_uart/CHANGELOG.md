@@ -43,6 +43,9 @@
 
 ### 🚀 Features
 
+- `Uart::monitor` lists its errors with `#[errors(..)]` (API-32), now that stream functions and properties can carry
+  one, instead of a hand-written `# Errors` note: rustdoc, introspection and the client's warning about an unlisted
+  error see it.
 - `UartConfig::frame_bits()` / `MonitorConfig::frame_bits()`: bits of one character on the line (start + data +
   parity + stop), for the time of each byte of a chunk (crate docs, "Time").
 - `data_bits` property, `baud_rate_actual`, `send_break`, `tx_pending`; `RxFlags` framing, overrun, break; capabilities with buffer sizes.

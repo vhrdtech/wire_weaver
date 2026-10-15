@@ -63,10 +63,8 @@ pub trait Pin {
     /// 7. Edges (and device-specific sources) of this pin, as they happen: opening the stream enables the sources
     /// in `enabled`, closing it disables them. A counted stream, unit: event; each event may carry the device time
     /// it happened at, and the host learns exactly how many events the device dropped.
-    ///
-    /// # Errors
-    /// `Common(Unsupported)` if a requested source (edge or custom) isn't available on this pin. `#[errors(..)]`
-    /// isn't supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
+    /// `Unsupported` if a requested source (edge or custom) isn't available on this pin.
+    #[errors(Common(Unsupported))]
     #[stream(IoPinEvent, counted)]
     fn event(enabled: IoPinEnabledEvents<'i>) -> Result<(), GpioError<'i>>;
 
@@ -80,15 +78,13 @@ pub trait Pin {
     fn mode() -> Mode;
 
     /// Pull resistors selection.
-    ///
-    /// # Errors
-    /// `Common(Unsupported)` if the pin doesn't support the requested pull (`set` only).
+    /// `Unsupported` if the pin doesn't support the requested pull (`set` only).
+    #[errors(Common(Unsupported))]
     property!(rw pull: Pull, GpioError<'i>);
 
     /// Drive strength selection.
-    ///
-    /// # Errors
-    /// `Common(Unsupported)` if the pin doesn't support the requested drive strength (`set` only).
+    /// `Unsupported` if the pin doesn't support the requested drive strength (`set` only).
+    #[errors(Common(Unsupported))]
     property!(rw speed: Speed, GpioError<'i>);
 
     /// What this pin can do: modes, pulls, speeds, whether it sends events, and its name.

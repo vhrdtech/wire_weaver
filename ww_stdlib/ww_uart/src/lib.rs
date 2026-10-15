@@ -100,14 +100,9 @@ pub trait Uart {
     /// when the chunk's first byte arrived (always set), [RxChunk::end] when its last one did.
     ///
     /// Optional: a port without monitoring hardware leaves it out (`omit = ["uart.monitor"]`), and a host sees that
-    /// in the device's introspection.
-    ///
-    /// # Errors
-    ///
-    /// `Common(Unsupported)` (a baud rate, mode or parity this monitor can't decode), `Common(InUse)`,
-    /// `Common(NoPower)`. `#[errors(..)]` isn't supported on `#[stream(..)]` methods yet (API-32), so this stays a
-    /// hand-written note.
+    /// in the device's introspection. `Unsupported` for a baud rate, mode or parity this monitor can't decode.
     #[optional]
+    #[errors(Common(Unsupported, InUse, NoPower))]
     #[stream(MonitorChunk<'i>, counted)]
     fn monitor(config: MonitorConfig) -> Result<MonitorConfig, UartError<'i>>;
 }

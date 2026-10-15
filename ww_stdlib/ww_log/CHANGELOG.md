@@ -16,3 +16,9 @@
       timestamps move to the stream head's `t`.
     - `Severity::User` goes, `Severity` is `no_future_version` (`Unknown` goes too).
     - New `LogError` with `#[common] Common(CommonError)`; `ww_si` is no longer a dependency.
+
+### 🚀 Features
+
+- `LogDefmt::frames`, `LogText::records` and the `LogText::level` property list their errors with `#[errors(..)]`
+  (API-32), now that stream functions and properties can carry one, instead of a hand-written `# Errors` note: rustdoc,
+  introspection and the client's warning about an unlisted error see them.

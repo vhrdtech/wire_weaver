@@ -38,6 +38,9 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### 🚀 Features
 
+- `I2cMonitor::records` lists its errors with `#[errors(..)]` (API-32), now that stream functions and properties can
+  carry one, instead of a hand-written `# Errors` note: rustdoc, introspection and the client's warning about an
+  unlisted error see it.
 - `I2c::i2c_transaction`: several reads and writes to one address with repeated starts (embedded-hal style).
 - `I2c::i2c_lines_state`, `i2c_wiggle_clock` (free a stuck bus), `i2c_set_pullups`, `i2c_pullups`.
 - `I2cMonitor` trait: `records(io_level)`, a counted stream function (API-31) with one `I2cRecord` per transaction;

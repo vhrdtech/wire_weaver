@@ -93,10 +93,9 @@ pub trait Counters {
     /// Words that changed since the last event, sent every `period` (at least the device's minimum, which opening
     /// answers): for slow links where polling [Counters::read] costs too much. A counted stream, unit: event.
     ///
-    /// Optional: a device leaves it out (`omit = ["counters.watch"]`), polling `read` works everywhere. Opening
-    /// fails with `Common(Unsupported)` or `Common(Busy)`. `#[errors(..)]` isn't supported on `#[stream(..)]`
-    /// methods yet (API-32), so this stays a hand-written note.
+    /// Optional: a device leaves it out (`omit = ["counters.watch"]`), polling `read` works everywhere.
     #[optional]
+    #[errors(Common(Unsupported, Busy))]
     #[stream(CounterChanges<'i>, counted)]
     fn watch(period: Second) -> Result<Second, CountersError<'i>>;
 }

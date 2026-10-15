@@ -28,10 +28,12 @@ pub trait UserInfo {
     const CAPABILITIES: UserInfoCaps;
 
     /// Short name of the unit, shown by `ww list`.
+    #[errors(TooLong, Common(Busy, Fault))]
     property!(rw name: MaxLen<&'i str, MAX_NAME_LEN>, UserInfoError<'i>);
 
     /// Free-form notes about the unit. A device with no room for them leaves this out.
     #[optional]
+    #[errors(TooLong, Common(Busy, Fault))]
     property!(rw notes: MaxLen<&'i str, MAX_NOTES_LEN>, UserInfoError<'i>);
 }
 

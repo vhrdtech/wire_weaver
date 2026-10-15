@@ -94,12 +94,9 @@ pub trait PwmCapture {
 pub trait PwmCaptureChannel {
     /// Measurements of `config`, one per `gate`, until the host closes the stream. Opening returns what was actually
     /// set (the nearest gate the hardware can do). Unit: measurement; the head's time is the end of its window.
-    ///
-    /// # Errors
-    ///
-    /// `Common(Unsupported)` (this mode isn't available on this channel), `Common(InvalidArgument)` (gate out of range,
-    /// or [CaptureMode::Off]), `Common(InUse)`, `Common(Refused)`. `#[errors(..)]` isn't supported on
-    /// `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
+    /// `Unsupported` when this mode isn't available on this channel, `InvalidArgument` for a gate out of range or
+    /// [CaptureMode::Off].
+    #[errors(Common(Unsupported, InvalidArgument, InUse, Refused))]
     #[stream(CaptureValue, counted)]
     fn capture(config: CaptureConfig) -> Result<CaptureConfig, PwmError<'i>>;
 

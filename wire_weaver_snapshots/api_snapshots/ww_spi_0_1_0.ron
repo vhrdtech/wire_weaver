@@ -311,19 +311,20 @@
         ], optional: None),
         (id: 6, kind: StreamFn(ty: OutOfLine(type_idx: 13), delivery: Counted, args: [
             (ident: "config", ty: OutOfLine(type_idx: 12)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1)))), multiplicity: Flat, since: None, ident: "monitor", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
+            (ident: "Common", nested: Some([
+                "InUse",
+                "Unsupported",
+                "Refused",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "monitor", docs: [
             "Watches the bus without taking part: one [SpiFrame] per CS assertion, in bus order, decoded with `config` (the",
             "monitor doesn\'t drive CS or clock, it only listens). Opening starts monitoring, closing stops it. A counted",
             "stream, unit: frame; the head\'s time is when CS was asserted, and the host learns exactly how many frames the",
             "device dropped.",
             "",
             "Optional: an adapter without monitoring hardware leaves it out (`omit = [\"spi.monitor\"]`), and a host sees",
-            "that in the device\'s introspection.",
-            "",
-            "# Errors",
-            "",
-            "`Common(InUse)`, `Common(Unsupported)` (this `word_bits`), `Common(Refused)`. `#[errors(..)]` isn\'t",
-            "supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.",
+            "that in the device\'s introspection. `Unsupported` for a `word_bits` the monitor can\'t decode.",
         ], optional: Some((group: None))),
     ]), crate_idx: 0),
 ], ext_crates: [

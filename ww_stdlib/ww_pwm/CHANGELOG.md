@@ -10,6 +10,9 @@
 
 ### 🚀 Features
 
+- `PwmCaptureChannel::capture` lists its errors with `#[errors(..)]` (API-32), now that stream functions and properties
+  can carry one, instead of a hand-written `# Errors` note: rustdoc, introspection and the client's warning about an
+  unlisted error see it.
 - New crate (STD-19): `Pwm` with `channel[]: PwmChannel` (`set_output`, `set_duty`, `stop`, `state`), `PwmCapture`
   with `channel[]: PwmCaptureChannel` (frequency, duty, pulse width, edge count; `capture(config)` is a
   counted stream function, API-31, `set_capture` / `read_capture` poll without a stream). Full rustdoc on every trait and

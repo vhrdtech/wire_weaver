@@ -67,12 +67,8 @@ pub trait LogDefmt {
 
     /// The log: whole defmt frames, kept in the device's store until the host acknowledges them, also those logged
     /// before the host connected. Unit: defmt frame, so the head's `lost` is the exact number of log messages the
-    /// host won't get.
-    ///
-    /// # Errors
-    ///
-    /// `Common(Busy)`: another host has the log open, `Common(Unsupported)`: the device logs elsewhere only.
-    /// `#[errors(..)]` isn't supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
+    /// host won't get. `Busy` while another host has the log open, `Unsupported` when the device logs elsewhere only.
+    #[errors(Common(Busy, Unsupported))]
     #[stream(DefmtFrames<'i>, reliable)]
     fn frames() -> Result<(), LogError<'i>>;
 }
@@ -121,21 +117,15 @@ pub struct DefmtFrames<'i> {
 #[ww_trait]
 pub trait LogText {
     /// The log: one record per message, kept in the device's store until the host acknowledges it, also those
-    /// logged before the host connected. Unit: record. The head's `t` is the device time of the record.
-    ///
-    /// # Errors
-    ///
-    /// `Common(Busy)`: another host has the log open, `Common(Unsupported)`: the device logs elsewhere only.
-    /// `#[errors(..)]` isn't supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
+    /// logged before the host connected. Unit: record. The head's `t` is the device time of the record. `Busy` while
+    /// another host has the log open, `Unsupported` when the device logs elsewhere only.
+    #[errors(Common(Busy, Unsupported))]
     #[stream(LogRecord<'i>, reliable)]
     fn records() -> Result<(), LogError<'i>>;
 
     /// Records less severe than this level are not produced (filters compiled into the firmware still apply).
-    ///
-    /// # Errors
-    ///
-    /// Writing: `Common(Unsupported)`, the level is fixed at compile time. `#[errors(..)]` isn't supported on
-    /// properties yet, so this stays a hand-written note.
+    /// Writing it fails with `Unsupported` when the level is fixed at compile time.
+    #[errors(Common(Unsupported))]
     property!(rw level: LevelFilter, LogError<'i>);
 }
 

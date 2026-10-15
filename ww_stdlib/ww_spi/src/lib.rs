@@ -99,13 +99,9 @@ pub trait Spi {
     /// device dropped.
     ///
     /// Optional: an adapter without monitoring hardware leaves it out (`omit = ["spi.monitor"]`), and a host sees
-    /// that in the device's introspection.
-    ///
-    /// # Errors
-    ///
-    /// `Common(InUse)`, `Common(Unsupported)` (this `word_bits`), `Common(Refused)`. `#[errors(..)]` isn't
-    /// supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
+    /// that in the device's introspection. `Unsupported` for a `word_bits` the monitor can't decode.
     #[optional]
+    #[errors(Common(InUse, Unsupported, Refused))]
     #[stream(SpiFrame<'i>, counted)]
     fn monitor(config: SpiMonitorConfig) -> Result<(), SpiError<'i>>;
 }

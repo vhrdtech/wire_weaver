@@ -9,5 +9,8 @@
 
 ### 🚀 Features
 
+- the `name` and `notes` properties list their errors with `#[errors(..)]` (API-32), now that stream functions and
+  properties can carry one, instead of a hand-written `# Errors` note: rustdoc, introspection and the client's warning
+  about an unlisted error see them.
 - Page `docs/std_library/ww_user_info.md`, test pair `tests/user_info`.
 

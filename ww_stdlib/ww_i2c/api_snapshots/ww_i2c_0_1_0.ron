@@ -513,7 +513,7 @@
         "ones and see no more delay than one watch read. A watch to an address under a `delay_after` waits like any",
         "transfer. Results go out on the `changes` stream.",
     ], crate_idx: 0, trait_name: "I2cWatch", items: [
-        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 15), delivery: Counted, args: [], return_ty: None), multiplicity: Flat, since: None, ident: "changes", docs: [
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 15), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "changes", docs: [
             "Results the watches report, in the order they were read. A counted stream, unit: result; the head\'s time is",
             "when the read started, and the host learns exactly how many results the device dropped.",
         ], optional: None),
@@ -567,16 +567,18 @@
     ], crate_idx: 0, trait_name: "I2cMonitor", items: [
         (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 21), delivery: Counted, args: [
             (ident: "io_level", ty: Option(some_ty: OutOfLine(type_idx: 0))),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6)))), multiplicity: Flat, since: None, ident: "records", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+            (ident: "Common", nested: Some([
+                "InUse",
+                "Unsupported",
+                "Refused",
+                "NoPower",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "records", docs: [
             "One record per transaction, in bus order. Opening starts monitoring, closing stops it. `io_level` as in",
             "[I2cConfig::io_level]; the adapter\'s pull-ups stay as they are (the watched bus has its own). A counted",
             "stream, unit: transaction; the head\'s time is the start condition, and the host learns exactly how many",
-            "records the device dropped.",
-            "",
-            "# Errors",
-            "",
-            "`Common(InUse)`, `Common(Unsupported)` (this IO level), `Common(Refused)`, `Common(NoPower)`.",
-            "`#[errors(..)]` isn\'t supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.",
+            "records the device dropped. `Unsupported` for an IO level the adapter can\'t do.",
         ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [

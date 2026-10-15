@@ -11,6 +11,9 @@
 
 ### 🚀 Features
 
+- `LogicStream::data` lists its errors with `#[errors(..)]` (API-32), now that stream functions and properties can carry
+  one, instead of a hand-written `# Errors` note: rustdoc, introspection and the client's warning about an unlisted
+  error see it.
 - New crate (STD-21): `LogicAnalyzer` (triggered capture into device RAM: `capture`, `rearm`, `status`, `read_raw`,
   per-channel `read_transitions`, `abort`) and `LogicStream` (continuous capture: `data(config)` is a counted stream
   function, API-31, unit chunk). Encodings `Raw` (bit-packed words) and `Transitions` (per-channel edges as SW-31

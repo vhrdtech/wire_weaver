@@ -293,7 +293,7 @@
     InLine(level: (docs: [
         "A serial port: configure, receive on `rx`, send on the `tx` credit sink.",
     ], crate_idx: 0, trait_name: "Uart", items: [
-        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 2), delivery: Counted, args: [], return_ty: None), multiplicity: Flat, since: None, ident: "rx", docs: [
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 2), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "rx", docs: [
             "Received bytes, chunked as they arrive (see [RxChunk]); a chunk ends when the line is idle for more than",
             "[UartConfig::idle_chars] character times, when it is full, or on a line error. A counted stream, unit: byte;",
             "the head\'s time is when the chunk\'s first byte arrived (always set), [RxChunk::end] when its last one did.",
@@ -354,7 +354,13 @@
         ], optional: None),
         (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 16), delivery: Counted, args: [
             (ident: "config", ty: OutOfLine(type_idx: 14)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 12)))), multiplicity: Flat, since: None, ident: "monitor", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 12))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Unsupported",
+                "InUse",
+                "NoPower",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "monitor", docs: [
             "Both lines of a serial link between two other devices, received without driving them: what both",
             "directions carry, in the order it arrived, decoded with `config`; each chunk says which line it came from.",
             "Opening starts receiving and answers the configuration actually set (the baud rate the receiver settled on,",
@@ -362,13 +368,7 @@
             "when the chunk\'s first byte arrived (always set), [RxChunk::end] when its last one did.",
             "",
             "Optional: a port without monitoring hardware leaves it out (`omit = [\"uart.monitor\"]`), and a host sees that",
-            "in the device\'s introspection.",
-            "",
-            "# Errors",
-            "",
-            "`Common(Unsupported)` (a baud rate, mode or parity this monitor can\'t decode), `Common(InUse)`,",
-            "`Common(NoPower)`. `#[errors(..)]` isn\'t supported on `#[stream(..)]` methods yet (API-32), so this stays a",
-            "hand-written note.",
+            "in the device\'s introspection. `Unsupported` for a baud rate, mode or parity this monitor can\'t decode.",
         ], optional: Some((group: None))),
     ]), crate_idx: 0),
 ], ext_crates: [

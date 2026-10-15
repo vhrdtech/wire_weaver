@@ -119,14 +119,9 @@ pub trait LogicAnalyzer {
 #[ww_trait]
 pub trait LogicStream {
     /// Captured data in `config`'s encoding: raw chunks, or transition chunks of each channel as they fill. Opening
-    /// returns what was actually set. Unit: chunk.
-    ///
-    ///
-    /// # Errors
-    ///
-    /// `NoSuchChannel`, `Common(InvalidArgument)` (rate, channel count or threshold out of range),
-    /// `Common(Unsupported)` (encoding), `Common(Busy)` (a capture runs), `Common(InUse)`, `Common(NoPower)`.
-    /// `#[errors(..)]` isn't supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
+    /// returns what was actually set. Unit: chunk. `InvalidArgument` for a rate, channel count or threshold out of
+    /// range, `Unsupported` for the encoding, `Busy` while a capture runs.
+    #[errors(NoSuchChannel, Common(InvalidArgument, Unsupported, Busy, InUse, NoPower))]
     #[stream(StreamChunk<'i>, counted)]
     fn data(config: StreamConfig<'i>) -> Result<StreamActual, LaError<'i>>;
 

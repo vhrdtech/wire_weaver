@@ -60,13 +60,25 @@
         "Writes return [UserInfoError]: `TooLong` for a value above what [UserInfo::CAPABILITIES] says, `Common(Busy)`",
         "while storage can\'t be touched, `Common(Fault)` when saving failed.",
     ], crate_idx: 0, trait_name: "UserInfo", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "CAPABILITIES", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "CAPABILITIES", docs: [
             "Lengths this device keeps and whether a written value survives a power cycle.",
         ], optional: None),
-        (id: 1, kind: Property(ty: MaxLen(max_len: 32, ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "name", docs: [
+        (id: 1, kind: Property(ty: MaxLen(max_len: 32, ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
+            (ident: "TooLong", nested: None),
+            (ident: "Common", nested: Some([
+                "Busy",
+                "Fault",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "name", docs: [
             "Short name of the unit, shown by `ww list`.",
         ], optional: None),
-        (id: 2, kind: Property(ty: MaxLen(max_len: 256, ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2))), multiplicity: Flat, since: None, ident: "notes", docs: [
+        (id: 2, kind: Property(ty: MaxLen(max_len: 256, ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
+            (ident: "TooLong", nested: None),
+            (ident: "Common", nested: Some([
+                "Busy",
+                "Fault",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "notes", docs: [
             "Free-form notes about the unit. A device with no room for them leaves this out.",
         ], optional: Some((group: None))),
     ]), crate_idx: 0),

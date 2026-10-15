@@ -22,6 +22,9 @@
 
 ### 🚀 Features
 
+- `Pin::event` and the `pull` / `speed` properties list their errors with `#[errors(..)]` (API-32), now that stream
+  functions and properties can carry one, instead of a hand-written `# Errors` note: rustdoc, introspection and the
+  client's warning about an unlisted error see them.
 - `Pin::capabilities` returns `PinCapabilities`: modes, pulls, speeds, events, the pin's name.
 
 ### 🐛 Fixes

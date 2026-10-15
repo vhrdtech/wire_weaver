@@ -146,7 +146,7 @@
         "[CountersError]: `Common(Unsupported)` for the backup buffer on a device without one, `Common(InvalidArgument)`",
         "for an offset past the used words.",
     ], crate_idx: 0, trait_name: "Counters", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 1), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "INFO", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 1), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "INFO", docs: [
             "Buffers, their size and use, the `cnt` format version and the build id: all fixed at link time.",
         ], optional: None),
         (id: 1, kind: Method(args: [
@@ -173,13 +173,16 @@
         ], optional: None),
         (id: 3, kind: StreamFn(ty: OutOfLine(type_idx: 7), delivery: Counted, args: [
             (ident: "period", ty: OutOfLine(type_idx: 5)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 5), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "watch", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 5), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Unsupported",
+                "Busy",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "watch", docs: [
             "Words that changed since the last event, sent every `period` (at least the device\'s minimum, which opening",
             "answers): for slow links where polling [Counters::read] costs too much. A counted stream, unit: event.",
             "",
-            "Optional: a device leaves it out (`omit = [\"counters.watch\"]`), polling `read` works everywhere. Opening",
-            "fails with `Common(Unsupported)` or `Common(Busy)`. `#[errors(..)]` isn\'t supported on `#[stream(..)]`",
-            "methods yet (API-32), so this stays a hand-written note.",
+            "Optional: a device leaves it out (`omit = [\"counters.watch\"]`), polling `read` works everywhere.",
         ], optional: Some((group: None))),
     ]), crate_idx: 0),
 ], ext_crates: [

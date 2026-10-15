@@ -10,6 +10,9 @@
 
 ### 🚀 Features
 
+- `AdcStream::samples` lists its errors with `#[errors(..)]` (API-32), now that stream functions and properties can
+  carry one, instead of a hand-written `# Errors` note: rustdoc, introspection and the client's warning about an
+  unlisted error see it.
 - New crate (STD-13 IO trait family, STD-18 fill-in): `Adc` (channels with their `ww_si` unit and range, one
   calibrated reading), `AdcStream` (continuous raw sampling: `samples(config)` is a counted stream function, API-31,
   answering the rate actually set; unit sample set, positions, losses and block times in the event head), `AdcCapture` (lossless triggered block capture into device RAM; a

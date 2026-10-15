@@ -227,14 +227,15 @@
         ], optional: None),
         (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 4), delivery: Counted, args: [
             (ident: "enabled", ty: OutOfLine(type_idx: 1)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3)))), multiplicity: Flat, since: None, ident: "event", docs: [
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Unsupported",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "event", docs: [
             "7. Edges (and device-specific sources) of this pin, as they happen: opening the stream enables the sources",
             "in `enabled`, closing it disables them. A counted stream, unit: event; each event may carry the device time",
             "it happened at, and the host learns exactly how many events the device dropped.",
-            "",
-            "# Errors",
-            "`Common(Unsupported)` if a requested source (edge or custom) isn\'t available on this pin. `#[errors(..)]`",
-            "isn\'t supported on `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.",
+            "`Unsupported` if a requested source (edge or custom) isn\'t available on this pin.",
         ], optional: None),
         (id: 8, kind: Method(args: [
             (ident: "mode", ty: OutOfLine(type_idx: 5)),
@@ -256,17 +257,21 @@
         (id: 9, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
             "Get current mode.",
         ], optional: None),
-        (id: 10, kind: Property(ty: OutOfLine(type_idx: 6), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "pull", docs: [
+        (id: 10, kind: Property(ty: OutOfLine(type_idx: 6), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+            (ident: "Common", nested: Some([
+                "Unsupported",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "pull", docs: [
             "Pull resistors selection.",
-            "",
-            "# Errors",
-            "`Common(Unsupported)` if the pin doesn\'t support the requested pull (`set` only).",
+            "`Unsupported` if the pin doesn\'t support the requested pull (`set` only).",
         ], optional: None),
-        (id: 11, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3))), multiplicity: Flat, since: None, ident: "speed", docs: [
+        (id: 11, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+            (ident: "Common", nested: Some([
+                "Unsupported",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "speed", docs: [
             "Drive strength selection.",
-            "",
-            "# Errors",
-            "`Common(Unsupported)` if the pin doesn\'t support the requested drive strength (`set` only).",
+            "`Unsupported` if the pin doesn\'t support the requested drive strength (`set` only).",
         ], optional: None),
         (id: 12, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What this pin can do: modes, pulls, speeds, whether it sends events, and its name.",

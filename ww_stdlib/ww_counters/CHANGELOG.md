@@ -14,6 +14,9 @@
 
 ### 🚀 Features
 
+- `Counters::watch` lists its errors with `#[errors(..)]` (API-32), now that stream functions and properties can carry
+  one, instead of a hand-written `# Errors` note: rustdoc, introspection and the client's warning about an unlisted
+  error see it.
 - `read_words` and `reset_words` serve `read` / `reset` from a `cnt` buffer (`cnt::counters_ram_buffer()`),
   copying one page into a scratch at once; `BufferInfo::new` for `INFO`.
 - Feature `host`: `host::WwSource`, a device's counters as a `cnt_core::Source` over a `CountersDevice` (the two

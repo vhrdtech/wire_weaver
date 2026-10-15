@@ -94,13 +94,9 @@ pub trait Adc {
 pub trait AdcStream {
     /// Raw samples of `config.channels` at `config.rate` sample sets per second, whole sample sets interleaved in
     /// the order of [StreamConfig::channels]. Opening returns what was actually set (the nearest rate the hardware
-    /// can do), closing stops sampling (blocks already sampled are still sent). Unit: sample set.
-    ///
-    /// # Errors
-    ///
-    /// `NoSuchChannel`, `Common(InvalidArgument)` (rate or channel count out of range), `Common(Unsupported)` (format),
-    /// `Common(Busy)` (a capture runs), `Common(InUse)`, `Common(NoPower)`. `#[errors(..)]` isn't supported on
-    /// `#[stream(..)]` methods yet (API-32), so this stays a hand-written note.
+    /// can do), closing stops sampling (blocks already sampled are still sent). Unit: sample set. `InvalidArgument`
+    /// for a rate or channel count out of range, `Unsupported` for the format, `Busy` while a capture runs.
+    #[errors(NoSuchChannel, Common(InvalidArgument, Unsupported, Busy, InUse, NoPower))]
     #[stream(SampleBlock<'i>, counted)]
     fn samples(config: StreamConfig<'i>) -> Result<StreamActual, AdcError<'i>>;
 

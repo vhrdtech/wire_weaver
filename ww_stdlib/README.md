@@ -21,7 +21,7 @@
 * `ww_uid` - Device unique ID data types and requesting API.
 * `ww_board_info` - PCB/PCBA information (name, revision, etc.) and requesting API.
 * `ww_gpio` - GPIO control data types and remote bridging API.
-* `ww_can_bus` - CAN bus data types and remote bridging API.
+* `ww_can_bus` - CAN bus API: configure, send and receive frames, error state, optional filters and buffers.
 * `ww_spi` - SPI data types and remote bridging API.
 * `ww_uart` - UART data types and remote bridging API.
 * `ww_i2c` - I2C bus data types and remote bridging API.

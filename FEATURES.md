@@ -670,13 +670,24 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     `AlertBrightness`, `animation_enable`, `test_mode` / `TestMode` and `HAS_NOT_CONTROLLABLE`. Docs
     `docs/std_library/ww_indication.md`, tests `tests/indication` (mock servers with only `mode`, and with every
     optional item).
+- ✅ **STD-29 `ww_can_bus` on the stdlib idioms** — one `Can` trait for a controller with its transceiver
+  (`ww_impl!(can[]: Can)` for several), from simple nodes to analyzers. Six required items: `capabilities()`,
+  `configure(CanConfig)` answering what was set (bit timing as rate or segments, answered as segments; CAN FD with
+  data timing, TDC, ISO / non-ISO; modes incl. restricted, listen-only, loopbacks, test; options; bus-off recovery),
+  `config()`, the observable `status` property (error state, TEC / REC, last protocol errors), the counted `rx`
+  stream (receive time and lost frames in the head) and the `tx` credit sink (frames with a marker). `#[optional]`:
+  `recover`, `tx_abort`, `tx_events`, `bus_errors`, `set_filters` (exact / mask / range, to FIFO / buffer / reject),
+  `rx_buffer`, `tx_buffer` (once or cyclic), terminator, `test_pins`. Errors on `CommonError` + `OutOfFilters`,
+  `BusOff`. `embedded-can` conversions; `defmt` no longer pulls `std`. No group trait (the clock is reported, not
+  chosen) and no analyzer trait (monitoring is a mode). CAN XL frames left for their own optional sink / stream.
+  Docs `docs/std_library/ww_can_bus.md`, tests `tests/io_can` (full and minimal node).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
-- 🚧 **STD-8 Prototypes**, to be completed later: `ww_can_bus`, `ww_i2c`, `ww_uart`,
+- 🚧 **STD-8 Prototypes**, to be completed later: `ww_i2c`, `ww_uart`,
   `ww_memory` (was `ww_ll`: one word type per trait, optional watches, errors on `CommonError`, docs page),
-  Known gaps are `TODO`s in their sources (e.g. SMBus and 7-bit addresses in `ww_i2c`, capabilities and properties
-  in `ww_can_bus`). `ww_log` (was `ww_log_bare_metal`) left for STD-26.
+  Known gaps are `TODO`s in their sources (e.g. SMBus and 7-bit addresses in `ww_i2c`; `ww_can_bus` is done in
+  STD-29). `ww_log` (was `ww_log_bare_metal`) left for STD-26.
 - 💡 **STD-9 Stubs**, for later: `ww_spi` (`ww_board_info`, `ww_firmware_info`, `ww_user_info` and `ww_uid` moved to STD-24).
 - 🚧 **STD-12 `ww_dfu` firmware update API** — traits `UpdateNode`, `BootControl`, `Inventory`, `Stage`,
   `StageBulk`: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored

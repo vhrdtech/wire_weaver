@@ -49,7 +49,7 @@ Notable ones are:
 * `ww_numeric` - Various numeric types, including offset-scale and subtypes.
 * `ww_si` - SI units and derived values.
 * `ww_gpio` - GPIO control data types and remote bridging API.
-* `ww_can_bus` - CAN Bus types and bridging API.
+* `ww_can_bus` - CAN bus API: configure, send and receive frames, error state, optional filters and buffers.
 * `ww_dfu` - Firmware update API, see the [guide to its eight update scenarios](https://ww.vhrd.tech/std_library/ww_dfu/).
 * `ww_log` - The device's log: defmt frames (decoded with the ELF) or text records, as reliable streams.
 * `ww_self` - Dynamic access to APIs (API model AST in shrink_wrap format).

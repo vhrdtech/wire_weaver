@@ -11,6 +11,7 @@ here assumes a particular kind of device.
 |---|---|---|
 | [`ww_gpio`](ww_gpio.md) | `Bank`, `Pin` | Logical-pin GPIO: read, drive, reconfigure, watch edges |
 | [`ww_uart`](ww_uart.md) | `Uart` | Bridge a serial port; watch both lines of a link without driving them (optional) |
+| [`ww_can_bus`](ww_can_bus.md) | `Can` | CAN / CAN FD controller: frames, error state; filters, TX events, bus errors, buffers (optional) |
 | [`ww_i2c`](ww_i2c.md) | `I2c`, `I2cWatch`, `I2cMonitor` | Master transfers and bus recovery; autonomous polling; bus sniffing |
 | [`ww_spi`](ww_spi.md) | `Spi` | Master transfers with CS held across operations; bus sniffing (optional) |
 | [`ww_adc`](ww_adc.md) | `Adc`, `AdcStream`, `AdcCapture` | One calibrated reading; continuous streaming; triggered block capture |
@@ -43,7 +44,7 @@ doesn't have to special-case devices by name.
 
 **One configuration, answered with what was set.** A bus or bank is configured in one call with one struct,
 not a property per setting: `Uart::configure(UartConfig)`, `I2c::i2c_configure(I2cConfig)`,
-`Spi::configure(SpiConfig)`, `Bank::configure(BankConfig)`, `OneWire::configure(OneWireConfig)`. Each answers with the
+`Spi::configure(SpiConfig)`, `Can::configure(CanConfig)`, `Bank::configure(BankConfig)`, `OneWire::configure(OneWireConfig)`. Each answers with the
 same struct as actually set (the baud rate or clock the divider settled on, the IO level in effect), so a host sees
 the rounding and a port never runs with half a configuration. Stream functions that configure what they watch do the
 same (`Uart::monitor` answers its `MonitorConfig`).
@@ -56,7 +57,7 @@ generator channels sit on pins of a GPIO bank or bus and use its level; the logi
 threshold per capture.
 
 **Common errors.** Each crate has its own error enum (`ww_gpio::GpioError`, `ww_uart::UartError`,
-`ww_i2c::I2cError`, `ww_spi::SpiError`, `ww_adc::AdcError`, `ww_pwm::PwmError`, `ww_onewire::OneWireError`,
+`ww_i2c::I2cError`, `ww_spi::SpiError`, `ww_can_bus::CanError`, `ww_adc::AdcError`, `ww_pwm::PwmError`, `ww_onewire::OneWireError`,
 `ww_timebase::ClockError`, `ww_logic_analyzer::LaError`, `ww_signal_generator::PgError` / `WgError`), and every one
 of them starts with [`ww_error::CommonError`](../api/errors.md#common-errors) as its `#[common] Common` variant for
 the situations every device shares: `Unsupported` (this device doesn't have the mode, level or feature asked for),
@@ -85,7 +86,8 @@ wire.
 `Spi::monitor`, optional items of the bus trait, and `I2cMonitor::records`, a trait of its own because I2C
 monitoring also exists without a master (`I2cMode::MonitorOnly`) and next to the master's own traffic. A monitor
 reports one record per transaction/frame; a master that also wants to see its own traffic sets the matching monitor
-flag where the trait offers one (e.g. `I2cMode::Master { monitor: true, .. }`).
+flag where the trait offers one (e.g. `I2cMode::Master { monitor: true, .. }`). On CAN, monitoring is a
+mode of the controller (`ww_can_bus::Mode::ListenOnly`) on its one `rx` stream, no separate item.
 
 **Streams are opened with their configuration.** A stream that needs a configuration is a
 [stream function](../api/streams.md#opening-a-stream): the host opens it with the configuration as its arguments and

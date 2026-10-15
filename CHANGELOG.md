@@ -11,6 +11,13 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+### Fixed
+
+- Malformed multi requests from a host no longer panic a `multi_req = true` device (CLT-15): a `Range` or `Mask32`
+  index, a path at the depth limit or a deferred method inside one are answered with errors. `MultiCall` and
+  `MultiWrite` are dispatched as calls and writes (they ran as reads), each index answered on its own like in
+  `MultiRead`.
+
 ## [0.5.0] - 2026-10-15
 
 Workspace version 0.5.0 since 30 Sep 2026, tagged 15 Oct 2026, not on crates.io yet. See the `## Unreleased` sections of

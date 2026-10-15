@@ -1,21 +1,15 @@
 //! SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in
 //! one transaction, or watch a bus without taking part.
 //!
-//! # Traits
-//!
-//! | Trait        | What it is for                                                        | Who implements it         |
-//! |--------------|------------------------------------------------------------------------|----------------------------|
-//! | `Spi`        | Configure the bus, full-duplex transfers, transactions with CS held, writes. | Every SPI master     |
-//! | `SpiMonitor` | Every frame (one CS assertion) on the bus as a stream.                | Sniffers, debug adapters  |
-//!
-//! Monitoring is its own trait because it is its own function: a sniffer may have no master at all. A host finds
-//! out what is there through introspection, and what `Spi` supports through `Spi::capabilities`.
+//! `Spi` is one bus: configure it, full-duplex transfers, transactions with CS held, writes, and, on adapters with
+//! the hardware for it, every frame on the bus on the optional `monitor` stream. Being one trait, a device with
+//! several buses is one array, `ww_impl!(spi[]: ww_spi::Spi)`, monitoring included. A host finds out whether a
+//! device left `monitor` out through introspection, and what `Spi` supports through `Spi::capabilities`.
 //!
 //! ```rust,ignore
 //! #[ww_api_root]
 //! trait MyAdapter {
 //!     ww_impl!(spi: ww_spi::Spi);
-//!     ww_impl!(spi_monitor: ww_spi::SpiMonitor);
 //! }
 //! ```
 //!
@@ -27,7 +21,7 @@
 //!
 //! # Time
 //!
-//! `SpiMonitor` reports when a frame's CS assertion started (the time in the event head) and ended ([SpiFrame::end])
+//! `Spi::monitor` reports when a frame's CS assertion started (the time in the event head) and ended ([SpiFrame::end])
 //! as [Second]s of device time: time since the device's clock started, in the prefix and number type the device
 //! picks (usually a `u32` of microseconds). A fixed-width value wraps and the host unwraps it.
 //!
@@ -39,7 +33,7 @@
 //!
 //! # Errors
 //!
-//! Both traits return [SpiError]; each method lists the variants it returns.
+//! Every method returns [SpiError]; each lists the variants it returns.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -110,20 +104,21 @@ pub trait Spi {
     ///
     /// [SpiError::WrongMode] (CS isn't [CsMode::Manual]).
     fn set_cs(active: bool) -> Result<(), SpiError>;
-}
 
-/// Watches an SPI bus without taking part: one [SpiFrame] per CS assertion on the `frames` stream.
-#[ww_trait]
-pub trait SpiMonitor {
-    /// One frame per CS assertion, in bus order, decoded with `config` (the monitor doesn't drive CS or clock, it
-    /// only listens). Opening starts monitoring, closing stops it. A counted stream, unit: frame; the head's time is
-    /// when CS was asserted, and the host learns exactly how many frames the device dropped.
+    /// Watches the bus without taking part: one [SpiFrame] per CS assertion, in bus order, decoded with `config` (the
+    /// monitor doesn't drive CS or clock, it only listens). Opening starts monitoring, closing stops it. A counted
+    /// stream, unit: frame; the head's time is when CS was asserted, and the host learns exactly how many frames the
+    /// device dropped.
+    ///
+    /// Optional: an adapter without monitoring hardware leaves it out (`omit = ["spi.monitor"]`), and a host sees
+    /// that in the device's introspection.
     ///
     /// # Errors
     ///
     /// [SpiError::InUse], [SpiError::Unsupported] (this `word_bits`), [SpiError::Refused].
+    #[optional]
     #[stream(SpiFrame<'i>, counted)]
-    fn frames(config: SpiMonitorConfig) -> Result<(), SpiError>;
+    fn monitor(config: SpiMonitorConfig) -> Result<(), SpiError>;
 }
 
 /// Everything the bus is configured with, see `Spi::configure`: what is asked for going in, what was actually set
@@ -143,7 +138,7 @@ pub struct SpiConfig {
     pub io_level: Option<Volt>,
 }
 
-/// Bus settings for `SpiMonitor::frames`: everything needed to decode frames correctly, without the
+/// Bus settings for `Spi::monitor`: everything needed to decode frames correctly, without the
 /// parts that only apply to driving the bus ([SpiConfig::role], [SpiConfig::cs]).
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug))]
 pub struct SpiMonitorConfig {
@@ -230,7 +225,7 @@ pub enum SpiOp<'i> {
     Delay(Second),
 }
 
-/// One frame seen by `SpiMonitor`: from CS asserted to released.
+/// One frame seen by `Spi::monitor`: from CS asserted to released.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
 pub struct SpiFrame<'i> {
     /// When CS was released; when it was asserted is the time in the event head.
@@ -252,8 +247,6 @@ pub struct SpiCapabilities<'i> {
     pub max_word_bits: u8,
     pub master: bool,
     pub slave: bool,
-    /// `SpiMonitor` is implemented.
-    pub monitor: bool,
     /// Discrete IO levels the adapter can set (e.g. 1.8 V, 3.3 V, 5 V); empty if it has no level control.
     pub io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>,
     /// Lowest IO level of an adjustable supply, if the adapter has one.

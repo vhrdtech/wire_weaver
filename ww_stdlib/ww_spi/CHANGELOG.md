@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+- `SpiMonitor` is gone: `SpiMonitor::frames` is `Spi::monitor`, an `#[optional]` counted stream function of `Spi`
+  (STD-13), so an array of buses carries monitoring without a second trait. An adapter without monitoring hardware
+  leaves it out with `omit = ["spi.monitor"]`; `SpiCapabilities::monitor` is removed (introspection says whether the
+  item is there).
 - The IO level is `SpiConfig::io_level: Option<Volt>` instead of the `reference_voltage` property, and
   `Spi::configure` answers the actual `SpiConfig` instead of `SpiActual` (removed) (STD-13). `SpiMonitorConfig` gets
   `io_level`; `SpiCapabilities::io_levels` is bounded by `MAX_IO_LEVELS` and gets `io_level_min` / `io_level_max`.

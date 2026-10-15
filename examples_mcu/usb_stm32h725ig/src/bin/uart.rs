@@ -131,6 +131,8 @@ mod server_impl {
     wire_weaver::ww_codegen!(
         uart_api :: UartBridge for super::ServerState,
         server = true, no_alloc = true, use_async = true,
+        // UART7 and UART8 can't watch a link of two other devices
+        omit = ["uart.monitor"],
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = "no_docs",

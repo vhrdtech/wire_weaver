@@ -16,7 +16,7 @@
 //! ```
 //!
 //! Protocol decoding stays on the host; a device that decodes a protocol itself implements that protocol's monitor
-//! trait (`I2cMonitor`, `UartMonitor`, `SpiMonitor`). See `docs/std_library/ww_logic_analyzer.md` for the encodings
+//! (`I2cMonitor`, `Uart::monitor`, `Spi::monitor`). See `docs/std_library/ww_logic_analyzer.md` for the encodings
 //! and worked examples.
 //!
 //! # Encodings

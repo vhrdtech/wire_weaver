@@ -10,9 +10,9 @@ here assumes a particular kind of device.
 | Crate | Traits | What it's for |
 |---|---|---|
 | [`ww_gpio`](ww_gpio.md) | `Bank`, `Pin` | Logical-pin GPIO: read, drive, reconfigure, watch edges |
-| [`ww_uart`](ww_uart.md) | `Uart`, `UartMonitor` | Bridge a serial port; watch both lines of a link without driving them |
+| [`ww_uart`](ww_uart.md) | `Uart` | Bridge a serial port; watch both lines of a link without driving them (optional) |
 | [`ww_i2c`](ww_i2c.md) | `I2c`, `I2cWatch`, `I2cMonitor` | Master transfers and bus recovery; autonomous polling; bus sniffing |
-| [`ww_spi`](ww_spi.md) | `Spi`, `SpiMonitor` | Master transfers with CS held across operations; bus sniffing |
+| [`ww_spi`](ww_spi.md) | `Spi` | Master transfers with CS held across operations; bus sniffing (optional) |
 | [`ww_adc`](ww_adc.md) | `Adc`, `AdcStream`, `AdcCapture` | One calibrated reading; continuous streaming; triggered block capture |
 | [`ww_pwm`](ww_pwm.md) | `Pwm`, `PwmCapture` | PWM channel outputs; pulse/frequency measurement on capture-capable channels |
 | [`ww_onewire`](ww_onewire.md) | `OneWire` | Reset, ROM search, addressed transactions, strong pull-up |
@@ -23,12 +23,14 @@ here assumes a particular kind of device.
 [`ww_si`](ww_si.md) and [`ww_numeric`](ww_numeric.md) underpin all of them: every physical value on the wire is a
 typed `ww_si` quantity, not a raw integer with an implied unit.
 
-A trait that only some devices have is its own trait rather than a method that answers "not supported" on most
-implementers: `AdcStream` and `AdcCapture` are separate from `Adc`, `UartMonitor` from `Uart`, `I2cMonitor` and
-`I2cWatch` from `I2c`, `SpiMonitor` from `Spi`, `PwmCapture` from `Pwm`. A thermometer implements `Adc` only; a
-data logger adds `AdcStream`; a bus sniffer may implement only a monitor trait with no master at all. A host finds
-out what a device actually has through introspection (global trait paths) and, within a trait, through its
-`capabilities()` method.
+What only some devices have is never a method that answers "not supported" on most implementers. A function with
+state, configuration and several items of its own is its own trait: `AdcStream` and `AdcCapture` are separate from
+`Adc`, `I2cMonitor` and `I2cWatch` from `I2c`, `PwmCapture` from `Pwm`. A thermometer implements `Adc` only; a data
+logger adds `AdcStream`; an I2C sniffer may implement only `I2cMonitor` with no master at all. A function that is one
+stream is an [optional item](../api/optional_items.md) of the main trait instead (`Uart::monitor`, `Spi::monitor`),
+so an array of ports (`ww_impl!(uart[]: Uart)`) carries it without a second array or trait to keep in step, and a
+device without the hardware leaves it out (`omit = ["uart.monitor"]`). A host finds out what a device actually has
+through introspection (global trait paths, left-out items) and, within a trait, through its `capabilities()` method.
 
 ## Shared conventions
 
@@ -44,7 +46,7 @@ not a property per setting: `Uart::configure(UartConfig)`, `I2c::i2c_configure(I
 `Spi::configure(SpiConfig)`, `Bank::configure(BankConfig)`, `OneWire::configure(OneWireConfig)`. Each answers with the
 same struct as actually set (the baud rate or clock the divider settled on, the IO level in effect), so a host sees
 the rounding and a port never runs with half a configuration. Stream functions that configure what they watch do the
-same (`UartMonitor::lines` answers its `MonitorConfig`).
+same (`Uart::monitor` answers its `MonitorConfig`).
 
 **IO level in the configuration.** On adapters with level translators the IO level is a field of that
 configuration, `io_level: Option<Volt>` (`None` leaves it as it is, and is the answer of a device without level
@@ -76,17 +78,17 @@ Trait)`, a WireWeaver array of sub-traits. Every other method that addresses one
 that same array, in the order its crate's `*Info` / `*Capabilities` type lists them — no bitmasks, no names on the
 wire.
 
-**Monitor traits.** Watching a bus without taking part in it (`UartMonitor`, `I2cMonitor`, `SpiMonitor`) is kept
-separate from driving it, because a device can be one without the other: a protocol sniffer often has no master
-of its own, and most masters have no monitoring hardware. A monitor reports one record per transaction/frame on
-its own stream; a master that also wants to see its own traffic sets the matching monitor flag where the trait
-offers one (e.g. `I2cMode::Master { monitor: true, .. }`).
+**Monitors.** Watching a bus without taking part in it is a counted stream function: `Uart::monitor` and
+`Spi::monitor`, optional items of the bus trait, and `I2cMonitor::records`, a trait of its own because I2C
+monitoring also exists without a master (`I2cMode::MonitorOnly`) and next to the master's own traffic. A monitor
+reports one record per transaction/frame; a master that also wants to see its own traffic sets the matching monitor
+flag where the trait offers one (e.g. `I2cMode::Master { monitor: true, .. }`).
 
 **Streams are opened with their configuration.** A stream that needs a configuration is a
 [stream function](../api/streams.md#opening-a-stream): the host opens it with the configuration as its arguments and
 gets back what the device actually set, or an error, and closing the stream stops sampling or monitoring
-(`AdcStream::samples`, `LogicStream::data`, `Pin::event`, `PwmCaptureChannel::capture`, `SpiMonitor::frames`,
-`I2cMonitor::records`, `UartMonitor::lines`). Opening it again starts a new session with the new configuration, so
+(`AdcStream::samples`, `LogicStream::data`, `Pin::event`, `PwmCaptureChannel::capture`, `Spi::monitor`,
+`I2cMonitor::records`, `Uart::monitor`). Opening it again starts a new session with the new configuration, so
 there is no separate configure / start / stop to keep in sync.
 
 ```rust

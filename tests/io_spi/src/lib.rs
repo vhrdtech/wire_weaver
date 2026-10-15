@@ -74,8 +74,8 @@ mod tests {
                         miso: MaxLen::new(RefVec::Slice { slice: &miso }).unwrap(),
                     };
                     let _ = api_impl::stream_data_ser()
-                        .spi_monitor()
-                        .frames_send_blocking(
+                        .spi()
+                        .monitor_send_blocking(
                             &mut self.frames,
                             &frame,
                             1,
@@ -183,7 +183,6 @@ mod tests {
                     max_word_bits: 8,
                     master: true,
                     slave: false,
-                    monitor: true,
                     io_levels: MaxLen::new(RefVec::Slice { slice: &IO_LEVELS }).unwrap(),
                     io_level_min: None,
                     io_level_max: None,
@@ -230,7 +229,7 @@ mod tests {
                 Ready(Ok(()))
             }
 
-            fn spi_monitor_frames(
+            fn spi_monitor(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiMonitorConfig,
@@ -242,11 +241,11 @@ mod tests {
                 Ready(Ok(()))
             }
 
-            fn close_spi_monitor_frames(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+            fn close_spi_monitor(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
                 self.data.lock().unwrap().monitor_config = None;
             }
 
-            fn stream_spi_monitor_frames(&mut self) -> &mut Counted {
+            fn stream_spi_monitor(&mut self) -> &mut Counted {
                 &mut self.frames
             }
         }
@@ -512,12 +511,12 @@ mod tests {
             word_bits,
             io_level: None,
         };
-        let r = client.spi_monitor().frames(config(9)).call().await.unwrap();
+        let r = client.spi().monitor(config(9)).call().await.unwrap();
         assert!(matches!(r, Err(SpiError::Unsupported)), "{:?}", r.err());
 
         let ((), mut stream) = client
-            .spi_monitor()
-            .frames(config(8))
+            .spi()
+            .monitor(config(8))
             .call()
             .await
             .unwrap()

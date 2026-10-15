@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+- `UartMonitor` is gone: `UartMonitor::lines` is `Uart::monitor`, an `#[optional]` counted stream function of `Uart`
+  (STD-13), so an array of ports (`ww_impl!(uart[]: Uart)`) carries monitoring without a second trait. A port
+  without monitoring hardware leaves it out with `omit = ["uart.monitor"]`; drop `ww_impl!(..: UartMonitor)`, rename
+  the `uart_monitor_lines` handlers to `uart_monitor`.
 - One `configure(config: UartConfig) -> Result<UartConfig, Error>` instead of the `baud_rate`, `mode`,
   `stop_bits`, `parity`, `data_bits`, `prevent_back_feed` and `reference_voltage` properties and `baud_rate_actual()`
   (STD-13): the answer is what was actually set (baud rate after the divider, IO level in effect).

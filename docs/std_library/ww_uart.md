@@ -13,14 +13,11 @@ ww_uart = "0.1"
 
 ## Traits
 
-| Trait | What it is for | Who implements it |
-|---|---|---|
-| `Uart` | Configure, receive on `rx`, send on the `tx` credit sink. | Every UART bridge |
-| `UartMonitor` | Both lines of a serial link as two streams, without driving them. | Sniffers, debug adapters |
-
-Both compose with the rest of the API using [`ww_impl!`](../api/traits.md) and can be nested as
-[arrays](../api/arrays.md) when a device has more than one UART (`ww_impl!(uart[]: ww_uart::Uart)`, as
-`examples/uart_api` does).
+`Uart` is one port: configure it, receive on `rx`, send on the `tx` credit sink, and, on ports with the hardware for
+it, watch both lines of a link between two other devices on the [optional](../api/optional_items.md) `monitor`
+stream. It composes with the rest of the API using [`ww_impl!`](../api/traits.md) and is nested as an
+[array](../api/arrays.md) when a device has more than one UART (`ww_impl!(uart[]: ww_uart::Uart)`, as
+`examples/uart_api` does); monitoring comes with each element, no second array or trait to keep in step.
 
 ### `Uart`
 
@@ -40,6 +37,10 @@ pub trait Uart {
     fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>;
     fn send_break(duration: Second) -> Result<(), Error>;
     fn tx_pending() -> u32;
+
+    #[optional]
+    #[stream(MonitorChunk<'i>, counted)]
+    fn monitor(config: MonitorConfig) -> Result<MonitorConfig, Error>;
 }
 ```
 
@@ -59,25 +60,13 @@ pub trait Uart {
   [`Error::WrongMode`](#types).
 * `send_break` - holds TX low for `duration` (a break condition), after the bytes already queued.
 * `tx_pending()` - bytes queued for sending and not sent yet.
-
-### `UartMonitor`
-
-```rust
-#[ww_trait]
-pub trait UartMonitor {
-    #[stream(MonitorChunk<'i>, counted)]
-    fn lines(config: MonitorConfig) -> Result<MonitorConfig, Error>;
-}
-```
-
-* `lines` - a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with the line
+* `monitor` - `#[optional]`, a counted [stream function](../api/streams.md#opening-a-stream): the host opens it with the line
   settings of the watched link (baud rate, data bits, parity, stop bits, IO level) and gets back what was actually
   set (as `Uart::configure` does), then both directions of the link (rePort: RX and CTS/RX2) in one stream, in
   the order they arrived: each `MonitorChunk` says which `MonitorLine` it came from, so a request and its answer
-  stay in order. Closing the stream stops receiving. The unit is a byte of either line.
-
-Monitoring is its own trait because it is its own function: a sniffer may have no UART master at all, and most
-bridges can't sniff a link they aren't part of.
+  stay in order. Closing the stream stops receiving. The unit is a byte of either line. Most bridges can't sniff a
+  link they aren't part of: such a device leaves it out with `omit = ["uart.monitor"]` in its `ww_codegen!`, and a
+  host sees that in the device's introspection.
 
 ## Types
 
@@ -97,8 +86,8 @@ bridges can't sniff a link they aren't part of.
 * `RxFlags` - `parity_error`, `framing_error`, `overrun`, `break_detected`, seen while receiving a chunk.
 * `UartConfig` - `baud_rate: Baud`, `data_bits`, `parity`, `stop_bits`, `mode`, `prevent_back_feed: bool`,
   `io_level: Option<Volt>`; the argument and the answer of `configure`.
-* `MonitorConfig` - `baud_rate`, `data_bits`, `parity`, `stop_bits`, `io_level` of the link `UartMonitor::lines`
-  watches; the argument and the answer of `lines`.
+* `MonitorConfig` - `baud_rate`, `data_bits`, `parity`, `stop_bits`, `io_level` of the link `Uart::monitor`
+  watches; the argument and the answer of `monitor`.
 * `Capabilities<'i>` - `min_baud_rate` / `max_baud_rate: Baud`, `io_levels: MaxLen<RefVec<'i, Volt>,
   MAX_IO_LEVELS>`, `io_level_min` / `io_level_max: Option<Volt>` (an adjustable supply),
   `rx_timestamps` (`rx` events carry their time) / `hw_flow_control` / `sw_flow_control` / `high_z_mode` / `test_mode` /
@@ -110,14 +99,16 @@ variants are available by enabling the crate's `std` feature; the plain configur
 
 ## Composing into a device API
 
-A device exposes a UART by implementing `Uart` (and, for a sniffer, `UartMonitor`) on its API root:
+A device exposes a UART by implementing `Uart` on its API root:
 
 ```rust
 #[ww_api_root]
 pub trait MyDeviceApi {
     ww_impl!(uart: ww_uart::Uart);
-    ww_impl!(uart_monitor: ww_uart::UartMonitor);
 }
+
+// a port without monitoring hardware
+ww_codegen!(my_device_api::MyDeviceApi for Server, server = true, omit = ["uart.monitor"]);
 ```
 
 `tests/io_uart_api` is exactly this shape (used by `tests/io_uart`'s mock server and in-process tests); a device

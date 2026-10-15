@@ -6,5 +6,4 @@ use wire_weaver::prelude::*;
 #[ww_api_root]
 pub trait IoUartTest {
     ww_impl!(uart: ww_uart::Uart);
-    ww_impl!(uart_monitor: ww_uart::UartMonitor);
 }

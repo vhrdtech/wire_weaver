@@ -6,5 +6,4 @@ use wire_weaver::prelude::*;
 #[ww_api_root]
 pub trait IoSpiTest {
     ww_impl!(spi: ww_spi::Spi);
-    ww_impl!(spi_monitor: ww_spi::SpiMonitor);
 }

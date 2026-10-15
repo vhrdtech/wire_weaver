@@ -26,7 +26,7 @@ mod tests {
         tx_sideband: Vec<StreamSideband>,
         /// The `rx` stream is open.
         rx_open: bool,
-        /// Set while `UartMonitor::lines` is open.
+        /// Set while `Uart::monitor` is open.
         monitor_config: Option<MonitorConfig>,
         /// Bytes the test makes arrive, sent on `rx` or `lines` (with `Some(line)`) before the next request.
         received: Vec<(Option<MonitorLine>, Vec<u8>)>,
@@ -111,7 +111,7 @@ mod tests {
                             ser.uart()
                                 .rx_send_blocking(&mut self.rx, &chunk, units, Some(t), out)
                         }
-                        Some(line) => ser.uart_monitor().lines_send_blocking(
+                        Some(line) => ser.uart().monitor_send_blocking(
                             &mut self.lines,
                             &MonitorChunk { line, chunk },
                             units,
@@ -221,7 +221,7 @@ mod tests {
                 Ready(self.uart_tx_credit.buffered())
             }
 
-            fn uart_monitor_lines(
+            fn uart_monitor(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: MonitorConfig,
@@ -238,11 +238,11 @@ mod tests {
                 Ready(Ok(actual))
             }
 
-            fn close_uart_monitor_lines(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+            fn close_uart_monitor(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
                 self.m.lock().unwrap().monitor_config = None;
             }
 
-            fn stream_uart_monitor_lines(&mut self) -> &mut Counted {
+            fn stream_uart_monitor(&mut self) -> &mut Counted {
                 &mut self.lines
             }
         }
@@ -466,16 +466,16 @@ mod tests {
             io_level: None,
         };
         let r = client
-            .uart_monitor()
-            .lines(config(Baud::baud(110u32)))
+            .uart()
+            .monitor(config(Baud::baud(110u32)))
             .call()
             .await
             .unwrap();
         assert!(matches!(r, Err(Error::Unsupported)), "{:?}", r.err());
 
         let (actual, mut lines) = client
-            .uart_monitor()
-            .lines(config(Baud::baud(115_200u32)))
+            .uart()
+            .monitor(config(Baud::baud(115_200u32)))
             .call()
             .await
             .unwrap()

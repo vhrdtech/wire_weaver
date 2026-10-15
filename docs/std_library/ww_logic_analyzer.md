@@ -15,7 +15,7 @@ ww_logic_analyzer = "0.1"
 It sits next to [`ww_gpio`](ww_gpio.md) rather than inside it because GPIO is one pin, one call, no timing; here
 the whole point is timing: every sample of every channel lands on one grid. Protocol decoding (UART, I2C, SPI, CAN
 on top of captured edges) stays on the host; a device that decodes a protocol itself implements that protocol's own
-monitor trait (`UartMonitor`, `I2cMonitor`, `SpiMonitor`) instead.
+monitor (`Uart::monitor`, `I2cMonitor`, `Spi::monitor`) instead.
 
 ## Traits
 

@@ -1,9 +1,8 @@
 //! UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.
 //!
-//! | Trait          | What it is for                                                    | Who implements it        |
-//! |----------------|-------------------------------------------------------------------|--------------------------|
-//! | `Uart`         | Configure, receive on `rx`, send on the `tx` credit sink.         | Every UART bridge        |
-//! | `UartMonitor`  | Both lines of a serial link as one stream, without driving them.  | Sniffers, debug adapters |
+//! `Uart` is one port: configure it, receive on `rx`, send on the `tx` credit sink, and, on ports with the hardware
+//! for it, watch both lines of a link between two other devices on the optional `monitor` stream. Being one trait,
+//! a device with several ports is one array, `ww_impl!(uart[]: ww_uart::Uart)`, monitoring included.
 //!
 //! Received bytes come in chunks ([RxChunk]): a chunk ends after a short silence on the line, when it is full, or on
 //! a line error. The receive streams are counted, in bytes: the event head carries each chunk's position, the device
@@ -66,24 +65,25 @@ pub trait Uart {
 
     /// Bytes queued for sending and not sent yet.
     fn tx_pending() -> u32;
-}
 
-/// Both lines of a serial link between two other devices, received without driving them.
-#[ww_trait]
-pub trait UartMonitor {
-    /// What both directions of the link carry, in the order it arrived, decoded with `config`; each chunk says
-    /// which line it came from. Opening starts receiving and answers the configuration actually set (the baud rate
-    /// the receiver settled on, the IO level in effect), closing stops it.
-    /// A counted stream, unit: byte (of both lines); the head's time is when the chunk's first byte arrived.
+    /// Both lines of a serial link between two other devices, received without driving them: what both
+    /// directions carry, in the order it arrived, decoded with `config`; each chunk says which line it came from.
+    /// Opening starts receiving and answers the configuration actually set (the baud rate the receiver settled on,
+    /// the IO level in effect), closing stops it. A counted stream, unit: byte (of both lines); the head's time is
+    /// when the chunk's first byte arrived.
+    ///
+    /// Optional: a port without monitoring hardware leaves it out (`omit = ["uart.monitor"]`), and a host sees that
+    /// in the device's introspection.
     ///
     /// # Errors
     ///
     /// [Error::Unsupported] (baud rate, mode or parity this monitor can't decode), [Error::InUse], [Error::NoIoLevel].
+    #[optional]
     #[stream(MonitorChunk<'i>, counted)]
-    fn lines(config: MonitorConfig) -> Result<MonitorConfig, Error>;
+    fn monitor(config: MonitorConfig) -> Result<MonitorConfig, Error>;
 }
 
-/// Received bytes, see `Uart::rx` and `UartMonitor::lines`. When they arrived is the time in the event head.
+/// Received bytes, see `Uart::rx` and `Uart::monitor`. When they arrived is the time in the event head.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
 pub struct RxChunk<'i> {
     /// Line errors seen while receiving this chunk, if any.
@@ -92,7 +92,7 @@ pub struct RxChunk<'i> {
     pub bytes: MaxLen<RefVec<'i, u8>, UART_CHUNK_MAX>,
 }
 
-/// Bytes of one line of the watched link, see `UartMonitor::lines`.
+/// Bytes of one line of the watched link, see `Uart::monitor`.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
 pub struct MonitorChunk<'i> {
     pub line: MonitorLine,
@@ -145,7 +145,7 @@ pub struct UartConfig {
     pub io_level: Option<Volt>,
 }
 
-/// Line settings of the watched link, the argument of `UartMonitor::lines`.
+/// Line settings of the watched link, the argument and the answer of `Uart::monitor`.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug))]
 pub struct MonitorConfig {
     /// Baud rate of the watched link.
@@ -242,7 +242,7 @@ pub enum DataBits {
     Five,
 }
 
-/// Errors returned by `Uart` and `UartMonitor` methods; each method's doc lists the variants it returns.
+/// Errors returned by `Uart` methods; each method's doc lists the variants it returns.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug), ww_repr = u4)]
 pub enum Error {
     /// This device doesn't have the feature asked for (e.g. a baud rate, mode, parity or bit count outside

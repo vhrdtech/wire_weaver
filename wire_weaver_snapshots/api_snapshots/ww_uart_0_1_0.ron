@@ -3,17 +3,15 @@
 (magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
     "UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.",
     "",
-    "| Trait          | What it is for                                                    | Who implements it        |",
-    "|----------------|-------------------------------------------------------------------|--------------------------|",
-    "| `Uart`         | Configure, receive on `rx`, send on the `tx` credit sink.         | Every UART bridge        |",
-    "| `UartMonitor`  | Both lines of a serial link as one stream, without driving them.  | Sniffers, debug adapters |",
+    "`Uart` is one port: configure it, receive on `rx`, send on the `tx` credit sink, and, on ports with the hardware",
+    "for it, watch both lines of a link between two other devices on the optional `monitor` stream. Being one trait,",
+    "a device with several ports is one array, `ww_impl!(uart[]: ww_uart::Uart)`, monitoring included.",
     "",
     "Received bytes come in chunks ([RxChunk]): a chunk ends after a short silence on the line, when it is full, or on",
     "a line error. The receive streams are counted, in bytes: the event head carries each chunk\'s position, the device",
     "time of its first byte, and exactly how many bytes the device dropped before it.",
 ], crate_idx: 0, trait_name: "ww_uart", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uart", docs: [], optional: None),
-    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "UartMonitor", docs: [], optional: None),
 ]), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Line errors seen in a chunk.",
@@ -32,7 +30,7 @@
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Received bytes, see `Uart::rx` and `UartMonitor::lines`. When they arrived is the time in the event head.",
+        "Received bytes, see `Uart::rx` and `Uart::monitor`. When they arrived is the time in the event head.",
     ], ident: "RxChunk", fields: Named([
         (ident: Some("flags"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
             "Line errors seen while receiving this chunk, if any.",
@@ -175,7 +173,7 @@
         ]),
     ]))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
-        "Errors returned by `Uart` and `UartMonitor` methods; each method\'s doc lists the variants it returns.",
+        "Errors returned by `Uart` methods; each method\'s doc lists the variants it returns.",
     ], ident: "Error", variants: [
         (docs: [
             "This device doesn\'t have the feature asked for (e.g. a baud rate, mode, parity or bit count outside",
@@ -241,7 +239,7 @@
         74,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Line settings of the watched link, the argument of `UartMonitor::lines`.",
+        "Line settings of the watched link, the argument and the answer of `Uart::monitor`.",
     ], ident: "MonitorConfig", fields: Named([
         (ident: Some("baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
             "Baud rate of the watched link.",
@@ -270,7 +268,7 @@
         ], ident: "B", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Bytes of one line of the watched link, see `UartMonitor::lines`.",
+        "Bytes of one line of the watched link, see `Uart::monitor`.",
     ], ident: "MonitorChunk", fields: Named([
         (ident: Some("line"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: []),
         (ident: Some("chunk"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
@@ -326,22 +324,22 @@
         (id: 6, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "tx_pending", docs: [
             "Bytes queued for sending and not sent yet.",
         ], optional: None),
-    ]), crate_idx: 0),
-    InLine(level: (docs: [
-        "Both lines of a serial link between two other devices, received without driving them.",
-    ], crate_idx: 0, trait_name: "UartMonitor", items: [
-        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 15), delivery: Counted, args: [
+        (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 15), delivery: Counted, args: [
             (ident: "config", ty: OutOfLine(type_idx: 13)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 10)))), multiplicity: Flat, since: None, ident: "lines", docs: [
-            "What both directions of the link carry, in the order it arrived, decoded with `config`; each chunk says",
-            "which line it came from. Opening starts receiving and answers the configuration actually set (the baud rate",
-            "the receiver settled on, the IO level in effect), closing stops it.",
-            "A counted stream, unit: byte (of both lines); the head\'s time is when the chunk\'s first byte arrived.",
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 10)))), multiplicity: Flat, since: None, ident: "monitor", docs: [
+            "Both lines of a serial link between two other devices, received without driving them: what both",
+            "directions carry, in the order it arrived, decoded with `config`; each chunk says which line it came from.",
+            "Opening starts receiving and answers the configuration actually set (the baud rate the receiver settled on,",
+            "the IO level in effect), closing stops it. A counted stream, unit: byte (of both lines); the head\'s time is",
+            "when the chunk\'s first byte arrived.",
+            "",
+            "Optional: a port without monitoring hardware leaves it out (`omit = [\"uart.monitor\"]`), and a host sees that",
+            "in the device\'s introspection.",
             "",
             "# Errors",
             "",
             "[Error::Unsupported] (baud rate, mode or parity this monitor can\'t decode), [Error::InUse], [Error::NoIoLevel].",
-        ], optional: None),
+        ], optional: Some((group: None))),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_uart", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

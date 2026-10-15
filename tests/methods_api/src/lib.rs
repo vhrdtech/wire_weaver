@@ -34,6 +34,14 @@ trait Methods {
     fn fallible_absent() -> Result<(), MethodError>;
     /// Array of units (CLT-15 multi-request tests: list/range/mask indices through `call_array`)
     ww_impl!(unit[]: Unit);
+    /// Nested level with a deferred method (answered by `answer_deferred`, handler `plug_vbus_cycle`)
+    ww_impl!(plug: Plug);
+}
+
+#[ww_trait]
+trait Plug {
+    /// Answered later with the generated `plug_vbus_cycle_send_return`
+    fn vbus_cycle() -> u8;
 }
 
 #[ww_trait]

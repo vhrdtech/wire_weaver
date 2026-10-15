@@ -126,6 +126,7 @@ pub fn gen_server(
     let deferred_return_methods = deferred_method_return_ser_methods(
         api_bundle,
         api_level,
+        None,
         config.no_alloc,
         &config.method_model,
         &mut error_seq,
@@ -1128,7 +1129,10 @@ fn handle_method(
     // a deferred method answers later with the request's seq, a multi request can't carry that yet: refused before
     // the handler runs (a handler that defers anyway is answered with the same error in multi_req_handlers)
     let maybe_refuse_in_multi = if cx.multi_req
-        && cx.method_model.pick(&ident.to_string()) == Some(MethodModelKind::Deferred)
+        && cx
+            .method_model
+            .pick(&add_prefix(cx.ident_prefix.as_ref(), ident).to_string())
+            == Some(MethodModelKind::Deferred)
     {
         let es = error_seq.next();
         quote! {
@@ -2059,6 +2063,7 @@ fn des_args(
 fn deferred_method_return_ser_methods(
     api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
+    ident_prefix: Option<&String>,
     no_alloc: bool,
     method_model: &MethodModel,
     error_seq: &mut ErrorSeq,
@@ -2070,14 +2075,31 @@ fn deferred_method_return_ser_methods(
         quote! { Vec<u8> }
     };
     for item in &api_level.items {
+        // nested levels use the handler's name: prefix chain + method, also for `method_model` patterns
+        let prefixed = match ident_prefix {
+            Some(prefix) => format!("{prefix}_{}", item.ident),
+            None => item.ident.clone(),
+        };
+        if matches!(item.kind, ApiItemKindOwned::Trait { .. }) {
+            let level = item.get_as_level(api_bundle).unwrap();
+            ts.extend(deferred_method_return_ser_methods(
+                api_bundle,
+                level,
+                Some(&prefixed),
+                no_alloc,
+                method_model,
+                error_seq,
+            ));
+            continue;
+        }
         let ApiItemKindOwned::Method { return_ty, .. } = &item.kind else {
             continue;
         };
-        if method_model.pick(&item.ident) != Some(MethodModelKind::Deferred) {
+        if method_model.pick(&prefixed) != Some(MethodModelKind::Deferred) {
             continue;
         }
         let fn_name = Ident::new(
-            format!("{}_ser_return_event", item.ident).as_str(),
+            format!("{prefixed}_ser_return_event").as_str(),
             Span::call_site(),
         );
         let ser_output_or_unit = ser_method_output(return_ty, quote! { seq }, error_seq);
@@ -2104,11 +2126,11 @@ fn deferred_method_return_ser_methods(
             }
         };
         let send_fn_name = Ident::new(
-            format!("{}_send_return", item.ident).as_str(),
+            format!("{prefixed}_send_return").as_str(),
             Span::call_site(),
         );
         let send_blocking_fn_name = Ident::new(
-            format!("{}_send_return_blocking", item.ident).as_str(),
+            format!("{prefixed}_send_return_blocking").as_str(),
             Span::call_site(),
         );
         ts.extend(quote! {

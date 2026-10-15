@@ -21,6 +21,7 @@ mod tests {
         one_plain_arg: u8,
         deferred: Option<wire_weaver::ReplyTo<Medium>>,
         deferred_unit: Option<wire_weaver::ReplyTo<Medium>>,
+        plug_vbus_cycle: Option<wire_weaver::ReplyTo<Medium>>,
     }
 
     mod no_std_sync_server {
@@ -88,6 +89,11 @@ mod tests {
                 Deferred
             }
 
+            fn plug_vbus_cycle(&mut self, cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<u8> {
+                self.data.write().unwrap().plug_vbus_cycle = cx.reply_to();
+                Deferred
+            }
+
             fn answer_deferred(
                 &mut self,
                 cx: &mut Cx<'_, impl BlockingEventOut>,
@@ -100,6 +106,10 @@ mod tests {
                 }
                 if let Some(reply_to) = data.deferred_unit.take() {
                     Self::deferred_unit_send_return_blocking(cx, reply_to.seq).unwrap();
+                }
+                if let Some(reply_to) = data.plug_vbus_cycle.take() {
+                    Self::plug_vbus_cycle_send_return_blocking(cx, reply_to.seq, value + 1)
+                        .unwrap();
                 }
                 Ready(())
             }
@@ -198,7 +208,7 @@ mod tests {
             wire_weaver::ww_codegen!(
                 methods_api :: Methods for super::NoStdSyncServer,
                 server = true, no_alloc = true, use_async = false,
-                method_model = "deferred=deferred, deferred_unit=deferred, _=immediate",
+                method_model = "deferred=deferred, deferred_unit=deferred, plug_vbus_cycle=deferred, _=immediate",
                 property_model = "_=get_set",
                 medium = "super::Medium",
                 multi_req = true,
@@ -632,6 +642,22 @@ mod tests {
         client.answer_deferred(0x37).call().await.unwrap();
         assert_eq!(deferred.await.unwrap().unwrap(), 0x37);
         deferred_unit.await.unwrap().unwrap();
+    }
+
+    /// Deferred method on a nested level, answered with the prefixed `plug_vbus_cycle_send_return_blocking`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn deferred_on_nested_level() {
+        let (device, data) = start("methods/deferred_nested");
+        let mut client = connect(&device).await;
+        let pending = tokio::spawn(client.plug().vbus_cycle().call());
+        for _ in 0..500 {
+            if data.read().unwrap().plug_vbus_cycle.is_some() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        client.answer_deferred(0x37).call().await.unwrap();
+        assert_eq!(pending.await.unwrap().unwrap(), 0x38);
     }
 
     /// `MultiCall` over a tuple of different methods (CLT-15), N > 2 (not just 2).

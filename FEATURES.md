@@ -459,6 +459,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   properties in an array or `#[optional]` aren't observable yet. `ww_stream::observe`,
   `docs/api/observing.md#the-device-side`; tests `tests/observe` (fake clock, real host event loop),
   `ww_stream/src/observe/tests.rs`.
+- ✅ **SRV-20 deferred-nested-levels Deferred return helpers on nested levels** — `<prefix>_<method>_send_return`,
+  `_send_return_blocking` and `_ser_return_event` are generated for deferred methods on nested trait levels too, named
+  like the handler (`plug_vbus_cycle_send_return`); `method_model` patterns match the prefixed name. Test
+  `tests/methods` (`deferred_on_nested_level`), `docs/api/methods.md#deferred`.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:

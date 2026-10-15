@@ -347,7 +347,7 @@ impl Scaffold<'_> {
             None => "()".into(),
         };
         self.docs(item)?;
-        if self.method_model.pick(&item.ident) == Some(MethodModelKind::Deferred) {
+        if self.method_model.pick(name) == Some(MethodModelKind::Deferred) {
             writeln!(
                 self.handlers,
                 "// method_model: deferred, return Deferred and send the result later"

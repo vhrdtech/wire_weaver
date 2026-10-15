@@ -133,6 +133,9 @@ their servers' `sink()`.
 `method_model = "move_motor=deferred, _=immediate"` lets a method return `Deferred` and answer later. The handler
 keeps `cx.reply_to()`, and the reply is sent with the generated `ServerState::move_motor_send_return(out, seq, output)`
 (`_send_return_blocking` for sync), where `out` is another handler's `cx` or `server.sink()` of `reply_to.medium`.
+A deferred method on a nested level (`ww_impl!(plug: Plug)`) uses the prefixed name everywhere, like its handler:
+`method_model = "plug_vbus_cycle=deferred, _=immediate"` and `ServerState::plug_vbus_cycle_send_return(..)`. On a
+resource array level the handler gets the index chain, the helper does not need it (`seq` identifies the call).
 A deferred call that is never answered times out on the client.
 
 ### Resource names mapping

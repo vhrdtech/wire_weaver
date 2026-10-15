@@ -7,6 +7,12 @@
   of stream data; properties without `+observe` keep the old `observe_<name>()`. The modules of the generated levels
   (`<api crate>_<trait>`) are `pub`, so their observe types can be named.
 
+### 🐛 Fixes
+
+- Deferred return helpers (`<method>_send_return`, `_send_return_blocking`, `_ser_return_event`) are generated for
+  deferred methods on nested trait levels too (SRV-20), named with the trait item prefix like the handler
+  (`plug_vbus_cycle_send_return`); `method_model` patterns and the scaffold's deferred hint match the prefixed name.
+
 ### 🚀 Features
 
 - Observed properties in std clients (CLT-28): per trait level with `+observe` properties (not under a resource

@@ -15,11 +15,11 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"] }
-clap_complete = "4.6"
+clap_complete = { workspace = true, features = ["unstable-dynamic"] }
 console.workspace = true
 motor_demo_api = { workspace = true, features = ["std"] }
-motor_sim = { git = "ssh://git@github.com/vhrdtech/motor_sim.git", tag = "v0.1.0" }
-tokio = { workspace = true, features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+motor_sim.workspace = true
+tokio = { workspace = true, features = ["macros", "net", "rt", "rt-multi-thread", "signal", "sync", "time"] }
 tracing-subscriber.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client = { workspace = true, features = ["in_process", "udp"] }

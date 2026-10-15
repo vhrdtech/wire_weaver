@@ -2,6 +2,7 @@
 //! wire_weaver device ([device]) with its ~50 variables as `+observe` properties in three rate tiers, and the host
 //! side bookkeeping of what observing them costs ([stats]).
 
+pub mod args;
 pub mod client;
 pub mod controller;
 pub mod device;

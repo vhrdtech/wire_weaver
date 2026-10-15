@@ -3256,7 +3256,7 @@ dependencies = [
 [[package]]
 name = "motor_sim"
 version = "0.1.0"
-source = "git+ssh://git@github.com/vhrdtech/motor_sim.git?tag=v0.1.0#84fe370f105c1fb1575e4749ed0a76f5943f0169"
+source = "git+https://github.com/vhrdtech/motor_sim?rev=84fe370f105c1fb1575e4749ed0a76f5943f0169#84fe370f105c1fb1575e4749ed0a76f5943f0169"
 dependencies = [
  "libm",
 ]
@@ -5104,6 +5104,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",

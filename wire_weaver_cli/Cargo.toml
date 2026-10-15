@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
-clap_complete = { version = "4.6", features = ["unstable-dynamic"] }
+clap_complete = { workspace = true, features = ["unstable-dynamic"] }
 cnt_core.workspace = true
 cnt_view.workspace = true
 console.workspace = true

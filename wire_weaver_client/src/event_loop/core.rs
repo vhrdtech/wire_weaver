@@ -157,6 +157,12 @@ impl Tracers {
     }
 }
 
+/// Current time on tokio's clock, which is the wall clock unless a test paused it (`start_paused`): the cores and
+/// the timers they ask for then run on virtual time together.
+fn now() -> Instant {
+    tokio::time::Instant::now().into_std()
+}
+
 pub(crate) async fn worker<T: Transport + 'static>(cmd_rx: mpsc::Receiver<Command>, connector: T) {
     let (to_rx_tx, to_rx_rx) = mpsc::unbounded_channel::<ToRx>();
     let (to_tx_tx, to_tx_rx) = mpsc::unbounded_channel::<ToTx>();
@@ -218,14 +224,14 @@ async fn tx_task<T: Transport>(
                             if let Err(rx) = msg_rx_tx.send(o.rx) {
                                 rx.close().await;
                                 core.handle(
-                                    Instant::now(),
+                                    now(),
                                     TxInput::TransportError("rx task is gone".into()),
                                 );
                             } else {
-                                core.handle(Instant::now(), TxInput::TransportUp);
+                                core.handle(now(), TxInput::TransportUp);
                             }
                         }
-                        Err(e) => core.handle(Instant::now(), TxInput::TransportError(e)),
+                        Err(e) => core.handle(now(), TxInput::TransportError(e)),
                     }
                 }
                 TxOutput::Send { kind, message } => {
@@ -237,7 +243,7 @@ async fn tx_task<T: Transport>(
                     if let Err(e) = msg_tx.write_message(kind, &message).await {
                         // Core is responsible for not sending oversized messages, so this is a bug or a
                         // wrong frame size, not something the device did
-                        core.handle(Instant::now(), TxInput::TransportError(e.to_string()));
+                        core.handle(now(), TxInput::TransportError(e.to_string()));
                     }
                 }
                 TxOutput::Flush => {
@@ -245,7 +251,7 @@ async fn tx_task<T: Transport>(
                     if let Some(msg_tx) = msg_tx.as_mut()
                         && let Err(e) = msg_tx.flush().await
                     {
-                        core.handle(Instant::now(), TxInput::TransportError(e));
+                        core.handle(now(), TxInput::TransportError(e));
                     }
                 }
                 TxOutput::ToRx(msg) => {
@@ -276,18 +282,18 @@ async fn tx_task<T: Transport>(
         };
         tokio::select! {
             msg = from_rx.recv() => match msg {
-                Some(msg) => core.handle(Instant::now(), TxInput::FromRx(msg)),
-                None => core.handle(Instant::now(), TxInput::TransportError("rx task is gone".into())),
+                Some(msg) => core.handle(now(), TxInput::FromRx(msg)),
+                None => core.handle(now(), TxInput::TransportError("rx task is gone".into())),
             },
             cmd = cmd_rx.recv() => match cmd {
-                Some(cmd) => core.handle(Instant::now(), TxInput::Command(cmd)),
-                None => core.handle(Instant::now(), TxInput::CommanderDropped),
+                Some(cmd) => core.handle(now(), TxInput::Command(cmd)),
+                None => core.handle(now(), TxInput::CommanderDropped),
             },
             _ = timer => {
                 // Writes may have blocked for a long time (a half-duplex device doesn't read while it writes):
                 // what rx said meanwhile goes in first, or a deadline would be judged without it, e.g. a loopback
                 // echo timeout while its echoes wait in the channel.
-                let now = Instant::now();
+                let now = now();
                 while let Ok(msg) = from_rx.try_recv() {
                     core.handle(now, TxInput::FromRx(msg));
                 }
@@ -315,7 +321,7 @@ async fn rx_task<T: Transport>(
         // Everything tx told us goes in first, see RxCore docs on ordering
         let mut exit = false;
         while let Ok(msg) = from_tx.try_recv() {
-            core.handle(Instant::now(), RxInput::FromTx(msg));
+            core.handle(now(), RxInput::FromTx(msg));
         }
         while let Some(output) = core.poll_output() {
             match output {
@@ -341,7 +347,7 @@ async fn rx_task<T: Transport>(
             let Some(rx_rx) = msg_rx_rx.as_mut() else {
                 // transport failed earlier, nothing to read from anymore; tx will say Stop
                 match from_tx.recv().await {
-                    Some(msg) => core.handle(Instant::now(), RxInput::FromTx(msg)),
+                    Some(msg) => core.handle(now(), RxInput::FromTx(msg)),
                     None => break,
                 }
                 continue;
@@ -357,20 +363,20 @@ async fn rx_task<T: Transport>(
                     }
                 },
                 msg = from_tx.recv() => match msg {
-                    Some(msg) => core.handle(Instant::now(), RxInput::FromTx(msg)),
+                    Some(msg) => core.handle(now(), RxInput::FromTx(msg)),
                     None => break,
                 },
-                _ = timer => core.handle(Instant::now(), RxInput::Timer),
+                _ = timer => core.handle(now(), RxInput::Timer),
             }
             continue;
         };
         tokio::select! {
             msg = from_tx.recv() => match msg {
-                Some(msg) => core.handle(Instant::now(), RxInput::FromTx(msg)),
+                Some(msg) => core.handle(now(), RxInput::FromTx(msg)),
                 None => break,
             },
             r = rx.read_message() => {
-                let now = Instant::now();
+                let now = now();
                 match r {
                     Ok((kind, message)) => {
                         trace!("rx msg kind={kind} len={}: {message:02x?}", message.len());
@@ -386,7 +392,7 @@ async fn rx_task<T: Transport>(
                     }
                 }
             }
-            _ = timer => core.handle(Instant::now(), RxInput::Timer),
+            _ = timer => core.handle(now(), RxInput::Timer),
         }
     }
     // rx half might have been handed over, but not picked up yet

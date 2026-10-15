@@ -165,7 +165,8 @@ impl WireWeaverAsyncApiBackend for Echo {
     }
 }
 
-/// Device sink as slow as a full-speed USB device: 1 ms every `every` packets.
+/// Device source and sink at a fixed rate: 1 ms every `every` packets, so that a test on paused time gets as much
+/// done per (virtual) second as a real device, instead of everything at once.
 struct PacedSink {
     tx: mpsc::Sender<Packet>,
     every: u32,
@@ -183,6 +184,29 @@ impl ww_device::PacketSink for PacedSink {
     }
 }
 
+struct PacedSource {
+    rx: mpsc::Receiver<Packet>,
+    every: u32,
+    n: u32,
+}
+
+impl ww_device::PacketSource for PacedSource {
+    type Error = ();
+    fn max_packet_len(&self) -> usize {
+        PACKET
+    }
+    async fn read_packet(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
+        self.n += 1;
+        if self.n.is_multiple_of(self.every) {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        let p = self.rx.recv().await.ok_or(())?;
+        buf[..p.len()].copy_from_slice(&p);
+        Ok(p.len())
+    }
+    async fn wait_connected(&mut self) {}
+}
+
 async fn device(
     to_host: mpsc::Sender<Packet>,
     from_host: mpsc::Receiver<Packet>,
@@ -193,10 +217,10 @@ async fn device(
     // sized for bigger packets than the source delivers (e.g., bulk endpoint capped at 512),
     // the host must still see exactly DEV_MAX_MESSAGE
     let mut rx = ww_device::RxBuffer::<{ 2 * PACKET }, DEV_MAX_MESSAGE>::new();
-    let rx = ww_device::FramedRx::new(DevSource(from_host), rx.assembly_buf(PACKET));
     match pace_every {
         None => {
             let tx = ww_device::FramedTx::new(DevSink(to_host), &mut tx_frame);
+            let rx = ww_device::FramedRx::new(DevSource(from_host), rx.assembly_buf(PACKET));
             serve(tx, rx, events_tx).await
         }
         Some(every) => {
@@ -205,7 +229,14 @@ async fn device(
                 every,
                 n: 0,
             };
-            serve(ww_device::FramedTx::new(sink, &mut tx_frame), rx, events_tx).await
+            let source = PacedSource {
+                rx: from_host,
+                every,
+                n: 0,
+            };
+            let tx = ww_device::FramedTx::new(sink, &mut tx_frame);
+            let rx = ww_device::FramedRx::new(source, rx.assembly_buf(PACKET));
+            serve(tx, rx, events_tx).await
         }
     }
 }
@@ -535,15 +566,15 @@ pub(crate) async fn talk(
 
 /// All three stages of the loopback test against the device's loopback replies (repeat 1, 0 and N), over the
 /// packet pipe with real framers; a request sent meanwhile waits for the test to end.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn loopback_test() {
-    run_loopback_test(None, Default::default()).await;
+    run_loopback_test(16, Default::default()).await;
 }
 
 /// A slow device that answers many requests in flight blocks host writes (it doesn't read while writing) for longer
 /// than the echo timeout: echoes that arrived meanwhile must count before the timeout does. This failed on a
 /// full-speed board with 8 batches in flight.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn loopback_test_slow_device_many_in_flight() {
     let params = LoopbackParams {
         echo_timeout: Duration::from_millis(100),
@@ -551,11 +582,13 @@ async fn loopback_test_slow_device_many_in_flight() {
         markers_in_flight: 8,
         ..Default::default()
     };
-    run_loopback_test(Some(8), params).await;
+    run_loopback_test(8, params).await;
 }
 
-async fn run_loopback_test(pace_every: Option<u32>, params: LoopbackParams) {
-    let (cmd_tx, mut events_rx, dev, _host) = start_paced(pace_every);
+/// On paused time: the device is paced, 1 ms every `pace_every` packets each way, and stages run for 300 ms of
+/// virtual time, whatever the load on the machine.
+async fn run_loopback_test(pace_every: u32, params: LoopbackParams) {
+    let (cmd_tx, mut events_rx, dev, _host) = start_paced(Some(pace_every));
     connect(&cmd_tx, (0, 3)).await.result.unwrap();
     assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
 

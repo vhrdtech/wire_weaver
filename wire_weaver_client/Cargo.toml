@@ -65,6 +65,6 @@ ww_stream = { workspace = true, features = ["std"] }
 ww_version = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["net"] }
+tokio = { workspace = true, features = ["net", "test-util"] }
 wire_weaver_core = { workspace = true }
 ww_device = { workspace = true, features = ["udp", "ws"] }

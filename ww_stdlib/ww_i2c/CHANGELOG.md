@@ -4,6 +4,8 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### ⚠️ Breaking
 
+- `I2cWatchReport::Matches { bytes }` holds one `I2cMatchByte { mask, value }` per byte read (a `sized` pair, two
+  bytes) instead of two parallel `mask` and `value` vectors that had to be the same length.
 - `I2cWatch` holds up to `MAX_WATCHES = 512` watches (was 16): `I2cWatchCapabilities::max_watches` is a `u32`, and
   slots are `u32` in `watch_add`, `watch_modify`, `watch_remove`, `watch_list` and `I2cWatchEvent::slot`.
 - Frequencies are `ww_si::Hertz` (STD-13): `I2cMode::Master { speed, .. }` instead of `speed_hz: u32`,

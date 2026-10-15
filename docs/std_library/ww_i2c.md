@@ -113,8 +113,9 @@ pub trait I2cWatch {
 * `Always` - every read.
 * `Changed { mask }` - when `data & mask` differs from the *previous reported* read's (`mask` as long as the read;
   all-ones to see any change).
-* `Matches { mask, value }` - when `data & mask == value` starts or stops being true (an alert bit set, a status
-  reaching a state) - a transition, not every read while it holds.
+* `Matches { bytes }` - when `data[i] & bytes[i].mask == bytes[i].value` for every byte starts or stops being true
+  (an alert bit set, a status reaching a state) - a transition, not every read while it holds. One `I2cMatchByte
+  { mask, value }` per byte read, two bytes each on the wire; a `mask` of `0x00` ignores that byte.
 
 An error is reported once, when the watch starts to fail, and the next successful read is reported unconditionally
 whatever the rule - and that recovery read becomes the new baseline, so a later unchanged read goes quiet again
@@ -183,7 +184,8 @@ up with the device's other data.
   `slave_supported` / `monitor_supported`, `ten_bit_addresses`, `pullups`, `bus_recovery`.
 * `I2cWatchCapabilities` - `max_watches: u32` (at most `MAX_WATCHES`, 512), `max_len` (at most `MAX_WATCH_LEN`), `min_period`.
 * `I2cWatchConfig<'i>` - `addr`, `kind: I2cReadKind<'i>`, `len`, `period: Second`, `report: I2cWatchReport<'i>`.
-* `I2cWatchReport<'i>` - `Always`, `Changed { mask }`, `Matches { mask, value }`, see [`I2cWatch`](#i2cwatch) above.
+* `I2cWatchReport<'i>` - `Always`, `Changed { mask }`, `Matches { bytes }`, see [`I2cWatch`](#i2cwatch) above.
+* `I2cMatchByte` - `mask`, `value: u8`, one byte of a `Matches` rule; `sized`, two bytes.
 * `I2cWatchEvent<'i>` - `slot`, `result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>`.
 * `I2cRecord<'i>` - `end: Second` (stop or repeated start; the start condition is the head's time), `addr`, `read: bool`, `kind: I2cRecordKind`, `nack_at: Option<u16>`
   (index of the first byte not acknowledged, `Some(0)` = the address), `bytes` (without the address).

@@ -202,8 +202,8 @@ pub trait I2cWatch {
     /// # Errors
     ///
     /// [I2cError::OutOfCycleSlots] (all slots taken), [I2cError::BufferTooBig] (read longer than this device
-    /// watches), [I2cError::MalformedRequest] (period below the device's minimum, mask and value lengths not the
-    /// read length), [I2cError::WrongMode] (not a master).
+    /// watches), [I2cError::MalformedRequest] (period below the device's minimum, a mask or match rule not as long as
+    /// the read), [I2cError::WrongMode] (not a master).
     fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u32, I2cError>;
 
     /// Replaces a watch's configuration; its previous result is forgotten, so the next read is reported.
@@ -272,11 +272,25 @@ pub enum I2cWatchReport<'i> {
     Changed {
         mask: MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>,
     },
-    /// When `data & mask == value` starts or stops being true (an alert bit set, a status reaching a state).
+    /// When `data[i] & bytes[i].mask == bytes[i].value` for every byte starts or stops being true (an alert bit set,
+    /// a status reaching a state); one [I2cMatchByte] per byte read.
     Matches {
-        mask: MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>,
-        value: MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>,
+        bytes: MaxLen<RefVec<'i, I2cMatchByte>, MAX_WATCH_LEN>,
     },
+}
+
+/// One byte of an [I2cWatchReport::Matches] rule: the read byte matches when `byte & mask == value`. A `mask` of
+/// `0x00` ignores the byte. Two bytes on the wire.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, PartialEq, Eq, Copy, Clone),
+    sized
+)]
+pub struct I2cMatchByte {
+    pub mask: u8,
+    pub value: u8,
 }
 
 /// A result of a watch, on the `I2cWatch` `changes` stream; when the read started is the time in the event head. An error is reported once, when the watch starts to
@@ -586,6 +600,22 @@ mod tests {
         let bytes = addr.to_ww_bytes(&mut buf).unwrap();
         assert_eq!(bytes.len(), 2);
         assert_eq!(I2cAddress::from_ww_bytes(bytes).unwrap(), addr);
+    }
+
+    /// A match rule costs two bytes per byte read, no size marker per element.
+    #[test]
+    fn match_byte_is_two_bytes_on_the_wire() {
+        assert_eq!(
+            <I2cMatchByte as SerializeShrinkWrap>::ELEMENT_SIZE,
+            ElementSize::Sized { size_bits: 16 }
+        );
+        let b = I2cMatchByte {
+            mask: 0x81,
+            value: 0x01,
+        };
+        let mut buf = [0u8; 4];
+        let bytes = b.to_ww_bytes(&mut buf).unwrap();
+        assert_eq!(bytes, &[0x81, 0x01]);
     }
 
     #[test]

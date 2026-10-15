@@ -300,6 +300,13 @@
             "Shortest period of one watch.",
         ]),
     ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Sized(size_bits: 0), crate_idx: 0, docs: [
+        "One byte of an [I2cWatchReport::Matches] rule: the read byte matches when `byte & mask == value`. A `mask` of",
+        "`0x00` ignores the byte. Two bytes on the wire.",
+    ], ident: "I2cMatchByte", fields: Named([
+        (ident: Some("mask"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+    ]))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "When a watch sends its result.",
     ], ident: "I2cWatchReport", variants: [
@@ -312,10 +319,10 @@
             (ident: Some("mask"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: []),
         ]), discriminant: 1, since: None),
         (docs: [
-            "When `data & mask == value` starts or stops being true (an alert bit set, a status reaching a state).",
+            "When `data[i] & bytes[i].mask == bytes[i].value` for every byte starts or stops being true (an alert bit set,",
+            "a status reaching a state); one [I2cMatchByte] per byte read.",
         ], ident: "Matches", fields: Named([
-            (ident: Some("mask"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: []),
-            (ident: Some("value"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: []),
+            (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(OutOfLine(type_idx: 15))), docs: []),
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -331,7 +338,7 @@
         (ident: Some("period"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [
             "How often to read.",
         ]),
-        (ident: Some("report"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [
+        (ident: Some("report"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [
             "When to send a result.",
         ]),
     ]))), crate_idx: 0),
@@ -361,7 +368,7 @@
         (ident: Some("read"), default: None, since: None, ty: Bool, docs: [
             "Read (true) or write (false).",
         ]),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: []),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: []),
         (ident: Some("nack_at"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U16))), docs: [
             "Index of the first byte that was not acknowledged; `Some(0)` = the address was not.",
         ]),
@@ -493,19 +500,19 @@
             "How many watches, how fast, how long.",
         ], optional: None),
         (id: 2, kind: Method(args: [
-            (ident: "watch", ty: OutOfLine(type_idx: 16)),
+            (ident: "watch", ty: OutOfLine(type_idx: 17)),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 4))), errors: None), multiplicity: Flat, since: None, ident: "watch_add", docs: [
             "Adds a watch and returns its slot, used by the other methods and in [I2cWatchEvent::slot].",
             "",
             "# Errors",
             "",
             "[I2cError::OutOfCycleSlots] (all slots taken), [I2cError::BufferTooBig] (read longer than this device",
-            "watches), [I2cError::MalformedRequest] (period below the device\'s minimum, mask and value lengths not the",
-            "read length), [I2cError::WrongMode] (not a master).",
+            "watches), [I2cError::MalformedRequest] (period below the device\'s minimum, a mask or match rule not as long as",
+            "the read), [I2cError::WrongMode] (not a master).",
         ], optional: None),
         (id: 3, kind: Method(args: [
             (ident: "slot", ty: NumericAny(Base(U32))),
-            (ident: "watch", ty: OutOfLine(type_idx: 16)),
+            (ident: "watch", ty: OutOfLine(type_idx: 17)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: None), multiplicity: Flat, since: None, ident: "watch_modify", docs: [
             "Replaces a watch\'s configuration; its previous result is forgotten, so the next read is reported.",
             "",
@@ -532,7 +539,7 @@
         "The same as [I2cMode::MonitorOnly] (or the `monitor` flag of [I2cMode::Master], to watch the adapter\'s own",
         "transfers too), for devices that only sniff and implement no `I2c`.",
     ], crate_idx: 0, trait_name: "I2cMonitor", items: [
-        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 18), delivery: Counted, args: [
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 19), delivery: Counted, args: [
             (ident: "io_level", ty: Option(some_ty: OutOfLine(type_idx: 0))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4)))), multiplicity: Flat, since: None, ident: "records", docs: [
             "One record per transaction, in bus order. Opening starts monitoring, closing stops it. `io_level` as in",

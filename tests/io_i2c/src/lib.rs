@@ -11,7 +11,7 @@ mod tests {
         I2cAddress, I2cCapabilities, I2cError, I2cLinesState, I2cMode, I2cOp, I2cReadEnvelope,
         I2cReadKind, I2cReadKindOwned, I2cRecord, I2cRecordKind, I2cTransactionResult,
         I2cTransactionTimeRange, I2cWatchCapabilities, I2cWatchConfig, I2cWatchConfigOwned,
-        I2cWatchEvent, I2cWatchReportOwned, MAX_READ_LEN, MAX_SCAN, MAX_WATCHES, Second, Hertz,
+        I2cMatchByte, I2cWatchEvent, I2cWatchReportOwned, MAX_READ_LEN, MAX_SCAN, MAX_WATCHES, Second, Hertz,
     };
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
@@ -110,9 +110,10 @@ mod tests {
             ww_i2c::I2cWatchReport::Changed { mask } => I2cWatchReportOwned::Changed {
                 mask: MaxLen::new_unchecked(mask.as_slice().to_vec()),
             },
-            ww_i2c::I2cWatchReport::Matches { mask, value } => I2cWatchReportOwned::Matches {
-                mask: MaxLen::new_unchecked(mask.as_slice().to_vec()),
-                value: MaxLen::new_unchecked(value.as_slice().to_vec()),
+            ww_i2c::I2cWatchReport::Matches { bytes } => I2cWatchReportOwned::Matches {
+                bytes: MaxLen::new_unchecked(
+                    bytes.iter().collect::<Result<Vec<_>, _>>().map_err(|_| I2cError::MalformedRequest)?,
+                ),
             },
             ww_i2c::I2cWatchReport::Unknown(_) => return Err(I2cError::Unsupported),
         })
@@ -563,13 +564,12 @@ mod tests {
                                     slot.last_reported = Some(masked);
                                     (was_error || changed).then(|| Ok(data.clone()))
                                 }
-                                I2cWatchReportOwned::Matches { mask, value } => {
-                                    let masked: Vec<u8> = data
-                                        .iter()
-                                        .zip(mask.iter().chain(std::iter::repeat(&0xFFu8)))
-                                        .map(|(d, m)| d & m)
-                                        .collect();
-                                    let is_match = masked == value.as_slice();
+                                I2cWatchReportOwned::Matches { bytes } => {
+                                    let is_match = data.len() == bytes.len()
+                                        && data
+                                            .iter()
+                                            .zip(bytes.iter())
+                                            .all(|(d, b)| d & b.mask == b.value);
                                     let changed = slot.last_match != Some(is_match);
                                     slot.last_match = Some(is_match);
                                     (was_error || changed).then(|| Ok(data.clone()))
@@ -858,8 +858,11 @@ mod tests {
                 len: 1,
                 period: secs(0),
                 report: I2cWatchReportOwned::Matches {
-                    mask: MaxLen::new(vec![0x01]).unwrap(),
-                    value: MaxLen::new(vec![0x01]).unwrap(),
+                    bytes: MaxLen::new(vec![I2cMatchByte {
+                        mask: 0x01,
+                        value: 0x01,
+                    }])
+                    .unwrap(),
                 },
             })
             .call()

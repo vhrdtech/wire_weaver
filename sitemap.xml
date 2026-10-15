@@ -91,6 +91,9 @@
         <loc>https://ww.vhrd.tech/std_library/ww_adc/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_board_info/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/ww_can_bus/</loc>
       </url>
       <url>
@@ -104,6 +107,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_error/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_firmware_info/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_gpio/</loc>
@@ -143,6 +149,12 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_uart/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_uid/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_user_info/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_version/</loc>

@@ -407,6 +407,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1699,6 +1707,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2271,6 +2287,114 @@
     
   
   ww_dfu: firmware updates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_firmware_info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_firmware_info
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_board_info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_board_info
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_uid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_uid
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_user_info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_user_info
 
     
   </span>
@@ -3725,13 +3849,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>Second</code> as a device timestamp (wrap rule, host <code>Unwrapper</code>), constructors, conversions and comparisons across
   prefixes and storage, <code>UVlq32</code> / <code>UVlq64</code> storage (STD-13). <code>docs/std_library/ww_si.md</code>,
   <code>docs/std_library/ww_numeric.md</code>. Zero-overhead typed quantities (<code>Volt&lt;u16, Milli&gt;</code>) are not part of it.</li>
+<li>✅ <strong>STD-24 <code>ww_firmware_info</code> / <code>ww_board_info</code> / <code>ww_uid</code> / <code>ww_user_info</code> device contract</strong> · <code>v0.5</code> — the info
+    crates every device implements. <code>FirmwareInfo</code> const items <code>FIRMWARE</code> (name, version, git, build time, profile),
+    <code>BUILD_ID</code> (GNU build id, finds the ELF) and optional <code>BUILD_RECORD</code>; <code>build::emit()</code> + <code>firmware_summary!()</code> for
+    <code>build.rs</code>, <code>build_id()</code> reader; <code>LastReset</code> (<code>ResetRecord</code> with a <code>Fault</code> per architecture behind <code>cortex-m</code> /
+    <code>riscv</code>, stack words, <code>boot_count</code>, <code>clear</code>). <code>BoardInfo::BOARD</code> with <code>RevisionSource</code>. <code>Uid::IDS</code>, first id is
+    the primary one (USB serial). <code>UserInfo</code> with bounded <code>name</code> / optional <code>notes</code>, <code>UserInfoError</code>, <code>CAPABILITIES</code>
+    and the persistence rule. Docs <code>docs/std_library/ww_{firmware_info,board_info,uid,user_info}.md</code>, tests
+    <code>tests/{firmware_info,board_info,uid,user_info}</code>. The const items are served by <code>get_</code> handlers until constant
+    items come from the introspection data; properties cannot carry <code>#[errors]</code> yet.</li>
 <li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing.</li>
 <li>🔍 <strong>STD-7 Interrupt left enabled in <code>ww_gpio_hl</code></strong> · <code>v0.5</code> — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.</li>
 <li>🚧 <strong>STD-8 Prototypes</strong>, to be completed later: <code>ww_can_bus</code>, <code>ww_i2c</code>, <code>ww_uart</code>, <code>ww_counters</code>, <code>ww_indication</code>,
   <code>ww_ll</code>, <code>ww_log_bare_metal</code>. Known gaps are <code>TODO</code>s in their sources (e.g. SMBus and 7-bit addresses in
   <code>ww_i2c</code>, capabilities and properties in <code>ww_can_bus</code>).</li>
-<li>💡 <strong>STD-9 Stubs</strong>, for later: <code>ww_spi</code>, <code>ww_board_info</code>, <code>ww_firmware_info</code>, <code>ww_user_info</code>, <code>ww_uid</code>.</li>
+<li>💡 <strong>STD-9 Stubs</strong>, for later: <code>ww_spi</code> (<code>ww_board_info</code>, <code>ww_firmware_info</code>, <code>ww_user_info</code> and <code>ww_uid</code> moved to STD-24).</li>
 <li>🚧 <strong>STD-12 <code>ww_dfu</code> firmware update API</strong> — traits <code>UpdateNode</code>, <code>BootControl</code>, <code>Inventory</code>, <code>Stage</code>,
   <code>StageBulk</code>: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored
   plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec (P2625). End to

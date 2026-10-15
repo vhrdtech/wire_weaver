@@ -39,7 +39,9 @@ fn vesc(load: Load) -> Bench {
 
 #[test]
 fn current_mode_follows_q_current() {
-    let mut b = vesc(Load::Viscous { b_nms_per_rad: 5e-4 });
+    let mut b = vesc(Load::Viscous {
+        b_nms_per_rad: 5e-4,
+    });
     b.run(0.2); // offsets calibrated
     assert!(!b.ctl.calibrating());
     b.ctl.set.mode = ControlMode::Current;
@@ -47,20 +49,30 @@ fn current_mode_follows_q_current() {
     b.run(0.05);
     let iq = b.motor.truth().i_q;
     assert!((iq - 10.0).abs() < 0.5, "true iq {iq}");
-    assert!(b.motor.truth().i_d.abs() < 0.5, "true id {}", b.motor.truth().i_d);
+    assert!(
+        b.motor.truth().i_d.abs() < 0.5,
+        "true id {}",
+        b.motor.truth().i_d
+    );
     assert!(b.erpm_true() > 1000.0, "{}", b.erpm_true());
 }
 
 #[test]
 fn speed_mode_reaches_setpoint() {
-    let mut b = vesc(Load::Fan { k_nms2_per_rad2: 2e-7 });
+    let mut b = vesc(Load::Fan {
+        k_nms2_per_rad2: 2e-7,
+    });
     b.run(0.2);
     b.ctl.set.mode = ControlMode::Speed;
     b.ctl.set.erpm = 8_000.0;
     b.run(0.5);
     let e = b.erpm_true();
     assert!((e - 8_000.0).abs() < 80.0, "{e}");
-    assert!((b.ctl.control.erpm - 8_000.0).abs() < 80.0, "{:?}", b.ctl.control);
+    assert!(
+        (b.ctl.control.erpm - 8_000.0).abs() < 80.0,
+        "{:?}",
+        b.ctl.control
+    );
     // reverse
     b.ctl.set.erpm = -4_000.0;
     b.run(0.5);
@@ -70,7 +82,9 @@ fn speed_mode_reaches_setpoint() {
 
 #[test]
 fn observer_tracks_the_angle_at_speed() {
-    let mut b = vesc(Load::Fan { k_nms2_per_rad2: 2e-7 });
+    let mut b = vesc(Load::Fan {
+        k_nms2_per_rad2: 2e-7,
+    });
     b.run(0.2);
     b.ctl.set.mode = ControlMode::Speed;
     b.ctl.set.erpm = 10_000.0;
@@ -87,7 +101,9 @@ fn observer_tracks_the_angle_at_speed() {
 
 #[test]
 fn hybrid_starts_from_standstill() {
-    let mut b = vesc(Load::Viscous { b_nms_per_rad: 1e-4 });
+    let mut b = vesc(Load::Viscous {
+        b_nms_per_rad: 1e-4,
+    });
     b.run(0.2);
     b.ctl.set.sensor_mode = SensorMode::Hybrid;
     b.ctl.set.mode = ControlMode::Speed;
@@ -99,13 +115,19 @@ fn hybrid_starts_from_standstill() {
 
 #[test]
 fn duty_mode_spins() {
-    let mut b = vesc(Load::Viscous { b_nms_per_rad: 1e-4 });
+    let mut b = vesc(Load::Viscous {
+        b_nms_per_rad: 1e-4,
+    });
     b.run(0.2);
     b.ctl.set.mode = ControlMode::Duty;
     b.ctl.set.duty = 0.3;
     b.run(0.5);
     assert!(b.erpm_true() > 5_000.0, "{}", b.erpm_true());
-    assert!((b.ctl.control.duty_now - 0.3).abs() < 0.02, "{:?}", b.ctl.control);
+    assert!(
+        (b.ctl.control.duty_now - 0.3).abs() < 0.02,
+        "{:?}",
+        b.ctl.control
+    );
 }
 
 #[test]
@@ -115,7 +137,13 @@ fn every_preset_follows_speed() {
         (presets::industrial_spm(), 10.0),
         (presets::ipm(), 40.0),
     ] {
-        let mut b = Bench::new(params, imax, Load::Viscous { b_nms_per_rad: 1e-4 });
+        let mut b = Bench::new(
+            params,
+            imax,
+            Load::Viscous {
+                b_nms_per_rad: 1e-4,
+            },
+        );
         b.run(0.2);
         b.ctl.set.mode = ControlMode::Speed;
         b.ctl.set.erpm = 6_000.0;
@@ -127,7 +155,9 @@ fn every_preset_follows_speed() {
 
 #[test]
 fn counters_count() {
-    let mut b = vesc(Load::Viscous { b_nms_per_rad: 5e-4 });
+    let mut b = vesc(Load::Viscous {
+        b_nms_per_rad: 5e-4,
+    });
     b.run(0.2);
     b.ctl.set.mode = ControlMode::Speed;
     b.ctl.set.erpm = 6_000.0;

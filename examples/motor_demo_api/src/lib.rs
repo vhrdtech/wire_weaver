@@ -153,7 +153,7 @@ pub trait Sim {
     property!(rw load: Load);
     /// Motor and inverter.
     property!(rw motor: Preset);
-    /// Built-in speed steps the controller follows when on.
+    /// Built-in speed steps the controller follows when on. Writing `control.mode` or a target turns it off.
     property!(rw profile: Profile);
     /// Break or repair the sensor and inverter paths.
     fn inject(fault: InjectFault);
@@ -188,9 +188,9 @@ pub enum Fault {
     None,
     /// A phase current went over the absolute maximum, the inverter is off.
     OverCurrent,
-    /// DC link above the limit.
+    /// DC link reading above 130 % of nominal.
     OverVoltage,
-    /// DC link below the limit.
+    /// DC link reading below 70 % of nominal.
     UnderVoltage,
 }
 
@@ -236,4 +236,6 @@ pub enum InjectFault {
     EncoderMissedCounts { probability: f32 },
     /// Chance per step that a leg's PWM pulse is missed.
     MissedPulses { probability: f32 },
+    /// Extra offset on the DC link voltage reading, V: trips the over or under voltage fault when big enough.
+    BusVoltageOffset { volts: f32 },
 }

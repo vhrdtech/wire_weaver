@@ -10,8 +10,8 @@
 
 use core::f32::consts::{PI, TAU};
 
-use motor_sim::{Drive, MotorParams, Sensors, Truth};
 use motor_demo_api::{ControlMode, Fault, SensorMode};
+use motor_sim::{Drive, MotorParams, Sensors, Truth};
 
 /// PWM frequency, Hz.
 pub const PWM_HZ: u32 = 25_000;
@@ -319,7 +319,8 @@ impl Controller {
         f.observer_x2 = self.x2;
         f.phase_observer = wrap_tau((self.x2 - lib).atan2(self.x1 - lia));
 
-        let mech = s.encoder_count as f32 * TAU / cfg.encoder_cpr.max(1) as f32 - cfg.encoder_offset;
+        let mech =
+            s.encoder_count as f32 * TAU / cfg.encoder_cpr.max(1) as f32 - cfg.encoder_offset;
         f.phase_encoder = wrap_tau(cfg.pole_pairs * mech);
 
         let use_observer = match self.set.sensor_mode {
@@ -345,14 +346,19 @@ impl Controller {
         let over = [f.i_a, f.i_b, f.i_c]
             .iter()
             .any(|i| i.abs() > cfg.current_abs_max);
-        if over && !calibrating {
-            self.telemetry.fault = Fault::OverCurrent;
+        if !calibrating && self.telemetry.fault == Fault::None {
+            if over {
+                self.telemetry.fault = Fault::OverCurrent;
+            } else if s.vdc_v > 1.3 * cfg.vdc {
+                self.telemetry.fault = Fault::OverVoltage;
+            } else if s.vdc_v < 0.7 * cfg.vdc {
+                self.telemetry.fault = Fault::UnderVoltage;
+            }
         }
 
         let v_max = s.vdc_v.max(1.0) * ONE_BY_SQRT3 * 0.95;
-        let off = calibrating
-            || self.telemetry.fault != Fault::None
-            || self.set.mode == ControlMode::Off;
+        let off =
+            calibrating || self.telemetry.fault != Fault::None || self.set.mode == ControlMode::Off;
         let drive = if off {
             self.int_d = 0.0;
             self.int_q = 0.0;

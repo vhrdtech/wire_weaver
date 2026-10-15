@@ -161,18 +161,6 @@ mod tests {
                 RpcResult::Ready(())
             }
 
-            // TODO(API-36): consts served from a value, without a handler named after the const
-            #[allow(non_snake_case)]
-            async fn get_defmt_DEFMT(
-                &mut self,
-                _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<ww_log::DefmtInfo<'_>, ()> {
-                GetResult::Value(ww_log::DefmtInfo {
-                    encoding: ww_defmt_logger::encoding(),
-                    build_id: MaxLen::new_unchecked(RefVec::new_bytes(&BUILD_ID)),
-                })
-            }
-
             async fn defmt_frames(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
@@ -221,12 +209,23 @@ mod tests {
             }
         }
 
+        /// Served without a handler (API-36): the encoding is found at run time, the build id at link time.
+        impl api_impl::LogTestConsts for Server {
+            fn defmt_defmt(&self) -> ww_log::DefmtInfo<'_> {
+                ww_log::DefmtInfo {
+                    encoding: ww_defmt_logger::encoding(),
+                    build_id: MaxLen::new_unchecked(RefVec::new_bytes(&BUILD_ID)),
+                }
+            }
+        }
+
         pub mod api_impl {
             wire_weaver::ww_codegen!(
                 log_defmt_api :: LogTest for super::Server,
                 server = true, no_alloc = true, use_async = true,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
+                const_model = "DEFMT=fn",
                 // debug_to_file = "../../target/tests_log_defmt_server.rs"
             );
         }

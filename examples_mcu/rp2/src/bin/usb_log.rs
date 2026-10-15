@@ -65,12 +65,23 @@ impl WireWeaverAsyncApiBackend for ServerState {
     }
 }
 
+/// Served without a handler (API-36): the encoding is found at run time, the build id at link time.
+impl server_impl::DefmtLogDemoConsts for ServerState {
+    fn log_defmt(&self) -> ww_log::DefmtInfo<'_> {
+        ww_log::DefmtInfo {
+            encoding: ww_defmt_logger::encoding(),
+            build_id: MaxLen::new_unchecked(RefVec::new_bytes(build_id())),
+        }
+    }
+}
+
 mod server_impl {
     wire_weaver::ww_codegen!(
         defmt_log_api :: DefmtLogDemo for super::ServerState,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
+        const_model = "DEFMT=fn",
         introspect = "with_docs",
     );
 }
@@ -81,18 +92,6 @@ impl ServerState {
             info!("flood {=u32} of {=u32}", i + 1, count);
         }
         Ready(())
-    }
-
-    // TODO(API-36): consts served from a value, without a handler named after the const
-    #[allow(non_snake_case)]
-    async fn get_log_DEFMT(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<ww_log::DefmtInfo<'_>, ()> {
-        GetResult::Value(ww_log::DefmtInfo {
-            encoding: ww_defmt_logger::encoding(),
-            build_id: MaxLen::new_unchecked(RefVec::new_bytes(build_id())),
-        })
     }
 
     async fn log_frames(

@@ -139,9 +139,13 @@ fn merge_modes(a: ObserveMode, b: ObserveMode) -> ObserveMode {
     let (cb, pb) = mode_parts(b);
     match (min(ca, cb), min(pa, pb)) {
         (Some(c), None) => ObserveMode::OnChange { min_us: UNib32(c) },
-        (None, Some(p)) => ObserveMode::Periodic { every_us: UNib32(p) },
+        (None, Some(p)) => ObserveMode::Periodic {
+            every_us: UNib32(p),
+        },
         // sent at least every p anyway
-        (Some(c), Some(p)) if c >= p => ObserveMode::Periodic { every_us: UNib32(p) },
+        (Some(c), Some(p)) if c >= p => ObserveMode::Periodic {
+            every_us: UNib32(p),
+        },
         (Some(c), Some(p)) => ObserveMode::OnChangeOrBeat {
             min_us: UNib32(c),
             max_us: UNib32(p),
@@ -195,7 +199,9 @@ pub enum ObserveEvent<T> {
     Resumed,
     /// `events` updates were dropped before this one, the observer's queue on the host was full (the program
     /// didn't read for a while).
-    Dropped { events: u64 },
+    Dropped {
+        events: u64,
+    },
 }
 
 /// A `PropertyUpdate` as received, decoded by each observer
@@ -892,5 +898,52 @@ impl<U: LevelUpdate, T> Drop for Observer<U, T> {
             Ok(pending) => _ = send_pending(permits, pending),
             Err(e) => debug!("observe request not built: {e:?}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cfg(entries: &[(u32, ObserveMode)], budget: Option<u32>) -> ObserveConfig {
+        ObserveConfig {
+            entries: entries.iter().copied().collect(),
+            budget,
+        }
+    }
+
+    const MS: Duration = Duration::from_millis(1);
+
+    #[test]
+    fn merge_gives_everyone_at_least_what_it_asked_for() {
+        let a = cfg(&[(0, on_change(10 * MS)), (1, periodic(5 * MS))], Some(100));
+        let b = cfg(
+            &[
+                (0, periodic(50 * MS)),
+                (1, periodic(2 * MS)),
+                (2, ObserveMode::Off),
+            ],
+            None,
+        );
+        let c = cfg(&[(0, on_change(4 * MS)), (3, on_change(MS))], Some(300));
+        assert_eq!(
+            ObserveConfig::merge([&a, &b, &c]),
+            cfg(
+                &[
+                    (0, on_change_or_beat(4 * MS, 50 * MS)),
+                    (1, periodic(2 * MS)),
+                    (3, on_change(MS)),
+                ],
+                Some(300)
+            )
+        );
+        // a beat shorter than the on-change interval is just periodic
+        let d = cfg(&[(0, on_change(10 * MS))], None);
+        let e = cfg(&[(0, periodic(MS))], None);
+        assert_eq!(
+            ObserveConfig::merge([&d, &e]),
+            cfg(&[(0, periodic(MS))], None)
+        );
+        assert_eq!(ObserveConfig::merge([]), ObserveConfig::default());
     }
 }

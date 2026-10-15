@@ -53,7 +53,10 @@ pub(crate) fn level_names(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
 pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned) -> TokenStream {
     let props = observable_props(api_level);
     let LevelNames { update, config } = level_names(api_bundle, api_level);
-    let latest = Ident::new(&format!("{}Latest", api_level.trait_name), Span::call_site());
+    let latest = Ident::new(
+        &format!("{}Latest", api_level.trait_name),
+        Span::call_site(),
+    );
     let idents: Vec<Ident> = props
         .iter()
         .map(|(_, name, _)| Ident::new(name, Span::call_site()))
@@ -68,8 +71,9 @@ pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
         " Data of a `PropertyUpdate` of `{trait_name}` (CLT-28): its observable properties by resource index, the \
         ones the device sent present."
     );
-    let latest_doc =
-        format!(" The latest value of each observable property of `{trait_name}`, with when it arrived.");
+    let latest_doc = format!(
+        " The latest value of each observable property of `{trait_name}`, with when it arrived."
+    );
     let config_doc = format!(
         " How the observable properties of `{trait_name}` are observed: `None` (or `Off`) is not observed. Also what \
         the device granted, in `Granted::modes`."

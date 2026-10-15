@@ -946,12 +946,7 @@ mod tests {
             .subscribe()
             .await
             .unwrap();
-        let mut mode = b
-            .client
-            .observe_mode(change(MS))
-            .subscribe()
-            .await
-            .unwrap();
+        let mut mode = b.client.observe_mode(change(MS)).subscribe().await.unwrap();
         // temp also every 50 ms from another observer: both get at least what they asked for
         let level = b
             .client
@@ -987,13 +982,19 @@ mod tests {
             modes.push(m.value);
         }
         assert_eq!(modes.last(), Some(&7), "{modes:?}");
-        assert!(modes[..modes.len() - 1].iter().all(|m| *m == 0), "{modes:?}");
+        assert!(
+            modes[..modes.len() - 1].iter().all(|m| *m == 0),
+            "{modes:?}"
+        );
         let mut temps = vec![];
         while let Some(t) = temp.try_recv().unwrap() {
             temps.push(t.value);
         }
         assert_eq!(temps.last(), Some(&1.5), "{temps:?}");
-        assert!(temps[..temps.len() - 1].iter().all(|t| *t == 0.0), "{temps:?}");
+        assert!(
+            temps[..temps.len() - 1].iter().all(|t| *t == 0.0),
+            "{temps:?}"
+        );
 
         // the level observer goes: temp on change only
         drop(level);
@@ -1008,7 +1009,10 @@ mod tests {
         assert_eq!(settings, [on_change(TEMP, 10_000), on_change(MODE, 1_000)]);
 
         // configure: what this observer asks for changes, the answer is what the device applies
-        let granted = mode.configure(ObserveObserve::default().mode(every(20 * MS))).await.unwrap();
+        let granted = mode
+            .configure(ObserveObserve::default().mode(every(20 * MS)))
+            .await
+            .unwrap();
         assert_eq!(
             granted.modes,
             ObserveObserve::default()

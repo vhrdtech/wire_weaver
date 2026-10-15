@@ -12,7 +12,10 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::ww_numeric::NumericValue::{self as N};
     use wire_weaver_client::ww_self::{ApiBundleOwned, FieldsValueOwned, TypeOwned, ValueOwned};
-    use wire_weaver_client::{ClientConfig, DynClient, DynResource, DynResourceKind};
+    use wire_weaver_client::{
+        ClientConfig, DynClient, DynMultiArgs, DynMultiValue, DynResource, DynResourceKind,
+    };
+    use ww_client_server::{ErrorKindOwned, MultiIndexOwned};
 
     mod server {
         use dynamic_api::{CheckError, Everything, Flagged, I2cAddress};
@@ -181,6 +184,7 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
+                multi_req = true,
             );
         }
 
@@ -757,5 +761,103 @@ mod tests {
         assert_eq!(other.read(cmd).await.unwrap(), num(N::F32(0.0)));
         let id = channel.index(2).unwrap().child("id").unwrap();
         assert_eq!(id.call(cmd, &[]).await.unwrap(), Some(num(N::U32(20))));
+    }
+
+    /// `DynResource::multi_read`/`multi_write`/`multi_call` on an array (CLT-15): list, range and mask indices,
+    /// `Same`/`Different` args and values, and per-item errors (a server without `multi_req = true` is already
+    /// covered by `tests/properties`' `single_req_server`).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn multi_requests() {
+        let device = tests_common::start_device(
+            "dynamic/multi_requests",
+            server::DynServer::default(),
+            dynamic_api::DYNAMIC_FULL_GID,
+            server::api_impl::api_hash(),
+        );
+        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        let cmd = client.cmd();
+        let root = DynResource::root(bundle());
+        let channel = root.child("channel").unwrap();
+
+        // write different: one value per channel, in list order
+        channel
+            .multi_write(
+                cmd,
+                MultiIndexOwned::List(vec![UNib32(0), UNib32(1), UNib32(2)]),
+                Some("gain"),
+                DynMultiValue::Different(&[num(N::F32(0.1)), num(N::F32(0.2)), num(N::F32(0.3))]),
+            )
+            .await
+            .unwrap();
+
+        // read range: same order back
+        let r = channel
+            .multi_read(cmd, MultiIndexOwned::Range(UNib32(0)..UNib32(3)), Some("gain"))
+            .await
+            .unwrap();
+        assert_eq!(
+            unwrap_all(r),
+            vec![num(N::F32(0.1)), num(N::F32(0.2)), num(N::F32(0.3))]
+        );
+
+        // write same: one value to every selected channel (mask32: channels 0 and 2)
+        channel
+            .multi_write(
+                cmd,
+                MultiIndexOwned::Mask32(0b101),
+                Some("gain"),
+                DynMultiValue::Same(&num(N::F32(0.5))),
+            )
+            .await
+            .unwrap();
+        let r = channel
+            .multi_read(
+                cmd,
+                MultiIndexOwned::List(vec![UNib32(0), UNib32(1), UNib32(2)]),
+                Some("gain"),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            unwrap_all(r),
+            vec![num(N::F32(0.5)), num(N::F32(0.2)), num(N::F32(0.5))]
+        );
+
+        // multi_call, same args (none) for every index: id() = index * 10
+        let r = channel
+            .multi_call(
+                cmd,
+                MultiIndexOwned::List(vec![UNib32(0), UNib32(2)]),
+                Some("id"),
+                DynMultiArgs::Same(&[]),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            unwrap_all(r),
+            vec![Some(num(N::U32(0))), Some(num(N::U32(20)))]
+        );
+
+        // per-item error: index 3 is past valid_indices (0..3)
+        let r = channel
+            .multi_read(cmd, MultiIndexOwned::Range(UNib32(2)..UNib32(4)), Some("gain"))
+            .await
+            .unwrap();
+        assert_eq!(r[0].as_ref().unwrap(), &num(N::F32(0.5)));
+        assert!(
+            matches!(&r[1], Err(e) if matches!(e.kind, ErrorKindOwned::BadIndex)),
+            "{r:?}"
+        );
+    }
+
+    /// Unwraps every item of a multi-request answer, panicking with the error on the first one that failed.
+    fn unwrap_all<T: std::fmt::Debug>(items: Vec<Result<T, ww_client_server::ErrorOwned>>) -> Vec<T> {
+        items
+            .into_iter()
+            .map(|r| r.unwrap_or_else(|e| panic!("{e:?}")))
+            .collect()
     }
 }

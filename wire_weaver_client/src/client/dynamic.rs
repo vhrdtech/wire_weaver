@@ -27,8 +27,10 @@ use crate::{
 use std::sync::Arc;
 use std::time::Duration;
 use wire_weaver::ValidIndicesOwned;
-use wire_weaver::prelude::UNib32;
+use wire_weaver::prelude::{DeserializeShrinkWrap, UNib32};
+use wire_weaver::shrink_wrap::either_any_vec::EitherAnyVec;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
+use wire_weaver::shrink_wrap::BufReader;
 use ww_client_server::{ErrorKindOwned, ErrorOwned, MultiIndexOwned, PathKind, RequestKindOwned};
 use ww_numeric::NumericValue;
 use ww_self::errors::{error_list_contains, error_value_name, fmt_error_list};
@@ -785,7 +787,7 @@ impl DynResource {
             None,
         )
         .await?;
-        self.decode_multi_values(&ty, crate::client::multi::decode_items::<TailBytesOwned>(&bytes, count)?)
+        self.decode_dyn_items(&bytes, count, &ty)
     }
 
     /// Write the same property (or flat array element) across an array (CLT-15): see [Self::multi_read].
@@ -842,35 +844,50 @@ impl DynResource {
             None,
         )
         .await?;
-        let raw = crate::client::multi::decode_items::<TailBytesOwned>(&bytes, count)?;
-        let mut out = Vec::with_capacity(raw.len());
-        for item in raw {
-            out.push(match item {
-                Ok(bytes) => Ok(match &return_ty {
-                    Some(ty) => Some(
-                        ValueOwned::des_shrink_wrap_dyn(&bytes, ty, &self.bundle)
-                            .map_err(|e| Error::Other(format!("'{}' return value: {e:#}", self.path)))?,
-                    ),
-                    None => None,
-                }),
-                Err(e) => Err(e),
-            });
+        match &return_ty {
+            Some(ty) => {
+                let values = self.decode_dyn_items(&bytes, count, ty)?;
+                Ok(values
+                    .into_iter()
+                    .map(|r| r.map(Some))
+                    .collect())
+            }
+            // no return type: every item is just an error flag with nothing on the Ok side
+            None => crate::client::multi::decode_items::<()>(&bytes, count)
+                .map(|v| v.into_iter().map(|r| r.map(|()| None)).collect()),
         }
-        Ok(out)
     }
 
-    fn decode_multi_values(
+    /// Decodes `count` items of an `EitherAnyVec` response as `ty` (CLT-15): unlike
+    /// [ValueOwned::des_shrink_wrap_dyn] (a whole top-level response, one value), an item here is one of several
+    /// packed together and must be read through [EitherAnyVecIter::next_with], which bounds a dynamically unsized
+    /// `ty` to its own size first (from the trailer) so it doesn't overrun into the next item.
+    fn decode_dyn_items(
         &self,
+        bytes: &[u8],
+        count: usize,
         ty: &TypeOwned,
-        raw: Vec<Result<TailBytesOwned, ErrorOwned>>,
     ) -> Result<Vec<Result<ValueOwned, ErrorOwned>>, Error> {
-        let mut out = Vec::with_capacity(raw.len());
-        for item in raw {
-            out.push(match item {
-                Ok(bytes) => Ok(ValueOwned::des_shrink_wrap_dyn(&bytes, ty, &self.bundle)
-                    .map_err(|e| Error::Other(format!("'{}' value: {e:#}", self.path)))?),
-                Err(e) => Err(e),
-            });
+        let mut rd = BufReader::new(bytes);
+        let vec = EitherAnyVec::des_shrink_wrap(&mut rd)?;
+        let mut iter = vec.iter();
+        let mut out = Vec::with_capacity(count);
+        for _ in 0..count {
+            let mut dyn_err = None;
+            let item = iter.next_with(
+                |rd| rd.read_owned::<ErrorOwned>().map(either::Either::Left),
+                |rd| match ValueOwned::des_shrink_wrap_field_dyn(rd, ty, &self.bundle) {
+                    Ok(v) => Ok(either::Either::Right(v)),
+                    Err(e) => {
+                        dyn_err = Some(e);
+                        Err(wire_weaver::shrink_wrap::Error::OutOfBoundsReadRawSlice)
+                    }
+                },
+            );
+            if let Some(e) = dyn_err {
+                return Err(Error::Other(format!("'{}' value: {e:#}", self.path)));
+            }
+            out.push(item?.into());
         }
         Ok(out)
     }

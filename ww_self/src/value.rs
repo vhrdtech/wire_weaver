@@ -31,6 +31,18 @@ impl ValueOwned {
         des_inner(&mut rd, ty, api_bundle)
     }
 
+    /// Deserialize one value of type `ty` from a shared [BufReader] (as a field of an evolvable struct is read,
+    /// or as one item of a sequence of several values packed together, e.g. an `EitherAnyVec` slot through
+    /// [EitherAnyVecIter::next_with](shrink_wrap::either_any_vec::EitherAnyVecIter::next_with)): bounded to its
+    /// own size first when `ty` is unsized (the reader doesn't overrun into whatever follows).
+    pub fn des_shrink_wrap_field_dyn(
+        rd: &mut BufReader,
+        ty: &TypeOwned,
+        api_bundle: &ApiBundleOwned,
+    ) -> Result<Self> {
+        des_field(rd, ty, api_bundle)
+    }
+
     /// Serialize as one top-level value of type `ty` (as `to_ww_bytes_owned` does).
     pub fn ser_shrink_wrap_dyn(
         &self,

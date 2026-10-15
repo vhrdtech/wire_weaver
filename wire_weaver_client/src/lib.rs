@@ -17,7 +17,9 @@ pub use client::attachment::Attachment;
 pub use client::credit::CreditConfig;
 pub use client::dyn_client::DynClient;
 pub use client::dyn_positioned::{DynPositionedStream, DynStreamOpen, seconds};
-pub use client::dynamic::{DynResource, DynResourceKind, DynSink, DynStream};
+pub use client::dynamic::{
+    DynMultiArgs, DynMultiValue, DynResource, DynResourceKind, DynSink, DynStream,
+};
 pub use client::introspect::Introspect;
 pub use client::multi::{self, MultiCall, MultiRead, MultiWrite};
 pub use client::positioned::{

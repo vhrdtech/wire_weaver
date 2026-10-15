@@ -10,6 +10,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- `EitherAnyVecIter::next_with()` (CLT-15): reads the next item's flag and hands the caller a bounded `BufReader`
+  for whichever side it is (already `rd.split`-bounded to its own size when unsized), for item types not known at
+  compile time (e.g. a value deserialized according to a runtime type descriptor), which `next()`/`next_owned()`
+  can't express as a static `L`/`R`. Used by `ww_self::ValueOwned::des_shrink_wrap_field_dyn()`.
 - `OptionAnyVec` (SW-55), new module `option_any_vec`: a zero-copy, no-alloc array of `Option` slots of any types
   (numbers, structs, lists, strings, a nested `OptionAnyVec`), only the present values written, in slot order
   without padding between them. A presence header first, in the smallest of four modes for the set (all, dense

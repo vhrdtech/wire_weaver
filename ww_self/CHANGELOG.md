@@ -76,6 +76,10 @@
 * New hooks: `visit_type_location`, `visit_api_level_location`, `visit_argument`, `visit_variant`, `visit_fields`,
   `visit_field`.
 * `FieldOwned::is_flag()`: the field is a relocated `#[flag]` of the `Option` or `Result` field with the same name.
+* `ValueOwned::des_shrink_wrap_field_dyn()` (CLT-15): read one value of a dynamic type from a shared `BufReader`,
+  bounded to its own size first when unsized (as a field of an evolvable struct is read), for item types not known
+  ahead of a sequence of several values packed together (e.g. one `EitherAnyVec` slot, through
+  `EitherAnyVecIter::next_with`) - `des_shrink_wrap_dyn()` only works for a whole top-level response.
 
 ### 🐛 Fixes
 

@@ -17,7 +17,7 @@
 
 * `ww_dfu` - Firmware update data types and API.
 * `ww_counters` - Event counters API.
-* `ww_log` - Logging types and API for no_std bare metal targets.
+* `ww_log` - The device's log: defmt frames (decoded with the ELF) or text records, as reliable streams.
 * `ww_uid` - Device unique ID data types and requesting API.
 * `ww_board_info` - PCB/PCBA information (name, revision, etc.) and requesting API.
 * `ww_gpio` - GPIO control data types and remote bridging API.

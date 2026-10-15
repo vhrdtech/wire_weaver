@@ -17,6 +17,7 @@ turn what the device holds into the new image:
 
 A plain full image is a plan made only of ERASE and WRITE, so a node that doesn't do deltas implements the same traits
 and simply never sees a COPY. The plan, manifest and descriptor are records of the chunky protocol, defined in octets by
+its [`SPEC.md`](https://github.com/romixlab/chunky_mcu_updater/blob/main/SPEC.md) (a draft) and implemented by
 [`chunky_format`](https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky_format/src/lib.rs); `ww_dfu` only
 carries them, as raw bytes. See [The other side: chunky](#the-other-side-chunky) at the end of this page.
 
@@ -524,6 +525,9 @@ one and the change is looked at. So the bytes here are the bytes the current cod
 `ww_dfu` is the transport half of an update. What it carries, and the code that checks and applies it on the device,
 is [chunky](https://github.com/romixlab/chunky_mcu_updater) (`chunky_mcu_updater`, public).
 
+- [`SPEC.md`](https://github.com/romixlab/chunky_mcu_updater/blob/main/SPEC.md) is the protocol in octets (a draft):
+  the records, the receiver's checks in order, delivery modes, resume and segmentation, with annotated vectors. Its
+  §10 describes this carrier.
 - [`chunky_format/src/lib.rs`](https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky_format/src/lib.rs)
   defines the records. They are `shrink_wrap` types with a fixed little endian layout, and the same bytes are read by
   Rust (with or without `BufReader`) and by a generated C reader:
@@ -538,8 +542,10 @@ is [chunky](https://github.com/romixlab/chunky_mcu_updater) (`chunky_mcu_updater
   engine: it runs an untrusted plan against the DFU slot over `embedded_storage`, one step per call, checking the
   descriptor first, then every COPY source and WRITE hash, then the whole image.
 
-The raw octets that `Stage::begin`, `Stage::write` and `StageBulk::plan` carry are these records, and what a
-node answers with `Error::BadSignature`, `BelowFloor`, `WrongGeometry` or `VerifyFailed` is what chunky decides.
+The raw octets are these records: `Stage::begin` and `StageBulk::begin_bulk` take the 145 header bytes, `Stage::write`
+carries one step's data, and the `StageBulk::plan` sink carries the body as segments. What a node answers with
+`Error::BadSignature`, `BelowFloor`, `WrongGeometry` or `VerifyFailed` is what chunky decides; `WrongGeometry` is
+what chunky and the spec call `GeometryMismatch`.
 
 **Status.** Chunky does not implement the `ww_dfu` traits yet (chunky NET-1 is open): it is the device core and the
 record format that `ww_dfu` carries, and the server side that exposes them as `UpdateNode`, `Stage` and the rest is

@@ -1,4 +1,4 @@
-// ww_log_bare_metal 0.1.0 traits and types, saved by `ww api save`.
+// ww_log 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
 (magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
     "Logs of bare metal firmware over WireWeaver: defmt frames decoded on the host with the firmware\'s ELF, or text",
@@ -14,7 +14,7 @@
     "```rust,ignore",
     "#[ww_api_root]",
     "trait MyDevice {",
-    "    ww_impl!(log: ww_log_bare_metal::LogDefmt);",
+    "    ww_impl!(log: ww_log::LogDefmt);",
     "}",
     "```",
     "",
@@ -43,7 +43,7 @@
     "# Errors",
     "",
     "Both traits return [LogError].",
-], crate_idx: 0, trait_name: "ww_log_bare_metal", items: [
+], crate_idx: 0, trait_name: "ww_log", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "LogDefmt", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LogText", docs: [], optional: None),
 ]), types: [
@@ -166,6 +166,6 @@
         ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [
-    (crate_id: "ww_log_bare_metal", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_log", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

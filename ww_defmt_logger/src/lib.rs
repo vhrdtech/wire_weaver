@@ -1,6 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 //! The `defmt` global logger of a WireWeaver device: every frame goes into a lock-free ring in RAM, and from there,
-//! whole frames at a time, into the reliable `ww_log_bare_metal::LogDefmt::frames` stream; with the `rtt` feature
+//! whole frames at a time, into the reliable `ww_log::LogDefmt::frames` stream; with the `rtt` feature
 //! each frame is also teed to an RTT up channel, so `probe-rs` and `cnt run` keep showing the logs with a probe
 //! attached. One global logger serves both.
 //!
@@ -24,7 +24,7 @@
 //!    encodes the frame (rzCOBS or raw, as `defmt` is built) and copies it into the ring and the RTT channel.
 //! 2. [DefmtLogger::release] commits the whole frame to the ring at once, with its length in front: the ring never
 //!    holds half a frame. A frame that doesn't fit the free space, or is longer than
-//!    [MAX_FRAMES_LEN](ww_log_bare_metal::MAX_FRAMES_LEN), is dropped whole and counted.
+//!    [MAX_FRAMES_LEN](ww_log::MAX_FRAMES_LEN), is dropped whole and counted.
 //! 3. [DefmtLogger::pump], called from the event loop, takes the committed frames out of the ring without a critical
 //!    section, packs up to 512 bytes of whole frames into one `DefmtFrames` item and pushes it into the stream's
 //!    store, `units` = frames. Frames the ring dropped become the stream's `lost` exactly where they were dropped, so
@@ -52,7 +52,7 @@ use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use critical_section::RestoreState;
 use wire_weaver::shrink_wrap::{MaxLen, RefVec, SerializeShrinkWrap};
-use ww_log_bare_metal::{DefmtEncoding, DefmtFrames, MAX_FRAMES_LEN};
+use ww_log::{DefmtEncoding, DefmtFrames, MAX_FRAMES_LEN};
 use ww_stream::store::StreamStore;
 use ww_stream::tx::Reliable;
 
@@ -365,7 +365,7 @@ impl<const N: usize> DefmtLogger<N> {
     }
 
     /// Moves the committed frames from the ring into `stream`'s store, whole frames, up to
-    /// [MAX_FRAMES_LEN](ww_log_bare_metal::MAX_FRAMES_LEN) bytes of them per item, `units` = frames. Frames the
+    /// [MAX_FRAMES_LEN](ww_log::MAX_FRAMES_LEN) bytes of them per item, `units` = frames. Frames the
     /// ring dropped go into the stream's `lost` ([Reliable::lost]) in their place. Returns how many frames were
     /// moved; 0 at once while another `pump` runs.
     ///

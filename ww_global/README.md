@@ -9,7 +9,7 @@ To do this, instead of sending a resource path, trait's crate name and version i
 traits
 are implemented and can process requested targeted at them.
 
-The only downside of doing this - payloads become rather large (e.g., for `ww_log_bare_metal` it's 17 bytes only for the
+The only downside of doing this - payloads become rather large (e.g., for `ww_log` it's 17 bytes only for the
 name). Especially if you want to send many requests in one go in one packet.
 To solve this, this registry was created, which replaces long names with a small ID.
 
@@ -21,7 +21,7 @@ If you create a generic trait that you think is useful for bare-metal usage, cre
 
 | Crate                | Description        |                  Link                  |
 |----------------------|--------------------|:--------------------------------------:|
-| ww_log_bare_metal    | Logging support    | [crates.io](https://crates.io/crates/) |
+| ww_log    | Logging support    | [crates.io](https://crates.io/crates/) |
 | ww_counters          | Counters support   |                                        |
 | ww_uid               | Device unique ID   |                                        |
 | ww_board_info        | PCB information    |                                        |

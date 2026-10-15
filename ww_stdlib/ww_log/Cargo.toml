@@ -1,5 +1,5 @@
 [package]
-name = "ww_log_bare_metal"
+name = "ww_log"
 version = "0.1.0"
 authors.workspace = true
 description = "Logs of bare metal firmware: defmt frames and text records as reliable streams"

@@ -67,7 +67,7 @@
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_client_server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_date_time/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_global/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_log_bare_metal/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_log/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_self/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../ww_stdlib/ww_si/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/blinky/examples" isTestSource="false" />
@@ -97,7 +97,7 @@
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_i2c/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_indication/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_memory/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_log_bare_metal/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_log/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_numeric/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_si/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_spi/src" isTestSource="false" />

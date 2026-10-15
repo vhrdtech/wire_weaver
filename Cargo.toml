@@ -92,7 +92,7 @@ ww_firmware_info = { version = "0.1.0", path = "./ww_stdlib/ww_firmware_info", d
 ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = false }
 ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
 ww_i2c = { version = "0.1.0", path = "./ww_stdlib/ww_i2c", default-features = false }
-ww_log_bare_metal = { version = "0.1.0", path = "./ww_stdlib/ww_log_bare_metal", default-features = false }
+ww_log = { version = "0.1.0", path = "./ww_stdlib/ww_log", default-features = false }
 ww_logic_analyzer = { version = "0.1.0", path = "./ww_stdlib/ww_logic_analyzer", default-features = false }
 ww_memory = { version = "0.1.0", path = "./ww_stdlib/ww_memory", default-features = false }
 ww_numeric = { version = "0.2.0", path = "./ww_stdlib/ww_numeric", default-features = false }

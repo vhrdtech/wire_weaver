@@ -15,4 +15,4 @@ defmt = ["dep:defmt", "wire_weaver/defmt"]
 [dependencies]
 defmt = { workspace = true, optional = true }
 wire_weaver.workspace = true
-ww_log_bare_metal.workspace = true
+ww_log.workspace = true

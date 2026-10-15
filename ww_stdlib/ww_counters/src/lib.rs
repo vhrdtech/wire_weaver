@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-use ww_log_bare_metal::Severity;
+use ww_log::Severity;
 
 /// API for event counters running on a remote device.
 /// Counters can be useful for counting errors, packets or any other events when it is impractical to log things, or in addition to logging.

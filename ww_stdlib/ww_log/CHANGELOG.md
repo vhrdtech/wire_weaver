@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- Renamed from `ww_log_bare_metal` (STD-26): depend on `ww_log`, `use ww_log::...`. Its global type id 0 goes with
+  it (`ww_global::WW_LOG`).
 - Reworked for the device contract (STD-26). Same crate version: never published, nothing used it.
     - `LogDefmt`: `stream!(data)`, `property!(ro format)`, `counters()` and `reset_counters()` go. Now
       `const DEFMT: DefmtInfo` (`encoding: DefmtEncoding`, `build_id` of the ELF with the format strings) and

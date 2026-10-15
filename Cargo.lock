@@ -4616,7 +4616,7 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
- "ww_log_bare_metal",
+ "ww_log",
 ]
 
 [[package]]
@@ -4637,7 +4637,7 @@ dependencies = [
  "defmt 1.1.1",
  "rtt-target",
  "wire_weaver",
- "ww_log_bare_metal",
+ "ww_log",
  "ww_stream",
 ]
 
@@ -4760,7 +4760,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_log_bare_metal"
+name = "ww_log"
 version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",

@@ -63,7 +63,7 @@ nav = [
         "std_library/ww_board_info.md",
         "std_library/ww_uid.md",
         "std_library/ww_user_info.md",
-        "std_library/ww_log_baremetal.md",
+        "std_library/ww_log.md",
         "std_library/ww_dfu.md",
         "std_library/ww_memory.md",
         "std_library/ww_si.md",

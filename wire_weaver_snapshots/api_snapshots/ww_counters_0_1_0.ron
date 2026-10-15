@@ -14,14 +14,14 @@
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Severity", signature: [
-        30,
-        248,
-        235,
-        250,
-        24,
-        192,
-        232,
-        244,
+        141,
+        69,
+        160,
+        111,
+        171,
+        124,
+        112,
+        55,
     ]),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Provides a way to select multiple counter indices.",
@@ -113,5 +113,5 @@
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_log_bare_metal", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_log", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

@@ -11,7 +11,7 @@
 //! ```rust,ignore
 //! #[ww_api_root]
 //! trait MyDevice {
-//!     ww_impl!(log: ww_log_bare_metal::LogDefmt);
+//!     ww_impl!(log: ww_log::LogDefmt);
 //! }
 //! ```
 //!

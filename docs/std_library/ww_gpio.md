@@ -1,7 +1,8 @@
 # ww_gpio
 
 `ww_gpio` is a global WireWeaver trait for controlling GPIO pins remotely: reading and setting output levels,
-reading input levels, configuring pin mode / pull / drive strength, and observing edge events as a stream. It is
+reading input levels (one pin, or several at one instant), configuring pin mode / pull / drive strength, and
+observing edge events as a stream. It is
 `no_std` by default and depends only on `wire_weaver` and `ww_si` (for the `Volt` IO level).
 
 Add it to a device API crate with:
@@ -26,6 +27,13 @@ One bank (port) of pins sharing the same IO level:
 trait Bank {
     ww_impl!(pin[]: Pin);
 
+    fn read_inputs(
+        pins: MaxLen<RefVec<'i, UNib32>, MAX_PORT_PINS>,
+    ) -> Result<MaxLen<RefVec<'i, Level>, MAX_PORT_PINS>, GpioError<'i>>;
+    fn write_outputs(levels: MaxLen<RefVec<'i, PinLevel>, MAX_PORT_PINS>) -> Result<(), GpioError<'i>>;
+
+    reserved!(3..=7);
+
     fn capabilities() -> BankCapabilities<'i>;
 
     fn configure(config: BankConfig) -> Result<BankConfig, Error>;
@@ -37,6 +45,8 @@ trait Bank {
 * `pin[]` - array of individual pins in the bank, indexed 0-based; see [`Pin`](#pin) below. Indexing can either
   follow the natural range of a bank (e.g. an IO expander) or a list of specific indices (e.g. exposing only `PB1`
   and `PB5` of an MCU port).
+* `read_inputs` / `write_outputs` - several pins in one call, at one instant where the hardware allows, see
+  [Port access](#port-access) below.
 * `capabilities()` - static description of what the bank supports: which IO levels, modes and custom
   mode/pull/speed strings, see `BankCapabilities` under [Types](#types) below.
 * `configure` - what the pins of the bank share, in a `BankConfig`: the IO level, adjustable if the hardware has
@@ -87,6 +97,53 @@ pub trait Pin {
 * `capabilities()` - what this pin supports: modes, pulls, speeds, whether `event` works, and its name, see
   `PinCapabilities` under [Types](#types) below.
 
+### Port access
+
+`Bank::read_inputs` and `Bank::write_outputs` act on several pins of a bank in one call, for what per-pin calls
+can't do even when the client packs them into one packet: change or sample them at the same instant. A host bit-banging a parallel bus sets the data lines and the strobe in one write, or reads a data byte
+without a pin changing halfway through it.
+
+* `read_inputs(pins)` - the input levels of the listed pins (indices into `pin[]`), answered in the same order. Reads
+  the input register like `Pin::input_level`, whatever mode a pin is in.
+* `write_outputs(levels)` - a list of `PinLevel { pin, level }`. Writes the output register like
+  `Pin::set_output_level`: no pin changes its mode (direction), an input keeps the level for when it becomes an
+  output. All or nothing: an index that isn't a pin of the bank, or a pin listed twice, is
+  `Common(InvalidArgument)` and nothing is written; `InUse`, `NoPower` and `Refused` as for `Pin::set_mode`.
+
+`BankCapabilities::simultaneous_read` / `simultaneous_write` say whether a call is one register access. If so, every
+listed pin is sampled or changes at the same instant (an STM32 port: one `IDR` read, one `BSRR` write). If not (an
+IO expander behind I2C, pins spread over several registers), the device goes pin by pin in list order, still in one
+request: list the strobe last. A bank without either answers `Common(Unsupported)`.
+
+Pins are addressed by index, not by a bitmask, as everywhere in the [IO family](io_family.md#shared-conventions):
+indices work the same for a bank exposing only some pins of a port (`PB1`, `PB5`) and for banks wider than any mask
+type. On the wire an index of a pin below 8 is one nibble, a level one bit, so for 8 pins the argument of
+`read_inputs` is 5 bytes and its list of levels 2, and the argument of `write_outputs` (one byte per `PinLevel`) 9. At most `MAX_PORT_PINS` (64) pins per
+call.
+
+```rust
+let bank = device.port(0);
+if bank.capabilities().call().await?.simultaneous_write {
+    // data lines 0..=3 and the strobe on pin 4, in one register write
+    let levels = [(0, Level::High), (1, Level::Low), (2, Level::Low), (3, Level::High), (4, Level::High)]
+        .into_iter()
+        .map(|(pin, level)| PinLevel { pin: UNib32(pin), level })
+        .collect::<Vec<_>>();
+    bank.write_outputs(MaxLen::new(levels)?).call().await?;
+}
+let levels = bank.read_inputs(MaxLen::new(vec![UNib32(5), UNib32(6)])?).call().await?;
+```
+
+Timing of many pins beyond one write (a pattern, a waveform) is a [signal generator](ww_signal_generator.md), fast
+sampling of many pins a [logic analyzer](ww_logic_analyzer.md).
+
+### Observing a pin level (planned)
+
+A `property!(ro+observe level: Level)` on `Pin`, at one of its reserved indices 4..=6, would let a host watch slow
+inputs without opening the `event` stream of every pin. It waits for array index bounds (API-29): `Pin` sits in the
+`Bank::pin[]` array, and [observed properties](../api/properties.md#observing-changes) under a resource array aren't
+supported yet (STD-31).
+
 ## Types
 
 * `Level` - `Low` / `High`, `sized`, 1 bit on the wire.
@@ -98,6 +155,8 @@ pub trait Pin {
 * `GpioError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `DifferentModes`; unsized
   (`unib32` discriminant), evolvable, `Display` from the doc lines. Each method lists the variants it returns
   (`#[errors]`).
+* `PinLevel` - `pin: UNib32` (index into `Bank::pin[]`), `level: Level`; one entry of `Bank::write_outputs`,
+  `final_structure`.
 * `IoPinEnabledEvents<'i>` - which sources the `event` stream reports, its argument: `rising: bool`, `falling: bool`, and a
   `custom: RefVec<'i, u8>` list of custom source indices.
 * `PinCapabilities<'i>` - what one pin supports: `modes: MaxLen<RefVec<'i, Mode>, 8>`,
@@ -106,8 +165,9 @@ pub trait Pin {
 * `BankConfig` - `io_level: Option<Volt>`; the argument and the answer of `Bank::configure`.
 * `BankCapabilities<'i>` - what a bank supports: `io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>`,
   `io_level_min` / `io_level_max: Option<Volt>` (an adjustable supply), `push_pull` / `open_drain` / `input` /
-  `individually_configurable_pins: bool`, and `custom_mode` / `custom_pull` / `custom_speed: RefVec<'i, &'i str>`
-  describing any `Custom(u8)` variants.
+  `individually_configurable_pins: bool`, `custom_mode` / `custom_pull` / `custom_speed: RefVec<'i, &'i str>`
+  describing any `Custom(u8)` variants, and `simultaneous_read` / `simultaneous_write: bool` ([port
+  access](#port-access), `false` when an older device leaves them out).
 
 `Level` and `Mode` also carry small helpers: `Level::is_high()` / `is_low()`, `Mode::is_driving()` (true for
 `PushPullOutput` and `OpenDrainOutput`).
@@ -228,6 +288,10 @@ fn valid_indices_root_port_pin(&mut self, index: [UNib32; 1]) -> ValidIndices<'_
     ValidIndices::range_u32(0..16)
 }
 ```
+
+`port_read_inputs` reads `IDR` once and picks the listed pins from it, `port_write_outputs` collects every entry into
+one `BSRR` value (set and reset bits) and writes it once, so the board reports `simultaneous_read` and
+`simultaneous_write`.
 
 In this example, `capabilities()` and `configure` are hardcoded (3.3V without level control, push-pull/open-drain/input all
 supported, no custom modes), `set_mode`/`mode` and `pull`/`speed` are translated to/from the STM32 `MODER` /

@@ -393,7 +393,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **API-29 Bounds of resource array indices** · `v0.5.x` — `stream!(adc[8]: u16)` or `motor[1..=4]`, checked by the
   server before a handler is called and visible in introspection (`docs/api/arrays.md`). Lengths of lists and
   strings inside a resource's type are bounded with `MaxLen` (SW-19). With a bound, observed properties (SRV-18) can
-  get a table per array element: until then a trait level in a resource array can't be observed.
+  get a table per array element: until then a trait level in a resource array can't be observed
+  (STD-31 `ww_gpio` pin level waits for it).
 - 🚧 **API-30 Counted and reliable streams** · `v0.5` — counted streams put a head in every event (flags and a
   length-coded 64-bit `pos` in units the device names when it sends, the event's `units`, `lost`, optional device time
   `t`), so drops on the device, link losses and duplicates are reported exactly and item types carry no `seq` /
@@ -742,6 +743,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   message RAM; `CanTimeTriggered` (TTCAN); `CanXl` behind the `xl` feature. Errors on `CommonError` +
   `OutOfFilters`, `OutOfMemory`, `BusOff`; `defmt` no longer pulls `std`. Docs `docs/std_library/ww_can_bus.md`,
   tests `tests/io_can` (full and minimal node), `tests/io_can_group` (group, TTCAN, XL).
+- ✅ **STD-30 `ww_gpio` port access** — `Bank::read_inputs(pins)` answers the input levels of the listed pins (indices
+  into `pin[]`) in the same order, `Bank::write_outputs(levels)` sets a list of `PinLevel { pin, level }`, all or
+  nothing; both at one instant where the hardware allows (one register read / write), which
+  `BankCapabilities::simultaneous_read` / `simultaneous_write` say, pin by pin in list order otherwise. For bit-banged
+  parallel buses and strobes from the host, which multi-call can't make simultaneous. Pins by index, no masks on the
+  wire (IO family D9). Bank indices 1 and 2 from its reserved range, capabilities appended with `#[default = false]`.
+  Docs `docs/std_library/ww_gpio.md#port-access`, tests `tests/io_gpio`, STM32 boards in `examples_mcu` (IDR / BSRR).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
@@ -784,6 +792,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **STD-22 `ww_signal_generator`** · `v0.5.x` — `PatternGenerator` (digital, replays analyzer captures through
   a credit sink), `WaveformGenerator` (DAC channels). Skeleton written, docs page
   `docs/std_library/ww_signal_generator.md`; mock-server test pair still open (STD-13).
+- ⛔ **STD-31 Observable `ww_gpio` pin level** · `v0.5.x` — `property!(ro+observe level: Level)` on `Pin` at one of its
+  reserved indices 4..=6, so a host sees input changes without opening the `event` stream of every pin (slow inputs,
+  a dashboard). Blocked on API-29 array-index-bounds: `Pin` sits in `Bank::pin[]` (and banks usually in an array
+  too), and levels under a resource array can't be observed until their bound is known (SRV-18).
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
 

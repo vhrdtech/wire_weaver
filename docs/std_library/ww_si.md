@@ -22,7 +22,7 @@ Everything is a cargo feature, so a firmware compiles only what it uses. `std` (
 
 | Feature        | What                                                                                              |
 |----------------|---------------------------------------------------------------------------------------------------|
-| `time`         | `Second`, `Hertz`, `HertzPerSecond`                                                               |
+| `time`         | `Second`, `Hertz`, `HertzPerSecond`, `Baud`                                                       |
 | `electrical`   | `Ampere`, `Volt`, `Ohm`, `Farad`, `Siemens`, `Henry`, `Coulomb`, `Watt`, `Weber`, `Tesla`         |
 | `mechanical`   | `Meter`, `KiloGram`, `Newton`, `Pascal`, `Joule`, `Litre`, `VolumetricFlow`, `Speed` .. `Yank`    |
 | `angle`        | `Radian`, `Degree`, `Steradian`, `AngularVelocity`, `AngularAcceleration`                         |
@@ -59,11 +59,15 @@ Named constructors exist for the quantities the IO traits use most:
 | `Ampere` | `amperes`, `milliamperes`, `microamperes`, `nanoamperes`, `amperes_f32`                    |
 | `Hertz`  | `hertz`, `millihertz`, `kilohertz`, `megahertz`, `gigahertz`, `hertz_f32`                  |
 | `Second` | `seconds`, `milliseconds`, `microseconds`, `nanoseconds`, `picoseconds`, `seconds_f32`     |
+| `Baud`   | `baud`, `kilobaud`, `megabaud`, `baud_f32`                                                 |
 
 `PartialEq` and `PartialOrd` compare values across prefixes and number types: `Volt::millivolts(1000u16) ==
 Volt::volts(1u8)`. Two integers are compared exactly, even 60 orders of magnitude apart; otherwise through `f64`.
 
-The `quantity!` macro is a shorthand for literals: `quantity!(3300 mV u16)`, `quantity!(400 kHz u32)`.
+The `quantity!` macro is a shorthand for literals: `quantity!(3300 mV u16)`, `quantity!(400 kHz u32)`, `quantity!(115200 Bd u32)`.
+
+`Baud` is a symbol rate, the baud rate of a UART or a protocol decoder, kept apart from `Hertz` so a baud rate
+is never taken for a clock frequency (and a tool shows `115200 Bd`, not `115.2 kHz`).
 
 ## `Second` as a timestamp
 

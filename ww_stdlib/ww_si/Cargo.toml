@@ -24,7 +24,7 @@ quantities = [
     "radiation",
     "logarithmic",
 ]
-# Second, Hertz, HertzPerSecond
+# Second, Hertz, HertzPerSecond, Baud
 time = []
 # Ampere, Volt, Ohm, Farad, Siemens, Henry, Coulomb, Watt, Weber, Tesla
 electrical = []

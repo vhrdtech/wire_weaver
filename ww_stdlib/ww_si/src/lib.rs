@@ -937,6 +937,25 @@ pub struct HertzPerSecond {
     pub value: NumericValue,
 }
 
+/// Symbol rate in baud with prefix (Bd, kBd, MBd), backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64,
+/// etc.: the baud rate of a UART, the bit rate of a decoder. One baud is one symbol per second; for a UART a symbol
+/// is a bit, so 115 200 Bd is 115 200 bit/s on the line. A frequency of its own kind, so it is not mixed up with a
+/// clock in [Hertz].
+///
+/// SI: s−1
+#[cfg(feature = "time")]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
+pub struct Baud {
+    pub prefix: Prefix,
+    pub value: NumericValue,
+}
+
 /// Volumetric flow quantity in cubic meters per second with prefix (m^3/s, mm^3/s, km^3/s, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
@@ -1052,6 +1071,9 @@ macro_rules! quantity {
     };
     ($value:literal MHz $value_ty:ident) => {
         ww_si::Hertz { prefix: ww_si::Prefix::Mega, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
+    ($value:literal Bd $value_ty:ident) => {
+        ww_si::Baud { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
     ($value:literal g $value_ty:ident) => {
         ww_si::KiloGram { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }

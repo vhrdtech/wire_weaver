@@ -4,6 +4,10 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### ⚠️ Breaking
 
+- Frequencies are `ww_si::Hertz` (STD-13): `I2cMode::Master { speed, .. }` instead of `speed_hz: u32`,
+  `i2c_configure` returns the actual `Hertz`, `I2cCapabilities::min_freq` / `max_freq` instead of
+  `min_frequency_hz` / `max_frequency_hz`. `I2cMode` is no longer `self_describing` (it holds a `Hertz`) and gets
+  `Unknown(u32)`.
 - Addresses are `I2cAddress { Seven(u8), Ten(u16) }` instead of `u8` (10-bit addressing; `From<u8>` gives the
   7-bit one).
 - `i2c_configure` takes `io_level: Option<Volt>` instead of `io_level_mv: u16` (`None` leaves the level as it is).

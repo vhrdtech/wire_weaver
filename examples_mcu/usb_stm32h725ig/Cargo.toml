@@ -37,7 +37,7 @@ ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features
 ww_stream = { path = "../../ww_stream", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
 ww_uart = { path = "../../ww_stdlib/ww_uart", default-features = false }
-ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "f32"] }
+ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "time", "f32", "u32"] }
 
 [[bin]]
 name = "stm32h725ig-blinky"

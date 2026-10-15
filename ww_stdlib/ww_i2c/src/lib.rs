@@ -48,7 +48,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-pub use ww_si::{Second, Volt};
+pub use ww_si::{Hertz, Second, Volt};
 
 /// Largest data of one `I2c::i2c_write`, in bytes.
 pub const MAX_WRITE_LEN: usize = 512;
@@ -91,8 +91,8 @@ pub trait I2c {
     /// What this adapter supports: modes, frequencies, IO levels, buffer sizes, 10-bit addresses, pull-ups.
     fn i2c_capabilities() -> I2cCapabilities<'i>;
 
-    /// Configures the bus and returns the SCL frequency actually set, in Hz (the nearest the hardware can do, never
-    /// above the one asked for).
+    /// Configures the bus and returns the SCL frequency actually set (the nearest the hardware can do, never above
+    /// the one asked for).
     ///
     /// `io_level` sets the bus voltage on adapters with level translators; `None` leaves it as it is (and is the only
     /// choice on a device without them). [I2cMode::Disabled] releases the pins.
@@ -102,7 +102,7 @@ pub trait I2c {
     /// [I2cError::UnsupportedMode], [I2cError::UnsupportedSpeed], [I2cError::UnsupportedIoLevel],
     /// [I2cError::InUse] (the pins serve another function), [I2cError::Refused] (e.g. the bus already sits at a higher
     /// voltage than `io_level`).
-    fn i2c_configure(mode: I2cMode, io_level: Option<Volt>) -> Result<u32, I2cError>;
+    fn i2c_configure(mode: I2cMode, io_level: Option<Volt>) -> Result<Hertz, I2cError>;
 
     /// Writes `data` to the device at `addr`: start, address, data, stop.
     ///
@@ -343,15 +343,14 @@ impl I2cAddress {
     borrowed,
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Copy, Clone),
-    self_describing,
+    derive(Debug, PartialEq, Copy, Clone),
     ww_repr = u3
 )]
 pub enum I2cMode {
     /// Controller off, pins released (high-Z inputs).
     Disabled,
-    /// Master at `speed_hz` SCL; `monitor` also streams the adapter's own transfers to `I2cMonitor`.
-    Master { speed_hz: u32, monitor: bool },
+    /// Master at `speed` SCL; `monitor` also streams the adapter's own transfers to `I2cMonitor`.
+    Master { speed: Hertz, monitor: bool },
     /// Slave at `addr`; `monitor` as above. Data paths for slave mode are not defined yet.
     Slave { addr: u8, monitor: bool },
     /// Only watch the bus, see `I2cMonitor`.
@@ -494,8 +493,10 @@ pub struct I2cCapabilities<'i> {
     pub max_write_len: u32,
     /// Largest read this device does, at most [MAX_READ_LEN].
     pub max_read_len: u32,
-    pub min_frequency_hz: u32,
-    pub max_frequency_hz: u32,
+    /// Lowest SCL frequency.
+    pub min_freq: Hertz,
+    /// Highest SCL frequency.
+    pub max_freq: Hertz,
     /// Driver or controller, for the user: "STM32 I2C1", "RP2350 I2C0 + PIO monitor".
     pub driver_name: MaxLen<&'i str, MAX_NAME_LEN>,
     pub master_supported: bool,

@@ -159,7 +159,7 @@ Methods keep their signature, the other resources become functions returning a m
 pub trait Uart {
     fn rx<'i>() -> Stream<RxChunk<'i>>;               // stream!(rx: RxChunk<'i>);
     fn tx() -> Sink<[u8]>;                            // sink!(tx: [u8]);
-    fn baud_rate() -> Property<BaudRate, Error>;      // property!(rw baud_rate: BaudRate, Error);
+    fn baud_rate() -> Property<Baud, Error>;          // property!(rw baud_rate: Baud, Error);
     fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>;
 }
 pub trait Bank {

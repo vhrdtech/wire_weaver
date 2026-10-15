@@ -470,6 +470,17 @@
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
     ]))), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Symbol rate in baud with prefix (Bd, kBd, MBd), backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64,",
+        "etc.: the baud rate of a UART, the bit rate of a decoder. One baud is one symbol per second; for a UART a symbol",
+        "is a bit, so 115 200 Bd is 115 200 bit/s on the line. A frequency of its own kind, so it is not mixed up with a",
+        "clock in [Hertz].",
+        "",
+        "SI: s−1",
+    ], ident: "Baud", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Volumetric flow quantity in cubic meters per second with prefix (m^3/s, mm^3/s, km^3/s, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
         "",
@@ -481,4 +492,4 @@
 ], traits: [], ext_crates: [
     (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
-])
+], root_omitted: None)

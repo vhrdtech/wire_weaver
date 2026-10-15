@@ -45,7 +45,7 @@
 use wire_weaver::prelude::*;
 pub use ww_gpio::Level;
 pub use ww_i2c::I2cAddress;
-pub use ww_si::{Hertz, Second, Volt};
+pub use ww_si::{Baud, Hertz, Second, Volt};
 
 /// Most channels a device lists, and most channels in one capture or stream.
 pub const MAX_CHANNELS: usize = 32;
@@ -289,7 +289,7 @@ pub enum TriggerStage<'i> {
     /// `mask`; met at the stop bit.
     UartByte {
         channel: u8,
-        baud: u32,
+        baud: Baud,
         value: u8,
         mask: u8,
     },

@@ -597,7 +597,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`docs/std_library/ww_onewire.md`), API snapshot, in-process test with a mock bus (`tests/io_onewire`).
 - ✅ **STD-23 `ww_si` / `ww_numeric` extended** · `v0.5` — quantity groups and host helpers as cargo features,
   `Second` as a device timestamp (wrap rule, host `Unwrapper`), constructors, conversions and comparisons across
-  prefixes and storage, `UVlq32` / `UVlq64` storage (STD-13). `docs/std_library/ww_si.md`,
+  prefixes and storage, `UVlq32` / `UVlq64` storage, `Baud` for baud rates (STD-13). `docs/std_library/ww_si.md`,
   `docs/std_library/ww_numeric.md`. Zero-overhead typed quantities (`Volt<u16, Milli>`) are not part of it.
 - ✅ **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** · `v0.5` — the info
     crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),

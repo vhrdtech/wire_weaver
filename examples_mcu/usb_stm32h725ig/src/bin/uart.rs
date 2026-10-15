@@ -35,7 +35,7 @@ use ww_client_server::StreamSideband;
 use ww_stream::tx::Counted;
 use ww_client_server::credit::SinkCredit;
 use ww_si::Volt;
-use ww_uart::{BaudRate, Capabilities, DataBits, Mode, Parity, RxChunk, StopBits};
+use ww_uart::{Baud, Capabilities, DataBits, Mode, Parity, RxChunk, StopBits};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
@@ -125,7 +125,7 @@ struct ServerState {
     /// Position and loss accounting of each counted `rx` stream
     rx: [Counted; 2],
     stream_sessions: u32,
-    // uart_baud_rate: [BaudRate; 2],
+    // uart_baud_rate: [Baud; 2],
     // uart_mode: [Mode; 2],
     // uart_stop_bits: [StopBits; 2],
     // uart_parity: [Parity; 2],
@@ -222,8 +222,8 @@ impl ServerState {
         _index: [UNib32; 1],
     ) -> RpcResult<Capabilities<'_>> {
         let cap = Capabilities {
-            min_baud_rate: 0,
-            max_baud_rate: 0,
+            min_baud_rate: Baud::baud(1200u32),
+            max_baud_rate: Baud::megabaud(12u32),
             voltages: MaxLen::new_unchecked(RefVec::Slice {
                 slice: &[ww_si::quantity!(3.3 V f32)],
             }),
@@ -242,7 +242,7 @@ impl ServerState {
     async fn set_uart_baud_rate(
         &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
-        _baud_rate: BaudRate,
+        _baud_rate: Baud,
     ) -> SetResult<ww_uart::Error> {
         ww_unimplemented!()
     }
@@ -250,7 +250,7 @@ impl ServerState {
     async fn get_uart_baud_rate(
         &mut self, _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
-    ) -> GetResult<BaudRate, ww_uart::Error> {
+    ) -> GetResult<Baud, ww_uart::Error> {
         ww_unimplemented!()
     }
 
@@ -354,7 +354,7 @@ impl ServerState {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
-    ) -> RpcResult<u32> {
+    ) -> RpcResult<Baud> {
         ww_unimplemented!()
     }
 
@@ -499,7 +499,7 @@ async fn main(spawner: embassy_executor::Spawner) {
         tx_credit: [SinkCredit::new(TX_BUF_SIZE as u32), SinkCredit::new(TX_BUF_SIZE as u32)],
         rx: [Counted::new(), Counted::new()],
         stream_sessions: 0,
-        // uart_baud_rate: [BaudRate::Baud115200; 2],
+        // uart_baud_rate: [Baud::baud(115_200u32); 2],
         // uart_mode: [Mode::Asynchronous; 2],
         // uart_stop_bits: [StopBits::Stop1; 2],
         // uart_parity: [Parity::None; 2],

@@ -232,6 +232,8 @@ named_constructors!("electrical" Ampere, "A", amperes_f32,
     amperes Unit "A", milliamperes Milli "mA", microamperes Micro "µA", nanoamperes Nano "nA");
 named_constructors!("time" Hertz, "Hz", hertz_f32,
     hertz Unit "Hz", millihertz Milli "mHz", kilohertz Kilo "kHz", megahertz Mega "MHz", gigahertz Giga "GHz");
+named_constructors!("time" Baud, "Bd", baud_f32,
+    baud Unit "Bd", kilobaud Kilo "kBd", megabaud Mega "MBd");
 named_constructors!("time" Second, "s", seconds_f32,
     seconds Unit "s", milliseconds Milli "ms", microseconds Micro "µs", nanoseconds Nano "ns",
     picoseconds Pico "ps");
@@ -249,6 +251,7 @@ quantity_ops!(
     "time" Second,
     "time" Hertz,
     "time" HertzPerSecond,
+    "time" Baud,
     "electrical" Ampere,
     "electrical" Volt,
     "electrical" Ohm,

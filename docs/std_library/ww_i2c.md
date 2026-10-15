@@ -45,7 +45,7 @@ several operations without releasing the bus in between (repeated starts).
 #[ww_trait]
 pub trait I2c {
     fn i2c_capabilities() -> I2cCapabilities<'i>;
-    fn i2c_configure(mode: I2cMode, io_level: Option<Volt>) -> Result<u32, I2cError>;
+    fn i2c_configure(mode: I2cMode, io_level: Option<Volt>) -> Result<Hertz, I2cError>;
     fn i2c_write(addr: I2cAddress, data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>, delay_after: Option<Second>)
         -> Result<I2cTransactionTimeRange, I2cError>;
     fn i2c_read(addr: I2cAddress, kind: I2cReadKind<'i>, len: u16, delay_after: Option<Second>)
@@ -168,8 +168,8 @@ up with the device's other data.
 
 ## Types
 
-* `I2cMode` - `Disabled` (pins released), `Master { speed_hz, monitor }`, `Slave { addr, monitor }` (data paths for
-  slave mode are not defined yet), `MonitorOnly`; `self_describing`.
+* `I2cMode` - `Disabled` (pins released), `Master { speed: Hertz, monitor }`, `Slave { addr, monitor }` (data paths
+  for slave mode are not defined yet), `MonitorOnly`.
 * `I2cReadKind<'i>` - `Plain` (start, address+read, `len` bytes, stop) or `RepeatedStart { write }` (start,
   address+write, `write`, repeated start, address+read, `len` bytes, stop), bounded by `MAX_WRITE_READ_LEN`.
 * `I2cOp<'i>` - `Write(MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>)` or `Read(u16)`, one operation of `i2c_transaction`.
@@ -179,7 +179,7 @@ up with the device's other data.
 * `I2cLinesState` - `is_scl_high` / `is_sda_high: bool`, `scl` / `sda: Option<Volt>` (measured level, where the
   adapter can).
 * `I2cCapabilities<'i>` - `io_levels`, `io_level_min` / `io_level_max`, `max_write_len`, `max_read_len`,
-  `min_frequency_hz` / `max_frequency_hz`, `driver_name` (bounded by `MAX_NAME_LEN`), `master_supported` /
+  `min_freq` / `max_freq: Hertz`, `driver_name` (bounded by `MAX_NAME_LEN`), `master_supported` /
   `slave_supported` / `monitor_supported`, `ten_bit_addresses`, `pullups`, `bus_recovery`.
 * `I2cWatchCapabilities` - `max_watches` (at most `MAX_WATCHES`), `max_len` (at most `MAX_WATCH_LEN`), `min_period`.
 * `I2cWatchConfig<'i>` - `addr`, `kind: I2cReadKind<'i>`, `len`, `period: Second`, `report: I2cWatchReport<'i>`.

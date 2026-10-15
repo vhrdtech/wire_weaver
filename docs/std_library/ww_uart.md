@@ -2,7 +2,7 @@
 
 Part of the [IO trait family](io_family.md). `ww_uart` is a WireWeaver trait for bridging a UART (serial port) to
 the host, and for watching both lines of a serial link without driving them. It is `no_std` by default and depends
-on `wire_weaver` and `ww_si` (for the `Volt` reference-voltage type and `Second` timestamps).
+on `wire_weaver` and `ww_si` (for `Baud` rates, the `Volt` reference-voltage type and `Second` timestamps).
 
 Add it to a device API crate with:
 
@@ -35,7 +35,7 @@ pub trait Uart {
 
     fn capabilities() -> Capabilities<'i>;
 
-    property!(rw baud_rate: BaudRate, Error);
+    property!(rw baud_rate: Baud, Error);
     property!(rw mode: Mode, Error);
     property!(rw stop_bits: StopBits, Error);
     property!(rw parity: Parity, Error);
@@ -44,7 +44,7 @@ pub trait Uart {
     property!(rw reference_voltage: Volt, Error);
 
     fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>;
-    fn baud_rate_actual() -> u32;
+    fn baud_rate_actual() -> Baud;
     fn send_break(duration: Second) -> Result<(), Error>;
     fn tx_pending() -> u32;
 }
@@ -72,7 +72,7 @@ pub trait Uart {
 #[ww_trait]
 pub trait UartMonitor {
     #[stream(MonitorChunk<'i>, counted)]
-    fn lines(config: MonitorConfig) -> Result<u32, Error>;
+    fn lines(config: MonitorConfig) -> Result<Baud, Error>;
 }
 ```
 
@@ -87,8 +87,8 @@ bridges can't sniff a link they aren't part of.
 
 ## Types
 
-* `BaudRate` - common rates (`Baud110` .. `Baud921600`) encode in a nibble; anything else is
-  `BaudOther(u32)` in baud.
+* `ww_si::Baud` - a baud rate (`Baud::baud(115_200u32)`), in the number type and prefix the caller picks, like every
+  other `ww_si` quantity.
 * `Mode` - `Asynchronous` (no flow control), `HardwareFlowControl` (RTS/CTS), `SoftwareFlowControl` (XON/XOFF),
   `HighZ` (all pins High-Z), `Test` (manual pin control through `set_pin_level`).
 * `Pin` - `Tx`, `Rx`, `Rts`, `Cts`, used by `set_pin_level`.
@@ -102,12 +102,12 @@ bridges can't sniff a link they aren't part of.
 * `MonitorChunk<'i>` - `line: MonitorLine` (`A` or `B`, 1 bit), `chunk: RxChunk<'i>`.
 * `RxFlags` - `parity_error`, `framing_error`, `overrun`, `break_detected`, seen while receiving a chunk.
 * `MonitorConfig` - `baud_rate`, `data_bits`, `parity`, `stop_bits` of the link `UartMonitor::lines` watches.
-* `Capabilities<'i>` - `min_baud_rate` / `max_baud_rate: u32`, `voltages: MaxLen<RefVec<'i, Volt>, 8>`,
+* `Capabilities<'i>` - `min_baud_rate` / `max_baud_rate: Baud`, `voltages: MaxLen<RefVec<'i, Volt>, 8>`,
   `rx_timestamps` (`rx` events carry their time) / `hw_flow_control` / `sw_flow_control` / `high_z_mode` / `test_mode` /
   `back_feed_detector: bool`, `rx_buffer` / `tx_buffer: u32` (device receive and transmit buffer sizes, in bytes).
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")`, so owned (`*Owned`)
-variants are available by enabling the crate's `std` feature; the plain configuration enums (`BaudRate`, `Mode`,
+variants are available by enabling the crate's `std` feature; the plain configuration enums (`Mode`,
 `Pin`, `StopBits`, `Parity`, `DataBits`) also derive `PartialEq`/`Eq`.
 
 ## Composing into a device API
@@ -140,4 +140,4 @@ tx.send_bytes(b"abc000def").await?;
 Receiving chunks from `rx` and reading/writing properties looks the same as any other nested trait and credit
 sink/stream (see [properties](../api/properties.md) and [streams](../api/streams.md)); for a non-array `uart`
 resource (as in `tests/io_uart_api`) the same calls drop the index: `client.uart().rx()`,
-`client.uart().write_baud_rate(BaudRate::Baud115200)`.
+`client.uart().write_baud_rate(Baud::baud(115_200u32))`.

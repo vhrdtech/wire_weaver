@@ -47,8 +47,8 @@ feature asked for), `InUse` (the pins or peripheral already serve another functi
 translators or output buffers have no supply), `Refused` (a safety rule of the device declines the request). Each
 method's rustdoc lists under `# Errors` which variants it can return.
 
-**Typed values through `ww_si`.** Voltages, frequencies and durations are `ww_si` quantities (`Volt`, `Hertz`,
-`Second`), never a bare integer with an implied unit. The device reports in whatever storage and prefix are
+**Typed values through `ww_si`.** Voltages, frequencies, baud rates and durations are `ww_si` quantities (`Volt`,
+`Hertz`, `Baud`, `Second`), never a bare integer with an implied unit. The device reports in whatever storage and prefix are
 convenient for it (a `u32` of µs, an `f32` of volts); the host reads any of them. Timestamps, in method results
 and in stream heads alike, are `ww_si::Second`:
 time since the device's own clock started, in the prefix and number type the device picks. A fixed-width value

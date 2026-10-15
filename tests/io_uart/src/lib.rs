@@ -11,13 +11,13 @@ mod tests {
     use ww_client_server::StreamSideband;
     use ww_stream::tx::Counted;
     use ww_uart::{
-        BaudRate, Capabilities, DataBits, Error, Mode, MonitorChunk, MonitorConfig, MonitorLine,
+        Baud, Capabilities, DataBits, Error, Mode, MonitorChunk, MonitorConfig, MonitorLine,
         Parity, Pin, RxChunk, StopBits,
     };
 
     /// Device behaviour and what it received, shared with the test.
     struct Model {
-        baud_rate: BaudRate,
+        baud_rate: Baud,
         mode: Mode,
         stop_bits: StopBits,
         parity: Parity,
@@ -40,7 +40,7 @@ mod tests {
     impl Default for Model {
         fn default() -> Self {
             Model {
-                baud_rate: BaudRate::Baud115200,
+                baud_rate: Baud::baud(115_200u32),
                 mode: Mode::Asynchronous,
                 stop_bits: StopBits::Stop1,
                 parity: Parity::None,
@@ -61,8 +61,8 @@ mod tests {
     /// Fixed, device-wide limits reported by `Uart::capabilities`.
     fn capabilities() -> Capabilities<'static> {
         Capabilities {
-            min_baud_rate: 110,
-            max_baud_rate: 921_600,
+            min_baud_rate: Baud::baud(110u32),
+            max_baud_rate: Baud::baud(921_600u32),
             voltages: MaxLen::new(RefVec::Slice {
                 slice: &[ww_si::quantity!(3300 mV u16)],
             })
@@ -171,12 +171,9 @@ mod tests {
             fn set_uart_baud_rate(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                value: BaudRate,
+                value: Baud,
             ) -> SetResult<Error> {
-                // a baud rate from a newer API version is as unsupported as one above the range
-                if matches!(value, BaudRate::BaudOther(hz) if hz > capabilities().max_baud_rate)
-                    || matches!(value, BaudRate::Unknown(_))
-                {
+                if value > capabilities().max_baud_rate {
                     return SetResult::SetError(Error::Unsupported);
                 }
                 self.m.lock().unwrap().baud_rate = value;
@@ -186,7 +183,7 @@ mod tests {
             fn get_uart_baud_rate(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<BaudRate, Error> {
+            ) -> GetResult<Baud, Error> {
                 Value(self.m.lock().unwrap().baud_rate)
             }
 
@@ -303,23 +300,9 @@ mod tests {
             fn uart_baud_rate_actual(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<u32> {
-                let actual = match self.m.lock().unwrap().baud_rate {
-                    BaudRate::Baud110 => 110,
-                    BaudRate::Baud300 => 300,
-                    BaudRate::Baud600 => 600,
-                    BaudRate::Baud1200 => 1200,
-                    BaudRate::Baud2400 => 2400,
-                    BaudRate::Baud4800 => 4800,
-                    BaudRate::Baud9600 => 9600,
-                    BaudRate::Baud19200 => 19200,
-                    BaudRate::Baud38400 => 38400,
-                    BaudRate::Baud57600 => 57600,
-                    BaudRate::Baud115200 => 115200,
-                    BaudRate::Baud921600 => 921_600,
-                    BaudRate::BaudOther(hz) => hz,
-                    BaudRate::Unknown(_) => unreachable!("rejected by set_uart_baud_rate"),
-                };
+            ) -> RpcResult<Baud> {
+                // the divider of this mock hits every rate exactly
+                let actual = self.m.lock().unwrap().baud_rate;
                 Ready(actual)
             }
 
@@ -343,13 +326,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: MonitorConfig,
-            ) -> RpcResult<Result<u32, Error>> {
-                let actual = match config.baud_rate {
-                    BaudRate::Baud115200 => 115200,
-                    BaudRate::BaudOther(hz) => hz,
-                    BaudRate::Baud110 => return Ready(Err(Error::Unsupported)),
-                    _ => 9600,
-                };
+            ) -> RpcResult<Result<Baud, Error>> {
+                // this monitor decodes from 300 Bd up
+                if config.baud_rate < Baud::baud(300u32) {
+                    return Ready(Err(Error::Unsupported));
+                }
+                let actual = config.baud_rate;
                 self.m.lock().unwrap().monitor_config = Some(config);
                 Ready(Ok(actual))
             }
@@ -462,18 +444,18 @@ mod tests {
         let client = connect(&device).await;
 
         let caps = client.uart().capabilities().call().await.unwrap();
-        assert_eq!(caps.min_baud_rate, 110);
-        assert_eq!(caps.max_baud_rate, 921_600);
+        assert_eq!(caps.min_baud_rate, Baud::baud(110u32));
+        assert_eq!(caps.max_baud_rate, Baud::baud(921_600u64));
 
         client
             .uart()
-            .write_baud_rate(BaudRate::Baud9600)
+            .write_baud_rate(Baud::baud(9600u32))
             .write()
             .await
             .unwrap();
-        assert!(matches!(m.lock().unwrap().baud_rate, BaudRate::Baud9600));
+        assert_eq!(m.lock().unwrap().baud_rate, Baud::baud(9600u16));
         let baud = client.uart().read_baud_rate().read().await.unwrap();
-        assert!(matches!(baud, BaudRate::Baud9600));
+        assert_eq!(baud, Baud::baud(9600u32));
 
         client
             .uart()
@@ -484,7 +466,7 @@ mod tests {
         assert!(matches!(m.lock().unwrap().mode, Mode::HardwareFlowControl));
 
         let actual = client.uart().baud_rate_actual().call().await.unwrap();
-        assert_eq!(actual, 9600);
+        assert_eq!(actual, Baud::baud(9600u32));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -565,7 +547,7 @@ mod tests {
         };
         let r = client
             .uart_monitor()
-            .lines(config(BaudRate::Baud110))
+            .lines(config(Baud::baud(110u32)))
             .call()
             .await
             .unwrap();
@@ -573,20 +555,20 @@ mod tests {
 
         let (actual, mut lines) = client
             .uart_monitor()
-            .lines(config(BaudRate::Baud115200))
+            .lines(config(Baud::baud(115_200u32)))
             .call()
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(actual, 115200);
-        assert!(matches!(
+        assert_eq!(actual, Baud::baud(115_200u32));
+        assert_eq!(
             m.lock()
                 .unwrap()
                 .monitor_config
                 .as_ref()
                 .map(|c| c.baud_rate),
-            Some(BaudRate::Baud115200)
-        ));
+            Some(Baud::baud(115_200u32))
+        );
 
         // a request on line A, the answer on line B, in the order they arrived
         m.lock()

@@ -11,7 +11,7 @@ mod tests {
         I2cAddress, I2cCapabilities, I2cError, I2cLinesState, I2cMode, I2cOp, I2cReadEnvelope,
         I2cReadKind, I2cReadKindOwned, I2cRecord, I2cRecordKind, I2cTransactionResult,
         I2cTransactionTimeRange, I2cWatchCapabilities, I2cWatchConfig, I2cWatchConfigOwned,
-        I2cWatchEvent, I2cWatchReportOwned, MAX_READ_LEN, MAX_SCAN, MAX_WATCHES, Second,
+        I2cWatchEvent, I2cWatchReportOwned, MAX_READ_LEN, MAX_SCAN, MAX_WATCHES, Second, Hertz,
     };
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
@@ -180,8 +180,8 @@ mod tests {
                     io_level_max: None,
                     max_write_len: ww_i2c::MAX_WRITE_LEN as u32,
                     max_read_len: MAX_READ_LEN as u32,
-                    min_frequency_hz: 1_000,
-                    max_frequency_hz: 400_000,
+                    min_freq: Hertz::kilohertz(1u16),
+                    max_freq: Hertz::kilohertz(400u16),
                     driver_name: MaxLen::new_unchecked("mock"),
                     master_supported: true,
                     slave_supported: false,
@@ -197,11 +197,13 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 mode: I2cMode,
                 _io_level: Option<ww_si::Volt>,
-            ) -> RpcResult<Result<u32, I2cError>> {
+            ) -> RpcResult<Result<Hertz, I2cError>> {
+                let max = Hertz::kilohertz(400u16);
                 Ready(match mode {
-                    I2cMode::Disabled | I2cMode::MonitorOnly => Ok(0),
-                    I2cMode::Master { speed_hz, .. } => Ok(speed_hz.min(400_000)),
-                    I2cMode::Slave { .. } => Err(I2cError::UnsupportedMode),
+                    I2cMode::Disabled | I2cMode::MonitorOnly => Ok(Hertz::hertz(0u8)),
+                    I2cMode::Master { speed, .. } if speed > max => Ok(max),
+                    I2cMode::Master { speed, .. } => Ok(speed),
+                    I2cMode::Slave { .. } | I2cMode::Unknown(_) => Err(I2cError::UnsupportedMode),
                 })
             }
 

@@ -27,6 +27,8 @@
   (STD-23). `Unwrapper` (feature `host`, in `std`) turns wrapped timestamps back into the full time, anchored on a
   full-width reading of the clock (`ww_timebase::Clock::now()`).
 * Number features `uvlq32` and `uvlq64` (in `all`), for `NumericValue::UVlq32` / `UVlq64`.
+* `Baud` (feature `time`): a symbol rate, the baud rate of a UART or a decoder, with `baud`, `kilobaud`,
+  `megabaud`, `baud_f32` and `quantity!(115200 Bd u32)`; the IO traits use it instead of a bare `u32` of baud.
 * `quantity!` takes `ms`, `us`, `ns`, `Hz`, `kHz`, `MHz` and `uA`.
 * Every quantity type, `Prefix`, `BaseUnit`, `SIExp` and `INib8P3` derive `Clone` and `Debug`, have an owned
   variant with the `std` feature and `defmt::Format` with the `defmt` feature (only `Volt` and `Second` had them),

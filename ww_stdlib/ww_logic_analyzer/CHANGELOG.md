@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `TriggerStage::UartByte::baud` is a `ww_si::Baud` instead of a `u32` (STD-13).
+
 ### 🚀 Features
 
 - New crate (STD-21): `LogicAnalyzer` (triggered capture into device RAM: `capture`, `rearm`, `status`, `read_raw`,

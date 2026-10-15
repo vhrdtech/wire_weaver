@@ -11,7 +11,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-pub use ww_si::{Second, Volt};
+pub use ww_si::{Baud, Second, Volt};
 
 /// Largest item of the `tx` sink, in bytes.
 pub const UART_TX_MAX: usize = 256;
@@ -41,7 +41,7 @@ pub trait Uart {
     ///
     /// [Error::Unsupported] (not in [Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate] or this device
     /// only offers a fixed set), [Error::InUse], [Error::NoIoLevel].
-    property!(rw baud_rate: BaudRate, Error);
+    property!(rw baud_rate: Baud, Error);
 
     /// Mode configuration.
     ///
@@ -93,8 +93,8 @@ pub trait Uart {
     /// [Error::WrongMode] (not in [Mode::Test]), [Error::InUse], [Error::NoIoLevel].
     fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>;
 
-    /// The baud rate actually set, in baud (the nearest the divider can do).
-    fn baud_rate_actual() -> u32;
+    /// The baud rate actually set (the nearest the divider can do).
+    fn baud_rate_actual() -> Baud;
 
     /// Holds TX low for `duration` (a break), after the bytes already queued.
     ///
@@ -119,7 +119,7 @@ pub trait UartMonitor {
     ///
     /// [Error::Unsupported] (baud rate, mode or parity this monitor can't decode), [Error::InUse], [Error::NoIoLevel].
     #[stream(MonitorChunk<'i>, counted)]
-    fn lines(config: MonitorConfig) -> Result<u32, Error>;
+    fn lines(config: MonitorConfig) -> Result<Baud, Error>;
 }
 
 /// Received bytes, see `Uart::rx` and `UartMonitor::lines`. When they arrived is the time in the event head.
@@ -170,37 +170,13 @@ pub struct RxFlags {
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug))]
 pub struct MonitorConfig {
     /// Baud rate of the watched link.
-    pub baud_rate: BaudRate,
+    pub baud_rate: Baud,
     /// Data bits per character of the watched link.
     pub data_bits: DataBits,
     /// Parity of the watched link.
     pub parity: Parity,
     /// Stop bits of the watched link.
     pub stop_bits: StopBits,
-}
-
-/// A baud rate; the common ones encode in a nibble, anything else falls back to [BaudRate::BaudOther].
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    derive(Copy, Clone, Debug, PartialEq, Eq),
-    ww_repr = u4
-)]
-pub enum BaudRate {
-    Baud110,
-    Baud300,
-    Baud600,
-    Baud1200,
-    Baud2400,
-    Baud4800,
-    Baud9600,
-    Baud19200,
-    Baud38400,
-    Baud57600,
-    Baud115200,
-    Baud921600,
-    /// Any other rate, in baud.
-    BaudOther(u32),
 }
 
 #[derive_shrink_wrap(
@@ -315,10 +291,10 @@ pub enum Error {
 /// What a `Uart` implementation supports, see `Uart::capabilities`.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
 pub struct Capabilities<'i> {
-    /// Lowest baud rate this device can set, in baud.
-    pub min_baud_rate: u32,
-    /// Highest baud rate this device can set, in baud.
-    pub max_baud_rate: u32,
+    /// Lowest baud rate this device can set.
+    pub min_baud_rate: Baud,
+    /// Highest baud rate this device can set.
+    pub max_baud_rate: Baud,
     /// Reference voltages this device's `reference_voltage` property can be set to; empty if it isn't adjustable.
     pub voltages: MaxLen<RefVec<'i, Volt>, 8>,
     /// Whether `rx` chunks carry the device time of their first byte (the time in the event head).

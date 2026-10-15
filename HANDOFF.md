@@ -26,14 +26,15 @@ Branch `s/15oct2026-ww-settings`. Plan and datasheet figures: `~/git/tpm/prj/P24
 - `sw-array-string` (SW-57 ArrayString/ArrayVec): ready to land.
 - `ecc-safe-flash` on omarchy-m1 (SRV-19 `mcu/ww_ecc_flash` + TEST-21 reset loop): ready to land. Real power-cut
   part filed as P2401#15oct-2157 (TEST-21, after API-11 or with the PA6 poke).
-- `settings-dump` (TOOL-12 dump decoder + `ww settings dump`, from this branch's HEAD 109ec5c1): running.
+- `settings-dump` (TOOL-12): done, its commit cherry-picked here (7312401b) + dump now imports store's layout
+  constants (3dd17872). Its own branch must not land separately.
 - `settings-demo` (examples/settings + nucleo_g0b1re/h743zi2 bins, from 109ec5c1): running.
   Both branched before 7194c580 (dropped-future fix) and da6adba7 (slot_decodes, docs): the `SettingsGroup` trait
   gained `slot_decodes`, only matters to a hand-written impl.
 
 ## Next
 
-1. Wait for settings-dump and settings-demo to say ready; check their work against the store/record docs.
+1. Wait for settings-demo to say ready; check it, cherry-pick it here as with settings-dump.
 2. Done (second conversation): `just lint`, `just test` (1101 pass), `just check` all clean on 197d9359.
 3. The docs page refers to `mcu/ww_ecc_flash` (SRV-19, on the ecc-safe-flash branch) and ArrayString (SW-57, on
    sw-array-string): fine once those land.

@@ -1596,6 +1596,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#sparse-structs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sparse structs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#finalstructure-selfdescribing-and-sized-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3343,6 +3354,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#sparse-structs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sparse structs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#finalstructure-selfdescribing-and-sized-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3664,6 +3686,18 @@ it is sent, by whichever side has the smaller bound.</p>
 <p>Each has bytes of its own, so <code>Vec&lt;T&gt;</code> -&gt; <code>Delta&lt;T&gt;</code>, <code>Delta&lt;T&gt;</code> -&gt; <code>DeltaOfDelta&lt;T&gt;</code> or <code>Delta&lt;u32&gt;</code> -&gt;
 <code>Delta&lt;u64&gt;</code> is breaking (<code>ww api check</code> reports it), unlike the borrowed / owned form (<code>Delta&lt;'i, T&gt;</code> /
 <code>DeltaOwned&lt;T&gt;</code>), which is the same type.</p>
+<h3 id="sparse-structs">Sparse structs<a class="headerlink" href="#sparse-structs" title="Permanent link">&para;</a></h3>
+<p>A <a href="../../serdes/derive/#sparse-a-struct-of-optional-fields"><code>sparse</code> struct</a> (DER-13) has a slot per field, all of
+them <code>Option&lt;T&gt;</code>:</p>
+<ul>
+<li>New fields can be appended after the last slot, without <code>#[default]</code>: older data reads them as <code>None</code>, older
+  readers ignore them.</li>
+<li>A field can't be inserted before the last slot, also not into a gap left by <code>#[slot = N]</code>: a reader that doesn't
+  know the slot can't step over a present value in it and fails with <code>Error::OptionAnyVecUnknownSlot</code>. Removing a
+  field breaks too: data from an older writer can still have it present.</li>
+<li>A field's slot and its <code>T</code> can't change (<code>T</code> evolves by its own rules); fields can be renamed.</li>
+<li>Turning an ordinary struct into a <code>sparse</code> one or back changes every byte: breaking.</li>
+</ul>
 <h3 id="finalstructure-selfdescribing-and-sized-types">FinalStructure, SelfDescribing and Sized types<a class="headerlink" href="#finalstructure-selfdescribing-and-sized-types" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>Sized</code> can become <code>SelfDescribing</code> and back (<code>sized</code> &lt;-&gt; <code>self_describing</code>): neither gets a size slot from its

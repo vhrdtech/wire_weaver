@@ -4138,7 +4138,7 @@ packets.</p>
 </span><span id="__span-1-99"><a id="__codelineno-1-99" name="__codelineno-1-99" href="#__codelineno-1-99"></a>        42 B  03 80 00 00 73 69 6d 2d 64 66 …
 </span></code></pre></div>
 <details>
-<summary>Wire bytes: 44 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
+<summary>Wire bytes: 45 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>   ── device runs the app
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>→    5 B  04 01 00 00 02
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>←   44 B  08 2a 01 80 00 00 73 69 6d 2d 64 66 75 92 10 00
@@ -4202,21 +4202,22 @@ packets.</p>
 </span><span id="__span-2-61"><a id="__codelineno-2-61" name="__codelineno-2-61" href="#__codelineno-2-61"></a>→    5 B  04 10 03 60 02
 </span><span id="__span-2-62"><a id="__codelineno-2-62" name="__codelineno-2-62" href="#__codelineno-2-62"></a>←    4 B  03 10 80 82
 </span><span id="__span-2-63"><a id="__codelineno-2-63" name="__codelineno-2-63" href="#__codelineno-2-63"></a>→    6 B  05 11 01 30 00 02
-</span><span id="__span-2-64"><a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a>←    7 B  03 11 80 80 30 c1 02
-</span><span id="__span-2-65"><a id="__codelineno-2-65" name="__codelineno-2-65" href="#__codelineno-2-65"></a>   ── device resets (into the app)
-</span><span id="__span-2-66"><a id="__codelineno-2-66" name="__codelineno-2-66" href="#__codelineno-2-66"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
-</span><span id="__span-2-67"><a id="__codelineno-2-67" name="__codelineno-2-67" href="#__codelineno-2-67"></a>   ── device runs the app
-</span><span id="__span-2-68"><a id="__codelineno-2-68" name="__codelineno-2-68" href="#__codelineno-2-68"></a>   ── host reconnects to the same device
-</span><span id="__span-2-69"><a id="__codelineno-2-69" name="__codelineno-2-69" href="#__codelineno-2-69"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-2-70"><a id="__codelineno-2-70" name="__codelineno-2-70" href="#__codelineno-2-70"></a>←   44 B  08 2a 01 80 00 00 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-2-71"><a id="__codelineno-2-71" name="__codelineno-2-71" href="#__codelineno-2-71"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
-</span><span id="__span-2-72"><a id="__codelineno-2-72" name="__codelineno-2-72" href="#__codelineno-2-72"></a>          c1 ef 0d 30 00 00 00 00 00 f0 01 57
-</span><span id="__span-2-73"><a id="__codelineno-2-73" name="__codelineno-2-73" href="#__codelineno-2-73"></a>→    5 B  04 02 01 10 02
-</span><span id="__span-2-74"><a id="__codelineno-2-74" name="__codelineno-2-74" href="#__codelineno-2-74"></a>←    4 B  03 02 80 80
-</span><span id="__span-2-75"><a id="__codelineno-2-75" name="__codelineno-2-75" href="#__codelineno-2-75"></a>→    5 B  04 03 00 00 02
-</span><span id="__span-2-76"><a id="__codelineno-2-76" name="__codelineno-2-76" href="#__codelineno-2-76"></a>←   44 B  08 2a 03 80 00 00 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-2-77"><a id="__codelineno-2-77" name="__codelineno-2-77" href="#__codelineno-2-77"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
-</span><span id="__span-2-78"><a id="__codelineno-2-78" name="__codelineno-2-78" href="#__codelineno-2-78"></a>          c1 ef 0d 00 10 02 00 00 00 f0 01 57
+</span><span id="__span-2-64"><a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a>←    4 B  03 11 80 80
+</span><span id="__span-2-65"><a id="__codelineno-2-65" name="__codelineno-2-65" href="#__codelineno-2-65"></a>←    3 B  30 c1 02
+</span><span id="__span-2-66"><a id="__codelineno-2-66" name="__codelineno-2-66" href="#__codelineno-2-66"></a>   ── device resets (into the app)
+</span><span id="__span-2-67"><a id="__codelineno-2-67" name="__codelineno-2-67" href="#__codelineno-2-67"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
+</span><span id="__span-2-68"><a id="__codelineno-2-68" name="__codelineno-2-68" href="#__codelineno-2-68"></a>   ── device runs the app
+</span><span id="__span-2-69"><a id="__codelineno-2-69" name="__codelineno-2-69" href="#__codelineno-2-69"></a>   ── host reconnects to the same device
+</span><span id="__span-2-70"><a id="__codelineno-2-70" name="__codelineno-2-70" href="#__codelineno-2-70"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-2-71"><a id="__codelineno-2-71" name="__codelineno-2-71" href="#__codelineno-2-71"></a>←   44 B  08 2a 01 80 00 00 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-2-72"><a id="__codelineno-2-72" name="__codelineno-2-72" href="#__codelineno-2-72"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
+</span><span id="__span-2-73"><a id="__codelineno-2-73" name="__codelineno-2-73" href="#__codelineno-2-73"></a>          c1 ef 0d 30 00 00 00 00 00 f0 01 57
+</span><span id="__span-2-74"><a id="__codelineno-2-74" name="__codelineno-2-74" href="#__codelineno-2-74"></a>→    5 B  04 02 01 10 02
+</span><span id="__span-2-75"><a id="__codelineno-2-75" name="__codelineno-2-75" href="#__codelineno-2-75"></a>←    4 B  03 02 80 80
+</span><span id="__span-2-76"><a id="__codelineno-2-76" name="__codelineno-2-76" href="#__codelineno-2-76"></a>→    5 B  04 03 00 00 02
+</span><span id="__span-2-77"><a id="__codelineno-2-77" name="__codelineno-2-77" href="#__codelineno-2-77"></a>←   44 B  08 2a 03 80 00 00 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-2-78"><a id="__codelineno-2-78" name="__codelineno-2-78" href="#__codelineno-2-78"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
+</span><span id="__span-2-79"><a id="__codelineno-2-79" name="__codelineno-2-79" href="#__codelineno-2-79"></a>          c1 ef 0d 00 10 02 00 00 00 f0 01 57
 </span></code></pre></div>
 </details>
 <h2 id="2c-app-bulk-swap-freight">2C-APP-BULK: Swap Freight<a class="headerlink" href="#2c-app-bulk-swap-freight" title="Permanent link">&para;</a></h2>
@@ -4344,7 +4345,7 @@ reboots and confirms. Test: <code>swap_freight_2c_app_bulk</code> over UDP on lo
 </span><span id="__span-4-88"><a id="__codelineno-4-88" name="__codelineno-4-88" href="#__codelineno-4-88"></a>        42 B  02 80 00 00 73 69 6d 2d 64 66 …
 </span></code></pre></div>
 <details>
-<summary>Wire bytes: 27 UDP datagrams (link setup and pings left out)</summary>
+<summary>Wire bytes: 28 UDP datagrams (link setup and pings left out)</summary>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>   ── device runs the app
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>→    5 B  04 01 00 00 02
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>←   44 B  08 2a 01 80 00 00 73 69 6d 2d 64 66 75 92 10 00
@@ -4405,16 +4406,17 @@ reboots and confirms. Test: <code>swap_freight_2c_app_bulk</code> over UDP on lo
 </span><span id="__span-5-58"><a id="__codelineno-5-58" name="__codelineno-5-58" href="#__codelineno-5-58"></a>→    5 B  04 05 03 60 02
 </span><span id="__span-5-59"><a id="__codelineno-5-59" name="__codelineno-5-59" href="#__codelineno-5-59"></a>←    4 B  03 05 80 82
 </span><span id="__span-5-60"><a id="__codelineno-5-60" name="__codelineno-5-60" href="#__codelineno-5-60"></a>→    6 B  05 06 01 30 00 02
-</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61" href="#__codelineno-5-61"></a>←    7 B  03 06 80 80 30 c1 02
-</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62" href="#__codelineno-5-62"></a>   ── device resets (into the app)
-</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63" href="#__codelineno-5-63"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
-</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64" href="#__codelineno-5-64"></a>   ── device runs the app
-</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65" href="#__codelineno-5-65"></a>→    5 B  04 01 01 10 02
-</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66" href="#__codelineno-5-66"></a>←    4 B  03 01 80 80
-</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67" href="#__codelineno-5-67"></a>→    5 B  04 02 00 00 02
-</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68" href="#__codelineno-5-68"></a>←   44 B  08 2a 02 80 00 00 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69" href="#__codelineno-5-69"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
-</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70" href="#__codelineno-5-70"></a>          c1 ef 0d 00 10 02 00 00 00 f0 01 57
+</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61" href="#__codelineno-5-61"></a>←    4 B  03 06 80 80
+</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62" href="#__codelineno-5-62"></a>←    3 B  30 c1 02
+</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63" href="#__codelineno-5-63"></a>   ── device resets (into the app)
+</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64" href="#__codelineno-5-64"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
+</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65" href="#__codelineno-5-65"></a>   ── device runs the app
+</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66" href="#__codelineno-5-66"></a>→    5 B  04 01 01 10 02
+</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67" href="#__codelineno-5-67"></a>←    4 B  03 01 80 80
+</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68" href="#__codelineno-5-68"></a>→    5 B  04 02 00 00 02
+</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69" href="#__codelineno-5-69"></a>←   44 B  08 2a 02 80 00 00 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70" href="#__codelineno-5-70"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
+</span><span id="__span-5-71"><a id="__codelineno-5-71" name="__codelineno-5-71" href="#__codelineno-5-71"></a>          c1 ef 0d 00 10 02 00 00 00 f0 01 57
 </span></code></pre></div>
 </details>
 <h2 id="2r-app-step-flip-shuttle">2R-APP-STEP: Flip Shuttle<a class="headerlink" href="#2r-app-step-flip-shuttle" title="Permanent link">&para;</a></h2>
@@ -4751,7 +4753,7 @@ against the descriptor in <code>finish</code>.</p>
 </span><span id="__span-10-88"><a id="__codelineno-10-88" name="__codelineno-10-88" href="#__codelineno-10-88"></a>        42 B  01 80 00 10 73 69 6d 2d 64 66 …
 </span></code></pre></div>
 <details>
-<summary>Wire bytes: 24 USB packets (high speed, 512 B max) (link setup and pings left out)</summary>
+<summary>Wire bytes: 26 USB packets (high speed, 512 B max) (link setup and pings left out)</summary>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>   ── device runs the app
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>→    5 B  04 01 00 00 02
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
@@ -4801,26 +4803,28 @@ against the descriptor in <code>finish</code>.</p>
 </span><span id="__span-11-47"><a id="__codelineno-11-47" name="__codelineno-11-47" href="#__codelineno-11-47"></a>→    5 B  04 07 03 60 02
 </span><span id="__span-11-48"><a id="__codelineno-11-48" name="__codelineno-11-48" href="#__codelineno-11-48"></a>←    4 B  03 07 80 82
 </span><span id="__span-11-49"><a id="__codelineno-11-49" name="__codelineno-11-49" href="#__codelineno-11-49"></a>→    6 B  05 08 01 30 00 02
-</span><span id="__span-11-50"><a id="__codelineno-11-50" name="__codelineno-11-50" href="#__codelineno-11-50"></a>←    7 B  03 08 80 80 30 c1 02
-</span><span id="__span-11-51"><a id="__codelineno-11-51" name="__codelineno-11-51" href="#__codelineno-11-51"></a>   ── device resets (into the app)
-</span><span id="__span-11-52"><a id="__codelineno-11-52" name="__codelineno-11-52" href="#__codelineno-11-52"></a>   ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
-</span><span id="__span-11-53"><a id="__codelineno-11-53" name="__codelineno-11-53" href="#__codelineno-11-53"></a>   ── device runs the app
-</span><span id="__span-11-54"><a id="__codelineno-11-54" name="__codelineno-11-54" href="#__codelineno-11-54"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-11-55"><a id="__codelineno-11-55" name="__codelineno-11-55" href="#__codelineno-11-55"></a>←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-11-56"><a id="__codelineno-11-56" name="__codelineno-11-56" href="#__codelineno-11-56"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
-</span><span id="__span-11-57"><a id="__codelineno-11-57" name="__codelineno-11-57" href="#__codelineno-11-57"></a>          c1 ef 0d 30 00 00 00 00 00 f0 01 57
-</span><span id="__span-11-58"><a id="__codelineno-11-58" name="__codelineno-11-58" href="#__codelineno-11-58"></a>   ── the new image fails its own checks: gives up the trial instead of confirming
-</span><span id="__span-11-59"><a id="__codelineno-11-59" name="__codelineno-11-59" href="#__codelineno-11-59"></a>→    5 B  04 02 01 20 02
-</span><span id="__span-11-60"><a id="__codelineno-11-60" name="__codelineno-11-60" href="#__codelineno-11-60"></a>←    4 B  03 02 80 80
-</span><span id="__span-11-61"><a id="__codelineno-11-61" name="__codelineno-11-61" href="#__codelineno-11-61"></a>→    6 B  05 03 01 30 00 02
-</span><span id="__span-11-62"><a id="__codelineno-11-62" name="__codelineno-11-62" href="#__codelineno-11-62"></a>←    7 B  03 03 80 80 30 c1 02
-</span><span id="__span-11-63"><a id="__codelineno-11-63" name="__codelineno-11-63" href="#__codelineno-11-63"></a>   ── device resets (into the app)
-</span><span id="__span-11-64"><a id="__codelineno-11-64" name="__codelineno-11-64" href="#__codelineno-11-64"></a>   ── bootloader the trial image did not confirm: switches back: maps bank 0 to the boot address, nothing is copied
-</span><span id="__span-11-65"><a id="__codelineno-11-65" name="__codelineno-11-65" href="#__codelineno-11-65"></a>   ── device runs the app
-</span><span id="__span-11-66"><a id="__codelineno-11-66" name="__codelineno-11-66" href="#__codelineno-11-66"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-11-67"><a id="__codelineno-11-67" name="__codelineno-11-67" href="#__codelineno-11-67"></a>←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-11-68"><a id="__codelineno-11-68" name="__codelineno-11-68" href="#__codelineno-11-68"></a>          00 80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1
-</span><span id="__span-11-69"><a id="__codelineno-11-69" name="__codelineno-11-69" href="#__codelineno-11-69"></a>          e0 02 14 10 20 02 00 00 00 f0 01 57
+</span><span id="__span-11-50"><a id="__codelineno-11-50" name="__codelineno-11-50" href="#__codelineno-11-50"></a>←    4 B  03 08 80 80
+</span><span id="__span-11-51"><a id="__codelineno-11-51" name="__codelineno-11-51" href="#__codelineno-11-51"></a>←    3 B  30 c1 02
+</span><span id="__span-11-52"><a id="__codelineno-11-52" name="__codelineno-11-52" href="#__codelineno-11-52"></a>   ── device resets (into the app)
+</span><span id="__span-11-53"><a id="__codelineno-11-53" name="__codelineno-11-53" href="#__codelineno-11-53"></a>   ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
+</span><span id="__span-11-54"><a id="__codelineno-11-54" name="__codelineno-11-54" href="#__codelineno-11-54"></a>   ── device runs the app
+</span><span id="__span-11-55"><a id="__codelineno-11-55" name="__codelineno-11-55" href="#__codelineno-11-55"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-11-56"><a id="__codelineno-11-56" name="__codelineno-11-56" href="#__codelineno-11-56"></a>←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-11-57"><a id="__codelineno-11-57" name="__codelineno-11-57" href="#__codelineno-11-57"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
+</span><span id="__span-11-58"><a id="__codelineno-11-58" name="__codelineno-11-58" href="#__codelineno-11-58"></a>          c1 ef 0d 30 00 00 00 00 00 f0 01 57
+</span><span id="__span-11-59"><a id="__codelineno-11-59" name="__codelineno-11-59" href="#__codelineno-11-59"></a>   ── the new image fails its own checks: gives up the trial instead of confirming
+</span><span id="__span-11-60"><a id="__codelineno-11-60" name="__codelineno-11-60" href="#__codelineno-11-60"></a>→    5 B  04 02 01 20 02
+</span><span id="__span-11-61"><a id="__codelineno-11-61" name="__codelineno-11-61" href="#__codelineno-11-61"></a>←    4 B  03 02 80 80
+</span><span id="__span-11-62"><a id="__codelineno-11-62" name="__codelineno-11-62" href="#__codelineno-11-62"></a>→    6 B  05 03 01 30 00 02
+</span><span id="__span-11-63"><a id="__codelineno-11-63" name="__codelineno-11-63" href="#__codelineno-11-63"></a>←    4 B  03 03 80 80
+</span><span id="__span-11-64"><a id="__codelineno-11-64" name="__codelineno-11-64" href="#__codelineno-11-64"></a>←    3 B  30 c1 02
+</span><span id="__span-11-65"><a id="__codelineno-11-65" name="__codelineno-11-65" href="#__codelineno-11-65"></a>   ── device resets (into the app)
+</span><span id="__span-11-66"><a id="__codelineno-11-66" name="__codelineno-11-66" href="#__codelineno-11-66"></a>   ── bootloader the trial image did not confirm: switches back: maps bank 0 to the boot address, nothing is copied
+</span><span id="__span-11-67"><a id="__codelineno-11-67" name="__codelineno-11-67" href="#__codelineno-11-67"></a>   ── device runs the app
+</span><span id="__span-11-68"><a id="__codelineno-11-68" name="__codelineno-11-68" href="#__codelineno-11-68"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-11-69"><a id="__codelineno-11-69" name="__codelineno-11-69" href="#__codelineno-11-69"></a>←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-11-70"><a id="__codelineno-11-70" name="__codelineno-11-70" href="#__codelineno-11-70"></a>          00 80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1
+</span><span id="__span-11-71"><a id="__codelineno-11-71" name="__codelineno-11-71" href="#__codelineno-11-71"></a>          e0 02 14 10 20 02 00 00 00 f0 01 57
 </span></code></pre></div>
 </details>
 <h2 id="1s-app-step-parcel-shuttle">1S-APP-STEP: Parcel Shuttle<a class="headerlink" href="#1s-app-step-parcel-shuttle" title="Permanent link">&para;</a></h2>
@@ -4953,7 +4957,7 @@ version 2 boots. Test: <code>parcel_shuttle_1s_app_step</code> over simulated US
 </span><span id="__span-13-89"><a id="__codelineno-13-89" name="__codelineno-13-89" href="#__codelineno-13-89"></a>        41 B  01 80 01 73 69 6d 2d 64 66 75 …
 </span></code></pre></div>
 <details>
-<summary>Wire bytes: 42 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
+<summary>Wire bytes: 43 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>   ── device runs the app
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>→    5 B  04 01 00 00 02
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
@@ -5028,17 +5032,18 @@ version 2 boots. Test: <code>parcel_shuttle_1s_app_step</code> over simulated US
 </span><span id="__span-14-72"><a id="__codelineno-14-72" name="__codelineno-14-72" href="#__codelineno-14-72"></a>→    5 B  04 10 03 60 02
 </span><span id="__span-14-73"><a id="__codelineno-14-73" name="__codelineno-14-73" href="#__codelineno-14-73"></a>←    4 B  03 10 80 84
 </span><span id="__span-14-74"><a id="__codelineno-14-74" name="__codelineno-14-74" href="#__codelineno-14-74"></a>→    6 B  05 11 01 30 00 02
-</span><span id="__span-14-75"><a id="__codelineno-14-75" name="__codelineno-14-75" href="#__codelineno-14-75"></a>←    7 B  03 11 80 80 30 c1 02
-</span><span id="__span-14-76"><a id="__codelineno-14-76" name="__codelineno-14-76" href="#__codelineno-14-76"></a>   ── device resets (into the app)
-</span><span id="__span-14-77"><a id="__codelineno-14-77" name="__codelineno-14-77" href="#__codelineno-14-77"></a>   ── bootloader applies the stored plan in place: 10 steps
-</span><span id="__span-14-78"><a id="__codelineno-14-78" name="__codelineno-14-78" href="#__codelineno-14-78"></a>   ── power cut while the bootloader applies step 5
-</span><span id="__span-14-79"><a id="__codelineno-14-79" name="__codelineno-14-79" href="#__codelineno-14-79"></a>   ── bootloader finds the apply journal at step 5: redoes step 5, continues
-</span><span id="__span-14-80"><a id="__codelineno-14-80" name="__codelineno-14-80" href="#__codelineno-14-80"></a>   ── bootloader: image verified against the descriptor, plan area cleared
-</span><span id="__span-14-81"><a id="__codelineno-14-81" name="__codelineno-14-81" href="#__codelineno-14-81"></a>   ── device runs the app
-</span><span id="__span-14-82"><a id="__codelineno-14-82" name="__codelineno-14-82" href="#__codelineno-14-82"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-14-83"><a id="__codelineno-14-83" name="__codelineno-14-83" href="#__codelineno-14-83"></a>←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
-</span><span id="__span-14-84"><a id="__codelineno-14-84" name="__codelineno-14-84" href="#__codelineno-14-84"></a>          80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91 c1
-</span><span id="__span-14-85"><a id="__codelineno-14-85" name="__codelineno-14-85" href="#__codelineno-14-85"></a>          ef 0d 00 10 02 00 00 00 f0 01 57
+</span><span id="__span-14-75"><a id="__codelineno-14-75" name="__codelineno-14-75" href="#__codelineno-14-75"></a>←    4 B  03 11 80 80
+</span><span id="__span-14-76"><a id="__codelineno-14-76" name="__codelineno-14-76" href="#__codelineno-14-76"></a>←    3 B  30 c1 02
+</span><span id="__span-14-77"><a id="__codelineno-14-77" name="__codelineno-14-77" href="#__codelineno-14-77"></a>   ── device resets (into the app)
+</span><span id="__span-14-78"><a id="__codelineno-14-78" name="__codelineno-14-78" href="#__codelineno-14-78"></a>   ── bootloader applies the stored plan in place: 10 steps
+</span><span id="__span-14-79"><a id="__codelineno-14-79" name="__codelineno-14-79" href="#__codelineno-14-79"></a>   ── power cut while the bootloader applies step 5
+</span><span id="__span-14-80"><a id="__codelineno-14-80" name="__codelineno-14-80" href="#__codelineno-14-80"></a>   ── bootloader finds the apply journal at step 5: redoes step 5, continues
+</span><span id="__span-14-81"><a id="__codelineno-14-81" name="__codelineno-14-81" href="#__codelineno-14-81"></a>   ── bootloader: image verified against the descriptor, plan area cleared
+</span><span id="__span-14-82"><a id="__codelineno-14-82" name="__codelineno-14-82" href="#__codelineno-14-82"></a>   ── device runs the app
+</span><span id="__span-14-83"><a id="__codelineno-14-83" name="__codelineno-14-83" href="#__codelineno-14-83"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-14-84"><a id="__codelineno-14-84" name="__codelineno-14-84" href="#__codelineno-14-84"></a>←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
+</span><span id="__span-14-85"><a id="__codelineno-14-85" name="__codelineno-14-85" href="#__codelineno-14-85"></a>          80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91 c1
+</span><span id="__span-14-86"><a id="__codelineno-14-86" name="__codelineno-14-86" href="#__codelineno-14-86"></a>          ef 0d 00 10 02 00 00 00 f0 01 57
 </span></code></pre></div>
 </details>
 <h2 id="1s-app-bulk-parcel-freight">1S-APP-BULK: Parcel Freight<a class="headerlink" href="#1s-app-bulk-parcel-freight" title="Permanent link">&para;</a></h2>
@@ -5164,7 +5169,7 @@ over UDP on localhost.</p>
 </span><span id="__span-16-86"><a id="__codelineno-16-86" name="__codelineno-16-86" href="#__codelineno-16-86"></a>        41 B  01 80 01 73 69 6d 2d 64 66 75 …
 </span></code></pre></div>
 <details>
-<summary>Wire bytes: 24 UDP datagrams (link setup and pings left out)</summary>
+<summary>Wire bytes: 25 UDP datagrams (link setup and pings left out)</summary>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>   ── device runs the app
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>→    5 B  04 01 00 00 02
 </span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
@@ -5232,15 +5237,16 @@ over UDP on localhost.</p>
 </span><span id="__span-17-65"><a id="__codelineno-17-65" name="__codelineno-17-65" href="#__codelineno-17-65"></a>→    5 B  04 0a 03 60 02
 </span><span id="__span-17-66"><a id="__codelineno-17-66" name="__codelineno-17-66" href="#__codelineno-17-66"></a>←    4 B  03 0a 80 84
 </span><span id="__span-17-67"><a id="__codelineno-17-67" name="__codelineno-17-67" href="#__codelineno-17-67"></a>→    6 B  05 0b 01 30 00 02
-</span><span id="__span-17-68"><a id="__codelineno-17-68" name="__codelineno-17-68" href="#__codelineno-17-68"></a>←    7 B  03 0b 80 80 30 c1 02
-</span><span id="__span-17-69"><a id="__codelineno-17-69" name="__codelineno-17-69" href="#__codelineno-17-69"></a>   ── device resets (into the app)
-</span><span id="__span-17-70"><a id="__codelineno-17-70" name="__codelineno-17-70" href="#__codelineno-17-70"></a>   ── bootloader applies the stored plan in place: 10 steps
-</span><span id="__span-17-71"><a id="__codelineno-17-71" name="__codelineno-17-71" href="#__codelineno-17-71"></a>   ── bootloader: image verified against the descriptor, plan area cleared
-</span><span id="__span-17-72"><a id="__codelineno-17-72" name="__codelineno-17-72" href="#__codelineno-17-72"></a>   ── device runs the app
-</span><span id="__span-17-73"><a id="__codelineno-17-73" name="__codelineno-17-73" href="#__codelineno-17-73"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-17-74"><a id="__codelineno-17-74" name="__codelineno-17-74" href="#__codelineno-17-74"></a>←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
-</span><span id="__span-17-75"><a id="__codelineno-17-75" name="__codelineno-17-75" href="#__codelineno-17-75"></a>          80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91 c1
-</span><span id="__span-17-76"><a id="__codelineno-17-76" name="__codelineno-17-76" href="#__codelineno-17-76"></a>          ef 0d 00 10 02 00 00 00 f0 01 57
+</span><span id="__span-17-68"><a id="__codelineno-17-68" name="__codelineno-17-68" href="#__codelineno-17-68"></a>←    4 B  03 0b 80 80
+</span><span id="__span-17-69"><a id="__codelineno-17-69" name="__codelineno-17-69" href="#__codelineno-17-69"></a>←    3 B  30 c1 02
+</span><span id="__span-17-70"><a id="__codelineno-17-70" name="__codelineno-17-70" href="#__codelineno-17-70"></a>   ── device resets (into the app)
+</span><span id="__span-17-71"><a id="__codelineno-17-71" name="__codelineno-17-71" href="#__codelineno-17-71"></a>   ── bootloader applies the stored plan in place: 10 steps
+</span><span id="__span-17-72"><a id="__codelineno-17-72" name="__codelineno-17-72" href="#__codelineno-17-72"></a>   ── bootloader: image verified against the descriptor, plan area cleared
+</span><span id="__span-17-73"><a id="__codelineno-17-73" name="__codelineno-17-73" href="#__codelineno-17-73"></a>   ── device runs the app
+</span><span id="__span-17-74"><a id="__codelineno-17-74" name="__codelineno-17-74" href="#__codelineno-17-74"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-17-75"><a id="__codelineno-17-75" name="__codelineno-17-75" href="#__codelineno-17-75"></a>←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
+</span><span id="__span-17-76"><a id="__codelineno-17-76" name="__codelineno-17-76" href="#__codelineno-17-76"></a>          80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91 c1
+</span><span id="__span-17-77"><a id="__codelineno-17-77" name="__codelineno-17-77" href="#__codelineno-17-77"></a>          ef 0d 00 10 02 00 00 00 f0 01 57
 </span></code></pre></div>
 </details>
 <h2 id="1l-upd-step-pit-stop-shuttle">1L-UPD-STEP: Pit-stop Shuttle<a class="headerlink" href="#1l-upd-step-pit-stop-shuttle" title="Permanent link">&para;</a></h2>
@@ -5419,126 +5425,128 @@ the new app starts. Test: <code>pit_stop_shuttle_1l_upd_step</code> over simulat
 </span><span id="__span-19-137"><a id="__codelineno-19-137" name="__codelineno-19-137" href="#__codelineno-19-137"></a>        41 B  01 80 01 73 69 6d 2d 64 66 75 …
 </span></code></pre></div>
 <details>
-<summary>Wire bytes: 55 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
+<summary>Wire bytes: 57 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>   ── device runs the app
 </span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>→    5 B  04 01 00 00 02
 </span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
 </span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>          80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1 e0
 </span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>          02 14 00 00 00 00 00 00 80 01 57
 </span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>→    6 B  05 02 01 30 10 02
-</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>←    7 B  03 02 80 80 30 c1 02
-</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>   ── device resets (into the updater)
-</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>   ── device runs the updater
-</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>   ── host reconnects to the same device: the updater answers
-</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>←   43 B  08 29 01 80 11 73 69 6d 2d 64 66 75 92 10 00 00
-</span><span id="__span-20-13"><a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a>          80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1 e0
-</span><span id="__span-20-14"><a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>          02 14 00 00 00 00 00 00 f0 01 57
-</span><span id="__span-20-15"><a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a>→    5 B  04 02 03 00 02
-</span><span id="__span-20-16"><a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a>←   15 B  08 0d 02 80 20 00 00 00 01 80 00 00 00 00 00
-</span><span id="__span-20-17"><a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a>→   43 B  08 29 03 03 10 00 57 57 44 50 01 92 10 00 00 02
-</span><span id="__span-20-18"><a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a>          00 00 00 0a 00 e4 01 00 00 86 ba 52 71 00 2c c3
-</span><span id="__span-20-19"><a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a>          5d 10 9b 6b 17 9f ae b3 bd 3c 02
-</span><span id="__span-20-20"><a id="__codelineno-20-20" name="__codelineno-20-20" href="#__codelineno-20-20"></a>←   15 B  08 0d 03 80 80 0a 00 00 00 00 00 00 00 00 19
-</span><span id="__span-20-21"><a id="__codelineno-20-21" name="__codelineno-20-21" href="#__codelineno-20-21"></a>→   12 B  08 0a 04 03 20 00 00 00 00 00 00 02
-</span><span id="__span-20-22"><a id="__codelineno-20-22" name="__codelineno-20-22" href="#__codelineno-20-22"></a>←    4 B  03 04 80 80
-</span><span id="__span-20-23"><a id="__codelineno-20-23" name="__codelineno-20-23" href="#__codelineno-20-23"></a>→   57 B  08 37 05 03 40 01 00 00 00 00 00 27 80 79 0d 97
-</span><span id="__span-20-24"><a id="__codelineno-20-24" name="__codelineno-20-24" href="#__codelineno-20-24"></a>          ef cf f7 00 00 00 00 46 57 02 00 00 00 2f 86 5d
-</span><span id="__span-20-25"><a id="__codelineno-20-25" name="__codelineno-20-25" href="#__codelineno-20-25"></a>          24 dc d1 cf 67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d
-</span><span id="__span-20-26"><a id="__codelineno-20-26" name="__codelineno-20-26" href="#__codelineno-20-26"></a>          54 0c 01 ff 97 77 ce 0c 02
-</span><span id="__span-20-27"><a id="__codelineno-20-27" name="__codelineno-20-27" href="#__codelineno-20-27"></a>←    4 B  03 05 80 80
-</span><span id="__span-20-28"><a id="__codelineno-20-28" name="__codelineno-20-28" href="#__codelineno-20-28"></a>→   57 B  08 37 06 03 40 01 00 00 00 00 00 27 80 79 0d 97
-</span><span id="__span-20-29"><a id="__codelineno-20-29" name="__codelineno-20-29" href="#__codelineno-20-29"></a>          ef cf f7 20 00 00 00 a5 6c 24 19 17 af 8f e6 bd
-</span><span id="__span-20-30"><a id="__codelineno-20-30" name="__codelineno-20-30" href="#__codelineno-20-30"></a>          84 3c 31 2f c7 a7 fe d5 9c 54 49 47 df bf 16 ed
-</span><span id="__span-20-31"><a id="__codelineno-20-31" name="__codelineno-20-31" href="#__codelineno-20-31"></a>          b4 6c 61 5f f7 d7 2e 0c 02
-</span><span id="__span-20-32"><a id="__codelineno-20-32" name="__codelineno-20-32" href="#__codelineno-20-32"></a>←    4 B  03 06 80 80
-</span><span id="__span-20-33"><a id="__codelineno-20-33" name="__codelineno-20-33" href="#__codelineno-20-33"></a>→   57 B  08 37 07 03 40 02 00 00 00 01 00 3c e2 93 64 32
-</span><span id="__span-20-34"><a id="__codelineno-20-34" name="__codelineno-20-34" href="#__codelineno-20-34"></a>          07 b8 7c 00 00 00 00 68 61 6c d3 da 10 e3 4c 3b
-</span><span id="__span-20-35"><a id="__codelineno-20-35" name="__codelineno-20-35" href="#__codelineno-20-35"></a>          40 72 eb f2 28 fb 64 53 58 8a 03 0a 40 13 7c 6b
-</span><span id="__span-20-36"><a id="__codelineno-20-36" name="__codelineno-20-36" href="#__codelineno-20-36"></a>          70 a2 1b 22 58 2b 94 0c 02
-</span><span id="__span-20-37"><a id="__codelineno-20-37" name="__codelineno-20-37" href="#__codelineno-20-37"></a>←    4 B  03 07 80 80
-</span><span id="__span-20-38"><a id="__codelineno-20-38" name="__codelineno-20-38" href="#__codelineno-20-38"></a>→   57 B  08 37 08 03 40 02 00 00 00 01 00 3c e2 93 64 32
-</span><span id="__span-20-39"><a id="__codelineno-20-39" name="__codelineno-20-39" href="#__codelineno-20-39"></a>          07 b8 7c 20 00 00 00 83 88 ba 33 3a 70 43 ac 9b
-</span><span id="__span-20-40"><a id="__codelineno-20-40" name="__codelineno-20-40" href="#__codelineno-20-40"></a>          a0 d2 4b 52 88 5b c4 b3 b8 ea 63 6a a0 73 dc cb
-</span><span id="__span-20-41"><a id="__codelineno-20-41" name="__codelineno-20-41" href="#__codelineno-20-41"></a>          d0 02 7b 82 b8 8b f4 0c 02
-</span><span id="__span-20-42"><a id="__codelineno-20-42" name="__codelineno-20-42" href="#__codelineno-20-42"></a>←    4 B  03 08 80 80
-</span><span id="__span-20-43"><a id="__codelineno-20-43" name="__codelineno-20-43" href="#__codelineno-20-43"></a>→   12 B  08 0a 09 03 20 03 00 00 00 01 00 02
-</span><span id="__span-20-44"><a id="__codelineno-20-44" name="__codelineno-20-44" href="#__codelineno-20-44"></a>←    4 B  03 09 80 80
-</span><span id="__span-20-45"><a id="__codelineno-20-45" name="__codelineno-20-45" href="#__codelineno-20-45"></a>→   57 B  08 37 0a 03 40 04 00 00 00 02 00 ed cc 83 d5 b3
-</span><span id="__span-20-46"><a id="__codelineno-20-46" name="__codelineno-20-46" href="#__codelineno-20-46"></a>          97 4a 90 00 00 00 00 61 70 70 20 76 32 11 db 28
-</span><span id="__span-20-47"><a id="__codelineno-20-47" name="__codelineno-20-47" href="#__codelineno-20-47"></a>          16 4c de 9f 28 29 f3 40 2e 64 f6 b7 40 41 0b 58
-</span><span id="__span-20-48"><a id="__codelineno-20-48" name="__codelineno-20-48" href="#__codelineno-20-48"></a>          46 7c 0e cf 58 59 23 0c 02
-</span><span id="__span-20-49"><a id="__codelineno-20-49" name="__codelineno-20-49" href="#__codelineno-20-49"></a>←    4 B  03 0a 80 80
-</span><span id="__span-20-50"><a id="__codelineno-20-50" name="__codelineno-20-50" href="#__codelineno-20-50"></a>→   57 B  08 37 0b 03 40 04 00 00 00 02 00 ed cc 83 d5 b3
-</span><span id="__span-20-51"><a id="__codelineno-20-51" name="__codelineno-20-51" href="#__codelineno-20-51"></a>          97 4a 90 20 00 00 00 70 5e 94 26 e7 70 71 3b 88
-</span><span id="__span-20-52"><a id="__codelineno-20-52" name="__codelineno-20-52" href="#__codelineno-20-52"></a>          76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0 a1 6b b8
-</span><span id="__span-20-53"><a id="__codelineno-20-53" name="__codelineno-20-53" href="#__codelineno-20-53"></a>          a6 dc 6e 2f b8 b9 83 0c 02
-</span><span id="__span-20-54"><a id="__codelineno-20-54" name="__codelineno-20-54" href="#__codelineno-20-54"></a>←    4 B  03 0b 80 80
-</span><span id="__span-20-55"><a id="__codelineno-20-55" name="__codelineno-20-55" href="#__codelineno-20-55"></a>→   22 B  08 14 0c 03 30 05 00 00 00 03 00 05 00 1e c7 0f
-</span><span id="__span-20-56"><a id="__codelineno-20-56" name="__codelineno-20-56" href="#__codelineno-20-56"></a>          b2 57 d1 be fc 02
-</span><span id="__span-20-57"><a id="__codelineno-20-57" name="__codelineno-20-57" href="#__codelineno-20-57"></a>←    4 B  03 0c 80 80
-</span><span id="__span-20-58"><a id="__codelineno-20-58" name="__codelineno-20-58" href="#__codelineno-20-58"></a>→   12 B  08 0a 0d 03 20 06 00 00 00 02 00 02
-</span><span id="__span-20-59"><a id="__codelineno-20-59" name="__codelineno-20-59" href="#__codelineno-20-59"></a>←    4 B  03 0d 80 80
-</span><span id="__span-20-60"><a id="__codelineno-20-60" name="__codelineno-20-60" href="#__codelineno-20-60"></a>→   57 B  08 37 0e 03 40 07 00 00 00 04 00 a8 09 c6 1b 42
-</span><span id="__span-20-61"><a id="__codelineno-20-61" name="__codelineno-20-61" href="#__codelineno-20-61"></a>          94 29 60 00 00 00 00 75 69 83 ee 6e 08 b6 b8 eb
-</span><span id="__span-20-62"><a id="__codelineno-20-62" name="__codelineno-20-62" href="#__codelineno-20-62"></a>          0a 9b 06 86 20 ce d0 03 22 b3 1e 9e 38 e6 e8 1b
-</span><span id="__span-20-63"><a id="__codelineno-20-63" name="__codelineno-20-63" href="#__codelineno-20-63"></a>          3a cb 36 b6 50 fe 00 0c 02
-</span><span id="__span-20-64"><a id="__codelineno-20-64" name="__codelineno-20-64" href="#__codelineno-20-64"></a>←    4 B  03 0e 80 80
-</span><span id="__span-20-65"><a id="__codelineno-20-65" name="__codelineno-20-65" href="#__codelineno-20-65"></a>→   57 B  08 37 0f 03 40 07 00 00 00 04 00 a8 09 c6 1b 42
-</span><span id="__span-20-66"><a id="__codelineno-20-66" name="__codelineno-20-66" href="#__codelineno-20-66"></a>          94 29 60 20 00 00 00 33 52 e3 4e ce 68 16 18 4b
-</span><span id="__span-20-67"><a id="__codelineno-20-67" name="__codelineno-20-67" href="#__codelineno-20-67"></a>          6a fb 66 e6 80 2e 30 63 82 13 7e fe 98 46 48 7b
-</span><span id="__span-20-68"><a id="__codelineno-20-68" name="__codelineno-20-68" href="#__codelineno-20-68"></a>          9a 2b 96 16 b0 5e 60 0c 02
-</span><span id="__span-20-69"><a id="__codelineno-20-69" name="__codelineno-20-69" href="#__codelineno-20-69"></a>   ── power cut while the device applies step 7: no reply
-</span><span id="__span-20-70"><a id="__codelineno-20-70" name="__codelineno-20-70" href="#__codelineno-20-70"></a>   ── bootloader: an update is under way, the app slot is not bootable: starts the updater
-</span><span id="__span-20-71"><a id="__codelineno-20-71" name="__codelineno-20-71" href="#__codelineno-20-71"></a>   ── device runs the updater
-</span><span id="__span-20-72"><a id="__codelineno-20-72" name="__codelineno-20-72" href="#__codelineno-20-72"></a>   ── host: the call fails (link lost), reconnects when the device is back
-</span><span id="__span-20-73"><a id="__codelineno-20-73" name="__codelineno-20-73" href="#__codelineno-20-73"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-20-74"><a id="__codelineno-20-74" name="__codelineno-20-74" href="#__codelineno-20-74"></a>←   30 B  08 1c 01 80 11 73 69 6d 2d 64 66 75 92 10 00 00
-</span><span id="__span-20-75"><a id="__codelineno-20-75" name="__codelineno-20-75" href="#__codelineno-20-75"></a>          00 01 00 00 00 05 00 00 00 00 00 f0 01 57
-</span><span id="__span-20-76"><a id="__codelineno-20-76" name="__codelineno-20-76" href="#__codelineno-20-76"></a>→   43 B  08 29 02 03 10 00 57 57 44 50 01 92 10 00 00 02
-</span><span id="__span-20-77"><a id="__codelineno-20-77" name="__codelineno-20-77" href="#__codelineno-20-77"></a>          00 00 00 0a 00 e4 01 00 00 86 ba 52 71 00 2c c3
-</span><span id="__span-20-78"><a id="__codelineno-20-78" name="__codelineno-20-78" href="#__codelineno-20-78"></a>          5d 10 9b 6b 17 9f ae b3 bd 3c 02
-</span><span id="__span-20-79"><a id="__codelineno-20-79" name="__codelineno-20-79" href="#__codelineno-20-79"></a>←   15 B  08 0d 02 80 80 0a 00 00 00 80 07 00 00 00 19
-</span><span id="__span-20-80"><a id="__codelineno-20-80" name="__codelineno-20-80" href="#__codelineno-20-80"></a>→   57 B  08 37 03 03 40 07 00 00 00 04 00 a8 09 c6 1b 42
-</span><span id="__span-20-81"><a id="__codelineno-20-81" name="__codelineno-20-81" href="#__codelineno-20-81"></a>          94 29 60 00 00 00 00 75 69 83 ee 6e 08 b6 b8 eb
-</span><span id="__span-20-82"><a id="__codelineno-20-82" name="__codelineno-20-82" href="#__codelineno-20-82"></a>          0a 9b 06 86 20 ce d0 03 22 b3 1e 9e 38 e6 e8 1b
-</span><span id="__span-20-83"><a id="__codelineno-20-83" name="__codelineno-20-83" href="#__codelineno-20-83"></a>          3a cb 36 b6 50 fe 00 0c 02
-</span><span id="__span-20-84"><a id="__codelineno-20-84" name="__codelineno-20-84" href="#__codelineno-20-84"></a>←    4 B  03 03 80 80
-</span><span id="__span-20-85"><a id="__codelineno-20-85" name="__codelineno-20-85" href="#__codelineno-20-85"></a>→   57 B  08 37 04 03 40 07 00 00 00 04 00 a8 09 c6 1b 42
-</span><span id="__span-20-86"><a id="__codelineno-20-86" name="__codelineno-20-86" href="#__codelineno-20-86"></a>          94 29 60 20 00 00 00 33 52 e3 4e ce 68 16 18 4b
-</span><span id="__span-20-87"><a id="__codelineno-20-87" name="__codelineno-20-87" href="#__codelineno-20-87"></a>          6a fb 66 e6 80 2e 30 63 82 13 7e fe 98 46 48 7b
-</span><span id="__span-20-88"><a id="__codelineno-20-88" name="__codelineno-20-88" href="#__codelineno-20-88"></a>          9a 2b 96 16 b0 5e 60 0c 02
-</span><span id="__span-20-89"><a id="__codelineno-20-89" name="__codelineno-20-89" href="#__codelineno-20-89"></a>←    4 B  03 04 80 80
-</span><span id="__span-20-90"><a id="__codelineno-20-90" name="__codelineno-20-90" href="#__codelineno-20-90"></a>→   57 B  08 37 05 03 40 08 00 00 00 05 00 3b f9 a7 bd 49
-</span><span id="__span-20-91"><a id="__codelineno-20-91" name="__codelineno-20-91" href="#__codelineno-20-91"></a>          c0 f8 87 00 00 00 00 6e 65 74 20 76 32 87 6d 7c
-</span><span id="__span-20-92"><a id="__codelineno-20-92" name="__codelineno-20-92" href="#__codelineno-20-92"></a>          5d 3c 65 75 24 9f 85 94 75 54 7d 8d 3c b7 9d ac
-</span><span id="__span-20-93"><a id="__codelineno-20-93" name="__codelineno-20-93" href="#__codelineno-20-93"></a>          8d 6c 95 a5 54 cf b5 0c 02
-</span><span id="__span-20-94"><a id="__codelineno-20-94" name="__codelineno-20-94" href="#__codelineno-20-94"></a>←    4 B  03 05 80 80
-</span><span id="__span-20-95"><a id="__codelineno-20-95" name="__codelineno-20-95" href="#__codelineno-20-95"></a>→   57 B  08 37 06 03 40 08 00 00 00 05 00 3b f9 a7 bd 49
-</span><span id="__span-20-96"><a id="__codelineno-20-96" name="__codelineno-20-96" href="#__codelineno-20-96"></a>          c0 f8 87 20 00 00 00 c4 a5 84 ad bd 6c e7 cd dc
-</span><span id="__span-20-97"><a id="__codelineno-20-97" name="__codelineno-20-97" href="#__codelineno-20-97"></a>          bd 9c c5 d5 84 ff e5 f4 d5 b4 dd ed 9c 17 fd 0c
-</span><span id="__span-20-98"><a id="__codelineno-20-98" name="__codelineno-20-98" href="#__codelineno-20-98"></a>          ed cc f5 05 b4 2f 15 0c 02
-</span><span id="__span-20-99"><a id="__codelineno-20-99" name="__codelineno-20-99" href="#__codelineno-20-99"></a>←    4 B  03 06 80 80
-</span><span id="__span-20-100"><a id="__codelineno-20-100" name="__codelineno-20-100" href="#__codelineno-20-100"></a>→   57 B  08 37 07 03 40 09 00 00 00 06 00 d1 8f 7c e6 80
-</span><span id="__span-20-101"><a id="__codelineno-20-101" name="__codelineno-20-101" href="#__codelineno-20-101"></a>          78 12 57 00 00 00 00 6f 74 61 94 9a 86 af 33 c8
-</span><span id="__span-20-102"><a id="__codelineno-20-102" name="__codelineno-20-102" href="#__codelineno-20-102"></a>          a6 ea ac b2 9e c7 4b e0 be 02 c4 ca b6 df 63 f8
-</span><span id="__span-20-103"><a id="__codelineno-20-103" name="__codelineno-20-103" href="#__codelineno-20-103"></a>          d6 1a dc e2 ce f7 7b 0c 02
-</span><span id="__span-20-104"><a id="__codelineno-20-104" name="__codelineno-20-104" href="#__codelineno-20-104"></a>←    4 B  03 07 80 80
-</span><span id="__span-20-105"><a id="__codelineno-20-105" name="__codelineno-20-105" href="#__codelineno-20-105"></a>→   57 B  08 37 08 03 40 09 00 00 00 06 00 d1 8f 7c e6 80
-</span><span id="__span-20-106"><a id="__codelineno-20-106" name="__codelineno-20-106" href="#__codelineno-20-106"></a>          78 12 57 20 00 00 00 10 ee 32 f4 fa e6 0f 93 28
-</span><span id="__span-20-107"><a id="__codelineno-20-107" name="__codelineno-20-107" href="#__codelineno-20-107"></a>          06 4a 0c 12 fe 27 ab 40 1e 62 24 2a 16 3f c3 58
-</span><span id="__span-20-108"><a id="__codelineno-20-108" name="__codelineno-20-108" href="#__codelineno-20-108"></a>          36 7a 3c 42 2e 57 db 0c 02
-</span><span id="__span-20-109"><a id="__codelineno-20-109" name="__codelineno-20-109" href="#__codelineno-20-109"></a>←    4 B  03 08 80 80
-</span><span id="__span-20-110"><a id="__codelineno-20-110" name="__codelineno-20-110" href="#__codelineno-20-110"></a>→    5 B  04 09 03 60 02
-</span><span id="__span-20-111"><a id="__codelineno-20-111" name="__codelineno-20-111" href="#__codelineno-20-111"></a>←    4 B  03 09 80 80
-</span><span id="__span-20-112"><a id="__codelineno-20-112" name="__codelineno-20-112" href="#__codelineno-20-112"></a>→    6 B  05 0a 01 30 00 02
-</span><span id="__span-20-113"><a id="__codelineno-20-113" name="__codelineno-20-113" href="#__codelineno-20-113"></a>←    7 B  03 0a 80 80 30 c1 02
-</span><span id="__span-20-114"><a id="__codelineno-20-114" name="__codelineno-20-114" href="#__codelineno-20-114"></a>   ── device resets (into the app)
-</span><span id="__span-20-115"><a id="__codelineno-20-115" name="__codelineno-20-115" href="#__codelineno-20-115"></a>   ── device runs the app
-</span><span id="__span-20-116"><a id="__codelineno-20-116" name="__codelineno-20-116" href="#__codelineno-20-116"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-20-117"><a id="__codelineno-20-117" name="__codelineno-20-117" href="#__codelineno-20-117"></a>←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
-</span><span id="__span-20-118"><a id="__codelineno-20-118" name="__codelineno-20-118" href="#__codelineno-20-118"></a>          80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91 c1
-</span><span id="__span-20-119"><a id="__codelineno-20-119" name="__codelineno-20-119" href="#__codelineno-20-119"></a>          ef 0d 00 10 02 00 00 00 80 01 57
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>←    4 B  03 02 80 80
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>←    3 B  30 c1 02
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>   ── device resets (into the updater)
+</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>   ── device runs the updater
+</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>   ── host reconnects to the same device: the updater answers
+</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-20-13"><a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a>←   43 B  08 29 01 80 11 73 69 6d 2d 64 66 75 92 10 00 00
+</span><span id="__span-20-14"><a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>          80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1 e0
+</span><span id="__span-20-15"><a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a>          02 14 00 00 00 00 00 00 f0 01 57
+</span><span id="__span-20-16"><a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a>→    5 B  04 02 03 00 02
+</span><span id="__span-20-17"><a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a>←   15 B  08 0d 02 80 20 00 00 00 01 80 00 00 00 00 00
+</span><span id="__span-20-18"><a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a>→   43 B  08 29 03 03 10 00 57 57 44 50 01 92 10 00 00 02
+</span><span id="__span-20-19"><a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a>          00 00 00 0a 00 e4 01 00 00 86 ba 52 71 00 2c c3
+</span><span id="__span-20-20"><a id="__codelineno-20-20" name="__codelineno-20-20" href="#__codelineno-20-20"></a>          5d 10 9b 6b 17 9f ae b3 bd 3c 02
+</span><span id="__span-20-21"><a id="__codelineno-20-21" name="__codelineno-20-21" href="#__codelineno-20-21"></a>←   15 B  08 0d 03 80 80 0a 00 00 00 00 00 00 00 00 19
+</span><span id="__span-20-22"><a id="__codelineno-20-22" name="__codelineno-20-22" href="#__codelineno-20-22"></a>→   12 B  08 0a 04 03 20 00 00 00 00 00 00 02
+</span><span id="__span-20-23"><a id="__codelineno-20-23" name="__codelineno-20-23" href="#__codelineno-20-23"></a>←    4 B  03 04 80 80
+</span><span id="__span-20-24"><a id="__codelineno-20-24" name="__codelineno-20-24" href="#__codelineno-20-24"></a>→   57 B  08 37 05 03 40 01 00 00 00 00 00 27 80 79 0d 97
+</span><span id="__span-20-25"><a id="__codelineno-20-25" name="__codelineno-20-25" href="#__codelineno-20-25"></a>          ef cf f7 00 00 00 00 46 57 02 00 00 00 2f 86 5d
+</span><span id="__span-20-26"><a id="__codelineno-20-26" name="__codelineno-20-26" href="#__codelineno-20-26"></a>          24 dc d1 cf 67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d
+</span><span id="__span-20-27"><a id="__codelineno-20-27" name="__codelineno-20-27" href="#__codelineno-20-27"></a>          54 0c 01 ff 97 77 ce 0c 02
+</span><span id="__span-20-28"><a id="__codelineno-20-28" name="__codelineno-20-28" href="#__codelineno-20-28"></a>←    4 B  03 05 80 80
+</span><span id="__span-20-29"><a id="__codelineno-20-29" name="__codelineno-20-29" href="#__codelineno-20-29"></a>→   57 B  08 37 06 03 40 01 00 00 00 00 00 27 80 79 0d 97
+</span><span id="__span-20-30"><a id="__codelineno-20-30" name="__codelineno-20-30" href="#__codelineno-20-30"></a>          ef cf f7 20 00 00 00 a5 6c 24 19 17 af 8f e6 bd
+</span><span id="__span-20-31"><a id="__codelineno-20-31" name="__codelineno-20-31" href="#__codelineno-20-31"></a>          84 3c 31 2f c7 a7 fe d5 9c 54 49 47 df bf 16 ed
+</span><span id="__span-20-32"><a id="__codelineno-20-32" name="__codelineno-20-32" href="#__codelineno-20-32"></a>          b4 6c 61 5f f7 d7 2e 0c 02
+</span><span id="__span-20-33"><a id="__codelineno-20-33" name="__codelineno-20-33" href="#__codelineno-20-33"></a>←    4 B  03 06 80 80
+</span><span id="__span-20-34"><a id="__codelineno-20-34" name="__codelineno-20-34" href="#__codelineno-20-34"></a>→   57 B  08 37 07 03 40 02 00 00 00 01 00 3c e2 93 64 32
+</span><span id="__span-20-35"><a id="__codelineno-20-35" name="__codelineno-20-35" href="#__codelineno-20-35"></a>          07 b8 7c 00 00 00 00 68 61 6c d3 da 10 e3 4c 3b
+</span><span id="__span-20-36"><a id="__codelineno-20-36" name="__codelineno-20-36" href="#__codelineno-20-36"></a>          40 72 eb f2 28 fb 64 53 58 8a 03 0a 40 13 7c 6b
+</span><span id="__span-20-37"><a id="__codelineno-20-37" name="__codelineno-20-37" href="#__codelineno-20-37"></a>          70 a2 1b 22 58 2b 94 0c 02
+</span><span id="__span-20-38"><a id="__codelineno-20-38" name="__codelineno-20-38" href="#__codelineno-20-38"></a>←    4 B  03 07 80 80
+</span><span id="__span-20-39"><a id="__codelineno-20-39" name="__codelineno-20-39" href="#__codelineno-20-39"></a>→   57 B  08 37 08 03 40 02 00 00 00 01 00 3c e2 93 64 32
+</span><span id="__span-20-40"><a id="__codelineno-20-40" name="__codelineno-20-40" href="#__codelineno-20-40"></a>          07 b8 7c 20 00 00 00 83 88 ba 33 3a 70 43 ac 9b
+</span><span id="__span-20-41"><a id="__codelineno-20-41" name="__codelineno-20-41" href="#__codelineno-20-41"></a>          a0 d2 4b 52 88 5b c4 b3 b8 ea 63 6a a0 73 dc cb
+</span><span id="__span-20-42"><a id="__codelineno-20-42" name="__codelineno-20-42" href="#__codelineno-20-42"></a>          d0 02 7b 82 b8 8b f4 0c 02
+</span><span id="__span-20-43"><a id="__codelineno-20-43" name="__codelineno-20-43" href="#__codelineno-20-43"></a>←    4 B  03 08 80 80
+</span><span id="__span-20-44"><a id="__codelineno-20-44" name="__codelineno-20-44" href="#__codelineno-20-44"></a>→   12 B  08 0a 09 03 20 03 00 00 00 01 00 02
+</span><span id="__span-20-45"><a id="__codelineno-20-45" name="__codelineno-20-45" href="#__codelineno-20-45"></a>←    4 B  03 09 80 80
+</span><span id="__span-20-46"><a id="__codelineno-20-46" name="__codelineno-20-46" href="#__codelineno-20-46"></a>→   57 B  08 37 0a 03 40 04 00 00 00 02 00 ed cc 83 d5 b3
+</span><span id="__span-20-47"><a id="__codelineno-20-47" name="__codelineno-20-47" href="#__codelineno-20-47"></a>          97 4a 90 00 00 00 00 61 70 70 20 76 32 11 db 28
+</span><span id="__span-20-48"><a id="__codelineno-20-48" name="__codelineno-20-48" href="#__codelineno-20-48"></a>          16 4c de 9f 28 29 f3 40 2e 64 f6 b7 40 41 0b 58
+</span><span id="__span-20-49"><a id="__codelineno-20-49" name="__codelineno-20-49" href="#__codelineno-20-49"></a>          46 7c 0e cf 58 59 23 0c 02
+</span><span id="__span-20-50"><a id="__codelineno-20-50" name="__codelineno-20-50" href="#__codelineno-20-50"></a>←    4 B  03 0a 80 80
+</span><span id="__span-20-51"><a id="__codelineno-20-51" name="__codelineno-20-51" href="#__codelineno-20-51"></a>→   57 B  08 37 0b 03 40 04 00 00 00 02 00 ed cc 83 d5 b3
+</span><span id="__span-20-52"><a id="__codelineno-20-52" name="__codelineno-20-52" href="#__codelineno-20-52"></a>          97 4a 90 20 00 00 00 70 5e 94 26 e7 70 71 3b 88
+</span><span id="__span-20-53"><a id="__codelineno-20-53" name="__codelineno-20-53" href="#__codelineno-20-53"></a>          76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0 a1 6b b8
+</span><span id="__span-20-54"><a id="__codelineno-20-54" name="__codelineno-20-54" href="#__codelineno-20-54"></a>          a6 dc 6e 2f b8 b9 83 0c 02
+</span><span id="__span-20-55"><a id="__codelineno-20-55" name="__codelineno-20-55" href="#__codelineno-20-55"></a>←    4 B  03 0b 80 80
+</span><span id="__span-20-56"><a id="__codelineno-20-56" name="__codelineno-20-56" href="#__codelineno-20-56"></a>→   22 B  08 14 0c 03 30 05 00 00 00 03 00 05 00 1e c7 0f
+</span><span id="__span-20-57"><a id="__codelineno-20-57" name="__codelineno-20-57" href="#__codelineno-20-57"></a>          b2 57 d1 be fc 02
+</span><span id="__span-20-58"><a id="__codelineno-20-58" name="__codelineno-20-58" href="#__codelineno-20-58"></a>←    4 B  03 0c 80 80
+</span><span id="__span-20-59"><a id="__codelineno-20-59" name="__codelineno-20-59" href="#__codelineno-20-59"></a>→   12 B  08 0a 0d 03 20 06 00 00 00 02 00 02
+</span><span id="__span-20-60"><a id="__codelineno-20-60" name="__codelineno-20-60" href="#__codelineno-20-60"></a>←    4 B  03 0d 80 80
+</span><span id="__span-20-61"><a id="__codelineno-20-61" name="__codelineno-20-61" href="#__codelineno-20-61"></a>→   57 B  08 37 0e 03 40 07 00 00 00 04 00 a8 09 c6 1b 42
+</span><span id="__span-20-62"><a id="__codelineno-20-62" name="__codelineno-20-62" href="#__codelineno-20-62"></a>          94 29 60 00 00 00 00 75 69 83 ee 6e 08 b6 b8 eb
+</span><span id="__span-20-63"><a id="__codelineno-20-63" name="__codelineno-20-63" href="#__codelineno-20-63"></a>          0a 9b 06 86 20 ce d0 03 22 b3 1e 9e 38 e6 e8 1b
+</span><span id="__span-20-64"><a id="__codelineno-20-64" name="__codelineno-20-64" href="#__codelineno-20-64"></a>          3a cb 36 b6 50 fe 00 0c 02
+</span><span id="__span-20-65"><a id="__codelineno-20-65" name="__codelineno-20-65" href="#__codelineno-20-65"></a>←    4 B  03 0e 80 80
+</span><span id="__span-20-66"><a id="__codelineno-20-66" name="__codelineno-20-66" href="#__codelineno-20-66"></a>→   57 B  08 37 0f 03 40 07 00 00 00 04 00 a8 09 c6 1b 42
+</span><span id="__span-20-67"><a id="__codelineno-20-67" name="__codelineno-20-67" href="#__codelineno-20-67"></a>          94 29 60 20 00 00 00 33 52 e3 4e ce 68 16 18 4b
+</span><span id="__span-20-68"><a id="__codelineno-20-68" name="__codelineno-20-68" href="#__codelineno-20-68"></a>          6a fb 66 e6 80 2e 30 63 82 13 7e fe 98 46 48 7b
+</span><span id="__span-20-69"><a id="__codelineno-20-69" name="__codelineno-20-69" href="#__codelineno-20-69"></a>          9a 2b 96 16 b0 5e 60 0c 02
+</span><span id="__span-20-70"><a id="__codelineno-20-70" name="__codelineno-20-70" href="#__codelineno-20-70"></a>   ── power cut while the device applies step 7: no reply
+</span><span id="__span-20-71"><a id="__codelineno-20-71" name="__codelineno-20-71" href="#__codelineno-20-71"></a>   ── bootloader: an update is under way, the app slot is not bootable: starts the updater
+</span><span id="__span-20-72"><a id="__codelineno-20-72" name="__codelineno-20-72" href="#__codelineno-20-72"></a>   ── device runs the updater
+</span><span id="__span-20-73"><a id="__codelineno-20-73" name="__codelineno-20-73" href="#__codelineno-20-73"></a>   ── host: the call fails (link lost), reconnects when the device is back
+</span><span id="__span-20-74"><a id="__codelineno-20-74" name="__codelineno-20-74" href="#__codelineno-20-74"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-20-75"><a id="__codelineno-20-75" name="__codelineno-20-75" href="#__codelineno-20-75"></a>←   30 B  08 1c 01 80 11 73 69 6d 2d 64 66 75 92 10 00 00
+</span><span id="__span-20-76"><a id="__codelineno-20-76" name="__codelineno-20-76" href="#__codelineno-20-76"></a>          00 01 00 00 00 05 00 00 00 00 00 f0 01 57
+</span><span id="__span-20-77"><a id="__codelineno-20-77" name="__codelineno-20-77" href="#__codelineno-20-77"></a>→   43 B  08 29 02 03 10 00 57 57 44 50 01 92 10 00 00 02
+</span><span id="__span-20-78"><a id="__codelineno-20-78" name="__codelineno-20-78" href="#__codelineno-20-78"></a>          00 00 00 0a 00 e4 01 00 00 86 ba 52 71 00 2c c3
+</span><span id="__span-20-79"><a id="__codelineno-20-79" name="__codelineno-20-79" href="#__codelineno-20-79"></a>          5d 10 9b 6b 17 9f ae b3 bd 3c 02
+</span><span id="__span-20-80"><a id="__codelineno-20-80" name="__codelineno-20-80" href="#__codelineno-20-80"></a>←   15 B  08 0d 02 80 80 0a 00 00 00 80 07 00 00 00 19
+</span><span id="__span-20-81"><a id="__codelineno-20-81" name="__codelineno-20-81" href="#__codelineno-20-81"></a>→   57 B  08 37 03 03 40 07 00 00 00 04 00 a8 09 c6 1b 42
+</span><span id="__span-20-82"><a id="__codelineno-20-82" name="__codelineno-20-82" href="#__codelineno-20-82"></a>          94 29 60 00 00 00 00 75 69 83 ee 6e 08 b6 b8 eb
+</span><span id="__span-20-83"><a id="__codelineno-20-83" name="__codelineno-20-83" href="#__codelineno-20-83"></a>          0a 9b 06 86 20 ce d0 03 22 b3 1e 9e 38 e6 e8 1b
+</span><span id="__span-20-84"><a id="__codelineno-20-84" name="__codelineno-20-84" href="#__codelineno-20-84"></a>          3a cb 36 b6 50 fe 00 0c 02
+</span><span id="__span-20-85"><a id="__codelineno-20-85" name="__codelineno-20-85" href="#__codelineno-20-85"></a>←    4 B  03 03 80 80
+</span><span id="__span-20-86"><a id="__codelineno-20-86" name="__codelineno-20-86" href="#__codelineno-20-86"></a>→   57 B  08 37 04 03 40 07 00 00 00 04 00 a8 09 c6 1b 42
+</span><span id="__span-20-87"><a id="__codelineno-20-87" name="__codelineno-20-87" href="#__codelineno-20-87"></a>          94 29 60 20 00 00 00 33 52 e3 4e ce 68 16 18 4b
+</span><span id="__span-20-88"><a id="__codelineno-20-88" name="__codelineno-20-88" href="#__codelineno-20-88"></a>          6a fb 66 e6 80 2e 30 63 82 13 7e fe 98 46 48 7b
+</span><span id="__span-20-89"><a id="__codelineno-20-89" name="__codelineno-20-89" href="#__codelineno-20-89"></a>          9a 2b 96 16 b0 5e 60 0c 02
+</span><span id="__span-20-90"><a id="__codelineno-20-90" name="__codelineno-20-90" href="#__codelineno-20-90"></a>←    4 B  03 04 80 80
+</span><span id="__span-20-91"><a id="__codelineno-20-91" name="__codelineno-20-91" href="#__codelineno-20-91"></a>→   57 B  08 37 05 03 40 08 00 00 00 05 00 3b f9 a7 bd 49
+</span><span id="__span-20-92"><a id="__codelineno-20-92" name="__codelineno-20-92" href="#__codelineno-20-92"></a>          c0 f8 87 00 00 00 00 6e 65 74 20 76 32 87 6d 7c
+</span><span id="__span-20-93"><a id="__codelineno-20-93" name="__codelineno-20-93" href="#__codelineno-20-93"></a>          5d 3c 65 75 24 9f 85 94 75 54 7d 8d 3c b7 9d ac
+</span><span id="__span-20-94"><a id="__codelineno-20-94" name="__codelineno-20-94" href="#__codelineno-20-94"></a>          8d 6c 95 a5 54 cf b5 0c 02
+</span><span id="__span-20-95"><a id="__codelineno-20-95" name="__codelineno-20-95" href="#__codelineno-20-95"></a>←    4 B  03 05 80 80
+</span><span id="__span-20-96"><a id="__codelineno-20-96" name="__codelineno-20-96" href="#__codelineno-20-96"></a>→   57 B  08 37 06 03 40 08 00 00 00 05 00 3b f9 a7 bd 49
+</span><span id="__span-20-97"><a id="__codelineno-20-97" name="__codelineno-20-97" href="#__codelineno-20-97"></a>          c0 f8 87 20 00 00 00 c4 a5 84 ad bd 6c e7 cd dc
+</span><span id="__span-20-98"><a id="__codelineno-20-98" name="__codelineno-20-98" href="#__codelineno-20-98"></a>          bd 9c c5 d5 84 ff e5 f4 d5 b4 dd ed 9c 17 fd 0c
+</span><span id="__span-20-99"><a id="__codelineno-20-99" name="__codelineno-20-99" href="#__codelineno-20-99"></a>          ed cc f5 05 b4 2f 15 0c 02
+</span><span id="__span-20-100"><a id="__codelineno-20-100" name="__codelineno-20-100" href="#__codelineno-20-100"></a>←    4 B  03 06 80 80
+</span><span id="__span-20-101"><a id="__codelineno-20-101" name="__codelineno-20-101" href="#__codelineno-20-101"></a>→   57 B  08 37 07 03 40 09 00 00 00 06 00 d1 8f 7c e6 80
+</span><span id="__span-20-102"><a id="__codelineno-20-102" name="__codelineno-20-102" href="#__codelineno-20-102"></a>          78 12 57 00 00 00 00 6f 74 61 94 9a 86 af 33 c8
+</span><span id="__span-20-103"><a id="__codelineno-20-103" name="__codelineno-20-103" href="#__codelineno-20-103"></a>          a6 ea ac b2 9e c7 4b e0 be 02 c4 ca b6 df 63 f8
+</span><span id="__span-20-104"><a id="__codelineno-20-104" name="__codelineno-20-104" href="#__codelineno-20-104"></a>          d6 1a dc e2 ce f7 7b 0c 02
+</span><span id="__span-20-105"><a id="__codelineno-20-105" name="__codelineno-20-105" href="#__codelineno-20-105"></a>←    4 B  03 07 80 80
+</span><span id="__span-20-106"><a id="__codelineno-20-106" name="__codelineno-20-106" href="#__codelineno-20-106"></a>→   57 B  08 37 08 03 40 09 00 00 00 06 00 d1 8f 7c e6 80
+</span><span id="__span-20-107"><a id="__codelineno-20-107" name="__codelineno-20-107" href="#__codelineno-20-107"></a>          78 12 57 20 00 00 00 10 ee 32 f4 fa e6 0f 93 28
+</span><span id="__span-20-108"><a id="__codelineno-20-108" name="__codelineno-20-108" href="#__codelineno-20-108"></a>          06 4a 0c 12 fe 27 ab 40 1e 62 24 2a 16 3f c3 58
+</span><span id="__span-20-109"><a id="__codelineno-20-109" name="__codelineno-20-109" href="#__codelineno-20-109"></a>          36 7a 3c 42 2e 57 db 0c 02
+</span><span id="__span-20-110"><a id="__codelineno-20-110" name="__codelineno-20-110" href="#__codelineno-20-110"></a>←    4 B  03 08 80 80
+</span><span id="__span-20-111"><a id="__codelineno-20-111" name="__codelineno-20-111" href="#__codelineno-20-111"></a>→    5 B  04 09 03 60 02
+</span><span id="__span-20-112"><a id="__codelineno-20-112" name="__codelineno-20-112" href="#__codelineno-20-112"></a>←    4 B  03 09 80 80
+</span><span id="__span-20-113"><a id="__codelineno-20-113" name="__codelineno-20-113" href="#__codelineno-20-113"></a>→    6 B  05 0a 01 30 00 02
+</span><span id="__span-20-114"><a id="__codelineno-20-114" name="__codelineno-20-114" href="#__codelineno-20-114"></a>←    4 B  03 0a 80 80
+</span><span id="__span-20-115"><a id="__codelineno-20-115" name="__codelineno-20-115" href="#__codelineno-20-115"></a>←    3 B  30 c1 02
+</span><span id="__span-20-116"><a id="__codelineno-20-116" name="__codelineno-20-116" href="#__codelineno-20-116"></a>   ── device resets (into the app)
+</span><span id="__span-20-117"><a id="__codelineno-20-117" name="__codelineno-20-117" href="#__codelineno-20-117"></a>   ── device runs the app
+</span><span id="__span-20-118"><a id="__codelineno-20-118" name="__codelineno-20-118" href="#__codelineno-20-118"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-20-119"><a id="__codelineno-20-119" name="__codelineno-20-119" href="#__codelineno-20-119"></a>←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
+</span><span id="__span-20-120"><a id="__codelineno-20-120" name="__codelineno-20-120" href="#__codelineno-20-120"></a>          80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91 c1
+</span><span id="__span-20-121"><a id="__codelineno-20-121" name="__codelineno-20-121" href="#__codelineno-20-121"></a>          ef 0d 00 10 02 00 00 00 80 01 57
 </span></code></pre></div>
 </details>
 <h2 id="1l-upd-bulk-pit-stop-freight">1L-UPD-BULK: Pit-stop Freight<a class="headerlink" href="#1l-upd-bulk-pit-stop-freight" title="Permanent link">&para;</a></h2>

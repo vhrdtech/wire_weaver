@@ -3767,7 +3767,13 @@ is any increasing iterator of slot ids that can be cloned; <code>SetBits::new(&a
 child's size <code>4</code> in the parent's reverse lengths (after a padding nibble). The same bytes come out of writing the
 child into a buffer of its own first and <code>parent.write(1, &amp;child_vec, ..)</code>. Reading: <code>iter.next::&lt;OptionAnyVec&gt;()</code>
 gives the child, <code>child.iter()</code> its slots; <code>next_present()</code> jumps over absent slots, <code>present()</code> lists the present
-ids without reading values.</p>
+ids without reading values. <code>OptionAnyVecBuilderOwned</code> is the same builder for a <code>BufWriterOwned</code>, the bytes are
+the same.</p>
+<p><strong>Slots with gaps.</strong> A reader that knows slots 0, 1 and 5 but not 2..=4 reads them with <code>iter.read_slot::&lt;T&gt;(slot)</code>,
+which steps over the absent slots in between. A present slot in such a gap can't be stepped over (its type, so its
+size, is unknown): <code>read_slot</code> fails with <code>Error::OptionAnyVecUnknownSlot</code>. Gaps are for slots that are never
+present, as the methods between the properties of a trait level, never for slots a newer version might fill.</p>
+<p>A <a href="../derive/#sparse-a-struct-of-optional-fields"><code>sparse</code> struct</a> is an <code>OptionAnyVec</code> with a field per slot.</p>
 <p><code>OptionAnyVec</code> is <code>Unsized</code>; <code>EitherAnyVec</code> is the counterpart for <code>Either</code> slots that are all present (each
 element <code>L</code> or <code>R</code>, flags in-line in groups of 8, the element count implied).</p>
 <h2 id="next-step">Next step<a class="headerlink" href="#next-step" title="Permanent link">&para;</a></h2>

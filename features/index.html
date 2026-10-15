@@ -3608,7 +3608,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>SW-21 Multi-dimensional arrays</strong> (2D, 3D).</li>
 <li>🚧 <strong>SW-22 Fuzz <code>shrink_wrap</code></strong> — <code>fuzz/</code> has one <code>shrink_wrap</code> target, <code>shrink-wrap-tail-size</code> (<code>TailSize</code> types
   round-tripped, random bytes into their readers); <code>shrink-wrap-series</code> (SW-31, SW-32) and <code>shrink-wrap-ref-vec</code>
-  (SW-37) came with their features, <code>shrink-wrap-option-any-vec</code> with SW-55. Round-trip every built-in type and the derive's features.</li>
+  (SW-37) came with their features, <code>shrink-wrap-option-any-vec</code> with SW-55 and DER-13 (sparse structs). Round-trip every built-in type and the derive's features.</li>
 <li>🔍 <strong>SW-23 Tuple enum variants evolution</strong> — check that tuple variants evolve as <code>docs/evolution/rules.md</code> says
   (fields can be appended) and add a test.</li>
 <li>💡 <strong>SW-24 ZigZag encoding for signed variable length numbers</strong> — consider ZigZag (as in protobuf) so that small
@@ -3641,6 +3641,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>core::error::Error</code> (borrowed and owned) from the first doc line of each variant/struct, <code>{field}</code> filled in,
   <code>#[display("..")]</code> to override; a variant with neither is a compile error. Error enums need no hand-written
   <code>Display</code> on hosts (<code>docs/serdes/derive.md</code>; test <code>shrink_wrap/tests/display.rs</code>).</li>
+<li>✅ <strong>DER-13 Sparse structs</strong>: <code>#[derive_shrink_wrap(sparse, ..)]</code> on a struct of <code>Option&lt;T&gt;</code> fields (borrowed and
+  owned) encodes it as an <code>OptionAnyVec</code> (SW-55), one slot per field in declaration order or at <code>#[slot = N]</code>
+  (increasing, gaps allowed, a present value in a gap is <code>Error::OptionAnyVecUnknownSlot</code>); a nested sparse struct
+  is one slot. Fields are only appended. A non-<code>Option</code> field or a combination with <code>final_structure</code> / <code>sized</code> /
+  <code>self_describing</code> / <code>fixed_layout</code> / <code>head_tail</code> is a compile error. For the per trait level <code>&lt;Level&gt;Update</code> of
+  SRV-18 (<code>docs/serdes/derive.md</code>, <code>docs/evolution/rules.md</code>; test <code>shrink_wrap/tests/sparse.rs</code>, fuzz
+  <code>shrink-wrap-option-any-vec</code>). API types may use it, but <code>ww_self</code> has no sparse struct yet: introspection
+  describes one as a plain struct of <code>Option</code>s, so dynamic clients decode it wrong until TOOL-11.</li>
 <li>📋 <strong>DER-5 <code>#[since = "x.y.z"]</code> on fields</strong> — generate correct evolution code from it (<code>TODO</code> in
   <code>shrink_wrap_derive/src/lib.rs</code>).</li>
 <li>📋 <strong>DER-6 Check that <code>TailBytes</code> ends the outer type too</strong> — a struct ending in <code>TailBytes</code> used as a non-last field
@@ -3736,7 +3744,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>Periodic</code> or <code>OnChangeOrBeat</code> and a byte budget, the device answers with what it granted; updates arrive as one
   <code>EventKind::PropertyUpdate</code> per level carrying any subset of its properties (SW-55). Only <code>+observe</code> properties
   can be observed. The protocol is there (<code>ww_client_server::observe</code>,
-  <code>docs/std_library/ww_client_server.md</code>); the device side is SRV-18, the host side
+  <code>docs/std_library/ww_client_server.md</code>), the device side too (SRV-18); the host side is
   CLT-28.</li>
 <li>💡 <strong>API-39 Batched property samples</strong> — K samples of one fast property in one update, compressed with <code>Delta</code> /
   <code>XorFloat</code> (SW-50), for values sampled faster than the link can carry one update each.</li>
@@ -3759,7 +3767,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   fields might be a good ergonomic: users see the names through IDE lookup instead of guessing array indices.</li>
 <li>📋 <strong>API-29 Bounds of resource array indices</strong> · <code>v0.5.x</code> — <code>stream!(adc[8]: u16)</code> or <code>motor[1..=4]</code>, checked by the
   server before a handler is called and visible in introspection (<code>docs/api/arrays.md</code>). Lengths of lists and
-  strings inside a resource's type are bounded with <code>MaxLen</code> (SW-19).</li>
+  strings inside a resource's type are bounded with <code>MaxLen</code> (SW-19). With a bound, observed properties (SRV-18) can
+  get a table per array element: until then a trait level in a resource array can't be observed.</li>
 <li>🚧 <strong>API-30 Counted and reliable streams</strong> · <code>v0.5</code> — counted streams put a head in every event (flags and a
   length-coded 64-bit <code>pos</code> in units the device names when it sends, the event's <code>units</code>, <code>lost</code>, optional device time
   <code>t</code>), so drops on the device, link losses and duplicates are reported exactly and item types carry no <code>seq</code> /
@@ -3813,6 +3822,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   Header slots and records checked by CRC at boot, so garbage after a power-on is never taken for data; continues
   session and positions like <code>LogStore</code>, a new clock epoch per boot. Tested with a fault after every byte written
   (<code>ww_stream/src/tests/persistent_ram.rs</code>); <code>docs/api/stream_stores.md</code>.</li>
+<li>✅ <strong>SRV-18 Observed properties on the device</strong> — servers of APIs with <code>+observe</code> properties answer <code>Observe</code>
+  requests (API-38) and send <code>PropertyUpdate</code>s from the generated <code>poll_properties</code>: <code>ObserveState</code> with one table
+  per trait level sized at compile time, a sparse <code>&lt;Trait&gt;Update</code> per level (DER-13), <code>mark_changed_&lt;name&gt;()</code> (called
+  for <code>value_on_changed</code> writes), periodic properties sampled through their getter. A token bucket per level at the
+  granted budget, earliest deadline first, at most one update per level per call, the rest slips and counts as
+  missed; properties have a reserved share of the link (<code>ObserveLimits::total_budget</code>) next to stored streams.
+  <code>Observe</code> is untrusted input: validated in full before anything changes, clamped, bounded work, refused per
+  entry. Levels under a resource array answer <code>OperationNotSupported</code> until their bound is known (API-29), <code>+observe</code>
+  properties in an array or <code>#[optional]</code> aren't observable yet. <code>ww_stream::observe</code>,
+  <code>docs/api/properties.md#observing-changes</code>; tests <code>tests/observe</code> (fake clock, real host event loop),
+  <code>ww_stream/src/observe/tests.rs</code>.</li>
 <li>⛔ <strong>SRV-8 One crate per role for firmware and host</strong> · <code>v0.5</code> — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into <code>wire_weaver</code> behind features or splitting by
   std/no_std:</li>
@@ -3874,8 +3894,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   commented out in <code>tests/traits</code>. Its generated code serializes arguments into a fixed 128 byte scratch and
   then calls <code>.to_vec()</code>, which isn't <code>no_std</code>; it should write into a caller-provided buffer instead. The std
   clients (<code>std_client</code>, <code>trait_client</code>) already serialize with <code>to_ww_bytes_owned()</code> and have no size limit.</li>
-<li>🚧 <strong>CLT-15 Multi read/write/call</strong> · <code>v0.5.x</code> — <code>MultiRead</code> exists as a prototype; multi write and call are missing,
-  and full multi-property support.</li>
+<li>🚧 <strong>CLT-15 Multi read/write/call</strong> · <code>v0.5.x</code> — servers with <code>multi_req = true</code> dispatch <code>MultiRead</code>, <code>MultiCall</code>
+  and <code>MultiWrite</code> (<code>Same</code> or <code>Different</code> args), each index answered on its own (<code>Either&lt;Error, value&gt;</code>), and answer
+  malformed multi requests with errors instead of panicking (<code>tests/multi_req</code>). Missing: the client API for multi
+  write and call (<code>multi_read()</code> takes 2-tuples at the root only), deferred methods inside a multi request (refused
+  with <code>OperationNotSupported</code>), and full multi-property support.</li>
 <li>📋 <strong>CLT-16 Verify the hash of a cached API bundle</strong> · <code>v0.5.x</code> (<code>wire_weaver_client/src/local_registry.rs</code>).</li>
 <li>📋 <strong>CLT-17 Reliable requests over unreliable media</strong> · <code>v0.5.x</code> — a second, non-increasing seq number to guard against
   a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.</li>
@@ -3938,6 +3961,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   run unannounced, how the hash is versioned. Needed by <code>ww_dfu</code> updates over slow links.</li>
 <li>💡 <strong>TR-11 MQTT / store-and-forward transport</strong> — devices offline most of the time pick up a retained message on
   wake (an update plan, config), replies queued on the broker. Look at MQTT-SN and LwM2M first.</li>
+<li>🚧 <strong>TR-12 USB throughput on small MCUs</strong> — measured with <code>ww usb-loopback</code> on Donguru (STM32G0B1, Cortex-M0+
+  64 MHz, USB FS behind the board's HS hub, 15 Oct 2026). Done: U2Head encodes and decodes whole bytes in u32
+  instead of bit by bit (<code>ww_framer</code> <code>framed.rs</code>, was ~15% of the device's CPU per packet); the async device server
+  flushes replies at once when no other request waits instead of after the accumulation window (<code>ww_device</code>
+  <code>Server::handle</code>; DFU transcripts +1-2 packets). <code>WireWeaverClass::with_endpoints()</code> lets
+  firmware allocate the endpoints, e.g. double-buffered bulk ones (Donguru, embassy-rs/embassy#7275: raw bulk 500 -&gt;
+  950 kB/s OUT on the G0). Next: CRC through a pluggable checksum so MCUs can use their
+  CRC unit (~13% of the CPU per packet on the M0+); a host-side flush for lone requests that keeps packetization
+  deterministic (flushing whenever the event loop goes idle made the DFU transcripts vary between runs); the same
+  reply flush for the blocking server.</li>
 </ul>
 <h2 id="introspection-ww_self-int">Introspection (<code>ww_self</code>, <code>INT</code>)<a class="headerlink" href="#introspection-ww_self-int" title="Permanent link">&para;</a></h2>
 <ul>
@@ -4194,6 +4227,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>TEST-19 Lossy test medium</strong> · <code>v0.5</code> — an in-process medium that drops, duplicates, reorders, stalls and
   disconnects on a seeded schedule, with the stream reliability scenarios S1-S6 as end-to-end tests
   (<code>docs/api/stream_reliability.md</code>).</li>
+<li>🐛 <strong>TEST-20 DFU transcript 1L-UPD-STEP races</strong>: after the power cut, the host annotation "the call fails (link
+  lost)" and the bootloader's "an update is under way" are recorded in either order, so
+  <code>scenarios::pit_stop_shuttle_1l_upd_step</code> fails now and then (~2 in 10 alone, more often under the full parallel
+  <code>just test</code>). Seen before the TR-12 changes too. The recorder needs one order for events of the host and the
+  simulated device that happen at the same time. Found 15 Oct 2026.</li>
 <li>💡 <strong>TEST-16 Host queue on a slow VM</strong> — does it lead to fewer or no missed packets?</li>
 </ul>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>

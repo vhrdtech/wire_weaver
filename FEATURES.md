@@ -564,6 +564,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   run unannounced, how the hash is versioned. Needed by `ww_dfu` updates over slow links.
 - 💡 **TR-11 MQTT / store-and-forward transport** — devices offline most of the time pick up a retained message on
   wake (an update plan, config), replies queued on the broker. Look at MQTT-SN and LwM2M first.
+- 🚧 **TR-12 USB throughput on small MCUs** — measured with `ww usb-loopback` on Donguru (STM32G0B1, Cortex-M0+
+  64 MHz, USB FS, 15 Oct 2026). Done: U2Head encodes and decodes whole bytes instead of bit by bit (`ww_framer`
+  `framed.rs`, was ~15% of the device's CPU per packet). Next: double-buffered bulk endpoints in
+  `wire_weaver_usb_embassy` once embassy-usb releases `endpoint_bulk_*_double_buffered` (raw bulk 500 → 950 kB/s
+  OUT on the G0, needs the usb_v4 port in embassy-stm32); flush a partial frame at once when the sender has nothing
+  else queued instead of after the full accumulation window (round trips); CRC through a pluggable checksum so MCUs
+  can use their CRC unit (~13% of the CPU per packet on the M0+).
 
 ## Introspection (`ww_self`, `INT`)
 

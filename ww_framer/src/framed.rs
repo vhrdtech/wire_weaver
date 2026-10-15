@@ -42,6 +42,17 @@ impl Head for U2Head {
         len: usize,
         wr: &mut BufWriter<'_>,
     ) -> Result<(), WrError> {
+        // Fast path at a byte boundary (always the case at the start of a frame and after a message): every form
+        // is then a whole number of bytes, written at once instead of through the bit writer, which costs ~10x
+        // more on small MCUs.
+        if wr.pos().1 == 7
+            && let Some((bits, len_bytes)) = encode(kind, user_kind, len)
+        {
+            for i in (0..len_bytes).rev() {
+                wr.write_u8((bits >> (8 * i)) as u8)?;
+            }
+            return Ok(());
+        }
         wr.write_un8(2, kind as u8)?;
         if user_kind <= 2 {
             wr.write_un8(2, user_kind)?;
@@ -74,13 +85,16 @@ impl Head for U2Head {
     }
 
     fn read(rd: &mut BufReader<'_>) -> Result<(MessageKind, Self::UserKind, usize), RdError> {
-        let kind = rd.read_un8(2)?;
-        let kind = match kind {
-            0 => MessageKind::Full,
-            1 => MessageKind::Start,
-            2 => MessageKind::Continue,
-            _ => MessageKind::End,
-        };
+        // Fast path at a byte boundary, see write(). Not enough data or a bad length go through the bit reader
+        // from the same position, which reports them.
+        if rd.pos().1 == 7 {
+            let mut fast = *rd;
+            if let Some(head) = decode(&mut fast) {
+                *rd = fast;
+                return Ok(head);
+            }
+        }
+        let kind = MessageKind::from_bits(rd.read_un8(2)?);
         let user_kind = rd.read_un8(2)?;
         let user_kind = if user_kind <= 2 {
             user_kind
@@ -115,9 +129,67 @@ impl Head for U2Head {
     }
 }
 
+const LARGE: bool = cfg!(any(feature = "large", test));
+const VERY_LARGE: bool = cfg!(any(feature = "very_large", test));
+
+/// [U2Head] as a big-endian bit string in the lowest `8 * n` bits of the result, with its length `n` in bytes,
+/// when it starts at a byte boundary. None if `len` is too big for the enabled forms.
+fn encode(kind: MessageKind, user_kind: u8, len: usize) -> Option<(u64, u32)> {
+    let (mut bits, mut nbits) = if user_kind <= 2 {
+        (((kind as u64) << 2) | user_kind as u64, 4)
+    } else {
+        (((kind as u64) << 10) | (0b11 << 8) | user_kind as u64, 12)
+    };
+    let (prefix, prefix_bits, len_bits) = if len <= 7 {
+        (0b0, 1, 3)
+    } else if len < 1024 {
+        (0b10, 2, 10)
+    } else if LARGE && len < 131_072 {
+        (0b110, 3, 17)
+    } else if VERY_LARGE && len < 16_777_216 {
+        (0b1110, 4, 24)
+    } else {
+        return None;
+    };
+    bits = (bits << prefix_bits) | prefix;
+    bits = (bits << len_bits) | len as u64;
+    nbits += prefix_bits + len_bits;
+    Some((bits, nbits / 8))
+}
+
+/// Reads a [U2Head] starting at a byte boundary from whole bytes. None if there is not enough data or the
+/// length form is not valid, `rd` is then left at an unspecified position.
+fn decode(rd: &mut BufReader<'_>) -> Option<(MessageKind, u8, usize)> {
+    let b0 = rd.read_u8().ok()?;
+    let kind = MessageKind::from_bits(b0 >> 6);
+    // user kind, and the nibble that starts the length form with the bits after it in `rest`
+    let (user_kind, nib) = if (b0 >> 4) & 0b11 != 0b11 {
+        ((b0 >> 4) & 0b11, b0 & 0x0f)
+    } else {
+        let b1 = rd.read_u8().ok()?;
+        (((b0 & 0x0f) << 4) | (b1 >> 4), b1 & 0x0f)
+    };
+    let (len_bytes_after, len) = if nib & 0b1000 == 0 {
+        return Some((kind, user_kind, (nib & 0b111) as usize));
+    } else if nib & 0b0100 == 0 {
+        (1, (nib & 0b11) as usize)
+    } else if LARGE && nib & 0b0010 == 0 {
+        (2, (nib & 0b1) as usize)
+    } else if VERY_LARGE && nib & 0b0001 == 0 {
+        (3, 0)
+    } else {
+        return None;
+    };
+    let mut len = len;
+    for _ in 0..len_bytes_after {
+        len = (len << 8) | rd.read_u8().ok()? as usize;
+    }
+    Some((kind, user_kind, len))
+}
+
 #[cfg(test)]
 mod tests {
-    use shrink_wrap::{BufReader, BufWriter};
+    use shrink_wrap::{BufReader, BufWriter, Nibble};
 
     use crate::{
         Tx,
@@ -125,6 +197,78 @@ mod tests {
         tests::common::*,
         traits::{Head, MessageKind, NopChecksum, NopTail, RdError, WrError},
     };
+
+    /// The bit by bit encoding the byte fast paths of [U2Head] must match.
+    fn reference_write(kind: MessageKind, user_kind: u8, len: usize, wr: &mut BufWriter<'_>) {
+        wr.write_un8(2, kind as u8).unwrap();
+        if user_kind <= 2 {
+            wr.write_un8(2, user_kind).unwrap();
+        } else {
+            wr.write_un8(2, 0b11).unwrap();
+            wr.write_un8(8, user_kind).unwrap();
+        }
+        if len <= 7 {
+            wr.write_nib(Nibble::new(len as u8).unwrap()).unwrap();
+        } else if len < 1024 {
+            wr.write_un8(2, 0b10).unwrap();
+            wr.write_un16(10, len as u16).unwrap();
+        } else if len < 131_072 {
+            wr.write_un8(3, 0b110).unwrap();
+            wr.write_un32(17, len as u32).unwrap();
+        } else {
+            wr.write_nib(Nibble::new(0b1110).unwrap()).unwrap();
+            wr.write_un32(24, len as u32).unwrap();
+        }
+    }
+
+    #[test]
+    fn fast_path_matches_bit_encoding() {
+        let kinds = [
+            MessageKind::Full,
+            MessageKind::Start,
+            MessageKind::Continue,
+            MessageKind::End,
+        ];
+        let lens = (0..1100).chain([131_071, 131_072, 16_777_215]);
+        for len in lens {
+            for kind in kinds {
+                for user_kind in [0, 1, 2, 3, 15, 255] {
+                    // byte aligned: fast paths
+                    let mut fast = [0u8; 8];
+                    let mut wr = BufWriter::new(&mut fast);
+                    U2Head::write(kind, user_kind, len, &mut wr).unwrap();
+                    let n = wr.pos().0;
+                    let mut reference = [0u8; 8];
+                    let mut wr = BufWriter::new(&mut reference);
+                    reference_write(kind, user_kind, len, &mut wr);
+                    assert_eq!(n, wr.pos().0, "{kind:?} {user_kind} {len}");
+                    assert_eq!(fast[..n], reference[..n], "{kind:?} {user_kind} {len}");
+                    let mut rd = BufReader::new(&fast[..n]);
+                    assert_eq!(U2Head::read(&mut rd), Ok((kind, user_kind, len)));
+                    assert_eq!(rd.pos(), (n, 7));
+
+                    // one nibble off: bit by bit paths (the 3-bit length form is nibble aligned on write)
+                    let mut buf = [0u8; 8];
+                    let mut wr = BufWriter::new(&mut buf);
+                    wr.write_nib(Nibble::new(0xA).unwrap()).unwrap();
+                    U2Head::write(kind, user_kind, len, &mut wr).unwrap();
+                    let mut rd = BufReader::new(&buf);
+                    assert_eq!(rd.read_nib().unwrap().value(), 0xA);
+                    assert_eq!(U2Head::read(&mut rd), Ok((kind, user_kind, len)));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn fast_path_short_input_needs_more_data() {
+        // 2-byte form with only its first byte present
+        let mut buf = [0u8; 2];
+        let mut wr = BufWriter::new(&mut buf);
+        U2Head::write(MessageKind::Start, 0, 1000, &mut wr).unwrap();
+        let mut rd = BufReader::new(&buf[..1]);
+        assert!(U2Head::read(&mut rd).is_err());
+    }
 
     #[test]
     fn sanity() {

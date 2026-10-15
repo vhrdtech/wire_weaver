@@ -28,13 +28,16 @@ Branch `s/15oct2026-ww-settings`. Plan and datasheet figures: `~/git/tpm/prj/P24
   part filed as P2401#15oct-2157 (TEST-21, after API-11 or with the PA6 poke).
 - `settings-dump` (TOOL-12): done, its commit cherry-picked here (7312401b) + dump now imports store's layout
   constants (3dd17872). Its own branch must not land separately.
-- `settings-demo` (examples/settings + nucleo_g0b1re/h743zi2 bins, from 109ec5c1): running.
+- `settings-demo` (EX-15): done, cherry-picked here (a33a3dbb..0c2ab930) + fix on top (persist without a host,
+  maintain() after a write, ECC driver note). Its branch must not land on its own.
   Both branched before 7194c580 (dropped-future fix) and da6adba7 (slot_decodes, docs): the `SettingsGroup` trait
   gained `slot_decodes`, only matters to a hand-written impl.
 
 ## Next
 
-1. Wait for settings-demo to say ready; check it, cherry-pick it here as with settings-dump.
+1. /mnt/data on gpd-omarchy is offline for a reformat (user, 15 Oct 22:30): no cargo there until the user says
+   it's back. Then: `just lint`, `just test`, `just check` on the whole branch (the demo bins passed
+   check-examples-mcu-nucleo-*; host `settings` test passes; full lint/test not yet run after the cherry-picks).
 2. Done (second conversation): `just lint`, `just test` (1101 pass), `just check` all clean on 197d9359.
 3. The docs page refers to `mcu/ww_ecc_flash` (SRV-19, on the ecc-safe-flash branch) and ArrayString (SW-57, on
    sw-array-string): fine once those land.

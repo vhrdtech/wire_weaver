@@ -470,7 +470,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   own repo, [picoboot_host](https://github.com/vhrdtech/picoboot_host) (evaluated the crates.io `picoboot` 0.3.0
   crate first: no sans-IO boundary to put `SimRp2350` behind, no `Image`/UF2 handling, no orchestrated flash+verify,
   no `chip_id`/`GET_INFO` — adopting it would have meant donating most of `ww_picoboot` upstream anyway); wire_weaver
-  depends on it as `ww_picoboot` (a path dependency for now, no GitHub release or crates.io version yet). `wire_weaver_client`'s `picoboot`
+  depends on it as `ww_picoboot` (a git dependency on github.com/vhrdtech/picoboot_host until it is on crates.io). `wire_weaver_client`'s `picoboot`
   feature (off by default) gates `follow::rp2_update()` and the `ww_picoboot` re-export, so a host app that only
   talks WireWeaver over USB doesn't pull in PICOBOOT; `ww bootsel` turns it on, and `follow::rp2_update_with()` (what
   `tests/follow_reboot` runs against a simulated device) needs neither it nor `usb`. Missing: a run against a Pico 2 /

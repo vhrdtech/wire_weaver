@@ -1,6 +1,7 @@
 //! Observed properties end to end (SRV-18): `Observe` requests and `PropertyUpdate` events between the generated
-//! server, polled with a fake clock, and the real host event loop (`tests_common`). Requests go out raw through the
-//! `Commander` and updates are read from a tracer, until the typed host side (CLT-28) exists.
+//! server, polled with a fake clock, and the real host event loop (`tests_common`). The device side tests send
+//! requests raw through the `Commander` and read updates from a tracer, the host side ones (CLT-28, at the end) go
+//! through the generated client: `observe(cfg)`, `observe_<name>(mode)`, `configure`, the latest-value cache.
 
 #[cfg(test)]
 mod tests {
@@ -280,7 +281,7 @@ mod tests {
             }
         }
 
-        mod api_client {
+        pub mod api_client {
             wire_weaver::ww_codegen!(
                 observe_api :: Observe for super::Client,
                 client = "std_client",
@@ -863,5 +864,208 @@ mod tests {
         }
         // the full answer is bigger than its header: some sizes failed after the table was set
         assert!(applied_at.is_some_and(|len| len > 8), "{applied_at:?}");
+    }
+
+    // Host side (CLT-28): the generated client's observe(cfg) / observe_<name>(mode)
+
+    use client::api_client::observe_api_observe::ObserveObserve;
+    use client::api_client::observe_api_observe::observe_api_motor::MotorObserve;
+    use wire_weaver_client::observe::{
+        Granted, on_change as change, on_change_or_beat, periodic as every,
+    };
+
+    const MS: Duration = Duration::from_millis(1);
+
+    /// Settings the device applies to the level at `path` now, without changing them (an empty patch)
+    async fn device_settings(b: &Bench, path: &[u32]) -> Vec<ObserveEntry> {
+        b.observe(path, &[], true, None).await.unwrap().0
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_observes_a_level() {
+        let b = Bench::start("observe/host_observes_a_level", limits()).await;
+        let mut motor = b
+            .client
+            .motor()
+            .observe(
+                MotorObserve::default()
+                    .speed(every(10 * MS))
+                    .position(every(20 * MS)),
+            )
+            .budget(10_000)
+            .subscribe()
+            .await
+            .unwrap();
+        let granted = motor.granted().unwrap();
+        assert_eq!(
+            granted,
+            Granted {
+                modes: MotorObserve::default()
+                    .speed(every(10 * MS))
+                    .position(every(20 * MS)),
+                budget: 10_000,
+                refused: vec![],
+            }
+        );
+        b.run(1_000, 40_000, 1_000).await;
+        let mut speeds = 0;
+        let mut positions = 0;
+        while let Some(u) = motor.try_recv().unwrap() {
+            let t = match u.t.map(|t| t.value) {
+                Some(ww_si::ww_numeric::NumericValue::U64(t)) => t,
+                t => panic!("timestamp {t:?}"),
+            };
+            if let Some(speed) = u.value.speed {
+                assert_eq!(speed as u64, t / 1_000);
+                speeds += 1;
+            }
+            positions += u.value.position.is_some() as u32;
+            assert!(u.value.current.is_none(), "not observed");
+            assert_eq!(u.missed, 0);
+        }
+        assert!((4..=5).contains(&speeds), "{speeds}");
+        assert!((2..=3).contains(&positions), "{positions}");
+        // the latest-value cache
+        motor.with_latest(|l| {
+            let speed = l.speed.as_ref().unwrap();
+            assert!(speed.value >= 30, "{speed:?}");
+            assert!(speed.t.is_some());
+            assert!(l.position.is_some());
+            assert!(l.current.is_none());
+        });
+    }
+
+    /// Several observers of one level: one subscription on the device that covers them all, a property observer
+    /// gets just its property, the level is turned off when the last one goes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_fans_out_and_counts_observers() {
+        let mut b = Bench::start("observe/host_fans_out", limits()).await;
+        let mut temp = b
+            .client
+            .observe_temp(change(10 * MS))
+            .subscribe()
+            .await
+            .unwrap();
+        let mut mode = b
+            .client
+            .observe_mode(change(MS))
+            .subscribe()
+            .await
+            .unwrap();
+        // temp also every 50 ms from another observer: both get at least what they asked for
+        let level = b
+            .client
+            .observe(ObserveObserve::default().temp(every(50 * MS)))
+            .subscribe()
+            .await
+            .unwrap();
+        assert_eq!(
+            level.granted().unwrap().modes,
+            ObserveObserve::default()
+                .temp(on_change_or_beat(10 * MS, 50 * MS))
+                .mode(change(MS))
+        );
+        assert_eq!(
+            device_settings(&b, &[]).await,
+            [
+                ObserveEntry {
+                    index: UNib32(TEMP),
+                    mode: on_change_or_beat(10 * MS, 50 * MS)
+                },
+                on_change(MODE, 1_000)
+            ]
+        );
+
+        b.at(1_000).await;
+        b.client.write_mode(7).write().await.unwrap();
+        b.client.set_temp(1.5).call().await.unwrap();
+        b.run(2_000, 30_000, 1_000).await;
+        // initial values (again after each change of the level's settings), then the changes, each observer just
+        // its property
+        let mut modes = vec![];
+        while let Some(m) = mode.try_recv().unwrap() {
+            modes.push(m.value);
+        }
+        assert_eq!(modes.last(), Some(&7), "{modes:?}");
+        assert!(modes[..modes.len() - 1].iter().all(|m| *m == 0), "{modes:?}");
+        let mut temps = vec![];
+        while let Some(t) = temp.try_recv().unwrap() {
+            temps.push(t.value);
+        }
+        assert_eq!(temps.last(), Some(&1.5), "{temps:?}");
+        assert!(temps[..temps.len() - 1].iter().all(|t| *t == 0.0), "{temps:?}");
+
+        // the level observer goes: temp on change only
+        drop(level);
+        let mut settings = vec![];
+        for _ in 0..100 {
+            settings = device_settings(&b, &[]).await;
+            if settings[0] == on_change(TEMP, 10_000) {
+                break;
+            }
+            tokio::time::sleep(MS).await;
+        }
+        assert_eq!(settings, [on_change(TEMP, 10_000), on_change(MODE, 1_000)]);
+
+        // configure: what this observer asks for changes, the answer is what the device applies
+        let granted = mode.configure(ObserveObserve::default().mode(every(20 * MS))).await.unwrap();
+        assert_eq!(
+            granted.modes,
+            ObserveObserve::default()
+                .temp(change(10 * MS))
+                .mode(every(20 * MS))
+        );
+
+        // the last ones go: the level is off
+        drop(temp);
+        drop(mode);
+        for _ in 0..100 {
+            settings = device_settings(&b, &[]).await;
+            if settings.is_empty() {
+                break;
+            }
+            tokio::time::sleep(MS).await;
+        }
+        assert!(settings.is_empty(), "{settings:?}");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_observes_unsized_values_blocking() {
+        let b = Arc::new(Bench::start("observe/host_unsized_blocking", limits()).await);
+        let b2 = b.clone();
+        let mut label = tokio::task::spawn_blocking(move || {
+            b2.client
+                .observe_label(every(10 * MS))
+                .subscribe_blocking()
+                .unwrap()
+        })
+        .await
+        .unwrap();
+        b.run(1_000, 21_000, 10_000).await;
+        let labels = tokio::task::spawn_blocking(move || {
+            (0..3)
+                .map(|_| label.recv_blocking().unwrap().value)
+                .collect::<Vec<_>>()
+        })
+        .await
+        .unwrap();
+        assert_eq!(labels, ["hello"; 3]);
+    }
+
+    /// A property without `+observe` keeps the stream data `observe_<name>()` (a device sends its changes by hand
+    /// with `stream_data_ser()`); a level under a resource array has no `observe()` yet (SRV-18 answers
+    /// `OperationNotSupported`), so `client.bank(0)` has none.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_plain_property_keeps_stream_observe() {
+        let b = Bench::start("observe/host_plain_property", limits()).await;
+        let mut plain = b.client.observe_plain().await.unwrap();
+        assert!(plain.try_recv().unwrap().is_none());
+        let level = b
+            .client
+            .observe(ObserveObserve::default().mode(change(MS)))
+            .subscribe()
+            .await
+            .unwrap();
+        assert!(level.granted().unwrap().refused.is_empty());
     }
 }

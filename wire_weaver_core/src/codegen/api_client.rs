@@ -292,7 +292,8 @@ fn client_structs_recursive(
     };
     let source_marker = util::source_marker(api_level, api_bundle);
     ts.extend(quote! {
-        mod #mod_name {
+        // pub: users name the level's observe types (`<Trait>Observe`, `<Trait>Update`)
+        pub mod #mod_name {
             #source_marker
             use super::*;
 

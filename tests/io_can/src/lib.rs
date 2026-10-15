@@ -13,10 +13,12 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_can_bus::{
-        BitTiming, BusError, BusLevel, CanConfig, CanError, CanErrorOwned, CanId, Capabilities,
-        Direction, ErrorState, FdConfig, Filter, FilterAction, FilterMatch, FrameKind, Mode,
-        NonMatching, Ohm, Options, Phase, ProtocolError, RxOverflow, Status, Tdc, Termination,
-        Timing, TimingLimits, TxOrder, TxOutcome, TxPin,
+        Activity, BitTiming, BusError, BusLevel, BusLoad, CanConfig, CanError, CanErrorOwned,
+        CanId, Capabilities, Direction, ErrorState, FdConfig, Filter, FilterAction, FilterMatch,
+        FrameKind, MemoryLayout, Mode, NonMatching, Ohm, Options, Phase, ProtocolError,
+        ProtocolStatus, RxOverflow, Status, Tdc, Termination, Timing, TimingLimits,
+        TransceiverFault, TransceiverMode, TransceiverModes, TransceiverState, TxOrder, TxOutcome,
+        TxPin,
     };
     use ww_si::{Baud, Hertz, Second};
 
@@ -47,6 +49,8 @@ mod tests {
         TxEvent(Option<u32>, CanId, TxOutcome),
         BusError(BusError),
         Status,
+        BusLoad(BusLoad),
+        Transceiver,
     }
 
     /// Device behaviour and what it received, shared with the test.
@@ -64,6 +68,42 @@ mod tests {
         queued: Vec<(MockFrame, Option<u32>)>,
         hold_tx: bool,
         pending: Vec<Pending>,
+        layout: MemoryLayout,
+        transceiver: TransceiverState,
+        /// Nominal timing the other nodes of the mock's bus run at, for `detect_timing`
+        bus_timing: BitTiming,
+        /// Mode to return to on a wake-up
+        before_sleep: Mode,
+    }
+
+    /// Message RAM of the mock in 32-bit words (as an STM32H7 FDCAN, 2560 shared by its instances).
+    const RAM_WORDS: u32 = 2560;
+
+    /// Words a layout takes: filters 1 / 2 words, RX / TX elements 2 header words + data, TX events 2 words.
+    fn layout_words(l: &MemoryLayout) -> u32 {
+        let element = 2 + l.element_data as u32 / 4;
+        l.standard_filters as u32
+            + 2 * l.extended_filters as u32
+            + element
+                * (l.rx_fifos[0] as u32
+                    + l.rx_fifos[1] as u32
+                    + l.rx_buffers as u32
+                    + l.tx_buffers as u32
+                    + l.tx_queue as u32)
+            + 2 * l.tx_events as u32
+    }
+
+    fn default_layout() -> MemoryLayout {
+        MemoryLayout {
+            standard_filters: 3,
+            extended_filters: 2,
+            rx_fifos: [32, 32],
+            rx_buffers: 4,
+            tx_buffers: 4,
+            tx_queue: 32,
+            tx_events: 32,
+            element_data: 64,
+        }
     }
 
     fn default_config() -> CanConfig {
@@ -83,6 +123,9 @@ mod tests {
                 tx_pause: false,
                 tx_order: TxOrder::Fifo,
                 rx_overflow: RxOverflow::KeepOldest,
+                edge_filtering: false,
+                protocol_exception: true,
+                wake_on_bus: false,
             },
             bus_off_recovery: None,
         }
@@ -107,6 +150,13 @@ mod tests {
                 queued: vec![],
                 hold_tx: false,
                 pending: vec![],
+                layout: default_layout(),
+                transceiver: TransceiverState {
+                    mode: TransceiverMode::Normal,
+                    fault: None,
+                },
+                bus_timing: segments_for(Baud::kilobaud(250u16), 875).unwrap(),
+                before_sleep: Mode::Off,
             }
         }
     }
@@ -135,7 +185,9 @@ mod tests {
             });
             match hit {
                 Some(i) => match filters[i].action {
-                    FilterAction::Fifo(_) => self.pending.push(Pending::Rx(frame, Some(i as u32))),
+                    FilterAction::Fifo { .. } => {
+                        self.pending.push(Pending::Rx(frame, Some(i as u32)))
+                    }
                     FilterAction::Buffer(b) => self.rx_buffers[b as usize] = Some(frame),
                     _ => {}
                 },
@@ -215,12 +267,17 @@ mod tests {
             internal_loopback: true,
             external_loopback: full,
             test_mode: full,
+            sleep: full,
             one_shot: true,
             presume_ack: false,
             triple_sample: false,
             tx_pause: full,
             tx_order: full,
             rx_overflow: full,
+            edge_filtering: full,
+            protocol_exception: full,
+            wake_on_bus: full,
+            long_dlc: false,
             auto_recovery: true,
             timestamps: Some(ww_can_bus::TimestampInfo {
                 resolution: Second::microseconds(1u8),
@@ -235,10 +292,22 @@ mod tests {
             extended_filters: if full { 2 } else { 0 },
             filter_mask: full,
             filter_range: full,
+            memory: full.then_some(RAM_WORDS),
+            transceiver_modes: TransceiverModes {
+                standby: full,
+                silent: false,
+                sleep: false,
+            },
             termination: MaxLen::new(RefVec::Slice {
                 slice: if full { termination } else { &[] },
             })
             .unwrap(),
+            // the full node's figure is its group's
+            performance: (!full).then_some(ww_can_bus::Performance {
+                min_frames_per_second: Some(8000),
+                min_bytes_per_second: None,
+                independent_of_system: false,
+            }),
         }
     }
 
@@ -279,7 +348,10 @@ mod tests {
             t => Ok(t),
         };
         let ok = match config.mode {
-            Mode::Off | Mode::Normal | Mode::ListenOnly | Mode::InternalLoopback => true,
+            Mode::Off | Mode::Config | Mode::Normal | Mode::ListenOnly | Mode::InternalLoopback => {
+                true
+            }
+            Mode::Sleep => caps.sleep,
             Mode::Restricted => caps.restricted,
             Mode::ExternalLoopback => caps.external_loopback,
             Mode::Test => caps.test_mode,
@@ -334,7 +406,8 @@ mod tests {
 
     fn state_after(mode: Mode) -> ErrorState {
         match mode {
-            Mode::Off => ErrorState::Stopped,
+            Mode::Off | Mode::Config => ErrorState::Stopped,
+            Mode::Sleep => ErrorState::Sleeping,
             _ => ErrorState::Active,
         }
     }
@@ -383,6 +456,9 @@ mod tests {
                                 marker: marker.map(UNib32),
                                 id,
                                 outcome,
+                                // the mock's frames wait 120 µs in its queue
+                                queued: (outcome == TxOutcome::Sent)
+                                    .then(|| Second::microseconds(120u8)),
                             };
                             ser.can().tx_events_send_blocking(
                                 &mut self.can_tx_events_stream,
@@ -401,6 +477,15 @@ mod tests {
                         ),
                         Pending::Status => {
                             let _ = ser.can().status_send_blocking(&status, out);
+                            Ok(())
+                        }
+                        Pending::BusLoad(load) => {
+                            let _ = ser.can().bus_load_send_blocking(&load, out);
+                            Ok(())
+                        }
+                        Pending::Transceiver => {
+                            let state = self.m.lock().unwrap().transceiver;
+                            let _ = ser.can().transceiver_state_send_blocking(&state, out);
                             Ok(())
                         }
                     };
@@ -505,6 +590,155 @@ mod tests {
                 self.can_tx_credit.free(len);
             }
 
+            fn can_set_mode(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                mode: Mode,
+            ) -> RpcResult<Result<Mode, CanError<'_>>> {
+                let caps = capabilities(true);
+                let mut config = self.m.lock().unwrap().config.clone();
+                config.mode = mode;
+                // the same checks as `configure`, the timing stays
+                if let Err(e) = configure(&caps, config) {
+                    return Ready(Err(e));
+                }
+                let mut m = self.m.lock().unwrap();
+                if mode == Mode::Sleep {
+                    m.before_sleep = m.config.mode;
+                }
+                m.config.mode = mode;
+                let tec = m.status.tec;
+                m.set_state(state_after(mode), tec);
+                Ready(Ok(mode))
+            }
+
+            fn can_protocol_status(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<ProtocolStatus> {
+                let mut m = self.m.lock().unwrap();
+                let status = m.status;
+                // last error codes reset on a read, as M_CAN's PSR
+                m.status.last_error = None;
+                m.status.last_data_error = None;
+                Ready(ProtocolStatus {
+                    status,
+                    activity: if status.state == ErrorState::Stopped {
+                        Activity::Synchronizing
+                    } else {
+                        Activity::Idle
+                    },
+                    error_log: Some(status.last_error.is_some() as u8),
+                    last_fd_frame: None,
+                    protocol_exception: false,
+                    tdc_value: m.config.fd.map(|_| 5),
+                    memory_errors: Some(0),
+                })
+            }
+
+            fn get_can_bus_load(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<BusLoad, ()> {
+                let frames = self.m.lock().unwrap().sent.len() as u32;
+                Value(BusLoad {
+                    window: Second::milliseconds(100u8),
+                    load: 0,
+                    frames,
+                    errors: 0,
+                })
+            }
+
+            fn can_detect_timing(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                candidates: MaxLen<RefVec<'_, Timing>, 16>,
+                _per_candidate: Second,
+            ) -> RpcResult<Result<Option<CanConfig>, CanError<'_>>> {
+                if candidates.is_empty() {
+                    return Ready(Err(CommonError::InvalidArgument {
+                        arg: 0,
+                        reason: MaxLen::new_unchecked("no candidates"),
+                    }
+                    .into()));
+                }
+                let mut m = self.m.lock().unwrap();
+                let bus = m.bus_timing;
+                for t in candidates.iter() {
+                    let t = t.unwrap();
+                    let segments = match t {
+                        Timing::Rate { rate, sample_point } => segments_for(rate, sample_point),
+                        t => t.segments(),
+                    };
+                    // frames come in without errors only at the bus's bit rate and close to its sample point
+                    if let Some(bt) = segments
+                        && bt.bit_rate(CLOCK_HZ) == bus.bit_rate(CLOCK_HZ)
+                        && bt.sample_point().abs_diff(bus.sample_point()) <= 50
+                    {
+                        m.config = CanConfig {
+                            mode: Mode::ListenOnly,
+                            nominal: Timing::Segments(bt),
+                            fd: None,
+                            ..m.config.clone()
+                        };
+                        m.set_state(ErrorState::Active, 0);
+                        return Ready(Ok(Some(m.config.clone())));
+                    }
+                }
+                Ready(Ok(None))
+            }
+
+            fn can_set_layout(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                layout: MemoryLayout,
+            ) -> RpcResult<Result<MemoryLayout, CanError<'_>>> {
+                let mut m = self.m.lock().unwrap();
+                if !m.queued.is_empty() {
+                    return Ready(Err(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked("frames queued"),
+                    }
+                    .into()));
+                }
+                if ![8, 12, 16, 20, 24, 32, 48, 64].contains(&layout.element_data) {
+                    return Ready(Err(CommonError::InvalidArgument {
+                        arg: 0,
+                        reason: MaxLen::new_unchecked("element_data"),
+                    }
+                    .into()));
+                }
+                let words = layout_words(&layout);
+                if words > RAM_WORDS {
+                    return Ready(Err(CanError::OutOfMemory {
+                        available: RAM_WORDS,
+                    }));
+                }
+                // off the bus for it and back, unless already in configuration mode
+                m.layout = layout;
+                Ready(Ok(layout))
+            }
+
+            fn can_set_transceiver(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                mode: TransceiverMode,
+            ) -> RpcResult<Result<TransceiverMode, CanError<'_>>> {
+                if !matches!(mode, TransceiverMode::Normal | TransceiverMode::Standby) {
+                    return Ready(Err(CommonError::Unsupported.into()));
+                }
+                let mut m = self.m.lock().unwrap();
+                m.transceiver.mode = mode;
+                m.pending.push(Pending::Transceiver);
+                Ready(Ok(mode))
+            }
+
+            fn get_can_transceiver_state(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<TransceiverState, ()> {
+                Value(self.m.lock().unwrap().transceiver)
+            }
+
             fn can_recover(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -547,6 +781,7 @@ mod tests {
                 filters: ww_can_bus::FilterConfig<'_>,
             ) -> RpcResult<Result<(), CanError<'_>>> {
                 let caps = capabilities(true);
+                let layout = self.m.lock().unwrap().layout;
                 let list: Vec<Filter> = filters.filters.iter().map(|f| f.unwrap()).collect();
                 let ext = |f: &&Filter| match f.matching {
                     FilterMatch::Exact(id)
@@ -556,19 +791,20 @@ mod tests {
                 };
                 let n_ext = list.iter().filter(ext).count() as u16;
                 let n_std = list.len() as u16 - n_ext;
-                if n_std > caps.standard_filters {
+                // as many as the memory layout holds
+                if n_std > layout.standard_filters {
                     return Ready(Err(CanError::OutOfFilters {
-                        max: caps.standard_filters,
+                        max: layout.standard_filters,
                     }));
                 }
-                if n_ext > caps.extended_filters {
+                if n_ext > layout.extended_filters {
                     return Ready(Err(CanError::OutOfFilters {
-                        max: caps.extended_filters,
+                        max: layout.extended_filters,
                     }));
                 }
                 for f in &list {
                     let bad = match f.action {
-                        FilterAction::Fifo(n) => n >= caps.rx_fifos,
+                        FilterAction::Fifo { fifo, .. } => fifo >= caps.rx_fifos,
                         FilterAction::Buffer(n) => n >= caps.rx_buffers,
                         _ => false,
                     };
@@ -847,8 +1083,10 @@ mod tests {
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 omit = [
-                    "can.recover", "can.tx_abort", "can.tx_events", "can.bus_errors", "can.filters",
-                    "can.rx_buffers", "can.tx_buffers", "can.terminator", "can.test_pins"
+                    "can.set_mode", "can.recover", "can.tx_abort", "can.tx_events", "can.bus_errors",
+                    "can.protocol_status", "can.bus_load", "can.detect_timing", "can.filters",
+                    "can.set_layout", "can.rx_buffers", "can.tx_buffers", "can.transceiver",
+                    "can.terminator", "can.test_pins"
                 ],
             );
         }
@@ -1124,6 +1362,8 @@ mod tests {
             assert_eq!(ev.marker, Some(UNib32(100 + i as u32)));
             assert_eq!(ev.id, f.id);
             assert_eq!(ev.outcome, TxOutcome::Sent);
+            // measured on the device
+            assert_eq!(ev.queued, Some(Second::microseconds(120u8)));
         }
 
         // without FD, an FD frame is rejected
@@ -1187,7 +1427,10 @@ mod tests {
                     from: std(0x200),
                     to: std(0x20F),
                 },
-                FilterAction::Fifo(0),
+                FilterAction::Fifo {
+                    fifo: 0,
+                    high_priority: false,
+                },
             ),
             // 0x3x0 rejected
             filter(
@@ -1207,7 +1450,13 @@ mod tests {
 
         // one standard filter too many
         let mut too_many = filters.clone();
-        too_many.push(filter(FilterMatch::Exact(std(1)), FilterAction::Fifo(0)));
+        too_many.push(filter(
+            FilterMatch::Exact(std(1)),
+            FilterAction::Fifo {
+                fifo: 0,
+                high_priority: false,
+            },
+        ));
         let r = client.can().set_filters(config(too_many)).call().await;
         assert!(matches!(
             r.unwrap_err().device(),
@@ -1218,7 +1467,10 @@ mod tests {
             .can()
             .set_filters(config(vec![filter(
                 FilterMatch::Exact(std(1)),
-                FilterAction::Fifo(2),
+                FilterAction::Fifo {
+                    fifo: 2,
+                    high_priority: false,
+                },
             )]))
             .call()
             .await;
@@ -1414,6 +1666,235 @@ mod tests {
                 .await
                 .unwrap(),
             BusLevel::Recessive
+        );
+    }
+
+    /// A bus debugger keeps every step in hand: explicit modes, configuration-only steps in `Mode::Config`, the raw
+    /// protocol state.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn debugger_steps() {
+        let (device, m) = start_full("io_can/debugger");
+        let client = connect(&device).await;
+        client
+            .can()
+            .configure(CanConfig {
+                mode: Mode::Normal,
+                nominal: RATE_500K(),
+                ..default_config()
+            })
+            .call()
+            .await
+            .unwrap();
+
+        // off the bus for configuration-only steps
+        assert_eq!(
+            client.can().set_mode(Mode::Config).call().await.unwrap(),
+            Mode::Config
+        );
+        assert_eq!(
+            client.can().read_status().read().await.unwrap().state,
+            ErrorState::Stopped
+        );
+        let big = MemoryLayout {
+            rx_fifos: [64, 64],
+            tx_buffers: 32,
+            ..default_layout()
+        };
+        let r = client.can().set_layout(big).call().await;
+        assert!(matches!(
+            r.unwrap_err().device(),
+            Some(CanErrorOwned::OutOfMemory {
+                available: RAM_WORDS
+            })
+        ));
+        let more_filters = MemoryLayout {
+            standard_filters: 8,
+            ..default_layout()
+        };
+        assert_eq!(
+            client.can().set_layout(more_filters).call().await.unwrap(),
+            more_filters
+        );
+        // four standard filters fit the new layout
+        let filters = (0..4)
+            .map(|i| Filter {
+                matching: FilterMatch::Exact(CanId::standard(0x100 + i).unwrap()),
+                action: FilterAction::Fifo {
+                    fifo: 0,
+                    high_priority: i == 0,
+                },
+            })
+            .collect();
+        client
+            .can()
+            .set_filters(ww_can_bus::FilterConfigOwned {
+                filters: MaxLen::new(filters).unwrap(),
+                non_matching_standard: NonMatching::Reject,
+                non_matching_extended: NonMatching::Reject,
+                reject_remote: true,
+            })
+            .call()
+            .await
+            .unwrap();
+        // still in configuration mode, then on the bus in any mode, timing kept
+        assert_eq!(
+            client.can().config().call().await.unwrap().mode,
+            Mode::Config
+        );
+        for mode in [Mode::Restricted, Mode::ListenOnly, Mode::Normal] {
+            assert_eq!(client.can().set_mode(mode).call().await.unwrap(), mode);
+            let config = client.can().config().call().await.unwrap();
+            assert_eq!(config.mode, mode);
+            assert_eq!(
+                config.nominal.segments().unwrap().bit_rate(CLOCK_HZ),
+                Some(500_000)
+            );
+        }
+
+        // the raw protocol state; last error codes reset on a read
+        m.lock().unwrap().status.last_error = Some(ProtocolError::Bit0);
+        let ps = client.can().protocol_status().call().await.unwrap();
+        assert_eq!(ps.status.last_error, Some(ProtocolError::Bit0));
+        assert_eq!(ps.error_log, Some(1));
+        assert_eq!(ps.activity, Activity::Idle);
+        assert_eq!(ps.tdc_value, None, "no FD, no TDC");
+        let ps = client.can().protocol_status().call().await.unwrap();
+        assert_eq!(ps.status.last_error, None);
+    }
+
+    /// Measured on the device: the bit timing of an unknown bus, bus load.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn detect_timing_and_bus_load() {
+        let (device, m) = start_full("io_can/detect");
+        let client = connect(&device).await;
+
+        let rate = |kbit: u16, sample_point| Timing::Rate {
+            rate: Baud::kilobaud(kbit),
+            sample_point,
+        };
+        let candidates = |list: Vec<Timing>| MaxLen::new(list).unwrap();
+        let per = Second::milliseconds(200u8);
+        // the mock's bus runs at 250 kbit/s, 87.5 %
+        let found = client
+            .can()
+            .detect_timing(
+                candidates(vec![
+                    rate(1000, 800),
+                    rate(500, 875),
+                    rate(250, 875),
+                    rate(125, 875),
+                ]),
+                per,
+            )
+            .call()
+            .await
+            .unwrap()
+            .expect("250 kbit/s found");
+        assert_eq!(found.mode, Mode::ListenOnly);
+        assert_eq!(
+            found.nominal.segments().unwrap().bit_rate(CLOCK_HZ),
+            Some(250_000)
+        );
+        assert_eq!(client.can().config().call().await.unwrap(), found);
+        let none = client
+            .can()
+            .detect_timing(candidates(vec![rate(1000, 800)]), per)
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(none, None);
+        let r = client
+            .can()
+            .detect_timing(candidates(vec![]), per)
+            .call()
+            .await;
+        assert!(matches!(
+            r.unwrap_err().device(),
+            Some(CanErrorOwned::Common(
+                CommonErrorOwned::InvalidArgument { .. }
+            ))
+        ));
+
+        let mut load = client.can().observe_bus_load().await.unwrap();
+        let measured = BusLoad {
+            window: Second::milliseconds(100u8),
+            load: 347,
+            frames: 120,
+            errors: 1,
+        };
+        m.lock().unwrap().pending.push(Pending::BusLoad(measured));
+        client.can().config().call().await.unwrap();
+        assert_eq!(load.recv().await.unwrap(), measured);
+        assert_eq!(
+            client.can().read_bus_load().read().await.unwrap().window,
+            Second::milliseconds(100u8)
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn sleep_wake_and_transceiver() {
+        let (device, m) = start_full("io_can/sleep");
+        let client = connect(&device).await;
+        let mut status = client.can().observe_status().await.unwrap();
+        let mut config = CanConfig {
+            mode: Mode::Normal,
+            nominal: RATE_500K(),
+            ..default_config()
+        };
+        config.options.wake_on_bus = true;
+        client.can().configure(config).call().await.unwrap();
+        client.can().set_mode(Mode::Sleep).call().await.unwrap();
+        client
+            .can()
+            .set_transceiver(TransceiverMode::Standby)
+            .call()
+            .await
+            .unwrap();
+        client.can().config().call().await.unwrap();
+        let mut s = status.recv().await.unwrap();
+        while s.state != ErrorState::Sleeping {
+            s = status.recv().await.unwrap();
+        }
+
+        // activity on the bus wakes it up, back in the mode before sleeping
+        {
+            let mut m = m.lock().unwrap();
+            m.config.mode = m.before_sleep;
+            m.transceiver.mode = TransceiverMode::Normal;
+            m.set_state(ErrorState::Active, 0);
+        }
+        client.can().config().call().await.unwrap();
+        assert_eq!(status.recv().await.unwrap().state, ErrorState::Active);
+        assert_eq!(
+            client.can().config().call().await.unwrap().mode,
+            Mode::Normal
+        );
+
+        let r = client
+            .can()
+            .set_transceiver(TransceiverMode::Silent)
+            .call()
+            .await;
+        assert!(matches!(
+            r.unwrap_err().device(),
+            Some(CanErrorOwned::Common(CommonErrorOwned::Unsupported))
+        ));
+        // a wiring fault reaches observers
+        let mut trx = client.can().observe_transceiver_state().await.unwrap();
+        {
+            let mut m = m.lock().unwrap();
+            m.transceiver.fault = Some(TransceiverFault::CanHighShortToGround);
+            m.pending.push(Pending::Transceiver);
+        }
+        client.can().config().call().await.unwrap();
+        let mut t = trx.recv().await.unwrap();
+        while t.fault.is_none() {
+            t = trx.recv().await.unwrap();
+        }
+        assert_eq!(t.fault, Some(TransceiverFault::CanHighShortToGround));
+        assert_eq!(
+            client.can().read_transceiver_state().read().await.unwrap(),
+            t
         );
     }
 

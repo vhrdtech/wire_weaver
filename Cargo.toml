@@ -137,6 +137,7 @@ firmware_info_api = { version = "0.1.0", path = "./tests/firmware_info_api" }
 indication_api = { version = "0.1.0", path = "./tests/indication_api" }
 io_adc_api = { version = "0.1.0", path = "./tests/io_adc_api" }
 io_can_api = { version = "0.1.0", path = "./tests/io_can_api" }
+io_can_group_api = { version = "0.1.0", path = "./tests/io_can_group_api" }
 io_gpio_api = { version = "0.1.0", path = "./tests/io_gpio_api" }
 io_i2c_api = { version = "0.1.0", path = "./tests/io_i2c_api" }
 io_onewire_api = { version = "0.1.0", path = "./tests/io_onewire_api" }

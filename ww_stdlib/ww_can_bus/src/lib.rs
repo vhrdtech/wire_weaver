@@ -1,26 +1,38 @@
-//! CAN bus over WireWeaver: a device (a USB-CAN adapter, a gateway, a node with a CAN port, a bus analyzer) lets a
-//! host send and receive frames on its CAN bus, configure it and watch its state.
+//! CAN bus over WireWeaver: a device (a USB-CAN adapter, a gateway, a node with a CAN port, a bus analyzer or
+//! debugger) lets a host send and receive frames on its CAN buses, configure them and watch their state.
 //!
-//! # One trait, optional items
+//! # Traits
 //!
-//! [Can] is one controller with its transceiver (and terminator, where switchable). A device with several is an
-//! array, `ww_impl!(can[]: ww_can_bus::Can)`. Six items are required, and they are all a simple node needs:
-//! `capabilities`, `configure`, `config`, `status`, the `rx` stream and the `tx` sink. Everything only some
-//! controllers have is an [optional item](https://vhrdtech.github.io/wire_weaver/api/optional_items/) the device
-//! leaves out (`omit = ["can.filters", "can.tx_buffers", ..]`): bus-off recovery on request, aborting queued
-//! frames, TX events, bus error events, acceptance filters, dedicated RX and TX buffers, a switchable terminator and
-//! test mode pins. A host finds out what is there through introspection, and what the present items support
-//! through [Can::capabilities].
+//! | Trait | What it is | Who implements it |
+//! |---|---|---|
+//! | [Can] | One controller with its transceiver: configure, receive, send, error state; optional items for everything only some controllers have | Every device |
+//! | [CanGroup] | Controllers that share clock, power and message RAM (all FDCAN instances of an STM32): `interface[]` of [Can], group enable / disable, clock source and frequency, group-wide performance | Devices whose controllers can't be clocked or powered alone |
+//! | [CanTimeTriggered] | Time-triggered CAN (ISO 11898-4) of one controller: schedule, reference message, cycle state | Controllers with TTCAN (FDCAN1 of an STM32H7) |
+//! | `CanXl` | CAN XL frames of one controller, behind the `xl` cargo feature | Controllers with CAN XL |
 //!
-//! Watching a bus is not another trait: it is the same controller in [Mode::ListenOnly] (or [Mode::Restricted]),
-//! with no filters, plus the optional `bus_errors` stream.
+//! A simple bridge puts its controllers straight into its API, `ww_impl!(can[]: ww_can_bus::Can)`, and implements
+//! the six required items of [Can]. A device that mirrors its hardware puts a [CanGroup] there instead,
+//! `ww_impl!(can: ww_can_bus::CanGroup)`, the controllers being `can.interface[i]`. [CanTimeTriggered] and `CanXl`
+//! go next to them as arrays indexed like the controllers (`ww_impl!(can_xl[]: ww_can_bus::CanXl)`, element `i`
+//! being controller `i`), on devices that have them.
 //!
-//! # Frames
+//! Everything only some controllers have is an [optional item](https://vhrdtech.github.io/wire_weaver/api/optional_items/)
+//! of [Can] the device leaves out (`omit = ["can.filters", "can.transceiver", ..]`). A host finds out what is there
+//! through introspection, and what the present items support through [Can::capabilities].
 //!
-//! [Frame] is a classic data frame, a remote frame or a CAN FD frame (with its BRS and ESI bits), with an 11-bit or
-//! 29-bit [CanId] and up to 64 bytes. With the `embedded-can` feature, [CanId] converts from and to
-//! `embedded_can::Id`, and on hosts `FrameOwned` implements `embedded_can::Frame` (classic frames). CAN XL frames are
-//! not part of [Frame]: a frame of up to 2048 bytes would make every device size its `tx` buffer for one.
+//! # Debuggers
+//!
+//! `Can::configure` takes the controller off the bus and back as its hardware needs, so a node is set up in one call.
+//! A bus debugger keeps every step in hand: `Can::set_mode` switches modes on their own ([Mode::Config] to stay off
+//! the bus for configuration-only steps, [Mode::Restricted], [Mode::ListenOnly], the loopbacks, [Mode::Test],
+//! [Mode::Sleep]), items that need configuration mode stay in it when called there, `Can::protocol_status` reads the
+//! controller's raw protocol state, `bus_errors` reports every error, and `Can::test_pins` drives the pins.
+//!
+//! # Measured on the device
+//!
+//! What the device sees better than the host is measured there: receive and send times (in the stream heads), the
+//! time a frame waited in the transmit queue ([TxEvent::queued]), bus load (`Can::bus_load`), the transceiver loop
+//! delay ([ProtocolStatus::tdc_value]) and the bit timing of an unknown bus (`Can::detect_timing`).
 //!
 //! # Time
 //!
@@ -33,9 +45,9 @@
 //! # Errors
 //!
 //! Every method returns [CanError]: the framework's `CommonError` (unsupported, in use, wrong state, ...) as
-//! [CanError::Common], plus what is specific to CAN (`OutOfFilters`, `BusOff`). Each method lists the variants it
-//! returns (`#[errors]`). Errors on the bus are not errors of a call: they are counted in [Status] and reported one
-//! by one on the optional `bus_errors` stream.
+//! [CanError::Common], plus what is specific to CAN (`OutOfFilters`, `OutOfMemory`, `BusOff`). Each method lists the
+//! variants it returns (`#[errors]`). Errors on the bus are not errors of a call: they are counted in [Status] and
+//! reported one by one on the optional `bus_errors` stream.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -50,30 +62,44 @@ pub const MAX_FILTERS: usize = 256;
 /// Most terminator values a device lists in [Capabilities::termination].
 pub const MAX_TERMINATION_VALUES: usize = 4;
 
+/// Most bit timings one `Can::detect_timing` tries.
+pub const MAX_TIMING_CANDIDATES: usize = 16;
+
+/// Most clock sources a [CanGroup] lists.
+pub const MAX_CLOCK_SOURCES: usize = 8;
+
+/// Longest clock source name.
+pub const MAX_NAME_LEN: usize = 32;
+
+/// Most triggers of one `CanTimeTriggered::set_schedule`.
+pub const MAX_TRIGGERS: usize = 64;
+
 /// One CAN controller with its transceiver: configure it, receive on `rx`, send on the `tx` credit sink, watch its
 /// [Status].
 #[ww_trait]
 pub trait Can {
-    /// What this controller supports: clock, bit timing limits, CAN FD, modes, options, buffer and filter counts,
-    /// timestamps, terminator values.
+    /// What this controller supports: clock, bit timing limits, CAN FD, modes, options, memory, filters,
+    /// timestamps, transceiver and terminator.
     fn capabilities() -> Capabilities<'i>;
 
     /// Configures the controller in one step and returns what was actually set: the bit timing as segments (also
-    /// when a bit rate was asked for), the transceiver delay compensation in effect, and the options as the
-    /// controller applies them. The device takes the controller out of the bus and back as it needs to (frames
-    /// queued for sending stay queued). [Mode::Off] stops it.
+    /// when a bit rate was asked for), the transceiver delay compensation in effect, the options as the controller
+    /// applies them. The device takes the controller off the bus and back as it needs to (frames queued for sending
+    /// stay queued) and ends in [CanConfig::mode].
     ///
     /// A mode, option or FD setting this controller doesn't have is `Unsupported`, bit timing outside
-    /// [Capabilities::nominal] / [Capabilities::data] or a bit rate it can't reach within 1 % `InvalidArgument`,
-    /// `InUse` when another instance sharing the clock keeps it from changing.
-    #[errors(Common(Unsupported, InvalidArgument, InUse, NoPower))]
+    /// [Capabilities::nominal] / [Capabilities::data] or a bit rate it can't reach exactly `InvalidArgument`,
+    /// `InUse` when another controller sharing the clock keeps it from changing, `WrongState` while its [CanGroup]
+    /// is disabled.
+    #[errors(Common(Unsupported, InvalidArgument, InUse, WrongState, NoPower))]
     fn configure(config: CanConfig) -> Result<CanConfig, CanError<'i>>;
 
-    /// The configuration in effect, as `configure` last answered it: for a host attaching to a running node.
+    /// The configuration in effect, as `configure` last answered it (with the mode now in effect): for a host
+    /// attaching to a running node.
     fn config() -> CanConfig;
 
     /// Error state and counters of the controller. The device sends it to observers when the error state changes
-    /// (and may on counter changes), so a bus-off reaches the host without polling.
+    /// (and may on counter changes), so a bus-off or a wake-up reaches the host without polling.
     property!(ro status: Status);
 
     /// Received frames, in the order they were received. A counted stream, unit: frame; the head's time is when
@@ -89,6 +115,14 @@ pub trait Can {
     #[credit]
     sink!(tx: TxFrame<'i>);
 
+    /// Switches the mode alone, keeping the bit timing, options, filters and memory layout, and answers the mode
+    /// now in effect: [Mode::Config] to stay off the bus for configuration-only steps, back to [Mode::Normal], into
+    /// [Mode::Restricted], [Mode::ListenOnly], a loopback, [Mode::Test] or [Mode::Sleep]. `Unsupported` for a mode
+    /// this controller doesn't have.
+    #[optional]
+    #[errors(Common(Unsupported, WrongState))]
+    fn set_mode(mode: Mode) -> Result<Mode, CanError<'i>>;
+
     /// Starts the bus-off recovery now (128 occurrences of 11 recessive bits, then error active). Left out by a
     /// device that only recovers automatically ([CanConfig::bus_off_recovery]). `WrongState` when not bus-off.
     #[optional]
@@ -101,26 +135,56 @@ pub trait Can {
     fn tx_abort() -> u32;
 
     /// When each sent frame went on the bus, or why it didn't: one event per frame of `tx` (and of `tx_buffer`),
-    /// with its [TxFrame::marker]. A counted stream, unit: frame; the head's time is when the frame was sent.
+    /// with its [TxFrame::marker] and the time it waited in the queue. A counted stream, unit: frame; the head's
+    /// time is when the frame was sent.
     #[optional]
     #[counted]
     stream!(tx_events: TxEvent);
 
     /// Every error the controller detected on the bus: kind, phase and whether it was sending or receiving. A
     /// counted stream, unit: error; the head's time is when the error was detected. For analyzers and bus
-    /// diagnostics; [Status] has the counters and the last error without it.
+    /// debuggers; [Status] has the counters and the last error without it.
     #[optional]
     #[counted]
     stream!(bus_errors: BusError);
 
+    /// The controller's protocol state as it reads it: activity, counters, the error logging counter, last error
+    /// codes of both phases, flags of the last received FD frame, protocol exception, measured transceiver delay.
+    /// Reading resets what the controller resets on a read (last error codes, error logging counter).
+    #[optional]
+    fn protocol_status() -> ProtocolStatus;
+
+    /// Bus load the device measures over [BusLoad::window], sent to observers once per window.
+    #[optional]
+    property!(ro bus_load: BusLoad);
+
+    /// Finds the bit timing of a running bus: listens without acknowledging ([Mode::ListenOnly]) at each of
+    /// `candidates` in turn for up to `per_candidate`, and answers the first one a frame was received at without
+    /// errors (the controller then stays configured with it, in listen-only), or `None` (the configuration is left
+    /// as it was). `InvalidArgument` for an empty list or a timing outside the limits.
+    #[optional]
+    #[errors(Common(InvalidArgument, Unsupported, InUse))]
+    fn detect_timing(
+        candidates: MaxLen<RefVec<'i, Timing>, MAX_TIMING_CANDIDATES>,
+        per_candidate: Second,
+    ) -> Result<Option<CanConfig>, CanError<'i>>;
+
     /// Replaces the whole acceptance filter list and what happens to frames no filter matches. Without this item,
     /// a device receives every frame.
     ///
-    /// More filters of a kind than the controller has is `OutOfFilters`, a match kind it can't do (a range, a
-    /// mask) `Unsupported`, a FIFO or buffer index it doesn't have `InvalidArgument`.
+    /// More filters of a kind than the controller has (or than its memory layout holds) is `OutOfFilters`, a match
+    /// kind it can't do (a range, a mask) `Unsupported`, a FIFO or buffer index it doesn't have `InvalidArgument`.
     #[optional(filters)]
     #[errors(Common(Unsupported, InvalidArgument), OutOfFilters)]
     fn set_filters(filters: FilterConfig<'i>) -> Result<(), CanError<'i>>;
+
+    /// Divides the controller's message memory (M_CAN message RAM, MCP2518FD FIFO RAM) between filters, FIFOs,
+    /// buffers and the TX event FIFO, and answers the layout in effect. Only on controllers with a configurable
+    /// layout ([Capabilities::memory]). `OutOfMemory` when it doesn't fit (also next to the other controllers of its
+    /// group sharing the memory), `WrongState` while frames are queued.
+    #[optional]
+    #[errors(Common(Unsupported, InvalidArgument, WrongState), OutOfMemory)]
+    fn set_layout(layout: MemoryLayout) -> Result<MemoryLayout, CanError<'i>>;
 
     /// The last frame a filter routed into dedicated receive buffer `index` ([FilterAction::Buffer]), and when it
     /// came; `None` when none came since the buffer was last read. For "the latest value of this ID" without
@@ -132,10 +196,10 @@ pub trait Can {
     /// Dedicated transmit buffer `index`: `frame` with no `period` is sent once now, with a `period` every
     /// `period` by the device until the buffer is written again; `None` clears the buffer (stops a cyclic frame,
     /// aborts a pending one). Its frames go out ahead of or behind the `tx` queue by ID priority, and are reported
-    /// on `tx_events` with `marker`.
+    /// on `tx_events` with their marker.
     ///
     /// `InvalidArgument` for an index past [Capabilities::tx_buffers], `Unsupported` for a period on a device
-    /// without cyclic sending, `WrongState` in [Mode::Off] or a listen-only mode, `BusOff` while bus-off.
+    /// without cyclic sending, `WrongState` in a mode that doesn't send, `BusOff` while bus-off.
     #[optional(tx_buffers)]
     #[errors(Common(Unsupported, InvalidArgument, WrongState), BusOff)]
     fn tx_buffer(
@@ -143,6 +207,16 @@ pub trait Can {
         frame: Option<TxFrame<'i>>,
         period: Option<Second>,
     ) -> Result<(), CanError<'i>>;
+
+    /// Switches the transceiver (standby pin, silent pin, sleep) and answers the mode in effect. `Unsupported` for
+    /// a mode it doesn't have ([Capabilities::transceiver_modes]).
+    #[optional(transceiver)]
+    #[errors(Common(Unsupported, NoPower))]
+    fn set_transceiver(mode: TransceiverMode) -> Result<TransceiverMode, CanError<'i>>;
+
+    /// Transceiver mode and the bus wiring faults it detects; sent to observers when a fault appears or clears.
+    #[optional(transceiver)]
+    property!(ro transceiver_state: TransceiverState);
 
     /// Switches the terminator and answers the one in effect. `Unsupported` for a value not in
     /// [Capabilities::termination].
@@ -159,6 +233,65 @@ pub trait Can {
     #[optional]
     #[errors(Common(WrongState))]
     fn test_pins(tx: TxPin) -> Result<BusLevel, CanError<'i>>;
+}
+
+/// Controllers that share a clock, power and message memory, as all FDCAN instances of an STM32: none of them can be
+/// clocked, powered down or re-laid out alone. The group is enabled (clocked) or disabled as a whole; each
+/// controller is `interface[i]`, configured on its own once the group is enabled.
+#[ww_trait]
+pub trait CanGroup {
+    /// The controllers of the group.
+    ww_impl!(interface[]: Can);
+
+    /// What the group has: number of controllers, clock sources and frequencies, shared message memory.
+    fn group_capabilities() -> GroupCapabilities<'i>;
+
+    /// Enables the group's clock (the source and frequency set last, or the device's default) and answers the clock
+    /// in effect. Every controller is then in [Mode::Off] until configured. `WrongState` when already enabled.
+    #[errors(Common(WrongState, NoPower))]
+    fn enable() -> Result<GroupClock, CanError<'i>>;
+
+    /// Disables the group's clock, its lowest power state. Every controller must be in [Mode::Off] first
+    /// (`WrongState` names the one that isn't).
+    #[errors(Common(WrongState))]
+    fn disable() -> Result<(), CanError<'i>>;
+
+    /// Enabled (with the clock in effect) or disabled; sent to observers on every change.
+    property!(ro group_state: GroupState);
+
+    /// Selects the group's clock source and frequency, and answers what was set (the nearest frequency the source's
+    /// dividers reach). Only while disabled (`WrongState`); a source or frequency the group doesn't have is
+    /// `Unsupported`. For advanced nodes that pick a clock to hit an exact bit timing; a bridge uses the default.
+    #[optional(clock)]
+    #[errors(Common(Unsupported, WrongState))]
+    fn set_clock(clock: GroupClock) -> Result<GroupClock, CanError<'i>>;
+
+    /// What the group guarantees together, under the current clock and system load: a device whose controllers
+    /// share a bus to the host or a CPU knows it, the host can't.
+    #[optional]
+    fn performance() -> Performance;
+}
+
+/// Time-triggered CAN (ISO 11898-4, TTCAN) of one controller: a schedule of time windows in a matrix of basic
+/// cycles started by a reference message. A device puts it next to its controllers, `ww_impl!(can_tt[]:
+/// ww_can_bus::CanTimeTriggered)`, element `i` being controller `i` (valid only where the hardware has TTCAN).
+#[ww_trait]
+pub trait CanTimeTriggered {
+    /// Configures time-triggered operation (`None` switches it off, back to event-driven CAN) and answers what was
+    /// set. The controller must be in [Mode::Config] or [Mode::Off] (`WrongState`).
+    #[errors(Common(Unsupported, InvalidArgument, WrongState))]
+    fn configure_tt(config: Option<TtConfig>) -> Result<Option<TtConfig>, CanError<'i>>;
+
+    /// Replaces the trigger list (time marks of the matrix cycle). `OutOfMemory` when it doesn't fit the trigger
+    /// memory, `InvalidArgument` for an unsorted list or a buffer the controller doesn't have.
+    #[errors(Common(InvalidArgument, WrongState), OutOfMemory)]
+    fn set_schedule(
+        triggers: MaxLen<RefVec<'i, Trigger>, MAX_TRIGGERS>,
+    ) -> Result<(), CanError<'i>>;
+
+    /// Synchronisation state, master role, cycle count and error level; sent to observers on every change of the
+    /// state or the error level.
+    property!(ro tt_status: TtStatus);
 }
 
 /// An 11-bit (standard) or 29-bit (extended) CAN identifier.
@@ -206,11 +339,7 @@ impl CanId {
 }
 
 /// A CAN frame: classic data, remote or CAN FD.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    derive(Clone, Debug, PartialEq, Eq),
-    final_structure
-)]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), final_structure)]
 pub struct Frame<'i> {
     pub id: CanId,
     pub kind: FrameKind,
@@ -240,6 +369,9 @@ pub enum FrameKind {
         /// Error state indicator: the sender was error passive.
         esi: bool,
     },
+    /// Classic CAN data frame with 8 data bytes and a DLC of 9-15 on the wire (ISO 11898-1 allows them; SocketCAN
+    /// `CAN_CTRLMODE_CC_LEN8_DLC`). For bus debuggers; nodes send [FrameKind::Data].
+    DataLongDlc { dlc: U4 },
 }
 
 impl Frame<'_> {
@@ -287,12 +419,15 @@ pub struct BufferedFrame<'i> {
 }
 
 /// What happened to a sent frame, see `Can::tx_events`; when is the time in the event head.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct TxEvent {
     /// [TxFrame::marker] of the frame.
     pub marker: Option<UNib32>,
     pub id: CanId,
     pub outcome: TxOutcome,
+    /// How long the frame waited from the device accepting it to its start of frame on the bus (queue, arbitration
+    /// and retransmissions), measured on the device; `None` from a device that doesn't measure it.
+    pub queued: Option<Second>,
 }
 
 /// Outcome of sending one frame.
@@ -309,7 +444,7 @@ pub enum TxOutcome {
     Aborted,
     /// One attempt failed with [Options::one_shot] (lost arbitration or an error).
     Failed,
-    /// Not sendable as configured (an FD frame with FD off, a listen-only mode, bus-off with a full queue).
+    /// Not sendable as configured (an FD frame with FD off, a mode that doesn't send, bus-off with a full queue).
     Rejected,
 }
 
@@ -345,6 +480,9 @@ pub enum ProtocolError {
     Bit0,
     /// CRC mismatch.
     Crc,
+    /// Protocol exception: a recessive reserved bit after FDF (a frame of a newer protocol); the controller went to
+    /// bus integration instead of signalling an error ([Options::protocol_exception]).
+    Exception,
 }
 
 /// Phase of a frame an error happened in.
@@ -403,7 +541,7 @@ pub struct Status {
     ww_repr = nib
 )]
 pub enum ErrorState {
-    /// Stopped: [Mode::Off], or not configured yet.
+    /// Off the bus: [Mode::Off], [Mode::Config], or not configured yet.
     Stopped,
     /// Both counters below 96.
     Active,
@@ -413,6 +551,66 @@ pub enum ErrorState {
     Passive,
     /// TEC above 255: off the bus until recovered.
     BusOff,
+    /// [Mode::Sleep]: goes back to `Active` on a wake-up, with [Options::wake_on_bus] on bus activity.
+    Sleeping,
+}
+
+/// The controller's protocol state, see `Can::protocol_status`.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+pub struct ProtocolStatus {
+    pub status: Status,
+    pub activity: Activity,
+    /// The controller's error logging counter (errors since the last read, saturating), if it has one.
+    pub error_log: Option<u8>,
+    /// Flags of the last received FD frame, if one came since the last read.
+    pub last_fd_frame: Option<FdFrameFlags>,
+    /// A protocol exception happened since the last read.
+    pub protocol_exception: bool,
+    /// Transceiver delay the controller measured, in minimum time quanta (clock periods), with TDC on.
+    pub tdc_value: Option<u8>,
+    /// Corrected and uncorrected bit errors of the message memory (ECC / parity) since the last read, where the
+    /// controller detects them.
+    pub memory_errors: Option<u16>,
+}
+
+/// What the controller is doing on the bus.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum Activity {
+    /// Waiting for 11 recessive bits to join the bus.
+    Synchronizing,
+    Idle,
+    Receiving,
+    Transmitting,
+}
+
+/// Flags of a received FD frame (M_CAN `PSR.RESI` / `RBRS` / `REDL`).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
+pub struct FdFrameFlags {
+    pub esi: bool,
+    pub brs: bool,
+}
+
+/// Bus load measured by the device, see `Can::bus_load`.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq))]
+pub struct BusLoad {
+    /// Length of the measurement window.
+    pub window: Second,
+    /// Busy time of the bus in the window, in tenths of a percent (frames with their stuff bits, error and overload
+    /// frames, interframe space not counted).
+    pub load: u16,
+    /// Frames seen on the bus in the window, sent and received.
+    pub frames: u32,
+    /// Error frames in the window.
+    pub errors: u32,
 }
 
 /// Everything a controller is configured with, see `Can::configure`: what is asked for going in, what was set
@@ -438,8 +636,11 @@ pub struct CanConfig {
     ww_repr = nib
 )]
 pub enum Mode {
-    /// Off the bus, TX recessive; the lowest power state the device keeps the controller in.
+    /// Powered down (clock gated where the controller can be alone), off the bus, TX recessive.
     Off,
+    /// Off the bus, TX recessive, everything configurable (M_CAN `INIT` + `CCE`, bxCAN initialization, MCP2518FD
+    /// configuration mode); the mode to stay in for configuration-only steps.
+    Config,
     /// Sends, receives and acknowledges.
     Normal,
     /// Receives and acknowledges, but doesn't send frames or active error / overload flags (ISO 11898-1
@@ -453,10 +654,17 @@ pub enum Mode {
     ExternalLoopback,
     /// Production test: `Can::test_pins` drives TX and reads RX.
     Test,
+    /// Low power, off the bus; wakes up on bus activity with [Options::wake_on_bus], or on `Can::set_mode`.
+    Sleep,
 }
 
 /// Bit timing of one phase: asked for as a bit rate or as segments, answered as segments.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq), ww_repr = nib)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq),
+    ww_repr = nib
+)]
 pub enum Timing {
     /// A bit rate and sample point, the device picks the segments.
     Rate {
@@ -516,11 +724,7 @@ impl BitTiming {
 }
 
 /// CAN FD settings, see [CanConfig::fd].
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    derive(Copy, Clone, Debug, PartialEq)
-)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq))]
 pub struct FdConfig {
     /// Bit timing of the data phase of frames with bit rate switch; the same as the nominal one when no frame
     /// switches.
@@ -544,19 +748,12 @@ pub enum Tdc {
     Auto,
     /// Secondary sample point at the measured delay plus `offset`, in minimum time quanta (clock periods);
     /// `filter`: shortest delay accepted as measured.
-    Manual {
-        offset: u8,
-        filter: Option<u8>,
-    },
+    Manual { offset: u8, filter: Option<u8> },
 }
 
 /// Options of a controller, see [CanConfig::options]. A device answers `Unsupported` for one it doesn't have
-/// ([Capabilities]), except where `false` / the first variant is what it always does.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    derive(Copy, Clone, Debug, PartialEq, Eq)
-)]
+/// ([Capabilities]), except where the value asked for is what it always does.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
 pub struct Options {
     /// Send each frame once, no automatic retransmission after an error or lost arbitration.
     pub one_shot: bool,
@@ -570,6 +767,14 @@ pub struct Options {
     pub tx_order: TxOrder,
     /// Which frames a full receive FIFO keeps.
     pub rx_overflow: RxOverflow,
+    /// Hard synchronization only on two dominant time quanta after a recessive one (M_CAN `CCCR.EFBI`), against
+    /// glitches on long buses.
+    pub edge_filtering: bool,
+    /// Protocol exception handling (ISO 11898-1): on a frame of a newer protocol, wait for bus idle instead of
+    /// signalling an error. On by default; off for buses where every such frame is an error.
+    pub protocol_exception: bool,
+    /// In [Mode::Sleep], wake up on bus activity.
+    pub wake_on_bus: bool,
 }
 
 /// Order the frames of `Can::tx` go on the bus.
@@ -602,6 +807,23 @@ pub enum RxOverflow {
     KeepOldest,
     /// Overwrites the oldest frame with the new one.
     KeepNewest,
+}
+
+/// How a controller's message memory is divided, see `Can::set_layout`; counts in elements.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+pub struct MemoryLayout {
+    pub standard_filters: u16,
+    pub extended_filters: u16,
+    /// Elements of each receive FIFO, FIFO 0 first (0: not used).
+    pub rx_fifos: [u16; 2],
+    pub rx_buffers: u16,
+    pub tx_buffers: u16,
+    /// Elements of the transmit FIFO / queue.
+    pub tx_queue: u16,
+    pub tx_events: u16,
+    /// Data bytes an element holds (8, 12, 16, 20, 24, 32, 48 or 64); frames with more are cut (and flagged by the
+    /// controller).
+    pub element_data: u8,
 }
 
 /// Acceptance filters, see `Can::set_filters`.
@@ -652,8 +874,9 @@ pub enum FilterMatch {
     ww_repr = nib
 )]
 pub enum FilterAction {
-    /// Into receive FIFO `fifo` (0 when the controller has one), and from there on `rx`.
-    Fifo(u8),
+    /// Into receive FIFO `fifo` (0 when the controller has one), and from there on `rx`; `high_priority` makes the
+    /// device pass it on ahead of other frames (M_CAN high priority message).
+    Fifo { fifo: u8, high_priority: bool },
     /// Into dedicated receive buffer `index`, read with `Can::rx_buffer`; not sent on `rx`.
     Buffer(u16),
     /// Dropped.
@@ -669,10 +892,56 @@ pub enum FilterAction {
 )]
 pub enum NonMatching {
     /// Into receive FIFO `fifo`.
-    Accept {
-        fifo: u8,
-    },
+    Accept { fifo: u8 },
     Reject,
+}
+
+/// Transceiver mode, see `Can::set_transceiver`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum TransceiverMode {
+    Normal,
+    /// Receiver on at low power (wake-up detection), driver off: the standby pin.
+    Standby,
+    /// Receiver on, driver off: the silent pin of transceivers that have one.
+    Silent,
+    /// Lowest power; woken by the bus (wake-up pattern) or the device.
+    Sleep,
+}
+
+/// Transceiver mode and faults, see `Can::transceiver_state`.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+pub struct TransceiverState {
+    pub mode: TransceiverMode,
+    /// A bus wiring fault the transceiver reports, if any (and if it can).
+    pub fault: Option<TransceiverFault>,
+}
+
+/// A bus wiring fault (as SocketCAN's `CAN_ERR_TRX_*`).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum TransceiverFault {
+    CanHighNoWire,
+    CanHighShortToBattery,
+    CanHighShortToSupply,
+    CanHighShortToGround,
+    CanLowNoWire,
+    CanLowShortToBattery,
+    CanLowShortToSupply,
+    CanLowShortToGround,
+    CanLowShortToCanHigh,
+    /// TX held dominant too long, the driver was switched off.
+    DominantTimeout,
+    /// Over temperature.
+    Thermal,
 }
 
 /// A terminator setting, see `Can::set_termination`.
@@ -717,7 +986,8 @@ pub enum BusLevel {
     Recessive,
 }
 
-/// Errors of `Can`: the common ones plus what is specific to CAN; each method lists the variants it returns.
+/// Errors of the CAN traits: the common ones plus what is specific to CAN; each method lists the variants it
+/// returns.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     derive(Debug, PartialEq, Eq, Clone),
@@ -732,6 +1002,8 @@ pub enum CanError<'i> {
     OutOfFilters { max: u16 },
     /// Not possible while the controller is bus-off.
     BusOff,
+    /// Doesn't fit the controller's memory ({available} elements left).
+    OutOfMemory { available: u32 },
 }
 
 /// Limits of one phase's [BitTiming] (as SocketCAN's `can_bittiming_const`).
@@ -751,11 +1023,7 @@ pub struct TimingLimits {
 }
 
 /// How the device timestamps frames, see [Capabilities::timestamps].
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    derive(Copy, Clone, Debug, PartialEq)
-)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq))]
 pub struct TimestampInfo {
     /// Smallest step.
     pub resolution: Second,
@@ -776,6 +1044,17 @@ pub enum TimestampPoint {
     EndOfFrame,
     /// By software when the frame was read out of the controller (jitter of the interrupt latency).
     Software,
+}
+
+/// Throughput a controller or group guarantees, see `CanGroup::performance` and [Capabilities::performance].
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+pub struct Performance {
+    /// Frames per second received and passed on without loss, at any frame length.
+    pub min_frames_per_second: Option<u32>,
+    /// Data bytes per second passed on without loss.
+    pub min_bytes_per_second: Option<u32>,
+    /// The figures hold whatever else the device does (dedicated DMA, a core of its own).
+    pub independent_of_system: bool,
 }
 
 /// What a `Can` implementation supports, see `Can::capabilities`.
@@ -799,6 +1078,8 @@ pub struct Capabilities<'i> {
     pub external_loopback: bool,
     /// [Mode::Test] (and `Can::test_pins`) is supported.
     pub test_mode: bool,
+    /// [Mode::Sleep] is supported.
+    pub sleep: bool,
     /// [Options::one_shot] is supported.
     pub one_shot: bool,
     /// [Options::presume_ack] is supported.
@@ -811,6 +1092,14 @@ pub struct Capabilities<'i> {
     pub tx_order: bool,
     /// Both [RxOverflow]s are supported (otherwise only the one `configure` answers).
     pub rx_overflow: bool,
+    /// [Options::edge_filtering] is supported.
+    pub edge_filtering: bool,
+    /// [Options::protocol_exception] can be switched off.
+    pub protocol_exception: bool,
+    /// [Options::wake_on_bus] is supported.
+    pub wake_on_bus: bool,
+    /// [FrameKind::DataLongDlc] frames can be sent and are told apart when received.
+    pub long_dlc: bool,
     /// Automatic bus-off recovery ([CanConfig::bus_off_recovery] `Some`) is supported.
     pub auto_recovery: bool,
     /// How frames are timestamped; `None`: the heads carry no time.
@@ -833,89 +1122,247 @@ pub struct Capabilities<'i> {
     pub filter_mask: bool,
     /// [FilterMatch::Range] is supported.
     pub filter_range: bool,
+    /// Message memory for `Can::set_layout`, in 32-bit words; `None`: fixed layout.
+    pub memory: Option<u32>,
+    /// [TransceiverMode]s `Can::set_transceiver` can switch to.
+    pub transceiver_modes: TransceiverModes,
     /// Terminator values `Can::set_termination` can switch in; empty without a switchable terminator.
     pub termination: MaxLen<RefVec<'i, Ohm>, MAX_TERMINATION_VALUES>,
+    /// What this controller guarantees on its own; `None` when only its group's figure makes sense.
+    pub performance: Option<Performance>,
 }
 
-#[cfg(feature = "embedded-can")]
-mod embedded_can_impl {
-    use super::*;
+/// Which [TransceiverMode]s besides `Normal` a transceiver has.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+pub struct TransceiverModes {
+    pub standby: bool,
+    pub silent: bool,
+    pub sleep: bool,
+}
 
-    impl From<embedded_can::Id> for CanId {
-        fn from(id: embedded_can::Id) -> Self {
-            match id {
-                embedded_can::Id::Standard(id) => {
-                    CanId::Standard(U11::new(id.as_raw()).unwrap_or(U11::new(0).unwrap()))
-                }
-                embedded_can::Id::Extended(id) => {
-                    CanId::Extended(U29::new(id.as_raw()).unwrap_or(U29::new(0).unwrap()))
-                }
-            }
-        }
-    }
+/// Clock of a [CanGroup]: a source and the frequency the controllers get from it.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq))]
+pub struct GroupClock {
+    /// Index into [GroupCapabilities::clock_sources].
+    pub source: u8,
+    /// Frequency the controllers get (after the group's divider).
+    pub frequency: Hertz,
+}
 
-    impl From<CanId> for embedded_can::Id {
-        fn from(id: CanId) -> Self {
-            match id {
-                // both are range checked by U11 / U29
-                CanId::Standard(id) => embedded_can::StandardId::new(id.value())
-                    .unwrap_or(embedded_can::StandardId::ZERO)
-                    .into(),
-                CanId::Extended(id) => embedded_can::ExtendedId::new(id.value())
-                    .unwrap_or(embedded_can::ExtendedId::ZERO)
-                    .into(),
-            }
-        }
-    }
+/// Enabled or disabled, see `CanGroup::group_state`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq),
+    ww_repr = nib
+)]
+pub enum GroupState {
+    /// Clock off, the lowest power state.
+    Disabled,
+    Enabled(GroupClock),
+}
 
-    #[cfg(feature = "std")]
-    impl embedded_can::Frame for FrameOwned {
-        fn new(id: impl Into<embedded_can::Id>, data: &[u8]) -> Option<Self> {
-            if data.len() > 8 {
-                return None;
-            }
-            Some(FrameOwned {
-                id: id.into().into(),
-                kind: FrameKind::Data,
-                data: MaxLen::new(data.to_vec()).ok()?,
-            })
-        }
+/// A clock source of a [CanGroup].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
+pub struct ClockSource<'i> {
+    /// "HSE", "PLL1Q", "PLL2P".
+    pub name: MaxLen<&'i str, MAX_NAME_LEN>,
+    /// Lowest frequency the group's dividers make of it.
+    pub min: Hertz,
+    /// Highest one.
+    pub max: Hertz,
+}
 
-        fn new_remote(id: impl Into<embedded_can::Id>, dlc: usize) -> Option<Self> {
-            if dlc > 8 {
-                return None;
-            }
-            Some(FrameOwned {
-                id: id.into().into(),
-                kind: FrameKind::Remote {
-                    len: U4::new(dlc as u8)?,
-                },
-                data: MaxLen::new(Vec::new()).ok()?,
-            })
-        }
+/// What a [CanGroup] has, see `CanGroup::group_capabilities`.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
+pub struct GroupCapabilities<'i> {
+    /// Controllers in `interface[]`.
+    pub interfaces: u8,
+    /// Clock sources `CanGroup::set_clock` chooses from; empty when the clock is fixed.
+    pub clock_sources: MaxLen<RefVec<'i, ClockSource<'i>>, MAX_CLOCK_SOURCES>,
+    /// The clock `CanGroup::enable` uses without `set_clock`.
+    pub default_clock: GroupClock,
+    /// Message memory shared by the controllers, in 32-bit words; `None` when each has its own.
+    pub shared_memory: Option<u32>,
+}
 
-        fn is_extended(&self) -> bool {
-            self.id.is_extended()
-        }
+/// Time-triggered configuration of a controller, see `CanTimeTriggered::configure_tt`.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+pub struct TtConfig {
+    /// ISO 11898-4 level 1 (time-triggered messaging) or level 2 (plus global time).
+    pub level: TtLevel,
+    pub role: TtRole,
+    /// ID of the reference message that starts every basic cycle.
+    pub reference_id: CanId,
+    /// Basic cycles in a matrix cycle: 1, 2, 4, 8, 16, 32 or 64.
+    pub matrix_cycles: u8,
+    /// Time unit ratio: one network time unit (NTU) is `ntu_numerator / ntu_denominator` local clock periods
+    /// (M_CAN `TURCF`); level 2 adjusts it to the master's clock.
+    pub ntu_numerator: u32,
+    pub ntu_denominator: u16,
+    /// Application watchdog limit in 256 NTU steps; `None` disables it.
+    pub watchdog: Option<u8>,
+}
 
-        fn is_remote_frame(&self) -> bool {
-            matches!(self.kind, FrameKind::Remote { .. })
-        }
+/// ISO 11898-4 level.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum TtLevel {
+    Level1,
+    Level2,
+    /// Event-synchronized time-triggered operation (level 0 with external events).
+    Level0,
+}
 
-        fn id(&self) -> embedded_can::Id {
-            self.id.into()
-        }
+/// Role in a time-triggered network.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum TtRole {
+    /// Time slave only.
+    Slave,
+    /// Potential time master with `priority` (0 highest, 0-7, the three lowest bits of the reference ID).
+    Master { priority: u8 },
+}
 
-        /// The DLC of a classic frame; the data length of an FD frame (embedded-can has no FD frames).
-        fn dlc(&self) -> usize {
-            match self.kind {
-                FrameKind::Remote { len } => len.value() as usize,
-                _ => self.data.len(),
-            }
-        }
+/// One trigger of a time-triggered schedule, see `CanTimeTriggered::set_schedule`.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+pub struct Trigger {
+    /// Time mark within the basic cycle, in cycle time units.
+    pub time_mark: u16,
+    /// Basic cycles it fires in: every `repeat`-th (1, 2, 4, .., 64) starting at cycle `offset`.
+    pub repeat: u8,
+    pub offset: u8,
+    pub kind: TriggerKind,
+}
 
-        fn data(&self) -> &[u8] {
-            self.data.as_slice()
-        }
-    }
+/// What a [Trigger] does.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum TriggerKind {
+    /// Sends the reference message (time master).
+    TxReference,
+    /// Sends dedicated TX buffer `buffer` alone in its window.
+    TxExclusive { buffer: u16 },
+    /// Starts a merged arbitrating window with TX buffer `buffer`.
+    TxArbitratingStart { buffer: u16 },
+    /// Ends a merged arbitrating window.
+    TxArbitratingEnd,
+    /// Checks that the frame of filter `filter` was received in the cycle.
+    RxCheck { filter: u16 },
+    /// Watches for a missing reference message.
+    Watch,
+    /// Ends the schedule of the cycle.
+    EndOfList,
+}
+
+/// State of time-triggered operation, see `CanTimeTriggered::tt_status`.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+pub struct TtStatus {
+    pub sync: TtSync,
+    /// This controller is the current time master.
+    pub is_master: bool,
+    /// Basic cycle within the matrix cycle.
+    pub cycle: u8,
+    /// ISO 11898-4 error level: 0 no error, 1 warning, 2 error, 3 severe error.
+    pub error_level: u8,
+}
+
+/// Synchronisation state of time-triggered operation.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum TtSync {
+    /// Configured, waiting for the first reference message.
+    Off,
+    Synchronizing,
+    InGap,
+    InSchedule,
+}
+
+/// Largest data of an [XlFrame], in bytes.
+#[cfg(feature = "xl")]
+pub const MAX_XL_DATA_LEN: usize = 2048;
+
+/// CAN XL frames of one controller (behind the `xl` cargo feature, so devices without XL don't carry its 2 KiB
+/// frames): a device puts it next to its controllers, `ww_impl!(can_xl[]: ww_can_bus::CanXl)`, element `i` being
+/// controller `i`. Classic and FD frames of the same controller stay on `Can::rx` / `Can::tx`.
+#[cfg(feature = "xl")]
+#[ww_trait]
+pub trait CanXl {
+    /// Configures the XL data phase (`None`: no XL frames) and answers what was set. Needs CAN FD configured on the
+    /// controller (`WrongState`); a timing or transceiver mode switching it can't do is `Unsupported`.
+    #[errors(Common(Unsupported, InvalidArgument, WrongState))]
+    fn configure_xl(config: Option<XlConfig>) -> Result<Option<XlConfig>, CanError<'i>>;
+
+    /// Received XL frames. A counted stream, unit: frame; the head's time is when the frame was received.
+    #[counted]
+    stream!(rx_xl: XlFrame<'i>);
+
+    /// XL frames to send; credit-based. Reported on `Can::tx_events` with their marker, where present.
+    #[credit]
+    sink!(tx_xl: XlTxFrame<'i>);
+}
+
+/// A CAN XL frame.
+#[cfg(feature = "xl")]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+pub struct XlFrame<'i> {
+    /// Priority ID (11 bits), arbitrated like a standard ID.
+    pub priority: U11,
+    /// Virtual CAN network ID; `None` when not used.
+    pub vcid: Option<u8>,
+    /// SDU type: what the data carries (CiA 611-1).
+    pub sdt: u8,
+    /// Simple extended content: CADH (CiA 613-2) present.
+    pub sec: bool,
+    /// Acceptance field (32 bits).
+    pub af: u32,
+    /// 1-2048 bytes.
+    pub data: MaxLen<RefVec<'i, u8>, MAX_XL_DATA_LEN>,
+}
+
+/// An XL frame to send, with a marker for `Can::tx_events`.
+#[cfg(feature = "xl")]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+pub struct XlTxFrame<'i> {
+    pub frame: XlFrame<'i>,
+    pub marker: Option<UNib32>,
+}
+
+/// XL data phase settings, see `CanXl::configure_xl`.
+#[cfg(feature = "xl")]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq))]
+pub struct XlConfig {
+    /// Bit timing of the XL data phase.
+    pub data: Timing,
+    pub tdc: Tdc,
+    /// Transceiver mode switching (CAN SIC XL transceivers): the data phase as PWM symbols; `None` for an SIC
+    /// transceiver without switching (data phase up to about 5 Mbit/s).
+    pub pwm: Option<XlPwm>,
+    /// Error signalling in the data phase; off for PWM mode, where errors are left to higher layers.
+    pub error_signaling: bool,
+}
+
+/// PWM symbol timing of the XL data phase, in minimum time quanta (clock periods).
+#[cfg(feature = "xl")]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug, PartialEq, Eq))]
+pub struct XlPwm {
+    pub short: u8,
+    pub long: u8,
+    pub offset: u8,
 }

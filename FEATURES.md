@@ -599,13 +599,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Second` as a device timestamp (wrap rule, host `Unwrapper`), constructors, conversions and comparisons across
   prefixes and storage, `UVlq32` / `UVlq64` storage (STD-13). `docs/std_library/ww_si.md`,
   `docs/std_library/ww_numeric.md`. Zero-overhead typed quantities (`Volt<u16, Milli>`) are not part of it.
+- ✅ **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** · `v0.5` — the info
+    crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),
+    `BUILD_ID` (GNU build id, finds the ELF) and optional `BUILD_RECORD`; `build::emit()` + `firmware_summary!()` for
+    `build.rs`, `build_id()` reader; `LastReset` (`ResetRecord` with a `Fault` per architecture behind `cortex-m` /
+    `riscv`, stack words, `boot_count`, `clear`). `BoardInfo::BOARD` with `RevisionSource`. `Uid::IDS`, first id is
+    the primary one (USB serial). `UserInfo` with bounded `name` / optional `notes`, `UserInfoError`, `CAPABILITIES`
+    and the persistence rule. Docs `docs/std_library/ww_{firmware_info,board_info,uid,user_info}.md`, tests
+    `tests/{firmware_info,board_info,uid,user_info}`. The const items are served by `get_` handlers until constant
+    items come from the introspection data; properties cannot carry `#[errors]` yet.
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
 - 🚧 **STD-8 Prototypes**, to be completed later: `ww_can_bus`, `ww_i2c`, `ww_uart`, `ww_counters`, `ww_indication`,
   `ww_ll`, `ww_log_bare_metal`. Known gaps are `TODO`s in their sources (e.g. SMBus and 7-bit addresses in
   `ww_i2c`, capabilities and properties in `ww_can_bus`).
-- 💡 **STD-9 Stubs**, for later: `ww_spi`, `ww_board_info`, `ww_firmware_info`, `ww_user_info`, `ww_uid`.
+- 💡 **STD-9 Stubs**, for later: `ww_spi` (`ww_board_info`, `ww_firmware_info`, `ww_user_info` and `ww_uid` moved to STD-24).
 - 🚧 **STD-12 `ww_dfu` firmware update API** — traits `UpdateNode`, `BootControl`, `Inventory`, `Stage`,
   `StageBulk`: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored
   plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec (P2625). End to

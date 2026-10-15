@@ -18,7 +18,7 @@
 //! ww_firmware_info = { version = "0.1", features = ["build"] }
 //! ```
 //!
-//! `build.rs` calls [build::emit], the firmware builds the value with [firmware_summary!]:
+//! `build.rs` calls `build::emit`, the firmware builds the value with [firmware_summary!]:
 //!
 //! ```ignore
 //! // build.rs
@@ -31,7 +31,7 @@
 //! # Build id
 //!
 //! Pass `-C link-arg=--build-id=sha1` to the linker and keep the note in flash with one line in `memory.x`
-//! (a `SECTIONS` block that also defines the symbols [build_id] reads):
+//! (a `SECTIONS` block that also defines the symbols `build_id` reads):
 //!
 //! ```text
 //! SECTIONS {
@@ -43,7 +43,7 @@
 //! } INSERT AFTER .rodata;
 //! ```
 //!
-//! Without the note [FirmwareInfo::BUILD_ID] is empty and hosts fall back to the newest ELF they find, with a
+//! Without the note `FirmwareInfo::BUILD_ID` is empty and hosts fall back to the newest ELF they find, with a
 //! warning.
 
 use wire_weaver::prelude::*;
@@ -100,7 +100,7 @@ pub trait LastReset {
     fn clear();
 }
 
-/// What `--version` shows of a firmware, see [FirmwareInfo::FIRMWARE].
+/// What `--version` shows of a firmware, see `FirmwareInfo::FIRMWARE`.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     derive(Clone, Debug, PartialEq, Eq)
@@ -184,7 +184,7 @@ const fn nibble(c: u8) -> u8 {
     }
 }
 
-/// Build time from the `WW_FW_BUILT` variable of [build::emit] (`YYYY-MM-DDTHH:MM:SS`), `None` when absent or
+/// Build time from the `WW_FW_BUILT` variable of `build::emit` (`YYYY-MM-DDTHH:MM:SS`), `None` when absent or
 /// malformed. Used by [firmware_summary!].
 #[doc(hidden)]
 pub fn parse_built(s: &str) -> Option<DateTime> {
@@ -204,10 +204,10 @@ pub fn parse_built(s: &str) -> Option<DateTime> {
     )
 }
 
-/// Build a [FirmwareSummary] from the variables [build::emit] set in the firmware's `build.rs`.
+/// Build a [FirmwareSummary] from the variables `build::emit` set in the firmware's `build.rs`.
 ///
 /// Not a `const`: the build time is converted at run time. Call it from the handler of
-/// [FirmwareInfo::FIRMWARE]. Values that don't fit their bounds are cut.
+/// `FirmwareInfo::FIRMWARE`. Values that don't fit their bounds are cut.
 ///
 /// `$crate::...` needs a firmware crate that depends on `ww_firmware_info`; the variables are read with `env!`, so a
 /// missing `build.rs` call is a compile error.

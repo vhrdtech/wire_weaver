@@ -1,28 +1,288 @@
 // ww_firmware_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_firmware_info", items: [
-    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "FirmwareInfo", docs: []),
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+    "Which firmware runs and why the device last reset (STD-24).",
+    "",
+    "[FirmwareInfo] answers what `--version` of our CLIs prints (`b200_usb_io 0.5.0 (a1b2c3d-dirty, built 3 Oct 2026",
+    "18:20)`) and gives the **GNU build id**, the firmware\'s identity: the linker hashes the linked output, so the id",
+    "changes with every byte of code, unlike a git commit (dirty builds, two profiles of one commit) or a version. A",
+    "host finds the firmware\'s ELF by it, which defmt logs, `cnt` counters and crash records all need.",
+    "[LastReset] reports why the device last reset and, after a crash, what the firmware saved before it.",
+    "",
+    "# Producing the summary",
+    "",
+    "In the firmware\'s `Cargo.toml` enable the `build` feature for build dependencies:",
+    "",
+    "```toml",
+    "[dependencies]",
+    "ww_firmware_info = { version = \"0.1\", default-features = false, features = [\"build-id\"] }",
+    "[build-dependencies]",
+    "ww_firmware_info = { version = \"0.1\", features = [\"build\"] }",
+    "```",
+    "",
+    "`build.rs` calls `build::emit`, the firmware builds the value with [firmware_summary!]:",
+    "",
+    "```ignore",
+    "// build.rs",
+    "fn main() { ww_firmware_info::build::emit(); }",
+    "",
+    "// firmware: in the handler of `FirmwareInfo::FIRMWARE`",
+    "let summary = ww_firmware_info::firmware_summary!();",
+    "```",
+    "",
+    "# Build id",
+    "",
+    "Pass `-C link-arg=--build-id=sha1` to the linker and keep the note in flash with one line in `memory.x`",
+    "(a `SECTIONS` block that also defines the symbols `build_id` reads):",
+    "",
+    "```text",
+    "SECTIONS {",
+    "  .note.gnu.build-id : ALIGN(4) {",
+    "    __build_id_start = .;",
+    "    KEEP(*(.note.gnu.build-id))",
+    "    __build_id_end = .;",
+    "  } > FLASH",
+    "} INSERT AFTER .rodata;",
+    "```",
+    "",
+    "Without the note `FirmwareInfo::BUILD_ID` is empty and hosts fall back to the newest ELF they find, with a",
+    "warning.",
+], crate_idx: 0, trait_name: "ww_firmware_info", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "FirmwareInfo", docs: [], optional: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LastReset", docs: [], optional: None),
 ]), types: [
-    InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(4), crate_idx: 0, docs: [], ident: "CrcKind", variants: [
-        (docs: [], ident: "Todo", fields: Unit, discriminant: 0, since: None),
-    ])), crate_idx: 0),
-], traits: [
-    InLine(level: (docs: [], crate_idx: 0, trait_name: "FirmwareInfo", items: [
-        (id: 0, kind: Property(ty: Tuple([
-            OutOfLine(type_idx: 0),
-            Vec(NumericAny(Base(U8))),
-        ]), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "crc", docs: []),
-        (id: 1, kind: Property(ty: Vec(NumericAny(Base(U8))), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "sha256", docs: []),
-        (id: 2, kind: Stream(ty: Vec(NumericAny(Base(U8))), is_up: true), multiplicity: Flat, since: None, ident: "bedrock_build_info", docs: [
-            "Optional.",
-            "ShrinkWrap serialized build information from [bedrock_build_info crate](https://github.com/romixlab/embedded_bedrock/tree/main/bedrock_build_info)",
-            "Contains build timestamp, profile and optimization levels, crate information including enabled features and dependencies.",
-            "Target info triple, compiler triple and version.",
-            "Git info (sha, dirty, branch, tag).",
-            "",
-            "Some fields may be omitted from the version stored in device FLASH, while full version can be obtained from firmware ELF.",
+    SkippedFullVersion(crate_idx: 1, type_name: "Version", signature: [
+        124,
+        254,
+        4,
+        171,
+        178,
+        5,
+        50,
+        7,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The git state a firmware was built from.",
+    ], ident: "GitInfo", fields: Named([
+        (ident: Some("commit"), default: None, since: None, ty: MaxLen(max_len: 20, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "Commit id, 20 bytes; hosts print the first 7 hex digits.",
         ]),
+        (ident: Some("dirty"), default: None, since: None, ty: Bool, docs: [
+            "Uncommitted changes were present at build time.",
+        ]),
+    ]))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 2, type_name: "DateTime", signature: [
+        211,
+        75,
+        69,
+        235,
+        24,
+        200,
+        194,
+        195,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Cargo profile of a build.",
+    ], ident: "BuildProfile", variants: [
+        (docs: [], ident: "Release", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Debug", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "A custom profile, by name.",
+        ], ident: "Other", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: []),
+        ]), discriminant: 2, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `--version` shows of a firmware, see `FirmwareInfo::FIRMWARE`.",
+    ], ident: "FirmwareSummary", fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
+            "Package or product firmware name, `b200_usb_io`.",
+        ]),
+        (ident: Some("version"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "Package version.",
+        ]),
+        (ident: Some("git"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
+            "`None` when built outside git.",
+        ]),
+        (ident: Some("built"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
+            "Build time (UTC); `SOURCE_DATE_EPOCH` when set, for reproducible builds.",
+        ]),
+        (ident: Some("profile"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "Cargo profile the firmware was built with.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Cause of a reset.",
+    ], ident: "ResetCause", variants: [
+        (docs: [
+            "Power was applied.",
+        ], ident: "PowerOn", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Supply voltage dropped below the brown-out threshold.",
+        ], ident: "Brownout", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "The reset pin was pulled low.",
+        ], ident: "Pin", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "The watchdog was not fed in time.",
+        ], ident: "Watchdog", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "Firmware asked for a reset (`sys_reset`).",
+        ], ident: "Software", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "The core locked up (a fault inside a fault handler).",
+        ], ident: "Lockup", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "A hardware fault, see `ResetRecord::fault`.",
+        ], ident: "Fault", fields: Unit, discriminant: 6, since: None),
+        (docs: [
+            "A Rust panic, see `ResetRecord::message`.",
+        ], ident: "Panic", fields: Unit, discriminant: 7, since: None),
+        (docs: [
+            "The reset that finished a firmware update.",
+        ], ident: "Updated", fields: Unit, discriminant: 8, since: None),
+        (docs: [
+            "The device cannot tell.",
+        ], ident: "Undetermined", fields: Unit, discriminant: 9, since: None),
+    ])), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 3, type_name: "Second", signature: [
+        37,
+        124,
+        121,
+        139,
+        82,
+        74,
+        68,
+        74,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Exception frame and fault status registers of a Cortex-M core.",
+    ], ident: "CortexMFault", fields: Named([
+        (ident: Some("pc"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Program counter at the fault.",
+        ]),
+        (ident: Some("lr"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Link register.",
+        ]),
+        (ident: Some("xpsr"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Program status register.",
+        ]),
+        (ident: Some("sp"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Stack pointer.",
+        ]),
+        (ident: Some("cfsr"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Configurable fault status.",
+        ]),
+        (ident: Some("hfsr"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Hard fault status.",
+        ]),
+        (ident: Some("mmfar"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "MemManage fault address.",
+        ]),
+        (ident: Some("bfar"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Bus fault address.",
+        ]),
+        (ident: Some("exc_return"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "`EXC_RETURN` value of the exception entry.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Trap registers of a RISC-V core.",
+    ], ident: "RiscVFault", fields: Named([
+        (ident: Some("mepc"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Exception program counter.",
+        ]),
+        (ident: Some("mcause"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Trap cause.",
+        ]),
+        (ident: Some("mtval"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Trap value (faulting address or instruction).",
+        ]),
+        (ident: Some("ra"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Return address register.",
+        ]),
+        (ident: Some("sp"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Stack pointer.",
+        ]),
+    ]))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Registers saved by a fault handler, one variant per architecture.",
+        "",
+        "Variants exist behind the `cortex-m` and `riscv` features and keep their numbers without them, so a build with",
+        "one feature reads what a build with the other reports as `EnumVariantDisabled`. `std` enables all of them.",
+        "Needs at least one architecture feature.",
+    ], ident: "Fault", variants: [
+        (docs: [
+            "ARMv6-M to ARMv8-M cores (RP2040, RP2350 Cortex-M33, STM32).",
+        ], ident: "CortexM", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "RISC-V cores (RP2350 Hazard3, ESP32-C).",
+        ], ident: "RiscV", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
+        ]), discriminant: 1, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Why the device reset last and what was saved before it, see [LastReset::last_reset](crate::LastReset::last_reset).",
+    ], ident: "ResetRecord", fields: Named([
+        (ident: Some("cause"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+            "What the reset-cause register (or the crash record) says.",
+        ]),
+        (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "Build id of the firmware that crashed: the record may be older than an update. Empty when unknown.",
+        ]),
+        (ident: Some("uptime"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 6)), docs: [
+            "Device time of the crash since its boot.",
+        ]),
+        (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
+            "Registers saved by the fault handler, for a fault or panic.",
+        ]),
+        (ident: Some("stack"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U32)))), docs: [
+            "Top of the stack at the crash, innermost word first, up to 32 words. Hosts symbolize return addresses with",
+            "the ELF found by `build_id`.",
+        ]),
+        (ident: Some("message"), default: None, since: None, ty: MaxLen(max_len: 128, ty: String), docs: [
+            "Panic message or fault text, cut at the bound.",
+        ]),
+    ]))), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "Which firmware runs: what `--version` prints, and how to find its ELF.",
+        "",
+        "All items are constant for the life of a firmware image.",
+    ], crate_idx: 0, trait_name: "FirmwareInfo", items: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 4), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "FIRMWARE", docs: [
+            "Name, version, git commit, build time and profile.",
+        ], optional: None),
+        (id: 1, kind: Property(ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "BUILD_ID", docs: [
+            "GNU build id of the image (20 bytes with sha1), empty when the firmware didn\'t keep the note. A host finds",
+            "the ELF by it.",
+        ], optional: None),
+        (id: 2, kind: Property(ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "BUILD_RECORD", docs: [
+            "The `bedrock_build_info` compact record as stored in flash (header with magic, length and CRC-32 included):",
+            "crate features, dependencies, compiler, target. The full record is in the ELF only.",
+        ], optional: Some((group: None))),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Why the device last reset and what the firmware saved before it, see [LastReset::last_reset].",
+        "",
+        "Capturing the record is firmware infrastructure (a fault or panic handler writing into RAM that survives a",
+        "reset); this trait only reports it.",
+    ], crate_idx: 0, trait_name: "LastReset", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
+            "Cause of the last reset and, after a crash, the record saved before it.",
+        ], optional: None),
+        (id: 1, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "boot_count", docs: [
+            "Boots since the boot counter was cleared. With the cause it tells a reset loop from a single crash.",
+        ], optional: None),
+        (id: 2, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "clear", docs: [
+            "Forget the crash record and zero the boot counter, after the host saved them.",
+        ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_firmware_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-])
+    (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None)

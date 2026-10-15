@@ -1,33 +1,81 @@
 // ww_uid 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_uid", items: [
-    (id: 0, kind: Trait(trait_idx: 0), multiplicity: Flat, since: None, ident: "Uid", docs: []),
+(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+    "Unique ids of a device (STD-24).",
+    "",
+    "A unit can carry several ids: a chip\'s factory-programmed unique id, a MAC address, an EUI-64 of a radio. They",
+    "are reported as one list, [Uid::IDS]. The first one is the **primary id**: the one a device puts into its USB",
+    "serial number string (as lower-case hex, no separators) and a host shows in `ww list`. A host that lost a device",
+    "on a reboot into a ROM bootloader sharing the same id (RP2350 BOOTSEL, STM32 DFU) finds the unit again by it.",
+], crate_idx: 0, trait_name: "ww_uid", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uid", docs: [], optional: None),
 ]), types: [
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "UidKind", variants: [
-        (docs: [], ident: "UniqueSequence", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "MACAddress", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "UUID", fields: Unit, discriminant: 2, since: None),
-        (docs: [], ident: "Other", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: String, docs: []),
-        ]), discriminant: 3, since: None),
-    ])), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "UidSource", variants: [
-        (docs: [], ident: "InternalIC", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "ExternalIC", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "Firmware", fields: Unit, discriminant: 2, since: None),
-        (docs: [], ident: "HardwareStraps", fields: Unit, discriminant: 3, since: None),
-        (docs: [], ident: "Other", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: String, docs: []),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "What an id\'s bytes are.",
+    ], ident: "UidKind", variants: [
+        (docs: [
+            "A number unique to this chip, programmed by its manufacturer.",
+        ], ident: "ChipUnique", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "A 48-bit MAC address.",
+        ], ident: "Mac48", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "A 64-bit extended unique identifier.",
+        ], ident: "Eui64", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "A 128-bit UUID.",
+        ], ident: "Uuid", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "Anything else, named.",
+        ], ident: "Other", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: []),
         ]), discriminant: 4, since: None),
     ])), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Who provides an id.",
+    ], ident: "UidSource", variants: [
+        (docs: [
+            "Inside the main chip (factory-programmed ID registers).",
+        ], ident: "InternalIc", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "A separate chip on the board (an EEPROM with a MAC, a 1-Wire ID chip).",
+        ], ident: "ExternalIc", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Written by firmware: stored in flash or generated at the first start.",
+        ], ident: "Firmware", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "Read from resistor straps or pins.",
+        ], ident: "HardwareStraps", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "Anything else, named.",
+        ], ident: "Other", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: []),
+        ]), discriminant: 4, since: None),
+    ])), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One unique id of a unit, where it comes from and what kind of number it is.",
+    ], ident: "UniqueId", fields: Named([
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "What the bytes of `value` are.",
+        ]),
+        (ident: Some("source"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+            "Who provides the id.",
+        ]),
+        (ident: Some("value"), default: None, since: None, ty: MaxLen(max_len: 16, ty: Vec(NumericAny(Base(U8)))), docs: [
+            "The id, up to 16 bytes: 6 for a MAC, 8 for an EUI-64, 16 for a UUID, a chip\'s own length otherwise.",
+        ]),
+    ]))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
-        "Represents one unique ID associated with a device.",
+        "The unique ids of this unit.",
+        "",
+        "The list is never empty on a device that has any id at all; the first entry is the primary id, see the",
+        "[crate](crate) documentation.",
     ], crate_idx: 0, trait_name: "Uid", items: [
-        (id: 0, kind: Property(ty: Vec(NumericAny(Base(U8))), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "value", docs: []),
-        (id: 1, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "kind", docs: []),
-        (id: 2, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "source", docs: []),
+        (id: 0, kind: Property(ty: MaxLen(max_len: 4, ty: Vec(OutOfLine(type_idx: 2))), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "IDS", docs: [
+            "All ids of this unit, the primary one first. At most 4.",
+        ], optional: None),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_uid", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-])
+], root_omitted: None)

@@ -1,4 +1,4 @@
-//! Build-script helper: gathers git, version and time facts for [firmware_summary!](crate::firmware_summary).
+//! Build-script helper: gathers git, version and time facts for `firmware_summary!`.
 //!
 //! Call [emit] from the firmware's `build.rs`. It runs `git` (like our CLIs' `--version` does) and sets the
 //! `WW_FW_*` variables with `cargo:rustc-env`. `rerun-if-changed` covers `.git/HEAD` and `.git/index`, so the commit

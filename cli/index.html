@@ -3472,8 +3472,8 @@ spaces or quotes are inserted quoted, and values after <code>@</code> or <code>:
 </tr>
 <tr>
 <td><a href="#ww-usb-loopback"><code>ww usb-loopback</code></a></td>
-<td>yes</td>
-<td>Runs USB loopback and throughput tests</td>
+<td>yes, any API</td>
+<td>Runs link loopback and throughput tests</td>
 </tr>
 <tr>
 <td><a href="#ww-dfu"><code>ww dfu</code></a></td>
@@ -3660,8 +3660,20 @@ lists every change, doc comments included, see <a href="../evolution/checker_too
 crate's re-export is only resolved for the ones <code>wire_weaver</code> re-exports (<code>ww_version</code>, <code>shrink_wrap</code>), crates with a
 workspace-inherited version can't be loaded, and self-referential types (like the ones in <code>ww_self</code>) are not supported.</p>
 <h3 id="ww-usb-loopback"><code>ww usb-loopback</code><a class="headerlink" href="#ww-usb-loopback" title="Permanent link">&para;</a></h3>
-<p>Checks the USB link to the selected device: runs a loopback test (packets sent to the device and back, verifying
-nothing was lost or corrupted), then one-way transmit and receive speed tests, with a progress bar for each.</p>
+<p>Checks the link to the selected device in three stages, each with a progress bar, then prints a summary table:</p>
+<ol>
+<li><code>loopback</code>: one message at a time to the device and back, counting round trips per second, lost echoes (none
+   within <code>--echo-timeout-ms</code>) and corrupted ones (each message carries data that checks itself).</li>
+<li><code>tx_speed</code>: host → device, the device discards the messages. An echoed marker every 32 messages (at most 2 in
+   flight) keeps the host from running ahead of a slow device.</li>
+<li><code>rx_speed</code>: device → host, the device answers each request with 64 messages (at most 2 requests in
+   flight); gaps in their numbering are lost.</li>
+</ol>
+<p>The device's link layer answers (<code>Loopback</code> in <a href="../transport/ww_link/">ww_link</a>), so this works with any device,
+whatever its API, without downloading its introspection. The command exits with an error when anything was lost or
+corrupted, or when the device stopped answering (3 timeouts in a row). The numbers above are defaults of the tuning
+options in the table below (<code>--help</code> lists them under "Test tuning"), e.g. for a slow transport or a device with
+small buffers.</p>
 <table>
 <thead>
 <tr>
@@ -3674,12 +3686,42 @@ nothing was lost or corrupted), then one-way transmit and receive speed tests, w
 <tr>
 <td><code>--duration-sec &lt;N&gt;</code></td>
 <td><code>10</code></td>
-<td>How long to run each test</td>
+<td>How long to run each stage</td>
 </tr>
 <tr>
 <td><code>--packet-size &lt;N&gt;</code></td>
 <td><code>max</code></td>
-<td>Size of each test packet, capped to the max USB packet size</td>
+<td>Size of each link message (8 bytes of header and data), capped to what both sides accept</td>
+</tr>
+<tr>
+<td><code>--echo-timeout-ms &lt;MS&gt;</code></td>
+<td><code>500</code></td>
+<td>An echo (round trip, marker or device → host reply) missing for this long is lost</td>
+</tr>
+<tr>
+<td><code>--timeouts-in-a-row &lt;N&gt;</code></td>
+<td><code>3</code></td>
+<td>Give up after this many echo timeouts in a row</td>
+</tr>
+<tr>
+<td><code>--marker-every &lt;N&gt;</code></td>
+<td><code>32</code></td>
+<td>Host → device: messages between two echoed markers</td>
+</tr>
+<tr>
+<td><code>--markers-in-flight &lt;N&gt;</code></td>
+<td><code>2</code></td>
+<td>Host → device: markers in flight at most, the host waits for their echoes beyond that</td>
+</tr>
+<tr>
+<td><code>--rx-batch &lt;N&gt;</code></td>
+<td><code>64</code></td>
+<td>Device → host: messages the device sends for one request (at least 2)</td>
+</tr>
+<tr>
+<td><code>--batches-in-flight &lt;N&gt;</code></td>
+<td><code>2</code></td>
+<td>Device → host: requests in flight at most</td>
 </tr>
 </tbody>
 </table>

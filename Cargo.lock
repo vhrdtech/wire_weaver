@@ -4538,7 +4538,11 @@ dependencies = [
 name = "ww_firmware_info"
 version = "0.1.0"
 dependencies = [
+ "defmt 1.1.1",
  "wire_weaver",
+ "ww_date_time",
+ "ww_si",
+ "ww_version",
 ]
 
 [[package]]
@@ -4749,7 +4753,9 @@ dependencies = [
 name = "ww_user_info"
 version = "0.1.0"
 dependencies = [
+ "defmt 1.1.1",
  "wire_weaver",
+ "ww_error",
 ]
 
 [[package]]

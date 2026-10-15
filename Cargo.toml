@@ -85,6 +85,8 @@ ww_client_server = { version = "0.2.0", path = "./ww_stdlib/ww_client_server", d
 ww_date_time = { version = "0.1.0", path = "./ww_stdlib/ww_date_time", default-features = false }
 ww_dfu = { version = "0.1.0", path = "./ww_stdlib/ww_dfu", default-features = false }
 ww_error = { version = "0.1.0", path = "./ww_stdlib/ww_error", default-features = false }
+ww_board_info = { version = "0.1.0", path = "./ww_stdlib/ww_board_info", default-features = false }
+ww_firmware_info = { version = "0.1.0", path = "./ww_stdlib/ww_firmware_info", default-features = false }
 ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = false }
 ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
 ww_i2c = { version = "0.1.0", path = "./ww_stdlib/ww_i2c", default-features = false }
@@ -98,6 +100,8 @@ ww_signal_generator = { version = "0.1.0", path = "./ww_stdlib/ww_signal_generat
 ww_spi = { version = "0.1.0", path = "./ww_stdlib/ww_spi", default-features = false }
 ww_timebase = { version = "0.1.0", path = "./ww_stdlib/ww_timebase", default-features = false }
 ww_uart = { version = "0.1.0", path = "./ww_stdlib/ww_uart", default-features = false }
+ww_uid = { version = "0.1.0", path = "./ww_stdlib/ww_uid", default-features = false }
+ww_user_info = { version = "0.1.0", path = "./ww_stdlib/ww_user_info", default-features = false }
 ww_version = { version = "0.2.0", path = "./ww_stdlib/ww_version", default-features = false }
 
 # examples and tests, not published

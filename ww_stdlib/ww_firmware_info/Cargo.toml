@@ -2,18 +2,28 @@
 name = "ww_firmware_info"
 version = "0.1.0"
 authors.workspace = true
-description = "Firmware information (sha, build date, features, etc)"
+description = "Firmware information (name, version, git, build time, build id) and last reset record"
 edition.workspace = true
 license.workspace = true
 repository = "https://github.com/vhrdtech/ww_stdlib"
 
+[features]
+default = ["std"]
+# every architecture's fault record, the host has to read all of them
+std = ["wire_weaver/std", "ww_date_time/std", "ww_si/std", "ww_version/std", "cortex-m", "riscv"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_date_time/defmt", "ww_si/defmt", "ww_version/defmt"]
+# `build::emit()` for a firmware's build.rs (needs std and git on the build machine)
+build = []
+# `build_id()` reads the GNU build note through the linker's `__build_id_start` / `__build_id_end` symbols
+build-id = []
+# `Fault::CortexM`
+cortex-m = []
+# `Fault::RiscV`
+riscv = []
+
 [dependencies]
-wire_weaver.workspace = true
-
-
-#defmt = { version = "1.0", optional = true }
-
-#[features]
-#default = ["std"]
-#std = ["wire_weaver/std"]
-#defmt = ["dep:defmt", "wire_weaver/defmt"]
+defmt = { workspace = true, optional = true }
+wire_weaver = { workspace = true, default-features = false }
+ww_date_time = { workspace = true, default-features = false }
+ww_si = { workspace = true, default-features = false, features = ["time"] }
+ww_version = { workspace = true, default-features = false }

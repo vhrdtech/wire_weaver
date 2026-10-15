@@ -7,11 +7,12 @@ edition.workspace = true
 license.workspace = true
 repository = "https://github.com/vhrdtech/ww_stdlib"
 
-[dependencies]
-wire_weaver.workspace = true
-#defmt = { version = "1.0", optional = true }
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_error/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt"]
 
-#[features]
-#default = ["std"]
-#std = ["wire_weaver/std"]
-#defmt = ["dep:defmt", "wire_weaver/defmt"]
+[dependencies]
+defmt = { workspace = true, optional = true }
+wire_weaver.workspace = true
+ww_error = { workspace = true, default-features = false }

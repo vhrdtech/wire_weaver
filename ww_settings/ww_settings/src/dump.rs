@@ -21,15 +21,8 @@
 use crate::fake_flash::FakeFlash;
 use crate::group::SettingsGroup;
 use crate::record::{self, DecodeStats, Record, RecordError};
-use crate::store::{Key, Store};
-use crc::{CRC_32_ISCSI, Crc};
+use crate::store::{CRC, ITEM_HEADER_LEN, ITEM_TAG, Key, PAGE_HEADER_LEN, PAGE_MAGIC, Store};
 use std::collections::{BTreeMap, BTreeSet};
-
-const CRC: Crc<u32> = Crc::<u32>::new(&CRC_32_ISCSI);
-const PAGE_MAGIC: [u8; 4] = [b'W', b'S', 1, 0xff];
-const PAGE_HEADER_LEN: usize = 12;
-const ITEM_TAG: u8 = 0xa5;
-const ITEM_HEADER_LEN: usize = 12;
 
 /// Word sizes [Store] can be configured for (the flash's `WRITE_SIZE`/`READ_SIZE`, whichever is larger).
 pub const WORD_SIZES: &[usize] = &[1, 4, 8, 16, 32];

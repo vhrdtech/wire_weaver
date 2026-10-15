@@ -46,11 +46,11 @@ use core::ops::Range;
 use crc::{CRC_32_ISCSI, Crc};
 use embedded_storage_async::nor_flash::NorFlash;
 
-const CRC: Crc<u32> = Crc::<u32>::new(&CRC_32_ISCSI);
-const PAGE_MAGIC: [u8; 4] = [b'W', b'S', 1, 0xff];
-const PAGE_HEADER_LEN: usize = 12;
-const ITEM_TAG: u8 = 0xa5;
-const ITEM_HEADER_LEN: usize = 12;
+pub(crate) const CRC: Crc<u32> = Crc::<u32>::new(&CRC_32_ISCSI);
+pub(crate) const PAGE_MAGIC: [u8; 4] = [b'W', b'S', 1, 0xff];
+pub(crate) const PAGE_HEADER_LEN: usize = 12;
+pub(crate) const ITEM_TAG: u8 = 0xa5;
+pub(crate) const ITEM_HEADER_LEN: usize = 12;
 /// Largest flash word supported (STM32H7: 32 bytes).
 const MAX_WORD: usize = 32;
 

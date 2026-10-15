@@ -2364,6 +2364,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#which-errors-a-method-returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Which errors a method returns
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Which errors a method returns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it does
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#real-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Real examples
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tools" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3123,6 +3162,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#which-errors-a-method-returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Which errors a method returns
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Which errors a method returns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it does
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#real-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Real examples
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tools" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3388,6 +3466,66 @@ discriminants (<code>Common</code>, then the <code>CommonError</code> variant), 
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>tests/common_error</code> runs these through a generated server, the generated client and the dynamic client.</p>
+<h2 id="which-errors-a-method-returns">Which errors a method returns<a class="headerlink" href="#which-errors-a-method-returns" title="Permanent link">&para;</a></h2>
+<p><code>#[errors(..)]</code> on a method lists the variants it actually returns, checked against the error enum when the trait is
+parsed: an unknown or repeated name is a compile error pointing at that name, not the whole attribute (see
+<a href="../../api/errors/#which-errors-a-method-returns">Errors</a> for the full mechanics — the model, the client check, the
+evolution checker). For the <code>#[common]</code> variant, name just the <code>CommonError</code> cases that apply, or leave them out for
+all of them:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[errors(Common(Busy, NoPower, Timeout), NoSuchChannel)]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">channel</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Reading</span><span class="p">,</span><span class="w"> </span><span class="n">AdcError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="cp">#[errors(Common)]</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">fn</span><span class="w"> </span><span class="nf">calibrate</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">CommonError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></code></pre></div>
+<ul>
+<li><code>Common(Busy, NoPower, Timeout)</code> — only those three <code>CommonError</code> variants, plus the crate's own <code>NoSuchChannel</code>.</li>
+<li><code>Common</code> alone — any <code>CommonError</code> variant.</li>
+<li>An error enum with no <code>#[common]</code> case lists only its own variants: <code>#[errors(WrongAddress, Refused)]</code>.</li>
+<li>When the error type <em>is</em> <code>CommonError</code> directly (no crate enum around it, as <code>ww_indication::Indication::identify</code>
+  returns <code>Result&lt;(), CommonError&lt;'i&gt;&gt;</code>), the list names <code>CommonError</code>'s own variants without nesting:
+  <code>#[errors(Unsupported, Busy)]</code>.</li>
+</ul>
+<h3 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h3>
+<p>The list changes neither the type nor the wire: it is metadata in the API model, and from there:</p>
+<ul>
+<li>a <code># Errors</code> section, one line per entry with the variant's own doc comment (its first line, without the final
+  period; <code>any CommonError</code> for <code>Common</code> alone) — on the trait's own rustdoc (<code>wire_weaver::api_doc</code>) and on the
+  generated client's method;</li>
+<li>introspection: <code>ww api tree -t</code>, <code>ww introspect</code> and Python's <code>help()</code> show the same list next to the method;</li>
+<li>the evolution checker: a changed <code>#[errors(..)]</code> list is reported as a <em>compatible</em> change (nothing on the wire
+  moves, and the device never checks it), but worded so the reviewer sees which variants a client of the old list
+  would warn about;</li>
+<li>a check on the client: a device replying with a variant outside the method's list logs a <code>tracing</code> warning
+  (<code>'&lt;resource&gt;' returned &lt;value&gt;, which is not in its #[errors(..)]</code>).
+  <code>wire_weaver_client::set_strict_error_lists(true)</code> turns it into a panic instead, for the whole process; the
+  <code>tests_common</code> end-to-end harness turns it on, so a device that breaks its own contract fails in CI, not in the
+  field.</li>
+</ul>
+<p>A method without <code>#[errors(..)]</code> may return any variant of its error enum; nothing checks it, and clients get no
+<code># Errors</code> section for it. Two kinds of item can't carry <code>#[errors(..)]</code> yet, so they keep a hand-written <code># Errors</code>
+note in their doc comment instead:</p>
+<ul>
+<li>a <code>property!</code> item (see <code>ww_log::LogText::level</code> or <code>ww_gpio::GpioBank::pull</code>);</li>
+<li>a method tagged <code>#[stream(..)]</code> (a stream-opening method, API-31) — most <code>ww_stdlib</code> crates with one still note
+  its errors by hand (see <code>ww_adc::AdcStream::samples</code>, <code>ww_i2c::I2cMonitor::records</code>).</li>
+</ul>
+<h3 id="real-examples">Real examples<a class="headerlink" href="#real-examples" title="Permanent link">&para;</a></h3>
+<p><code>ww_adc::Adc::read</code> lists three <code>CommonError</code> cases plus the crate's own <code>NoSuchChannel</code>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[errors(Common(Busy, NoPower, Timeout), NoSuchChannel)]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">channel</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Reading</span><span class="p">,</span><span class="w"> </span><span class="n">AdcError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></code></pre></div>
+<p><code>ww_adc::AdcCapture::capture</code> lists five:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[errors(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="cp">    Common(InvalidArgument, Unsupported, Busy, InUse, NoPower),</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="cp">    NoSuchChannel</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="cp">)]</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">fn</span><span class="w"> </span><span class="nf">capture</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">CaptureConfig</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">CaptureActual</span><span class="p">,</span><span class="w"> </span><span class="n">AdcError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></code></pre></div>
+<p><code>ww_memory::Memory::write_many</code> has no <code>Common(..)</code> nesting, only the crate's own variants alongside one common one:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="cp">#[errors(WrongAddress, Common(Refused))]</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">write_many</span><span class="p">(</span><span class="n">addr</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">MemoryError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></code></pre></div>
 <h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
 <p>Tools recognise <code>ww_error::CommonError</code> by its type in the API model (crate <code>ww_error</code>, any version), also when a
 device left its definition out because it is known from the snapshots (<code>ww_self::TypeOwned::is_common_error</code>,

@@ -3659,8 +3659,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   error enum when the trait is parsed (a compile error on a wrong name), in the API model (<code>ww_self</code> <code>Method::errors</code>),
   generated client and rustdoc <code># Errors</code> with each variant's doc line, <code>ww api tree</code>, Python <code>help()</code>, <code>ww api check</code>
   (compatible); the generated and dynamic clients warn when a device returns a variant outside the list, tests fail
-  (<code>tests_common</code>). Nothing on the device (<code>docs/api/methods.md#error-lists</code>, <code>tests/methods</code>). Not yet: the GUI
-  (<code>wire_weaver_tool</code>).</li>
+  (<code>tests_common</code>). Nothing on the device (<code>docs/api/methods.md#error-lists</code>, <code>tests/methods</code>). Not yet: a
+  <code>#[stream(..)]</code>-tagged method (a stream-opening method, API-31) rejects <code>#[errors(..)]</code> today — several
+  <code>ww_stdlib</code> crates (<code>ww_adc</code>, <code>ww_counters</code>, <code>ww_gpio</code>, <code>ww_i2c</code>, <code>ww_log</code>, <code>ww_logic_analyzer</code>, <code>ww_pwm</code>,
+  <code>ww_spi</code>, <code>ww_uart</code>) keep a hand-written <code># Errors</code> doc note on their stream-opening methods for this reason; the
+  GUI (<code>wire_weaver_tool</code>).</li>
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
@@ -3946,7 +3949,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>wire_weaver::prelude::CommonError</code>, nested first in an error enum as <code>#[common] Common(CommonError)</code> (the derive
   adds <code>From&lt;CommonError&gt;</code> and <code>HasCommon</code>); recognised by tools by its type (<code>ww_self::TypeOwned::is_common_error</code>):
   Python <code>RemoteError.common</code> with the doc line as the message, <code>ww api tree -t</code> marks it. Display by hand until
-  DER-12 takes over. Moving the stdlib crates' errors to it is still to do.
+  DER-12 takes over. Every <code>ww_stdlib</code> API crate with fallible methods uses it except <code>ww_dfu</code> (its <code>Error</code> has no
+  lifetime and predates this; only <code>Unsupported</code>/<code>Busy</code> would map cleanly, left as a follow-up) and <code>ww_can_bus</code>
+  (not ready yet); <code>ww_client_server</code>'s <code>ErrorKind</code> is a framework/link-level error, not an API error, so it is out
+  of scope.
   <code>docs/std_library/ww_error.md</code>, <code>tests/common_error</code>.</li>
 <li>✅ <strong>STD-19 <code>ww_pwm</code></strong> — <code>Pwm</code> / <code>PwmChannel</code> outputs (<code>set_output</code>, <code>set_duty</code>, <code>stop</code>, <code>state</code>), <code>PwmCapture</code> /
   <code>PwmCaptureChannel</code> measurements (frequency, duty, pulse width, edge count) over a plain stream with sideband

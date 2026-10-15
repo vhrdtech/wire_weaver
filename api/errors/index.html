@@ -3353,7 +3353,11 @@ that name.</p>
   <code>wire_weaver_client::set_strict_error_lists(true)</code> makes it a panic instead; the test harness
   (<code>tests_common</code>) turns that on.</li>
 </ul>
-<p>A method without <code>#[errors]</code> may return any variant of its error enum.</p>
+<p>A method without <code>#[errors]</code> may return any variant of its error enum. A <code>property!</code> item, and a method tagged
+<code>#[stream(..)]</code> (a stream-opening method, API-31), can't carry <code>#[errors(..)]</code> yet; document their errors in a
+hand-written <code># Errors</code> doc line instead.</p>
+<p><a href="../../std_library/ww_error/#which-errors-a-method-returns"><code>ww_error</code></a> walks through the <code>Common(..)</code> nesting and
+real examples from <code>ww_stdlib</code>.</p>
 <h3 id="messages-from-doc-comments">Messages from doc comments<a class="headerlink" href="#messages-from-doc-comments" title="Permanent link">&para;</a></h3>
 <p>With the <code>display</code> directive, the derive writes <code>Display</code> and <code>std::error::Error</code> (<code>core::error::Error</code> on
 <code>no_std</code>) from the first doc line of each variant, filling in <code>{field}</code> placeholders: <code>BufferTooBig { max: 64 }</code>

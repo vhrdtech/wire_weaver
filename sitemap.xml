@@ -19,6 +19,12 @@
         <loc>https://ww.vhrd.tech/api/methods/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/api/multi_requests/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/api/observing/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/optional_items/</loc>
       </url>
       <url>

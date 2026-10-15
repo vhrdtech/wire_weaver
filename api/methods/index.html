@@ -311,6 +311,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -941,6 +945,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1215,6 +1223,60 @@
     
   
   Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Observing properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi_requests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Multi requests
 
     
   </span>
@@ -3365,6 +3427,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3511,6 +3577,9 @@ their servers' <code>sink()</code>.</p>
 <p><code>method_model = "move_motor=deferred, _=immediate"</code> lets a method return <code>Deferred</code> and answer later. The handler
 keeps <code>cx.reply_to()</code>, and the reply is sent with the generated <code>ServerState::move_motor_send_return(out, seq, output)</code>
 (<code>_send_return_blocking</code> for sync), where <code>out</code> is another handler's <code>cx</code> or <code>server.sink()</code> of <code>reply_to.medium</code>.
+A deferred method on a nested level (<code>ww_impl!(plug: Plug)</code>) uses the prefixed name everywhere, like its handler:
+<code>method_model = "plug_vbus_cycle=deferred, _=immediate"</code> and <code>ServerState::plug_vbus_cycle_send_return(..)</code>. On a
+resource array level the handler gets the index chain, the helper does not need it (<code>seq</code> identifies the call).
 A deferred call that is never answered times out on the client.</p>
 <h3 id="resource-names-mapping">Resource names mapping<a class="headerlink" href="#resource-names-mapping" title="Permanent link">&para;</a></h3>
 <p>In order to avoid complex shared data structures and allocation on <code>no_std</code>, all API levels are squished into one.</p>
@@ -3545,15 +3614,11 @@ without <code>Result</code> tell an unimplemented method apart with <code>wire_w
 with a user error type (<code>property!(rw mode: u8, ModeError)</code>) gives the same <code>CallError&lt;ModeError&gt;</code> from <code>write()</code>.
 See <a href="../errors/">Errors</a> for declaring errors, common errors and errors of newer firmware.</p>
 <h3 id="several-calls-in-one-request">Several calls in one request<a class="headerlink" href="#several-calls-in-one-request" title="Permanent link">&para;</a></h3>
-<p>When the server is generated with <code>multi_req = true</code> (a server without it refuses the request), several methods
-can be called in one request/response pair, each answered on its own (<code>Result&lt;T, ErrorOwned&gt;</code> per item, in order):
-<code>(client.inc(), client.dec()).multi_call().await</code>, implemented for tuples of 2 to 8 of <code>PreparedCall</code>, at any depth
-(any methods that share a common path prefix and diverge at exactly one element). To call the same method across a
-whole array, use <code>call_array(multi_idx, |i| client.pin(i).double())</code> (<code>multi_idx</code> is a <code>Range</code>/<code>List</code>/<code>Mask32</code>
-selector) — see <a href="../properties/#host-side">Properties</a> for the full set of multi-request helpers, which is shared
-with methods and properties alike (<code>multi_read</code>/<code>multi_call</code>/<code>multi_write</code>, <code>read_array</code>/<code>call_array</code>/<code>write_array</code>,
-and the dynamic-client equivalents). A method with a custom <code>#[errors(..)]</code> result (<code>CallError&lt;E&gt;</code>) can't go into a
-tuple multi-call; call it on its own instead.</p>
+<p>Several methods can be called in one request/response pair, each answered on its own:
+<code>(client.inc(), client.dec()).multi_call().await</code>, or the same method across a whole array with <code>call_array(..)</code>.
+This is shared machinery with properties and reads/writes - see <a href="../multi_requests/">Multi requests</a> for the full
+picture (the server's <code>multi_req = true</code> option, <code>MultiIndex</code>, the generated/array/dynamic-client APIs, errors and
+limits).</p>
 <h3 id="error-lists">Error lists<a class="headerlink" href="#error-lists" title="Permanent link">&para;</a></h3>
 <p><code>#[errors(..)]</code> on a method names the variants of its error enum it returns (API-32), <code>Common(InUse, Refused)</code> the
 variants of the enum a <code>Common(CommonError)</code> variant holds, <code>Common</code> all of them:</p>

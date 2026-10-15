@@ -309,6 +309,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -939,6 +943,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1052,6 +1060,60 @@
     
   
   Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/observing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Observing properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/multi_requests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Multi requests
 
     
   </span>
@@ -3541,7 +3603,7 @@ sampling of many pins a <a href="../ww_logic_analyzer/">logic analyzer</a>.</p>
 <h3 id="observing-a-pin-level-planned">Observing a pin level (planned)<a class="headerlink" href="#observing-a-pin-level-planned" title="Permanent link">&para;</a></h3>
 <p>A <code>property!(ro+observe level: Level)</code> on <code>Pin</code>, at one of its reserved indices 4..=6, would let a host watch slow
 inputs without opening the <code>event</code> stream of every pin. It waits for array index bounds (API-29): <code>Pin</code> sits in the
-<code>Bank::pin[]</code> array, and <a href="../../api/properties/#observing-changes">observed properties</a> under a resource array aren't
+<code>Bank::pin[]</code> array, and <a href="../../api/observing/#the-device-side">observed properties</a> under a resource array aren't
 supported yet (STD-31).</p>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>

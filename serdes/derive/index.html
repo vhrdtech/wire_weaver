@@ -311,6 +311,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1251,6 +1255,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1364,6 +1372,60 @@
     
   
   Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/observing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Observing properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/multi_requests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Multi requests
 
     
   </span>
@@ -4222,8 +4284,8 @@ and writers, a hand-written one 4408 and the derived shrink_wrap one 6652 (<a hr
 <a href="../shrink_wrap/#optionanyvec-sparse-slots-of-any-types"><code>OptionAnyVec</code></a>: a presence header, then only the present
 values. Each field is one slot, in declaration order, and <code>#[slot = N]</code> places a field at slot <code>N</code> instead (slots
 increase, gaps are allowed). It is made for updates that carry any subset of many values, as the per trait level
-<code>&lt;Level&gt;Update</code> of an observe request, whose slots are the level's resource indices with methods and streams in
-between:</p>
+<code>&lt;Level&gt;Update</code> of an <a href="../../api/observing/#wire-format">observe request</a>, whose slots are the level's resource
+indices with methods and streams in between:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="cp">#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Default), sparse)]</span>
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">MotorUpdate</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="n">speed</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">,</span><span class="w">    </span><span class="c1">// slot 0</span>

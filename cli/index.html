@@ -309,6 +309,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -939,6 +943,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1052,6 +1060,60 @@
     
   
   Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/observing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Observing properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/multi_requests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Multi requests
 
     
   </span>
@@ -3830,8 +3892,8 @@ lists every change, doc comments included, see <a href="../evolution/checker_too
 crate's re-export is only resolved for the ones <code>wire_weaver</code> re-exports (<code>ww_version</code>, <code>shrink_wrap</code>), crates with a
 workspace-inherited version can't be loaded, and self-referential types (like the ones in <code>ww_self</code>) are not supported.</p>
 <h3 id="ww-observe"><code>ww observe</code><a class="headerlink" href="#ww-observe" title="Permanent link">&para;</a></h3>
-<p>Observes a trait level's <code>+observe</code> properties (<a href="../api/properties/#observing-changes">Observing changes</a>) from
-introspection alone, no generated code needed (TOOL-11, the same dynamic client <a href="../python/#observing">Python</a> uses):</p>
+<p>Observes a trait level's <code>+observe</code> properties (<a href="../api/observing/">Observing properties</a>) from introspection
+alone, no generated code needed (TOOL-11, the same dynamic client <a href="../python/#observing">Python</a> uses):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>$ ww observe motor --rate 10
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>observing motor (3 properties): speed, current, position
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>budget: 20.0 kB/s
@@ -3841,7 +3903,7 @@ introspection alone, no generated code needed (TOOL-11, the same dynamic client 
 <p><code>&lt;path&gt;</code> is dotted/indexed (<code>motor</code>, <code>bank[0]</code>), empty for the API root. Without <code>--rate</code> every observable property
 is asked for on-change; with it, all of them periodically at that rate (milliseconds). Prints each update's present
 values, the measured update rate and the link bytes/s it costs, until Ctrl+C. See
-<a href="../api/properties/#observing">Observing</a> for the host-side model this reuses.</p>
+<a href="../api/observing/#the-host-side">Observing properties</a> for the host-side model this reuses.</p>
 <h3 id="ww-usb-loopback"><code>ww usb-loopback</code><a class="headerlink" href="#ww-usb-loopback" title="Permanent link">&para;</a></h3>
 <p>Checks the link to the selected device in three stages, each with a progress bar, then prints a summary table:</p>
 <ol>

@@ -311,6 +311,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1118,6 +1122,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1231,6 +1239,60 @@
     
   
   Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/observing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Observing properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/multi_requests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Multi requests
 
     
   </span>
@@ -3806,7 +3868,9 @@ size, is unknown): <code>read_slot</code> fails with <code>Error::OptionAnyVecUn
 present, as the methods between the properties of a trait level, never for slots a newer version might fill.</p>
 <p>A <a href="../derive/#sparse-a-struct-of-optional-fields"><code>sparse</code> struct</a> is an <code>OptionAnyVec</code> with a field per slot.</p>
 <p><code>OptionAnyVec</code> is <code>Unsized</code>; <code>EitherAnyVec</code> is the counterpart for <code>Either</code> slots that are all present (each
-element <code>L</code> or <code>R</code>, flags in-line in groups of 8, the element count implied).</p>
+element <code>L</code> or <code>R</code>, flags in-line in groups of 8, the element count implied) - used to answer
+<a href="../../api/multi_requests/#the-reply-an-eitheranyvec-of-results">multi requests</a>, one <code>Either&lt;Error, value&gt;</code> per
+index.</p>
 <h2 id="next-step">Next step<a class="headerlink" href="#next-step" title="Permanent link">&para;</a></h2>
 <p>Check out the <a href="../derive/">derive</a> macro that generates all of the above from a plain struct/enum definition, and
 the <a href="../showcase/">showcase</a> for worked, byte-verified examples of the tricks this format enables, and the

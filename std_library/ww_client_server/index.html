@@ -309,6 +309,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -939,6 +943,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1052,6 +1060,60 @@
     
   
   Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/observing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Observing properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/multi_requests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Multi requests
 
     
   </span>
@@ -3388,12 +3450,12 @@ though some types (<code>StreamCursor</code>, <code>SinkCredit</code>, the <code
   at once), <code>Read</code> / <code>MultiRead</code>, <code>Write { data }</code> / <code>MultiWrite</code>, <code>StreamSideband { sideband }</code>, <code>Introspect</code>
   (send the <code>ww_self::ApiBundle</code> of the addressed resource), <code>StreamOpen { resume, args }</code> (open a
   <a href="../../api/stream_reliability/">counted or reliable stream</a>, optionally resuming a <code>StreamCursor</code>),
-  <code>Observe { cfg }</code> (how a trait level's properties are sent, see <a href="#observing-properties">below</a>). Arguments and
-  written values travel as <code>TailBytes&lt;'i&gt;</code> - already shrink_wrap-serialized by the generated code on either end,
-  opaque to this crate.</li>
+  <code>Observe { cfg }</code> (how a trait level's properties are sent, see <a href="#observing-properties">below</a> and
+  <a href="../../api/observing/">Observing properties</a>). Arguments and written values travel as <code>TailBytes&lt;'i&gt;</code> - already
+  shrink_wrap-serialized by the generated code on either end, opaque to this crate.</li>
 <li><code>MultiIndex&lt;'i&gt;</code> / <code>MultiArgs&lt;'i&gt;</code> - which resources a multi-request covers (<code>Range</code>, <code>List</code>, or <code>Mask32</code>) and
   whether every one gets the same serialized arguments (<code>MultiArgs::Same</code>) or each its own
-  (<code>MultiArgs::Different</code>).</li>
+  (<code>MultiArgs::Different</code>) - see <a href="../../api/multi_requests/">Multi requests</a> for the full request/reply shape.</li>
 <li><code>Event&lt;'i&gt;</code> - <code>seq: UVlq32</code> (echoes the request's, 0 for unsolicited stream/property updates), <code>result:
   Result&lt;EventKind&lt;'i&gt;, Error&lt;'i&gt;&gt;</code>.</li>
 <li><code>EventKind&lt;'i&gt;</code> - <code>Value { data }</code> (a call's or read's return value), <code>Written</code>, <code>StreamData { path, data }</code>
@@ -3434,7 +3496,8 @@ the value up front and calling <code>.to_ww_bytes()</code>.</p>
 <p>The <code>observe</code> module (API-38) is the protocol for sending a trait level's properties at the rates a host asks for,
 any subset of them in one event. A level is one trait (the root API or a <code>ww_impl!</code> trait), addressed by its path;
 its properties are named by their resource index within the level, as in the introspection data. Only properties
-declared with <code>+observe</code> can be observed.</p>
+declared with <code>+observe</code> can be observed. See <a href="../../api/observing/">Observing properties</a> for the device/host APIs
+built on this protocol and the full wire-format picture; this section is the raw types.</p>
 <ul>
 <li><code>ObserveRequest&lt;'i&gt;</code> - body of <code>RequestKind::Observe</code>: <code>entries</code> (an <code>ObserveEntry { index, mode }</code> per
   property), <code>patch</code> (<code>true</code>: properties not listed keep their setting; <code>false</code>: they are <code>Off</code>) and <code>budget</code>

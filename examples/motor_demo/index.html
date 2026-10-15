@@ -309,6 +309,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -939,6 +943,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1052,6 +1060,60 @@
     
   
   Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/observing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Observing properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/multi_requests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Multi requests
 
     
   </span>
@@ -3278,8 +3340,7 @@
 
 <h1 id="motor-controller-demo">Motor controller demo<a class="headerlink" href="#motor-controller-demo" title="Permanent link">&para;</a></h1>
 <p>A VESC-like field oriented controller drives a simulated motor, and its ~50 variables are
-<a href="../../api/properties/#observing-changes">observed</a> by a host, each at the rate it asks for, within a byte budget per
-trait level. It shows what observing many fast-changing properties costs on the link, and what it would cost as one
+<a href="../../api/observing/">observed</a> by a host, each at the rate it asks for, within a byte budget per trait level. It shows what observing many fast-changing properties costs on the link, and what it would cost as one
 <code>StreamData</code> event per value.</p>
 <ul>
 <li><code>examples/motor_demo_api</code>: the API, 52 <code>+observe</code> properties in three trait levels, one per rate tier.</li>

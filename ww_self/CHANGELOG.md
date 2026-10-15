@@ -51,6 +51,12 @@
 * Trait and type signatures no longer depend on `VERSION` (the canonical bundle carries `0.0.0`), so a device and a
   host built with different ww_self versions agree on them. All signatures change once, saved snapshots have to be
   re-saved (`just save-snapshots --force`).
+* `ItemStruct` gets `sparse: bool` (`#[default = false]`) and `Field` gets `slot: Option<UNib32>`
+  (`#[default = None]`) (TOOL-11): a `#[derive_shrink_wrap(sparse, ..)]` struct (DER-13) is no longer described as a
+  plain struct of `Option`s, so a dynamic decoder knows to read it as an `OptionAnyVec` instead of sequential
+  fields. `slot` is the field's `#[slot = N]`, or the previous field's slot + 1 (0 for the first), mirroring
+  `shrink_wrap_derive`. Struct literals of `ItemStructOwned`/`FieldOwned` need the new fields, every signature
+  changes once (saved snapshots re-saved with `just save-snapshots`).
 
 ### 🚀 Features
 
@@ -80,6 +86,11 @@
   bounded to its own size first when unsized (as a field of an evolvable struct is read), for item types not known
   ahead of a sequence of several values packed together (e.g. one `EitherAnyVec` slot, through
   `EitherAnyVecIter::next_with`) - `des_shrink_wrap_dyn()` only works for a whole top-level response.
+* `ValueOwned` (de)serialization of a `sparse` struct (TOOL-11): `TypeOwned::Struct` whose `ItemStruct::sparse` is
+  set reads and writes its fields as an `OptionAnyVec`, one slot per field (`Field::slot`) read with
+  `OptionAnyVecIter::read_slot_with()`, instead of the sequential field encoding. The field's value is still a plain
+  `ValueOwned::Option`; only the wire layout differs. Dynamic tools (the `ww` CLI, `wire_weaver_py`, the observe host
+  client) now decode a sparse struct correctly, e.g. a trait level's generated `<Trait>Update` (SRV-18).
 
 ### 🐛 Fixes
 

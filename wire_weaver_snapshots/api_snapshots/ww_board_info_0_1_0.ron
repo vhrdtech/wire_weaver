@@ -21,54 +21,54 @@
         ], ident: "Strap", fields: Named([
             (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
                 "The raw value read.",
-            ]),
+            ], slot: None),
         ]), discriminant: 1, since: None),
         (docs: [
             "Neither: the firmware assumes the revision it was built for.",
         ], ident: "Assumed", fields: Unit, discriminant: 2, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
-        211,
-        75,
-        69,
-        235,
-        24,
-        200,
-        194,
-        195,
+        227,
+        61,
+        17,
+        8,
+        210,
+        234,
+        72,
+        2,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The PCB and its assembly, see [BoardInfo::BOARD].",
     ], ident: "BoardSummary", fields: Named([
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
             "Board series, `B200`.",
-        ]),
+        ], slot: None),
         (ident: Some("revision"), default: None, since: None, ty: MaxLen(max_len: 8, ty: String), docs: [
             "Hardware revision as printed on the board, `B`.",
-        ]),
+        ], slot: None),
         (ident: Some("revision_source"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "How the firmware knows the revision.",
-        ]),
+        ], slot: None),
         (ident: Some("variant"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
             "PCB assembly variant.",
-        ]),
+        ], slot: None),
         (ident: Some("bom_variant"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
             "PCB assembly BOM variant.",
-        ]),
+        ], slot: None),
         (ident: Some("serial"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
             "Serial number.",
-        ]),
+        ], slot: None),
         (ident: Some("build_date"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "Build date, if available.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The PCB and its assembly.",
         "",
         "Never fails: what the device doesn\'t know is an empty string or `None`.",
     ], crate_idx: 0, trait_name: "BoardInfo", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 2), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "BOARD", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 2), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "BOARD", docs: [
             "Everything the device knows about its board, in one value.",
         ], optional: None),
     ]), crate_idx: 0),

@@ -62,28 +62,28 @@
     ], ident: "BufferInfo", fields: Named([
         (ident: Some("used_words"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Words taken by counters (`cnt::ram_used_words()`), fixed at link time: what a host reads.",
-        ]),
+        ], slot: None),
         (ident: Some("capacity_words"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Size of the buffer.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The counter buffers of this firmware and how to decode them, see [Counters::INFO].",
     ], ident: "CountersInfo", fields: Named([
         (ident: Some("format"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "`cnt` format version (`cnt::SIGNATURE_VERSION`, in `_CNT_SIGNATURE`; 2 today): how the host reads the words.",
-        ]),
+        ], slot: None),
         (ident: Some("ram"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The RAM buffer.",
-        ]),
+        ], slot: None),
         (ident: Some("backup"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
             "The backup buffer, `None` when the firmware has none (`CNT_BKP_BUFFER_SIZE_WORDS` is 0).",
-        ]),
+        ], slot: None),
         (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
             "GNU build id of the firmware (20 bytes with sha1), to find its ELF; empty when the firmware didn\'t keep the",
             "note in flash (the host then can\'t check its ELF). The same as `ww_firmware_info::FirmwareInfo::BUILD_ID`.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "One of the two `cnt` buffers.",
     ], ident: "CounterBuffer", variants: [
@@ -110,33 +110,33 @@
         (docs: [
             "Common error",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
         ]), discriminant: 0, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Second", signature: [
-        37,
-        124,
-        121,
-        139,
-        82,
-        74,
-        68,
-        74,
+        178,
+        243,
+        149,
+        13,
+        148,
+        206,
+        13,
+        103,
     ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "One word\'s new value.",
     ], ident: "WordChange", fields: Named([
         (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
             "Word index in the buffer.",
-        ]),
-        (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: []),
-    ]))), crate_idx: 0),
+        ], slot: None),
+        (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Counter words that changed, see [Counters::watch].",
     ], ident: "CounterChanges", fields: Named([
-        (ident: Some("buffer"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
-        (ident: Some("words"), default: None, since: None, ty: MaxLen(max_len: 64, ty: Vec(OutOfLine(type_idx: 6))), docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("buffer"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
+        (ident: Some("words"), default: None, since: None, ty: MaxLen(max_len: 64, ty: Vec(OutOfLine(type_idx: 6))), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The device\'s `cnt` counters: raw buffer words, decoded on the host with the firmware\'s ELF (`cnt_core`).",

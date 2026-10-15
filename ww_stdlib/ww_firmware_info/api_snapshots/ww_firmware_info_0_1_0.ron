@@ -59,34 +59,34 @@
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LastReset", docs: [], optional: None),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Version", signature: [
-        124,
-        254,
-        4,
-        171,
-        178,
-        5,
-        50,
-        7,
+        177,
+        243,
+        74,
+        214,
+        198,
+        151,
+        86,
+        133,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The git state a firmware was built from.",
     ], ident: "GitInfo", fields: Named([
         (ident: Some("commit"), default: None, since: None, ty: MaxLen(max_len: 20, ty: Vec(NumericAny(Base(U8)))), docs: [
             "Commit id, 20 bytes; hosts print the first 7 hex digits.",
-        ]),
+        ], slot: None),
         (ident: Some("dirty"), default: None, since: None, ty: Bool, docs: [
             "Uncommitted changes were present at build time.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "DateTime", signature: [
-        211,
-        75,
-        69,
-        235,
-        24,
-        200,
-        194,
-        195,
+        227,
+        61,
+        17,
+        8,
+        210,
+        234,
+        72,
+        2,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Cargo profile of a build.",
@@ -96,7 +96,7 @@
         (docs: [
             "A custom profile, by name.",
         ], ident: "Other", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: []),
+            (ident: None, default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: [], slot: None),
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -104,20 +104,20 @@
     ], ident: "FirmwareSummary", fields: Named([
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
             "Package or product firmware name, `b200_usb_io`.",
-        ]),
+        ], slot: None),
         (ident: Some("version"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Package version.",
-        ]),
+        ], slot: None),
         (ident: Some("git"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "`None` when built outside git.",
-        ]),
+        ], slot: None),
         (ident: Some("built"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
             "Build time (UTC); `SOURCE_DATE_EPOCH` when set, for reproducible builds.",
-        ]),
+        ], slot: None),
         (ident: Some("profile"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Cargo profile the firmware was built with.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Cause of a reset.",
     ], ident: "ResetCause", variants: [
@@ -153,65 +153,65 @@
         ], ident: "Undetermined", fields: Unit, discriminant: 9, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "Second", signature: [
-        37,
-        124,
-        121,
-        139,
-        82,
-        74,
-        68,
-        74,
+        178,
+        243,
+        149,
+        13,
+        148,
+        206,
+        13,
+        103,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Exception frame and fault status registers of a Cortex-M core.",
     ], ident: "CortexMFault", fields: Named([
         (ident: Some("pc"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Program counter at the fault.",
-        ]),
+        ], slot: None),
         (ident: Some("lr"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Link register.",
-        ]),
+        ], slot: None),
         (ident: Some("xpsr"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Program status register.",
-        ]),
+        ], slot: None),
         (ident: Some("sp"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Stack pointer.",
-        ]),
+        ], slot: None),
         (ident: Some("cfsr"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Configurable fault status.",
-        ]),
+        ], slot: None),
         (ident: Some("hfsr"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Hard fault status.",
-        ]),
+        ], slot: None),
         (ident: Some("mmfar"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "MemManage fault address.",
-        ]),
+        ], slot: None),
         (ident: Some("bfar"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Bus fault address.",
-        ]),
+        ], slot: None),
         (ident: Some("exc_return"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "`EXC_RETURN` value of the exception entry.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Trap registers of a RISC-V core.",
     ], ident: "RiscVFault", fields: Named([
         (ident: Some("mepc"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Exception program counter.",
-        ]),
+        ], slot: None),
         (ident: Some("mcause"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Trap cause.",
-        ]),
+        ], slot: None),
         (ident: Some("mtval"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Trap value (faulting address or instruction).",
-        ]),
+        ], slot: None),
         (ident: Some("ra"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Return address register.",
-        ]),
+        ], slot: None),
         (ident: Some("sp"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Stack pointer.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Registers saved by a fault handler, one variant per architecture.",
         "",
@@ -222,12 +222,12 @@
         (docs: [
             "ARMv6-M to ARMv8-M cores (RP2040, RP2350 Cortex-M33, STM32).",
         ], ident: "CortexM", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "RISC-V cores (RP2350 Hazard3, ESP32-C).",
         ], ident: "RiscV", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -235,43 +235,43 @@
     ], ident: "ResetRecord", fields: Named([
         (ident: Some("cause"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
             "What the reset-cause register (or the crash record) says.",
-        ]),
+        ], slot: None),
         (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
             "Build id of the firmware that crashed: the record may be older than an update. Empty when unknown.",
-        ]),
+        ], slot: None),
         (ident: Some("uptime"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 6)), docs: [
             "Device time of the crash since its boot.",
-        ]),
+        ], slot: None),
         (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
             "Registers saved by the fault handler, for a fault or panic.",
-        ]),
+        ], slot: None),
         (ident: Some("stack"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U32)))), docs: [
             "Top of the stack at the crash, innermost word first, up to 32 words. Hosts symbolize return addresses with",
             "the ELF found by `build_id`.",
-        ]),
+        ], slot: None),
         (ident: Some("message"), default: None, since: None, ty: MaxLen(max_len: 128, ty: String), docs: [
             "Panic message or fault text, cut at the bound.",
-        ]),
+        ], slot: None),
         (ident: Some("boots_since_crash"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Boots since the crash data was saved: 0 when the last reset was the crash itself, 1 after one normal reset,",
             "and so on. A record kept across later resets shows with a `cause` other than `Fault` / `Panic`; this says how",
             "old it is. 0 when there is no crash data.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Which firmware runs: what `--version` prints, and how to find its ELF.",
         "",
         "All items are constant for the life of a firmware image.",
     ], crate_idx: 0, trait_name: "FirmwareInfo", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 4), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "FIRMWARE", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 4), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "FIRMWARE", docs: [
             "Name, version, git commit, build time and profile.",
         ], optional: None),
-        (id: 1, kind: Property(ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "BUILD_ID", docs: [
+        (id: 1, kind: Property(ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "BUILD_ID", docs: [
             "GNU build id of the image (20 bytes with sha1), empty when the firmware didn\'t keep the note. A host finds",
             "the ELF by it.",
         ], optional: None),
-        (id: 2, kind: Property(ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "BUILD_RECORD", docs: [
+        (id: 2, kind: Property(ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "BUILD_RECORD", docs: [
             "The `bedrock_build_info` compact record as stored in flash (header with magic, length and CRC-32 included):",
             "crate features, dependencies, compiler, target. The full record is in the ELF only.",
         ], optional: Some((group: None))),

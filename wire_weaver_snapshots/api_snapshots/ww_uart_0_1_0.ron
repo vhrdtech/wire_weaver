@@ -40,31 +40,31 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uart", docs: [], optional: None),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        37,
-        124,
-        121,
-        139,
-        82,
-        74,
-        68,
-        74,
+        178,
+        243,
+        149,
+        13,
+        148,
+        206,
+        13,
+        103,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Line errors seen in a chunk.",
     ], ident: "RxFlags", fields: Named([
         (ident: Some("parity_error"), default: None, since: None, ty: Bool, docs: [
             "A character\'s parity bit didn\'t match the configured [Parity].",
-        ]),
+        ], slot: None),
         (ident: Some("framing_error"), default: None, since: None, ty: Bool, docs: [
             "A character\'s stop bit wasn\'t where expected.",
-        ]),
+        ], slot: None),
         (ident: Some("overrun"), default: None, since: None, ty: Bool, docs: [
             "A byte arrived before the previous one was read out of the device\'s receive buffer and was lost.",
-        ]),
+        ], slot: None),
         (ident: Some("break_detected"), default: None, since: None, ty: Bool, docs: [
             "A break condition (an extended low on the line) was detected.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Received bytes that came back to back, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the",
         "time in the event head, when the last one did is `end` (see the crate docs, \"Time\").",
@@ -73,75 +73,75 @@
             "Device time when the chunk\'s last byte arrived (the end of its stop bit), on the same clock as the head\'s time",
             "of its first byte; the same as the head\'s for a one-byte chunk. `None` from a device that doesn\'t measure it:",
             "the last byte is then `(n - 1) * frame_bits / baud` after the first (see the crate docs, \"Time\").",
-        ]),
+        ], slot: None),
         (ident: Some("flags"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "Line errors seen while receiving this chunk, if any.",
-        ]),
+        ], slot: None),
         (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
             "The received bytes.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Baud", signature: [
-        210,
-        125,
-        16,
-        213,
-        35,
-        248,
-        101,
-        88,
+        117,
+        233,
+        225,
+        198,
+        232,
+        102,
+        220,
+        215,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
-        4,
-        154,
-        42,
-        148,
-        246,
-        214,
-        139,
-        181,
+        10,
+        248,
+        25,
+        90,
+        46,
+        0,
+        105,
+        254,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a `Uart` implementation supports, see `Uart::capabilities`.",
     ], ident: "Capabilities", fields: Named([
         (ident: Some("min_baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Lowest baud rate this device can set.",
-        ]),
+        ], slot: None),
         (ident: Some("max_baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Highest baud rate this device can set.",
-        ]),
+        ], slot: None),
         (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 4))), docs: [
             "Discrete IO levels [UartConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the adapter has",
             "no level control.",
-        ]),
+        ], slot: None),
         (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
             "Lowest IO level of an adjustable supply, if the adapter has one.",
-        ]),
+        ], slot: None),
         (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
             "Highest IO level of an adjustable supply, if the adapter has one.",
-        ]),
+        ], slot: None),
         (ident: Some("hw_flow_control"), default: None, since: None, ty: Bool, docs: [
             "Whether [Mode::HardwareFlowControl] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("sw_flow_control"), default: None, since: None, ty: Bool, docs: [
             "Whether [Mode::SoftwareFlowControl] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("high_z_mode"), default: None, since: None, ty: Bool, docs: [
             "Whether [Mode::HighZ] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("test_mode"), default: None, since: None, ty: Bool, docs: [
             "Whether [Mode::Test] and `Uart::set_pin_level` are supported.",
-        ]),
+        ], slot: None),
         (ident: Some("back_feed_detector"), default: None, since: None, ty: Bool, docs: [
             "Whether [UartConfig::prevent_back_feed] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("rx_buffer"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Device receive buffer, in bytes.",
-        ]),
+        ], slot: None),
         (ident: Some("tx_buffer"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Device transmit buffer, in bytes (the credit of the `tx` sink).",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(3), crate_idx: 0, docs: [
         "Data bits per character.",
     ], ident: "DataBits", variants: [
@@ -195,26 +195,26 @@
         "Everything a port is configured with, see `Uart::configure`: what is asked for going in, what was actually set",
         "coming back.",
     ], ident: "UartConfig", fields: Named([
-        (ident: Some("baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
-        (ident: Some("data_bits"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: []),
-        (ident: Some("parity"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
-        (ident: Some("stop_bits"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
+        (ident: Some("baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
+        (ident: Some("data_bits"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None),
+        (ident: Some("parity"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None),
+        (ident: Some("stop_bits"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None),
         (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
             "Flow control, high-Z or manual pin control.",
-        ]),
+        ], slot: None),
         (ident: Some("prevent_back_feed"), default: None, since: None, ty: Bool, docs: [
             "Detect RX low for more than one byte interval and hold TX low, so a device asleep isn\'t powered through TX",
             "([Capabilities::back_feed_detector]).",
-        ]),
+        ], slot: None),
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
             "Voltage of the lines on adapters with level translators ([Capabilities::io_levels]); `None` leaves it as it",
             "is going in (the only choice on a device without them), and is the answer of a device without them.",
-        ]),
+        ], slot: None),
         (ident: Some("idle_chars"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Idle time on RX that ends a chunk, in character times (`frame_bits / baud` each): a gap longer than this ends",
             "the chunk, a shorter one doesn\'t. [IDLE_CHARS_DEFAULT] (2) unless a protocol asks for another; 0 is taken as 1.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         122,
         139,
@@ -232,7 +232,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 11), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None),
         ]), discriminant: 0, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
@@ -256,23 +256,23 @@
     ], ident: "MonitorConfig", fields: Named([
         (ident: Some("baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Baud rate of the watched link.",
-        ]),
+        ], slot: None),
         (ident: Some("data_bits"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [
             "Data bits per character of the watched link.",
-        ]),
+        ], slot: None),
         (ident: Some("parity"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [
             "Parity of the watched link.",
-        ]),
+        ], slot: None),
         (ident: Some("stop_bits"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [
             "Stop bits of the watched link.",
-        ]),
+        ], slot: None),
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
             "Input threshold level, as [UartConfig::io_level].",
-        ]),
+        ], slot: None),
         (ident: Some("idle_chars"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Idle time on either line that ends a chunk of that line, as [UartConfig::idle_chars].",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Which line of the watched link a [MonitorChunk] came from.",
     ], ident: "MonitorLine", variants: [
@@ -286,9 +286,9 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bytes of one line of the watched link, see `Uart::monitor`.",
     ], ident: "MonitorChunk", fields: Named([
-        (ident: Some("line"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: []),
-        (ident: Some("chunk"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("line"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None),
+        (ident: Some("chunk"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "A serial port: configure, receive on `rx`, send on the `tx` credit sink.",

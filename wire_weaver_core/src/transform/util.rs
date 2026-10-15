@@ -268,17 +268,20 @@ pub(crate) fn derive_shrink_wrap_args(
 }
 
 /// Trimmed down version of shrink_wrap_derive's `Args`, keeping only the directives relevant to
-/// wire_weaver_core: `size_assumption` (`final_structure`/`self_describing`/`sized`) and `ww_repr`.
+/// wire_weaver_core: `size_assumption` (`final_structure`/`self_describing`/`sized`), `ww_repr` and `sparse`
+/// (TOOL-11: the API model needs to know a struct is sparse to decode it dynamically).
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Args {
     pub(crate) size_assumption: Option<ElementSize>,
     pub(crate) ww_repr: Option<Repr>,
+    pub(crate) sparse: bool,
 }
 
 impl Parse for Args {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut size_assumption = None;
         let mut ww_repr = None;
+        let mut sparse = false;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -311,13 +314,12 @@ impl Parse for Args {
                             )
                         })?);
                 }
+                "sparse" => sparse = true,
                 "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
                 | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants"
-                | "crate_path" | "non_exhaustive" | "no_future_version" | "display"
-                // TODO(TOOL-11): a sparse struct is described as a plain struct of `Option`s in the API model
-                | "sparse" => {
+                | "crate_path" | "non_exhaustive" | "no_future_version" | "display" => {
                     // Directives irrelevant to wire_weaver_core's introspection (it only cares
-                    // about `ww_repr` and the size assumption) - skip their arguments, if any.
+                    // about `ww_repr`, the size assumption and `sparse`) - skip their arguments, if any.
                     if input.peek(syn::token::Paren) {
                         let _group: proc_macro2::Group = input.parse()?;
                     }
@@ -346,6 +348,7 @@ impl Parse for Args {
         Ok(Args {
             size_assumption,
             ww_repr,
+            sparse,
         })
     }
 }

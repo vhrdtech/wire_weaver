@@ -145,7 +145,7 @@
             "Two slots: the update is written to the inactive one, which then boots on trial and is kept or reverted",
             "(mode 1). How the switch happens is given.",
         ], ident: "AB", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "One app slot, updated in place: from a stored plan by the bootloader (mode 2) or live by an updater (mode 3).",
@@ -198,64 +198,64 @@
     ], ident: "LastResult", fields: Named([
         (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
             "What happened.",
-        ]),
+        ], slot: None),
         (ident: Some("version"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "The version the update was for, `0` when there was none.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Which update traits a node implements. Lets a host decide what to do after a single call, which matters on slow",
         "links where introspection is expensive.",
     ], ident: "Offers", fields: Named([
         (ident: Some("boot_control"), default: None, since: None, ty: Bool, docs: [
             "`BootControl` is here.",
-        ]),
+        ], slot: None),
         (ident: Some("inventory"), default: None, since: None, ty: Bool, docs: [
             "`Inventory` is here.",
-        ]),
+        ], slot: None),
         (ident: Some("stage"), default: None, since: None, ty: Bool, docs: [
             "`Stage` is here.",
-        ]),
+        ], slot: None),
         (ident: Some("stage_bulk"), default: None, since: None, ty: Bool, docs: [
             "`StageBulk` is here.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `UpdateNode::node` reports.",
     ], ident: "NodeInfo", fields: Named([
         (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Which firmware is answering.",
-        ]),
+        ], slot: None),
         (ident: Some("profile"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
             "How this device switches between images.",
-        ]),
+        ], slot: None),
         (ident: Some("product"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
             "Product name, as the release\'s manifest names it; the host uses it to pick the release line.",
-        ]),
+        ], slot: None),
         (ident: Some("geometry_id"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Flash geometry id as the protocol spec defines it (chip line, slot layout, chunk size). A plan is made for one",
             "geometry and is refused on any other.",
-        ]),
+        ], slot: None),
         (ident: Some("app_version"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
             "Version of the image in the app slot, `None` when there is no valid image (an updater after a cut in mode 3).",
-        ]),
+        ], slot: None),
         (ident: Some("version_floor"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Lowest version this device will still accept (anti-rollback). Only ever goes up.",
-        ]),
+        ], slot: None),
         (ident: Some("manifest_digest"), default: None, since: None, ty: Option(some_ty: Array(len: 8, ty: NumericAny(Base(U8)))), docs: [
             "Digest of the app slot\'s manifest, if this node has it at hand (cached, or computed at boot); `None` means",
             "\"read it with `Inventory::manifest_digest`\".",
-        ]),
+        ], slot: None),
         (ident: Some("boot_state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Where the device stands between two updates.",
-        ]),
+        ], slot: None),
         (ident: Some("last_result"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
             "How the last update ended, for the host\'s log and a rollout\'s statistics.",
-        ]),
+        ], slot: None),
         (ident: Some("offers"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [
             "Which update traits this node implements.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
         "Why a request was refused.",
     ], ident: "Error", variants: [
@@ -265,7 +265,7 @@
         (docs: [
             "Not in this boot state; the state is given.",
         ], ident: "WrongState", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
         ]), discriminant: 1, since: None),
         (docs: [
             "Another session is in progress; `Stage::abort` it first.",
@@ -291,7 +291,7 @@
         (docs: [
             "A step arrived ahead of its turn; the node expects this step index next.",
         ], ident: "OutOfOrder", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
         ]), discriminant: 9, since: None),
         (docs: [
             "A different step arrived under an index the node already has.",
@@ -323,7 +323,7 @@
         (docs: [
             "An implementation-specific error.",
         ], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
         ]), discriminant: 19, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
@@ -351,24 +351,24 @@
     ], ident: "SlotLayout", fields: Named([
         (ident: Some("chunk_size"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Bytes per chunk: the unit hashed in the manifest and written by one WRITE step.",
-        ]),
+        ], slot: None),
         (ident: Some("chunk_count"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Chunks in the slot.",
-        ]),
+        ], slot: None),
         (ident: Some("erase_size"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Bytes per erase block (the unit of an ERASE step). On parts with mixed sector sizes, the largest.",
-        ]),
+        ], slot: None),
         (ident: Some("erase_count"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Erase blocks in the slot.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "The state of one chunk, as the manifest records it.",
     ], ident: "ChunkState", variants: [
         (docs: [
             "Readable data with this hash.",
         ], ident: "Hash", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Array(len: 8, ty: NumericAny(Base(U8))), docs: []),
+            (ident: None, default: None, since: None, ty: Array(len: 8, ty: NumericAny(Base(U8))), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "Erased: every byte reads as erased. May be written without an erase.",
@@ -383,24 +383,24 @@
         (ident: Some("max_piece"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Largest data payload in one `Stage::write` or [PlanSegment], in bytes, at most [MAX_PIECE_LEN]. Chosen to",
             "fit the node\'s receive buffer.",
-        ]),
+        ], slot: None),
         (ident: Some("in_flight"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "How many step calls the host may have outstanding at once. `1` on a node that blocks while it writes flash.",
-        ]),
+        ], slot: None),
         (ident: Some("live"), default: None, since: None, ty: Bool, docs: [
             "[Target::Live] is accepted.",
-        ]),
+        ], slot: None),
         (ident: Some("stored"), default: None, since: None, ty: Bool, docs: [
             "[Target::Stored] is accepted.",
-        ]),
+        ], slot: None),
         (ident: Some("plan_area"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Size of the plan area in bytes (the largest plan [Target::Stored] takes), `0` without one.",
-        ]),
+        ], slot: None),
         (ident: Some("writes_in_background"), default: None, since: None, ty: Bool, docs: [
             "The node keeps working (answers other requests) while it writes flash. False on single-bank parts that stall",
             "while programming their own flash.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Where a plan goes on the node.",
     ], ident: "Target", variants: [
@@ -416,61 +416,61 @@
     ], ident: "Session", fields: Named([
         (ident: Some("steps"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Steps in the plan, from its header.",
-        ]),
+        ], slot: None),
         (ident: Some("resumed"), default: None, since: None, ty: Bool, docs: [
             "`false` for a new session, `true` when an unfinished one for the same plan was found.",
-        ]),
+        ], slot: None),
         (ident: Some("resume_from"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Where to continue: the next step for `Stage`, the next byte after the header for `StageBulk` (`0` for a new",
             "session).",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `Stage::progress` answers.",
     ], ident: "Progress", fields: Named([
         (ident: Some("steps"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Steps in the plan.",
-        ]),
+        ], slot: None),
         (ident: Some("next_step"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "The next step the node expects (`steps` when all are in).",
-        ]),
+        ], slot: None),
         (ident: Some("chunk_offset"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "For a WRITE in pieces: bytes of the next step\'s chunk already in.",
-        ]),
+        ], slot: None),
         (ident: Some("plan_bytes"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "For a bulk session: bytes after the header received in order.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Progress of long operations and session outcomes, on `Stage`\'s `event` stream.",
     ], ident: "StageEvent", variants: [
         (docs: [
             "Hashing a slot for the manifest: `done` of `total` chunks.",
         ], ident: "Hashing", fields: Named([
-            (ident: Some("done"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
-            (ident: Some("total"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+            (ident: Some("done"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+            (ident: Some("total"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "Applying: `done` of `total` steps.",
         ], ident: "Applying", fields: Named([
-            (ident: Some("done"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
-            (ident: Some("total"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+            (ident: Some("done"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
+            (ident: Some("total"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
         ]), discriminant: 1, since: None),
         (docs: [
             "Verifying the finished image or stored plan: `done` of `total` bytes.",
         ], ident: "Verifying", fields: Named([
-            (ident: Some("done"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
-            (ident: Some("total"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+            (ident: Some("done"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
+            (ident: Some("total"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
         ]), discriminant: 2, since: None),
         (docs: [
             "The session finished; the node is now in this state.",
         ], ident: "Finished", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
         ]), discriminant: 3, since: None),
         (docs: [
             "The session failed.",
         ], ident: "Failed", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None),
         ]), discriminant: 4, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -478,11 +478,11 @@
     ], ident: "PlanSegment", fields: Named([
         (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Where these bytes go: offset from the first byte after the plan header.",
-        ]),
+        ], slot: None),
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: 1024, ty: Vec(NumericAny(Base(U8)))), docs: [
             "Plan bytes, at most [StageLimits::max_piece] (and never more than [MAX_PIECE_LEN]).",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Status carried by a [PlanAck].",
     ], ident: "BulkStatus", variants: [
@@ -499,7 +499,7 @@
         (docs: [
             "The session failed; nothing more is accepted.",
         ], ident: "Failed", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -507,11 +507,11 @@
     ], ident: "PlanAck", fields: Named([
         (ident: Some("have"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Bytes after the header the node has, in order. After a [BulkStatus::Gap] the host resends from here.",
-        ]),
+        ], slot: None),
         (ident: Some("status"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [
             "How the session stands.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Who this node is and what it can do. Every node that takes part in updates implements it: the app, the",

@@ -58,35 +58,35 @@
     (id: 3, kind: Trait(trait_idx: 3, omitted: None), multiplicity: Flat, since: None, ident: "CanXl", docs: [], optional: None),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Hertz", signature: [
-        226,
-        231,
-        2,
+        96,
         122,
-        233,
-        69,
-        233,
         185,
+        53,
+        99,
+        60,
+        13,
+        75,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Limits of one phase\'s [BitTiming] (as SocketCAN\'s `can_bittiming_const`).",
     ], ident: "TimingLimits", fields: Named([
-        (ident: Some("prescaler_min"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
-        (ident: Some("prescaler_max"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
-        (ident: Some("seg1_min"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
-        (ident: Some("seg1_max"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
-        (ident: Some("seg2_min"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        (ident: Some("seg2_max"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        (ident: Some("sjw_max"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("prescaler_min"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+        (ident: Some("prescaler_max"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+        (ident: Some("seg1_min"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+        (ident: Some("seg1_max"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+        (ident: Some("seg2_min"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+        (ident: Some("seg2_max"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+        (ident: Some("sjw_max"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        37,
-        124,
-        121,
-        139,
-        82,
-        74,
-        68,
-        74,
+        178,
+        243,
+        149,
+        13,
+        148,
+        206,
+        13,
+        103,
     ]),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Where in a frame its time is taken.",
@@ -106,148 +106,148 @@
     ], ident: "TimestampInfo", fields: Named([
         (ident: Some("resolution"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
             "Smallest step.",
-        ]),
-        (ident: Some("point"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
-    ]))), crate_idx: 0),
+        ], slot: None),
+        (ident: Some("point"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Which [TransceiverMode]s besides `Normal` a transceiver has.",
     ], ident: "TransceiverModes", fields: Named([
-        (ident: Some("standby"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("silent"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("sleep"), default: None, since: None, ty: Bool, docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("standby"), default: None, since: None, ty: Bool, docs: [], slot: None),
+        (ident: Some("silent"), default: None, since: None, ty: Bool, docs: [], slot: None),
+        (ident: Some("sleep"), default: None, since: None, ty: Bool, docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Ohm", signature: [
-        6,
-        2,
-        107,
-        125,
-        223,
-        37,
-        164,
-        146,
+        71,
+        4,
+        128,
+        110,
+        95,
+        124,
+        50,
+        119,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Throughput a controller or group guarantees, see `CanGroup::performance` and [Capabilities::performance].",
     ], ident: "Performance", fields: Named([
         (ident: Some("min_frames_per_second"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
             "Frames per second received and passed on without loss, at any frame length.",
-        ]),
+        ], slot: None),
         (ident: Some("min_bytes_per_second"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
             "Data bytes per second passed on without loss.",
-        ]),
+        ], slot: None),
         (ident: Some("independent_of_system"), default: None, since: None, ty: Bool, docs: [
             "The figures hold whatever else the device does (dedicated DMA, a core of its own).",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a `Can` implementation supports, see `Can::capabilities`.",
     ], ident: "Capabilities", fields: Named([
         (ident: Some("clock"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Controller (kernel) clock the time quanta are counted in.",
-        ]),
+        ], slot: None),
         (ident: Some("nominal"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
             "Limits of the nominal bit timing.",
-        ]),
+        ], slot: None),
         (ident: Some("data"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "Limits of the data bit timing; `None`: no CAN FD.",
-        ]),
+        ], slot: None),
         (ident: Some("tdc"), default: None, since: None, ty: Bool, docs: [
             "[Tdc::Manual] and [Tdc::Auto] are supported.",
-        ]),
+        ], slot: None),
         (ident: Some("restricted"), default: None, since: None, ty: Bool, docs: [
             "[Mode::Restricted] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("listen_only"), default: None, since: None, ty: Bool, docs: [
             "[Mode::ListenOnly] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("internal_loopback"), default: None, since: None, ty: Bool, docs: [
             "[Mode::InternalLoopback] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("external_loopback"), default: None, since: None, ty: Bool, docs: [
             "[Mode::ExternalLoopback] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("test_mode"), default: None, since: None, ty: Bool, docs: [
             "[Mode::Test] (and `Can::test_pins`) is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("sleep"), default: None, since: None, ty: Bool, docs: [
             "[Mode::Sleep] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("one_shot"), default: None, since: None, ty: Bool, docs: [
             "[Options::one_shot] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("presume_ack"), default: None, since: None, ty: Bool, docs: [
             "[Options::presume_ack] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("triple_sample"), default: None, since: None, ty: Bool, docs: [
             "[Options::triple_sample] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("tx_pause"), default: None, since: None, ty: Bool, docs: [
             "[Options::tx_pause] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("tx_order"), default: None, since: None, ty: Bool, docs: [
             "Both [TxOrder]s are supported (otherwise only the one `configure` answers).",
-        ]),
+        ], slot: None),
         (ident: Some("rx_overflow"), default: None, since: None, ty: Bool, docs: [
             "Both [RxOverflow]s are supported (otherwise only the one `configure` answers).",
-        ]),
+        ], slot: None),
         (ident: Some("edge_filtering"), default: None, since: None, ty: Bool, docs: [
             "[Options::edge_filtering] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("protocol_exception"), default: None, since: None, ty: Bool, docs: [
             "[Options::protocol_exception] can be switched off.",
-        ]),
+        ], slot: None),
         (ident: Some("wake_on_bus"), default: None, since: None, ty: Bool, docs: [
             "[Options::wake_on_bus] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("long_dlc"), default: None, since: None, ty: Bool, docs: [
             "[FrameKind::DataLongDlc] frames can be sent and are told apart when received.",
-        ]),
+        ], slot: None),
         (ident: Some("auto_recovery"), default: None, since: None, ty: Bool, docs: [
             "Automatic bus-off recovery ([CanConfig::bus_off_recovery] `Some`) is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("timestamps"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
             "How frames are timestamped; `None`: the heads carry no time.",
-        ]),
+        ], slot: None),
         (ident: Some("rx_fifos"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Receive FIFOs ([FilterAction::Fifo] indices).",
-        ]),
+        ], slot: None),
         (ident: Some("rx_fifo_depth"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Frames the receive FIFOs hold together.",
-        ]),
+        ], slot: None),
         (ident: Some("tx_queue_depth"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Frames the transmit queue holds (the credit of `tx` is its size in bytes).",
-        ]),
+        ], slot: None),
         (ident: Some("tx_buffers"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Dedicated transmit buffers (`Can::tx_buffer`).",
-        ]),
+        ], slot: None),
         (ident: Some("rx_buffers"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Dedicated receive buffers (`Can::rx_buffer`).",
-        ]),
+        ], slot: None),
         (ident: Some("standard_filters"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Filter elements for standard IDs.",
-        ]),
+        ], slot: None),
         (ident: Some("extended_filters"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Filter elements for extended IDs.",
-        ]),
+        ], slot: None),
         (ident: Some("filter_mask"), default: None, since: None, ty: Bool, docs: [
             "[FilterMatch::Mask] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("filter_range"), default: None, since: None, ty: Bool, docs: [
             "[FilterMatch::Range] is supported.",
-        ]),
+        ], slot: None),
         (ident: Some("memory"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
             "Message memory for `Can::set_layout`, in 32-bit words; `None`: fixed layout.",
-        ]),
+        ], slot: None),
         (ident: Some("transceiver_modes"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
             "[TransceiverMode]s `Can::set_transceiver` can switch to.",
-        ]),
+        ], slot: None),
         (ident: Some("termination"), default: None, since: None, ty: MaxLen(max_len: 4, ty: Vec(OutOfLine(type_idx: 6))), docs: [
             "Terminator values `Can::set_termination` can switch in; empty without a switchable terminator.",
-        ]),
+        ], slot: None),
         (ident: Some("performance"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
             "What this controller guarantees on its own; `None` when only its group\'s figure makes sense.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Operating mode of a controller.",
     ], ident: "Mode", variants: [
@@ -282,42 +282,42 @@
         ], ident: "Sleep", fields: Unit, discriminant: 8, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Baud", signature: [
-        210,
-        125,
-        16,
-        213,
-        35,
-        248,
-        101,
-        88,
+        117,
+        233,
+        225,
+        198,
+        232,
+        102,
+        220,
+        215,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bit timing in time quanta: a bit is `1 + seg1 + seg2` quanta of `prescaler` clock periods each, sampled after",
         "`1 + seg1` (seg1 = propagation + phase segment 1, without the sync quantum, as SocketCAN and the M_CAN `NBTP`",
         "count).",
     ], ident: "BitTiming", fields: Named([
-        (ident: Some("prescaler"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
-        (ident: Some("seg1"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
-        (ident: Some("seg2"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        (ident: Some("prescaler"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+        (ident: Some("seg1"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+        (ident: Some("seg2"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
         (ident: Some("sjw"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Synchronization jump width.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Bit timing of one phase: asked for as a bit rate or as segments, answered as segments.",
     ], ident: "Timing", variants: [
         (docs: [
             "A bit rate and sample point, the device picks the segments.",
         ], ident: "Rate", fields: Named([
-            (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: []),
+            (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None),
             (ident: Some("sample_point"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
                 "Sample point in tenths of a percent of the bit (875 = 87.5 %).",
-            ]),
+            ], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "Segments in time quanta of `prescaler / Capabilities::clock`.",
         ], ident: "Segments", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 11), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
@@ -331,8 +331,8 @@
             "Secondary sample point at the measured delay plus `offset`, in minimum time quanta (clock periods);",
             "`filter`: shortest delay accepted as measured.",
         ], ident: "Manual", fields: Named([
-            (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-            (ident: Some("filter"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: []),
+            (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+            (ident: Some("filter"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [], slot: None),
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -341,14 +341,14 @@
         (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [
             "Bit timing of the data phase of frames with bit rate switch; the same as the nominal one when no frame",
             "switches.",
-        ]),
+        ], slot: None),
         (ident: Some("tdc"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [
             "Transceiver delay compensation, needed from about 2 Mbit/s in the data phase.",
-        ]),
+        ], slot: None),
         (ident: Some("iso"), default: None, since: None, ty: Bool, docs: [
             "ISO 11898-1:2015 CAN FD (with the stuff count); `false`: the original Bosch (non-ISO) CAN FD.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Order the frames of `Can::tx` go on the bus.",
     ], ident: "TxOrder", variants: [
@@ -375,51 +375,51 @@
     ], ident: "Options", fields: Named([
         (ident: Some("one_shot"), default: None, since: None, ty: Bool, docs: [
             "Send each frame once, no automatic retransmission after an error or lost arbitration.",
-        ]),
+        ], slot: None),
         (ident: Some("presume_ack"), default: None, since: None, ty: Bool, docs: [
             "Treat a missing acknowledge as received (self test on a bus without other nodes).",
-        ]),
+        ], slot: None),
         (ident: Some("triple_sample"), default: None, since: None, ty: Bool, docs: [
             "Sample each bit three times (classic, nominal bit rate).",
-        ]),
+        ], slot: None),
         (ident: Some("tx_pause"), default: None, since: None, ty: Bool, docs: [
             "Wait two bit times after each sent frame, so other nodes of the same priority get the bus.",
-        ]),
+        ], slot: None),
         (ident: Some("tx_order"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [
             "Order of the `tx` queue.",
-        ]),
+        ], slot: None),
         (ident: Some("rx_overflow"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [
             "Which frames a full receive FIFO keeps.",
-        ]),
+        ], slot: None),
         (ident: Some("edge_filtering"), default: None, since: None, ty: Bool, docs: [
             "Hard synchronization only on two dominant time quanta after a recessive one (M_CAN `CCCR.EFBI`), against",
             "glitches on long buses.",
-        ]),
+        ], slot: None),
         (ident: Some("protocol_exception"), default: None, since: None, ty: Bool, docs: [
             "Protocol exception handling (ISO 11898-1): on a frame of a newer protocol, wait for bus idle instead of",
             "signalling an error. On by default; off for buses where every such frame is an error.",
-        ]),
+        ], slot: None),
         (ident: Some("wake_on_bus"), default: None, since: None, ty: Bool, docs: [
             "In [Mode::Sleep], wake up on bus activity.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything a controller is configured with, see `Can::configure`: what is asked for going in, what was set",
         "coming back.",
     ], ident: "CanConfig", fields: Named([
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: []),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None),
         (ident: Some("nominal"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [
             "Bit timing of the arbitration phase (all of a classic frame).",
-        ]),
+        ], slot: None),
         (ident: Some("fd"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 14)), docs: [
             "CAN FD: `None` sends and accepts classic frames only.",
-        ]),
-        (ident: Some("options"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: []),
+        ], slot: None),
+        (ident: Some("options"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None),
         (ident: Some("bus_off_recovery"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
             "Recover from bus-off by itself this long after entering it (zero: at once); `None`: stay bus-off until",
             "`Can::recover`. A device that can\'t do one or the other answers `Unsupported`.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         122,
         139,
@@ -437,12 +437,12 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 19), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "More filters than the controller has ({max} of this kind).",
         ], ident: "OutOfFilters", fields: Named([
-            (ident: Some("max"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+            (ident: Some("max"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         ]), discriminant: 1, since: None),
         (docs: [
             "Not possible while the controller is bus-off.",
@@ -450,7 +450,7 @@
         (docs: [
             "Doesn\'t fit the controller\'s memory ({available} elements left).",
         ], ident: "OutOfMemory", fields: Named([
-            (ident: Some("available"), default: None, since: None, ty: NumericAny(Base(U32)), docs: []),
+            (ident: Some("available"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
@@ -504,28 +504,28 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Error state and counters, see `Can::status`.",
     ], ident: "Status", fields: Named([
-        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: []),
+        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [], slot: None),
         (ident: Some("tec"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Transmit error counter.",
-        ]),
+        ], slot: None),
         (ident: Some("rec"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Receive error counter (some controllers stop at 127 and only flag error passive above).",
-        ]),
+        ], slot: None),
         (ident: Some("last_error"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 22)), docs: [
             "Last protocol error in the arbitration phase (or of a classic frame), if any since the last read.",
-        ]),
+        ], slot: None),
         (ident: Some("last_data_error"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 22)), docs: [
             "Last protocol error in the data phase of an FD frame with bit rate switch, if any since the last read.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(1), crate_idx: 0, docs: [
         "An 11-bit (standard) or 29-bit (extended) CAN identifier.",
     ], ident: "CanId", variants: [
         (docs: [], ident: "Standard", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(UB(11))), docs: []),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UB(11))), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [], ident: "Extended", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(UB(29))), docs: []),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UB(29))), docs: [], slot: None),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
@@ -537,53 +537,53 @@
         (docs: [
             "Classic CAN remote frame (RTR), asking for `len` bytes (its DLC, 0-8).",
         ], ident: "Remote", fields: Named([
-            (ident: Some("len"), default: None, since: None, ty: NumericAny(Base(UB(4))), docs: []),
+            (ident: Some("len"), default: None, since: None, ty: NumericAny(Base(UB(4))), docs: [], slot: None),
         ]), discriminant: 1, since: None),
         (docs: [
             "CAN FD frame.",
         ], ident: "Fd", fields: Named([
             (ident: Some("brs"), default: None, since: None, ty: Bool, docs: [
                 "Bit rate switch: the data phase runs at the data bit rate.",
-            ]),
+            ], slot: None),
             (ident: Some("esi"), default: None, since: None, ty: Bool, docs: [
                 "Error state indicator: the sender was error passive.",
-            ]),
+            ], slot: None),
         ]), discriminant: 2, since: None),
         (docs: [
             "Classic CAN data frame with 8 data bytes and a DLC of 9-15 on the wire (ISO 11898-1 allows them; SocketCAN",
             "`CAN_CTRLMODE_CC_LEN8_DLC`). For bus debuggers; nodes send [FrameKind::Data].",
         ], ident: "DataLongDlc", fields: Named([
-            (ident: Some("dlc"), default: None, since: None, ty: NumericAny(Base(UB(4))), docs: []),
+            (ident: Some("dlc"), default: None, since: None, ty: NumericAny(Base(UB(4))), docs: [], slot: None),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A CAN frame: classic data, remote or CAN FD.",
     ], ident: "Frame", fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: []),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: []),
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [], slot: None),
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: 64, ty: Vec(NumericAny(Base(U8)))), docs: [
             "0-8 bytes for a classic frame, empty for a remote frame, 0-8, 12, 16, 20, 24, 32, 48 or 64 bytes for an FD",
             "frame (a device pads other lengths up to the next one with zeroes).",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A received frame, see `Can::rx`; when it was received is the time in the event head.",
     ], ident: "RxFrame", fields: Named([
-        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: []),
+        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: [], slot: None),
         (ident: Some("filter"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
             "Index of the filter element that accepted it (into [FilterConfig::filters]); `None` when it was accepted as",
             "non-matching, or the device has no filters.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A frame to send, see `Can::tx` and `Can::tx_buffer`.",
     ], ident: "TxFrame", fields: Named([
-        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: []),
+        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: [], slot: None),
         (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
             "Comes back in the frame\'s [TxEvent], so a host matches events to the frames it sent; `None` when it doesn\'t",
             "need to (a device may then skip the event).",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Outcome of sending one frame.",
     ], ident: "TxOutcome", variants: [
@@ -605,14 +605,14 @@
     ], ident: "TxEvent", fields: Named([
         (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
             "[TxFrame::marker] of the frame.",
-        ]),
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: []),
-        (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 29), docs: []),
+        ], slot: None),
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None),
+        (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 29), docs: [], slot: None),
         (ident: Some("queued"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
             "How long the frame waited from the device accepting it to its start of frame on the bus (queue, arbitration",
             "and retransmissions), measured on the device; `None` from a device that doesn\'t measure it.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Phase of a frame an error happened in.",
     ], ident: "Phase", variants: [
@@ -632,10 +632,10 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "An error the controller detected on the bus, see `Can::bus_errors`; when is the time in the event head.",
     ], ident: "BusError", fields: Named([
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: []),
-        (ident: Some("phase"), default: None, since: None, ty: OutOfLine(type_idx: 31), docs: []),
-        (ident: Some("dir"), default: None, since: None, ty: OutOfLine(type_idx: 32), docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [], slot: None),
+        (ident: Some("phase"), default: None, since: None, ty: OutOfLine(type_idx: 31), docs: [], slot: None),
+        (ident: Some("dir"), default: None, since: None, ty: OutOfLine(type_idx: 32), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What the controller is doing on the bus.",
     ], ident: "Activity", variants: [
@@ -649,67 +649,67 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Flags of a received FD frame (M_CAN `PSR.RESI` / `RBRS` / `REDL`).",
     ], ident: "FdFrameFlags", fields: Named([
-        (ident: Some("esi"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("brs"), default: None, since: None, ty: Bool, docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("esi"), default: None, since: None, ty: Bool, docs: [], slot: None),
+        (ident: Some("brs"), default: None, since: None, ty: Bool, docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The controller\'s protocol state, see `Can::protocol_status`.",
     ], ident: "ProtocolStatus", fields: Named([
-        (ident: Some("status"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: []),
-        (ident: Some("activity"), default: None, since: None, ty: OutOfLine(type_idx: 34), docs: []),
+        (ident: Some("status"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None),
+        (ident: Some("activity"), default: None, since: None, ty: OutOfLine(type_idx: 34), docs: [], slot: None),
         (ident: Some("error_log"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [
             "The controller\'s error logging counter (errors since the last read, saturating), if it has one.",
-        ]),
+        ], slot: None),
         (ident: Some("last_fd_frame"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 35)), docs: [
             "Flags of the last received FD frame, if one came since the last read.",
-        ]),
+        ], slot: None),
         (ident: Some("protocol_exception"), default: None, since: None, ty: Bool, docs: [
             "A protocol exception happened since the last read.",
-        ]),
+        ], slot: None),
         (ident: Some("tdc_value"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [
             "Transceiver delay the controller measured, in minimum time quanta (clock periods), with TDC on.",
-        ]),
+        ], slot: None),
         (ident: Some("memory_errors"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U16))), docs: [
             "Corrected and uncorrected bit errors of the message memory (ECC / parity) since the last read, where the",
             "controller detects them.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bus load measured by the device, see `Can::bus_load`.",
     ], ident: "BusLoad", fields: Named([
         (ident: Some("window"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
             "Length of the measurement window.",
-        ]),
+        ], slot: None),
         (ident: Some("load"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Busy time of the bus in the window, in tenths of a percent (frames with their stuff bits, error and overload",
             "frames, interframe space not counted).",
-        ]),
+        ], slot: None),
         (ident: Some("frames"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Frames seen on the bus in the window, sent and received.",
-        ]),
+        ], slot: None),
         (ident: Some("errors"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Error frames in the window.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "IDs a [Filter] matches. Standard and extended IDs never match each other.",
     ], ident: "FilterMatch", variants: [
         (docs: [
             "One ID.",
         ], ident: "Exact", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 24), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "IDs equal to `id` in every bit set in `mask`.",
         ], ident: "Mask", fields: Named([
-            (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: []),
-            (ident: Some("mask"), default: None, since: None, ty: NumericAny(Base(UB(29))), docs: []),
+            (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None),
+            (ident: Some("mask"), default: None, since: None, ty: NumericAny(Base(UB(29))), docs: [], slot: None),
         ]), discriminant: 1, since: None),
         (docs: [
             "IDs from `from` to `to`, both included, both of the same kind.",
         ], ident: "Range", fields: Named([
-            (ident: Some("from"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: []),
-            (ident: Some("to"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: []),
+            (ident: Some("from"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None),
+            (ident: Some("to"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None),
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
@@ -719,13 +719,13 @@
             "Into receive FIFO `fifo` (0 when the controller has one), and from there on `rx`; `high_priority` makes the",
             "device pass it on ahead of other frames (M_CAN high priority message).",
         ], ident: "Fifo", fields: Named([
-            (ident: Some("fifo"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-            (ident: Some("high_priority"), default: None, since: None, ty: Bool, docs: []),
+            (ident: Some("fifo"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+            (ident: Some("high_priority"), default: None, since: None, ty: Bool, docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "Into dedicated receive buffer `index`, read with `Can::rx_buffer`; not sent on `rx`.",
         ], ident: "Buffer", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         ]), discriminant: 1, since: None),
         (docs: [
             "Dropped.",
@@ -734,16 +734,16 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One filter element: which IDs it matches and what it does with them.",
     ], ident: "Filter", fields: Named([
-        (ident: Some("matching"), default: None, since: None, ty: OutOfLine(type_idx: 38), docs: []),
-        (ident: Some("action"), default: None, since: None, ty: OutOfLine(type_idx: 39), docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("matching"), default: None, since: None, ty: OutOfLine(type_idx: 38), docs: [], slot: None),
+        (ident: Some("action"), default: None, since: None, ty: OutOfLine(type_idx: 39), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What happens to a frame no [Filter] matches.",
     ], ident: "NonMatching", variants: [
         (docs: [
             "Into receive FIFO `fifo`.",
         ], ident: "Accept", fields: Named([
-            (ident: Some("fifo"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+            (ident: Some("fifo"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [], ident: "Reject", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
@@ -752,44 +752,44 @@
     ], ident: "FilterConfig", fields: Named([
         (ident: Some("filters"), default: None, since: None, ty: MaxLen(max_len: 256, ty: Vec(OutOfLine(type_idx: 40))), docs: [
             "Filter elements, first match wins.",
-        ]),
+        ], slot: None),
         (ident: Some("non_matching_standard"), default: None, since: None, ty: OutOfLine(type_idx: 41), docs: [
             "What happens to a standard frame no filter matches.",
-        ]),
+        ], slot: None),
         (ident: Some("non_matching_extended"), default: None, since: None, ty: OutOfLine(type_idx: 41), docs: [
             "What happens to an extended frame no filter matches.",
-        ]),
+        ], slot: None),
         (ident: Some("reject_remote"), default: None, since: None, ty: Bool, docs: [
             "Drop every remote frame.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How a controller\'s message memory is divided, see `Can::set_layout`; counts in elements.",
     ], ident: "MemoryLayout", fields: Named([
-        (ident: Some("standard_filters"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
-        (ident: Some("extended_filters"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        (ident: Some("standard_filters"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+        (ident: Some("extended_filters"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         (ident: Some("rx_fifos"), default: None, since: None, ty: Array(len: 2, ty: NumericAny(Base(U16))), docs: [
             "Elements of each receive FIFO, FIFO 0 first (0: not used).",
-        ]),
-        (ident: Some("rx_buffers"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
-        (ident: Some("tx_buffers"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        ], slot: None),
+        (ident: Some("rx_buffers"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+        (ident: Some("tx_buffers"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         (ident: Some("tx_queue"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Elements of the transmit FIFO / queue.",
-        ]),
-        (ident: Some("tx_events"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        ], slot: None),
+        (ident: Some("tx_events"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         (ident: Some("element_data"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Data bytes an element holds (8, 12, 16, 20, 24, 32, 48 or 64); frames with more are cut (and flagged by the",
             "controller).",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A frame of a dedicated receive buffer, see `Can::rx_buffer`.",
     ], ident: "BufferedFrame", fields: Named([
-        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: []),
+        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: [], slot: None),
         (ident: Some("time"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
             "When it was received, on the device\'s clock; `None` from a device without timestamps.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Transceiver mode, see `Can::set_transceiver`.",
     ], ident: "TransceiverMode", variants: [
@@ -826,17 +826,17 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Transceiver mode and faults, see `Can::transceiver_state`.",
     ], ident: "TransceiverState", fields: Named([
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 45), docs: []),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 45), docs: [], slot: None),
         (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 46)), docs: [
             "A bus wiring fault the transceiver reports, if any (and if it can).",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "A terminator setting, see `Can::set_termination`.",
     ], ident: "Termination", variants: [
         (docs: [], ident: "Off", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "On", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 6), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
@@ -862,40 +862,40 @@
     ], ident: "ClockSource", fields: Named([
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
             "\"HSE\", \"PLL1Q\", \"PLL2P\".",
-        ]),
+        ], slot: None),
         (ident: Some("min"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Lowest frequency the group\'s dividers make of it.",
-        ]),
+        ], slot: None),
         (ident: Some("max"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Highest one.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Clock of a [CanGroup]: a source and the frequency the controllers get from it.",
     ], ident: "GroupClock", fields: Named([
         (ident: Some("source"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Index into [GroupCapabilities::clock_sources].",
-        ]),
+        ], slot: None),
         (ident: Some("frequency"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Frequency the controllers get (after the group\'s divider).",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a [CanGroup] has, see `CanGroup::group_capabilities`.",
     ], ident: "GroupCapabilities", fields: Named([
         (ident: Some("interfaces"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Controllers in `interface[]`.",
-        ]),
+        ], slot: None),
         (ident: Some("clock_sources"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 51))), docs: [
             "Clock sources `CanGroup::set_clock` chooses from; empty when the clock is fixed.",
-        ]),
+        ], slot: None),
         (ident: Some("default_clock"), default: None, since: None, ty: OutOfLine(type_idx: 52), docs: [
             "The clock `CanGroup::enable` uses without `set_clock`.",
-        ]),
+        ], slot: None),
         (ident: Some("shared_memory"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
             "Message memory shared by the controllers, in 32-bit words; `None` when each has its own.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Enabled or disabled, see `CanGroup::group_state`.",
     ], ident: "GroupState", variants: [
@@ -903,7 +903,7 @@
             "Clock off, the lowest power state.",
         ], ident: "Disabled", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Enabled", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 52), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 52), docs: [], slot: None),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
@@ -924,7 +924,7 @@
         (docs: [
             "Potential time master with `priority` (0 highest, 0-7, the three lowest bits of the reference ID).",
         ], ident: "Master", fields: Named([
-            (ident: Some("priority"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+            (ident: Some("priority"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -932,23 +932,23 @@
     ], ident: "TtConfig", fields: Named([
         (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 55), docs: [
             "ISO 11898-4 level 1 (time-triggered messaging) or level 2 (plus global time).",
-        ]),
-        (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 56), docs: []),
+        ], slot: None),
+        (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 56), docs: [], slot: None),
         (ident: Some("reference_id"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [
             "ID of the reference message that starts every basic cycle.",
-        ]),
+        ], slot: None),
         (ident: Some("matrix_cycles"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Basic cycles in a matrix cycle: 1, 2, 4, 8, 16, 32 or 64.",
-        ]),
+        ], slot: None),
         (ident: Some("ntu_numerator"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Time unit ratio: one network time unit (NTU) is `ntu_numerator / ntu_denominator` local clock periods",
             "(M_CAN `TURCF`); level 2 adjusts it to the master\'s clock.",
-        ]),
-        (ident: Some("ntu_denominator"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+        ], slot: None),
+        (ident: Some("ntu_denominator"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         (ident: Some("watchdog"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [
             "Application watchdog limit in 256 NTU steps; `None` disables it.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What a [Trigger] does.",
     ], ident: "TriggerKind", variants: [
@@ -958,12 +958,12 @@
         (docs: [
             "Sends dedicated TX buffer `buffer` alone in its window.",
         ], ident: "TxExclusive", fields: Named([
-            (ident: Some("buffer"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+            (ident: Some("buffer"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         ]), discriminant: 1, since: None),
         (docs: [
             "Starts a merged arbitrating window with TX buffer `buffer`.",
         ], ident: "TxArbitratingStart", fields: Named([
-            (ident: Some("buffer"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+            (ident: Some("buffer"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         ]), discriminant: 2, since: None),
         (docs: [
             "Ends a merged arbitrating window.",
@@ -971,7 +971,7 @@
         (docs: [
             "Checks that the frame of filter `filter` was received in the cycle.",
         ], ident: "RxCheck", fields: Named([
-            (ident: Some("filter"), default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+            (ident: Some("filter"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         ]), discriminant: 4, since: None),
         (docs: [
             "Watches for a missing reference message.",
@@ -985,13 +985,13 @@
     ], ident: "Trigger", fields: Named([
         (ident: Some("time_mark"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Time mark within the basic cycle, in cycle time units.",
-        ]),
+        ], slot: None),
         (ident: Some("repeat"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Basic cycles it fires in: every `repeat`-th (1, 2, 4, .., 64) starting at cycle `offset`.",
-        ]),
-        (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 58), docs: []),
-    ]))), crate_idx: 0),
+        ], slot: None),
+        (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 58), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Synchronisation state of time-triggered operation.",
     ], ident: "TtSync", variants: [
@@ -1005,67 +1005,67 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "State of time-triggered operation, see `CanTimeTriggered::tt_status`.",
     ], ident: "TtStatus", fields: Named([
-        (ident: Some("sync"), default: None, since: None, ty: OutOfLine(type_idx: 60), docs: []),
+        (ident: Some("sync"), default: None, since: None, ty: OutOfLine(type_idx: 60), docs: [], slot: None),
         (ident: Some("is_master"), default: None, since: None, ty: Bool, docs: [
             "This controller is the current time master.",
-        ]),
+        ], slot: None),
         (ident: Some("cycle"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Basic cycle within the matrix cycle.",
-        ]),
+        ], slot: None),
         (ident: Some("error_level"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "ISO 11898-4 error level: 0 no error, 1 warning, 2 error, 3 severe error.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "PWM symbol timing of the XL data phase, in minimum time quanta (clock periods).",
     ], ident: "XlPwm", fields: Named([
-        (ident: Some("short"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        (ident: Some("long"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("short"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+        (ident: Some("long"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+        (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "XL data phase settings, see `CanXl::configure_xl`.",
     ], ident: "XlConfig", fields: Named([
         (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [
             "Bit timing of the XL data phase.",
-        ]),
-        (ident: Some("tdc"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: []),
+        ], slot: None),
+        (ident: Some("tdc"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [], slot: None),
         (ident: Some("pwm"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 62)), docs: [
             "Transceiver mode switching (CAN SIC XL transceivers): the data phase as PWM symbols; `None` for an SIC",
             "transceiver without switching (data phase up to about 5 Mbit/s).",
-        ]),
+        ], slot: None),
         (ident: Some("error_signaling"), default: None, since: None, ty: Bool, docs: [
             "Error signalling in the data phase; off for PWM mode, where errors are left to higher layers.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A CAN XL frame.",
     ], ident: "XlFrame", fields: Named([
         (ident: Some("priority"), default: None, since: None, ty: NumericAny(Base(UB(11))), docs: [
             "Priority ID (11 bits), arbitrated like a standard ID.",
-        ]),
+        ], slot: None),
         (ident: Some("vcid"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [
             "Virtual CAN network ID; `None` when not used.",
-        ]),
+        ], slot: None),
         (ident: Some("sdt"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "SDU type: what the data carries (CiA 611-1).",
-        ]),
+        ], slot: None),
         (ident: Some("sec"), default: None, since: None, ty: Bool, docs: [
             "Simple extended content: CADH (CiA 613-2) present.",
-        ]),
+        ], slot: None),
         (ident: Some("af"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Acceptance field (32 bits).",
-        ]),
+        ], slot: None),
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: 2048, ty: Vec(NumericAny(Base(U8)))), docs: [
             "1-2048 bytes.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "An XL frame to send, with a marker for `Can::tx_events`.",
     ], ident: "XlTxFrame", fields: Named([
-        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 64), docs: []),
-        (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 64), docs: [], slot: None),
+        (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "One CAN controller with its transceiver: configure it, receive on `rx`, send on the `tx` credit sink, watch its",
@@ -1100,11 +1100,11 @@
             "The configuration in effect, as `configure` last answered it (with the mode now in effect): for a host",
             "attaching to a running node.",
         ], optional: None),
-        (id: 3, kind: Property(ty: OutOfLine(type_idx: 23), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "status", docs: [
+        (id: 3, kind: Property(ty: OutOfLine(type_idx: 23), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "Error state and counters of the controller. The device sends it to observers when the error state changes",
             "(and may on counter changes), so a bus-off or a wake-up reaches the host without polling.",
         ], optional: None),
-        (id: 4, kind: StreamFn(ty: OutOfLine(type_idx: 27), delivery: Counted, args: [], return_ty: None), multiplicity: Flat, since: None, ident: "rx", docs: [
+        (id: 4, kind: StreamFn(ty: OutOfLine(type_idx: 27), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "rx", docs: [
             "Received frames, in the order they were received. A counted stream, unit: frame; the head\'s time is when",
             "the frame was received (see [Capabilities::timestamps]), and the head counts the frames the device lost (a",
             "full receive FIFO, a full link buffer).",
@@ -1140,12 +1140,12 @@
             "Drops every frame queued for sending, including those already handed to the controller and not yet on the",
             "bus; answers how many were dropped. Each one is reported on `tx_events` as [TxOutcome::Aborted].",
         ], optional: Some((group: None))),
-        (id: 9, kind: StreamFn(ty: OutOfLine(type_idx: 30), delivery: Counted, args: [], return_ty: None), multiplicity: Flat, since: None, ident: "tx_events", docs: [
+        (id: 9, kind: StreamFn(ty: OutOfLine(type_idx: 30), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "tx_events", docs: [
             "When each sent frame went on the bus, or why it didn\'t: one event per frame of `tx` (and of `tx_buffer`),",
             "with its [TxFrame::marker] and the time it waited in the queue. A counted stream, unit: frame; the head\'s",
             "time is when the frame was sent.",
         ], optional: Some((group: None))),
-        (id: 10, kind: StreamFn(ty: OutOfLine(type_idx: 33), delivery: Counted, args: [], return_ty: None), multiplicity: Flat, since: None, ident: "bus_errors", docs: [
+        (id: 10, kind: StreamFn(ty: OutOfLine(type_idx: 33), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "bus_errors", docs: [
             "Every error the controller detected on the bus: kind, phase and whether it was sending or receiving. A",
             "counted stream, unit: error; the head\'s time is when the error was detected. For analyzers and bus",
             "debuggers; [Status] has the counters and the last error without it.",
@@ -1155,7 +1155,7 @@
             "codes of both phases, flags of the last received FD frame, protocol exception, measured transceiver delay.",
             "Reading resets what the controller resets on a read (last error codes, error logging counter).",
         ], optional: Some((group: None))),
-        (id: 12, kind: Property(ty: OutOfLine(type_idx: 37), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "bus_load", docs: [
+        (id: 12, kind: Property(ty: OutOfLine(type_idx: 37), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "bus_load", docs: [
             "Bus load the device measures over [BusLoad::window], sent to observers once per window.",
         ], optional: Some((group: None))),
         (id: 13, kind: Method(args: [
@@ -1245,7 +1245,7 @@
             "Switches the transceiver (standby pin, silent pin, sleep) and answers the mode in effect. `Unsupported` for",
             "a mode it doesn\'t have ([Capabilities::transceiver_modes]).",
         ], optional: Some((group: Some("transceiver")))),
-        (id: 19, kind: Property(ty: OutOfLine(type_idx: 47), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "transceiver_state", docs: [
+        (id: 19, kind: Property(ty: OutOfLine(type_idx: 47), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "transceiver_state", docs: [
             "Transceiver mode and the bus wiring faults it detects; sent to observers when a fault appears or clears.",
         ], optional: Some((group: Some("transceiver")))),
         (id: 20, kind: Method(args: [
@@ -1259,7 +1259,7 @@
             "Switches the terminator and answers the one in effect. `Unsupported` for a value not in",
             "[Capabilities::termination].",
         ], optional: Some((group: Some("terminator")))),
-        (id: 21, kind: Property(ty: OutOfLine(type_idx: 48), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "termination", docs: [
+        (id: 21, kind: Property(ty: OutOfLine(type_idx: 48), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "termination", docs: [
             "The terminator in effect.",
         ], optional: Some((group: Some("terminator")))),
         (id: 22, kind: Method(args: [
@@ -1301,7 +1301,7 @@
             "Disables the group\'s clock, its lowest power state. Every controller must be in [Mode::Off] first",
             "(`WrongState` names the one that isn\'t).",
         ], optional: None),
-        (id: 4, kind: Property(ty: OutOfLine(type_idx: 54), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "group_state", docs: [
+        (id: 4, kind: Property(ty: OutOfLine(type_idx: 54), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "group_state", docs: [
             "Enabled (with the clock in effect) or disabled; sent to observers on every change.",
         ], optional: None),
         (id: 5, kind: Method(args: [
@@ -1350,7 +1350,7 @@
             "Replaces the trigger list (time marks of the matrix cycle). `OutOfMemory` when it doesn\'t fit the trigger",
             "memory, `InvalidArgument` for an unsorted list or a buffer the controller doesn\'t have.",
         ], optional: None),
-        (id: 2, kind: Property(ty: OutOfLine(type_idx: 61), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "tt_status", docs: [
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 61), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "tt_status", docs: [
             "Synchronisation state, master role, cycle count and error level; sent to observers on every change of the",
             "state or the error level.",
         ], optional: None),
@@ -1372,7 +1372,7 @@
             "Configures the XL data phase (`None`: no XL frames) and answers what was set. Needs CAN FD configured on the",
             "controller (`WrongState`); a timing or transceiver mode switching it can\'t do is `Unsupported`.",
         ], optional: None),
-        (id: 1, kind: StreamFn(ty: OutOfLine(type_idx: 64), delivery: Counted, args: [], return_ty: None), multiplicity: Flat, since: None, ident: "rx_xl", docs: [
+        (id: 1, kind: StreamFn(ty: OutOfLine(type_idx: 64), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "rx_xl", docs: [
             "Received XL frames. A counted stream, unit: frame; the head\'s time is when the frame was received.",
         ], optional: None),
         (id: 2, kind: FlowSink(ty: OutOfLine(type_idx: 65), flow: Credit), multiplicity: Flat, since: None, ident: "tx_xl", docs: [

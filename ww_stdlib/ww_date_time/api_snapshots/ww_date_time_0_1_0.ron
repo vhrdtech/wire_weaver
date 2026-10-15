@@ -2,8 +2,8 @@
 // Do not edit, bump the crate version and save a new snapshot instead.
 (magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_date_time", items: []), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Year", fields: Unnamed([
-        (ident: None, default: None, since: None, ty: NumericAny(Base(I32)), docs: []),
-    ]))), crate_idx: 0),
+        (ident: None, default: None, since: None, ty: NumericAny(Base(I32)), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "ISO 8601 calendar date without timezone.",
         "Size varies depending on the year, which is stored as UNib32 shifted by 2025. TODO: Shift year by another number? 1970?",
@@ -14,26 +14,26 @@
     ], ident: "NaiveDate", fields: Named([
         (ident: Some("year"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "-262_142 <= year <= 262_141",
-        ]),
-        (ident: Some("month"), default: None, since: None, ty: NumericAny(Base(UB(4))), docs: []),
-        (ident: Some("day"), default: None, since: None, ty: NumericAny(Base(UB(5))), docs: []),
-    ]))), crate_idx: 0),
+        ], slot: None),
+        (ident: Some("month"), default: None, since: None, ty: NumericAny(Base(UB(4))), docs: [], slot: None),
+        (ident: Some("day"), default: None, since: None, ty: NumericAny(Base(UB(5))), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "ISO 8601 time without timezone.",
         "Size is 18 bits without nanoseconds and 49 bits with nanoseconds.",
     ], ident: "NaiveTime", fields: Named([
-        (ident: Some("secs"), default: None, since: None, ty: NumericAny(Base(UB(17))), docs: []),
+        (ident: Some("secs"), default: None, since: None, ty: NumericAny(Base(UB(17))), docs: [], slot: None),
         (ident: Some("frac"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UB(31)))), docs: [
             "< 1B for sec 0..=58, <2B for sec 59",
             "TODO: checked subtype when implemented",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(3), crate_idx: 0, docs: [
         "Naive and fixed offset time zones, and room for adding up to 6 more without breaking compatibility.",
     ], ident: "OtherTimezone", variants: [
         (docs: [], ident: "Naive", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "FixedOffset", fields: Named([
-            (ident: Some("secs"), default: None, since: None, ty: NumericAny(Base(IB(18))), docs: []),
+            (ident: Some("secs"), default: None, since: None, ty: NumericAny(Base(IB(18))), docs: [], slot: None),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(1), crate_idx: 0, docs: [
@@ -42,7 +42,7 @@
     ], ident: "Timezone", variants: [
         (docs: [], ident: "UTC", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Other", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
@@ -57,10 +57,10 @@
         "* +4 bits for 2033 <= year <= 2088 and so on.",
         "* +24 bits for year <2025.",
     ], ident: "DateTime", fields: Named([
-        (ident: Some("date"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: []),
-        (ident: Some("time"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
-        (ident: Some("timezone"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("date"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None),
+        (ident: Some("time"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
+        (ident: Some("timezone"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-])
+], root_omitted: None)

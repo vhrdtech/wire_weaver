@@ -36,7 +36,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "An address outside `address_range`, or a range that runs past its end.",
@@ -52,7 +52,7 @@
         (docs: [], ident: "ReadOnly", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "ReadWrite", fields: Unit, discriminant: 2, since: None),
         (docs: [], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: []),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: [], slot: None),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
 ], traits: [
@@ -126,10 +126,10 @@
         (id: 7, kind: Property(ty: Tuple([
             NumericAny(Base(U8)),
             NumericAny(Base(U8)),
-        ]), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
+        ]), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
             "Valid addresses, first and last.",
         ], optional: None),
-        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "access", docs: [
+        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "access", docs: [
             "Access rights for this memory region.",
         ], optional: None),
     ]), crate_idx: 0),
@@ -203,10 +203,10 @@
         (id: 7, kind: Property(ty: Tuple([
             NumericAny(Base(U32)),
             NumericAny(Base(U32)),
-        ]), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
+        ]), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
             "Valid addresses, first and last.",
         ], optional: None),
-        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "access", docs: [
+        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "access", docs: [
             "Access rights for this memory region.",
         ], optional: None),
     ]), crate_idx: 0),

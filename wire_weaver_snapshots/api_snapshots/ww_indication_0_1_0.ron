@@ -49,14 +49,14 @@
         ], ident: "Highest", fields: Unit, discriminant: 4, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        37,
-        124,
-        121,
-        139,
-        82,
-        74,
-        68,
-        74,
+        178,
+        243,
+        149,
+        13,
+        148,
+        206,
+        13,
+        103,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         122,
@@ -73,10 +73,10 @@
         "Device indication control: a global mode every indicator follows, with optional brightness, identify and",
         "names.",
     ], crate_idx: 0, trait_name: "Indication", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadWrite(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "mode", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadWrite(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
             "Global operation mode every indicator follows.",
         ], optional: None),
-        (id: 1, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadWrite(observe: false), write_err_ty: None), multiplicity: Flat, since: None, ident: "brightness", docs: [
+        (id: 1, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadWrite(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "brightness", docs: [
             "Brightness of all indicators; one setting covers every one of them. Left out by a device whose",
             "indicators have no adjustable brightness.",
         ], optional: Some((group: None))),
@@ -89,7 +89,7 @@
             "Blinks every indicator for `duration` so the unit can be found on a bench or in a rack, then returns to",
             "`mode`. `Unsupported` on a device with no way to blink its indicators, `Busy` while already identifying.",
         ], optional: Some((group: None))),
-        (id: 3, kind: Property(ty: Vec(String), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "NAMES", docs: [
+        (id: 3, kind: Property(ty: Vec(String), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "NAMES", docs: [
             "Indicator names, in the device\'s own order. Left out (empty on devices that implement it with nothing to",
             "name) to save flash.",
         ], optional: Some((group: None))),

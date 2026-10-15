@@ -14,8 +14,9 @@ use crate::{
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_writer_owned::UnsizedBuilderOwned;
 use shrink_wrap::{
-    BufReader, BufWriterOwned, DeltaOfDeltaOwned, DeltaOwned, DeserializeShrinkWrapOwned,
-    ElementSize, Nibble, SerializeShrinkWrapOwned, UNib32, UVlq32, UVlq64, XorFloatOwned,
+    BufReader, BufWriterOwned, DeltaOfDeltaOwned, DeltaOwned, DeserializeShrinkWrap,
+    DeserializeShrinkWrapOwned, ElementSize, Nibble, OptionAnyVec, OptionAnyVecBuilderOwned,
+    SerializeShrinkWrapOwned, UNib32, UVlq32, UVlq64, XorFloatOwned,
 };
 use std::borrow::Cow;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
@@ -255,6 +256,10 @@ fn des_inner(
             }
             Ok(ValueOwned::Tuple(values))
         }
+        TypeOwned::Struct(struct_def) if struct_def.sparse => {
+            let fields = des_sparse_fields(rd, &struct_def.fields, api_bundle)?;
+            Ok(ValueOwned::Struct { fields })
+        }
         TypeOwned::Struct(struct_def) => {
             let fields = des_fields(rd, &struct_def.fields, api_bundle)?;
             Ok(ValueOwned::Struct { fields })
@@ -388,6 +393,36 @@ fn des_fields(
         }
         FieldsOwned::Unit => FieldsValueOwned::Unit,
     })
+}
+
+/// Fields of a `sparse` struct (DER-13): every field is `Option<T>`, one slot of an `OptionAnyVec`, read in slot
+/// order with [OptionAnyVecIter::read_slot_with](shrink_wrap::option_any_vec::OptionAnyVecIter::read_slot_with) —
+/// the same dynamic decode the observe host client uses for a level's `PropertyUpdate` (TOOL-11).
+fn des_sparse_fields(
+    rd: &mut BufReader,
+    fields: &FieldsOwned,
+    api_bundle: &ApiBundleOwned,
+) -> Result<FieldsValueOwned> {
+    let FieldsOwned::Named(defs) = fields else {
+        bail!("a sparse struct must have named fields");
+    };
+    let vec = OptionAnyVec::des_shrink_wrap(rd)?;
+    let mut iter = vec.iter();
+    let mut values = vec![];
+    for def in defs {
+        let name = def.ident.clone().unwrap_or_default();
+        let slot = def
+            .slot
+            .ok_or_else(|| anyhow!("sparse field '{name}' has no slot"))?;
+        let TypeOwned::Option { some_ty } = &def.ty else {
+            bail!("sparse field '{name}' must be Option<T>");
+        };
+        let value = iter.read_slot_with::<ValueOwned, anyhow::Error>(slot.0, |rd| {
+            ValueOwned::des_shrink_wrap_field_dyn(rd, some_ty, api_bundle)
+        })?;
+        values.push((name, ValueOwned::Option(value.map(Box::new))));
+    }
+    Ok(FieldsValueOwned::Named(values))
 }
 
 /// A relocated flag of an `Option` or `Result` field: `None` when it is missing from the data.
@@ -583,6 +618,12 @@ fn ser_inner(
             for (value, ty) in values.iter().zip(types) {
                 ser_field(wr, value, ty, api_bundle)?;
             }
+        }
+        TypeOwned::Struct(item_struct) if item_struct.sparse => {
+            let ValueOwned::Struct { fields } = value else {
+                return Err(mismatch());
+            };
+            ser_sparse_fields(wr, fields, &item_struct.fields, &item_struct.ident, api_bundle)?;
         }
         TypeOwned::Struct(item_struct) => {
             let ValueOwned::Struct { fields } = value else {
@@ -806,6 +847,67 @@ fn ser_fields(
         }
         (FieldsOwned::Unit, _) => bail!("{path}: expected no fields"),
     }
+    Ok(())
+}
+
+/// Fields of a `sparse` struct (DER-13): every field is `Option<T>`, written as one slot of an `OptionAnyVec` in
+/// slot order, only the present ones (`Some`) taking space.
+fn ser_sparse_fields(
+    wr: &mut BufWriterOwned,
+    fields: &FieldsValueOwned,
+    fields_def: &FieldsOwned,
+    path: &str,
+    api_bundle: &ApiBundleOwned,
+) -> Result<()> {
+    let FieldsOwned::Named(defs) = fields_def else {
+        bail!("{path}: a sparse struct must have named fields");
+    };
+    let FieldsValueOwned::Named(values) = fields else {
+        bail!("{path}: expected named fields: {}", field_names(defs));
+    };
+    for (name, _) in values {
+        if !defs.iter().any(|d| d.ident.as_deref() == Some(name)) {
+            bail!(
+                "{path} does not have field '{name}', expected: {}",
+                field_names(defs)
+            );
+        }
+    }
+    let value_of = |def: &FieldOwned| -> Result<&ValueOwned> {
+        let name = def.ident.as_deref().unwrap_or_default();
+        values
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, v)| v)
+            .ok_or_else(|| anyhow!("{path}: missing field '{name}'"))
+    };
+    let present = defs
+        .iter()
+        .filter_map(|def| match value_of(def) {
+            Ok(ValueOwned::Option(Some(_))) => def.slot.map(|s| Ok(s.0)),
+            Ok(_) => None,
+            Err(e) => Some(Err(e)),
+        })
+        .collect::<Result<Vec<u32>>>()?;
+    let mut builder = OptionAnyVecBuilderOwned::new(wr, present)?;
+    for def in defs {
+        let name = def.ident.as_deref().unwrap_or_default();
+        let ValueOwned::Option(value) = value_of(def)? else {
+            bail!("{path}: sparse field '{name}' must be an Option");
+        };
+        let Some(value) = value else {
+            continue;
+        };
+        let TypeOwned::Option { some_ty } = &def.ty else {
+            bail!("{path}: sparse field '{name}' must be Option<T>");
+        };
+        let slot = def
+            .slot
+            .ok_or_else(|| anyhow!("{path}: sparse field '{name}' has no slot"))?;
+        builder.start_slot(slot.0)?;
+        ser_field(wr, value, some_ty, api_bundle)?;
+    }
+    builder.finish(wr)?;
     Ok(())
 }
 

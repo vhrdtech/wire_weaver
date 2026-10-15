@@ -24,8 +24,9 @@
   call, earliest deadline first within the level's budget. The user's server provides
   `fn observe_state(&mut self) -> &mut api_impl::ObserveState` and depends on `ww_stream`; `ww api scaffold` prints
   both. See `docs/api/properties.md#observing-changes`.
-- `sparse` (DER-13) is accepted in `#[derive_shrink_wrap(..)]` of API types; the API model describes such a struct as
-  a plain struct of `Option`s until TOOL-11.
+- `sparse` (DER-13) is accepted in `#[derive_shrink_wrap(..)]` of API types; the API model now carries it
+  (`ItemStruct::sparse`, `Field::slot`, TOOL-11) instead of describing such a struct as a plain struct of `Option`s,
+  so a dynamic decoder reads it correctly.
 - Generated clients read a `const` item once per connection (API-36): `read_<NAME>()` uses
   `Commander::prepare_const_read`, later reads answer from the client's cache.
 - `#[errors(Common(InUse, Refused), Nack, ..)]` on a trait method (API-32): parsed and checked against the variants

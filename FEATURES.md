@@ -272,8 +272,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   is one slot. Fields are only appended. A non-`Option` field or a combination with `final_structure` / `sized` /
   `self_describing` / `fixed_layout` / `head_tail` is a compile error. For the per trait level `<Level>Update` of
   SRV-18 (`docs/serdes/derive.md`, `docs/evolution/rules.md`; test `shrink_wrap/tests/sparse.rs`, fuzz
-  `shrink-wrap-option-any-vec`). API types may use it, but `ww_self` has no sparse struct yet: introspection
-  describes one as a plain struct of `Option`s, so dynamic clients decode it wrong until TOOL-11.
+  `shrink-wrap-option-any-vec`). `ww_self` carries the flag (`ItemStruct::sparse`, `Field::slot`, TOOL-11), so a
+  dynamic decoder (`ValueOwned`, the `ww` CLI, `wire_weaver_py`) reads a sparse struct correctly.
 - 📋 **DER-5 `#[since = "x.y.z"]` on fields** — generate correct evolution code from it (`TODO` in
   `shrink_wrap_derive/src/lib.rs`).
 - 📋 **DER-6 Check that `TailBytes` ends the outer type too** — a struct ending in `TailBytes` used as a non-last field

@@ -62,12 +62,12 @@
     ], ident: "DefmtInfo", fields: Named([
         (ident: Some("encoding"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Encoding of the frames.",
-        ]),
+        ], slot: None),
         (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
             "GNU build id of the firmware (`.note.gnu.build-id`): which ELF decodes the frames. Empty when the firmware",
             "didn\'t keep the note; a host then falls back to the newest ELF it finds and warns.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         122,
         139,
@@ -84,15 +84,15 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
         ]), discriminant: 0, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One or more whole defmt frames, back to back, in [DefmtInfo::encoding]. Never half a frame: a decoder fed one",
         "item after the other never has to resync, also with raw encoding and after a loss.",
     ], ident: "DefmtFrames", fields: Named([
-        (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: []),
-    ]))), crate_idx: 0),
+        (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "Severity of a [LogRecord], the five levels of `log`, `tracing` and `defmt`.",
     ], ident: "Severity", variants: [
@@ -105,17 +105,17 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One text log message, see `LogText::records`.",
     ], ident: "LogRecord", fields: Named([
-        (ident: Some("severity"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: []),
+        (ident: Some("severity"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [], slot: None),
         (ident: Some("target"), default: None, since: None, ty: MaxLen(max_len: 48, ty: String), docs: [
             "Where it was logged, usually the module path (`usb_io_fw::power`). Cut to fit.",
-        ]),
+        ], slot: None),
         (ident: Some("message"), default: None, since: None, ty: MaxLen(max_len: 256, ty: String), docs: [
             "The formatted message, cut at the device\'s limit (at most [MAX_MESSAGE_LEN] bytes).",
-        ]),
+        ], slot: None),
         (ident: Some("truncated"), default: None, since: None, ty: Bool, docs: [
             "The message was cut.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "Which records `LogText` produces: `Info` means `Error`, `Warn` and `Info`.",
     ], ident: "LevelFilter", variants: [

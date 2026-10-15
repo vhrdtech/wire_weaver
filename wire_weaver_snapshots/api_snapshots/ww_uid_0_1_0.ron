@@ -28,7 +28,7 @@
         (docs: [
             "Anything else, named.",
         ], ident: "Other", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: []),
+            (ident: None, default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: [], slot: None),
         ]), discriminant: 4, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
@@ -49,7 +49,7 @@
         (docs: [
             "Anything else, named.",
         ], ident: "Other", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: []),
+            (ident: None, default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: [], slot: None),
         ]), discriminant: 4, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -57,14 +57,14 @@
     ], ident: "UniqueId", fields: Named([
         (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "What the bytes of `value` are.",
-        ]),
+        ], slot: None),
         (ident: Some("source"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
             "Who provides the id.",
-        ]),
+        ], slot: None),
         (ident: Some("value"), default: None, since: None, ty: MaxLen(max_len: 16, ty: Vec(NumericAny(Base(U8)))), docs: [
             "The id, up to 16 bytes: 6 for a MAC, 8 for an EUI-64, 16 for a UUID, a chip\'s own length otherwise.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The unique ids of this unit.",
@@ -72,7 +72,7 @@
         "The list is never empty on a device that has any id at all; the first entry is the primary id, see the",
         "[crate](crate) documentation.",
     ], crate_idx: 0, trait_name: "Uid", items: [
-        (id: 0, kind: Property(ty: MaxLen(max_len: 4, ty: Vec(OutOfLine(type_idx: 2))), access: Const, write_err_ty: None), multiplicity: Flat, since: None, ident: "IDS", docs: [
+        (id: 0, kind: Property(ty: MaxLen(max_len: 4, ty: Vec(OutOfLine(type_idx: 2))), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "IDS", docs: [
             "All ids of this unit, the primary one first. At most 4.",
         ], optional: None),
     ]), crate_idx: 0),

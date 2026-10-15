@@ -440,6 +440,11 @@ pub struct ItemStruct<'i> {
     pub docs: RefVec<'i, &'i str>,
     pub ident: &'i str,
     pub fields: Fields<'i>,
+    /// `#[derive_shrink_wrap(sparse, ..)]` (DER-13): every field is an `Option<T>`, written as one slot of an
+    /// `OptionAnyVec` (its [Field::slot]) instead of the plain, sequential field encoding. A dynamic decoder
+    /// (TOOL-11) must know this to read the struct's bytes correctly.
+    #[default = false]
+    pub sparse: bool,
 }
 
 #[derive_shrink_wrap(
@@ -458,6 +463,11 @@ pub struct Field<'i> {
     pub since: Option<VersionTriplet>,
     pub ty: Type<'i>,
     pub docs: RefVec<'i, &'i str>,
+    /// The field's slot in its owning [ItemStruct], when it is [sparse](ItemStruct::sparse): its `#[slot = N]`, or
+    /// the previous field's slot + 1 (0 for the first), as `shrink_wrap_derive` assigns it. `None` for a field of a
+    /// non-`sparse` struct.
+    #[default = None]
+    pub slot: Option<UNib32>,
 }
 
 #[derive_shrink_wrap(

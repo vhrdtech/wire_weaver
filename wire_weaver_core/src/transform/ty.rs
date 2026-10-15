@@ -237,7 +237,7 @@ fn convert_item_enum(
         {
             continue;
         }
-        let fields = convert_fields(&variant.fields, current_crate, scratch)?;
+        let fields = convert_fields(&variant.fields, current_crate, scratch, false)?;
         if let Some((_, explicit_discriminant)) = &variant.discriminant {
             if let Expr::Lit(expr_lit) = explicit_discriminant
                 && let Lit::Int(lit_int) = &expr_lit.lit
@@ -285,14 +285,15 @@ fn convert_item_struct(
     ty_name: String,
     item_struct: &ItemStruct,
 ) -> Result<TypeOwned> {
-    let fields = convert_fields(&item_struct.fields, current_crate, scratch)?;
-    let size = get_size_assumption(&item_struct.attrs, current_crate)?;
+    let args = derive_shrink_wrap_args(&item_struct.attrs, current_crate)?;
+    let fields = convert_fields(&item_struct.fields, current_crate, scratch, args.sparse)?;
     let ty = TypeOwned::Struct(ItemStructOwned {
-        size,
+        size: args.size_assumption.unwrap_or(ElementSize::Unsized),
         crate_idx: scratch.root_bundle.find_crate_or_create(current_crate),
         docs: collect_docs(&item_struct.attrs),
         ident: ty_name,
         fields,
+        sparse: args.sparse,
     });
     if let Some(type_idx) = scratch.root_bundle.find_type(&ty) {
         return Ok(TypeOwned::OutOfLine { type_idx });
@@ -302,14 +303,19 @@ fn convert_item_struct(
     Ok(ty)
 }
 
+/// `sparse`: the struct is `#[derive_shrink_wrap(sparse, ..)]` (DER-13), so each field's [FieldOwned::slot] is its
+/// `#[slot = N]`, or the previous field's slot + 1 (0 for the first), mirroring `shrink_wrap_derive`'s
+/// `ItemStruct::from_syn_sparse`.
 fn convert_fields(
     fields: &Fields,
     current_crate: &CrateContext,
     scratch: &mut Scratch,
+    sparse: bool,
 ) -> Result<FieldsOwned> {
     match fields {
         Fields::Named(_) | Fields::Unnamed(_) => {
             let mut owned = vec![];
+            let mut next_slot = 0u32;
             for f in fields {
                 let since = get_since_attr(&f.attrs, current_crate)?;
                 let default = get_default_attr(&f.attrs, current_crate)?;
@@ -318,12 +324,20 @@ fn convert_fields(
                 } else {
                     convert_ty(&f.ty, current_crate, scratch)?
                 };
+                let slot = if sparse {
+                    let slot = get_slot_attr(&f.attrs, current_crate)?.unwrap_or(next_slot);
+                    next_slot = slot + 1;
+                    Some(UNib32(slot))
+                } else {
+                    None
+                };
                 owned.push(FieldOwned {
                     docs: collect_docs(&f.attrs),
                     ident: f.ident.as_ref().map(|i| i.to_string()),
                     ty,
                     default,
                     since,
+                    slot,
                 });
             }
             if matches!(fields, Fields::Unnamed(_)) {
@@ -333,6 +347,26 @@ fn convert_fields(
             }
         }
         Fields::Unit => Ok(FieldsOwned::Unit),
+    }
+}
+
+/// `#[slot = N]` (DER-13, a field of a `sparse` struct).
+fn get_slot_attr(attrs: &[Attribute], current_crate: &CrateContext) -> Result<Option<u32>> {
+    let Some(attr) = attrs.iter().find(|a| a.path().is_ident("slot")) else {
+        return Ok(None);
+    };
+    if let Meta::NameValue(name_value) = &attr.meta
+        && let Expr::Lit(expr_lit) = &name_value.value
+        && let Lit::Int(lit_int) = &expr_lit.lit
+    {
+        Ok(Some(
+            lit_int
+                .base10_parse()
+                .context(current_crate.err_context())?,
+        ))
+    } else {
+        Err(anyhow!("expected #[slot = N] with an integer literal N")
+            .context(current_crate.err_context()))
     }
 }
 

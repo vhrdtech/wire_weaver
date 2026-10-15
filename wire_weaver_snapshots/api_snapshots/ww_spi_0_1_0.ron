@@ -57,21 +57,21 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "Longer than this device takes, see its capabilities.",
         ], ident: "BufferTooBig", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Second", signature: [
-        37,
-        124,
-        121,
-        139,
-        82,
-        74,
-        68,
-        74,
+        178,
+        243,
+        149,
+        13,
+        148,
+        206,
+        13,
+        103,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "One operation of a `Spi::transaction`.",
@@ -79,66 +79,66 @@
         (docs: [
             "Write these bytes, ignoring what comes back.",
         ], ident: "Write", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: []),
+            (ident: None, default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "Read this many bytes.",
         ], ident: "Read", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: []),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
         ]), discriminant: 1, since: None),
         (docs: [
             "Full duplex: write these bytes, keep what comes back.",
         ], ident: "Transfer", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: []),
+            (ident: None, default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None),
         ]), discriminant: 2, since: None),
         (docs: [
             "Wait, without touching the lines; CS stays asserted.",
         ], ident: "Delay", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: []),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Hertz", signature: [
-        226,
-        231,
-        2,
+        96,
         122,
-        233,
-        69,
-        233,
         185,
+        53,
+        99,
+        60,
+        13,
+        75,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Volt", signature: [
-        4,
-        154,
-        42,
-        148,
-        246,
-        214,
-        139,
-        181,
+        10,
+        248,
+        25,
+        90,
+        46,
+        0,
+        105,
+        254,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What this bus supports, see `Spi::capabilities`.",
     ], ident: "SpiCapabilities", fields: Named([
-        (ident: Some("min_freq"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
-        (ident: Some("max_freq"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: []),
-        (ident: Some("min_word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        (ident: Some("max_word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
-        (ident: Some("master"), default: None, since: None, ty: Bool, docs: []),
-        (ident: Some("slave"), default: None, since: None, ty: Bool, docs: []),
+        (ident: Some("min_freq"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None),
+        (ident: Some("max_freq"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None),
+        (ident: Some("min_word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+        (ident: Some("max_word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+        (ident: Some("master"), default: None, since: None, ty: Bool, docs: [], slot: None),
+        (ident: Some("slave"), default: None, since: None, ty: Bool, docs: [], slot: None),
         (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 5))), docs: [
             "Discrete IO levels the adapter can set (e.g. 1.8 V, 3.3 V, 5 V); empty if it has no level control.",
-        ]),
+        ], slot: None),
         (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 5)), docs: [
             "Lowest IO level of an adjustable supply, if the adapter has one.",
-        ]),
+        ], slot: None),
         (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 5)), docs: [
             "Highest IO level of an adjustable supply, if the adapter has one.",
-        ]),
+        ], slot: None),
         (ident: Some("max_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Largest transfer this device does, at most [SPI_MAX].",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Bus role, set with `Spi::configure`.",
     ], ident: "SpiRole", variants: [
@@ -189,48 +189,48 @@
         "Everything the bus is configured with, see `Spi::configure`: what is asked for going in, what was actually set",
         "coming back.",
     ], ident: "SpiConfig", fields: Named([
-        (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: []),
+        (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None),
         (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
             "SCK frequency asked for; `Spi::configure` answers with what was actually set.",
-        ]),
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
-        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: []),
+        ], slot: None),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None),
+        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None),
         (ident: Some("word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Bits per word; words above 8 bits travel as 2 bytes, little-endian.",
-        ]),
-        (ident: Some("cs"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: []),
+        ], slot: None),
+        (ident: Some("cs"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None),
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 5)), docs: [
             "Voltage of the lines on adapters with level translators ([SpiCapabilities::io_levels]); `None` leaves it as",
             "it is going in (the only choice on a device without them), and is the answer of a device without them.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bus settings for `Spi::monitor`: everything needed to decode frames correctly, without the",
         "parts that only apply to driving the bus ([SpiConfig::role], [SpiConfig::cs]).",
     ], ident: "SpiMonitorConfig", fields: Named([
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: []),
-        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: []),
-        (ident: Some("word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: []),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None),
+        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None),
+        (ident: Some("word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 5)), docs: [
             "Input threshold level, as [SpiConfig::io_level].",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One frame seen by `Spi::monitor`: from CS asserted to released.",
     ], ident: "SpiFrame", fields: Named([
         (ident: Some("end"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
             "When CS was released; when it was asserted is the time in the event head.",
-        ]),
+        ], slot: None),
         (ident: Some("truncated"), default: None, since: None, ty: Bool, docs: [
             "Longer than [SPI_MAX] bytes, the rest was cut.",
-        ]),
+        ], slot: None),
         (ident: Some("mosi"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
             "What the host side (controller) drove, if monitored.",
-        ]),
+        ], slot: None),
         (ident: Some("miso"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
             "What the device side (peripheral) drove, if monitored.",
-        ]),
-    ]))), crate_idx: 0),
+        ], slot: None),
+    ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "An SPI master: configure the bus, full-duplex transfer, transactions with CS held, and plain writes.",

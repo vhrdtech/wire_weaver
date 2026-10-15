@@ -323,6 +323,7 @@ mod tests {
             default: None,
             since: None,
             ty,
+            slot: None,
         }
     }
 
@@ -333,6 +334,7 @@ mod tests {
             docs: docs("struct"),
             ident: "S".into(),
             fields: FieldsOwned::Named(vec![field(Some("a"), TypeOwned::Bool)]),
+            sparse: false,
         });
         let item_enum = TypeOwned::Enum(ItemEnumOwned {
             size: ElementSize::Unsized,

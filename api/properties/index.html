@@ -491,6 +491,8 @@
       
         
       
+        
+      
     
     
     
@@ -2854,6 +2856,8 @@
       
         
       
+        
+      
     
     
     
@@ -2913,6 +2917,33 @@
     
   
   Examples and Templates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/motor_demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Motor controller demo
 
     
   </span>
@@ -3540,10 +3571,14 @@ user: an <code>api_impl::ObserveState</code> in the server struct, handed out by
   fails skips that send.</li>
 <li><strong>Budget</strong>: each level has a token bucket at its granted bytes per second, holding a tenth of a second of it (64
   bytes at least); all levels together get at most <code>ObserveLimits::total_budget</code>. Each <code>poll_properties</code> call sends at
-  most one update per level: its due properties earliest deadline first, as many as fit the bucket and <code>buf</code>. The rest
+  most one update per level: its due properties earliest deadline first, as many as fit the bucket and <code>buf</code>. When
+  they don't all fit the bucket and it isn't full yet, the level sends nothing and holds until they fit or the bucket
+  is full: a level short of budget sends fewer updates that carry everything due, rather than one value per call,
+  each with its own header (see the <a href="../../examples/motor_demo/#a-level-short-of-budget">motor demo</a>). What is left out
   slips to a later call; a property left out keeps its deadline, so it goes first then, and none starves.</li>
-<li><strong>Missed</strong>: a property due and left out counts one missed send, a periodic one also every whole period it falls
-  behind; the count goes to the host in the next update's <code>missed</code>.</li>
+<li><strong>Missed</strong>: a periodic property counts one missed send for every whole period it falls behind, an on-change one
+  when it waited its <code>min</code> or longer; held back for less, it is only late. The count goes to the host in the next
+  update's <code>missed</code>.</li>
 <li><strong>Untrusted input</strong>: an <code>Observe</code> request is checked in full before anything changes. Entries for an unknown index,
   a property without <code>+observe</code>, an index given twice or a mode the device doesn't know are refused one by one and
   listed in the answer; periods are raised to <code>ObserveLimits::min_period_us</code> and the budget is clamped. A request that
@@ -3628,7 +3663,8 @@ both are prepared first and <code>.subscribe()</code> (<code>.subscribe_blocking
   <code>PropertyUpdate</code> data, one <code>Option</code> per <code>+observe</code> property, the ones sent present; <code>&lt;Trait&gt;Observe</code>, one
   <code>Option&lt;ObserveMode&gt;</code> per property with a setter each, for asking and in <code>Granted::modes</code> for what was granted;
   <code>&lt;Trait&gt;Latest</code>, the latest <code>Sample { value, received, t }</code> of each property. <code>t</code> is the device's time, present when
-  it sends timestamps (<code>ObserveLimits::timestamps</code>).</li>
+  it sends timestamps (<code>ObserveLimits::timestamps</code>): microseconds, a wrapping <code>u32</code> on the wire, unwrapped into a
+  <code>u64</code> on the host.</li>
 <li><strong>One subscription per level</strong>: every observer of a level asks for its own modes, the host sends the device one
   <code>Observe</code> that covers them all, per property the shortest on-change interval and the shortest period of all of
   them (<code>OnChange</code> and <code>Periodic</code> give <code>OnChangeOrBeat</code>), the biggest budget. It is sent again when an observer

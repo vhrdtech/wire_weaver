@@ -491,6 +491,8 @@
       
         
       
+        
+      
     
     
     
@@ -2899,6 +2901,8 @@
       
         
       
+        
+      
     
     
     
@@ -2958,6 +2962,33 @@
     
   
   Examples and Templates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/motor_demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Motor controller demo
 
     
   </span>
@@ -4188,6 +4219,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   over NCM).</li>
 <li>✅ <strong>EX-4 NCM UDP example</strong>: <code>examples_mcu/rp2</code> <code>ww_udp_ncm</code>, host side <code>blinky_udp</code>.</li>
 <li>✅ <strong>EX-5 Project layout</strong> of paired <code>&lt;name&gt;_api</code> / <code>&lt;name&gt;</code> crates (<code>docs/api/folder_structure.md</code>).</li>
+<li>✅ <strong>EX-11 Multi-property observe demo</strong>: <code>examples/motor_demo</code> (+ <code>motor_demo_api</code>), a VESC-like FOC controller on
+  <a href="https://github.com/vhrdtech/motor_sim">motor_sim</a> with 52 <code>+observe</code> properties in three trait levels by rate tier
+  (25 kHz, 1 kHz, 50 Hz), on simulated time faster or slower than real time, in-process and over UDP; the
+  <code>motor_demo</code> CLI observes chosen sets at chosen rates and shows achieved rates, updates and bytes per second
+  against the budget, missed sends and the cost as one <code>StreamData</code> per value (<code>docs/examples/motor_demo.md</code>).</li>
 <li>✅ <strong>EX-14 cnt counters in MCU examples</strong>: <code>cnt</code> dependency, <code>-Tcnt.x</code> and <code>runner = "cnt run --chip ..."</code> on every probe-rs board (rp2, nucleo_g0b1re, nucleo_h743zi2, usb_stm32h725ig); <code>unhandled_exceptions</code> counter in <code>DefaultHandler</code>. <code>mcu_qemu</code> has no probe, so no counters.</li>
 <li>📋 <strong>EX-6 Example without async</strong> · <code>v0.5</code> — <code>ww_device::blocking::Server</code> exists, no example uses it.</li>
 <li>📋 <strong>EX-7 Example with two media</strong> · <code>v0.5</code>.</li>
@@ -4195,8 +4231,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>EX-9 WebSocket over Ethernet example</strong> for some board · <code>v0.5.x</code> — the <code>ws</code> medium already runs on
   <code>embassy-net</code>, so Ethernet needs no transport work, only an example.</li>
 <li>📋 <strong>EX-10 Reconnect demo</strong> · <code>v0.5.x</code> — keep reconnecting with streams and UI feedback; <code>disconnect_keep_streams</code>.</li>
-<li>📋 <strong>EX-11 Multi-property observe demo</strong> · <code>v0.5.x</code> — timers and previous values, analog and digital signals, a
-  dynamic rate for each property.</li>
 <li>📋 <strong>EX-12 Hubris based example</strong> with sync code · <code>v0.5.x</code>.</li>
 <li>📋 <strong>EX-13 Advanced example / project template</strong>.</li>
 </ul>

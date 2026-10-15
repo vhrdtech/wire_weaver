@@ -1,0 +1,16 @@
+[package]
+name = "ww_settings_derive"
+version.workspace = true
+authors.workspace = true
+description = "#[derive(Settings)] for ww_settings groups"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2.workspace = true
+quote.workspace = true
+syn = { workspace = true, features = ["full", "extra-traits", "printing"] }

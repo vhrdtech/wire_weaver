@@ -25,7 +25,7 @@ nor-flash = ["log-store", "dep:embedded-storage-async"]
 cnt = { workspace = true, optional = true }
 crc = { version = "3.4", optional = true }
 embedded-sdmmc-types = { version = "0.1", optional = true }
-embedded-storage-async = { version = "0.4.2", optional = true }
+embedded-storage-async = { workspace = true, optional = true }
 wire_weaver.workspace = true
 ww_client_server.workspace = true
 ww_si.workspace = true

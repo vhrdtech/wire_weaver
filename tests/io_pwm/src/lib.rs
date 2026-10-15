@@ -193,8 +193,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
                 config: CaptureConfig,
-                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
-            ) -> RpcResult<Result<CaptureConfig, PwmError<'static>>> {
+            ) -> RpcResult<Result<CaptureConfig, PwmError<'_>>> {
                 if config.mode == CaptureMode::Off {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: 0,

@@ -246,8 +246,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 2],
                 enabled: IoPinEnabledEvents<'_>,
-                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
-            ) -> RpcResult<Result<(), GpioError<'static>>> {
+            ) -> RpcResult<Result<(), GpioError<'_>>> {
                 if !enabled.custom.is_empty() {
                     // The mock pins have no device-specific sources.
                     return Ready(Err(CommonError::Unsupported.into()));

@@ -242,8 +242,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiMonitorConfig,
-                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
-            ) -> RpcResult<Result<(), SpiError<'static>>> {
+            ) -> RpcResult<Result<(), SpiError<'_>>> {
                 if config.word_bits != 8 {
                     return Ready(Err(CommonError::Unsupported.into()));
                 }

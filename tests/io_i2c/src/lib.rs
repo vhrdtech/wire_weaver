@@ -533,8 +533,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _io_level: Option<ww_si::Volt>,
-                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
-            ) -> RpcResult<Result<(), I2cError<'static>>> {
+            ) -> RpcResult<Result<(), I2cError<'_>>> {
                 self.model.lock().unwrap().monitor_enabled = true;
                 Ready(Ok(()))
             }

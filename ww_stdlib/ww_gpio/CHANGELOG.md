@@ -7,8 +7,7 @@
   the `Unsupported*` variants are `Common(Unsupported)`, `NotImplemented`, `CustomU8`, `CustomU32` are gone,
   `DifferentModes` stays. It is no longer `self_describing` (newer variants read as `Unknown(n)`), carries a lifetime
   (`GpioErrorOwned` on hosts), has `Display` from its doc lines, and every method lists its variants with
-  `#[errors(..)]`. Devices return `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`);
-  stream-function handlers return `GpioError<'static>` for now (API-35).
+  `#[errors(..)]`. Devices return `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`).
 - `Bank::configure(config: BankConfig) -> Result<BankConfig, Error>` with `BankConfig::io_level: Option<Volt>`
   instead of the `reference_voltage` property (STD-13); the answer is the level in effect. `BankCapabilities::voltage`
   is `io_levels: MaxLen<RefVec<Volt>, MAX_IO_LEVELS>`, with `io_level_min` / `io_level_max`.

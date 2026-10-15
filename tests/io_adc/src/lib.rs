@@ -166,8 +166,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: StreamConfig<'_>,
-                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
-            ) -> RpcResult<Result<StreamActual, AdcError<'static>>> {
+            ) -> RpcResult<Result<StreamActual, AdcError<'_>>> {
                 if self.busy() {
                     return Ready(Err(CommonError::Busy.into()));
                 }

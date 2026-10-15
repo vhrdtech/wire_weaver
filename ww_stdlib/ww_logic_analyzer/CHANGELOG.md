@@ -6,8 +6,7 @@
   `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from `ww_error::CommonError`; `NoSuchChannel`
   stays. It is no longer `self_describing` (newer variants read as `Unknown(n)`), carries a lifetime (`LaErrorOwned` on
   hosts), has `Display` from its doc lines, and every method lists its variants with `#[errors(..)]`. Devices return
-  `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`); stream-function handlers return
-  `LaError<'static>` for now (API-35).
+  `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`).
 - `TriggerStage::UartByte::baud` is a `ww_si::Baud` instead of a `u32` (STD-13).
 
 ### 🚀 Features

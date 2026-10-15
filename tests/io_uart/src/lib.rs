@@ -264,8 +264,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: MonitorConfig,
-                // TODO(API-35): `'_` doesn't compile for a stream function's error yet
-            ) -> RpcResult<Result<MonitorConfig, UartError<'static>>> {
+            ) -> RpcResult<Result<MonitorConfig, UartError<'_>>> {
                 // this monitor decodes from 300 Bd up
                 if config.baud_rate < Baud::baud(300u32) {
                     return Ready(Err(CommonError::Unsupported.into()));

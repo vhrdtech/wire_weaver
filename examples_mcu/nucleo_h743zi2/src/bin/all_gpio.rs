@@ -301,8 +301,7 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 2],
         _enabled: IoPinEnabledEvents<'_>,
-        // TODO(API-35): `'_` doesn't compile for a stream function's error yet
-    ) -> RpcResult<Result<(), GpioError<'static>>> {
+    ) -> RpcResult<Result<(), GpioError<'_>>> {
         Ready(Err(CommonError::Unsupported.into()))
     }
 

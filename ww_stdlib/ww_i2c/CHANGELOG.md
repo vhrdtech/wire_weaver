@@ -10,8 +10,7 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
   `ZeroLengthTransfer`, `InUse`, `NoIoLevel`, `Refused`, `Unsupported`; `OutOfCycleSlots` / `InvalidCycleSlot` are
   `OutOfWatchSlots` / `InvalidWatchSlot`. It is no longer `self_describing` (newer variants read as `Unknown(n)`),
   carries a lifetime (`I2cErrorOwned` on hosts), has `Display` from its doc lines, and every method lists its variants
-  with `#[errors(..)]`. Devices return `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`);
-  stream-function handlers return `I2cError<'static>` for now (API-35).
+  with `#[errors(..)]`. Devices return `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`).
 - `i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError>` takes `I2cConfig { mode, io_level }` instead of
   two arguments and answers what was actually set (the SCL frequency inside the mode, the IO level in effect)
   instead of a bare frequency (STD-13).

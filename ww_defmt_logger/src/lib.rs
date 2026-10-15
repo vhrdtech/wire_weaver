@@ -24,7 +24,7 @@
 //!    encodes the frame (rzCOBS or raw, as `defmt` is built) and copies it into the ring and the RTT channel.
 //! 2. [DefmtLogger::release] commits the whole frame to the ring at once, with its length in front: the ring never
 //!    holds half a frame. A frame that doesn't fit the free space, or is longer than
-//!    [MAX_FRAMES_LEN](ww_log::MAX_FRAMES_LEN), is dropped whole and counted.
+//!    [MAX_FRAMES_LEN], is dropped whole and counted.
 //! 3. [DefmtLogger::pump], called from the event loop, takes the committed frames out of the ring without a critical
 //!    section, packs up to 512 bytes of whole frames into one `DefmtFrames` item and pushes it into the stream's
 //!    store, `units` = frames. Frames the ring dropped become the stream's `lost` exactly where they were dropped, so
@@ -365,7 +365,7 @@ impl<const N: usize> DefmtLogger<N> {
     }
 
     /// Moves the committed frames from the ring into `stream`'s store, whole frames, up to
-    /// [MAX_FRAMES_LEN](ww_log::MAX_FRAMES_LEN) bytes of them per item, `units` = frames. Frames the
+    /// [MAX_FRAMES_LEN] bytes of them per item, `units` = frames. Frames the
     /// ring dropped go into the stream's `lost` ([Reliable::lost]) in their place. Returns how many frames were
     /// moved; 0 at once while another `pump` runs.
     ///

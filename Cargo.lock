@@ -4705,13 +4705,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_ll"
-version = "0.1.0"
-dependencies = [
- "wire_weaver",
-]
-
-[[package]]
 name = "ww_log_bare_metal"
 version = "0.1.0"
 dependencies = [
@@ -4729,6 +4722,14 @@ dependencies = [
  "ww_gpio",
  "ww_i2c",
  "ww_si",
+]
+
+[[package]]
+name = "ww_memory"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
 ]
 
 [[package]]

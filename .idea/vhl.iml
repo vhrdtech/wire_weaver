@@ -96,7 +96,7 @@
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_gpio_hl/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_i2c/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_indication/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_ll/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_memory/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_log_bare_metal/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_numeric/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ww_stdlib/ww_si/src" isTestSource="false" />

@@ -25,6 +25,7 @@
 * `ww_spi` - SPI data types and remote bridging API.
 * `ww_uart` - UART data types and remote bridging API.
 * `ww_i2c` - I2C bus data types and remote bridging API.
+* `ww_memory` - Low-level access to memory or registers (8- and 32-bit), with optional watches.
 * `ww_indication` - Device indication LED control API.
 
 ### Meta

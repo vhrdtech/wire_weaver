@@ -35,6 +35,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   bytes), and `Error::OptionAnyVecUnknownSlot` (C: `SW_ERR_OPTION_ANY_VEC_UNKNOWN_SLOT`, 30) for a present slot in a
   reader's gap. `OptionAnyVec`, `OptionAnyVecBuilder` and `OptionAnyVecBuilderOwned` are re-exported at the crate
   root and in the prelude.
+- `OptionAnyVecIter::read_slot_with()` (TOOL-11): `read_slot` with a closure given the bounded reader instead of a
+  compile-time `T`, for a value deserialized according to a runtime type descriptor (a dynamic client decoding a
+  `sparse` struct, e.g. a level's `PropertyUpdate`, from introspection alone), mirroring `EitherAnyVecIter::next_with`
+  above.
 - `RefVec::new_bytes` is a `const fn`, for byte vectors in `const` items (API-36).
 - Bit-sized numbers (SW-48): `I16` (bit-aligned, 16 bits; `I15` and `I17` existed, `I16` was missing), and
   `From<U7> for u8` / `TryFrom<u8> for U7` (`Error::SubtypeOutOfRange` when it doesn't fit) for every `U1`..`U64`

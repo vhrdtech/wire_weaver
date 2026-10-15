@@ -384,6 +384,23 @@ impl<'i> OptionAnyVecIter<'i> {
         self.next_owned()
     }
 
+    /// [read_slot](Self::read_slot) with a closure given the reader (bounded the way [BufReader::read] bounds an
+    /// `Unsized` type) instead of a compile-time `T`: for a value deserialized according to a runtime type
+    /// descriptor (TOOL-11, a dynamic client decoding a `sparse` struct from introspection alone). The closure's
+    /// error type wraps [Error] (`impl From<Error>`), so callers can return their own richer error.
+    pub fn read_slot_with<T, E: From<Error>>(
+        &mut self,
+        slot: u32,
+        read: impl FnOnce(&mut BufReader<'i>) -> Result<T, E>,
+    ) -> Result<Option<T>, E> {
+        self.skip_absent_to(slot)?;
+        if self.advance() {
+            Ok(Some(read(&mut self.rd)?))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn skip_absent_to(&mut self, slot: u32) -> Result<(), Error> {
         if slot < self.slot {
             return Err(Error::OptionAnyVecWrongSlot);

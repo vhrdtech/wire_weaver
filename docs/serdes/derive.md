@@ -523,8 +523,8 @@ and writers, a hand-written one 4408 and the derived shrink_wrap one 6652 ([code
 [`OptionAnyVec`](shrink_wrap.md#optionanyvec-sparse-slots-of-any-types): a presence header, then only the present
 values. Each field is one slot, in declaration order, and `#[slot = N]` places a field at slot `N` instead (slots
 increase, gaps are allowed). It is made for updates that carry any subset of many values, as the per trait level
-`<Level>Update` of an observe request, whose slots are the level's resource indices with methods and streams in
-between:
+`<Level>Update` of an [observe request](../api/observing.md#wire-format), whose slots are the level's resource
+indices with methods and streams in between:
 
 ```rust
 #[derive_shrink_wrap(owned, derive(Debug, PartialEq, Default), sparse)]

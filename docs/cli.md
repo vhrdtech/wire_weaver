@@ -226,8 +226,8 @@ workspace-inherited version can't be loaded, and self-referential types (like th
 
 ### `ww observe`
 
-Observes a trait level's `+observe` properties ([Observing changes](api/properties.md#observing-changes)) from
-introspection alone, no generated code needed (TOOL-11, the same dynamic client [Python](python.md#observing) uses):
+Observes a trait level's `+observe` properties ([Observing properties](api/observing.md)) from introspection
+alone, no generated code needed (TOOL-11, the same dynamic client [Python](python.md#observing) uses):
 
 ```
 $ ww observe motor --rate 10
@@ -240,7 +240,7 @@ Ctrl+C to stop
 `<path>` is dotted/indexed (`motor`, `bank[0]`), empty for the API root. Without `--rate` every observable property
 is asked for on-change; with it, all of them periodically at that rate (milliseconds). Prints each update's present
 values, the measured update rate and the link bytes/s it costs, until Ctrl+C. See
-[Observing](api/properties.md#observing) for the host-side model this reuses.
+[Observing properties](api/observing.md#the-host-side) for the host-side model this reuses.
 
 ### `ww usb-loopback`
 

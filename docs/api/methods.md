@@ -179,15 +179,11 @@ See [Errors](errors.md) for declaring errors, common errors and errors of newer 
 
 ### Several calls in one request
 
-When the server is generated with `multi_req = true` (a server without it refuses the request), several methods
-can be called in one request/response pair, each answered on its own (`Result<T, ErrorOwned>` per item, in order):
-`(client.inc(), client.dec()).multi_call().await`, implemented for tuples of 2 to 8 of `PreparedCall`, at any depth
-(any methods that share a common path prefix and diverge at exactly one element). To call the same method across a
-whole array, use `call_array(multi_idx, |i| client.pin(i).double())` (`multi_idx` is a `Range`/`List`/`Mask32`
-selector) — see [Properties](properties.md#host-side) for the full set of multi-request helpers, which is shared
-with methods and properties alike (`multi_read`/`multi_call`/`multi_write`, `read_array`/`call_array`/`write_array`,
-and the dynamic-client equivalents). A method with a custom `#[errors(..)]` result (`CallError<E>`) can't go into a
-tuple multi-call; call it on its own instead.
+Several methods can be called in one request/response pair, each answered on its own:
+`(client.inc(), client.dec()).multi_call().await`, or the same method across a whole array with `call_array(..)`.
+This is shared machinery with properties and reads/writes - see [Multi requests](multi_requests.md) for the full
+picture (the server's `multi_req = true` option, `MultiIndex`, the generated/array/dynamic-client APIs, errors and
+limits).
 
 ### Error lists
 

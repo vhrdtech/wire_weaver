@@ -139,8 +139,8 @@ latest values at once (`run` `"live"`) and the backlog beside them (`run` `"back
 
 ### Observing
 
-A trait level's `+observe` properties ([Observing changes](api/properties.md#observing-changes)) can be watched as
-a group, from introspection alone (TOOL-11):
+A trait level's `+observe` properties ([Observing properties](api/observing.md)) can be watched as a group, from
+introspection alone (TOOL-11):
 
 ```python
 m = dev.motor
@@ -153,7 +153,7 @@ obs.budget                                          # bytes/s the device applies
 
 `observe()` without `cfg` asks for every observable property on-change (what `ww observe <path>` does without
 `--rate`). `recv(timeout=...)` / `try_recv()` are also available. One device subscription is shared per level
-([One subscription per level](api/properties.md#observing)); dropping the last observer (garbage collection)
+([One subscription per level](api/observing.md#the-host-side)); dropping the last observer (garbage collection)
 unsubscribes.
 
 Every resource also has `doc` (its doc comment), `path` (e.g. `channel[2].gain`) and, except traits, `signature`.
@@ -220,5 +220,5 @@ resource of an offline API raises `WireWeaverError`.
 
 - `f16`, `UN`/`IN` and LEB128 numbers.
 - Typed (non-integer) array indices, property write errors (not decoded, same as generated clients).
-- Observing a level inside a resource array ([Limits](api/properties.md#observing)).
+- Observing a level inside a resource array ([Limits](api/observing.md#the-host-side)).
 - asyncio: calls block the calling thread (with the GIL released).

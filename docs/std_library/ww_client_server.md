@@ -28,12 +28,12 @@ ww_client_server = { version = "0.2", default-features = false }
   at once), `Read` / `MultiRead`, `Write { data }` / `MultiWrite`, `StreamSideband { sideband }`, `Introspect`
   (send the `ww_self::ApiBundle` of the addressed resource), `StreamOpen { resume, args }` (open a
   [counted or reliable stream](../api/stream_reliability.md), optionally resuming a `StreamCursor`),
-  `Observe { cfg }` (how a trait level's properties are sent, see [below](#observing-properties)). Arguments and
-  written values travel as `TailBytes<'i>` - already shrink_wrap-serialized by the generated code on either end,
-  opaque to this crate.
+  `Observe { cfg }` (how a trait level's properties are sent, see [below](#observing-properties) and
+  [Observing properties](../api/observing.md)). Arguments and written values travel as `TailBytes<'i>` - already
+  shrink_wrap-serialized by the generated code on either end, opaque to this crate.
 * `MultiIndex<'i>` / `MultiArgs<'i>` - which resources a multi-request covers (`Range`, `List`, or `Mask32`) and
   whether every one gets the same serialized arguments (`MultiArgs::Same`) or each its own
-  (`MultiArgs::Different`).
+  (`MultiArgs::Different`) - see [Multi requests](../api/multi_requests.md) for the full request/reply shape.
 * `Event<'i>` - `seq: UVlq32` (echoes the request's, 0 for unsolicited stream/property updates), `result:
   Result<EventKind<'i>, Error<'i>>`.
 * `EventKind<'i>` - `Value { data }` (a call's or read's return value), `Written`, `StreamData { path, data }`
@@ -78,7 +78,8 @@ the value up front and calling `.to_ww_bytes()`.
 The `observe` module (API-38) is the protocol for sending a trait level's properties at the rates a host asks for,
 any subset of them in one event. A level is one trait (the root API or a `ww_impl!` trait), addressed by its path;
 its properties are named by their resource index within the level, as in the introspection data. Only properties
-declared with `+observe` can be observed.
+declared with `+observe` can be observed. See [Observing properties](../api/observing.md) for the device/host APIs
+built on this protocol and the full wire-format picture; this section is the raw types.
 
 * `ObserveRequest<'i>` - body of `RequestKind::Observe`: `entries` (an `ObserveEntry { index, mode }` per
   property), `patch` (`true`: properties not listed keep their setting; `false`: they are `Off`) and `budget`

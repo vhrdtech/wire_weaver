@@ -207,5 +207,34 @@ device, observing tiers at chosen rates and a budget from the CLI, and the measu
 
 ## From the CLI and Python
 
-`ww observe` and the dynamic-client/Python equivalents of observing are being added by TOOL-11 (dynamic observe),
-in parallel with this page.
+Observing also works from introspection alone, no generated code needed (TOOL-11): `DynResource`'s
+`observable_properties()` lists a level's `+observe` properties (resource index, name, type), and
+`observe(cmd, entries)`/`observe_blocking(..)` (`entries: BTreeMap<u32, ObserveMode>`) build a
+`wire_weaver_client::DynObserver` that decodes each update's sparse `OptionAnyVec` by resource index instead of a
+generated struct's fields - reusing the same `Level<U>`/`Observer<U, T>` machinery as the generated client
+unchanged: one device subscription per level, `t` unwrapped, reconnect/resume included. Each `DynObserved` carries
+`values` (present properties by name, in resource-index order), `t`, `missed`, `received`, and `data_len` (the
+update's raw byte length, e.g. for measuring link bytes/s).
+
+[`ww observe <path> [--rate MS]`](../cli.md#ww-observe) uses it directly:
+
+```
+$ ww observe motor --rate 10
+observing motor (3 properties): speed, current, position
+budget: 20.0 kB/s
+Ctrl+C to stop
+{speed: 1500, current: 3, position: 1024}  rate 98.2/s  link 982/s
+```
+
+and [`wire_weaver_py`](../python.md#observing)'s `Node.observe(cfg)` iterates the same updates as dicts:
+
+```python
+m = dev.motor
+m.observable_properties()                              # {"speed": "u32", "current": "u32", "position": "u32"}
+with m.observe({"speed": 10, "current": None}) as obs:  # speed periodically every 10ms, current on change
+    for u in obs:
+        print(u["values"], u["t"], u["missed"])
+```
+
+Both ask for every observable property on-change without an explicit rate/`cfg`, and share one device subscription
+per level with any generated-client observers of the same level.

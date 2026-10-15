@@ -410,7 +410,9 @@ present, as the methods between the properties of a trait level, never for slots
 A [`sparse` struct](derive.md#sparse-a-struct-of-optional-fields) is an `OptionAnyVec` with a field per slot.
 
 `OptionAnyVec` is `Unsized`; `EitherAnyVec` is the counterpart for `Either` slots that are all present (each
-element `L` or `R`, flags in-line in groups of 8, the element count implied).
+element `L` or `R`, flags in-line in groups of 8, the element count implied) - used to answer
+[multi requests](../api/multi_requests.md#the-reply-an-eitheranyvec-of-results), one `Either<Error, value>` per
+index.
 
 ## Next step
 

@@ -182,6 +182,8 @@ impl TxCore {
     }
 
     /// Earliest instant at which [TxInput::Timer] should be fed, None if nothing is scheduled.
+    /// Feed pending [TxInput::FromRx] messages before the timer: deadlines (e.g. loopback echo timeouts) count on
+    /// them.
     pub fn poll_timeout(&self) -> Option<Instant> {
         match self.phase {
             Phase::GetDeviceInfo => self.next_link_setup_retry_at,

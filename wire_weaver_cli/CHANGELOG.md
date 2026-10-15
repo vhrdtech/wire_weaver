@@ -14,7 +14,8 @@
   `--packet-size` is the size of a link message (`max` by default: the largest both sides accept), with completion
   of `max` and a few sizes; a value that is not a number is an error instead of silently meaning `max`. The test's tunables are options under
   "Test tuning", defaults as before: `--echo-timeout-ms` (500), `--timeouts-in-a-row` (3), `--marker-every` (32),
-  `--markers-in-flight` (2), `--rx-batch` (64), `--batches-in-flight` (2).
+  `--markers-in-flight` (2), `--rx-batch` (64), `--batches-in-flight` (2). Rates are always per second (no
+  `/min` or `/d` for small ones); a stalled test hints at the tuning options instead of the cable.
 
 - `ww counters [read|watch|tui|reset|info]` (STD-25): the `cnt` counters of any device implementing
   `ww_counters::Counters`, decoded with the firmware's ELF found by the build id the device reports (`--elf` to

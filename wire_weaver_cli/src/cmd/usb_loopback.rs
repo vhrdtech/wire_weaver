@@ -1,6 +1,6 @@
 use anyhow::{Result, bail};
 use console::style;
-use human_repr::HumanThroughput;
+use human_repr::HumanCount;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -112,7 +112,14 @@ pub(crate) async fn usb_loopback(
     }
     print_summary(&results);
     let errors = results.iter().any(|r| r.lost != 0 || r.corrupted != 0);
-    if errors || fatal.is_some() {
+    if fatal.is_some() {
+        // a stall is more likely a device that can't keep up than the cable
+        info!(
+            "If it stalls with more in flight than the defaults, the device can't keep up with that: fewer \
+            --markers-in-flight / --batches-in-flight / --rx-batch, a longer --echo-timeout-ms or a smaller \
+            --packet-size. If it stalls at the defaults, check the device's loopback support and the link."
+        );
+    } else if errors {
         print_probable_usb_problems();
     }
     match fatal {
@@ -129,12 +136,7 @@ fn finish(pb: Option<ProgressBar>, r: &StageResult) {
     } else {
         "❌"
     };
-    let msg = format!(
-        "{mark} {}: {} ({})",
-        r.name,
-        r.count,
-        r.per_s.human_throughput_bare()
-    );
+    let msg = format!("{mark} {}: {} ({})", r.name, r.count, per_second(r.per_s));
     match pb {
         Some(pb) => pb.finish_with_message(msg),
         None => info!("{msg}"),
@@ -150,7 +152,7 @@ fn print_summary(results: &[StageResult]) {
         "{}",
         style(format!(
             "{:<10} {:>12} {:>12} {:>12} {:>8} {:>10}",
-            "stage", "messages", "per second", "bytes/s", "lost", "corrupted"
+            "stage", "messages", "messages/s", "bytes/s", "lost", "corrupted"
         ))
         .bold()
     );
@@ -163,7 +165,7 @@ fn print_summary(results: &[StageResult]) {
         };
         let bytes = r
             .bytes_per_s
-            .map(|b| b.human_throughput("B").to_string())
+            .map(|b| format!("{}/s", b.human_count_bytes()))
             .unwrap_or_else(|| "-".into());
         // host → device: the device discards the messages, losses aren't seen
         let tracked = r.name != "tx_speed";
@@ -180,12 +182,17 @@ fn print_summary(results: &[StageResult]) {
             "{:<10} {:>12} {:>12} {:>12} {:>8} {:>10}",
             what,
             r.count,
-            r.per_s.human_throughput_bare().to_string(),
+            per_second(r.per_s),
             bytes,
             count(r.lost),
             count(r.corrupted),
         );
     }
+}
+
+/// Always per second (`human_throughput` switches to /min and /d for small rates).
+fn per_second(per_s: f32) -> String {
+    format!("{}/s", per_s.human_count_bare())
 }
 
 fn print_probable_usb_problems() {

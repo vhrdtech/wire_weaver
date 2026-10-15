@@ -283,7 +283,16 @@ async fn tx_task<T: Transport>(
                 Some(cmd) => core.handle(Instant::now(), TxInput::Command(cmd)),
                 None => core.handle(Instant::now(), TxInput::CommanderDropped),
             },
-            _ = timer => core.handle(Instant::now(), TxInput::Timer),
+            _ = timer => {
+                // Writes may have blocked for a long time (a half-duplex device doesn't read while it writes):
+                // what rx said meanwhile goes in first, or a deadline would be judged without it, e.g. a loopback
+                // echo timeout while its echoes wait in the channel.
+                let now = Instant::now();
+                while let Ok(msg) = from_rx.try_recv() {
+                    core.handle(now, TxInput::FromRx(msg));
+                }
+                core.handle(now, TxInput::Timer)
+            },
         }
     };
     // closes the device from tx side, rx read then fails or is stopped by ToRx::Stop

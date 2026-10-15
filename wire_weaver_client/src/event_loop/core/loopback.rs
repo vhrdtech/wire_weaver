@@ -165,11 +165,17 @@ impl LoopbackTest {
     pub fn on_timer(&mut self, now: Instant) -> Status {
         self.last_now = now;
         if self.is_waiting() && now >= self.last_answer_at + self.p.echo_timeout {
+            let in_flight = self.in_flight();
             self.on_reply_timeout(now);
             if self.timeouts_in_a_row >= self.p.timeouts_in_a_row {
+                let received = match self.stage {
+                    // markers aren't counted, and the device answers none at all
+                    Stage::TxSpeed => String::new(),
+                    _ => format!(", {} received before", self.counts.received),
+                };
                 return self.fail(format!(
-                    "{}: no loopback answer from the device for {} x {:?}, \
-                    does it support loopback, does its scratch buffer fit {} bytes?",
+                    "{}: the device stopped answering: no echo for {} x {:?} with {in_flight} in flight{received} \
+                    (does it support loopback, does its scratch buffer fit {} bytes?)",
                     self.stage.name(),
                     self.p.timeouts_in_a_row,
                     self.p.echo_timeout,
@@ -332,6 +338,19 @@ impl LoopbackTest {
         !self.awaiting.is_empty() || self.rx_outstanding > 0
     }
 
+    /// What is waited for, for messages.
+    fn in_flight(&self) -> String {
+        match self.stage {
+            Stage::RoundTrip => "1 round trip".into(),
+            Stage::TxSpeed => format!("{} markers", self.awaiting.len()),
+            Stage::RxSpeed => format!(
+                "{} replies of {} requests",
+                self.rx_outstanding,
+                self.rx_outstanding.div_ceil(self.p.rx_batch as u64)
+            ),
+        }
+    }
+
     fn on_reply_timeout(&mut self, now: Instant) {
         self.timeouts_in_a_row += 1;
         self.last_answer_at = now;
@@ -342,9 +361,10 @@ impl LoopbackTest {
             Stage::RxSpeed => self.rx_outstanding,
         };
         warn!(
-            "{}: no answer from device for {:?}",
+            "{}: no answer from device for {:?} with {} in flight",
             self.stage.name(),
-            self.p.echo_timeout
+            self.p.echo_timeout,
+            self.in_flight()
         );
         if !self.draining {
             self.counts.lost += lost;

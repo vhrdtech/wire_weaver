@@ -21,7 +21,7 @@ use ww_version::{
 
 use crate::device_info::ConnectionInfo;
 use crate::event_loop::DeviceHandle;
-use crate::event_loop::command::{Command, TestProgress};
+use crate::event_loop::command::{Command, LoopbackParams, TestProgress};
 use crate::event_loop::stream::{self, BlockingStreamIo, StreamConfig, StreamRx, StreamTx};
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Transport};
 
@@ -165,21 +165,49 @@ impl WireWeaverAsyncApiBackend for Echo {
     }
 }
 
+/// Device sink as slow as a full-speed USB device: 1 ms every `every` packets.
+struct PacedSink {
+    tx: mpsc::Sender<Packet>,
+    every: u32,
+    n: u32,
+}
+
+impl ww_device::PacketSink for PacedSink {
+    type Error = ();
+    async fn write_packet(&mut self, packet: &[u8]) -> Result<(), ()> {
+        self.n += 1;
+        if self.n.is_multiple_of(self.every) {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        self.tx.send(packet.to_vec()).await.map_err(|_| ())
+    }
+}
+
 async fn device(
     to_host: mpsc::Sender<Packet>,
     from_host: mpsc::Receiver<Packet>,
     events_tx: mpsc::UnboundedSender<LinkEvent>,
+    pace_every: Option<u32>,
 ) {
     let mut tx_frame = [0u8; PACKET];
     // sized for bigger packets than the source delivers (e.g., bulk endpoint capped at 512),
     // the host must still see exactly DEV_MAX_MESSAGE
     let mut rx = ww_device::RxBuffer::<{ 2 * PACKET }, DEV_MAX_MESSAGE>::new();
-    serve(
-        ww_device::FramedTx::new(DevSink(to_host), &mut tx_frame),
-        ww_device::FramedRx::new(DevSource(from_host), rx.assembly_buf(PACKET)),
-        events_tx,
-    )
-    .await
+    let rx = ww_device::FramedRx::new(DevSource(from_host), rx.assembly_buf(PACKET));
+    match pace_every {
+        None => {
+            let tx = ww_device::FramedTx::new(DevSink(to_host), &mut tx_frame);
+            serve(tx, rx, events_tx).await
+        }
+        Some(every) => {
+            let sink = PacedSink {
+                tx: to_host,
+                every,
+                n: 0,
+            };
+            serve(ww_device::FramedTx::new(sink, &mut tx_frame), rx, events_tx).await
+        }
+    }
 }
 
 pub(crate) async fn serve(
@@ -237,11 +265,27 @@ fn start() -> (
     tokio::task::JoinHandle<()>,
     tokio::task::JoinHandle<()>,
 ) {
+    start_paced(None)
+}
+
+fn start_paced(
+    pace_every: Option<u32>,
+) -> (
+    mpsc::Sender<Command>,
+    mpsc::UnboundedReceiver<LinkEvent>,
+    tokio::task::JoinHandle<()>,
+    tokio::task::JoinHandle<()>,
+) {
     let (host_to_dev_tx, host_to_dev_rx) = mpsc::channel::<Packet>(4);
     let (dev_to_host_tx, dev_to_host_rx) = mpsc::channel::<Packet>(64);
     let (events_tx, events_rx) = mpsc::unbounded_channel();
     let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
-    let dev = tokio::spawn(device(dev_to_host_tx, host_to_dev_rx, events_tx));
+    let dev = tokio::spawn(device(
+        dev_to_host_tx,
+        host_to_dev_rx,
+        events_tx,
+        pace_every,
+    ));
     let host = tokio::spawn(crate::event_loop::core::worker(
         cmd_rx,
         PipeTransport(Some(Opened {
@@ -493,7 +537,25 @@ pub(crate) async fn talk(
 /// packet pipe with real framers; a request sent meanwhile waits for the test to end.
 #[tokio::test]
 async fn loopback_test() {
-    let (cmd_tx, mut events_rx, dev, _host) = start();
+    run_loopback_test(None, Default::default()).await;
+}
+
+/// A slow device that answers many requests in flight blocks host writes (it doesn't read while writing) for longer
+/// than the echo timeout: echoes that arrived meanwhile must count before the timeout does. This failed on a
+/// full-speed board with 8 batches in flight.
+#[tokio::test]
+async fn loopback_test_slow_device_many_in_flight() {
+    let params = LoopbackParams {
+        echo_timeout: Duration::from_millis(100),
+        batches_in_flight: 8,
+        markers_in_flight: 8,
+        ..Default::default()
+    };
+    run_loopback_test(Some(8), params).await;
+}
+
+async fn run_loopback_test(pace_every: Option<u32>, params: LoopbackParams) {
+    let (cmd_tx, mut events_rx, dev, _host) = start_paced(pace_every);
     connect(&cmd_tx, (0, 3)).await.result.unwrap();
     assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
 
@@ -502,7 +564,7 @@ async fn loopback_test() {
         .send(Command::LoopbackTest {
             test_duration: Duration::from_millis(300),
             packet_size: None,
-            params: Default::default(),
+            params: Box::new(params),
             progress_tx,
         })
         .await

@@ -38,7 +38,9 @@
   after 3 reply timeouts in a row or when the link goes down, and `progress_tx` is dropped when it ends.
   Its tunables (echo timeout, marker interval and markers in flight, batch size and batches in flight, timeouts in a
   row before giving up) are `Command::LoopbackTest::params`, a `LoopbackParams` (in `internal`) whose `Default`
-  has the values above.
+  has the values above. Before a timer, the tx task now feeds what rx sent meanwhile: a half-duplex device that writes many
+  replies blocks host writes for longer than the echo timeout, and the test stalled with 8 batches in flight on a
+  full-speed board. A stall says what was in flight and how much was received.
 
 - `const` items are read once per connection (API-36): `Commander::prepare_const_read()` (used by generated clients)
   and `DynResource::read()` / `read_blocking()` on a const keep the value and answer later reads, async, blocking

@@ -12,6 +12,7 @@
 //! | [tx] | [Counted](tx::Counted), [Reliable](tx::Reliable): sender state machines (runs, credit, go-back-N, sessions) | device |
 //! | [rx] | [Receiver](rx::Receiver): in order per run, gaps by cause, duplicates, `Ack` timing | host |
 //! | [store] | [StreamStore](store::StreamStore), [RamRing](store::RamRing) | device |
+//! | [observe] | [ObserveTable](observe::ObserveTable): observed properties, budget, earliest deadline first (SRV-18) | device |
 //! | [sched] | [Scheduler](sched::Scheduler): which stream sends next, by priority | device |
 //! | [counters] | [StreamCnt](counters::StreamCnt) (`cnt` instance counters with the `cnt` feature), [TxStats](counters::TxStats) | device |
 //!
@@ -21,6 +22,7 @@
 //! held only for a push or a store read, never while the link is busy: a slow link never stalls a producer.
 
 pub mod counters;
+pub mod observe;
 pub mod rx;
 pub mod sched;
 pub mod store;

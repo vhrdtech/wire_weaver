@@ -1,0 +1,642 @@
+//! Observed properties on the device (SRV-18): what the generated `poll_properties` and the `Observe` request
+//! handler of a server run on.
+//!
+//! A host observes a trait level's `+observe` properties with `RequestKind::Observe` (API-38,
+//! [ww_client_server::observe]); the device keeps one [ObserveTable] per level, sized at compile time, and sends one
+//! `EventKind::PropertyUpdate` per level whenever any of its properties is due, carrying just those.
+//!
+//! - **Due**: `Periodic` every period on a fixed grid; `OnChange` when marked changed (`mark_changed_<name>()`, or a
+//!   write to a `value_on_changed` property) and at least `min` after the previous send; `OnChangeOrBeat` also when
+//!   `max` passed without a send. A property that starts being observed is sent once right away, so the host has a
+//!   value to start from.
+//! - **Budget**: a token bucket per level, filled at the granted bytes per second, holding at most a tenth of a
+//!   second of it ([MIN_BURST] at least). An update is sent only when it fits the bucket and the buffer; due
+//!   properties go in earliest deadline first, the first one that doesn't fit ends the update and it and the rest
+//!   slip to the next poll. A property too big for the bucket's capacity goes alone when the bucket is full (the
+//!   bucket goes negative for it, the rate over time still holds).
+//! - **Missed**: a property that was due and left out of a poll's update counts one missed send (once until it is
+//!   sent), and a periodic one also counts every whole period it fell behind. A send skipped because the value
+//!   could not be read or serialized counts too. The count goes to the host in the next update's `missed`.
+//! - **Untrusted input**: [ObserveTable::apply] validates an `ObserveRequest` completely before it changes
+//!   anything (every entry decoded, index known, `+observe`, no duplicate, mode known), clamps periods and the
+//!   budget to [ObserveLimits], and does work linear in the request's length; a malformed request changes nothing.
+//!
+//! **Sharing the link with stored streams.** Properties have a reserved share: all levels together are granted at
+//! most [ObserveLimits::total_budget] bytes per second, and the generated `poll_properties` sends within it. Stored
+//! (reliable) streams take what `poll_streams` gets per turn, after the properties. Call `poll_properties` before
+//! `poll_streams` in the event loop: properties can't starve streams beyond their share, and streams can't starve
+//! properties, whose deadlines are short.
+
+use wire_weaver::shrink_wrap::{Error as ShrinkWrapError, SerializeShrinkWrap, UNib32};
+use ww_client_server::observe::{
+    ObserveEntry, ObserveMode, ObserveRefusal, ObserveRefused, ObserveRequest,
+};
+
+/// Smallest capacity of a level's token bucket in bytes, so that a level with a small budget can still send an
+/// update of a few properties at once.
+pub const MIN_BURST: u32 = 64;
+
+/// Room left in an update's size estimate for the event's own length fields, which grow with the data.
+const EVENT_SLACK: usize = 4;
+
+/// Length bytes a value's size can take in an `OptionAnyVec` (a `UNib32` of a `u32` length, rounded up).
+const LEN_SLOT: usize = 6;
+
+/// Token bucket fractions per byte: tokens are kept in byte-microseconds.
+const SCALE: i64 = 1_000_000;
+
+/// What the device allows observers, applied to every `Observe` request. Set by the firmware once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObserveLimits {
+    /// Shortest period and shortest `min` between two sends of one property, in microseconds.
+    pub min_period_us: u32,
+    /// Bytes per second a level gets when the host leaves the budget to the device.
+    pub default_budget: u32,
+    /// Most bytes per second one level may be granted.
+    pub max_level_budget: u32,
+    /// Most bytes per second all levels together may be granted: the properties' share of the link.
+    pub total_budget: u32,
+    /// Put the device time (`t`, microseconds of the `now_us` given to `poll_properties`) into every update.
+    pub timestamps: bool,
+}
+
+impl ObserveLimits {
+    /// 1 ms shortest period, 2 kB/s per level by default, 20 kB/s per level at most, 50 kB/s in total, no
+    /// timestamps.
+    pub const DEFAULT: ObserveLimits = ObserveLimits {
+        min_period_us: 1_000,
+        default_budget: 2_000,
+        max_level_budget: 20_000,
+        total_budget: 50_000,
+        timestamps: false,
+    };
+}
+
+impl Default for ObserveLimits {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// The observable properties of one trait level, generated: `observable[k]` is the resource index of the
+/// property in slot `k` of the level's [ObserveTable], increasing.
+#[derive(Debug, Clone, Copy)]
+pub struct LevelDesc<const N: usize> {
+    /// Number of resource indices of the level (largest one + 1), properties or not.
+    pub item_count: u32,
+    pub observable: [u32; N],
+}
+
+impl<const N: usize> LevelDesc<N> {
+    fn slot_of(&self, index: u32) -> Option<usize> {
+        self.observable.binary_search(&index).ok()
+    }
+
+    /// Upper bound of the presence header of an update: never longer than the dense mode's, a mode nibble,
+    /// the `UNib32` slot count and a bit per slot.
+    fn header_bound(&self) -> usize {
+        let len = self.observable.last().map_or(0, |last| last + 1);
+        let len_nibbles = (32 - len.leading_zeros()).div_ceil(3).max(1) as usize;
+        (4 + 4 * len_nibbles + len as usize).div_ceil(8)
+    }
+}
+
+/// How one property is observed, periods clamped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum Mode {
+    #[default]
+    Off,
+    OnChange {
+        min: u32,
+    },
+    Periodic {
+        every: u32,
+    },
+    OnChangeOrBeat {
+        min: u32,
+        max: u32,
+    },
+}
+
+impl Mode {
+    /// None for a mode this device doesn't know.
+    fn clamped(mode: &ObserveMode, limits: &ObserveLimits) -> Option<Mode> {
+        let floor = limits.min_period_us.max(1);
+        Some(match mode {
+            ObserveMode::Off => Mode::Off,
+            ObserveMode::OnChange { min_us } => Mode::OnChange {
+                min: min_us.0.max(floor),
+            },
+            ObserveMode::Periodic { every_us } => Mode::Periodic {
+                every: every_us.0.max(floor),
+            },
+            ObserveMode::OnChangeOrBeat { min_us, max_us } => {
+                let min = min_us.0.max(floor);
+                Mode::OnChangeOrBeat {
+                    min,
+                    max: max_us.0.max(min),
+                }
+            }
+            ObserveMode::Unknown(_) => return None,
+        })
+    }
+
+    fn to_wire(self) -> ObserveMode {
+        match self {
+            Mode::Off => ObserveMode::Off,
+            Mode::OnChange { min } => ObserveMode::OnChange {
+                min_us: UNib32(min),
+            },
+            Mode::Periodic { every } => ObserveMode::Periodic {
+                every_us: UNib32(every),
+            },
+            Mode::OnChangeOrBeat { min, max } => ObserveMode::OnChangeOrBeat {
+                min_us: UNib32(min),
+                max_us: UNib32(max),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct Slot {
+    mode: Mode,
+    /// Periodic: the next send on the grid.
+    next_due: u64,
+    last_sent: Option<u64>,
+    /// Changed since the last send.
+    dirty: bool,
+    /// Due and left out of an update, already counted as missed.
+    slipped: bool,
+    /// Just started being observed: sent once at the next poll.
+    start: bool,
+}
+
+/// Why an `Observe` request was refused as a whole, nothing applied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObserveError {
+    /// An entry could not be read.
+    Malformed(ShrinkWrapError),
+    /// More entries refused than the answer has room for.
+    TooManyRefused,
+}
+
+/// Observe settings and send state of one trait level with `N` observable properties.
+#[derive(Debug, Clone)]
+pub struct ObserveTable<const N: usize> {
+    slots: [Slot; N],
+    /// Granted bytes per second, 0 while nothing is observed.
+    budget: u32,
+    /// Byte-microseconds in the bucket.
+    tokens: i64,
+    last_refill: Option<u64>,
+    /// Missed sends not reported to the host yet.
+    missed: u32,
+}
+
+impl<const N: usize> Default for ObserveTable<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<const N: usize> ObserveTable<N> {
+    /// Nothing observed.
+    pub const fn new() -> Self {
+        ObserveTable {
+            slots: [Slot {
+                mode: Mode::Off,
+                next_due: 0,
+                last_sent: None,
+                dirty: false,
+                slipped: false,
+                start: false,
+            }; N],
+            budget: 0,
+            tokens: 0,
+            last_refill: None,
+            missed: 0,
+        }
+    }
+
+    /// Stop observing everything, e.g., when the host is gone.
+    pub fn reset(&mut self) {
+        *self = Self::new();
+    }
+
+    /// The property in slot `k` changed: sent at its next chance if observed on change.
+    pub fn mark_changed(&mut self, k: usize) {
+        if let Some(slot) = self.slots.get_mut(k) {
+            slot.dirty = true;
+        }
+    }
+
+    /// Bytes per second granted to this level, 0 when nothing is observed.
+    pub fn budget(&self) -> u32 {
+        self.budget
+    }
+
+    /// Whether any property of the level is observed.
+    pub fn is_active(&self) -> bool {
+        self.slots.iter().any(|s| s.mode != Mode::Off)
+    }
+
+    /// Apply an `Observe` request from the host: validate all of it first (nothing changes when it fails), then
+    /// set the modes, clamped to `limits`, and grant a budget within what `others_budget` (granted to the other
+    /// levels) leaves of [ObserveLimits::total_budget]. Refused entries are put into `refused`, their count is
+    /// returned.
+    pub fn apply(
+        &mut self,
+        req: &ObserveRequest<'_>,
+        desc: &LevelDesc<N>,
+        limits: &ObserveLimits,
+        others_budget: u32,
+        refused: &mut [ObserveRefused],
+    ) -> Result<usize, ObserveError> {
+        // first pass: check everything, change nothing
+        let mut seen = [false; N];
+        let mut refused_len = 0;
+        for entry in req.entries.iter() {
+            let entry = entry.map_err(ObserveError::Malformed)?;
+            let reason = match desc.slot_of(entry.index.0) {
+                None if entry.index.0 >= desc.item_count => Some(ObserveRefusal::NoSuchIndex),
+                None => Some(ObserveRefusal::NotObservable),
+                Some(k) if seen[k] => Some(ObserveRefusal::Duplicate),
+                Some(k) => {
+                    seen[k] = true;
+                    Mode::clamped(&entry.mode, limits)
+                        .is_none()
+                        .then_some(ObserveRefusal::ModeNotSupported)
+                }
+            };
+            if let Some(reason) = reason {
+                let r = refused
+                    .get_mut(refused_len)
+                    .ok_or(ObserveError::TooManyRefused)?;
+                *r = ObserveRefused {
+                    index: entry.index,
+                    reason,
+                };
+                refused_len += 1;
+            }
+        }
+
+        // second pass: the first entry of each index wins, as checked above
+        let mut modes = [Mode::Off; N];
+        if req.patch {
+            for (m, s) in modes.iter_mut().zip(self.slots.iter()) {
+                *m = s.mode;
+            }
+        }
+        let mut applied = [false; N];
+        for entry in req.entries.iter().flatten() {
+            let Some(k) = desc.slot_of(entry.index.0) else {
+                continue;
+            };
+            if applied[k] {
+                continue;
+            }
+            applied[k] = true;
+            if let Some(mode) = Mode::clamped(&entry.mode, limits) {
+                modes[k] = mode;
+            }
+        }
+        let was_active = self.is_active();
+        for ((slot, mode), listed) in self.slots.iter_mut().zip(modes).zip(applied) {
+            // a listed property starts over: sent once right away, so a host asking again gets fresh values
+            if slot.mode != mode || listed {
+                let dirty = slot.dirty;
+                *slot = Slot {
+                    mode,
+                    dirty,
+                    start: mode != Mode::Off,
+                    ..Slot::default()
+                };
+            }
+        }
+        if self.is_active() {
+            let wanted = req.budget.map_or(limits.default_budget, |b| b.0);
+            self.budget = wanted
+                .min(limits.max_level_budget)
+                .min(limits.total_budget.saturating_sub(others_budget));
+            if !was_active {
+                self.tokens = Self::capacity(self.budget);
+                self.last_refill = None;
+                self.missed = 0;
+            }
+            self.tokens = self.tokens.min(Self::capacity(self.budget));
+        } else {
+            self.budget = 0;
+        }
+        Ok(refused_len)
+    }
+
+    /// The settings as applied, for the answer to `Observe`: every observed property in index order. Returns how
+    /// many entries of `out` are filled.
+    pub fn granted(&self, desc: &LevelDesc<N>, out: &mut [ObserveEntry; N]) -> usize {
+        let mut len = 0;
+        for (slot, index) in self.slots.iter().zip(desc.observable) {
+            if slot.mode != Mode::Off {
+                out[len] = ObserveEntry {
+                    index: UNib32(index),
+                    mode: slot.mode.to_wire(),
+                };
+                len += 1;
+            }
+        }
+        len
+    }
+
+    fn capacity(budget: u32) -> i64 {
+        (budget / 10).max(MIN_BURST) as i64 * SCALE
+    }
+
+    fn refill(&mut self, now_us: u64) {
+        let elapsed = match self.last_refill {
+            Some(last) => now_us.saturating_sub(last),
+            None => 0,
+        };
+        if self.last_refill.is_none_or(|last| now_us > last) {
+            self.last_refill = Some(now_us);
+        }
+        let add = (elapsed as i64).saturating_mul(self.budget as i64);
+        self.tokens = self
+            .tokens
+            .saturating_add(add)
+            .min(Self::capacity(self.budget));
+    }
+
+    /// What is due at `now_us` (any microsecond clock), earliest deadline first. Refills the bucket and counts
+    /// the periods periodic properties fell behind.
+    pub fn plan(&mut self, now_us: u64, limits: &ObserveLimits) -> Plan<N> {
+        let mut plan = Plan {
+            order: [0; N],
+            deadline: [0; N],
+            len: 0,
+            tokens: 0,
+            full: false,
+            missed: self.missed,
+            t: limits.timestamps.then_some(now_us),
+        };
+        if !self.is_active() {
+            return plan;
+        }
+        self.refill(now_us);
+        plan.tokens = (self.tokens / SCALE).max(0) as usize;
+        plan.full = self.tokens >= Self::capacity(self.budget);
+        for (k, slot) in self.slots.iter_mut().enumerate() {
+            if slot.start {
+                slot.start = false;
+                slot.dirty = true;
+                slot.next_due = now_us;
+                slot.last_sent = None;
+            }
+            let due = match slot.mode {
+                Mode::Off => None,
+                Mode::Periodic { every } => {
+                    let every = every as u64;
+                    if now_us >= slot.next_due.saturating_add(every) {
+                        // whole periods behind: those sends are lost, the one counted at its slip already
+                        let behind = (now_us - slot.next_due) / every;
+                        let lost = behind.saturating_sub(slot.slipped as u64);
+                        self.missed = self.missed.saturating_add(lost.min(u32::MAX as u64) as u32);
+                        slot.next_due = slot.next_due.saturating_add(behind * every);
+                        slot.slipped = false;
+                    }
+                    (now_us >= slot.next_due).then_some(slot.next_due)
+                }
+                Mode::OnChange { min } => match slot.last_sent {
+                    _ if !slot.dirty => None,
+                    None => Some(0),
+                    Some(last) => {
+                        let at = last.saturating_add(min as u64);
+                        (now_us >= at).then_some(at)
+                    }
+                },
+                Mode::OnChangeOrBeat { min, max } => match slot.last_sent {
+                    None => Some(0),
+                    Some(last) => {
+                        let at_min = last.saturating_add(min as u64);
+                        let at_max = last.saturating_add(max as u64);
+                        if slot.dirty && now_us >= at_min {
+                            Some(at_min)
+                        } else if now_us >= at_max {
+                            Some(at_max)
+                        } else {
+                            None
+                        }
+                    }
+                },
+            };
+            if let Some(deadline) = due {
+                // insertion by deadline, ties in slot order
+                let mut i = plan.len;
+                while i > 0 && plan.deadline[i - 1] > deadline {
+                    plan.order[i] = plan.order[i - 1];
+                    plan.deadline[i] = plan.deadline[i - 1];
+                    i -= 1;
+                }
+                plan.order[i] = k;
+                plan.deadline[i] = deadline;
+                plan.len += 1;
+            }
+        }
+        plan
+    }
+
+    /// After an update for `plan` with `sel`: `sent` is the length of the event as sent, None when it could not
+    /// be sent (the chosen properties count as missed then). Moves the chosen and dropped properties on and
+    /// counts the ones that slipped.
+    pub fn commit(&mut self, plan: &Plan<N>, sel: &Selection<N>, now_us: u64, sent: Option<usize>) {
+        match sent {
+            Some(len) => {
+                self.tokens = self.tokens.saturating_sub(len as i64 * SCALE);
+                self.missed = self.missed.saturating_sub(plan.missed);
+            }
+            None => {
+                let chosen = sel.chosen.iter().filter(|c| **c).count() as u32;
+                self.missed = self.missed.saturating_add(chosen);
+            }
+        }
+        for &k in plan.edf() {
+            let slot = &mut self.slots[k];
+            if sel.chosen[k] || sel.dropped[k] {
+                if sel.dropped[k] {
+                    self.missed = self.missed.saturating_add(1);
+                }
+                slot.dirty = false;
+                slot.slipped = false;
+                slot.last_sent = Some(now_us);
+                if let Mode::Periodic { every } = slot.mode {
+                    slot.next_due = slot.next_due.saturating_add(every as u64);
+                }
+            } else if !slot.slipped {
+                slot.slipped = true;
+                self.missed = self.missed.saturating_add(1);
+            }
+        }
+    }
+}
+
+/// What a level has to send at one poll, see [ObserveTable::plan].
+#[derive(Debug, Clone)]
+pub struct Plan<const N: usize> {
+    order: [usize; N],
+    deadline: [u64; N],
+    len: usize,
+    /// Whole bytes in the bucket.
+    tokens: usize,
+    /// The bucket is full.
+    full: bool,
+    missed: u32,
+    t: Option<u64>,
+}
+
+impl<const N: usize> Plan<N> {
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Slots of the due properties, earliest deadline first.
+    pub fn edf(&self) -> &[usize] {
+        &self.order[..self.len]
+    }
+
+    /// `missed` of the update: sends missed before this poll, None when there were none.
+    pub fn missed(&self) -> Option<UNib32> {
+        (self.missed > 0).then_some(UNib32(self.missed))
+    }
+
+    /// `t` of the update, with [ObserveLimits::timestamps].
+    pub fn t(&self) -> Option<ww_si::Second> {
+        self.t.map(|us| ww_si::Second {
+            prefix: ww_si::Prefix::Micro,
+            value: ww_si::ww_numeric::NumericValue::U64(us),
+        })
+    }
+
+    /// Start choosing what goes into the update: `overhead` is the length of the event without data (see
+    /// [event_overhead]), `buf_len` the most the data may take.
+    pub fn selection(&self, desc: &LevelDesc<N>, overhead: usize, buf_len: usize) -> Selection<N> {
+        let fixed = overhead + EVENT_SLACK + desc.header_bound();
+        Selection {
+            chosen: [false; N],
+            dropped: [false; N],
+            count: 0,
+            est: fixed,
+            limit: self.tokens,
+            max_len: buf_len.saturating_add(overhead),
+            fixed,
+            full: self.full,
+            done: false,
+        }
+    }
+}
+
+/// The properties chosen for one update, offered in [Plan::edf] order with their estimated size.
+#[derive(Debug, Clone)]
+pub struct Selection<const N: usize> {
+    chosen: [bool; N],
+    /// Can't be sent this time (value not readable, bigger than a message), moved on as missed.
+    dropped: [bool; N],
+    count: usize,
+    est: usize,
+    /// Bytes in the bucket.
+    limit: usize,
+    /// Most an event may take.
+    max_len: usize,
+    /// Estimate of an update without values.
+    fixed: usize,
+    full: bool,
+    done: bool,
+}
+
+impl<const N: usize> Selection<N> {
+    /// Offer slot `k` with the upper bound of its value's size, None when the value can't be had. Returns false
+    /// once the update is full: offer nothing more.
+    pub fn offer(&mut self, k: usize, size: Option<usize>) -> bool {
+        if self.done || k >= N {
+            return false;
+        }
+        let Some(size) = size else {
+            self.dropped[k] = true;
+            return true;
+        };
+        let est = self.est.saturating_add(size);
+        if est <= self.limit && est <= self.max_len {
+            self.chosen[k] = true;
+            self.count += 1;
+            self.est = est;
+            true
+        } else if self.fixed.saturating_add(size) > self.max_len {
+            // never fits a message
+            self.dropped[k] = true;
+            true
+        } else if self.count == 0 && self.full {
+            // bigger than the bucket: alone, when the bucket is full
+            self.chosen[k] = true;
+            self.count += 1;
+            self.est = est;
+            self.done = true;
+            false
+        } else {
+            self.done = true;
+            false
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.count == 0
+    }
+
+    /// Whether slot `k` goes into the update.
+    pub fn is_chosen(&self, k: usize) -> bool {
+        self.chosen.get(k).copied().unwrap_or(false)
+    }
+
+    /// Slot `k` could not be written after all: moved on as missed.
+    pub fn drop_slot(&mut self, k: usize) {
+        if k < N {
+            self.chosen[k] = false;
+            self.dropped[k] = true;
+        }
+    }
+
+    /// Resource indices of the chosen properties, increasing: the present slots of the update's `OptionAnyVec`.
+    pub fn present<'a>(&'a self, desc: &'a LevelDesc<N>) -> impl Iterator<Item = u32> + Clone + 'a {
+        desc.observable
+            .iter()
+            .zip(self.chosen.iter())
+            .filter(|(_, chosen)| **chosen)
+            .map(|(index, _)| *index)
+    }
+}
+
+/// Upper bound of the bytes a value of `T` takes in an update, when the type has one.
+pub const fn max_write_len<T: SerializeShrinkWrap + ?Sized>() -> Option<usize> {
+    wire_weaver::shrink_wrap::MaxSize::buffer_len_of(wire_weaver::shrink_wrap::write_max_size::<T>())
+}
+
+/// Upper bound of the bytes `value` takes in an update, serialized into `buf` to find out; None when it doesn't
+/// fit.
+pub fn measure<T: SerializeShrinkWrap + ?Sized>(value: &T, buf: &mut [u8]) -> Option<usize> {
+    if let Some(len) = max_write_len::<T>() {
+        return Some(len);
+    }
+    let len = value.to_ww_bytes(buf).ok()?.len();
+    Some(len + LEN_SLOT)
+}
+
+/// Length of the `PropertyUpdate` event of the level at `path` with no data, serialized into `buf`.
+pub fn event_overhead(
+    buf: &mut [u8],
+    path: &[UNib32],
+    t: Option<ww_si::Second>,
+    missed: Option<UNib32>,
+) -> Result<usize, ShrinkWrapError> {
+    ww_client_server::observe::ser_property_update_event(buf, path, t, missed, |_| Ok(0))
+        .map(|event| event.len())
+}
+
+#[cfg(test)]
+mod tests;

@@ -10,8 +10,15 @@
 
 use crate::StreamHead;
 
-mod ram_ring;
+pub(crate) mod ram_ring;
 pub use ram_ring::{RECORD_OVERHEAD, RamRing, RamRingError};
+
+#[cfg(any(test, feature = "persistent-ram"))]
+mod persistent_ram;
+#[cfg(any(test, feature = "persistent-ram"))]
+pub use persistent_ram::{
+    PERSISTENT_RECORD_OVERHEAD, PersistentRamRing, RamArea, RamRecovery, SLOT_LEN,
+};
 
 #[cfg(any(test, feature = "log-store"))]
 pub mod log;
@@ -77,7 +84,7 @@ pub struct StoreState {
     pub used_bytes: u64,
     /// Bytes the store can hold.
     pub capacity_bytes: u64,
-    /// Survives a reboot (a log on SD or flash), not just a reconnect.
+    /// Survives a reboot (a log on SD or flash) or a soft reset (RAM kept across it), not just a reconnect.
     pub persistent: bool,
     /// Units of the events the store forgot to make room (drop oldest), since the session started. Not those
     /// released after an acknowledgement, nor those [PushError::Full] refused.

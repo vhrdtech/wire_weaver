@@ -14,6 +14,8 @@ std = ["ww_client_server/std", "ww_si/std"]
 cnt = ["dep:cnt"]
 # store::LogStore: a power-cut safe log on a block device
 log-store = ["dep:crc"]
+# store::PersistentRamRing: a RAM ring that survives a soft reset
+persistent-ram = ["dep:crc"]
 # store::log::SdMedium on an embedded-sdmmc BlockDevice
 sdmmc = ["log-store", "dep:embedded-sdmmc-types"]
 # store::log::NorMedium on an embedded-storage-async NorFlash

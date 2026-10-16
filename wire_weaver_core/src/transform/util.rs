@@ -324,6 +324,10 @@ impl Parse for Args {
                         let _group: proc_macro2::Group = input.parse()?;
                     }
                 }
+                "validate" => {
+                    input.parse::<Token![=]>()?;
+                    let _path: syn::Path = input.parse()?;
+                }
                 "future_version" => {
                     // the variant is left out of the API model (SW-16, SW-47)
                     input.parse::<Token![=]>()?;
@@ -353,8 +357,7 @@ impl Parse for Args {
     }
 }
 
-const SUPPORTED_DIRECTIVES: &str =
-    "final_structure, self_describing, sized, sparse, ww_repr=<u1,u2,..,nib,unib32,u8,..>";
+const SUPPORTED_DIRECTIVES: &str = "final_structure, self_describing, sized, sparse, validate = <path>, ww_repr=<u1,u2,..,nib,unib32,u8,..>";
 
 /// Sets `size_assumption`, erroring if it was already set by an earlier directive since
 /// `final_structure`, `self_describing` and `sized` are mutually exclusive.

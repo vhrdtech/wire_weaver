@@ -88,6 +88,14 @@ fn generate_inner(
     if args.sparse {
         check_sparse_args(&item, &args)?;
     }
+    if args.validate.is_some()
+        && (!matches!(item, Item::Struct(_)) || args.sparse || args.fixed_layout || args.head_tail)
+    {
+        return Err(
+            "validate: only a plain struct (not sparse, fixed_layout or head_tail) can have a validate function"
+                .into(),
+        );
+    }
     if args.head_tail {
         return head_tail_inner(item, ty_kind, name, args);
     }
@@ -292,7 +300,7 @@ fn generate_inner(
             }
 
             if let Some(borrowed) = generate_borrowed {
-                let cg_item_struct = borrowed.cg_struct(&ww_item_struct);
+                let cg_item_struct = borrowed.cg_struct(&ww_item_struct, args.validate.as_ref());
                 ts.append_all(cg_item_struct.def_rust(true));
                 ts.append_all(cg_item_struct.serdes_rust(true));
                 if let Some(message) = &display_message {
@@ -302,7 +310,7 @@ fn generate_inner(
 
             if let Some(owned) = generate_owned {
                 ww_item_struct.make_owned();
-                let cg_item_struct = owned.cg_struct(&ww_item_struct);
+                let cg_item_struct = owned.cg_struct(&ww_item_struct, args.validate.as_ref());
                 // skip when type consists of only plain types, as it is the same one as borrowed then
                 if !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
                     ts.append_all(cg_item_struct.def_rust(false));
@@ -387,7 +395,7 @@ fn head_tail_inner(
                 return Err("structs must not have a ww_repr".into());
             }
             let ww_item_struct = ItemStruct::from_syn(item_struct, false)?;
-            let cg = seed.cg_struct(&ww_item_struct);
+            let cg = seed.cg_struct(&ww_item_struct, args.validate.as_ref());
             ts.append_all(cg.def_rust(true));
             ts.append_all(head_tail::ht_struct(
                 &names,
@@ -560,12 +568,17 @@ impl<'a> CGSeed<'a> {
         }
     }
 
-    fn cg_struct<'i>(&'i self, ww_item_struct: &'i ItemStruct) -> CGItemStruct<'i> {
+    fn cg_struct<'i>(
+        &'i self,
+        ww_item_struct: &'i ItemStruct,
+        validate: Option<&'i Path>,
+    ) -> CGItemStruct<'i> {
         CGItemStruct {
             docs: &ww_item_struct.docs,
             ident: &self.ident,
             fields: &ww_item_struct.fields,
             sparse_slots: ww_item_struct.sparse_slots.as_deref(),
+            validate,
             cfg: self.cfg.as_ref(),
             cfg_attr: &self.cfg_attr,
             derive: &self.derive,

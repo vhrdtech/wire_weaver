@@ -57,6 +57,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   appended); a malformed header is an error. Writer takes the present set up front (`SetBits` over a bitset, any
   increasing iterator), `OptionAnyVecWriter` / in-place `OptionAnyVecBuilder`. For a trait level's properties in one
   update (API-38). See `docs/serdes/shrink_wrap.md#optionanyvec-sparse-slots-of-any-types`, `docs/serdes/showcase.md`.
+- ✅ **SW-58 `validate = path` derive directive**: a function checking every struct value just read, so a derived
+  type (and the API model it gives to dynamic clients) can still reject out-of-range data; used by `ww_date_time::Year`.
 - ✅ **SW-57 `ArrayString<N>` / `ArrayVec<T, N>`**: owned, no-alloc string/list types backed by a fixed-size
   array, same bytes on the wire as `&str`/`String` and `Vec<T>`, for an owned no-alloc field (a `value_on_changed`
   field of a string/list property in a `no_alloc` server, a settings value); `Error::MaxLenExceeded` rather than a

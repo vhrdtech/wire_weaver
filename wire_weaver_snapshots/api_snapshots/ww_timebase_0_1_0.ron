@@ -124,14 +124,14 @@
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "DateTime", signature: [
-        107,
-        196,
-        125,
-        175,
-        102,
-        123,
-        14,
-        188,
+        251,
+        93,
+        1,
+        94,
+        206,
+        195,
+        43,
+        239,
     ]),
 ], traits: [
     InLine(level: (docs: [

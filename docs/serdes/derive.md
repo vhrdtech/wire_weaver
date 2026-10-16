@@ -193,7 +193,7 @@ to the parser, but the codebase consistently writes them in this order (and so d
 
 ```text
 borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse, ww_repr,
-discriminants, display, no_future_version|future_version
+discriminants, display, validate, no_future_version|future_version
 ```
 
 ### `borrowed`, `borrowed(<cfg predicate>)`
@@ -684,6 +684,24 @@ fn discriminant_ahead_of_time() {
 
 This is exactly how `ww_client_server`'s response builder writes a placeholder discriminant up front, then goes back
 and patches it in once the actual variant being sent is known.
+
+### `validate = path` (SW-58)
+
+Structs only (not `sparse`, `fixed_layout` or `head_tail`). `path` is a function `fn(&T) -> Result<(), shrink_wrap::Error>`
+called on every value just read, before it is returned; its error is the result of the read. Use it for a range or
+invariant that the field types can't express, while keeping the derived type, which is what the API model describes to
+dynamic clients (`ww introspect`). With both a borrowed and an owned type generated the function is called with each,
+so it has to accept both (a type that is the same on both sides, like `ww_date_time::Year`, needs one function). The
+model parser ignores the directive.
+
+```rust,ignore
+#[derive_shrink_wrap(self_describing, validate = Year::validate)]
+pub struct Year { shifted: UNib32 }
+
+impl Year {
+    fn validate(&self) -> Result<(), shrink_wrap::Error> { /* ... */ }
+}
+```
 
 ### `display` (DER-12)
 

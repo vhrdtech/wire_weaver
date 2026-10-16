@@ -10,6 +10,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- `validate = path` directive of `#[derive_shrink_wrap]` (SW-58): a function called on every struct value just read, its
+  error fails the read. See `docs/serdes/derive.md`.
+
 - `ArrayString<N>` / `ArrayVec<T, N>` (SW-57), new modules `array_string` and `array_vec`: owned, no-alloc values
   backed by a fixed-size `[u8; N]` / `[MaybeUninit<T>; N]`, same bytes on the wire as `&str`/`String` and
   `Vec<T>`, for places an owned value is needed without an allocator (a `value_on_changed` field of a string or

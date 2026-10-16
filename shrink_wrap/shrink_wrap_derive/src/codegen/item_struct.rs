@@ -18,6 +18,8 @@ pub(crate) struct CGItemStruct<'i> {
     pub(crate) fields: &'i [Field],
     /// `sparse` (DER-13): the slot of each field
     pub(crate) sparse_slots: Option<&'i [u32]>,
+    /// `validate = path`: called on the value just read
+    pub(crate) validate: Option<&'i Path>,
     pub(crate) cfg: Option<&'i TokenStream>,
     pub(crate) cfg_attr: &'i [TokenStream],
     pub(crate) derive: &'i [Path],
@@ -261,11 +263,17 @@ impl ToTokens for CGStructDes<'_> {
             struct_field.buf_read(!self.is_ref, self.item_struct.crate_path, tokens);
         }
         let struct_name = &self.item_struct.ident;
+        let validate = self
+            .item_struct
+            .validate
+            .map(|path| quote! { #path(&__value)?; });
         tokens.append_all(quote! {
             rd.latched()?;
-            Ok(#struct_name {
+            let __value = #struct_name {
                 #(#field_names),*
-            })
+            };
+            #validate
+            Ok(__value)
         });
     }
 }

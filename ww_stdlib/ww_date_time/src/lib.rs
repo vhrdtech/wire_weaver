@@ -85,8 +85,8 @@ pub struct NaiveDate {
     pub day: U5,
 }
 
-/// Calendar year, `UNib32` of the year shifted by 2025, a negative shift cut to 19 bits so that it takes no more than
-/// 7 nibbles.
+/// Calendar year, `UNib32` of the year shifted by 2025, a negative shift cut to 20 bits (bit 19 is the sign), so that it
+/// takes no more than 6 nibbles.
 ///
 /// A derived struct, so that the API model describes what is on the wire: `ww introspect` and other dynamic clients
 /// decode values from the model.
@@ -94,7 +94,8 @@ pub struct NaiveDate {
     borrowed,
     owned(feature = "std"),
     derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
-    self_describing
+    self_describing,
+    validate = Year::validate
 )]
 pub struct Year {
     shifted: UNib32,
@@ -186,7 +187,7 @@ impl Year {
     const fn new_unchecked(year: i32) -> Year {
         let y = year - 2025;
         let unsigned = if y < 0 {
-            (y as u32) & ((1 << 19) - 1) // zero out 13 high bits, so that UNib32 takes no more than 7 nibbles
+            (y as u32) & ((1 << 20) - 1) // keep 20 bits, bit 19 is the sign: the high bits are zero on the wire
         } else {
             y as u32
         };
@@ -195,6 +196,7 @@ impl Year {
         }
     }
 
+    /// Year as shifted by 2025 in `shifted`, wraps (never panics) for a value that `validate` rejects.
     pub const fn year(&self) -> i32 {
         let unsigned = self.shifted.0;
         let is_negative = unsigned & (1 << 19) != 0;
@@ -204,7 +206,22 @@ impl Year {
         } else {
             unsigned as i32
         };
-        y + 2025
+        y.wrapping_add(2025)
+    }
+
+    /// Called on every `Year` read from bytes: `-262_142 <= year <= 262_141`, same as [Year::new].
+    fn validate(&self) -> Result<(), ShrinkWrapError> {
+        let unsigned = self.shifted.0;
+        let y = if unsigned & (1 << 19) != 0 {
+            ((u32::MAX << 19) | unsigned) as i32 as i64
+        } else {
+            unsigned as i64
+        };
+        if unsigned < (1 << 20) && (-262_142..=262_141).contains(&(y + 2025)) {
+            Ok(())
+        } else {
+            Err(ShrinkWrapError::SubtypeOutOfRange)
+        }
     }
 }
 
@@ -375,6 +392,35 @@ impl From<NaiveTime> for chrono::NaiveTime {
 mod tests {
     use super::*;
     use hex_literal::hex;
+
+    #[test]
+    fn year_out_of_range_fails_to_decode() {
+        // 2025 + 262_141 - 2025 = 262_141 is the last year, 0x7FFF_FFFF and a 21 bit value are not years
+        for bad in [
+            UNib32(0x7FFF_FFFF),
+            UNib32(1 << 20),
+            UNib32(262_142 - 2025 + 1),
+        ] {
+            let year = Year { shifted: bad };
+            let mut buf = [0u8; 8];
+            let bytes = year.to_ww_bytes(&mut buf).unwrap();
+            assert!(
+                matches!(
+                    Year::from_ww_bytes(bytes),
+                    Err(ShrinkWrapError::SubtypeOutOfRange)
+                ),
+                "{bad:?}"
+            );
+            // never panics, whatever it holds
+            let _ = year.year();
+        }
+        for good in [-262_142, -1, 0, 2025, 2026, 262_141] {
+            let year = Year::new(good).unwrap();
+            let mut buf = [0u8; 8];
+            let bytes = year.to_ww_bytes(&mut buf).unwrap();
+            assert_eq!(Year::from_ww_bytes(bytes).unwrap().year(), good);
+        }
+    }
 
     #[test]
     fn sanity_check() {

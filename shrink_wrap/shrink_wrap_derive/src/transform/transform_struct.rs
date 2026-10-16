@@ -1,8 +1,9 @@
-use quote::quote;
+use proc_macro2::Ident;
+use quote::{format_ident, quote};
 use syn::parse2;
 
 use crate::ast::item_struct::Field;
-use crate::ast::item_struct::ItemStruct;
+use crate::ast::item_struct::{ItemStruct, StructKind};
 use crate::ast::ty::Type;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_display_attr, take_slot_attr,
@@ -21,21 +22,35 @@ impl ItemStruct {
         if let Some(field) = item_struct
             .fields
             .iter()
-            .find(|f| f.attrs.iter().any(|a| a.path().is_ident("slot")))
+            .enumerate()
+            .find(|(_, f)| f.attrs.iter().any(|a| a.path().is_ident("slot")))
         {
             return Err(format!(
                 "#[slot = N] on `{}`: only the fields of a `sparse` struct have slots",
-                field_name(field)
+                field_name(field.1, field.0)
             ));
         }
+        let kind = StructKind::from_syn(&item_struct.fields);
         let mut fields = vec![];
         let mut explicit_flags = vec![];
         for (def_order_idx, field_syn) in item_struct.fields.iter().enumerate() {
-            let path = FieldPath::new(FieldPathRoot::NamedField(field_syn.ident.clone().unwrap()));
+            let path = FieldPath::new(FieldPathRoot::NamedField(field_ident(
+                field_syn,
+                def_order_idx,
+            )));
+            if kind == StructKind::Tuple
+                && field_syn.attrs.iter().any(|a| a.path().is_ident("flag"))
+            {
+                return Err(format!(
+                    "#[flag] on field {def_order_idx} of tuple struct `{}`: a relocated flag names the Option or \
+                     Result field it belongs to, a tuple struct has no names. Name the fields",
+                    item_struct.ident
+                ));
+            }
             let (field, is_explicit_flag) =
                 transform_field(def_order_idx as u32, field_syn, &path)?;
             if is_explicit_flag {
-                explicit_flags.push(field_syn.ident.clone().unwrap());
+                explicit_flags.push(field_ident(field_syn, def_order_idx));
             }
             fields.push(field);
         }
@@ -66,6 +81,7 @@ impl ItemStruct {
             fields,
             display,
             sparse_slots: None,
+            kind,
         })
     }
 
@@ -76,7 +92,7 @@ impl ItemStruct {
         let mut fields = vec![];
         let mut slots: Vec<u32> = vec![];
         for (def_order_idx, field_syn) in item_struct.fields.iter().enumerate() {
-            let name = field_name(field_syn);
+            let name = field_name(field_syn, def_order_idx);
             let mut field_syn = field_syn.clone();
             let slot = take_slot_attr(&mut field_syn.attrs)
                 .map_err(|e| format!("sparse field `{name}`: {e}"))?;
@@ -106,7 +122,10 @@ impl ItemStruct {
             if slot == u32::MAX {
                 return Err(format!("sparse field `{name}`: slots are below u32::MAX"));
             }
-            let path = FieldPath::new(FieldPathRoot::NamedField(field_syn.ident.clone().unwrap()));
+            let path = FieldPath::new(FieldPathRoot::NamedField(field_ident(
+                &field_syn,
+                def_order_idx,
+            )));
             let (field, _) = transform_field(def_order_idx as u32, &field_syn, &path)?;
             if !matches!(field.ty, Type::Option(_, _)) {
                 return Err(format!(
@@ -134,16 +153,21 @@ impl ItemStruct {
             fields,
             display,
             sparse_slots: Some(slots),
+            kind: StructKind::from_syn(&item_struct.fields),
         })
     }
 }
 
-fn field_name(field: &syn::Field) -> String {
+/// The field's name, `_0`, `_1`, ... for the fields of a tuple struct (SW-59).
+fn field_ident(field: &syn::Field, def_order_idx: usize) -> Ident {
     field
         .ident
-        .as_ref()
-        .map(|i| i.to_string())
-        .unwrap_or_default()
+        .clone()
+        .unwrap_or_else(|| format_ident!("_{def_order_idx}"))
+}
+
+fn field_name(field: &syn::Field, def_order_idx: usize) -> String {
+    field_ident(field, def_order_idx).to_string()
 }
 
 /// Fields with `#[default = ..]` were added in a later version: they and the fields after them can be missing
@@ -215,6 +239,50 @@ mod tests {
     fn from_tokens(ts: proc_macro2::TokenStream) -> Result<ItemStruct, String> {
         let item: syn::ItemStruct = syn::parse2(ts).map_err(|e| e.to_string())?;
         ItemStruct::from_syn(&item, false)
+    }
+
+    fn err_of(ts: proc_macro2::TokenStream, sparse: bool) -> String {
+        let item: syn::ItemStruct = syn::parse2(ts).unwrap();
+        ItemStruct::from_syn(&item, sparse).unwrap_err()
+    }
+
+    #[test]
+    fn tuple_and_unit_structs() {
+        let s = from_tokens(quote! { struct S(u8, Option<u16>, #[default = 3] u8); }).unwrap();
+        assert_eq!(s.kind, StructKind::Tuple);
+        let names: Vec<_> = s.fields.iter().map(|f| f.ident.to_string()).collect();
+        // the implicit flag of `_1` is in front of it
+        assert_eq!(names, ["_0", "__1_flag", "_1", "_2"]);
+        assert_eq!(
+            StructKind::Tuple.member(&s.fields[2].ident).to_string(),
+            "1"
+        );
+        assert_eq!(
+            StructKind::Named.member(&s.fields[2].ident).to_string(),
+            "_1"
+        );
+        let s = from_tokens(quote! { struct S; }).unwrap();
+        assert_eq!(s.kind, StructKind::Unit);
+        assert!(s.fields.is_empty());
+        let s = from_tokens(quote! { struct S(); }).unwrap();
+        assert_eq!(s.kind, StructKind::Tuple);
+    }
+
+    #[test]
+    fn tuple_struct_refusals() {
+        let e = err_of(quote! { struct Pair(#[flag] bool, Option<u8>); }, false);
+        assert!(
+            e.contains("#[flag] on field 0 of tuple struct `Pair`"),
+            "{e}"
+        );
+        let e = err_of(quote! { struct S(#[slot = 1] Option<u8>); }, false);
+        assert!(e.contains("#[slot = N] on `_0`"), "{e}");
+        let e = err_of(quote! { struct S(Option<u8>, u8); }, true);
+        assert!(e.contains("sparse field `_1` must be an Option<T>"), "{e}");
+        let e = err_of(quote! { struct S(#[default = 1] u8, u8); }, false);
+        assert!(e.contains("default is not last"), "{e}");
+        let e = err_of(quote! { struct S(Vec<u8>, TailSize); }, false);
+        assert!(e.contains("field `_0` before the TailSize slot"), "{e}");
     }
 
     #[test]

@@ -10,6 +10,13 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- Tuple and unit structs in `#[derive_shrink_wrap]` (SW-59): `struct Celsius(f32);`, `struct Pair<'i>(u8, &'i str);`
+  and `struct Marker;` are written exactly like a struct with the same fields named, in every layout (the size
+  assumptions, `fixed_layout`, `head_tail`, `sparse` with `#[slot = N]` on positional fields), with `owned`,
+  `derive(..)`, `validate`, `display` (`{0}` in the message) and `#[default = ..]` on fields appended at the end.
+  Where a name is needed (consts such as `Px::_2_OFFSET`, C names `px__2`, error messages) the fields are `_0`,
+  `_1`, ... `#[flag]` on a field of a tuple struct is a compile error naming the struct: the relocated flag pairs
+  with its field by name. Before, the derive panicked on a tuple struct. See `docs/types.md`.
 - `validate = path` directive of `#[derive_shrink_wrap]` (SW-58): a function called on every struct value just read, its
   error fails the read. See `docs/serdes/derive.md`.
 

@@ -1,5 +1,5 @@
 use crate::ast::docs::Docs;
-use crate::ast::item_struct::Field;
+use crate::ast::item_struct::{Field, StructKind};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
@@ -16,6 +16,8 @@ pub(crate) struct CGItemStruct<'i> {
     pub(crate) docs: &'i Docs,
     pub(crate) ident: &'i Ident,
     pub(crate) fields: &'i [Field],
+    /// Named, tuple or unit struct (SW-59)
+    pub(crate) kind: StructKind,
     /// `sparse` (DER-13): the slot of each field
     pub(crate) sparse_slots: Option<&'i [u32]>,
     /// `validate = path`: called on the value just read
@@ -44,7 +46,13 @@ impl<'i> CGItemStruct<'i> {
         let fields = CGStructFieldsDef {
             fields: self.fields,
             is_ref,
+            tuple: self.kind == StructKind::Tuple,
             cp: self.crate_path,
+        };
+        let body = match self.kind {
+            StructKind::Named => quote! { { #fields } },
+            StructKind::Tuple => quote! { ( #fields ); },
+            StructKind::Unit => quote! { ; },
         };
         let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
         let assert_size = if let Some(size) = &self.size_assumption {
@@ -64,7 +72,7 @@ impl<'i> CGItemStruct<'i> {
             #docs
             #derive
             #(#[cfg_attr(#cfg_attr)])*
-            pub struct #ident #lifetime { #fields }
+            pub struct #ident #lifetime #body
             #assert_size
             #assert_tail_size
         };
@@ -111,6 +119,8 @@ impl<'i> CGItemStruct<'i> {
         let cp = self.crate_path;
         let struct_name = &self.ident;
         let idents: Vec<_> = self.fields.iter().map(|f| &f.ident).collect();
+        let members: Vec<_> = idents.iter().map(|i| self.kind.member(i)).collect();
+        let inits = idents.iter().map(|i| self.kind.field_init(i));
         let count = slots.len();
         let builder = if is_ref {
             cp.item(quote! { OptionAnyVecBuilder })
@@ -118,10 +128,10 @@ impl<'i> CGItemStruct<'i> {
             cp.item(quote! { OptionAnyVecBuilderOwned })
         };
         let ser = quote! {
-            let __present: [Option<u32>; #count] = [#(self.#idents.as_ref().map(|_| #slots)),*];
+            let __present: [Option<u32>; #count] = [#(self.#members.as_ref().map(|_| #slots)),*];
             let mut __builder = #builder::new(wr, __present.iter().flatten().copied())?;
             #(
-                if let Some(value) = &self.#idents {
+                if let Some(value) = &self.#members {
                     __builder.write(#slots, value, wr)?;
                 }
             )*
@@ -138,7 +148,7 @@ impl<'i> CGItemStruct<'i> {
             let __vec = <#option_any_vec<'_> as #des_trait<'_>>::des_shrink_wrap(rd)?;
             let mut __slots = __vec.iter();
             #(let #idents = __slots.#read_slot(#slots)?;)*
-            Ok(#struct_name { #(#idents),* })
+            Ok(#struct_name { #(#inits),* })
         };
         // the header is never longer than the dense mode's: a mode nibble, `UNib32` slot count, a bit per slot
         let len = slots.last().map_or(0, |last| last + 1);
@@ -174,7 +184,8 @@ impl<'i> CGItemStruct<'i> {
                 return None;
             }
             let field = &f.ident;
-            Some(quote! { let #field = &self.#field; })
+            let member = self.kind.member(field);
+            Some(quote! { let #field = &self.#member; })
         });
         quote! {
             #cfg
@@ -195,6 +206,8 @@ impl<'i> CGItemStruct<'i> {
 struct CGStructFieldsDef<'a> {
     fields: &'a [Field],
     is_ref: bool,
+    /// `pub T,` instead of `pub name: T,`
+    tuple: bool,
     cp: &'a CratePath,
 }
 
@@ -207,10 +220,17 @@ impl ToTokens for CGStructFieldsDef<'_> {
             let ident = &struct_field.ident;
             let ty = struct_field.ty.def(self.is_ref, self.cp);
             let docs = &struct_field.docs;
-            tokens.append_all(quote! {
-                #docs
-                pub #ident: #ty,
-            });
+            if self.tuple {
+                tokens.append_all(quote! {
+                    #docs
+                    pub #ty,
+                });
+            } else {
+                tokens.append_all(quote! {
+                    #docs
+                    pub #ident: #ty,
+                });
+            }
         }
     }
 }
@@ -227,12 +247,25 @@ struct CGStructDes<'a> {
 
 impl ToTokens for CGStructSer<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        let tuple = self.item_struct.kind == StructKind::Tuple;
+        if tuple {
+            // bound like the fields of a tuple variant, so that a flag finds its `Option` or `Result` by name
+            for struct_field in self.item_struct.fields {
+                if !matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
+                    let field_name = &struct_field.ident;
+                    let member = self.item_struct.kind.member(field_name);
+                    tokens.append_all(quote! { let #field_name = &self.#member; });
+                }
+            }
+        }
         for struct_field in self.item_struct.fields {
             let field_name = &struct_field.ident;
-            let field_path = if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
-                FieldPath::Value(quote! {self})
-            } else {
-                FieldPath::Value(quote! {self.#field_name})
+            let is_flag = matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_));
+            let field_path = match (tuple, is_flag) {
+                (true, true) => FieldPath::Ref(quote! {}),
+                (true, false) => FieldPath::Ref(quote! {#field_name}),
+                (false, true) => FieldPath::Value(quote! {self}),
+                (false, false) => FieldPath::Value(quote! {self.#field_name}),
             };
             struct_field
                 .ty
@@ -258,7 +291,7 @@ impl ToTokens for CGStructDes<'_> {
         for struct_field in self.item_struct.fields {
             let field_name = &struct_field.ident;
             if !matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
-                field_names.push(field_name.clone());
+                field_names.push(self.item_struct.kind.field_init(field_name));
             }
             struct_field.buf_read(!self.is_ref, self.item_struct.crate_path, tokens);
         }

@@ -186,6 +186,13 @@ replaced with the default. The default can be any expression of the field's type
 See the [evolution rules](../evolution/rules.md) for every change that stays compatible, and the
 [evolution checker](../evolution/checker_tool.md) to verify it across versions.
 
+## Tuple and unit structs
+
+`struct Celsius(f32);`, `struct Pair<'i>(u8, &'i str);` and `struct Marker;` take the same directives as a struct
+with named fields and are written the same way, field after field. New fields go at the end with
+`#[default = ..]`. Their fields are `_0`, `_1`, ... wherever the derive needs a name; `#[flag]` needs named fields.
+See [built-in types](../types.md#tuple-structs).
+
 ## Enums
 
 Every enum needs `ww_repr`: the wire type of its discriminant. Pick the smallest that fits the variants you expect

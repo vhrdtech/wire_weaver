@@ -16,6 +16,8 @@ trait Dynamic {
     /// Same as `check`, listing only `TooBig` (API-32)
     #[errors(TooBig)]
     fn check_listed(x: Option<u8>) -> Result<u8, CheckError>;
+    /// Tuple and unit structs (SW-59)
+    fn tuples(pair: Pair<'i>, unit: Marker) -> Rgb;
 }
 
 #[ww_trait]
@@ -109,6 +111,24 @@ pub enum Tagged {
         second: Option<u8>,
     },
 }
+
+/// A tuple struct (SW-59), fields `_0` and `_1` in the API model's errors and names.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Clone))]
+pub struct Pair<'i>(u8, Option<&'i str>);
+
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Clone, Copy)
+)]
+pub struct Rgb(u8, u8, u8);
+
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Clone, Copy)
+)]
+pub struct Marker;
 
 /// 7-bit or 10-bit I2C address: 8 or 11 bits (SW-48)
 #[derive_shrink_wrap(

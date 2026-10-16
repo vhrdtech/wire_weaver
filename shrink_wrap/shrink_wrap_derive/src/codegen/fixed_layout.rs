@@ -8,7 +8,7 @@
 //! `BufWriter` aligns; bit fields add to them; a `Nibble` first rounds them to 4.
 
 use crate::ast::item_enum::{Fields, Variant};
-use crate::ast::item_struct::Field;
+use crate::ast::item_struct::{Field, StructKind};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
 use crate::ast::ty::{ArrayLen, Type};
@@ -1044,6 +1044,7 @@ pub(crate) fn struct_size_assumption(
 pub(crate) fn fixed_struct(
     ident: &Ident,
     fields: &[Field],
+    kind: StructKind,
     required: bool,
     cp: &CratePath,
 ) -> Result<Option<TokenStream>, String> {
@@ -1075,9 +1076,18 @@ pub(crate) fn fixed_struct(
         ..
     } = &layout;
     let reads = reads(&layout, cp);
-    let construct = construct_fields(&layout, true);
+    let construct = match kind {
+        StructKind::Tuple => {
+            let fields = construct_fields(&layout, false);
+            quote! { #ident ( #(#fields),* ) }
+        }
+        _ => {
+            let fields = construct_fields(&layout, true);
+            quote! { #ident { #(#fields),* } }
+        }
+    };
     let access = |name: &str| {
-        let field = format_ident!("{}", name);
+        let field = kind.member(&format_ident!("{}", name));
         quote! { (&self.#field) }
     };
     let writes = writes(&layout, &access, cp);
@@ -1140,7 +1150,7 @@ pub(crate) fn fixed_struct(
             pub fn from_fixed(buf: &[u8]) -> Result<Self, #error> {
                 #get_head
                 #(#reads)*
-                Ok(#ident { #(#construct),* })
+                Ok(#construct)
             }
 
             /// Writes the value at the start of `buf`, without a `BufWriter`: the same bytes

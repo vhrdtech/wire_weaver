@@ -286,7 +286,7 @@ variant's own for an enum.
 - The trailing period is dropped (Rust's convention for error messages, so it reads well inside a longer one); `...`
   is kept.
 - `{field}` is filled in from the type's own field of that name; format specs work too (`{field:#x}`). A tuple
-  variant's fields are `{0}`, `{1}`, ...
+  struct's or tuple variant's fields are `{0}`, `{1}`, ...
 - `#[display("..")]` overrides the doc line, used as written: for a tuple variant's fields, or when the doc line
   should say more than the message (error enums in APIs: [Errors](../api/errors.md)).
 

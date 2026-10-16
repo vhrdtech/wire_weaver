@@ -7,7 +7,7 @@
 //! constant offsets), then the tail in field order, through the `Tail` cursor.
 
 use crate::ast::item_enum::{Fields, Variant};
-use crate::ast::item_struct::Field;
+use crate::ast::item_struct::{Field, StructKind};
 use crate::ast::repr::Repr;
 use crate::ast::ty::{ArrayLen, Type};
 use crate::codegen::fixed_layout::{
@@ -825,6 +825,7 @@ fn inherent(names: &Names, cp: &CratePath) -> TokenStream {
 pub(crate) fn ht_struct(
     names: &Names,
     fields: &[Field],
+    kind: StructKind,
     cp: &CratePath,
 ) -> Result<TokenStream, String> {
     let ident = &names.ident;
@@ -838,7 +839,16 @@ pub(crate) fn ht_struct(
     let upper_ty = cp.item(quote! { fixed_layout::Upper });
 
     let reads = reads(&head, false, cp);
-    let construct = construct_fields(&head, true);
+    let construct = match kind {
+        StructKind::Tuple => {
+            let fields = construct_fields(&head, false);
+            quote! { #ident ( #(#fields),* ) }
+        }
+        _ => {
+            let fields = construct_fields(&head, true);
+            quote! { #ident { #(#fields),* } }
+        }
+    };
     let view_ident = format_ident!("{}View", ident);
     let view_def = view_struct(
         &quote! {},
@@ -851,7 +861,7 @@ pub(crate) fn ht_struct(
     let view_reads = self::reads(&head, true, cp);
     let view_construct = view_construct(&head);
     let access = |name: &str| {
-        let field = format_ident!("{}", name);
+        let field = kind.member(&format_ident!("{}", name));
         quote! { (&self.#field) }
     };
     let writes = writes(&head, &access, cp);
@@ -926,7 +936,7 @@ pub(crate) fn ht_struct(
                 };
                 #unused
                 #(#reads)*
-                Ok(#ident { #(#construct),* })
+                Ok(#construct)
             }
 
             #[inline]

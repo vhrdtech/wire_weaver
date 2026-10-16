@@ -25,6 +25,7 @@ ones being worked on. The tracker has the details, what is planned, and for whic
 - `TailBytes` / `TailBytesOwned`
 - `EitherAnyVec`
 - `OptionAnyVec`
+- Tuple and unit structs in the derive
 - `validate = path` derive directive
 - `ArrayString<N>` / `ArrayVec<T, N>`
 - Alloc writer
@@ -70,7 +71,7 @@ ones being worked on. The tracker has the details, what is planned, and for whic
 
 **In progress:** Fuzz `shrink_wrap`, Compression wrappers.
 
-[All 68 items of this area in the tracker](features.md#wire-format-shrink_wrap-sw)
+[All 69 items of this area in the tracker](features.md#wire-format-shrink_wrap-sw)
 
 ## API model and codegen
 

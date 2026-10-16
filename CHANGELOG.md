@@ -13,6 +13,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- shrink_wrap: tuple and unit structs in `#[derive_shrink_wrap]` (SW-59), the same bytes as the struct with its
+  fields named, in every layout; see `shrink_wrap/CHANGELOG.md`.
 - Docs: reading levels for the rest of the site (DOC-8). Every page of API, Evolution, Standard library, Transport,
   Examples and Dev tools has a Basic, Advanced or Nomicon badge, and each section lists its Basic pages first.
   New entry pages: API "Getting started" (a first API end to end), a standard library overview grouped by family

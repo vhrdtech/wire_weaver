@@ -54,6 +54,7 @@ def api():
 def test_tree(api):
     assert sorted(dir(api)) == [
         "add", "channel", "check", "check_listed", "echo", "everything", "flagged", "no_args", "speed", "sub_byte",
+        "tuples",
     ]
     assert "add(a: u32, b: i16) -> i64" in repr(api)
     assert api.add.signature == "add(a: u32, b: i16) -> i64"
@@ -77,6 +78,16 @@ def test_relocated_flags(api):
     value = dict(a=0, res={"Err": "TooBig"}, tagged={"Pair": dict(second=2)})
     assert api.flagged.encode(value).hex() == "0000c00221"
     assert api.flagged.decode(bytes.fromhex("0000c00221")) == dict(value, early=None, late=None, tagged={"Pair": dict(first=None, second=2)})
+
+
+def test_tuple_structs(api):
+    # SW-59: a tuple struct is a tuple, a unit struct None; bytes from tests/dynamic `tuple_structs_same_bytes_as_derived`
+    data = api.tuples.encode_args((7, "hi"), None)
+    assert data.hex() == "078068690205"
+    assert api.tuples.encode_args(pair=(7, "hi"), unit=None) == data
+    assert api.tuples.decode_return(bytes([9, 4, 3, 3])) == (9, 4, 3)
+    with pytest.raises(ValueError, match="expected 2 fields, got 3"):
+        api.tuples.encode_args((7, "hi", 1), None)
 
 
 def test_accepted_forms(api):

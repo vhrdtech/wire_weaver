@@ -158,11 +158,34 @@ On the wire it is the value plus its size, so a reader can jump over it. See the
 
 Your own types, with [`#[derive_shrink_wrap]`](serdes/derive.md):
 
-- **Structs** with named fields are their fields in order. By default a struct is evolvable: fields can be
-  appended later. Tuple structs are not supported yet: name the fields.
+- **Structs** are their fields in order. By default a struct is evolvable: fields can be appended later.
+  Tuple and unit structs work too, see below.
 - **Enums**, with or without data in their variants, are a discriminant followed by the variant's fields. The
   discriminant takes what `ww_repr` says: `u1`, `u2`, ... (bits), `nib`, `u8` / `u16` / `u32` (bytes), or
   `unib32` (variable length).
+
+### Tuple structs
+
+A tuple struct is written exactly like a struct with the same fields named: `Celsius(21.5)` is the `f32` alone,
+`00 00 ac 41`, and `Rgb(1, 2, 3)` is `01 02 03`. A unit struct (`struct Marker;`) takes no bytes.
+
+```rust
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, Clone, Copy, PartialEq))]
+pub struct Celsius(pub f32);
+
+#[derive_shrink_wrap(borrowed, owned, sized, derive(Debug, Clone, Copy, PartialEq))]
+pub struct Rgb(pub u8, pub u8, pub u8);
+
+#[derive_shrink_wrap(owned, derive(Debug, Clone, PartialEq))]
+pub struct Pair<'i>(pub u8, pub &'i str); // and PairOwned(u8, String)
+```
+
+Everything a named struct can do works the same way: size assumptions, `fixed_layout`, `head_tail`, `sparse`,
+`validate`, `display` (with `{0}`, `{1}`), and new fields with `#[default = ..]`, only at the end. Where the
+fields need a name (layout constants such as `Rgb::_2_OFFSET`, C names, error messages) they are `_0`, `_1`, ...
+The one thing that needs names is [`#[flag]`](serdes/showcase.md#relocating-presence-flags-with-flag), which pairs a
+relocated flag with its field by name: name the fields to use it. Dynamic clients see the fields unnamed, Python as
+a tuple (a single field as its value, a unit struct as `None`).
 
 How much a nested struct or enum costs on top of its fields depends on its
 [size assumption](serdes/size_assumptions.md): an evolvable one adds its length (usually a nibble), a `sized` one

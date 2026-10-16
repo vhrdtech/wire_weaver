@@ -59,6 +59,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   appended); a malformed header is an error. Writer takes the present set up front (`SetBits` over a bitset, any
   increasing iterator), `OptionAnyVecWriter` / in-place `OptionAnyVecBuilder`. For a trait level's properties in one
   update (API-38). See `docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types`, `docs/serdes/showcase.md`.
+- ✅ **SW-59 Tuple and unit structs in the derive**: `struct Celsius(f32);`, `struct Pair<'i>(u8, &'i str);`,
+  `struct Marker;` in every layout and size assumption, same bytes as the struct with the fields named; positional
+  names `_0`, `_1`, ... in consts, C names and errors. `#[flag]` needs named fields. The API model has them as
+  unnamed fields, dynamic clients and Python (a tuple, a single field its value, a unit `None`) read and write them.
+  See `docs/types.md`, `shrink_wrap/shrink_wrap/tests/tuple_structs.rs`, `tests/dynamic`.
 - ✅ **SW-58 `validate = path` derive directive**: a function checking every struct value just read, so a derived
   type (and the API model it gives to dynamic clients) can still reject out-of-range data; used by `ww_date_time::Year`.
 - ✅ **SW-57 `ArrayString<N>` / `ArrayVec<T, N>`**: owned, no-alloc string/list types backed by a fixed-size

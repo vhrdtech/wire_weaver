@@ -291,6 +291,7 @@ fn generate_inner(
                     if let Some(fast) = fixed_layout::fixed_struct(
                         ident,
                         &ww_item_struct.fields,
+                        ww_item_struct.kind,
                         fixed_required,
                         &crate_path,
                     )? {
@@ -400,6 +401,7 @@ fn head_tail_inner(
             ts.append_all(head_tail::ht_struct(
                 &names,
                 &ww_item_struct.fields,
+                ww_item_struct.kind,
                 &crate_path,
             )?);
         }
@@ -577,6 +579,7 @@ impl<'a> CGSeed<'a> {
             docs: &ww_item_struct.docs,
             ident: &self.ident,
             fields: &ww_item_struct.fields,
+            kind: ww_item_struct.kind,
             sparse_slots: ww_item_struct.sparse_slots.as_deref(),
             validate,
             cfg: self.cfg.as_ref(),
@@ -903,5 +906,47 @@ mod sparse_tests {
             quote! { struct S { #[flag] a_flag: bool, a: Option<u8> } },
         );
         assert!(e.unwrap().contains("#[flag]"));
+    }
+}
+
+#[cfg(test)]
+mod tuple_struct_tests {
+    use super::shrink_wrap_attr;
+    use quote::quote;
+
+    #[test]
+    fn tuple_and_unit_structs_compile() {
+        let plain = [
+            quote! { borrowed, owned },
+            quote! { borrowed, owned, sized },
+            quote! { borrowed, owned, final_structure },
+            quote! { borrowed, fixed_layout },
+            quote! { head_tail },
+        ];
+        let cases = [
+            (quote! { struct Rgb(u8, u8, u8); }, &plain[..]),
+            (quote! { struct Marker; }, &plain[..]),
+            (
+                quote! { struct Pair<'i>(u8, &'i str); },
+                &[quote! { owned }, quote! { head_tail }][..],
+            ),
+        ];
+        for (item, args) in cases {
+            for args in args {
+                let s = shrink_wrap_attr(args.clone(), item.clone()).to_string();
+                assert!(!s.contains("compile_error"), "{args} {item}: {s}");
+            }
+        }
+    }
+
+    #[test]
+    fn relocated_flag_is_a_compile_error() {
+        let s = shrink_wrap_attr(
+            quote! { borrowed },
+            quote! { struct Pair(#[flag] bool, Option<u8>); },
+        )
+        .to_string();
+        assert!(s.contains("compile_error"), "{s}");
+        assert!(s.contains("tuple struct `Pair`"), "{s}");
     }
 }

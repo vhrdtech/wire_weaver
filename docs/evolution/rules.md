@@ -99,6 +99,10 @@ overhead, giving all the nice backwards and forwards compatibility benefits.
   other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
 * TODO: clarify: `T` -> struct containing `T`
 * Struct fields and enum variants can be renamed (but their position must NOT change).
+* A tuple struct (`struct Pair(u8, u16);`) follows the same rules by position: new fields with `#[default = ..]` only
+  at the end. Naming the fields of a tuple struct, or the other way round, keeps every byte, but the API model then
+  describes a different type (named instead of unnamed fields), which the checker reports as breaking. A unit
+  struct (`struct Marker;`) can get fields with defaults later, named or not.
 
 A `TailSize<N>` field (see [wire format](../serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value)) is part
 of the layout like a `Sized` field: adding, removing or moving it, or changing `N`, breaks compatibility; fields

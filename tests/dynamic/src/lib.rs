@@ -4,8 +4,8 @@
 #[cfg(test)]
 mod tests {
     use dynamic_api::{
-        CheckError, EverythingOwned, Fixed, FlaggedOwned, I2cAddress, InnerOwned, ShapeOwned,
-        Tagged,
+        CheckError, EverythingOwned, Fixed, FlaggedOwned, I2cAddress, InnerOwned, Marker,
+        PairOwned, ShapeOwned, Tagged,
     };
     use std::path::Path;
     use std::sync::Arc;
@@ -18,7 +18,7 @@ mod tests {
     use ww_client_server::{ErrorKindOwned, MultiIndexOwned};
 
     mod server {
-        use dynamic_api::{CheckError, Everything, Flagged, I2cAddress};
+        use dynamic_api::{CheckError, Everything, Flagged, I2cAddress, Marker, Pair, Rgb};
         use tests_common::TestProcessEvents;
         use wire_weaver::prelude::*;
         use wire_weaver::{GetResult, SetResult};
@@ -61,6 +61,15 @@ mod tests {
             ) -> RpcResult<Everything<'_>> {
                 self.echo = to_bytes(&value);
                 Ready(Everything::from_ww_bytes(&self.echo).unwrap())
+            }
+
+            fn tuples(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                pair: Pair<'_>,
+                _unit: Marker,
+            ) -> RpcResult<Rgb> {
+                Ready(Rgb(pair.0, pair.1.map_or(0, |s| s.len() as u8), 3))
             }
 
             fn sub_byte(
@@ -545,6 +554,62 @@ mod tests {
         assert_eq!(bytes, 70_000u32.to_ww_bytes_owned().unwrap());
     }
 
+    fn tuple(values: Vec<ValueOwned>) -> ValueOwned {
+        ValueOwned::Struct {
+            fields: FieldsValueOwned::Unnamed(values),
+        }
+    }
+
+    /// Tuple and unit structs (SW-59): the model has their fields unnamed, the dynamic side writes and reads the
+    /// same bytes as the derived types.
+    #[test]
+    fn tuple_structs_same_bytes_as_derived() {
+        let root = DynResource::root(bundle());
+        let tuples = root.child("tuples").unwrap();
+        let DynResourceKind::Method { args, .. } = tuples.kind().unwrap() else {
+            panic!()
+        };
+        let (pair_ty, unit_ty) = (&args[0].ty, &args[1].ty);
+        let some = |s: &str| ValueOwned::Option(Some(Box::new(string(s))));
+        for (derived, value) in [
+            (
+                PairOwned(7, Some("hi".into())),
+                tuple(vec![num(N::U8(7)), some("hi")]),
+            ),
+            (
+                PairOwned(0, None),
+                tuple(vec![num(N::U8(0)), ValueOwned::Option(None)]),
+            ),
+        ] {
+            let bytes = derived.to_ww_bytes_owned().unwrap();
+            assert_eq!(
+                value.ser_shrink_wrap_dyn(pair_ty, root.bundle()).unwrap(),
+                bytes
+            );
+            assert_eq!(
+                ValueOwned::des_shrink_wrap_dyn(&bytes, pair_ty, root.bundle()).unwrap(),
+                value
+            );
+        }
+        // `tuples(Pair(7, Some("hi")), Marker)` as encoded in wire_weaver_py's tests
+        let args = (PairOwned(7, Some("hi".into())), Marker);
+        assert_eq!(
+            args.to_ww_bytes_owned().unwrap(),
+            [0x07, 0x80, 0x68, 0x69, 0x02, 0x05]
+        );
+        let unit = ValueOwned::Struct {
+            fields: FieldsValueOwned::Unit,
+        };
+        assert_eq!(
+            unit.ser_shrink_wrap_dyn(unit_ty, root.bundle()).unwrap(),
+            Marker.to_ww_bytes_owned().unwrap()
+        );
+        // one value too many
+        let err = tuple(vec![num(N::U8(1)), ValueOwned::Option(None), num(N::U8(2))])
+            .ser_shrink_wrap_dyn(pair_ty, root.bundle());
+        assert!(err.is_err());
+    }
+
     /// Bit-sized method arguments and enum payloads (SW-48): the dynamic side writes and reads the same bits as
     /// the derived types, and rejects a value that does not fit.
     #[test]
@@ -698,6 +763,28 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(r, Some(num(N::U16(298))));
+
+        let r = root
+            .child("tuples")
+            .unwrap()
+            .call(
+                cmd,
+                &[
+                    tuple(vec![
+                        num(N::U8(9)),
+                        ValueOwned::Option(Some(Box::new(string("abcd")))),
+                    ]),
+                    ValueOwned::Struct {
+                        fields: FieldsValueOwned::Unit,
+                    },
+                ],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            r,
+            Some(tuple(vec![num(N::U8(9)), num(N::U8(4)), num(N::U8(3))]))
+        );
 
         let echo = root.child("echo").unwrap();
         let r = echo.call(cmd, &[everything_value()]).await.unwrap();

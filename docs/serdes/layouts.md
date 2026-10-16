@@ -42,7 +42,8 @@ What gets generated:
   length of this value. All three are the same unless the last field has a variable length (see below).
 - An offset const per field: `COUNT_OFFSET` in bytes, or for a bit field `URGENT_BIT_OFFSET` and `URGENT_BITS`,
   counted from the most significant bit of the first byte. For an enum `TAG_LEN`, and per variant `<VARIANT>_TAG`,
-  `<VARIANT>_LEN` and `<VARIANT>_<FIELD>_..` (unnamed fields by their index). An `Option`'s flag is `<FIELD>_FLAG`.
+  `<VARIANT>_LEN` and `<VARIANT>_<FIELD>_..` (unnamed fields by their index). An `Option`'s flag is `<FIELD>_FLAG`. A tuple struct's fields are `_0`, `_1`,
+  ...: `_2_OFFSET`, in C `PX__2_OFFSET` and `px__2()` for `struct Px(u8, bool, u16)`.
 - `from_fixed(&[u8])` and `to_fixed(&mut [u8])`: loads and stores (shifts and masks for bit fields) at those
   offsets, without a `BufReader` or `BufWriter`. The bytes are those of `ser_shrink_wrap`. A short buffer is an
   error, never a panic.

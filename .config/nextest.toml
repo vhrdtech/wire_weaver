@@ -22,6 +22,11 @@ slow-timeout = { period = "15s", terminate-after = 1 }
 filter = 'package(wire_weaver_core) & test(/^transform::snapshot::tests::/)'
 slow-timeout = { period = "15s", terminate-after = 1 }
 
+# the kitchen-sink round trip encodes and decodes every type of the series, 1.2 s alone: over 3 s on a loaded PC
+[[profile.default.overrides]]
+filter = 'package(shrink_wrap) & test(series::type_tests::kitchen_round_trips)'
+slow-timeout = { period = "15s", terminate-after = 1 }
+
 # `just test-power-cut`: ww_settings power cuts at every step in release, tens of seconds per test
 [profile.power-cut]
 slow-timeout = { period = "60s", terminate-after = 5 }

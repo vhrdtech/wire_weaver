@@ -79,6 +79,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   hidden (kept for screen readers and search), the wordmark in the logo is the title. Favicon
   `wire_weaver_favicon.svg` turns its black wire graphite on a dark browser theme, so it no longer shows only the red
   wire
+- Docs site: the mobile nav drawer's logo is the graphite-wire W on dark too, like the header (only the red wire
+  showed)
 
 ### Fixed
 

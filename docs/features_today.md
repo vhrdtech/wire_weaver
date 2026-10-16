@@ -45,6 +45,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[Bit-sized fields and payloads](serdes/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address)**: `U7`, `U10`, `I2` and friends in structs, enum variants and method arguments, e.g. a 7- or 10-bit I2C address in 8 or 11 bits.
 - **[64-bit variable-length numbers](types.md)**: `UVlq64`, 1 to 10 bytes.
 - **[Compressed number sequences](serdes/special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences)**: `Delta` and `DeltaOfDelta` for timestamps and counters, `XorFloat` for slowly changing floats, anywhere in an API.
+- **Columnar series**: `Series<T>`: a list of any struct written field by field, with deltas and bit packing per field, several times smaller than a `Vec<T>` of samples. <span class="ww-status">in progress</span>
 - **[Sparse structs](serdes/layouts.md#sparse-a-struct-of-optional-fields)**: A struct of optional fields stored as an `OptionAnyVec`, for "only what changed" updates.
 - **[Checks on read](serdes/derive_reference.md#validate-path)**: `validate = path` rejects out-of-range values as they are read.
 - **[`Display` from doc comments](serdes/derive_reference.md#display)**: Error enums print their doc lines, no hand-written `Display`.

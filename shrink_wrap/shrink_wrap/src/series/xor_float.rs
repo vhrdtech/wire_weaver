@@ -53,6 +53,14 @@ pub struct XorCodec<T> {
     _ty: core::marker::PhantomData<T>,
 }
 
+impl<T> Clone for XorCodec<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for XorCodec<T> {}
+
 impl<T> Default for XorCodec<T> {
     fn default() -> Self {
         XorCodec {

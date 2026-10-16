@@ -13,6 +13,15 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 - A struct without fields (`struct Marker;`, `struct A {}`) with `sized`, `final_structure`, `self_describing` or
   `fixed_layout` is a compile error: it would be zero bits that can never change. Without one it is evolvable: it
   records its length inside a parent, so fields can be added later (SW-59).
+- Column codecs of the coming `Series<T>` (SW-60), crate internal until the type itself lands, in
+  `series::columns`: numeric columns of 1- to 64-bit integers (a 4-bit header: predictor raw / delta / delta of delta,
+  `11` an escape that is `MalformedSeries` for now; coder SW-31 prefix code / bit-packed blocks of 8 with a width per
+  block / constant / plain; segments at restarts), 128-bit columns (raw + plain only), `f32` / `f64` columns (plain
+  or the SW-32 XOR code, its window reset at a restart), runs of enum tags, bools, `Option` tags and opaque bytes
+  (a first value and one entry per change). Writers choose each column's codec by counting the bits of every
+  candidate (no scratch memory, no allocation) or use a fixed `CodecPolicy`; readers step one item at a time from a
+  `BufReader` copy, and malformed data is an error, never a panic or work beyond the items stepped. The codes are
+  checked bit for bit against the design's reference encoder. New fuzz target `shrink-wrap-series-columns`.
 - Tuple and unit structs in `#[derive_shrink_wrap]` (SW-59): `struct Celsius(f32);`, `struct Pair<'i>(u8, &'i str);`
   and `struct Marker;` are written exactly like a struct with the same fields named, in every layout (the size
   assumptions, `fixed_layout`, `head_tail`, `sparse` with `#[slot = N]` on positional fields), with `owned`,

@@ -25,3 +25,7 @@ shrink_wrap_derive.workspace = true
 [dev-dependencies]
 hex-literal.workspace = true
 proptest.workspace = true
+
+[lints.rust]
+# `cargo fuzz` builds with `--cfg fuzzing`: entry points for fuzz/ to the crate-internal series column codecs
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }

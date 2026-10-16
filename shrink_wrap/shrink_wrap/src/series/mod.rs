@@ -11,6 +11,11 @@
 
 use crate::{BufReader, BufWriter, Error};
 
+pub(crate) mod columns;
+/// Round trips of the column codecs for the `series-columns` fuzz target.
+#[cfg(fuzzing)]
+#[doc(hidden)]
+pub use columns::check as fuzz_columns;
 mod delta;
 mod xor_float;
 
@@ -24,8 +29,12 @@ pub use xor_float::{XorBits, XorFloat, XorFloatIter};
 /// Bit-level writes shared by [BufWriter] and `BufWriterOwned`, so a codec is written once.
 pub(crate) trait BitSink {
     fn put_bit(&mut self, bit: bool) -> Result<(), Error>;
-    /// `count` low bits of `value`, 1 to 64.
+    /// `count` low bits of `value`, 0 to 64.
     fn put_bits(&mut self, count: u8, value: u64) -> Result<(), Error>;
+    /// Zero bits up to the next byte boundary of the buffer.
+    fn align_byte(&mut self);
+    /// Whole bytes, after aligning to a byte.
+    fn put_bytes(&mut self, bytes: &[u8]) -> Result<(), Error>;
 }
 
 impl BitSink for BufWriter<'_> {
@@ -35,6 +44,14 @@ impl BitSink for BufWriter<'_> {
 
     fn put_bits(&mut self, count: u8, value: u64) -> Result<(), Error> {
         self.write_un64(count, value)
+    }
+
+    fn align_byte(&mut self) {
+        self.align_byte()
+    }
+
+    fn put_bytes(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.write_raw_slice(bytes)
     }
 }
 
@@ -46,6 +63,14 @@ impl BitSink for crate::BufWriterOwned {
 
     fn put_bits(&mut self, count: u8, value: u64) -> Result<(), Error> {
         self.write_un64(count, value)
+    }
+
+    fn align_byte(&mut self) {
+        self.align_byte()
+    }
+
+    fn put_bytes(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.write_raw_slice(bytes)
     }
 }
 

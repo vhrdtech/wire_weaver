@@ -90,9 +90,9 @@ pub enum Error {
     EnumFutureVersionOrMalformedData,
     InvalidBitCount,
     SubtypeOutOfRange,
-    /// A [Delta] / [DeltaOfDelta] / [XorFloat] sequence that
-    /// cannot have been written by the encoder: more elements than bits, or a code that refers to state the
-    /// decoder does not have.
+    /// A [Delta] / [DeltaOfDelta] / [XorFloat] sequence or a `Series` column that
+    /// cannot have been written by the encoder: more elements than bits, a code that refers to state the
+    /// decoder does not have, a reserved code, a run change past the end of its column.
     MalformedSeries,
     /// [BufWriter::finish_no_lens] on a writer that has lengths to encode: the type's
     /// [PUSHES_LEN](SerializeShrinkWrap::PUSHES_LEN) is `false`, but its `ser_shrink_wrap` pushed one.

@@ -54,3 +54,10 @@ path = "src/shrink_wrap_option_any_vec.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "shrink-wrap-series-columns"
+path = "src/shrink_wrap_series_columns.rs"
+test = false
+doc = false
+bench = false

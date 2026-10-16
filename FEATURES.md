@@ -242,6 +242,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   each with their own. Readers bound the value by it (a longer buffer stops at the right byte, a truncated one
   errors, newer trailing fields are skipped) or skip it without parsing. Fields before it must be `Sized` or
   `SelfDescribing`, checked at compile time. `docs/serdes/special_types.md`, showcase.
+- 🚧 **SW-60 `Series<T>`: columnar compressed sequences of any derive type** — a list of `T` (structs, enums with
+  data, `Option`, nested) written column by column, one column per leaf field: numbers as a numeric column whose
+  predictor (raw, delta, delta of delta) and coder (SW-31 prefix code, bit-packed blocks of 8, constant, plain) the
+  writer picks per column, floats plain or SW-32 XOR, enum tags, bools, `Option` presence and strings as runs (a value
+  and one entry per change); a column restarts where an earlier enum field (a ww_si prefix) changes. 3 to 8 times
+  smaller than a plain `Vec<T>` of ADC samples, self-contained per batch. Done: the column codecs (numeric, 128-bit,
+  float, runs, codec choice by counting bits or a fixed `CodecPolicy`, no alloc, malformed input an error), crate
+  internal in `shrink_wrap/src/series/columns/`, fuzz target `shrink-wrap-series-columns`. Missing: the
+  `Series<'i, T>` / `SeriesOwned<T>` type and `SeriesColumns` trait, the opt-in `series` derive flag, docs, the
+  dynamic decoder, batched streams on top.
 - 📋 **SW-42 `MAX_SIZE` on owned types** · `v0.5.x` — `SerializeShrinkWrapOwned` has no worst-case size yet, only
   the borrowed trait has (SW-19); host code sizing a buffer for an owned value uses the borrowed type's.
 - 📋 **SW-20 Sub-type numbers** · `v0.5.x` — numbers restricted to a range, like `10..=25`, or a set with gaps, like
@@ -250,7 +260,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SW-21 Multi-dimensional arrays** (2D, 3D).
 - 🚧 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` has one `shrink_wrap` target, `shrink-wrap-tail-size` (`TailSize` types
   round-tripped, random bytes into their readers); `shrink-wrap-series` (SW-31, SW-32) and `shrink-wrap-ref-vec`
-  (SW-37) came with their features, `shrink-wrap-option-any-vec` with SW-55 and DER-13 (sparse structs). Round-trip every built-in type and the derive's features.
+  (SW-37) came with their features, `shrink-wrap-option-any-vec` with SW-55 and DER-13 (sparse structs), `shrink-wrap-series-columns` with SW-60. Round-trip every built-in type and the derive's features.
 - 🔍 **SW-23 Tuple enum variants evolution** — check that tuple variants evolve as `docs/evolution/rules.md` says
   (fields can be appended) and add a test.
 - 💡 **SW-24 ZigZag encoding for signed variable length numbers** — consider ZigZag (as in protobuf) so that small

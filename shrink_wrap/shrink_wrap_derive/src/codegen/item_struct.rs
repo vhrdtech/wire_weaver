@@ -213,50 +213,6 @@ impl ToTokens for CGStructFieldsDef<'_> {
     }
 }
 
-/// Writes `fields` with `write`, the `#[omit_if_default]` tail only up to its last field that doesn't have its
-/// default value (`value` gives a field's value): a reader takes the missing ones as their defaults, so a field added
-/// later doesn't change the bytes of a value that doesn't use it.
-pub(crate) fn write_fields(
-    fields: &[Field],
-    value: impl Fn(&Field) -> TokenStream,
-    mut write: impl FnMut(&Field, &mut TokenStream),
-    tokens: &mut TokenStream,
-) {
-    let first_omitted = fields
-        .iter()
-        .position(|f| f.omit_if_default)
-        .unwrap_or(fields.len());
-    let (written, tail) = fields.split_at(first_omitted);
-    for f in written {
-        write(f, tokens);
-    }
-    let keep = |f: &Field| Ident::new(&format!("__keep_{}", f.ident), Span::call_site());
-    // a field is written when it or a field after it doesn't have its default value; a flag goes with its value
-    let mut later: Option<Ident> = None;
-    for f in tail.iter().rev() {
-        let this = keep(f);
-        let own = match (&f.ty, &f.default) {
-            (Type::IsSome(_) | Type::IsOk(_), _) | (_, None) => quote! { false },
-            (_, Some(default)) => {
-                let value = value(f);
-                quote! { #value != (#default) }
-            }
-        };
-        let later_kept = later.as_ref().map(|later| quote! { || #later });
-        tokens.append_all(quote! {
-            #[allow(clippy::partialeq_to_none, clippy::bool_comparison)]
-            let #this = #own #later_kept;
-        });
-        later = Some(this);
-    }
-    for f in tail {
-        let this = keep(f);
-        let mut field_tokens = TokenStream::new();
-        write(f, &mut field_tokens);
-        tokens.append_all(quote! { if #this { #field_tokens } });
-    }
-}
-
 struct CGStructSer<'a> {
     item_struct: &'a CGItemStruct<'a>,
     is_ref: bool,
@@ -269,25 +225,17 @@ struct CGStructDes<'a> {
 
 impl ToTokens for CGStructSer<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        write_fields(
-            self.item_struct.fields,
-            |f| {
-                let ident = &f.ident;
-                quote! { self.#ident }
-            },
-            |struct_field, tokens| {
-                let field_name = &struct_field.ident;
-                let field_path = if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
-                    FieldPath::Value(quote! {self})
-                } else {
-                    FieldPath::Value(quote! {self.#field_name})
-                };
-                struct_field
-                    .ty
-                    .buf_write(field_path, self.is_ref, quote! { ? }, tokens);
-            },
-            tokens,
-        );
+        for struct_field in self.item_struct.fields {
+            let field_name = &struct_field.ident;
+            let field_path = if matches!(struct_field.ty, Type::IsOk(_) | Type::IsSome(_)) {
+                FieldPath::Value(quote! {self})
+            } else {
+                FieldPath::Value(quote! {self.#field_name})
+            };
+            struct_field
+                .ty
+                .buf_write(field_path, self.is_ref, quote! { ? }, tokens);
+        }
         if self
             .item_struct
             .fields

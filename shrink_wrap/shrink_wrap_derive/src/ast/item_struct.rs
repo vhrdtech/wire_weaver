@@ -31,10 +31,6 @@ pub(crate) struct Field {
     pub(crate) ty: Type,
     pub(crate) _since: Option<Version>,
     pub(crate) default: Option<Expr>,
-    /// `#[omit_if_default]`: a trailing `#[default]` field that is not written while it has its default value, so
-    /// adding it doesn't change the bytes of existing values. Set on the auto-created flag of such an `Option` or
-    /// `Result` as well.
-    pub(crate) omit_if_default: bool,
 }
 
 impl ItemStruct {

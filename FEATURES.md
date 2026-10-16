@@ -844,11 +844,39 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reserved indices 4..=6, so a host sees input changes without opening the `event` stream of every pin (slow inputs,
   a dashboard). Blocked on API-29 array-index-bounds: `Pin` sits in `Bank::pin[]` (and banks usually in an array
   too), and levels under a resource array can't be observed until their bound is known (SRV-18).
+- 📋 **STD-34 `ww_recorder`** — control a recorder over WireWeaver: status, card facts, two-step format,
+  recordings, markers, track settings, counters, refreshing the USB view (REC-10, REC-11).
 - 💡 **STD-33 `ww_settings` single-sector mode** — a store in one sector with a RAM copy, for a part with exactly
   one sector to spare; a power cut during its erase loses every group (the window is the whole erase, 1 to 4 s on a
   128 KiB sector, see `docs/api/settings.md#parts-with-big-sectors`). Only if a device needs it.
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
+
+## Recorder: SD card logbook (`REC`)
+
+Many tracks of any shrink_wrap type logged to an SD card on the device, power-cut safe, read on a PC from the card
+or over USB (P2628). One exFAT volume: the free space stays a normal read-write region, the rest is a preallocated
+contiguous ring file the device writes by sector after checking it still sits where it put it.
+
+- 📋 **REC-1 Logbook format and writer** — `ww_logbook`: a ring of segments (one SD allocation unit each) of chunks
+  written once per lap, records of track number + `StreamHead` + item, sessions with track tables (resource path,
+  item type by crate/version/`ww_self` signature/`ww_global` id, a stable key across sessions), API bundles in a
+  meta area, a system track (markers, recordings, clock epochs, time map, drops), recovery after a power cut that
+  loses at most the unflushed stage buffers, counted. On `ww_stream`'s `LogMedium`.
+- 📋 **REC-8 `exfat_lite`** — standalone no-alloc exFAT for SD cards: format with SD Association geometry, mount
+  with checks, contiguous `NoFatChain` files, bounded directory walks; checked with `fsck.exfat`, fuzzed.
+- 📋 **REC-9 Logbook reader and `TrackStore`** — reads by track, time and recording; `TrackStore` implements
+  `StreamStore`, so a reliable stream (API-30) is backed by the card and backfills from it.
+- 📋 **REC-10 Logbook on exFAT** — the ring file on an `exfat_lite` volume, a binding check at every mount (deleted,
+  moved, truncated or replaced ring file: logging stops, the device offers to re-create it), format on the device
+  with a fake-card and speed check.
+- 📋 **REC-11 USB view of a logbook** — a read-only virtual exFAT volume rendered per sector: the logbook split by
+  recording, by hour and by track into self-contained `.wlb` files, `INDEX.CSV`, fixed-width CSV for scalar
+  tracks; a snapshot taken when the host mounts it.
+- 📋 **REC-12 `ww_usb_msc`** — embassy-usb Mass Storage device class (Bulk-Only, SCSI, several LUNs, media change,
+  write protect): the virtual volume next to the card's own volume, whose ring file extent the host can't write.
+- 📋 **REC-13 Logbook PC tool** — `ww_logbook_export` and `ww log info/ls/export/cat/check/make-image`, Python
+  `wire_weaver.logbook`: decodes every track from the stored API bundle; CSV, MCAP, MF4 (CAN as ASAM bus logging).
 
 ## Examples (`EX`)
 
@@ -946,6 +974,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     API-11, in progress). The device can't keep its counters across a power cut: a host program reads the loaded
     and committed sequence numbers and the ECC count over SWD (Donguru CMSIS-DAP, session ended before each cut so
     SBU/CC don't back-feed the board) and checks every boot loads at least what was committed before the cut.
+- 📋 **TEST-22 Power cuts against a logbook on SD** — a rePort logging to its card, its power cut through a switched
+  VBUS (as TEST-21) thousands of times per card: nothing flushed lost, cut chunks counted (REC-1, REC-10).
 - 💡 **TEST-16 Host queue on a slow VM** — does it lead to fewer or no missed packets?
 
 ## Dropped and superseded

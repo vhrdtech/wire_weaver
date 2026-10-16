@@ -358,3 +358,37 @@ fn stress_concurrent_producers() {
         events.len()
     );
 }
+
+/// A probe set the RTT channel to block (as `probe-rs` does when it attaches) and doesn't read: logging goes on,
+/// whole frames that fit reach the channel, the rest are skipped and counted, the ring keeps them all.
+#[cfg(feature = "rtt")]
+#[test]
+fn rtt_tee_never_blocks() {
+    const RTT_LEN: usize = 64;
+    let channels = rtt_target::rtt_init! {
+        up: { 0: { size: RTT_LEN, mode: rtt_target::ChannelMode::BlockIfFull, name: "defmt" } }
+    };
+    let logger = DefmtLogger::<1024>::new();
+    logger.set_rtt_channel(channels.up.0);
+
+    let mut mirror = Mirror::new();
+    // an RTT buffer holds one byte less than its size
+    let mut room = RTT_LEN - 1;
+    let mut expect_skipped = 0;
+    for i in 0..20u8 {
+        let payload = [i; 9];
+        // a blocking write would spin here forever: nobody reads the channel
+        log(&logger, &payload);
+        let frame = mirror.frame(&payload);
+        if frame.len() <= room {
+            room -= frame.len();
+        } else {
+            expect_skipped += 1;
+        }
+    }
+    assert!(expect_skipped > 0);
+    assert_eq!(logger.rtt_skipped(), expect_skipped);
+    assert_eq!(logger.dropped_frames(), 0);
+    let mut stream = stream();
+    assert_eq!(block_on(logger.pump(&mut stream)), Ok(20));
+}

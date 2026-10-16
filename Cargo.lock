@@ -6225,6 +6225,7 @@ dependencies = [
  "defmt 1.1.1",
  "rtt-target",
  "wire_weaver",
+ "ww_defmt_logger",
  "ww_log",
  "ww_stream",
 ]

@@ -22,3 +22,5 @@ ww_stream.workspace = true
 
 [dev-dependencies]
 critical-section = { version = "1.2", features = ["std"] }
+# the tests cover the RTT tee too (`cargo test` without --features)
+ww_defmt_logger = { path = ".", features = ["rtt"] }

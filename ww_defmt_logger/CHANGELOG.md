@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+- The RTT tee never blocks (STD-26, first hardware user Donguru API-10): a probe that set the channel to blocking on
+  attach (`probe-rs` does) made a burst of logging stall the firmware inside the logger's critical section until it
+  read, and a full channel with no reader would stall it for good. Each frame now goes to the channel in one write
+  with the mode forced to `NoBlockSkip`, whole or skipped and counted (`rtt_skipped()`), so the host never decodes
+  half a frame either. 512 bytes more RAM with the `rtt` feature.
+
 ### 🚀 Features
 
 - First version (STD-26): the `defmt` global logger of a WireWeaver device. `global_logger!(NAME, SIZE)` makes a

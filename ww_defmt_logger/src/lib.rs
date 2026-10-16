@@ -21,10 +21,11 @@
 //! # How a frame travels
 //!
 //! 1. A `defmt` macro anywhere (thread mode, any interrupt) takes a critical section in [DefmtLogger::acquire],
-//!    encodes the frame (rzCOBS or raw, as `defmt` is built) and copies it into the ring and the RTT channel.
+//!    encodes the frame (rzCOBS or raw, as `defmt` is built) and copies it into the ring and the RTT tee's frame.
 //! 2. [DefmtLogger::release] commits the whole frame to the ring at once, with its length in front: the ring never
 //!    holds half a frame. A frame that doesn't fit the free space, or is longer than
-//!    [MAX_FRAMES_LEN], is dropped whole and counted.
+//!    [MAX_FRAMES_LEN], is dropped whole and counted. The frame goes to the RTT channel in one write that never
+//!    blocks, whatever mode a probe set: whole, or skipped and counted ([DefmtLogger::rtt_skipped]).
 //! 3. [DefmtLogger::pump], called from the event loop, takes the committed frames out of the ring without a critical
 //!    section, packs up to 512 bytes of whole frames into one `DefmtFrames` item and pushes it into the stream's
 //!    store, `units` = frames. Frames the ring dropped become the stream's `lost` exactly where they were dropped, so
@@ -37,8 +38,8 @@
 //! # RAM
 //!
 //! The ring (`N` bytes, a power of two; each frame takes its encoded length plus [FRAME_OVERHEAD] bytes) and about
-//! 1 KiB for packing and serializing an item. The ring only has to cover the logs made between two `pump` calls;
-//! the store holds the rest.
+//! 1 KiB for packing and serializing an item, with the `rtt` feature 512 bytes more for the frame being teed. The
+//! ring only has to cover the logs made between two `pump` calls; the store holds the rest.
 //!
 //! # Contexts
 //!
@@ -132,6 +133,16 @@ struct Frame {
     dropped: bool,
 }
 
+/// The RTT tee: the channel and the frame being written, sent to it whole at its end, owned like [Frame].
+#[cfg(feature = "rtt")]
+struct RttTee {
+    channel: Option<rtt_target::UpChannel>,
+    frame: [u8; MAX_FRAMES_LEN],
+    len: usize,
+    /// The frame is longer than `frame`: not sent
+    too_long: bool,
+}
+
 /// The ring, its producer (`defmt`'s `Logger` calls) and its consumer ([pump](Self::pump)), see the
 /// [crate docs](crate). `N` is a power of two; usually made a `static` by [global_logger!].
 pub struct DefmtLogger<const N: usize> {
@@ -140,7 +151,10 @@ pub struct DefmtLogger<const N: usize> {
     encoder: UnsafeCell<defmt::Encoder>,
     frame: UnsafeCell<Frame>,
     #[cfg(feature = "rtt")]
-    rtt: UnsafeCell<Option<rtt_target::UpChannel>>,
+    rtt: UnsafeCell<RttTee>,
+    /// Frames the RTT tee skipped since boot, wrapping; written by the producer only
+    #[cfg(feature = "rtt")]
+    rtt_skipped: AtomicU32,
 
     ring: UnsafeCell<[u8; N]>,
     /// End of the committed frames, free running (wraps at `usize::MAX`); written by the producer only
@@ -194,7 +208,14 @@ impl<const N: usize> DefmtLogger<N> {
                 dropped: false,
             }),
             #[cfg(feature = "rtt")]
-            rtt: UnsafeCell::new(None),
+            rtt: UnsafeCell::new(RttTee {
+                channel: None,
+                frame: [0; MAX_FRAMES_LEN],
+                len: 0,
+                too_long: false,
+            }),
+            #[cfg(feature = "rtt")]
+            rtt_skipped: AtomicU32::new(0),
             ring: UnsafeCell::new([0; N]),
             write: AtomicUsize::new(0),
             read: AtomicUsize::new(0),
@@ -209,14 +230,26 @@ impl<const N: usize> DefmtLogger<N> {
     }
 
     /// Tee every frame to this RTT up channel as well, from the next frame on. Name it `defmt` in `rtt_init!` so
-    /// `probe-rs` decodes it; its mode decides whether a full channel blocks the logger (`BlockIfFull`, what
-    /// `probe-rs` sets while attached) or cuts frames short.
+    /// `probe-rs` decodes it.
+    ///
+    /// The tee never blocks, with or without a probe attached: each frame goes to the channel in one write, whole
+    /// or not at all when the channel has no room for it ([rtt_skipped](Self::rtt_skipped)), so the decoder on the
+    /// host never sees half a frame. The channel's mode is set to `NoBlockSkip` before every write, as a host may
+    /// switch it to blocking when it attaches (`probe-rs` does); its own mode is not used. Frames longer than
+    /// [MAX_FRAMES_LEN] are not teed (nor kept in the ring).
     #[cfg(feature = "rtt")]
     pub fn set_rtt_channel(&self, channel: rtt_target::UpChannel) {
         critical_section::with(|_| {
             // safety: no log call runs inside this critical section, so nobody holds the channel
-            unsafe { *self.rtt.get() = Some(channel) }
+            unsafe { (*self.rtt.get()).channel = Some(channel) }
         })
+    }
+
+    /// Frames the RTT tee skipped since boot because the channel had no room for them (the probe reads slower than
+    /// the firmware logs, or no probe reads) or they were too long, wrapping. They still went into the ring.
+    #[cfg(feature = "rtt")]
+    pub fn rtt_skipped(&self) -> u32 {
+        self.rtt_skipped.load(Ordering::Relaxed)
     }
 
     /// Frames dropped since boot because the ring was full or they were too long, wrapping. Each was reported to
@@ -254,6 +287,12 @@ impl<const N: usize> DefmtLogger<N> {
                 read: self.read.load(Ordering::Acquire),
                 dropped: false,
             };
+            #[cfg(feature = "rtt")]
+            {
+                let tee = &mut *self.rtt.get();
+                tee.len = 0;
+                tee.too_long = false;
+            }
             (*self.encoder.get()).start_frame(|b| self.stage(b));
         }
     }
@@ -296,22 +335,59 @@ impl<const N: usize> DefmtLogger<N> {
                 self.copy_in(frame.start, &header);
                 self.write.store(frame.cursor, Ordering::Release);
             }
+            #[cfg(feature = "rtt")]
+            self.tee_frame();
             let restore = self.cs_restore.get().read();
             self.taken.store(false, Ordering::Relaxed);
             critical_section::release(restore);
         }
     }
 
-    /// Encoded bytes of the current frame: into the ring if they fit, to RTT anyway.
+    /// The finished frame to the RTT channel in one write that never blocks: whole, or skipped and counted.
+    ///
+    /// # Safety
+    ///
+    /// The caller holds the logger.
+    #[cfg(feature = "rtt")]
+    unsafe fn tee_frame(&self) {
+        // safety: the caller holds the logger, set_rtt_channel waits for the critical section
+        let tee = unsafe { &mut *self.rtt.get() };
+        let Some(channel) = tee.channel.as_mut() else {
+            return;
+        };
+        let sent = !tee.too_long && {
+            // a host may have set the channel to block (probe-rs does when it attaches): a full channel would then
+            // stall the firmware inside this critical section until the probe reads, and forever without one
+            channel.set_mode(rtt_target::ChannelMode::NoBlockSkip);
+            // one write: NoBlockSkip commits all of it or nothing
+            channel.write(&tee.frame[..tee.len]) == tee.len
+        };
+        if !sent {
+            let skipped = self.rtt_skipped.load(Ordering::Relaxed);
+            self.rtt_skipped
+                .store(skipped.wrapping_add(1), Ordering::Relaxed);
+        }
+    }
+
+    /// Encoded bytes of the current frame: into the ring if they fit, and into the RTT tee's frame.
     ///
     /// # Safety
     ///
     /// The caller holds the logger.
     unsafe fn stage(&self, bytes: &[u8]) {
         #[cfg(feature = "rtt")]
-        // safety: the caller holds the logger, set_rtt_channel waits for the critical section
-        if let Some(rtt) = unsafe { &mut *self.rtt.get() } {
-            rtt.write(bytes);
+        {
+            // safety: the caller holds the logger
+            let tee = unsafe { &mut *self.rtt.get() };
+            if tee.channel.is_some() && !tee.too_long {
+                match tee.frame.get_mut(tee.len..tee.len + bytes.len()) {
+                    Some(room) => {
+                        room.copy_from_slice(bytes);
+                        tee.len += bytes.len();
+                    }
+                    None => tee.too_long = true,
+                }
+            }
         }
         // safety: the caller holds the logger
         let frame = unsafe { &mut *self.frame.get() };

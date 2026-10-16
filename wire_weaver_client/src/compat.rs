@@ -1526,7 +1526,7 @@ mod tests {
         let changed = source.replace("fn m1();", "fn m1();\nfn m2();");
         let device = skip_subgroup(bundle("device", "0.1.0", &changed));
         let compat = ApiCompat::new(&client, &device);
-        assert_incompatible(&compat, &[1], "without bumping the crate version");
+        assert_incompatible(&compat, &[1], "changed without a version bump");
     }
 
     #[test]

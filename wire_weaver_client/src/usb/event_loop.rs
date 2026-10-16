@@ -36,6 +36,10 @@ pub(crate) struct NusbRx {
 }
 
 impl Transport for NusbTransport {
+    fn link_setup_timeout(&self) -> std::time::Duration {
+        crate::event_loop::transport::link_setup_timeout::USB
+    }
+
     type Tx = NusbTx;
     type Rx = NusbRx;
 
@@ -226,6 +230,10 @@ mod tests {
     struct MockTransport(Option<Opened<MockTx, MockRx>>);
 
     impl Transport for MockTransport {
+        fn link_setup_timeout(&self) -> std::time::Duration {
+            crate::event_loop::transport::link_setup_timeout::IN_PROCESS
+        }
+
         type Tx = MockTx;
         type Rx = MockRx;
         async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<MockTx, MockRx>, String> {
@@ -358,6 +366,7 @@ mod tests {
             .send(Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                link_setup_timeout_ms: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "test".into(),
                     VersionOwned::new(0, 1, 0),
@@ -409,6 +418,7 @@ mod tests {
             .send(Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                link_setup_timeout_ms: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "".into(),
                     VersionOwned::new(0, 0, 0),

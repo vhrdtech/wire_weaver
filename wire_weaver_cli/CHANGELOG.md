@@ -8,6 +8,9 @@
 
 ### 🚀 Features
 
+- `--link-setup-timeout-ms` (`WW_LINK_SETUP_TIMEOUT_MS`, `link_setup_timeout_ms` in ww.toml, CLT-30): how long to
+  wait for the device to answer when connecting, instead of the transport's default.
+
 - `ww observe <path> [--rate MS]` (TOOL-11): observes a trait level's `+observe` properties without generated
   code (`DynResource::observe`), printing each update's present values, the update rate and the link bytes/s it
   costs, until Ctrl+C. `<path>` is a dotted/indexed resource path (`motor`, `bank[0]`), empty for the API root;

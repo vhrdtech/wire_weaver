@@ -54,6 +54,10 @@ pub async fn rtt_worker(cmd_rx: mpsc::Receiver<Command>) {
 struct RttTransport;
 
 impl Transport for RttTransport {
+    fn link_setup_timeout(&self) -> std::time::Duration {
+        crate::event_loop::transport::link_setup_timeout::RTT
+    }
+
     type Tx = RttTx;
     type Rx = RttRx;
 

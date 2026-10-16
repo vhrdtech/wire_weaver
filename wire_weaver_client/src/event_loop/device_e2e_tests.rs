@@ -85,6 +85,10 @@ impl MessageRx for HostRx {
 pub(crate) struct PipeTransport(pub(crate) Option<Opened<HostTx, HostRx>>);
 
 impl Transport for PipeTransport {
+    fn link_setup_timeout(&self) -> std::time::Duration {
+        crate::event_loop::transport::link_setup_timeout::IN_PROCESS
+    }
+
     type Tx = HostTx;
     type Rx = HostRx;
     async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<HostTx, HostRx>, String> {
@@ -278,6 +282,7 @@ pub(crate) async fn connect(cmd_tx: &mpsc::Sender<Command>, version: (u32, u32))
         .send(Command::Connect {
             handle: Box::new(()),
             max_seq: crate::DEFAULT_MAX_SEQ,
+            link_setup_timeout_ms: None,
             client_version: Box::new(FullVersionOwned::new(
                 "test_api".into(),
                 VersionOwned::new(version.0, version.1, 0),
@@ -382,6 +387,10 @@ impl BlockingStreamIo for HostIo {
 struct StreamPipe(Option<(Ring, Ring)>);
 
 impl Transport for StreamPipe {
+    fn link_setup_timeout(&self) -> std::time::Duration {
+        crate::event_loop::transport::link_setup_timeout::IN_PROCESS
+    }
+
     type Tx = StreamTx<RttHead, RttChecksum, RttTail>;
     type Rx = StreamRx<RttHead, RttChecksum, RttTail>;
     async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<Self::Tx, Self::Rx>, String> {
@@ -711,6 +720,10 @@ async fn incompatible_host_is_refused() {
 async fn stream_open_error_fails_connect() {
     struct Failing;
     impl Transport for Failing {
+        fn link_setup_timeout(&self) -> std::time::Duration {
+            crate::event_loop::transport::link_setup_timeout::IN_PROCESS
+        }
+
         type Tx = StreamTx<RttHead, RttChecksum, RttTail>;
         type Rx = StreamRx<RttHead, RttChecksum, RttTail>;
         async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<Self::Tx, Self::Rx>, String> {

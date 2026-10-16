@@ -1,4 +1,4 @@
-use crate::device::{CONFIG_FILE, DEVICE_TABLE, KEYS, Selection, Source, env_var};
+use crate::device::{CONFIG_FILE, DEVICE_TABLE, KEYS, NUMERIC_KEYS, Selection, Source, env_var};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
@@ -67,7 +67,7 @@ fn save(selection: &Selection) -> Result<()> {
     let mut doc = read_doc(&path)?;
     let table = device_table(&mut doc, &path)?;
     for s in flags {
-        table[s.key] = if s.key == "timeout_ms" {
+        table[s.key] = if NUMERIC_KEYS.contains(&s.key) {
             value(s.value.parse::<i64>()?)
         } else {
             value(s.value.as_str())

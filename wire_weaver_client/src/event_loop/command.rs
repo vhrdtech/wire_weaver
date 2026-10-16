@@ -30,6 +30,9 @@ pub enum Command {
         client_version: Box<FullVersionOwned>,
         /// Largest request seq number to use, see [ClientConfig::max_seq](crate::ClientConfig::max_seq).
         max_seq: SeqTy,
+        /// How long link setup may take, [ClientConfig::link_setup_timeout](crate::ClientConfig::link_setup_timeout).
+        /// None - transport's default. Milliseconds, to keep [Command] small.
+        link_setup_timeout_ms: Option<std::num::NonZeroU32>,
         /// Connection status sender.
         connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
         /// Before exiting, event loop will return it's command receiver through this channel.

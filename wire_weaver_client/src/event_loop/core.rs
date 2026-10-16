@@ -205,7 +205,7 @@ async fn tx_task<T: Transport>(
     (TxCore, anyhow::Result<EventLoopExitReason>),
     mpsc::Receiver<Command>,
 ) {
-    let mut core = TxCore::new();
+    let mut core = TxCore::new(connector.link_setup_timeout());
     let mut msg_tx: Option<T::Tx> = None;
     let mut msg_rx_tx = Some(msg_rx_tx);
 
@@ -417,6 +417,7 @@ mod tests {
     use crate::device_info::ConnectionInfo;
     use crate::event_loop::command::Command;
     use crate::event_loop::rx_dispatcher::LATE_REPLY_WINDOW;
+    use std::num::NonZeroU32;
     use tokio::sync::oneshot;
     use ww_link::{DeviceInfo, DisconnectReason, Kind, Message};
     use ww_version::{
@@ -450,7 +451,7 @@ mod tests {
     impl Pair {
         fn new() -> Self {
             Pair {
-                tx: TxCore::new(),
+                tx: TxCore::new(Duration::from_secs(1)),
                 rx: RxCore::new(),
                 sent: vec![],
                 flushes: 0,
@@ -556,6 +557,7 @@ mod tests {
             Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                link_setup_timeout_ms: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "test".into(),
                     VersionOwned::new(0, 1, 0),
@@ -845,6 +847,7 @@ mod tests {
             Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                link_setup_timeout_ms: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "".into(),
                     VersionOwned::new(0, 0, 0),
@@ -911,33 +914,98 @@ mod tests {
 
     #[test]
     fn link_setup_retries_then_fails() {
-        let mut now = Instant::now();
+        let mut p = Pair::new();
+        let start = Instant::now();
+        // transport's default, 1 s here: retries back off (50, 100, 200, 250, 250 ms), nothing is re-sent at the deadline
+        let waits = [50, 100, 200, 250, 250];
+        link_setup_retries_until_fail(&mut p, start, None, &waits, 1000);
+    }
+
+    #[test]
+    fn link_setup_timeout_override_stretches_the_budget() {
+        let mut p = Pair::new();
+        let start = Instant::now();
+        // 10 s: first retry after 500 ms, then 1 s, 2 s, 2.5 s, 2.5 s, deadline 1.5 s after the last one
+        let waits = [500, 1000, 2000, 2500, 2500];
+        link_setup_retries_until_fail(&mut p, start, NonZeroU32::new(10_000), &waits, 10_000);
+    }
+
+    #[test]
+    fn link_setup_answer_in_time_with_slow_transport() {
+        // 17 ms per write through a probe: an answer after 3 s is fine with the RTT budget, not with USB's
+        let start = Instant::now();
         let mut p = Pair::new();
         let (connected_tx, mut connected_rx) = oneshot::channel();
+        connect_with_timeout(&mut p, start, NonZeroU32::new(10_000), Some(connected_tx));
+        p.tx.handle(start, TxInput::TransportUp);
+        p.settle(start);
+        p.take_sent();
+        let mut now = start;
+        for wait in [500, 1000, 1500] {
+            now += Duration::from_millis(wait);
+            p.timers(now);
+            assert!(p.tx_exit.is_none());
+        }
+        p.take_sent();
+        p.feed_from_device(now, &device_info());
+        assert_eq!(kinds(&p.take_sent()), [Kind::LinkSetup]);
+        assert!(p.tx_exit.is_none());
+        assert!(connected_rx.try_recv().is_err(), "waits for LinkReady");
+    }
+
+    fn connect_with_timeout(
+        p: &mut Pair,
+        now: Instant,
+        link_setup_timeout_ms: Option<NonZeroU32>,
+        connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
+    ) {
         p.cmd(
             now,
             Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                link_setup_timeout_ms,
                 client_version: Box::new(FullVersionOwned::new(
                     "".into(),
                     VersionOwned::new(0, 0, 0),
                 )),
-                connected_tx: Some(connected_tx),
+                connected_tx,
                 failed_tx: None,
             },
         );
-        p.tx.handle(now, TxInput::TransportUp);
-        p.settle(now);
+    }
+
+    fn link_setup_retries_until_fail(
+        p: &mut Pair,
+        start: Instant,
+        timeout_ms: Option<NonZeroU32>,
+        waits_ms: &[u64],
+        deadline_ms: u64,
+    ) {
+        let (connected_tx, mut connected_rx) = oneshot::channel();
+        connect_with_timeout(p, start, timeout_ms, Some(connected_tx));
+        p.tx.handle(start, TxInput::TransportUp);
+        p.settle(start);
         p.take_sent();
-        for _ in 0..5 {
-            now += RETRY;
+        let mut now = start;
+        for wait in waits_ms {
+            assert_eq!(
+                p.tx.poll_timeout(),
+                Some(now + Duration::from_millis(*wait))
+            );
+            now += Duration::from_millis(*wait);
             p.timers(now);
             assert_eq!(kinds(&p.take_sent()), [Kind::Nop, Kind::GetDeviceInfo]);
             assert!(p.tx_exit.is_none());
         }
-        now += RETRY;
+        // last wait ends at the deadline without another request
+        assert_eq!(
+            p.tx.poll_timeout(),
+            Some(start + Duration::from_millis(deadline_ms))
+        );
+        now = start + Duration::from_millis(deadline_ms);
         p.timers(now);
+        assert!(p.take_sent().is_empty());
         assert!(matches!(p.tx_exit, Some(Err(_))));
         assert!(p.rx_exited);
         // rx held connected_tx and reports the failure
@@ -954,6 +1022,7 @@ mod tests {
             Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                link_setup_timeout_ms: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "test".into(),
                     VersionOwned::new(0, 2, 0),
@@ -1080,6 +1149,10 @@ mod tests {
     struct ChanTransport;
 
     impl Transport for ChanTransport {
+        fn link_setup_timeout(&self) -> std::time::Duration {
+            crate::event_loop::transport::link_setup_timeout::IN_PROCESS
+        }
+
         type Tx = NoTx;
         type Rx = ChanRx;
         async fn connect(

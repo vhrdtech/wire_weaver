@@ -22,7 +22,7 @@ pub(crate) const DEVICE_TABLE: &str = "device";
 
 /// Setting names, same for command line flags (with '-' instead of '_'), ww.toml keys and environment variables
 /// (upper case with `WW_` prefix).
-pub(crate) const KEYS: [&str; 8] = [
+pub(crate) const KEYS: [&str; 9] = [
     "serial",
     "label",
     "product",
@@ -31,7 +31,11 @@ pub(crate) const KEYS: [&str; 8] = [
     "vid_pid",
     "usb_path",
     "timeout_ms",
+    "link_setup_timeout_ms",
 ];
+
+/// Settings holding a number of milliseconds (integers in ww.toml).
+pub(crate) const NUMERIC_KEYS: [&str; 2] = ["timeout_ms", "link_setup_timeout_ms"];
 
 #[derive(Args)]
 #[command(next_help_heading = "Device selection (flags > env variables > ww.toml)")]
@@ -67,6 +71,16 @@ pub(crate) struct DeviceArgs {
     /// Request timeout in milliseconds
     #[arg(long, env = "WW_TIMEOUT_MS", global = true, value_name = "MS")]
     timeout_ms: Option<String>,
+
+    /// How long to wait for the device to answer when connecting, in milliseconds (default depends on the transport:
+    /// 1000 for USB), raise it if connecting fails with "LinkSetup was not received"
+    #[arg(
+        long,
+        env = "WW_LINK_SETUP_TIMEOUT_MS",
+        global = true,
+        value_name = "MS"
+    )]
+    link_setup_timeout_ms: Option<String>,
 
     /// Project config file to use instead of ww.toml in the current directory or its closest parent
     #[arg(long, env = "WW_CONFIG", global = true, value_name = "PATH", value_hint = ValueHint::FilePath)]
@@ -221,6 +235,9 @@ fn apply(config: ClientConfig, key: &str, value: &str) -> Result<ClientConfig> {
             config.usb_port_chain(bus_id, port_chain)
         }
         "timeout_ms" => config.default_timeout(Duration::from_millis(value.parse()?)),
+        "link_setup_timeout_ms" => config.link_setup_timeout(Duration::from_millis(
+            value.parse::<std::num::NonZeroU64>()?.get(),
+        )),
         _ => unreachable!("unknown device selection key {key}"),
     })
 }
@@ -285,11 +302,11 @@ fn load_device_table(path: &Path) -> Result<BTreeMap<String, String>> {
         }
         let value = match value {
             toml::Value::String(s) => s,
-            toml::Value::Integer(i) if key == "timeout_ms" => i.to_string(),
+            toml::Value::Integer(i) if NUMERIC_KEYS.contains(&key.as_str()) => i.to_string(),
             other => bail!(
                 "{}: [{DEVICE_TABLE}] {key} must be a {}, got {}",
                 path.display(),
-                if key == "timeout_ms" {
+                if NUMERIC_KEYS.contains(&key.as_str()) {
                     "number"
                 } else {
                     "string"

@@ -62,6 +62,7 @@ id is used; if several match, all of them are printed and nothing is opened.
 | `vid_pid`      | `--vid-pid`         | `WW_VID_PID`      | USB VID:PID in hex, e.g. `c0de:cafe`             |
 | `usb_path`     | `--usb-path`        | `WW_USB_PATH`     | USB bus and port chain as shown by `ww list`, e.g. `003-1.2` |
 | `timeout_ms`   | `--timeout-ms`      | `WW_TIMEOUT_MS`   | request timeout, not a filter                    |
+| `link_setup_timeout_ms` | `--link-setup-timeout-ms` | `WW_LINK_SETUP_TIMEOUT_MS` | how long to wait for the device to answer when connecting (default depends on the transport: USB 1000, RTT 10000), not a filter |
 
 All text matching ignores case. Settings of different kinds are combined, so `api` from ww.toml and `--serial` on the
 command line narrow the selection together.

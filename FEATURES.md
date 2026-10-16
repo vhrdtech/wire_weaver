@@ -570,6 +570,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   subscriptions sent again by `resume_streams()` after a reconnect; `Error::Unsupported` for a device whose API model
   predates API-38 (`wire_weaver_client::observe`, `docs/api/observing.md#the-host-side`, `tests/observe`,
   `observe_e2e_tests`). Not yet: levels under a resource array.
+- 🚧 **CLT-30 Link setup budget per transport** · `v0.5.x` — the client re-sent `GetDeviceInfo` 5 times 50 ms apart (250 ms
+  for every transport), so connecting through a debug probe (~17 ms per RTT write through a J-Link) mostly failed with
+  `LinkSetup was not received`. Now a timeout per transport (USB, UDP, WebSocket 1 s, in-process 250 ms, RTT 10 s, one
+  place: `event_loop::transport::link_setup_timeout`), retries back off (first after 1/20 of it, doubling up to 1/4),
+  `ClientConfig::link_setup_timeout()` and `ww --link-setup-timeout-ms` / `WW_LINK_SETUP_TIMEOUT_MS` /
+  `link_setup_timeout_ms` in ww.toml override it. Missing: success rates on hardware.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,

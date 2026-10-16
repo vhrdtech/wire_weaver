@@ -122,6 +122,7 @@ the selection.
 | `--vid-pid`      | `WW_VID_PID`      | `vid_pid`      | USB VID:PID in hex, e.g. `c0de:cafe`                           |
 | `--usb-path`     | `WW_USB_PATH`     | `usb_path`     | USB bus and port chain as shown by `ww list`, e.g. `003-1.2`   |
 | `--timeout-ms`   | `WW_TIMEOUT_MS`   | `timeout_ms`   | Request timeout in milliseconds, not a filter                  |
+| `--link-setup-timeout-ms` | `WW_LINK_SETUP_TIMEOUT_MS` | `link_setup_timeout_ms` | How long to wait for the device to answer when connecting, in milliseconds, not a filter. Default: USB 1000, RTT 10000 |
 
 - All text matching ignores case.
 - The version requirement in `--api` uses Cargo's [SemVer syntax](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#version-requirement-syntax);

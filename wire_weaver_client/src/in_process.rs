@@ -377,6 +377,10 @@ fn device_info(path: String) -> crate::DeviceInfo {
 struct InProcessTransport;
 
 impl Transport for InProcessTransport {
+    fn link_setup_timeout(&self) -> std::time::Duration {
+        crate::event_loop::transport::link_setup_timeout::IN_PROCESS
+    }
+
     type Tx = HostTx;
     type Rx = HostRx;
 
@@ -511,6 +515,10 @@ mod tests {
     struct To(String);
 
     impl Transport for To {
+        fn link_setup_timeout(&self) -> std::time::Duration {
+            crate::event_loop::transport::link_setup_timeout::IN_PROCESS
+        }
+
         type Tx = HostTx;
         type Rx = HostRx;
         async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<HostTx, HostRx>, String> {

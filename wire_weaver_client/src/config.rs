@@ -35,6 +35,7 @@ pub struct ClientConfig {
     max_seq: Option<SeqTy>,
     traits_only: bool,
     stream_queue_bytes: Option<usize>,
+    link_setup_timeout: Option<Duration>,
 }
 
 pub(crate) struct ValidatedConfig {
@@ -46,6 +47,8 @@ pub(crate) struct ValidatedConfig {
     pub(crate) client_version: Box<FullVersionOwned>,
     pub(crate) max_seq: SeqTy,
     pub(crate) stream_queue_bytes: usize,
+    /// Milliseconds, saturating, see [ClientConfig::link_setup_timeout]
+    pub(crate) link_setup_timeout_ms: Option<std::num::NonZeroU32>,
     pub(crate) introspect_client: Option<IntrospectBundle>,
     pub(crate) traits_only: bool,
 }
@@ -221,6 +224,9 @@ impl ClientConfig {
         if max_seq == 0 {
             bail!("max_seq must be at least 1");
         }
+        if s.link_setup_timeout.is_some_and(|t| t.is_zero()) {
+            bail!("link_setup_timeout must not be zero");
+        }
         let cmd_queue_size = s.cmd_queue_size.unwrap_or(crate::DEFAULT_CMD_QUEUE_SIZE);
         if !(1..=65_534).contains(&cmd_queue_size) {
             bail!("Wrong cmd queue size of {cmd_queue_size}");
@@ -241,6 +247,9 @@ impl ClientConfig {
             stream_queue_bytes: s
                 .stream_queue_bytes
                 .unwrap_or(crate::DEFAULT_STREAM_QUEUE_BYTES),
+            link_setup_timeout_ms: s.link_setup_timeout.and_then(|t| {
+                std::num::NonZeroU32::new(u32::try_from(t.as_millis()).unwrap_or(u32::MAX))
+            }),
             introspect_client,
             traits_only: s.traits_only,
         })
@@ -441,6 +450,19 @@ impl ClientConfig {
     pub fn stream_queue_bytes(self, bytes: usize) -> Self {
         let mut c = self;
         c.stream_queue_bytes = Some(bytes);
+        c
+    }
+
+    /// How long to wait for a device to answer during link setup (the first request after the medium is open),
+    /// before failing with [Error::LinkSetupTimeout](crate::Error::LinkSetupTimeout). The request is re-sent with
+    /// growing pauses in between, derived from this one value.
+    ///
+    /// Defaults per transport: USB, UDP and WebSocket 1 s, in-process 250 ms, RTT 10 s (writes through a debug probe
+    /// take ~17 ms each, a J-Link needs seconds, a firmware that has just reset even more). Raise it for a slow
+    /// probe or network, lower it to fail fast. Must not be zero.
+    pub fn link_setup_timeout(self, timeout: Duration) -> Self {
+        let mut c = self;
+        c.link_setup_timeout = Some(timeout);
         c
     }
 
@@ -716,6 +738,23 @@ mod tests {
     // Also user may depend on two driver crates, with one using e.g., only WebSocket and the other only USB.
     // In which case two interface features will be enabled and if not for this filter system,
     // it would break the mess with device selection process.
+    #[test]
+    fn link_setup_timeout_override() {
+        let f = ClientConfig::new().usb().validate().unwrap();
+        assert_eq!(f.link_setup_timeout_ms, None, "transport's default");
+        let f = ClientConfig::new()
+            .link_setup_timeout(Duration::from_secs(30))
+            .validate()
+            .unwrap();
+        assert_eq!(f.link_setup_timeout_ms.map(|t| t.get()), Some(30_000));
+        assert!(
+            ClientConfig::new()
+                .link_setup_timeout(Duration::ZERO)
+                .validate()
+                .is_err()
+        );
+    }
+
     #[test]
     fn rtt() {
         // device driver config (USB VID:PID of the device) re-used over RTT: USB is not tried

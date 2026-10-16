@@ -68,6 +68,10 @@ fn device_info(url: &str) -> crate::DeviceInfo {
 struct WsTransport;
 
 impl Transport for WsTransport {
+    fn link_setup_timeout(&self) -> std::time::Duration {
+        crate::event_loop::transport::link_setup_timeout::WEB_SOCKET
+    }
+
     type Tx = WsTx;
     type Rx = WsRx;
 
@@ -190,6 +194,10 @@ mod tests {
     struct To(String);
 
     impl Transport for To {
+        fn link_setup_timeout(&self) -> std::time::Duration {
+            crate::event_loop::transport::link_setup_timeout::IN_PROCESS
+        }
+
         type Tx = WsTx;
         type Rx = WsRx;
         async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<WsTx, WsRx>, String> {

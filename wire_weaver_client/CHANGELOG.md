@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+- `Command::Connect` has a new field `link_setup_timeout_ms: Option<NonZeroU32>` (CLT-30): set `None` to use the
+  transport's default. Link setup now gives a device a timeout per transport (USB, UDP, WebSocket 1 s, in-process 250
+  ms, RTT 10 s) instead of 250 ms for all, with growing pauses between the retries of `GetDeviceInfo`.
+
 - New `picoboot` feature (off by default, CLT-21): `follow::rp2_update()` and the `ww_picoboot` re-export now need it.
   Previously they came with the `usb` feature (on by default), so every host app that just talks WireWeaver over USB
   also pulled in PICOBOOT (`ww_picoboot`, `nusb`-backed RP2040 / RP2350 boot ROM flashing). `follow::rp2_update_with()`,
@@ -31,6 +35,9 @@
   only): code that destructures it adds them or `..`.
 
 ### 🚀 Features
+
+- `ClientConfig::link_setup_timeout(Duration)` (CLT-30): how long to wait for a device to answer during link setup,
+  overriding the transport's default. Connecting over RTT through a J-Link failed most of the time with the old 250 ms.
 
 - `Observed::t` and `Sample::t` of observers: device microseconds sent as a wrapping `u32` (`Second { Micro, U32 }`,
   what `ww_stream::observe` sends) come unwrapped, as a `u64` that counts on across the 71.6 minute wraps, per

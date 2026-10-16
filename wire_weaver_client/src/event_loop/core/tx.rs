@@ -17,11 +17,10 @@ use crate::event_loop::command::{
     Command, EventLoopExitReason, EventLoopResidual, LoopbackParams, StreamOpenHook, TestProgress,
 };
 use crate::event_loop::rx_dispatcher::ResponseSender;
+use crate::event_loop::transport::LinkSetupPacing;
 use crate::{Error, SeqTy};
 
 const PING_INTERVAL: Duration = Duration::from_millis(ww_link::PING_INTERVAL_MS);
-const LINK_SETUP_RETRY_INTERVAL: Duration = Duration::from_millis(50);
-const LINK_SETUP_RETRIES: u32 = 5;
 /// Largest seq number that is serialized into 1 byte.
 const SEQ_CYCLE_MAX: SeqTy = 127;
 
@@ -100,7 +99,10 @@ pub(crate) struct TxCore {
     device_max_message_len: usize,
 
     // Timers
-    link_setup_retries_left: u32,
+    /// Transport's default, [Command::Connect] can override it
+    link_setup_timeout: Duration,
+    link_setup_deadline: Option<Instant>,
+    link_setup_interval: Duration,
     next_link_setup_retry_at: Option<Instant>,
     /// Set when data was sent but not yet flushed, waiting for more messages to fill the frame
     unflushed_since: Option<Instant>,
@@ -123,14 +125,9 @@ pub(crate) struct TxCore {
     loopback: Option<LoopbackTest>,
 }
 
-impl Default for TxCore {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl TxCore {
-    pub fn new() -> Self {
+    /// `link_setup_timeout` is the transport's default, see [Transport::link_setup_timeout].
+    pub fn new(link_setup_timeout: Duration) -> Self {
         TxCore {
             phase: Phase::Idle,
             output: VecDeque::new(),
@@ -141,7 +138,9 @@ impl TxCore {
             client_version: None,
             frame_accumulation_time: Duration::from_millis(1),
             device_max_message_len: DEFAULT_MAX_MESSAGE_SIZE,
-            link_setup_retries_left: LINK_SETUP_RETRIES,
+            link_setup_timeout,
+            link_setup_deadline: None,
+            link_setup_interval: Duration::ZERO,
             next_link_setup_retry_at: None,
             unflushed_since: None,
             next_ping_at: None,
@@ -235,6 +234,7 @@ impl TxCore {
                 handle,
                 client_version,
                 max_seq,
+                link_setup_timeout_ms,
                 connected_tx,
                 failed_tx,
             } => {
@@ -254,6 +254,9 @@ impl TxCore {
                 }
                 self.exited_tx = failed_tx;
                 self.max_seq = max_seq;
+                if let Some(ms) = link_setup_timeout_ms {
+                    self.link_setup_timeout = Duration::from_millis(ms.get().into());
+                }
                 self.client_version = Some(*client_version.clone());
                 self.phase = Phase::Connecting;
                 self.output.push_back(TxOutput::Connect(handle));
@@ -426,8 +429,10 @@ impl TxCore {
         }
         debug!("transport up");
         self.phase = Phase::GetDeviceInfo;
-        self.link_setup_retries_left = LINK_SETUP_RETRIES;
-        self.next_link_setup_retry_at = Some(now + LINK_SETUP_RETRY_INTERVAL);
+        let pacing = LinkSetupPacing::new(self.link_setup_timeout);
+        self.link_setup_deadline = Some(now + pacing.timeout);
+        self.link_setup_interval = pacing.first_interval();
+        self.next_link_setup_retry_at = Some(now + self.link_setup_interval);
         self.send_get_device_info(now)?;
         Ok(Flow::Continue)
     }
@@ -504,13 +509,20 @@ impl TxCore {
         match self.phase {
             Phase::GetDeviceInfo => {
                 if is_due(self.next_link_setup_retry_at, now) {
-                    if self.link_setup_retries_left > 0 {
+                    let deadline = self.link_setup_deadline.unwrap_or(now);
+                    if now < deadline {
                         warn!("resending GetDeviceInfo after no answer received from device");
-                        self.link_setup_retries_left -= 1;
-                        self.next_link_setup_retry_at = Some(now + LINK_SETUP_RETRY_INTERVAL);
+                        self.link_setup_interval = LinkSetupPacing::new(self.link_setup_timeout)
+                            .next_interval(self.link_setup_interval);
+                        // the last wait ends at the deadline, nothing is re-sent then
+                        self.next_link_setup_retry_at =
+                            Some((now + self.link_setup_interval).min(deadline));
                         self.send_get_device_info(now)?;
                     } else {
-                        error!("exiting, because link setup failed after several retries");
+                        error!(
+                            "exiting, because link setup got no answer within {:?}",
+                            self.link_setup_timeout
+                        );
                         return Err(anyhow!(Error::LinkSetupTimeout));
                     }
                 }
@@ -693,6 +705,7 @@ impl TxCore {
         self.unflushed_since = None;
         self.next_ping_at = None;
         self.next_link_setup_retry_at = None;
+        self.link_setup_deadline = None;
         self.in_flight.clear();
         let waiting = self.waiting_for_seq.drain(..);
         for (_, done_tx, _) in self.held_until_up.drain(..).chain(waiting) {
@@ -714,7 +727,7 @@ mod tests {
 
     #[test]
     fn seq_limited_by_max_seq() {
-        let mut tx = TxCore::new();
+        let mut tx = TxCore::new(Duration::from_secs(1));
         tx.max_seq = 130;
         let seqs: Vec<SeqTy> = (0..130).map(|_| tx.next_seq().unwrap()).collect();
         assert_eq!(seqs, (1..=130).collect::<Vec<_>>());
@@ -722,7 +735,7 @@ mod tests {
         tx.in_flight.remove(&129);
         assert_eq!(tx.next_seq(), Some(129));
 
-        let mut tx = TxCore::new();
+        let mut tx = TxCore::new(Duration::from_secs(1));
         tx.max_seq = 3;
         assert_eq!(
             (0..4).map(|_| tx.next_seq()).collect::<Vec<_>>(),

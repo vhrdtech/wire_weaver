@@ -66,6 +66,10 @@ fn device_info(addr: &str) -> crate::DeviceInfo {
 struct UdpTransport;
 
 impl Transport for UdpTransport {
+    fn link_setup_timeout(&self) -> std::time::Duration {
+        crate::event_loop::transport::link_setup_timeout::UDP
+    }
+
     type Tx = UdpTx;
     type Rx = UdpRx;
 
@@ -206,6 +210,10 @@ mod tests {
     struct To(String);
 
     impl Transport for To {
+        fn link_setup_timeout(&self) -> std::time::Duration {
+            crate::event_loop::transport::link_setup_timeout::IN_PROCESS
+        }
+
         type Tx = UdpTx;
         type Rx = UdpRx;
         async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<UdpTx, UdpRx>, String> {

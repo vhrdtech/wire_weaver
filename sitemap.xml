@@ -10,6 +10,12 @@
         <loc>https://ww.vhrd.tech/api/arrays/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/api/counted_streams/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/api/credit_sinks/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/ecc_flash/</loc>
       </url>
       <url>
@@ -40,6 +46,9 @@
         <loc>https://ww.vhrd.tech/api/settings/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/api/stream_protocol/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/stream_reliability/</loc>
       </url>
       <url>
@@ -47,6 +56,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/api/streams/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/api/trait_attachments/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/api/traits/</loc>
@@ -61,10 +73,16 @@
         <loc>https://ww.vhrd.tech/cli/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/cli_reference/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/dev_tool/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/evolution/checker_tool/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/evolution/crate_layers/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/evolution/rules/</loc>
@@ -86,6 +104,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/python/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/python_advanced/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/serdes/code_size/</loc>
@@ -136,6 +157,9 @@
         <loc>https://ww.vhrd.tech/std_library/ww_can_bus/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_can_bus_reference/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/ww_client_server/</loc>
       </url>
       <url>
@@ -146,6 +170,15 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_dfu/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_dfu_ab/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_dfu_internals/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_dfu_one_slot/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_error/</loc>
@@ -223,10 +256,16 @@
         <loc>https://ww.vhrd.tech/transport/usb/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/transport/usb_internals/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/transport/websocket/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/transport/ww_framer/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/transport/ww_framer_wire/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/transport/ww_link/</loc>

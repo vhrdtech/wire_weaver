@@ -23,7 +23,7 @@ nav = [
             "serdes/derive.md",
             "types.md",
             { "Advanced" = [
-                    "serdes/size_assumptions.md",
+                    { "Size assumptions" = "serdes/size_assumptions.md" },
                     "serdes/derive_reference.md",
                     "serdes/special_types.md",
                     "serdes/layouts.md",

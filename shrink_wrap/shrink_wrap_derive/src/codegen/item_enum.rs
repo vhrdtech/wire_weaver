@@ -3,6 +3,7 @@ use crate::ast::item_enum::{Fields, FutureVersion, Variant};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
 use crate::ast::ty::Type;
+use crate::codegen::item_struct::write_fields;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{
     CratePath, assert_sized_before_tail_size, maybe_quote, rewrite_positional_placeholders,
@@ -556,25 +557,30 @@ impl ToTokens for CGEnumSer<'_> {
                 Fields::Named(fields_named) => {
                     let mut fields_names = vec![];
                     let mut ser = quote!();
-                    for field in fields_named {
-                        let field_name = &field.ident;
-                        let field_path = if matches!(field.ty, Type::IsSome(_) | Type::IsOk(_)) {
-                            FieldPath::Ref(quote! {}) // empty path, because IsSome and IsOk already carry field name
-                        } else if matches!(field.ty, Type::TailSize(_)) {
-                            fields_names.push(quote!(#field_name: _)); // its value is not written, don't bind it
-                            FieldPath::Ref(quote! {})
-                        } else {
-                            fields_names.push(quote!(#field_name)); // do not create a match arm with a flag, because it's not a part of an enum
-                            FieldPath::Ref(quote!(#field_name))
-                        };
-                        // tokens.append_all(trace_extended_key_val(
-                        //     "Serialize named field",
-                        //     field.ident.to_string().as_str(),
-                        // ));
-                        field
-                            .ty
-                            .buf_write(field_path, self.is_ref, quote! { ? }, &mut ser);
-                    }
+                    write_fields(
+                        fields_named,
+                        |f| {
+                            let ident = &f.ident;
+                            quote! { (*#ident) }
+                        },
+                        |field, ser| {
+                            let field_name = &field.ident;
+                            let field_path = if matches!(field.ty, Type::IsSome(_) | Type::IsOk(_))
+                            {
+                                FieldPath::Ref(quote! {}) // empty path, because IsSome and IsOk already carry field name
+                            } else if matches!(field.ty, Type::TailSize(_)) {
+                                fields_names.push(quote!(#field_name: _)); // its value is not written, don't bind it
+                                FieldPath::Ref(quote! {})
+                            } else {
+                                fields_names.push(quote!(#field_name)); // do not create a match arm with a flag, because it's not a part of an enum
+                                FieldPath::Ref(quote!(#field_name))
+                            };
+                            field
+                                .ty
+                                .buf_write(field_path, self.is_ref, quote! { ? }, ser);
+                        },
+                        &mut ser,
+                    );
                     if fields_named
                         .iter()
                         .any(|f| matches!(f.ty, Type::TailSize(_)))

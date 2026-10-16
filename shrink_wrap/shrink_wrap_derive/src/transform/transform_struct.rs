@@ -185,6 +185,33 @@ pub(crate) fn propagate_default_to_flags(fields: &mut [Field]) -> Result<(), Str
     if default_is_not_last {
         return Err("Wrong evolved type order (default is not last)".into());
     }
+    check_omit_if_default(fields)
+}
+
+/// `#[omit_if_default]` fields are the tail of the fields (only a tail can be missing from the data), and their
+/// flags are written next to them, not relocated with `#[flag]`.
+fn check_omit_if_default(fields: &[Field]) -> Result<(), String> {
+    for f in fields {
+        if let Type::IsSome(value) | Type::IsOk(value) = &f.ty
+            && !f.omit_if_default
+            && fields
+                .iter()
+                .any(|v| v.ident == *value && v.omit_if_default)
+        {
+            return Err(format!(
+                "#[omit_if_default] on `{value}`: its flag is relocated with #[flag], it has to be next to it"
+            ));
+        }
+    }
+    if let Some(first) = fields.iter().position(|f| f.omit_if_default)
+        && let Some(f) = fields[first..].iter().find(|f| !f.omit_if_default)
+    {
+        return Err(format!(
+            "#[omit_if_default] on `{}`: `{}` after it must be #[omit_if_default] too, only the last fields can be left \
+             out",
+            fields[first].ident, f.ident
+        ));
+    }
     Ok(())
 }
 
@@ -215,6 +242,26 @@ mod tests {
     fn from_tokens(ts: proc_macro2::TokenStream) -> Result<ItemStruct, String> {
         let item: syn::ItemStruct = syn::parse2(ts).map_err(|e| e.to_string())?;
         ItemStruct::from_syn(&item, false)
+    }
+
+    #[test]
+    fn omit_if_default_is_a_tail_of_fields_with_defaults() {
+        assert!(
+            from_tokens(
+                quote! { struct S { a: u8, #[default = None] #[omit_if_default] b: Option<u8> } }
+            )
+            .is_ok()
+        );
+        let e = from_tokens(quote! { struct S { a: u8, #[omit_if_default] b: Option<u8> } });
+        assert!(e.unwrap_err().contains("with #[default = ..]"));
+        let e = from_tokens(quote! {
+            struct S { #[default = None] #[omit_if_default] a: Option<u8>, #[default = 0] b: u8 }
+        });
+        assert!(e.unwrap_err().contains("must be #[omit_if_default] too"));
+        let e = from_tokens(quote! {
+            struct S { #[flag] b: bool, a: u8, #[default = None] #[omit_if_default] b: Option<u8> }
+        });
+        assert!(e.unwrap_err().contains("relocated with #[flag]"));
     }
 
     #[test]

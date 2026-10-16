@@ -4,7 +4,7 @@ use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_flag_attr,
-    take_id_attr, take_since_attr,
+    take_flag_like_attr, take_id_attr, take_since_attr,
 };
 use crate::transform::transform_ty::transform_type;
 use proc_macro2::{Ident, Span};
@@ -82,10 +82,17 @@ pub(crate) fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
     for (idx, f) in fields.iter().enumerate() {
         let is_flag_ty = matches!(f.ty, Type::Result(_, _) | Type::Option(_, _));
         if is_flag_ty && !explicit_flags.iter().any(|i| i == &f.ident) {
-            fields_without_flags.push((idx, matches!(f.ty, Type::Result(_, _)), f.ident.clone()));
+            fields_without_flags.push((
+                idx,
+                matches!(f.ty, Type::Result(_, _)),
+                f.ident.clone(),
+                f.omit_if_default,
+            ));
         }
     }
-    for (shift, (pos, is_result, ident)) in fields_without_flags.into_iter().enumerate() {
+    for (shift, (pos, is_result, ident, omit_if_default)) in
+        fields_without_flags.into_iter().enumerate()
+    {
         let flag_ident = Ident::new(format!("_{}_flag", ident).as_str(), ident.span());
         let flag = Field {
             docs: Docs::empty(),
@@ -98,6 +105,7 @@ pub(crate) fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
             },
             _since: None,
             default: None,
+            omit_if_default,
         };
         fields.insert(pos + shift, flag);
     }
@@ -267,6 +275,17 @@ pub(crate) fn transform_field(
     let ty = transform_type(field.ty, Some(&mut field.attrs), &path)?;
     let default = take_default_attr(&mut field.attrs)?;
     let flag = take_flag_attr(&mut field.attrs);
+    let omit_if_default = take_flag_like_attr(&mut field.attrs, "omit_if_default");
+    if omit_if_default && default.is_none() {
+        return Err(format!(
+            "#[omit_if_default] on `{ident}`: only a field added later, with #[default = ..], can be left out"
+        ));
+    }
+    if omit_if_default && flag.is_some() {
+        return Err(format!(
+            "#[omit_if_default] on `{ident}`: not on a #[flag] field"
+        ));
+    }
     let id = take_id_attr(&mut field.attrs).unwrap_or(def_order_idx);
     let docs = collect_docs_attrs(&mut field.attrs);
     collect_unknown_attributes(&mut field.attrs);
@@ -293,6 +312,7 @@ pub(crate) fn transform_field(
                 ty: Type::IsOk(result_ident),
                 _since: None,
                 default,
+                omit_if_default: false,
             },
             true,
         ))
@@ -305,6 +325,7 @@ pub(crate) fn transform_field(
                 ty,
                 _since: take_since_attr(&mut field.attrs)?,
                 default,
+                omit_if_default,
             },
             false,
         ))

@@ -1,24 +1,32 @@
+---
+level: basic
+---
+
 # Folder structure
 
-Intended crate organisation is as follows:
+An API is shared by the device and every host program that talks to it, so it lives in a crate of its own:
 
 ![API crates diagram](../assets/api_crates.svg)
 
-* `my_device_api` crate - contains user-defined types and resources, common to firmware, and it's driver (server and
-  client).
-  This crate must support `no_std` and optionally `std`.
-* MCU firmware depends on the API crate, uses common data types and implements a server. WireWeaver generates
-  serdes and dispatch code, while user provides actual implementation.
-* Rust driver also depends on the API crate (optionally with std feature). WireWeaver generates serdes and client side
-  code, user can optionally provide a higher-level client implementation on top of the generated one.
-* CLI, GUI and other applications depend on the Rust driver crate in order to communicate with the device.
-* TODO: Python wrapper is also automatically generated and uses Rust driver code.
+- **`my_device_api`**: the API trait and its data types, nothing else. Used by the firmware and the host, so it must
+  build for `no_std`, with an optional `std` feature for owned types (see `examples/blinky_api`).
+- **Firmware**: depends on the API crate and implements the server. WireWeaver generates the serdes and dispatch
+  code, the firmware writes the handlers (see `examples_mcu/`).
+- **Rust driver** (`my_device`): depends on the API crate with `std`. WireWeaver generates the client; a
+  hand-written, higher-level driver can sit on top of it (see `examples/blinky`).
+- **Applications**: CLIs, GUIs, test benches and scripts depend on the Rust driver. A typed Python package wraps the
+  Rust driver with PyO3 (see `examples/blinky_py`); for quick scripts without generated code, the
+  [Python](../python.md) module and the [`ww` CLI](../cli.md) build the API at runtime from what the device sends.
 
-Name of the API crate (from Cargo.toml) is assumed to be a globally unique identifier (see `ww_version::FullVersion`),
-hence it is advised to eventually publish it to crates.io if you are working on an open-source project or ensure to use
-unique enough name for internal use.
+The [wire_weaver_template](https://github.com/vhrdtech/wire_weaver_template) repository has this shape ready to copy.
 
-Version of the API crate is used for compatibility checks upon connection to the device. You can use it in your
-code as well, to show proper messages to user when interacting with an older or newer firmware from the perspective of
-the
-driver. Normal [SemVer rules](https://semver.org) apply.
+## The API crate's name and version
+
+The name of the API crate (from `Cargo.toml`) identifies the API worldwide (it goes into `ww_version::FullVersion`,
+the generated `<ROOT_TRAIT>_FULL_GID` constant), so publish it to crates.io for an open-source project, or pick a
+name unique enough for internal use.
+
+Its version is checked on every connection: a host and a device with compatible versions talk, others are told
+apart before the first call, and your code can read the device's version to show a proper message when it meets an
+older or newer firmware. Normal [SemVer rules](https://semver.org) apply, what counts as a breaking change is in the
+[evolution rules](../evolution/rules.md). More in [Versioning](versioning.md).

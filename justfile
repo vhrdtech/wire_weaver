@@ -10,7 +10,7 @@ test:
 test-power-cut:
     cargo nextest run -p ww_settings --release --profile power-cut --test power_cut
 
-# Regenerate the ww_dfu scenario transcripts (tests/dfu_scenarios/transcripts, included by docs/std_library/ww_dfu.md)
+# Regenerate the ww_dfu scenario transcripts (tests/dfu_scenarios/transcripts, included by docs/std_library/ww_dfu_ab.md and ww_dfu_one_slot.md)
 dfu-transcripts:
     DFU_TRANSCRIPTS=update cargo nextest run -p dfu_scenarios
 

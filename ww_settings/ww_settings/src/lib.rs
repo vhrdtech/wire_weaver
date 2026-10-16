@@ -10,7 +10,7 @@
 //!   per group, a small log that survives a power cut at any point.
 //! - [record]: the stored format.
 //!
-//! See `docs/std_library/ww_settings.md` for how many pages to give it, what an erase stalls on STM32G0 / F4 / H7,
+//! See `docs/api/settings.md` for how many pages to give it, what an erase stalls on STM32G0 / F4 / H7,
 //! and how fields may change between firmware versions.
 //!
 //! ```

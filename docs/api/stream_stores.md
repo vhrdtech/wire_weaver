@@ -1,9 +1,13 @@
+---
+level: advanced
+---
+
 # Stream stores
 
 A reliable stream ([Stream delivery](stream_reliability.md)) keeps every event it sends until the host acknowledges
 it, so it can send it again after a loss and send the backlog after a reconnect. Where these events are kept is a
 **store**, a `ww_stream::store::StreamStore` the device picks for each stream: it is the `S` of the stream's
-`ww_stream::tx::Reliable<S>` state ([Reliable streams](streams.md#reliable-streams)). The API doesn't change with the
+`ww_stream::tx::Reliable<S>` state ([Reliable streams](counted_streams.md#reliable-streams)). The API doesn't change with the
 store: the same stream can keep 256 KB in RAM on one device and 32 GB on an SD card on another.
 
 | Store | Where | Survives | Feature |

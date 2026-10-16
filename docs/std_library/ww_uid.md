@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # ww_uid
 
 `ww_uid` lists the unique ids of a unit: a chip's factory id, a MAC address, an EUI-64. One trait implemented once

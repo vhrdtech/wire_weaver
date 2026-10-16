@@ -111,7 +111,8 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
   Prefer reusing/extending one of these over inventing a project-local equivalent.
 - **`ww_self/`**, **`ww_global/`** — framework-level base types that live in this repo, not in `ww_stdlib`:
   `ww_self` is the API model AST used for introspection and API snapshots, `ww_global` is the global type ID
-  registry. Versioned like API crates (own version, the version is the identity, see `docs/evolution/rules.md`).
+  registry. Versioned like API crates (own version, the version is the identity, see
+  `docs/evolution/crate_layers.md`).
 - **`wire_weaver_snapshots/`** — API snapshots (`api_snapshots/*.ron`, saved by `ww api save`) of `ww_global` and
   `ww_stdlib/*`, copied in and embedded. Codegen leaves traits and types known from them out of the introspection
   data a device sends, `wire_weaver_client` puts them back. After changing any trait or type in those crates, run
@@ -180,9 +181,9 @@ crate itself (e.g. `ww_client_server`) participates in that same compatibility s
 for why the API crate's own name+version acts as a global identifier). Run the evolution checker
 (`docs/evolution/checker_tool.md`) rather than eyeballing compatibility when in doubt.
 
-**Before making any breaking change — wire or Rust API, in any crate — read `docs/evolution/rules.md`** and follow
-it. It explains the crate layers (`shrink_wrap` → `ww_stdlib` → framework → user API), why a `shrink_wrap` break
-cascades to every other crate, which framework code is actually wire-defining (`ww_framer`, `ww_link`,
+**Before making any breaking change — wire or Rust API, in any crate — read `docs/evolution/rules.md` and
+`docs/evolution/crate_layers.md`** and follow them. They explain the crate layers (`shrink_wrap` → `ww_stdlib` →
+framework → user API), why a `shrink_wrap` break cascades to every other crate, which framework code is actually wire-defining (`ww_framer`, `ww_link`,
 `ww_client_server`, server/client codegen), and which version position to bump. Tell the user explicitly when a change
 breaks the wire, and which deployed devices/hosts it affects.
 
@@ -229,7 +230,7 @@ not where individual changes go. When a version is released, add a short summary
 the per-crate changelogs. `cliff.toml` is not used to generate it, don't run `git cliff -o` over it.
 
 Every change to a crate also bumps its **minor** version (`0.4.0` → `0.5.0`; pre-1.0, minor is the SemVer-breaking
-position, so don't try to decide whether a patch bump would do). Exceptions, see `docs/evolution/rules.md`: purely
+position, so don't try to decide whether a patch bump would do). Exceptions, see `docs/evolution/crate_layers.md`: purely
 additive changes to `shrink_wrap`/`shrink_wrap_derive` and wire-compatible additions to API crates (`ww_stdlib/*`,
 `*_api`) bump **patch**, so the rest of the ecosystem doesn't have to be re-released and old devices still connect. Bump once per release cycle: if the crate's version
 is already above its latest crates.io release (check with `cargo info --registry crates-io <crate>`; plain

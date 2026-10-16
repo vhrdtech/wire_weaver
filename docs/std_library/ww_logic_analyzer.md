@@ -1,6 +1,10 @@
+---
+level: advanced
+---
+
 # ww_logic_analyzer
 
-`ww_logic_analyzer` is a global WireWeaver trait family for timestamped capture of many digital channels on one
+Part of the [IO trait family](io_family.md). `ww_logic_analyzer` is a global WireWeaver trait family for timestamped capture of many digital channels on one
 common time base: an MCU with a DMA-able GPIO port or a PIO, up to a dedicated analyzer. It is `no_std` by default
 and depends on `wire_weaver`, `ww_si` (`Hertz`/`Second`/`Volt`), `ww_gpio` (`Level`) and `ww_i2c` (`I2cAddress`, for
 a protocol trigger stage).

@@ -1,3 +1,7 @@
+---
+level: nomicon
+---
+
 # ww_self
 
 `ww_self` is WireWeaver's own AST: a self-describing model of an API (its traits, methods, properties, streams)

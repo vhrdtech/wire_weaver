@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # Properties
 
 A property is a value of the device the host reads, writes or both: a setting, a measured state, a mode.

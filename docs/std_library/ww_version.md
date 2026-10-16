@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # ww_version
 
 `ww_version` is SemVer for `no_std` targets: a nibble-packed `Version`/`FullVersion` pair that compiles into every

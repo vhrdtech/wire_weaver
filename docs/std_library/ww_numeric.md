@@ -1,4 +1,12 @@
+---
+level: advanced
+---
+
 # ww_numeric
+
+`ww_numeric` holds a number of any type in one value, `NumericValue`: the storage of every [`ww_si`](ww_si.md)
+quantity, so the API fixes the unit and each device picks the number type (a `u16` of mV, an `f32` of V).
+`NumericBaseType` and `NumericAnyType` describe a number type without a value, for capabilities and introspection.
 
 ## Number types as features
 

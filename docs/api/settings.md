@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # Settings store
 
 `ww_settings` (STD-32) keeps a device's settings in its own NOR flash: a plain struct with a default for every

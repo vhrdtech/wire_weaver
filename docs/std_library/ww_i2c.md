@@ -1,6 +1,10 @@
+---
+level: advanced
+---
+
 # ww_i2c
 
-`ww_i2c` is a global WireWeaver trait family for an I2C bus reachable through a device: a USB adapter, a dev board,
+Part of the [IO trait family](io_family.md). `ww_i2c` is a global WireWeaver trait family for an I2C bus reachable through a device: a USB adapter, a dev board,
 or an instrument. A host can configure the bus, run write/read/transaction calls against a slave address, scan the
 bus, see and recover stuck lines, let the device poll a few registers on its own ([`I2cWatch`](#i2cwatch)), or watch
 every transaction on the bus without taking part in it ([`I2cMonitor`](#i2cmonitor)). It is `no_std` by default and
@@ -37,7 +41,7 @@ trait MyAdapter {
 ### `I2c`
 
 The most common call of a register-based sensor driver is a write-read: `i2c_read` with
-[`I2cReadKind::RepeatedStart`](#i2creadkind) (register address out, data in, one transaction). Several calls in one
+[`I2cReadKind::RepeatedStart`](#types) (register address out, data in, one transaction). Several calls in one
 round trip are a multi-call of the client, not a method here - use `i2c_transaction` when the device itself must do
 several operations without releasing the bus in between (repeated starts).
 
@@ -45,17 +49,17 @@ several operations without releasing the bus in between (repeated starts).
 #[ww_trait]
 pub trait I2c {
     fn i2c_capabilities() -> I2cCapabilities<'i>;
-    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError>;
+    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError<'i>>;
     fn i2c_write(addr: I2cAddress, data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>, delay_after: Option<Second>)
-        -> Result<I2cTransactionTimeRange, I2cError>;
+        -> Result<I2cTransactionTimeRange, I2cError<'i>>;
     fn i2c_read(addr: I2cAddress, kind: I2cReadKind<'i>, len: u16, delay_after: Option<Second>)
-        -> Result<I2cReadEnvelope<'i>, I2cError>;
-    fn i2c_scan() -> Result<MaxLen<RefVec<'i, u8>, MAX_SCAN>, I2cError>;
+        -> Result<I2cReadEnvelope<'i>, I2cError<'i>>;
+    fn i2c_scan() -> Result<MaxLen<RefVec<'i, u8>, MAX_SCAN>, I2cError<'i>>;
     fn i2c_transaction(addr: I2cAddress, ops: MaxLen<RefVec<'i, I2cOp<'i>>, MAX_OPS>)
-        -> Result<I2cTransactionResult<'i>, I2cError>;
+        -> Result<I2cTransactionResult<'i>, I2cError<'i>>;
     fn i2c_lines_state() -> I2cLinesState;
-    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError>;
-    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError>;
+    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError<'i>>;
+    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError<'i>>;
     fn i2c_pullups() -> bool;
 }
 ```
@@ -68,10 +72,10 @@ pub trait I2c {
 * `i2c_write` - start, address, data, stop; `delay_after` makes the next transfer to the *same* address wait (an
   EEPROM page write needs ~5 ms) while transfers to other addresses go ahead meanwhile.
 * `i2c_read` - plain read, or a register read (write a few bytes, repeated start, read) through
-  [`I2cReadKind`](#i2creadkind).
+  [`I2cReadKind`](#types).
 * `i2c_scan` - 7-bit addresses that acknowledged a one-byte read, ascending, skipping the reserved ranges
   (`0x00..=0x07`, `0x78..=0x7F`).
-* `i2c_transaction` - several [`I2cOp`](#i2cop) writes/reads to one address with repeated starts in between and one
+* `i2c_transaction` - several [`I2cOp`](#types) writes/reads to one address with repeated starts in between and one
   stop at the end, like `embedded_hal::i2c::I2c::transaction`; the bytes of all reads come back concatenated, in
   order.
 * `i2c_lines_state` - levels of SCL and SDA now; both high on an idle bus, a line held low means a slave stuck
@@ -95,9 +99,9 @@ pub trait I2cWatch {
     #[counted]
     stream!(changes: I2cWatchEvent<'i>);
     fn watch_capabilities() -> I2cWatchCapabilities;
-    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u32, I2cError>;
-    fn watch_modify(slot: u32, watch: I2cWatchConfig<'i>) -> Result<(), I2cError>;
-    fn watch_remove(slot: u32) -> Result<(), I2cError>;
+    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u32, I2cError<'i>>;
+    fn watch_modify(slot: u32, watch: I2cWatchConfig<'i>) -> Result<(), I2cError<'i>>;
+    fn watch_remove(slot: u32) -> Result<(), I2cError<'i>>;
     fn watch_list() -> MaxLen<RefVec<'i, u32>, MAX_WATCHES>;
 }
 ```
@@ -133,7 +137,7 @@ too), for devices that only sniff and implement no `I2c`.
 #[ww_trait]
 pub trait I2cMonitor {
     #[stream(I2cRecord<'i>, counted)]
-    fn records(io_level: Option<Volt>) -> Result<(), I2cError>;
+    fn records(io_level: Option<Volt>) -> Result<(), I2cError<'i>>;
 }
 ```
 

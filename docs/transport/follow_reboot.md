@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # Following a reboot: RP2350 BOOTSEL
 
 A device that updates in place can leave the job to the chip's boot ROM: the app reboots into the ROM bootloader,
@@ -82,8 +86,14 @@ number is enough when only one device matches; `--wait` and `--follow` need the 
 other than `.uf2`) is written at `--addr`, `0x10000000` by default. On Linux the boot ROM (`2e8a:000f`) needs a udev
 rule for access without root, as picotool does.
 
-Asking the app to reboot from the CLI needs calls to `ww_dfu::BootControl` on any device, whatever its API version:
-CLT-10 and API-20 (the rePort design's WW-2). Until then the host program that knows the device's API does it.
+The app is asked to reboot into BOOTSEL with [`ww dfu reboot`](../cli_reference.md#ww-dfu), which calls
+`ww_dfu::BootControl` on any device that implements it, whatever its API and version (a global trait path, API-20 and
+CLT-10):
+
+```sh
+ww dfu reboot -s E661640843522C2F                 # app -> BOOTSEL
+ww bootsel flash app.uf2 -s E661640843522C2F --wait 10 --follow
+```
 
 ## Tests without hardware
 

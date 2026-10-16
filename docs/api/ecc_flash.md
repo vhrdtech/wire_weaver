@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # ECC-safe flash for stores
 
 Stores in the MCU's own flash (settings, logs, a sequential-storage map) are written for power cuts: a record cut

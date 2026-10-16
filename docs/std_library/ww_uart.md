@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # ww_uart
 
 Part of the [IO trait family](io_family.md). `ww_uart` is a WireWeaver trait for bridging a UART (serial port) to
@@ -50,7 +54,7 @@ pub trait Uart {
   byte, so the event head carries each chunk's byte position, the device time of its first byte, and exactly how
   many bytes the device dropped before it ([stream delivery](../api/stream_reliability.md)); the chunk itself says
   when its last byte arrived, if the device measures it ([Time](#time) below).
-* `tx` - bytes to send, a [credit sink](../api/streams.md) (API-28): the host tracks the device's TX buffer
+* `tx` - bytes to send, a [credit sink](../api/credit_sinks.md) (API-28): the host tracks the device's TX buffer
   (`Capabilities::tx_buffer`) and never sends more than it holds, so a large write (e.g. a file piped to the UART)
   can't overrun it.
 * `capabilities()` - what this device supports: baud rate range, flow control modes, IO levels, buffer sizes.

@@ -1,46 +1,36 @@
+---
+level: nomicon
+---
+
 # Resources addressing
 
-Primary mode of addressing to uniquely identify a resource (method, property, stream or trait) is an array of indices,
-starting from an API root.
-It is the most efficient way as well, utilising UNib32 variable length numbers based on nibbles
-(e.g., `[0, 1, 2]` is only 2 bytes, including array length).
-
-For example, `turn_on` address is `[0]` and `turn_off` is `[1]`.
+Every resource (method, property, stream, sink or trait) is reached by its **path**: an array of indices from the API
+root, each a `UNib32` (4 bits for `0..=7`). `[0, 1, 2]` takes 2 bytes, its length included. As a user you never
+write these indices: they are assigned in declaration order, and generated code uses the names.
 
 ```rust
-#[ww_trait]
+#[ww_api_root]
 trait ApiRoot {
-    fn turn_on();
-    fn turn_off();
+    fn turn_on();               // [0]
+    fn turn_off();              // [1]
+    ww_impl!(motor: Motor);     // [2, ..]
+    ww_impl!(port[]: Port);     // [3, <index>, ..]
 }
 ```
 
-As a user, you do not have to worry about these indices, as they are automatically assigned and actual names are used in
-generated code.
+A nested trait adds one index for its own items, an array one more for the selected index; with several arrays on
+the way, each puts its index at its place in the path, and the server's handler gets them all as its index chain.
 
-When a resource is an array, one more index is added, selecting the required one. On the server code side this index is
-passed as an additional argument to user handler function.
-
-There could be multiple arrays on the way to a resource (e.g., array of trait implementations and then an array of
-resources
-inside said trait). Multiple indices are added in the appropriate positions in this case.
-
-Using this scheme requires knowing exactly which API and it's exact version that peer implements.
-When this is not possible or not desired (e.g., if addressing multiple nodes at the same time) - trait addressing can be
-used.
+A path only means something for one API and version, so it needs the host to know the device's API. When that is not
+possible or not wanted (calling a reusable trait on any device, or on many devices at once), a request names the
+trait instead.
 
 ## Global trait addressing (FullVersion)
 
-There is a possibility to make API calls on "ww-traits", without knowing the exact resource address. For example one
-could
-make a "sleep" call on all devices in a CAN Bus network, that support "PowerManagement" trait. Or "get_fw_version" on
-any device
-supporting "FirmwareInfo" trait. In order to do so, instead of relying on resource address, `FullVersion` is sent
-instead.
-
-Compared to resource addresses that can only take a few bytes, `FullVersion` is likely
-to take about 8-16 bytes or more and vary with the crate name. This is unfortunate for constrained systems, or if one
-wants to pack many calls into one packet.
+A request can call a reusable trait without knowing where it sits: put a device to sleep through its power management
+trait, or read the firmware version of any device with `ww_firmware_info`. Instead of an absolute path, it carries
+the trait's crate name and version (`FullVersion`). That takes 8 to 16 bytes or more, depending on the crate name,
+where a path takes a few: costly on a constrained link, or when many calls share one packet.
 
 The request carries the trait's crate name and version (`FullVersion`), the trait's name in that crate (a crate can
 define several, `ww_dfu` has five) and the path from the trait's root. The server finds the trait wherever it sits in
@@ -67,15 +57,13 @@ could mean anything. `ww dfu reboot` in the [CLI](../cli.md) does exactly this.
 
 ## Global trait addressing (CompactVersion)
 
-Solution to this is `CompactVersion`, which carries globally unique type id and major.minor version components only, all
-UNib32 encoded.
-The only downside is that guaranteeing globally unique IDs is not as simple as using crate's name anymore. IDs are
-manually assigned and tracked via git instead
-in [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).
+`CompactVersion` is the short form: a globally unique type id and the version numbers, all `UNib32`. Unique ids
+can't come from crate names, so they are assigned by hand and tracked in git, in the
+[ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).
 
 Servers don't serve compact trait paths yet (`ErrorKind::TraitNotFound`): compact ids of traits are not in the API
 model, and none is assigned so far (API-20).
 
 ## API report
 
-TODO: export a file describing all levels of API with IDs
+TODO: export a file describing all levels of API with IDs (DOC-5).

@@ -1,6 +1,10 @@
+---
+level: advanced
+---
+
 # ww_signal_generator
 
-`ww_signal_generator` is a global WireWeaver trait family for driving outputs: digital patterns on many pins at a
+Part of the [IO trait family](io_family.md). `ww_signal_generator` is a global WireWeaver trait family for driving outputs: digital patterns on many pins at a
 fixed rate, and analog waveforms on DACs. It is `no_std` by default and depends on `wire_weaver`, `ww_si`
 (`Hertz`/`Second`/`Volt`), `ww_logic_analyzer` (reuses its chunk encodings and `Edge`) and `ww_adc` (reuses
 `SampleFormat` and `Linear` for DAC tables).

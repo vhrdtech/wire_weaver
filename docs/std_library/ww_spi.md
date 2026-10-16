@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # ww_spi
 
 Part of the [IO trait family](io_family.md). `ww_spi` is a global WireWeaver trait for talking to the SPI devices

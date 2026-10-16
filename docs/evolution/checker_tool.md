@@ -1,6 +1,10 @@
+---
+level: basic
+---
+
 # Evolution checker
 
-`ww api check <path>` compares the traits and types of a crate with the latest [snapshot](../cli.md#ww-api) saved in
+`ww api check <path>` compares the traits and types of a crate with the latest [snapshot](../cli_reference.md#ww-api) saved in
 `<path>/api_snapshots/`, and fails if the crate version is not bumped enough for what changed, following the
 [evolution rules](rules.md). The crate is parsed from source, same as for `ww api save`, so nothing has to be built.
 
@@ -9,6 +13,13 @@ $ ww api check ww_stdlib/ww_uart
 ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -> 0.1.1 (source): compatible changes
   compatible: Uart::flush added
 version is bumped enough
+```
+
+To start, save a snapshot of each released version and commit it, then check before every release:
+
+```
+$ ww api save my_device_api     # once per released version, commit api_snapshots/
+$ ww api check my_device_api    # after changing the crate and bumping its version
 ```
 
 The snapshot used is the newest one of the same crate with a version not newer than the one in `Cargo.toml`, so it is
@@ -145,7 +156,7 @@ reading as zero from old data. The client uses the same rules when comparing its
 
 * Snapshots of all published versions have to be kept in `api_snapshots/`, the checker can only see what is saved
   there. A crate without snapshots is not checked.
-* Only traits and types that `ww api save` finds are checked (see [ww api](../cli.md#ww-api)).
+* Only traits and types that `ww api save` finds are checked (see [ww api](../cli_reference.md#ww-api)).
 * Semantic changes that keep the same bytes, like changing units or the meaning of a value, can't be detected.
 * Padding bits are only reused when that works for every bit offset a type can start at, even if in all of its actual
   uses it's always at the same offset.

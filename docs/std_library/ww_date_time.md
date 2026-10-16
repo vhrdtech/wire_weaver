@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # ww_date_time
 
 `ww_date_time` gives device APIs a compact ISO 8601 date and time, nibble-packed instead of a fixed-width

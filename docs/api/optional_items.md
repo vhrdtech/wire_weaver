@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # Optional items
 
 A method, property or stream of a trait can be marked optional. A device's server may then leave it out when it is

@@ -1,5 +1,6 @@
 ---
 icon: lucide/list-checks
+level: basic
 ---
 
 <!-- Generated from FEATURES.md by `just features-page` (tests/features_page), don't edit by hand. -->

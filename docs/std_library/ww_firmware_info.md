@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # ww_firmware_info
 
 `ww_firmware_info` answers two questions about any device: **which firmware is this** (`FirmwareInfo`) and **why did

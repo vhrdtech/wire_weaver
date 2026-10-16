@@ -1,9 +1,13 @@
+---
+level: basic
+---
+
 # Device contract
 
 Six `ww_stdlib` crates that every device implements, whatever it does. Together they answer what a host, a tester's
 bug report or a production line asks of any unit: *what firmware is this and where is its ELF, what board, which
-unit, what has it counted, what did it log, and why did it last reset.* One host tool, [`ww info`](../cli.md#ww-info)
-and [`ww report`](../cli.md#ww-report), asks the same questions of every device, because all of them implement the
+unit, what has it counted, what did it log, and why did it last reset.* One host tool, [`ww info`](../cli_reference.md#ww-info)
+and [`ww report`](../cli_reference.md#ww-report), asks the same questions of every device, because all of them implement the
 same global traits.
 
 | Question | Crate | Trait | What `ww` shows |

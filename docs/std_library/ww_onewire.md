@@ -1,6 +1,10 @@
+---
+level: advanced
+---
+
 # ww_onewire
 
-`ww_onewire` is a global WireWeaver trait for 1-Wire masters: reset the bus, find the devices on it (paged or
+Part of the [IO trait family](io_family.md). `ww_onewire` is a global WireWeaver trait for 1-Wire masters: reset the bus, find the devices on it (paged or
 bit-level search), and run addressed transactions, with strong pull-up for parasite-powered parts. It is `no_std`
 by default and depends only on `wire_weaver` and `ww_si` (for the `Second` type `OneWireTransaction::strong_pullup`
 uses as a duration).

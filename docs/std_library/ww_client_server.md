@@ -1,3 +1,7 @@
+---
+level: nomicon
+---
+
 # ww_client_server
 
 `ww_client_server` is the wire protocol every generated server and client speaks underneath a device's own API -
@@ -65,7 +69,7 @@ the value up front and calling `.to_ww_bytes()`.
 * `StreamHead` - per-event head of an `EventKind::StreamItem`: `pos`/`units` (where the event's units sit in the
   stream, up to `MAX_POS` = 2⁵⁷-1), `lost` (units the device dropped right before it), `t: Option<Second>` (device
   time), `ext: Option<HeadExt>` (rare markers, evolvable). `end()`/`after_previous()`/`lost_units()` are small
-  helpers over these positions. See [stream delivery](../api/stream_reliability.md#head-on-the-wire) for how a
+  helpers over these positions. See [stream protocol](../api/stream_protocol.md#head-on-the-wire) for how a
   host turns a sequence of heads into "what did I just lose".
 * `StreamCursor` - `session` / `pos`: a point in a stream session, kept by the host and passed back in
   `RequestKind::StreamOpen` to resume after a reconnect.
@@ -100,7 +104,7 @@ Old hosts never send `Observe`, so they never receive a `PropertyUpdate`. A devi
 
 ## Credit-based flow control for sinks (`credit` module)
 
-`SinkCredit` is the sans-IO device-side state machine behind a `#[credit] sink!(..)` ([credit sinks](../api/streams.md#credit-based-flow-control-for-sinks)):
+`SinkCredit` is the sans-IO device-side state machine behind a `#[credit] sink!(..)` ([credit sinks](../api/credit_sinks.md#credit-sinks)):
 generated code feeds it every write's byte position and length via `on_write` (returning a `CreditVerdict`:
 `Accept`, `Duplicate`, or `Gap` with an optional `Resend` to send), and user code only sets its capacity and calls
 `free(len)` as it consumes accepted bytes. `take_credit()` returns a `StreamSideband::Credit` to send once enough

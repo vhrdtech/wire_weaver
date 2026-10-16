@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # ww_error
 
 Errors every API can return (STD-16): `Unsupported`, `InUse`, `Busy`, ... look the same in every crate, generic host

@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # ww_indication
 
 Device indication control (STD-28): one global mode every indicator (LED, buzzer, ...) follows.

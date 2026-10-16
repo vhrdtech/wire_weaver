@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # ww_si
 
 `ww_si` gives device APIs typed physical values: a quantity is an SI [prefix](#prefixes) plus a `ww_numeric`

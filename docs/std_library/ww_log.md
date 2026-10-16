@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # ww_log
 
 `ww_log` is the log of a device: its `defmt` frames, decoded on the host with the firmware's ELF (`LogDefmt`), or

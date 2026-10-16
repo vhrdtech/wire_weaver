@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # Errors
 
 A call to a device can fail in three different ways, and WireWeaver keeps them apart all the way to your code:
@@ -240,34 +244,15 @@ that lacks them leaves them out at code generation, paying neither a dispatch en
 ```rust
 #[ww_trait]
 pub trait I2c {
-    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError<'i>>;
     /// Clocks SCL until SDA is released, then a stop.
     #[optional]
     fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError<'i>>;
-    /// Switchable pull-ups: both items or neither.
-    #[optional(pullups)]
-    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError<'i>>;
-    #[optional(pullups)]
-    property!(ro i2c_pullups: bool);
 }
 
-// a device without them
-ww_codegen!(board_api::Board for Server, server = true, omit = ["i2c.i2c_wiggle_clock", "i2c.pullups"]);
+// a device without it
+ww_codegen!(board_api::Board for Server, server = true, omit = ["i2c.i2c_wiggle_clock"]);
 ```
 
-- Only items marked `#[optional]` can be left out; `#[optional(group)]` names items that go together. Paths start at
-  the API root and skip array indices.
-- `omit_if(not(feature = "pullups")) = ["i2c.pullups"]` ties optional items to the device crate's cargo features.
-- An omitted item keeps its index. Called anyway, it answers `Unimplemented`.
-- The device's introspection lists what it left out, so clients fail such calls locally without a round trip, and
-  the `ww` CLI and Python mark them "left out by this device".
-- `ww api scaffold --omit ..` generates the server without those stubs.
-
-Leaving an item out saves its dispatch arm, argument decoding and handler, about 100 bytes of code each on a
-Cortex-M. [Optional items](optional_items.md) has the details: paths, `omit_if` and introspection, measured
-code size.
-
-**Optional item or a trait of its own?** Make an item optional when it is one of a few things within the trait's
-subject that some hardware lacks: a clock wiggle, switchable pull-ups, a hardware CRC. Make it a trait when it has
-state, configuration or streams of its own (a bus monitor, ADC capture), when a different set of devices implements
-it, or when it would be four optional items or more.
+Called anyway, an omitted item answers `Unimplemented`, and a client with the device's introspection data fails the
+call locally, without a round trip. [Optional items](optional_items.md) has the details: groups, `omit_if`, what
+clients see, measured code size, and when to make a trait of its own instead.

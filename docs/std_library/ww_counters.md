@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # ww_counters
 
 `ww_counters` carries a device's [`cnt`](https://crates.io/crates/cnt) counters over WireWeaver: the same counters
@@ -107,7 +111,7 @@ $ ww counters tui --serial 4B333720
 Using ELF target/thumbv8m.main-none-eabihf/release/usb_io_fw
 ```
 
-[`ww counters`](../cli.md#ww-counters) reads `INFO`, finds the ELF with the device's build id and shows the counters
+[`ww counters`](../cli_reference.md#ww-counters) reads `INFO`, finds the ELF with the device's build id and shows the counters
 with the views of `cnt` (crate `cnt_view`): `read` (default), `watch`, `tui`, `reset`, `info`, `--format json|jsonl`.
 It works with any device implementing `Counters` anywhere in its API, through a
 [global trait path](../api/addressing.md).

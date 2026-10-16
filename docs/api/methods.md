@@ -1,6 +1,11 @@
+---
+level: basic
+---
+
 # Methods
 
-Methods can be defined as follows:
+A method is a call into the device: the host sends the arguments, the device runs a handler and answers with the
+return value.
 
 ```rust
 #[ww_trait]
@@ -28,8 +33,9 @@ pub struct UserType<'i> {
 }
 ```
 
-Any number of arguments are supported, and they can be of any type supported
-by [ShrinkWrap](https://crates.io/crates/shrink_wrap).
+Any number of arguments are supported, of any [`shrink_wrap`](../serdes/shrink_wrap.md) type. Arguments evolve like
+struct fields, e.g. an `Option<T>` argument can be appended later (see [evolution rules](../evolution/rules.md)). A method
+that can fail returns `Result<T, E>`, see [Errors](errors.md).
 
 ## Server side
 
@@ -138,9 +144,12 @@ A deferred method on a nested level (`ww_impl!(plug: Plug)`) uses the prefixed n
 resource array level the handler gets the index chain, the helper does not need it (`seq` identifies the call).
 A deferred call that is never answered times out on the client.
 
-### Resource names mapping
+### Handler names
 
-In order to avoid complex shared data structures and allocation on `no_std`, all API levels are squished into one.
+To avoid shared data structures and allocation on `no_std`, all API levels are flattened into one: every handler is
+a method of the one server struct, and handlers of nested traits carry the trait item chain as a prefix
+(`ww_impl!(plug: Plug)` with `fn vbus_cycle()` is `plug_vbus_cycle`). Items in arrays get their index chain after
+`cx`, see [Arrays](arrays.md).
 
 ## Client side
 

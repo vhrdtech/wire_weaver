@@ -1,53 +1,60 @@
+---
+level: advanced
+---
+
 # Arrays
 
-Any resource can also be an array - method, property, stream and even a trait implementation:
+A property, stream, sink or trait can be an array of resources, written with `[]` after its name:
 
 ```rust
 #[ww_trait]
-trait ArrayOf {
-    fn run<N: u32>();
+trait Board {
     stream!(adc[]: u16);
-    property!(led[]: bool);
-    ww_impl!(motor[]: ww_motor_control "0.1.0" :: Motor);
+    sink!(lanes[]: [u8]);
+    property!(rw gain[]: f32);
+    ww_impl!(port[]: ww_gpio::Bank);
 }
 ```
 
-TODO: bounds of the index (`adc[8]`, `motor[1..=4]`). The length of a list or string inside a resource's type is
-bounded with [`MaxLen`](../types.md#bounded-lists-and-strings-maxlent-n) instead.
+Methods can't be arrays, put them in an array of traits instead. The length isn't part of the API: the device says
+which indices exist with a `valid_indices_root_<name>()` handler returning `ValidIndices` (a range or a list), and
+a request for another index is answered `ErrorKind::BadIndex`. Bounds in the API itself (`adc[8]`,
+`motor[1..=4]`) are not supported yet. The length of a list or string inside a resource's type is bounded with
+[`MaxLen`](../types.md#bounded-lists-and-strings-maxlent-n) instead.
 
-Traits inside other traits can also contain arrays, all the indices leading up to them are accumulated and passed as
-Rust array `[u32; N]` argument into a corresponding user handler.
+On the host, an array item takes its index first: `device.port(0).pin(3).read_pull()`, `device.adc(2).call()`. On the
+device, every handler of an item inside arrays, at any depth, gets the indices leading to it as one more argument,
+`index_chain: [UNib32; N]`, after `cx`; `ww api scaffold` prints the exact signatures. The generated code stays
+flat: the whole API tree becomes plain function calls on the server struct, with no per-index state.
 
-That way generated code can be kept efficient and simple, because the whole API tree is essentially flattened and
-simple function calls are used to interface with user provided implementation. At least that is the case for now on
-`no_std` targets.
+A whole array can be read, written or called in one request, see [Multi requests](multi_requests.md).
 
-### Array of resources vs resource of array
+## Array of resources vs resource of array
 
-Here, resource led is itself an array, when accessing it - an index will be added to the resource path.
-Each one of three bool's is accessed separately from each other.
+Here, `led` is itself an array: each index is a resource of its own, with its own path, read and written
+separately.
 
 ```rust
 #[ww_trait]
 trait ArrayOfResources {
-    property!(led[3]: bool);
+    property!(rw led[]: bool);
 }
 ```
 
-On the other hand, here led is not an array, but its type is. All three boolean's are accessed in one go.
+Here `led` is one resource whose type is an array: all three values are read and written in one go.
 
 ```rust
 #[ww_trait]
 trait ResourceOfArrays {
-    property!(led: [bool; 3]);
+    property!(rw led: [bool; 3]);
 }
 ```
 
-Both can be used together as well, for example:
+Both together:
 
 ```rust
 #[ww_trait]
 trait ArrayOfArrays {
-    property!(rgb_led[3]: [u8; 3]);
+    property!(rw rgb_led[]: [u8; 3]);
 }
 ```

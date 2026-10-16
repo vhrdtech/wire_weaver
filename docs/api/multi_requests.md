@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # Multi requests
 
 A multi request (CLT-15) answers several resources in one request/response pair instead of one round trip per

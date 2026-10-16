@@ -1,5 +1,6 @@
 ---
 icon: lucide/signal
+level: basic
 ---
 
 # Reading levels

@@ -317,7 +317,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   largest item and cap the re-grant threshold, the host fails an item bigger than the buffer with
   `StreamError::ItemTooBig`. Device state in `ww_client_server::credit::SinkCredit`, dynamic and Python clients too.
   Used by `ww_dfu` `StageBulk::plan`. For bulk transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN
-  tx. See also CLT-18 backpressure (`docs/api/streams.md`, `tests/credit_sink`).
+  tx. See also CLT-18 backpressure (`docs/api/credit_sinks.md`, `tests/credit_sink`).
 - ✅ **API-31 Stream functions** — `#[stream(T, counted)] fn name(args) -> Result<A, E>` and `#[counted]` /
   `#[reliable] stream!(name: T)`: every stream (plain ones too) is opened by calling it (`RequestKind::StreamOpen`),
   with typed arguments and result; the device's handler named like the stream decides, `Ok` starts a session,
@@ -697,7 +697,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww_settings::dump::analyze` (pages, every item slot valid/cut/garbage/erased, the current record of every key
   cross-checked against a real `Store` over the same bytes through `fake_flash::FakeFlash`) and `decode_group` for
   a caller that knows the concrete `SettingsGroup` type; `ww settings dump FILE --word-size --page-size [--base]
-  [--format text|json]` in `wire_weaver_cli` (`docs/cli.md#ww-settings`).
+  [--format text|json]` in `wire_weaver_cli` (`docs/cli_reference.md#ww-settings`).
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`.

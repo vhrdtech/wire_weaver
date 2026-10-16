@@ -1,6 +1,10 @@
+---
+level: advanced
+---
+
 # ww_adc
 
-`ww_adc` is a global WireWeaver trait family for analog inputs: a single calibrated reading, continuous sampling
+Part of the [IO trait family](io_family.md). `ww_adc` is a global WireWeaver trait family for analog inputs: a single calibrated reading, continuous sampling
 streamed to the host, and lossless triggered block capture into device RAM. It is `no_std` by default and depends
 only on `wire_weaver`, `ww_numeric` and `ww_si` (for `Volt`/`Hertz`/`Second` and `NumericValue`).
 

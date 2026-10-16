@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # Observing properties
 
 Observing (API-38) is how a host gets a device's fast-changing values without polling: it asks once, and the
@@ -216,7 +220,7 @@ unchanged: one device subscription per level, `t` unwrapped, reconnect/resume in
 `values` (present properties by name, in resource-index order), `t`, `missed`, `received`, and `data_len` (the
 update's raw byte length, e.g. for measuring link bytes/s).
 
-[`ww observe <path> [--rate MS]`](../cli.md#ww-observe) uses it directly:
+[`ww observe <path> [--rate MS]`](../cli_reference.md#ww-observe) uses it directly:
 
 ```
 $ ww observe motor --rate 10
@@ -226,7 +230,7 @@ Ctrl+C to stop
 {speed: 1500, current: 3, position: 1024}  rate 98.2/s  link 982/s
 ```
 
-and [`wire_weaver_py`](../python.md#observing)'s `Node.observe(cfg)` iterates the same updates as dicts:
+and [`wire_weaver_py`](../python_advanced.md#observing)'s `Node.observe(cfg)` iterates the same updates as dicts:
 
 ```python
 m = dev.motor

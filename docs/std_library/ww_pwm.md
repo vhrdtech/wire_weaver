@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # ww_pwm
 
 Part of the [IO trait family](io_family.md). `ww_pwm` is a global WireWeaver trait pair for PWM outputs and pulse

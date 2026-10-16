@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # ww_memory
 
 `ww_memory` gives a host low-level access to memory or registers of a device: read and write words at addresses, and

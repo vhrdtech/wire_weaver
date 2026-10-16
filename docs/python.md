@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # Python
 
 The `wire_weaver` Python module talks to any WireWeaver device without generated code. The API tree (traits, methods,
@@ -19,7 +23,7 @@ needed):
 
 ```sh
 cd wire_weaver_py
-uvx maturin build --release        # wheel in target/wheels/, pip install it anywhere
+uvx maturin build --release        # wheel in target/wheels/, `uv pip install` it anywhere
 uvx maturin develop --release      # or install into the active virtual environment
 ```
 
@@ -69,7 +73,7 @@ dev.disconnect()                               # or `with ww.connect(...) as dev
 | `rtt="STM32G0B1RETx"`                         | RTT over a debug probe, probe-rs chip name                               |
 | `rtt_elf="fw.elf"`, `rtt_speed_hz`            | firmware ELF to take the RTT control block address from, probe speed     |
 | `timeout`                                     | default request timeout in seconds                                       |
-| `api`                                         | API from `load_api()`, for a device with introspection disabled          |
+| `api`                                         | API from [`load_api()`](python_advanced.md#api-from-source-offline-use), for a device with introspection disabled |
 
 The introspection data is cached in `~/.wire_weaver/`, so reconnecting to a device with the same API is quick.
 Definitions the device leaves out are put back from the snapshots, or from the
@@ -117,48 +121,6 @@ with dev.commands as sink:             # stream to the device (sink): open(), se
     sink.send({"Move": {"x": 1, "y": 2}})
 ```
 
-### Counted and reliable streams
-
-A stream marked counted or reliable in the API (its signature says so) gives every item a position, reports what
-was lost and where, and can be resumed from a saved cursor ([Stream reliability](api/stream_reliability.md)):
-
-```python
-s = dev.samples
-s.open(rate=1000, ack="explicit")      # the stream function's arguments; returns its result, an Err raises RemoteError
-                                       # open(cursor=saved) after a restart; ack="receive" is the default
-while True:
-    ev = s.recv_event(timeout=1)       # dict: kind "item", "gap", "resumed", "backfill_done", "disconnected", "closed"
-    if ev["kind"] == "item":
-        write(ev["pos"], ev["t"], ev["value"])  # t: device time in seconds, or None
-        s.ack(ev["pos"] + ev["units"])          # explicit: the device may free it now
-        save_cursor(s.cursor)                   # (session, pos), with the data
-    elif ev["kind"] == "gap":
-        print(f'{ev["units"]} lost at {ev["at"]} ({ev["cause"]})')  # device, link, store or host
-s.stats                                # received, lost by cause, duplicates, queued ...
-```
-
-`recv()` and iterating return values only, gaps are counted in `stats`. A resumed reliable stream delivers the
-latest values at once (`run` `"live"`) and the backlog beside them (`run` `"backfill"`), each in order.
-
-### Observing
-
-A trait level's `+observe` properties ([Observing properties](api/observing.md)) can be watched as a group, from
-introspection alone (TOOL-11):
-
-```python
-m = dev.motor
-m.observable_properties()                          # {"speed": "u32", "current": "u32", "position": "u32"}
-with m.observe({"speed": 10, "current": None}) as obs:  # speed periodically every 10ms, current on change
-    for u in obs:
-        print(u["values"], u["t"], u["missed"])     # {"speed": 1500, "current": 3}, seconds or None, due sends that missed budget
-obs.budget                                          # bytes/s the device applies to the whole level
-```
-
-`observe()` without `cfg` asks for every observable property on-change (what `ww observe <path>` does without
-`--rate`). `recv(timeout=...)` / `try_recv()` are also available. One device subscription is shared per level
-([One subscription per level](api/observing.md#the-host-side)); dropping the last observer (garbage collection)
-unsubscribes.
-
 Every resource also has `doc` (its doc comment), `path` (e.g. `channel[2].gain`) and, except traits, `signature`.
 Use `dev["name"]` for a resource named like one of the `Device` attributes (`api`, `info`, `disconnect`).
 
@@ -177,7 +139,7 @@ Blocking calls release the GIL, and waiting on a stream can be interrupted with 
 | WireWeaver                      | Python                                                               |
 |---------------------------------|----------------------------------------------------------------------|
 | `bool`                          | `bool`                                                               |
-| integers, `UNib32`, `u4`, `nib` | `int` (range is checked)                                             |
+| integers, `UNib32`, `UVlq32`/`UVlq64`, `u4`, `nib` | `int` (range is checked)                                             |
 | `f32`, `f64`                    | `float` (`int` accepted)                                             |
 | `String`, `&str`                | `str`                                                                |
 | `Vec<u8>`, `[u8; N]`            | `bytes` (`bytearray` or a list of ints accepted)                     |
@@ -191,37 +153,10 @@ Blocking calls release the GIL, and waiting on a stream can be interrupted with 
 | `Result<T, E>`                  | `{"Ok": T}` or `{"Err": E}`                                          |
 | `Range`, `RangeInclusive`       | `(start, end)` (`range` with step 1 accepted)                        |
 
-## API from source, offline use
+## More
 
-A device with introspection disabled needs its API from the crate source:
-
-```python
-api = ww.load_api("path/to/my_api", "MyApi")   # trait name is needed if the crate has several
-dev = ww.connect(api=api)
-```
-
-`load_api()` alone works without a device: browse the API the same way, and serialize values to see what goes over
-the wire, or decode captured bytes:
-
-```python
->>> api = ww.load_api("tests/dynamic_api", "Dynamic")
->>> api.add.encode_args(40, b=-2).hex()
-'28000000feff'
->>> api.speed.encode(1500)
-b'\xdc\x05'
->>> api.speed.decode(b"\xdc\x05")
-1500
->>> api.check.decode_return(b"\x00\x00\x01")
-{'Err': 'TooBig'}
-```
-
-Methods have `encode_args()` / `decode_return()`, properties `encode()` / `decode()`, streams `decode()` and sinks
-`encode()`. Calling a
-resource of an offline API raises `WireWeaverError`.
-
-## Not supported yet
-
-- `f16`, `UN`/`IN` and LEB128 numbers.
-- Typed (non-integer) array indices, property write errors (not decoded, same as generated clients).
-- Observing a level inside a resource array ([Limits](api/observing.md#the-host-side)).
-- asyncio: calls block the calling thread (with the GIL released).
+- [Counted and reliable streams](python_advanced.md#counted-and-reliable-streams): positions, gaps, resuming from a cursor
+- [Observing](python_advanced.md#observing) a trait level's properties as a group
+- [API from source, offline use](python_advanced.md#api-from-source-offline-use): a device without introspection,
+  encoding and decoding without a device
+- [Not supported yet](python_advanced.md#not-supported-yet)

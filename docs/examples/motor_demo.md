@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # Motor controller demo
 
 A VESC-like field oriented controller drives a simulated motor, and its ~50 variables are

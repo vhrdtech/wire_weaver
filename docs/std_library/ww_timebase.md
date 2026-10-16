@@ -1,9 +1,12 @@
+---
+level: advanced
+---
+
 # ww_timebase
 
-`ww_timebase` is a global WireWeaver trait for a device's clock: reading device time, and synchronising it with
+Part of the [IO trait family](io_family.md). `ww_timebase` is a global WireWeaver trait for a device's clock: reading device time, and synchronising it with
 other devices over a sync line (IRIG-B, PPS, ...). It is `no_std` by default and depends only on `wire_weaver`,
-`ww_si` (for the [Second](ww_si.md) timestamp type) and `ww_date_time` (for `set_time_of_day`). It
-is part of the [IO trait family](io_family.md).
+`ww_si` (for the [Second](ww_si.md) timestamp type) and `ww_date_time` (for `set_time_of_day`).
 
 Add it to a device API crate with:
 

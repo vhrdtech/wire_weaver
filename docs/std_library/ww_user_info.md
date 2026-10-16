@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # ww_user_info
 
 A name and notes the user gives a unit, shown by `ww list`.

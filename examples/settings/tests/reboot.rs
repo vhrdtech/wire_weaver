@@ -1,6 +1,6 @@
 //! `meter_window_ms` / `led_on_at_boot` set over the real client/server codepath, written to a simulated flash
 //! once their debounce is over, and read back unchanged after the device is rebuilt from the same flash image (a
-//! reboot) - see `docs/std_library/ww_settings.md` and `examples/settings/src/lib.rs`.
+//! reboot) - see `docs/api/settings.md` and `examples/settings/src/lib.rs`.
 
 use std::time::Duration;
 

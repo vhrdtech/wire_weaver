@@ -23,7 +23,7 @@ pub fn render(features: &str) -> String {
     let areas = parse(features);
     let mut out = String::new();
     out.push_str(
-        "---\nicon: lucide/list-checks\n---\n\n\
+        "---\nicon: lucide/list-checks\nlevel: basic\n---\n\n\
          <!-- Generated from FEATURES.md by `just features-page` (tests/features_page), don't edit by hand. -->\n\n\
          # What works today\n\n\
          What WireWeaver can do now, by area: the items of the [feature tracker](features.md) that are done, and the\n\

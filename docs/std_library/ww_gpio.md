@@ -1,6 +1,10 @@
+---
+level: basic
+---
+
 # ww_gpio
 
-`ww_gpio` is a global WireWeaver trait for controlling GPIO pins remotely: reading and setting output levels,
+Part of the [IO trait family](io_family.md). `ww_gpio` is a global WireWeaver trait for controlling GPIO pins remotely: reading and setting output levels,
 reading input levels (one pin, or several at one instant), configuring pin mode / pull / drive strength, and
 observing edge events as a stream. It is
 `no_std` by default and depends only on `wire_weaver` and `ww_si` (for the `Volt` IO level).

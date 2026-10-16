@@ -1,5 +1,5 @@
 //! Two settings kept across a reboot by `ww_settings`, on a simulated flash, over the real client/server codepath
-//! (`docs/std_library/ww_settings.md`): [Device] holds `meter_window_ms` / `led_on_at_boot` as plain fields,
+//! (`docs/api/settings.md`): [Device] holds `meter_window_ms` / `led_on_at_boot` as plain fields,
 //! written directly by the generated `value_on_changed` property setters; `changed_<name>` tells [struct@Settings]
 //! about the change, and [serve]'s periodic tick writes it once the [Debounce] is over. `tests/reboot.rs` connects a
 //! [Client], sets both, waits past the debounce, stops the device, and reopens it from the same flash image.

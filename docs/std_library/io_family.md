@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # IO trait family
 
 A set of global WireWeaver trait crates for devices that expose IO over the wire: a dev board bridging its pins to

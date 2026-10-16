@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # ww_board_info
 
 `ww_board_info` describes the PCB and its assembly in one value, so `ww list` and a support case need a single read.

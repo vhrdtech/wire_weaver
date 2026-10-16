@@ -1,4 +1,4 @@
-//! Host side of credit-based flow control for `#[credit]` sinks, see `docs/api/streams.md`.
+//! Host side of credit-based flow control for `#[credit]` sinks, see `docs/api/credit_sinks.md`.
 //!
 //! [CreditTx] is sans-IO, [crate::Sink] drives it from async, blocking and non-blocking (`try_send`) code.
 

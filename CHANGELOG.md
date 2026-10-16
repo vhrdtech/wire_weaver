@@ -90,6 +90,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Changed
 
+- Docs: reading levels adjusted. `EitherAnyVec`, `OptionAnyVec`, `TailBytes` and `TailSize` are Nomicon on the
+  Features page; counted and reliable streams, stream stores, credit sinks and trait attachments are Nomicon in the
+  API section and on the Features page; in Introspection, moved flag bits are Advanced and bundles Nomicon; the
+  standard library's buses (UART, CAN, I2C, SPI, 1-Wire) are all Basic.
 - New logos for wire_weaver (a twisted pair with the wordmark, a W icon) and shrink_wrap (a heatshrink sleeve on
   the pair, a cross-section icon), light and dark, in `docs/assets/`; READMEs link them by absolute GitHub URL so the
   crates.io pages show them; the docs site uses them and the small W as favicon

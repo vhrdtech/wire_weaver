@@ -41,12 +41,8 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-57 | Owned values without an allocator | `ArrayString<N>` and `ArrayVec<T, N>` on fixed arrays, same bytes as `String` and `Vec`. | serdes/special_types.md#arraystring-arrayvec-owned-values-without-an-allocator
 - SW-48 | Bit-sized fields and payloads | `U7`, `U10`, `I2` and friends in structs, enum variants and method arguments, e.g. a 7- or 10-bit I2C address in 8 or 11 bits. | serdes/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address
 - SW-33 | 64-bit variable-length numbers | `UVlq64`, 1 to 10 bytes. | types.md
-- SW-9, DER-4 | Bytes to the end | `TailBytes` takes the rest of the buffer, written without a length; only allowed last. | types.md#special-types
-- SW-18 | Size of the rest of a value | `TailSize<N>`, filled in after writing, so a reader can skip a value or bound it. | serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value
 - SW-31, SW-32, SW-50 | Compressed number sequences | `Delta` and `DeltaOfDelta` for timestamps and counters, `XorFloat` for slowly changing floats, anywhere in an API. | serdes/special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences
-- SW-55 | Sparse slots | `OptionAnyVec`, a list of optional values of any types where only the present ones take space. | serdes/special_types.md#optionanyvec-sparse-slots-of-any-types
 - DER-13 | Sparse structs | A struct of optional fields stored as an `OptionAnyVec`, for "only what changed" updates. | serdes/layouts.md#sparse-a-struct-of-optional-fields
-- SW-10 | Lists of either-or values | `EitherAnyVec` holds one of two types per element, the flags packed by eight, e.g. a list of results. | serdes/special_types.md#eitheranyvec
 - SW-58 | Checks on read | `validate = path` rejects out-of-range values as they are read. | serdes/derive_reference.md#validate-path
 - DER-12 | `Display` from doc comments | Error enums print their doc lines, no hand-written `Display`. | serdes/derive_reference.md#display
 - DER-8 | `#[cfg]` on enum variants | Compile a variant out; it keeps its number on the wire. | serdes/derive_reference.md#cfg-on-enum-variants
@@ -66,6 +62,10 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-39 | Byte-wise `memcpy` | Measured savings and downsides of a tiny `memcpy` for very small targets. | serdes/code_size.md#build-settings
 - SW-35 | Exact sizes of enums | `sized` enums report the discriminant plus one variant; variants of different sizes are a compile error. | serdes/size_assumptions.md#enums
 - SW-40 | Strict bit reads | Malformed data near the end of a buffer is an error, never a misread. | serdes/wire_format.md
+- SW-9, DER-4 | Bytes to the end | `TailBytes` takes the rest of the buffer, written without a length; only allowed last. | types.md#special-types
+- SW-18 | Size of the rest of a value | `TailSize<N>`, filled in after writing, so a reader can skip a value or bound it. | serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value
+- SW-55 | Sparse slots | `OptionAnyVec`, a list of optional values of any types where only the present ones take space. | serdes/special_types.md#optionanyvec-sparse-slots-of-any-types
+- SW-10 | Lists of either-or values | `EitherAnyVec` holds one of two types per element, the flags packed by eight, e.g. a list of results. | serdes/special_types.md#eitheranyvec
 
 # API
 
@@ -87,11 +87,8 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-16 | Optional items | Leave out what a board doesn't have, with no flash spent, and clients know before they call. | api/optional_items.md
 - API-32 | Error lists | Which errors each method can return, shown in docs and tools and checked in tests. | api/methods.md#error-lists
 - API-31, API-35 | Stream functions | Open a stream with typed arguments and a result, like a method call. | api/streams.md#stream-functions
-- API-30 | Counted and reliable streams | Exact counts of lost items; acknowledgements, resends and resume after a reconnect. | api/stream_reliability.md
-- API-28 | Credit sinks | Flow control for data sent to a device, so its buffer never overflows, and lossy links resume where they stopped. | api/credit_sinks.md
 - API-38 | Observing properties | Ask a device to send changes on change or periodically, within a byte budget. | api/observing.md
 - API-18 | Size analysis | Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. | types.md#worst-case-size-at-compile-time
-- API-20 | Trait paths | Call a shared trait wherever it sits in a device's API. | api/addressing.md
 - DOC-6 | API docs in rustdoc | `#[ww_trait]` also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. | api/traits.md#in-rustdoc
 - API-8 | Code generation from `build.rs` | `gen_server` / `gen_client` as an alternative to the macros. |
 - API-26 | Generated C | The C runtime is there; generated C for an API's types and server is next. | c.md
@@ -101,6 +98,9 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-6 | Builders for events and errors | Written straight into the output buffer. |
 - API-7 | Dispatch on index slices | Requests are routed by `match` on their path, the base of multi requests. | api/addressing.md
 - API-9, API-10 | Names and paths that don't collide | Generated names carry the whole trait chain; type paths come from Cargo. | api/folder_structure.md
+- API-30 | Counted and reliable streams | Exact counts of lost items; acknowledgements, resends and resume after a reconnect. | api/stream_reliability.md
+- API-28 | Credit sinks | Flow control for data sent to a device, so its buffer never overflows, and lossy links resume where they stopped. | api/credit_sinks.md
+- API-20 | Trait paths | Call a shared trait wherever it sits in a device's API. | api/addressing.md
 
 # Device side
 
@@ -118,13 +118,13 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 
 - SRV-20 | Deferred replies everywhere | Answer a call later, also on nested trait levels. | api/methods.md#deferred
 - SRV-18 | Observed properties | The device sends property changes within the budget each host asked for. | api/observing.md#the-device-side
-- SRV-15 | Stream stores | Data a host hasn't acknowledged yet, kept in RAM or in a power-cut safe log on SD card or flash. | api/stream_stores.md
-- SRV-16 | Logs that survive a crash | A store in RAM that outlives a reset, for what happened just before a fault. | api/stream_stores.md
 - SRV-19 | ECC-safe STM32 flash | Reads a flash word broken by a power cut as zeros instead of crashing. | api/ecc_flash.md
 
 ## Nomicon
 
 - SRV-3, SRV-4 | Split send and receive | Independent TX and RX paths for every transport; handlers called straight from the receive loop. |
+- SRV-15 | Stream stores | Data a host hasn't acknowledged yet, kept in RAM or in a power-cut safe log on SD card or flash. | api/stream_stores.md
+- SRV-16 | Logs that survive a crash | A store in RAM that outlives a reset, for what happened just before a fault. | api/stream_stores.md
 
 # Host side
 
@@ -145,13 +145,13 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-7 | Cached API descriptions | A device's description is downloaded once, then found by its hash. | std_library/ww_self.md
 - CLT-15 | Multi requests | Read many properties or call a method on many array elements in one request. | api/multi_requests.md
 - CLT-28 | Observing properties | Typed subscriptions and a cache of the latest values, shared by everyone watching. | api/observing.md#the-host-side
-- CLT-23 | Stream positions and resume | Gaps reported exactly, streams resumed after a reconnect. | api/stream_reliability.md
 - CLT-10 | Calls that work on any device | Shared traits called whatever a device's own API version. | std_library/device_contract.md
 - CLT-21 | Following a reboot | Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). | transport/follow_reboot.md
 
 ## Nomicon
 
 - CLT-2 | Sans-IO event loop | One event loop core, independent of the transport, with separate send and receive flows. | transport/overview.md#how-the-layers-fit
+- CLT-23 | Stream positions and resume | Gaps reported exactly, streams resumed after a reconnect. | api/stream_reliability.md
 
 # Transports
 
@@ -179,11 +179,11 @@ A device can send a description of its own API, so tools and scripts work with i
 
 ## Advanced
 
-- INT-2 | Bundles | The model with the crate versions and signatures of what it leaves out. | std_library/ww_self.md
+- INT-3 | Moved flag bits | Relocated `#[flag]` fields in the model and in dynamic values. | std_library/ww_self.md
 
 ## Nomicon
+- INT-2 | Bundles | The model with the crate versions and signatures of what it leaves out. | std_library/ww_self.md
 
-- INT-3 | Moved flag bits | Relocated `#[flag]` fields in the model and in dynamic values. | std_library/ww_self.md
 
 # Evolution
 
@@ -238,14 +238,14 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-26 | Logs | `defmt` logs over a reliable stream, including what was logged before the host connected. | std_library/ww_log.md
 - STD-28 | Indicators | LEDs off, essential or normal, and a blink to find a unit on the bench. | std_library/ww_indication.md
 - STD-12 | Firmware updates | `ww_dfu` for A/B, in-place and bootloader updates, tested with reboots and power cuts. | std_library/ww_dfu.md
+- STD-20 | 1-Wire | Transactions and ROM search. | std_library/ww_onewire.md
+- STD-8, STD-6 | More buses | `ww_i2c`, `ww_uart`, `ww_memory` and the `ww_gpio_hl` helpers, usable with gaps. | std_library/ww_i2c.md
 
 ## Advanced
 
 - STD-18 | ADC | Single reads, sample streams and triggered captures. | std_library/ww_adc.md
 - STD-19 | PWM | Outputs and input capture. | std_library/ww_pwm.md
-- STD-20 | 1-Wire | Transactions and ROM search. | std_library/ww_onewire.md
 - STD-17 | Device time | A clock with sync to a shared time source. | std_library/ww_timebase.md
-- STD-8, STD-6 | More buses | `ww_i2c`, `ww_uart`, `ww_memory` and the `ww_gpio_hl` helpers, usable with gaps. | std_library/ww_i2c.md
 - STD-21 | Logic analyzer | Triggered captures, transitions compressed. | std_library/ww_logic_analyzer.md
 - STD-22 | Signal generator | Replays captures, drives DAC channels. | std_library/ww_signal_generator.md
 - STD-25 | Counters | A device's `cnt` counters, named on the host from its firmware file. | std_library/ww_counters.md

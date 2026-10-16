@@ -1,5 +1,5 @@
 ---
-level: advanced
+level: nomicon
 ---
 
 # Credit sinks and sideband

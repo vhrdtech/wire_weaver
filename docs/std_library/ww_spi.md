@@ -1,5 +1,5 @@
 ---
-level: advanced
+level: basic
 ---
 
 # ww_spi

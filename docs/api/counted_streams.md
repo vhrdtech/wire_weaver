@@ -1,5 +1,5 @@
 ---
-level: advanced
+level: nomicon
 ---
 
 # Counted and reliable streams

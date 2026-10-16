@@ -52,18 +52,18 @@ nav = [
                     "api/optional_items.md",
                     "api/multi_requests.md",
                     "api/observing.md",
-                    "api/counted_streams.md",
-                    { "Stream delivery" = "api/stream_reliability.md" },
-                    "api/stream_stores.md",
-                    "api/credit_sinks.md",
-                    "api/trait_attachments.md",
                     "api/versioning.md",
                     "api/settings.md",
                     { "ECC-safe flash" = "api/ecc_flash.md" }
                 ]
             },
             { "Nomicon" = [
+                    "api/counted_streams.md",
+                    { "Stream delivery" = "api/stream_reliability.md" },
+                    "api/stream_stores.md",
+                    "api/credit_sinks.md",
                     "api/stream_protocol.md",
+                    "api/trait_attachments.md",
                     { "Addressing" = "api/addressing.md" }
                 ]
             }
@@ -88,9 +88,9 @@ nav = [
                     "std_library/ww_can_bus.md",
                     "std_library/ww_i2c.md",
                     "std_library/ww_spi.md",
+                    "std_library/ww_onewire.md",
                     "std_library/ww_adc.md",
                     "std_library/ww_pwm.md",
-                    "std_library/ww_onewire.md",
                     "std_library/ww_timebase.md",
                     "std_library/ww_logic_analyzer.md",
                     "std_library/ww_signal_generator.md",

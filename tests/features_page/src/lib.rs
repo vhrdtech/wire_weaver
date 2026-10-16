@@ -42,7 +42,8 @@ pub fn render(features: &str) -> String {
         if !area.in_progress.is_empty() {
             let _ = writeln!(out, "**In progress:** {}.\n", area.in_progress.join(", "));
         }
-        let total = area.done.len() + area.done_untested.len() + area.in_progress.len() + area.other;
+        let total =
+            area.done.len() + area.done_untested.len() + area.in_progress.len() + area.other;
         let _ = writeln!(
             out,
             "[All {total} items of this area in the tracker](features.md#{})",
@@ -142,9 +143,14 @@ mod tests {
         let page = render(src);
         assert!(page.contains("## Wire format\n"), "{page}");
         assert!(page.contains("- Structs and enums\n"), "{page}");
-        assert!(page.contains("- On hardware (hardware check open)\n"), "{page}");
+        assert!(
+            page.contains("- On hardware (hardware check open)\n"),
+            "{page}"
+        );
         assert!(page.contains("**In progress:** Half done.\n"), "{page}");
-        assert!(page.contains("[All 4 items of this area in the tracker](features.md#wire-format-shrink_wrap-sw)"));
+        assert!(page.contains(
+            "[All 4 items of this area in the tracker](features.md#wire-format-shrink_wrap-sw)"
+        ));
         assert!(!page.contains("How to use"), "{page}");
         assert!(!page.contains("Old thing"), "{page}");
     }

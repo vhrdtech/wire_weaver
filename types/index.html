@@ -5129,7 +5129,9 @@ buffer as a <code>UNib32</code> (<a href="../serdes/shrink_wrap/#how-it-stays-sm
 <p><strong><code>RefVec&lt;'i, T&gt;</code></strong> (borrowed, no allocator) and <strong><code>Vec&lt;T&gt;</code></strong> (<code>std</code>) are the elements one after another, with the
 count at the back. A <code>RefVec</code> read from a buffer points into it and decodes elements as you iterate; to write one,
 make it from a slice (<code>RefVec::Slice { slice: &amp;items }</code>, or <code>RefVec::new_bytes(&amp;[1, 2, 3])</code> for bytes). The derive macro maps <code>RefVec</code> to <code>Vec</code> and <code>&amp;str</code>
-to <code>String</code> for the owned type (<a href="../serdes/derive/#type-mapping">type mapping</a>).</p>
+to <code>String</code> for the owned type (<a href="../serdes/derive/#type-mapping">type mapping</a>). Without a slice, e.g. elements
+coming from a sensor loop, <a href="../serdes/special_types/#refvecbuilder-lists-written-in-place"><code>RefVecBuilder</code></a> writes a
+list into the buffer one element at a time, with the same bytes.</p>
 <p><strong><code>[T; N]</code></strong> is <code>N</code> elements with no count. <code>N</code> can be a literal or any const expression (<code>[f32; MAX_SERIES]</code>).</p>
 <p>To own a string or list without an allocator, use <a href="../serdes/special_types/#arraystring-arrayvec-owned-values-without-an-allocator"><code>ArrayString&lt;N&gt;</code> / <code>ArrayVec&lt;T, N&gt;</code></a>:
 the same bytes, stored in a fixed-size array.</p>

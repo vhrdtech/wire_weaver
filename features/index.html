@@ -5024,6 +5024,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   appended); a malformed header is an error. Writer takes the present set up front (<code>SetBits</code> over a bitset, any
   increasing iterator), <code>OptionAnyVecWriter</code> / in-place <code>OptionAnyVecBuilder</code>. For a trait level's properties in one
   update (API-38). See <code>docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types</code>, <code>docs/serdes/showcase.md</code>.</li>
+<li>✅ <strong>SW-61 <code>RefVecBuilder&lt;T&gt;</code>: a list written in place</strong>, element by element (<code>push</code>, <code>extend</code>, <code>push_with</code> for a
+  nested builder or an element written by hand), <code>finish</code> writes the count; same bytes as <code>RefVec::Slice</code>, as the
+  whole buffer, a struct field or an element of another list. A failed push undoes its element, <code>with_max_len</code> for
+  <code>MaxLen&lt;RefVec&lt;..&gt;, N&gt;</code>, <code>RefVecBuilderOwned</code> for <code>BufWriterOwned</code>. A byte list also has <code>extend_from_slice</code> and
+  <code>write_bytes_with</code> (a byte blob written by other means), which replace <code>RefVecU8Builder</code>.
+  See <code>docs/serdes/special_types.md#refvecbuilder-lists-written-in-place</code>,
+  <code>shrink_wrap/shrink_wrap/tests/ref_vec_builder.rs</code>.</li>
 <li>✅ <strong>SW-59 Tuple and unit structs in the derive</strong>: <code>struct Celsius(f32);</code>, <code>struct Pair&lt;'i&gt;(u8, &amp;'i str);</code>,
   <code>struct Marker;</code> in every layout and size assumption, same bytes as the struct with the fields named; positional
   names <code>_0</code>, <code>_1</code>, ... in consts, C names and errors. <code>#[flag]</code> needs named fields. The API model has them as

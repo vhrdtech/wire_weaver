@@ -4963,6 +4963,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../serdes/wire_format/">Strict bit reads</a></strong>: Malformed data near the end of a buffer is an error, never a misread.</li>
 <li><strong><a href="../types/#special-types">Bytes to the end</a></strong>: <code>TailBytes</code> takes the rest of the buffer, written without a length; only allowed last.</li>
 <li><strong><a href="../serdes/special_types/#tailsizen-the-size-of-the-rest-of-a-value">Size of the rest of a value</a></strong>: <code>TailSize&lt;N&gt;</code>, filled in after writing, so a reader can skip a value or bound it.</li>
+<li><strong><a href="../serdes/special_types/#refvecbuilder-lists-written-in-place">Lists written in place</a></strong>: <code>RefVecBuilder</code> writes a list into the buffer one element at a time, from a loop or an iterator, with no slice and the same bytes.</li>
 <li><strong><a href="../serdes/special_types/#optionanyvec-sparse-slots-of-any-types">Sparse slots</a></strong>: <code>OptionAnyVec</code>, a list of optional values of any types where only the present ones take space.</li>
 <li><strong><a href="../serdes/special_types/#eitheranyvec">Lists of either-or values</a></strong>: <code>EitherAnyVec</code> holds one of two types per element, the flags packed by eight, e.g. a list of results.</li>
 </ul>

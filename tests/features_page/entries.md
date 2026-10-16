@@ -297,3 +297,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 # Omitted
 
 - DOC-1, DOC-7, DOC-8, DOC-9 | This docs site itself.
+- TR-13 | A fixed bug (RTT server panic on the first request), not a feature.

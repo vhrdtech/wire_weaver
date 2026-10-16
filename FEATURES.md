@@ -557,6 +557,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `docs/std_library/device_contract.md`, `tests/device_report`. The stored log is a stream and streams open on the
   absolute path only (CLT-23), so `ww report` reads the device's introspection data for the log's path; `ww info`
   needs none. Not yet: fetching the release archive by itself.
+- 🐛 **CLT-30 Link setup gives up too early on slow RTT probes** — the client sends `GetDeviceInfo` 5 times 50 ms
+  apart (`LINK_SETUP_RETRIES` / `LINK_SETUP_RETRY_INTERVAL` in `event_loop/core/tx.rs`), 250 ms for every transport.
+  Through a J-Link on omarchy-m1 (aarch64, probe-rs, each RTT write ~17 ms) most connects fail with "LinkSetup was
+  not received from device after several retries" while the device is fine; with 40 retries they mostly work. Needs
+  a per-transport budget (RTT: seconds) or one taken from the connect timeout. Found 16 Oct 2026.
 - ✅ **CLT-28 Observing properties on the host** · `v0.5.x` — generated std clients have `observe(cfg)` per trait
   level with `+observe` properties (an `Observer` of the level's `<Trait>Update`) and `observe_<name>(mode)` per
   property, fanned out from the level: one device subscription per level covering all its observers (merged modes,
@@ -642,6 +647,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **TR-7 UART** · `v0.5.x`.
 - 💡 **TR-8 IP / WireGuard** · `v0.5.x`.
 - 💡 **TR-9 EtherCAT**.
+- ✅ **TR-13 RTT server panicked on the first request** — since TR-12 the async `Server::handle` checked for a waiting
+  request with `embassy_futures::poll_once(rx.wait_message())`, a no-op waker; the RTT medium waits on an
+  `embassy_time::Timer` while no data is there, and embassy-time panics on a waker not from its executor ("Found
+  waker not created by the Embassy executor"). Every RTT device reset on its first request, the host saw no
+  `LinkSetup` (`examples_mcu/nucleo_g0b1re` `ww_rtt` and an embedded_bedrock template firmware on Donguru, 16 Oct
+  2026). Fixed: the check polls once with the calling task's waker (`ww_device` `server.rs` `poll_once_here`);
+  checked on Donguru over RTT through a J-Link. USB was not affected (no timer in its read).
 - 💡 **TR-10 One-shot connect** — no link setup at all: the host sends the API hash and its requests in one go; when
   the hash matches, the device runs them right away, else it answers with its hash and drops them and the normal setup
   follows. With message aggregation both arrive in one packet or frame, so a request over LoRa or LTE-M costs no extra

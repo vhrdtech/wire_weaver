@@ -1,7 +1,9 @@
 //! Async glue: [DeviceLink] + [MessageTx] / [MessageRx] + a user backend. The event loop itself stays in
 //! user code, see [Server] for the intended use.
 
-use core::future::{Future, pending};
+use core::future::{Future, pending, poll_fn};
+use core::pin::pin;
+use core::task::Poll;
 
 use embassy_futures::select::{Either, select};
 use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
@@ -221,7 +223,7 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
                 // Replies go out at once when no other request is already waiting, instead of at the end of the
                 // accumulation window: a lone request gets its answer without that delay, while back to back
                 // requests still share packets. Events written by user code keep the window.
-                if embassy_futures::poll_once(self.rx.wait_message()).is_pending() {
+                if poll_once_here(self.rx.wait_message()).await.is_pending() {
                     self.link.flush_now();
                 }
             }
@@ -360,4 +362,12 @@ async fn process_request<B: WireWeaverAsyncApiBackend, Tx: MessageTx, C: Clock>(
     if !reply.is_empty() {
         _ = out.sink.send_message(reply).await;
     }
+}
+
+/// Polls `fut` once with the calling task's waker. `embassy_futures::poll_once` polls with a no-op waker, which
+/// embassy-time's timer queue refuses with a panic ("Found waker not created by the Embassy executor") as soon as
+/// the future waits on a `Timer`, as the RTT medium does while no data is there.
+async fn poll_once_here<F: Future>(fut: F) -> Poll<F::Output> {
+    let mut fut = pin!(fut);
+    poll_fn(|cx| Poll::Ready(fut.as_mut().poll(cx))).await
 }

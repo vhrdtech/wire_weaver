@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+- RTT devices no longer panic on their first request ("Found waker not created by the Embassy executor"): the async
+  `Server`'s check for another waiting request polls with the task's own waker instead of a no-op one, which
+  embassy-time refuses once the medium waits on a `Timer` (TR-13, broken since TR-12).
+
 ### ⚡ Performance
 
 - Async `Server` flushes replies at once when no other request is already waiting, instead of at the end of the accumulation window; back to back requests still share packets, events written from the main loop keep the window. `DeviceLink::flush_now()` (TR-12). On Donguru (STM32G0B1, USB FS): 64-byte loopback round trips 647/s -> 2000/s, 1 KB 247/s -> 330/s.

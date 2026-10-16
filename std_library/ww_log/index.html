@@ -3583,7 +3583,10 @@ stream's store is async. <code>ww_defmt_logger</code> sits between them:</p>
 <li><code>global_logger!(LOG, 4096)</code> makes a <code>DefmtLogger</code> with a ring of 4 KiB the <code>#[defmt::global_logger]</code>. A <code>defmt</code>
    macro takes a critical section (as <code>defmt-rtt</code> does), encodes the frame into the ring and, with the <code>rtt</code>
    feature, into an RTT up channel. The whole frame is committed at once; a frame that doesn't fit the free space
-   (or is longer than 512 bytes) is dropped whole and counted.</li>
+   (or is longer than 512 bytes) is dropped whole and counted.
+   The RTT tee never blocks, also when a probe sets the channel to blocking on attach (<code>probe-rs</code> does): each frame
+   goes to the channel in one write, whole or skipped when the channel has no room (<code>LOG.rtt_skipped()</code>), so the
+   firmware runs the same with or without a probe and the host never decodes half a frame.</li>
 <li><code>LOG.pump(&amp;mut stream)</code> in the event loop takes the committed frames out of the ring, without a critical section,
    packs up to 512 bytes of whole frames into one <code>DefmtFrames</code> item and pushes it into the store, <code>units</code> =
    frames. Frames the ring dropped become the stream's <code>lost</code> exactly where they were dropped.</li>

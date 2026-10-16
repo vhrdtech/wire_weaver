@@ -30,7 +30,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[`Option` and `Result`](types.md#option-and-result)**: Stored as a single flag bit, also inside lists.
 - **[Strings and lists](types.md#strings-and-lists)**: `String` and `Vec<T>`, `Vec<u8>` as plain bytes.
 - **[Arrays and tuples](types.md)**: Fixed-size arrays, tuples and `()`.
-- **[Tuple and unit structs](types.md#tuple-structs)**: `struct Celsius(f32);` and `struct Marker;` work like named structs, with the same bytes.
+- **[Tuple and unit structs](types.md#tuple-structs)**: `struct Celsius(f32);` works like a named struct, with the same bytes; `struct Marker;` keeps room to grow fields later.
 - **[Integers of any width](types.md#booleans-and-numbers)**: `u1` to `u32` and nibbles, packed bit after bit, so a 3-bit field takes 3 bits.
 - **[Variable-length numbers](types.md)**: `UNib32` and `UVlq32`, where small values take a nibble or a byte.
 - **[Zero-copy reads](serdes/derive.md#borrowed-owned-or-both)**: Strings and lists are read in place from the received buffer; an owned twin of each type is generated for values you keep.

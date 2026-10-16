@@ -27,7 +27,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-2 | `Option` and `Result` | Stored as a single flag bit, also inside lists. | types.md#option-and-result
 - SW-3 | Strings and lists | `String` and `Vec<T>`, `Vec<u8>` as plain bytes. | types.md#strings-and-lists
 - SW-4 | Arrays and tuples | Fixed-size arrays, tuples and `()`. | types.md
-- SW-59 | Tuple and unit structs | `struct Celsius(f32);` and `struct Marker;` work like named structs, with the same bytes. | types.md#tuple-structs
+- SW-59 | Tuple and unit structs | `struct Celsius(f32);` works like a named struct, with the same bytes; `struct Marker;` keeps room to grow fields later. | types.md#tuple-structs
 - SW-5 | Integers of any width | `u1` to `u32` and nibbles, packed bit after bit, so a 3-bit field takes 3 bits. | types.md#booleans-and-numbers
 - SW-6 | Variable-length numbers | `UNib32` and `UVlq32`, where small values take a nibble or a byte. | types.md
 - SW-7 | Zero-copy reads | Strings and lists are read in place from the received buffer; an owned twin of each type is generated for values you keep. | serdes/derive.md#borrowed-owned-or-both

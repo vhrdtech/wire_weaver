@@ -70,11 +70,15 @@ struct Nested<'i>(Rgb, RefVec<'i, Celsius>, RgbSized);
 #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone, Copy))]
 struct Marker;
 
-#[derive_shrink_wrap(borrowed, sized, derive(Debug, PartialEq, Clone, Copy))]
-struct MarkerSized;
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone, Copy))]
+struct WithMarker(u8, Marker, u8);
+
+/// `Marker` after it grew a field: an older reader still reads it, as `Marker`.
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone, Copy))]
+struct MarkerV2(u8);
 
 #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone, Copy))]
-struct WithMarker(u8, Marker, MarkerSized, u8);
+struct WithMarkerV2(u8, MarkerV2, u8);
 
 #[test]
 fn newtype_same_bytes_as_named() {
@@ -195,15 +199,19 @@ fn nested() {
 
 #[test]
 fn unit_structs() {
+    // On its own nothing follows it, so no length is needed
     assert_eq!(bytes(&Marker), hex!(""));
     assert_eq!(Marker::from_ww_bytes(&[]).unwrap(), Marker);
-    assert_eq!(
-        <MarkerSized as SerializeShrinkWrap>::ELEMENT_SIZE,
-        ElementSize::Sized { size_bits: 0 }
-    );
-    let value = WithMarker(1, Marker, MarkerSized, 2);
+    // Inside a parent it records its length, 0, in a nibble, so it can grow later
+    let value = WithMarker(1, Marker, 2);
     let b = bytes(&value);
+    assert_eq!(b, hex!("01 02 00"));
     assert_eq!(WithMarker::from_ww_bytes(&b).unwrap(), value);
+    // A newer `Marker` with a field is read by older code as `Marker`; the newer reader needs `#[default]` on the
+    // field to read old data (see `evolution`), without it it refuses
+    let newer = bytes(&WithMarkerV2(1, MarkerV2(5), 2));
+    assert_eq!(WithMarker::from_ww_bytes(&newer).unwrap(), value);
+    assert!(WithMarkerV2::from_ww_bytes(&b).is_err());
 }
 
 /// `RateV1` with a field appended later: positional fields are only ever added at the end.
@@ -384,9 +392,6 @@ fn c_names() {
     }
 }
 
-#[derive_shrink_wrap(borrowed, fixed_layout, derive(Debug, PartialEq, Clone, Copy))]
-struct UnitFixed;
-
 #[derive_shrink_wrap(head_tail, derive(Debug, PartialEq, Clone, Copy))]
 struct UnitHt;
 
@@ -395,8 +400,6 @@ struct UnitSparse;
 
 #[test]
 fn unit_struct_layouts() {
-    assert_eq!(UnitFixed::ENCODED_LEN, 0);
-    assert_eq!(UnitFixed::from_fixed(&[]).unwrap(), UnitFixed);
     assert_eq!(UnitHt::HEAD_LEN, 0);
     assert_eq!(shrink_wrap::head_tail::read::<UnitHt>(&[]).unwrap(), UnitHt);
     let b = bytes(&UnitSparse);

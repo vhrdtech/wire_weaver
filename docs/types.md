@@ -167,7 +167,14 @@ Your own types, with [`#[derive_shrink_wrap]`](serdes/derive.md):
 ### Tuple structs
 
 A tuple struct is written exactly like a struct with the same fields named: `Celsius(21.5)` is the `f32` alone,
-`00 00 ac 41`, and `Rgb(1, 2, 3)` is `01 02 03`. A unit struct (`struct Marker;`) takes no bytes.
+`00 00 ac 41`, and `Rgb(1, 2, 3)` is `01 02 03`.
+
+A unit struct (`struct Marker;`) has no data, but inside a parent it records its length like any evolvable
+struct, a nibble that is usually shared with a neighbour: `(1, Marker, 2)` is `01 02 00`. That is what makes it
+useful in an API: `fn arm() -> Armed` can later become `Armed { at: Timestamp }`, and older code still reads it.
+On its own (a whole message) nothing follows it, so it takes no bytes at all. A unit struct with `sized`,
+`final_structure`, `self_describing` or `fixed_layout` would be zero bits that can never change, so the derive
+refuses it: leave the size assumption out, or give it reserved bits to grow into (e.g. a `U4` field).
 
 ```rust
 #[derive_shrink_wrap(borrowed, owned, derive(Debug, Clone, Copy, PartialEq))]

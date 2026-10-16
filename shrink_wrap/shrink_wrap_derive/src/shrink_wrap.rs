@@ -88,6 +88,7 @@ fn generate_inner(
     if args.sparse {
         check_sparse_args(&item, &args)?;
     }
+    check_fieldless_struct_args(&item, &args)?;
     if args.validate.is_some()
         && (!matches!(item, Item::Struct(_)) || args.sparse || args.fixed_layout || args.head_tail)
     {
@@ -408,6 +409,30 @@ fn head_tail_inner(
         _ => {}
     }
     Ok(ts)
+}
+
+/// A struct without fields (`struct Marker;`, `struct A {}`) is only worth having on the wire if it can grow: an
+/// Unsized one records its length, so fields can be added later. With a fixed size it is zero bits forever, `()`.
+fn check_fieldless_struct_args(item: &Item, args: &Args) -> Result<(), String> {
+    let Item::Struct(item_struct) = item else {
+        return Ok(());
+    };
+    if !item_struct.fields.is_empty() {
+        return Ok(());
+    }
+    let directive = match &args.size_assumption {
+        Some(ObjectSize::Sized { .. }) => "sized",
+        Some(ObjectSize::UnsizedFinalStructure) => "final_structure",
+        Some(ObjectSize::SelfDescribing) => "self_describing",
+        _ if args.fixed_layout => "fixed_layout",
+        _ => return Ok(()),
+    };
+    Err(format!(
+        "`{}` has no fields: with `{directive}` it is zero bits that can never change. Remove `{directive}` to keep it \
+         evolvable (it records its length, so fields can be added later), or give it reserved bits to grow into, \
+         e.g. a `U4` field",
+        item_struct.ident
+    ))
 }
 
 /// `sparse` (DER-13) is a struct encoding of its own: none of the other encodings or size assumptions go with it.
@@ -925,7 +950,10 @@ mod tuple_struct_tests {
         ];
         let cases = [
             (quote! { struct Rgb(u8, u8, u8); }, &plain[..]),
-            (quote! { struct Marker; }, &plain[..]),
+            (
+                quote! { struct Marker; },
+                &[quote! { borrowed, owned }, quote! { head_tail }][..],
+            ),
             (
                 quote! { struct Pair<'i>(u8, &'i str); },
                 &[quote! { owned }, quote! { head_tail }][..],
@@ -935,6 +963,29 @@ mod tuple_struct_tests {
             for args in args {
                 let s = shrink_wrap_attr(args.clone(), item.clone()).to_string();
                 assert!(!s.contains("compile_error"), "{args} {item}: {s}");
+            }
+        }
+    }
+
+    #[test]
+    fn fieldless_struct_with_a_fixed_size_is_an_error() {
+        for item in [
+            quote! { struct Marker; },
+            quote! { struct Marker {} },
+            quote! { struct Marker(); },
+        ] {
+            for (args, directive) in [
+                (quote! { borrowed, sized }, "sized"),
+                (quote! { borrowed, final_structure }, "final_structure"),
+                (quote! { borrowed, self_describing }, "self_describing"),
+                (quote! { borrowed, fixed_layout }, "fixed_layout"),
+            ] {
+                let s = shrink_wrap_attr(args.clone(), item.clone()).to_string();
+                assert!(s.contains("compile_error"), "{args} {item}: {s}");
+                assert!(
+                    s.contains(&format!("with `{directive}` it is zero bits")),
+                    "{args} {item}: {s}"
+                );
             }
         }
     }

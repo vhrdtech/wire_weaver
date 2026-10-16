@@ -10,6 +10,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- A struct without fields (`struct Marker;`, `struct A {}`) with `sized`, `final_structure`, `self_describing` or
+  `fixed_layout` is a compile error: it would be zero bits that can never change. Without one it is evolvable: it
+  records its length inside a parent, so fields can be added later (SW-59).
 - Tuple and unit structs in `#[derive_shrink_wrap]` (SW-59): `struct Celsius(f32);`, `struct Pair<'i>(u8, &'i str);`
   and `struct Marker;` are written exactly like a struct with the same fields named, in every layout (the size
   assumptions, `fixed_layout`, `head_tail`, `sparse` with `#[slot = N]` on positional fields), with `owned`,

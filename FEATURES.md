@@ -64,6 +64,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `struct Marker;` in every layout and size assumption, same bytes as the struct with the fields named; positional
   names `_0`, `_1`, ... in consts, C names and errors. `#[flag]` needs named fields. The API model has them as
   unnamed fields, dynamic clients and Python (a tuple, a single field its value, a unit `None`) read and write them.
+  A unit struct is evolvable (it records its length inside a parent); with `sized`, `final_structure`,
+  `self_describing` or `fixed_layout` it is a compile error, as it could never change.
   See `docs/types.md`, `shrink_wrap/shrink_wrap/tests/tuple_structs.rs`, `tests/dynamic`.
 - ✅ **SW-58 `validate = path` derive directive**: a function checking every struct value just read, so a derived
   type (and the API model it gives to dynamic clients) can still reject out-of-range data; used by `ww_date_time::Year`.

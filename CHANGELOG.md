@@ -90,6 +90,9 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Changed
 
+- shrink_wrap: a unit struct with `sized`, `final_structure`, `self_describing` or `fixed_layout` is a compile
+  error (zero bits that could never change); the docs explain that a plain unit struct records its length inside a
+  parent and can grow fields later.
 - Docs: reading levels adjusted. `EitherAnyVec`, `OptionAnyVec`, `TailBytes` and `TailSize` are Nomicon on the
   Features page; counted and reliable streams, stream stores, credit sinks and trait attachments are Nomicon in the
   API section and on the Features page; in Introspection, moved flag bits are Advanced and bundles Nomicon; the

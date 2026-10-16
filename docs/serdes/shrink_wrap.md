@@ -1,3 +1,7 @@
+---
+level: basic
+---
+
 # Shrink Wrap
 
 ![shrink_wrap logo](../assets/shrink_wrap_logo.svg#only-light){ width="420" }

@@ -74,3 +74,85 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Reading level badge above a page title (overrides/partials/level.html, docs/levels.md): graphite for Basic, red for
+   Advanced, solid graphite for Nomicon; the signal bars of the icon fill up with the level */
+.md-typeset .ww-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  margin: 0 0 0.6rem;
+  padding: 0.15em 0.65em 0.15em 0.5em;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.md-typeset .ww-level + h1 {
+  margin-top: 0;
+}
+.md-typeset .ww-level__icon {
+  width: 1.05em;
+  height: 0.9em;
+  fill: currentColor;
+}
+.md-typeset .ww-level__icon .ww-level__off {
+  opacity: 0.25;
+}
+.md-typeset .ww-level:hover,
+.md-typeset .ww-level:focus {
+  text-decoration: none;
+}
+
+[data-md-color-scheme="default"] .md-typeset .ww-level--basic {
+  color: #4a4a4c;
+  border-color: #4a4a4c59;
+}
+[data-md-color-scheme="default"] .md-typeset .ww-level--advanced {
+  color: #c8141c;
+  border-color: #c8141c66;
+  background-color: #c8141c0d;
+}
+[data-md-color-scheme="default"] .md-typeset .ww-level--nomicon {
+  color: #ffffff;
+  border-color: #4a4a4c;
+  background-color: #4a4a4c;
+}
+[data-md-color-scheme="default"] .md-typeset .ww-level--nomicon .ww-level__icon {
+  color: #f6766f;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .ww-level--basic {
+  color: #c4c4c6;
+  border-color: #c4c4c659;
+}
+[data-md-color-scheme="slate"] .md-typeset .ww-level--advanced {
+  color: #f24c44;
+  border-color: #f24c4466;
+  background-color: #f24c4414;
+}
+[data-md-color-scheme="slate"] .md-typeset .ww-level--nomicon {
+  color: #ececec;
+  border-color: #4a4a4c;
+  background-color: #4a4a4c;
+}
+[data-md-color-scheme="slate"] .md-typeset .ww-level--nomicon .ww-level__icon {
+  color: #f24c44;
+}
+.md-typeset .ww-level:hover {
+  border-color: var(--md-accent-fg-color);
+}
+
+/* The three levels side by side on docs/levels.md */
+@media screen and (min-width: 60em) {
+  .md-typeset .grid.ww-level-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.md-typeset .ww-level-cards .ww-level {
+  margin-bottom: 0.2rem;
+}

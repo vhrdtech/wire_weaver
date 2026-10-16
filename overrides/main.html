@@ -1,0 +1,8 @@
+{#- Reading level badge above the page title, from the page's `level:` front matter (docs/levels.md) -#}
+{% extends "base.html" %}
+{% block content %}
+  {% if page.meta and page.meta.level %}
+    {% include "partials/level.html" %}
+  {% endif %}
+  {{ super() }}
+{% endblock %}

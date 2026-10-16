@@ -1,0 +1,20 @@
+{#- `level: basic | advanced | nomicon` in a page's front matter, see docs/levels.md. The icon is three bars, as many
+    filled as the level is deep; docs/levels.md draws the same badges by hand. -#}
+{% set level = page.meta.level %}
+{% if level == "basic" %}
+  {% set label = "Basic" %}{% set depth = 1 %}
+{% elif level == "advanced" %}
+  {% set label = "Advanced" %}{% set depth = 2 %}
+{% elif level == "nomicon" %}
+  {% set label = "Nomicon" %}{% set depth = 3 %}
+{% endif %}
+{% if label %}
+  <a class="ww-level ww-level--{{ level }}" href="{{ 'levels/' | url }}" title="Reading level: {{ label }}. What the levels mean">
+    <svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true">
+      <rect x="0" y="7" width="3.2" height="5" rx="0.6"/>
+      <rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"{% if depth < 2 %} class="ww-level__off"{% endif %}/>
+      <rect x="10.8" y="0" width="3.2" height="12" rx="0.6"{% if depth < 3 %} class="ww-level__off"{% endif %}/>
+    </svg>
+    <span class="ww-level__label">{{ label }}</span>
+  </a>
+{% endif %}

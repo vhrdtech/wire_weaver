@@ -13,6 +13,7 @@ edit_uri = "edit/master/docs/"
 nav = [
     { "Home" = "index.md" },
     { "Features" = "features.md" },
+    { "Reading levels" = "levels.md" },
     { "SerDes" = [
             "serdes/shrink_wrap.md",
             "types.md",
@@ -115,7 +116,7 @@ extra_css = ["stylesheets/vhrd.css"]
 
 [project.theme]
 # variant = "classic"
-# custom_dir = "overrides"
+custom_dir = "overrides"
 favicon = "assets/wire_weaver_favicon.svg"
 language = "en"
 features = [

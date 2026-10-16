@@ -44,6 +44,9 @@ mod tests {
             pub clock: Arc<AtomicU64>,
             /// Last fake time `poll_properties` ran at
             pub polled: Arc<AtomicU64>,
+            /// The time of the poll running now: its updates are stamped with it, so the getters it calls read
+            /// it too rather than the clock, which the test may move on meanwhile
+            pub poll_now: Option<u64>,
             pub buf: Vec<u8>,
         }
 
@@ -99,7 +102,8 @@ mod tests {
 
             /// Motor values follow the clock: speed in ms, current in 10 ms, position in 100 ms
             fn now(&self) -> u64 {
-                self.clock.load(Ordering::Relaxed)
+                self.poll_now
+                    .unwrap_or_else(|| self.clock.load(Ordering::Relaxed))
             }
 
             async fn get_motor_speed(
@@ -157,10 +161,12 @@ mod tests {
             }
 
             async fn poll(&mut self, out: &mut impl EventOut, _now_ms: u64) {
-                let now = self.now();
+                let now = self.clock.load(Ordering::Relaxed);
+                self.poll_now = Some(now);
                 let mut buf = core::mem::take(&mut self.buf);
                 _ = self.poll_properties(out, (), now, &mut buf).await;
                 self.buf = buf;
+                self.poll_now = None;
                 self.polled.store(now, Ordering::Relaxed);
             }
         }
@@ -323,6 +329,7 @@ mod tests {
                 observe: server::api_impl::ObserveState::new(limits),
                 clock: clock.clone(),
                 polled: polled.clone(),
+                poll_now: None,
                 buf: vec![0; 512],
             };
             let device = tests_common::start_device_async(

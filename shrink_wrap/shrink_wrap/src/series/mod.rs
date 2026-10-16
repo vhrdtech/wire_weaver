@@ -20,6 +20,8 @@ mod columns;
 #[doc(hidden)]
 pub use columns::check as fuzz_columns;
 mod delta;
+#[cfg(test)]
+mod golden_signals;
 mod group;
 mod leaves;
 mod series_type;

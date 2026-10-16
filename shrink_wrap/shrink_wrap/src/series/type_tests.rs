@@ -1,3 +1,4 @@
+use super::golden_signals::{NOISY_I_BASE, NOISY_V_BASE};
 use super::type_check::*;
 use super::{CodecPolicy, Series, SeriesOwned};
 use crate::{
@@ -92,16 +93,10 @@ fn cases(n: usize, seed: u64) -> Vec<Vec<IvSample>> {
     let steady_v: Vec<_> = (0..n).map(|_| mv((3300 + r.uni(1)) as u16)).collect();
     let steady_i: Vec<_> = (0..n).map(|_| ua((152_000 + r.uni(2)) as i32)).collect();
     let noisy_v: Vec<_> = (0..n)
-        .map(|k| {
-            let s = (k as f64 / 10.0).sin() * 50.0;
-            mv(((3300.0 + s) as i64 + r.gauss(8.0)) as u16)
-        })
+        .map(|k| mv((NOISY_V_BASE[k] + r.gauss(8.0)) as u16))
         .collect();
     let noisy_i: Vec<_> = (0..n)
-        .map(|k| {
-            let s = (k as f64 / 7.0).sin() * 20_000.0;
-            ua((150_000.0 + s) as i32 + r.gauss(300.0) as i32)
-        })
+        .map(|k| ua(NOISY_I_BASE[k] + r.gauss(300.0) as i32))
         .collect();
     let (a, b) = (n * 3 / 10, n * 7 / 10);
     let switch_v: Vec<_> = (0..n).map(|_| mv((3300 + r.uni(1)) as u16)).collect();

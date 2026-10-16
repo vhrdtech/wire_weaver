@@ -5,8 +5,8 @@ level: advanced
 # Special types
 
 Types of the `shrink_wrap` crate for cases the plain ones don't cover: a value that bounds itself inside a longer
-buffer, owned strings and lists without an allocator, compressed time series, and sparse sets of values. Each
-section starts with what the type is for and how to use it; the exact bits are in
+buffer, owned strings and lists without an allocator, compressed time series, lists written in place, and sparse
+sets of values. Each section starts with what the type is for and how to use it; the exact bits are in
 [wire format internals](wire_format.md#encodings-of-the-special-types).
 
 ## `TailSize<N>`: the size of the rest of a value
@@ -135,6 +135,65 @@ slot or `TailSize` bounds the value and a truncation is caught there.
 
 The codes: [wire format internals](wire_format.md#delta-deltaofdelta-and-xorfloat); the bytes:
 [showcase](showcase.md#compressed-sequences-delta-deltaofdelta-and-xorfloat).
+
+## `RefVecBuilder`: lists written in place
+
+`RefVec::Slice` needs the elements in a slice first. `RefVecBuilder<T>` writes a list straight into a `BufWriter`
+instead, one element at a time, from an iterator or a loop reading a sensor, with no memory for the elements:
+
+- `RefVecBuilder::<T>::new(&mut wr)` at the place of the list: the whole buffer, a field of a struct written by
+  hand, an element of another list (a `RefVec` stores no size of its own, so it is the same call everywhere);
+- then `push(&mut wr, &value)` per element, `extend(&mut wr, items)` for an iterator, or
+  `push_with(&mut wr, |wr| ..)` to write an element by other means, e.g. with a nested builder;
+- then `finish(&mut wr)`, which writes the element count.
+
+The bytes are those of the same `RefVec::Slice`, so a reader can't tell. Three 12-bit samples between a byte and a
+flag:
+
+```rust
+let mut wr = BufWriter::new(&mut buf);
+wr.write_u8(7).unwrap();
+let mut samples = RefVecBuilder::<U12>::new(&mut wr).unwrap();
+for ch in 0..3 {
+    samples.push(&mut wr, &adc_read(ch)).unwrap(); // 0x023, 0x123, 0x223
+}
+samples.finish(&mut wr).unwrap();
+wr.write_bool(true).unwrap();
+assert_eq!(wr.finish_and_take().unwrap(), hex!("07 02 31 23 22 38 03"));
+```
+
+The samples are bit-packed as in any list (`023` `123` `223`), the flag follows in the next bit (`3` `1` and
+padding), and the count `3` is at the back. A list of lists takes a nested builder per element:
+
+```rust
+let groups: [&[&str]; 2] = [&["a", "bc"], &["d"]];
+let mut outer = RefVecBuilder::<RefVec<&str>>::new(&mut wr).unwrap();
+for group in groups {
+    outer.push_with(&mut wr, |wr| {
+        let mut inner = RefVecBuilder::<&str>::new(wr)?;
+        inner.extend(wr, group)?;
+        inner.finish(wr)
+    }).unwrap();
+}
+outer.finish(&mut wr).unwrap();
+assert_eq!(wr.finish_and_take().unwrap(), hex!("61 62 63 64 11 21 22"));
+```
+
+`push_with` writes the element as its type's `ser_shrink_wrap` would; for an evolvable element the builder adds its
+size around it, as `wr.write` does.
+
+- **A push that fails** (out of buffer space, an element that fails to serialize) returns the error and undoes what
+  the element wrote: the list holds the elements pushed before and can still be finished, the count is never off.
+- **`finish` must be called.** Until then the count is 0 while the elements are already in the buffer, and a reader
+  sees garbage. The builder is `#[must_use]`, but that only catches one that is never used at all.
+- **`MaxLen<RefVec<'i, T>, N>`**: start it with `RefVecBuilder::with_max_len(&mut wr, N)`, push `N + 1` fails with
+  `Error::MaxLenExceeded` and writes nothing. A `BufWriter` keeps lengths as `u16` until they are encoded, so the
+  65 536th push fails with `Error::LenTooLong`.
+
+`RefVecBuilderOwned<T>` is the same builder for a `BufWriterOwned` and `SerializeShrinkWrapOwned` elements, with the
+same bytes. `RefVecU8Builder` is for a `RefVec<u8>` whose bytes are written by other means (`write_raw_slice`, or
+other values, making the list a byte blob that holds them): `new` aligns to a byte, `finish` encodes the lengths the
+values in the blob pushed, aligns, and writes the number of bytes as the count.
 
 ## `OptionAnyVec`: sparse slots of any types
 

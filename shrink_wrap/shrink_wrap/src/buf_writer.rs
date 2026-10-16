@@ -744,7 +744,7 @@ impl UnsizedBuilder {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct RevPos(usize);
 
 #[cfg(test)]

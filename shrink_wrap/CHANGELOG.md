@@ -10,6 +10,15 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- `RefVecBuilder<T>` (SW-61): writes a `RefVec<'i, T>` in place, element by element, into a `BufWriter` that may
+  hold other data too, without a slice of the elements: `new(&mut wr)`, `push(&mut wr, &value)`,
+  `extend(&mut wr, items)`, `push_with(&mut wr, |wr| ..)` for an element written by other means (a nested builder,
+  a struct written by hand), `finish(&mut wr)` writes the count. Same bytes as `RefVec::Slice` with the same
+  elements, as the whole buffer, a struct field or an element of another list. A push that fails (out of buffer, an
+  element that fails to serialize, a `write_*_latch` error inside `push_with`) undoes what the element wrote, so the
+  list can still be finished with the elements before it. `with_max_len(&mut wr, N)` for a
+  `MaxLen<RefVec<..>, N>` fails the `N + 1`th push with `Error::MaxLenExceeded`. `RefVecBuilderOwned<T>` is the
+  same for `BufWriterOwned`. All three builders are exported at the crate root, the generic ones in the prelude too.
 - A struct without fields (`struct Marker;`, `struct A {}`) with `sized`, `final_structure`, `self_describing` or
   `fixed_layout` is a compile error: it would be zero bits that can never change. Without one it is evolvable: it
   records its length inside a parent, so fields can be added later (SW-59).
@@ -296,6 +305,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
+- `RefVecU8Builder`: an empty one written after bit-sized fields no longer aligns to a byte, so it has the bytes
+  of an empty `RefVec<u8>` there too. It is now documented (`docs/serdes/special_types.md`), `#[must_use]`, tested,
+  and exported at the crate root.
 - Fields with `#[default = ..]` (SW-15) read as their default only when they start at the end of the data (written
   by an older version) and their read runs out of data. Before, any error in such a field gave the default, so a
   malformed or truncated value was silently replaced. The flag of an evolved `Option` or `Result` falls back with

@@ -566,6 +566,39 @@ impl BufWriterOwned {
     pub fn pos(&self) -> (usize, u8) {
         (self.byte_idx, self.bit_idx)
     }
+
+    /// Where the writer is, to go back to with [rollback](Self::rollback).
+    pub(crate) fn mark(&self) -> Mark {
+        Mark {
+            buf_len: self.buf.len(),
+            byte_idx: self.byte_idx,
+            bit_idx: self.bit_idx,
+            rev_len: self.rev.len(),
+        }
+    }
+
+    /// Drop everything written since `mark`: bytes, bits of the last byte and the numbers pushed to the reverse
+    /// FIFO. Only the numbers pushed since are encoded or updated by writes that nest properly, so the ones before
+    /// the mark are as they were.
+    pub(crate) fn rollback(&mut self, mark: Mark) {
+        self.buf.truncate(mark.buf_len);
+        self.rev.truncate(mark.rev_len);
+        self.byte_idx = mark.byte_idx;
+        self.bit_idx = mark.bit_idx;
+        if self.bit_idx != 7 {
+            // the bits after bit_idx must be zero, writes OR into them
+            self.buf[self.byte_idx] &= (0xFF00u32 >> (7 - self.bit_idx)) as u8;
+        }
+    }
+}
+
+/// Writer position saved by [BufWriterOwned::mark].
+#[derive(Copy, Clone)]
+pub(crate) struct Mark {
+    buf_len: usize,
+    byte_idx: usize,
+    bit_idx: u8,
+    rev_len: usize,
 }
 
 impl UnsizedBuilderOwned {

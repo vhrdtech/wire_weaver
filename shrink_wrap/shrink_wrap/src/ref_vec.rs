@@ -1,13 +1,19 @@
 use core::fmt::{Debug, Formatter};
 
-use crate::buf_writer::RevPos;
 use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
+
+mod builder;
+#[cfg(feature = "std")]
+pub use builder::RefVecBuilderOwned;
+pub use builder::{RefVecBuilder, RefVecU8Builder};
 
 /// Zero-copy, no_std and no-alloc growable array.
 ///
 /// Generic overy any type `T` that implements [SerializeShrinkWrap] + [DeserializeShrinkWrap].
 /// Including other vectors, user defined structs with dynamic size, etc.
+///
+/// Write one from a slice (`RefVec::Slice`), or element by element in place with [RefVecBuilder].
 #[derive(Copy, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RefVec<'i, T> {
@@ -30,11 +36,6 @@ pub enum RefVecIter<'i, T> {
         elements_count: usize,
         pos: usize,
     },
-}
-
-pub struct RefVecU8Builder {
-    element_count_pos: RevPos,
-    byte_pos: usize,
 }
 
 impl<T> RefVec<'_, T> {
@@ -311,28 +312,6 @@ impl<'i, T: DeserializeShrinkWrap<'i> + PartialEq + Clone> PartialEq for RefVec<
 }
 
 impl<'i, T: DeserializeShrinkWrap<'i> + Eq + Clone> Eq for RefVec<'i, T> {}
-
-impl RefVecU8Builder {
-    pub fn new(wr: &mut BufWriter<'_>) -> Result<Self, Error> {
-        wr.align_byte();
-        let element_count_pos = wr.write_rev_len(0)?;
-        let byte_pos = wr.pos().0;
-        Ok(Self {
-            element_count_pos,
-            byte_pos,
-        })
-    }
-
-    pub fn finish(self, wr: &mut BufWriter<'_>) -> Result<(), Error> {
-        // T might have written several nib16_rev's as well, encode and place them after type's data
-        wr.encode_len_fifo(wr.rev_len_pos(), self.element_count_pos)?;
-        // e.g., enum, only one nib discriminant is written => need to align
-        wr.align_byte();
-        let size_bytes = wr.pos().0 - self.byte_pos;
-        let elements_count = size_bytes;
-        wr.update_rev_len(self.element_count_pos, elements_count)
-    }
-}
 
 #[cfg(test)]
 mod tests {

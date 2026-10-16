@@ -70,7 +70,9 @@ buffer as a `UNib32` ([why at the back](serdes/shrink_wrap.md#how-it-stays-small
 **`RefVec<'i, T>`** (borrowed, no allocator) and **`Vec<T>`** (`std`) are the elements one after another, with the
 count at the back. A `RefVec` read from a buffer points into it and decodes elements as you iterate; to write one,
 make it from a slice (`RefVec::Slice { slice: &items }`, or `RefVec::new_bytes(&[1, 2, 3])` for bytes). The derive macro maps `RefVec` to `Vec` and `&str`
-to `String` for the owned type ([type mapping](serdes/derive.md#type-mapping)).
+to `String` for the owned type ([type mapping](serdes/derive.md#type-mapping)). Without a slice, e.g. elements
+coming from a sensor loop, [`RefVecBuilder`](serdes/special_types.md#refvecbuilder-lists-written-in-place) writes a
+list into the buffer one element at a time, with the same bytes.
 
 **`[T; N]`** is `N` elements with no count. `N` can be a literal or any const expression (`[f32; MAX_SERIES]`).
 

@@ -31,7 +31,9 @@ pub use max_size::{MaxSize, write_max_size};
 pub mod ref_box;
 pub use ref_box::RefBox;
 pub mod ref_vec;
-pub use ref_vec::{RefVec, RefVecIter};
+#[cfg(feature = "std")]
+pub use ref_vec::RefVecBuilderOwned;
+pub use ref_vec::{RefVec, RefVecBuilder, RefVecIter, RefVecU8Builder};
 pub mod either_any_vec;
 pub mod fixed_layout;
 pub mod head_tail;
@@ -164,7 +166,9 @@ pub mod prelude {
     pub use crate::option_any_vec::OptionAnyVecBuilderOwned;
     pub use crate::option_any_vec::{OptionAnyVec, OptionAnyVecBuilder};
     pub use crate::ref_box::RefBox;
-    pub use crate::ref_vec::{RefVec, RefVecIter};
+    #[cfg(feature = "std")]
+    pub use crate::ref_vec::RefVecBuilderOwned;
+    pub use crate::ref_vec::{RefVec, RefVecBuilder, RefVecIter};
     pub use crate::series::{Delta, DeltaOfDelta, XorFloat};
     #[cfg(feature = "std")]
     pub use crate::series::{DeltaOfDeltaOwned, DeltaOwned, XorFloatOwned};

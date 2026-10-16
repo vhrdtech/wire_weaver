@@ -65,6 +65,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-40 | Strict bit reads | Malformed data near the end of a buffer is an error, never a misread. | serdes/wire_format.md
 - SW-9, DER-4 | Bytes to the end | `TailBytes` takes the rest of the buffer, written without a length; only allowed last. | types.md#special-types
 - SW-18 | Size of the rest of a value | `TailSize<N>`, filled in after writing, so a reader can skip a value or bound it. | serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value
+- SW-61 | Lists written in place | `RefVecBuilder` writes a list into the buffer one element at a time, from a loop or an iterator, with no slice and the same bytes. | serdes/special_types.md#refvecbuilder-lists-written-in-place
 - SW-55 | Sparse slots | `OptionAnyVec`, a list of optional values of any types where only the present ones take space. | serdes/special_types.md#optionanyvec-sparse-slots-of-any-types
 - SW-10 | Lists of either-or values | `EitherAnyVec` holds one of two types per element, the flags packed by eight, e.g. a list of results. | serdes/special_types.md#eitheranyvec
 

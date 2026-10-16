@@ -1056,38 +1056,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#display-der-12" class="md-nav__link">
+  <a href="#validate-path-sw-58" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>display</code> (DER-12)
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#zero-copy-and-owned-types" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Zero-copy and owned types
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Zero-copy and owned types">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#type-mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Type mapping
+        <code>validate = path</code> (SW-58)
       </span>
     </span>
   </a>
@@ -3674,38 +3646,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#display-der-12" class="md-nav__link">
+  <a href="#validate-path-sw-58" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>display</code> (DER-12)
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#zero-copy-and-owned-types" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Zero-copy and owned types
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Zero-copy and owned types">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#type-mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Type mapping
+        <code>validate = path</code> (SW-58)
       </span>
     </span>
   </a>
@@ -4016,7 +3960,7 @@ case.</p>
 <p><code>#[derive_shrink_wrap(directive, directive, ..)]</code> accepts a comma separated list of directives. Order doesn't matter
 to the parser, but the codebase consistently writes them in this order (and so do the examples below):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse, ww_repr,
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>discriminants, display, no_future_version|future_version
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>discriminants, display, validate, no_future_version|future_version
 </span></code></pre></div>
 <h3 id="borrowed-borrowedcfg-predicate"><code>borrowed</code>, <code>borrowed(&lt;cfg predicate&gt;)</code><a class="headerlink" href="#borrowed-borrowedcfg-predicate" title="Permanent link">&para;</a></h3>
 <p>Requests generation of the borrowed type. Only needed for an <a href="#borrowed-owned-or-both">Ambiguous</a> type (where it's
@@ -4478,35 +4422,51 @@ and only decides the final variant afterward:</p>
 </span></code></pre></div>
 <p>This is exactly how <code>ww_client_server</code>'s response builder writes a placeholder discriminant up front, then goes back
 and patches it in once the actual variant being sent is known.</p>
-<h3 id="display-der-12"><code>display</code> (DER-12)<a class="headerlink" href="#display-der-12" title="Permanent link">&para;</a></h3>
-<p>Generates <code>core::fmt::Display</code> and <code>core::error::Error</code> (a bare <code>impl</code>, no <code>source()</code>) for the borrowed side, the
-owned side, or both, whichever <code>owned</code>/<code>borrowed</code> generate. The message is the first doc line: a struct's own, or
-each variant's own for an enum, without its trailing period (Rust's convention for error messages, so it reads
-well inside a longer one; <code>...</code> is kept, <code>#[display("..")]</code> is used as written). <code>{field}</code> is filled in from the type's own field of that name, format specs work
-too (<code>{field:#x}</code>); a tuple variant's fields are <code>{0}</code>, <code>{1}</code>, ... <code>#[display("..")]</code> overrides the doc line, for a
-tuple variant's fields or when the doc line should say more than the message (error enums in APIs:
-<a href="../../api/errors/">Errors</a>):</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="cp">#[derive_shrink_wrap(owned(feature = </span><span class="s">&quot;std&quot;</span><span class="cp">), derive(Debug, PartialEq, Eq, Clone), display, ww_repr = unib32)]</span>
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">IoError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">    </span><span class="sd">/// Not supported by this device.</span>
-</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">    </span><span class="n">Unsupported</span><span class="p">,</span>
-</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">    </span><span class="sd">/// In use by {by}.</span>
-</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="w">    </span><span class="n">InUse</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">by</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="w"> </span><span class="p">},</span>
-</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">    </span><span class="sd">/// Hardware fault {code:#x}.</span>
-</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="w">    </span><span class="n">Fault</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">code</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="p">},</span>
-</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="w">    </span><span class="cp">#[display(</span><span class="s">&quot;wrapping: {0}&quot;</span><span class="cp">)]</span>
-</span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="w">    </span><span class="n">Wrapped</span><span class="p">(</span><span class="kt">u8</span><span class="p">),</span>
-</span><span id="__span-21-11"><a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a><span class="p">}</span>
-</span><span id="__span-21-12"><a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>
-</span><span id="__span-21-13"><a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="k">fn</span><span class="w"> </span><span class="nf">display_message</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-21-14"><a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">IoError</span><span class="p">::</span><span class="n">Unsupported</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;Not supported by this device&quot;</span><span class="p">);</span>
-</span><span id="__span-21-15"><a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">IoError</span><span class="p">::</span><span class="n">InUse</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">by</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;USART2&quot;</span><span class="w"> </span><span class="p">}.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;In use by USART2&quot;</span><span class="p">);</span>
-</span><span id="__span-21-16"><a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">IoError</span><span class="p">::</span><span class="n">Fault</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">code</span><span class="p">:</span><span class="w"> </span><span class="mh">0xBEEF</span><span class="w"> </span><span class="p">}.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;Hardware fault 0xbeef&quot;</span><span class="p">);</span>
-</span><span id="__span-21-17"><a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">IoError</span><span class="p">::</span><span class="n">Wrapped</span><span class="p">(</span><span class="mi">7</span><span class="p">).</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;wrapping: 7&quot;</span><span class="p">);</span>
-</span><span id="__span-21-18"><a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a><span class="w">    </span><span class="c1">// the owned side gets it too</span>
-</span><span id="__span-21-19"><a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a><span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">IoErrorOwned</span><span class="p">::</span><span class="n">Unsupported</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;Not supported by this device&quot;</span><span class="p">);</span>
-</span><span id="__span-21-20"><a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a><span class="p">}</span>
-</span></code></pre></div>
+<h3 id="validate-path-sw-58"><code>validate = path</code> (SW-58)<a class="headerlink" href="#validate-path-sw-58" title="Permanent link">&para;</a></h3>
+<p>Structs only (not <code>sparse</code>, <code>fixed_layout</code> or <code>head_tail</code>). <code>path</code> is a function <code>fn(&amp;T) -&gt; Result&lt;(), shrink_wrap::Error&gt;</code>
+called on every value just read, before it is returned; its error is the result of the read. Use it for a range or
+invariant that the field types can't express, while keeping the derived type, which is what the API model describes to
+dynamic clients (<code>ww introspect</code>). With both a borrowed and an owned type generated the function is called with each,
+so it has to accept both (a type that is the same on both sides, like <code>ww_date_time::Year</code>, needs one function). The
+model parser ignores the directive.</p>
+<p>```rust,ignore</p>
+<h1 id="derive_shrink_wrapself_describing-validate-yearvalidate">[derive_shrink_wrap(self_describing, validate = Year::validate)]<a class="headerlink" href="#derive_shrink_wrapself_describing-validate-yearvalidate" title="Permanent link">&para;</a></h1>
+<p>pub struct Year { shifted: UNib32 }</p>
+<p>impl Year {
+    fn validate(&amp;self) -&gt; Result&lt;(), shrink_wrap::Error&gt; { /* ... */ }
+}
+<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>### `display` (DER-12)
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>Generates `core::fmt::Display` and `core::error::Error` (a bare `impl`, no `source()`) for the borrowed side, the
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>owned side, or both, whichever `owned`/`borrowed` generate. The message is the first doc line: a struct&#39;s own, or
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>each variant&#39;s own for an enum, without its trailing period (Rust&#39;s convention for error messages, so it reads
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>well inside a longer one; `...` is kept, `#[display(&quot;..&quot;)]` is used as written). `{field}` is filled in from the type&#39;s own field of that name, format specs work
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>too (`{field:#x}`); a tuple variant&#39;s fields are `{0}`, `{1}`, ... `#[display(&quot;..&quot;)]` overrides the doc line, for a
+</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>tuple variant&#39;s fields or when the doc line should say more than the message (error enums in APIs:
+</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>[Errors](../api/errors.md)):
+</span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>
+</span><span id="__span-21-11"><a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>```rust
+</span><span id="__span-21-12"><a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>#[derive_shrink_wrap(owned(feature = &quot;std&quot;), derive(Debug, PartialEq, Eq, Clone), display, ww_repr = unib32)]
+</span><span id="__span-21-13"><a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a>pub enum IoError&lt;&#39;i&gt; {
+</span><span id="__span-21-14"><a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>    /// Not supported by this device.
+</span><span id="__span-21-15"><a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a>    Unsupported,
+</span><span id="__span-21-16"><a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a>    /// In use by {by}.
+</span><span id="__span-21-17"><a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a>    InUse { by: &amp;&#39;i str },
+</span><span id="__span-21-18"><a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a>    /// Hardware fault {code:#x}.
+</span><span id="__span-21-19"><a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a>    Fault { code: u32 },
+</span><span id="__span-21-20"><a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a>    #[display(&quot;wrapping: {0}&quot;)]
+</span><span id="__span-21-21"><a id="__codelineno-21-21" name="__codelineno-21-21" href="#__codelineno-21-21"></a>    Wrapped(u8),
+</span><span id="__span-21-22"><a id="__codelineno-21-22" name="__codelineno-21-22" href="#__codelineno-21-22"></a>}
+</span><span id="__span-21-23"><a id="__codelineno-21-23" name="__codelineno-21-23" href="#__codelineno-21-23"></a>
+</span><span id="__span-21-24"><a id="__codelineno-21-24" name="__codelineno-21-24" href="#__codelineno-21-24"></a>fn display_message() {
+</span><span id="__span-21-25"><a id="__codelineno-21-25" name="__codelineno-21-25" href="#__codelineno-21-25"></a>    assert_eq!(IoError::Unsupported.to_string(), &quot;Not supported by this device&quot;);
+</span><span id="__span-21-26"><a id="__codelineno-21-26" name="__codelineno-21-26" href="#__codelineno-21-26"></a>    assert_eq!(IoError::InUse { by: &quot;USART2&quot; }.to_string(), &quot;In use by USART2&quot;);
+</span><span id="__span-21-27"><a id="__codelineno-21-27" name="__codelineno-21-27" href="#__codelineno-21-27"></a>    assert_eq!(IoError::Fault { code: 0xBEEF }.to_string(), &quot;Hardware fault 0xbeef&quot;);
+</span><span id="__span-21-28"><a id="__codelineno-21-28" name="__codelineno-21-28" href="#__codelineno-21-28"></a>    assert_eq!(IoError::Wrapped(7).to_string(), &quot;wrapping: 7&quot;);
+</span><span id="__span-21-29"><a id="__codelineno-21-29" name="__codelineno-21-29" href="#__codelineno-21-29"></a>    // the owned side gets it too
+</span><span id="__span-21-30"><a id="__codelineno-21-30" name="__codelineno-21-30" href="#__codelineno-21-30"></a>    assert_eq!(IoErrorOwned::Unsupported.to_string(), &quot;Not supported by this device&quot;);
+</span><span id="__span-21-31"><a id="__codelineno-21-31" name="__codelineno-21-31" href="#__codelineno-21-31"></a>}
+</span></code></pre></div></p>
 <p>A variant with neither a doc comment nor <code>#[display("..")]</code> is a compile error naming it, so a message is never
 silently missing; the <code>#[future_version]</code> variant (SW-47) always has one, written or not. A field not mentioned by
 the message is simply unused, not an error. <code>display</code> is unused on the device if nothing calls it (no <code>Display</code> or

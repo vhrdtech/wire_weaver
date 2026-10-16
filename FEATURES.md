@@ -656,6 +656,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **EVO-5 API snapshots** of `ww_global` and `ww_stdlib` (`wire_weaver_snapshots`, `ww api save`), left out of
   introspection data and put back by the client.
 - ✅ **EVO-6 Evolution checker and report**: `ww api check` / `ww api diff` (`docs/evolution/checker_tool.md`).
+- ✅ **EVO-9 Skipped definitions from another revision** · `v0.5.x` — codegen keeps every definition it leaves out
+  of a device's introspection data in `~/.wire_weaver/definitions/` by signature; a host that doesn't find a skipped
+  definition under its signature in its snapshots (a device built from another revision of an unpublished crate)
+  takes it from there and compares it by the evolution rules, with a warning instead of an error. Not found anywhere:
+  an error with both signatures and the fix. Rust client, `ww` and Python (`docs/std_library/ww_self.md`,
+  `wire_weaver_client` `compat::tests::other_revision`). `#[cfg]` enum variants don't change signatures
+  (`tests/cfg_variants`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

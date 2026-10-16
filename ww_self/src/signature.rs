@@ -45,9 +45,9 @@ pub fn trait_signature<'a>(
     trait_idx: u32,
     resolve: Resolve<'a, '_>,
 ) -> Result<Vec<u8>> {
-    let mut canonical = Canonical::new(bundle, resolve);
-    canonical.trait_idx(trait_idx)?;
-    canonical.hash()
+    Ok(signature_of(&canonical_trait_bytes(
+        bundle, trait_idx, resolve,
+    )?))
 }
 
 /// Signature of `bundle.types[type_idx]`.
@@ -58,9 +58,38 @@ pub fn type_signature<'a>(
     type_idx: u32,
     resolve: Resolve<'a, '_>,
 ) -> Result<Vec<u8>> {
+    Ok(signature_of(&canonical_type_bytes(
+        bundle, type_idx, resolve,
+    )?))
+}
+
+/// Serialized canonical bundle of `bundle.traits[trait_idx]`, the bytes its signature is the hash of: the trait is
+/// `traits[0]`, everything it refers to is in-line. See [crate::definition_cache].
+pub fn canonical_trait_bytes<'a>(
+    bundle: &'a ApiBundleOwned,
+    trait_idx: u32,
+    resolve: Resolve<'a, '_>,
+) -> Result<Vec<u8>> {
+    let mut canonical = Canonical::new(bundle, resolve);
+    canonical.trait_idx(trait_idx)?;
+    canonical.bytes()
+}
+
+/// Serialized canonical bundle of `bundle.types[type_idx]`, the bytes its signature is the hash of: the type is
+/// `types[0]`, everything it refers to is in-line. See [crate::definition_cache].
+pub fn canonical_type_bytes<'a>(
+    bundle: &'a ApiBundleOwned,
+    type_idx: u32,
+    resolve: Resolve<'a, '_>,
+) -> Result<Vec<u8>> {
     let mut canonical = Canonical::new(bundle, resolve);
     canonical.type_idx(type_idx)?;
-    canonical.hash()
+    canonical.bytes()
+}
+
+/// Signature of a definition from its [canonical bytes](canonical_type_bytes): truncated SHA-256.
+pub fn signature_of(canonical_bytes: &[u8]) -> Vec<u8> {
+    sha2::Sha256::digest(canonical_bytes)[..SIGNATURE_LEN].to_vec()
 }
 
 /// Copies definitions into a new bundle, remapping indices in the order of first use.
@@ -223,8 +252,8 @@ impl<'a, 'r> Canonical<'a, 'r> {
         Ok((other, found.ok_or_else(not_found)? as u32))
     }
 
-    /// Remaps pending definitions (which can add more) and hashes the resulting bundle.
-    fn hash(mut self) -> Result<Vec<u8>> {
+    /// Remaps pending definitions (which can add more) and serializes the resulting bundle.
+    fn bytes(mut self) -> Result<Vec<u8>> {
         while let Some(pending) = self.pending.pop_front() {
             match pending {
                 Pending::Type(new, src, mut location) => {
@@ -258,10 +287,9 @@ impl<'a, 'r> Canonical<'a, 'r> {
             ext_crates: self.out_crates,
             root_omitted: None,
         };
-        let bytes = bundle
+        bundle
             .to_ww_bytes_owned()
-            .map_err(|e| anyhow!("serializing canonical bundle: {e:?}"))?;
-        Ok(sha2::Sha256::digest(&bytes)[..SIGNATURE_LEN].to_vec())
+            .map_err(|e| anyhow!("serializing canonical bundle: {e:?}"))
     }
 
     fn remap(&mut self, idx: &mut UNib32, f: fn(&mut Self, u32) -> Result<u32>) {

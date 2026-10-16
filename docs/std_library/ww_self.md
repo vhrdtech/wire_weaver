@@ -96,6 +96,32 @@ checks its signature matches what was stored, and replaces it in place (appendin
 definition itself refers to). Anything not found, or found with a different signature, comes back as a
 `NotInlined` (kind, crate/version if known, name, reason) instead of being substituted silently.
 
+A signature is an honest description of the definition a device was built with, docs included: a crate version
+that is not published yet changes under the same version, and so does a signature when the `ww_self` model gets a
+field. A device built from another revision than the host then sends a signature the host's snapshot doesn't have.
+
+### The definition cache
+
+For that case, codegen keeps every definition it leaves out of a device's introspection data in
+`~/.wire_weaver/definitions/` on the machine it builds on: the canonical bundle's bytes as they were hashed, in a file
+named after crate, version, kind, name and signature (`ww_si-0_1_0-type-Volt-049a2a94f6d68bb5.ww`). A host
+(`wire_weaver_client`, the `ww` CLI, Python's `connect()`) that doesn't find a skipped definition in its snapshots
+under its signature looks it up there with `ww_self::inline::inline_skipped_or_cached`, which checks the bytes against
+the signature before using them, so an entry written by an older `ww_self` still reads. The definition is put back
+in-line and the API check then compares it with the host's by the [evolution rules](../evolution/rules.md), with a
+warning that the device has another revision of it:
+
+```text
+Device API has type ww_si::Volt 0.1.0 with signature 049a2a94f6d68bb5 (this host's is 0af8195a2e0069fe): likely a
+build from another revision of an unpublished crate, its definition is from the definition cache and is compared by
+the evolution rules
+```
+
+Only when no definition with that signature is found anywhere does a resource that uses it fail the check, with
+both signatures, the likely cause and the fix: rebuild (reflash) both sides from one revision, or build the
+device's firmware once on the host's machine so that its definitions get into the cache. Entries are a few hundred
+bytes each and are never changed; deleting the directory only loses the ability to talk to such devices.
+
 ## Visiting the model
 
 `ww_self::visit::Visit` (read-only) and `ww_self::visit_mut::VisitMut` (mutable) are exhaustive visitor traits

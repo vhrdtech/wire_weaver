@@ -46,6 +46,16 @@ pub fn inline_skipped(bundle: &mut ApiBundleOwned) -> Vec<NotInlined> {
     ww_self::inline::inline_skipped(bundle, &|version| get(version))
 }
 
+/// Same as [inline_skipped], a definition that the snapshots don't have under its signature (a build from another
+/// revision of a crate that is not published yet) is looked up in the definition cache in `cache_dir`, see
+/// [ww_self::definition_cache].
+pub fn inline_skipped_or_cached(
+    bundle: &mut ApiBundleOwned,
+    cache_dir: Option<&std::path::Path>,
+) -> ww_self::inline::Inlined {
+    ww_self::inline::inline_skipped_or_cached(bundle, &|version| get(version), cache_dir)
+}
+
 fn parse(contents: &str) -> Result<ApiBundleOwned, String> {
     let bundle: ApiBundleOwned = ron::from_str(contents).map_err(|e| e.to_string())?;
     if bundle.ext_crates.is_empty() {

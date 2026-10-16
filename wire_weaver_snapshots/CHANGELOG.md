@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- `inline_skipped_or_cached(bundle, cache_dir)` (EVO-9): `inline_skipped` that also looks up definitions by signature
+  in the definition cache.
 - `ww_firmware_info`, `ww_board_info`, `ww_uid`, `ww_user_info` 0.1.0 snapshots hold the reworked device info APIs (STD-24).
 - `ww_logic_analyzer` 0.1.0 and `ww_signal_generator` 0.1.0 snapshots (STD-21, STD-22).
 - `ww_dfu` 0.1.0 snapshot holds the new update API (STD-12), with `StageBulk::plan` a credit sink (API-28).

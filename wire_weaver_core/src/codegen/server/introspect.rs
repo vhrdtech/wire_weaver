@@ -120,6 +120,7 @@ pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned, include_docs: bool
             api_bundle.clone()
         }
     };
+    crate::local_registry::cache_definitions(api_bundle, &sent);
     let mut contains_docs = ContainsDocs::default();
     contains_docs.visit_api_bundle(api_bundle);
     let no_docs = |bundle: &ApiBundleOwned| {

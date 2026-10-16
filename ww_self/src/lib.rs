@@ -11,6 +11,8 @@ mod common;
 #[cfg(feature = "std")]
 pub use common::COMMON_ERROR;
 #[cfg(feature = "std")]
+pub mod definition_cache;
+#[cfg(feature = "std")]
 pub mod errors;
 #[cfg(feature = "std")]
 pub mod inline;

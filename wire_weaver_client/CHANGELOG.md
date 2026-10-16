@@ -318,6 +318,11 @@
 
 ### 🐛 Fixes
 
+- A device whose skipped trait or type has another signature than the host's snapshot (built from another revision
+  of an unpublished crate, e.g. `ww_si::Volt` on the Donguru M0+ firmware, P2401) is no longer refused as "has a
+  different definition on each side" (EVO-9): its definition is looked up by signature in the definition cache
+  `~/.wire_weaver/definitions/`, put back with a warning and compared by the evolution rules. Only when it is not found
+  does a resource using it fail, with both signatures, the likely cause and how to fix it.
 - `multi_read()` returns an error instead of panicking when the device's answer doesn't deserialize, or for
   resources below the root level (not supported yet), and no longer prints the answer to stdout (CLT-15).
 - A request sent while every seq number is in flight waits for one instead of failing with "No more request IDs

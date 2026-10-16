@@ -15,6 +15,9 @@
 
 ### 🚀 Features
 
+- Server and client codegen store every definition left out of the introspection data in the definition cache
+  `~/.wire_weaver/definitions/` (EVO-9), so a host on the same machine can put back definitions of a device built from
+  another revision of an unpublished crate.
 - Observed properties in std clients (CLT-28): per trait level with `+observe` properties (not under a resource
   array) the client module has `<Trait>Update` (`<Trait>UpdateOwned` with owned fields, the sparse struct of the
   level's `PropertyUpdate`), `<Trait>Latest` (latest value per property with its receive time) and `<Trait>Observe`

@@ -451,8 +451,8 @@ fn compare_kinds<'a>(
             if skipped(client, trait_idx.0) || skipped(device, device_trait_idx.0) {
                 check_same_definition(
                     "trait",
-                    identity,
-                    device_identity,
+                    (identity, client_name),
+                    (device_identity, device_name),
                     trait_signature(client, trait_idx.0),
                     trait_signature(device, device_trait_idx.0),
                 )?;
@@ -568,12 +568,13 @@ fn check_same_origin(what: &str, a: Identity, b: Identity) -> Result<(), String>
     Ok(())
 }
 
-/// Catches a definition that was changed without bumping its crate version: same version, but a different
-/// signature. Only possible to check when both signatures are known.
+/// Catches a definition that is different on each side under the same crate version, when one side has left it out
+/// (with both in-line, they are compared by the evolution rules instead). Such a definition was not found by its
+/// signature in the snapshots or in the definition cache. Only possible to check when both signatures are known.
 fn check_same_definition(
     what: &str,
-    a: Identity,
-    b: Identity,
+    (a, a_name): (Identity, &str),
+    (b, b_name): (Identity, &str),
     a_signature: Option<Vec<u8>>,
     b_signature: Option<Vec<u8>>,
 ) -> Result<(), String> {
@@ -582,12 +583,30 @@ fn check_same_definition(
     };
     if a.0 == b.0 && a_signature != b_signature {
         let v = &a.0.version;
+        let cache = match ww_self::definition_cache::default_dir() {
+            Some(dir) => dir.display().to_string(),
+            None => "~/.wire_weaver/definitions".into(),
+        };
         return Err(format!(
-            "{what} {}::{} {}.{}.{} has a different definition on each side, likely changed without bumping the crate version",
-            a.0.crate_id, a.1, v.major.0, v.minor.0, v.patch.0
+            "{what} {crate_id}::{name} {major}.{minor}.{patch} has signature {} on the {a_name} and {} on the \
+             {b_name}, and the other definition is not known here (not in a snapshot, not in the definition cache \
+             {cache}). Likely the two were built from different revisions of {crate_id}, a crate version that is not \
+             published and changed without a version bump. Rebuild (reflash) both from one revision, or build the \
+             other side once on this machine, so that codegen puts its definitions into {cache}",
+            hex(&a_signature),
+            hex(&b_signature),
+            crate_id = a.0.crate_id,
+            name = a.1,
+            major = v.major.0,
+            minor = v.minor.0,
+            patch = v.patch.0,
         ));
     }
     Ok(())
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// Signature of a trait: stored for a skipped one, calculated for an in-line one (definitions it refers to that are
@@ -718,8 +737,8 @@ impl<'a> TypeCheck<'a> {
                 };
                 return check_same_definition(
                     "type",
-                    w,
-                    r,
+                    (w, self.writer_name),
+                    (r, self.reader_name),
                     signature(self.writer, w_ty),
                     signature(self.reader, r_ty),
                 );
@@ -1051,6 +1070,155 @@ mod tests {
                 "'{reason}' does not contain '{reason_contains}'"
             ),
             v => panic!("expected incompatible, got {v:?}"),
+        }
+    }
+
+    /// Definitions a device leaves out, from another revision of a crate than the host's snapshot (P2401): the
+    /// host finds the device's definition by signature in the definition cache and compares it by the evolution
+    /// rules; without it, the error says what happened.
+    mod other_revision {
+        use super::*;
+        use crate::client::introspect::inline_known_in;
+        use ww_self::definition_cache::{self, Kind};
+        use ww_self::signature::{canonical_type_bytes, signature_of};
+
+        /// `read`, `write` and `supply` (returns `ww_si::Volt`)
+        const SUPPLY: u32 = 2;
+
+        fn full() -> ApiBundleOwned {
+            let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/cfg_variants_api");
+            wire_weaver_core::load(&dir, None, false).unwrap()
+        }
+
+        fn volt_idx(bundle: &ApiBundleOwned) -> usize {
+            bundle
+                .types
+                .iter()
+                .position(|l| {
+                    matches!(l, TypeLocationOwned::InLine { ty: TypeOwned::Struct(s), .. } if s.ident == "Volt")
+                })
+                .expect("Volt in-line")
+        }
+
+        fn cache_dir(name: &str) -> PathBuf {
+            let dir = std::env::temp_dir()
+                .join("ww_client_compat_tests")
+                .join(format!("definitions-{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            dir
+        }
+
+        /// What the host has (Volt from its snapshot), and what a device built from another revision of `ww_si`
+        /// sends: Volt left out, under the signature of `older` Volt, which is stored in `cache` when given.
+        fn host_and_device(
+            older: impl FnOnce(&mut ItemStructOwned),
+            cache: Option<&std::path::Path>,
+        ) -> (ApiBundleOwned, ApiBundleOwned, Vec<u8>, Vec<u8>) {
+            let full = full();
+            let sent = wire_weaver_core::transform::skip_known(&full).unwrap();
+            let mut older_full = full.clone();
+            let idx = volt_idx(&older_full);
+            let TypeLocationOwned::InLine {
+                ty: TypeOwned::Struct(volt),
+                ..
+            } = &mut older_full.types[idx]
+            else {
+                unreachable!()
+            };
+            older(volt);
+            let volt_crate_idx = volt.crate_idx.0;
+            let resolve = |v: &_| crate::snapshots::get(v);
+            let bytes = canonical_type_bytes(&older_full, idx as u32, &resolve).unwrap();
+            let older_signature = signature_of(&bytes);
+            let version = older_full.crate_version(volt_crate_idx).unwrap().clone();
+            if let Some(dir) = cache {
+                definition_cache::store(dir, Kind::Type, &version, "Volt", &bytes).unwrap();
+            }
+
+            let mut device = sent.clone();
+            let mut host_signature = vec![];
+            for location in &mut device.types {
+                if let TypeLocationOwned::SkippedFullVersion {
+                    type_name,
+                    signature,
+                    ..
+                } = location
+                    && type_name == "Volt"
+                {
+                    host_signature = signature.clone();
+                    *signature = older_signature.clone();
+                }
+            }
+            assert!(!host_signature.is_empty(), "Volt is left out");
+            assert_ne!(host_signature, older_signature);
+            let mut host = sent;
+            inline_known_in(&mut host, None);
+            (host, device, host_signature, older_signature)
+        }
+
+        #[test]
+        fn compatible_definition_from_the_cache() {
+            let dir = cache_dir("compatible");
+            let (host, mut device, host_signature, older_signature) = host_and_device(
+                |volt| volt.docs = vec!["Docs of an older revision".into()],
+                Some(&dir),
+            );
+            let inlined = inline_known_in(&mut device, Some(&dir));
+            assert!(inlined.not_inlined.is_empty(), "{:?}", inlined.not_inlined);
+            assert_eq!(inlined.from_cache.len(), 1);
+            let from_cache = &inlined.from_cache[0];
+            assert_eq!(from_cache.name, "Volt");
+            assert_eq!(from_cache.signature, older_signature);
+            assert_eq!(from_cache.snapshot_signature, Some(host_signature));
+            let compat = ApiCompat::new(&host, &device);
+            assert!(compat.mismatches().is_empty());
+            assert_eq!(verdict(&compat, &[SUPPLY]), Verdict::Compatible);
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn incompatible_definition_from_the_cache() {
+            let dir = cache_dir("incompatible");
+            let (host, mut device, _, _) = host_and_device(
+                |volt| {
+                    let FieldsOwned::Named(fields) = &mut volt.fields else {
+                        unreachable!()
+                    };
+                    fields[1].ty = TypeOwned::Bool;
+                },
+                Some(&dir),
+            );
+            inline_known_in(&mut device, Some(&dir));
+            let compat = ApiCompat::new(&host, &device);
+            assert_incompatible(&compat, &[SUPPLY], "struct Volt");
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn definition_not_in_the_cache() {
+            let dir = cache_dir("missing");
+            let (host, mut device, host_signature, older_signature) = host_and_device(
+                |volt| volt.docs = vec!["Docs of an older revision".into()],
+                None,
+            );
+            let inlined = inline_known_in(&mut device, Some(&dir));
+            assert_eq!(inlined.not_inlined.len(), 1);
+            let compat = ApiCompat::new(&host, &device);
+            let Verdict::Incompatible(reason) = verdict(&compat, &[SUPPLY]) else {
+                panic!("expected incompatible");
+            };
+            for part in [
+                "ww_si::Volt 0.1.0",
+                &hex(&host_signature),
+                &hex(&older_signature),
+                "different revisions of ww_si",
+                "Rebuild (reflash) both from one revision",
+            ] {
+                assert!(
+                    reason.contains(part),
+                    "'{reason}' does not contain '{part}'"
+                );
+            }
         }
     }
 

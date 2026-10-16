@@ -173,9 +173,26 @@ fn inlined(mut bundle: ApiBundleOwned) -> ApiBundleOwned {
 }
 
 /// Put back traits and types that a device left out of its introspection data, because they are known from
-/// snapshots (see [crate::snapshots]). The ones that are not found are logged and left skipped.
+/// snapshots (see [crate::snapshots]), or by signature from the definition cache on this machine
+/// ([ww_self::definition_cache]). The ones that are not found are logged and left skipped.
 pub(crate) fn inline_known(bundle: &mut ApiBundleOwned) {
-    for not_inlined in crate::snapshots::inline_skipped(bundle) {
+    inline_known_in(bundle, ww_self::definition_cache::default_dir().as_deref());
+}
+
+/// [inline_known] with the definition cache in `cache_dir`.
+pub(crate) fn inline_known_in(
+    bundle: &mut ApiBundleOwned,
+    cache_dir: Option<&std::path::Path>,
+) -> ww_self::inline::Inlined {
+    let inlined = crate::snapshots::inline_skipped_or_cached(bundle, cache_dir);
+    for from_cache in &inlined.from_cache {
+        warn!(
+            "Device API has {from_cache}: likely a build from another revision of an unpublished crate, its \
+             definition is from the definition cache and is compared by the evolution rules"
+        );
+    }
+    for not_inlined in &inlined.not_inlined {
         warn!("Device API refers to {not_inlined}");
     }
+    inlined
 }

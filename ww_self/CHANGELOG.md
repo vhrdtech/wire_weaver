@@ -60,6 +60,12 @@
 
 ### 🚀 Features
 
+- `definition_cache` (EVO-9): definitions of skipped traits and types by signature in `~/.wire_weaver/definitions/`
+  (`store`, `load`, `default_dir`, `Kind`). An entry is the canonical bundle's bytes as hashed, checked against the
+  signature when loaded, so entries written by an older `ww_self` still read.
+- `inline::inline_skipped_or_cached` (EVO-9): like `inline_skipped`, a definition the snapshots don't have under its
+  signature is taken from the definition cache; returns `Inlined` (`not_inlined`, `from_cache: Vec<FromCache>`).
+- `signature::canonical_type_bytes` / `canonical_trait_bytes` (the bytes a signature hashes) and `signature_of`.
 * `TypeOwned::is_common_error()`, `ValueOwned::common_error()` (STD-16): recognise `ww_error::CommonError` by its
   type (also when its definition was left out), and find it in an API's error value. `ValueOwned::doc_message()`: the
   first doc line of an enum value's variant with `{field}` / `{field:#x}` filled in, the message tools show.

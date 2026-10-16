@@ -47,3 +47,10 @@
 - RTT (probe-rs) is built in by default (`rtt` feature), the wheel supports every transport.
 - `just py` (from the workspace root) opens a Python console with `ww` imported and the device
   connected as `dev`, see `scripts/console.py --help`.
+
+### 🐛 Fixes
+
+- `connect()` decodes values of a type the device left out under a signature its snapshot doesn't have (a build from
+  another revision of an unpublished crate, e.g. `ww_si::Volt`) without `load_api`, by taking the definition from the
+  definition cache `~/.wire_weaver/definitions/` (EVO-9).
+

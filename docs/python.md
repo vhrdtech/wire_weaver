@@ -72,6 +72,9 @@ dev.disconnect()                               # or `with ww.connect(...) as dev
 | `api`                                         | API from `load_api()`, for a device with introspection disabled          |
 
 The introspection data is cached in `~/.wire_weaver/`, so reconnecting to a device with the same API is quick.
+Definitions the device leaves out are put back from the snapshots, or from the
+[definition cache](std_library/ww_self.md#the-definition-cache) for a device built from another revision of an
+unpublished crate, so its values decode without `load_api`.
 Without `rtt_elf`, RTT attaching scans the target RAM for the control block, see [RTT](transport/rtt.md#host-side).
 
 ## Using the API

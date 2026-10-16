@@ -420,3 +420,27 @@ async fn device_before_api_38_is_unsupported() {
         .await
         .unwrap();
 }
+
+/// `ww info` builds trait clients (Commander clones) and drops them, then disconnects once: a dropped clone must
+/// leave the connection alone, and the last one to drop is the one that disconnects.
+#[tokio::test]
+async fn dropping_a_commander_clone_keeps_the_connection() {
+    let b = bench((0, 2)).await;
+    let clone = b.cmd.clone();
+    tokio::task::spawn_blocking(move || drop(clone))
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let level = b
+        .cmd
+        .prepare_observe::<LevelData, LevelData>(level_path(), Cfg::default(), Some)
+        .subscribe()
+        .await;
+    assert!(level.is_ok(), "{:?}", level.err());
+    drop(level);
+    // the explicit disconnect finds the event loop running and the later drop of the last clone is a no-op
+    b.cmd.disconnect().asynch().await.unwrap();
+    tokio::task::spawn_blocking(move || drop(b.cmd))
+        .await
+        .unwrap();
+}

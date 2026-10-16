@@ -318,6 +318,8 @@
 
 ### 🐛 Fixes
 
+- Dropping a `Commander` clone no longer disconnects the device for every other clone: only the last one to drop does. `ww info` and `ww report` ended with "Called a method that required event loop to be running" because the trait clients of `ww_report::Contract` disconnected on drop and `ww` then disconnected again.
+
 - A device whose skipped trait or type has another signature than the host's snapshot (built from another revision
   of an unpublished crate, e.g. `ww_si::Volt` on the Donguru M0+ firmware, P2401) is no longer refused as "has a
   different definition on each side" (EVO-9): its definition is looked up by signature in the definition cache

@@ -68,6 +68,8 @@ pub struct Commander {
     streams: StreamRegistry,
     consts: ConstCache,
     observes: ObserveRegistry,
+    /// Shared by all clones, the one that drops last disconnects, see the `Drop` impl.
+    last_clone: Arc<()>,
 }
 
 #[derive(Clone)]
@@ -109,6 +111,7 @@ impl Commander {
             streams: StreamRegistry::default(),
             consts: ConstCache::default(),
             observes: ObserveRegistry::default(),
+            last_clone: Arc::new(()),
         }
     }
 
@@ -1343,6 +1346,10 @@ impl TransportCommander {
 
 impl Drop for Commander {
     fn drop(&mut self) {
+        // A clone (a trait client of `ww info`, say) going away must not disconnect the others
+        if Arc::strong_count(&self.last_clone) > 1 {
+            return;
+        }
         _ = self
             .disconnect()
             .reason(wire_weaver::DisconnectReason::CommanderDropped)

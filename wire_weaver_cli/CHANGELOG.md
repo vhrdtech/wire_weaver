@@ -116,5 +116,6 @@
 
 ### 🐛 Fixes
 
+- `ww info` and `ww report` exit with 0: they no longer end with "Called a method that required event loop to be running" (a second disconnect, see `wire_weaver_client`).
 - `introspect` and `usb-loopback` never connected ("No devices found to connect to"): no interface was selected and
   `--serial` was not passed to the client. The only connected WireWeaver device is now used when no filters are given.

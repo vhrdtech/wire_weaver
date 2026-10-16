@@ -45,8 +45,8 @@
   color: var(--md-default-fg-color);
 }
 
-/* Header logo: the small W icon, graphite wire on dark */
-[data-md-color-scheme="slate"] .md-header .md-logo img {
+/* Logo in the header and the mobile nav drawer: the small W icon, graphite wire on dark */
+[data-md-color-scheme="slate"] .md-logo img {
   content: url("../assets/wire_weaver_icon_small-dark.svg");
 }
 

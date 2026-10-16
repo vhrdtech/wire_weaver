@@ -15,6 +15,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 - shrink_wrap: tuple and unit structs in `#[derive_shrink_wrap]` (SW-59), the same bytes as the struct with its
   fields named, in every layout; see `shrink_wrap/CHANGELOG.md`.
+- Docs: the "Features" page is rewritten for newcomers (DOC-9). It opens with what WireWeaver is, then goes
+  area by area: a sentence on what the area is for, its features grouped Basic, Advanced, Nomicon, each a short line
+  on what it gives you with a link to its docs page, and features that work only in part marked. Still generated:
+  the lines are kept in `tests/features_page/entries.md`, joined with the status in `FEATURES.md`, and `just test`
+  fails when a done or in-progress feature has no line there.
 - Docs: reading levels for the rest of the site (DOC-8). Every page of API, Evolution, Standard library, Transport,
   Examples and Dev tools has a Basic, Advanced or Nomicon badge, and each section lists its Basic pages first.
   New entry pages: API "Getting started" (a first API end to end), a standard library overview grouped by family

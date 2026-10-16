@@ -24,8 +24,9 @@ patch-the-discriminant-later builder pattern), `docs/api/overview.md` (methods/s
 `FEATURES.md` is the feature tracker and roadmap (done, in progress, planned, per area and target release). Check it
 before starting a feature, and update the matching item in the same change when finishing one (see the conventions
 at its top). It is also the docs site's "Feature tracker" page, pulled in by `docs/features.md`, so edit the root file
-only, and run `just features-page` after a change: it regenerates `docs/features_today.md` ("What works today"),
-which a test checks.
+only, and run `just features-page` after a change: it regenerates `docs/features_today.md` ("Features"), which a test
+checks. An item that becomes done or in progress also needs a line in `tests/features_page/entries.md` (reading level,
+a short line on what it gives a user, a docs link); the test names what is missing.
 
 - Items have stable IDs per area (`SW-3`, `SRV-4`, `CLT-12`): never renumber or reuse one; new items take the next
   free number of their area. Reference them in commit messages, CHANGELOG entries and code `TODO`s

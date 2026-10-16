@@ -6,4 +6,4 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Renders the docs site's short features page (docs/features_today.md) from FEATURES.md."
+description = "Renders the docs site's Features page (docs/features_today.md) from FEATURES.md and entries.md."

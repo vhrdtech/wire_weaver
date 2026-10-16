@@ -14,7 +14,7 @@ test-power-cut:
 dfu-transcripts:
     DFU_TRANSCRIPTS=update cargo nextest run -p dfu_scenarios
 
-# Regenerate the docs site's short features page (docs/features_today.md) from FEATURES.md (DOC-7)
+# Regenerate the docs site's Features page (docs/features_today.md) from FEATURES.md and tests/features_page/entries.md (DOC-9)
 features-page:
     FEATURES_PAGE=update cargo nextest run -p features_page
 

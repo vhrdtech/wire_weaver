@@ -5,7 +5,10 @@
 [![codecov](https://codecov.io/github/vhrdtech/wire_weaver/graph/badge.svg)](https://codecov.io/github/vhrdtech/wire_weaver)
 
 <p align="center">
-<img src="https://github.com/vhrdtech/wire_weaver/blob/master/docs/assets/logo-shrinkwrap-256.png?raw=true" alt="logo"/>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/vhrdtech/wire_weaver/master/docs/assets/shrink_wrap_logo-dark.png">
+  <img src="https://raw.githubusercontent.com/vhrdtech/wire_weaver/master/docs/assets/shrink_wrap_logo.png" alt="shrink_wrap logo" width="480"/>
+</picture>
 </p>
 
 > Compact zero-copy wire format for microcontrollers using no allocator and supporting dynamic types.

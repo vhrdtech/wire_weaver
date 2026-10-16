@@ -10,7 +10,8 @@ hide:
 Collection of crates for designing **no_std** APIs with rich type system, **no allocation** and dense **bit-level** wire format.
 { style="text-align:center" }
 
-![WireWeaver Logo](assets/logo.png){ width="250" style="display:block;margin:0 auto" }
+![WireWeaver logo](assets/wire_weaver_logo.svg#only-light){ width="420" style="display:block;margin:0 auto" }
+![WireWeaver logo](assets/wire_weaver_logo-dark.svg#only-dark){ width="420" style="display:block;margin:0 auto" }
 
 Plus a whole set of standard types and traits, all written in Rust.
 { style="text-align:center" }

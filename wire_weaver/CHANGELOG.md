@@ -35,6 +35,10 @@
   a runtime user label within the 126-character USB string limit, `parse()` reads it back (all `no_std`, no alloc).
 - `From<Unimplemented>` for `RpcResult`, `SetResult` and `GetResult` instead of `Into`, the `Into` direction still works.
 
+### 📚 Documentation
+
+- New logo in the README: a red/black twisted pair (the differential pair) over the wordmark, light and dark
+
 ## [0.4.0] - 07 Jan 2026
 
 ### 🚀 Features

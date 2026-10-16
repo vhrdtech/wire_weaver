@@ -116,7 +116,7 @@ nav = [
 [project.theme]
 # variant = "classic"
 # custom_dir = "overrides"
-# favicon = "images/favicon.png"
+favicon = "assets/wire_weaver_icon_small.svg"
 language = "en"
 features = [
   "announce.dismiss",

@@ -1,8 +1,7 @@
 # Shrink Wrap
 
-<p align="center">
-<img src="../assets/logo-shrinkwrap-256.png" alt="logo"/>
-</p>
+![shrink_wrap logo](../assets/shrink_wrap_logo.svg#only-light){ width="420" style="display:block;margin:0 auto" }
+![shrink_wrap logo](../assets/shrink_wrap_logo-dark.svg#only-dark){ width="420" style="display:block;margin:0 auto" }
 
 All serializing and deserializing operations go through a wire format called `shrink_wrap`. It targets both
 microcontroller and host usage, and lives in its own crate (`shrink_wrap`), with no dependency on the rest of

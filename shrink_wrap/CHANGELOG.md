@@ -319,6 +319,8 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 📚 Documentation
 
+- New logo in the README: a heatshrink sleeve shrunk onto wire_weaver's twisted pair, light and dark; replaces the
+  old one with the Rust gear
 - New docs page `docs/serdes/use_cases.md`: real-world uses with code and measured numbers, ring files of a load
   history bounded by `TailSize` slots (SW-18), request/reply frames over streams (`UVlq32` length, size cap), gossip
   payloads under a 4 KiB cap (schema choice vs compression), and where SW-28 compression wrappers would pay (time

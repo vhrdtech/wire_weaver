@@ -4,7 +4,12 @@
 [![CI](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml/badge.svg)](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/vhrdtech/wire_weaver/graph/badge.svg)](https://codecov.io/github/vhrdtech/wire_weaver)
 
-<img align="right" src="./docs/assets/logo-shrinkwrap-256.png" alt="logo"/>
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/vhrdtech/wire_weaver/master/docs/assets/wire_weaver_logo-dark.png">
+  <img src="https://raw.githubusercontent.com/vhrdtech/wire_weaver/master/docs/assets/wire_weaver_logo.png" alt="wire_weaver logo" width="480"/>
+</picture>
+</p>
 
 WireWeaver is a collection of crates for designing `#[no_std]` APIs:
 

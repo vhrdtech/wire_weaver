@@ -67,6 +67,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   bytes as `&str`/`String` and `Vec<T>`, for owned no-alloc fields (e.g. settings values, `value_on_changed` of a
   string/list property). shrink_wrap/CHANGELOG.md, section Unreleased.
 
+### Changed
+
+- New logos for wire_weaver (a twisted pair with the wordmark, a W icon) and shrink_wrap (a heatshrink sleeve on
+  the pair, a cross-section icon), light and dark, in `docs/assets/`; READMEs link them by absolute GitHub URL so the
+  crates.io pages show them; the docs site uses them and the small W as favicon
+
 ### Fixed
 
 - Observed properties short of budget (SRV-18) no longer send one value per update: a level holds until all its due

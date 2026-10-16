@@ -1,0 +1,66 @@
+/* VHRD brand look for the docs site: colours from vhrd_brand web/tokens.css (palette 0.5.0), IBM Plex type.
+   Red is the accent (buttons, active navigation, hover), text stays black; dark mode uses the brand dark palette. */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600&display=swap");
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #c8141c;
+  --md-primary-fg-color--light: #e0484e;
+  --md-primary-fg-color--dark: #9e1016;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: #ffffffb3;
+  --md-accent-fg-color: #c8141c;
+  --md-accent-fg-color--transparent: #c8141c1a;
+  --md-accent-bg-color: #ffffff;
+  --md-default-fg-color: #1a1a1a;
+  --md-default-bg-color: #ffffff;
+  --md-code-bg-color: #f6f6f6;
+  --md-typeset-a-color: #1a1a1a;
+  --md-footer-bg-color: #1a1a1a;
+  --md-footer-bg-color--dark: #0f0f10;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #f24c44;
+  --md-primary-fg-color--light: #f6766f;
+  --md-primary-fg-color--dark: #c8141c;
+  --md-primary-bg-color: #0f0f10;
+  --md-primary-bg-color--light: #0f0f10b3;
+  --md-accent-fg-color: #f24c44;
+  --md-accent-fg-color--transparent: #f24c441a;
+  --md-accent-bg-color: #0f0f10;
+  --md-default-fg-color: #ececec;
+  --md-default-bg-color: #0f0f10;
+  --md-code-bg-color: #161617;
+  --md-typeset-a-color: #ececec;
+  --md-footer-bg-color: #161617;
+  --md-footer-bg-color--dark: #0f0f10;
+}
+
+/* Serif headings, as on the brand web pages */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  font-family: "IBM Plex Serif", Georgia, serif;
+  font-weight: 500;
+  color: var(--md-default-fg-color);
+}
+
+/* Header logo: the small W icon, graphite wire on dark */
+[data-md-color-scheme="slate"] .md-header .md-logo img {
+  content: url("../assets/wire_weaver_icon_small-dark.svg");
+}
+
+/* Links as on the brand web pages: text colour, a quiet underline that turns red on hover */
+.md-typeset a {
+  text-decoration: underline;
+  text-decoration-color: var(--md-default-fg-color--lighter);
+  text-underline-offset: 3px;
+}
+.md-typeset a:hover,
+.md-typeset a:focus {
+  color: var(--md-accent-fg-color);
+  text-decoration-color: var(--md-accent-fg-color);
+}
+.md-typeset a.md-button {
+  text-decoration: none;
+}

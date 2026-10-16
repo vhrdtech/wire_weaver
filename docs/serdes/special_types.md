@@ -191,9 +191,30 @@ size around it, as `wr.write` does.
   65 536th push fails with `Error::LenTooLong`.
 
 `RefVecBuilderOwned<T>` is the same builder for a `BufWriterOwned` and `SerializeShrinkWrapOwned` elements, with the
-same bytes. `RefVecU8Builder` is for a `RefVec<u8>` whose bytes are written by other means (`write_raw_slice`, or
-other values, making the list a byte blob that holds them): `new` aligns to a byte, `finish` encodes the lengths the
-values in the blob pushed, aligns, and writes the number of bytes as the count.
+same bytes.
+
+A list of bytes, `RefVecBuilder<u8>`, has two more ways to add elements, both mixing freely with `push`:
+
+- `extend_from_slice(&mut wr, &bytes)` copies a whole slice at once, one element per byte;
+- `write_bytes_with(&mut wr, |wr| ..)` counts every byte the closure writes, by any means: `write_raw_slice`,
+  `write_u8`, or other values, making the list a byte blob that holds them. It aligns to a byte first, encodes the
+  lengths the values inside pushed (so they are part of the blob) and aligns again; a closure that writes nothing
+  adds nothing, not even the alignment. On an error the writer is back where it was, as for a push.
+
+```rust
+let mut bytes = RefVecBuilder::<u8>::new(&mut wr).unwrap();
+bytes.write_bytes_with(&mut wr, |wr| {
+    wr.write(&"hi")?;
+    wr.write_u8(0x42)
+}).unwrap();
+bytes.finish(&mut wr).unwrap();
+wr.write_u8(0x99).unwrap();
+assert_eq!(wr.finish_and_take().unwrap(), hex!("68 69 42 02 99 04"));
+```
+
+`68 69` is `"hi"`, then `42`, then the length of `"hi"` (`2` after a padding nibble), all inside the blob of 4 bytes:
+`99` follows it and the count `4` is at the back. Read it back as a `RefVec<u8>` and the blob with a `BufReader` of
+its own.
 
 ## `OptionAnyVec`: sparse slots of any types
 

@@ -3,7 +3,7 @@
 
 use hex_literal::hex;
 use shrink_wrap::prelude::*;
-use shrink_wrap::{BufReader, BufWriterOwned, RefVecU8Builder};
+use shrink_wrap::{BufReader, BufWriterOwned};
 
 /// Evolvable (`Unsized`): its own size and the length of `name` go to the back, after its data.
 #[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone))]
@@ -539,12 +539,49 @@ fn u8_builder_round_trip() {
             for _ in 0..lead_bits {
                 wr.write_bool(true).unwrap();
             }
-            let b = RefVecU8Builder::new(&mut wr).unwrap();
-            wr.write_raw_slice(data).unwrap();
+            let mut b = RefVecBuilder::<u8>::new(&mut wr).unwrap();
+            b.write_bytes_with(&mut wr, |wr| wr.write_raw_slice(data))
+                .unwrap();
+            assert_eq!(b.len(), data.len());
             b.finish(&mut wr).unwrap();
             wr.write_bool(true).unwrap();
-            let bytes = wr.finish_and_take().unwrap();
-            assert_eq!(bytes, expected, "{data:?} after {lead_bits} bits");
+            let bytes = wr.finish_and_take().unwrap().to_vec();
+            assert_eq!(
+                bytes, expected,
+                "{data:?} after {lead_bits} bits, write_bytes_with"
+            );
+
+            let mut buf = [0u8; 32];
+            let mut wr = BufWriter::new(&mut buf);
+            for _ in 0..lead_bits {
+                wr.write_bool(true).unwrap();
+            }
+            let mut b = RefVecBuilder::<u8>::new(&mut wr).unwrap();
+            b.extend_from_slice(&mut wr, data).unwrap();
+            b.finish(&mut wr).unwrap();
+            wr.write_bool(true).unwrap();
+            assert_eq!(
+                wr.finish().unwrap(),
+                expected,
+                "{data:?} after {lead_bits} bits, extend_from_slice"
+            );
+
+            let mut wr = BufWriterOwned::new();
+            for _ in 0..lead_bits {
+                wr.write_bool(true).unwrap();
+            }
+            let mut b = RefVecBuilderOwned::<u8>::new(&mut wr).unwrap();
+            b.write_bytes_with(&mut wr, |wr| wr.write_raw_slice(data))
+                .unwrap();
+            b.extend_from_slice(&mut wr, &[]).unwrap();
+            b.finish(&mut wr).unwrap();
+            wr.write_bool(true).unwrap();
+            assert_eq!(
+                wr.finish().unwrap(),
+                expected,
+                "{data:?} after {lead_bits} bits, owned"
+            );
+            let bytes = &bytes[..];
 
             let mut rd = BufReader::new(bytes);
             for _ in 0..lead_bits {
@@ -559,14 +596,28 @@ fn u8_builder_round_trip() {
     // a blob holding other values: their lengths are encoded inside it
     let mut buf = [0u8; 32];
     let mut wr = BufWriter::new(&mut buf);
-    let b = RefVecU8Builder::new(&mut wr).unwrap();
-    wr.write(&"hi").unwrap();
-    wr.write_u8(0x42).unwrap();
+    let mut b = RefVecBuilder::<u8>::new(&mut wr).unwrap();
+    b.write_bytes_with(&mut wr, |wr| {
+        wr.write(&"hi")?;
+        wr.write_u8(0x42)
+    })
+    .unwrap();
     b.finish(&mut wr).unwrap();
     wr.write_u8(0x99).unwrap();
     let bytes = wr.finish_and_take().unwrap();
     // "hi", 0x42, the length of "hi" (after a padding nibble), 0x99, the blob size
     assert_eq!(bytes, hex!("68 69 42 02 99 04"));
+
+    let mut wr = BufWriterOwned::new();
+    let mut b = RefVecBuilderOwned::<u8>::new(&mut wr).unwrap();
+    b.write_bytes_with(&mut wr, |wr| {
+        wr.write(&"hi")?;
+        wr.write_u8(0x42)
+    })
+    .unwrap();
+    b.finish(&mut wr).unwrap();
+    wr.write_u8(0x99).unwrap();
+    assert_eq!(wr.finish().unwrap(), bytes, "owned");
     let mut rd = BufReader::new(bytes);
     let blob: RefVec<u8> = rd.read().unwrap();
     assert_eq!(rd.read_u8(), Ok(0x99));
@@ -605,4 +656,104 @@ fn docs_examples() {
     }
     outer.finish(&mut wr).unwrap();
     assert_eq!(wr.finish_and_take().unwrap(), hex!("61 62 63 64 11 21 22"));
+}
+
+/// `push`, `extend_from_slice` and `write_bytes_with` on one `u8` list: the count is the number of bytes, the
+/// bytes those of the whole list as one slice.
+#[test]
+fn u8_builder_mixed() {
+    let all = [1u8, 2, 3, 4, 0x68, 0x69, 0x02, 5];
+    let mut buf = [0u8; 32];
+    let expected = RefVec::new_bytes(&all)
+        .to_ww_bytes(&mut buf)
+        .unwrap()
+        .to_vec();
+
+    let mut buf = [0u8; 32];
+    let mut wr = BufWriter::new(&mut buf);
+    let mut b = RefVecBuilder::<u8>::new(&mut wr).unwrap();
+    b.push(&mut wr, &1).unwrap();
+    b.extend_from_slice(&mut wr, &[2, 3]).unwrap();
+    b.write_bytes_with(&mut wr, |wr| wr.write_u8(4)).unwrap();
+    b.write_bytes_with(&mut wr, |_| Ok(())).unwrap();
+    // a string with its length: 68 69 and the length 02 after a padding nibble
+    b.write_bytes_with(&mut wr, |wr| wr.write(&"hi")).unwrap();
+    b.push(&mut wr, &5).unwrap();
+    assert_eq!(b.len(), all.len());
+    b.finish(&mut wr).unwrap();
+    assert_eq!(wr.finish().unwrap(), expected);
+
+    let mut wr = BufWriterOwned::new();
+    let mut b = RefVecBuilderOwned::<u8>::new(&mut wr).unwrap();
+    b.push(&mut wr, &1).unwrap();
+    b.extend_from_slice(&mut wr, &[2, 3]).unwrap();
+    b.write_bytes_with(&mut wr, |wr| wr.write_u8(4)).unwrap();
+    b.write_bytes_with(&mut wr, |wr| wr.write(&"hi")).unwrap();
+    b.push(&mut wr, &5).unwrap();
+    assert_eq!(b.len(), all.len());
+    b.finish(&mut wr).unwrap();
+    assert_eq!(wr.finish().unwrap(), expected, "owned");
+}
+
+/// A failed `write_bytes_with` or `extend_from_slice` leaves the list as it was, also past bits and lengths.
+#[test]
+fn u8_builder_errors() {
+    let mut buf = [0u8; 32];
+    let mut wr = BufWriter::new(&mut buf);
+    wr.write_bool(true).unwrap();
+    wr.write(&RefVec::new_bytes(&[1, 2])).unwrap();
+    wr.write_bool(true).unwrap();
+    let expected = wr.finish().unwrap().to_vec();
+
+    let mut buf = [0u8; 32];
+    let mut wr = BufWriter::new(&mut buf);
+    wr.write_bool(true).unwrap();
+    let mut b = RefVecBuilder::<u8>::with_max_len(&mut wr, 4).unwrap();
+    b.push(&mut wr, &1).unwrap();
+    let r = b.write_bytes_with(&mut wr, |wr| {
+        wr.write(&"x")?;
+        Err(ShrinkWrapError::MalformedUtf8)
+    });
+    assert_eq!(r, Err(ShrinkWrapError::MalformedUtf8));
+    // 3 bytes plus a length would be 5 > 4
+    assert_eq!(
+        b.write_bytes_with(&mut wr, |wr| wr.write(&"abc")),
+        Err(ShrinkWrapError::MaxLenExceeded)
+    );
+    assert_eq!(
+        b.extend_from_slice(&mut wr, &[0; 4]),
+        Err(ShrinkWrapError::MaxLenExceeded)
+    );
+    b.extend_from_slice(&mut wr, &[2]).unwrap();
+    assert_eq!(b.len(), 2);
+    b.finish(&mut wr).unwrap();
+    wr.write_bool(true).unwrap();
+    assert_eq!(wr.finish().unwrap(), expected);
+
+    // out of buffer inside the blob, at every size: what got in equals the same bytes written as a slice
+    for size in 1..12 {
+        let mut buf = vec![0xAAu8; size];
+        let mut wr = BufWriter::new(&mut buf);
+        let Ok(mut b) = RefVecBuilder::<u8>::new(&mut wr) else {
+            continue;
+        };
+        let mut pushed: Vec<u8> = Vec::new();
+        if b.write_bytes_with(&mut wr, |wr| wr.write_raw_slice(&[1, 2, 3]))
+            .is_ok()
+        {
+            pushed.extend([1, 2, 3]);
+        }
+        if b.write_bytes_with(&mut wr, |wr| wr.write(&"hi")).is_ok() {
+            pushed.extend([0x68, 0x69, 0x02]);
+        }
+        assert_eq!(b.len(), pushed.len());
+        b.finish(&mut wr).unwrap();
+        let got = wr.finish().map(|b| b.to_vec());
+        let mut buf = vec![0x55u8; size];
+        let mut wr = BufWriter::new(&mut buf);
+        let expected = wr
+            .write(&RefVec::new_bytes(&pushed))
+            .and_then(|_| wr.finish().map(|b| b.to_vec()));
+        assert_eq!(got, expected, "buffer of {size} bytes");
+    }
 }

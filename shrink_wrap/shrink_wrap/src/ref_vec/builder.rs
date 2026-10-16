@@ -249,45 +249,150 @@ impl<T: crate::SerializeShrinkWrapOwned> RefVecBuilderOwned<T> {
     }
 }
 
-/// Writer of a `RefVec<'_, u8>` in place from bytes written by other means: [BufWriter::write_raw_slice],
-/// [write_u8](BufWriter::write_u8), even other shrink_wrap values (the list is then a byte blob holding them).
-///
-/// [new](Self::new) reserves the count and aligns to a byte, [finish](Self::finish) encodes the lengths pushed
-/// since (by values written into the blob), aligns to a byte and writes the number of bytes as the count. A blob
-/// of plain bytes is the same as `RefVec::new_bytes` with them, an empty one too. For a list of `u8` pushed one by
-/// one, [RefVecBuilder] works as well. Like it, a builder that is not finished leaves a corrupt list.
-#[must_use = "the byte count is only written by finish()"]
-pub struct RefVecU8Builder {
-    element_count_pos: RevPos,
-    byte_pos: usize,
-    before: crate::buf_writer::BufWriterState,
-}
-
-impl RefVecU8Builder {
-    pub fn new(wr: &mut BufWriter<'_>) -> Result<Self, Error> {
-        let before = wr.save_state();
-        wr.align_byte();
-        let element_count_pos = wr.write_rev_len(0)?;
-        let byte_pos = wr.pos().0;
-        Ok(Self {
-            element_count_pos,
-            byte_pos,
-            before,
-        })
-    }
-
-    pub fn finish(self, wr: &mut BufWriter<'_>) -> Result<(), Error> {
-        if wr.pos() == (self.byte_pos, 7) && wr.rev_len_pos() == self.element_count_pos {
-            // nothing written: undo the alignment, an empty RefVec<u8> doesn't align (the slot gets the same place)
-            wr.restore_state(self.before);
-            wr.write_rev_len(0)?;
+/// A list of bytes: whole slices in one copy, or a byte blob written by other means.
+impl RefVecBuilder<u8> {
+    /// Copy `bytes` in one go, as many elements as bytes. Writes nothing for an empty slice.
+    pub fn extend_from_slice(&mut self, wr: &mut BufWriter<'_>, bytes: &[u8]) -> Result<(), Error> {
+        if bytes.is_empty() {
             return Ok(());
         }
-        // values in the blob might have written several nib16_rev's as well, encode and place them after the data
-        wr.encode_len_fifo(wr.rev_len_pos(), self.element_count_pos)?;
-        // e.g., enum, only one nib discriminant is written => need to align
+        self.check_room(bytes.len())?;
+        wr.latched()?;
+        // fails before writing anything
+        wr.write_raw_slice(bytes)?;
+        self.count += bytes.len();
+        Ok(())
+    }
+
+    /// Write bytes with `f` by any means ([BufWriter::write_raw_slice], [write_u8](BufWriter::write_u8), other
+    /// shrink_wrap values, making the list a byte blob that holds them): every byte it writes is an element.
+    ///
+    /// Aligns to a byte before `f`, then encodes the lengths the values inside pushed (so they are part of the
+    /// blob) and aligns again. Nothing written is nothing added, not even the alignment: the same bytes as the
+    /// list of these bytes written as a slice. Can be mixed with [push](Self::push) and the other methods. On an
+    /// error, from `f` or a list that gets too long, the writer is back to where it was before the call.
+    pub fn write_bytes_with<'b>(
+        &mut self,
+        wr: &mut BufWriter<'b>,
+        f: impl FnOnce(&mut BufWriter<'b>) -> Result<(), Error>,
+    ) -> Result<(), Error> {
+        wr.latched()?;
+        let state = wr.save_state();
+        match self.write_blob(wr, f) {
+            Ok(written) => {
+                self.count += written;
+                Ok(())
+            }
+            Err(e) => {
+                wr.restore_state(state);
+                let _ = wr.latched();
+                Err(e)
+            }
+        }
+    }
+
+    fn write_blob<'b>(
+        &self,
+        wr: &mut BufWriter<'b>,
+        f: impl FnOnce(&mut BufWriter<'b>) -> Result<(), Error>,
+    ) -> Result<usize, Error> {
+        let before = wr.save_state();
         wr.align_byte();
-        let size_bytes = wr.pos().0 - self.byte_pos;
-        wr.update_rev_len(self.element_count_pos, size_bytes)
+        let start = wr.pos().0;
+        let lens = wr.rev_len_pos();
+        f(wr)?;
+        wr.latched()?;
+        if wr.pos() == (start, 7) && wr.rev_len_pos() == lens {
+            // nothing written: undo the alignment, an empty RefVec<u8> doesn't align either
+            wr.restore_state(before);
+            return Ok(0);
+        }
+        // values in the blob might have pushed lengths, they go right after their data, inside the blob; the
+        // count slot is below them, and earlier elements left none above it
+        wr.encode_len_fifo(wr.rev_len_pos(), self.count_pos)?;
+        // e.g. an enum: only one discriminant nibble written
+        wr.align_byte();
+        let written = wr.pos().0 - start;
+        self.check_room(written)?;
+        Ok(written)
+    }
+
+    fn check_room(&self, bytes: usize) -> Result<(), Error> {
+        if self.count + bytes > self.max_len {
+            return Err(Error::MaxLenExceeded);
+        }
+        if self.count + bytes > u16::MAX as usize {
+            return Err(Error::LenTooLong);
+        }
+        Ok(())
+    }
+}
+
+/// See the `RefVecBuilder<u8>` methods: [RefVecBuilder::extend_from_slice], [RefVecBuilder::write_bytes_with].
+#[cfg(feature = "std")]
+impl RefVecBuilderOwned<u8> {
+    /// See [RefVecBuilder::extend_from_slice].
+    pub fn extend_from_slice(
+        &mut self,
+        wr: &mut crate::BufWriterOwned,
+        bytes: &[u8],
+    ) -> Result<(), Error> {
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        self.check_room(bytes.len())?;
+        wr.write_raw_slice(bytes)?;
+        self.count += bytes.len();
+        Ok(())
+    }
+
+    /// See [RefVecBuilder::write_bytes_with].
+    pub fn write_bytes_with(
+        &mut self,
+        wr: &mut crate::BufWriterOwned,
+        f: impl FnOnce(&mut crate::BufWriterOwned) -> Result<(), Error>,
+    ) -> Result<(), Error> {
+        let mark = wr.mark();
+        match self.write_blob(wr, f) {
+            Ok(written) => {
+                self.count += written;
+                Ok(())
+            }
+            Err(e) => {
+                wr.rollback(mark);
+                Err(e)
+            }
+        }
+    }
+
+    fn write_blob(
+        &self,
+        wr: &mut crate::BufWriterOwned,
+        f: impl FnOnce(&mut crate::BufWriterOwned) -> Result<(), Error>,
+    ) -> Result<usize, Error> {
+        let before = wr.mark();
+        wr.align_byte();
+        let start = wr.pos().0;
+        let lens = wr.rev_len_pos();
+        f(wr)?;
+        if wr.pos() == (start, 7) && wr.rev_len_pos() == lens {
+            wr.rollback(before);
+            return Ok(0);
+        }
+        wr.encode_len_fifo(wr.rev_len_pos(), self.count_pos)?;
+        wr.align_byte();
+        let written = wr.pos().0 - start;
+        self.check_room(written)?;
+        Ok(written)
+    }
+
+    fn check_room(&self, bytes: usize) -> Result<(), Error> {
+        if self.count + bytes > self.max_len {
+            return Err(Error::MaxLenExceeded);
+        }
+        if self.count + bytes > u32::MAX as usize {
+            return Err(Error::LenTooLong);
+        }
+        Ok(())
     }
 }

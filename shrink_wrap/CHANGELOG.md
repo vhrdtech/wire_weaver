@@ -18,7 +18,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   element that fails to serialize, a `write_*_latch` error inside `push_with`) undoes what the element wrote, so the
   list can still be finished with the elements before it. `with_max_len(&mut wr, N)` for a
   `MaxLen<RefVec<..>, N>` fails the `N + 1`th push with `Error::MaxLenExceeded`. `RefVecBuilderOwned<T>` is the
-  same for `BufWriterOwned`. All three builders are exported at the crate root, the generic ones in the prelude too.
+  same for `BufWriterOwned`; both are exported at the crate root and in the prelude. A `RefVecBuilder<u8>` (and its
+  owned twin) also has `extend_from_slice(&mut wr, &bytes)`, one copy of a whole slice, and
+  `write_bytes_with(&mut wr, |wr| ..)`, where every byte the closure writes is an element (a byte blob holding other
+  values, their lengths encoded inside it); both mix with `push`, and a failed call is undone like a failed push.
 - A struct without fields (`struct Marker;`, `struct A {}`) with `sized`, `final_structure`, `self_describing` or
   `fixed_layout` is a compile error: it would be zero bits that can never change. Without one it is evolvable: it
   records its length inside a parent, so fields can be added later (SW-59).
@@ -156,6 +159,11 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### ⚠️ Breaking
 
+- `RefVecU8Builder` is removed, folded into `RefVecBuilder<u8>` (SW-61). Replace
+  `let b = RefVecU8Builder::new(&mut wr)?; /* writes */ b.finish(&mut wr)?;` with
+  `let mut b = RefVecBuilder::<u8>::new(&mut wr)?; b.write_bytes_with(&mut wr, |wr| { /* writes */ })?;
+  b.finish(&mut wr)?;`. Same bytes, except that an empty blob after bit-sized fields no longer aligns to a byte
+  first: it is now the same as an empty `RefVec<u8>`, as readers always expected.
 - Enum variants from a newer version by default (SW-47): `#[derive_shrink_wrap]` adds `#[future_version]
   Unknown(u32)` to every `Unsized` enum (the default) that has a free discriminant in its `ww_repr` and doesn't have
   such a variant already. Same wire, `ELEMENT_SIZE` and `MAX_SIZE`, but a new Rust variant: exhaustive matches need
@@ -305,9 +313,6 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
-- `RefVecU8Builder`: an empty one written after bit-sized fields no longer aligns to a byte, so it has the bytes
-  of an empty `RefVec<u8>` there too. It is now documented (`docs/serdes/special_types.md`), `#[must_use]`, tested,
-  and exported at the crate root.
 - Fields with `#[default = ..]` (SW-15) read as their default only when they start at the end of the data (written
   by an older version) and their read runs out of data. Before, any error in such a field gave the default, so a
   malformed or truncated value was silently replaced. The flag of an evolved `Option` or `Result` falls back with

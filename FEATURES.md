@@ -63,8 +63,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **SW-61 `RefVecBuilder<T>`: a list written in place**, element by element (`push`, `extend`, `push_with` for a
   nested builder or an element written by hand), `finish` writes the count; same bytes as `RefVec::Slice`, as the
   whole buffer, a struct field or an element of another list. A failed push undoes its element, `with_max_len` for
-  `MaxLen<RefVec<..>, N>`, `RefVecBuilderOwned` for `BufWriterOwned`. `RefVecU8Builder` (a byte blob written by
-  other means) is documented and tested, and an empty one now has the bytes of an empty `RefVec<u8>`.
+  `MaxLen<RefVec<..>, N>`, `RefVecBuilderOwned` for `BufWriterOwned`. A byte list also has `extend_from_slice` and
+  `write_bytes_with` (a byte blob written by other means), which replace `RefVecU8Builder`.
   See `docs/serdes/special_types.md#refvecbuilder-lists-written-in-place`,
   `shrink_wrap/shrink_wrap/tests/ref_vec_builder.rs`.
 - ✅ **SW-59 Tuple and unit structs in the derive**: `struct Celsius(f32);`, `struct Pair<'i>(u8, &'i str);`,

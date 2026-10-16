@@ -33,7 +33,7 @@ pub use ref_box::RefBox;
 pub mod ref_vec;
 #[cfg(feature = "std")]
 pub use ref_vec::RefVecBuilderOwned;
-pub use ref_vec::{RefVec, RefVecBuilder, RefVecIter, RefVecU8Builder};
+pub use ref_vec::{RefVec, RefVecBuilder, RefVecIter};
 pub mod either_any_vec;
 pub mod fixed_layout;
 pub mod head_tail;

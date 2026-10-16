@@ -4,9 +4,9 @@ use crate::traits::ElementSize;
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 
 mod builder;
+pub use builder::RefVecBuilder;
 #[cfg(feature = "std")]
 pub use builder::RefVecBuilderOwned;
-pub use builder::{RefVecBuilder, RefVecU8Builder};
 
 /// Zero-copy, no_std and no-alloc growable array.
 ///

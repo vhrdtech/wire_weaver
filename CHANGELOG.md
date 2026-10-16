@@ -14,7 +14,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ### Added
 
 - shrink_wrap: `RefVecBuilder<T>` (SW-61) writes a list in place, one element at a time, with the bytes of the same
-  `RefVec::Slice`; see `shrink_wrap/CHANGELOG.md`.
+  `RefVec::Slice`. **Breaking:** it replaces `RefVecU8Builder` (`RefVecBuilder::<u8>::write_bytes_with`); see
+  `shrink_wrap/CHANGELOG.md`.
 - shrink_wrap: tuple and unit structs in `#[derive_shrink_wrap]` (SW-59), the same bytes as the struct with its
   fields named, in every layout; see `shrink_wrap/CHANGELOG.md`.
 - Docs: the "Features" page is rewritten for newcomers (DOC-9). It opens with what WireWeaver is, then goes

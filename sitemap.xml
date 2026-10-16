@@ -34,6 +34,9 @@
         <loc>https://ww.vhrd.tech/api/properties/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/api/settings/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/stream_reliability/</loc>
       </url>
       <url>

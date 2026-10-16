@@ -313,6 +313,8 @@
       
         
       
+        
+      
     
     
     
@@ -947,6 +949,8 @@
       
         
       
+        
+      
     
     
     
@@ -1195,6 +1199,33 @@
     
   
   Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Settings store
 
     
   </span>
@@ -1711,6 +1742,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings-stored-on-a-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Settings stored on a device
+      </span>
+    </span>
+  </a>
   
 </li>
       
@@ -3501,6 +3543,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#settings-stored-on-a-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Settings stored on a device
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3822,6 +3875,33 @@ version without breaking compatibility.</p>
 out (v0.5.0), then user_device_api must be bumped to v0.2.0 to use the newer API model. This should only happen to add
 new features though, and if previous version is doing all that it is supposed to, there might not be a need to
 upgrade.</p>
+<h2 id="settings-stored-on-a-device">Settings stored on a device<a class="headerlink" href="#settings-stored-on-a-device" title="Permanent link">&para;</a></h2>
+<p>A <a href="../../api/settings/">settings store</a> (<code>ww_settings</code>, STD-32) keeps a record per group in the device's flash, and
+the record outlives the firmware that wrote it: an update reads the old firmware's record, a downgrade the new one's.
+Each field has a slot, each stored field is a byte blob of its own, so every firmware can step over a slot it
+doesn't know. That makes the rules looser than for a <a href="#sparse-structs">sparse struct</a>:</p>
+<ul>
+<li><strong>Adding a field</strong>: any slot that was never used, also one in a gap between older slots. Older records read it as
+  its default. An older firmware keeps it unchanged when it writes its record.</li>
+<li><strong>Removing a field</strong>: put its slot into <code>#[settings(retired(..))]</code>; the derive then refuses to give it to another
+  field. A record that still holds it is read without it, and the slot is dropped on the next write, so a downgrade
+  to a firmware that still has the field finds it at its default.</li>
+<li><strong>Changing a field's type</strong>: only the way the type itself may evolve (a struct gets fields with <code>#[default]</code>
+  appended, an enum gets variants). An older firmware reads what it knows of the newer value (a struct's first
+  fields, an enum variant it doesn't know as <code>Unknown(n)</code>), and as long as it doesn't change the field, it writes the
+  newer bytes back unchanged; if it changes the field, the parts it doesn't know are gone. Bytes it can't decode at all
+  (an enum with <code>no_future_version</code>) are kept while the field stays at its default. Any other type change, or a
+  change of what the value means (units, scale): a new slot, and the old one retired.</li>
+<li><strong>Changing a default</strong>: a stored record holds only the fields that differ from their default, so every device that
+  never set the field takes the new default, and so does one that set it to exactly the old default. When that is
+  wrong, the field needs a new slot.</li>
+<li><strong>Renaming a field</strong> is fine; the slot is what is stored. Moving a field to another group (another <code>Key</code>) is a
+  new field there and a retired one here; copying the value over is the firmware's job on load.</li>
+<li>The <strong>record format</strong> (<code>ww_settings::record::FORMAT</code>) and the <strong>store layout</strong> (the page and item headers in
+  <code>ww_settings::store</code>) are defined by <code>ww_settings</code> itself: a change to either is a breaking change of
+  <code>ww_settings</code>, as for <code>ww_framer</code> in <a href="#layer-3-framework">layer 3</a>. A firmware that finds a record in a format it
+  doesn't know leaves it alone (<code>is_read_only</code>) instead of overwriting it.</li>
+</ul>
 
 
 

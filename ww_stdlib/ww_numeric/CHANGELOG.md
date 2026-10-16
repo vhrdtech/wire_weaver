@@ -30,6 +30,10 @@ Wire-incompatible with 0.1.1.
 * `Owned` variants and optional `serde` support.
 * `NumericValue::ty()`, `NumericAnyTypeOwned::human_name()` and `default()`, `NumericBaseType::name()` (std).
 
+### 📚 Documentation
+
+- Docs: product names written WireWeaver and ShrinkWrap in prose.
+
 ## [0.1.1] - 2026-01-07
 
 ### ⚙️ Miscellaneous Tasks

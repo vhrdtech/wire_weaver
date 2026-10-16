@@ -2,9 +2,9 @@
 level: advanced
 ---
 
-# shrink_wrap in C
+# ShrinkWrap in C
 
-`shrink_wrap/c/shrink_wrap.h` and `shrink_wrap/c/shrink_wrap.c` are the shrink_wrap reader and writer for C99:
+`shrink_wrap/c/shrink_wrap.h` and `shrink_wrap/c/shrink_wrap.c` are the ShrinkWrap reader and writer for C99:
 the same bytes as the Rust `BufReader` and `BufWriter`, for firmware that is not written in Rust. Copy the two
 files into the project, nothing else is needed: no `malloc`, nothing from libc beyond `<stdint.h>`, `<stddef.h>`,
 `<stdbool.h>`, `<string.h>` (`memcpy`, `memset`) and the freestanding `<limits.h>`.

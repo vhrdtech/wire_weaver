@@ -7,7 +7,7 @@ level: basic
 Two different things can break when a WireWeaver crate changes, and they are tracked separately:
 
 * **Wire compatibility** - whether bytes written by one side can still be read by the other. Firmware lives in the
-  field for years, hosts are updated on their own schedule, and shrink_wrap blobs may be stored on disk. A wire break
+  field for years, hosts are updated on their own schedule, and ShrinkWrap blobs may be stored on disk. A wire break
   means deployed devices stop talking to new hosts (or the other way around), which no `cargo update` can fix.
 * **Rust (SemVer) compatibility** - whether code still compiles against the new crate version. A break here is
   annoying, but it is found by the compiler and fixed by the developer, before anything ships.

@@ -381,6 +381,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   payloads under a 4 KiB cap (schema choice vs compression), and where SW-28 compression wrappers would pay (time
   series). `tests/use_cases.rs` asserts every size and byte sequence quoted.
 
+### 📚 Documentation
+
+- Docs: product names written WireWeaver and ShrinkWrap in prose.
+
 ## [0.1.2] - 2026-01-07 #2
 
 Only `shrink_wrap` was released, `shrink_wrap_derive` and `shrink_wrap_core` stay at 0.1.1.

@@ -26,3 +26,7 @@
   and item slot (`Valid` / `Cut` / `Garbage` / `Erased`) for forensics, including pages `Store` itself never looks
   at (an invalid header). `dump::decode_group` decodes a current record's bytes into a concrete `SettingsGroup` for
   a caller that knows the type. `ww settings dump` in `wire_weaver_cli` is the CLI front end.
+
+### 📚 Documentation
+
+- Docs: product names written WireWeaver and ShrinkWrap in prose.

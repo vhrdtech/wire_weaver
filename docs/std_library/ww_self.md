@@ -60,7 +60,7 @@ ww_self = "0.2"
   does.
 
 Every enum in this model is `no_future_version` (SW-47): rather than tolerating an unknown future variant the usual
-shrink_wrap way, a bundle names its own `ww_self_version` and a reader is expected to walk the whole model, so a
+ShrinkWrap way, a bundle names its own `ww_self_version` and a reader is expected to walk the whole model, so a
 newer kind of item or type can't silently be skipped - that tolerance is handled one layer up instead
 (introspection version negotiation, INT-8).
 

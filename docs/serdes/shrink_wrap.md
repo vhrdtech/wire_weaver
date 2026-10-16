@@ -2,13 +2,13 @@
 level: basic
 ---
 
-# shrink_wrap
+# ShrinkWrap
 
-![shrink_wrap logo](../assets/shrink_wrap_logo.svg#only-light){ width="420" }
-![shrink_wrap logo](../assets/shrink_wrap_logo-dark.svg#only-dark){ width="420" }
+![ShrinkWrap logo](../assets/shrink_wrap_logo.svg#only-light){ width="420" }
+![ShrinkWrap logo](../assets/shrink_wrap_logo-dark.svg#only-dark){ width="420" }
 { style="text-align:center" }
 
-`shrink_wrap` is the wire format of WireWeaver: every method argument, return value, property and stream item goes
+ShrinkWrap is the wire format of WireWeaver: every method argument, return value, property and stream item goes
 through it. It is dense (values are packed down to single bits), it works on a microcontroller without an allocator,
 and it lets newer and older versions of a type read each other's data.
 
@@ -82,7 +82,7 @@ as `false` or `None`.
 
 **Lengths go to the back.** A string, a list or a nested type whose size isn't known in advance needs its length
 stored somewhere. Most formats write it in front of the value, which means knowing the size before writing it.
-`shrink_wrap` writes the value first and puts its length at the end of the buffer, as a variable-length number of
+ShrinkWrap writes the value first and puts its length at the end of the buffer, as a variable-length number of
 nibbles. That keeps serialization a single pass with no copying, and small lengths cost half a byte. The reader
 picks the lengths up from the back while it walks the data from the front.
 
@@ -103,7 +103,7 @@ For the exact bytes, bit by bit, see [wire format internals](wire_format.md).
 | [Special types](special_types.md)        | Advanced | `TailSize`, `ArrayString`/`ArrayVec`, compressed sequences, `OptionAnyVec`             |
 | [Fixed and sparse layouts](layouts.md)   | Advanced | `fixed_layout`, `head_tail` and `sparse`: other encodings for special cases            |
 | [Showcase](showcase.md)                  | Advanced | Worked, byte-verified tricks                                                           |
-| [Use cases](use_cases.md)                | Advanced | Real files, frames and messages built with `shrink_wrap`                               |
-| [shrink_wrap in C](../c.md)              | Advanced | The C reader and writer                                                                |
+| [Use cases](use_cases.md)                | Advanced | Real files, frames and messages built with ShrinkWrap                                  |
+| [ShrinkWrap in C](../c.md)               | Advanced | The C reader and writer                                                                |
 | [Wire format internals](wire_format.md)  | Nomicon  | The FIFO of lengths, `BufWriter`/`BufReader`, `ElementSize`, exact encodings           |
-| [Code size on small CPUs](code_size.md)  | Nomicon  | What `shrink_wrap` costs in flash and why                                              |
+| [Code size on small CPUs](code_size.md)  | Nomicon  | What ShrinkWrap costs in flash and why                                                 |

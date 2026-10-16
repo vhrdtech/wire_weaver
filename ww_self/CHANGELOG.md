@@ -125,6 +125,10 @@
 
 * Moved from `ww_stdlib` into the `wire_weaver` repo root, `repository` now points to `vhrdtech/wire_weaver`.
 
+### 📚 Documentation
+
+- Docs: product names written WireWeaver and ShrinkWrap in prose.
+
 ## [0.1.1] - 2026-01-07
 
 ### ⚙️ Miscellaneous Tasks

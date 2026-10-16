@@ -7,7 +7,7 @@ level: basic
 A call to a device can fail in three different ways, and WireWeaver keeps them apart all the way to your code:
 
 - **The device said no.** The method ran and returned its own error: an I2C address wasn't acknowledged, a pin is in
-  use. This is the `E` of a method returning `Result<T, E>`, a normal `shrink_wrap` value.
+  use. This is the `E` of a method returning `Result<T, E>`, a normal ShrinkWrap value.
 - **The device can't do this at all.** There is no implementation: the handler answered `Unimplemented`, or the
   device left an [optional item](#optional-items) out.
 - **The call didn't go through.** The link dropped, the request timed out, the device was disconnected.

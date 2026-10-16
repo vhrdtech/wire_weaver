@@ -15,8 +15,8 @@ New to WireWeaver: start with `blinky_api` and `blinky` (an API with two methods
 
 | Example                                           | What it shows                                                               |
 |---------------------------------------------------|-----------------------------------------------------------------------------|
-| `minimal_shrink_wrap`                             | Using the [shrink_wrap](../serdes/shrink_wrap.md) wire format directly      |
-| `compare_wire_formats`                            | Wire size of `shrink_wrap` compared with other formats                      |
+| `minimal_shrink_wrap`                             | Using the [ShrinkWrap](../serdes/shrink_wrap.md) wire format directly         |
+| `compare_wire_formats`                            | Wire size of ShrinkWrap compared with other formats                         |
 | `blinky_api`, `blinky`                            | Smallest API with two methods, and its client                               |
 | `blinky_api_evolved`, `blinky_evolved`            | The same API [evolved](../evolution/rules.md) with a new method, used with old firmware|
 | `blinky_py`                                       | Python wheel wrapping the `blinky` client                                   |

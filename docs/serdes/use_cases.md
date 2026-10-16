@@ -4,14 +4,14 @@ level: advanced
 
 # Use cases
 
-Where `shrink_wrap` is used outside the RPC machinery, in two small programs of the vhrd.tech tool chain
+Where ShrinkWrap is used outside the RPC machinery, in two small programs of the vhrd.tech tool chain
 (`tpm_mesh_dash` and `tpm_mesh`, which watch and connect a handful of PCs). Nothing here is `no_std`: the point is
 that a dense, evolvable format with bounded values is useful on a desktop as well, for files, streams and
 size-capped messages. Every size and byte sequence below is asserted by
 [`shrink_wrap/shrink_wrap/tests/use_cases.rs`](https://github.com/vhrdtech/wire_weaver/blob/master/shrink_wrap/shrink_wrap/tests/use_cases.rs),
 which holds the same types as the snippets (the shipped code names the same items, see each section).
 
-Read [shrink_wrap](shrink_wrap.md) and [derive](derive.md) first, this page assumes `Unsized` types, the
+Read [ShrinkWrap](shrink_wrap.md) and [derive](derive.md) first, this page assumes `Unsized` types, the
 [FIFO of lengths](wire_format.md#the-fifo-of-lengths) and [`TailSize<N>`](special_types.md#tailsizen-the-size-of-the-rest-of-a-value) are familiar.
 
 ## Ring files of a load history
@@ -102,7 +102,7 @@ the file is recreated, as the data is telemetry and not worth a migration.
 
 `tpm_mesh` lets one PC ask another PC's daemon a question next to its gossip (NET-8): a QUIC stream per question
 (iroh), one request frame in, one reply frame out. The payload of both is JSON the daemon never looks into, so
-`shrink_wrap` only does the envelope:
+ShrinkWrap only does the envelope:
 
 ```rust
 #[derive_shrink_wrap(owned, derive(Debug, PartialEq))]
@@ -166,7 +166,7 @@ daemon.
 were JSON, and 7 Oct 2026 was spent finding out what a more compact encoding gains, on 67 live events. Average bytes
 per message:
 
-| Message  | JSON | JSON + deflate | `shrink_wrap` | `shrink_wrap` + deflate |
+| Message  | JSON | JSON + deflate | ShrinkWrap | ShrinkWrap + deflate |
 |----------|-----:|---------------:|--------------:|------------------------:|
 | bot      |  219 |            162 |           110 |                     112 |
 | sessions |  759 |            367 |           364 |                     294 |
@@ -176,12 +176,12 @@ Then the stats message with a schema designed for the wire instead of ported fro
 instead of floats, counts as `UVlq32`, memory in MiB instead of bytes, times as offsets. It is **323 B**, and deflate
 gains nothing on it. Two lessons:
 
-- **Schema choice beats general compression on small messages.** `shrink_wrap` alone with a straight port of the JSON
+- **Schema choice beats general compression on small messages.** ShrinkWrap alone with a straight port of the JSON
   schema (536 B) is no better than JSON + deflate (513 B), a tight schema (323 B) beats everything including the straight port with deflate (436 B), and nothing is left for deflate to find in it. Deflate on 200 to 800 bytes has little
   history to learn from and pays its own header.
 - **Compression pays for string-heavy messages.** `sessions` is mostly text (working directories, titles): there
-  `shrink_wrap` + deflate (294 B) is a clear step below `shrink_wrap` alone (364 B) and JSON + deflate (367 B),
-  whereas for `bot` it is 2 bytes worse than `shrink_wrap` alone.
+  ShrinkWrap + deflate (294 B) is a clear step below ShrinkWrap alone (364 B) and JSON + deflate (367 B),
+  whereas for `bot` it is 2 bytes worse than ShrinkWrap alone.
 
 A small tight schema looks like this (an illustration of the style, not the shipped type):
 
@@ -198,7 +198,7 @@ assert_eq!(bytes, hex!("6F 6D 61 72 63 68 79 2D 6D 31  80  2A  84 00  29"));  //
 //                     "omarchy-m1"                    busy cpu mem    length of name
 ```
 
-The switch of the gossip payloads to `shrink_wrap` is in progress in `tpm_mesh` as `gossip-sw`; this section
+The switch of the gossip payloads to ShrinkWrap is in progress in `tpm_mesh` as `gossip-sw`; this section
 describes its design and the measurements behind it, it has not shipped. The JSON/deflate numbers are measured
 on real events, the 323 B figure is the tight stats schema; the type above is only an example.
 

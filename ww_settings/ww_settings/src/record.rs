@@ -6,7 +6,7 @@
 //!
 //! - `writer` is the [Version] of the struct's crate that wrote the record, `newest` the highest version whose data
 //!   is in it (a downgraded firmware keeps the slots of a newer one, so `newest` stays).
-//! - `slots` is an [OptionAnyVec] whose every present slot is a byte blob ([RefVec]`<u8>`): the shrink_wrap bytes
+//! - `slots` is an [OptionAnyVec] whose every present slot is a byte blob ([RefVec]`<u8>`): the ShrinkWrap bytes
 //!   of that field on their own (`to_ww_bytes`). Since every slot is a blob, any reader can step over a slot it
 //!   doesn't know and copy it unchanged, which a plain `sparse` struct can't do (its values carry no length).
 //! - A field at its default is absent. No field set is a record of the header only.

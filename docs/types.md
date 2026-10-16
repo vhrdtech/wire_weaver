@@ -4,10 +4,10 @@ level: basic
 
 # Built-in types
 
-Every type on this page implements the `shrink_wrap` traits: it can be a field of a
+Every type on this page implements the ShrinkWrap traits: it can be a field of a
 [`#[derive_shrink_wrap]`](serdes/derive.md) type, and (unless noted) an argument, return value, property or stream
 item of an API. Sizes below are for the value on its own; how values share bytes is on the
-[shrink_wrap](serdes/shrink_wrap.md#how-it-stays-small) page.
+[ShrinkWrap](serdes/shrink_wrap.md#how-it-stays-small) page.
 
 ## At a glance
 
@@ -57,7 +57,7 @@ payloads and API arguments: an `enum I2cAddress { Seven(U7), Ten(U10) }` with `w
 | `UVlq64` | the same as `UVlq32`, 1 to 10 bytes                          | `u64`     | `82 2c`    |
 | `UN`, `IN` | the bit width (3 to 6 bits), then that many bits           | `u64`, `i64` |         |
 
-`UNib32` is what `shrink_wrap` uses for lengths and for `ww_repr = unib32` discriminants; values below 8 take one
+`UNib32` is what ShrinkWrap uses for lengths and for `ww_repr = unib32` discriminants; values below 8 take one
 nibble ([showcase](serdes/showcase.md#unib32-variable-length-numbers-by-the-nibble)). `UVlq32Backfill` is a
 `UVlq32` always written as 5 bytes, so its value can be filled in after the rest is written.
 

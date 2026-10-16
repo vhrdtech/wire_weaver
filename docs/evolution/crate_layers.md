@@ -20,7 +20,7 @@ some framework code defines bytes on the wire although it lives in a "free to br
 | 3. Framework          | `wire_weaver`, `wire_weaver_core`, `wire_weaver_derive`, `wire_weaver_client`, `wire_weaver_cli`, `ww_device`, `ww_link`, `ww_framer`, ...  | shared `[workspace.package] version`, free to break Rust API                |
 | 4. User API           | `my_device_api` and friends (see [folder structure](../api/folder_structure.md))                                                                                    | own version, the version is the API identity, checked on every connection |
 
-Everything above layer 1 implements shrink_wrap's traits. Base type crates depend on `shrink_wrap` directly, trait
+Everything above layer 1 implements ShrinkWrap's traits. Base type crates depend on `shrink_wrap` directly, trait
 crates and user API crates depend on `wire_weaver`, which re-exports `shrink_wrap`. Generated code refers to
 `shrink_wrap::...` through that re-export, so a single `shrink_wrap` version must be shared by the whole dependency
 graph of an application.

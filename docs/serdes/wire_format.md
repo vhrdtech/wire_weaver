@@ -4,10 +4,10 @@ level: nomicon
 
 # Wire format internals
 
-How `shrink_wrap` lays values out in bytes, and the reader and writer that do it. You don't need any of this to use
+How ShrinkWrap lays values out in bytes, and the reader and writer that do it. You don't need any of this to use
 [`#[derive_shrink_wrap]`](derive.md); it explains _why_ the derive macro's directives (evolvable by default,
 `final_structure` / `self_describing` / `sized`) exist and what each one trades. It is also the reference for a
-hand-written `SerializeShrinkWrap` impl or a reader in another language (see [shrink_wrap in C](../c.md)).
+hand-written `SerializeShrinkWrap` impl or a reader in another language (see [ShrinkWrap in C](../c.md)).
 
 The [showcase](showcase.md) has worked byte-by-byte examples of most of what is described here.
 
@@ -31,7 +31,7 @@ the placeholder take, if small lengths are to take little space?
 A fixed-width length field has the same problem in another shape. One byte caps a value at 255 bytes; four bytes
 waste space on the overwhelming majority of values, which are small.
 
-`shrink_wrap` never writes a length where the value starts:
+ShrinkWrap never writes a length where the value starts:
 
 1. When a value's size can't be known up front, a slot is reserved at the back of the buffer.
 2. The value is written normally from the front.
@@ -217,7 +217,7 @@ let value = MyType::from_ww_bytes_owned(&bytes)?;        // DeserializeShrinkWra
 ```
 
 These are what every example on this site calls. `BufWriter` / `BufReader` and `write` / `read` only matter for a
-hand-written type, a streaming API on top of `shrink_wrap` (see the
+hand-written type, a streaming API on top of ShrinkWrap (see the
 [builder pattern](showcase.md#patching-a-discriminant-after-youve-already-started-writing-its-payload)), or
 anything else that needs more control than one call.
 

@@ -70,6 +70,10 @@ Wire-incompatible with 0.1.0.
 
 * Depend on `ww_si`'s `time` feature (STD-23 gated `Second` behind it), needed for `stream::StreamHead`'s timestamp.
 
+### 📚 Documentation
+
+- Docs: product names written WireWeaver and ShrinkWrap in prose.
+
 ## [0.1.0] - 2026-01-07
 
 ### 🚀 Features

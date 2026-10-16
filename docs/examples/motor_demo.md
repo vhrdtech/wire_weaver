@@ -129,7 +129,7 @@ inflate the count.
 
 `cargo nextest run -p motor_demo`:
 
-- `tests/controller.rs`: the controller against the simulator without wire_weaver: current, speed (both
+- `tests/controller.rs`: the controller against the simulator without WireWeaver: current, speed (both
   directions) and duty control, the observer tracking the angle and running sensorless, hybrid start from
   standstill, every motor preset, the counters against the simulator's energy.
 - `tests/observe.rs`: through the generated client, each tier at its rate, a budget below what is asked for, slow

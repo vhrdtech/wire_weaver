@@ -32,7 +32,7 @@ field names, the crate's version, and per field the code to compare it with its 
 - **Slots** are `0..=255`, unique, in any order. A slot belongs to its field for good: renaming the field is fine,
   giving the slot to another field is not. A removed field's slot goes into `retired(..)`, and the derive refuses to
   reuse it.
-- **Field types** are owned values with shrink_wrap serdes and `PartialEq`: numbers, `bool`, enums and structs with
+- **Field types** are owned values with ShrinkWrap serdes and `PartialEq`: numbers, `bool`, enums and structs with
   `#[derive_shrink_wrap]`, arrays, and `shrink_wrap::ArrayString<N>` / `ArrayVec<T, N>` (SW-57) for text and lists
   without an allocator. The same types work for properties, so a field and the property that serves it share
   one type.
@@ -110,7 +110,7 @@ flash as a power cut at that point would; the store goes on from there.
 
 A page holds a log of records, not one struct: each write appends a new record for its key, and the newest one
 wins. The record is the group's version and the fields that are not at their default, each as its own
-shrink_wrap bytes:
+ShrinkWrap bytes:
 
 ```text
 record: | format: u8 = 1 | writer: 3 × UNib32 | newest: 3 × UNib32 | pad | slots: OptionAnyVec of byte blobs |

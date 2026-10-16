@@ -100,7 +100,7 @@ pub enum RequestKind<'i> {
     /// Call a method with provided arguments.
     /// Expected to get [EventKind::Value], unless request ID is 0.
     Call {
-        /// Arguments are put into a struct and serialized using shrink_wrap to obtain this byte array.
+        /// Arguments are put into a struct and serialized using ShrinkWrap to obtain this byte array.
         args: TailBytes<'i>,
     },
     /// Call the same method over an array of traits or several methods in one request.
@@ -123,7 +123,7 @@ pub enum RequestKind<'i> {
         in_each_array_id: Option<UNib32>,
     },
 
-    /// Write property or stream down. Property value is serialized fully into a byte array using shrink_wrap.
+    /// Write property or stream down. Property value is serialized fully into a byte array using ShrinkWrap.
     /// Objects of a stream are also serialized in full and sent as one unit.
     Write { data: TailBytes<'i> },
     /// Write multiple properties or streams in one request.
@@ -357,7 +357,7 @@ pub struct Error<'i> {
 }
 
 /// Various errors that can occur during Request processing.
-/// TODO: Add shrink_wrap error here as well for more context
+/// TODO: Add ShrinkWrap error here as well for more context
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug), ww_repr = u8, discriminants)]
 pub enum ErrorKind<'i> {
     /// Sent a RequestKind that doesn't make sense for a particular resource

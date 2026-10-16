@@ -13,7 +13,7 @@ checksum or tail, unless said otherwise.
 
 ## Head layout (`U2Head`)
 
-`U2Head` is the head implementation shipped for framed media. It is bit-packed with `shrink_wrap` and takes
+`U2Head` is the head implementation shipped for framed media. It is bit-packed with ShrinkWrap and takes
 **one byte** in the most common case.
 
 ### Common form: 1 byte

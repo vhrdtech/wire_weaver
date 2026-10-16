@@ -14,6 +14,10 @@
 * `FullVersionOwned::is_protocol_compatible()`, `filename_friendly()`.
 * `Copy` for `Version` and `FullVersion`, optional `serde` support.
 
+### 📚 Documentation
+
+- Docs: product names written WireWeaver and ShrinkWrap in prose.
+
 ## [0.1.1] - 2026-01-07
 
 ### ⚙️ Miscellaneous Tasks

@@ -7,7 +7,7 @@
 <p align="center">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/vhrdtech/wire_weaver/master/docs/assets/wire_weaver_logo-dark.png">
-  <img src="https://raw.githubusercontent.com/vhrdtech/wire_weaver/master/docs/assets/wire_weaver_logo.png" alt="wire_weaver logo" width="480"/>
+  <img src="https://raw.githubusercontent.com/vhrdtech/wire_weaver/master/docs/assets/wire_weaver_logo.png" alt="WireWeaver logo" width="480"/>
 </picture>
 </p>
 
@@ -39,7 +39,7 @@ available [here](https://vhrdtech.github.io/wire_weaver/).
 Traits can be made "global" by publishing them on crates.io.
 Useful for things like logging, GPIO control or firmware update, allowing code reuse across projects.
 
-Wire format used (called shrink_wrap) is binary and designed to use bits and nibbles to make it compact without
+Wire format used (called ShrinkWrap) is binary and designed to use bits and nibbles to make it compact without
 compression.
 See comparison to other formats in [examples/compare_wire_formats](./examples/compare_wire_formats).
 
@@ -57,7 +57,7 @@ Notable ones are:
 * `ww_can_bus` - CAN bus API: configure, send and receive frames, error state, optional filters and buffers.
 * `ww_dfu` - Firmware update API, see the [guide to its eight update scenarios](https://ww.vhrd.tech/std_library/ww_dfu/).
 * `ww_log` - The device's log: defmt frames (decoded with the ELF) or text records, as reliable streams.
-* `ww_self` - Dynamic access to APIs (API model AST in shrink_wrap format).
+* `ww_self` - Dynamic access to APIs (API model AST in ShrinkWrap format).
 
 ## Quick start
 
@@ -87,7 +87,7 @@ TODO
 
 ## Wire format
 
-wire_weaver uses wire format called [shrink_wrap](https://github.com/romixlab/shrink_wrap) -
+WireWeaver uses wire format called [ShrinkWrap](https://github.com/romixlab/shrink_wrap) -
 compact zero-copy wire format for microcontrollers using no allocator and supporting dynamic types.
 If you only want to serialize and deserialize some data types, it can be used stand-alone.
 

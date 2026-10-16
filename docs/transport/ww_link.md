@@ -117,7 +117,7 @@ if let Some((user_kind, payload)) = rx.message() {
 ```
 
 `Data`, `Stats` and `Loopback` payloads are borrowed straight from the framer buffer — no copies. `DeviceInfo` and
-`LinkSetup` are `shrink_wrap` structs and are deserialized on demand; with the `std` feature `DeviceInfoOwned` /
+`LinkSetup` are ShrinkWrap structs and are deserialized on demand; with the `std` feature `DeviceInfoOwned` /
 `LinkSetupOwned` are available too.
 
 Errors are deliberately small:

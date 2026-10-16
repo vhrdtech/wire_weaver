@@ -8,3 +8,7 @@
 - Framer configuration for UDP: `UdpHead`, `UdpChecksum`, `UdpTail` (same as USB, one frame per datagram) and
   `UDP_MAX_DATAGRAM_LEN` (1452), the largest datagram a host sends.
 - First version: sans-IO, `no_std` link layer — message kinds and their payloads carried over `ww_framer` frames.
+
+### 📚 Documentation
+
+- Docs: product names written WireWeaver and ShrinkWrap in prose.

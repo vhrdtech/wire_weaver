@@ -8,7 +8,7 @@ A WireWeaver API is a Rust trait describing what a device offers: **methods** to
 write, **streams** of data from the device, **sinks** of data into it, and nested **traits** grouping them. From that
 one trait, `ww_codegen!` generates the device's server (request decoding and dispatch to your handlers, `no_std` and
 no allocation) and the host's client (a typed function per item, async, blocking or as a promise for GUIs). Data
-crossing the wire is any [`shrink_wrap`](../serdes/shrink_wrap.md) type.
+crossing the wire is any [ShrinkWrap](../serdes/shrink_wrap.md) type.
 
 ```rust
 #[ww_api_root]

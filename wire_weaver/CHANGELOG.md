@@ -38,6 +38,7 @@
 ### 📚 Documentation
 
 - New logo in the README: a red/black twisted pair (the differential pair) over the wordmark, light and dark
+- Docs: product names written WireWeaver and ShrinkWrap in prose
 
 ## [0.4.0] - 07 Jan 2026
 

@@ -34,7 +34,7 @@ ww_client_server = { version = "0.2", default-features = false }
   [counted or reliable stream](../api/stream_reliability.md), optionally resuming a `StreamCursor`),
   `Observe { cfg }` (how a trait level's properties are sent, see [below](#observing-properties) and
   [Observing properties](../api/observing.md)). Arguments and written values travel as `TailBytes<'i>` - already
-  shrink_wrap-serialized by the generated code on either end, opaque to this crate.
+  ShrinkWrap-serialized by the generated code on either end, opaque to this crate.
 * `MultiIndex<'i>` / `MultiArgs<'i>` - which resources a multi-request covers (`Range`, `List`, or `Mask32`) and
   whether every one gets the same serialized arguments (`MultiArgs::Same`) or each its own
   (`MultiArgs::Different`) - see [Multi requests](../api/multi_requests.md) for the full request/reply shape.

@@ -4,6 +4,6 @@
 
 > WireWeaver USB device class using embassy
 
-See [wire_weaver_template](https://github.com/vhrdtech/wire_weaver_template) showcasing how to use WireWeaver on
+See [WireWeaver template](https://github.com/vhrdtech/wire_weaver_template) showcasing how to use WireWeaver on
 real hardware, connected via USB.
 

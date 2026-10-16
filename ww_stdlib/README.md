@@ -33,7 +33,7 @@
 * `ww_client_server` - Client-server API model data types for both no_std and std.
 
 `ww_self` (API model AST for introspection) and `ww_global` (ID registry) are part of the framework itself and live in
-the [wire_weaver](https://github.com/vhrdtech/wire_weaver) repo root.
+the [WireWeaver](https://github.com/vhrdtech/wire_weaver) repo root.
 
 ## What is a global trait?
 

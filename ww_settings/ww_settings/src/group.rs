@@ -8,7 +8,7 @@ pub const MAX_SLOT: u32 = 255;
 /// A settings struct: plain fields with a default each, stored as a record of the fields that differ from their
 /// default. Implemented by [`#[derive(Settings)]`](derive@crate::Settings), not by hand.
 ///
-/// Each field has a slot id that never changes. A record holds the shrink_wrap bytes of each field that isn't at its
+/// Each field has a slot id that never changes. A record holds the ShrinkWrap bytes of each field that isn't at its
 /// default, as a byte blob per slot, so a reader can step over any slot it doesn't know and keep it (see the
 /// [record format](crate::record)).
 pub trait SettingsGroup: Clone + PartialEq {
@@ -25,10 +25,10 @@ pub trait SettingsGroup: Clone + PartialEq {
     /// Whether the field at `slot` differs from its default. `false` for a slot that isn't a field.
     fn is_set(&self, slot: u32) -> bool;
 
-    /// The shrink_wrap bytes of the field at `slot`, written into `buf`.
+    /// The ShrinkWrap bytes of the field at `slot`, written into `buf`.
     fn write_slot<'b>(&self, slot: u32, buf: &'b mut [u8]) -> Result<&'b [u8], Error>;
 
-    /// Set the field at `slot` from its shrink_wrap bytes. The field is left as it was on an error.
+    /// Set the field at `slot` from its ShrinkWrap bytes. The field is left as it was on an error.
     fn read_slot(&mut self, slot: u32, bytes: &[u8]) -> Result<(), Error>;
 
     /// Whether `bytes` decode to the current value of the field at `slot`.

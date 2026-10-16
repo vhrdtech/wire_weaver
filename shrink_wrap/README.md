@@ -1,4 +1,4 @@
-# shrink_wrap
+# ShrinkWrap
 
 ![Crates.io Version](https://img.shields.io/crates/v/shrink_wrap)
 [![CI](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml/badge.svg)](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml)
@@ -7,7 +7,7 @@
 <p align="center">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/vhrdtech/wire_weaver/master/docs/assets/shrink_wrap_logo-dark.png">
-  <img src="https://raw.githubusercontent.com/vhrdtech/wire_weaver/master/docs/assets/shrink_wrap_logo.png" alt="shrink_wrap logo" width="480"/>
+  <img src="https://raw.githubusercontent.com/vhrdtech/wire_weaver/master/docs/assets/shrink_wrap_logo.png" alt="ShrinkWrap logo" width="480"/>
 </picture>
 </p>
 

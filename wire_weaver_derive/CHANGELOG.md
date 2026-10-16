@@ -46,6 +46,10 @@
   take lifetimes.
 - Correct span for `ww_impl!` of a trait in the same crate.
 
+### 📚 Documentation
+
+- Docs: product names written WireWeaver and ShrinkWrap in prose.
+
 ## 0.4.0 - 07 Jan 2026
 
 ### 🚀 Features

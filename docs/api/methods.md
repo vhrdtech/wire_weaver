@@ -33,7 +33,7 @@ pub struct UserType<'i> {
 }
 ```
 
-Any number of arguments are supported, of any [`shrink_wrap`](../serdes/shrink_wrap.md) type. Arguments evolve like
+Any number of arguments are supported, of any [ShrinkWrap](../serdes/shrink_wrap.md) type. Arguments evolve like
 struct fields, e.g. an `Option<T>` argument can be appended later (see [evolution rules](../evolution/rules.md)). A method
 that can fail returns `Result<T, E>`, see [Errors](errors.md).
 

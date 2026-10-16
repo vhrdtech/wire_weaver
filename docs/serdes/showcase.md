@@ -8,7 +8,7 @@ A tour of `shrink_wrap` tricks, from plain bit-packing to self-referential types
 `wire_weaver` itself and from the `ww_stdlib` crates (`ww_version`, `ww_date_time`, `ww_client_server`, `ww_self`).
 Every byte sequence shown below was produced by actually running the snippet - none of it is hand-waved.
 
-Read [shrink_wrap](shrink_wrap.md), [derive](derive.md) and [size assumptions](size_assumptions.md) first if you
+Read [ShrinkWrap](shrink_wrap.md), [derive](derive.md) and [size assumptions](size_assumptions.md) first if you
 haven't; this page assumes you know what `Unsized`/`final_structure`/`self_describing`/`sized` mean and how
 `#[derive_shrink_wrap(..)]` decides between borrowed and owned types.
 

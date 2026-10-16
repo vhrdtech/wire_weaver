@@ -6,7 +6,7 @@ level: advanced
 
 `ww_framer` packs variable-length **messages** into fixed-size **frames** and unpacks them back on the other side.
 It is `no_std`, allocation-free and is meant to sit between the serialized bytes produced by
-[shrink_wrap](../serdes/shrink_wrap.md) and a physical link (USB, CAN, UART, UDP, etc.).
+[ShrinkWrap](../serdes/shrink_wrap.md) and a physical link (USB, CAN, UART, UDP, etc.).
 
 A _frame_ is whatever the underlying medium can carry as one unit: a 512B USB bulk packet, a 8B CAN frame,
 a DMA buffer for UART, and so on. A _message_ is what the application cares about: a request, a reply, a stream item.

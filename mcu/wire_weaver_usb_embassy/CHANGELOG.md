@@ -28,6 +28,10 @@
 - Host that restarted without disconnecting is detected, device-side peer timeout.
 - Generic error reply when the backend cannot process a request at all.
 
+### 📚 Documentation
+
+- Docs: product names written WireWeaver and ShrinkWrap in prose.
+
 ## 0.1.0 - 07 Jan 2026
 
 ### 🚀 Features

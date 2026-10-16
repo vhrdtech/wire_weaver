@@ -4415,6 +4415,10 @@ the few it uses, a host enables all of them.</p>
   holds: without <code>u128</code> the enum above is 8 bytes in memory instead of 32, and no 128-bit code is linked.</li>
 <li>Reading a variant that is compiled out gives <code>Error::EnumVariantDisabled</code> (an unknown number is still
   <code>EnumFutureVersionOrMalformedData</code>).</li>
+<li>Introspection, API snapshots and type signatures list every variant whatever features are on: they are made
+  from the source, not from the compiled type. A firmware built with a few variants and a host built with all of
+  them have the same definition and connect (<code>tests/cfg_variants</code>); a call with a variant the device lacks fails
+  there with <code>ArgsDesFailed</code>.</li>
 <li>A <code>sized</code> enum needs at least one variant without <code>#[cfg]</code>, so its size cannot change with features.</li>
 <li>Cargo features are unified across a build: a crate that matches such an enum without a <code>_</code> arm stops compiling
   when another crate enables one more variant. The <code>non_exhaustive</code> argument puts <code>#[non_exhaustive]</code> on the

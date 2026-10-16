@@ -2566,6 +2566,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Signatures, and putting skipped definitions back">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-definition-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The definition cache
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3305,6 +3322,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Signatures, and putting skipped definitions back">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-definition-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The definition cache
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3553,6 +3587,26 @@ bundle or what else was alongside it. <code>trait_signature</code>/<code>type_si
 checks its signature matches what was stored, and replaces it in place (appending whatever the restored
 definition itself refers to). Anything not found, or found with a different signature, comes back as a
 <code>NotInlined</code> (kind, crate/version if known, name, reason) instead of being substituted silently.</p>
+<p>A signature is an honest description of the definition a device was built with, docs included: a crate version
+that is not published yet changes under the same version, and so does a signature when the <code>ww_self</code> model gets a
+field. A device built from another revision than the host then sends a signature the host's snapshot doesn't have.</p>
+<h3 id="the-definition-cache">The definition cache<a class="headerlink" href="#the-definition-cache" title="Permanent link">&para;</a></h3>
+<p>For that case, codegen keeps every definition it leaves out of a device's introspection data in
+<code>~/.wire_weaver/definitions/</code> on the machine it builds on: the canonical bundle's bytes as they were hashed, in a file
+named after crate, version, kind, name and signature (<code>ww_si-0_1_0-type-Volt-049a2a94f6d68bb5.ww</code>). A host
+(<code>wire_weaver_client</code>, the <code>ww</code> CLI, Python's <code>connect()</code>) that doesn't find a skipped definition in its snapshots
+under its signature looks it up there with <code>ww_self::inline::inline_skipped_or_cached</code>, which checks the bytes against
+the signature before using them, so an entry written by an older <code>ww_self</code> still reads. The definition is put back
+in-line and the API check then compares it with the host's by the <a href="../../evolution/rules/">evolution rules</a>, with a
+warning that the device has another revision of it:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Device API has type ww_si::Volt 0.1.0 with signature 049a2a94f6d68bb5 (this host&#39;s is 0af8195a2e0069fe): likely a
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>build from another revision of an unpublished crate, its definition is from the definition cache and is compared by
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>the evolution rules
+</span></code></pre></div>
+<p>Only when no definition with that signature is found anywhere does a resource that uses it fail the check, with
+both signatures, the likely cause and the fix: rebuild (reflash) both sides from one revision, or build the
+device's firmware once on the host's machine so that its definitions get into the cache. Entries are a few hundred
+bytes each and are never changed; deleting the directory only loses the ability to talk to such devices.</p>
 <h2 id="visiting-the-model">Visiting the model<a class="headerlink" href="#visiting-the-model" title="Permanent link">&para;</a></h2>
 <p><code>ww_self::visit::Visit</code> (read-only) and <code>ww_self::visit_mut::VisitMut</code> (mutable) are exhaustive visitor traits
 over every node kind above, generated from one <code>define_visitor!</code> macro definition: each has a default per-node

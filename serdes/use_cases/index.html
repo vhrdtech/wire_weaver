@@ -769,7 +769,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1175,7 +1175,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -4837,13 +4837,13 @@
 
 
 <h1 id="use-cases">Use cases<a class="headerlink" href="#use-cases" title="Permanent link">&para;</a></h1>
-<p>Where <code>shrink_wrap</code> is used outside the RPC machinery, in two small programs of the vhrd.tech tool chain
+<p>Where ShrinkWrap is used outside the RPC machinery, in two small programs of the vhrd.tech tool chain
 (<code>tpm_mesh_dash</code> and <code>tpm_mesh</code>, which watch and connect a handful of PCs). Nothing here is <code>no_std</code>: the point is
 that a dense, evolvable format with bounded values is useful on a desktop as well, for files, streams and
 size-capped messages. Every size and byte sequence below is asserted by
 <a href="https://github.com/vhrdtech/wire_weaver/blob/master/shrink_wrap/shrink_wrap/tests/use_cases.rs"><code>shrink_wrap/shrink_wrap/tests/use_cases.rs</code></a>,
 which holds the same types as the snippets (the shipped code names the same items, see each section).</p>
-<p>Read <a href="../shrink_wrap/">shrink_wrap</a> and <a href="../derive/">derive</a> first, this page assumes <code>Unsized</code> types, the
+<p>Read <a href="../shrink_wrap/">ShrinkWrap</a> and <a href="../derive/">derive</a> first, this page assumes <code>Unsized</code> types, the
 <a href="../wire_format/#the-fifo-of-lengths">FIFO of lengths</a> and <a href="../special_types/#tailsizen-the-size-of-the-rest-of-a-value"><code>TailSize&lt;N&gt;</code></a> are familiar.</p>
 <h2 id="ring-files-of-a-load-history">Ring files of a load history<a class="headerlink" href="#ring-files-of-a-load-history" title="Permanent link">&para;</a></h2>
 <p><code>tpm_mesh_dash</code> keeps the load history of a PC (CPU, memory, network, ... up to 64 series) in one file per
@@ -4938,7 +4938,7 @@ the file is recreated, as the data is telemetry and not worth a migration.</p>
 <h2 id="request-and-reply-frames-over-streams">Request and reply frames over streams<a class="headerlink" href="#request-and-reply-frames-over-streams" title="Permanent link">&para;</a></h2>
 <p><code>tpm_mesh</code> lets one PC ask another PC's daemon a question next to its gossip (NET-8): a QUIC stream per question
 (iroh), one request frame in, one reply frame out. The payload of both is JSON the daemon never looks into, so
-<code>shrink_wrap</code> only does the envelope:</p>
+ShrinkWrap only does the envelope:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[derive_shrink_wrap(owned, derive(Debug, PartialEq))]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">AskRequestOwned</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">service</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span><span class="w">   </span><span class="c1">// which local program answers</span>
@@ -4997,8 +4997,8 @@ per message:</p>
 <th>Message</th>
 <th style="text-align: right;">JSON</th>
 <th style="text-align: right;">JSON + deflate</th>
-<th style="text-align: right;"><code>shrink_wrap</code></th>
-<th style="text-align: right;"><code>shrink_wrap</code> + deflate</th>
+<th style="text-align: right;">ShrinkWrap</th>
+<th style="text-align: right;">ShrinkWrap + deflate</th>
 </tr>
 </thead>
 <tbody>
@@ -5029,12 +5029,12 @@ per message:</p>
 instead of floats, counts as <code>UVlq32</code>, memory in MiB instead of bytes, times as offsets. It is <strong>323 B</strong>, and deflate
 gains nothing on it. Two lessons:</p>
 <ul>
-<li><strong>Schema choice beats general compression on small messages.</strong> <code>shrink_wrap</code> alone with a straight port of the JSON
+<li><strong>Schema choice beats general compression on small messages.</strong> ShrinkWrap alone with a straight port of the JSON
   schema (536 B) is no better than JSON + deflate (513 B), a tight schema (323 B) beats everything including the straight port with deflate (436 B), and nothing is left for deflate to find in it. Deflate on 200 to 800 bytes has little
   history to learn from and pays its own header.</li>
 <li><strong>Compression pays for string-heavy messages.</strong> <code>sessions</code> is mostly text (working directories, titles): there
-  <code>shrink_wrap</code> + deflate (294 B) is a clear step below <code>shrink_wrap</code> alone (364 B) and JSON + deflate (367 B),
-  whereas for <code>bot</code> it is 2 bytes worse than <code>shrink_wrap</code> alone.</li>
+  ShrinkWrap + deflate (294 B) is a clear step below ShrinkWrap alone (364 B) and JSON + deflate (367 B),
+  whereas for <code>bot</code> it is 2 bytes worse than ShrinkWrap alone.</li>
 </ul>
 <p>A small tight schema looks like this (an illustration of the style, not the shipped type):</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[derive_shrink_wrap(owned, derive(Debug, PartialEq))]</span>
@@ -5048,7 +5048,7 @@ gains nothing on it. Two lessons:</p>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;6F 6D 61 72 63 68 79 2D 6D 31  80  2A  84 00  29&quot;</span><span class="p">));</span><span class="w">  </span><span class="c1">// 15</span>
 </span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1">//                     &quot;omarchy-m1&quot;                    busy cpu mem    length of name</span>
 </span></code></pre></div>
-<p>The switch of the gossip payloads to <code>shrink_wrap</code> is in progress in <code>tpm_mesh</code> as <code>gossip-sw</code>; this section
+<p>The switch of the gossip payloads to ShrinkWrap is in progress in <code>tpm_mesh</code> as <code>gossip-sw</code>; this section
 describes its design and the measurements behind it, it has not shipped. The JSON/deflate numbers are measured
 on real events, the 323 B figure is the tight stats schema; the type above is only an example.</p>
 <h2 id="where-compression-wrappers-would-pay-time-series">Where compression wrappers would pay: time series<a class="headerlink" href="#where-compression-wrappers-would-pay-time-series" title="Permanent link">&para;</a></h2>
@@ -5128,13 +5128,13 @@ message of the gossip kind gains nothing from it.</p>
         
         
           
-          <a href="../../c/" class="md-footer__link md-footer__link--next" aria-label="Next: shrink_wrap in C">
+          <a href="../../c/" class="md-footer__link md-footer__link--next" aria-label="Next: ShrinkWrap in C">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                shrink_wrap in C
+                ShrinkWrap in C
               </div>
             </div>
             <div class="md-footer__button md-icon">

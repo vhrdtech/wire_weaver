@@ -764,7 +764,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1074,7 +1074,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -4968,7 +4968,7 @@
 <p>Two different things can break when a WireWeaver crate changes, and they are tracked separately:</p>
 <ul>
 <li><strong>Wire compatibility</strong> - whether bytes written by one side can still be read by the other. Firmware lives in the
-  field for years, hosts are updated on their own schedule, and shrink_wrap blobs may be stored on disk. A wire break
+  field for years, hosts are updated on their own schedule, and ShrinkWrap blobs may be stored on disk. A wire break
   means deployed devices stop talking to new hosts (or the other way around), which no <code>cargo update</code> can fix.</li>
 <li><strong>Rust (SemVer) compatibility</strong> - whether code still compiles against the new crate version. A break here is
   annoying, but it is found by the compiler and fixed by the developer, before anything ships.</li>

@@ -762,7 +762,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1072,7 +1072,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -5476,7 +5476,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>⛔ <strong>SRV-8 One crate per role for firmware and host</strong> · <code>v0.5</code> — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into <code>wire_weaver</code> behind features or splitting by
   std/no_std:</li>
-<li><code>wire_weaver</code> stays lean (shrink_wrap, macros, <code>ww_version</code>, result types) since every API crate and
+<li><code>wire_weaver</code> stays lean (<code>shrink_wrap</code>, macros, <code>ww_version</code>, result types) since every API crate and
     <code>ww_stdlib</code> crate depends on it;</li>
 <li><code>ww_device</code> re-exports <code>wire_weaver</code>, <code>ww_framer</code>, <code>ww_link</code> and gets features <code>usb-embassy</code>, <code>rtt</code>, <code>udp</code>,
     <code>ws</code>, <code>defmt</code>, <code>embassy-time</code>, <code>std</code>;</li>
@@ -5579,7 +5579,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   on a simulated device (<code>tests/follow_reboot</code>, <code>docs/transport/follow_reboot.md</code>). The PICOBOOT host moved to its
   own repo, <a href="https://github.com/vhrdtech/picoboot_host">picoboot_host</a> (evaluated the crates.io <code>picoboot</code> 0.3.0
   crate first: no sans-IO boundary to put <code>SimRp2350</code> behind, no <code>Image</code>/UF2 handling, no orchestrated flash+verify,
-  no <code>chip_id</code>/<code>GET_INFO</code> — adopting it would have meant donating most of <code>ww_picoboot</code> upstream anyway); wire_weaver
+  no <code>chip_id</code>/<code>GET_INFO</code> — adopting it would have meant donating most of <code>ww_picoboot</code> upstream anyway); WireWeaver
   depends on it as <code>ww_picoboot</code> (a git dependency on github.com/vhrdtech/picoboot_host until it is on crates.io). <code>wire_weaver_client</code>'s <code>picoboot</code>
   feature (off by default) gates <code>follow::rp2_update()</code> and the <code>ww_picoboot</code> re-export, so a host app that only
   talks WireWeaver over USB doesn't pull in PICOBOOT; <code>ww bootsel</code> turns it on, and <code>follow::rp2_update_with()</code> (what

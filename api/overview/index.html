@@ -764,7 +764,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1074,7 +1074,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -4738,7 +4738,7 @@
 write, <strong>streams</strong> of data from the device, <strong>sinks</strong> of data into it, and nested <strong>traits</strong> grouping them. From that
 one trait, <code>ww_codegen!</code> generates the device's server (request decoding and dispatch to your handlers, <code>no_std</code> and
 no allocation) and the host's client (a typed function per item, async, blocking or as a promise for GUIs). Data
-crossing the wire is any <a href="../../serdes/shrink_wrap/"><code>shrink_wrap</code></a> type.</p>
+crossing the wire is any <a href="../../serdes/shrink_wrap/">ShrinkWrap</a> type.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">BlinkyApi</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_on</span><span class="p">();</span>

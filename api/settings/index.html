@@ -764,7 +764,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1074,7 +1074,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -4936,7 +4936,7 @@ field names, the crate's version, and per field the code to compare it with its 
 <li><strong>Slots</strong> are <code>0..=255</code>, unique, in any order. A slot belongs to its field for good: renaming the field is fine,
   giving the slot to another field is not. A removed field's slot goes into <code>retired(..)</code>, and the derive refuses to
   reuse it.</li>
-<li><strong>Field types</strong> are owned values with shrink_wrap serdes and <code>PartialEq</code>: numbers, <code>bool</code>, enums and structs with
+<li><strong>Field types</strong> are owned values with ShrinkWrap serdes and <code>PartialEq</code>: numbers, <code>bool</code>, enums and structs with
   <code>#[derive_shrink_wrap]</code>, arrays, and <code>shrink_wrap::ArrayString&lt;N&gt;</code> / <code>ArrayVec&lt;T, N&gt;</code> (SW-57) for text and lists
   without an allocator. The same types work for properties, so a field and the property that serves it share
   one type.</li>
@@ -4996,7 +4996,7 @@ flash as a power cut at that point would; the store goes on from there.</p>
 <h2 id="what-is-stored">What is stored<a class="headerlink" href="#what-is-stored" title="Permanent link">&para;</a></h2>
 <p>A page holds a log of records, not one struct: each write appends a new record for its key, and the newest one
 wins. The record is the group's version and the fields that are not at their default, each as its own
-shrink_wrap bytes:</p>
+ShrinkWrap bytes:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>record: | format: u8 = 1 | writer: 3 × UNib32 | newest: 3 × UNib32 | pad | slots: OptionAnyVec of byte blobs |
 </span></code></pre></div>
 <p>Every slot of the <a href="../../serdes/special_types/#optionanyvec-sparse-slots-of-any-types">OptionAnyVec</a> holds the field's

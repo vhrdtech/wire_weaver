@@ -764,7 +764,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1074,7 +1074,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -4859,7 +4859,7 @@
 <p>A call to a device can fail in three different ways, and WireWeaver keeps them apart all the way to your code:</p>
 <ul>
 <li><strong>The device said no.</strong> The method ran and returned its own error: an I2C address wasn't acknowledged, a pin is in
-  use. This is the <code>E</code> of a method returning <code>Result&lt;T, E&gt;</code>, a normal <code>shrink_wrap</code> value.</li>
+  use. This is the <code>E</code> of a method returning <code>Result&lt;T, E&gt;</code>, a normal ShrinkWrap value.</li>
 <li><strong>The device can't do this at all.</strong> There is no implementation: the handler answered <code>Unimplemented</code>, or the
   device left an <a href="#optional-items">optional item</a> out.</li>
 <li><strong>The call didn't go through.</strong> The link dropped, the request timed out, the device was disconnected.</li>

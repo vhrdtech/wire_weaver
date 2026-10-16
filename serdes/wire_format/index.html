@@ -769,7 +769,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1082,7 +1082,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -5049,10 +5049,10 @@
 
 
 <h1 id="wire-format-internals">Wire format internals<a class="headerlink" href="#wire-format-internals" title="Permanent link">&para;</a></h1>
-<p>How <code>shrink_wrap</code> lays values out in bytes, and the reader and writer that do it. You don't need any of this to use
+<p>How ShrinkWrap lays values out in bytes, and the reader and writer that do it. You don't need any of this to use
 <a href="../derive/"><code>#[derive_shrink_wrap]</code></a>; it explains <em>why</em> the derive macro's directives (evolvable by default,
 <code>final_structure</code> / <code>self_describing</code> / <code>sized</code>) exist and what each one trades. It is also the reference for a
-hand-written <code>SerializeShrinkWrap</code> impl or a reader in another language (see <a href="../../c/">shrink_wrap in C</a>).</p>
+hand-written <code>SerializeShrinkWrap</code> impl or a reader in another language (see <a href="../../c/">ShrinkWrap in C</a>).</p>
 <p>The <a href="../showcase/">showcase</a> has worked byte-by-byte examples of most of what is described here.</p>
 <h2 id="the-fifo-of-lengths">The FIFO of lengths<a class="headerlink" href="#the-fifo-of-lengths" title="Permanent link">&para;</a></h2>
 <p>The core idea: lengths are kept at the <em>back</em> of the buffer, written in reverse while values are written forward
@@ -5067,7 +5067,7 @@ exactly right), or you write a placeholder, serialize the value and patch the pl
 the placeholder take, if small lengths are to take little space?</p>
 <p>A fixed-width length field has the same problem in another shape. One byte caps a value at 255 bytes; four bytes
 waste space on the overwhelming majority of values, which are small.</p>
-<p><code>shrink_wrap</code> never writes a length where the value starts:</p>
+<p>ShrinkWrap never writes a length where the value starts:</p>
 <ol>
 <li>When a value's size can't be known up front, a slot is reserved at the back of the buffer.</li>
 <li>The value is written normally from the front.</li>
@@ -5238,7 +5238,7 @@ whose extent is the buffer's own length:</p>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MyType</span><span class="p">::</span><span class="n">from_ww_bytes_owned</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bytes</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w">        </span><span class="c1">// DeserializeShrinkWrapOwned::from_ww_bytes_owned</span>
 </span></code></pre></div>
 <p>These are what every example on this site calls. <code>BufWriter</code> / <code>BufReader</code> and <code>write</code> / <code>read</code> only matter for a
-hand-written type, a streaming API on top of <code>shrink_wrap</code> (see the
+hand-written type, a streaming API on top of ShrinkWrap (see the
 <a href="../showcase/#patching-a-discriminant-after-youve-already-started-writing-its-payload">builder pattern</a>), or
 anything else that needs more control than one call.</p>
 <h2 id="encodings-of-the-special-types">Encodings of the special types<a class="headerlink" href="#encodings-of-the-special-types" title="Permanent link">&para;</a></h2>
@@ -5450,7 +5450,7 @@ few dense clusters far apart. The <a href="../showcase/#sparse-updates-with-opti
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../c/" class="md-footer__link md-footer__link--prev" aria-label="Previous: shrink_wrap in C">
+          <a href="../../c/" class="md-footer__link md-footer__link--prev" aria-label="Previous: ShrinkWrap in C">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -5460,7 +5460,7 @@ few dense clusters far apart. The <a href="../showcase/#sparse-updates-with-opti
                 Previous
               </span>
               <div class="md-ellipsis">
-                shrink_wrap in C
+                ShrinkWrap in C
               </div>
             </div>
           </a>

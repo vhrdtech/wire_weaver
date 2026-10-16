@@ -764,7 +764,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1074,7 +1074,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -5037,7 +5037,7 @@
 <h1 id="framer">Framer<a class="headerlink" href="#framer" title="Permanent link">&para;</a></h1>
 <p><code>ww_framer</code> packs variable-length <strong>messages</strong> into fixed-size <strong>frames</strong> and unpacks them back on the other side.
 It is <code>no_std</code>, allocation-free and is meant to sit between the serialized bytes produced by
-<a href="../../serdes/shrink_wrap/">shrink_wrap</a> and a physical link (USB, CAN, UART, UDP, etc.).</p>
+<a href="../../serdes/shrink_wrap/">ShrinkWrap</a> and a physical link (USB, CAN, UART, UDP, etc.).</p>
 <p>A <em>frame</em> is whatever the underlying medium can carry as one unit: a 512B USB bulk packet, a 8B CAN frame,
 a DMA buffer for UART, and so on. A <em>message</em> is what the application cares about: a request, a reply, a stream item.
 The two rarely have the same size, which is exactly the problem this crate solves:</p>

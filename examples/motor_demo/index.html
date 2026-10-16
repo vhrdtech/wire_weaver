@@ -764,7 +764,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1074,7 +1074,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -5055,7 +5055,7 @@ inflate the count.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
 <p><code>cargo nextest run -p motor_demo</code>:</p>
 <ul>
-<li><code>tests/controller.rs</code>: the controller against the simulator without wire_weaver: current, speed (both
+<li><code>tests/controller.rs</code>: the controller against the simulator without WireWeaver: current, speed (both
   directions) and duty control, the observer tracking the angle and running sensorless, hybrid start from
   standstill, every motor preset, the counters against the simulator's energy.</li>
 <li><code>tests/observe.rs</code>: through the generated client, each tier at its rate, a budget below what is asked for, slow

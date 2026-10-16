@@ -764,7 +764,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1074,7 +1074,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -4899,7 +4899,7 @@ some framework code defines bytes on the wire although it lives in a "free to br
 </tr>
 </tbody>
 </table>
-<p>Everything above layer 1 implements shrink_wrap's traits. Base type crates depend on <code>shrink_wrap</code> directly, trait
+<p>Everything above layer 1 implements ShrinkWrap's traits. Base type crates depend on <code>shrink_wrap</code> directly, trait
 crates and user API crates depend on <code>wire_weaver</code>, which re-exports <code>shrink_wrap</code>. Generated code refers to
 <code>shrink_wrap::...</code> through that re-export, so a single <code>shrink_wrap</code> version must be shared by the whole dependency
 graph of an application.</p>

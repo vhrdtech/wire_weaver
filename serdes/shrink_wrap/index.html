@@ -30,7 +30,7 @@
     
     
       
-        <title>shrink_wrap - WireWeaver</title>
+        <title>ShrinkWrap - WireWeaver</title>
       
     
     
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              shrink_wrap
+              ShrinkWrap
             
           </span>
         </div>
@@ -778,7 +778,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -795,7 +795,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1173,7 +1173,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -4755,10 +4755,10 @@
   
 
 
-<h1 id="shrink_wrap">shrink_wrap<a class="headerlink" href="#shrink_wrap" title="Permanent link">&para;</a></h1>
-<p style="text-align:center"><img alt="shrink_wrap logo" src="../../assets/shrink_wrap_logo.svg#only-light" width="420" />
-<img alt="shrink_wrap logo" src="../../assets/shrink_wrap_logo-dark.svg#only-dark" width="420" /></p>
-<p><code>shrink_wrap</code> is the wire format of WireWeaver: every method argument, return value, property and stream item goes
+<h1 id="shrinkwrap">ShrinkWrap<a class="headerlink" href="#shrinkwrap" title="Permanent link">&para;</a></h1>
+<p style="text-align:center"><img alt="ShrinkWrap logo" src="../../assets/shrink_wrap_logo.svg#only-light" width="420" />
+<img alt="ShrinkWrap logo" src="../../assets/shrink_wrap_logo-dark.svg#only-dark" width="420" /></p>
+<p>ShrinkWrap is the wire format of WireWeaver: every method argument, return value, property and stream item goes
 through it. It is dense (values are packed down to single bits), it works on a microcontroller without an allocator,
 and it lets newer and older versions of a type read each other's data.</p>
 <p>It lives in its own crate, <code>shrink_wrap</code>, with no dependency on the rest of WireWeaver. If all you need is a compact
@@ -4841,7 +4841,7 @@ are not wasted forever: a later version of a type can put a new <code>bool</code
 as <code>false</code> or <code>None</code>.</p>
 <p><strong>Lengths go to the back.</strong> A string, a list or a nested type whose size isn't known in advance needs its length
 stored somewhere. Most formats write it in front of the value, which means knowing the size before writing it.
-<code>shrink_wrap</code> writes the value first and puts its length at the end of the buffer, as a variable-length number of
+ShrinkWrap writes the value first and puts its length at the end of the buffer, as a variable-length number of
 nibbles. That keeps serialization a single pass with no copying, and small lengths cost half a byte. The reader
 picks the lengths up from the back while it walks the data from the front.</p>
 <p><strong>Nothing extra by default, less if you ask.</strong> A struct is evolvable by default, which costs a length nibble or
@@ -4896,10 +4896,10 @@ two when it is nested in another type. A type that will never change can say so 
 <tr>
 <td><a href="../use_cases/">Use cases</a></td>
 <td>Advanced</td>
-<td>Real files, frames and messages built with <code>shrink_wrap</code></td>
+<td>Real files, frames and messages built with ShrinkWrap</td>
 </tr>
 <tr>
-<td><a href="../../c/">shrink_wrap in C</a></td>
+<td><a href="../../c/">ShrinkWrap in C</a></td>
 <td>Advanced</td>
 <td>The C reader and writer</td>
 </tr>
@@ -4911,7 +4911,7 @@ two when it is nested in another type. A type that will never change can say so 
 <tr>
 <td><a href="../code_size/">Code size on small CPUs</a></td>
 <td>Nomicon</td>
-<td>What <code>shrink_wrap</code> costs in flash and why</td>
+<td>What ShrinkWrap costs in flash and why</td>
 </tr>
 </tbody>
 </table>

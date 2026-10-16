@@ -769,7 +769,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap
+  ShrinkWrap
 
     
   </span>
@@ -1284,7 +1284,7 @@
   <span class="md-ellipsis">
     
   
-  shrink_wrap in C
+  ShrinkWrap in C
 
     
   </span>
@@ -4978,10 +4978,10 @@
 
 
 <h1 id="built-in-types">Built-in types<a class="headerlink" href="#built-in-types" title="Permanent link">&para;</a></h1>
-<p>Every type on this page implements the <code>shrink_wrap</code> traits: it can be a field of a
+<p>Every type on this page implements the ShrinkWrap traits: it can be a field of a
 <a href="../serdes/derive/"><code>#[derive_shrink_wrap]</code></a> type, and (unless noted) an argument, return value, property or stream
 item of an API. Sizes below are for the value on its own; how values share bytes is on the
-<a href="../serdes/shrink_wrap/#how-it-stays-small">shrink_wrap</a> page.</p>
+<a href="../serdes/shrink_wrap/#how-it-stays-small">ShrinkWrap</a> page.</p>
 <h2 id="at-a-glance">At a glance<a class="headerlink" href="#at-a-glance" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -5119,7 +5119,7 @@ payloads and API arguments: an <code>enum I2cAddress { Seven(U7), Ten(U10) }</co
 </tr>
 </tbody>
 </table>
-<p><code>UNib32</code> is what <code>shrink_wrap</code> uses for lengths and for <code>ww_repr = unib32</code> discriminants; values below 8 take one
+<p><code>UNib32</code> is what ShrinkWrap uses for lengths and for <code>ww_repr = unib32</code> discriminants; values below 8 take one
 nibble (<a href="../serdes/showcase/#unib32-variable-length-numbers-by-the-nibble">showcase</a>). <code>UVlq32Backfill</code> is a
 <code>UVlq32</code> always written as 5 bytes, so its value can be filled in after the rest is written.</p>
 <h2 id="strings-and-lists">Strings and lists<a class="headerlink" href="#strings-and-lists" title="Permanent link">&para;</a></h2>

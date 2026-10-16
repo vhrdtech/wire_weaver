@@ -24,7 +24,6 @@ use crate::record::{self, DecodeStats, Record, RecordError};
 use crate::store::{CRC, ITEM_HEADER_LEN, ITEM_TAG, Key, PAGE_HEADER_LEN, PAGE_MAGIC, Store};
 use std::collections::{BTreeMap, BTreeSet};
 
-
 /// Word sizes [Store] can be configured for (the flash's `WRITE_SIZE`/`READ_SIZE`, whichever is larger).
 pub const WORD_SIZES: &[usize] = &[1, 4, 8, 16, 32];
 /// Page (erase unit) sizes [Store] can be configured for.

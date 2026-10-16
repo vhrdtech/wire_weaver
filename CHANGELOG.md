@@ -13,8 +13,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
-- Planned: the recorder area (REC) in FEATURES.md, an SD card logbook of many shrink_wrap tracks with a USB view
-  and a PC tool (REC-1, REC-8..13, STD-34, TEST-22); no code yet.
+- Planned: STD-34 `ww_recorder`, an API to control a recorder (the SD card logbook of P2628, which lives in its own
+  repo); no code yet.
 - Motor controller demo (EX-11), `examples/motor_demo` and `motor_demo_api`: a VESC-like FOC controller driving a
   simulated motor ([motor_sim](https://github.com/vhrdtech/motor_sim)), its 52 variables observed in three rate
   tiers through one trait level each, on simulated time faster or slower than real time, in-process or over UDP. The

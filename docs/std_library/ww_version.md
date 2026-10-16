@@ -59,7 +59,7 @@ presence flags for `pre`/`build` relocated next to them via [`#[flag]`](../serde
 so `0.1.2` with no pre-release or build metadata is **2 bytes** total; a fully populated version only grows by
 exactly the bytes its `pre`/`build` strings need. `final_structure` on every type here means no reverse-length is
 written for the type itself when it's the last field of something else - see
-[size assumptions](../serdes/derive.md#size-assumptions-final_structure-self_describing-sized).
+[size assumptions](../serdes/size_assumptions.md).
 
 `ww_client_server`'s own `Request`/`Event` model uses `CompactVersion` for the common case of addressing a
 global trait by id (2 extra bytes when every number is ≤ 7) and falls back to `FullVersion` only for the one-off

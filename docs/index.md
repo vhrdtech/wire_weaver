@@ -19,8 +19,11 @@ plus a whole set of standard types and traits, all in Rust.
 [Get started](api/overview.md){ .md-button .md-button--primary }
 [Standard library](std_library/overview.md){ .md-button }
 [Examples](examples/examples.md){ .md-button }
-[Features and roadmap](features.md){ .md-button }
+[Features](features_today.md){ .md-button }
 </div>
+
+Pages are marked by how deep they go: Basic, Advanced or Nomicon. See [reading levels](levels.md).
+{ style="text-align:center" }
 
 ---
 

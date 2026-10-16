@@ -1,12 +1,16 @@
+---
+level: advanced
+---
+
 # Showcase
 
 A tour of `shrink_wrap` tricks, from plain bit-packing to self-referential types, illustrated with real code from
 `wire_weaver` itself and from the `ww_stdlib` crates (`ww_version`, `ww_date_time`, `ww_client_server`, `ww_self`).
 Every byte sequence shown below was produced by actually running the snippet - none of it is hand-waved.
 
-Read [wire format](shrink_wrap.md) and [derive](derive.md) first if you haven't; this page assumes you know what
-`Unsized`/`final_structure`/`self_describing`/`sized` mean and how `#[derive_shrink_wrap(..)]` decides between
-borrowed and owned types.
+Read [shrink_wrap](shrink_wrap.md), [derive](derive.md) and [size assumptions](size_assumptions.md) first if you
+haven't; this page assumes you know what `Unsized`/`final_structure`/`self_describing`/`sized` mean and how
+`#[derive_shrink_wrap(..)]` decides between borrowed and owned types.
 
 ## Sub-byte packing
 
@@ -32,7 +36,7 @@ let bytes = (true, false, true, false, true, true, false, false)
 assert_eq!(bytes, &[0b1010_1100]);
 ```
 
-This is what the `ElementSize::Sized { size_bits }` case (see [derive.md](derive.md#size-assumptions-final_structure-self_describing-sized))
+This is what the `ElementSize::Sized { size_bits }` case (see [size assumptions](size_assumptions.md))
 is built on: a `sized` struct/enum's fields are just laid out bit after bit, so putting a `bool` field or a small
 enum next to another `Sized` field is free - they share the same byte instead of each getting its own.
 
@@ -56,7 +60,7 @@ assert_eq!(ten.to_ww_bytes(&mut buf).unwrap(), &[0xff, 0xe0]);   // 1 1111111111
 
 With `Seven(u8)` instead, the byte-aligned `u8` pads the discriminant to a byte and the same address takes
 `[0x00, 0x50]`. The variants are 7 and 10 bits, so the enum is `self_describing`, not `sized` (a `sized` enum needs
-variants of one size, see [derive.md](derive.md#size-assumptions-final_structure-self_describing-sized)). Same-sized
+variants of one size, see [size assumptions](size_assumptions.md)). Same-sized
 payloads can be `sized` and then nest without any size information, e.g. a 32-bit frame
 (`shrink_wrap/tests/sub_byte.rs`):
 
@@ -163,7 +167,7 @@ it can't check that the struct itself is serialized first and is not, for exampl
 ## Bounding a value from the inside with `TailSize`
 
 A value read from a buffer longer than itself - a header at the start of a file, a record at a fixed offset - has
-no back for its FIFO of lengths to live at. `TailSize<N>` (see [the wire format page](shrink_wrap.md#size-of-the-rest-of-a-value-tailsizen))
+no back for its FIFO of lengths to live at. `TailSize<N>` (see [the wire format page](special_types.md#tailsizen-the-size-of-the-rest-of-a-value))
 is a field the writer fills in with the number of bytes from the end of the field to the end of the value, as a
 `UVlq32` right-justified in `N` bytes, and the reader bounds the rest of the value with:
 
@@ -245,7 +249,7 @@ wr.write_u8(0xAA)?;                          // byte-aligned, starts a fresh byt
 ## Picking an enum's discriminant width - and when `Option<bool>` beats it
 
 `ww_repr = <width>` sets exactly how many bits an enum's discriminant costs (see
-[derive.md](derive.md#ww_repr-repr-enums-only)). Pick the width for the variant count you'll ever need - a 3- or
+[derive reference](derive_reference.md#ww_repr-repr-enums-only)). Pick the width for the variant count you'll ever need - a 3- or
 4-variant enum needs `ww_repr = u2`:
 
 ```rust
@@ -321,7 +325,7 @@ assert_eq!(version.to_ww_bytes(&mut buf).unwrap(), hex!("01 2C 707265 6275696C64
 
 An `Unsized` value's length isn't written where the value starts - it's appended to the _back_ of the buffer as a
 reversed `UNib32`, so the writer never needs to know a value's size before it has finished writing it (see
-[the high-level overview](shrink_wrap.md#high-level-overview)). Multiple lengths stack up in reverse order, forming
+[the high-level overview](wire_format.md#the-fifo-of-lengths)). Multiple lengths stack up in reverse order, forming
 a FIFO read from the back:
 
 ```rust
@@ -428,7 +432,7 @@ for a collection of them.
 
 Sometimes you don't know which variant you're building until you've already started writing it - a response
 builder that reserves space for a result flag or an event kind before it knows whether the call will succeed, for
-example. `discriminants` (see [derive.md](derive.md#discriminants-enums-only)) generates a fieldless
+example. `discriminants` (see the [derive reference](derive_reference.md#discriminants-enums-only)) generates a fieldless
 `{Name}Discriminants` enum for exactly this, and `BufWriter::save_state`/`restore_state` let you go back and patch
 bits you already reserved:
 
@@ -461,7 +465,7 @@ builder is purely a streaming-friendly way to produce the exact same bytes.
 
 ## Compressed sequences: `Delta`, `DeltaOfDelta` and `XorFloat`
 
-The three sequence types of the [wire format page](shrink_wrap.md#compressed-sequences-delta-deltaofdelta-and-xorfloat)
+The three sequence types of the [wire format page](special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences)
 are `RefVec`s whose elements are written bit by bit against the previous one. Five `u8` readings, as a `Vec<u8>` and
 as a `Delta<u8>`:
 
@@ -506,7 +510,7 @@ a file.
 
 A trait level with 32 `f32` properties, of which 3 changed since the last update: slots 3, 17 and 30 with `1.0`,
 `2.5` and `-3.0` (12 bytes of values whatever the encoding). The
-[`OptionAnyVec`](shrink_wrap.md#optionanyvec-sparse-slots-of-any-types) header in each mode, and the alternatives:
+[`OptionAnyVec`](special_types.md#optionanyvec-sparse-slots-of-any-types) header in each mode, and the alternatives:
 
 | Encoding                                              | Bytes | Header / overhead                                       |
 |-------------------------------------------------------|------:|---------------------------------------------------------|

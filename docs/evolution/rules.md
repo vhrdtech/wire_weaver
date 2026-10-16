@@ -36,8 +36,8 @@ encoding, discriminant or flag layout, the meaning of an existing `derive_shrink
 device, every host and every stored blob at once, regardless of any API version. Post 1.0 this is not allowed at all.
 Before 1.0 it is allowed only with a strong reason, batched with other such changes, and listed under `### ⚠️
 Breaking` in the changelog starting with `Wire format:`, so that it can't be mistaken for a Rust-only break. The
-byte-level claims in [shrink_wrap](../serdes/shrink_wrap.md), [derive](../serdes/derive.md) and
-[showcase](../serdes/showcase.md) must be re-verified in the same change.
+byte-level claims in the [SerDes](../serdes/shrink_wrap.md) pages ([wire format internals](../serdes/wire_format.md),
+[showcase](../serdes/showcase.md), ...) must be re-verified in the same change.
 
 **Rust API breaks** (`0.2` -> `0.3`) do not touch the wire, but they still ripple through the whole ecosystem: to
 Cargo, `shrink_wrap 0.2` and `0.3` are unrelated crates with unrelated `SerializeShrinkWrap` traits. A type
@@ -148,12 +148,12 @@ By default, user defined struct or enum is `Unsized`. Both can contain variable-
 strings or other structs and enums. Unsized types support all the evolution options. It is recommended to stick with
 unsized types, unless extreme space-saving is required.
 
-A `TailSize<N>` field (see [wire format](../serdes/shrink_wrap.md#size-of-the-rest-of-a-value-tailsizen)) is part
+A `TailSize<N>` field (see [wire format](../serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value)) is part
 of the layout like a `Sized` field: adding, removing or moving it, or changing `N`, breaks compatibility; fields
 after it evolve as usual, and old readers skip what newer writers append.
 
 A `Delta<T>`, `DeltaOfDelta<T>` or `XorFloat<T>` field (see
-[wire format](../serdes/shrink_wrap.md#compressed-sequences-delta-deltaofdelta-and-xorfloat)) is like a `Vec<T>`
+[wire format](../serdes/special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences)) is like a `Vec<T>`
 field: it can be appended with `#[default = Default::default()]` (old data reads as an empty sequence), but
 swapping it for a `Vec<T>` or another of the three, or changing `T`, changes the bits and breaks compatibility.
 
@@ -201,7 +201,7 @@ Each has bytes of its own, so `Vec<T>` -> `Delta<T>`, `Delta<T>` -> `DeltaOfDelt
 
 ### Sparse structs
 
-A [`sparse` struct](../serdes/derive.md#sparse-a-struct-of-optional-fields) (DER-13) has a slot per field, all of
+A [`sparse` struct](../serdes/layouts.md#sparse-a-struct-of-optional-fields) (DER-13) has a slot per field, all of
 them `Option<T>`:
 
 * New fields can be appended after the last slot, without `#[default]`: older data reads them as `None`, older
@@ -216,7 +216,7 @@ them `Option<T>`:
 
 * `Sized` can become `SelfDescribing` and back (`sized` <-> `self_describing`): neither gets a size slot from its
   parent, the bytes are the same, and the checker reports it as compatible. A `sized` enum must have variants of one
-  size (see [derive](../serdes/derive.md#size-assumptions-final_structure-self_describing-sized)).
+  size (see [derive](../serdes/size_assumptions.md)).
 * New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
   other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
 * Struct fields and enum variants can be renamed (but their position must NOT change).

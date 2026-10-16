@@ -13,6 +13,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Docs: reading levels (DOC-7). Pages carry a Basic, Advanced or Nomicon badge, and the SerDes section is
+  regrouped by level: a short Basic path (shrink_wrap, derive, built-in types) followed by Advanced pages (size
+  assumptions, derive reference, special types, fixed and sparse layouts, showcase, use cases, C) and Nomicon pages
+  (wire format internals, code size). The built-in types page is rewritten against the code. A "What works today"
+  page is generated from `FEATURES.md` (`just features-page`), which is now the "Feature tracker", last in the nav.
 - Planned: STD-34 `ww_recorder`, an API to control a recorder (the SD card logbook of P2628, which lives in its own
   repo); no code yet.
 - Motor controller demo (EX-11), `examples/motor_demo` and `motor_demo_api`: a VESC-like FOC controller driving a

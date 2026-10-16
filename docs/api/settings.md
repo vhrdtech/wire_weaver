@@ -112,9 +112,9 @@ shrink_wrap bytes:
 record: | format: u8 = 1 | writer: 3 × UNib32 | newest: 3 × UNib32 | pad | slots: OptionAnyVec of byte blobs |
 ```
 
-Every slot of the [OptionAnyVec](../serdes/shrink_wrap.md#optionanyvec-sparse-slots-of-any-types) holds the field's
+Every slot of the [OptionAnyVec](../serdes/special_types.md#optionanyvec-sparse-slots-of-any-types) holds the field's
 bytes as a blob (a length and the bytes). That is what lets a firmware skip a slot it doesn't know, keep it when it
-writes the record again, and drop a retired one, which a plain [`sparse`](../serdes/derive.md#sparse-a-struct-of-optional-fields)
+writes the record again, and drop a retired one, which a plain [`sparse`](../serdes/layouts.md#sparse-a-struct-of-optional-fields)
 struct can't do (its values carry no length). The cost is a length nibble and byte alignment per stored field.
 
 In flash each record is an item: a 12-byte header (length, key, a 32-bit sequence number per key, CRC-32) and the

@@ -105,7 +105,7 @@ infrastructure; this trait only reports it.
 
 `Fault` has one variant per architecture behind a cargo feature: `CortexM(CortexMFault)` (`cortex-m`) and
 `RiscV(RiscVFault)` (`riscv`); `std` enables all. A variant keeps its number whether it is compiled in or not
-(see [`#[cfg]` on enum variants](../serdes/derive.md#cfg-on-enum-variants)), so firmware enables the one it needs and a
+(see [`#[cfg]` on enum variants](../serdes/derive_reference.md#cfg-on-enum-variants)), so firmware enables the one it needs and a
 host all of them. At least one must be enabled for `ResetRecord` to be usable.
 
 ## Evolution

@@ -16,7 +16,7 @@ Features: `nibble`, `u16`, `u32`, `unib32`, `u64`, `i32`, `f32`, `un`, `in`, `u1
 `f64`, `uvlq32`, `uvlq64`, and `all`. `ww_si` has the same ones and passes them on.
 
 The wire format is the same for every set. A value of a type that is not enabled is read as
-`Error::EnumVariantDisabled`; see [`#[cfg(..)]` on enum variants](../serdes/derive.md#cfg-on-enum-variants).
+`Error::EnumVariantDisabled`; see [`#[cfg(..)]` on enum variants](../serdes/derive_reference.md#cfg-on-enum-variants).
 
 ## Variable-length numbers
 

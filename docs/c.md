@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # shrink_wrap in C
 
 `shrink_wrap/c/shrink_wrap.h` and `shrink_wrap/c/shrink_wrap.c` are the shrink_wrap reader and writer for C99:
@@ -30,7 +34,7 @@ if (sw_writer_finish(&wr, &len) != SW_OK) {
 ```
 
 `sw_writer_finish()` encodes the lengths collected at the back of the buffer (reversed `UNib32`, see
-[shrink_wrap.md](serdes/shrink_wrap.md)) right after the data and returns the size. An `Unsized` value inside
+[wire format internals](serdes/wire_format.md#the-fifo-of-lengths)) right after the data and returns the size. An `Unsized` value inside
 another value (every struct or enum that isn't `final_structure`, `self_describing` or `sized`) is framed with
 `sw_unsized_begin()` / `sw_unsized_end()`, as the Rust `BufWriter::write` does:
 

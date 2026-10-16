@@ -9,8 +9,8 @@ The unit is a **trait level** - the root API, or one `ww_impl!` trait - not a si
 whole level with one `Observe` request (`RequestKind::Observe`, [`ww_client_server::observe`](../std_library/ww_client_server.md#observing-properties)),
 picking a mode per `+observe` property, and from then on the device sends one `EventKind::PropertyUpdate` per level
 whenever anything in it is due, carrying whatever subset of its properties is actually due this time - not every
-observed property every time. That update is a [`sparse` struct](../serdes/derive.md#sparse-a-struct-of-optional-fields)
-([`OptionAnyVec`](../serdes/shrink_wrap.md#optionanyvec-sparse-slots-of-any-types)): a presence header up front,
+observed property every time. That update is a [`sparse` struct](../serdes/layouts.md#sparse-a-struct-of-optional-fields)
+([`OptionAnyVec`](../serdes/special_types.md#optionanyvec-sparse-slots-of-any-types)): a presence header up front,
 then only the present values, so a property that isn't due this time costs roughly one bit, not a byte, let alone
 its own message. This is what makes observing cheaper than one `StreamData` event per value - see
 [cost vs `StreamData`](#cost-vs-streamdata) below.
@@ -169,13 +169,13 @@ mode.configure(MotorObserve::default().mode(periodic(100 * ms))).await?;
 
 `EventKind::PropertyUpdate { path, t, missed, data }` is one level's update. `data` is the `<Trait>Update`
 `sparse` struct: an `OptionAnyVec` presence header (the smallest of four modes - all, dense bits, two-level bits,
-or an index list, picked by the writer - see [`OptionAnyVec`](../serdes/shrink_wrap.md#optionanyvec-sparse-slots-of-any-types)
+or an index list, picked by the writer - see [`OptionAnyVec`](../serdes/special_types.md#optionanyvec-sparse-slots-of-any-types)
 for the exact bit layout), then only the present properties' values in slot order, no padding between them. Slots
 are the level's resource indices, methods and streams included as gaps that are never present.
 
 Slot order matters for size: a `bool` property takes one bit, but a byte-or-wider type aligns itself to a byte as
-always, so a `bool` between two `f32`s still costs a byte of padding around it. [`derive.md`'s worked
-example](../serdes/derive.md#sparse-a-struct-of-optional-fields) shows this byte-for-byte (`speed: Option<u16>` and
+always, so a `bool` between two `f32`s still costs a byte of padding around it. [The `sparse` worked
+example](../serdes/layouts.md#sparse-a-struct-of-optional-fields) shows this byte-for-byte (`speed: Option<u16>` and
 `on: Option<bool>` present: `17 c6 dc 05 4c 00 00 c0 3f 81`) - **group the sub-byte (`bool`) properties of a level
 together** in the trait if the savings matter, so their bits share one byte instead of forcing alignment around
 them.

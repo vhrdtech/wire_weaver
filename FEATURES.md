@@ -25,8 +25,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - When finishing work, update the item in the same change: mark it ✅, move it up to the done items of its
   area and add a pointer (docs page, crate, test or example). Don't delete done items. Move items that turn
   out to be obsolete to [Dropped and superseded](#dropped-and-superseded) with a one-line reason.
-- This file is also rendered as the docs site's "Features" page (`docs/features.md` includes it), so indent
-  nested lists and paragraphs inside an item by 4 spaces, as Python-Markdown requires.
+- This file is also rendered as the docs site's "Feature tracker" page (`docs/features.md` includes it), so indent
+  nested lists and paragraphs inside an item by 4 spaces, as Python-Markdown requires. The short "What works today"
+  page (`docs/features_today.md`) is generated from it: run `just features-page` after a change here, `just test`
+  fails until then.
 - New ideas go into the matching area as 💡. Small code-level gaps stay as `TODO` comments in the source;
   only those that limit users or block a feature get an item here.
 
@@ -56,23 +58,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   index list), self-delimiting so that readers with fewer or more slots than the writer read it (slots are only
   appended); a malformed header is an error. Writer takes the present set up front (`SetBits` over a bitset, any
   increasing iterator), `OptionAnyVecWriter` / in-place `OptionAnyVecBuilder`. For a trait level's properties in one
-  update (API-38). See `docs/serdes/shrink_wrap.md#optionanyvec-sparse-slots-of-any-types`, `docs/serdes/showcase.md`.
+  update (API-38). See `docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types`, `docs/serdes/showcase.md`.
 - ✅ **SW-58 `validate = path` derive directive**: a function checking every struct value just read, so a derived
   type (and the API model it gives to dynamic clients) can still reject out-of-range data; used by `ww_date_time::Year`.
 - ✅ **SW-57 `ArrayString<N>` / `ArrayVec<T, N>`**: owned, no-alloc string/list types backed by a fixed-size
   array, same bytes on the wire as `&str`/`String` and `Vec<T>`, for an owned no-alloc field (a `value_on_changed`
   field of a string/list property in a `no_alloc` server, a settings value); `Error::MaxLenExceeded` rather than a
   cut value, for serializing, deserializing, `push_str`/`push` and `TryFrom<&str>` alike.
-  `docs/serdes/shrink_wrap.md#arraystring-arrayvec-owned-no-alloc-values`.
+  `docs/serdes/special_types.md#arraystring-arrayvec-owned-values-without-an-allocator`.
 - ✅ **SW-11 Alloc writer** `BufWriterOwned`, `SerializeShrinkWrap` for `&[u8]`, `String` as UFS.
 - ✅ **SW-12 In-place builders** used by the server codegen (event and error builders), and the manual
   patch-the-discriminant-later pattern (`docs/serdes/showcase.md`).
-- ✅ **SW-13 Binary format documented** in `docs/serdes/shrink_wrap.md`, worked tricks in `docs/serdes/showcase.md`.
+- ✅ **SW-13 Binary format documented** in `docs/serdes/wire_format.md`, worked tricks in `docs/serdes/showcase.md`.
 - ✅ **SW-14 Usable standalone** as a dense data storage format (`examples/minimal_shrink_wrap`,
   `examples/compare_wire_formats`).
 - ✅ **SW-31 `Delta` / `DeltaOfDelta`**: integer sequences as (differences of) differences in a bit-level prefix code,
   zero-copy `Delta<'i, T>` and `DeltaOwned<T>`, `u8`..`u64` / `i8`..`i64`; the Gorilla timestamp code
-  (`docs/serdes/shrink_wrap.md`, `shrink_wrap/src/series/`, `shrink_wrap/tests/series.rs`).
+  (`docs/serdes/special_types.md`, `shrink_wrap/src/series/`, `shrink_wrap/tests/series.rs`).
 - ✅ **SW-32 `XorFloat`**: `f32` / `f64` sequences as XOR with the previous value (Gorilla), bit-exact,
   `XorFloat<'i, T>` / `XorFloatOwned<T>` (same places as SW-31).
 - ✅ **SW-50 Compressed sequences in APIs**: `Delta`, `DeltaOfDelta` and `XorFloat` (borrowed or owned) in every API
@@ -186,7 +188,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **SW-35 Exact `ElementSize` of enums**: a `sized` / `self_describing` enum reports the discriminant plus one
   variant (`ElementSize::one_of`) instead of the sum of all variants without the discriminant; `sized` with variants
   of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire
-  format (`shrink_wrap/tests/enum_size.rs`, `docs/serdes/derive.md`). Unblocks reading `RefVec<Sized T>` in place.
+  format (`shrink_wrap/tests/enum_size.rs`, `docs/serdes/size_assumptions.md`). Unblocks reading `RefVec<Sized T>` in place.
 - ✅ **SW-33 `UVlq64`**: byte-based variable length `u64`, same big endian VLQ encoding as `UVlq32`, 1 to 10 bytes,
   `uvlq64` field type in `#[derive_shrink_wrap(..)]`, `BufReader::read_uvlq64`/`BufWriter`/`BufWriterOwned::write_uvlq64`
   (`shrink_wrap/src/vlq64.rs`, `docs/types.md`, `docs/serdes/showcase.md`). No `UVlq64Backfill` (not asked for).
@@ -231,7 +233,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   of the value once it is serialized (a `UVlq32` right-justified in `N` bytes, 1 to 5), in any position, nested types
   each with their own. Readers bound the value by it (a longer buffer stops at the right byte, a truncated one
   errors, newer trailing fields are skipped) or skip it without parsing. Fields before it must be `Sized` or
-  `SelfDescribing`, checked at compile time. `docs/serdes/shrink_wrap.md`, showcase.
+  `SelfDescribing`, checked at compile time. `docs/serdes/special_types.md`, showcase.
 - 📋 **SW-42 `MAX_SIZE` on owned types** · `v0.5.x` — `SerializeShrinkWrapOwned` has no worst-case size yet, only
   the borrowed trait has (SW-19); host code sizing a buffer for an owned value uses the borrowed type's.
 - 📋 **SW-20 Sub-type numbers** · `v0.5.x` — numbers restricted to a range, like `10..=25`, or a set with gaps, like
@@ -272,13 +274,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and
   `core::error::Error` (borrowed and owned) from the first doc line of each variant/struct, `{field}` filled in,
   `#[display("..")]` to override; a variant with neither is a compile error. Error enums need no hand-written
-  `Display` on hosts (`docs/serdes/derive.md`; test `shrink_wrap/tests/display.rs`).
+  `Display` on hosts (`docs/serdes/derive_reference.md`; test `shrink_wrap/tests/display.rs`).
 - ✅ **DER-13 Sparse structs**: `#[derive_shrink_wrap(sparse, ..)]` on a struct of `Option<T>` fields (borrowed and
   owned) encodes it as an `OptionAnyVec` (SW-55), one slot per field in declaration order or at `#[slot = N]`
   (increasing, gaps allowed, a present value in a gap is `Error::OptionAnyVecUnknownSlot`); a nested sparse struct
   is one slot. Fields are only appended. A non-`Option` field or a combination with `final_structure` / `sized` /
   `self_describing` / `fixed_layout` / `head_tail` is a compile error. For the per trait level `<Level>Update` of
-  SRV-18 (`docs/serdes/derive.md`, `docs/evolution/rules.md`; test `shrink_wrap/tests/sparse.rs`, fuzz
+  SRV-18 (`docs/serdes/layouts.md`, `docs/evolution/rules.md`; test `shrink_wrap/tests/sparse.rs`, fuzz
   `shrink-wrap-option-any-vec`). `ww_self` carries the flag (`ItemStruct::sparse`, `Field::slot`, TOOL-11), so a
   dynamic decoder (`ValueOwned`, the `ww` CLI, `wire_weaver_py`) reads a sparse struct correctly.
 - 📋 **DER-5 `#[since = "x.y.z"]` on fields** — generate correct evolution code from it (`TODO` in
@@ -288,7 +290,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   the derive; needs a marker on the type, e.g. an associated const, and a compile-time assertion in the outer type.
 - 📋 **DER-7 Prefix enum discriminants** · `v0.5.x`.
 - ✅ **DER-8 `#[cfg(..)]` on enum variants** — a variant keeps its discriminant in every configuration, a build without
-  it reads `Error::EnumVariantDisabled` (`docs/serdes/derive.md`). First user: `ww_numeric::NumericValue`, one cargo
+  it reads `Error::EnumVariantDisabled` (`docs/serdes/derive_reference.md`). First user: `ww_numeric::NumericValue`, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: `#[cfg]` on fields (it would change
   the wire format, should be a compile error), `ww_si` enums.
 
@@ -904,6 +906,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
 - ✅ **DOC-1 Docs site** (zensical): wire format, derive macro, showcase, API, evolution rules, transports, CLI,
   Python, std library pages.
+- ✅ **DOC-7 Reading levels and a SerDes section by level**: a Basic / Advanced / Nomicon badge on each page from
+  its front matter (`docs/levels.md`, `overrides/partials/level.html`); the SerDes nav lists the Basic pages first,
+  then Advanced and Nomicon; `derive.md` split into derive, derive reference, size assumptions and layouts,
+  `shrink_wrap.md` into an introduction, special types and wire format internals; the built-in types page rewritten
+  against the code. A short "what works today" page (`docs/features_today.md`) is generated from this file
+  (`just features-page`, `tests/features_page` fails when it is stale); this file is the "Feature tracker", last in
+  the nav. Next run: the API, standard library and transport sections.
 - 📋 **DOC-2 Run code in docs as tests** · `v0.5` — set up example tests from the `.md` files.
 - 📋 **DOC-3 Link every feature to a docs page with an example** · `v0.5` — this file can serve as the index.
 - 📋 **DOC-4 README pictures and showcases** · `v0.5` — including a picture showing density compared to MessagePack and

@@ -156,3 +156,14 @@
 .md-typeset .ww-level-cards .ww-level {
   margin-bottom: 0.2rem;
 }
+
+/* Short lists in two columns on wide screens (docs/features_today.md) */
+@media screen and (min-width: 60em) {
+  .md-typeset .ww-columns > ul {
+    columns: 2;
+    column-gap: 2.5rem;
+  }
+  .md-typeset .ww-columns > ul > li {
+    break-inside: avoid;
+  }
+}

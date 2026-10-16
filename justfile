@@ -14,6 +14,10 @@ test-power-cut:
 dfu-transcripts:
     DFU_TRANSCRIPTS=update cargo nextest run -p dfu_scenarios
 
+# Regenerate the docs site's short features page (docs/features_today.md) from FEATURES.md (DOC-7)
+features-page:
+    FEATURES_PAGE=update cargo nextest run -p features_page
+
 # What CI checks besides the tests: formatting, manifests, typos, clippy and rustdoc, warnings are errors
 lint:
     cargo fmt --all --check

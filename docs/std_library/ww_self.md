@@ -49,7 +49,7 @@ ww_self = "0.2"
   `RangeInclusive` (of `NumericValue`). This is what a dynamic client builds from wire bytes plus a `Type`, without
   generated Rust types for the API at hand.
 * `ItemStruct<'i>` / `ItemEnum<'i>` - a struct's/enum's own `size: ElementSize` (the same
-  [size assumption](../serdes/derive.md#size-assumptions-final_structure-self_describing-sized) `#[derive_shrink_wrap]`
+  [size assumption](../serdes/size_assumptions.md) `#[derive_shrink_wrap]`
   picks), `crate_idx`, `docs`, `ident`, and `fields`/(`repr: Repr`, `variants: RefVec<Variant>`).
 * `Field<'i>` / `Variant<'i>` - `ident`, `ty`, `docs`, `since`; a `Field` also carries its `default: Option<Value>`
   (for a `#[default = ..]` field) and relocates its own presence flags with `#[flag]` the same way `ww_version::Version`

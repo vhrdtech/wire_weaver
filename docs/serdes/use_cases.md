@@ -1,3 +1,7 @@
+---
+level: advanced
+---
+
 # Use cases
 
 Where `shrink_wrap` is used outside the RPC machinery, in two small programs of the vhrd.tech tool chain
@@ -7,8 +11,8 @@ size-capped messages. Every size and byte sequence below is asserted by
 [`shrink_wrap/shrink_wrap/tests/use_cases.rs`](https://github.com/vhrdtech/wire_weaver/blob/master/shrink_wrap/shrink_wrap/tests/use_cases.rs),
 which holds the same types as the snippets (the shipped code names the same items, see each section).
 
-Read [wire format](shrink_wrap.md) and [derive](derive.md) first, this page assumes `Unsized` types, the FIFO of
-lengths and [`TailSize<N>`](shrink_wrap.md#size-of-the-rest-of-a-value-tailsizen) are familiar.
+Read [shrink_wrap](shrink_wrap.md) and [derive](derive.md) first, this page assumes `Unsized` types, the
+[FIFO of lengths](wire_format.md#the-fifo-of-lengths) and [`TailSize<N>`](special_types.md#tailsizen-the-size-of-the-rest-of-a-value) are familiar.
 
 ## Ring files of a load history
 

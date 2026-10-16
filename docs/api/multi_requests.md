@@ -49,12 +49,12 @@ common prefix shared by every index (everything before the varying element).
 
 ## The reply: an `EitherAnyVec` of results
 
-The answer is `shrink_wrap::either_any_vec::EitherAnyVec` ([SW-10](../serdes/shrink_wrap.md#optionanyvec-sparse-slots-of-any-types)),
+The answer is `shrink_wrap::either_any_vec::EitherAnyVec` ([SW-10](../serdes/special_types.md#optionanyvec-sparse-slots-of-any-types)),
 read with `EitherAnyVecIter`: the type of each slot (the error type, and the index's own value type) is known to
 both sides from the API model, not stored, and the element count is implied by `multi_idx.len()` rather than
 written - `EitherAnyVec` only stores one bit per element (whether it is `Left`/error or `Right`/value) plus the
 bytes of whatever each element actually is, packed with no padding between elements. It is the same low-level
-machinery `OptionAnyVec` is built on ([`sparse` structs](../serdes/derive.md#sparse-a-struct-of-optional-fields)
+machinery `OptionAnyVec` is built on ([`sparse` structs](../serdes/layouts.md#sparse-a-struct-of-optional-fields)
 use that one), but for a vec where every slot is present and holds one of two types instead of an optional value
 of one type.
 

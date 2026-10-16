@@ -11,17 +11,32 @@ repo_name = "vhrdtech/wire_weaver"
 edit_uri = "edit/master/docs/"
 
 nav = [
-    { "Home" = "index.md" },
-    { "Features" = "features.md" },
-    { "Reading levels" = "levels.md" },
+    { "Home" = [
+            "index.md",
+            "levels.md"
+        ]
+    },
+    { "Features" = "features_today.md" },
+    # Each section lists its Basic pages first, then Advanced and Nomicon (docs/levels.md)
     { "SerDes" = [
             "serdes/shrink_wrap.md",
-            "types.md",
             "serdes/derive.md",
-            "serdes/showcase.md",
-            "serdes/use_cases.md",
-            "serdes/code_size.md",
-            "c.md"
+            "types.md",
+            { "Advanced" = [
+                    "serdes/size_assumptions.md",
+                    "serdes/derive_reference.md",
+                    "serdes/special_types.md",
+                    "serdes/layouts.md",
+                    "serdes/showcase.md",
+                    "serdes/use_cases.md",
+                    "c.md"
+                ]
+            },
+            { "Nomicon" = [
+                    "serdes/wire_format.md",
+                    "serdes/code_size.md"
+                ]
+            }
         ]
     },
     { "API" = [
@@ -108,7 +123,8 @@ nav = [
             "python.md",
             "dev_tool.md"
         ]
-    }
+    },
+    { "Feature tracker" = "features.md" }
 ]
 
 extra_css = ["stylesheets/vhrd.css"]

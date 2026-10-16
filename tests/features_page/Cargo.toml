@@ -1,0 +1,9 @@
+[package]
+name = "features_page"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Renders the docs site's short features page (docs/features_today.md) from FEATURES.md."

@@ -1,3 +1,7 @@
+---
+level: nomicon
+---
+
 # Code size on small CPUs
 
 How much code `shrink_wrap` costs on a CPU with a few kilobytes of memory, where the bytes go, what was changed
@@ -411,7 +415,7 @@ a test fail.
 
 ## Fixed-layout fast path
 
-A type whose encoding is a fixed byte layout (SW-44, [derive](derive.md#fixed_layout-fields-at-fixed-offsets-and-the-fast-path))
+A type whose encoding is a fixed byte layout (SW-44, [derive](layouts.md#fixed_layout-fields-at-fixed-offsets))
 does not need `BufReader` or `BufWriter` at all: each field is a load or store at a constant offset. The cases
 `header_de` / `header_ser` read and write `Header` (a `[u8; 4]`, two `u8`, a `u16`, four `u32` and a `u64`) through
 the reader and writer, `fixed_de` / `fixed_ser` the same type with `from_fixed` / `to_fixed`. `bits_fixed_*` is the
@@ -450,7 +454,7 @@ same wire bytes), and the reader is 734 bytes on Cortex-M0 and 912 on RV32IMC: b
 
 ## Head and tail
 
-`busgen_ht` is `busgen` with `head_tail` types (SW-46, [derive](derive.md#head_tail-a-fixed-head-and-a-sequential-tail)):
+`busgen_ht` is `busgen` with `head_tail` types (SW-46, [derive](layouts.md#head_tail-a-fixed-head-and-a-sequential-tail)):
 the plain structs `fixed_layout`, `Utx`, `I2c`, `I2cSlave`, `Request` and `Reply` `head_tail`, lists as
 `head_tail::List`, the same handler. Every fixed field is a load at a constant offset, the lists, the string and
 the `Option<Wave>` are taken from the tail by lengths already read from the head:

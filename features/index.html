@@ -5023,6 +5023,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   appended); a malformed header is an error. Writer takes the present set up front (<code>SetBits</code> over a bitset, any
   increasing iterator), <code>OptionAnyVecWriter</code> / in-place <code>OptionAnyVecBuilder</code>. For a trait level's properties in one
   update (API-38). See <code>docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types</code>, <code>docs/serdes/showcase.md</code>.</li>
+<li>✅ <strong>SW-59 Tuple and unit structs in the derive</strong>: <code>struct Celsius(f32);</code>, <code>struct Pair&lt;'i&gt;(u8, &amp;'i str);</code>,
+  <code>struct Marker;</code> in every layout and size assumption, same bytes as the struct with the fields named; positional
+  names <code>_0</code>, <code>_1</code>, ... in consts, C names and errors. <code>#[flag]</code> needs named fields. The API model has them as
+  unnamed fields, dynamic clients and Python (a tuple, a single field its value, a unit <code>None</code>) read and write them.
+  See <code>docs/types.md</code>, <code>shrink_wrap/shrink_wrap/tests/tuple_structs.rs</code>, <code>tests/dynamic</code>.</li>
 <li>✅ <strong>SW-58 <code>validate = path</code> derive directive</strong>: a function checking every struct value just read, so a derived
   type (and the API model it gives to dynamic clients) can still reject out-of-range data; used by <code>ww_date_time::Year</code>.</li>
 <li>✅ <strong>SW-57 <code>ArrayString&lt;N&gt;</code> / <code>ArrayVec&lt;T, N&gt;</code></strong>: owned, no-alloc string/list types backed by a fixed-size

@@ -920,6 +920,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tuple-and-unit-structs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tuple and unit structs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#enums" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4819,6 +4830,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tuple-and-unit-structs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tuple and unit structs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#enums" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5119,6 +5141,11 @@ on where the old data ends.</p>
 </div>
 <p>See the <a href="../../evolution/rules/">evolution rules</a> for every change that stays compatible, and the
 <a href="../../evolution/checker_tool/">evolution checker</a> to verify it across versions.</p>
+<h2 id="tuple-and-unit-structs">Tuple and unit structs<a class="headerlink" href="#tuple-and-unit-structs" title="Permanent link">&para;</a></h2>
+<p><code>struct Celsius(f32);</code>, <code>struct Pair&lt;'i&gt;(u8, &amp;'i str);</code> and <code>struct Marker;</code> take the same directives as a struct
+with named fields and are written the same way, field after field. New fields go at the end with
+<code>#[default = ..]</code>. Their fields are <code>_0</code>, <code>_1</code>, ... wherever the derive needs a name; <code>#[flag]</code> needs named fields.
+See <a href="../../types/#tuple-structs">built-in types</a>.</p>
 <h2 id="enums">Enums<a class="headerlink" href="#enums" title="Permanent link">&para;</a></h2>
 <p>Every enum needs <code>ww_repr</code>: the wire type of its discriminant. Pick the smallest that fits the variants you expect
 to ever need: <code>u1</code>, <code>u2</code>, ... (bits), <code>nib</code>, <code>u8</code> / <code>u16</code> / <code>u32</code>, or <code>unib32</code> (variable length, room to grow).</p>

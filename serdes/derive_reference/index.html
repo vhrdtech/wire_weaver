@@ -5474,7 +5474,7 @@ variant's own for an enum.</p>
 <li>The trailing period is dropped (Rust's convention for error messages, so it reads well inside a longer one); <code>...</code>
   is kept.</li>
 <li><code>{field}</code> is filled in from the type's own field of that name; format specs work too (<code>{field:#x}</code>). A tuple
-  variant's fields are <code>{0}</code>, <code>{1}</code>, ...</li>
+  struct's or tuple variant's fields are <code>{0}</code>, <code>{1}</code>, ...</li>
 <li><code>#[display("..")]</code> overrides the doc line, used as written: for a tuple variant's fields, or when the doc line
   should say more than the message (error enums in APIs: <a href="../../api/errors/">Errors</a>).</li>
 </ul>

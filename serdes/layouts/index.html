@@ -4953,7 +4953,8 @@ then a load at a constant offset, and the macro generates that next to the usual
   length of this value. All three are the same unless the last field has a variable length (see below).</li>
 <li>An offset const per field: <code>COUNT_OFFSET</code> in bytes, or for a bit field <code>URGENT_BIT_OFFSET</code> and <code>URGENT_BITS</code>,
   counted from the most significant bit of the first byte. For an enum <code>TAG_LEN</code>, and per variant <code>&lt;VARIANT&gt;_TAG</code>,
-  <code>&lt;VARIANT&gt;_LEN</code> and <code>&lt;VARIANT&gt;_&lt;FIELD&gt;_..</code> (unnamed fields by their index). An <code>Option</code>'s flag is <code>&lt;FIELD&gt;_FLAG</code>.</li>
+  <code>&lt;VARIANT&gt;_LEN</code> and <code>&lt;VARIANT&gt;_&lt;FIELD&gt;_..</code> (unnamed fields by their index). An <code>Option</code>'s flag is <code>&lt;FIELD&gt;_FLAG</code>. A tuple struct's fields are <code>_0</code>, <code>_1</code>,
+  ...: <code>_2_OFFSET</code>, in C <code>PX__2_OFFSET</code> and <code>px__2()</code> for <code>struct Px(u8, bool, u16)</code>.</li>
 <li><code>from_fixed(&amp;[u8])</code> and <code>to_fixed(&amp;mut [u8])</code>: loads and stores (shifts and masks for bit fields) at those
   offsets, without a <code>BufReader</code> or <code>BufWriter</code>. The bytes are those of <code>ser_shrink_wrap</code>. A short buffer is an
   error, never a panic.</li>

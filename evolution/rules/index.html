@@ -5047,6 +5047,10 @@ overhead, giving all the nice backwards and forwards compatibility benefits.</p>
   other field (see <a href="../checker_tool/#new-fields-in-padding-bits">the checker</a> for exact conditions).</li>
 <li>TODO: clarify: <code>T</code> -&gt; struct containing <code>T</code></li>
 <li>Struct fields and enum variants can be renamed (but their position must NOT change).</li>
+<li>A tuple struct (<code>struct Pair(u8, u16);</code>) follows the same rules by position: new fields with <code>#[default = ..]</code> only
+  at the end. Naming the fields of a tuple struct, or the other way round, keeps every byte, but the API model then
+  describes a different type (named instead of unnamed fields), which the checker reports as breaking. A unit
+  struct (<code>struct Marker;</code>) can get fields with defaults later, named or not.</li>
 </ul>
 <p>A <code>TailSize&lt;N&gt;</code> field (see <a href="../../serdes/special_types/#tailsizen-the-size-of-the-rest-of-a-value">wire format</a>) is part
 of the layout like a <code>Sized</code> field: adding, removing or moving it, or changing <code>N</code>, breaks compatibility; fields

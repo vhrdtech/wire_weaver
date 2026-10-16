@@ -116,7 +116,7 @@ extra_css = ["stylesheets/vhrd.css"]
 [project.theme]
 # variant = "classic"
 # custom_dir = "overrides"
-favicon = "assets/wire_weaver_icon_small.svg"
+favicon = "assets/wire_weaver_favicon.svg"
 language = "en"
 features = [
   "announce.dismiss",

@@ -5,16 +5,14 @@ hide:
   - toc
 ---
 
-# WireWeaver { style="text-align:center" }
-
-Collection of crates for designing **no_std** APIs with rich type system, **no allocation** and dense **bit-level** wire format.
-{ style="text-align:center" }
+# WireWeaver { .visually-hidden }
 
 ![WireWeaver logo](assets/wire_weaver_logo.svg#only-light){ width="420" }
 ![WireWeaver logo](assets/wire_weaver_logo-dark.svg#only-dark){ width="420" }
 { style="text-align:center" }
 
-Plus a whole set of standard types and traits, all written in Rust.
+Crates for designing **no_std** APIs with a rich type system, **no allocation** and a dense **bit-level** wire format,
+plus a whole set of standard types and traits, all in Rust.
 { style="text-align:center" }
 
 <div style="text-align:center" markdown>

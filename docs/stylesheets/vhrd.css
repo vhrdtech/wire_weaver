@@ -64,3 +64,13 @@
 .md-typeset a.md-button {
   text-decoration: none;
 }
+
+/* A heading kept for screen readers and search, not shown: the home page lets the logo's wordmark be the title */
+.md-typeset .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

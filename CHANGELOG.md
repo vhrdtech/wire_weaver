@@ -75,6 +75,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Docs site in the VHRD brand look: red accent instead of the stock blue, IBM Plex Sans and Mono with Plex Serif
   headings, text-coloured links that turn red on hover, the brand dark palette, the small W in the header
   (`docs/stylesheets/vhrd.css`, colours from vhrd_brand 0.5.0)
+- Docs home page: the logo, one short description and the buttons; the separate serif "WireWeaver" title is
+  hidden (kept for screen readers and search), the wordmark in the logo is the title. Favicon
+  `wire_weaver_favicon.svg` turns its black wire graphite on a dark browser theme, so it no longer shows only the red
+  wire
 
 ### Fixed
 

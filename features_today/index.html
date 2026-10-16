@@ -4923,7 +4923,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../types/#option-and-result"><code>Option</code> and <code>Result</code></a></strong>: Stored as a single flag bit, also inside lists.</li>
 <li><strong><a href="../types/#strings-and-lists">Strings and lists</a></strong>: <code>String</code> and <code>Vec&lt;T&gt;</code>, <code>Vec&lt;u8&gt;</code> as plain bytes.</li>
 <li><strong><a href="../types/">Arrays and tuples</a></strong>: Fixed-size arrays, tuples and <code>()</code>.</li>
-<li><strong><a href="../types/#tuple-structs">Tuple and unit structs</a></strong>: <code>struct Celsius(f32);</code> and <code>struct Marker;</code> work like named structs, with the same bytes.</li>
+<li><strong><a href="../types/#tuple-structs">Tuple and unit structs</a></strong>: <code>struct Celsius(f32);</code> works like a named struct, with the same bytes; <code>struct Marker;</code> keeps room to grow fields later.</li>
 <li><strong><a href="../types/#booleans-and-numbers">Integers of any width</a></strong>: <code>u1</code> to <code>u32</code> and nibbles, packed bit after bit, so a 3-bit field takes 3 bits.</li>
 <li><strong><a href="../types/">Variable-length numbers</a></strong>: <code>UNib32</code> and <code>UVlq32</code>, where small values take a nibble or a byte.</li>
 <li><strong><a href="../serdes/derive/#borrowed-owned-or-both">Zero-copy reads</a></strong>: Strings and lists are read in place from the received buffer; an owned twin of each type is generated for values you keep.</li>
@@ -4939,6 +4939,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../serdes/showcase/#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address">Bit-sized fields and payloads</a></strong>: <code>U7</code>, <code>U10</code>, <code>I2</code> and friends in structs, enum variants and method arguments, e.g. a 7- or 10-bit I2C address in 8 or 11 bits.</li>
 <li><strong><a href="../types/">64-bit variable-length numbers</a></strong>: <code>UVlq64</code>, 1 to 10 bytes.</li>
 <li><strong><a href="../serdes/special_types/#delta-deltaofdelta-and-xorfloat-compressed-sequences">Compressed number sequences</a></strong>: <code>Delta</code> and <code>DeltaOfDelta</code> for timestamps and counters, <code>XorFloat</code> for slowly changing floats, anywhere in an API.</li>
+<li><strong>Columnar series</strong>: <code>Series&lt;T&gt;</code>: a list of any struct written field by field, with deltas and bit packing per field, several times smaller than a <code>Vec&lt;T&gt;</code> of samples. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../serdes/layouts/#sparse-a-struct-of-optional-fields">Sparse structs</a></strong>: A struct of optional fields stored as an <code>OptionAnyVec</code>, for "only what changed" updates.</li>
 <li><strong><a href="../serdes/derive_reference/#validate-path">Checks on read</a></strong>: <code>validate = path</code> rejects out-of-range values as they are read.</li>
 <li><strong><a href="../serdes/derive_reference/#display"><code>Display</code> from doc comments</a></strong>: Error enums print their doc lines, no hand-written <code>Display</code>.</li>

@@ -5205,7 +5205,13 @@ On the wire it is the value plus its size, so a reader can jump over it. See the
 </ul>
 <h3 id="tuple-structs">Tuple structs<a class="headerlink" href="#tuple-structs" title="Permanent link">&para;</a></h3>
 <p>A tuple struct is written exactly like a struct with the same fields named: <code>Celsius(21.5)</code> is the <code>f32</code> alone,
-<code>00 00 ac 41</code>, and <code>Rgb(1, 2, 3)</code> is <code>01 02 03</code>. A unit struct (<code>struct Marker;</code>) takes no bytes.</p>
+<code>00 00 ac 41</code>, and <code>Rgb(1, 2, 3)</code> is <code>01 02 03</code>.</p>
+<p>A unit struct (<code>struct Marker;</code>) has no data, but inside a parent it records its length like any evolvable
+struct, a nibble that is usually shared with a neighbour: <code>(1, Marker, 2)</code> is <code>01 02 00</code>. That is what makes it
+useful in an API: <code>fn arm() -&gt; Armed</code> can later become <code>Armed { at: Timestamp }</code>, and older code still reads it.
+On its own (a whole message) nothing follows it, so it takes no bytes at all. A unit struct with <code>sized</code>,
+<code>final_structure</code>, <code>self_describing</code> or <code>fixed_layout</code> would be zero bits that can never change, so the derive
+refuses it: leave the size assumption out, or give it reserved bits to grow into (e.g. a <code>U4</code> field).</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, derive(Debug, Clone, Copy, PartialEq))]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Celsius</span><span class="p">(</span><span class="k">pub</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>

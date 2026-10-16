@@ -13,6 +13,15 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Docs: reading levels for the rest of the site (DOC-8). Every page of API, Evolution, Standard library, Transport,
+  Examples and Dev tools has a Basic, Advanced or Nomicon badge, and each section lists its Basic pages first.
+  New entry pages: API "Getting started" (a first API end to end), a standard library overview grouped by family
+  (I/O, device contract, data types, framework) and a transport overview (which transport for what). Long pages are
+  split: streams (counted streams, credit sinks, stream protocol), traits (trait attachments), crate layers out of
+  the evolution rules, the USB internals, the framer wire format, `ww_dfu` (A/B and one-slot scenarios,
+  internals), `ww_can_bus` (reference), the CLI (command reference) and Python (streams, observing, offline). Stale
+  facts fixed on the way (USB connect example, framer checksum scope, missing `ww` commands, the GUI tool not
+  building), and the three broken anchors in `ww_i2c.md`.
 - Docs: reading levels (DOC-7). Pages carry a Basic, Advanced or Nomicon badge, and the SerDes section is
   regrouped by level: a short Basic path (shrink_wrap, derive, built-in types) followed by Advanced pages (size
   assumptions, derive reference, special types, fixed and sparse layouts, showcase, use cases, C) and Nomicon pages

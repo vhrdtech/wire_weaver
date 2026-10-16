@@ -261,10 +261,11 @@ ones being worked on. The tracker has the details, what is planned, and for whic
 
 - Docs site
 - Reading levels and a SerDes section by level
+- Reading levels for the rest of the site
 
 </div>
 
-**In progress:** Reading levels for the rest of the site, Docs for `ww_stdlib` crates and resource doc comments.
+**In progress:** Docs for `ww_stdlib` crates and resource doc comments.
 
 [All 8 items of this area in the tracker](features.md#documentation-doc)
 

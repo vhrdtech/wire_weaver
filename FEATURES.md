@@ -912,10 +912,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `shrink_wrap.md` into an introduction, special types and wire format internals; the built-in types page rewritten
   against the code. A short "what works today" page (`docs/features_today.md`) is generated from this file
   (`just features-page`, `tests/features_page` fails when it is stale); this file is the "Feature tracker", last in
-  the nav. Next run: the API, standard library and transport sections.
-- 🚧 **DOC-8 Reading levels for the rest of the site**: level badges and a Basic-first nav (Advanced and Nomicon
-  sub-sections) for Home, API, Evolution, Standard library, Transport, Examples and Dev tools; long pages split by
-  topic and level.
+  the nav. The other sections followed in DOC-8.
+- ✅ **DOC-8 Reading levels for the rest of the site**: level badges and a Basic-first nav (Advanced and Nomicon
+  sub-sections) for Home, API, Evolution, Transport, Examples and Dev tools; the standard library grouped by family
+  with an overview. Split by topic and level: `api/streams.md` (+ counted streams, credit sinks, stream protocol),
+  `api/traits.md` (+ trait attachments), `evolution/rules.md` (+ crate layers), `transport/usb.md` (+ internals),
+  `transport/ww_framer.md` (+ wire format), `ww_dfu.md` (+ A/B, one slot, internals), `ww_can_bus.md` (+ reference),
+  `cli.md` (+ command reference), `python.md` (+ advanced). New entry pages for API and transport.
 - 📋 **DOC-2 Run code in docs as tests** · `v0.5` — set up example tests from the `.md` files.
 - 📋 **DOC-3 Link every feature to a docs page with an example** · `v0.5` — this file can serve as the index.
 - 📋 **DOC-4 README pictures and showcases** · `v0.5` — including a picture showing density compared to MessagePack and

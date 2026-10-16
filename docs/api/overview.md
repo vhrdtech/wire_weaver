@@ -22,11 +22,11 @@ pub trait BlinkyApi {
 
 An API lives in its own small crate, shared by the firmware and the host:
 
-```
-blinky_api/   the trait and its data types, no_std           (examples/blinky_api)
-firmware/     implements the handlers, runs the server       (examples_mcu/rp2/src/bin/usb_blinky.rs)
-blinky/       the generated client, used by apps and scripts (examples/blinky)
-```
+| Crate | What it holds | In this repo |
+|---|---|---|
+| `blinky_api` | the trait and its data types, `no_std` | `examples/blinky_api` |
+| firmware | implements the handlers, runs the server | `examples_mcu/rp2/src/bin/usb_blinky.rs` |
+| `blinky` | the generated client, used by apps and scripts | `examples/blinky` |
 
 The API crate's name and version identify the API on the wire, see [Folder structure](folder_structure.md). To
 start a new project, copy the [wire_weaver_template](https://github.com/vhrdtech/wire_weaver_template) repository.

@@ -1,8 +1,14 @@
 // ww_date_time 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
 (magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_date_time", items: []), types: [
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Year", fields: Unnamed([
-        (ident: None, default: None, since: None, ty: NumericAny(Base(I32)), docs: [], slot: None),
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
+        "Calendar year, `UNib32` of the year shifted by 2025, a negative shift cut to 19 bits so that it takes no more than",
+        "7 nibbles.",
+        "",
+        "A derived struct, so that the API model describes what is on the wire: `ww introspect` and other dynamic clients",
+        "decode values from the model.",
+    ], ident: "Year", fields: Named([
+        (ident: Some("shifted"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "ISO 8601 calendar date without timezone.",

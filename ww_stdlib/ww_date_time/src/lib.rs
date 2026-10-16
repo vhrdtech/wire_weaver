@@ -85,8 +85,20 @@ pub struct NaiveDate {
     pub day: U5,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Year(i32);
+/// Calendar year, `UNib32` of the year shifted by 2025, a negative shift cut to 19 bits so that it takes no more than
+/// 7 nibbles.
+///
+/// A derived struct, so that the API model describes what is on the wire: `ww introspect` and other dynamic clients
+/// decode values from the model.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
+    self_describing
+)]
+pub struct Year {
+    shifted: UNib32,
+}
 
 /// ISO 8601 time without timezone.
 /// Size is 18 bits without nanoseconds and 49 bits with nanoseconds.
@@ -156,83 +168,43 @@ impl NaiveDate {
             return None;
         }
         Some(NaiveDate {
-            year: Year(year),
+            year: Year::new_unchecked(year),
             month: U4::new(month).unwrap(),
             day: U5::new(day).unwrap(),
         })
     }
 }
 
-impl SerializeShrinkWrap for Year {
-    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
-
-    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
-        wr.write(&self.to_unib32())
-    }
-}
-
-impl<'i> DeserializeShrinkWrap<'i> for Year {
-    const ELEMENT_SIZE: ElementSize = <Year as SerializeShrinkWrap>::ELEMENT_SIZE;
-
-    fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
-        let unsigned: UNib32 = rd.read()?;
-        let is_negative = unsigned.0 & (1 << 19) != 0;
-        let y = if is_negative {
-            const ONES: u32 = u32::MAX << 19;
-            (ONES | unsigned.0) as i32
-        } else {
-            unsigned.0 as i32
-        };
-        let y = y + 2025;
-        if (-262_142..=262_141).contains(&y) {
-            Ok(Year(y))
-        } else {
-            Err(ShrinkWrapError::SubtypeOutOfRange)
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-impl SerializeShrinkWrapOwned for Year {
-    const ELEMENT_SIZE: ElementSize = <Year as SerializeShrinkWrap>::ELEMENT_SIZE;
-
-    fn ser_shrink_wrap_owned(
-        &self,
-        wr: &mut shrink_wrap::BufWriterOwned,
-    ) -> Result<(), ShrinkWrapError> {
-        wr.write(&self.to_unib32())
-    }
-}
-
-impl DeserializeShrinkWrapOwned for Year {
-    const ELEMENT_SIZE: ElementSize = <Year as SerializeShrinkWrap>::ELEMENT_SIZE;
-
-    fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, ShrinkWrapError> {
-        Year::des_shrink_wrap(rd)
-    }
-}
-
 impl Year {
-    pub fn new(year: i32) -> Option<Year> {
-        if (-262_142..=262_141).contains(&year) {
-            Some(Year(year))
-        } else {
-            None
+    pub const fn new(year: i32) -> Option<Year> {
+        if year < -262_142 || year > 262_141 {
+            return None;
         }
+        Some(Year::new_unchecked(year))
     }
 
-    pub fn year(&self) -> i32 {
-        self.0
-    }
-
-    fn to_unib32(self) -> UNib32 {
-        let y = self.0 - 2025;
+    const fn new_unchecked(year: i32) -> Year {
+        let y = year - 2025;
         let unsigned = if y < 0 {
             (y as u32) & ((1 << 19) - 1) // zero out 13 high bits, so that UNib32 takes no more than 7 nibbles
         } else {
             y as u32
         };
-        UNib32(unsigned)
+        Year {
+            shifted: UNib32(unsigned),
+        }
+    }
+
+    pub const fn year(&self) -> i32 {
+        let unsigned = self.shifted.0;
+        let is_negative = unsigned & (1 << 19) != 0;
+        let y = if is_negative {
+            const ONES: u32 = u32::MAX << 19;
+            (ONES | unsigned) as i32
+        } else {
+            unsigned as i32
+        };
+        y + 2025
     }
 }
 
@@ -354,7 +326,7 @@ impl From<chrono::DateTime<FixedOffset>> for DateTime {
 impl From<chrono::NaiveDate> for NaiveDate {
     fn from(date: chrono::NaiveDate) -> Self {
         NaiveDate {
-            year: Year(date.year()),
+            year: Year::new_unchecked(date.year()),
             month: U4::new(date.month() as u8).unwrap(),
             day: U5::new(date.day() as u8).unwrap(),
         }

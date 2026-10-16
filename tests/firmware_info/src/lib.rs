@@ -103,6 +103,7 @@ mod tests {
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 const_model = "BUILD_ID=fn",
+                introspect = "no_docs",
             );
         }
 
@@ -199,6 +200,35 @@ mod tests {
         assert_eq!(id.as_slice(), BUILD_ID);
         let record = client.firmware().read_BUILD_RECORD().read().await.unwrap();
         assert_eq!(record.as_slice(), b"\xB1\xD0record");
+    }
+
+    /// `ww introspect` reads every const through the dynamic client, a struct-typed one included.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dynamic_client_reads_summary() {
+        use wire_weaver_client::{ClientConfig, DynClient, DynResource};
+        let (device, _) = start("firmware_info/dynamic", None);
+        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
+        let fw = root.child("firmware").unwrap();
+        let summary = fw.child("FIRMWARE").unwrap().read(client.cmd()).await;
+        let summary = summary.unwrap_or_else(|e| panic!("FIRMWARE: {e}"));
+        assert!(
+            format!("{summary:?}").contains("b200_usb_io"),
+            "{summary:?}"
+        );
+        fw.child("BUILD_ID")
+            .unwrap()
+            .read(client.cmd())
+            .await
+            .unwrap();
+        fw.child("BUILD_RECORD")
+            .unwrap()
+            .read(client.cmd())
+            .await
+            .unwrap();
     }
 
     /// `build.rs` ran `ww_firmware_info::build::emit()`, `firmware_summary!()` reads what it set.

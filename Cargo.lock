@@ -618,6 +618,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 
 [[package]]
+name = "cfg_variants"
+version = "0.1.0"
+dependencies = [
+ "cfg_variants_api",
+ "cfg_variants_narrow_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_self",
+ "ww_si",
+]
+
+[[package]]
+name = "cfg_variants_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
+name = "cfg_variants_narrow_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
 name = "chacha20"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

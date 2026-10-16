@@ -1,0 +1,19 @@
+[package]
+name = "cfg_variants_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+# a host enables every variant
+default = ["std", "wide", "float"]
+std = ["wire_weaver/std", "ww_si/std"]
+wide = []
+float = []
+
+[dependencies]
+wire_weaver.workspace = true
+ww_si = { workspace = true, features = ["electrical"] }

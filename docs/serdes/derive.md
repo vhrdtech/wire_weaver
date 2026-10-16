@@ -606,6 +606,10 @@ pub enum Number {
   holds: without `u128` the enum above is 8 bytes in memory instead of 32, and no 128-bit code is linked.
 - Reading a variant that is compiled out gives `Error::EnumVariantDisabled` (an unknown number is still
   `EnumFutureVersionOrMalformedData`).
+- Introspection, API snapshots and type signatures list every variant whatever features are on: they are made
+  from the source, not from the compiled type. A firmware built with a few variants and a host built with all of
+  them have the same definition and connect (`tests/cfg_variants`); a call with a variant the device lacks fails
+  there with `ArgsDesFailed`.
 - A `sized` enum needs at least one variant without `#[cfg]`, so its size cannot change with features.
 - Cargo features are unified across a build: a crate that matches such an enum without a `_` arm stops compiling
   when another crate enables one more variant. The `non_exhaustive` argument puts `#[non_exhaustive]` on the

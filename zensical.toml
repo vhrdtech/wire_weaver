@@ -110,7 +110,7 @@ nav = [
     }
 ]
 
-# extra_css = ["stylesheets/extra.css"]
+extra_css = ["stylesheets/vhrd.css"]
 # extra_javascript = ["javascripts/extra.js"]
 
 [project.theme]
@@ -147,14 +147,14 @@ features = [
   # "toc.integrate",
 ]
 
-# logo = "assets/logo.png"
+logo = "assets/wire_weaver_icon_small.svg"
 
 # [project.theme.icon]
 # logo = "lucide/smile"
 
-# [project.theme.font]
-# text = "Inter"
-# code = "Jetbrains Mono"
+[project.theme.font]
+text = "IBM Plex Sans"
+code = "IBM Plex Mono"
 
 [[project.theme.palette]]
 media = "(prefers-color-scheme)"
@@ -165,16 +165,16 @@ toggle.name = "Switch to light mode"
 media = "(prefers-color-scheme: light)"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
-primary = "blue"
-accent = "blue"
+primary = "custom"
+accent = "custom"
 
 [[project.theme.palette]]
 media = "(prefers-color-scheme: dark)"
 scheme = "slate"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to system preference"
-primary = "blue"
-accent = "blue"
+primary = "custom"
+accent = "custom"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"

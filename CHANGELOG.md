@@ -72,6 +72,9 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - New logos for wire_weaver (a twisted pair with the wordmark, a W icon) and shrink_wrap (a heatshrink sleeve on
   the pair, a cross-section icon), light and dark, in `docs/assets/`; READMEs link them by absolute GitHub URL so the
   crates.io pages show them; the docs site uses them and the small W as favicon
+- Docs site in the VHRD brand look: red accent instead of the stock blue, IBM Plex Sans and Mono with Plex Serif
+  headings, text-coloured links that turn red on hover, the brand dark palette, the small W in the header
+  (`docs/stylesheets/vhrd.css`, colours from vhrd_brand 0.5.0)
 
 ### Fixed
 

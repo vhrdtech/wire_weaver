@@ -760,9 +760,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     with `defmt-decoder` end to end; `examples/defmt_log` (host) and `examples_mcu/rp2`'s `rp2_usb_log` (USB and RTT
     at once, build id in flash). `docs/std_library/ww_log.md`. Tested 16 Oct 2026 on Donguru B153A (STM32G0B1,
     typec_dongle API-10, with a `PersistentRamRing`): logs over USB and RTT at once, `lost` exact under a flood of
-    1000 (227 + 773), logs from before connecting and from before a forced HardFault. The non-blocking RTT tee is
-    not checked on hardware yet; `rp2_usb_log` not run (no Pico 2 probe on the mesh). `ww log` in the CLI is a
-    later item.
+    1000 (227 + 773), logs from before connecting and from before a forced HardFault; the non-blocking RTT tee
+    with probe-rs attached (it sets the channel to blocking): floods of 1000 go on at ~62 us a line instead of
+    ~620 us, RTT shows what fits. Known gap: frames dropped at the end of a burst are reported (`lost`) only with
+    the next frame the device logs, so a quiet device shows the loss late. `rp2_usb_log` not run (no Pico 2 probe
+    on the mesh). `ww log` in the CLI is a later item.
 - ✅ **STD-25 `ww_counters` on `cnt` words** · `v0.5` — the device's `cnt` counters as raw buffer words, decoded on
     the host with the firmware's ELF found by its build id: `Counters::INFO` (format, used/capacity words of RAM and
     backup, build id), `read(buffer, offset)` pages of `UVlq32`, `reset`, optional `watch` stream (not served by

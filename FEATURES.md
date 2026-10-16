@@ -913,6 +913,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   against the code. A short "what works today" page (`docs/features_today.md`) is generated from this file
   (`just features-page`, `tests/features_page` fails when it is stale); this file is the "Feature tracker", last in
   the nav. Next run: the API, standard library and transport sections.
+- 🚧 **DOC-8 Reading levels for the rest of the site**: level badges and a Basic-first nav (Advanced and Nomicon
+  sub-sections) for Home, API, Evolution, Standard library, Transport, Examples and Dev tools; long pages split by
+  topic and level.
 - 📋 **DOC-2 Run code in docs as tests** · `v0.5` — set up example tests from the `.md` files.
 - 📋 **DOC-3 Link every feature to a docs page with an example** · `v0.5` — this file can serve as the index.
 - 📋 **DOC-4 README pictures and showcases** · `v0.5` — including a picture showing density compared to MessagePack and

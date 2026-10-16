@@ -263,9 +263,9 @@ ones being worked on. The tracker has the details, what is planned, and for whic
 
 </div>
 
-**In progress:** Docs for `ww_stdlib` crates and resource doc comments.
+**In progress:** Reading levels for the rest of the site, Docs for `ww_stdlib` crates and resource doc comments.
 
-[All 7 items of this area in the tracker](features.md#documentation-doc)
+[All 8 items of this area in the tracker](features.md#documentation-doc)
 
 ## Testing, CI and performance
 

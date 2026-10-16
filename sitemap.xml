@@ -79,6 +79,12 @@
         <loc>https://ww.vhrd.tech/features/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/features_today/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/levels/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/python/</loc>
       </url>
       <url>
@@ -88,13 +94,28 @@
         <loc>https://ww.vhrd.tech/serdes/derive/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/serdes/derive_reference/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/serdes/layouts/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/serdes/showcase/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/serdes/shrink_wrap/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/serdes/size_assumptions/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/serdes/special_types/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/serdes/use_cases/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/serdes/wire_format/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/device_contract/</loc>

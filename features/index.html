@@ -317,6 +317,8 @@
       
         
       
+        
+      
     
     
     
@@ -1154,6 +1156,8 @@
       
         
       
+        
+      
     
     
     
@@ -1429,6 +1433,33 @@
     
   
   Settings store
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/ecc_flash/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ECC-safe flash for stores
 
     
   </span>
@@ -3970,6 +4001,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>_send_return_blocking</code> and <code>_ser_return_event</code> are generated for deferred methods on nested trait levels too, named
   like the handler (<code>plug_vbus_cycle_send_return</code>); <code>method_model</code> patterns match the prefixed name. Test
   <code>tests/methods</code> (<code>deferred_on_nested_level</code>), <code>docs/api/methods.md#deferred</code>.</li>
+<li>🧪 <strong>SRV-19 ECC-safe STM32 flash for stores</strong> — <code>mcu/ww_ecc_flash</code>: <code>EccSafeFlash</code> wraps any <code>NorFlash</code> (embassy-stm32's
+  <code>Flash</code>) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
+  or erasing) reads as zeros instead of an NMI (STM32G0, <code>FLASH_ECCR.ECCD</code>, through <code>on_nmi()</code> or feature
+  <code>nmi-handler</code>) or a bus error (STM32H7, <code>DBECCERR</code>, ignored under FAULTMASK + <code>BFHFNMIGN</code>), so sequential-storage
+  skips it. Never <code>MultiwriteNorFlash</code>. Blocking and async. <code>docs/api/ecc_flash.md</code>. On hardware: a G0B1 (B153A)
+  store survives 3000 resets in the middle of its programs and erases (TEST-21), but a reset never tears a G0 flash
+  word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is built, not run on hardware.</li>
 <li>⛔ <strong>SRV-8 One crate per role for firmware and host</strong> · <code>v0.5</code> — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into <code>wire_weaver</code> behind features or splitting by
   std/no_std:</li>
@@ -4423,6 +4461,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>scenarios::pit_stop_shuttle_1l_upd_step</code> fails now and then (~2 in 10 alone, more often under the full parallel
   <code>just test</code>). Seen before the TR-12 changes too. The recorder needs one order for events of the host and the
   simulated device that happen at the same time. Found 15 Oct 2026.</li>
+<li>🚧 <strong>TEST-21 Power cuts against a flash store on STM32</strong> — <code>examples_mcu/ecc_flash_g0b1</code>, a sequential-storage map on
+  <code>ww_ecc_flash</code> (SRV-19) in bank 2 of a G0B1:</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> reset loop: every boot loads and checks all keys against what earlier boots committed, then a SysTick
+    reset at a random time cuts the stores. 3000 boots on the B153A (J-Link, 15 Oct 2026): 655 stores, resets
+    during 28 programs, 453 erases and 1537 reads, every committed value loaded, none corrupted.
+    <code>src/bin/reset_cut.rs</code> showed why no word ever failed its ECC check: on G0 a system reset waits for the flash
+    operation (73 page erases cut 1-20 ms into their ~22 ms all left the page fully erased, programs only stop
+    between double words).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> real power cut against <code>ww_settings::Store</code> on <code>EccSafeFlash</code>, so the zeros path of SRV-19 runs on
+    hardware: the B129A powered through the Donguru plug
+    VBUS switch (U601, AOZ1375), switched from the PC in a loop with Donguru's <code>plug.vbus_mode</code> (typec_dongle
+    API-11, in progress). The device can't keep its counters across a power cut: a host program reads the loaded
+    and committed sequence numbers and the ECC count over SWD (Donguru CMSIS-DAP, session ended before each cut so
+    SBU/CC don't back-feed the board) and checks every boot loads at least what was committed before the cut.</li>
 <li>💡 <strong>TEST-16 Host queue on a slow VM</strong> — does it lead to fewer or no missed packets?</li>
 </ul>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>

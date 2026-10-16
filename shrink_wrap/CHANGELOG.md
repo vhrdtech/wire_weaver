@@ -25,8 +25,24 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 - A struct without fields (`struct Marker;`, `struct A {}`) with `sized`, `final_structure`, `self_describing` or
   `fixed_layout` is a compile error: it would be zero bits that can never change. Without one it is evolvable: it
   records its length inside a parent, so fields can be added later (SW-59).
-- Column codecs of the coming `Series<T>` (SW-60), crate internal until the type itself lands, in
-  `series::columns`: numeric columns of 1- to 64-bit integers (a 4-bit header: predictor raw / delta / delta of delta,
+- `Series<'i, T>` and `SeriesOwned<T>` (SW-60), in `series` (also at the crate root): a list of `T` written column by
+  column, one column per leaf field, on the column codecs below. `Series::new(&items)` (each column's smallest codec)
+  or `Series::with_policy(&items, CodecPolicy)` to serialize, `iter()` / `try_iter()` after deserializing;
+  `SeriesOwned<T>(Vec<T>)` with `as_borrowed()`. `ElementSize::Unsized`, `n` as `UNib32` capped at
+  `SERIES_MAX_ITEMS` (65 535: `LenTooLong` writing, `MalformedSeries` reading), nothing in the length FIFO,
+  padded to a byte. Deserializing validates every column in one pass with no allocation (work bounded by the items
+  times the columns) and keeps a cursor per column; iteration steps them all in parallel, zero-copy for `&str` /
+  `&[u8]`; `SeriesOwned` grows its `Vec` as it decodes. A decoded `Series` serializes to its own bytes again.
+- Trait `SeriesColumns<'i>` (SW-60): how a type writes (`write_group`) and reads (`skim`, `next`) its group of
+  columns, with impls for `u8`..`u128`, `i8`..`i128`, `U1`..`U64`, `I2`..`I64`, `Nibble`, `UNib32`, `UVlq32`,
+  `UVlq64`, `f32`, `f64`, `bool`, `Option<X>`, tuples up to 8, `[X; N]`, `&str`, `String`, `&[u8]`, `Vec<u8>` and
+  `RefVec<u8>`; and the pieces a struct or enum impl is made of (`Level`, `SeriesCtx` with `RootCtx` /
+  `VariantCtx` / `SiblingCtx`, `FieldItems`, `SiblingTags`, `EnumTags`, `write_struct_head` / `skim_struct_head`,
+  `BitCounter`), which the coming `series` derive flag will generate. Columns restart on entering an enum variant
+  (or `Some`) and where an enum field (also an `Option`) declared earlier changed. Evolvable structs write their
+  field count (outermost) or group length (nested), so fields appended with a default read both ways. New fuzz
+  target `shrink-wrap-series-type`. `BitSink` is public, with `bit_pos()`.
+- Column codecs of `Series<T>` (SW-60), crate internal: numeric columns of 1- to 64-bit integers (a 4-bit header: predictor raw / delta / delta of delta,
   `11` an escape that is `MalformedSeries` for now; coder SW-31 prefix code / bit-packed blocks of 8 with a width per
   block / constant / plain; segments at restarts), 128-bit columns (raw + plain only), `f32` / `f64` columns (plain
   or the SW-32 XOR code, its window reset at a restart), runs of enum tags, bools, `Option` tags and opaque bytes

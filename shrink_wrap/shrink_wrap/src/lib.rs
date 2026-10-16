@@ -56,9 +56,9 @@ pub mod any_on_stack;
 pub mod nib;
 pub mod series;
 pub mod tail_bytes;
-pub use series::{Delta, DeltaOfDelta, XorFloat};
+pub use series::{Delta, DeltaOfDelta, Series, XorFloat};
 #[cfg(feature = "std")]
-pub use series::{DeltaOfDeltaOwned, DeltaOwned, XorFloatOwned};
+pub use series::{DeltaOfDeltaOwned, DeltaOwned, SeriesOwned, XorFloatOwned};
 pub mod tail_size;
 pub use tail_size::TailSize;
 pub mod un;

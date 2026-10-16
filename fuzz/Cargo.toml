@@ -61,3 +61,10 @@ path = "src/shrink_wrap_series_columns.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "shrink-wrap-series-type"
+path = "src/shrink_wrap_series_type.rs"
+test = false
+doc = false
+bench = false

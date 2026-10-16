@@ -71,7 +71,7 @@ where
 }
 
 /// Reader of a float column, stepped one item at a time.
-pub(crate) struct FloatReader<'i, T> {
+pub struct FloatReader<'i, T> {
     rd: BufReader<'i>,
     codec: FloatCodec,
     xor: XorCodec<T>,
@@ -102,6 +102,7 @@ impl<'i, T: XorBits> FloatReader<'i, T> {
         })
     }
 
+    #[cfg(any(test, fuzzing))]
     pub(crate) fn codec(&self) -> FloatCodec {
         self.codec
     }

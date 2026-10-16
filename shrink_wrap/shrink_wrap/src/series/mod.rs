@@ -8,16 +8,44 @@
 //! element as a prefix code against the one before it, with no alignment in between or after (the bit cursor
 //! continues; a byte-aligned field written next aligns itself as usual). The codes are fixed once released, like
 //! any other part of the wire format; `docs/serdes/shrink_wrap.md` has them bit by bit.
+//!
+//! [Series] (SW-60) goes further for lists of structs and enums: one column per leaf field, each with its own
+//! predictor and coder, discrete leaves as runs of changes; see [SeriesColumns] for the types it takes.
 
 use crate::{BufReader, BufWriter, Error};
 
-pub(crate) mod columns;
+mod columns;
 /// Round trips of the column codecs for the `series-columns` fuzz target.
 #[cfg(fuzzing)]
 #[doc(hidden)]
 pub use columns::check as fuzz_columns;
 mod delta;
+mod group;
+mod leaves;
+mod series_type;
+#[cfg(all(feature = "std", any(test, fuzzing)))]
+#[doc(hidden)]
+pub mod type_check;
+/// Round trips and random bytes of `Series<T>` for the `series-type` fuzz target.
+#[cfg(all(feature = "std", fuzzing))]
+#[doc(hidden)]
+pub use type_check as fuzz_type;
+#[cfg(test)]
+mod type_tests;
 mod xor_float;
+
+pub use columns::{
+    BitCounter, CodecPolicy, Coder, FloatCodec, NumericCodec, PACKED_BLOCK, Predictor,
+};
+pub use group::{
+    EnumTags, FieldItems, Level, RootCtx, SeriesColumns, SeriesCtx, SiblingCtx, SiblingTags, Slot,
+    StructExtent, TagRun, VariantCtx, changed_before, no_earlier, skim_struct_head,
+    write_enum_tags, write_struct_head,
+};
+pub use leaves::{ArrayReader, OptionReader};
+#[cfg(feature = "std")]
+pub use series_type::SeriesOwned;
+pub use series_type::{SERIES_MAX_ITEMS, Series, SeriesIter, SeriesTryIter};
 
 pub use delta::{Delta, DeltaInt, DeltaIter, DeltaOfDelta, DeltaOfDeltaIter};
 #[cfg(feature = "std")]
@@ -26,8 +54,11 @@ pub use delta::{DeltaOfDeltaOwned, DeltaOwned};
 pub use xor_float::XorFloatOwned;
 pub use xor_float::{XorBits, XorFloat, XorFloatIter};
 
-/// Bit-level writes shared by [BufWriter] and `BufWriterOwned`, so a codec is written once.
-pub(crate) trait BitSink {
+/// Bit-level writes shared by [BufWriter], `BufWriterOwned` and [BitCounter], so a codec is written once. The
+/// writers of [SeriesColumns] groups are generic over it: the same code writes and counts.
+pub trait BitSink {
+    /// Bits written so far, from the start of the buffer (only its position in a byte matters to a codec).
+    fn bit_pos(&self) -> usize;
     fn put_bit(&mut self, bit: bool) -> Result<(), Error>;
     /// `count` low bits of `value`, 0 to 64.
     fn put_bits(&mut self, count: u8, value: u64) -> Result<(), Error>;
@@ -38,6 +69,11 @@ pub(crate) trait BitSink {
 }
 
 impl BitSink for BufWriter<'_> {
+    fn bit_pos(&self) -> usize {
+        let (byte, bit) = self.pos();
+        byte * 8 + 7 - bit as usize
+    }
+
     fn put_bit(&mut self, bit: bool) -> Result<(), Error> {
         self.write_bool(bit)
     }
@@ -57,6 +93,11 @@ impl BitSink for BufWriter<'_> {
 
 #[cfg(feature = "std")]
 impl BitSink for crate::BufWriterOwned {
+    fn bit_pos(&self) -> usize {
+        let (byte, bit) = self.pos();
+        byte * 8 + 7 - bit as usize
+    }
+
     fn put_bit(&mut self, bit: bool) -> Result<(), Error> {
         self.write_bool(bit)
     }

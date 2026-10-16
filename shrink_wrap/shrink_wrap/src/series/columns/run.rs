@@ -19,7 +19,7 @@ use crate::{BufReader, Error};
 /// What the values of a run of numbers are and how they are written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub(crate) enum RunKind {
+pub enum RunKind {
     /// An enum's discriminant, as `nib`, at every change.
     Tag,
     /// `Option`'s tag, 0 (`None`) or 1 (`Some`): the first as `nib`, a change flips it.
@@ -109,7 +109,7 @@ pub(crate) fn write_opaque_run<'a, S: BitSink>(
 }
 
 /// How a [RunReader] reads the values of its run.
-pub(crate) trait RunValues<'i>: Copy {
+pub trait RunValues<'i>: Copy {
     type Value: Copy;
     fn first(self, rd: &mut BufReader<'i>) -> Result<Self::Value, Error>;
     /// The value after a change from `cur`.
@@ -140,7 +140,7 @@ impl<'i> RunValues<'i> for RunKind {
 
 /// Opaque run values: byte strings, borrowed from the buffer.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Opaque;
+pub struct Opaque;
 
 impl<'i> RunValues<'i> for Opaque {
     type Value = &'i [u8];
@@ -163,7 +163,7 @@ impl<'i> RunValues<'i> for Opaque {
 /// Reader of a run over `m` items, stepped one item at a time; reads each change when the item before it is
 /// stepped, so it never looks further than one change ahead.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct RunReader<'i, K: RunValues<'i>> {
+pub struct RunReader<'i, K: RunValues<'i>> {
     rd: BufReader<'i>,
     values: K,
     m: usize,
@@ -227,6 +227,7 @@ impl<'i, K: RunValues<'i>> RunReader<'i, K> {
     }
 
     /// Whether the next item starts a new value (false for the first item): read before [next](Self::next).
+    #[cfg(any(test, fuzzing))]
     pub(crate) fn changes_next(&self) -> bool {
         self.pos == self.next_change
     }

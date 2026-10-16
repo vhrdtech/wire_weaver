@@ -198,3 +198,8 @@ fuzz-shrink-wrap-option-any-vec:
 [working-directory('fuzz')]
 fuzz-shrink-wrap-latched:
     cargo +nightly fuzz run shrink-wrap-latched -- -max_len=4096
+
+# Fuzz Series<T> (SW-60): round trips of generated items, random bytes into the readers
+[working-directory('fuzz')]
+fuzz-shrink-wrap-series-type:
+    cargo +nightly fuzz run shrink-wrap-series-type -- -max_len=4096

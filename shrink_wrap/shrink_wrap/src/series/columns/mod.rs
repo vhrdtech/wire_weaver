@@ -15,9 +15,6 @@
 //! [Error] (`MalformedSeries` or an out-of-bounds read), never a panic, and every read is bounded by
 //! the number of items stepped.
 
-// TODO(SW-60): used by `Series<'i, T>` and `SeriesColumns` (piece 2), only tests use them until then
-#![allow(dead_code)]
-
 pub(crate) mod float;
 pub(crate) mod numeric;
 pub(crate) mod run;
@@ -120,40 +117,58 @@ impl Default for CodecPolicy {
 /// Residuals per block of the packed coder.
 pub const PACKED_BLOCK: u8 = 8;
 
-/// A [BitSink] that only counts, to compare codecs without writing.
-pub(crate) struct BitCounter {
-    bits: usize,
+/// A [BitSink] that only counts, to compare codecs or to measure a group without writing.
+#[derive(Clone, Copy, Debug)]
+pub struct BitCounter {
+    start: usize,
+    pos: usize,
 }
 
 impl BitCounter {
     /// Counts from a byte boundary (only [align_byte](BitSink::align_byte) depends on the start).
-    pub(crate) const fn new() -> Self {
-        BitCounter { bits: 0 }
+    pub const fn new() -> Self {
+        BitCounter::at(0)
     }
 
-    pub(crate) const fn bits(&self) -> usize {
-        self.bits
+    /// Counts from bit position `start` of a buffer, so that byte alignment comes out as it would there.
+    pub const fn at(start: usize) -> Self {
+        BitCounter { start, pos: start }
+    }
+
+    /// Bits counted since the start.
+    pub const fn bits(&self) -> usize {
+        self.pos - self.start
+    }
+}
+
+impl Default for BitCounter {
+    fn default() -> Self {
+        BitCounter::new()
     }
 }
 
 impl BitSink for BitCounter {
+    fn bit_pos(&self) -> usize {
+        self.pos
+    }
+
     fn put_bit(&mut self, _bit: bool) -> Result<(), Error> {
-        self.bits += 1;
+        self.pos += 1;
         Ok(())
     }
 
     fn put_bits(&mut self, count: u8, _value: u64) -> Result<(), Error> {
-        self.bits += count as usize;
+        self.pos += count as usize;
         Ok(())
     }
 
     fn align_byte(&mut self) {
-        self.bits = self.bits.next_multiple_of(8);
+        self.pos = self.pos.next_multiple_of(8);
     }
 
     fn put_bytes(&mut self, bytes: &[u8]) -> Result<(), Error> {
         self.align_byte();
-        self.bits += bytes.len() * 8;
+        self.pos += bytes.len() * 8;
         Ok(())
     }
 }

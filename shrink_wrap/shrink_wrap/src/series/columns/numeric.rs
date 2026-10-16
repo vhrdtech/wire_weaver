@@ -37,14 +37,6 @@ impl NumericKind {
         );
         NumericKind { width, signed }
     }
-
-    pub(crate) const fn width(self) -> u8 {
-        self.width
-    }
-
-    pub(crate) const fn signed(self) -> bool {
-        self.signed
-    }
 }
 
 /// The predictors and coders in the order the writer tries them: on a tie, the first one wins.
@@ -261,7 +253,7 @@ where
 
 /// Reader of a numeric column of 1- to 64-bit values, stepped one item at a time.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct NumericReader<'i> {
+pub struct NumericReader<'i> {
     rd: BufReader<'i>,
     kind: NumericKind,
     codec: NumericCodec,
@@ -301,6 +293,7 @@ impl<'i> NumericReader<'i> {
         })
     }
 
+    #[cfg(any(test, fuzzing))]
     pub(crate) fn codec(&self) -> NumericCodec {
         self.codec
     }
@@ -397,7 +390,7 @@ where
 
 /// Reader of a [write_numeric128] column.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Numeric128Reader<'i> {
+pub struct Numeric128Reader<'i> {
     rd: BufReader<'i>,
     signed: bool,
 }

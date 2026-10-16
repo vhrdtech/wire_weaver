@@ -604,6 +604,34 @@ impl<'i> BufReader<'i> {
     pub fn pos(&self) -> (usize, u8) {
         (self.byte_idx, self.bit_idx)
     }
+
+    /// Bits read from the front so far.
+    pub(crate) fn bit_pos(&self) -> usize {
+        self.byte_idx * 8 + 7 - self.bit_idx as usize
+    }
+
+    /// Skips forward to front bit position `pos` (a [bit_pos](Self::bit_pos)): `MalformedSeries` when it is behind
+    /// the reader or past what is left.
+    pub(crate) fn skip_to_bit(&mut self, pos: usize) -> Result<(), crate::Error> {
+        self.kept()?;
+        let cur = self.bit_pos();
+        if pos < cur || pos - cur > self.bits_left() {
+            return Err(crate::Error::MalformedSeries);
+        }
+        self.byte_idx = pos / 8;
+        self.bit_idx = 7 - (pos % 8) as u8;
+        Ok(())
+    }
+
+    /// Skips every bit left from the front.
+    pub(crate) fn skip_rest(&mut self) -> Result<(), crate::Error> {
+        self.skip_to_bit(self.bit_pos() + self.bits_left())
+    }
+
+    /// The whole bytes `from..to` of the buffer this reader reads (front positions), `None` if out of range.
+    pub(crate) fn bytes_at(&self, from: usize, to: usize) -> Option<&'i [u8]> {
+        self.buf.get(from..to)
+    }
 }
 
 #[cfg(test)]

@@ -852,6 +852,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   128 KiB sector, see `docs/api/settings.md#parts-with-big-sectors`). Only if a device needs it.
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
+- 📋 **STD-35 Slave data paths in `ww_i2c` and `ww_spi`**: `I2cMode::Slave { addr, monitor }` and `SpiRole::Slave`
+  exist and capabilities say `slave_supported`, but nothing carries the data yet. Needed: what the device answers
+  (a register map or buffer the host fills, or a request the host answers in time), what it received (a stream of
+  writes with timestamps, like the monitors), clock stretching and its limits for I2C, and what happens when the
+  host is too slow (NACK, idle bytes). First user: the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).
 
 ## Examples (`EX`)
 

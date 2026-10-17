@@ -17,7 +17,7 @@ below needs it.
 ## Which `T`
 
 Any `#[derive_shrink_wrap(.., series)]` struct or enum, nested to any depth, including generic ones
-(`Timed<T>`, [DER-14](derive_reference.md#type-parameters)): structs (named fields), unit-only enums and enums with
+(`Timed<T>`, [DER-14](derive_reference.md#generics)): structs (named fields), unit-only enums and enums with
 data, `Option`, integers (`u8`..`u64`, `i8`..`i64`, `U1`..`U64`, `I2`..`I64`, 128-bit), `f32`/`f64`, `bool`, tuples,
 arrays, `&str`/`String`/bytes (as an opaque run), and any other type marked `#[series(opaque)]`. A field of a user
 type needs `series` on that type too; see [`series`](derive_reference.md#series) for the exact directive and what it
@@ -100,7 +100,7 @@ gets you the worse of both.
 
 ## Time: `Timed<T>`
 
-`ww_si::Timed<T> { t: Second, value: T }` ([DER-14](derive_reference.md#type-parameters) generic struct with
+`ww_si::Timed<T> { t: Second, value: T }` ([DER-14](derive_reference.md#generics) generic struct with
 `series`) is not a special case of `Series` — it gets a `t` column like any other field, and a regular sampling
 rate costs about nothing (delta + constant: `t0 + period`). Use `Series<Timed<T>>` wherever a batch needs its own
 timestamps; where a stream already carries time for the whole batch, a plain `Series<T>` works just as well.

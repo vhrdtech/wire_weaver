@@ -277,7 +277,8 @@ enum Reading<'i, T: Copy> {
 
 The parameters' sizes are part of the type's: `Buf { len: 2, data: [1, 2, 3] }` is the four bytes `02 01 02 03`, and
 a `Buf<3>` is `sized` at 32 bits. The derive adds the serialization traits as bounds on each impl, your own bounds
-and where clause stay as written. More in the [reference](derive_reference.md#generics).
+and where clause stay as written. More in the [reference](derive_reference.md#generics); in an API they are used with
+their arguments, see [generic types in an API](../types.md#generic-types-in-an-api).
 
 ## Directives at a glance
 

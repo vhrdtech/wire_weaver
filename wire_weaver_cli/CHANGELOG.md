@@ -8,6 +8,10 @@
 
 ### 🚀 Features
 
+- `ww api tree -t` shows generic definitions with their parameters (`struct Pair<A, B>`, `Window<const N: u64>`) and
+  names them in fields; uses read `Pair<u8, u16>` (API-43). `ww api save` saves a snapshot again when only the ww_self
+  format changed ("reformatted").
+
 - `--link-setup-timeout-ms` (`WW_LINK_SETUP_TIMEOUT_MS`, `link_setup_timeout_ms` in ww.toml, CLT-30): how long to
   wait for the device to answer when connecting, instead of the transport's default.
 

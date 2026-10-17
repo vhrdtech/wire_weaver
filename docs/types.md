@@ -200,6 +200,37 @@ How much a nested struct or enum costs on top of its fields depends on its
 [size assumption](serdes/size_assumptions.md): an evolvable one adds its length (usually a nibble), a `sized` one
 nothing.
 
+## Generic types in an API
+
+A [generic struct or enum](serdes/derive.md#generic-types) is used in an API with its arguments, in every position:
+arguments, return values, properties, stream items, fields of other types (API-43).
+
+```rust
+#[ww_trait]
+trait Sensor {
+    fn swap(pair: Pair<u8, u16>) -> Pair<u16, u8>;
+    fn sum(window: Window<4>) -> u32;
+    property!(ro current: Timed<Ampere>);
+    stream!(readings: Reading<i16>);
+}
+
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, Clone, Copy, PartialEq))]
+pub struct Window<const N: usize> {
+    pub samples: [u16; N],
+}
+```
+
+Generated server and client code uses the types as written (`Window<4>`, `ww_si::Timed<ww_si::Ampere>`, a
+`Tagged<'i, T>` as `TaggedOwned<String>` on the owned side). The API model has each generic definition once, with
+its parameters, and each use as an instance with its arguments; [`ww_si::Timed<T>`](std_library/ww_si.md) is known
+from the `ww_si` snapshot, so a device leaves its definition out of its introspection data like that of any known
+type. The dynamic client, `ww` and Python see the concrete types (`Timed<Ampere>`, `Window<4>`) and read and write
+the same bytes as the derived ones.
+
+Arguments can be types, integer and `bool` literals, `const` items of the crate, a const parameter passed on
+(`struct Outer<const N: usize> { window: Window<N> }`), or left to the parameter's default. How a generic type may
+change is in the [evolution rules](evolution/rules.md#generic-types).
+
 ## Special types
 
 For particular jobs, on their own page:

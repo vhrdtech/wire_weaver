@@ -7,6 +7,9 @@
 
 ### 🚀 Features
 
+- Generic types (API-43): `load_api` instantiates them, `Timed<Ampere>`, `Window<4>` encode and decode like any
+  struct; signatures read `rw outer: Outer<3>`.
+
 - `Node.observe(cfg)` (TOOL-11): observes a trait level's `+observe` properties without generated code, from
   introspection alone. Iterate the result (or call `recv()` / `try_recv()`) for a dict per update (`{"values": {name:
   value, ...}, "t": seconds or None, "missed": int, "bytes": int}`); `cfg` is a dict `{property_name: rate_ms}`

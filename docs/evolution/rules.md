@@ -149,6 +149,21 @@ them `Option<T>`:
 * A field's slot and its `T` can't change (`T` evolves by its own rules); fields can be renamed.
 * Turning an ordinary struct into a `sparse` one or back changes every byte: breaking.
 
+### Generic types
+
+A generic struct or enum (`Timed<T>`, `Window<const N: usize>`, API-43) evolves like any other: its fields by the
+rules for its size assumption, its arguments by their own rules (`Timed<Ampere>` changes when `Ampere` does). Its
+parameters are compared by position and kind:
+
+* Renaming a parameter (`Timed<T>` -> `Timed<V>`) changes nothing.
+* Adding, removing or reordering parameters, turning a type parameter into a const one, or changing the type of a
+  const parameter (`usize` -> `u8`) is breaking, also when a default keeps old code compiling: the uses on the wire
+  carry one argument per parameter.
+* Making a fixed length a parameter (`[u16; 4]` -> `[u16; N]`) or back is breaking for the definition; uses that
+  end up with the same length (`Window<4>`) have the same bytes.
+* A use with other arguments (`Window<4>` -> `Window<8>`, `Pair<u8, u16>` -> `Pair<u8, u32>`) is another type, as
+  `[u16; 4]` -> `[u16; 8]` is.
+
 ### FinalStructure, SelfDescribing and Sized types
 
 * `Sized` can become `SelfDescribing` and back (`sized` <-> `self_describing`): neither gets a size slot from its

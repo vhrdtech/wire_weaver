@@ -2,6 +2,11 @@
 
 ### ⚠️ Breaking
 
+- Introspection data is checked and its generic types instantiated after known definitions are put back
+  (`ww_self::generics::prepare`, API-43): malformed data from a device is an error (`Introspect::get` and friends,
+  connecting logs it and goes on without the device's API), `IntrospectBundle::from_sent` returns a `Result`. Needs a
+  device built with the same ww_self (0.3): the introspection format changed.
+
 - **Breaking:** credit sinks count positions in `u64` and send them modulo 2^28 (API-42): a session has no size
   limit any more (it failed at 4 GiB, "open it again"). `Sink::credit_progress()` and `DynSink::credit_progress()`
   return `Option<(u64, u64)>`. The host never has more than `ww_client_server::credit::MAX_WINDOW` (64 MiB) in
@@ -40,6 +45,11 @@
   only): code that destructures it adds them or `..`.
 
 ### 🚀 Features
+
+- Generic types (API-43): the dynamic client reads and writes instances of generic types as concrete types;
+  compatibility checks compare instances of definitions neither side knows by definition and arguments; the
+  evolution check (`ww api check`) compares parameters by position and kind (renaming one is no change). `compare`
+  ignores the ww_self version a snapshot was saved with.
 
 - `ClientConfig::link_setup_timeout(Duration)` (CLT-30): how long to wait for a device to answer during link setup,
   overriding the transport's default. Connecting over RTT through a J-Link failed most of the time with the old 250 ms.
@@ -329,6 +339,9 @@
   `get()`. It now resolves to an error if the device has introspection disabled, instead of a deserialization error.
 
 ### 🐛 Fixes
+
+- The padding-bit layout check expands nested arrays of a device's types only up to 65 536 leaves, instead of
+  without limit.
 
 - Dropping a `Commander` clone no longer disconnects the device for every other clone: only the last one to drop does. `ww info` and `ww report` ended with "Called a method that required event loop to be running" because the trait clients of `ww_report::Contract` disconnected on drop and `ww` then disconnected again.
 

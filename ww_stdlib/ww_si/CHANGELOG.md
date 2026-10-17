@@ -16,8 +16,9 @@
 ### 🚀 Features
 
 * `Timed<T> { t: Second, value: T }` (feature `time`): a value with the time it was taken, `t` a device timestamp.
-  `final_structure`, derived with a type parameter (DER-14) and `series`, so `Series<Timed<T>>` works; not in the
-  API snapshot yet (the API model has no type parameters).
+  `final_structure`, derived with a type parameter (DER-14) and `series`, so `Series<Timed<T>>` works. Usable in
+  APIs (API-43, `property!(ro current: Timed<Ampere>)`): its generic definition is in the 0.1.0 snapshot, so devices
+  leave it out of their introspection data.
 * `Ratio` (new feature group `dimensionless`, in `quantities`): a duty cycle, probability or scale factor, with
   `ratio`, `percent`, `per_mille`, `ppm`, `ratio_f32` and `quantity!(95 % u8)`.
 * `Torque` (feature `mechanical`): N·m, kept apart from `Joule`, with `newton_meters`, `millinewton_meters`,

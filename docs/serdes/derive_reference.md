@@ -391,6 +391,9 @@ pub enum Packet<T, const N: usize> where T: Copy + Default { Data([T; N]), Empty
   `impl<T: PartialOrd> Ordered<T>`). The `discriminants` enum has unit variants only, so no parameters.
 - `fixed_layout`, `head_tail` and `sparse` lay out one concrete type, and reject generics with an error naming the
   type.
+- In an API (API-43) a generic type is used with its arguments, `fn sum(window: Window<4>)`, and is in the API model
+  once with its parameters; const parameters there are integers or `bool` (`usize` is `u64`), a `char` one is an
+  error naming the type. See [generic types in an API](../types.md#generic-types-in-an-api).
 
 ## `crate_path(<path>)`
 

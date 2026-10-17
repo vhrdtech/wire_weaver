@@ -2,6 +2,17 @@
 
 ### ⚠️ Breaking
 
+* Generic types (API-43), 0.3.0: `ItemStruct` and `ItemEnum` have `generics` (type and const parameters,
+  `GenericParam` / `GenericParamKind`); a generic definition's fields use `Type::Param(idx)` and `Length::Param(idx)`,
+  a use is `Type::Instance { type_idx, args }` with `GenericArg::{Type, Const, ConstParam}`. `Type::Array::len` and
+  `Type::MaxLen::max_len` are a `Length` (`Fixed(n)` or `Param(idx)`; `Length::fixed()` for the number). The
+  introspection format changes with it: a host and a device must be built with the same ww_self (an older host can't
+  read a newer device's data and the reverse), and every type and trait signature changes, so snapshots and the
+  definition cache from an older ww_self don't match (snapshots are saved again).
+* Dynamic code works on concrete types: `generics::prepare(&mut bundle)` (validate, instantiate, validate again)
+  replaces every instance with a concrete definition (`Timed<Ampere>`); decoding, encoding and defaults of an
+  instance or parameter are an error otherwise.
+
 * `ApiItemKind::PositionedStream` is replaced by `StreamFn { ty, delivery, args, return_ty }` (API-31): a stream
   function, `#[stream(T, kind)] fn name(args) -> R` or `#[counted]` / `#[reliable] stream!`. `Delivery` gets
   `Plain` as its first variant. A plain `stream!` stays `Stream { is_up: true }` with its bytes.
@@ -60,6 +71,12 @@
 
 ### 🚀 Features
 
+* `generics` module (API-43): `validate` bounds what walks over a bundle's types rely on (indices, argument count
+  and kinds, parameters only where they are defined, no definition referring to itself, nesting at most `MAX_DEPTH`),
+  `instantiate` adds at most `MAX_INSTANCES` concrete definitions of at most `MAX_NODES` type nodes, `substitute`
+  fills in one instance, `params_human_name` writes `<T, const N: u64>`. `TypeOwned::human_name_in` names
+  parameters. Introspection data is untrusted: malformed is an error, never a panic.
+
 - `definition_cache` (EVO-9): definitions of skipped traits and types by signature in `~/.wire_weaver/definitions/`
   (`store`, `load`, `default_dir`, `Kind`). An entry is the canonical bundle's bytes as hashed, checked against the
   signature when loaded, so entries written by an older `ww_self` still read.
@@ -99,6 +116,11 @@
   client) now decode a sparse struct correctly, e.g. a trait level's generated `<Trait>Update` (SRV-18).
 
 ### 🐛 Fixes
+
+* Dynamic decoding (`ValueOwned::des_shrink_wrap_dyn` and friends) and `ValueOwned::default` are bounded: a value
+  budget per input byte and a nesting limit, so an array of empty tuples or deeply nested options in a device's types
+  is an error instead of exhausting memory or the stack. `human_definition` writes at most
+  `HUMAN_DEFINITION_MAX_NODES` types, and no longer doubles the `{` of a struct.
 
 - `ValueOwned` deserialization of a field with `#[default]` falls back to the default only when the field starts at
   the end of the data and runs out of it (SW-15), any other error is reported. An unknown discriminant of an

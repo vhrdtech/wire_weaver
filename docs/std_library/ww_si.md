@@ -114,7 +114,9 @@ timestamps can be in different prefixes.
 `Timed<T> { t: Second, value: T }` is a value with the time it was taken, `t` a device timestamp as above: a
 sample of a property, an item of a stream (`Timed<Ampere>`). It is a `final_structure` struct of `t` and then
 `value`, the same bytes a `#[derive_shrink_wrap(final_structure)]` struct of those two fields has, so no fields can
-be added to it later.
+be added to it later. In an API it is used with its argument, `property!(ro current: Timed<Ampere>)`; its definition
+is in the `ww_si` snapshot, so devices leave it out of their introspection data (see
+[generic types in an API](../types.md#generic-types-in-an-api)).
 
 ```rust
 use ww_si::{Ampere, Second, Timed};

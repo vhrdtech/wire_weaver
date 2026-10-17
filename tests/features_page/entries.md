@@ -84,6 +84,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-2 | Arrays of resources | `led[]` or `motor[]`, one definition for many instances, with the valid indices asked from the device. | api/arrays.md
 - API-3 | Shared traits | `impl Gpio`, `impl Uart` from the standard library, so common tools work with your device. | api/traits.md
 - API-36 | Constants | `const NAME: T;` items, read once per connection and cached. | api/properties.md#const-items
+- API-43 | Generic types | `Timed<Ampere>`, `Window<4>` and your own generic structs and enums anywhere in an API, also in the dynamic client and Python. | types.md#generic-types-in-an-api
 
 ## Advanced
 

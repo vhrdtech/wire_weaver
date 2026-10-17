@@ -69,10 +69,7 @@ fn use_bundle(mut bundle: ApiBundleOwned, value: &[u8]) {
         {
             let again = ValueOwned::des_shrink_wrap_dyn(&bytes, ty, &bundle)
                 .expect("a written value is read back");
-            assert!(
-                values_equal(&again, &decoded),
-                "{again:?} != {decoded:?}"
-            );
+            assert!(values_equal(&again, &decoded), "{again:?} != {decoded:?}");
         }
     }
 }

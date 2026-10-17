@@ -1,5 +1,10 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- Snapshots saved again in the ww_self 0.3 format (API-43): the definitions are the same, their signatures changed
+  with the format. The `ww_si` 0.1.0 snapshot holds the generic `Timed<T>`.
+
 ### 🚀 Features
 
 - `inline_skipped_or_cached(bundle, cache_dir)` (EVO-9): `inline_skipped` that also looks up definitions by signature

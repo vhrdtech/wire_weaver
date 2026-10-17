@@ -18,6 +18,14 @@
 
 ### 🚀 Features
 
+- Generic user types in APIs (API-43): `Timed<Ampere>`, `Window<4>`, `Reading<i16>`, `Tagged<'i, T>` as arguments,
+  return values, properties, stream items and fields, through `crate_walker` into dependency crates. A generic
+  definition goes into the types array once with its parameters, each use is an instance with its arguments (types,
+  integer and bool literals, `const` items, a const parameter passed on, defaults); generated code uses the types as
+  written (`TaggedOwned<String>` on the owned side). `load_crate` (snapshots) includes generic definitions, so
+  `ww_si::Timed` is left out of device introspection data. A const parameter that isn't an integer or `bool` is an
+  error naming the type.
+
 - The model parser accepts the `validate = path` directive of `#[derive_shrink_wrap]` (SW-58) and ignores it.
 - The model parser accepts the `series` directive of `#[derive_shrink_wrap]` (SW-60) and ignores it.
 - A crate's API snapshot leaves out derived types with type parameters (DER-14, `ww_si::Timed<T>`): the API model has

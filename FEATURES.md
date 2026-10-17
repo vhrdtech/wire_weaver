@@ -309,8 +309,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   of the bounds and where clause as written, the size of `T` and `N` is part of the type's. `series`, `display`,
   `validate` and `discriminants` take generics, `fixed_layout`, `head_tail` and `sparse` reject them
   (`docs/serdes/derive_reference.md#generics`; tests `shrink_wrap/tests/generic_items.rs`, `series_derive.rs`;
-  `ww_si::Timed<T>`). The API model (`ww_self`) has no type parameters yet: such types are left out of API
-  snapshots.
+  `ww_si::Timed<T>`). In APIs and the API model: API-43.
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and
@@ -367,6 +366,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   host never has more in flight; one fixed modulus on every link, nothing negotiated at `Open`. Tested over a seeded
   lossy link (loss, duplicates, reordering, reconnects) with sessions starting near the wrap and far past 4 GiB
   (`docs/api/stream_protocol.md#positions-wrap-at-256-mib`).
+- ✅ **API-43 Generic types in APIs** · `v0.5` — generic structs and enums (DER-14, `Timed<Ampere>`, `Window<4>`,
+  `Reading<i16>`, `Tagged<'i, T>`) as method arguments and return values, properties, stream items and fields. The API
+  model (`ww_self` 0.3) has generics: each definition once with its type and const parameters (`Type::Param`,
+  `Length::Param`), each use a `Type::Instance` with its arguments (types, integer/bool values, a const parameter
+  passed on, defaults filled in by codegen); generic definitions are in crate snapshots, so `ww_si::Timed` is left
+  out of introspection data like any known type. Generated code uses the types as written. Hosts check untrusted
+  introspection data and instantiate it (`ww_self::generics::prepare`: indices, argument count and kinds, no
+  cycles, nesting depth, number and size of instances bounded; dynamic decoding bounded by a value budget), so the
+  dynamic client, `ww` and Python see concrete types; the evolution check compares parameters by position and kind
+  (`docs/types.md#generic-types-in-an-api`, `docs/evolution/rules.md#generic-types`; tests `tests/generics`,
+  `ww_self` unit tests, `fuzz` target `introspection`). Breaks the introspection format: hosts and devices must be
+  built with the same `ww_self`. Generic traits (`#[ww_trait] trait T<X>`) are not supported.
 - ✅ **API-31 Stream functions** — `#[stream(T, counted)] fn name(args) -> Result<A, E>` and `#[counted]` /
   `#[reliable] stream!(name: T)`: every stream (plain ones too) is opened by calling it (`RequestKind::StreamOpen`),
   with typed arguments and result; the device's handler named like the stream decides, `Ok` starts a session,

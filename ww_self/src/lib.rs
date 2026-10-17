@@ -14,6 +14,10 @@ pub use common::COMMON_ERROR;
 pub mod definition_cache;
 #[cfg(feature = "std")]
 pub mod errors;
+/// Untrusted introspection data through decoding and the dynamic decoder, for the `introspection` fuzz target.
+#[cfg(all(feature = "std", any(test, fuzzing)))]
+#[doc(hidden)]
+pub mod fuzz_bundle;
 #[cfg(feature = "std")]
 pub mod generics;
 #[cfg(feature = "std")]

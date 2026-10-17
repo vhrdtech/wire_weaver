@@ -12,6 +12,7 @@ libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
 shrink_wrap = { path = "../shrink_wrap/shrink_wrap" }
 ww_framer = { path = "../ww_framer", features = ["large", "very_large"] }
+ww_self = { path = "../ww_self" }
 
 [[bin]]
 name = "framer-tx-rx"
@@ -65,6 +66,13 @@ bench = false
 [[bin]]
 name = "shrink-wrap-series-type"
 path = "src/shrink_wrap_series_type.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "introspection"
+path = "src/introspection.rs"
 test = false
 doc = false
 bench = false

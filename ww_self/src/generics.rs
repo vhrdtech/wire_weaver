@@ -31,6 +31,9 @@ pub const MAX_DEPTH: usize = 96;
 pub const MAX_INSTANCES: usize = 4096;
 /// Most type nodes [instantiate] creates in total (and [substitute] in one call).
 pub const MAX_NODES: usize = 1 << 20;
+/// Longest name of a concrete definition [instantiate] adds (`Timed<Ampere>`), in bytes: names repeat the names of
+/// their arguments, nested instances would otherwise name a type with gigabytes.
+pub const MAX_NAME_LEN: usize = 1024;
 
 /// Checks `bundle` ([validate]), instantiates every use of a generic type ([instantiate]) and checks the result
 /// again. Run on every bundle from outside (a device's introspection data, a file) before using it dynamically,
@@ -679,20 +682,21 @@ pub fn substitute(
     };
     let name = def_ty_name(def);
     check_args(name, generics_of(def), args, None)?;
-    let mut arg_names = Vec::with_capacity(args.len());
-    for arg in args {
-        arg_names.push(match arg {
-            GenericArgOwned::Type(ty) => ty.human_name(false, bundle)?,
-            GenericArgOwned::Const(value) => const_name(value),
-            GenericArgOwned::ConstParam(idx) => {
-                bail!(
-                    "argument is const parameter {} outside of a generic definition",
-                    idx.0
-                )
-            }
-        });
+    if let Some(GenericArgOwned::ConstParam(idx)) = args
+        .iter()
+        .find(|arg| matches!(arg, GenericArgOwned::ConstParam(_)))
+    {
+        bail!(
+            "argument is const parameter {} outside of a generic definition",
+            idx.0
+        )
     }
-    let ident = format!("{name}<{}>", arg_names.join(", "));
+    // named as the instance is
+    let ident = TypeOwned::Instance {
+        type_idx: UNib32(type_idx),
+        args: args.to_vec(),
+    }
+    .human_name_bounded(false, bundle, &[], MAX_NAME_LEN)?;
     let mut sub = Substitute { args, nodes: 0 };
     let ty = match def {
         TypeOwned::Struct(s) => TypeOwned::Struct(ItemStructOwned {
@@ -724,18 +728,6 @@ pub fn substitute(
         _ => bail!("type with index {type_idx} is not a struct or an enum"),
     };
     Ok(ty)
-}
-
-/// A const argument as written: `64`, `true`.
-fn const_name(value: &ValueOwned) -> String {
-    match value {
-        ValueOwned::Bool(b) => b.to_string(),
-        ValueOwned::Numeric(n) => match n.to_i128() {
-            Some(v) => v.to_string(),
-            None => format!("{n:?}"),
-        },
-        other => format!("{other:?}"),
-    }
 }
 
 struct Substitute<'a> {
@@ -1407,9 +1399,45 @@ mod tests {
         assert!(self_ref.is_unsized(&b).is_err());
         assert!(ValueOwned::des_shrink_wrap_dyn(&[0; 8], &self_ref, &b).is_err());
         assert!(ValueOwned::default(&self_ref, &b).is_err());
-        assert!(ValueOwned::Bool(true)
-            .ser_shrink_wrap_dyn(&self_ref, &b)
-            .is_err());
+        assert!(
+            ValueOwned::Bool(true)
+                .ser_shrink_wrap_dyn(&self_ref, &b)
+                .is_err()
+        );
         assert!(prepare(&mut b).is_err());
+    }
+
+    #[test]
+    fn growing_instance_names_are_bounded() {
+        // W<T> { w: T }, D0<T> { a: T }, Dk<T> { a: D(k-1)<W<(T, .. 16 times)>> }: few type nodes per instance, but
+        // each level repeats the name of the previous one 16 times
+        let mut types = vec![
+            def(
+                "W",
+                vec![param("T")],
+                vec![field("w", TypeOwned::Param(UNib32(0)))],
+            ),
+            def(
+                "D0",
+                vec![param("T")],
+                vec![field("a", TypeOwned::Param(UNib32(0)))],
+            ),
+        ];
+        for i in 1..12u32 {
+            let many = TypeOwned::Tuple(vec![TypeOwned::Param(UNib32(0)); 16]);
+            let w = instance(0, vec![GenericArgOwned::Type(many)]);
+            types.push(def(
+                &format!("D{i}"),
+                vec![param("T")],
+                vec![field("a", instance(i, vec![GenericArgOwned::Type(w)]))],
+            ));
+        }
+        let last = types.len() as u32 - 1;
+        let mut b = bundle(
+            types,
+            instance(last, vec![GenericArgOwned::Type(TypeOwned::Bool)]),
+        );
+        let err = prepare(&mut b).unwrap_err();
+        assert!(format!("{err:#}").contains("longer than"), "{err:#}");
     }
 }

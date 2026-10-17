@@ -316,98 +316,28 @@ impl TypeOwned {
         api_bundle: &ApiBundleOwned,
         params: &[GenericParamOwned],
     ) -> Result<String> {
-        let name = |ty: &TypeOwned| ty.human_name_in(show_crate_name, api_bundle, params);
-        let crate_prefixed = |crate_idx: u32, ident: &str| -> Result<String> {
-            if show_crate_name {
-                Ok(format!("{}::{ident}", api_bundle.crate_name(crate_idx)?))
-            } else {
-                Ok(ident.to_string())
-            }
+        self.human_name_bounded(show_crate_name, api_bundle, params, usize::MAX)
+    }
+
+    /// [Self::human_name_in], failing once the name is longer than `max_len` bytes: names of instances of generic
+    /// types repeat the names of their arguments, a few nested ones in a bundle from a device can name a type with
+    /// gigabytes.
+    pub fn human_name_bounded(
+        &self,
+        show_crate_name: bool,
+        api_bundle: &ApiBundleOwned,
+        params: &[GenericParamOwned],
+        max_len: usize,
+    ) -> Result<String> {
+        let mut cx = NameCx {
+            show_crate_name,
+            api_bundle,
+            params,
+            max_len,
+            out: String::new(),
         };
-        match self {
-            TypeOwned::Bool => Ok("bool".to_string()),
-            TypeOwned::NumericAny(numeric) => Ok(numeric.human_name()),
-            TypeOwned::OutOfLine { type_idx } => {
-                // named also when its definition is left out
-                if let Some(TypeLocationOwned::SkippedFullVersion {
-                    crate_idx,
-                    type_name,
-                    ..
-                }) = api_bundle.types.get(type_idx.0 as usize)
-                {
-                    return crate_prefixed(crate_idx.0, type_name);
-                }
-                let ty = api_bundle.get_ty(type_idx.0)?.0;
-                ty.human_name_in(show_crate_name, api_bundle, params)
-            }
-            TypeOwned::Instance { type_idx, args } => {
-                let def = match api_bundle.types.get(type_idx.0 as usize) {
-                    Some(TypeLocationOwned::SkippedFullVersion {
-                        crate_idx,
-                        type_name,
-                        ..
-                    }) => crate_prefixed(crate_idx.0, type_name)?,
-                    Some(TypeLocationOwned::InLine {
-                        ty:
-                            TypeOwned::Struct(ItemStructOwned {
-                                crate_idx, ident, ..
-                            })
-                            | TypeOwned::Enum(ItemEnumOwned {
-                                crate_idx, ident, ..
-                            }),
-                        ..
-                    }) => crate_prefixed(crate_idx.0, ident)?,
-                    _ => {
-                        return Err(anyhow!(
-                            "Bad ApiBundle: no generic type with index: {}",
-                            type_idx.0
-                        ));
-                    }
-                };
-                let mut names = Vec::with_capacity(args.len());
-                for arg in args {
-                    names.push(match arg {
-                        GenericArgOwned::Type(ty) => name(ty)?,
-                        GenericArgOwned::Const(value) => const_value_name(value),
-                        GenericArgOwned::ConstParam(idx) => param_name(params, idx.0),
-                    });
-                }
-                Ok(format!("{def}<{}>", names.join(", ")))
-            }
-            TypeOwned::Param(idx) => Ok(param_name(params, idx.0)),
-            TypeOwned::Flag => Ok("flag".to_string()),
-            TypeOwned::String => Ok("String".to_string()),
-            TypeOwned::Vec(inner) => Ok(format!("Vec<{}>", name(inner)?)),
-            TypeOwned::Array { len, ty } => {
-                Ok(format!("[{}; {}]", name(ty)?, len.human_name(params)))
-            }
-            TypeOwned::Tuple(types) => {
-                let mut names = Vec::with_capacity(types.len());
-                for ty in types {
-                    names.push(name(ty)?);
-                }
-                Ok(format!("({})", names.join(", ")))
-            }
-            TypeOwned::Struct(item_struct) => {
-                crate_prefixed(item_struct.crate_idx.0, &item_struct.ident)
-            }
-            TypeOwned::Enum(item_enum) => crate_prefixed(item_enum.crate_idx.0, &item_enum.ident),
-            TypeOwned::Option { some_ty } => Ok(format!("Option<{}>", name(some_ty)?)),
-            TypeOwned::Result { ok_ty, err_ty } => {
-                Ok(format!("Result<{}, {}>", name(ok_ty)?, name(err_ty)?))
-            }
-            TypeOwned::Box(inner) => Ok(format!("Box<{}>", name(inner)?)),
-            TypeOwned::Range(base) => Ok(format!("Range<{}>", base.name())),
-            TypeOwned::RangeInclusive(base) => Ok(format!("RangeInclusive<{}>", base.name())),
-            TypeOwned::Delta(base) => Ok(format!("Delta<{}>", base.name())),
-            TypeOwned::DeltaOfDelta(base) => Ok(format!("DeltaOfDelta<{}>", base.name())),
-            TypeOwned::XorFloat(base) => Ok(format!("XorFloat<{}>", base.name())),
-            TypeOwned::MaxLen { max_len, ty } => Ok(format!(
-                "MaxLen<{}, {}>",
-                name(ty)?,
-                max_len.human_name(params)
-            )),
-        }
+        cx.ty(self)?;
+        Ok(cx.out)
     }
 
     /// `Some(max_len)` for a [MaxLen](TypeOwned::MaxLen), out-of-line references followed. An error for a bound
@@ -432,6 +362,157 @@ impl TypeOwned {
             budget: HUMAN_DEFINITION_MAX_NODES,
         };
         cx.ty(self, &[])
+    }
+}
+
+struct NameCx<'a> {
+    show_crate_name: bool,
+    api_bundle: &'a ApiBundleOwned,
+    params: &'a [GenericParamOwned],
+    max_len: usize,
+    out: String,
+}
+
+impl NameCx<'_> {
+    fn push(&mut self, s: &str) -> Result<()> {
+        if self.out.len().saturating_add(s.len()) > self.max_len {
+            return Err(anyhow!("type name is longer than {} bytes", self.max_len));
+        }
+        self.out.push_str(s);
+        Ok(())
+    }
+
+    fn crate_prefixed(&mut self, crate_idx: u32, ident: &str) -> Result<()> {
+        if self.show_crate_name {
+            let crate_name = self.api_bundle.crate_name(crate_idx)?;
+            self.push(crate_name)?;
+            self.push("::")?;
+        }
+        self.push(ident)
+    }
+
+    /// `prefix<a, b>`
+    fn list<'t>(
+        &mut self,
+        open: &str,
+        close: &str,
+        types: impl IntoIterator<Item = &'t TypeOwned>,
+    ) -> Result<()> {
+        self.push(open)?;
+        for (i, ty) in types.into_iter().enumerate() {
+            if i > 0 {
+                self.push(", ")?;
+            }
+            self.ty(ty)?;
+        }
+        self.push(close)
+    }
+
+    fn ty(&mut self, ty: &TypeOwned) -> Result<()> {
+        let api_bundle = self.api_bundle;
+        match ty {
+            TypeOwned::Bool => self.push("bool"),
+            TypeOwned::NumericAny(numeric) => self.push(&numeric.human_name()),
+            TypeOwned::OutOfLine { type_idx } => {
+                // named also when its definition is left out
+                if let Some(TypeLocationOwned::SkippedFullVersion {
+                    crate_idx,
+                    type_name,
+                    ..
+                }) = api_bundle.types.get(type_idx.0 as usize)
+                {
+                    return self.crate_prefixed(crate_idx.0, type_name);
+                }
+                match api_bundle.get_ty(type_idx.0)?.0 {
+                    TypeOwned::Struct(ItemStructOwned {
+                        crate_idx, ident, ..
+                    })
+                    | TypeOwned::Enum(ItemEnumOwned {
+                        crate_idx, ident, ..
+                    }) => self.crate_prefixed(crate_idx.0, ident),
+                    _ => Err(anyhow!(
+                        "Bad ApiBundle: type with index {} is not a struct or an enum",
+                        type_idx.0
+                    )),
+                }
+            }
+            TypeOwned::Instance { type_idx, args } => {
+                match api_bundle.types.get(type_idx.0 as usize) {
+                    Some(TypeLocationOwned::SkippedFullVersion {
+                        crate_idx,
+                        type_name,
+                        ..
+                    }) => self.crate_prefixed(crate_idx.0, type_name)?,
+                    Some(TypeLocationOwned::InLine {
+                        ty:
+                            TypeOwned::Struct(ItemStructOwned {
+                                crate_idx, ident, ..
+                            })
+                            | TypeOwned::Enum(ItemEnumOwned {
+                                crate_idx, ident, ..
+                            }),
+                        ..
+                    }) => self.crate_prefixed(crate_idx.0, ident)?,
+                    _ => {
+                        return Err(anyhow!(
+                            "Bad ApiBundle: no generic type with index: {}",
+                            type_idx.0
+                        ));
+                    }
+                };
+                self.push("<")?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        self.push(", ")?;
+                    }
+                    match arg {
+                        GenericArgOwned::Type(ty) => self.ty(ty)?,
+                        GenericArgOwned::Const(value) => self.push(&const_value_name(value))?,
+                        GenericArgOwned::ConstParam(idx) => {
+                            self.push(&param_name(self.params, idx.0))?
+                        }
+                    }
+                }
+                self.push(">")
+            }
+            TypeOwned::Param(idx) => self.push(&param_name(self.params, idx.0)),
+            TypeOwned::Flag => self.push("flag"),
+            TypeOwned::String => self.push("String"),
+            TypeOwned::Vec(inner) => self.list("Vec<", ">", [inner.as_ref()]),
+            TypeOwned::Array { len, ty } => {
+                self.push("[")?;
+                self.ty(ty)?;
+                self.push("; ")?;
+                self.push(&len.human_name(self.params))?;
+                self.push("]")
+            }
+            TypeOwned::Tuple(types) => self.list("(", ")", types),
+            TypeOwned::Struct(item_struct) => {
+                self.crate_prefixed(item_struct.crate_idx.0, &item_struct.ident)
+            }
+            TypeOwned::Enum(item_enum) => {
+                self.crate_prefixed(item_enum.crate_idx.0, &item_enum.ident)
+            }
+            TypeOwned::Option { some_ty } => self.list("Option<", ">", [some_ty.as_ref()]),
+            TypeOwned::Result { ok_ty, err_ty } => {
+                self.list("Result<", ">", [ok_ty.as_ref(), err_ty.as_ref()])
+            }
+            TypeOwned::Box(inner) => self.list("Box<", ">", [inner.as_ref()]),
+            TypeOwned::Range(base) => self.push(&format!("Range<{}>", base.name())),
+            TypeOwned::RangeInclusive(base) => {
+                self.push(&format!("RangeInclusive<{}>", base.name()))
+            }
+            TypeOwned::Delta(base) => self.push(&format!("Delta<{}>", base.name())),
+            TypeOwned::DeltaOfDelta(base) => self.push(&format!("DeltaOfDelta<{}>", base.name())),
+            TypeOwned::XorFloat(base) => self.push(&format!("XorFloat<{}>", base.name())),
+            TypeOwned::MaxLen { max_len, ty } => {
+                self.push("MaxLen<")?;
+                self.ty(ty)?;
+                self.push(", ")?;
+                self.push(&max_len.human_name(self.params))?;
+                self.push(">")
+            }
+        }
     }
 }
 

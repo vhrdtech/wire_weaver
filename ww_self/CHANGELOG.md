@@ -120,6 +120,11 @@
 * `ApiBundleOwned::get_ty` is an error for a type entry that isn't a struct or an enum (P2401): an entry referring
   to itself (`types[i] = OutOfLine(i)`) sent `is_unsized`, value encoding and defaults into endless recursion on an
   untrusted bundle, before `prepare` checked it.
+* Names of instances of generic types are bounded (`generics::MAX_NAME_LEN`, 1024 bytes): a name repeats the names of
+  its arguments, so a few hundred bytes of introspection data with nested instances named types with gigabytes and
+  `generics::prepare` exhausted the host's memory; now an error. New `TypeOwned::human_name_bounded`;
+  `human_name` of an out-of-line reference to something that is not a struct or an enum is an error instead of
+  following it (it looped forever on a reference to itself in a bundle that wasn't validated).
 * Dynamic decoding (`ValueOwned::des_shrink_wrap_dyn` and friends) and `ValueOwned::default` are bounded: a value
   budget per input byte and a nesting limit, so an array of empty tuples or deeply nested options in a device's types
   is an error instead of exhausting memory or the stack. `human_definition` writes at most

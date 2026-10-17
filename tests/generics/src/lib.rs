@@ -1,11 +1,12 @@
 //! Generic user types in an API (API-43), through generated server and client code: method arguments and return
 //! values, properties and stream items; their definitions in introspection data (each generic definition once, a use
 //! is an instance with its arguments, `ww_si::Timed` left out as known from snapshots), and the dynamic client, which
-//! decodes and writes the same bytes as the derived types.
+//! decodes and writes the same bytes as the derived types. Type aliases (API-45) are what they name, in generated
+//! code, introspection data and the dynamic client.
 
 #[cfg(test)]
 mod tests {
-    use generics_api::{Outer, Pair, Reading, TaggedOwned, Window};
+    use generics_api::{Outer, Pair, Quantity, Reading, Sample, TaggedOwned, Volt, Window};
     use std::path::Path;
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
@@ -22,6 +23,9 @@ mod tests {
     struct SharedTestData {
         latest: Option<Timed<Ampere>>,
         outer: Option<Outer<3>>,
+        voltage: Option<Volt>,
+        timed_voltage: Option<Timed<Volt>>,
+        sample: Option<Sample<u8>>,
     }
 
     mod server {
@@ -105,6 +109,71 @@ mod tests {
 
             fn readings(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
                 Ready(())
+            }
+
+            fn double(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                v: Volt,
+            ) -> RpcResult<Volt> {
+                Ready(Quantity { value: v.value * 2 })
+            }
+
+            fn set_voltage(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Volt,
+            ) -> SetResult<()> {
+                self.data.lock().unwrap().voltage = Some(value);
+                SetResult::Set
+            }
+
+            fn get_voltage(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Volt, ()> {
+                match self.data.lock().unwrap().voltage {
+                    Some(v) => GetResult::Value(v),
+                    None => GetResult::GetError(()),
+                }
+            }
+
+            fn set_timed_voltage(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Timed<Volt>,
+            ) -> SetResult<()> {
+                self.data.lock().unwrap().timed_voltage = Some(value);
+                SetResult::Set
+            }
+
+            fn get_timed_voltage(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Timed<Volt>, ()> {
+                match self.data.lock().unwrap().timed_voltage {
+                    Some(v) => GetResult::Value(v),
+                    None => GetResult::GetError(()),
+                }
+            }
+
+            fn set_sample(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Sample<u8>,
+            ) -> SetResult<()> {
+                self.data.lock().unwrap().sample = Some(value);
+                SetResult::Set
+            }
+
+            fn get_sample(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Sample<u8>, ()> {
+                match self.data.lock().unwrap().sample {
+                    Some(v) => GetResult::Value(v),
+                    None => GetResult::GetError(()),
+                }
             }
 
             fn close_readings(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
@@ -315,7 +384,9 @@ mod tests {
         defs.sort();
         assert_eq!(
             defs,
-            ["Outer", "Pair", "Reading", "Tagged", "Timed", "Window"]
+            [
+                "Outer", "Pair", "Quantity", "Reading", "Tagged", "Timed", "Window"
+            ]
         );
         let (arg, ret) = method_types(&bundle, 0);
         assert!(matches!(arg, TypeOwned::Instance { .. }));
@@ -338,6 +409,78 @@ mod tests {
         assert_eq!(
             arg.human_definition(&bundle, true).unwrap(),
             "struct generics_api::Window<4> {samples: [u16; 4]}"
+        );
+    }
+
+    fn timed_voltage() -> Timed<Volt> {
+        Timed::new(
+            Second {
+                prefix: Prefix::Micro,
+                value: NumericValue::U16(20),
+            },
+            Quantity { value: -5 },
+        )
+    }
+
+    fn sample() -> Sample<u8> {
+        Pair {
+            a: Window { samples: [3, 4] },
+            b: Reading::Value(9),
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn type_aliases() {
+        let (device, data) = start("generics/aliases");
+        let mut client = connect(&device).await;
+        let doubled = client.double(Quantity { value: 21 }).call().await.unwrap();
+        assert_eq!(doubled, Quantity { value: 42 });
+
+        client
+            .write_voltage(Quantity { value: 3300 })
+            .write()
+            .await
+            .unwrap();
+        assert_eq!(
+            client.read_voltage().read().await.unwrap(),
+            Quantity { value: 3300 }
+        );
+        client
+            .write_timed_voltage(timed_voltage())
+            .write()
+            .await
+            .unwrap();
+        let read = client.read_timed_voltage().read().await.unwrap();
+        assert_eq!(format!("{read:?}"), format!("{:?}", timed_voltage()));
+        client.write_sample(sample()).write().await.unwrap();
+        assert_eq!(client.read_sample().read().await.unwrap(), sample());
+        assert_eq!(data.lock().unwrap().sample, Some(sample()));
+    }
+
+    /// Item `id` of the root: a property's type or a method's first argument.
+    fn item_ty(bundle: &ApiBundleOwned, id: u32) -> TypeOwned {
+        match &bundle.get_item(&[id]).unwrap().kind {
+            ApiItemKindOwned::Property { ty, .. } => ty.clone(),
+            ApiItemKindOwned::Method { args, .. } => args[0].ty.clone(),
+            _ => panic!("property or method"),
+        }
+    }
+
+    #[test]
+    fn type_aliases_are_what_they_name() {
+        let bundle = bundle();
+        let (arg, ret) = method_types(&bundle, 6);
+        assert_eq!(arg, ret);
+        assert_eq!(arg, item_ty(&bundle, 7));
+        assert_eq!(arg.human_name(false, &bundle).unwrap(), "Quantity<i32>");
+        assert_eq!(
+            item_ty(&bundle, 8).human_name(false, &bundle).unwrap(),
+            "Timed<Quantity<i32>>"
+        );
+        assert_eq!(
+            item_ty(&bundle, 9).human_definition(&bundle, true).unwrap(),
+            "struct generics_api::Pair<Window<2>, Reading<u8>> {a: struct generics_api::Window<2> {samples: [u16; 2]}, \
+             b: enum ub4 generics_api::Reading<u8> {Missing, Value(u8), Range{lo: u8, hi: u8}}}"
         );
     }
 
@@ -518,5 +661,34 @@ mod tests {
                 ]),
             }
         );
+
+        // type aliases: a property and inside `Timed`, the same bytes as the derived types
+        data.lock().unwrap().voltage = Some(Quantity { value: 3300 });
+        let value = root.child("voltage").unwrap().read(cmd).await.unwrap();
+        assert_eq!(value, named(vec![("value", num(NumericValue::I32(3300)))]));
+        data.lock().unwrap().timed_voltage = Some(timed_voltage());
+        let timed_res = root.child("timed_voltage").unwrap();
+        let value = timed_res.read(cmd).await.unwrap();
+        let ApiItemKindOwned::Property { ty, .. } = &bundle.get_item(&[8]).unwrap().kind else {
+            panic!("property");
+        };
+        assert_eq!(
+            value.ser_shrink_wrap_dyn(ty, &bundle).unwrap(),
+            timed_voltage().to_ww_bytes_owned().unwrap()
+        );
+        data.lock().unwrap().timed_voltage = None;
+        timed_res.write(cmd, &value).await.unwrap();
+        let stored = data.lock().unwrap().timed_voltage;
+        assert_eq!(
+            format!("{stored:?}"),
+            format!("{:?}", Some(timed_voltage()))
+        );
+        let r = root
+            .child("double")
+            .unwrap()
+            .call(cmd, &[named(vec![("value", num(NumericValue::I32(-4)))])])
+            .await
+            .unwrap();
+        assert_eq!(r, Some(named(vec![("value", num(NumericValue::I32(-8)))])));
     }
 }

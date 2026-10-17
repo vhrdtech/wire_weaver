@@ -605,6 +605,23 @@ mod tests {
     }
 
     #[test]
+    fn renders_type_aliases() {
+        console::set_colors_enabled(false);
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/generics_api");
+        let bundle = wire_weaver_core::load(&path, Some("Generics".into()), false).unwrap();
+        let tree = render(&bundle, false);
+        // `type Volt = Quantity<units::Volt>`, `type Sample<T> = Pair<Window<2>, Reading<T>>`: what they name
+        for line in [
+            "├─ 6 fn double(v: Quantity<i32>) -> Quantity<i32>\n",
+            "├─ 7 rw property voltage: Quantity<i32>\n",
+            "├─ 8 rw property timed_voltage: Timed<Quantity<i32>>\n",
+            "└─ 9 rw property sample: Pair<Window<2>, Reading<u8>>\n",
+        ] {
+            assert!(tree.contains(line), "{tree}");
+        }
+    }
+
+    #[test]
     fn renders_nested_traits() {
         console::set_colors_enabled(false);
         let tree = render(&traits_api(), false);

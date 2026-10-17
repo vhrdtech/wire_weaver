@@ -5256,7 +5256,7 @@ per-track durability, counters and the USB view can each be left out whole, not 
 <td>flushes every track the same way, no per-track timing</td>
 </tr>
 <tr>
-<td><code>counters</code></td>
+<td><code>counting</code></td>
 <td><code>counters</code>, <code>track[].counters</code></td>
 <td>has no status screen and doesn't judge the card by its wear</td>
 </tr>
@@ -5278,8 +5278,8 @@ only that one property out, same as before.</p>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="s">&quot;recorder.recording&quot;</span><span class="p">,</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">        </span><span class="s">&quot;recorder.markers&quot;</span><span class="p">,</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="s">&quot;recorder.track.track_settings&quot;</span><span class="p">,</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="s">&quot;recorder.counters&quot;</span><span class="p">,</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="s">&quot;recorder.track.counters&quot;</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="s">&quot;recorder.counting&quot;</span><span class="p">,</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="s">&quot;recorder.track.counting&quot;</span><span class="p">,</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="s">&quot;recorder.usb&quot;</span><span class="p">,</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="p">],</span>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">);</span>
@@ -5293,7 +5293,7 @@ left out. A device picks any subset the same way, one <code>omit_if(..)</code> e
 </span></code></pre></div>
 <p>It prints the server struct, a stub for every handler (<code>status</code>, <code>card</code>, <code>prepare_format</code>, ..., <code>track_info</code>,
 <code>track_counters</code>, <code>valid_indices_root_track</code>, the <code>settings</code> getter and setter) and the matching <code>ww_codegen!</code>; the
-output compiles as it is. <code>--omit formatting,recording,markers,track.track_settings,counters,track.counters,usb</code>
+output compiles as it is. <code>--omit formatting,recording,markers,track.track_settings,counting,track.counting,usb</code>
 leaves the same groups' stubs out.</p>
 <h2 id="evolution">Evolution<a class="headerlink" href="#evolution" title="Permanent link">&para;</a></h2>
 <p>No type uses <code>sized</code> or <code>final_structure</code>, so fields can be appended with <code>#[default = ..]</code> and variants added

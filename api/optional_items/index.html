@@ -4961,7 +4961,7 @@ apart from a device's own errors.</p>
 <h2 id="leaving-items-out">Leaving items out<a class="headerlink" href="#leaving-items-out" title="Permanent link">&para;</a></h2>
 <p><code>ww_codegen!(.., server = true, omit = [..])</code> takes paths <code>"&lt;trait item&gt;.&lt;..&gt;.&lt;item or group&gt;"</code> from the API root,
 without array indices: <code>"periph.channel.run"</code> leaves <code>run</code> out of every <code>periph[i].channel[j]</code>. Items of the API root
-itself are named directly (<code>omit = ["reset"]</code>). An item and a group of the same name: the item wins. Naming an item
+itself are named directly (<code>omit = ["reset"]</code>). A group may not share a name with an item of the same trait (group <code>format</code> and method <code>format</code>): <code>#[ww_trait]</code> refuses it with an error naming both, rename the group. Naming an item
 twice (by name and through its group, or in <code>omit</code> and <code>omit_if</code>) is a compile error, as is an unknown name.</p>
 <p><code>omit_if(&lt;cfg&gt;) = [..]</code> ties optional items to the device crate's own Cargo features:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>

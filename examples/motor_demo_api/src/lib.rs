@@ -8,10 +8,19 @@
 //! [Sim] sets up the simulation: speed of simulated time, load, motor, faults.
 //!
 //! The device's clock is simulated time: observe periods, timestamps and budgets are in simulated microseconds and
-//! bytes per simulated second. Units are SI unless the name says otherwise (`erpm`, `deg`).
+//! bytes per simulated second.
+//!
+//! Values are `ww_si` quantities. The device picks prefix and storage per property, as each one's docs say: `I32` at
+//! a fixed prefix for signed physical values (the prefix sets the resolution, noise below it costs no bits), `U32`
+//! for totals that only grow, `F32` for values that span decades. Setpoints and settings the host writes may come in
+//! any of the three. A firmware of this API enables only those number types (`ww_si` features `i32`, `u32`, `f32`).
 #![no_std]
 
 use wire_weaver::prelude::*;
+use ww_si::{
+    Ampere, AngularVelocity, Coulomb, Degree, Joule, Radian, Ratio, Second, Torque, Volt, Watt,
+    Weber,
+};
 
 #[ww_api_root]
 pub trait MotorDemo {
@@ -28,48 +37,49 @@ pub trait MotorDemo {
 /// The current loop, run every PWM period (40 µs).
 #[ww_trait]
 pub trait Foc {
-    /// Phase a current as measured (offset calibrated), A.
-    property!(ro+observe i_a: f32);
-    /// Phase b current, A.
-    property!(ro+observe i_b: f32);
-    /// Phase c current, A.
-    property!(ro+observe i_c: f32);
-    /// α current (Clarke), A.
-    property!(ro+observe i_alpha: f32);
-    /// β current, A.
-    property!(ro+observe i_beta: f32);
-    /// d current (Park at `phase`), A.
-    property!(ro+observe i_d: f32);
-    /// q current, A.
-    property!(ro+observe i_q: f32);
-    /// d voltage the current loop asks for, V.
-    property!(ro+observe v_d: f32);
-    /// q voltage, V.
-    property!(ro+observe v_q: f32);
-    /// α voltage, V.
-    property!(ro+observe v_alpha: f32);
-    /// β voltage, V.
-    property!(ro+observe v_beta: f32);
-    /// Leg a duty, 0..=1.
-    property!(ro+observe duty_a: f32);
-    /// Leg b duty, 0..=1.
-    property!(ro+observe duty_b: f32);
-    /// Leg c duty, 0..=1.
-    property!(ro+observe duty_c: f32);
-    /// Electrical angle the current loop uses, rad in [0, 2π).
-    property!(ro+observe phase: f32);
-    /// Electrical angle from the flux observer, rad.
-    property!(ro+observe phase_observer: f32);
-    /// Electrical angle from the encoder, rad.
-    property!(ro+observe phase_encoder: f32);
-    /// Flux observer state α, Wb.
-    property!(ro+observe observer_x1: f32);
-    /// Flux observer state β, Wb.
-    property!(ro+observe observer_x2: f32);
-    /// DC link voltage as measured, V.
-    property!(ro+observe v_bus: f32);
-    /// True electrical angle (simulator), rad: what a real controller can't see.
-    property!(ro+observe phase_true: f32);
+    /// Phase a current as measured (offset calibrated): `Milli` `I32`.
+    property!(ro+observe i_a: Ampere);
+    /// Phase b current: `Milli` `I32`.
+    property!(ro+observe i_b: Ampere);
+    /// Phase c current: `Milli` `I32`.
+    property!(ro+observe i_c: Ampere);
+    /// α current (Clarke): `Milli` `I32`.
+    property!(ro+observe i_alpha: Ampere);
+    /// β current: `Milli` `I32`.
+    property!(ro+observe i_beta: Ampere);
+    /// d current (Park at `phase`): `Milli` `I32`.
+    property!(ro+observe i_d: Ampere);
+    /// q current: `Milli` `I32`.
+    property!(ro+observe i_q: Ampere);
+    /// d voltage the current loop asks for: `Milli` `I32`.
+    property!(ro+observe v_d: Volt);
+    /// q voltage: `Milli` `I32`.
+    property!(ro+observe v_q: Volt);
+    /// α voltage: `Milli` `I32`.
+    property!(ro+observe v_alpha: Volt);
+    /// β voltage: `Milli` `I32`.
+    property!(ro+observe v_beta: Volt);
+    /// Leg a duty, 0..=1: `Micro` `I32` (PWM resolution is ~2.4e-4, `Milli` would lose it).
+    property!(ro+observe duty_a: Ratio);
+    /// Leg b duty: `Micro` `I32`.
+    property!(ro+observe duty_b: Ratio);
+    /// Leg c duty: `Micro` `I32`.
+    property!(ro+observe duty_c: Ratio);
+    /// Electrical angle the current loop uses, [0, 2π): `Micro` `I32`. Wraps once per electrical turn: one full
+    /// value per turn in a `Series` (200 per second at 12 000 erpm against 25 000 samples).
+    property!(ro+observe phase: Radian);
+    /// Electrical angle from the flux observer: `Micro` `I32`.
+    property!(ro+observe phase_observer: Radian);
+    /// Electrical angle from the encoder: `Micro` `I32`.
+    property!(ro+observe phase_encoder: Radian);
+    /// Flux observer state α: `Nano` `I32` (flux linkage is a few mWb).
+    property!(ro+observe observer_x1: Weber);
+    /// Flux observer state β: `Nano` `I32`.
+    property!(ro+observe observer_x2: Weber);
+    /// DC link voltage as measured: `Milli` `I32`.
+    property!(ro+observe v_bus: Volt);
+    /// True electrical angle (simulator), what a real controller can't see: `Micro` `I32`.
+    property!(ro+observe phase_true: Radian);
 }
 
 /// Setpoints and the 1 kHz loop.
@@ -79,76 +89,77 @@ pub trait Control {
     property!(rw+observe mode: ControlMode);
     /// Where the current loop gets its angle from.
     property!(rw+observe sensor_mode: SensorMode);
-    /// Duty in [ControlMode::Duty], -0.95..=0.95.
-    property!(rw+observe duty_target: f32);
-    /// q current in [ControlMode::Current], A.
-    property!(rw+observe current_target: f32);
-    /// Speed in [ControlMode::Speed], electrical rpm.
-    property!(rw+observe erpm_target: f32);
-    /// Electrical speed from the PLL, rpm.
-    property!(ro+observe erpm: f32);
-    /// Mechanical speed, rpm.
-    property!(ro+observe rpm: f32);
-    /// d current setpoint, A.
-    property!(ro+observe id_set: f32);
-    /// q current setpoint, A.
-    property!(ro+observe iq_set: f32);
-    /// d current, low-pass filtered, A.
-    property!(ro+observe id_filtered: f32);
-    /// q current, low-pass filtered, A.
-    property!(ro+observe iq_filtered: f32);
-    /// Motor current (q current, filtered), A.
-    property!(ro+observe i_motor: f32);
-    /// DC link (battery) current, estimated from the voltages and currents, A.
-    property!(ro+observe i_input: f32);
-    /// Duty now: |v_dq| over the most the inverter gives, signed by v_q.
-    property!(ro+observe duty_now: f32);
-    /// Torque estimated from the q current, N·m.
-    property!(ro+observe torque: f32);
-    /// Rotor position from the encoder, degrees in [0, 360).
-    property!(ro+observe position_deg: f32);
-    /// Observer angle minus encoder angle, electrical degrees in (-180, 180].
-    property!(ro+observe observer_error_deg: f32);
-    /// True mechanical speed (simulator), rpm.
-    property!(ro+observe rpm_true: f32);
+    /// Duty in [ControlMode::Duty], -0.95..=0.95: any storage the host sends (F32 from Python is fine).
+    property!(rw+observe duty_target: Ratio);
+    /// q current in [ControlMode::Current].
+    property!(rw+observe current_target: Ampere);
+    /// Electrical speed in [ControlMode::Speed] (VESC's erpm is this x 60 / 2π).
+    property!(rw+observe speed_target: AngularVelocity);
+    /// Electrical speed from the PLL: `Milli` `I32` (12 000 erpm = 1 257 rad/s).
+    property!(ro+observe speed_electrical: AngularVelocity);
+    /// Mechanical speed: `Milli` `I32`.
+    property!(ro+observe speed: AngularVelocity);
+    /// d current setpoint: `Milli` `I32`.
+    property!(ro+observe id_set: Ampere);
+    /// q current setpoint: `Milli` `I32`.
+    property!(ro+observe iq_set: Ampere);
+    /// d current, low-pass filtered: `Milli` `I32`.
+    property!(ro+observe id_filtered: Ampere);
+    /// q current, low-pass filtered: `Milli` `I32`.
+    property!(ro+observe iq_filtered: Ampere);
+    /// Motor current (q current, filtered): `Milli` `I32`.
+    property!(ro+observe i_motor: Ampere);
+    /// DC link (battery) current, estimated: `Milli` `I32`.
+    property!(ro+observe i_input: Ampere);
+    /// Duty now, |v_dq| over the most the inverter gives, signed by v_q: `Micro` `I32`.
+    property!(ro+observe duty_now: Ratio);
+    /// Torque estimated from the q current: `Milli` `I32`.
+    property!(ro+observe torque: Torque);
+    /// Rotor position from the encoder, [0, 360): `Milli` `I32`.
+    property!(ro+observe position: Degree);
+    /// Observer angle minus encoder angle, electrical, (-180, 180]: `Milli` `I32`.
+    property!(ro+observe observer_error: Degree);
+    /// True mechanical speed (simulator): `Milli` `I32`.
+    property!(ro+observe speed_true: AngularVelocity);
 }
 
 /// Counters and totals, as VESC Tool shows them.
 #[ww_trait]
 pub trait Telemetry {
-    /// Simulated time since the start, s.
-    property!(ro+observe time_s: f32);
-    /// Charge drawn from the battery, Ah.
-    property!(ro+observe amp_hours: f32);
-    /// Charge returned to the battery, Ah.
-    property!(ro+observe amp_hours_charged: f32);
-    /// Energy drawn from the battery, Wh.
-    property!(ro+observe watt_hours: f32);
-    /// Energy returned to the battery, Wh.
-    property!(ro+observe watt_hours_charged: f32);
-    /// Electrical sixths of a turn, signed (VESC's tachometer).
+    /// Simulated time since the start: `Milli` `U32` (wraps after 49.7 days).
+    property!(ro+observe time: Second);
+    /// Charge drawn from the battery: `Unit` `U32` (1 C = 0.28 mAh; `Milli` would wrap at 1.2 Ah). An integer total,
+    /// not an f32 one, which stops counting small steps once it is big.
+    property!(ro+observe charge_drawn: Coulomb);
+    /// Charge returned to the battery: `Unit` `U32`.
+    property!(ro+observe charge_returned: Coulomb);
+    /// Energy drawn from the battery: `Unit` `U32` (1 J = 0.28 mWh).
+    property!(ro+observe energy_drawn: Joule);
+    /// Energy returned to the battery: `Unit` `U32`.
+    property!(ro+observe energy_returned: Joule);
+    /// Electrical sixths of a turn, signed (VESC's tachometer). A count, not a quantity.
     property!(ro+observe tachometer: i32);
     /// Electrical sixths of a turn, both directions.
     property!(ro+observe tachometer_abs: u32);
-    /// DC link voltage, filtered, V.
-    property!(ro+observe v_in: f32);
-    /// Input power, W.
-    property!(ro+observe power_in: f32);
-    /// Motor current averaged since the previous 50 Hz tick, A.
-    property!(ro+observe avg_motor_current: f32);
-    /// Input current averaged since the previous 50 Hz tick, A.
-    property!(ro+observe avg_input_current: f32);
+    /// DC link voltage, filtered: `Milli` `I32`.
+    property!(ro+observe v_in: Volt);
+    /// Input power: `Centi` `I32` (±21 kW; `Milli` would end at 2.1 kW, under 60 A x 48 V).
+    property!(ro+observe power_in: Watt);
+    /// Motor current averaged since the previous 50 Hz tick: `Milli` `I32`.
+    property!(ro+observe avg_motor_current: Ampere);
+    /// Input current averaged since the previous 50 Hz tick: `Milli` `I32`.
+    property!(ro+observe avg_input_current: Ampere);
     /// Latched fault, cleared by setting `control.mode`.
     property!(ro+observe fault: Fault);
-    /// Simulated seconds per real second, achieved.
-    property!(ro+observe real_time_factor: f32);
+    /// Simulated seconds per real second, achieved: `F32`.
+    property!(ro+observe real_time_factor: Ratio);
 }
 
 /// Simulation settings. Changing the motor or calling `reset` starts over from rest.
 #[ww_trait]
 pub trait Sim {
     /// Simulated seconds per real second asked for: 1 is real time, 0.01 a hundred times slower.
-    property!(rw time_scale: f32);
+    property!(rw time_scale: Ratio);
     /// Load on the shaft.
     property!(rw load: Load);
     /// Motor and inverter.
@@ -169,7 +180,7 @@ pub enum ControlMode {
     Duty,
     /// q current.
     Current,
-    /// Speed loop to `erpm_target`.
+    /// Speed loop to `speed_target`.
     Speed,
 }
 
@@ -198,12 +209,12 @@ pub enum Fault {
 pub enum Load {
     /// Free shaft.
     None,
-    /// Torque = b·ω, N·m·s/rad.
+    /// Torque = b·ω, N·m·s/rad: a coefficient without a ww_si quantity, stays f32.
     Viscous { b: f32 },
-    /// Propeller: torque = k·ω·|ω|, N·m·s²/rad².
+    /// Propeller: torque = k·ω·|ω|, N·m·s²/rad²: stays f32.
     Fan { k: f32 },
-    /// Constant torque, N·m.
-    Constant { torque: f32 },
+    /// Constant torque.
+    Constant { torque: Torque },
     /// Shaft held still.
     Locked,
 }
@@ -230,12 +241,12 @@ pub enum Profile {
 pub enum InjectFault {
     /// Repair everything.
     Clear,
-    /// Extra offset on one phase current reading (0..=2), A.
-    CurrentOffset { phase: u8, amps: f32 },
+    /// Extra offset on one phase current reading (0..=2).
+    CurrentOffset { phase: u8, offset: Ampere },
     /// Chance per sample that the encoder misses a count.
-    EncoderMissedCounts { probability: f32 },
+    EncoderMissedCounts { probability: Ratio },
     /// Chance per step that a leg's PWM pulse is missed.
-    MissedPulses { probability: f32 },
-    /// Extra offset on the DC link voltage reading, V: trips the over or under voltage fault when big enough.
-    BusVoltageOffset { volts: f32 },
+    MissedPulses { probability: Ratio },
+    /// Extra offset on the DC link voltage reading: trips the over or under voltage fault when big enough.
+    BusVoltageOffset { offset: Volt },
 }

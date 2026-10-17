@@ -16,6 +16,8 @@ use ww_client_server::{Event, EventKind};
 use ww_si::Second;
 use ww_si::ww_numeric::NumericValue;
 
+use crate::units::Human;
+
 use crate::client::api_client::motor_demo_api_motor_demo::{
     motor_demo_api_control::ControlUpdate, motor_demo_api_foc::FocUpdate,
     motor_demo_api_telemetry::TelemetryUpdate,
@@ -61,6 +63,8 @@ pub struct Prop {
     /// Resource index in its level.
     pub index: u32,
     pub name: &'static str,
+    /// What the host shows the value in: VESC's erpm, Ah and Wh where it has them, the base unit of the quantity
+    /// otherwise.
     pub unit: &'static str,
 }
 
@@ -80,8 +84,9 @@ pub struct Present {
     pub len: usize,
 }
 
-fn present<T: SerializeShrinkWrap + std::fmt::Debug>(
+fn present<T: SerializeShrinkWrap + Human>(
     index: u32,
+    unit: &str,
     value: &Option<T>,
     out: &mut Vec<Present>,
 ) {
@@ -90,7 +95,7 @@ fn present<T: SerializeShrinkWrap + std::fmt::Debug>(
         let len = v.to_ww_bytes(&mut buf).map(|b| b.len()).unwrap_or(0);
         out.push(Present {
             index,
-            value: format!("{v:?}"),
+            value: v.human(unit),
             len,
         });
     }
@@ -115,7 +120,7 @@ macro_rules! levels {
             /// What an update of the level carried.
             pub fn $fn(u: &$Update) -> Carried {
                 let mut present_ = vec![];
-                $(present($index, &u.$name, &mut present_);)*
+                $(present($index, $unit, &u.$name, &mut present_);)*
                 let sent = crate::device::api_impl::$Update { $($name: u.$name,)* };
                 let mut buf = [0u8; 512];
                 let data = sent.to_ww_bytes(&mut buf).map(|b| b.to_vec()).unwrap_or_default();
@@ -134,13 +139,13 @@ levels! {
         17 observer_x1 "Wb"; 18 observer_x2 "Wb"; 19 v_bus "V"; 20 phase_true "rad";
     }
     Control ControlUpdate control_present {
-        0 mode ""; 1 sensor_mode ""; 2 duty_target ""; 3 current_target "A"; 4 erpm_target "erpm";
-        5 erpm "erpm"; 6 rpm "rpm"; 7 id_set "A"; 8 iq_set "A"; 9 id_filtered "A"; 10 iq_filtered "A";
-        11 i_motor "A"; 12 i_input "A"; 13 duty_now ""; 14 torque "N·m"; 15 position_deg "°";
-        16 observer_error_deg "°"; 17 rpm_true "rpm";
+        0 mode ""; 1 sensor_mode ""; 2 duty_target ""; 3 current_target "A"; 4 speed_target "erpm";
+        5 speed_electrical "erpm"; 6 speed "rpm"; 7 id_set "A"; 8 iq_set "A"; 9 id_filtered "A";
+        10 iq_filtered "A"; 11 i_motor "A"; 12 i_input "A"; 13 duty_now ""; 14 torque "N·m"; 15 position "°";
+        16 observer_error "°"; 17 speed_true "rpm";
     }
     Telemetry TelemetryUpdate telemetry_present {
-        0 time_s "s"; 1 amp_hours "Ah"; 2 amp_hours_charged "Ah"; 3 watt_hours "Wh"; 4 watt_hours_charged "Wh";
+        0 time "s"; 1 charge_drawn "Ah"; 2 charge_returned "Ah"; 3 energy_drawn "Wh"; 4 energy_returned "Wh";
         5 tachometer ""; 6 tachometer_abs ""; 7 v_in "V"; 8 power_in "W"; 9 avg_motor_current "A";
         10 avg_input_current "A"; 11 fault ""; 12 real_time_factor "";
     }
@@ -323,23 +328,23 @@ mod tests {
             }
         }
         assert_eq!(find("i_q").unwrap().path(), "foc.i_q");
-        assert_eq!(find("control.erpm").unwrap().index, 5);
+        assert_eq!(find("control.speed_electrical").unwrap().index, 5);
         assert!(find("nope").is_none());
     }
 
     #[test]
     fn one_value_costs_more_alone() {
-        // one f32 of the foc level, timestamp in µs
+        // one current of the foc level, timestamp in µs
         let t = Second {
             prefix: ww_si::Prefix::Micro,
             value: NumericValue::U64(123_456),
         };
         let mut u = crate::device::api_impl::FocUpdate::from_ww_bytes(&[]).unwrap();
-        u.i_q = Some(1.5);
+        u.i_q = Some(ww_si::Ampere::milliamperes(1500i32));
         let mut buf = [0u8; 64];
         let data = u.to_ww_bytes(&mut buf).unwrap().to_vec();
         let update = property_update_len(Level::Foc, Some(&t), 0, &data);
-        let alone = stream_data_len(Level::Foc, 6, 4);
-        assert!(update > 4 && alone > 4, "{update} {alone}");
+        let alone = stream_data_len(Level::Foc, 6, 5);
+        assert!(update > 5 && alone > 5, "{update} {alone}");
     }
 }

@@ -6,6 +6,7 @@ use anyhow::{Context, bail};
 use motor_demo_api::Load;
 use wire_weaver_client::observe::{on_change, on_change_or_beat, periodic};
 use ww_client_server::observe::ObserveMode;
+use ww_si::Torque;
 
 /// `500us`, `1ms`, `2.5s`; a bare number is milliseconds.
 pub fn duration(s: &str) -> anyhow::Result<Duration> {
@@ -74,7 +75,9 @@ pub fn load(s: &str) -> anyhow::Result<Load> {
         None if s == "locked" => Load::Locked,
         Some(("viscous", v)) => Load::Viscous { b: num(v)? },
         Some(("fan", v)) => Load::Fan { k: num(v)? },
-        Some(("constant", v)) => Load::Constant { torque: num(v)? },
+        Some(("constant", v)) => Load::Constant {
+            torque: Torque::newton_meters_f32(num(v)?),
+        },
         _ => bail!("not a load: {s} (none, locked, viscous:B, fan:K, constant:T)"),
     })
 }
@@ -110,6 +113,12 @@ mod tests {
             assert_eq!(mode_str(&mode(m).unwrap()), m);
         }
         assert_eq!(load("fan:2e-7").unwrap(), Load::Fan { k: 2e-7 });
+        assert_eq!(
+            load("constant:0.5").unwrap(),
+            Load::Constant {
+                torque: Torque::newton_meters_f32(0.5)
+            }
+        );
         assert!(load("fan").is_err());
     }
 }

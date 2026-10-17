@@ -5,6 +5,11 @@
 //! that changed are marked (`mark_changed_<name>()`, so `on_change` observers get them), and `poll_properties` sends
 //! what is due. Simulated time follows real time times `sim.time_scale`; when a step can't keep up the simulation
 //! falls behind instead of catching up later, `telemetry.real_time_factor` says how fast it really runs.
+//!
+//! The controller and simulator work in `f32` of SI units (and erpm, Ah, Wh, degrees, as VESC does); the getters
+//! turn them into `ww_si` quantities at the prefix and storage the API's docs give each property, and setters take
+//! whatever prefix and storage the host sends. A value is marked changed when its quantity changed, so noise below
+//! the property's resolution sends nothing.
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -22,6 +27,11 @@ use ww_stream::observe::ObserveLimits;
 
 use crate::controller::{
     Config, ControlValues, Controller, FocValues, PWM_HZ, Ran, TelemetryValues,
+};
+use crate::units::{I32In, SECONDS_PER_HOUR, U32In, rad_per_s, rpm};
+use ww_si::{
+    Ampere, AngularVelocity, Coulomb, Degree, Joule, Prefix, Radian, Ratio, Second, Torque, Volt,
+    Watt, Weber,
 };
 
 /// One PWM period, simulated µs.
@@ -53,7 +63,9 @@ fn sim_load(load: Load) -> motor_sim::Load {
         Load::None | Load::Unknown(_) => motor_sim::Load::None,
         Load::Viscous { b } => motor_sim::Load::Viscous { b_nms_per_rad: b },
         Load::Fan { k } => motor_sim::Load::Fan { k_nms2_per_rad2: k },
-        Load::Constant { torque } => motor_sim::Load::Constant { torque_nm: torque },
+        Load::Constant { torque } => motor_sim::Load::Constant {
+            torque_nm: torque.to_f32(),
+        },
         Load::Locked => motor_sim::Load::Locked,
     }
 }
@@ -161,7 +173,7 @@ impl Device {
         }
         if self.ctl.set.erpm != erpm {
             self.ctl.set.erpm = erpm;
-            self.mark_changed_control_erpm_target();
+            self.mark_changed_control_speed_target();
         }
     }
 
@@ -198,21 +210,24 @@ impl Device {
     }
 }
 
-/// Getters and change marks of one tier: each value is read by its getter and marked changed when it differs from
-/// the previous run of the tier.
+/// Getters and change marks of one tier: each value is read by its getter, converted from the tier's `f32` values,
+/// and marked changed when the converted value differs from the previous run of the tier.
 macro_rules! tier {
-    ($values:ident, $prev:ident, $mark:ident; $($name:ident: $ty:ty => $get:ident, $changed:ident;)*) => {
+    ($values:ident: $Values:ty, $prev:ident, $mark:ident;
+        $($get:ident, $changed:ident: $ty:ty = |$v:ident| $conv:expr;)*) => {
         impl Device {
             $(
                 async fn $get(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<$ty, ()> {
-                    GetResult::Value(self.ctl.$values.$name)
+                    let $v = &self.ctl.$values;
+                    GetResult::Value($conv)
                 }
             )*
 
             fn $mark(&mut self) {
                 let (now, prev) = (self.ctl.$values, self.$prev);
                 $(
-                    if now.$name != prev.$name {
+                    let conv = |$v: &$Values| -> $ty { $conv };
+                    if conv(&now) != conv(&prev) {
                         self.$changed();
                     }
                 )*
@@ -222,59 +237,83 @@ macro_rules! tier {
     };
 }
 
-tier!(foc, prev_foc, mark_foc;
-    i_a: f32 => get_foc_i_a, mark_changed_foc_i_a;
-    i_b: f32 => get_foc_i_b, mark_changed_foc_i_b;
-    i_c: f32 => get_foc_i_c, mark_changed_foc_i_c;
-    i_alpha: f32 => get_foc_i_alpha, mark_changed_foc_i_alpha;
-    i_beta: f32 => get_foc_i_beta, mark_changed_foc_i_beta;
-    i_d: f32 => get_foc_i_d, mark_changed_foc_i_d;
-    i_q: f32 => get_foc_i_q, mark_changed_foc_i_q;
-    v_d: f32 => get_foc_v_d, mark_changed_foc_v_d;
-    v_q: f32 => get_foc_v_q, mark_changed_foc_v_q;
-    v_alpha: f32 => get_foc_v_alpha, mark_changed_foc_v_alpha;
-    v_beta: f32 => get_foc_v_beta, mark_changed_foc_v_beta;
-    duty_a: f32 => get_foc_duty_a, mark_changed_foc_duty_a;
-    duty_b: f32 => get_foc_duty_b, mark_changed_foc_duty_b;
-    duty_c: f32 => get_foc_duty_c, mark_changed_foc_duty_c;
-    phase: f32 => get_foc_phase, mark_changed_foc_phase;
-    phase_observer: f32 => get_foc_phase_observer, mark_changed_foc_phase_observer;
-    phase_encoder: f32 => get_foc_phase_encoder, mark_changed_foc_phase_encoder;
-    observer_x1: f32 => get_foc_observer_x1, mark_changed_foc_observer_x1;
-    observer_x2: f32 => get_foc_observer_x2, mark_changed_foc_observer_x2;
-    v_bus: f32 => get_foc_v_bus, mark_changed_foc_v_bus;
-    phase_true: f32 => get_foc_phase_true, mark_changed_foc_phase_true;
+/// A quantity of `$x` (an `f32` in the base unit) as an `I32` of `$prefix`.
+macro_rules! i32_in {
+    ($ty:ident $prefix:ident $x:expr) => {
+        $ty::new(Prefix::$prefix, $x.i32_in(Prefix::$prefix))
+    };
+}
+
+/// A quantity of `$x` (an `f32` in the base unit) as a `U32` of `$prefix`.
+macro_rules! u32_in {
+    ($ty:ident $prefix:ident $x:expr) => {
+        $ty::new(Prefix::$prefix, $x.u32_in(Prefix::$prefix))
+    };
+}
+
+tier!(foc: FocValues, prev_foc, mark_foc;
+    get_foc_i_a, mark_changed_foc_i_a: Ampere = |v| i32_in!(Ampere Milli v.i_a);
+    get_foc_i_b, mark_changed_foc_i_b: Ampere = |v| i32_in!(Ampere Milli v.i_b);
+    get_foc_i_c, mark_changed_foc_i_c: Ampere = |v| i32_in!(Ampere Milli v.i_c);
+    get_foc_i_alpha, mark_changed_foc_i_alpha: Ampere = |v| i32_in!(Ampere Milli v.i_alpha);
+    get_foc_i_beta, mark_changed_foc_i_beta: Ampere = |v| i32_in!(Ampere Milli v.i_beta);
+    get_foc_i_d, mark_changed_foc_i_d: Ampere = |v| i32_in!(Ampere Milli v.i_d);
+    get_foc_i_q, mark_changed_foc_i_q: Ampere = |v| i32_in!(Ampere Milli v.i_q);
+    get_foc_v_d, mark_changed_foc_v_d: Volt = |v| i32_in!(Volt Milli v.v_d);
+    get_foc_v_q, mark_changed_foc_v_q: Volt = |v| i32_in!(Volt Milli v.v_q);
+    get_foc_v_alpha, mark_changed_foc_v_alpha: Volt = |v| i32_in!(Volt Milli v.v_alpha);
+    get_foc_v_beta, mark_changed_foc_v_beta: Volt = |v| i32_in!(Volt Milli v.v_beta);
+    get_foc_duty_a, mark_changed_foc_duty_a: Ratio = |v| i32_in!(Ratio Micro v.duty_a);
+    get_foc_duty_b, mark_changed_foc_duty_b: Ratio = |v| i32_in!(Ratio Micro v.duty_b);
+    get_foc_duty_c, mark_changed_foc_duty_c: Ratio = |v| i32_in!(Ratio Micro v.duty_c);
+    get_foc_phase, mark_changed_foc_phase: Radian = |v| i32_in!(Radian Micro v.phase);
+    get_foc_phase_observer, mark_changed_foc_phase_observer: Radian = |v| i32_in!(Radian Micro v.phase_observer);
+    get_foc_phase_encoder, mark_changed_foc_phase_encoder: Radian = |v| i32_in!(Radian Micro v.phase_encoder);
+    get_foc_observer_x1, mark_changed_foc_observer_x1: Weber = |v| i32_in!(Weber Nano v.observer_x1);
+    get_foc_observer_x2, mark_changed_foc_observer_x2: Weber = |v| i32_in!(Weber Nano v.observer_x2);
+    get_foc_v_bus, mark_changed_foc_v_bus: Volt = |v| i32_in!(Volt Milli v.v_bus);
+    get_foc_phase_true, mark_changed_foc_phase_true: Radian = |v| i32_in!(Radian Micro v.phase_true);
 );
 
-tier!(control, prev_control, mark_control;
-    erpm: f32 => get_control_erpm, mark_changed_control_erpm;
-    rpm: f32 => get_control_rpm, mark_changed_control_rpm;
-    id_set: f32 => get_control_id_set, mark_changed_control_id_set;
-    iq_set: f32 => get_control_iq_set, mark_changed_control_iq_set;
-    id_filtered: f32 => get_control_id_filtered, mark_changed_control_id_filtered;
-    iq_filtered: f32 => get_control_iq_filtered, mark_changed_control_iq_filtered;
-    i_motor: f32 => get_control_i_motor, mark_changed_control_i_motor;
-    i_input: f32 => get_control_i_input, mark_changed_control_i_input;
-    duty_now: f32 => get_control_duty_now, mark_changed_control_duty_now;
-    torque: f32 => get_control_torque, mark_changed_control_torque;
-    position_deg: f32 => get_control_position_deg, mark_changed_control_position_deg;
-    observer_error_deg: f32 => get_control_observer_error_deg, mark_changed_control_observer_error_deg;
-    rpm_true: f32 => get_control_rpm_true, mark_changed_control_rpm_true;
+tier!(control: ControlValues, prev_control, mark_control;
+    get_control_speed_electrical, mark_changed_control_speed_electrical: AngularVelocity =
+        |v| i32_in!(AngularVelocity Milli rad_per_s(v.erpm));
+    get_control_speed, mark_changed_control_speed: AngularVelocity =
+        |v| i32_in!(AngularVelocity Milli rad_per_s(v.rpm));
+    get_control_id_set, mark_changed_control_id_set: Ampere = |v| i32_in!(Ampere Milli v.id_set);
+    get_control_iq_set, mark_changed_control_iq_set: Ampere = |v| i32_in!(Ampere Milli v.iq_set);
+    get_control_id_filtered, mark_changed_control_id_filtered: Ampere = |v| i32_in!(Ampere Milli v.id_filtered);
+    get_control_iq_filtered, mark_changed_control_iq_filtered: Ampere = |v| i32_in!(Ampere Milli v.iq_filtered);
+    get_control_i_motor, mark_changed_control_i_motor: Ampere = |v| i32_in!(Ampere Milli v.i_motor);
+    get_control_i_input, mark_changed_control_i_input: Ampere = |v| i32_in!(Ampere Milli v.i_input);
+    get_control_duty_now, mark_changed_control_duty_now: Ratio = |v| i32_in!(Ratio Micro v.duty_now);
+    get_control_torque, mark_changed_control_torque: Torque = |v| i32_in!(Torque Milli v.torque);
+    get_control_position, mark_changed_control_position: Degree = |v| i32_in!(Degree Milli v.position_deg);
+    get_control_observer_error, mark_changed_control_observer_error: Degree =
+        |v| i32_in!(Degree Milli v.observer_error_deg);
+    get_control_speed_true, mark_changed_control_speed_true: AngularVelocity =
+        |v| i32_in!(AngularVelocity Milli rad_per_s(v.rpm_true));
 );
 
-tier!(telemetry, prev_telemetry, mark_telemetry;
-    time_s: f32 => get_telemetry_time_s, mark_changed_telemetry_time_s;
-    amp_hours: f32 => get_telemetry_amp_hours, mark_changed_telemetry_amp_hours;
-    amp_hours_charged: f32 => get_telemetry_amp_hours_charged, mark_changed_telemetry_amp_hours_charged;
-    watt_hours: f32 => get_telemetry_watt_hours, mark_changed_telemetry_watt_hours;
-    watt_hours_charged: f32 => get_telemetry_watt_hours_charged, mark_changed_telemetry_watt_hours_charged;
-    tachometer: i32 => get_telemetry_tachometer, mark_changed_telemetry_tachometer;
-    tachometer_abs: u32 => get_telemetry_tachometer_abs, mark_changed_telemetry_tachometer_abs;
-    v_in: f32 => get_telemetry_v_in, mark_changed_telemetry_v_in;
-    power_in: f32 => get_telemetry_power_in, mark_changed_telemetry_power_in;
-    avg_motor_current: f32 => get_telemetry_avg_motor_current, mark_changed_telemetry_avg_motor_current;
-    avg_input_current: f32 => get_telemetry_avg_input_current, mark_changed_telemetry_avg_input_current;
-    fault: motor_demo_api::Fault => get_telemetry_fault, mark_changed_telemetry_fault;
+tier!(telemetry: TelemetryValues, prev_telemetry, mark_telemetry;
+    get_telemetry_time, mark_changed_telemetry_time: Second = |v| u32_in!(Second Milli v.time_s);
+    get_telemetry_charge_drawn, mark_changed_telemetry_charge_drawn: Coulomb =
+        |v| u32_in!(Coulomb Unit v.amp_hours * SECONDS_PER_HOUR);
+    get_telemetry_charge_returned, mark_changed_telemetry_charge_returned: Coulomb =
+        |v| u32_in!(Coulomb Unit v.amp_hours_charged * SECONDS_PER_HOUR);
+    get_telemetry_energy_drawn, mark_changed_telemetry_energy_drawn: Joule =
+        |v| u32_in!(Joule Unit v.watt_hours * SECONDS_PER_HOUR);
+    get_telemetry_energy_returned, mark_changed_telemetry_energy_returned: Joule =
+        |v| u32_in!(Joule Unit v.watt_hours_charged * SECONDS_PER_HOUR);
+    get_telemetry_tachometer, mark_changed_telemetry_tachometer: i32 = |v| v.tachometer;
+    get_telemetry_tachometer_abs, mark_changed_telemetry_tachometer_abs: u32 = |v| v.tachometer_abs;
+    get_telemetry_v_in, mark_changed_telemetry_v_in: Volt = |v| i32_in!(Volt Milli v.v_in);
+    get_telemetry_power_in, mark_changed_telemetry_power_in: Watt = |v| i32_in!(Watt Centi v.power_in);
+    get_telemetry_avg_motor_current, mark_changed_telemetry_avg_motor_current: Ampere =
+        |v| i32_in!(Ampere Milli v.avg_motor_current);
+    get_telemetry_avg_input_current, mark_changed_telemetry_avg_input_current: Ampere =
+        |v| i32_in!(Ampere Milli v.avg_input_current);
+    get_telemetry_fault, mark_changed_telemetry_fault: motor_demo_api::Fault = |v| v.fault;
 );
 
 /// Setpoints, sim settings and methods
@@ -286,8 +325,8 @@ impl Device {
     async fn get_telemetry_real_time_factor(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<f32, ()> {
-        GetResult::Value(self.real_time_factor)
+    ) -> GetResult<Ratio, ()> {
+        GetResult::Value(Ratio::ratio_f32(self.real_time_factor))
     }
 
     async fn set_control_mode(
@@ -335,8 +374,9 @@ impl Device {
     async fn set_control_duty_target(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        value: f32,
+        value: Ratio,
     ) -> SetResult<()> {
+        let value = value.to_f32();
         if !(-0.95..=0.95).contains(&value) {
             return SetResult::SetError(());
         }
@@ -349,15 +389,16 @@ impl Device {
     async fn get_control_duty_target(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<f32, ()> {
-        GetResult::Value(self.ctl.set.duty)
+    ) -> GetResult<Ratio, ()> {
+        GetResult::Value(i32_in!(Ratio Micro self.ctl.set.duty))
     }
 
     async fn set_control_current_target(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        value: f32,
+        value: Ampere,
     ) -> SetResult<()> {
+        let value = value.to_f32();
         if !value.is_finite() {
             return SetResult::SetError(());
         }
@@ -370,36 +411,38 @@ impl Device {
     async fn get_control_current_target(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<f32, ()> {
-        GetResult::Value(self.ctl.set.current)
+    ) -> GetResult<Ampere, ()> {
+        GetResult::Value(i32_in!(Ampere Milli self.ctl.set.current))
     }
 
-    async fn set_control_erpm_target(
+    async fn set_control_speed_target(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        value: f32,
+        value: AngularVelocity,
     ) -> SetResult<()> {
-        if !value.is_finite() {
+        let erpm = rpm(value.to_f32());
+        if !erpm.is_finite() {
             return SetResult::SetError(());
         }
         self.manual();
-        self.ctl.set.erpm = value;
-        self.mark_changed_control_erpm_target();
+        self.ctl.set.erpm = erpm;
+        self.mark_changed_control_speed_target();
         SetResult::Set
     }
 
-    async fn get_control_erpm_target(
+    async fn get_control_speed_target(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<f32, ()> {
-        GetResult::Value(self.ctl.set.erpm)
+    ) -> GetResult<AngularVelocity, ()> {
+        GetResult::Value(i32_in!(AngularVelocity Milli rad_per_s(self.ctl.set.erpm)))
     }
 
     async fn set_sim_time_scale(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        value: f32,
+        value: Ratio,
     ) -> SetResult<()> {
+        let value = value.to_f32();
         if !(1e-4..=1e3).contains(&value) {
             return SetResult::SetError(());
         }
@@ -410,8 +453,8 @@ impl Device {
     async fn get_sim_time_scale(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<f32, ()> {
-        GetResult::Value(self.time_scale)
+    ) -> GetResult<Ratio, ()> {
+        GetResult::Value(Ratio::ratio_f32(self.time_scale))
     }
 
     async fn set_sim_load(
@@ -481,18 +524,18 @@ impl Device {
         let f = self.motor.faults_mut();
         match fault {
             InjectFault::Clear | InjectFault::Unknown(_) => *f = Faults::NONE,
-            InjectFault::CurrentOffset { phase, amps } => {
+            InjectFault::CurrentOffset { phase, offset } => {
                 if let Some(o) = f.sensor.current_offset_a.get_mut(phase as usize) {
-                    *o = amps;
+                    *o = offset.to_f32();
                 }
             }
             InjectFault::EncoderMissedCounts { probability } => {
-                f.sensor.encoder_missed_count_probability = probability.clamp(0.0, 1.0)
+                f.sensor.encoder_missed_count_probability = probability.to_f32().clamp(0.0, 1.0)
             }
             InjectFault::MissedPulses { probability } => {
-                f.inverter.missed_pulse_probability = probability.clamp(0.0, 1.0)
+                f.inverter.missed_pulse_probability = probability.to_f32().clamp(0.0, 1.0)
             }
-            InjectFault::BusVoltageOffset { volts } => f.sensor.vdc_offset_v = volts,
+            InjectFault::BusVoltageOffset { offset } => f.sensor.vdc_offset_v = offset.to_f32(),
         }
         RpcResult::Ready(())
     }

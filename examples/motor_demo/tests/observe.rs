@@ -69,7 +69,7 @@ async fn each_tier_at_its_rate() {
             LevelRequest {
                 level: Level::Telemetry,
                 // changes 50 times per second, sent each time
-                modes: modes(&["time_s", "watt_hours"], on_change(MS)),
+                modes: modes(&["time", "energy_drawn"], on_change(MS)),
                 budget: None,
             },
         ],
@@ -91,9 +91,9 @@ async fn each_tier_at_its_rate() {
     };
     near("i_q", 1_000.0);
     near("phase", 1_000.0);
-    near("erpm", 100.0);
+    near("speed_electrical", 100.0);
     near("torque", 100.0);
-    near("time_s", 50.0);
+    near("time", 50.0);
     assert_eq!(rate(&stats, "i_a"), 0.0);
     assert_eq!(stats.levels[&Level::Foc].missed, 0);
     // 18 values in one update instead of 18 events
@@ -121,7 +121,7 @@ async fn budget_limits_the_rate() {
     let stats = run(&session, Duration::from_secs(1)).await;
     let foc = &stats.levels[&Level::Foc];
     let bytes_per_s = foc.bytes as f64 / stats.since.elapsed().as_secs_f64();
-    // 21 f32 a millisecond would be ~90 kB/s
+    // 21 values a millisecond would be ~110 kB/s
     assert!(bytes_per_s < 22_000.0, "{bytes_per_s:.0} B/s");
     assert!(bytes_per_s > 15_000.0, "{bytes_per_s:.0} B/s");
     assert!(foc.missed > 0, "{foc:?}");
@@ -166,14 +166,14 @@ async fn fast_forward() {
         &client,
         &[LevelRequest {
             level: Level::Control,
-            modes: modes(&["erpm"], periodic(10 * MS)),
+            modes: modes(&["speed_electrical"], periodic(10 * MS)),
             budget: None,
         }],
     )
     .await
     .unwrap();
     let stats = run(&session, Duration::from_secs(1)).await;
-    let r = rate(&stats, "erpm");
+    let r = rate(&stats, "speed_electrical");
     assert!((r - 500.0).abs() < 75.0, "{r:.0} Hz");
 }
 
@@ -209,7 +209,7 @@ async fn over_udp() {
     let stats = run(&session, Duration::from_secs(1)).await;
     let r = rate(&stats, "v_bus");
     assert!((r - 200.0).abs() < 30.0, "{r:.0} Hz");
-    let r = rate(&stats, "rpm");
+    let r = rate(&stats, "speed");
     assert!((r - 100.0).abs() < 15.0, "{r:.0} Hz");
     // the profile runs: the speed moves
     let erpm: f32 = stats.levels[&Level::Control].props[&5]

@@ -1,6 +1,6 @@
 [package]
 name = "motor_demo_api"
-version = "0.1.0"
+version = "0.2.0"
 publish = false
 edition.workspace = true
 authors.workspace = true
@@ -8,7 +8,9 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-std = ["wire_weaver/std"]
+std = ["wire_weaver/std", "ww_si/std"]
 
 [dependencies]
 wire_weaver.workspace = true
+# the quantity groups the API uses, and the number types its device stores them in
+ww_si = { workspace = true, features = ["time", "electrical", "mechanical", "angle", "dimensionless", "i32", "u32", "f32"] }

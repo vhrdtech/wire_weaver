@@ -13,8 +13,10 @@ use motor_demo::client::MotorDemo;
 use motor_demo::device::{self, Medium, Options};
 use motor_demo::host::{LevelRequest, Session, observe};
 use motor_demo::stats::{Level, PROPS, Stats, find};
+use motor_demo::units::rad_per_s;
 use motor_demo_api::{ControlMode, Load, Preset, Profile};
 use ww_client_server::observe::ObserveMode;
+use ww_si::{Ampere, AngularVelocity, Prefix, Ratio};
 
 #[derive(Parser)]
 #[command(
@@ -288,7 +290,7 @@ async fn run_observe(a: ObserveArgs) -> anyhow::Result<()> {
         }
     };
     setup(&client, &a).await?;
-    let time_scale = client.sim().read_time_scale().read().await?;
+    let time_scale = client.sim().read_time_scale().read().await?.to_f32();
     let session = observe(&client, &requests(&a, time_scale)?).await?;
     print_granted(&session, time_scale);
 
@@ -321,7 +323,7 @@ async fn run_observe(a: ObserveArgs) -> anyhow::Result<()> {
 async fn setup(client: &MotorDemo, a: &ObserveArgs) -> anyhow::Result<()> {
     let sim = client.sim();
     if let Some(s) = a.sim.time_scale {
-        sim.write_time_scale(s).write().await?;
+        sim.write_time_scale(Ratio::ratio_f32(s)).write().await?;
     }
     if let Some(m) = a.sim.motor {
         sim.write_motor(preset(m)).write().await?;
@@ -333,14 +335,22 @@ async fn setup(client: &MotorDemo, a: &ObserveArgs) -> anyhow::Result<()> {
         sim.write_profile(profile(p)).write().await?;
     }
     let control = client.control();
+    // setpoints go as F32 in the base unit, the device takes any prefix and storage
     if let Some(v) = a.erpm {
-        control.write_erpm_target(v).write().await?;
+        let speed = AngularVelocity::new(Prefix::Unit, rad_per_s(v));
+        control.write_speed_target(speed).write().await?;
     }
     if let Some(v) = a.current {
-        control.write_current_target(v).write().await?;
+        control
+            .write_current_target(Ampere::amperes_f32(v))
+            .write()
+            .await?;
     }
     if let Some(v) = a.duty {
-        control.write_duty_target(v).write().await?;
+        control
+            .write_duty_target(Ratio::ratio_f32(v))
+            .write()
+            .await?;
     }
     if let Some(m) = a.mode {
         let m = match m {

@@ -6,7 +6,7 @@
 #[cfg(feature = "std")]
 mod alloc;
 #[cfg(feature = "std")]
-pub use alloc::{HUMAN_DEFINITION_MAX_NODES, StreamFnRef};
+pub use alloc::{HUMAN_DEFINITION_MAX_NODES, StreamFnRef, qualified_name};
 mod common;
 #[cfg(feature = "std")]
 pub use common::COMMON_ERROR;

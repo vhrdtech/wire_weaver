@@ -1190,6 +1190,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#series" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>series</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#type-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Type parameters
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#crate_pathpath" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5027,6 +5049,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#series" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>series</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#type-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Type parameters
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#crate_pathpath" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5176,7 +5220,7 @@
 <p>The order of directives doesn't matter to the parser, but the codebase consistently writes them in this order (and
 so do the examples):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse, ww_repr,
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>discriminants, display, validate, no_future_version|future_version
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>discriminants, display, validate, series, no_future_version|future_version
 </span></code></pre></div>
 <table>
 <thead>
@@ -5209,6 +5253,14 @@ so do the examples):</p>
 <tr>
 <td><code>display</code>, <code>validate</code></td>
 <td><a href="#messages-and-checks">Messages and checks</a></td>
+</tr>
+<tr>
+<td><code>series</code></td>
+<td><a href="#series"><code>series</code></a></td>
+</tr>
+<tr>
+<td>type parameters (<code>struct Timed&lt;T&gt;</code>)</td>
+<td><a href="#type-parameters">Type parameters</a></td>
 </tr>
 <tr>
 <td><code>crate_path</code></td>
@@ -5518,14 +5570,36 @@ function is called with each, so it has to accept both (a type that is the same 
 </span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">shrink_wrap</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">}</span>
 </span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">}</span>
 </span></code></pre></div>
+<h2 id="series"><code>series</code><a class="headerlink" href="#series" title="Permanent link">&para;</a></h2>
+<p>SW-60. Also implements <code>shrink_wrap::series::SeriesColumns</code> for the type (borrowed and owned), so that it can be
+the item of a <code>Series&lt;T&gt;</code> (a list written column by column) or a field of one. A struct's fields are columns in
+declaration order, an enum is a run of its tags and then each data variant's fields. Fields of user types need
+<code>series</code> on their type too.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, series, final_structure)]</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Volt</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">prefix</span><span class="p">:</span><span class="w"> </span><span class="nc">Prefix</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">NumericValue</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<p>What a <code>Series</code> doesn't take in its first version is a compile error naming the field: <code>RefBox</code> (recursive types),
+<code>Result</code>, lists other than of <code>u8</code>, ranges, <code>TailSize</code>; <code>sparse</code> and tuple structs, <code>head_tail</code>. <code>#[series(opaque)]</code>
+on a named field writes it as an opaque run of its own bytes instead, so that any serializable type fits (it then
+needs <code>PartialEq</code>: a value is written again where it changed).</p>
+<h2 id="type-parameters">Type parameters<a class="headerlink" href="#type-parameters" title="Permanent link">&para;</a></h2>
+<p>DER-14. A struct can have type parameters, with bounds next to them (no <code>where</code> clause, no const parameters):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, series, final_structure)]</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Timed</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nc">Second</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<p>Each generated impl bounds the parameters by its own trait (<code>T: SerializeShrinkWrap + DeserializeShrinkWrap&lt;'i&gt;</code>
+for the borrowed side, the owned traits for the owned one, <code>SeriesColumns&lt;'i&gt;</code> with <code>series</code>), and the size of <code>T</code>
+is part of the struct's: <code>Timed&lt;u32&gt;</code> is <code>final_structure</code>, <code>Timed</code> of an evolvable struct holds an <code>Unsized</code> field.
+With a lifetime, <code>Tagged&lt;'i, T&gt;</code> gets the owned <code>TaggedOwned&lt;T&gt;</code>. Enums, <code>fixed_layout</code>, <code>head_tail</code>, <code>sparse</code>,
+<code>display</code> and <code>validate</code> don't take type parameters yet.</p>
 <h2 id="crate_pathpath"><code>crate_path(&lt;path&gt;)</code><a class="headerlink" href="#crate_pathpath" title="Permanent link">&para;</a></h2>
 <p>Generated code refers to <code>shrink_wrap</code> items by path, so no import is needed for the macro, and the names it uses
 (<code>BufReader</code>, <code>Error</code>, <code>ElementSize</code>, ...) never clash with the module's own. The macro finds the crate in
 <code>Cargo.toml</code>: <code>::shrink_wrap</code> (or whatever it is renamed to), or <code>::wire_weaver::shrink_wrap</code> when only
 <code>wire_weaver</code> is a dependency. <code>crate_path(..)</code> overrides that, for a crate that reaches <code>shrink_wrap</code> through some
 other re-export:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Point</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Point</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>When neither crate is a dependency and nothing is given, the names are left unqualified and
 <code>use shrink_wrap::prelude::*</code> is needed.</p>
@@ -5568,6 +5642,11 @@ other re-export:</p>
 <td><code>#[display("..")]</code></td>
 <td>variants, with <code>display</code></td>
 <td>the message instead of the doc line (<a href="#display">above</a>)</td>
+</tr>
+<tr>
+<td><code>#[series(opaque)]</code></td>
+<td>named fields, with <code>series</code></td>
+<td>the field is an opaque run of its own bytes in a <code>Series</code> (<a href="#series">above</a>)</td>
 </tr>
 </tbody>
 </table>

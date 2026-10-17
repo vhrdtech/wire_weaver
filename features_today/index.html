@@ -4946,6 +4946,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../serdes/derive_reference/#cfg-on-enum-variants"><code>#[cfg]</code> on enum variants</a></strong>: Compile a variant out; it keeps its number on the wire.</li>
 <li><strong><a href="../serdes/derive_reference/#ww_repr-repr-enums-only">Checked discriminants</a></strong>: Variant numbers must fit the chosen <code>ww_repr</code>, implicit ones count like in Rust.</li>
 <li><strong><a href="../serdes/derive/#type-mapping">Generic field types</a></strong>: <code>Wrapper&lt;'i, T&gt;</code> and types from <code>macro_rules</code> work as fields.</li>
+<li><strong><a href="../serdes/derive_reference/#type-parameters">Generic structs</a></strong>: <code>struct Timed&lt;T&gt; { t: Second, value: T }</code> derives like any other struct.</li>
 <li><strong><a href="../serdes/shrink_wrap/">Growing writer</a></strong>: <code>BufWriterOwned</code> for hosts, when the size isn't known up front.</li>
 <li><strong><a href="../serdes/showcase/">Writing in place</a></strong>: Builders that write a value straight into the output buffer, and patching a field after the rest is written.</li>
 <li><strong><a href="../serdes/layouts/#fixed_layout-fields-at-fixed-offsets">Fixed layouts</a></strong>: Types with a fixed byte layout get fields at constant offsets, read and written without a parser, and a matching C header.</li>

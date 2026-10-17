@@ -5492,6 +5492,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>tests/generics</code> (property, method argument, inside <code>Timed</code>, a <code>PhantomData</code> marker, dynamic client),
   <code>wire_weaver_core</code> unit tests, <code>ww api tree</code> (<code>docs/types.md#type-aliases</code>). <code>use .. as ..</code> renames are followed
   (API-46).</li>
+<li>✅ <strong>API-47 Resend and resume from inside a multi-unit event</strong> · <code>v0.5</code> — an event of several units (a block, a
+  batch, API-41) may be asked for again from a position inside it: a <code>ResendFrom</code> there, or a resume from a cursor
+  user code confirmed in the middle of it (<code>AckMode::Explicit</code>). The device sends the event that holds the position
+  whole (<code>StreamStore::read</code> returns it for every store), the host's <code>Receiver</code> takes it with
+  <code>Verdict::Accept { skip }</code> (also for ranges it had before a resume), <code>PositionedStream</code> gives the new units. Fixed
+  with it: <code>ResendFrom</code> no longer counts as an acknowledgement on the device (the store kept less than an explicit
+  host had confirmed), acknowledgements and resends are valid up to the highest position sent (a late <code>ResendFrom</code>
+  on a reordering link stalled a backfill), the store is released when the backfill run ends in <code>next_event</code>. Tests
+  <code>ww_stream</code> <code>tests/sim.rs</code> (batches of 1..64 units, a resend from every position inside, a resume cursor inside a
+  batch, chaos with acks inside batches), <code>wire_weaver_client</code> <code>stream_e2e_tests</code>
+  (<code>docs/api/stream_protocol.md#positions-inside-an-event</code>).</li>
 <li>✅ <strong>API-46 Codegen names types by their module path</strong> · <code>v0.5</code> — each struct and enum records the path other crates
   name it by (<code>ItemStruct::path</code> / <code>ItemEnum::path</code> in <code>ww_self</code>, <code>None</code> at the crate root): the shortest one through
   <code>pub mod</code>s and <code>pub use</code> re-exports (by name, renamed, glob); a type re-exported under another name is named that

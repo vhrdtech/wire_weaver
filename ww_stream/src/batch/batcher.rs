@@ -340,20 +340,7 @@ where
     /// [push](Self::push) of every item, for a producer that gets blocks (an ADC DMA half-transfer). Returns the
     /// last seal and the items lost on the way.
     pub fn push_many(&mut self, items: impl IntoIterator<Item = T>) -> (Seal, usize) {
-        let mut last = Seal::No;
-        let mut lost = 0;
-        for item in items {
-            match self.push(&item) {
-                Seal::No => {}
-                seal => {
-                    if let Seal::Lost { items, .. } = seal {
-                        lost += items;
-                    }
-                    last = seal;
-                }
-            }
-        }
-        (last, lost)
+        Push::push_many(self, items)
     }
 
     /// Seals the filling batch now, if it has items (the producer stops for a while).
@@ -394,6 +381,28 @@ impl<T: SeriesStore, const N: usize> BatchSource<T, N> for Consumer<'_, T, N> {
 pub trait Push<T> {
     /// See [Producer::push].
     fn push(&mut self, item: &T) -> Seal;
+
+    /// [push](Self::push) of every item, for a producer that gets blocks (an ADC DMA half-transfer). Returns the
+    /// last seal and the items lost on the way.
+    fn push_many(&mut self, items: impl IntoIterator<Item = T>) -> (Seal, usize)
+    where
+        Self: Sized,
+    {
+        let mut last = Seal::No;
+        let mut lost = 0;
+        for item in items {
+            match self.push(&item) {
+                Seal::No => {}
+                seal => {
+                    if let Seal::Lost { items, .. } = seal {
+                        lost += items;
+                    }
+                    last = seal;
+                }
+            }
+        }
+        (last, lost)
+    }
 }
 
 impl<T, const N: usize> Push<T> for Producer<'_, T, N>

@@ -6,8 +6,8 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Delivery, Multiplicity, PropertyAccess,
-    TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Batching, Delivery, Multiplicity,
+    PropertyAccess, TypeOwned,
 };
 
 pub(crate) fn stream_ser_methods_recursive(
@@ -66,6 +66,20 @@ pub(crate) fn stream_ser_methods_recursive(
         }
         if let ApiItemKindOwned::FlowSink { ty, .. } = &item.kind {
             methods_ts.extend(max_item_bytes(bundle, item.ident.as_str(), ty));
+        }
+        // batched streams are sent by `poll_streams`, producers push items (API-41)
+        if let Some(stream) = item.kind.as_stream_fn()
+            && let Some(batching) = stream.batched
+        {
+            methods_ts.extend(batched_ser_methods(
+                bundle,
+                item.ident.as_str(),
+                stream.ty,
+                batching,
+                no_alloc,
+                is_array,
+            ));
+            continue;
         }
         // streams going out of the device, and observable properties, whose updates are sent as stream data
         let (ty, kind) = match &item.kind {
@@ -422,6 +436,104 @@ fn positioned_ser_methods(
         }
     }
     ts
+}
+
+/// Producer side of a batched stream (API-41): `<name>_push` puts one item into its batches, `<name>_push_many`
+/// several; both O(1) per item, never encoding (`poll_streams` encodes and sends), so they may run in an interrupt.
+/// They take anything that can be pushed into: the stream's `Batched` state when it owns its batcher, the batcher,
+/// or its `Producer` half.
+fn batched_ser_methods(
+    bundle: &ApiBundleOwned,
+    ident: &str,
+    ty: &TypeOwned,
+    batching: Batching,
+    no_alloc: bool,
+    is_array: bool,
+) -> TokenStream {
+    if is_array {
+        // poll_streams refuses it with an error naming it
+        return quote! {};
+    }
+    if ty.is_lifetime(bundle).unwrap() || ty.is_byte_slice(bundle).unwrap() {
+        let e = format!(
+            "batched stream {ident}: its item type borrows (bytes, a string, a vector): a batch needs items of a \
+             bounded size"
+        );
+        return quote! { compile_error!(#e); };
+    }
+    let value_ty = ty_def(bundle, ty, !no_alloc, TyPos::Def).unwrap();
+    let push = Ident::new(&format!("{ident}_push"), Span::call_site());
+    let push_many = Ident::new(&format!("{ident}_push_many"), Span::call_site());
+    match batching {
+        Batching::Timed => {
+            let push_doc = format!(
+                "Put `value`, taken at device time `t`, into the batches of `{ident}`: a copy and two atomic \
+                 operations, never an encode or a wait (an interrupt may call it). `poll_streams` sends the \
+                 batches. Returns whether the batch was sealed, or lost because the event loop didn't keep up."
+            );
+            let push_many_doc = format!(
+                "`{ident}_push` of every `(t, value)`: returns the last seal and the items lost on the way."
+            );
+            quote! {
+                #[doc = #push_doc]
+                #[inline]
+                pub fn #push(
+                    &self,
+                    to: &mut impl ww_stream::batch::Push<ww_stream::batch::Timed<#value_ty>>,
+                    value: #value_ty,
+                    t: ww_stream::Second,
+                ) -> ww_stream::batch::Seal {
+                    to.push(&ww_stream::batch::Timed::new(t, value))
+                }
+
+                #[doc = #push_many_doc]
+                pub fn #push_many(
+                    &self,
+                    to: &mut impl ww_stream::batch::Push<ww_stream::batch::Timed<#value_ty>>,
+                    items: impl IntoIterator<Item = (ww_stream::Second, #value_ty)>,
+                ) -> (ww_stream::batch::Seal, usize) {
+                    to.push_many(items.into_iter().map(|(t, value)| ww_stream::batch::Timed::new(t, value)))
+                }
+            }
+        }
+        Batching::Untimed => {
+            let push_doc = format!(
+                "Put `value` into the batches of `{ident}` (untimed: the item has its own time, or needs none): \
+                 a copy and two atomic operations, never an encode or a wait (an interrupt may call it). \
+                 `poll_streams` sends the batches. Returns whether the batch was sealed, or lost because the \
+                 event loop didn't keep up."
+            );
+            let push_many_doc = format!(
+                "`{ident}_push` of every value: returns the last seal and the items lost on the way."
+            );
+            quote! {
+                #[doc = #push_doc]
+                #[inline]
+                pub fn #push(
+                    &self,
+                    to: &mut impl ww_stream::batch::Push<#value_ty>,
+                    value: #value_ty,
+                ) -> ww_stream::batch::Seal {
+                    to.push(&value)
+                }
+
+                #[doc = #push_many_doc]
+                pub fn #push_many(
+                    &self,
+                    to: &mut impl ww_stream::batch::Push<#value_ty>,
+                    items: impl IntoIterator<Item = #value_ty>,
+                ) -> (ww_stream::batch::Seal, usize) {
+                    to.push_many(items)
+                }
+            }
+        }
+        Batching::Unknown(_) => {
+            let e = format!(
+                "batched stream {ident}: a form of batching this wire_weaver doesn't know, update it"
+            );
+            quote! { compile_error!(#e); }
+        }
+    }
 }
 
 /// Largest item of a sink with flow control in bytes, to check its receive buffer (`SinkCredit::sized_for`).

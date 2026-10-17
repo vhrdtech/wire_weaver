@@ -405,32 +405,49 @@ pub fn gen_server(
     }
 }
 
-/// Reliable streams of the API: name of their handlers (with the trait chain prefix) and absolute path, or an
-/// error message for one that can't be polled.
-fn reliable_streams_recursive(
+/// A stream `poll_streams` sends for: a reliable one, or a batched one of any delivery (API-41).
+struct PolledStream {
+    /// Handler name with the trait chain prefix
+    ident: Ident,
+    path: Vec<u32>,
+    delivery: Delivery,
+    batched: bool,
+}
+
+/// Streams of the API `poll_streams` sends for, or an error message for one it can't send.
+fn polled_streams_recursive(
     api_bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
     prefix: Option<&String>,
     path: &mut Vec<u32>,
     under_array: bool,
-    out: &mut Vec<Result<(Ident, Vec<u32>), String>>,
+    out: &mut Vec<Result<PolledStream, String>>,
 ) {
     for item in &level.items {
         let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
         path.push(item.id.0);
         match &item.kind {
             ApiItemKindOwned::StreamFn {
-                delivery: Delivery::Reliable,
-                ..
-            } => {
+                delivery, batched, ..
+            } if *delivery == Delivery::Reliable || batched.is_some() => {
                 if under_array || is_array {
+                    let what = if batched.is_some() {
+                        "batched"
+                    } else {
+                        "reliable"
+                    };
                     out.push(Err(format!(
-                        "reliable stream {} in a resource array: poll_streams can't send it yet (API-31)",
+                        "{what} stream {} in a resource array: poll_streams can't send it yet (API-31)",
                         item.ident
                     )));
                 } else {
                     let ident = Ident::new(&item.ident, Span::call_site());
-                    out.push(Ok((add_prefix(prefix, &ident), path.clone())));
+                    out.push(Ok(PolledStream {
+                        ident: add_prefix(prefix, &ident),
+                        path: path.clone(),
+                        delivery: *delivery,
+                        batched: batched.is_some(),
+                    }));
                 }
             }
             ApiItemKindOwned::Trait { .. } => {
@@ -439,7 +456,7 @@ fn reliable_streams_recursive(
                     Some(prefix) => format!("{prefix}_{}", item.ident),
                     None => item.ident.clone(),
                 };
-                reliable_streams_recursive(
+                polled_streams_recursive(
                     api_bundle,
                     child,
                     Some(&prefix),
@@ -454,12 +471,14 @@ fn reliable_streams_recursive(
     }
 }
 
-/// `poll_streams` on the server: sends what reliable streams have in their stores, as the send scheduler of
+/// `poll_streams` on the server: encodes sealed batches of batched streams (API-41) and sends those of counted and
+/// plain ones right away, then sends what reliable streams have in their stores, as the send scheduler of
 /// `ww_stream` picks (priority, live before backfill, round-robin), and their queries. Not generated without
-/// reliable streams.
+/// reliable or batched streams. A blocking server gets a blocking one for batched counted and plain streams
+/// (reliable streams need an async server).
 fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
     let mut streams = vec![];
-    reliable_streams_recursive(
+    polled_streams_recursive(
         api_bundle,
         &api_bundle.root,
         None,
@@ -467,10 +486,6 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
         false,
         &mut streams,
     );
-    if streams.is_empty() || !use_async {
-        // a blocking server with reliable streams already got a compile error from its dispatcher
-        return quote! {};
-    }
     let mut errors = TokenStream::new();
     let mut ok = vec![];
     for s in streams {
@@ -479,32 +494,126 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
             Err(e) => errors.extend(quote! { compile_error!(#e); }),
         }
     }
-    let n = ok.len();
-    let state_fns: Vec<Ident> = ok
-        .iter()
-        .map(|(ident, _)| Ident::new(&format!("stream_{ident}"), ident.span()))
-        .collect();
-    let paths: Vec<TokenStream> = ok
-        .iter()
-        .map(|(_, path)| quote! { [#(UNib32(#path)),*] })
-        .collect();
-    let idx = 0..n;
-    quote! {
-        #errors
+    if !use_async {
+        // a blocking server with reliable streams already got a compile error from its dispatcher
+        ok.retain(|s| s.delivery != Delivery::Reliable);
+    }
+    if ok.is_empty() {
+        return errors;
+    }
+    let maybe_async = maybe_quote(use_async, quote! { async });
+    let maybe_await = maybe_quote(use_async, quote! { .await });
+    let state_fn = |s: &PolledStream| Ident::new(&format!("stream_{}", s.ident), s.ident.span());
+    let path_of = |s: &PolledStream| {
+        let path = &s.path;
+        quote! { [#(UNib32(#path)),*] }
+    };
+    let send_with = |closure: TokenStream| {
+        if use_async {
+            quote! { wire_weaver::EventOut::send_with(out, #closure).await }
+        } else {
+            quote! { wire_weaver::BlockingEventOut::send_with_blocking(out, #closure) }
+        }
+    };
+    let any_batched = ok.iter().any(|s| s.batched);
 
-        /// Send what the reliable streams have, between requests: events by priority, the live run before the
-        /// backfill run, round-robin within a priority, up to `budget_bytes` of items (at least one event), and a
-        /// `Query` for a stream whose host was silent. `buf` must hold the biggest item of any reliable stream;
-        /// `now_ms` is any millisecond clock. A stream whose store fails is skipped this turn.
-        pub async fn poll_streams(
-            &mut self,
-            out: &mut impl wire_weaver::EventOut,
-            now_ms: u64,
-            buf: &mut [u8],
-            budget_bytes: usize,
-        ) -> Result<(), wire_weaver::SendError> {
+    // batched counted and plain streams: every sealed batch goes out right away
+    let mut batched_direct = TokenStream::new();
+    // batched reliable streams: sealed batches go into the store
+    let mut batched_store = TokenStream::new();
+    for s in ok.iter().filter(|s| s.batched) {
+        let state_fn = state_fn(s);
+        let path = path_of(s);
+        match s.delivery {
+            Delivery::Counted => {
+                let send = send_with(quote! {
+                    |scratch| {
+                        ww_client_server::stream::ser_stream_item_event(scratch, &path, &head, |b: &mut [u8]| {
+                            if bytes.len() > b.len() {
+                                return Err(ShrinkWrapError::OutOfBoundsWriteRawSlice);
+                            }
+                            b[..bytes.len()].copy_from_slice(bytes);
+                            Ok(bytes.len())
+                        })
+                        .map(|bytes| bytes.len())
+                    }
+                });
+                batched_direct.extend(quote! {
+                    loop {
+                        let state = self.#state_fn()#maybe_await;
+                        let max_age = Some(state.max_age_us() as u64);
+                        // a batch the series writer can't write stays sealed until the next turn
+                        let Ok(Some((head, bytes))) = state.poll(now_us, max_age, scratch, buf) else {
+                            break;
+                        };
+                        let path = #path;
+                        let r = #send;
+                        if let Err(e) = r {
+                            self.#state_fn()#maybe_await.stream.unsent(&head);
+                            return Err(e);
+                        }
+                    }
+                });
+            }
+            Delivery::Plain => {
+                let send = send_with(quote! {
+                    |scratch| {
+                        ww_client_server::stream::ser_stream_data_event(scratch, &path, |b: &mut [u8]| {
+                            if bytes.len() > b.len() {
+                                return Err(ShrinkWrapError::OutOfBoundsWriteRawSlice);
+                            }
+                            b[..bytes.len()].copy_from_slice(bytes);
+                            Ok(bytes.len())
+                        })
+                        .map(|bytes| bytes.len())
+                    }
+                });
+                batched_direct.extend(quote! {
+                    loop {
+                        let state = self.#state_fn()#maybe_await;
+                        let max_age = Some(state.max_age_us() as u64);
+                        let Ok(Some((_items, bytes))) = state.poll(now_us, max_age, scratch, buf) else {
+                            break;
+                        };
+                        let path = #path;
+                        #send?;
+                    }
+                });
+            }
+            Delivery::Reliable => {
+                batched_store.extend(quote! {
+                    {
+                        let state = self.#state_fn().await;
+                        let max_age = Some(state.max_age_us() as u64);
+                        // losses are counted in the stream, a store error shows in its status
+                        let _ = state.poll(now_us, max_age, scratch, buf).await;
+                    }
+                });
+            }
+        }
+    }
+
+    let reliable: Vec<&PolledStream> = ok
+        .iter()
+        .filter(|s| s.delivery == Delivery::Reliable)
+        .collect();
+    let reliable_part = if reliable.is_empty() {
+        quote! {}
+    } else {
+        let n = reliable.len();
+        let states: Vec<TokenStream> = reliable
+            .iter()
+            .map(|s| {
+                let state_fn = state_fn(s);
+                let inner = maybe_quote(s.batched, quote! { .stream });
+                quote! { self.#state_fn().await #inner }
+            })
+            .collect();
+        let paths: Vec<TokenStream> = reliable.iter().map(|s| path_of(s)).collect();
+        let idx = 0..n;
+        quote! {
             #(
-                if let Some(sideband) = self.#state_fns().await.poll_query(now_ms) {
+                if let Some(sideband) = #states.poll_query(now_ms) {
                     let path = #paths;
                     wire_weaver::EventOut::send_with(out, |scratch| {
                         ser_ok_event(scratch, 0, EventKind::StreamSideband { path: RefVec::Slice { slice: &path }, sideband })
@@ -515,14 +624,14 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
             let mut sched = ww_stream::sched::Scheduler::<#n>::new(budget_bytes);
             sched.start_turn();
             loop {
-                let ready = [#(self.#state_fns().await.ready()),*];
+                let ready = [#(#states.ready()),*];
                 let Some((i, run)) = sched.pick(&ready) else {
                     break;
                 };
                 let sent = match i {
                     #(
                         #idx => {
-                            let ev = match self.#state_fns().await.next_event(run, buf).await {
+                            let ev = match #states.next_event(run, buf).await {
                                 Ok(Some(ev)) => ev,
                                 Ok(None) | Err(_) => {
                                     sched.skip(i, run);
@@ -547,6 +656,72 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
                 };
                 sched.sent(sent);
             }
+        }
+    };
+    let (scratch_arg, now_us, scratch_doc) = if any_batched {
+        (
+            quote! { scratch: &mut ww_stream::batch::Scratch<SCRATCH>, },
+            quote! { let now_us = now_ms.saturating_mul(1000); },
+            quote! {
+                ///
+                /// Batched streams (API-41): a batch is sealed once its first item is as old as the host allows (seen
+                /// at a call, so call it at least that often), and encoded once into `buf` (so a batch is at most
+                /// `buf.len()` bytes, leave room for the event's header in the link's messages); counted and plain
+                /// ones are sent right away, reliable ones go into the store. `scratch` is where a batch's items
+                /// are rebuilt while it is encoded, one for every batched stream:
+                /// `Scratch<{ scratch_bytes::<Item>(N) }>` of the biggest `N` items.
+            },
+        )
+    } else {
+        (quote! {}, quote! {}, quote! {})
+    };
+    // without reliable streams the scheduler's inputs go unused
+    let unused = maybe_quote(
+        reliable.is_empty(),
+        quote! { let _ = (now_ms, budget_bytes); },
+    );
+    let generics = if any_batched {
+        quote! { <const SCRATCH: usize> }
+    } else {
+        quote! {}
+    };
+    let (out_bound, budget_doc) = if use_async {
+        (
+            quote! { impl wire_weaver::EventOut },
+            quote! {
+                /// Send what the reliable streams have, between requests: events by priority, the live run before the
+                /// backfill run, round-robin within a priority, up to `budget_bytes` of items (at least one event), and a
+                /// `Query` for a stream whose host was silent. `buf` must hold the biggest item of any reliable stream;
+                /// `now_ms` is any millisecond clock. A stream whose store fails is skipped this turn.
+            },
+        )
+    } else {
+        (
+            quote! { impl wire_weaver::BlockingEventOut },
+            quote! {
+                /// Send the batches of the batched streams, between requests; `now_ms` is any millisecond clock.
+                /// `budget_bytes` is for reliable streams, which a blocking server doesn't have.
+            },
+        )
+    };
+    quote! {
+        #errors
+
+        #budget_doc
+        #scratch_doc
+        pub #maybe_async fn poll_streams #generics (
+            &mut self,
+            out: &mut #out_bound,
+            now_ms: u64,
+            buf: &mut [u8],
+            budget_bytes: usize,
+            #scratch_arg
+        ) -> Result<(), wire_weaver::SendError> {
+            #unused
+            #now_us
+            #batched_direct
+            #batched_store
+            #reliable_part
             Ok(())
         }
     }
@@ -1529,6 +1704,17 @@ fn handle_stream_fn(
     }
     // reliable streams' methods that touch the store are async
     let store_await = maybe_quote(delivery == Delivery::Reliable, quote! { .await });
+    // a batched stream's state is a `ww_stream::batch::Batched`: the delivery state is in its `stream` (API-41)
+    let batched = stream.batched.is_some();
+    let inner = maybe_quote(batched, quote! { .stream });
+    let grant = maybe_quote(
+        batched,
+        quote! {
+            let granted = self.#state_fn(#idx)#maybe_await.grant_max_age(max_age_us.as_ref().map(|a| a.0));
+        },
+    );
+    let with_granted = maybe_quote(batched, quote! { .with_max_age_us(Some(granted)) });
+    let max_age_arg = maybe_quote(batched, quote! { max_age_us, });
 
     let args: Vec<ArgumentOwned> = stream.args.to_vec();
     let (args_des, args_list) = des_args(mod_ident, ident, &args, cx.no_alloc, error_seq);
@@ -1554,21 +1740,28 @@ fn handle_stream_fn(
         }
     };
     let new_session = match delivery {
+        Delivery::Plain if batched => quote! {
+            #grant
+            self.#state_fn(#idx)#maybe_await.stream.open();
+            #closed_opened #with_granted
+        },
         Delivery::Plain => quote! {},
         Delivery::Counted => quote! {
+            #grant
             let session = self.new_stream_session();
-            self.#state_fn(#idx)#maybe_await.open(session).to_wire(&[])
+            self.#state_fn(#idx)#maybe_await #inner .open(session).to_wire(&[]) #with_granted
         },
         Delivery::Reliable => quote! {
+            #grant
             let session = self.new_stream_session();
-            match self.#state_fn(#idx).await.open(session).await {
-                Ok(opened) => opened.to_wire(&[]),
+            match self.#state_fn(#idx).await #inner .open(session).await {
+                Ok(opened) => opened.to_wire(&[]) #with_granted,
                 Err(_) => return Err(Error::new(#es_store, ErrorKind::StreamStoreFailed)),
             }
         },
     };
     let open_state = match (delivery, stream.return_ty.is_some()) {
-        (Delivery::Plain, _) => quote! { let opened = #closed_opened; },
+        (Delivery::Plain, _) if !batched => quote! { let opened = #closed_opened; },
         (_, false) => quote! { let opened = { #new_session }; },
         // The handler's result may borrow from `self` (an error type with a lifetime, API-35): take the `Ok` value
         // out of it before the stream's state is touched, so the borrow ends on that path.
@@ -1583,7 +1776,7 @@ fn handle_stream_fn(
     let ev_kind_builder = cx.prepare_event_kind_builder();
     let es_open = error_seq.next();
     let open = quote! {
-        RequestKind::StreamOpen { resume: None, #maybe_args } => {
+        RequestKind::StreamOpen { resume: None, #max_age_arg #maybe_args } => {
             #args_des
             match self.#prefixed_ident(cx, #idx #args_list)#maybe_await {
                 RpcResult::Ready(output) => {
@@ -1616,19 +1809,21 @@ fn handle_stream_fn(
             }
         };
         quote! {
-            RequestKind::StreamOpen { resume: Some(cursor), .. } => {
-                let r = self.#state_fn(#idx)#maybe_await.resume(*cursor)#store_await;
+            RequestKind::StreamOpen { resume: Some(cursor), #max_age_arg .. } => {
+                #grant
+                let r = self.#state_fn(#idx)#maybe_await #inner .resume(*cursor)#store_await;
                 let opened = #resume_result.map_err(|kind| Error::new(#es_resume, kind))?;
                 #ev_kind_builder
-                opened.to_wire(&[]).ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
+                opened.to_wire(&[]) #with_granted .ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
                 Ok(WrAction::WrittenOk(event_kind_builder))
             }
         }
     };
-    let detach = maybe_quote(
-        delivery != Delivery::Plain,
-        quote! { self.#state_fn(#idx)#maybe_await.detach(); },
-    );
+    let detach = match delivery {
+        Delivery::Plain if batched => quote! { self.#state_fn(#idx)#maybe_await.stream.close(); },
+        Delivery::Plain => quote! {},
+        _ => quote! { self.#state_fn(#idx)#maybe_await #inner .detach(); },
+    };
     let close = quote! {
         RequestKind::StreamSideband { sideband: StreamSideband::Close } => {
             #detach
@@ -1667,7 +1862,7 @@ fn handle_stream_fn(
             RequestKind::StreamSideband {
                 sideband: sideband @ (StreamSideband::Ack { .. } | StreamSideband::ResendFrom { .. })
             } => {
-                self.#state_fn(#idx).await.on_host_sideband(sideband).await
+                self.#state_fn(#idx).await #inner .on_host_sideband(sideband).await
                     .map_err(|_| Error::new(#es_store, ErrorKind::StreamStoreFailed))?;
                 Ok(WrAction::Acknowledged)
             }
@@ -1680,7 +1875,7 @@ fn handle_stream_fn(
         let ser_status = ser_value(cx.multi_req, quote! { status }, error_seq);
         quote! {
             RequestKind::Read => {
-                let status: ww_client_server::stream::StreamStatus = self.#state_fn(#idx)#maybe_await.status();
+                let status: ww_client_server::stream::StreamStatus = self.#state_fn(#idx)#maybe_await #inner .status();
                 #ev_kind_builder
                 #ser_status
                 Ok(WrAction::WrittenOk(event_kind_builder))

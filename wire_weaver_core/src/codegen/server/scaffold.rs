@@ -12,7 +12,7 @@ use convert_case::{Case, Casing};
 use std::fmt::Write;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Delivery, FlowControl,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Batching, Delivery, FlowControl,
     Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
 };
 
@@ -530,7 +530,7 @@ impl Scaffold<'_> {
     }
 
     /// A stream (device to host) as a stream function: its open handler, `close_`, `sideband_` for plain ones,
-    /// and the state accessor and field of a counted or reliable one.
+    /// and the state accessor and field of a counted, reliable or batched one.
     fn stream_fn(
         &mut self,
         item: &ApiItemOwned,
@@ -564,36 +564,58 @@ impl Scaffold<'_> {
              /// The host closed the stream.\n\
              {maybe_async}fn close_{name}(&mut self, {cx}{idx}) {{}}\n",
         )?;
-        let state = match stream.delivery {
-            Delivery::Plain => {
-                writeln!(
-                    self.handlers,
-                    "{maybe_async}fn sideband_{name}(&mut self, {cx}{idx}_sideband: ww_client_server::StreamSideband) -> Option<ww_client_server::StreamSideband> {{\n\
-                     // TODO: None sends no reply\n\
-                     None\n\
-                     }}\n",
-                )?;
+        if stream.delivery == Delivery::Plain {
+            writeln!(
+                self.handlers,
+                "{maybe_async}fn sideband_{name}(&mut self, {cx}{idx}_sideband: ww_client_server::StreamSideband) -> Option<ww_client_server::StreamSideband> {{\n\
+                 // TODO: None sends no reply\n\
+                 None\n\
+                 }}\n",
+            )?;
+            if stream.batched.is_none() {
                 return Ok(());
             }
-            Delivery::Counted => "ww_stream::tx::Counted",
-            Delivery::Reliable => "ww_stream::tx::Reliable<ww_stream::store::RamRing<4096>>",
+        }
+        let (delivery_state, kind, keeps) = match stream.delivery {
+            Delivery::Counted => ("ww_stream::tx::Counted", "counted", "positions, sessions"),
+            Delivery::Reliable => (
+                "ww_stream::tx::Reliable<ww_stream::store::RamRing<4096>>",
+                "reliable",
+                "positions, sessions, store",
+            ),
+            _ => ("ww_stream::batch::Plain", "plain", "open or not"),
         };
-        self.positioned = true;
+        let (state, kind, keeps) = match stream.batched {
+            Some(batching) => {
+                let item = self.ty(stream.ty, false)?;
+                let item = if batching == Batching::Untimed {
+                    item
+                } else {
+                    format!("ww_stream::batch::Timed<{item}>")
+                };
+                (
+                    // items per batch: the device's choice, the host doesn't know it
+                    format!("ww_stream::batch::Batched<{delivery_state}, {item}, {DEFAULT_BATCH}>"),
+                    format!("batched {kind}"),
+                    format!(
+                        "{keeps}, batches of its items; `Batched::new(.., ww_stream::batch::DEFAULT_POLICY)`"
+                    ),
+                )
+            }
+            None => (
+                delivery_state.to_string(),
+                kind.to_string(),
+                keeps.to_string(),
+            ),
+        };
+        if stream.delivery != Delivery::Plain {
+            self.positioned = true;
+        }
         let body = if index_len == 0 {
             writeln!(
                 self.fields,
-                "/// State of the {} stream `{name}` (positions, sessions{})\n\
+                "/// State of the {kind} stream `{name}` ({keeps})\n\
                  pub {name}_stream: {state},",
-                if stream.delivery == Delivery::Counted {
-                    "counted"
-                } else {
-                    "reliable"
-                },
-                if stream.delivery == Delivery::Counted {
-                    ""
-                } else {
-                    ", store"
-                },
             )?;
             format!("&mut self.{name}_stream")
         } else {
@@ -693,3 +715,7 @@ fn doc_line(line: &str) -> String {
         format!(" {line}")
     }
 }
+
+/// Items per batch the scaffold writes into a batched stream's state, `ww_stream::batch::DEFAULT_BATCH` (this crate
+/// doesn't depend on `ww_stream`).
+const DEFAULT_BATCH: usize = 32;

@@ -176,6 +176,40 @@ pub fn ser_stream_item_event<'a>(
     Ok(&scratch[..end])
 }
 
+/// Serialize an [EventKind::StreamData](crate::EventKind::StreamData) event of the plain stream at `path` into
+/// `scratch`, as [ser_stream_item_event] does for positioned streams: `item` writes the value's bytes, which keep
+/// their own sizes. Used by `poll_streams` for plain batched streams (API-41).
+pub fn ser_stream_data_event<'a>(
+    scratch: &'a mut [u8],
+    path: &[UNib32],
+    item: impl FnOnce(&mut [u8]) -> Result<usize, Error>,
+) -> Result<&'a [u8], Error> {
+    use crate::EventKindDiscriminants;
+    use crate::builder::{EventBuilder, EventKindBuilder};
+    let mut header_buf = [0u8; 64];
+    let mut wr = BufWriter::new(&mut header_buf);
+    let event_builder = EventBuilder::new(0, &mut wr)?;
+    let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+    wr.write(&RefVec::Slice { slice: path })?;
+    event_kind_builder.finish_with_kind(EventKindDiscriminants::StreamData, &mut wr);
+    event_builder.finish(true, &mut wr);
+    wr.align_byte();
+    let head_len = wr.pos().0;
+    let header = wr.finish_and_take()?;
+    if head_len > scratch.len() {
+        return Err(Error::OutOfBoundsWriteRawSlice);
+    }
+    let item_len = item(&mut scratch[head_len..])?;
+    let sizes = &header[head_len..];
+    let end = head_len + item_len + sizes.len();
+    if end > scratch.len() {
+        return Err(Error::OutOfBoundsWriteRawSlice);
+    }
+    scratch[..head_len].copy_from_slice(&header[..head_len]);
+    scratch[head_len + item_len..end].copy_from_slice(sizes);
+    Ok(&scratch[..end])
+}
+
 /// State of a stream, the answer to a [RequestKind::Read](crate::RequestKind::Read) on its path (API-31): whether a
 /// host has it open, its session and positions, and what its store holds. Evolvable, fields may be appended.
 #[derive_shrink_wrap(
@@ -646,6 +680,28 @@ mod tests {
             panic!()
         };
         assert_eq!(<(u8, &str)>::from_ww_bytes(data.0).unwrap(), item);
+    }
+
+    #[test]
+    fn stream_data_event_matches_derived() {
+        let path = [UNib32(3)];
+        let item: (u8, &str) = (9, "batch");
+        let mut ibuf = [0u8; 32];
+        let item_bytes = item.to_ww_bytes(&mut ibuf).unwrap().to_vec();
+        let event = Event {
+            seq: UVlq32(0),
+            result: Ok(EventKind::StreamData {
+                path: RefVec::Slice { slice: &path },
+                data: TailBytes(&item_bytes),
+            }),
+        };
+        let mut buf = [0u8; 64];
+        let derived = event.to_ww_bytes(&mut buf).unwrap().to_vec();
+        let mut buf = [0u8; 64];
+        let built =
+            ser_stream_data_event(&mut buf, &path, |b| item.to_ww_bytes(b).map(|b| b.len()))
+                .unwrap();
+        assert_eq!(built, derived);
     }
 
     #[test]

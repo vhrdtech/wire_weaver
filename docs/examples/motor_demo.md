@@ -90,6 +90,9 @@ The device's clock is simulated time, one PWM period (40 µs) per step; simulate
 2. every value of a tier that ran and changed is marked, `mark_changed_<name>()`, so `change:` observers get it;
 3. `poll_properties(out, (), now_us, buf)` sends what is due, with `now_us` the simulated microseconds.
 
+Messages are up to 4 KiB (`MAX_MESSAGE_LEN`) each way, the in-process and UDP buffers sized from it: room for the
+whole `foc` level batched, a `Series` of 32 values per property is about 1.3 kB.
+
 `ObserveLimits::min_period_us` is one PWM period, so the 25 kHz tier can be observed at every step. Periods, the
 timestamps and the budgets are in device time: with `time_scale` 0.01, `every:40us` arrives at 250 Hz real, and the
 CLI converts `--budget` from real bytes per second. When a step can't keep up, the simulation falls behind instead of

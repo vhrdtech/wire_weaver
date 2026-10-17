@@ -36,8 +36,9 @@ use ww_si::{
 
 /// One PWM period, simulated µs.
 pub const STEP_US: u64 = 1_000_000 / PWM_HZ as u64;
-/// Longest message the device takes or sends.
-pub const MAX_MESSAGE_LEN: usize = 1024;
+/// Longest message the device takes or sends: room for an update of the whole `foc` level batched (a `Series` of 32
+/// values of each of its 21 properties is about 1.3 kB).
+pub const MAX_MESSAGE_LEN: usize = 4096;
 
 /// Observe limits of the demo, in simulated time: one PWM period is the shortest period, so the 25 kHz tier can be
 /// observed at its full rate (when the link keeps up), 20 kB/s per level when the host doesn't ask for a budget.
@@ -810,7 +811,7 @@ async fn run<Tx: MessageTx, Rx: MessageRx>(
     device: &mut Device,
     stop: &AtomicBool,
 ) {
-    let mut buf = [0u8; 512];
+    let mut buf = [0u8; MAX_MESSAGE_LEN];
     let mut tick = tokio::time::interval(Duration::from_millis(1));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut pace = Pace::new(Instant::now(), device.steps, device.time_scale);

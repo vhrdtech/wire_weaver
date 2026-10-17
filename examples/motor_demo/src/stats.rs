@@ -122,7 +122,7 @@ macro_rules! levels {
                 let mut present_ = vec![];
                 $(present($index, $unit, &u.$name, &mut present_);)*
                 let sent = crate::device::api_impl::$Update { $($name: u.$name,)* };
-                let mut buf = [0u8; 512];
+                let mut buf = [0u8; crate::device::MAX_MESSAGE_LEN];
                 let data = sent.to_ww_bytes(&mut buf).map(|b| b.to_vec()).unwrap_or_default();
                 Carried { present: present_, data }
             }

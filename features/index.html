@@ -2388,6 +2388,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2771,6 +2775,60 @@
     
   
   ww_memory
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_block/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_block
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_sd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_sd
 
     
   </span>
@@ -6060,6 +6118,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   of P2628 (repo <code>logring</code>), usable by any recorder. API crate, snapshot and docs page
   <code>docs/std_library/ww_recorder.md</code> done, the scaffold compiles; the first server is the logring's (rePort
   integration).</li>
+<li>🚧 <strong>STD-39 <code>ww_block</code></strong> · <code>v0.5.x</code> — a block device over WireWeaver (SD card, eMMC, flash): <code>BlockDevice</code> with
+  <code>geometry</code> (block size and count, blocks per call, erase unit, erased value), free <code>read</code> and device-side <code>crc</code>
+  (CRC-32, <code>ww_block::crc32</code>), <code>claim</code> / <code>release</code> of a write lease that stops the card's own user, <code>write</code> with a
+  CRC and <code>erase</code> under it, and the optional <code>bulk</code> group: the <code>write_runs</code> credit sink acknowledged on the counted
+  <code>written</code> stream, and the counted <code>read_runs</code> stream. Who may claim is the firmware's choice per link
+  (<code>Common(Refused)</code>). Tier T1 of P2628 (logring's PC <code>LinkMedium</code>, S2 prepare on the PC). API crate, snapshot,
+  docs page <code>docs/std_library/ww_block.md</code> and the round trip <code>tests/block_sd</code> done, the scaffold compiles; the
+  first server is the logring's.</li>
+<li>🚧 <strong>STD-40 <code>ww_sd</code></strong> · <code>v0.5.x</code> — raw SD card access over WireWeaver: <code>SdCard</code> with <code>capabilities</code>, <code>state</code>, the
+  <code>detect</code> stream, raw <code>registers</code> (CID, CSD, OCR, RCA, SCR, SD Status), <code>reinit</code> with a per-step <code>InitReport</code>, and
+  <code>command</code>: one raw command with an optional data phase, answering response bytes, <code>CardStatus</code> bits, the
+  <code>Outcome</code> and timing. Commands are <code>Free</code>, need the <code>ww_block</code> lease, or are <code>Restricted</code> (CMD42, CMD27) unless
+  the firmware builds with <code>raw-sd-unrestricted</code> (<code>ww_sd::check_access</code>). Tier T0 of P2628. API crate, snapshot,
+  docs page <code>docs/std_library/ww_sd.md</code> and the round trip <code>tests/block_sd</code> done, the scaffold compiles; a device
+  needs a raw-command hook in its SD driver (not checked yet for embassy-stm32's <code>Sdmmc</code>).</li>
 <li>💡 <strong>STD-33 <code>ww_settings</code> single-sector mode</strong> — a store in one sector with a RAM copy, for a part with exactly
   one sector to spare; a power cut during its erase loses every group (the window is the whole erase, 1 to 4 s on a
   128 KiB sector, see <code>docs/api/settings.md#parts-with-big-sectors</code>). Only if a device needs it.</li>

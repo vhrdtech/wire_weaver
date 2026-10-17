@@ -2508,6 +2508,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2894,6 +2898,60 @@
     
   
   ww_memory
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_block/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_block
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_sd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_sd
 
     
   </span>
@@ -4920,6 +4978,10 @@ queried at runtime, one <code>configure()</code> call per bus, common errors, ty
   playback, DAC waveforms</li>
 <li><a href="../ww_memory/"><code>ww_memory</code></a> — <code>Memory8</code>, <code>Memory32</code>: read and write words at addresses, optional watches, for
   register maps and raw memory access</li>
+<li><a href="../ww_block/"><code>ww_block</code></a> — <code>BlockDevice</code>: read, CRC, erase and write an SD card, eMMC or flash by block; writes
+  under a lease that stops the card's own user, optional bulk sink and read stream</li>
+<li><a href="../ww_sd/"><code>ww_sd</code></a> — <code>SdCard</code>: an SD card's state, raw registers, init with a per-step report, raw commands with
+  response, status bits and timing</li>
 </ul>
 <h2 id="device-contract">Device contract<a class="headerlink" href="#device-contract" title="Permanent link">&para;</a></h2>
 <p>The crates every device implements, whatever it does, so generic tools have one place to look. The

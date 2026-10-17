@@ -157,6 +157,9 @@
         <loc>https://ww.vhrd.tech/std_library/ww_adc/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_block/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/ww_board_info/</loc>
       </url>
       <url>
@@ -221,6 +224,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_recorder/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_sd/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_self/</loc>

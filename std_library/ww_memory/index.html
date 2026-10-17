@@ -19,7 +19,7 @@
         <link rel="prev" href="../ww_signal_generator/">
       
       
-        <link rel="next" href="../ww_can_bus_reference/">
+        <link rel="next" href="../ww_block/">
       
       
         
@@ -2397,6 +2397,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2859,6 +2863,60 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_block/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_block
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_sd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_sd
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -4822,6 +4880,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -4876,6 +4938,8 @@ optionally watch addresses for changes. It is <code>no_std</code> by default and
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_memory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span>
 </span></code></pre></div>
+<p>A card or flash read and written in whole blocks (geometry and erase units, a write lease, CRCs, bulk transfers) is a
+different contract: that is <a href="../ww_block/"><code>ww_block</code></a>.</p>
 <h2 id="traits">Traits<a class="headerlink" href="#traits" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4997,13 +5061,13 @@ the variants it returns with <code>#[errors(..)]</code>.</p>
         
         
           
-          <a href="../ww_can_bus_reference/" class="md-footer__link md-footer__link--next" aria-label="Next: ww_can_bus reference">
+          <a href="../ww_block/" class="md-footer__link md-footer__link--next" aria-label="Next: ww_block">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ww_can_bus reference
+                ww_block
               </div>
             </div>
             <div class="md-footer__button md-icon">

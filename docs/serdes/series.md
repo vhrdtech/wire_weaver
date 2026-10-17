@@ -130,6 +130,53 @@ field gets its own column at the end of the group, which an older reader skips a
 data fills from the default; a new enum variant an older reader doesn't know fails the same way a plain decode of
 that item would.
 
+## Collecting items on a device: `SeriesStore`
+
+SW-62. A device that sends items in batches keeps them somewhere until the batch is written. `SeriesStore` is that
+place: room for `N` items as a struct of arrays, one array per leaf field, which `#[derive_shrink_wrap(.., series)]`
+implements next to `SeriesColumns`:
+
+```rust
+use shrink_wrap::series::SeriesStore;
+
+let mut store = Timed::<Ampere>::empty_store::<32>();       // in a static or the device's state
+Timed::set(&mut store, k, &Timed::new(t, Ampere::milli(i))); // item k of the batch
+let item: Timed<Ampere> = Timed::get(&store, k);
+```
+
+Without padding between fields of different sizes it takes less RAM than the items themselves: `Store<32>` of
+`Timed<Ampere>` is 12 bytes per item with `ww_numeric`'s `U8`, `U32`, `I32` and `F32` enabled, where
+`[Timed<Ampere>; 32]` takes 24. What each kind of type keeps:
+
+| Type                          | Store                                                                            |
+|-------------------------------|----------------------------------------------------------------------------------|
+| numbers, `bool`, strings      | an array of themselves                                                           |
+| struct, tuple                 | the stores of its fields                                                         |
+| `[X; M]`                      | `M` stores of `X`                                                                |
+| `Option<X>`                   | an array of flags and the store of `X`                                           |
+| enum                          | an array of discriminants (`u8`, `u16` or `u32`, `u32` with a `#[future_version]`) and the stores of every data variant's fields |
+| `PhantomData`                 | nothing                                                                          |
+| `ww_numeric::NumericValue`    | by hand: the variant (a byte) and one array as wide as the widest variant enabled |
+
+An enum's store takes its discriminant plus the fields of all its variants per item, so for an enum with several
+data variants it can be bigger than the enum itself (`enum { A(u32), B(u32) }`: 9 bytes against 8).
+`series(no_store)` leaves the derived store out, to write a better one by hand as `NumericValue` does
+(`ww_numeric/src/store.rs`): one payload array for all its variants. A type with a `#[series(opaque)]` field gets no
+store, and a type with a field of such a type needs `series(no_store)` too.
+
+## Size bounds
+
+The batch has to fit into the message it goes out in, so a device needs to know how big a `Series` of `n` items can
+get without writing it. `SeriesColumns::MAX_ITEM_BITS` and `MAX_FIXED_BITS` are the worst case of a type's group,
+per item and per series: every column at its longest code under any `CodecPolicy` (not only the one `SMALLEST`
+picks), every run changing at every item. `Series::<T>::max_bytes(n)` puts them together with the count and the
+padding. Strings, byte lists and opaque fields have no bound (`None`).
+
+The bound is far from what real data takes: 32 samples of `Timed<Volt>` at a regular clock are 22 bytes, against a
+bound of 570 with the number types up to 32 bits and 1272 with every one enabled (`NumericValue` is bounded by its
+widest variant). It tells when a batch is safely below a budget, and a measurement (`BitCounter`) is needed only
+close to it.
+
 ## Introspection and dynamic clients
 
 A `Series<T>` in an API is in its introspection data as `Series<T>` (`ww_self::Type::Series`, with `T` as written and

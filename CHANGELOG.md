@@ -113,6 +113,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `shrink_wrap::ArrayString<N>` / `ArrayVec<T, N>` (SW-57): owned, no-alloc string/list types with the same wire
   bytes as `&str`/`String` and `Vec<T>`, for owned no-alloc fields (e.g. settings values, `value_on_changed` of a
   string/list property). shrink_wrap/CHANGELOG.md, section Unreleased.
+- shrink_wrap: `SeriesStore` and series size bounds (SW-62), for batched streams (API-41): a device keeps a batch
+  as a struct of arrays (`Timed<Ampere>` in 12 bytes per item where the items take 24), derived with `series`, by
+  hand for `ww_numeric::NumericValue`; `Series::max_bytes(n)` bounds a batch before it is written. A `series` type
+  nesting a type without a store needs `series(no_store)`; see `shrink_wrap/CHANGELOG.md`.
 
 ### Changed
 

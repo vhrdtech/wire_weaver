@@ -12,6 +12,12 @@ struct IvSample {
     i: Ampere,
 }
 
+/// `bytes` are within the bound of a `Series` of `n` items of `T` (SW-62): quantities are bounded.
+fn within_bound<T: for<'i> shrink_wrap::series::SeriesColumns<'i>>(n: usize, bytes: &[u8]) {
+    let max = Series::<T>::max_bytes(n).expect("quantities have a bound");
+    assert!(bytes.len() <= max, "{} bytes, bound {max}", bytes.len());
+}
+
 #[test]
 fn design_example() {
     let items: Vec<IvSample> = [3300u16, 3301, 3301, 3299]
@@ -23,6 +29,7 @@ fn design_example() {
         })
         .collect();
     let bytes = Series::new(&items).to_ww_bytes_owned().unwrap();
+    within_bound::<IvSample>(items.len(), &bytes);
     assert_eq!(
         bytes,
         [
@@ -53,6 +60,8 @@ fn timed_samples() {
     let bytes = Series::new(&items).to_ww_bytes_owned().unwrap();
     let untimed: Vec<IvSample> = items.iter().map(|t| t.value).collect();
     let without = Series::new(&untimed).to_ww_bytes_owned().unwrap();
+    within_bound::<Timed<IvSample>>(items.len(), &bytes);
+    within_bound::<IvSample>(untimed.len(), &without);
     // the time column: its prefix and storage runs, the header, the first value and the step
     assert!(
         bytes.len() <= without.len() + 10,
@@ -78,6 +87,7 @@ fn timed_volt_bytes() {
         })
         .collect();
     let bytes = Series::new(&items).to_ww_bytes_owned().unwrap();
+    within_bound::<Timed<Volt>>(items.len(), &bytes);
     assert_eq!(
         bytes,
         [

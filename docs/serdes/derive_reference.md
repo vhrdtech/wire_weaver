@@ -12,7 +12,7 @@ so do the examples):
 
 ```text
 borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse, ww_repr,
-discriminants, display, validate, series, no_future_version|future_version
+discriminants, display, validate, series|series(no_store), no_future_version|future_version
 ```
 
 | Directive                                          | Section                                                                     |
@@ -23,7 +23,7 @@ discriminants, display, validate, series, no_future_version|future_version
 | `fixed_layout`, `head_tail`, `sparse`               | [Fixed and sparse layouts](layouts.md)                                       |
 | `ww_repr`, `discriminants`, `no_future_version`, `future_version` | [Enums](#enums)                                               |
 | `display`, `validate`                               | [Messages and checks](#messages-and-checks)                                  |
-| `series`                                            | [`series`](#series)                                                          |
+| `series`, `series(no_store)`                        | [`series`](#series)                                                          |
 | generics (`struct Timed<T>`, `Buf<const N: usize>`) | [Generics](#generics)                                                        |
 | `crate_path`                                        | [`crate_path`](#crate_pathpath)                                              |
 | `#[default]`, `#[flag]`, `#[slot]`, `#[future_version]`, `#[cfg]` | [Field and variant attributes](#field-and-variant-attributes) |
@@ -356,6 +356,11 @@ What a `Series` doesn't take in its first version is a compile error naming the 
 `Result`, lists other than of `u8`, ranges, `TailSize`; `sparse` and tuple structs, `head_tail`. `#[series(opaque)]`
 on a named field writes it as an opaque run of its own bytes instead, so that any serializable type fits (it then
 needs `PartialEq`: a value is written again where it changed).
+
+`series` also implements `shrink_wrap::series::SeriesStore` (SW-62), room for `N` items as an array per leaf field
+([series.md](series.md#collecting-items-on-a-device-seriesstore)), and the size bounds `MAX_ITEM_BITS` /
+`MAX_FIXED_BITS` ([series.md](series.md#size-bounds)). `series(no_store)` leaves the store out, for a type with a
+store written by hand or with a field whose type has none; a type with a `#[series(opaque)]` field gets none anyway.
 
 ## Generics
 

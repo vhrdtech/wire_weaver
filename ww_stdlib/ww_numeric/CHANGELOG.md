@@ -21,6 +21,9 @@ Wire-incompatible with 0.1.1.
 
 ### 🚀 Features
 
+* `NumericValueStore<N>` (SW-62), the `shrink_wrap::series::SeriesStore` of `NumericValue`, written by hand: a byte
+  for the variant and one payload array as wide as the widest variant enabled (`U8`, `U32`, `I32`, `F32`: 5 bytes
+  per value where `NumericValue` takes 8), plus a byte for `UN` / `IN` widths. `NumericValue` is `series(no_store)`.
 * `NumericBaseType::from_i128(x)` (exact, `None` when it doesn't fit) and `from_f32_saturating(x)` (rounded and
   saturated for integers): a value in a given number type, for `ww_si::Quantity::quantize` and `with_prefix`.
 * `NumericValue` can be a field of a `shrink_wrap::series::Series` item (SW-60, `series` directive): a tag run of

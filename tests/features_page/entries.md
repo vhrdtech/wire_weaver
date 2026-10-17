@@ -68,6 +68,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-9, DER-4 | Bytes to the end | `TailBytes` takes the rest of the buffer, written without a length; only allowed last. | types.md#special-types
 - SW-18 | Size of the rest of a value | `TailSize<N>`, filled in after writing, so a reader can skip a value or bound it. | serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value
 - SW-61 | Lists written in place | `RefVecBuilder` writes a list into the buffer one element at a time, from a loop or an iterator, with no slice and the same bytes. | serdes/special_types.md#refvecbuilder-lists-written-in-place
+- SW-62 | Series stores and size bounds | A batch of samples kept as one array per field until it is written as a `Series`, in half the RAM of the samples, and the most bytes the batch can take. | serdes/series.md#collecting-items-on-a-device-seriesstore
 - SW-55 | Sparse slots | `OptionAnyVec`, a list of optional values of any types where only the present ones take space. | serdes/special_types.md#optionanyvec-sparse-slots-of-any-types
 - SW-10 | Lists of either-or values | `EitherAnyVec` holds one of two types per element, the flags packed by eight, e.g. a list of results. | serdes/special_types.md#eitheranyvec
 

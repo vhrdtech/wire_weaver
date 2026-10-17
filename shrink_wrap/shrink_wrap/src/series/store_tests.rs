@@ -158,9 +158,18 @@ fn fresh_stores() {
     );
 }
 
+/// Two data variants: the store keeps both fields (docs/serdes/series.md).
+#[derive_shrink_wrap(owned, series, ww_repr = u4, no_future_version, derive(Clone, Debug, PartialEq))]
+enum Two {
+    A(u32),
+    B(u32),
+}
+
 #[test]
 fn store_sizes() {
     use core::mem::size_of;
+    assert_eq!(size_of::<<Two as SeriesStore>::Store<32>>(), 32 * 9);
+    assert_eq!(size_of::<Two>(), 8);
     // a struct of arrays: no padding between fields
     assert_eq!(size_of::<<(u8, u32) as SeriesStore>::Store<32>>(), 32 * 5);
     assert_eq!(size_of::<<Option<u16> as SeriesStore>::Store<32>>(), 32 * 3);

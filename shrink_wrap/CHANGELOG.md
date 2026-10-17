@@ -10,6 +10,17 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- `SeriesStore` (SW-62): room for `N` items as a struct of arrays (`type Store<const N: usize>`, `empty_store`,
+  `set`, `get`), what a device keeps a batch in before writing it as one `Series`. Implemented for numbers, `bool`,
+  `Nibble`, `UNib32`, `UVlq32/64`, `U1..U64`, `I2..I64`, `UN`, `IN`, floats, strings and byte lists, `Option`
+  (flags and the value's store), tuples, arrays and `PhantomData` (nothing); `#[derive_shrink_wrap(.., series)]`
+  implements it for structs (their fields' stores, no padding between fields) and enums (an array of discriminants
+  and the stores of every data variant's fields), as a hidden `__<Name>SeriesStore` type. A type with a
+  `#[series(opaque)]` field gets none; `series(no_store)` leaves it out to write one by hand.
+- Series size bounds (SW-62): `SeriesColumns::MAX_ITEM_BITS` and `MAX_FIXED_BITS` (`Option<usize>`, `None` for
+  strings, byte lists and opaque fields, and the default for hand-written impls), the worst case per item and per
+  series under any `CodecPolicy`, implemented for every built-in type and by the derive; `Series::max_bytes(n)` puts
+  them together. The helpers they are made of are in `series::bound`.
 - `PhantomData<T>` fields (DER-15): `PhantomData<T>` serializes to zero bits (`ElementSize::Sized { size_bits: 0 }`
   and `MaxSize::ZERO`, like `()`) borrowed and owned, and is a `SeriesColumns` with no columns, for any `T` (no
   bounds). `#[derive_shrink_wrap]` leaves a type parameter that the fields only use inside `PhantomData<..>` without
@@ -210,6 +221,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### ⚠️ Breaking
 
+- `#[derive_shrink_wrap(.., series)]` also implements `SeriesStore` (SW-62), which needs every field's type to have
+  one: a `series` type with a field of a type that has none (a type with a `#[series(opaque)]` field, a hand-written
+  `SeriesColumns` impl) fails to compile until it says `series(no_store)`.
 - `RefVecU8Builder` is removed, folded into `RefVecBuilder<u8>` (SW-61). Replace
   `let b = RefVecU8Builder::new(&mut wr)?; /* writes */ b.finish(&mut wr)?;` with
   `let mut b = RefVecBuilder::<u8>::new(&mut wr)?; b.write_bytes_with(&mut wr, |wr| { /* writes */ })?;

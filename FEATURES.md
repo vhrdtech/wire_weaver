@@ -60,6 +60,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   appended); a malformed header is an error. Writer takes the present set up front (`SetBits` over a bitset, any
   increasing iterator), `OptionAnyVecWriter` / in-place `OptionAnyVecBuilder`. For a trait level's properties in one
   update (API-38). See `docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types`, `docs/serdes/showcase.md`.
+- ✅ **SW-62 `SeriesStore` and series size bounds**: room for `N` items of a `series` type as a struct of arrays
+  (`empty_store`, `set`, `get`), derived for structs (field stores) and enums (discriminants and every data
+  variant's fields), by hand for `ww_numeric::NumericValue` (a variant byte and one payload as wide as the widest
+  variant enabled): `Timed<Ampere>` takes 12 bytes per item with number types up to 32 bits, against 24 as items.
+  `SeriesColumns::MAX_ITEM_BITS` / `MAX_FIXED_BITS` and `Series::max_bytes(n)`: the worst case of a batch under any
+  codec policy, `None` for strings and opaque fields. `series(no_store)` leaves the derived store out. Piece 1 of
+  API-41. See `docs/serdes/series.md#collecting-items-on-a-device-seriesstore`,
+  `shrink_wrap/shrink_wrap/src/series/store_tests.rs`, `ww_stdlib/ww_si/tests/store.rs`.
 - ✅ **SW-61 `RefVecBuilder<T>`: a list written in place**, element by element (`push`, `extend`, `push_with` for a
   nested builder or an element written by hand), `finish` writes the count; same bytes as `RefVec::Slice`, as the
   whole buffer, a struct field or an element of another list. A failed push undoes its element, `with_max_len` for
@@ -485,9 +493,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`+batched`/`batched`, no size in the API: the device owns the batch size through its own config, default 32,
   the host picks latency) and sends `Series<Timed<T>>` (SW-60) batches instead of one item per event (device-side
   `Batcher`, reliable streams storing encoded batches so a resend costs no re-encoding); the same mechanism under
-  API-39's batched property samples and a batched observe slot. Design only so far, with motor-demo numbers backing
-  it (integer storage over floats, default batch 32, autoranging cost cheap). Needs SW-60 (done) and CLT-29
-  (dynamic decoder).
+  API-39's batched property samples and a batched observe slot. Designed, with motor-demo numbers backing it
+  (integer storage over floats, default batch 32, autoranging cost cheap); the batch store and size bounds are in
+  (SW-62). Needs SW-60 (done) and CLT-29 (dynamic decoder).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

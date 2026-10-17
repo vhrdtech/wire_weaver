@@ -21,6 +21,8 @@ Wire-incompatible with 0.1.1.
 
 ### 🚀 Features
 
+* `NumericBaseType::from_i128(x)` (exact, `None` when it doesn't fit) and `from_f32_saturating(x)` (rounded and
+  saturated for integers): a value in a given number type, for `ww_si::Quantity::quantize` and `with_prefix`.
 * `NumericValue` can be a field of a `shrink_wrap::series::Series` item (SW-60, `series` directive): a tag run of
   the storage type, then one column per type in use; a variant whose feature is off is `EnumVariantDisabled` on
   reading, as in plain form.

@@ -137,6 +137,9 @@ fn display_and_debug() {
     assert_eq!(Ampere::micro(-152_000i32).to_string(), "-152000 µA");
     assert_eq!(Gram::kilo(5u8).to_string(), "5 kg");
     assert_eq!(Torque::milli(250i32).to_string(), "250 mN·m");
+    assert_eq!(format!("{:#}", Torque::milli(250i32)), "0.25 N·m");
+    assert_eq!(format!("{:#}", Gram::kilo(5u8)), "5000 g");
+    assert_eq!(format!("{:#}", Ratio::percent(50u8)), "0.5");
     assert_eq!(Ratio::percent(50u8).to_string(), "50 %");
     assert_eq!(Ratio::ppm(250u16).to_string(), "250 ppm");
     assert_eq!(Ratio::from_f32(0.5).to_string(), "0.5");

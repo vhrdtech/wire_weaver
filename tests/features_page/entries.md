@@ -242,6 +242,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-24 | Device contract | What every device answers: firmware, board, ids, user label and last reset. | std_library/device_contract.md
 - STD-16 | Common errors | `CommonError` (`Busy`, `Timeout`, `InvalidArgument`, ...) shared by all APIs. | std_library/ww_error.md
 - STD-3, STD-23 | Units and numbers | `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values. | std_library/ww_si.md
+- STD-38 | Units checked by the compiler | One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself. | std_library/ww_si.md#unit-algebra
 - STD-4 | Date and time | `ww_date_time`. | std_library/ww_date_time.md
 - STD-13 | IO family | GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. | std_library/io_family.md
 - STD-5, STD-30 | GPIO | Pins and banks, and reading or writing several pins at one instant. | std_library/ww_gpio.md

@@ -999,6 +999,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reserved indices 4..=6, so a host sees input changes without opening the `event` stream of every pin (slow inputs,
   a dashboard). Blocked on API-29 array-index-bounds: `Pin` sits in `Bank::pin[]` (and banks usually in an array
   too), and levels under a resource array can't be observed until their bound is known (SRV-18).
+- 🚧 **STD-38 `ww_si` 0.2: one generic `Quantity<U: Unit>`** · `v0.5` — every quantity is
+  `Quantity<U> { prefix, value, PhantomData<U> }` with a zero-size marker per unit in `ww_si::units` and the 0.1 names
+  as aliases (`KiloGram` → `Gram`); `Dim`, `Scale`, `UnitExpr`, `Unit` (own markers in API crates), `Per` / `Times`;
+  constructors, `quantize`, conversions (`to_si_f64` through each unit's scale), `with_prefix`, `same_repr`,
+  comparisons, `Display` / `Debug` / `defmt` written once; unit algebra checked by the compiler against a product
+  table verified at compile time; `units::by_name`. Same bytes on the wire as 0.1. `docs/std_library/ww_si.md`,
+  `ww_stdlib/ww_si/tests`. Open: codegen'd APIs that use a quantity need API-46 (the marker comes out as the alias),
+  then the ww_si 0.2.0 snapshot; migration of the other crates and the motor demo is its own piece; `BaseUnit` stays
+  until STD-37 (run-time units).
 - 🚧 **STD-34 `ww_recorder`** · `v0.5.x` — control a recorder over WireWeaver: `Recorder` (status, card facts,
   two-step prepare/format with a token, recordings, markers, `sync`, settings with the flush thresholds, counters,
   optional `refresh_usb`) and `Track[]` (info, enable, durability, compression, counters). For the SD card log store

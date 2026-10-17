@@ -261,6 +261,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Device contract](std_library/device_contract.md)**: What every device answers: firmware, board, ids, user label and last reset.
 - **[Common errors](std_library/ww_error.md)**: `CommonError` (`Busy`, `Timeout`, `InvalidArgument`, ...) shared by all APIs.
 - **[Units and numbers](std_library/ww_si.md)**: `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values.
+- **[Units checked by the compiler](std_library/ww_si.md#unit-algebra)**: One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself. <span class="ww-status">in progress</span>
 - **[Date and time](std_library/ww_date_time.md)**: `ww_date_time`.
 - **[IO family](std_library/io_family.md)**: GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. <span class="ww-status">in progress</span>
 - **[GPIO](std_library/ww_gpio.md)**: Pins and banks, and reading or writing several pins at one instant.

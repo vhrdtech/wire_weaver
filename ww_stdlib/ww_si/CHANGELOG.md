@@ -2,6 +2,62 @@
 
 ### ⚠️ Breaking
 
+ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire are the same as in 0.1 (values,
+`Series` and `Series<Timed<..>>`), the API model and Rust API are not: devices and hosts are rebuilt with 0.2 together.
+
+* Every quantity is `Quantity<U: Unit> { pub prefix, pub value, _unit: PhantomData<U> }`, and every unit a zero-size
+  marker in `ww_si::units` (`units::Volt`). The 0.1 names are aliases (`pub type Volt = Quantity<units::Volt>`), so
+  APIs keep writing `Volt`. Struct literals don't compile (`_unit` is private): `Volt { prefix, value }` becomes
+  `Volt::from_parts(prefix, value)` (`const`) or a prefix constructor; a pattern needs `..`. In introspection a use of
+  `Volt` is `Instance(Quantity, [units::Volt])`.
+* `KiloGram` is now `Gram` (unit g, scale 10⁻³ kg): 5 kg is `Gram::kilo(5u8)`, `quantity!(5 g u32)` was
+  `KiloGram { Milli, .. }`.
+* The named constructors are gone, the generic prefix constructors replace them on every quantity: `volts`,
+  `seconds`, `hertz`, .. → `base`; `millivolts`, `milliseconds`, .. → `milli`; `micro*` → `micro`, `nano*` → `nano`,
+  `pico*` → `pico`, `kilo*` → `kilo`, `mega*` → `mega`, `gigahertz` → `giga`; `volts_f32`, `seconds_f32`, .. →
+  `from_f32`. `Ratio` keeps `percent`, `per_mille` and `ppm` (`ratio` → `base`, `ratio_f32` → `from_f32`).
+  `Second::to_f64_seconds()` → `to_f64()`.
+* `quantity!` is removed: `quantity!(3300 mV u16)` is `Volt::milli(3300u16)`.
+* The `Meter`-per-`Second` conversion (`TryFrom<(Meter, Per, Second)> for Speed`, `Per`, `ToF32`, `Error`) is removed:
+  `Meter / Second` is a `Speed` (an `f32` one). `ww_si::units::Per` is now the compound unit marker.
+* Removed the unfinished dynamic types `Unit<'i>`, `Quantity<'i>` and the `SIExpr` stub; `Unit` is now the unit
+  marker trait. `BaseUnit`, `SIExp` and `INib8P3` stay as they were, for `ww_adc::ChannelInfo::unit`, until STD-37
+  replaces them with a run-time unit model.
+* `DeciBel` and `DeciBelmW` stay plain structs without a prefix.
+
+### 🚀 Features
+
+* `Dim` (SI exponents of s, m, kg, A, K, mol, cd, `Display` as `kg·m²·s⁻³·A⁻¹`), `Scale` (coherent, power of ten,
+  factor, affine for °C), `UnitExpr` (a named unit or a product / quotient tree, with `dim()`, `factor()`,
+  `symbol()`, `name()`) and the `Unit` trait (`DIM`, `EXPR`): an API crate can declare its own marker.
+* Written once for every quantity: `from_parts` (`const`), `new`, `base`, `milli`, `micro`, `nano`, `pico`, `centi`,
+  `kilo`, `mega`, `giga`, `from_f32` (`const`); `quantize(x, prefix, storage)` (an `f32` rounded and saturated into
+  the representation an API documents, computed in `f32`); `to_f64`, `to_f32`, `to_f64_in`, `to_i128_in`;
+  `to_si_f64` (coherent SI through the unit's scale: 90 ° → 1.5708 rad, 20 °C → 293.15 K); `with_prefix` (exact
+  re-prefix in the same number type); `same_repr`; `unit()`; `PartialEq` / `PartialOrd` across prefixes and number
+  types as before.
+* `Display` (`3300 mV`, `{:#}` in the unit itself: `3.3 V`; a ratio as `50 %`, `‰`, `ppm`), `Debug`
+  (`Volt(3300 mV U16)`) and `defmt::Format` (`3300 mV`) for every quantity; `Prefix::symbol()`.
+* Unit algebra checked by the compiler: `UnitMul` / `UnitDiv` from a product table (`Volt * Ampere = Watt`,
+  `Torque * AngularVelocity = Watt`, `Newton * Meter = Joule`, `Gram * Acceleration = Newton`, .. 15 lines, each
+  giving `A·B`, `B·A`, `C/A`, `C/B`), every line checked against the SI exponents at compile time. `*` / `/` between
+  quantities, `+` / `-` within one unit, `* f32` / `/ f32`, and any unit times or divided by a `Ratio` keeps its unit;
+  computed in `f32` (`f64` with an `F64` operand) through each unit's scale, stored as `F32` / `F64` without a prefix
+  (feature `f32`). `Volt * AngularVelocity` and `Volt + Ampere` don't compile.
+* Compound units `units::Per<A, B>` and `units::Times<A, B>`, shown as `N·m/(rad/s)`.
+* `units::by_name("Volt")` and `units::ALL`: the `UnitExpr` of every named unit, for dynamic clients.
+
+### 🐛 Fixes
+
+* `to_f32()` scales by one exact power of ten instead of repeated `* 10` / `/ 10`, so `Second::milli(2u8)` is
+  `0.002` rounded once.
+
+## 0.1.0
+
+Not published on crates.io; its definitions are in the API snapshot `api_snapshots/ww_si_0_1_0.ron`.
+
+### ⚠️ Breaking
+
 * Number types are cargo features, passed on to `ww_numeric` (`f32`, `u16`, .., `all`); `std` enables all of them.
   A `no_std` build names the ones it uses: `ww_si = { .., default-features = false, features = ["f32"] }`.
   Conversions (`Speed` from `Meter` per `Second`) handle the enabled types only.
@@ -11,7 +67,6 @@
   `chemical`, `photometric`, `radiation`, `logarithmic`, `quantities` for all of them. `std` enables all. A `no_std`
   build names the groups it uses: `features = ["electrical", "f32"]`. `Speed` from `Meter` per `Second` needs
   `mechanical` and `time`.
-* `quantity!(5 g u32)` builds a `KiloGram` in `Prefix::Milli` (it named a `Gram` type that doesn't exist).
 
 ### 🚀 Features
 

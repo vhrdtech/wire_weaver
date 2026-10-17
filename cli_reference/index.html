@@ -5335,8 +5335,8 @@ snapshot and fails if the version is not bumped enough for what changed (breakin
 compatible position for anything else, doc comments included). <code>ww api diff &lt;path&gt;</code> compares the same versions and
 lists every change, doc comments included, see <a href="../evolution/checker_tool/#listing-all-changes">listing all changes</a>.</p>
 <p>Current limitations, same as for codegen: traits are only found in <code>src/lib.rs</code>, a dependency reached through another
-crate's re-export is only resolved for the ones <code>wire_weaver</code> re-exports (<code>ww_version</code>, <code>shrink_wrap</code>), crates with a
-workspace-inherited version can't be loaded, and self-referential types (like the ones in <code>ww_self</code>) are not supported.</p>
+crate's re-export is only resolved for the ones <code>wire_weaver</code> re-exports (<code>ww_version</code>, <code>shrink_wrap</code>), and crates
+with a workspace-inherited version can't be loaded.</p>
 <h2 id="ww-observe"><code>ww observe</code><a class="headerlink" href="#ww-observe" title="Permanent link">&para;</a></h2>
 <p>Observes a trait level's <code>+observe</code> properties (<a href="../api/observing/">Observing properties</a>) from introspection
 alone, no generated code needed (TOOL-11, the same dynamic client <a href="../python_advanced/#observing">Python</a> uses):</p>

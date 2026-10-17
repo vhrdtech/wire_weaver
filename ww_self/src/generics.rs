@@ -417,7 +417,8 @@ impl<'a> Validator<'a> {
     }
 }
 
-/// Every cycle of definitions goes through a `Box` or a `Vec`. Run after the depth check: walks are bounded.
+/// Every cycle of definitions goes through a `Box`, a `Vec` or a `Series`. Run after the depth check: walks are
+/// bounded.
 fn check_indirection(bundle: &ApiBundleOwned) -> Result<()> {
     let mut d = Direct {
         bundle,
@@ -540,8 +541,10 @@ impl Direct<'_> {
                 }
             }
             TypeOwned::Struct(_) | TypeOwned::Enum(_) => self.def(ty, out)?,
+            // behind a pointer: a cycle through them is a type of finite size
             TypeOwned::Box(_)
             | TypeOwned::Vec(_)
+            | TypeOwned::Series(_)
             | TypeOwned::Bool
             | TypeOwned::NumericAny(_)
             | TypeOwned::Flag

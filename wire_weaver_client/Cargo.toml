@@ -68,3 +68,4 @@ ww_version = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["net", "test-util"] }
 wire_weaver_core = { workspace = true }
 ww_device = { workspace = true, features = ["udp", "ws"] }
+ww_self = { workspace = true, features = ["fuzz"] }

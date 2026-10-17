@@ -17,6 +17,8 @@ std = [
     "dep:sha2",
 ]
 serde = ["dep:serde", "ww_version/serde", "ww_numeric/serde", "shrink_wrap/serde"]
+# `fuzz_bundle` (bundle generator for fuzzing) for tests of other crates
+fuzz = ["std"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }

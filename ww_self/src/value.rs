@@ -518,6 +518,7 @@ fn des_ty(
         }
         // Box<T> is Unsized itself (its size is handled by des_field), T is read directly inside it
         TypeOwned::Box(inner) => des_inner(rd, inner, api_bundle, b),
+        TypeOwned::Series(item_ty) => crate::series::des_series(rd, item_ty, api_bundle, b),
         TypeOwned::Range(_)
         | TypeOwned::RangeInclusive(_)
         | TypeOwned::Delta(_)
@@ -588,7 +589,7 @@ fn des_enum(
     }
 }
 
-/// Ranges and series.
+/// Ranges and number series.
 #[inline(never)]
 fn des_numbers(rd: &mut BufReader, ty: &TypeOwned, b: &mut Budget) -> Result<ValueOwned> {
     match ty {
@@ -602,7 +603,6 @@ fn des_numbers(rd: &mut BufReader, ty: &TypeOwned, b: &mut Budget) -> Result<Val
             let end = des_numeric(rd, base)?;
             Ok(ValueOwned::RangeInclusive(start..=end))
         }
-        TypeOwned::Series(item_ty) => crate::series::des_series(rd, item_ty, api_bundle, b),
         TypeOwned::Delta(base) | TypeOwned::DeltaOfDelta(base) | TypeOwned::XorFloat(base) => {
             let series = match ty {
                 TypeOwned::Delta(_) => Series::Delta,

@@ -15,7 +15,7 @@ pub mod definition_cache;
 #[cfg(feature = "std")]
 pub mod errors;
 /// Untrusted introspection data through decoding and the dynamic decoder, for the `introspection` fuzz target.
-#[cfg(all(feature = "std", any(test, fuzzing)))]
+#[cfg(all(feature = "std", any(test, fuzzing, feature = "fuzz")))]
 #[doc(hidden)]
 pub mod fuzz_bundle;
 /// The dynamic `Series` decoder against the generated one, for the `series-dynamic` fuzz target.

@@ -4,8 +4,8 @@
 //!
 //! The first byte picks how the rest is read: as a serialized bundle (what a device sends), or as a program that
 //! builds a bundle with generic definitions, instances and parameters, valid or not (indices out of range, wrong
-//! kinds and counts of arguments, cycles, deep nesting, growing instances, long names, many fields or variants, wide
-//! tuples), which random bytes rarely produce.
+//! kinds and counts of arguments, cycles, self-referential definitions, deep nesting, growing instances, long names,
+//! many fields or variants, wide tuples), which random bytes rarely produce.
 
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, FieldOwned, FieldsOwned,
@@ -29,9 +29,16 @@ pub fn fuzz_one(data: &[u8]) {
             Err(_) => return,
         }
     } else {
-        Gen { data: bundle_part }.bundle()
+        gen_bundle(bundle_part, mode & 2 != 0)
     };
     use_bundle(bundle, value);
+}
+
+/// A bundle built from `data` as a program, see the module docs: also for fuzzing what is done with two bundles
+/// (compatibility checks). `recursive`: definitions without parameters that refer to each other and themselves,
+/// all indices in range, mostly valid.
+pub fn gen_bundle(data: &[u8], recursive: bool) -> ApiBundleOwned {
+    Gen { data, recursive }.bundle()
 }
 
 /// Two bytes of length, then the bundle part, the rest is value data.
@@ -86,6 +93,8 @@ fn values_equal(a: &ValueOwned, b: &ValueOwned) -> bool {
 /// Builds a bundle from bytes, see the module docs. Runs out of bytes as zeros.
 struct Gen<'a> {
     data: &'a [u8],
+    /// See [gen_bundle].
+    recursive: bool,
 }
 
 impl Gen<'_> {
@@ -154,7 +163,8 @@ impl Gen<'_> {
 
     fn def(&mut self, idx: u8, defs: u8) -> TypeLocationOwned {
         let b = self.byte();
-        if b % 16 == 15 {
+        let b = if self.recursive { b & !0x30 } else { b };
+        if b % 16 == 15 && !self.recursive {
             return TypeLocationOwned::SkippedFullVersion {
                 crate_idx: UNib32(0),
                 type_name: format!("T{idx}"),
@@ -265,13 +275,17 @@ impl Gen<'_> {
 
     /// An index in range most of the time, sometimes just past it.
     fn index(&mut self, n: u8) -> UNib32 {
-        UNib32((self.byte() % (n + 2)) as u32)
+        let past = if self.recursive { 0 } else { 2 };
+        UNib32((self.byte() % (n + past).max(1)) as u32)
     }
 
     fn ty(&mut self, defs: u8, params: u8, depth: u8) -> TypeOwned {
+        if self.recursive {
+            return self.recursive_ty(defs, depth);
+        }
         let leaf = depth > 8;
         let boxed = |s: &mut Self| Box::new(s.ty(defs, params, depth + 1));
-        match self.byte() % if leaf { 4 } else { 16 } {
+        match self.byte() % if leaf { 4 } else { 18 } {
             0 => TypeOwned::Bool,
             1 => TypeOwned::NumericAny(NumericAnyTypeOwned::Base(NumericBaseType::U16)),
             2 => TypeOwned::Param(self.index(params)),
@@ -327,7 +341,49 @@ impl Gen<'_> {
                 ok_ty: boxed(self),
                 err_ty: boxed(self),
             },
-            _ => TypeOwned::Series(boxed(self)),
+            15 => TypeOwned::Series(boxed(self)),
+            // references behind a Box or a Vec: self-referential definitions that pass validation
+            16 => TypeOwned::Option {
+                some_ty: Box::new(TypeOwned::Box(Box::new(TypeOwned::OutOfLine {
+                    type_idx: self.index(defs),
+                }))),
+            },
+            _ => TypeOwned::Vec(Box::new(TypeOwned::OutOfLine {
+                type_idx: self.index(defs),
+            })),
+        }
+    }
+}
+
+impl Gen<'_> {
+    /// Types without parameters and instances, references to definitions mostly behind a `Box` or a `Vec`.
+    fn recursive_ty(&mut self, defs: u8, depth: u8) -> TypeOwned {
+        let leaf = depth > 6;
+        let out_of_line = |s: &mut Self| TypeOwned::OutOfLine {
+            type_idx: s.index(defs),
+        };
+        match self.byte() % if leaf { 3 } else { 10 } {
+            0 => TypeOwned::Bool,
+            1 => TypeOwned::NumericAny(NumericAnyTypeOwned::Base(NumericBaseType::U16)),
+            2 => TypeOwned::String,
+            3 => TypeOwned::Option {
+                some_ty: Box::new(TypeOwned::Box(Box::new(out_of_line(self)))),
+            },
+            4 => TypeOwned::Vec(Box::new(out_of_line(self))),
+            5 => TypeOwned::Box(Box::new(out_of_line(self))),
+            // directly: a cycle through it is an error
+            6 => out_of_line(self),
+            7 => TypeOwned::Tuple(vec![
+                self.recursive_ty(defs, depth + 1),
+                self.recursive_ty(defs, depth + 1),
+            ]),
+            8 => TypeOwned::Option {
+                some_ty: Box::new(self.recursive_ty(defs, depth + 1)),
+            },
+            _ => TypeOwned::Array {
+                len: Length::Fixed(UNib32((self.byte() % 3) as u32)),
+                ty: Box::new(self.recursive_ty(defs, depth + 1)),
+            },
         }
     }
 }
@@ -340,9 +396,20 @@ fn u64_ty() -> TypeOwned {
 mod tests {
     use super::*;
 
-    /// A few thousand inputs from a fixed generator, the same paths `cargo fuzz run introspection` takes.
+    /// A few thousand inputs from a fixed generator, the same paths `cargo fuzz run introspection` takes, on the
+    /// stack of a spawned thread (2 MiB) in a debug build: self-referential types are walked and decoded as deep as
+    /// the bounds allow.
     #[test]
     fn random_inputs() {
+        std::thread::Builder::new()
+            .stack_size(2 << 20)
+            .spawn(random_inputs_on_thread)
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    fn random_inputs_on_thread() {
         let mut state = 0x2545_f491_4f6c_dd1du64;
         let mut next = || {
             state ^= state << 13;
@@ -354,8 +421,17 @@ mod tests {
             let len = (next() % 200) as usize;
             let mut data: Vec<u8> = (0..len).map(|_| next() as u8).collect();
             if let Some(mode) = data.first_mut() {
-                *mode = (i % 2) as u8 | (*mode & !1);
+                // serialized, generated, generated recursive
+                *mode = [0, 1, 3][i % 3];
             }
+            fuzz_one(&data);
+        }
+        // self-referential bundles with long values
+        for _ in 0..300 {
+            let len = (next() % 120) as usize;
+            let mut data = vec![3u8];
+            data.extend_from_slice(&(len as u16).to_le_bytes());
+            data.extend((0..len + 4096).map(|_| next() as u8));
             fuzz_one(&data);
         }
     }

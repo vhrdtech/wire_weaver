@@ -1428,6 +1428,42 @@ mod tests {
         assert_eq!(check.check(&device_args[0].ty, &host_args[0].ty), Ok(()));
     }
 
+    /// Generated bundles (self-referential ones too, see `ww_self::fuzz_bundle`) compared in pairs, as a client
+    /// compares its API with a device's: a verdict for each, on the stack of a spawned thread.
+    #[test]
+    fn generated_bundles_in_pairs() {
+        std::thread::Builder::new()
+            .stack_size(2 << 20)
+            .spawn(|| {
+                let mut state = 0x9e37_79b9_7f4a_7c15u64;
+                let mut next = || {
+                    state ^= state << 13;
+                    state ^= state >> 7;
+                    state ^= state << 17;
+                    state
+                };
+                let mut bundles = vec![];
+                while bundles.len() < 60 {
+                    let data: Vec<u8> = (0..next() % 160).map(|_| next() as u8).collect();
+                    let mut bundle = ww_self::fuzz_bundle::gen_bundle(&data, next() % 4 != 0);
+                    if ww_self::generics::prepare(&mut bundle).is_ok() {
+                        bundles.push(bundle);
+                    }
+                }
+                for a in &bundles {
+                    for b in &bundles {
+                        let compat = ApiCompat::new(a, b);
+                        for item in &a.root.items {
+                            let _ = compat.resolve(&[item.id]);
+                        }
+                    }
+                }
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
     #[test]
     fn identical_apis() {
         let compat = compat(BLINKY, BLINKY);

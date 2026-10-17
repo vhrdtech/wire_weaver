@@ -1,4 +1,5 @@
 use crate::ast::docs::Docs;
+use crate::ast::generics::Generics;
 use crate::ast::item_enum::{Fields, FutureVersion, Variant};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
@@ -29,9 +30,25 @@ pub(crate) struct CGItemEnum<'i> {
     /// generic, even on its "borrowed" (`is_ref: true`) side.
     pub(crate) ambiguous: bool,
     pub(crate) crate_path: &'i CratePath,
+    /// Type and const parameters and where clause of the enum (DER-14), as written.
+    pub(crate) generics: &'i Generics,
 }
 
 impl<'i> CGItemEnum<'i> {
+    /// `impl<'i, T: Own, const N: usize>` of an impl without trait bounds of its own, `for #enum_name<'i, T, N>`
+    /// and `where ..`.
+    pub(crate) fn plain_impl_generics(
+        &self,
+        is_ref: bool,
+    ) -> (TokenStream, TokenStream, TokenStream) {
+        let params = self.generics.impl_params(None);
+        (
+            quote! { <'i, #params> },
+            self.generics.ty(is_ref && !self.ambiguous),
+            self.generics.where_clause(&[]),
+        )
+    }
+
     pub(crate) fn native_repr(&self) -> Ident {
         match self.repr {
             Repr::U(bits) => {
@@ -67,8 +84,13 @@ impl<'i> CGItemEnum<'i> {
             is_ref,
             cp: self.crate_path,
         };
-        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
-        let assert_size = if let Some(size) = &self.size_assumption {
+        let lifetime = self.generics.def(is_ref && !self.ambiguous);
+        let where_clause = self.generics.where_clause(&[]);
+        // a const assert outside an impl can't name a generic type: the size it checks is the parameters'
+        let generic = !self.generics.is_empty();
+        let assert_size = if generic {
+            quote! {}
+        } else if let Some(size) = &self.size_assumption {
             let is_sized = matches!(size, ObjectSize::Sized { .. });
             let before = maybe_quote(is_sized, || self.assert_variants_same_size(is_ref));
             let hint = match (is_sized, self.repr) {
@@ -80,7 +102,7 @@ impl<'i> CGItemEnum<'i> {
         } else {
             quote! {}
         };
-        let assert_tail_size = self.variants.iter().map(|v| {
+        let assert_tail_size = self.variants.iter().filter(|_| !generic).map(|v| {
             let types = v.fields.types();
             let assert = assert_sized_before_tail_size(
                 &types,
@@ -110,7 +132,7 @@ impl<'i> CGItemEnum<'i> {
             #derive
             #(#[cfg_attr(#cfg_attr)])*
             #[repr(#native_repr)]
-            pub enum #enum_name #lifetime { #variants #future_version }
+            pub enum #enum_name #lifetime #where_clause { #variants #future_version }
 
             #assert_size
             #(#assert_tail_size)*
@@ -122,7 +144,7 @@ impl<'i> CGItemEnum<'i> {
         let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
         let enum_name = &self.ident;
         let native_repr = self.native_repr();
-        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
+        let (impl_generics, ty_generics, where_clause) = self.plain_impl_generics(is_ref);
         let tag = quote! { unsafe { *<*const _>::from(self).cast::<#native_repr>() } };
         let body = match self.future_version {
             Some(fv) => {
@@ -138,7 +160,7 @@ impl<'i> CGItemEnum<'i> {
         };
         quote! {
             #cfg
-            impl #lifetime #enum_name #lifetime {
+            impl #impl_generics #enum_name #ty_generics #where_clause {
                 /// Discriminant on the wire.
                 pub fn discriminant(&self) -> #native_repr {
                     #body
@@ -341,7 +363,7 @@ impl<'i> CGItemEnum<'i> {
         let element_size = self.element_size(is_ref);
         serdes_scaffold(
             enum_name,
-            &[],
+            self.generics,
             enum_ser,
             enum_des,
             self.cfg,
@@ -359,11 +381,12 @@ impl<'i> CGItemEnum<'i> {
     pub(crate) fn display_and_error_rust(&self, is_ref: bool) -> TokenStream {
         let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
         let enum_name = &self.ident;
-        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
+        let (impl_generics, ty_generics, where_clause) = self.plain_impl_generics(is_ref);
+        let error_where = self.generics.error_where();
         let arms = CGEnumDisplayArms { item_enum: self };
         quote! {
             #cfg
-            impl #lifetime ::core::fmt::Display for #enum_name #lifetime {
+            impl #impl_generics ::core::fmt::Display for #enum_name #ty_generics #where_clause {
                 #[allow(unused_variables)]
                 fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                     match self {
@@ -373,7 +396,7 @@ impl<'i> CGItemEnum<'i> {
             }
 
             #cfg
-            impl #lifetime ::core::error::Error for #enum_name #lifetime {}
+            impl #impl_generics ::core::error::Error for #enum_name #ty_generics #error_where {}
         }
     }
 }

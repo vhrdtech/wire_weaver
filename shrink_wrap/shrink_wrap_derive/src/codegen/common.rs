@@ -2,7 +2,6 @@
 
 use crate::ast::item_enum::Fields;
 use crate::codegen::item_enum::CGItemEnum;
-use crate::codegen::util::maybe_quote;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
@@ -44,11 +43,11 @@ impl CGItemEnum<'_> {
         let enum_name = self.ident;
         let variant_ident = &variant.ident;
         let common_ty = fields[0].def(is_ref, self.crate_path);
-        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
+        let (impl_generics, ty_generics, where_clause) = self.plain_impl_generics(is_ref);
         Ok(quote! {
             #cfg
             #variant_cfg
-            impl #lifetime From<#common_ty> for #enum_name #lifetime {
+            impl #impl_generics From<#common_ty> for #enum_name #ty_generics #where_clause {
                 fn from(e: #common_ty) -> Self {
                     Self::#variant_ident(e)
                 }
@@ -56,7 +55,7 @@ impl CGItemEnum<'_> {
 
             #cfg
             #variant_cfg
-            impl #lifetime #ww_error::HasCommon for #enum_name #lifetime {
+            impl #impl_generics #ww_error::HasCommon for #enum_name #ty_generics #where_clause {
                 type Common = #common_ty;
 
                 // not `Self::Common`, it would be ambiguous with a variant named `Common`

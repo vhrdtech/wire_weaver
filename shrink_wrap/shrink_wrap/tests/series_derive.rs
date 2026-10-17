@@ -440,3 +440,46 @@ fn generic_timed() {
     );
     assert!(bytes.len() < plain);
 }
+
+/// A generic enum (DER-14): its tag run, then the parameter's columns for the `Value` items.
+#[derive_shrink_wrap(borrowed, owned, series, ww_repr = u4, derive(Clone, Copy, Debug, PartialEq))]
+enum Sample<T> {
+    Value(T),
+    Gap,
+    Pair { a: T, b: u8 },
+}
+
+/// Const parameters and a where clause on a series struct.
+#[derive_shrink_wrap(borrowed, owned, series, derive(Clone, Copy, Debug, PartialEq))]
+struct Window<T, const N: usize>
+where
+    T: Copy + Default,
+{
+    at: u32,
+    samples: [T; N],
+}
+
+#[test]
+fn generic_enum_and_const_parameters() {
+    let samples: Vec<Timed<Sample<u16>>> = (0..40u32)
+        .map(|k| Timed {
+            t: k * 10,
+            value: match k % 7 {
+                0 => Sample::Gap,
+                3 => Sample::Pair {
+                    a: k as u16,
+                    b: k as u8,
+                },
+                _ => Sample::Value(1000 + k as u16),
+            },
+        })
+        .collect();
+    round_trip(&samples);
+    let windows: Vec<Window<i16, 3>> = (0..20i16)
+        .map(|k| Window {
+            at: k as u32,
+            samples: [k, -k, k * 2],
+        })
+        .collect();
+    round_trip(&windows);
+}

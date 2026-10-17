@@ -1,5 +1,6 @@
 use crate::args::FutureVersionArg;
 use crate::ast::docs::Docs;
+use crate::ast::generics::Generics;
 use crate::ast::item_enum::ItemEnum;
 use crate::ast::item_enum::{Fields, FutureVersion, Variant};
 use crate::ast::object_size::ObjectSize;
@@ -77,6 +78,7 @@ impl ItemEnum {
             // ident: item_enum.ident.clone(),
             variants,
             future_version,
+            generics: Generics::from_syn(&item_enum.generics),
         })
     }
 }

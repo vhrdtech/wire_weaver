@@ -1,4 +1,5 @@
 use crate::ast::docs::Docs;
+use crate::ast::generics::Generics;
 use crate::ast::item_struct::{Field, StructKind};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
@@ -31,22 +32,11 @@ pub(crate) struct CGItemStruct<'i> {
     /// generic, even on its "borrowed" (`is_ref: true`) side.
     pub(crate) ambiguous: bool,
     pub(crate) crate_path: &'i CratePath,
-    /// Type parameters of the struct (DER-14), bounds as written.
-    pub(crate) type_params: &'i [syn::TypeParam],
+    /// Type and const parameters and where clause of the struct (DER-14), as written.
+    pub(crate) generics: &'i Generics,
 }
 
 impl<'i> CGItemStruct<'i> {
-    /// `<'i, T: Bound>` of the definition: the lifetime on the borrowed side, the type parameters with their bounds.
-    fn def_generics(&self, is_ref: bool) -> TokenStream {
-        let lifetime = (is_ref && !self.ambiguous).then(|| quote! { 'i });
-        let params = self.type_params.iter();
-        let all: Vec<TokenStream> = lifetime
-            .into_iter()
-            .chain(params.map(|p| quote! { #p }))
-            .collect();
-        maybe_quote(!all.is_empty(), || quote! { <#(#all),*> })
-    }
-
     pub(crate) fn def_rust(&self, is_ref: bool) -> TokenStream {
         let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
         let docs = &self.docs;
@@ -62,14 +52,15 @@ impl<'i> CGItemStruct<'i> {
             tuple: self.kind == StructKind::Tuple,
             cp: self.crate_path,
         };
+        let where_clause = self.generics.where_clause(&[]);
         let body = match self.kind {
-            StructKind::Named => quote! { { #fields } },
-            StructKind::Tuple => quote! { ( #fields ); },
-            StructKind::Unit => quote! { ; },
+            StructKind::Named => quote! { #where_clause { #fields } },
+            StructKind::Tuple => quote! { ( #fields ) #where_clause; },
+            StructKind::Unit => quote! { #where_clause; },
         };
-        let lifetime = self.def_generics(is_ref);
+        let lifetime = self.generics.def(is_ref && !self.ambiguous);
         // a const assert outside an impl can't name a generic type: the size it checks is the parameters'
-        let generic = !self.type_params.is_empty();
+        let generic = !self.generics.is_empty();
         let assert_size = if generic {
             quote! {}
         } else if let Some(size) = &self.size_assumption {
@@ -123,7 +114,7 @@ impl<'i> CGItemStruct<'i> {
         };
         serdes_scaffold(
             struct_name,
-            self.type_params,
+            self.generics,
             struct_ser,
             struct_des,
             self.cfg,
@@ -183,7 +174,7 @@ impl<'i> CGItemStruct<'i> {
         };
         serdes_scaffold(
             struct_name,
-            self.type_params,
+            self.generics,
             ser,
             des,
             self.cfg,
@@ -200,7 +191,10 @@ impl<'i> CGItemStruct<'i> {
     pub(crate) fn display_and_error_rust(&self, is_ref: bool, message: &str) -> TokenStream {
         let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
         let ident = &self.ident;
-        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
+        let params = self.generics.impl_params(None);
+        let ty_generics = self.generics.ty(is_ref && !self.ambiguous);
+        let where_clause = self.generics.where_clause(&[]);
+        let error_where = self.generics.error_where();
         let lit = LitStr::new(&rewrite_positional_placeholders(message), Span::call_site());
         let binds = self.fields.iter().filter_map(|f| {
             if matches!(f.ty, Type::IsOk(_) | Type::IsSome(_)) {
@@ -212,7 +206,7 @@ impl<'i> CGItemStruct<'i> {
         });
         quote! {
             #cfg
-            impl #lifetime ::core::fmt::Display for #ident #lifetime {
+            impl<'i, #params> ::core::fmt::Display for #ident #ty_generics #where_clause {
                 #[allow(unused_variables)]
                 fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                     #(#binds)*
@@ -221,7 +215,7 @@ impl<'i> CGItemStruct<'i> {
             }
 
             #cfg
-            impl #lifetime ::core::error::Error for #ident #lifetime {}
+            impl<'i, #params> ::core::error::Error for #ident #ty_generics #error_where {}
         }
     }
 }

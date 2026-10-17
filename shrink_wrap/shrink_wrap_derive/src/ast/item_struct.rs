@@ -1,4 +1,5 @@
 use crate::ast::docs::Docs;
+use crate::ast::generics::Generics;
 use crate::ast::ty::Type;
 use crate::ast::util::Version;
 use proc_macro2::{Ident, TokenStream};
@@ -16,8 +17,8 @@ pub(crate) struct ItemStruct {
     pub(crate) sparse_slots: Option<Vec<u32>>,
     /// `struct S { a: u8 }`, `struct S(u8);` or `struct S;` (SW-59).
     pub(crate) kind: StructKind,
-    /// `struct Timed<T> { .. }` (DER-14): type parameters, bounds as written.
-    pub(crate) type_params: Vec<syn::TypeParam>,
+    /// `struct Timed<T> { .. }`, `struct Buf<const N: usize>` (DER-14): parameters and where clause as written.
+    pub(crate) generics: Generics,
 }
 
 /// How a struct's fields are written in Rust (SW-59). The wire format is the same: fields in order. A tuple struct's

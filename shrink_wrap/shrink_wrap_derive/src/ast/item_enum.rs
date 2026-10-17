@@ -1,4 +1,5 @@
 use crate::ast::docs::Docs;
+use crate::ast::generics::Generics;
 use crate::ast::item_struct::Field;
 use crate::ast::ty::Type;
 use crate::ast::util::Version;
@@ -12,6 +13,8 @@ pub(crate) struct ItemEnum {
     pub(crate) variants: Vec<Variant>,
     /// The `#[future_version]` variant, not in `variants`: it has no discriminant of its own on the wire (SW-16).
     pub(crate) future_version: Option<FutureVersion>,
+    /// `enum Reading<T> { .. }` (DER-14): parameters and where clause as written.
+    pub(crate) generics: Generics,
 }
 
 /// `#[future_version] Unknown(u32)`: holds a discriminant this version doesn't know, read from a newer version.
@@ -76,7 +79,9 @@ impl Variant {
 }
 
 impl ItemEnum {
+    /// The `MyTypeDiscriminants` enum: unit variants, so none of the parameters is used.
     pub(crate) fn make_discriminants(&mut self) {
+        self.generics = Generics::default();
         for v in &mut self.variants {
             v.fields = Fields::Unit;
         }

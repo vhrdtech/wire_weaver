@@ -4,7 +4,10 @@ use syn::{File, Item, Path, parse2};
 
 use crate::{
     args::Args,
-    ast::{item_enum::ItemEnum, item_struct::ItemStruct, object_size::ObjectSize, repr::Repr},
+    ast::{
+        generics::Generics, item_enum::ItemEnum, item_struct::ItemStruct, object_size::ObjectSize,
+        repr::Repr,
+    },
     codegen::{
         fixed_layout, head_tail, item_enum::CGItemEnum, item_struct::CGItemStruct,
         series::SeriesSeed, util::CratePath,
@@ -215,13 +218,16 @@ fn generate_inner(
                 }
             }
 
-            if fixed_layout::enum_eligible(
-                &args.size_assumption,
-                repr,
-                &ww_item_enum.variants,
-                ww_item_enum.future_version.is_some(),
-                fixed_required,
-            )? {
+            // a generic enum's layout depends on its parameters (DER-14)
+            if ww_item_enum.generics.is_empty()
+                && fixed_layout::enum_eligible(
+                    &args.size_assumption,
+                    repr,
+                    &ww_item_enum.variants,
+                    ww_item_enum.future_version.is_some(),
+                    fixed_required,
+                )?
+            {
                 for ident in fixed_idents(&generate_borrowed, &generate_owned, ty_kind) {
                     if let Some(fast) = fixed_layout::fixed_enum(
                         ident,
@@ -245,10 +251,14 @@ fn generate_inner(
                 }
                 ts.append_all(cg_item_enum.impl_common(true)?);
                 if args.series {
-                    ts.append_all(borrowed.series_seed(true, &[]).series_enum(
-                        &ww_item_enum.variants,
-                        future_version_ident(&ww_item_enum),
-                    )?);
+                    ts.append_all(
+                        borrowed
+                            .series_seed(true, &ww_item_enum.generics)
+                            .series_enum(
+                                &ww_item_enum.variants,
+                                future_version_ident(&ww_item_enum),
+                            )?,
+                    );
                 }
             }
 
@@ -268,10 +278,14 @@ fn generate_inner(
                 if !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
                     ts.append_all(cg_item_enum.impl_common(false)?);
                     if args.series {
-                        ts.append_all(owned.series_seed(false, &[]).series_enum(
-                            &ww_item_enum.variants,
-                            future_version_ident(&ww_item_enum),
-                        )?);
+                        ts.append_all(
+                            owned
+                                .series_seed(false, &ww_item_enum.generics)
+                                .series_enum(
+                                    &ww_item_enum.variants,
+                                    future_version_ident(&ww_item_enum),
+                                )?,
+                        );
                     }
                 }
             }
@@ -303,7 +317,7 @@ fn generate_inner(
             );
 
             // a generic struct's layout depends on its parameters (DER-14)
-            if fixed_struct && ww_item_struct.type_params.is_empty() {
+            if fixed_struct && ww_item_struct.generics.is_empty() {
                 for ident in fixed_idents(&generate_borrowed, &generate_owned, ty_kind) {
                     if let Some(fast) = fixed_layout::fixed_struct(
                         ident,
@@ -327,7 +341,7 @@ fn generate_inner(
                 if args.series {
                     ts.append_all(
                         borrowed
-                            .series_seed(true, &ww_item_struct.type_params)
+                            .series_seed(true, &ww_item_struct.generics)
                             .series_struct(
                                 &ww_item_struct.fields,
                                 series_evolvable(&args.size_assumption),
@@ -352,7 +366,7 @@ fn generate_inner(
                 if args.series && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
                     ts.append_all(
                         owned
-                            .series_seed(false, &ww_item_struct.type_params)
+                            .series_seed(false, &ww_item_struct.generics)
                             .series_struct(
                                 &ww_item_struct.fields,
                                 series_evolvable(&args.size_assumption),
@@ -513,20 +527,16 @@ fn check_series_args(item: &Item, args: &Args) -> Result<(), String> {
     Ok(())
 }
 
-/// Type parameters (DER-14) go with shrink_wrap's own encoding of a struct, and `series`.
+/// Type and const parameters and where clauses (DER-14) go with shrink_wrap's own encoding of a struct or enum,
+/// `series`, `display` and `validate`; `fixed_layout`, `head_tail` and `sparse` lay out a concrete type.
 fn check_type_params_args(item: &Item, args: &Args) -> Result<(), String> {
     let (name, generics) = match item {
         Item::Struct(s) => (&s.ident, &s.generics),
         Item::Enum(e) => (&e.ident, &e.generics),
         _ => return Ok(()),
     };
-    if generics.type_params().next().is_none() {
+    if Generics::from_syn(generics).is_empty() {
         return Ok(());
-    }
-    if matches!(item, Item::Enum(_)) {
-        return Err(format!(
-            "`{name}`: type parameters are only supported on structs"
-        ));
     }
     let directive = if args.fixed_layout {
         "fixed_layout"
@@ -534,15 +544,11 @@ fn check_type_params_args(item: &Item, args: &Args) -> Result<(), String> {
         "head_tail"
     } else if args.sparse {
         "sparse"
-    } else if args.display {
-        "display"
-    } else if args.validate.is_some() {
-        "validate"
     } else {
         return Ok(());
     };
     Err(format!(
-        "`{name}`: type parameters don't go with `{directive}` (yet)"
+        "`{name}`: type and const parameters and where clauses don't go with `{directive}` (yet)"
     ))
 }
 
@@ -689,14 +695,10 @@ impl<'a> CGSeed<'a> {
     }
 
     /// The `series` impl's view of the type, `is_ref` on the borrowed side.
-    fn series_seed<'p>(
-        &'p self,
-        is_ref: bool,
-        type_params: &'p [syn::TypeParam],
-    ) -> SeriesSeed<'p> {
+    fn series_seed<'p>(&'p self, is_ref: bool, generics: &'p Generics) -> SeriesSeed<'p> {
         SeriesSeed {
             ident: &self.ident,
-            type_params,
+            generics,
             has_lifetime: is_ref && !self.ambiguous,
             is_ref,
             cfg: self.cfg.as_ref(),
@@ -728,6 +730,7 @@ impl<'a> CGSeed<'a> {
             size_assumption: self.size_assumption.clone(),
             ambiguous: self.ambiguous,
             crate_path: self.crate_path,
+            generics: &ww_item_enum.generics,
         }
     }
 
@@ -749,7 +752,7 @@ impl<'a> CGSeed<'a> {
             size_assumption: self.size_assumption.clone(),
             ambiguous: self.ambiguous,
             crate_path: self.crate_path,
-            type_params: &ww_item_struct.type_params,
+            generics: &ww_item_struct.generics,
         }
     }
 }

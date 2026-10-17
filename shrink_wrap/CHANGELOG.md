@@ -55,13 +55,17 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `BitSink::scratch`, `BitCounter::with_scratch`), `OpaqueField` / `OpaqueReader` are the generated code's helpers.
   `write_struct_head` hands its closure a `BitCounter` to measure the fields with. The design's golden bytes and
   size tables come out the same through the derive as through the hand-written impls before.
-- Type parameters on derived structs (DER-14): `struct Timed<T> { t: Second, value: T }` with
-  `#[derive_shrink_wrap(..)]`, bounds next to the parameter (`T: Copy`), also with a lifetime (`Tagged<'i, T>`,
-  owned `TaggedOwned<T>`). Each impl bounds the parameters by its trait (`T: SerializeShrinkWrap +
-  DeserializeShrinkWrap<'i>` for the borrowed side, the owned traits for the owned one, `SeriesColumns<'i>` with
-  `series`); the size of `T` is part of the struct's. No `where` clause, const parameters or defaults; enums,
-  `fixed_layout`, `head_tail`, `sparse`, `display` and `validate` reject type parameters, and the const size asserts
-  of `final_structure` / `sized` are left out for such a type. See `tests/generic_items.rs`.
+- Generics on derived structs and enums (DER-14): type parameters (`struct Timed<T> { t: Second, value: T }`,
+  `enum Reading<'i, T> { Value(T), Labeled { label: &'i str, value: T } }`), const parameters of any type Rust takes
+  (`struct Buf<const N: usize> { data: [u8; N] }`, `MaxLen<&'i str, N>`, `const STRICT: bool`), defaults
+  (`T = u8`) and where clauses, also next to a lifetime (borrowed `Tagged<'i, T>`, owned `TaggedOwned<T>`). Each
+  impl bounds the type parameters by its trait (`T: SerializeShrinkWrap + DeserializeShrinkWrap<'i>` for the
+  borrowed side, the owned traits for the owned one, `SeriesColumns<'i>` with `series`) on top of the bounds and the
+  where clause as written, which every generated impl carries; the size of `T` and `N` is part of the type's (a
+  `sized` `Buf<3>` is 32 bits). Works with `series`, `display` (the message's fields need a `Display` bound, `Error`
+  needs `Debug`), `validate`, `discriminants` (which has no parameters) and `#[common]`; `fixed_layout`, `head_tail`
+  and `sparse` reject generics with an error naming the type, and the const size asserts of `final_structure` /
+  `sized` are left out for a generic type. See `tests/generic_items.rs`.
 - `SeriesColumns` for `UN` and `IN` (SW-60), by the enum rule: a tag run, then each variant's `bit_count` and
   `value` columns, so `ww_numeric::NumericValue` with `un` / `in` can be a `Series` field.
 - Column codecs of `Series<T>` (SW-60), crate internal: numeric columns of 1- to 64-bit integers (a 4-bit header: predictor raw / delta / delta of delta,

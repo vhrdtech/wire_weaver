@@ -4,18 +4,19 @@
 //! enum-typed field before it changed; an enum's group is its tag run, then each data variant's fields as such a
 //! group over the items in the variant, in discriminant order.
 
+use crate::ast::generics::Generics;
 use crate::ast::item_enum::{Fields, Variant};
 use crate::ast::item_struct::Field;
 use crate::ast::ty::Type;
-use crate::codegen::util::{CratePath, impl_params, maybe_quote, ty_generics};
+use crate::codegen::util::{CratePath, maybe_quote};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
 /// What both impls need to know about the type.
 pub(crate) struct SeriesSeed<'a> {
     pub(crate) ident: &'a Ident,
-    /// A struct's type parameters (DER-14): each needs `SeriesColumns<'i>`.
-    pub(crate) type_params: &'a [syn::TypeParam],
+    /// The type's parameters and where clause (DER-14): each type parameter needs `SeriesColumns<'i>`.
+    pub(crate) generics: &'a Generics,
     /// The type has a `<'i>` of its own.
     pub(crate) has_lifetime: bool,
     /// Borrowed side: opaque fields go through `SerializeShrinkWrap` / `DeserializeShrinkWrap<'i>`, else the owned
@@ -70,13 +71,13 @@ impl SeriesSeed<'_> {
 
     /// `<'i, T>` after the type's name.
     fn lifetime(&self) -> TokenStream {
-        ty_generics(self.has_lifetime, self.type_params)
+        self.generics.ty(self.has_lifetime)
     }
 
-    /// `T: SeriesColumns<'i>, ..` of the impl.
+    /// `T: SeriesColumns<'i>, const N: usize, ..` of the impl.
     fn impl_params(&self) -> TokenStream {
         let trait_ = self.sc(quote! { SeriesColumns });
-        impl_params(self.type_params, quote! { #trait_<'i> })
+        self.generics.impl_params(Some(quote! { #trait_<'i> }))
     }
 
     fn fields<'f>(
@@ -318,9 +319,10 @@ impl SeriesSeed<'_> {
         let members = fields.iter().map(|f| &f.member);
 
         let params = self.impl_params();
+        let where_clause = self.generics.where_clause(&[]);
         Ok(quote! {
             #cfg
-            impl<'i, #params> #trait_<'i> for #ident #lifetime {
+            impl<'i, #params> #trait_<'i> for #ident #lifetime #where_clause {
                 type Reader = (#sibling_tags<#n>, (#(Option<#readers>,)*));
 
                 fn write_group<'a, I, S>(
@@ -466,6 +468,7 @@ impl SeriesSeed<'_> {
         let mut skims = vec![];
         let mut reader_fields = vec![];
         let mut reader_inits = vec![];
+        let mut reader_clones = vec![];
         let mut data_arms = vec![];
         for (v, fields) in &data {
             let d = discriminant(v);
@@ -523,6 +526,7 @@ impl SeriesSeed<'_> {
                 };
             });
             reader_inits.push(quote! { #on #vfield, });
+            reader_clones.push(quote! { #on #vfield: self.#vfield.clone(), });
 
             let field_nexts = fields.iter().enumerate().map(|(j, f)| {
                 let idx = syn::Index::from(j);
@@ -567,6 +571,10 @@ impl SeriesSeed<'_> {
             })
             .collect::<Vec<_>>();
 
+        let params = self.impl_params();
+        let where_clause = self.generics.where_clause(&[]);
+        let reader_generics = self.generics.ty(true);
+        let type_params: Vec<_> = self.generics.type_params().map(|p| &p.ident).collect();
         let (reader_def, reader_ty, tags_of, finish_skim) = if data.is_empty() {
             (
                 quote! {},
@@ -581,16 +589,31 @@ impl SeriesSeed<'_> {
                     #cfg
                     #[doc = #vis_doc]
                     #[doc(hidden)]
-                    #[derive(Clone)]
                     #[allow(non_camel_case_types)]
-                    pub struct #reader_ident<'i> {
+                    pub struct #reader_ident<'i, #params> #where_clause {
                         __tags: #enum_tags<'i>,
                         #(#reader_fields)*
+                        // a type parameter only in opaque fields (or none) is not in the readers
+                        __params: ::core::marker::PhantomData<fn() -> (#(#type_params,)*)>,
+                    }
+
+                    // not derived: that would want the parameters to be `Clone`, the readers are
+                    #cfg
+                    impl<'i, #params> ::core::clone::Clone for #reader_ident #reader_generics #where_clause {
+                        fn clone(&self) -> Self {
+                            Self {
+                                __tags: self.__tags.clone(),
+                                #(#reader_clones)*
+                                __params: ::core::marker::PhantomData,
+                            }
+                        }
                     }
                 },
-                quote! { #reader_ident<'i> },
+                quote! { #reader_ident #reader_generics },
                 quote! { reader.__tags },
-                quote! { Ok(#reader_ident { __tags, #(#reader_inits)* }) },
+                quote! {
+                    Ok(#reader_ident { __tags, #(#reader_inits)* __params: ::core::marker::PhantomData })
+                },
             )
         };
 
@@ -598,7 +621,7 @@ impl SeriesSeed<'_> {
             #reader_def
 
             #cfg
-            impl<'i> #trait_<'i> for #ident #lifetime {
+            impl<'i, #params> #trait_<'i> for #ident #lifetime #where_clause {
                 type Reader = #reader_ty;
 
                 fn write_group<'a, I, S>(
@@ -761,31 +784,42 @@ mod tests {
 
     #[test]
     fn type_parameters() {
-        assert_eq!(
-            error_of(
+        let compiles = [
+            (
                 quote! { borrowed, owned, series, final_structure },
                 quote! { struct Timed<T: Copy> { t: u32, value: T } },
             ),
-            None
-        );
-        let err = error_of(
-            quote! { borrowed, owned, ww_repr = u4 },
-            quote! { enum E<T> { A(T) } },
-        )
-        .unwrap();
-        assert!(err.contains("only supported on structs"), "{err}");
-        let err = error_of(
-            quote! { borrowed, owned, display },
-            quote! { /// msg
-            struct S<T> { a: T } },
-        )
-        .unwrap();
-        assert!(err.contains("don't go with `display`"), "{err}");
-        let err = error_of(
-            quote! { borrowed, owned },
-            quote! { struct S<T> where T: Copy { a: T } },
-        )
-        .unwrap();
-        assert!(err.contains("where clause"), "{err}");
+            (
+                quote! { borrowed, owned, series, ww_repr = u4 },
+                quote! { enum E<T> { A(T), B } },
+            ),
+            (
+                quote! { borrowed, owned, display },
+                quote! { /// msg
+                struct S<T> { a: T } },
+            ),
+            (
+                quote! { borrowed, owned, series },
+                quote! { struct S<T, const N: usize> where T: Copy { a: [T; N] } },
+            ),
+        ];
+        for (args, item) in compiles {
+            assert_eq!(error_of(args, item), None);
+        }
+        for directive in [
+            quote! { fixed_layout },
+            quote! { head_tail },
+            quote! { sparse },
+        ] {
+            let err = error_of(
+                quote! { borrowed, #directive },
+                quote! { struct Buf<const N: usize> { a: Option<[u8; N]> } },
+            )
+            .unwrap();
+            assert!(
+                err.contains("`Buf`") && err.contains(&format!("don't go with `{directive}`")),
+                "{err}"
+            );
+        }
     }
 }

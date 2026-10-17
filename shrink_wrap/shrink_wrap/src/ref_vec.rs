@@ -307,7 +307,8 @@ impl<'i, T: DeserializeShrinkWrap<'i> + PartialEq + Clone> PartialEq for RefVec<
                 return false;
             }
         }
-        true
+        // `self` may be a prefix of `other`
+        other.next().is_none()
     }
 }
 
@@ -320,6 +321,16 @@ mod tests {
     use crate::un::U7;
     use crate::{BufReader, BufWriter, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
     use hex_literal::hex;
+
+    #[test]
+    fn eq_needs_the_same_length() {
+        let (a, b) = ([1u16, 2], [1u16, 2, 3]);
+        let short = RefVec::Slice { slice: &a[..] };
+        let long = RefVec::Slice { slice: &b[..] };
+        assert!(short != long && long != short);
+        assert!(RefVec::<u16>::Slice { slice: &[] } != short);
+        assert!(short == RefVec::Slice { slice: &[1u16, 2][..] });
+    }
 
     #[test]
     fn read_vec_sized() {

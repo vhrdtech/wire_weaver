@@ -4,6 +4,8 @@
 
 ### 🚀 Features
 
+- `StoreState::session` docs: sessions with bit 31 set are reserved for stores that start a stream by themselves
+  (a logring boot that didn't recover positions, P2628 S3); hosts and firmware keep it clear.
 - `observe` module (SRV-18), the device side of observed properties for generated servers: `ObserveTable<N>` per
   trait level (`apply` validates an `ObserveRequest` in full before changing anything and clamps it to
   `ObserveLimits`, `granted`, `mark_changed`, `reset`), `plan` / `Selection` / `commit` for `poll_properties`

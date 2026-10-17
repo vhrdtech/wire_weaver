@@ -71,7 +71,8 @@ pub struct StoredEvent<'b> {
 /// What a [StreamStore] holds, see [StreamStore::state].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct StoreState {
-    /// Session the kept events belong to.
+    /// Session the kept events belong to. Sessions with bit 31 set are reserved for stores that start a stream by
+    /// themselves (a logring boot that didn't recover positions); hosts and firmware choose sessions with it clear.
     pub session: u32,
     /// Position of the oldest kept event, `None` when empty.
     pub oldest: Option<u64>,

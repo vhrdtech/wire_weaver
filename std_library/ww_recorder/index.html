@@ -3288,6 +3288,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optional-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Optional groups
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#serving-it" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4845,6 +4856,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optional-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Optional groups
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#serving-it" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5003,11 +5025,13 @@
 <h1 id="ww_recorder">ww_recorder<a class="headerlink" href="#ww_recorder" title="Permanent link">&para;</a></h1>
 <p><code>ww_recorder</code> (STD-34) controls a <strong>recorder</strong>: a device that logs many tracks (streams of any type) to an SD card or
 flash on its own, with sessions, recordings and markers, and shows the log over USB or reads it back over
-WireWeaver. The first user is <code>ww_logring</code> (project P2628, repo <code>logring</code>), but nothing in the API is specific to
-it: any recorder with a card, tracks and a ring can serve it.</p>
-<p>The API carries <strong>control, not data</strong>. Every track is a stream of some <code>#[ww_trait]</code> in the device's own API (a CAN
-frame stream, a UART monitor, a temperature), so a host reads logged data back with that stream's own reliable
-protocol (backfill from the store, see <a href="../../api/streams/">streams</a>), and a PC tool decodes a card from the API
+WireWeaver. The first user is the logring engine (project P2628, repo <code>logring</code>), but nothing in the API is
+specific to it: any recorder with a card, tracks and a ring can serve it.</p>
+<p>The API carries <strong>control, not data</strong>. A <strong>track</strong> is one stream declared in some trait of the device's own API — a
+<code>stream!(..)</code> such as <code>can[1].rx</code> — identified by its numeric resource path (see <a href="#settings-and-tracks">Settings and
+tracks</a>). The recorder logs that stream's items as they come, and a host reads them back
+through the same stream's own reliable protocol (backfill from the store, see <a href="../../api/streams/">streams</a>): the
+data itself never goes through <code>Recorder</code>, only through the stream it names. A PC tool decodes a card from the API
 bundle stored on it. <code>Recorder</code> is what you call to see the state of the card, format it, label spans and moments,
 and tune how it writes.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_trait]</span>
@@ -5195,15 +5219,82 @@ fit in 8 bytes (a test checks it).</p>
 <p><code>refresh_usb()</code> (optional) tells the USB mass storage view to show the log as it is now. The view is a snapshot taken
 when the host mounts the virtual volume, so new data shows only after a re-mount; this raises a media change
 instead. A device without a USB view leaves the call out.</p>
+<h2 id="optional-groups">Optional groups<a class="headerlink" href="#optional-groups" title="Permanent link">&para;</a></h2>
+<p>A small firmware doesn't need every tier of this API: formatting a card from the host, labelled recordings, markers,
+per-track durability, counters and the USB view can each be left out whole, not just <code>refresh_usb</code> and
+<code>track[].compression</code> one call at a time. <a href="../../api/optional_items/">Optional groups</a> name them so <code>omit</code> /
+<code>omit_if</code> in <code>ww_codegen!</code> can drop a whole group with one entry.</p>
+<p>The minimum every device keeps, whatever it leaves out: <code>status</code>, <code>card</code>, <code>sync</code>, the <code>settings</code> property, and
+<code>track[].info</code> / <code>track[].enabled</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Leaves out</th>
+<th>A device without it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>formatting</code></td>
+<td><code>prepare_format</code>, <code>format</code></td>
+<td>can't erase or lay out its own card (formatted elsewhere, or fixed at the factory)</td>
+</tr>
+<tr>
+<td><code>recording</code></td>
+<td><code>recording_start</code>, <code>recording_stop</code>, <code>recordings</code></td>
+<td>logs one continuous span, nothing to label</td>
+</tr>
+<tr>
+<td><code>markers</code></td>
+<td><code>marker</code></td>
+<td>has no button or application event worth finding again</td>
+</tr>
+<tr>
+<td><code>track_settings</code></td>
+<td><code>track[].durability</code></td>
+<td>flushes every track the same way, no per-track timing</td>
+</tr>
+<tr>
+<td><code>counters</code></td>
+<td><code>counters</code>, <code>track[].counters</code></td>
+<td>has no status screen and doesn't judge the card by its wear</td>
+</tr>
+<tr>
+<td><code>usb</code></td>
+<td><code>refresh_usb</code></td>
+<td>has no USB mass storage view</td>
+</tr>
+</tbody>
+</table>
+<p><code>track[].compression</code> keeps its own plain <code>#[optional]</code> (not a group of its own): a device without a codec leaves
+only that one property out, same as before.</p>
+<p>A build that leaves every group out (<code>tests/recorder_groups</code> compiles and round-trips one end to end):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="n">my_api</span><span class="p">::</span><span class="n">Device</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Server</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="n">omit_if</span><span class="p">(</span><span class="n">not</span><span class="p">(</span><span class="n">feature</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;recorder-full&quot;</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">        </span><span class="s">&quot;recorder.formatting&quot;</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="s">&quot;recorder.recording&quot;</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">        </span><span class="s">&quot;recorder.markers&quot;</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="s">&quot;recorder.track.track_settings&quot;</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="s">&quot;recorder.counters&quot;</span><span class="p">,</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="s">&quot;recorder.track.counters&quot;</span><span class="p">,</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="s">&quot;recorder.usb&quot;</span><span class="p">,</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="p">],</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">);</span>
+</span></code></pre></div>
+<p>Without <code>recorder-full</code>, the dispatch arms and handlers of every group above are compiled out; with it, nothing is
+left out. A device picks any subset the same way, one <code>omit_if(..)</code> entry (or plain <code>omit = [..]</code>) per group.</p>
 <h2 id="serving-it">Serving it<a class="headerlink" href="#serving-it" title="Permanent link">&para;</a></h2>
 <p>Generate handler stubs with <code>ww api scaffold</code> (AGENTS.md describes the flow) for the same options as your
 <code>ww_codegen!</code> call:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cargo<span class="w"> </span>ww<span class="w"> </span>api<span class="w"> </span>scaffold<span class="w"> </span>ww_stdlib/ww_recorder<span class="w"> </span>--name<span class="w"> </span>Recorder
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cargo<span class="w"> </span>ww<span class="w"> </span>api<span class="w"> </span>scaffold<span class="w"> </span>ww_stdlib/ww_recorder<span class="w"> </span>--name<span class="w"> </span>Recorder
 </span></code></pre></div>
 <p>It prints the server struct, a stub for every handler (<code>status</code>, <code>card</code>, <code>prepare_format</code>, ..., <code>track_info</code>,
 <code>track_counters</code>, <code>valid_indices_root_track</code>, the <code>settings</code> getter and setter) and the matching <code>ww_codegen!</code>; the
-output compiles as it is. A device that has no USB view or codec leaves out <code>refresh_usb</code> and <code>track[].compression</code>
-with <code>omit = [..]</code>.</p>
+output compiles as it is. <code>--omit formatting,recording,markers,track.track_settings,counters,track.counters,usb</code>
+leaves the same groups' stubs out.</p>
 <h2 id="evolution">Evolution<a class="headerlink" href="#evolution" title="Permanent link">&para;</a></h2>
 <p>No type uses <code>sized</code> or <code>final_structure</code>, so fields can be appended with <code>#[default = ..]</code> and variants added
 without breaking older hosts; an enum reads a newer variant as <code>Unknown(u32)</code>. Adding a method

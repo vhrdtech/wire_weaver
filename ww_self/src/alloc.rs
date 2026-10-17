@@ -1,6 +1,6 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    ArgumentOwned, Delivery, ErrorVariantOwned, FieldOwned, FieldsOwned, FlowControl,
+    ArgumentOwned, Batching, Delivery, ErrorVariantOwned, FieldOwned, FieldsOwned, FlowControl,
     GenericArgOwned, GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length, Multiplicity, Repr,
     TypeLocationOwned, TypeOwned,
 };
@@ -76,12 +76,14 @@ impl ApiItemKindOwned {
                 args,
                 return_ty,
                 errors,
+                batched,
             } => Some(StreamFnRef {
                 ty,
                 delivery: *delivery,
                 args,
                 return_ty: return_ty.as_ref(),
                 errors: errors.as_deref(),
+                batched: *batched,
             }),
             ApiItemKindOwned::Stream { ty, is_up: true } => Some(StreamFnRef {
                 ty,
@@ -89,6 +91,7 @@ impl ApiItemKindOwned {
                 args: &[],
                 return_ty: None,
                 errors: None,
+                batched: None,
             }),
             _ => None,
         }
@@ -115,6 +118,8 @@ pub struct StreamFnRef<'a> {
     pub return_ty: Option<&'a TypeOwned>,
     /// `#[errors(..)]` of the stream function (API-32).
     pub errors: Option<&'a [ErrorVariantOwned]>,
+    /// Items sent in batches (API-41).
+    pub batched: Option<Batching>,
 }
 
 impl ApiBundleOwned {

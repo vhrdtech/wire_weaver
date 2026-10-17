@@ -273,6 +273,11 @@ pub enum ApiItemKind<'i> {
         /// (API-32), as for [Method](ApiItemKind::Method).
         #[default = None]
         errors: Option<RefVec<'i, ErrorVariant<'i>>>,
+        /// Items are sent in batches (API-41): `batched` in `#[stream(T, delivery, batched)]`, `#[batched]` next to
+        /// `stream!`. Each event carries one `Series<Timed<T>>` (`Series<T>` when [Batching::Untimed]), its `units`
+        /// are the batch's items. None: one `T` per event.
+        #[default = None]
+        batched: Option<Batching>,
     },
     // Reserved, no useful info keeping reserved items after IDs are calculated
 }
@@ -294,6 +299,21 @@ pub enum Delivery {
     Counted,
     /// Counted, acknowledged and resent; kept in the device's store while the host is slow or gone.
     Reliable,
+}
+
+/// How the items of a batched [ApiItemKind::StreamFn] are sent (API-41).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Copy, Debug, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum Batching {
+    /// `Series<Timed<T>>`: every item with the device time it was taken at.
+    Timed,
+    /// `Series<T>`, `batched(untimed)`: `T` has its own time, or needs none.
+    Untimed,
 }
 
 /// Flow control of a [ApiItemKind::FlowSink].

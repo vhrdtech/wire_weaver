@@ -143,7 +143,19 @@ fn doc_trait(
                                 None
                             }
                         });
-                        let notes = notes([Some(note.to_string()), array, credit, delivery, since]);
+                        let batched = item_macro
+                            .attrs
+                            .iter()
+                            .any(|a| a.path().is_ident("batched"))
+                            .then(|| "Batched: items are sent in batches, one `Series` per event (`#[batched]`).".to_string());
+                        let notes = notes([
+                            Some(note.to_string()),
+                            array,
+                            credit,
+                            delivery,
+                            batched,
+                            since,
+                        ]);
                         items.extend(quote! {
                             #(#docs)*
                             #notes
@@ -331,14 +343,24 @@ fn stream_fn_note(attrs: &[Attribute]) -> Result<Option<String>, String> {
         .map_err(|e| format!("#[stream(..)]: {e}"))?
         .tokens
         .to_string();
-    let (ty, kind) = match tokens.rsplit_once(',') {
-        Some((ty, kind)) if matches!(kind.trim(), "counted" | "reliable" | "plain") => {
-            (ty.trim().to_string(), kind.trim().to_string())
+    // the item type, then the delivery and batching keywords (the type may have commas of its own)
+    let mut ty = tokens.trim();
+    let mut kind = "plain".to_string();
+    let mut batched = None;
+    while let Some((rest, last)) = ty.rsplit_once(',') {
+        let last: String = last.split_whitespace().collect();
+        match last.as_str() {
+            "counted" | "reliable" | "plain" => kind = last,
+            "batched" => batched = Some("batched"),
+            "batched(untimed)" => batched = Some("batched, untimed"),
+            "" => {}
+            _ => break,
         }
-        _ => (tokens.trim().to_string(), "plain".to_string()),
-    };
+        ty = rest.trim();
+    }
+    let batched = batched.map(|b| format!(" ({b})")).unwrap_or_default();
     Ok(Some(format!(
-        "Stream function: calling it opens a {kind} stream of `{ty}` from the device, with this result."
+        "Stream function: calling it opens a {kind} stream of `{ty}`{batched} from the device, with this result."
     )))
 }
 

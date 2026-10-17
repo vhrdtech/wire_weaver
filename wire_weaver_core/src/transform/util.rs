@@ -5,7 +5,7 @@ use semver::Version;
 use shrink_wrap::ElementSize;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Expr, Lit, Meta, Token, UseTree};
-use ww_self::{Delivery, FlowControl, OptionalOwned, Repr};
+use ww_self::{Batching, Delivery, FlowControl, OptionalOwned, Repr};
 use ww_version::VersionTriplet;
 
 pub(crate) fn collect_docs(attrs: &[Attribute]) -> Vec<String> {
@@ -99,37 +99,117 @@ pub(crate) fn get_delivery_attr(
     Ok(delivery)
 }
 
-/// `#[stream(T)]`, `#[stream(T, counted)]` or `#[stream(T, reliable)]` on a trait fn: a stream function (API-31).
+/// `#[stream(T)]`, `#[stream(T, counted)]` or `#[stream(T, reliable)]` on a trait fn: a stream function (API-31),
+/// optionally with `batched` or `batched(untimed)` after the delivery (API-41).
 pub(crate) struct StreamFnAttr {
     pub ty: syn::Type,
     pub delivery: Delivery,
+    pub batched: Option<Batching>,
 }
 
 impl Parse for StreamFnAttr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let ty = input.parse()?;
-        let delivery = if input.is_empty() {
-            Delivery::Plain
-        } else {
+        let mut delivery = None;
+        let mut batched = None;
+        while !input.is_empty() {
             let _comma: Token![,] = input.parse()?;
+            if input.is_empty() {
+                break;
+            }
             let kind: Ident = input.parse()?;
             match kind.to_string().as_str() {
-                "plain" => Delivery::Plain,
-                "counted" => Delivery::Counted,
-                "reliable" => Delivery::Reliable,
+                "batched" => {
+                    if batched.is_some() {
+                        return Err(syn::Error::new(kind.span(), "batched given twice"));
+                    }
+                    batched = Some(parse_batching(input)?);
+                }
+                k @ ("plain" | "counted" | "reliable") => {
+                    if delivery.is_some() || batched.is_some() {
+                        return Err(syn::Error::new(
+                            kind.span(),
+                            "one delivery (counted or reliable), right after the item type, before batched",
+                        ));
+                    }
+                    delivery = Some(match k {
+                        "plain" => Delivery::Plain,
+                        "counted" => Delivery::Counted,
+                        _ => Delivery::Reliable,
+                    });
+                }
                 u => {
                     return Err(syn::Error::new(
                         kind.span(),
-                        format!("unknown stream kind {u}, expected counted or reliable"),
+                        format!("unknown stream kind {u}, expected counted, reliable or batched"),
                     ));
                 }
             }
-        };
-        if !input.is_empty() {
-            let _comma: Option<Token![,]> = input.parse()?;
         }
-        Ok(StreamFnAttr { ty, delivery })
+        Ok(StreamFnAttr {
+            ty,
+            delivery: delivery.unwrap_or(Delivery::Plain),
+            batched,
+        })
     }
+}
+
+/// What follows `batched`: nothing, or `(untimed)`.
+fn parse_batching(input: ParseStream) -> syn::Result<Batching> {
+    if !input.peek(syn::token::Paren) {
+        return Ok(Batching::Timed);
+    }
+    let content;
+    syn::parenthesized!(content in input);
+    let form: Ident = content.parse()?;
+    if form != "untimed" || !content.is_empty() {
+        return Err(syn::Error::new(
+            form.span(),
+            "expected batched or batched(untimed)",
+        ));
+    }
+    Ok(Batching::Untimed)
+}
+
+/// `#[batched]` or `#[batched(untimed)]` next to `stream!` (API-41), None without it. Not allowed on `sink!`.
+pub(crate) fn get_batched_attr(
+    attrs: &[Attribute],
+    is_up: bool,
+    current_crate: &CrateContext,
+) -> Result<Option<Batching>> {
+    let mut batched = None;
+    for attr in attrs.iter().filter(|a| a.path().is_ident("batched")) {
+        if !is_up {
+            return Err(
+                anyhow!("#[batched] is only supported on stream!, not on sink!")
+                    .context(current_crate.err_context()),
+            );
+        }
+        if batched.is_some() {
+            return Err(anyhow!("#[batched] given twice").context(current_crate.err_context()));
+        }
+        let batching = match &attr.meta {
+            Meta::Path(_) => Batching::Timed,
+            Meta::List(_) => attr
+                .parse_args_with(|input: ParseStream| {
+                    let form: Ident = input.parse()?;
+                    if form != "untimed" || !input.is_empty() {
+                        return Err(syn::Error::new(
+                            form.span(),
+                            "expected #[batched] or #[batched(untimed)]",
+                        ));
+                    }
+                    Ok(Batching::Untimed)
+                })
+                .context(current_crate.err_context())?,
+            Meta::NameValue(_) => {
+                return Err(anyhow!("expected #[batched] or #[batched(untimed)]")
+                    .context(current_crate.err_context()));
+            }
+        };
+        batched = Some(batching);
+    }
+    Ok(batched)
 }
 
 /// The `#[stream(..)]` attribute of a trait fn, `None` for an ordinary method.
@@ -142,7 +222,10 @@ pub(crate) fn get_stream_fn_attr(
     };
     let parsed = attr
         .parse_args::<StreamFnAttr>()
-        .context("expected #[stream(ItemType)] or #[stream(ItemType, counted | reliable)]")
+        .context(
+            "expected #[stream(ItemType)] or #[stream(ItemType, counted | reliable)], optionally with batched or \
+             batched(untimed) last",
+        )
         .context(current_crate.err_context())?;
     Ok(Some(parsed))
 }
@@ -445,5 +528,51 @@ mod derive_shrink_wrap_args_tests {
         let args: Args = parse2(ts).unwrap();
         assert!(args.ww_repr.is_some());
         assert!(args.size_assumption.is_some());
+    }
+}
+
+#[cfg(test)]
+mod stream_fn_attr_tests {
+    use super::StreamFnAttr;
+    use ww_self::{Batching, Delivery};
+
+    fn parse(s: &str) -> syn::Result<(Delivery, Option<Batching>)> {
+        syn::parse_str::<StreamFnAttr>(s).map(|a| (a.delivery, a.batched))
+    }
+
+    #[test]
+    fn delivery_and_batching() {
+        assert_eq!(parse("u8").unwrap(), (Delivery::Plain, None));
+        assert_eq!(parse("u8, counted,").unwrap(), (Delivery::Counted, None));
+        assert_eq!(
+            parse("Sample, reliable, batched").unwrap(),
+            (Delivery::Reliable, Some(Batching::Timed))
+        );
+        assert_eq!(
+            parse("Sample, batched").unwrap(),
+            (Delivery::Plain, Some(Batching::Timed))
+        );
+        assert_eq!(
+            parse("Frame, counted, batched(untimed)").unwrap(),
+            (Delivery::Counted, Some(Batching::Untimed))
+        );
+        assert_eq!(
+            parse("Pair<u8, u16>, counted, batched").unwrap(),
+            (Delivery::Counted, Some(Batching::Timed))
+        );
+    }
+
+    #[test]
+    fn wrong_forms() {
+        for s in [
+            "u8, batched, counted",
+            "u8, counted, reliable",
+            "u8, batched, batched",
+            "u8, batched(timed)",
+            "u8, batched(untimed, x)",
+            "u8, lossy",
+        ] {
+            assert!(parse(s).is_err(), "{s}");
+        }
     }
 }

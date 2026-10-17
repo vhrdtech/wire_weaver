@@ -3,8 +3,8 @@ use super::{
     errors::{ListedOn, get_errors_attr, reject_errors_attr},
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
     util::{
-        collect_docs, get_delivery_attr, get_flow_attr, get_optional_attr, get_since_attr,
-        get_stream_fn_attr,
+        collect_docs, get_batched_attr, get_delivery_attr, get_flow_attr, get_optional_attr,
+        get_since_attr, get_stream_fn_attr,
     },
 };
 use anyhow::{Context, Result, anyhow};
@@ -18,8 +18,8 @@ use syn::{
     TraitItemMacro, Type, TypePath, parse2,
 };
 use ww_self::{
-    ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ArgumentOwned, Delivery,
-    ErrorVariantOwned, Multiplicity, PropertyAccess, TypeOwned,
+    ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ArgumentOwned, Batching,
+    Delivery, ErrorVariantOwned, Multiplicity, PropertyAccess, TypeOwned,
 };
 
 pub(crate) fn convert_api_items(
@@ -214,6 +214,7 @@ fn convert_api_item_fn(
         Some(stream) => stream_kind(
             convert_ty(&stream.ty, current_crate, scratch)?,
             stream.delivery,
+            stream.batched,
             args,
             return_ty,
             errors,
@@ -255,6 +256,7 @@ fn convert_api_item_stream(
     let docs = collect_docs(&item_macro.attrs);
     let flow = get_flow_attr(&item_macro.attrs, is_up, current_crate)?;
     let delivery = get_delivery_attr(&item_macro.attrs, is_up, current_crate)?;
+    let batched = get_batched_attr(&item_macro.attrs, is_up, current_crate)?;
     reject_errors_attr(
         &item_macro.attrs,
         &args.resource_name.to_string(),
@@ -266,7 +268,7 @@ fn convert_api_item_stream(
     .context(current_crate.err_context())?;
     let kind = match flow {
         Some(flow) => ApiItemKindOwned::FlowSink { ty, flow },
-        None if is_up => stream_kind(ty, delivery, vec![], None, None),
+        None if is_up => stream_kind(ty, delivery, batched, vec![], None, None),
         None => ApiItemKindOwned::Stream { ty, is_up },
     };
 
@@ -281,16 +283,17 @@ fn convert_api_item_stream(
     })
 }
 
-/// A stream function, or `Stream` for a plain one without arguments and result (`stream!`, same bytes as before
-/// stream functions existed).
+/// A stream function, or `Stream` for a plain one without arguments, result and batching (`stream!`, same bytes as
+/// before stream functions existed).
 fn stream_kind(
     ty: TypeOwned,
     delivery: Delivery,
+    batched: Option<Batching>,
     args: Vec<ArgumentOwned>,
     return_ty: Option<TypeOwned>,
     errors: Option<Vec<ErrorVariantOwned>>,
 ) -> ApiItemKindOwned {
-    if delivery == Delivery::Plain && args.is_empty() && return_ty.is_none() {
+    if delivery == Delivery::Plain && batched.is_none() && args.is_empty() && return_ty.is_none() {
         ApiItemKindOwned::Stream { ty, is_up: true }
     } else {
         ApiItemKindOwned::StreamFn {
@@ -299,6 +302,7 @@ fn stream_kind(
             args,
             return_ty,
             errors,
+            batched,
         }
     }
 }

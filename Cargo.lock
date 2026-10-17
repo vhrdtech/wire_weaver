@@ -4264,6 +4264,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "recorder_groups"
+version = "0.1.0"
+dependencies = [
+ "recorder_groups_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_recorder",
+]
+
+[[package]]
+name = "recorder_groups_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_recorder",
+]
+
+[[package]]
 name = "recursive"
 version = "0.1.0"
 dependencies = [

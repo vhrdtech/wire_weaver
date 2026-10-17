@@ -2,10 +2,11 @@
 //! Control a recorder over WireWeaver (STD-34): a device that logs many tracks (streams of any type) to an SD card
 //! or flash on its own, with sessions, recordings and markers.
 //!
-//! The first user is `ww_logring` (P2628, repo `logring`), but nothing here is specific to it: any recorder that
-//! has a card, tracks and a ring can serve [Recorder]. The data itself is not carried by this API. Every track is a
-//! stream of some `#[ww_trait]` in the device's API, so a host reads logged data back (backfill) with that
-//! stream's own reliable protocol, and the recorder is controlled with the calls here.
+//! The first user is the logring engine (P2628, repo `logring`), but nothing here is specific to it: any recorder
+//! that has a card, tracks and a ring can serve [Recorder]. A **track** is one stream declared in some trait of the
+//! device's own API (a `stream!(..)` such as `can[1].rx`), identified by its numeric resource path ([TrackInfo]).
+//! The recorder logs that stream's items, and a host reads them back through the same stream's own reliable
+//! protocol (backfill), so the data never goes through [Recorder] itself: it only controls the card and the log.
 //!
 //! What the API covers:
 //!
@@ -60,6 +61,7 @@ pub trait Recorder {
     /// the card refused the old one (keeps the rw files).
     ///
     /// `Common(Busy)` while a format is running, `NoCard`.
+    #[optional(formatting)]
     #[errors(Common(Busy, Unsupported), NoCard)]
     fn prepare_format(action: FormatAction) -> Result<FormatOffer<'i>, RecorderError<'i>>;
 
@@ -72,6 +74,7 @@ pub trait Recorder {
     ///
     /// `BadToken` for an expired, used or other card's token, `Common(InvalidArgument)` for an `rw_mb` outside the
     /// offer's limits, `CardFailed` when the check finds a fake or broken card (nothing is formatted then).
+    #[optional(formatting)]
     #[errors(Common(Busy, InvalidArgument), NoCard, BadToken, CardFailed)]
     fn format(token: u32, rw_mb: Option<u32>) -> Result<(), RecorderError<'i>>;
 
@@ -81,15 +84,18 @@ pub trait Recorder {
     /// (`Unsupported` if the device has none). Returns the recording id (counts up for the life of the card).
     ///
     /// `NotLogging` without a mounted ring, `RecordingRunning` while one is open.
+    #[optional(recording)]
     #[errors(Common(Unsupported, InvalidArgument), NotLogging, RecordingRunning)]
     fn recording_start(trigger: Trigger, pre_trigger_s: u16) -> Result<u32, RecorderError<'i>>;
 
     /// Stops the running recording and returns its id. `NoRecording` when none runs.
+    #[optional(recording)]
     #[errors(NotLogging, NoRecording)]
     fn recording_stop() -> Result<u32, RecorderError<'i>>;
 
     /// Recordings on the card, oldest first, up to [MAX_RECORDINGS] with id above `after` (0 for the first page).
     /// Recordings whose data the ring has already overwritten are not listed.
+    #[optional(recording)]
     #[errors(NotLogging)]
     fn recordings(
         after: u32,
@@ -97,6 +103,7 @@ pub trait Recorder {
 
     /// Drops a marker into the system track: a moment to find again (a button press, a note, a trigger). Written
     /// at once, not with the next flush.
+    #[optional(markers)]
     #[errors(Common(InvalidArgument), NotLogging)]
     fn marker(
         kind: MarkerKind,
@@ -114,12 +121,13 @@ pub trait Recorder {
     property!(rw settings: Settings, RecorderError<'i>);
 
     /// Totals since the card was formatted and since this boot.
+    #[optional(counters)]
     fn counters() -> RecorderCounters;
 
     /// Tells the USB mass storage view to show the log as it is now. The view is a snapshot taken when the host
     /// mounts it, so new data shows only after a re-mount; this raises a media change instead. Optional: a device
     /// without a USB view leaves it out.
-    #[optional]
+    #[optional(usb)]
     #[errors(Common(Unsupported, Busy))]
     fn refresh_usb() -> Result<(), RecorderError<'i>>;
 }
@@ -136,6 +144,7 @@ pub trait Track {
     property!(rw enabled: bool, RecorderError<'i>);
 
     /// When the track is flushed to the card, see [Durability]. Takes effect at once.
+    #[optional(track_settings)]
     #[errors(Common(Unsupported))]
     property!(rw durability: Durability, RecorderError<'i>);
 
@@ -146,6 +155,7 @@ pub trait Track {
     property!(rw compression: Compression, RecorderError<'i>);
 
     /// What the track has stored and lost.
+    #[optional(counters)]
     fn counters() -> TrackCounters;
 }
 

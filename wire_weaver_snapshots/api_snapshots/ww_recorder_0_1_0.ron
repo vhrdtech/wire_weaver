@@ -4,10 +4,11 @@
     "Control a recorder over WireWeaver (STD-34): a device that logs many tracks (streams of any type) to an SD card",
     "or flash on its own, with sessions, recordings and markers.",
     "",
-    "The first user is `ww_logring` (P2628, repo `logring`), but nothing here is specific to it: any recorder that",
-    "has a card, tracks and a ring can serve [Recorder]. The data itself is not carried by this API. Every track is a",
-    "stream of some `#[ww_trait]` in the device\'s API, so a host reads logged data back (backfill) with that",
-    "stream\'s own reliable protocol, and the recorder is controlled with the calls here.",
+    "The first user is the logring engine (P2628, repo `logring`), but nothing here is specific to it: any recorder",
+    "that has a card, tracks and a ring can serve [Recorder]. A **track** is one stream declared in some trait of the",
+    "device\'s own API (a `stream!(..)` such as `can[1].rx`), identified by its numeric resource path ([TrackInfo]).",
+    "The recorder logs that stream\'s items, and a host reads them back through the same stream\'s own reliable",
+    "protocol (backfill), so the data never goes through [Recorder] itself: it only controls the card and the log.",
     "",
     "What the API covers:",
     "",
@@ -532,7 +533,7 @@
             ])),
         ])), multiplicity: Flat, since: None, ident: "durability", docs: [
             "When the track is flushed to the card, see [Durability]. Takes effect at once.",
-        ], optional: None),
+        ], optional: Some((group: Some("track_settings")))),
         (id: 3, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -543,7 +544,7 @@
         ], optional: Some((group: None))),
         (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
             "What the track has stored and lost.",
-        ], optional: None),
+        ], optional: Some((group: Some("counters")))),
     ]), crate_idx: 0),
     InLine(level: (docs: [
         "Control of a recorder: a logger that writes tracks to a card or flash.",
@@ -580,7 +581,7 @@
             "the card refused the old one (keeps the rw files).",
             "",
             "`Common(Busy)` while a format is running, `NoCard`.",
-        ], optional: None),
+        ], optional: Some((group: Some("formatting")))),
         (id: 4, kind: Method(args: [
             (ident: "token", ty: NumericAny(Base(U32))),
             (ident: "rw_mb", ty: Option(some_ty: NumericAny(Base(U32)))),
@@ -602,7 +603,7 @@
             "",
             "`BadToken` for an expired, used or other card\'s token, `Common(InvalidArgument)` for an `rw_mb` outside the",
             "offer\'s limits, `CardFailed` when the check finds a fake or broken card (nothing is formatted then).",
-        ], optional: None),
+        ], optional: Some((group: Some("formatting")))),
         (id: 5, kind: Method(args: [
             (ident: "trigger", ty: OutOfLine(type_idx: 18)),
             (ident: "pre_trigger_s", ty: NumericAny(Base(U16))),
@@ -620,13 +621,13 @@
             "(`Unsupported` if the device has none). Returns the recording id (counts up for the life of the card).",
             "",
             "`NotLogging` without a mounted ring, `RecordingRunning` while one is open.",
-        ], optional: None),
+        ], optional: Some((group: Some("recording")))),
         (id: 6, kind: Method(args: [], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "NotLogging", nested: None),
             (ident: "NoRecording", nested: None),
         ])), multiplicity: Flat, since: None, ident: "recording_stop", docs: [
             "Stops the running recording and returns its id. `NoRecording` when none runs.",
-        ], optional: None),
+        ], optional: Some((group: Some("recording")))),
         (id: 7, kind: Method(args: [
             (ident: "after", ty: NumericAny(Base(U32))),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 20))), err_ty: OutOfLine(type_idx: 3))), errors: Some([
@@ -634,7 +635,7 @@
         ])), multiplicity: Flat, since: None, ident: "recordings", docs: [
             "Recordings on the card, oldest first, up to [MAX_RECORDINGS] with id above `after` (0 for the first page).",
             "Recordings whose data the ring has already overwritten are not listed.",
-        ], optional: None),
+        ], optional: Some((group: Some("recording")))),
         (id: 8, kind: Method(args: [
             (ident: "kind", ty: OutOfLine(type_idx: 21)),
             (ident: "label", ty: MaxLen(max_len: Fixed(64), ty: String)),
@@ -647,7 +648,7 @@
         ])), multiplicity: Flat, since: None, ident: "marker", docs: [
             "Drops a marker into the system track: a moment to find again (a button press, a note, a trigger). Written",
             "at once, not with the next flush.",
-        ], optional: None),
+        ], optional: Some((group: Some("markers")))),
         (id: 9, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "NotLogging", nested: None),
         ])), multiplicity: Flat, since: None, ident: "sync", docs: [
@@ -664,7 +665,7 @@
         ], optional: None),
         (id: 11, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 26)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
             "Totals since the card was formatted and since this boot.",
-        ], optional: None),
+        ], optional: Some((group: Some("counters")))),
         (id: 12, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -674,7 +675,7 @@
             "Tells the USB mass storage view to show the log as it is now. The view is a snapshot taken when the host",
             "mounts it, so new data shows only after a re-mount; this raises a media change instead. Optional: a device",
             "without a USB view leaves it out.",
-        ], optional: Some((group: None))),
+        ], optional: Some((group: Some("usb")))),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_recorder", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

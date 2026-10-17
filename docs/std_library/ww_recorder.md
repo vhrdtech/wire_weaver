@@ -6,12 +6,14 @@ level: advanced
 
 `ww_recorder` (STD-34) controls a **recorder**: a device that logs many tracks (streams of any type) to an SD card or
 flash on its own, with sessions, recordings and markers, and shows the log over USB or reads it back over
-WireWeaver. The first user is `ww_logring` (project P2628, repo `logring`), but nothing in the API is specific to
-it: any recorder with a card, tracks and a ring can serve it.
+WireWeaver. The first user is the logring engine (project P2628, repo `logring`), but nothing in the API is
+specific to it: any recorder with a card, tracks and a ring can serve it.
 
-The API carries **control, not data**. Every track is a stream of some `#[ww_trait]` in the device's own API (a CAN
-frame stream, a UART monitor, a temperature), so a host reads logged data back with that stream's own reliable
-protocol (backfill from the store, see [streams](../api/streams.md)), and a PC tool decodes a card from the API
+The API carries **control, not data**. A **track** is one stream declared in some trait of the device's own API — a
+`stream!(..)` such as `can[1].rx` — identified by its numeric resource path (see [Settings and
+tracks](#settings-and-tracks)). The recorder logs that stream's items as they come, and a host reads them back
+through the same stream's own reliable protocol (backfill from the store, see [streams](../api/streams.md)): the
+data itself never goes through `Recorder`, only through the stream it names. A PC tool decodes a card from the API
 bundle stored on it. `Recorder` is what you call to see the state of the card, format it, label spans and moments,
 and tune how it writes.
 
@@ -156,6 +158,49 @@ fit in 8 bytes (a test checks it).
 when the host mounts the virtual volume, so new data shows only after a re-mount; this raises a media change
 instead. A device without a USB view leaves the call out.
 
+## Optional groups
+
+A small firmware doesn't need every tier of this API: formatting a card from the host, labelled recordings, markers,
+per-track durability, counters and the USB view can each be left out whole, not just `refresh_usb` and
+`track[].compression` one call at a time. [Optional groups](../api/optional_items.md) name them so `omit` /
+`omit_if` in `ww_codegen!` can drop a whole group with one entry.
+
+The minimum every device keeps, whatever it leaves out: `status`, `card`, `sync`, the `settings` property, and
+`track[].info` / `track[].enabled`.
+
+| Group | Leaves out | A device without it |
+|---|---|---|
+| `formatting` | `prepare_format`, `format` | can't erase or lay out its own card (formatted elsewhere, or fixed at the factory) |
+| `recording` | `recording_start`, `recording_stop`, `recordings` | logs one continuous span, nothing to label |
+| `markers` | `marker` | has no button or application event worth finding again |
+| `track_settings` | `track[].durability` | flushes every track the same way, no per-track timing |
+| `counters` | `counters`, `track[].counters` | has no status screen and doesn't judge the card by its wear |
+| `usb` | `refresh_usb` | has no USB mass storage view |
+
+`track[].compression` keeps its own plain `#[optional]` (not a group of its own): a device without a codec leaves
+only that one property out, same as before.
+
+A build that leaves every group out (`tests/recorder_groups` compiles and round-trips one end to end):
+
+```rust
+ww_codegen!(
+    my_api::Device for Server,
+    server = true,
+    omit_if(not(feature = "recorder-full")) = [
+        "recorder.formatting",
+        "recorder.recording",
+        "recorder.markers",
+        "recorder.track.track_settings",
+        "recorder.counters",
+        "recorder.track.counters",
+        "recorder.usb",
+    ],
+);
+```
+
+Without `recorder-full`, the dispatch arms and handlers of every group above are compiled out; with it, nothing is
+left out. A device picks any subset the same way, one `omit_if(..)` entry (or plain `omit = [..]`) per group.
+
 ## Serving it
 
 Generate handler stubs with `ww api scaffold` (AGENTS.md describes the flow) for the same options as your
@@ -167,8 +212,8 @@ cargo ww api scaffold ww_stdlib/ww_recorder --name Recorder
 
 It prints the server struct, a stub for every handler (`status`, `card`, `prepare_format`, ..., `track_info`,
 `track_counters`, `valid_indices_root_track`, the `settings` getter and setter) and the matching `ww_codegen!`; the
-output compiles as it is. A device that has no USB view or codec leaves out `refresh_usb` and `track[].compression`
-with `omit = [..]`.
+output compiles as it is. `--omit formatting,recording,markers,track.track_settings,counters,track.counters,usb`
+leaves the same groups' stubs out.
 
 ## Evolution
 

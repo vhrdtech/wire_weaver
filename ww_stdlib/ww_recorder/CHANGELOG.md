@@ -16,3 +16,19 @@
     `compression` (`Compression`), and `counters` (`TrackCounters`).
   - `RecorderError` with the `Common` variant and `NoCard`, `BadToken`, `CardFailed`, `NotLogging`,
     `RecordingRunning`, `NoRecording`.
+- Optional groups (P2628#17oct-1922): a small firmware can leave a whole tier out with one `omit` / `omit_if` entry
+  instead of one call at a time. `#[optional(formatting)]` on `prepare_format` / `format`, `#[optional(recording)]`
+  on `recording_start` / `recording_stop` / `recordings`, `#[optional(markers)]` on `marker`,
+  `#[optional(track_settings)]` on `Track::durability`, `#[optional(counters)]` on `Recorder::counters` and
+  `Track::counters`, `#[optional(usb)]` on `refresh_usb` (was a bare `#[optional]`). `Track::compression` keeps its
+  own plain `#[optional]`. The minimum every device keeps: `status`, `card`, `sync`, `settings`, `track[].info` and
+  `track[].enabled`. See the table in `docs/std_library/ww_recorder.md`; `tests/recorder_groups` compiles and
+  round-trips a server that omits every group.
+
+### 📝 Docs
+
+- What a track is said plainly (Roman asked how a trait can be on a track, P2628#17oct-1922): a track is one stream
+  declared in some trait of the device's own API (a `stream!(..)` such as `can[1].rx`), identified by its numeric
+  resource path; the recorder logs that stream's items, a host reads them back through the same stream's own
+  reliable protocol (backfill), and the data never goes through `Recorder` itself.
+- The first user is named the logring engine (repo `logring`, P2628), not `ww_logring`.

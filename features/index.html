@@ -5309,6 +5309,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>StreamError::ItemTooBig</code>. Device state in <code>ww_client_server::credit::SinkCredit</code>, dynamic and Python clients too.
   Used by <code>ww_dfu</code> <code>StageBulk::plan</code>. For bulk transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN
   tx. See also CLT-18 backpressure (<code>docs/api/credit_sinks.md</code>, <code>tests/credit_sink</code>).</li>
+<li>✅ <strong>API-42 Credit-sink positions without a session limit</strong> · <code>v0.5</code> — host (<code>CreditTx</code>) and device (<code>SinkCredit</code>)
+  count positions in <code>u64</code>, the wire carries them modulo 2^28 (<code>credit::POS_MODULUS</code>, at most 4 bytes as a <code>UVlq32</code>,
+  <code>UNib32</code> in the sideband), the receiver extends them from the position it expects (serial number arithmetic). The
+  buffer is at most <code>MAX_WINDOW</code> (64 MiB, a quarter of the modulus), checked at compile time by <code>sized_for</code>, and the
+  host never has more in flight; one fixed modulus on every link, nothing negotiated at <code>Open</code>. Tested over a seeded
+  lossy link (loss, duplicates, reordering, reconnects) with sessions starting near the wrap and far past 4 GiB
+  (<code>docs/api/stream_protocol.md#positions-wrap-at-256-mib</code>).</li>
 <li>✅ <strong>API-31 Stream functions</strong> — <code>#[stream(T, counted)] fn name(args) -&gt; Result&lt;A, E&gt;</code> and <code>#[counted]</code> /
   <code>#[reliable] stream!(name: T)</code>: every stream (plain ones too) is opened by calling it (<code>RequestKind::StreamOpen</code>),
   with typed arguments and result; the device's handler named like the stream decides, <code>Ok</code> starts a session,
@@ -5406,9 +5413,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>Scheduler</code>, <code>StreamCnt</code>; sans-IO, <code>no_std</code>, tested over a seeded lossy link with random disconnects),
   <code>ww_self::ApiItemKind::StreamFn</code>, codegen (API-31), the host runtime (CLT-23). Missing: credit sinks on it
   (API-34). The persistent store is done (SRV-15).</li>
-<li>📋 <strong>API-34 Credit sinks on the stream protocol</strong> · <code>v0.5</code> — positions in units (64 bit), <code>Ack</code> / <code>Query</code> / <code>Resend</code>
-  shared with reliable streams, sessions and resume for credit sinks, so a DFU plan continues after a reconnect;
-  <code>SinkCredit</code> moves into <code>ww_stream</code> (<code>docs/api/stream_reliability.md</code>).</li>
+<li>📋 <strong>API-34 Credit sinks on the stream protocol</strong> · <code>v0.5</code> — <code>Ack</code> / <code>Query</code> / <code>Resend</code> shared with reliable
+  streams, sessions and resume for credit sinks, so a DFU plan continues after a reconnect; <code>SinkCredit</code> moves into
+  <code>ww_stream</code> (<code>docs/api/stream_reliability.md</code>). Sink positions stay as API-42 has them (<code>u64</code> in state, modulo
+  2^28 on the wire, bounded by the window), streams keep their full <code>UVlq64</code> positions (their gaps are unbounded);
+  a resume cursor for a sink would carry a full position. A session id in <code>Open</code> and its answer would also stop a
+  late duplicate <code>Open</code> (UDP) from resetting a running session.</li>
 <li>💡 <strong>API-24 Guarded calls for critical resources</strong> · <code>v0.5.x</code> — for safety-critical actions, such as starting a motor
   or switching high power, a request that happens to match predefined bytes must not be enough. Add an extra
   check, e.g. a CRC over the resource identity and arguments (a "strict mode" per resource), or a

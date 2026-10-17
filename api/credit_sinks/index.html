@@ -4918,6 +4918,10 @@ item</strong>, or the host could never send it. Three things keep a transfer fro
 <li><strong>The device consumes without waiting for more.</strong> A device that collects data before writing it out (a flash page)
   has to write it once less room than the largest item is left: the host can't send the next item before that.</li>
 </ul>
+<p>At the other end, a buffer is at most 64 MiB (<code>credit::MAX_WINDOW</code>): <code>sized_for</code> doesn't compile with a larger one,
+<code>try_sized_for</code> and <code>set_capacity</code> return <code>SinkCreditError::BufferTooLarge</code>. That keeps positions on the wire short
+and unambiguous (<a href="../stream_protocol/#positions-wrap-at-256-mib">positions wrap at 256 MiB</a>); a session itself has no
+size limit.</p>
 <h3 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h3>
 <p>Generated server code does the bookkeeping; user code says how many bytes it can buffer and when it frees some. A
 credit sink has one more handler, <code>credit_&lt;name&gt;()</code>, returning its state, a <code>ww_client_server::credit::SinkCredit</code>,
@@ -4978,7 +4982,8 @@ called with, what to <code>free()</code> once that value is consumed.</p>
 <ul>
 <li><code>flush()</code> / <code>flush_blocking()</code> / <code>try_flush()</code> waits until the device accepted everything sent so far, resending
   what was lost; <code>close()</code> flushes first, then sends <code>Close</code>.</li>
-<li><code>credit_progress()</code> returns <code>(accepted, sent)</code> bytes of the session, e.g. for a progress bar.</li>
+<li><code>credit_progress()</code> returns <code>(accepted, sent)</code> bytes of the session (<code>u64</code>, a session has no size limit), e.g. for
+  a progress bar.</li>
 <li><code>set_credit_config(CreditConfig { query_interval, stall_timeout })</code> tunes it to the link: <code>query_interval</code> (1 s by
   default) longer than the link's round trip, <code>stall_timeout</code> (30 s by default) longer than the device's worst stall
   (a flash sector erase takes 1-2 s); with no progress for that long, <code>send()</code> fails with a timeout.</li>

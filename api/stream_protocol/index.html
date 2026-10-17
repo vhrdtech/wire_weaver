@@ -2044,6 +2044,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Credit sinks on the wire">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#positions-wrap-at-256-mib" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Positions wrap at 256 MiB
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4734,6 +4751,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Credit sinks on the wire">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#positions-wrap-at-256-mib" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Positions wrap at 256 MiB
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5010,8 +5044,9 @@ stream costs almost nothing more than a counted one there, and adds backfill and
 <p>A credit sink is its own resource kind (<code>ApiItemKind::FlowSink { ty, flow: FlowControl::Credit }</code> in <code>ww_self</code>), so
 turning a plain sink into a credit sink is an API break: its writes change. Each write is a
 <code>ww_client_server::CreditWrite { pos: UVlq32, data: TailBytes }</code> inside <code>RequestKind::Write</code>, <code>pos</code> being the byte
-position of the item's first byte since the session's <code>Open</code> (1 byte for the first 128 bytes of a session, 2 up to
-16 KiB, 3 up to 2 MiB, 4 up to 256 MiB). Three sideband messages carry the rest:</p>
+position of the item's first byte since the session's <code>Open</code>, modulo 2^28 (see <a href="#positions-wrap-at-256-mib">below</a>):
+1 byte for the first 128 bytes of a session, 2 up to 16 KiB, 3 up to 2 MiB, never more than 4. Three sideband
+messages carry the rest:</p>
 <table>
 <thead>
 <tr>
@@ -5039,7 +5074,7 @@ position of the item's first byte since the session's <code>Open</code> (1 byte 
 </tbody>
 </table>
 <p>All three carry the whole state, so losing one is harmless: the next one, or the answer to the next query, replaces
-it. Positions are 32 bit, a session is limited to 4 GiB.</p>
+it. Their positions are <code>UNib32</code>, modulo 2^28 as well.</p>
 <ol>
 <li><code>Open</code> starts a session: the device resets its counters and answers with <code>Credit { have: 0, grant: capacity }</code>.
    Credit events left over from an earlier session are ignored by the host until this one arrives.</li>
@@ -5060,6 +5095,23 @@ last one that arrived; the device answers with <code>Resend</code> instead of <c
 and sends everything again from its copy (go-back-N). Requests are processed in order, so when the device sees a
 <code>CreditQuery</code>, everything sent before it has arrived or is lost; a plain <code>Credit</code> never rewinds the host, the rest may
 still be in flight. An empty item takes one position, so its loss is noticed like any other.</p>
+<h3 id="positions-wrap-at-256-mib">Positions wrap at 256 MiB<a class="headerlink" href="#positions-wrap-at-256-mib" title="Permanent link">&para;</a></h3>
+<p>Both sides count positions in <code>u64</code>, so a session has no size limit. On the wire a position is sent modulo 2^28
+(<code>credit::POS_MODULUS</code>, <code>credit::wire_pos()</code>), the most a <code>UVlq32</code> holds in 4 bytes, and the receiver takes the full
+position nearest to the one it expects (<code>credit::extend_pos()</code>: from 2^27 behind it to 2^27 ahead, serial number
+arithmetic as in TCP). A value of 2^28 or more is no position: the device drops such a write (<code>CreditVerdict::Invalid</code>),
+the host ignores such a credit event.</p>
+<p>That reads every position right as long as it is less than 2^27 (128 MiB) away from what the receiver expects. Credit
+keeps it so: what the host has in flight, sent but not acknowledged, never exceeds the device's buffer, and the buffer
+is at most <code>credit::MAX_WINDOW</code>, 64 MiB, a quarter of the modulus. <code>SinkCredit::new</code> and <code>sized_for</code> refuse a larger
+one (a compile error in a <code>const</code>), <code>try_sized_for</code> and <code>set_capacity</code> return <code>SinkCreditError::BufferTooLarge</code>, and
+the host never puts more than <code>MAX_WINDOW</code> in flight whatever the device grants. One window on either side of the
+reference takes half the modulus; the other half is the margin for a late packet, a duplicate held back on UDP. Such a
+packet looks like a write from ahead (a gap, answered with a <code>Resend</code>) only when it arrives more than 64 MiB of traffic
+late, and like the expected write only when exactly a multiple of 256 MiB late: half a minute at 10 MB/s, far beyond
+how long a datagram lives on a network. Ordered links (USB, RTT, WebSocket) never deliver a late packet at all.</p>
+<p>The modulus is the same on every link and fixed by the protocol: nothing is announced at <code>Open</code>, there is nothing to
+configure.</p>
 <p>Credit sinks are planned to move onto the positions, acknowledgements and resume of counted and reliable streams
 (<code>API-34</code> in the <a href="../../features/">Feature tracker</a>).</p>
 <h2 id="sending-producers-the-event-loop-and-priorities">Sending: producers, the event loop and priorities<a class="headerlink" href="#sending-producers-the-event-loop-and-priorities" title="Permanent link">&para;</a></h2>

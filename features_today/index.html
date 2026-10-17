@@ -5002,6 +5002,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/folder_structure/">Names and paths that don't collide</a></strong>: Generated names carry the whole trait chain; type paths come from Cargo.</li>
 <li><strong><a href="../api/stream_reliability/">Counted and reliable streams</a></strong>: Exact counts of lost items; acknowledgements, resends and resume after a reconnect. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/credit_sinks/">Credit sinks</a></strong>: Flow control for data sent to a device, so its buffer never overflows, and lossy links resume where they stopped.</li>
+<li><strong><a href="../api/stream_protocol/#positions-wrap-at-256-mib">Credit sinks without a size limit</a></strong>: Sessions of any length, positions at most 4 bytes on the wire.</li>
 <li><strong><a href="../api/addressing/">Trait paths</a></strong>: Call a shared trait wherever it sits in a device's API. <span class="ww-status">in progress</span></li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../features/#api-model-and-codegen-api">API model and codegen</a>, <a href="../features/#documentation-doc">Documentation</a> in the feature tracker.</p>

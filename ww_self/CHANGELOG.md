@@ -15,6 +15,15 @@
 * The dynamic decoder bounds memory, not only values (P2401#17oct-1125): a decode takes at most 64 MiB
   (`DECODE_MAX_BYTES`), each value its `size_of`, strings and names their bytes; a larger value is an error. Before,
   64 KB of data could become 4 M values (about 400 MB).
+* Self-referential types (API-44): `generics::validate` (and `prepare`) accepts definitions that refer to themselves,
+  directly or through others, when none of them has parameters and every cycle goes through a `Box`, a `Vec` or a
+  `Series`; a cycle through a generic definition, or one with none of these on it (`struct S { s: Option<S> }`), is
+  an error. Walks over types stop at a definition they are already in: `is_lifetime`, `human_definition` (names it
+  inside itself), `ValueOwned::default` (the first enum variant that doesn't contain the enum; a type each value of which
+  contains another one is an error). Values of such types decode as deep as their bytes say, bounded by the new
+  public `MAX_DECODE_DEPTH` (384 nested calls, about 90 levels of a recursive value, within a 2 MiB stack in a
+  debug build), up from 200. The decoder's stack frames are smaller.
+
 * Generic types (API-43), 0.3.0: `ItemStruct` and `ItemEnum` have `generics` (type and const parameters,
   `GenericParam` / `GenericParamKind`); a generic definition's fields use `Type::Param(idx)` and `Length::Param(idx)`,
   a use is `Type::Instance { type_idx, args }` with `GenericArg::{Type, Const, ConstParam}`. `Type::Array::len` and

@@ -23,6 +23,11 @@
   The stream serializers name the value's lifetime (`'i`): `Series` is invariant over it.
 - A cached bundle in `~/.wire_weaver/` that doesn't read back in this ww_self format is written again (it was kept,
   and hosts couldn't use it).
+- Self-referential types in APIs (API-44): `enum Expr<'i> { Neg(RefBox<'i, Expr<'i>>), Lit(i32) }`, `struct Tree<'i>
+  { children: RefVec<'i, Tree<'i>> }`, directly or through other types, were an error ("Self-referential type .. is
+  not supported yet"). A definition goes into the types array once, its references to itself point at its own index.
+  A cycle through a generic definition is an error naming the cycle.
+
 - Generic user types in APIs (API-43): `Timed<Ampere>`, `Window<4>`, `Reading<i16>`, `Tagged<'i, T>` as arguments,
   return values, properties, stream items and fields, through `crate_walker` into dependency crates. A generic
   definition goes into the types array once with its parameters, each use is an instance with its arguments (types,

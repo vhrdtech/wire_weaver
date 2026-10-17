@@ -1,5 +1,11 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- Self-referential types (API-44): the compatibility check (`ApiCompat`, the evolution check) remembers the struct and
+  enum definitions it compared also when one side writes them out further than the other (a device can), and gives
+  up past a depth bound; before, such a pair of types recursed until the stack overflowed.
+
 ### ⚠️ Breaking
 
 - `Series<T>` (SW-60, CLT-29): dynamic clients read it (`DynResource` values are a `Vec` of items), the

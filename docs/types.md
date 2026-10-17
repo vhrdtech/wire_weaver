@@ -156,6 +156,37 @@ allocator: read from a buffer it points into it and decodes on `.read()`; its ow
 On the wire it is the value plus its size, so a reader can jump over it. See the
 [showcase](serdes/showcase.md#self-referential-types-with-refbox).
 
+Such types work anywhere in an API (API-44), as arguments, return values, properties and stream items, also in the
+dynamic client, `ww` and Python:
+
+```rust
+#[ww_trait]
+trait Calc {
+    fn eval(expr: Expr<'i>) -> Option<i32>;
+    property!(rw tree: Tree<'i>);
+}
+
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Clone), ww_repr = u4)]
+pub enum Expr<'i> {
+    Add(RefBox<'i, Expr<'i>>, RefBox<'i, Expr<'i>>),
+    Neg(RefBox<'i, Expr<'i>>),
+    Lit(i32),
+}
+
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Clone))]
+pub struct Tree<'i> {
+    pub label: &'i str,
+    pub children: RefVec<'i, Tree<'i>>,
+}
+```
+
+The API model has each such definition once, referring to itself. As in Rust, every cycle goes through a `RefBox` or
+a list. Types with parameters can't be part of a cycle (`struct List<T> { next: Option<RefBox<'i, List<T>>> }` is
+an error), a type without them can use itself as an argument (`children: RefVec<'i, Timed<Tree<'i>>>`). A value is
+as deep as its bytes say; decoding it is bounded: the device's reader stops at
+[its depth limit](serdes/wire_format.md#nesting-depth), the dynamic client at about 90 levels, so a malformed or
+malicious value is an error, never a stack overflow.
+
 ## Structs and enums
 
 Your own types, with [`#[derive_shrink_wrap]`](serdes/derive.md):

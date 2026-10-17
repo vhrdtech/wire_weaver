@@ -373,11 +373,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   passed on, defaults filled in by codegen); generic definitions are in crate snapshots, so `ww_si::Timed` is left
   out of introspection data like any known type. Generated code uses the types as written. Hosts check untrusted
   introspection data and instantiate it (`ww_self::generics::prepare`: indices, argument count and kinds, no
-  cycles, nesting depth, number and size of instances bounded; dynamic decoding bounded by a value budget), so the
+  cycles through generic definitions, nesting depth, number and size of instances bounded; dynamic decoding bounded
+  by a value budget), so the
   dynamic client, `ww` and Python see concrete types; the evolution check compares parameters by position and kind
   (`docs/types.md#generic-types-in-an-api`, `docs/evolution/rules.md#generic-types`; tests `tests/generics`,
   `ww_self` unit tests, `fuzz` target `introspection`). Breaks the introspection format: hosts and devices must be
   built with the same `ww_self`. Generic traits (`#[ww_trait] trait T<X>`) are not supported.
+- ✅ **API-44 Self-referential types in APIs** · `v0.5` — types that contain themselves through `RefBox` or a list
+  (`enum Expr<'i> { Neg(RefBox<'i, Expr<'i>>), Lit(i32) }`, `struct Tree<'i> { children: RefVec<'i, Tree<'i>> }`),
+  directly or through other types, as method arguments and return values, properties, stream items and fields. Codegen
+  puts each definition into the API model once, referring to its own index; a cycle through a generic definition is
+  an error. Hosts check untrusted introspection data (`ww_self::generics::validate`: cycles found with Tarjan's
+  algorithm, only through `Box`/`Vec`, never through a generic definition, depth bounded by the sum of a cycle's
+  definitions), and every walk over types stops at a definition it is already in (layout, compatibility check, names,
+  definitions, default values: the first enum variant that doesn't contain the enum); values decode as deep as the
+  reader allows (`MAX_DECODE_DEPTH`, ~90 levels on a 2 MiB stack in a debug build), Python objects are depth bounded
+  (`docs/types.md#self-referential-types-refbox`; tests `tests/recursive`, `ww_self`/`wire_weaver_core`/
+  `wire_weaver_client` unit tests, `fuzz` target `introspection`). `ww_si::SIExpr` is not derived yet.
 - ✅ **API-31 Stream functions** — `#[stream(T, counted)] fn name(args) -> Result<A, E>` and `#[counted]` /
   `#[reliable] stream!(name: T)`: every stream (plain ones too) is opened by calling it (`RequestKind::StreamOpen`),
   with typed arguments and result; the device's handler named like the stream decides, `Ok` starts a session,

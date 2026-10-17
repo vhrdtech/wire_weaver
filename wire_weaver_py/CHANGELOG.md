@@ -10,6 +10,10 @@
 - `Series<T>` (SW-60, CLT-29) values are a `list` of items; `decode_columns(data)` on a method, property or stream
   of a `Series` gives a `dict` of field path -> numpy array over all items, masked arrays for leaves some items
   don't have (another variant, `None`). numpy is imported then, not a dependency. See `docs/python.md#values`.
+- Self-referential types (API-44): `load_api` takes APIs with trees and expressions (`RefBox`, a list of the type
+  itself), values encode and decode as nested dicts and lists. An object nested deeper than a dynamic decoder reads
+  (`ww_self::MAX_DECODE_DEPTH`), or one that contains itself, is a `ValueError` instead of a stack overflow.
+
 - Generic types (API-43): `load_api` instantiates them, `Timed<Ampere>`, `Window<4>` encode and decode like any
   struct; signatures read `rw outer: Outer<3>`.
 

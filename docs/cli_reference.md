@@ -190,8 +190,8 @@ compatible position for anything else, doc comments included). `ww api diff <pat
 lists every change, doc comments included, see [listing all changes](evolution/checker_tool.md#listing-all-changes).
 
 Current limitations, same as for codegen: traits are only found in `src/lib.rs`, a dependency reached through another
-crate's re-export is only resolved for the ones `wire_weaver` re-exports (`ww_version`, `shrink_wrap`), crates with a
-workspace-inherited version can't be loaded, and self-referential types (like the ones in `ww_self`) are not supported.
+crate's re-export is only resolved for the ones `wire_weaver` re-exports (`ww_version`, `shrink_wrap`), and crates
+with a workspace-inherited version can't be loaded.
 
 ## `ww observe`
 

@@ -23,12 +23,13 @@ quantities = [
     "photometric",
     "radiation",
     "logarithmic",
+    "dimensionless",
 ]
-# Second, Hertz, HertzPerSecond, Baud
+# Second, Hertz, HertzPerSecond, Baud, Timed
 time = []
 # Ampere, Volt, Ohm, Farad, Siemens, Henry, Coulomb, Watt, Weber, Tesla
 electrical = []
-# Meter, KiloGram, Newton, Pascal, Joule, Litre, VolumetricFlow, Speed, Acceleration, Jerk, Snap, Yank
+# Meter, KiloGram, Newton, Pascal, Joule, Torque, Litre, VolumetricFlow, Speed, Acceleration, Jerk, Snap, Yank
 mechanical = []
 # Radian, Degree, Steradian, AngularVelocity, AngularAcceleration
 angle = []
@@ -42,6 +43,8 @@ photometric = []
 radiation = []
 # DeciBel, DeciBelmW
 logarithmic = []
+# Ratio (duty, probability, scale): used next to any other group, so a group of its own
+dimensionless = []
 # host helpers: timestamp Unwrapper
 host = ["time", "u64"]
 

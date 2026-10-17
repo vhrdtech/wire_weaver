@@ -26,15 +26,16 @@ Everything is a cargo feature, so a firmware compiles only what it uses. `std` (
 
 | Feature        | What                                                                                              |
 |----------------|---------------------------------------------------------------------------------------------------|
-| `time`         | `Second`, `Hertz`, `HertzPerSecond`, `Baud`                                                       |
+| `time`         | `Second`, `Hertz`, `HertzPerSecond`, `Baud`, [`Timed<T>`](#timed-values)                          |
 | `electrical`   | `Ampere`, `Volt`, `Ohm`, `Farad`, `Siemens`, `Henry`, `Coulomb`, `Watt`, `Weber`, `Tesla`         |
-| `mechanical`   | `Meter`, `KiloGram`, `Newton`, `Pascal`, `Joule`, `Litre`, `VolumetricFlow`, `Speed` .. `Yank`    |
+| `mechanical`   | `Meter`, `KiloGram`, `Newton`, `Pascal`, `Joule`, `Torque`, `Litre`, `VolumetricFlow`, `Speed` .. `Yank` |
 | `angle`        | `Radian`, `Degree`, `Steradian`, `AngularVelocity`, `AngularAcceleration`                         |
 | `thermal`      | `Kelvin`, `DegreeCelsius`                                                                         |
 | `chemical`     | `Mole`, `Katal`                                                                                   |
 | `photometric`  | `Candela`, `Lumen`, `Lux`                                                                         |
 | `radiation`    | `Becquerel`, `Gray`, `Sievert`, `ElectronVolt`                                                    |
 | `logarithmic`  | `DeciBel`, `DeciBelmW`                                                                            |
+| `dimensionless` | `Ratio`: duty, probability, scale (a group of its own, as it is used next to any other)          |
 | `quantities`   | all of the groups above                                                                           |
 | `host`         | host helpers: [`Unwrapper`](#second-as-a-timestamp)                                               |
 | `u16`, `f32`, .. `all` | number types of `NumericValue`, passed on to `ww_numeric` (see [ww_numeric](ww_numeric.md)) |
@@ -64,14 +65,18 @@ Named constructors exist for the quantities the IO traits use most:
 | `Hertz`  | `hertz`, `millihertz`, `kilohertz`, `megahertz`, `gigahertz`, `hertz_f32`                  |
 | `Second` | `seconds`, `milliseconds`, `microseconds`, `nanoseconds`, `picoseconds`, `seconds_f32`     |
 | `Baud`   | `baud`, `kilobaud`, `megabaud`, `baud_f32`                                                 |
+| `Torque` | `newton_meters`, `millinewton_meters`, `newton_meters_f32`                                 |
+| `Ratio`  | `ratio`, `percent`, `per_mille`, `ppm`, `ratio_f32`                                        |
 
 `PartialEq` and `PartialOrd` compare values across prefixes and number types: `Volt::millivolts(1000u16) ==
 Volt::volts(1u8)`. Two integers are compared exactly, even 60 orders of magnitude apart; otherwise through `f64`.
 
-The `quantity!` macro is a shorthand for literals: `quantity!(3300 mV u16)`, `quantity!(400 kHz u32)`, `quantity!(115200 Bd u32)`.
+The `quantity!` macro is a shorthand for literals: `quantity!(3300 mV u16)`, `quantity!(400 kHz u32)`, `quantity!(115200 Bd u32)`, `quantity!(250 mNm i32)`, `quantity!(95 % u8)`.
 
 `Baud` is a symbol rate, the baud rate of a UART or a protocol decoder, kept apart from `Hertz` so a baud rate
-is never taken for a clock frequency (and a tool shows `115200 Bd`, not `115.2 kHz`).
+is never taken for a clock frequency (and a tool shows `115200 Bd`, not `115.2 kHz`). `Torque` (N·m) has the
+dimension of `Joule` but is kept apart the same way. `Ratio` is a plain fraction (0.5 is half; `percent` is
+`Centi`), for a duty cycle, a probability or a scale factor; `DeciBel` is the logarithmic one.
 
 ## `Second` as a timestamp
 
@@ -103,6 +108,19 @@ assert_eq!(full, Second::microseconds(5_000_000_123u64));
 That works while consecutive timestamps are less than half a wrap period apart; re-anchor with `anchor(now)` after
 a longer pause. Use one `Unwrapper` per stream. `U64` and signed values pass through unchanged. The anchor and the
 timestamps can be in different prefixes.
+
+## Timed values
+
+`Timed<T> { t: Second, value: T }` is a value with the time it was taken, `t` a device timestamp as above: a
+sample of a property, an item of a stream (`Timed<Ampere>`). It is a `final_structure` struct of `t` and then
+`value`, the same bytes a `#[derive_shrink_wrap(final_structure)]` struct of those two fields has, so no fields can
+be added to it later.
+
+```rust
+use ww_si::{Ampere, Second, Timed};
+
+let sample = Timed::new(Second::microseconds(1_000_000u32), Ampere::milliamperes(-1200i32));
+```
 
 ## Prefixes
 

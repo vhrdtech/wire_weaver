@@ -15,6 +15,13 @@
 
 ### 🚀 Features
 
+* `Timed<T> { t: Second, value: T }` (feature `time`): a value with the time it was taken, `t` a device timestamp.
+  `final_structure`, written by hand with the bytes the derive gives the same two fields (the derive has no type
+  parameters), so it is not in the API snapshot yet.
+* `Ratio` (new feature group `dimensionless`, in `quantities`): a duty cycle, probability or scale factor, with
+  `ratio`, `percent`, `per_mille`, `ppm`, `ratio_f32` and `quantity!(95 % u8)`.
+* `Torque` (feature `mechanical`): N·m, kept apart from `Joule`, with `newton_meters`, `millinewton_meters`,
+  `newton_meters_f32`, `quantity!(250 mNm i32)` and `quantity!(2 Nm u8)`.
 * Constructors and conversions on every quantity (STD-23): `Volt::new(Prefix::Milli, 3300u16)` (any number type
   through `From<..> for NumericValue`), `to_f64()` / `to_f32()` in the base unit, `to_f64_in(prefix)`,
   `to_i128_in(prefix)` (exact for integers). Named constructors for `Volt` (`volts`, `millivolts`, `microvolts`,

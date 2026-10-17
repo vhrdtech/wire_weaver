@@ -237,6 +237,10 @@ named_constructors!("time" Baud, "Bd", baud_f32,
 named_constructors!("time" Second, "s", seconds_f32,
     seconds Unit "s", milliseconds Milli "ms", microseconds Micro "µs", nanoseconds Nano "ns",
     picoseconds Pico "ps");
+named_constructors!("mechanical" Torque, "N·m", newton_meters_f32,
+    newton_meters Unit "N·m", millinewton_meters Milli "mN·m");
+named_constructors!("dimensionless" Ratio, "1 (a fraction)", ratio_f32,
+    ratio Unit "1 (a fraction)", percent Centi "%", per_mille Milli "‰", ppm Micro "ppm");
 
 #[cfg(feature = "time")]
 impl Second {
@@ -267,6 +271,7 @@ quantity_ops!(
     "mechanical" Newton,
     "mechanical" Pascal,
     "mechanical" Joule,
+    "mechanical" Torque,
     "mechanical" Litre,
     "mechanical" VolumetricFlow,
     "mechanical" Speed,
@@ -290,6 +295,7 @@ quantity_ops!(
     "radiation" Gray,
     "radiation" Sievert,
     "radiation" ElectronVolt,
+    "dimensionless" Ratio,
 );
 
 unprefixed_quantity_ops!("logarithmic" DeciBel, "logarithmic" DeciBelmW);

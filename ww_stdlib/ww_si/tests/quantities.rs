@@ -3,7 +3,7 @@
 
 use shrink_wrap::prelude::*;
 use ww_si::ww_numeric::{NumericValue, UVlq32};
-use ww_si::{DeciBel, Hertz, Prefix, Second, Volt};
+use ww_si::{Ampere, DeciBel, Hertz, Joule, Prefix, Ratio, Second, Timed, Torque, Volt};
 
 #[test]
 fn constructors() {
@@ -73,4 +73,54 @@ fn wire_bytes() {
         .to_ww_bytes(&mut buf)
         .unwrap();
     assert_eq!(bytes, [0x28, 0x20, 0x64]);
+}
+
+#[test]
+fn ratio_and_torque() {
+    assert_eq!(Ratio::percent(50u8), Ratio::ratio_f32(0.5));
+    assert_eq!(Ratio::ppm(250u16).to_f64(), 0.00025);
+    assert_eq!(
+        Torque::millinewton_meters(1500i32),
+        Torque::newton_meters_f32(1.5)
+    );
+    let r = ww_si::quantity!(95 % u8);
+    assert_eq!(r.prefix, Prefix::Centi);
+    let t = ww_si::quantity!(250 mNm i32);
+    assert_eq!(t.to_f32(), 0.25);
+    // same dimension as `Joule`, but a type of its own: no mixing them up
+    let _ = Joule::new(Prefix::Unit, 1u8);
+}
+
+/// `Timed` is written by hand (the derive has no type parameters), with the bytes the derive gives the same fields.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Debug),
+    final_structure
+)]
+struct TimedAmpere {
+    t: Second,
+    value: Ampere,
+}
+
+#[test]
+fn timed_wire_bytes() {
+    let t = Second::microseconds(1_000_000u32);
+    let value = Ampere::milliamperes(-1200i32);
+    let mut buf = [0u8; 32];
+    let derived = TimedAmpere { t, value }
+        .to_ww_bytes(&mut buf)
+        .unwrap()
+        .to_vec();
+    let mut buf = [0u8; 32];
+    let timed = Timed::new(t, value).to_ww_bytes(&mut buf).unwrap();
+    assert_eq!(timed, derived.as_slice());
+    let back = Timed::<Ampere>::from_ww_bytes(timed).unwrap();
+    assert_eq!(back, Timed::new(t, value));
+    let owned = Timed::new(t, value).to_ww_bytes_owned().unwrap();
+    assert_eq!(owned, derived);
+    assert_eq!(
+        Timed::<Ampere>::from_ww_bytes_owned(&owned).unwrap(),
+        Timed::new(t, value)
+    );
 }

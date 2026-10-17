@@ -4,8 +4,10 @@
 //! resolution and range.
 //!
 //! Quantity groups are cargo features (`time`, `electrical`, `mechanical`, `angle`, `thermal`, `chemical`,
-//! `photometric`, `radiation`, `logarithmic`, `quantities` for all), as are the number types (`u16`, `f32`, ..,
-//! `all`, see `ww_numeric`) and the host helpers (`host`: [Unwrapper]). `std` enables everything.
+//! `photometric`, `radiation`, `logarithmic`, `dimensionless`, `quantities` for all), as are the number types (`u16`,
+//! `f32`, .., `all`, see `ww_numeric`) and the host helpers (`host`: [Unwrapper]). `std` enables everything.
+//!
+//! A value with the time it was taken is a [Timed] (feature `time`).
 
 #[cfg(all(feature = "mechanical", feature = "time"))]
 mod convert;
@@ -18,9 +20,14 @@ mod convert;
     feature = "chemical",
     feature = "photometric",
     feature = "radiation",
-    feature = "logarithmic"
+    feature = "logarithmic",
+    feature = "dimensionless"
 ))]
 mod ops;
+#[cfg(feature = "time")]
+mod timed;
+#[cfg(feature = "time")]
+pub use timed::Timed;
 #[cfg(feature = "host")]
 mod timestamp;
 #[cfg(feature = "host")]
@@ -465,6 +472,24 @@ pub struct Joule {
     pub value: NumericValue,
 }
 
+/// Torque or moment of force quantity in newton-meters with prefix (N·m, mN·m, kN·m, etc.)
+/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+///
+/// SI: kg⋅m2⋅s−2, N⋅m. Same dimension as [Joule], but not the same thing: a torque times an angle in radians is an
+/// energy.
+#[cfg(feature = "mechanical")]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
+pub struct Torque {
+    pub prefix: Prefix,
+    pub value: NumericValue,
+}
+
 /// Power or radiant flux quantity in Watts with prefix (W, mW, kW, MW, etc.)
 /// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
 ///
@@ -763,6 +788,25 @@ pub struct DeciBel {
     final_structure
 )]
 pub struct DeciBelmW {
+    pub value: NumericValue,
+}
+
+/// Dimensionless ratio with prefix (1, %, ‰, ppm as `Centi`, `Milli`, `Micro`): a duty cycle, a probability, a
+/// scale factor, an efficiency. Backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+///
+/// A fraction, not a logarithm: 0.5 is half, see `DeciBel` for a level.
+///
+/// SI: 1
+#[cfg(feature = "dimensionless")]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug),
+    final_structure
+)]
+pub struct Ratio {
+    pub prefix: Prefix,
     pub value: NumericValue,
 }
 
@@ -1092,6 +1136,15 @@ macro_rules! quantity {
     };
     ($value:literal V $value_ty:ident) => {
         ww_si::Volt { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
+    ($value:literal Nm $value_ty:ident) => {
+        ww_si::Torque { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
+    ($value:literal mNm $value_ty:ident) => {
+        ww_si::Torque { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
+    };
+    ($value:literal % $value_ty:ident) => {
+        ww_si::Ratio { prefix: ww_si::Prefix::Centi, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
     };
     ($value:literal m/s $value_ty:ident) => {
         ww_si::Speed { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }

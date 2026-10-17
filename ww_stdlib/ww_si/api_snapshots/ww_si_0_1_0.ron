@@ -6,8 +6,10 @@
     "resolution and range.",
     "",
     "Quantity groups are cargo features (`time`, `electrical`, `mechanical`, `angle`, `thermal`, `chemical`,",
-    "`photometric`, `radiation`, `logarithmic`, `quantities` for all), as are the number types (`u16`, `f32`, ..,",
-    "`all`, see `ww_numeric`) and the host helpers (`host`: [Unwrapper]). `std` enables everything.",
+    "`photometric`, `radiation`, `logarithmic`, `dimensionless`, `quantities` for all), as are the number types (`u16`,",
+    "`f32`, .., `all`, see `ww_numeric`) and the host helpers (`host`: [Unwrapper]). `std` enables everything.",
+    "",
+    "A value with the time it was taken is a [Timed] (feature `time`).",
 ], crate_idx: 0, trait_name: "ww_si", items: []), types: [
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "Prefix", variants: [
         (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
@@ -224,6 +226,16 @@
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Torque or moment of force quantity in newton-meters with prefix (N·m, mN·m, kN·m, etc.)",
+        "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "SI: kg⋅m2⋅s−2, N⋅m. Same dimension as [Joule], but not the same thing: a torque times an angle in radians is an",
+        "energy.",
+    ], ident: "Torque", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Power or radiant flux quantity in Watts with prefix (W, mW, kW, MW, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
         "",
@@ -377,6 +389,17 @@
         "Logarithmic ratio quantity relative to mW",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
     ], ident: "DeciBelmW", fields: Named([
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None),
+    ]), sparse: false)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Dimensionless ratio with prefix (1, %, ‰, ppm as `Centi`, `Milli`, `Micro`): a duty cycle, a probability, a",
+        "scale factor, an efficiency. Backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
+        "",
+        "A fraction, not a logarithm: 0.5 is half, see `DeciBel` for a level.",
+        "",
+        "SI: 1",
+    ], ident: "Ratio", fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [

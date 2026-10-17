@@ -5302,12 +5302,13 @@ options, so pass the same ones the <code>ww_codegen!</code> call uses:</p>
 </table>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ww<span class="w"> </span>api<span class="w"> </span>scaffold<span class="w"> </span>examples/blinky_api<span class="w"> </span>--use-async<span class="w"> </span>-o<span class="w"> </span>firmware/src/server.rs
 </span></code></pre></div>
-<p><code>ww api save &lt;path&gt;</code> saves every <code>#[ww_trait]</code>/<code>#[ww_api_root]</code> trait and every <code>#[derive_shrink_wrap]</code> type
-defined in the crate's <code>src/lib.rs</code> (or re-exported from one of its modules with <code>pub use</code>) into <code>&lt;path&gt;/api_snapshots/&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.ron</code>, for example
+<p><code>ww api save &lt;path&gt;</code> saves every <code>#[ww_trait]</code>/<code>#[ww_api_root]</code> trait defined in the crate's <code>src/lib.rs</code>, and every
+<code>#[derive_shrink_wrap]</code> type and unit marker struct (<code>pub struct Volt;</code>) defined there, in a <code>pub mod</code> at any depth,
+or re-exported from a module with <code>pub use</code> (each known by its path and name, <code>units::Volt</code>) into <code>&lt;path&gt;/api_snapshots/&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.ron</code>, for example
 <code>ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron</code>. Commit the snapshot and never change it afterward.
 It is a regular API bundle in RON: the root is named after the crate and has one nested trait resource per trait,
 definitions from this crate are included, and traits and types from other crates are only referenced by crate
-version, name and signature. Save a snapshot of each of those crates too.</p>
+version, path and name, and signature. Save a snapshot of each of those crates too.</p>
 <p>A signature is a hash of the full definition with docs, including everything it refers to, calculated as if nothing
 was skipped (<code>ww_self::signature</code>). A definition restored from another crate's snapshot can then be checked to be
 exactly the one that was left out, which catches a crate changed without bumping its version. The client does the same

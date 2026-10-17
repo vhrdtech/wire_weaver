@@ -1019,6 +1019,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#types-in-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Types in modules
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5010,6 +5021,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#types-in-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Types in modules
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5413,16 +5435,28 @@ change is in the <a href="../evolution/rules/#generic-types">evolution rules</a>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">last</span><span class="p">(</span><span class="n">n</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Reading</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">}</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Volt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="o">&lt;</span><span class="n">VoltUnit</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Reading</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pair</span><span class="o">&lt;</span><span class="n">Window</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">mod</span><span class="w"> </span><span class="nn">units</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Volt</span><span class="p">;</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="p">}</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Volt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Reading</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pair</span><span class="o">&lt;</span><span class="n">Window</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">;</span>
 </span></code></pre></div>
-<p>Aliases are found like structs and enums: in lib.rs, in modules, through <code>use</code> imports and globs, also in other
-crates. A generic alias puts its arguments where its parameters are, a const parameter too
+<p>Aliases are found like structs and enums: in lib.rs, in modules, through <code>use</code> imports (renamed ones too, <code>use
+units::Volt as V</code>) and globs, also in other crates. A generic alias puts its arguments where its parameters are, a const parameter too
 (<code>type Buf&lt;const N: usize&gt; = Window&lt;N&gt;</code>). The API model has no entry for the alias itself: <code>voltage</code> is a
-<code>Quantity&lt;VoltUnit&gt;</code> there, and <code>ww</code>, the dynamic client and Python show it that way. A <code>PhantomData&lt;U&gt;</code> field is
+<code>Quantity&lt;Volt&gt;</code> there (the marker <code>units::Volt</code>), and <code>ww</code>, the dynamic client and Python show it that way. A <code>PhantomData&lt;U&gt;</code> field is
 left out of a struct's definition (it takes no bits on the wire), so <code>U</code> is a parameter that no field uses.</p>
-<p>Generated code names a type by its crate and name (<code>my_api::Volt</code>), so a type the API uses has to be reachable from
-the crate root under its own name for now (API-46).</p>
+<h3 id="types-in-modules">Types in modules<a class="headerlink" href="#types-in-modules" title="Permanent link">&para;</a></h3>
+<p>A type the API uses can live in any module of its crate. Each definition records the path other crates name it by:
+the shortest one through <code>pub mod</code>s and <code>pub use</code> re-exports (API-46). In the example above, that is <code>my_api::Volt</code>
+for the alias and <code>my_api::units::Volt</code> for the marker; a type in a private module re-exported at the root with <code>pub
+use ty::Ty;</code> is <code>my_api::Ty</code>, and one re-exported under another name (<code>pub use ty::Inner as Outer;</code>) is
+<code>my_api::Outer</code>, also in <code>ww</code> and the dynamic client. A type that other crates can't reach at all is an error that
+names it. The <code>&lt;Name&gt;Owned</code> variant of a type with a lifetime is named next to it: re-export it along with the type
+(<code>pub use ty::{Label, LabelOwned};</code>, or a glob).</p>
+<p>The path and the name are the definition's identity: <code>units::Volt</code> and a <code>Volt</code> at the crate root are two
+different types, in generated code, in API snapshots (<code>ww api save</code> takes the types of <code>pub mod</code>s too, unit marker
+structs like <code>pub struct Volt;</code> included) and in introspection data.</p>
 <h2 id="special-types">Special types<a class="headerlink" href="#special-types" title="Permanent link">&para;</a></h2>
 <p>For particular jobs, on their own page:</p>
 <table>

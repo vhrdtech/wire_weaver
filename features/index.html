@@ -5424,12 +5424,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   ww_si generic D2 a); alias definitions in <code>ww_self</code> are an idea for later. <code>PhantomData</code> fields (DER-15) are left
   out of a struct's definition, the parameter stays in its generics (<code>ww_self::generics::prepare</code> accepts that). Tests
   <code>tests/generics</code> (property, method argument, inside <code>Timed</code>, a <code>PhantomData</code> marker, dynamic client),
-  <code>wire_weaver_core</code> unit tests, <code>ww api tree</code> (<code>docs/types.md#type-aliases</code>). <code>use .. as ..</code> renames are not followed.</li>
-<li>📋 <strong>API-46 Codegen names types by their module path</strong> · <code>v0.5</code> — generated code names every user type
-  <code>&lt;crate&gt;::&lt;Ident&gt;</code> (from <code>ww_self</code>, which has no module path), so a type in a module must be re-exported at the
-  crate root, and a marker <code>units::Volt</code> next to an alias <code>Volt</code> at the root (the ww_si 0.2 layout, STD-38) comes out
-  as the alias. Needs the module path per definition for codegen: a codegen-only table from the walker, or a
-  <code>ww_self</code> field left out of signatures and the evolution check.</li>
+  <code>wire_weaver_core</code> unit tests, <code>ww api tree</code> (<code>docs/types.md#type-aliases</code>). <code>use .. as ..</code> renames are followed
+  (API-46).</li>
+<li>✅ <strong>API-46 Codegen names types by their module path</strong> · <code>v0.5</code> — each struct and enum records the path other crates
+  name it by (<code>ItemStruct::path</code> / <code>ItemEnum::path</code> in <code>ww_self</code>, <code>None</code> at the crate root): the shortest one through
+  <code>pub mod</code>s and <code>pub use</code> re-exports (by name, renamed, glob); a type re-exported under another name is named that
+  way, a type no other crate can reach is an error naming it. Its identity in its crate is path and name
+  (<code>units::Volt</code> and a root <code>Volt</code> are two definitions): generated code names types by it (a type in a <code>pub mod</code>
+  needs no root re-export, the ww_si 0.2 layout of a marker <code>units::Volt</code> next to the alias <code>Volt</code> works), snapshots
+  take <code>#[derive_shrink_wrap]</code> types and unit marker structs from <code>pub mod</code>s too, and <code>SkippedFullVersion::type_name</code>,
+  signature resolution, <code>inline_skipped</code> and the definition cache look definitions up by it. Part of signatures, so
+  introspection data and API hashes changed (snapshots saved again). The walker follows <code>use .. as ..</code> imports, and
+  converts the arguments of <code>a::b::Ty&lt;Arg&gt;</code> where they are written. Tests <code>tests/module_paths</code> (pub module, lifetime
+  two modules deep, rename, root re-export, re-export under another name, two equal <code>Point</code>s,
+  <code>Quantity&lt;units::Volt&gt;</code> next to a root <code>Volt</code>), <code>tests/generics</code> (ww_si layout as property, method argument,
+  inside <code>Timed</code>), <code>wire_weaver_core</code> unit tests (a snapshot with <code>units::Volt</code> and a root <code>Volt</code> saved through RON
+  and put back in an API) (<code>docs/types.md#types-in-modules</code>).</li>
 <li>✅ <strong>API-31 Stream functions</strong> — <code>#[stream(T, counted)] fn name(args) -&gt; Result&lt;A, E&gt;</code> and <code>#[counted]</code> /
   <code>#[reliable] stream!(name: T)</code>: every stream (plain ones too) is opened by calling it (<code>RequestKind::StreamOpen</code>),
   with typed arguments and result; the device's handler named like the stream decides, <code>Ok</code> starts a session,

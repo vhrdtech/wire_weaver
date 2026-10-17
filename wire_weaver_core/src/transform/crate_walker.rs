@@ -112,6 +112,9 @@ pub(crate) struct Scratch {
     /// Type and const parameters of the generic definition whose fields are being converted (API-43), empty
     /// outside of one.
     pub(crate) generic_scope: Vec<ww_self::GenericParamOwned>,
+    /// Parameters of the type alias whose right-hand side is being converted (API-45), each with the argument it
+    /// stands for, already converted where the alias is used; empty outside of one.
+    pub(crate) alias_args: Vec<(String, ww_self::GenericArgOwned)>,
 }
 
 /// Crate and name of a user-defined type.

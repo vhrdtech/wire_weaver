@@ -67,6 +67,20 @@ pub(crate) fn convert_ty_path(
     let Some((last, leading)) = segments.split_last() else {
         return Err(anyhow!("Empty type path"));
     };
+    // a parameter of the type alias being converted, stands for the argument it was given
+    if leading.is_empty()
+        && ty_path.qself.is_none()
+        && matches!(last.arguments, PathArguments::None)
+        && let Some(arg) = alias_arg(scratch, &last.ident.to_string())
+    {
+        return match arg {
+            GenericArgOwned::Type(ty) => Ok(ty.clone()),
+            GenericArgOwned::Const(_) | GenericArgOwned::ConstParam(_) => {
+                Err(anyhow!("const parameter {} is used as a type", last.ident)
+                    .context(current_crate.err_context()))
+            }
+        };
+    }
     // a parameter of the generic definition being converted
     if leading.is_empty()
         && ty_path.qself.is_none()
@@ -152,8 +166,8 @@ pub(crate) fn convert_ty_path_segment(
     }
 }
 
-/// Definition of the user type `segment` names, and the crate it is in: defined in `current_crate`, imported by
-/// name, or through a glob import (looked into last, as Rust does).
+/// Definition of the user type `segment` names (a struct, an enum or a type alias), and the crate it is in: defined
+/// in `current_crate`, imported by name, or through a glob import (looked into last, as Rust does).
 fn find_user_item(
     segment: &PathSegment,
     current_crate: &CrateContext,
@@ -167,6 +181,9 @@ fn find_user_item(
                 return Ok((current_crate.clone(), item.clone()));
             }
             Item::Struct(item_struct) if item_struct.ident == user_ty => {
+                return Ok((current_crate.clone(), item.clone()));
+            }
+            Item::Type(item_type) if item_type.ident == user_ty => {
                 return Ok((current_crate.clone(), item.clone()));
             }
             Item::Use(item_use) => {
@@ -209,7 +226,14 @@ fn convert_user_ty(
     let (ident, generics) = match item {
         Item::Struct(item_struct) => (&item_struct.ident, &item_struct.generics),
         Item::Enum(item_enum) => (&item_enum.ident, &item_enum.generics),
-        _ => return Err(anyhow!("{segment:?} is not a struct or an enum")),
+        Item::Type(item_type) => {
+            return convert_alias(segment, def_cx, item_type, current_crate, scratch);
+        }
+        _ => {
+            return Err(anyhow!(
+                "{segment:?} is not a struct, an enum or a type alias"
+            ));
+        }
     };
     let params = convert_generic_params(ident, generics, def_cx, scratch)?;
     let args = convert_generic_args(segment, ident, &params, def_cx, current_crate, scratch)?;
@@ -224,6 +248,33 @@ fn convert_user_ty(
         ));
     };
     Ok(TypeOwned::Instance { type_idx, args })
+}
+
+/// The type alias `item_type` (API-45), defined in `def_cx`, used as `segment`: its right-hand side converted in
+/// `def_cx`, each parameter of the alias standing for the argument of `segment` (converted in `current_crate`, in the
+/// current generic scope). An alias is not a definition of its own in the API model, a use of it is what it names.
+fn convert_alias(
+    segment: &PathSegment,
+    def_cx: &CrateContext,
+    item_type: &syn::ItemType,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<TypeOwned> {
+    let ident = &item_type.ident;
+    let params = convert_generic_params(ident, &item_type.generics, def_cx, scratch)?;
+    let args = convert_generic_args(segment, ident, &params, def_cx, current_crate, scratch)?;
+    let alias_args = params
+        .into_iter()
+        .zip(args)
+        .map(|((param, _), arg)| (param.ident, arg))
+        .collect();
+    // the right-hand side is written in the alias' crate: the caller's parameters are not in scope there
+    let saved_alias_args = std::mem::replace(&mut scratch.alias_args, alias_args);
+    let saved_scope = std::mem::take(&mut scratch.generic_scope);
+    let ty = convert_ty(&item_type.ty, def_cx, scratch);
+    scratch.generic_scope = saved_scope;
+    scratch.alias_args = saved_alias_args;
+    ty.with_context(|| format!("type alias {ident}"))
 }
 
 /// Converts the definition of a struct or enum (generic or not, without arguments) into the types array, e.g. for
@@ -281,11 +332,13 @@ fn convert_def(
         slot: None,
     });
     let saved_scope = std::mem::replace(&mut scratch.generic_scope, params);
+    let saved_alias_args = std::mem::take(&mut scratch.alias_args);
     let ty = match item {
         Item::Enum(item_enum) => convert_item_enum(def_cx, scratch, ty_name, item_enum),
         Item::Struct(item_struct) => convert_item_struct(def_cx, scratch, ty_name, item_struct),
         _ => unreachable!(),
     };
+    scratch.alias_args = saved_alias_args;
     scratch.generic_scope = saved_scope;
     let in_progress = scratch
         .types_in_progress
@@ -448,6 +501,7 @@ fn convert_generic_args(
             (None, Some(default)) => {
                 // the default is written in the definition's crate, where the caller's parameters are not in scope
                 let saved = std::mem::take(&mut scratch.generic_scope);
+                let saved_alias_args = std::mem::take(&mut scratch.alias_args);
                 let arg = match default {
                     ParamDefault::Type(ty) => {
                         convert_ty(ty, def_cx, scratch).map(GenericArgOwned::Type)
@@ -456,6 +510,7 @@ fn convert_generic_args(
                         convert_const_arg(expr, param, def_cx, scratch).map(GenericArgOwned::Const)
                     }
                 };
+                scratch.alias_args = saved_alias_args;
                 scratch.generic_scope = saved;
                 arg.map_err(|e| e.context(format!("default of {} of {ident}", param.ident)))?
             }
@@ -511,9 +566,18 @@ fn const_param_or_value(
 ) -> Result<GenericArgOwned> {
     if let Expr::Path(path) = expr
         && let Some(name) = path.path.get_ident()
-        && let Some((idx, _)) = scope_param(scratch, &name.to_string())
     {
-        return Ok(GenericArgOwned::ConstParam(UNib32(idx)));
+        if let Some(arg) = alias_arg(scratch, &name.to_string()) {
+            return match arg {
+                GenericArgOwned::Type(_) => {
+                    Err(anyhow!("type parameter {name} is used as a value"))
+                }
+                arg => Ok(arg.clone()),
+            };
+        }
+        if let Some((idx, _)) = scope_param(scratch, &name.to_string()) {
+            return Ok(GenericArgOwned::ConstParam(UNib32(idx)));
+        }
     }
     Ok(GenericArgOwned::Const(convert_const_arg(
         expr,
@@ -619,9 +683,31 @@ fn scope_param<'s>(scratch: &'s Scratch, name: &str) -> Option<(u32, &'s Generic
         .map(|(idx, p)| (idx as u32, p))
 }
 
+/// Argument a parameter of the type alias being converted stands for.
+fn alias_arg<'s>(scratch: &'s Scratch, name: &str) -> Option<&'s GenericArgOwned> {
+    scratch
+        .alias_args
+        .iter()
+        .find(|(ident, _)| ident == name)
+        .map(|(_, arg)| arg)
+}
+
 /// Array length or `MaxLen` bound: an integer literal (also as `{ 64 }`), a `const` of one in lib.rs, or an integer
-/// const parameter of the definition being converted.
+/// const parameter of the definition (or type alias) being converted.
 fn convert_length(expr: &Expr, current_crate: &CrateContext, scratch: &Scratch) -> Option<Length> {
+    if let Expr::Path(path) = expr
+        && let Some(name) = path.path.get_ident()
+        && let Some(arg) = alias_arg(scratch, &name.to_string())
+    {
+        return match arg {
+            GenericArgOwned::Const(ValueOwned::Numeric(v)) => v
+                .to_i128()
+                .and_then(|v| u32::try_from(v).ok())
+                .map(|v| Length::Fixed(UNib32(v))),
+            GenericArgOwned::ConstParam(idx) => Some(Length::Param(*idx)),
+            _ => None,
+        };
+    }
     if let Expr::Path(path) = expr
         && let Some(name) = path.path.get_ident()
         && let Some((idx, param)) = scope_param(scratch, &name.to_string())
@@ -645,6 +731,7 @@ fn declares_or_imports(cx: &CrateContext, name: &str) -> bool {
     cx.lib_rs_ast.items.iter().any(|item| match item {
         Item::Enum(item_enum) => item_enum.ident == name,
         Item::Struct(item_struct) => item_struct.ident == name,
+        Item::Type(item_type) => item_type.ident == name,
         Item::Use(item_use) => use_tree_path_to(&item_use.tree, name).is_some(),
         _ => false,
     })
@@ -763,6 +850,10 @@ fn convert_fields(
             let mut owned = vec![];
             let mut next_slot = 0u32;
             for f in fields {
+                // zero bits on the wire (DER-15): not a field of the model, its parameter stays in the generics
+                if is_phantom_data(&f.ty) {
+                    continue;
+                }
                 let since = get_since_attr(&f.attrs, current_crate)?;
                 let default = get_default_attr(&f.attrs, current_crate)?;
                 let ty = if f.attrs.iter().any(|a| a.path().is_ident("flag")) {
@@ -795,6 +886,11 @@ fn convert_fields(
         }
         Fields::Unit => Ok(FieldsOwned::Unit),
     }
+}
+
+/// `PhantomData<T>`, also as `core::marker::PhantomData<T>`.
+fn is_phantom_data(ty: &Type) -> bool {
+    matches!(ty, Type::Path(p) if p.qself.is_none() && p.path.segments.last().is_some_and(|s| s.ident == "PhantomData"))
 }
 
 /// `#[series(opaque)]` (SW-60): the field is an opaque run of its bytes in a `Series`; the derive checks the form.
@@ -1071,7 +1167,7 @@ mod recursive_tests {
     use ww_self::{ApiBundleOwned, TypeLocationOwned, TypeOwned};
 
     /// Loads trait `Api` from a throwaway crate with `lib_rs` (after the trait).
-    fn load(name: &str, methods: &str, types: &str) -> anyhow::Result<ApiBundleOwned> {
+    pub(super) fn load(name: &str, methods: &str, types: &str) -> anyhow::Result<ApiBundleOwned> {
         let dir: PathBuf = std::env::temp_dir()
             .join("ww_core_recursive_tests")
             .join(format!("{name}-{}", std::process::id()));
@@ -1088,7 +1184,7 @@ mod recursive_tests {
         bundle
     }
 
-    fn names(bundle: &ApiBundleOwned) -> Vec<String> {
+    pub(super) fn names(bundle: &ApiBundleOwned) -> Vec<String> {
         bundle
             .types
             .iter()
@@ -1159,6 +1255,129 @@ mod recursive_tests {
         .unwrap_err();
         assert!(
             format!("{e:#}").contains("Generic type G refers to itself (through A -> G)"),
+            "{e:#}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod alias_tests {
+    use super::recursive_tests::{load, names};
+    use ww_self::{ApiBundleOwned, ApiItemKindOwned};
+
+    /// Arguments of the first method, as written out in full.
+    fn args(bundle: &ApiBundleOwned) -> Vec<String> {
+        let mut prepared = bundle.clone();
+        ww_self::generics::prepare(&mut prepared).unwrap();
+        let ApiItemKindOwned::Method { args, .. } = &bundle.root.items[0].kind else {
+            panic!("method");
+        };
+        args.iter()
+            .map(|a| a.ty.human_definition(&prepared, true).unwrap())
+            .collect()
+    }
+
+    const TYPES: &str = "
+        use core::marker::PhantomData;
+        use g::*;
+        pub struct Quantity<U> { value: i32, _unit: PhantomData<U> }
+        pub mod units {
+            /// Volt
+            pub struct Volt;
+            pub struct Ampere;
+        }
+        pub struct Timed<T> { t: u32, value: T }
+        pub struct Window<const N: usize> { s: [u8; N] }
+        pub struct Wrap<T> { r: Reading<T> }
+        pub type Volt = Quantity<units::Volt>;
+        pub type Reading<T> = Timed<Quantity<T>>;
+        pub type Buf<const N: usize> = Window<N>;
+        pub type Bytes<const N: usize> = [u8; N];
+        pub type Id = u16;
+        pub mod m {
+            use crate::{Id, Volt};
+            pub type Nested = (Volt, Id);
+        }
+        mod g {
+            pub type G = u8;
+        }
+    ";
+
+    #[test]
+    fn aliases_resolve() {
+        let bundle = load(
+            "aliases",
+            "fn a(v: Volt, r: Reading<units::Ampere>, b: Buf<4>, y: Bytes<2>, i: Id, n: m::Nested, g: G, \
+             w: Wrap<units::Volt>);",
+            TYPES,
+        )
+        .unwrap();
+        assert_eq!(
+            args(&bundle),
+            [
+                // the `PhantomData` field is left out, `U` stays a parameter no field uses
+                "struct test_api::Quantity<Volt> {value: i32}",
+                "struct test_api::Timed<Quantity<Ampere>> {t: u32, value: struct test_api::Quantity<Ampere> {value: i32}}",
+                "struct test_api::Window<4> {s: [u8; 4]}",
+                "[u8; 2]",
+                "u16",
+                "(struct test_api::Quantity<Volt> {value: i32}, u16)",
+                "u8",
+                // the alias' argument is a parameter of `Wrap`
+                "struct test_api::Wrap<Volt> {r: struct test_api::Timed<Quantity<Volt>> {t: u32, value: struct test_api::Quantity<Volt> {value: i32}}}",
+            ]
+        );
+        // no alias is a definition of its own
+        let mut types = names(&bundle);
+        types.sort();
+        assert_eq!(
+            types,
+            ["Ampere", "Quantity", "Timed", "Volt", "Window", "Wrap"]
+        );
+    }
+
+    #[test]
+    fn phantom_data_fields_are_left_out() {
+        let bundle = load(
+            "phantom",
+            "fn a(t: Tag<u64>);",
+            "pub struct Tag<U> { id: u8, _u: core::marker::PhantomData<U>, n: u16 }",
+        )
+        .unwrap();
+        let tag = bundle
+            .types
+            .iter()
+            .find_map(|location| match location {
+                ww_self::TypeLocationOwned::InLine {
+                    ty: ww_self::TypeOwned::Struct(s),
+                    ..
+                } => Some(s),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(tag.generics.len(), 1);
+        let ww_self::FieldsOwned::Named(fields) = &tag.fields else {
+            panic!("named fields");
+        };
+        let idents: Vec<_> = fields.iter().map(|f| f.ident.clone().unwrap()).collect();
+        assert_eq!(idents, ["id", "n"]);
+        // `prepare` takes a parameter no field uses
+        assert_eq!(
+            args(&bundle),
+            ["struct test_api::Tag<u64> {id: u8, n: u16}"]
+        );
+    }
+
+    #[test]
+    fn alias_parameter_kinds_are_checked() {
+        let e = load(
+            "alias_kinds",
+            "fn a(v: AsType<4>);",
+            "pub type AsType<const N: usize> = Option<N>;",
+        )
+        .unwrap_err();
+        assert!(
+            format!("{e:#}").contains("const parameter N is used as a type"),
             "{e:#}"
         );
     }

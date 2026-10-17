@@ -340,15 +340,21 @@ impl TypeOwned {
                         ..
                     }) => crate_prefixed(crate_idx.0, type_name)?,
                     Some(TypeLocationOwned::InLine {
-                        ty: TypeOwned::Struct(ItemStructOwned {
-                            crate_idx, ident, ..
-                        })
-                        | TypeOwned::Enum(ItemEnumOwned {
-                            crate_idx, ident, ..
-                        }),
+                        ty:
+                            TypeOwned::Struct(ItemStructOwned {
+                                crate_idx, ident, ..
+                            })
+                            | TypeOwned::Enum(ItemEnumOwned {
+                                crate_idx, ident, ..
+                            }),
                         ..
                     }) => crate_prefixed(crate_idx.0, ident)?,
-                    _ => return Err(anyhow!("Bad ApiBundle: no generic type with index: {}", type_idx.0)),
+                    _ => {
+                        return Err(anyhow!(
+                            "Bad ApiBundle: no generic type with index: {}",
+                            type_idx.0
+                        ));
+                    }
                 };
                 let mut names = Vec::with_capacity(args.len());
                 for arg in args {
@@ -465,7 +471,10 @@ impl Length {
 }
 
 /// `<T, const N: u64>`, empty without parameters.
-fn generics_human_name(params: &[GenericParamOwned], api_bundle: &ApiBundleOwned) -> Result<String> {
+fn generics_human_name(
+    params: &[GenericParamOwned],
+    api_bundle: &ApiBundleOwned,
+) -> Result<String> {
     if params.is_empty() {
         return Ok(String::new());
     }
@@ -540,7 +549,9 @@ impl DefCx<'_> {
                     item_struct.ident,
                     generics_human_name(&item_struct.generics, api_bundle)?
                 );
-                s += self.fields(&item_struct.fields, &item_struct.generics)?.as_str();
+                s += self
+                    .fields(&item_struct.fields, &item_struct.generics)?
+                    .as_str();
                 Ok(s)
             }
             TypeOwned::Enum(item_enum) => {

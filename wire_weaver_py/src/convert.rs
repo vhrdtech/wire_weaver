@@ -82,7 +82,9 @@ pub(crate) fn to_value(
             }
         })?),
         TypeOwned::Array { len, ty: inner } => {
-            let len = len.fixed().map_err(|e| PyTypeError::new_err(e.to_string()))?;
+            let len = len
+                .fixed()
+                .map_err(|e| PyTypeError::new_err(e.to_string()))?;
             let items = to_items(obj, inner, bundle)?;
             if items.len() != len as usize {
                 return Err(PyValueError::new_err(format!(

@@ -147,6 +147,7 @@ dfu_lean_app_api = { version = "0.1.0", path = "./tests/dfu_lean_app_api" }
 dfu_updater_api = { version = "0.1.0", path = "./tests/dfu_updater_api" }
 dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
 firmware_info_api = { version = "0.1.0", path = "./tests/firmware_info_api" }
+generics_api = { version = "0.1.0", path = "./tests/generics_api" }
 indication_api = { version = "0.1.0", path = "./tests/indication_api" }
 io_adc_api = { version = "0.1.0", path = "./tests/io_adc_api" }
 io_can_api = { version = "0.1.0", path = "./tests/io_can_api" }

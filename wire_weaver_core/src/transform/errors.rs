@@ -199,7 +199,7 @@ pub(crate) fn reject_errors_attr(
 }
 
 fn in_line<'a>(ty: &'a TypeOwned, types: &'a [TypeLocationOwned]) -> &'a TypeOwned {
-    if let TypeOwned::OutOfLine { type_idx } = ty
+    if let TypeOwned::OutOfLine { type_idx } | TypeOwned::Instance { type_idx, .. } = ty
         && let Some(TypeLocationOwned::InLine { ty, .. }) = types.get(type_idx.0 as usize)
     {
         ty

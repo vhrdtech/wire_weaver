@@ -2107,6 +2107,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "generics"
+version = "0.1.0"
+dependencies = [
+ "generics_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "ww_client_server",
+ "ww_si",
+]
+
+[[package]]
+name = "generics_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

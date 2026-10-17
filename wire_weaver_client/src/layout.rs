@@ -317,9 +317,11 @@ fn leaf_count(bundle: &ApiBundleOwned, ty: &TypeOwned, depth: u32) -> usize {
             _ => 1,
         },
         TypeOwned::Struct(s) if !matches!(s.size, ElementSize::Unsized) => match &s.fields {
-            FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) => fields
-                .iter()
-                .fold(0usize, |n, f| n.saturating_add(leaf_count(bundle, &f.ty, depth + 1))),
+            FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) => {
+                fields.iter().fold(0usize, |n, f| {
+                    n.saturating_add(leaf_count(bundle, &f.ty, depth + 1))
+                })
+            }
             FieldsOwned::Unit => 0,
         },
         TypeOwned::Array {

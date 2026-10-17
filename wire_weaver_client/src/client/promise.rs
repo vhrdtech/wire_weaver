@@ -330,8 +330,11 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
                             ))
                         } else {
                             match T::from_ww_bytes_owned(bytes) {
-                                Ok(mut value) => match on_done.take().map(|f| f(&mut value, bytes)) {
-                                    Some(Err(e)) => StateInner::Err(E::from_client(e, self.resource)),
+                                Ok(mut value) => match on_done.take().map(|f| f(&mut value, bytes))
+                                {
+                                    Some(Err(e)) => {
+                                        StateInner::Err(E::from_client(e, self.resource))
+                                    }
                                     _ => StateInner::Done(Some(value)),
                                 },
                                 Err(e) => StateInner::Err(E::from_client(e.into(), self.resource)),

@@ -59,8 +59,15 @@ fn ty_def_inner(
                 TypeOwned::Struct(item_struct) => {
                     (&item_struct.ident, item_struct.is_lifetime(api_bundle)?)
                 }
-                TypeOwned::Enum(item_enum) => (&item_enum.ident, item_enum.is_lifetime(api_bundle)?),
-                _ => return Err(anyhow!("generic type with index {} is not a struct or an enum", type_idx.0)),
+                TypeOwned::Enum(item_enum) => {
+                    (&item_enum.ident, item_enum.is_lifetime(api_bundle)?)
+                }
+                _ => {
+                    return Err(anyhow!(
+                        "generic type with index {} is not a struct or an enum",
+                        type_idx.0
+                    ));
+                }
             };
             let mut generic_args = vec![];
             if own_lifetime && !alloc {
@@ -71,7 +78,9 @@ fn ty_def_inner(
                     GenericArgOwned::Type(ty) => ty_def_inner(api_bundle, ty, alloc, ty_pos, None)?,
                     GenericArgOwned::Const(value) => const_arg(value)?,
                     GenericArgOwned::ConstParam(_) => {
-                        return Err(anyhow!("const parameter of {ident} outside of a generic definition"));
+                        return Err(anyhow!(
+                            "const parameter of {ident} outside of a generic definition"
+                        ));
                     }
                 });
             }
@@ -200,7 +209,9 @@ fn const_arg(value: &ValueOwned) -> Result<TokenStream> {
                 quote! { #lit }
             })
         }
-        other => Err(anyhow!("const argument {other:?} is not a bool or an integer")),
+        other => Err(anyhow!(
+            "const argument {other:?} is not a bool or an integer"
+        )),
     }
 }
 

@@ -14,9 +14,9 @@
 //! and [instantiate] bounds the work and the size of what it adds. A malformed bundle is an error, never a panic.
 
 use crate::{
-    ApiBundleOwned, ApiItemKindOwned, ApiLevelLocationOwned, ApiLevelOwned, FieldOwned, FieldsOwned,
-    GenericArgOwned, GenericParamKindOwned, GenericParamOwned, ItemEnumOwned, ItemStructOwned,
-    Length, TypeLocationOwned, TypeOwned, ValueOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiLevelLocationOwned, ApiLevelOwned, FieldOwned,
+    FieldsOwned, GenericArgOwned, GenericParamKindOwned, GenericParamOwned, ItemEnumOwned,
+    ItemStructOwned, Length, TypeLocationOwned, TypeOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
@@ -145,8 +145,11 @@ impl<'a> Validator<'a> {
                             check_generics(&e.generics)?;
                             let mut depth = 1;
                             for variant in &e.variants {
-                                depth =
-                                    depth.max(self.fields_depth(&variant.fields, &e.generics, path)?);
+                                depth = depth.max(self.fields_depth(
+                                    &variant.fields,
+                                    &e.generics,
+                                    path,
+                                )?);
                             }
                             depth
                         }
@@ -232,9 +235,9 @@ impl<'a> Validator<'a> {
                 }
                 1
             }
-            TypeOwned::Vec(inner) | TypeOwned::Option { some_ty: inner } | TypeOwned::Box(inner) => {
-                1 + self.ty_depth(inner, scope, path + 1)?
-            }
+            TypeOwned::Vec(inner)
+            | TypeOwned::Option { some_ty: inner }
+            | TypeOwned::Box(inner) => 1 + self.ty_depth(inner, scope, path + 1)?,
             TypeOwned::Array { len, ty } | TypeOwned::MaxLen { max_len: len, ty } => {
                 check_length(len, scope)?;
                 1 + self.ty_depth(ty, scope, path + 1)?
@@ -665,7 +668,10 @@ pub fn substitute(
             GenericArgOwned::Type(ty) => ty.human_name(false, bundle)?,
             GenericArgOwned::Const(value) => const_name(value),
             GenericArgOwned::ConstParam(idx) => {
-                bail!("argument is const parameter {} outside of a generic definition", idx.0)
+                bail!(
+                    "argument is const parameter {} outside of a generic definition",
+                    idx.0
+                )
             }
         });
     }
@@ -848,7 +854,13 @@ fn count_nodes(ty: &TypeOwned) -> usize {
                 .sum::<usize>()
         }
         TypeOwned::Struct(s) => 1 + fields_nodes(&s.fields),
-        TypeOwned::Enum(e) => 1 + e.variants.iter().map(|v| fields_nodes(&v.fields)).sum::<usize>(),
+        TypeOwned::Enum(e) => {
+            1 + e
+                .variants
+                .iter()
+                .map(|v| fields_nodes(&v.fields))
+                .sum::<usize>()
+        }
         _ => 1,
     }
 }
@@ -903,7 +915,11 @@ mod tests {
         }
     }
 
-    fn def(ident: &str, generics: Vec<GenericParamOwned>, fields: Vec<FieldOwned>) -> TypeLocationOwned {
+    fn def(
+        ident: &str,
+        generics: Vec<GenericParamOwned>,
+        fields: Vec<FieldOwned>,
+    ) -> TypeLocationOwned {
         TypeLocationOwned::InLine {
             ty: TypeOwned::Struct(ItemStructOwned {
                 size: ElementSize::Unsized,
@@ -950,7 +966,10 @@ mod tests {
             },
             types,
             traits: vec![],
-            ext_crates: vec![FullVersionOwned::new("c".into(), VersionOwned::new(0, 1, 0))],
+            ext_crates: vec![FullVersionOwned::new(
+                "c".into(),
+                VersionOwned::new(0, 1, 0),
+            )],
             root_omitted: None,
         }
     }
@@ -961,7 +980,10 @@ mod tests {
             def(
                 "Timed",
                 vec![param("T")],
-                vec![field("t", u16_ty()), field("value", TypeOwned::Param(UNib32(0)))],
+                vec![
+                    field("t", u16_ty()),
+                    field("value", TypeOwned::Param(UNib32(0))),
+                ],
             ),
             def(
                 "Buf",
@@ -1042,12 +1064,21 @@ mod tests {
     #[test]
     fn malformed_uses_are_errors() {
         // wrong number of arguments
-        assert_invalid(bundle(timed_and_buf(), instance(0, vec![])), "has 1 parameters");
+        assert_invalid(
+            bundle(timed_and_buf(), instance(0, vec![])),
+            "has 1 parameters",
+        );
         // a value for a type parameter
-        assert_invalid(bundle(timed_and_buf(), instance(0, vec![n(1)])), "wrong kind");
+        assert_invalid(
+            bundle(timed_and_buf(), instance(0, vec![n(1)])),
+            "wrong kind",
+        );
         // a type for a const parameter
         assert_invalid(
-            bundle(timed_and_buf(), instance(1, vec![GenericArgOwned::Type(u16_ty())])),
+            bundle(
+                timed_and_buf(),
+                instance(1, vec![GenericArgOwned::Type(u16_ty())]),
+            ),
             "wrong kind",
         );
         // a const value that doesn't fit its type
@@ -1056,23 +1087,39 @@ mod tests {
                 timed_and_buf(),
                 instance(
                     1,
-                    vec![GenericArgOwned::Const(ValueOwned::Numeric(NumericValue::I8(-1)))],
+                    vec![GenericArgOwned::Const(ValueOwned::Numeric(
+                        NumericValue::I8(-1),
+                    ))],
                 ),
             ),
             "out of range",
         );
         // a generic definition without arguments
         assert_invalid(
-            bundle(timed_and_buf(), TypeOwned::OutOfLine { type_idx: UNib32(0) }),
+            bundle(
+                timed_and_buf(),
+                TypeOwned::OutOfLine {
+                    type_idx: UNib32(0),
+                },
+            ),
             "without arguments",
         );
         // index out of range
-        assert_invalid(bundle(timed_and_buf(), instance(7, vec![n(1)])), "no type with index 7");
+        assert_invalid(
+            bundle(timed_and_buf(), instance(7, vec![n(1)])),
+            "no type with index 7",
+        );
         // a parameter outside of a definition
-        assert_invalid(bundle(timed_and_buf(), TypeOwned::Param(UNib32(0))), "outside of a generic");
+        assert_invalid(
+            bundle(timed_and_buf(), TypeOwned::Param(UNib32(0))),
+            "outside of a generic",
+        );
         // a passed-on const parameter outside of a definition
         assert_invalid(
-            bundle(timed_and_buf(), instance(1, vec![GenericArgOwned::ConstParam(UNib32(0))])),
+            bundle(
+                timed_and_buf(),
+                instance(1, vec![GenericArgOwned::ConstParam(UNib32(0))]),
+            ),
             "outside of a generic",
         );
     }
@@ -1080,7 +1127,11 @@ mod tests {
     #[test]
     fn malformed_definitions_are_errors() {
         // parameter index out of range
-        let types = vec![def("A", vec![param("T")], vec![field("a", TypeOwned::Param(UNib32(3)))])];
+        let types = vec![def(
+            "A",
+            vec![param("T")],
+            vec![field("a", TypeOwned::Param(UNib32(3)))],
+        )];
         assert_invalid(bundle(types, TypeOwned::Bool), "no parameter with index 3");
         // a type parameter as a length
         let types = vec![def(
@@ -1094,9 +1145,16 @@ mod tests {
                 },
             )],
         )];
-        assert_invalid(bundle(types, TypeOwned::Bool), "not an integer const parameter");
+        assert_invalid(
+            bundle(types, TypeOwned::Bool),
+            "not an integer const parameter",
+        );
         // a const parameter as a type
-        let types = vec![def("A", vec![const_param("N")], vec![field("a", TypeOwned::Param(UNib32(0)))])];
+        let types = vec![def(
+            "A",
+            vec![const_param("N")],
+            vec![field("a", TypeOwned::Param(UNib32(0)))],
+        )];
         assert_invalid(bundle(types, TypeOwned::Bool), "used as a type");
         // a const parameter of a type that can't be one
         let types = vec![def(
@@ -1109,10 +1167,15 @@ mod tests {
             }],
             vec![],
         )];
-        assert_invalid(bundle(types, TypeOwned::Bool), "must be a bool or an integer");
+        assert_invalid(
+            bundle(types, TypeOwned::Bool),
+            "must be a bool or an integer",
+        );
         // not a struct or enum
         let types = vec![TypeLocationOwned::InLine {
-            ty: TypeOwned::OutOfLine { type_idx: UNib32(0) },
+            ty: TypeOwned::OutOfLine {
+                type_idx: UNib32(0),
+            },
             crate_idx: UNib32(0),
         }];
         assert_invalid(bundle(types, TypeOwned::Bool), "not a struct or an enum");
@@ -1122,8 +1185,26 @@ mod tests {
     fn cycles_are_errors() {
         // struct A { a: B }, struct B { b: A }
         let types = vec![
-            def("A", vec![], vec![field("a", TypeOwned::OutOfLine { type_idx: UNib32(1) })]),
-            def("B", vec![], vec![field("b", TypeOwned::OutOfLine { type_idx: UNib32(0) })]),
+            def(
+                "A",
+                vec![],
+                vec![field(
+                    "a",
+                    TypeOwned::OutOfLine {
+                        type_idx: UNib32(1),
+                    },
+                )],
+            ),
+            def(
+                "B",
+                vec![],
+                vec![field(
+                    "b",
+                    TypeOwned::OutOfLine {
+                        type_idx: UNib32(0),
+                    },
+                )],
+            ),
         ];
         assert_invalid(bundle(types, TypeOwned::Bool), "refers to itself");
         // struct A<T> { a: Box<A<(T, T)>> }: never ending instances
@@ -1142,7 +1223,10 @@ mod tests {
             )],
         )];
         assert_invalid(
-            bundle(types, instance(0, vec![GenericArgOwned::Type(TypeOwned::Bool)])),
+            bundle(
+                types,
+                instance(0, vec![GenericArgOwned::Type(TypeOwned::Bool)]),
+            ),
             "refers to itself",
         );
     }
@@ -1160,11 +1244,24 @@ mod tests {
             types.push(def(
                 &format!("D{i}"),
                 vec![],
-                vec![field("a", TypeOwned::OutOfLine { type_idx: UNib32(i - 1) })],
+                vec![field(
+                    "a",
+                    TypeOwned::OutOfLine {
+                        type_idx: UNib32(i - 1),
+                    },
+                )],
             ));
         }
         let last = types.len() as u32 - 1;
-        assert_invalid(bundle(types, TypeOwned::OutOfLine { type_idx: UNib32(last) }), "nested deeper");
+        assert_invalid(
+            bundle(
+                types,
+                TypeOwned::OutOfLine {
+                    type_idx: UNib32(last),
+                },
+            ),
+            "nested deeper",
+        );
     }
 
     #[test]
@@ -1173,18 +1270,30 @@ mod tests {
         let mut types = vec![def(
             "D0",
             vec![param("T")],
-            vec![field("a", TypeOwned::Param(UNib32(0))), field("b", TypeOwned::Param(UNib32(0)))],
+            vec![
+                field("a", TypeOwned::Param(UNib32(0))),
+                field("b", TypeOwned::Param(UNib32(0))),
+            ],
         )];
         for i in 1..40u32 {
-            let pair = TypeOwned::Tuple(vec![TypeOwned::Param(UNib32(0)), TypeOwned::Param(UNib32(0))]);
+            let pair = TypeOwned::Tuple(vec![
+                TypeOwned::Param(UNib32(0)),
+                TypeOwned::Param(UNib32(0)),
+            ]);
             types.push(def(
                 &format!("D{i}"),
                 vec![param("T")],
-                vec![field("a", instance(i - 1, vec![GenericArgOwned::Type(pair)]))],
+                vec![field(
+                    "a",
+                    instance(i - 1, vec![GenericArgOwned::Type(pair)]),
+                )],
             ));
         }
         let last = types.len() as u32 - 1;
-        let mut b = bundle(types, instance(last, vec![GenericArgOwned::Type(TypeOwned::Bool)]));
+        let mut b = bundle(
+            types,
+            instance(last, vec![GenericArgOwned::Type(TypeOwned::Bool)]),
+        );
         let err = prepare(&mut b).unwrap_err();
         let text = format!("{err:#}");
         assert!(
@@ -1238,7 +1347,10 @@ mod tests {
                     ident: "A".into(),
                     fields: FieldsOwned::Unnamed(vec![FieldOwned {
                         ident: None,
-                        ..field("", instance(1, vec![GenericArgOwned::ConstParam(UNib32(0))]))
+                        ..field(
+                            "",
+                            instance(1, vec![GenericArgOwned::ConstParam(UNib32(0))]),
+                        )
                     }]),
                     discriminant: UNib32(0),
                     since: None,
@@ -1256,6 +1368,9 @@ mod tests {
         );
         let value = ValueOwned::default(&ty, &b).unwrap();
         let bytes = value.ser_shrink_wrap_dyn(&ty, &b).unwrap();
-        assert_eq!(ValueOwned::des_shrink_wrap_dyn(&bytes, &ty, &b).unwrap(), value);
+        assert_eq!(
+            ValueOwned::des_shrink_wrap_dyn(&bytes, &ty, &b).unwrap(),
+            value
+        );
     }
 }

@@ -212,9 +212,9 @@ fn default_inner(
                 })
             }
             TypeOwned::Option { .. } => Ok(ValueOwned::Option(None)),
-            TypeOwned::Result { ok_ty, .. } => Ok(ValueOwned::Result(Err(Box::new(
-                default_in(ok_ty, api_bundle, b)?,
-            )))),
+            TypeOwned::Result { ok_ty, .. } => Ok(ValueOwned::Result(Err(Box::new(default_in(
+                ok_ty, api_bundle, b,
+            )?)))),
             TypeOwned::Box(inner) => Ok(default_in(inner, api_bundle, b)?),
             TypeOwned::Range(base) => Ok(ValueOwned::Range(
                 default_numeric(base)?..default_numeric(base)?,
@@ -575,7 +575,10 @@ fn des_struct_field(
         Some(Flag {
             value: Some(flag),
             at_end,
-        }) => (des_flagged(rd, flag, &def.ty, api_bundle, b), at_end && !flag),
+        }) => (
+            des_flagged(rd, flag, &def.ty, api_bundle, b),
+            at_end && !flag,
+        ),
         None => (des_field(rd, &def.ty, api_bundle, b), at_end),
     };
     match value {

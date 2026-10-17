@@ -10,8 +10,8 @@ use syn::{
     Attribute, Expr, Fields, GenericArgument, Item, ItemEnum, ItemStruct, Lit, Meta, PathArguments,
     PathSegment, Type, TypePath,
 };
-use ww_numeric::{IBits, NumericAnyTypeOwned, UBits};
 use ww_numeric::NumericValue;
+use ww_numeric::{IBits, NumericAnyTypeOwned, UBits};
 use ww_self::{
     FieldOwned, FieldsOwned, GenericArgOwned, GenericParamKindOwned, GenericParamOwned,
     ItemEnumOwned, ItemStructOwned, Length, NumericBaseType, Repr, TypeOwned, ValueOwned,
@@ -76,11 +76,10 @@ pub(crate) fn convert_ty_path(
     {
         return match param.kind {
             GenericParamKindOwned::Type => Ok(TypeOwned::Param(UNib32(idx))),
-            GenericParamKindOwned::Const { .. } => Err(anyhow!(
-                "const parameter {} is used as a type",
-                param.ident
-            )
-            .context(current_crate.err_context())),
+            GenericParamKindOwned::Const { .. } => {
+                Err(anyhow!("const parameter {} is used as a type", param.ident)
+                    .context(current_crate.err_context()))
+            }
         };
     }
     if leading.is_empty() {
@@ -212,7 +211,9 @@ fn convert_user_ty(
         return Ok(ty);
     }
     let TypeOwned::OutOfLine { type_idx } = ty else {
-        return Err(anyhow!("internal: generic definition {ident} is not out-of-line"));
+        return Err(anyhow!(
+            "internal: generic definition {ident} is not out-of-line"
+        ));
     };
     Ok(TypeOwned::Instance { type_idx, args })
 }
@@ -235,7 +236,9 @@ pub(crate) fn convert_named_def(
     let params = params.into_iter().map(|(p, _)| p).collect();
     match convert_def(&def_cx, &item, params, scratch)? {
         TypeOwned::OutOfLine { type_idx } => Ok(type_idx),
-        _ => Err(anyhow!("internal: definition of {ident} is not out-of-line")),
+        _ => Err(anyhow!(
+            "internal: definition of {ident} is not out-of-line"
+        )),
     }
 }
 
@@ -284,7 +287,10 @@ fn convert_generic_params(
                     ident: type_param.ident.to_string(),
                     kind: GenericParamKindOwned::Type,
                 },
-                type_param.default.clone().map(|(_, ty)| ParamDefault::Type(Box::new(ty))),
+                type_param
+                    .default
+                    .clone()
+                    .map(|(_, ty)| ParamDefault::Type(Box::new(ty))),
             )),
             syn::GenericParam::Const(const_param) => {
                 let ty = convert_const_param_ty(&const_param.ty).ok_or_else(|| {
@@ -299,7 +305,10 @@ fn convert_generic_params(
                         ident: const_param.ident.to_string(),
                         kind: GenericParamKindOwned::Const { ty },
                     },
-                    const_param.default.clone().map(|(_, expr)| ParamDefault::Const(Box::new(expr))),
+                    const_param
+                        .default
+                        .clone()
+                        .map(|(_, expr)| ParamDefault::Const(Box::new(expr))),
                 ));
             }
         }
@@ -398,9 +407,9 @@ fn convert_generic_arg(
     scratch: &mut Scratch,
 ) -> Result<GenericArgOwned> {
     match (&param.kind, arg) {
-        (GenericParamKindOwned::Type, GenericArgument::Type(ty)) => {
-            Ok(GenericArgOwned::Type(convert_ty(ty, current_crate, scratch)?))
-        }
+        (GenericParamKindOwned::Type, GenericArgument::Type(ty)) => Ok(GenericArgOwned::Type(
+            convert_ty(ty, current_crate, scratch)?,
+        )),
         (GenericParamKindOwned::Const { .. }, GenericArgument::Const(expr)) => {
             const_param_or_value(expr, param, current_crate, scratch)
         }
@@ -415,10 +424,13 @@ fn convert_generic_arg(
             });
             const_param_or_value(&expr, param, current_crate, scratch)
         }
-        _ => Err(anyhow!("expected a {}", match param.kind {
-            GenericParamKindOwned::Type => "type",
-            GenericParamKindOwned::Const { .. } => "const value",
-        })),
+        _ => Err(anyhow!(
+            "expected a {}",
+            match param.kind {
+                GenericParamKindOwned::Type => "type",
+                GenericParamKindOwned::Const { .. } => "const value",
+            }
+        )),
     }
 }
 

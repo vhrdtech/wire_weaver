@@ -16,9 +16,9 @@ use wire_weaver::shrink_wrap::{ElementSize, UNib32};
 use ww_self::signature;
 use ww_self::visit::Visit;
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, GenericArgOwned, Length, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
-    FieldOwned, FieldsOwned, ItemEnumOwned, ItemStructOwned, PropertyAccess, TypeLocationOwned,
-    TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
+    FieldOwned, FieldsOwned, GenericArgOwned, ItemEnumOwned, ItemStructOwned, Length,
+    PropertyAccess, TypeLocationOwned, TypeOwned,
 };
 use ww_version::{FullVersionOwned, VersionTriplet};
 
@@ -888,10 +888,7 @@ impl<'a> TypeCheck<'a> {
                 (GenericArgOwned::Const(w_value), GenericArgOwned::Const(r_value))
                     if w_value == r_value => {}
                 _ => {
-                    return Err(format!(
-                        "argument {i} of {}: {w_arg:?} vs {r_arg:?}",
-                        w.1
-                    ));
+                    return Err(format!("argument {i} of {}: {w_arg:?} vs {r_arg:?}", w.1));
                 }
             }
         }

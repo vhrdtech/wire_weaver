@@ -432,7 +432,7 @@ impl Visit<'_> for Refs {
     }
 
     fn visit_type(&mut self, node: &TypeOwned) {
-        if let TypeOwned::OutOfLine { type_idx } = node {
+        if let TypeOwned::OutOfLine { type_idx } | TypeOwned::Instance { type_idx, .. } = node {
             self.types.push(type_idx.0);
         }
         visit::visit_type(self, node)
@@ -505,7 +505,7 @@ impl VisitMut for Remap {
     }
 
     fn visit_type(&mut self, node: &mut TypeOwned) {
-        if let TypeOwned::OutOfLine { type_idx } = node {
+        if let TypeOwned::OutOfLine { type_idx } | TypeOwned::Instance { type_idx, .. } = node {
             type_idx.0 = self.types[type_idx.0 as usize];
         }
         visit_mut::visit_type(self, node)

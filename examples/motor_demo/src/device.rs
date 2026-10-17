@@ -854,3 +854,21 @@ async fn run<Tx: MessageTx, Rx: MessageRx>(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Device time runs at `time_scale` times real time from the last change of pace: 5 × 10 ms of real time is
+    /// 50 ms of device time, 1250 PWM periods.
+    #[test]
+    fn pace_follows_the_time_scale() {
+        let t0 = Instant::now();
+        let ms = |n| t0 + Duration::from_millis(n);
+        let fast = Pace::new(t0, 1_000, 5.0);
+        assert_eq!(fast.target(ms(10)), 1_000 + 1_250);
+        assert_eq!(fast.target(ms(1_000)), 1_000 + 5 * PWM_HZ as u64);
+        let slow = Pace::new(t0, 0, 0.1);
+        assert_eq!(slow.target(ms(1_000)), PWM_HZ as u64 / 10);
+    }
+}

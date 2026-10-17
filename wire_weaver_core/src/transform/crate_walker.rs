@@ -118,6 +118,9 @@ pub(crate) struct Scratch {
     pub(crate) alias_args: Vec<(String, ww_self::GenericArgOwned)>,
     /// Public paths already found ([CrateContext::public_path]), by crate, module and name of the definition.
     public_paths: HashMap<(FullVersionOwned, Vec<ModSegment>, String), Vec<String>>,
+    /// Child modules already parsed ([CrateContext::module]), by crate, parent module and name; `None` for a name
+    /// that isn't a module. Resolving every path anew re-parsed the same files hundreds of times per API.
+    modules: HashMap<(FullVersionOwned, Vec<ModSegment>, String), Option<Rc<CrateContext>>>,
 }
 
 /// Crate and module-qualified name (`units::Volt`) of a user-defined type.
@@ -271,8 +274,8 @@ impl CrateContext {
             let next = match name.as_str() {
                 "self" if i == 0 => continue,
                 "crate" if i == 0 => Self::load_from_manifest(cx.manifest.clone(), scratch)?,
-                _ => match cx.module(&name)? {
-                    Some(module) => Rc::new(module),
+                _ => match cx.module(&name, scratch)? {
+                    Some(module) => module,
                     None if i == 0 => cx.load_dependent_crate(&name, scratch)?,
                     None => {
                         return Err(anyhow!("Module {name} not found").context(cx.err_context()));
@@ -293,7 +296,21 @@ impl CrateContext {
     }
 
     /// Child module `name`, either in-line or in its own file.
-    fn module(&self, name: &str) -> Result<Option<Self>> {
+    fn module(&self, name: &str, scratch: &mut Scratch) -> Result<Option<Rc<Self>>> {
+        let key = (
+            self.version.clone(),
+            self.mod_path.clone(),
+            name.to_string(),
+        );
+        if let Some(module) = scratch.modules.get(&key) {
+            return Ok(module.clone());
+        }
+        let module = self.parse_module(name)?.map(Rc::new);
+        scratch.modules.insert(key, module.clone());
+        Ok(module)
+    }
+
+    fn parse_module(&self, name: &str) -> Result<Option<Self>> {
         let Some(item_mod) = self.lib_rs_ast.items.iter().find_map(|item| match item {
             Item::Mod(item_mod) if item_mod.ident == name => Some(item_mod),
             _ => None,
@@ -383,10 +400,9 @@ impl CrateContext {
                 break;
             };
             path.push(segment.name.clone());
-            cx = Rc::new(
-                cx.module(&segment.name)?
-                    .ok_or_else(|| anyhow!("internal: module {} not found", segment.name))?,
-            );
+            cx = cx
+                .module(&segment.name, scratch)?
+                .ok_or_else(|| anyhow!("internal: module {} not found", segment.name))?;
         }
         Err(anyhow!(
             "{} is not reachable from other crates, so generated code can't name it: make the modules on its way \

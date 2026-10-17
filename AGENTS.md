@@ -54,15 +54,15 @@ slow-test timeout). To inspect the code a macro invocation actually generates, u
 `debug_to_file = "../../target/some_name.rs"` to the `ww_codegen!`/`ww_impl!` call and check that file — this is the
 normal way to debug codegen, don't try to reason about macro output blind.
 
-Test time limits (`.config/nextest.toml`): the default kills a test after 30 s (SLOW line at 10 s, `terminate-after = 3`),
-the groups of heavy tests (snapshot re-parsing, `shrink_wrap_c` cross tests, power-cut and random-buffer tests, the
-kitchen-sink and `amplification_is_bounded` tests) after 60 s (20 s x 3). The gate runs everything in parallel on a
-small PC, where a test that takes 1 s alone has taken 10 s (the snapshot tests 20 s), and a 3 s limit killed a different
-test on each of three landings. Limits are about 3x the slowest time seen under `NEXTEST_TEST_THREADS=20` (twice the
-core count), so no test is over ~35 % of its limit there; a real hang still ends the run in at most a minute. Tests
-must not assert wall-clock rates: `motor_demo`'s observe tests count per second of device time (the device's clock
-slows with a busy PC). To re-check, run `just test` with `NEXTEST_TEST_THREADS=20` and a junit report, and give any new
-test that comes near a third of its limit headroom or make it cheaper.
+Test time limits (`.config/nextest.toml`) stay tight on purpose: the default kills a test after 3 s, so a test that
+got slow shows up as a failure and its slowness gets looked at, not hidden. A test that comes near 3 s (alone, or
+under the gate's parallel load) is a bug to find first: `quantities_with_their_units` took 1.5 s because the crate
+walker re-parsed the same module files over a hundred times per API. Only tests that are heavy by design (fuzz-like
+loops over thousands of inputs, power-cut runs, re-parsing every snapshot crate) get a per-test override with a
+comment saying why and how long they take alone; never raise the default. Tests must not assert wall-clock rates:
+`motor_demo`'s observe tests run for a span of device time and count per device second (the simulated device falls
+behind real time on a busy PC). Check timing changes with `cargo nextest run --stress-count N` while CPU burners
+load the PC.
 
 CI (`.github/workflows/ci.yml`) fails on any warning: `cargo fmt --check`, `cargo sort -w -g --check` (plain
 `cargo sort` flattens the grouped `[workspace.dependencies]`, always pass `-g`), `typos` (project words go into

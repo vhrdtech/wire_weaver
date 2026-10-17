@@ -17,6 +17,9 @@
 
 ### 🐛 Fixes
 
+- `load`, `load_dep` and the codegen macros parse each module file of a walked crate once instead of on every path
+  through it (`ww_si`'s `unit.rs` was parsed over a hundred times per API): loading an API with `ww_si` quantities
+  takes ~50 ms instead of ~700 ms in debug, `ww_codegen!` and the snapshot checks get faster too.
 - An `#[optional(group)]` named like an item of the same trait (group `format`, method `format`) is a compile error
   naming both, instead of `omit` silently dropping only the item.
 - Snapshots (`ww api save`) take generic marker structs too: a public struct whose fields are all `PhantomData`

@@ -274,3 +274,23 @@ fn validate_on_a_generic_struct() {
     let bytes = Ordered { lo: 3u8, hi: 2 }.to_ww_bytes_owned().unwrap();
     assert!(Ordered::<u8>::from_ww_bytes_owned(&bytes).is_err());
 }
+
+/// A `char` const parameter, and a const parameter as the width of a `TailSize`.
+#[derive_shrink_wrap(owned, derive(Clone, Debug, PartialEq))]
+struct Sized2<const UNIT: char, const W: usize> {
+    size: TailSize<W>,
+    value: u16,
+}
+
+#[test]
+fn char_const_parameter_and_tail_size_width() {
+    let v = Sized2::<'V', 1> {
+        size: TailSize::default(),
+        value: 3,
+    };
+    let bytes = v.to_ww_bytes_owned().unwrap();
+    // a one-byte slot holding the size of the rest, the u16
+    assert_eq!(bytes, [2, 3, 0]);
+    let back = Sized2::<'V', 1>::from_ww_bytes_owned(&bytes).unwrap();
+    assert_eq!((back.size.0, back.value), (2, 3));
+}

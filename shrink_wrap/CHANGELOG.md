@@ -63,7 +63,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   borrowed side, the owned traits for the owned one, `SeriesColumns<'i>` with `series`) on top of the bounds and the
   where clause as written, which every generated impl carries; the size of `T` and `N` is part of the type's (a
   `sized` `Buf<3>` is 32 bits). Works with `series`, `display` (the message's fields need a `Display` bound, `Error`
-  needs `Debug`), `validate`, `discriminants` (which has no parameters) and `#[common]`; `fixed_layout`, `head_tail`
+  needs `Debug`), `validate` and `discriminants` (which has no parameters); `fixed_layout`, `head_tail`
   and `sparse` reject generics with an error naming the type, and the const size asserts of `final_structure` /
   `sized` are left out for a generic type. See `tests/generic_items.rs`.
 - `SeriesColumns` for `UN` and `IN` (SW-60), by the enum rule: a tag run, then each variant's `bit_count` and

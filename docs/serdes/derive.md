@@ -250,6 +250,35 @@ on. How this fits with the rest of an API's errors: [Errors](../api/errors.md).
 To leave it out (an enum that is complete by nature, like `Parity`) or rename it, see
 [`no_future_version`](derive_reference.md#no_future_version-future_version-name-enums-only).
 
+## Generic types
+
+Structs and enums take type and const parameters and where clauses like any Rust type (DER-14):
+
+```rust
+#[derive_shrink_wrap(borrowed, owned, final_structure, derive(Debug, PartialEq))]
+struct Timed<T> {
+    t: u32,
+    value: T,
+}
+
+#[derive_shrink_wrap(owned, sized, derive(Debug, PartialEq))]
+struct Buf<const N: usize> {
+    len: u8,
+    data: [u8; N],
+}
+
+#[derive_shrink_wrap(borrowed, owned, ww_repr = u4, derive(Debug, PartialEq))]
+enum Reading<'i, T: Copy> {
+    Value(T),
+    Missing,
+    Labeled { label: &'i str, value: T },
+}
+```
+
+The parameters' sizes are part of the type's: `Buf { len: 2, data: [1, 2, 3] }` is the four bytes `02 01 02 03`, and
+a `Buf<3>` is `sized` at 32 bits. The derive adds the serialization traits as bounds on each impl, your own bounds
+and where clause stay as written. More in the [reference](derive_reference.md#generics).
+
 ## Directives at a glance
 
 `#[derive_shrink_wrap(directive, directive, ..)]` takes a comma-separated list. The ones you'll meet most:

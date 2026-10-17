@@ -24,7 +24,7 @@ discriminants, display, validate, series, no_future_version|future_version
 | `ww_repr`, `discriminants`, `no_future_version`, `future_version` | [Enums](#enums)                                               |
 | `display`, `validate`                               | [Messages and checks](#messages-and-checks)                                  |
 | `series`                                            | [`series`](#series)                                                          |
-| type parameters (`struct Timed<T>`)                 | [Type parameters](#type-parameters)                                          |
+| generics (`struct Timed<T>`, `Buf<const N: usize>`) | [Generics](#generics)                                                        |
 | `crate_path`                                        | [`crate_path`](#crate_pathpath)                                              |
 | `#[default]`, `#[flag]`, `#[slot]`, `#[future_version]`, `#[cfg]` | [Field and variant attributes](#field-and-variant-attributes) |
 
@@ -357,20 +357,40 @@ What a `Series` doesn't take in its first version is a compile error naming the 
 on a named field writes it as an opaque run of its own bytes instead, so that any serializable type fits (it then
 needs `PartialEq`: a value is written again where it changed).
 
-## Type parameters
+## Generics
 
-DER-14. A struct can have type parameters, with bounds next to them (no `where` clause, no const parameters):
+DER-14. Structs and enums can have type and const parameters, defaults and a where clause, next to their lifetime:
 
 ```rust
 #[derive_shrink_wrap(borrowed, owned, series, final_structure)]
 pub struct Timed<T> { pub t: Second, pub value: T }
+
+#[derive_shrink_wrap(borrowed, owned)]
+pub struct Label<'i, const N: usize> { pub text: MaxLen<&'i str, N> }
+
+#[derive_shrink_wrap(owned, ww_repr = u8)]
+pub enum Packet<T, const N: usize> where T: Copy + Default { Data([T; N]), Empty }
 ```
 
-Each generated impl bounds the parameters by its own trait (`T: SerializeShrinkWrap + DeserializeShrinkWrap<'i>`
-for the borrowed side, the owned traits for the owned one, `SeriesColumns<'i>` with `series`), and the size of `T`
-is part of the struct's: `Timed<u32>` is `final_structure`, `Timed` of an evolvable struct holds an `Unsized` field.
-With a lifetime, `Tagged<'i, T>` gets the owned `TaggedOwned<T>`. Enums, `fixed_layout`, `head_tail`, `sparse`,
-`display` and `validate` don't take type parameters yet.
+- Each generated impl bounds the type parameters by its own trait (`T: SerializeShrinkWrap +
+  DeserializeShrinkWrap<'i>` for the borrowed side, the owned traits for the owned one, `SeriesColumns<'i>` with
+  `series`). The bounds next to the parameters and the where clause are carried into the definition and every impl
+  as written; what a field needs beyond that is yours to add (an array `[T; N]` is read into a default one, so
+  `T: Default`).
+- The size of `T` and `N` is part of the type's: `Timed<u32>` is `final_structure`, `Timed` of an evolvable struct
+  holds an `Unsized` field, a `sized` `Buf<const N: usize> { len: u8, data: [u8; N] }` is `8 + 8 * N` bits. A
+  `sized` enum's variants must be one size for the arguments it is used with (`enum Either<T> { Left(T), Right(T) }`
+  always is). The const asserts that check a `sized` / `final_structure` type next to its definition can't name a
+  generic type, so they are left out: the check happens where the size is used.
+- Const parameters can be of any type Rust takes (integers, `bool`, `char`) and go wherever a const goes: array
+  lengths, `MaxLen<T, N>`, `TailSize<N>`, arguments of other types (`Buf<N>`).
+- With a lifetime, `Tagged<'i, T>` gets the owned `TaggedOwned<T>`. A bound or where clause that names `'i` only
+  fits the borrowed side; keep those on types that are only `borrowed`.
+- `display` works on generic types: a field the message prints needs a `Display` bound, and `Error` is implemented
+  where the type is `Debug`. `validate` takes a generic function (`validate = Ordered::check` with an
+  `impl<T: PartialOrd> Ordered<T>`). The `discriminants` enum has unit variants only, so no parameters.
+- `fixed_layout`, `head_tail` and `sparse` lay out one concrete type, and reject generics with an error naming the
+  type.
 
 ## `crate_path(<path>)`
 

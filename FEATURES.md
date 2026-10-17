@@ -302,12 +302,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **DER-10 Generic arguments on user field types**: `Foo<u8>`, `Wrapper<'i, T>` are emitted as written,
   `Wrapper<'i, T>` maps to `WrapperOwned<T>` in the owned variant (`docs/serdes/derive.md`, type mapping; test
   `shrink_wrap/tests/generic_external.rs`).
-- ✅ **DER-14 Type parameters on derived structs**: `struct Timed<T> { t: Second, value: T }`, bounds next to the
-  parameter, also with a lifetime (`Tagged<'i, T>` / `TaggedOwned<T>`); each impl bounds the parameters by its trait
-  (serdes, owned serdes, `SeriesColumns`), the size of `T` is part of the struct's. No `where` clause or const
-  parameters; enums, `fixed_layout`, `head_tail`, `sparse`, `display` and `validate` reject them (test
-  `shrink_wrap/tests/generic_items.rs`; `ww_si::Timed<T>`). The API model (`ww_self`) has no type parameters yet:
-  such types are left out of API snapshots.
+- ✅ **DER-14 Generics on derived types**: structs and enums with type parameters (`struct Timed<T> { t: Second,
+  value: T }`, `enum Reading<'i, T>`), const parameters of any type (`struct Buf<const N: usize> { data: [u8; N] }`,
+  `MaxLen<&'i str, N>`, `const STRICT: bool`), defaults and where clauses, also with a lifetime (`Tagged<'i, T>` /
+  `TaggedOwned<T>`); each impl bounds the type parameters by its trait (serdes, owned serdes, `SeriesColumns`) on top
+  of the bounds and where clause as written, the size of `T` and `N` is part of the type's. `series`, `display`,
+  `validate` and `discriminants` take generics, `fixed_layout`, `head_tail` and `sparse` reject them
+  (`docs/serdes/derive_reference.md#generics`; tests `shrink_wrap/tests/generic_items.rs`, `series_derive.rs`;
+  `ww_si::Timed<T>`). The API model (`ww_self`) has no type parameters yet: such types are left out of API
+  snapshots.
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and

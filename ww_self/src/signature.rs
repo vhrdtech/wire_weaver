@@ -348,7 +348,7 @@ impl VisitMut for Canonical<'_, '_> {
     }
 
     fn visit_type(&mut self, node: &mut TypeOwned) {
-        if let TypeOwned::OutOfLine { type_idx } = node {
+        if let TypeOwned::OutOfLine { type_idx } | TypeOwned::Instance { type_idx, .. } = node {
             self.remap(type_idx, Self::type_idx);
         }
         visit_mut::visit_type(self, node)

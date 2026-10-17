@@ -334,9 +334,12 @@ async fn create_commander(
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
     if commander.device_introspect().is_none() && !commander.traits_only {
         match commander.introspect().get_as_sent().await {
-            Ok(Some((sent_api_bundle, sent_size))) => commander.set_device_introspect(
-                IntrospectBundle::from_sent(sent_api_bundle, device_api_hash, sent_size),
-            ),
+            Ok(Some((sent_api_bundle, sent_size))) => {
+                match IntrospectBundle::from_sent(sent_api_bundle, device_api_hash, sent_size) {
+                    Ok(bundle) => commander.set_device_introspect(bundle),
+                    Err(e) => warn!("Device introspection data is not usable: {e:#}"),
+                }
+            }
             Ok(None) => debug!("device has introspection disabled and its API is not in the cache"),
             Err(e) => warn!("Failed to get device introspection data: {e:#}"),
         }
@@ -355,9 +358,12 @@ fn create_commander_blocking(
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
     if commander.device_introspect().is_none() && !commander.traits_only {
         match commander.introspect().get_as_sent_blocking() {
-            Ok(Some((sent_api_bundle, sent_size))) => commander.set_device_introspect(
-                IntrospectBundle::from_sent(sent_api_bundle, device_api_hash, sent_size),
-            ),
+            Ok(Some((sent_api_bundle, sent_size))) => {
+                match IntrospectBundle::from_sent(sent_api_bundle, device_api_hash, sent_size) {
+                    Ok(bundle) => commander.set_device_introspect(bundle),
+                    Err(e) => warn!("Device introspection data is not usable: {e:#}"),
+                }
+            }
             Ok(None) => debug!("device has introspection disabled and its API is not in the cache"),
             Err(e) => warn!("Failed to get device introspection data: {e:#}"),
         }

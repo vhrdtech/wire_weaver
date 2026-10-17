@@ -66,20 +66,21 @@ pub struct IntrospectBundle {
 }
 
 impl IntrospectBundle {
-    /// Put back traits and types that `sent_api_bundle` left out, because they are known from snapshots.
+    /// Put back traits and types that `sent_api_bundle` left out, because they are known from snapshots, and
+    /// instantiate generic types; fails for malformed introspection data.
     pub(crate) fn from_sent(
         sent_api_bundle: ApiBundleOwned,
         api_hash: ApiHashPairOwned,
         sent_size: usize,
-    ) -> Self {
+    ) -> Result<Self> {
         let mut api_bundle = sent_api_bundle.clone();
-        crate::client::introspect::inline_known(&mut api_bundle);
-        IntrospectBundle {
+        crate::client::introspect::inline_known(&mut api_bundle)?;
+        Ok(IntrospectBundle {
             api_bundle: Arc::new(api_bundle),
             api_hash,
             sent_api_bundle: Arc::new(sent_api_bundle),
             sent_size,
-        }
+        })
     }
 }
 
@@ -216,7 +217,7 @@ impl ClientConfig {
                 sent_api_bundle,
                 api_hash,
                 ww_self_bytes.len(),
-            ))
+            )?)
         } else {
             None
         };

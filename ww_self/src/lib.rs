@@ -15,6 +15,8 @@ pub mod definition_cache;
 #[cfg(feature = "std")]
 pub mod errors;
 #[cfg(feature = "std")]
+pub mod generics;
+#[cfg(feature = "std")]
 pub mod inline;
 #[cfg(feature = "std")]
 pub mod signature;
@@ -350,7 +352,7 @@ pub enum Type<'i> {
     Vec(RefBox<'i, Type<'i>>),
     /// Fixed size array `[T; len]`
     Array {
-        len: UNib32,
+        len: Length,
         ty: RefBox<'i, Type<'i>>,
     },
     /// Variable length tuple `(T1, T2, ...)`
@@ -377,7 +379,7 @@ pub enum Type<'i> {
     /// [String](Type::String) or [Vec](Type::Vec) `ty` with at most `max_len` elements (bytes for a string),
     /// `MaxLen<T, N>`. Same bytes on the wire as `ty`, a longer value is an error.
     MaxLen {
-        max_len: UNib32,
+        max_len: Length,
         ty: RefBox<'i, Type<'i>>,
     },
     /// List of integers (`U8`..`U64`, `I8`..`I64`) written as differences to the previous one in a bit-level prefix
@@ -389,6 +391,79 @@ pub enum Type<'i> {
     /// List of `F32` or `F64` written as XOR with the previous value (Gorilla), `XorFloat<'i, T>` /
     /// `XorFloatOwned<T>` (SW-32).
     XorFloat(NumericBaseType),
+    /// A use of a generic struct or enum from the ApiBundle types array with its arguments, `Timed<Ampere>`
+    /// (API-43): like [OutOfLine](Type::OutOfLine), the definition's [generics](ItemStruct::generics) replaced
+    /// with `args`, one per parameter, in the same order and of the same kind.
+    Instance {
+        type_idx: UNib32,
+        args: RefVec<'i, GenericArg<'i>>,
+    },
+    /// Type parameter of the generic struct or enum this type is in: index into its
+    /// [generics](ItemStruct::generics), which must be a [type parameter](GenericParamKind::Type).
+    Param(UNib32),
+}
+
+/// Length of an [array](Type::Array) or the bound of a [MaxLen](Type::MaxLen): a number, or a const parameter of the
+/// generic struct or enum it is in (`[u8; N]`, API-43).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Copy, Debug, PartialEq, Eq),
+    self_describing,
+    ww_repr = u1,
+    no_future_version
+)]
+pub enum Length {
+    Fixed(UNib32),
+    /// Index into the [generics](ItemStruct::generics) of the enclosing definition, a
+    /// [const parameter](GenericParamKind::Const) of an integer type.
+    Param(UNib32),
+}
+
+/// Type or const parameter of a generic struct or enum (API-43), see [ItemStruct::generics].
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct GenericParam<'i> {
+    /// Name as written, `T`, `N`.
+    pub ident: &'i str,
+    pub kind: GenericParamKind<'i>,
+}
+
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq),
+    ww_repr = u1,
+    no_future_version
+)]
+pub enum GenericParamKind<'i> {
+    /// `T`, used as [Type::Param].
+    Type,
+    /// `const N: usize`, used as [Length::Param] or passed on as [GenericArg::ConstParam]. `ty` is
+    /// [Bool](Type::Bool) or an integer [NumericAny](Type::NumericAny) (`usize` is `u64`, `isize` is `i64`).
+    Const { ty: Type<'i> },
+}
+
+/// Argument of a [Type::Instance], for the parameter at the same position.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq),
+    ww_repr = u2,
+    no_future_version
+)]
+pub enum GenericArg<'i> {
+    /// For a type parameter.
+    Type(Type<'i>),
+    /// For a const parameter: a [Value::Bool] or [Value::Numeric] of its type.
+    Const(Value<'i>),
+    /// For a const parameter: const parameter `idx` of the enclosing generic definition, passed on
+    /// (`struct Outer<const N: usize> { inner: Buf<N> }`).
+    ConstParam(UNib32),
 }
 
 #[derive_shrink_wrap(
@@ -441,6 +516,10 @@ pub struct ItemStruct<'i> {
     pub crate_idx: UNib32,
     pub docs: RefVec<'i, &'i str>,
     pub ident: &'i str,
+    /// Type and const parameters (API-43), empty for a non-generic struct. A generic definition is only used
+    /// through a [Type::Instance], its fields refer to the parameters with [Type::Param], [Length::Param] and
+    /// [GenericArg::ConstParam].
+    pub generics: RefVec<'i, GenericParam<'i>>,
     pub fields: Fields<'i>,
     /// `#[derive_shrink_wrap(sparse, ..)]` (DER-13): every field is an `Option<T>`, written as one slot of an
     /// `OptionAnyVec` (its [Field::slot]) instead of the plain, sequential field encoding. A dynamic decoder
@@ -483,6 +562,8 @@ pub struct ItemEnum<'i> {
     pub crate_idx: UNib32,
     pub docs: RefVec<'i, &'i str>,
     pub ident: &'i str,
+    /// Type and const parameters, as for [ItemStruct::generics].
+    pub generics: RefVec<'i, GenericParam<'i>>,
     pub variants: RefVec<'i, Variant<'i>>,
 }
 

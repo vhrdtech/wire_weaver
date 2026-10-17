@@ -29,7 +29,7 @@ impl ValueOwned {
         api_bundle: &ApiBundleOwned,
     ) -> Result<Self> {
         let mut rd = BufReader::new(bytes);
-        des_inner(&mut rd, ty, api_bundle)
+        des_inner(&mut rd, ty, api_bundle, &mut Budget::for_bytes(bytes.len()))
     }
 
     /// Deserialize one value of type `ty` from a shared [BufReader] (as a field of an evolvable struct is read,
@@ -41,7 +41,8 @@ impl ValueOwned {
         ty: &TypeOwned,
         api_bundle: &ApiBundleOwned,
     ) -> Result<Self> {
-        des_field(rd, ty, api_bundle)
+        let mut b = Budget::for_bytes(rd.bytes_left());
+        des_field(rd, ty, api_bundle, &mut b)
     }
 
     /// Serialize as one top-level value of type `ty` (as `to_ww_bytes_owned` does).
@@ -83,10 +84,87 @@ impl ValueOwned {
         api_bundle: &ApiBundleOwned,
     ) -> Result<Vec<Self>> {
         let mut rd = BufReader::new(bytes);
-        types.map(|ty| des_field(&mut rd, ty, api_bundle)).collect()
+        let mut b = Budget::for_bytes(bytes.len());
+        types
+            .map(|ty| des_field(&mut rd, ty, api_bundle, &mut b))
+            .collect()
     }
 
+    /// Default value of `ty`: zeros, empty lists and strings, `None`, the first variant of an enum. Fails for a
+    /// value larger than [DEFAULT_MAX_VALUES] values (a large array).
     pub fn default(ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> Result<Self> {
+        default_in(ty, api_bundle, &mut Budget::new(DEFAULT_MAX_VALUES))
+    }
+
+    pub fn default_fields_value(
+        fields: &FieldsOwned,
+        api_bundle: &ApiBundleOwned,
+    ) -> Result<FieldsValueOwned> {
+        default_fields_in(fields, api_bundle, &mut Budget::new(DEFAULT_MAX_VALUES))
+    }
+}
+
+/// Most values [ValueOwned::default] creates.
+pub const DEFAULT_MAX_VALUES: usize = 1 << 20;
+
+/// Bounds the work of a dynamic decode: types (from a device's introspection data) can describe values much larger
+/// than their bytes (arrays of empty tuples, one-bit options nested many times), and they are nested at most
+/// [MAX_DEPTH](crate::generics::MAX_DEPTH) deep only in a bundle that passed
+/// [validate](crate::generics::validate).
+struct Budget {
+    /// Values that may still be created.
+    values_left: usize,
+    depth: usize,
+}
+
+/// Values a decode may create: a fixed allowance and a number per byte, enough for bit-packed data in containers.
+const VALUES_FIXED: usize = 1 << 16;
+const VALUES_PER_BYTE: usize = 64;
+/// Deepest nesting of a decode: [MAX_DEPTH](crate::generics::MAX_DEPTH) type levels take up to two calls each.
+const MAX_DECODE_DEPTH: usize = 2 * crate::generics::MAX_DEPTH + 8;
+
+impl Budget {
+    fn new(values: usize) -> Self {
+        Budget {
+            values_left: values,
+            depth: 0,
+        }
+    }
+
+    fn for_bytes(len: usize) -> Self {
+        Self::new(VALUES_FIXED.saturating_add(len.saturating_mul(VALUES_PER_BYTE)))
+    }
+
+    fn take(&mut self, values: usize) -> Result<()> {
+        self.values_left = self.values_left.checked_sub(values).ok_or_else(|| {
+            anyhow!("value is too large for its size in bytes (malformed type or data)")
+        })?;
+        Ok(())
+    }
+
+    /// Runs `f` one level deeper, after taking one value.
+    fn nested<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T>) -> Result<T> {
+        if self.depth >= MAX_DECODE_DEPTH {
+            bail!("value is nested deeper than {MAX_DECODE_DEPTH} levels");
+        }
+        self.take(1)?;
+        self.depth += 1;
+        let result = f(self);
+        self.depth -= 1;
+        result
+    }
+}
+
+fn default_in(ty: &TypeOwned, api_bundle: &ApiBundleOwned, b: &mut Budget) -> Result<ValueOwned> {
+    b.nested(|b| default_inner(ty, api_bundle, b))
+}
+
+fn default_inner(
+    ty: &TypeOwned,
+    api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
+) -> Result<ValueOwned> {
+    {
         match ty {
             TypeOwned::Bool => Ok(ValueOwned::Bool(false)),
             TypeOwned::NumericAny(any) => {
@@ -94,7 +172,7 @@ impl ValueOwned {
             }
             TypeOwned::OutOfLine { type_idx } => {
                 let ty = api_bundle.get_ty(type_idx.0)?;
-                Self::default(ty.0, api_bundle)
+                default_in(ty.0, api_bundle, b)
             }
             TypeOwned::Flag => Err(anyhow!("flag type cannot be created manually")),
             TypeOwned::String => Ok(ValueOwned::String(String::new())),
@@ -102,26 +180,32 @@ impl ValueOwned {
             | TypeOwned::Delta(_)
             | TypeOwned::DeltaOfDelta(_)
             | TypeOwned::XorFloat(_) => Ok(ValueOwned::Vec(vec![])),
-            TypeOwned::MaxLen { ty, .. } => Self::default(ty, api_bundle),
+            TypeOwned::MaxLen { ty, .. } => default_in(ty, api_bundle, b),
             TypeOwned::Array { len, ty } => {
-                Ok(ValueOwned::Array(vec![
-                    ValueOwned::default(ty, api_bundle)?;
-                    len.0 as usize
-                ]))
+                let len = len.fixed()? as usize;
+                if len == 0 {
+                    return Ok(ValueOwned::Array(vec![]));
+                }
+                let before = b.values_left;
+                let item = default_in(ty, api_bundle, b)?;
+                // the copies count as much as the first one
+                b.take((before - b.values_left).saturating_mul(len - 1))?;
+                Ok(ValueOwned::Array(vec![item; len]))
             }
+            TypeOwned::Instance { .. } | TypeOwned::Param(_) => Err(not_instantiated(ty)),
             TypeOwned::Tuple(types) => {
                 let mut values = vec![];
                 for ty in types {
-                    values.push(Self::default(ty, api_bundle)?);
+                    values.push(default_in(ty, api_bundle, b)?);
                 }
                 Ok(ValueOwned::Tuple(values))
             }
             TypeOwned::Struct(item_struct) => Ok(ValueOwned::Struct {
-                fields: Self::default_fields_value(&item_struct.fields, api_bundle)?,
+                fields: default_fields_in(&item_struct.fields, api_bundle, b)?,
             }),
             TypeOwned::Enum(item_enum) => {
                 let variant = item_enum.variants.first().ok_or(anyhow!("Enum is empty"))?;
-                let fields = Self::default_fields_value(&variant.fields, api_bundle)?;
+                let fields = default_fields_in(&variant.fields, api_bundle, b)?;
                 Ok(ValueOwned::Enum {
                     variant: variant.ident.clone(),
                     fields,
@@ -129,9 +213,9 @@ impl ValueOwned {
             }
             TypeOwned::Option { .. } => Ok(ValueOwned::Option(None)),
             TypeOwned::Result { ok_ty, .. } => Ok(ValueOwned::Result(Err(Box::new(
-                Self::default(ok_ty, api_bundle)?,
+                default_in(ok_ty, api_bundle, b)?,
             )))),
-            TypeOwned::Box(inner) => Ok(Self::default(inner, api_bundle)?),
+            TypeOwned::Box(inner) => Ok(default_in(inner, api_bundle, b)?),
             TypeOwned::Range(base) => Ok(ValueOwned::Range(
                 default_numeric(base)?..default_numeric(base)?,
             )),
@@ -140,17 +224,20 @@ impl ValueOwned {
             )),
         }
     }
+}
 
-    pub fn default_fields_value(
-        fields: &FieldsOwned,
-        api_bundle: &ApiBundleOwned,
-    ) -> Result<FieldsValueOwned> {
+fn default_fields_in(
+    fields: &FieldsOwned,
+    api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
+) -> Result<FieldsValueOwned> {
+    {
         match fields {
             FieldsOwned::Named(named) => {
                 let mut named_values = vec![];
                 for field in named.iter().filter(|f| !f.is_flag()) {
                     let name = field.ident.clone().unwrap_or_default();
-                    let value = ValueOwned::default(&field.ty, api_bundle)?;
+                    let value = default_in(&field.ty, api_bundle, b)?;
                     named_values.push((name, value));
                 }
                 Ok(FieldsValueOwned::Named(named_values))
@@ -158,13 +245,27 @@ impl ValueOwned {
             FieldsOwned::Unnamed(unnamed) => {
                 let mut unnamed_values = vec![];
                 for field in unnamed {
-                    let value = ValueOwned::default(&field.ty, api_bundle)?;
+                    let value = default_in(&field.ty, api_bundle, b)?;
                     unnamed_values.push(value);
                 }
                 Ok(FieldsValueOwned::Unnamed(unnamed_values))
             }
             FieldsOwned::Unit => Ok(FieldsValueOwned::Unit),
         }
+    }
+}
+
+/// A generic definition's parameter, or an instance that [instantiate](crate::generics::instantiate) didn't replace
+/// (its definition is not known): dynamic code needs concrete types.
+fn not_instantiated(ty: &TypeOwned) -> anyhow::Error {
+    match ty {
+        TypeOwned::Param(idx) => anyhow!(
+            "type parameter {} of a generic definition, not an instance of it",
+            idx.0
+        ),
+        _ => anyhow!(
+            "instance of a generic type whose definition is not known (or crate::generics::prepare was not run)"
+        ),
     }
 }
 
@@ -200,13 +301,14 @@ fn des_field(
     rd: &mut BufReader,
     ty: &TypeOwned,
     api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
 ) -> Result<ValueOwned> {
     if ty.is_unsized(api_bundle)? {
         let len = rd.read_rev_len()?;
         let mut rd = rd.split(len)?;
-        des_inner(&mut rd, ty, api_bundle)
+        des_inner(&mut rd, ty, api_bundle, b)
     } else {
-        des_inner(rd, ty, api_bundle)
+        des_inner(rd, ty, api_bundle, b)
     }
 }
 
@@ -214,8 +316,19 @@ fn des_inner(
     rd: &mut BufReader,
     ty: &TypeOwned,
     api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
+) -> Result<ValueOwned> {
+    b.nested(|b| des_ty(rd, ty, api_bundle, b))
+}
+
+fn des_ty(
+    rd: &mut BufReader,
+    ty: &TypeOwned,
+    api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
 ) -> Result<ValueOwned> {
     match ty {
+        TypeOwned::Instance { .. } | TypeOwned::Param(_) => Err(not_instantiated(ty)),
         TypeOwned::Bool => Ok(ValueOwned::Bool(rd.read_bool()?)),
         TypeOwned::NumericAny(numeric_any) => Ok(ValueOwned::Numeric(des_numeric(
             rd,
@@ -223,7 +336,7 @@ fn des_inner(
         )?)),
         TypeOwned::OutOfLine { type_idx } => {
             let ty = api_bundle.get_ty(type_idx.0)?.0;
-            des_inner(rd, ty, api_bundle)
+            des_inner(rd, ty, api_bundle, b)
         }
         TypeOwned::Flag => bail!("flag can only be a named field"),
         TypeOwned::String => Ok(ValueOwned::String(rd.read_str()?.to_string())),
@@ -231,37 +344,37 @@ fn des_inner(
             // the length comes first, check it before reading the elements
             let mut peek = *rd;
             let len = peek.read_rev_len()?;
-            check_max_len(len, max_len.0)?;
-            des_inner(rd, ty, api_bundle)
+            check_max_len(len, max_len.fixed()?)?;
+            des_inner(rd, ty, api_bundle, b)
         }
         TypeOwned::Vec(inner_ty) => {
             let len = rd.read_rev_len()?;
             let mut items = Vec::with_capacity(len.min(rd.bytes_left() + 1));
             for _ in 0..len {
-                items.push(des_field(rd, inner_ty, api_bundle)?);
+                items.push(des_field(rd, inner_ty, api_bundle, b)?);
             }
             Ok(ValueOwned::Vec(items))
         }
         TypeOwned::Array { len, ty } => {
             let mut items = vec![];
-            for _ in 0..len.0 {
-                items.push(des_field(rd, ty, api_bundle)?);
+            for _ in 0..len.fixed()? {
+                items.push(des_field(rd, ty, api_bundle, b)?);
             }
             Ok(ValueOwned::Array(items))
         }
         TypeOwned::Tuple(types) => {
             let mut values = vec![];
             for ty in types {
-                values.push(des_field(rd, ty, api_bundle)?);
+                values.push(des_field(rd, ty, api_bundle, b)?);
             }
             Ok(ValueOwned::Tuple(values))
         }
         TypeOwned::Struct(struct_def) if struct_def.sparse => {
-            let fields = des_sparse_fields(rd, &struct_def.fields, api_bundle)?;
+            let fields = des_sparse_fields(rd, &struct_def.fields, api_bundle, b)?;
             Ok(ValueOwned::Struct { fields })
         }
         TypeOwned::Struct(struct_def) => {
-            let fields = des_fields(rd, &struct_def.fields, api_bundle)?;
+            let fields = des_fields(rd, &struct_def.fields, api_bundle, b)?;
             Ok(ValueOwned::Struct { fields })
         }
         TypeOwned::Enum(enum_def) => {
@@ -291,7 +404,7 @@ fn des_inner(
                     enum_def.ident
                 );
             };
-            let fields = des_fields(rd, &variant.fields, api_bundle)?;
+            let fields = des_fields(rd, &variant.fields, api_bundle, b)?;
             Ok(ValueOwned::Enum {
                 variant: variant.ident.to_string(),
                 fields,
@@ -299,10 +412,10 @@ fn des_inner(
         }
         TypeOwned::Option { .. } | TypeOwned::Result { .. } => {
             let flag = rd.read_bool()?;
-            des_flagged(rd, flag, ty, api_bundle)
+            des_flagged(rd, flag, ty, api_bundle, b)
         }
         // Box<T> is Unsized itself (its size is handled by des_field), T is read directly inside it
-        TypeOwned::Box(inner) => des_inner(rd, inner, api_bundle),
+        TypeOwned::Box(inner) => des_inner(rd, inner, api_bundle, b),
         TypeOwned::Range(base) => {
             let start = des_numeric(rd, base)?;
             let end = des_numeric(rd, base)?;
@@ -313,9 +426,18 @@ fn des_inner(
             let end = des_numeric(rd, base)?;
             Ok(ValueOwned::RangeInclusive(start..=end))
         }
-        TypeOwned::Delta(base) => des_series(rd, Series::Delta, base),
-        TypeOwned::DeltaOfDelta(base) => des_series(rd, Series::DeltaOfDelta, base),
-        TypeOwned::XorFloat(base) => des_series(rd, Series::XorFloat, base),
+        TypeOwned::Delta(base) | TypeOwned::DeltaOfDelta(base) | TypeOwned::XorFloat(base) => {
+            let series = match ty {
+                TypeOwned::Delta(_) => Series::Delta,
+                TypeOwned::DeltaOfDelta(_) => Series::DeltaOfDelta,
+                _ => Series::XorFloat,
+            };
+            let value = des_series(rd, series, base)?;
+            if let ValueOwned::Vec(items) = &value {
+                b.take(items.len())?;
+            }
+            Ok(value)
+        }
     }
 }
 
@@ -325,17 +447,18 @@ fn des_flagged(
     flag: bool,
     ty: &TypeOwned,
     api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
 ) -> Result<ValueOwned> {
     Ok(match ty {
         TypeOwned::Option { some_ty } => ValueOwned::Option(if flag {
-            Some(Box::new(des_field(rd, some_ty, api_bundle)?))
+            Some(Box::new(des_field(rd, some_ty, api_bundle, b)?))
         } else {
             None
         }),
         TypeOwned::Result { ok_ty, err_ty } => ValueOwned::Result(if flag {
-            Ok(Box::new(des_field(rd, ok_ty, api_bundle)?))
+            Ok(Box::new(des_field(rd, ok_ty, api_bundle, b)?))
         } else {
-            Err(Box::new(des_field(rd, err_ty, api_bundle)?))
+            Err(Box::new(des_field(rd, err_ty, api_bundle, b)?))
         }),
         _ => bail!(
             "expected Option or Result, got {}",
@@ -349,6 +472,7 @@ fn des_fields(
     rd: &mut BufReader,
     fields: &FieldsOwned,
     api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
 ) -> Result<FieldsValueOwned> {
     Ok(match fields {
         FieldsOwned::Named(defs) => {
@@ -379,7 +503,7 @@ fn des_fields(
                     .map(|idx| flags.remove(idx).1);
                 values.push((
                     name.to_string(),
-                    des_struct_field(rd, def, flag, api_bundle)?,
+                    des_struct_field(rd, def, flag, api_bundle, b)?,
                 ));
             }
             FieldsValueOwned::Named(values)
@@ -387,7 +511,7 @@ fn des_fields(
         FieldsOwned::Unnamed(defs) => {
             let mut values = vec![];
             for def in defs {
-                values.push(des_struct_field(rd, def, None, api_bundle)?);
+                values.push(des_struct_field(rd, def, None, api_bundle, b)?);
             }
             FieldsValueOwned::Unnamed(values)
         }
@@ -402,6 +526,7 @@ fn des_sparse_fields(
     rd: &mut BufReader,
     fields: &FieldsOwned,
     api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
 ) -> Result<FieldsValueOwned> {
     let FieldsOwned::Named(defs) = fields else {
         bail!("a sparse struct must have named fields");
@@ -418,7 +543,7 @@ fn des_sparse_fields(
             bail!("sparse field '{name}' must be Option<T>");
         };
         let value = iter.read_slot_with::<ValueOwned, anyhow::Error>(slot.0, |rd| {
-            ValueOwned::des_shrink_wrap_field_dyn(rd, some_ty, api_bundle)
+            des_field(rd, some_ty, api_bundle, b)
         })?;
         values.push((name, ValueOwned::Option(value.map(Box::new))));
     }
@@ -441,16 +566,17 @@ fn des_struct_field(
     def: &FieldOwned,
     flag: Option<Flag>,
     api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
 ) -> Result<ValueOwned> {
     let at_end = rd.bytes_left() == 0;
     let (value, may_be_missing) = match flag {
-        Some(Flag { value: None, .. }) => return ValueOwned::default(&def.ty, api_bundle),
+        Some(Flag { value: None, .. }) => return default_in(&def.ty, api_bundle, b),
         // a flag read as 0 from padding bits: the `Err` value of a `Result` is missing then
         Some(Flag {
             value: Some(flag),
             at_end,
-        }) => (des_flagged(rd, flag, &def.ty, api_bundle), at_end && !flag),
-        None => (des_field(rd, &def.ty, api_bundle), at_end),
+        }) => (des_flagged(rd, flag, &def.ty, api_bundle, b), at_end && !flag),
+        None => (des_field(rd, &def.ty, api_bundle, b), at_end),
     };
     match value {
         Ok(value) => Ok(value),
@@ -460,7 +586,7 @@ fn des_struct_field(
                 && e.downcast_ref::<shrink_wrap::Error>()
                     .is_some_and(|e| e.is_read_eob()) =>
         {
-            ValueOwned::default(&def.ty, api_bundle)
+            default_in(&def.ty, api_bundle, b)
         }
         Err(e) => Err(e),
     }
@@ -548,6 +674,7 @@ fn ser_inner(
 ) -> Result<()> {
     let mismatch = || anyhow!("expected {}, got {value:?}", type_name(ty, api_bundle));
     match ty {
+        TypeOwned::Instance { .. } | TypeOwned::Param(_) => return Err(not_instantiated(ty)),
         TypeOwned::OutOfLine { type_idx } => {
             let ty = api_bundle.get_ty(type_idx.0)?.0;
             ser_inner(wr, value, ty, api_bundle)?;
@@ -577,7 +704,7 @@ fn ser_inner(
                 ValueOwned::Vec(items) | ValueOwned::Array(items) => items.len(),
                 _ => return Err(mismatch()),
             };
-            check_max_len(len, max_len.0)?;
+            check_max_len(len, max_len.fixed()?)?;
             ser_inner(wr, value, ty, api_bundle)?;
         }
         TypeOwned::Vec(inner_ty) => {
@@ -593,12 +720,9 @@ fn ser_inner(
             let (ValueOwned::Array(items) | ValueOwned::Vec(items)) = value else {
                 return Err(mismatch());
             };
-            if items.len() != len.0 as usize {
-                bail!(
-                    "expected an array of {} elements, got {}",
-                    len.0,
-                    items.len()
-                );
+            let len = len.fixed()?;
+            if items.len() != len as usize {
+                bail!("expected an array of {len} elements, got {}", items.len());
             }
             for item in items {
                 ser_field(wr, item, inner_ty, api_bundle)?;

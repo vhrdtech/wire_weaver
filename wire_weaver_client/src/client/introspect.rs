@@ -4,7 +4,7 @@ use crate::Promise;
 use crate::Stream;
 use crate::event_loop::commander::TransportCommander;
 use crate::local_registry;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use tracing::{debug, warn};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
 use ww_client_server::PathKindOwned;
@@ -41,7 +41,10 @@ impl Introspect {
     ///
     /// See also: [Introspect::download]
     pub async fn get(self) -> Result<Option<ApiBundleOwned>> {
-        Ok(self.get_as_sent().await?.map(|(bundle, _)| inlined(bundle)))
+        self.get_as_sent()
+            .await?
+            .map(|(bundle, _)| inlined(bundle))
+            .transpose()
     }
 
     /// Load introspect data from local cache at `~/.wire_weaver/` if available.
@@ -51,9 +54,9 @@ impl Introspect {
     ///
     /// See also: [Introspect::download_blocking]
     pub fn get_blocking(self) -> Result<Option<ApiBundleOwned>> {
-        Ok(self
-            .get_as_sent_blocking()?
-            .map(|(bundle, _)| inlined(bundle)))
+        self.get_as_sent_blocking()?
+            .map(|(bundle, _)| inlined(bundle))
+            .transpose()
     }
 
     /// Same as [Introspect::get], but returns introspection data as sent by the device (without traits and types
@@ -82,7 +85,10 @@ impl Introspect {
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn get_promise(self) -> Promise<ApiBundleOwned> {
         if let Some((bundle, _)) = load_cached(&self.hash) {
-            return Promise::done(inlined(bundle), "introspect");
+            return match inlined(bundle) {
+                Ok(bundle) => Promise::done(bundle, "introspect"),
+                Err(e) => Promise::error(crate::Error::Other(format!("{e:#}")), "introspect"),
+            };
         }
         self.cache_miss_msg();
         let hash = self.hash;
@@ -91,7 +97,7 @@ impl Introspect {
             self.timeout,
             Box::new(move |bundle, ww_self_bytes| {
                 local_registry::store(bundle, ww_self_bytes, &hash);
-                inline_known(bundle);
+                inline_known(bundle).map_err(|e| crate::Error::Other(format!("{e:#}")))
             }),
             "introspect",
         )
@@ -102,10 +108,10 @@ impl Introspect {
     ///
     /// See also [Introspect::get] that uses local cache.
     pub async fn download(self) -> Result<Option<ApiBundleOwned>> {
-        Ok(self
-            .download_as_sent()
+        self.download_as_sent()
             .await?
-            .map(|(bundle, _)| inlined(bundle)))
+            .map(|(bundle, _)| inlined(bundle))
+            .transpose()
     }
 
     /// Download introspect data from a remote device, skipping the local cache lookup, and cache it.
@@ -113,9 +119,9 @@ impl Introspect {
     ///
     /// See also [Introspect::get_blocking] that uses local cache.
     pub fn download_blocking(self) -> Result<Option<ApiBundleOwned>> {
-        Ok(self
-            .download_as_sent_blocking()?
-            .map(|(bundle, _)| inlined(bundle)))
+        self.download_as_sent_blocking()?
+            .map(|(bundle, _)| inlined(bundle))
+            .transpose()
     }
 
     async fn download_as_sent(self) -> Result<Option<(ApiBundleOwned, usize)>> {
@@ -167,16 +173,19 @@ fn load_cached(hash: &ApiHashPairOwned) -> Option<(ApiBundleOwned, usize)> {
     Some((bundle, sent_size))
 }
 
-fn inlined(mut bundle: ApiBundleOwned) -> ApiBundleOwned {
-    inline_known(&mut bundle);
-    bundle
+fn inlined(mut bundle: ApiBundleOwned) -> Result<ApiBundleOwned> {
+    inline_known(&mut bundle)?;
+    Ok(bundle)
 }
 
 /// Put back traits and types that a device left out of its introspection data, because they are known from
 /// snapshots (see [crate::snapshots]), or by signature from the definition cache on this machine
-/// ([ww_self::definition_cache]). The ones that are not found are logged and left skipped.
-pub(crate) fn inline_known(bundle: &mut ApiBundleOwned) {
+/// ([ww_self::definition_cache]). The ones that are not found are logged and left skipped. Then checks the
+/// bundle and instantiates its generic types ([ww_self::generics::prepare]): introspection data comes from a
+/// device and is not trusted, a malformed one is an error.
+pub(crate) fn inline_known(bundle: &mut ApiBundleOwned) -> Result<()> {
     inline_known_in(bundle, ww_self::definition_cache::default_dir().as_deref());
+    ww_self::generics::prepare(bundle).context("malformed introspection data")
 }
 
 /// [inline_known] with the definition cache in `cache_dir`.

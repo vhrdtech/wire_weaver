@@ -10,7 +10,7 @@ use wire_weaver::prelude::DeserializeShrinkWrapOwned;
 use ww_client_server::{PathKindOwned, StreamSideband};
 
 /// Called with the deserialized value and its bytes once a multi-chunk reply is received, e.g. to cache it.
-pub(crate) type OnDone<T> = Box<dyn FnOnce(&mut T, &[u8]) + Send + Sync>;
+pub(crate) type OnDone<T> = Box<dyn FnOnce(&mut T, &[u8]) -> Result<(), Error> + Send + Sync>;
 
 /// Result of a call, property read/write or introspection request, polled from synchronous code.
 ///
@@ -330,12 +330,10 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
                             ))
                         } else {
                             match T::from_ww_bytes_owned(bytes) {
-                                Ok(mut value) => {
-                                    if let Some(on_done) = on_done.take() {
-                                        on_done(&mut value, bytes);
-                                    }
-                                    StateInner::Done(Some(value))
-                                }
+                                Ok(mut value) => match on_done.take().map(|f| f(&mut value, bytes)) {
+                                    Some(Err(e)) => StateInner::Err(E::from_client(e, self.resource)),
+                                    _ => StateInner::Done(Some(value)),
+                                },
                                 Err(e) => StateInner::Err(E::from_client(e.into(), self.resource)),
                             }
                         };

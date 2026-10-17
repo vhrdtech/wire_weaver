@@ -8,7 +8,8 @@ macro_rules! define_visitor {
     ) => {
         use crate::{
             ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-            ArgumentOwned, FieldOwned, FieldsOwned, ItemEnumOwned, ItemStructOwned, TypeLocationOwned,
+            ArgumentOwned, FieldOwned, FieldsOwned, GenericArgOwned, GenericParamKindOwned,
+            GenericParamOwned, ItemEnumOwned, ItemStructOwned, TypeLocationOwned,
             TypeOwned, VariantOwned,
         };
 
@@ -201,9 +202,17 @@ macro_rules! define_visitor {
                 }
                 TypeOwned::Struct(item_struct) => v.visit_item_struct(item_struct),
                 TypeOwned::Enum(item_enum) => v.visit_item_enum(item_enum),
+                TypeOwned::Instance { args, .. } => {
+                    for arg in args {
+                        if let GenericArgOwned::Type(ty) = arg {
+                            v.visit_type(ty);
+                        }
+                    }
+                }
                 TypeOwned::Bool
                 | TypeOwned::NumericAny(_)
                 | TypeOwned::OutOfLine { .. }
+                | TypeOwned::Param(_)
                 | TypeOwned::Flag
                 | TypeOwned::String
                 | TypeOwned::Range(_)
@@ -220,7 +229,20 @@ macro_rules! define_visitor {
         ) {
             v.visit_docs(& $($mut)? node.docs);
             v.visit_ident(& $($mut)? node.ident);
+            for param in & $($mut)? node.generics {
+                visit_generic_param(v, param);
+            }
             v.visit_fields(& $($mut)? node.fields);
+        }
+
+        fn visit_generic_param<$($lt,)? V: $Trait $(<$lt>)? + ?Sized>(
+            v: &mut V,
+            node: & $($lt_ref)? $($mut)? GenericParamOwned,
+        ) {
+            v.visit_ident(& $($mut)? node.ident);
+            if let GenericParamKindOwned::Const { ty } = & $($mut)? node.kind {
+                v.visit_type(ty);
+            }
         }
 
         pub fn visit_item_enum<$($lt,)? V: $Trait $(<$lt>)? + ?Sized>(
@@ -229,6 +251,9 @@ macro_rules! define_visitor {
         ) {
             v.visit_docs(& $($mut)? node.docs);
             v.visit_ident(& $($mut)? node.ident);
+            for param in & $($mut)? node.generics {
+                visit_generic_param(v, param);
+            }
             for variant in & $($mut)? node.variants {
                 v.visit_variant(variant);
             }
@@ -333,6 +358,7 @@ mod tests {
             crate_idx: UNib32(0),
             docs: docs("struct"),
             ident: "S".into(),
+            generics: vec![],
             fields: FieldsOwned::Named(vec![field(Some("a"), TypeOwned::Bool)]),
             sparse: false,
         });
@@ -342,6 +368,7 @@ mod tests {
             crate_idx: UNib32(0),
             docs: docs("enum"),
             ident: "E".into(),
+            generics: vec![],
             variants: vec![VariantOwned {
                 docs: docs("variant"),
                 ident: "V".into(),

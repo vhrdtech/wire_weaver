@@ -2276,6 +2276,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#generic-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Generic types
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#finalstructure-selfdescribing-and-sized-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4896,6 +4907,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#generic-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Generic types
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#finalstructure-selfdescribing-and-sized-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5118,6 +5140,20 @@ them <code>Option&lt;T&gt;</code>:</p>
   field breaks too: data from an older writer can still have it present.</li>
 <li>A field's slot and its <code>T</code> can't change (<code>T</code> evolves by its own rules); fields can be renamed.</li>
 <li>Turning an ordinary struct into a <code>sparse</code> one or back changes every byte: breaking.</li>
+</ul>
+<h3 id="generic-types">Generic types<a class="headerlink" href="#generic-types" title="Permanent link">&para;</a></h3>
+<p>A generic struct or enum (<code>Timed&lt;T&gt;</code>, <code>Window&lt;const N: usize&gt;</code>, API-43) evolves like any other: its fields by the
+rules for its size assumption, its arguments by their own rules (<code>Timed&lt;Ampere&gt;</code> changes when <code>Ampere</code> does). Its
+parameters are compared by position and kind:</p>
+<ul>
+<li>Renaming a parameter (<code>Timed&lt;T&gt;</code> -&gt; <code>Timed&lt;V&gt;</code>) changes nothing.</li>
+<li>Adding, removing or reordering parameters, turning a type parameter into a const one, or changing the type of a
+  const parameter (<code>usize</code> -&gt; <code>u8</code>) is breaking, also when a default keeps old code compiling: the uses on the wire
+  carry one argument per parameter.</li>
+<li>Making a fixed length a parameter (<code>[u16; 4]</code> -&gt; <code>[u16; N]</code>) or back is breaking for the definition; uses that
+  end up with the same length (<code>Window&lt;4&gt;</code>) have the same bytes.</li>
+<li>A use with other arguments (<code>Window&lt;4&gt;</code> -&gt; <code>Window&lt;8&gt;</code>, <code>Pair&lt;u8, u16&gt;</code> -&gt; <code>Pair&lt;u8, u32&gt;</code>) is another type, as
+  <code>[u16; 4]</code> -&gt; <code>[u16; 8]</code> is.</li>
 </ul>
 <h3 id="finalstructure-selfdescribing-and-sized-types">FinalStructure, SelfDescribing and Sized types<a class="headerlink" href="#finalstructure-selfdescribing-and-sized-types" title="Permanent link">&para;</a></h3>
 <ul>

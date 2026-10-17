@@ -4857,6 +4857,8 @@ string but at the end of the buffer. Both are explained below.</p>
 <li><strong><code>no_std</code> and no allocator,</strong> also for strings, lists and nested types, for reading and writing. On the host,
   the same type gets an owned twin (<code>Sample</code> → <code>SampleOwned</code>) with <code>String</code> and <code>Vec</code>, writing the same bytes.</li>
 <li><strong>Zero-copy reading.</strong> A <code>&amp;str</code> or a list read from the buffer points into it.</li>
+<li><strong>Safe on untrusted data.</strong> A malformed buffer is an error, never a panic, and a recursive type nested too deep
+  is <code>Error::NestingTooDeep</code> instead of a stack overflow (<a href="../wire_format/#nesting-depth">nesting depth</a>).</li>
 <li><strong>Evolvable.</strong> By default a type can get new fields later; old and new code keep reading each other's data
   (<a href="../derive/#evolving-types">derive: evolving types</a>).</li>
 <li><strong>Many types out of the box:</strong> integers of any bit width, variable-length numbers, strings and lists with an

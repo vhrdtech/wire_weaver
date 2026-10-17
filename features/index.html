@@ -5268,7 +5268,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>SW-21 Multi-dimensional arrays</strong> (2D, 3D).</li>
 <li>🚧 <strong>SW-22 Fuzz <code>shrink_wrap</code></strong> — <code>fuzz/</code> has one <code>shrink_wrap</code> target, <code>shrink-wrap-tail-size</code> (<code>TailSize</code> types
   round-tripped, random bytes into their readers); <code>shrink-wrap-series</code> (SW-31, SW-32) and <code>shrink-wrap-ref-vec</code>
-  (SW-37) came with their features, <code>shrink-wrap-option-any-vec</code> with SW-55 and DER-13 (sparse structs), <code>shrink-wrap-series-columns</code> and <code>shrink-wrap-series-type</code> with SW-60. Round-trip every built-in type and the derive's features.</li>
+  (SW-37) came with their features, <code>shrink-wrap-option-any-vec</code> with SW-55 and DER-13 (sparse structs), <code>shrink-wrap-series-columns</code> and <code>shrink-wrap-series-type</code> with SW-60, <code>shrink-wrap-nesting</code> with the nesting depth limit (recursive types at random limits). Round-trip every built-in type and the derive's features.</li>
 <li>🔍 <strong>SW-23 Tuple enum variants evolution</strong> — check that tuple variants evolve as <code>docs/evolution/rules.md</code> says
   (fields can be appended) and add a test.</li>
 <li>💡 <strong>SW-24 ZigZag encoding for signed variable length numbers</strong> — consider ZigZag (as in protobuf) so that small
@@ -5295,12 +5295,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>DER-10 Generic arguments on user field types</strong>: <code>Foo&lt;u8&gt;</code>, <code>Wrapper&lt;'i, T&gt;</code> are emitted as written,
   <code>Wrapper&lt;'i, T&gt;</code> maps to <code>WrapperOwned&lt;T&gt;</code> in the owned variant (<code>docs/serdes/derive.md</code>, type mapping; test
   <code>shrink_wrap/tests/generic_external.rs</code>).</li>
-<li>✅ <strong>DER-14 Type parameters on derived structs</strong>: <code>struct Timed&lt;T&gt; { t: Second, value: T }</code>, bounds next to the
-  parameter, also with a lifetime (<code>Tagged&lt;'i, T&gt;</code> / <code>TaggedOwned&lt;T&gt;</code>); each impl bounds the parameters by its trait
-  (serdes, owned serdes, <code>SeriesColumns</code>), the size of <code>T</code> is part of the struct's. No <code>where</code> clause or const
-  parameters; enums, <code>fixed_layout</code>, <code>head_tail</code>, <code>sparse</code>, <code>display</code> and <code>validate</code> reject them (test
-  <code>shrink_wrap/tests/generic_items.rs</code>; <code>ww_si::Timed&lt;T&gt;</code>). The API model (<code>ww_self</code>) has no type parameters yet:
-  such types are left out of API snapshots.</li>
+<li>✅ <strong>DER-14 Generics on derived types</strong>: structs and enums with type parameters (<code>struct Timed&lt;T&gt; { t: Second,
+  value: T }</code>, <code>enum Reading&lt;'i, T&gt;</code>), const parameters of any type (<code>struct Buf&lt;const N: usize&gt; { data: [u8; N] }</code>,
+  <code>MaxLen&lt;&amp;'i str, N&gt;</code>, <code>const STRICT: bool</code>), defaults and where clauses, also with a lifetime (<code>Tagged&lt;'i, T&gt;</code> /
+  <code>TaggedOwned&lt;T&gt;</code>); each impl bounds the type parameters by its trait (serdes, owned serdes, <code>SeriesColumns</code>) on top
+  of the bounds and where clause as written, the size of <code>T</code> and <code>N</code> is part of the type's. <code>series</code>, <code>display</code>,
+  <code>validate</code> and <code>discriminants</code> take generics, <code>fixed_layout</code>, <code>head_tail</code> and <code>sparse</code> reject them
+  (<code>docs/serdes/derive_reference.md#generics</code>; tests <code>shrink_wrap/tests/generic_items.rs</code>, <code>series_derive.rs</code>;
+  <code>ww_si::Timed&lt;T&gt;</code>). In APIs and the API model: API-43.</li>
 <li>✅ <strong>DER-11 Field type from a macro_rules <code>$T:ty</code> fragment</strong>: accepted like the type written directly, instead of
   rejected as an unsupported <code>syn::Type::Group</code> (test <code>shrink_wrap/tests/macro_ty_fragment.rs</code>).</li>
 <li>✅ <strong>DER-12 <code>Display</code> from doc comments</strong>: a <code>display</code> directive writes <code>core::fmt::Display</code> and
@@ -5357,6 +5359,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   host never has more in flight; one fixed modulus on every link, nothing negotiated at <code>Open</code>. Tested over a seeded
   lossy link (loss, duplicates, reordering, reconnects) with sessions starting near the wrap and far past 4 GiB
   (<code>docs/api/stream_protocol.md#positions-wrap-at-256-mib</code>).</li>
+<li>✅ <strong>API-43 Generic types in APIs</strong> · <code>v0.5</code> — generic structs and enums (DER-14, <code>Timed&lt;Ampere&gt;</code>, <code>Window&lt;4&gt;</code>,
+  <code>Reading&lt;i16&gt;</code>, <code>Tagged&lt;'i, T&gt;</code>) as method arguments and return values, properties, stream items and fields. The API
+  model (<code>ww_self</code> 0.3) has generics: each definition once with its type and const parameters (<code>Type::Param</code>,
+  <code>Length::Param</code>), each use a <code>Type::Instance</code> with its arguments (types, integer/bool values, a const parameter
+  passed on, defaults filled in by codegen); generic definitions are in crate snapshots, so <code>ww_si::Timed</code> is left
+  out of introspection data like any known type. Generated code uses the types as written. Hosts check untrusted
+  introspection data and instantiate it (<code>ww_self::generics::prepare</code>: indices, argument count and kinds, no
+  cycles, nesting depth, number and size of instances bounded; dynamic decoding bounded by a value budget), so the
+  dynamic client, <code>ww</code> and Python see concrete types; the evolution check compares parameters by position and kind
+  (<code>docs/types.md#generic-types-in-an-api</code>, <code>docs/evolution/rules.md#generic-types</code>; tests <code>tests/generics</code>,
+  <code>ww_self</code> unit tests, <code>fuzz</code> target <code>introspection</code>). Breaks the introspection format: hosts and devices must be
+  built with the same <code>ww_self</code>. Generic traits (<code>#[ww_trait] trait T&lt;X&gt;</code>) are not supported.</li>
 <li>✅ <strong>API-31 Stream functions</strong> — <code>#[stream(T, counted)] fn name(args) -&gt; Result&lt;A, E&gt;</code> and <code>#[counted]</code> /
   <code>#[reliable] stream!(name: T)</code>: every stream (plain ones too) is opened by calling it (<code>RequestKind::StreamOpen</code>),
   with typed arguments and result; the device's handler named like the stream decides, <code>Ok</code> starts a session,

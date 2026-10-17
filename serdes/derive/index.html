@@ -959,6 +959,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#generic-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Generic types
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#directives-at-a-glance" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4898,6 +4909,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#generic-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Generic types
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#directives-at-a-glance" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5219,6 +5241,31 @@ on. How this fits with the rest of an API's errors: <a href="../../api/errors/">
 </ul>
 <p>To leave it out (an enum that is complete by nature, like <code>Parity</code>) or rename it, see
 <a href="../derive_reference/#no_future_version-future_version-name-enums-only"><code>no_future_version</code></a>.</p>
+<h2 id="generic-types">Generic types<a class="headerlink" href="#generic-types" title="Permanent link">&para;</a></h2>
+<p>Structs and enums take type and const parameters and where clauses like any Rust type (DER-14):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, final_structure, derive(Debug, PartialEq))]</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Timed</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">}</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="cp">#[derive_shrink_wrap(owned, sized, derive(Debug, PartialEq))]</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Buf</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">N</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="n">len</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="n">N</span><span class="p">],</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="p">}</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, ww_repr = u4, derive(Debug, PartialEq))]</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="k">enum</span><span class="w"> </span><span class="nc">Reading</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">T</span><span class="p">:</span><span class="w"> </span><span class="nb">Copy</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">    </span><span class="n">Value</span><span class="p">(</span><span class="n">T</span><span class="p">),</span>
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">    </span><span class="n">Missing</span><span class="p">,</span>
+</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">    </span><span class="n">Labeled</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">label</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The parameters' sizes are part of the type's: <code>Buf { len: 2, data: [1, 2, 3] }</code> is the four bytes <code>02 01 02 03</code>, and
+a <code>Buf&lt;3&gt;</code> is <code>sized</code> at 32 bits. The derive adds the serialization traits as bounds on each impl, your own bounds
+and where clause stay as written. More in the <a href="../derive_reference/#generics">reference</a>; in an API they are used with
+their arguments, see <a href="../../types/#generic-types-in-an-api">generic types in an API</a>.</p>
 <h2 id="directives-at-a-glance">Directives at a glance<a class="headerlink" href="#directives-at-a-glance" title="Permanent link">&para;</a></h2>
 <p><code>#[derive_shrink_wrap(directive, directive, ..)]</code> takes a comma-separated list. The ones you'll meet most:</p>
 <table>

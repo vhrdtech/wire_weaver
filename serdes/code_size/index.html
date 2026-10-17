@@ -1398,6 +1398,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#nesting-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Nesting depth
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#larger-mcus-cortex-m4f-m7" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4931,6 +4942,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#nesting-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Nesting depth
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#larger-mcus-cortex-m4f-m7" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6459,6 +6481,111 @@ with a generated server, even one whose methods all return plain values; <code>f
 <code>finish_no_lens</code> next to <code>finish</code>. The generated code keeps <code>finish()</code>. For the length FIFO to drop out of a
 server, <code>Event</code> itself would have to lose its lengths: a <code>final_structure</code>/<code>sized</code> event, which is a wire change of
 <code>ww_client_server</code>.</p>
+<h2 id="nesting-depth">Nesting depth<a class="headerlink" href="#nesting-depth" title="Permanent link">&para;</a></h2>
+<p>The <a href="../wire_format/#nesting-depth">nesting depth limit</a> (P2401) is a check in <code>split()</code>, one copy, and at every
+<code>read::&lt;T&gt;()</code> of a <code>final_structure</code> type in place (<code>Vec</code>, <code>RefVec</code>, <code>Option</code>, a <code>final_structure</code> user type): a
+compare with zero, a store before and one after. The counter itself fits in the padding of <code>BufReader</code>, which keeps
+its size. Before and after, the cases that changed by more than 4 bytes:</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>types</th>
+<th style="text-align: right;">rv32i</th>
+<th style="text-align: right;">rv32ic</th>
+<th style="text-align: right;">rv32ic-relax</th>
+<th style="text-align: right;">thumbv6m</th>
+<th style="text-align: right;">thumbv7em</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>header_de</code></td>
+<td></td>
+<td style="text-align: right;">884 → 900</td>
+<td style="text-align: right;">566 → 582</td>
+<td style="text-align: right;">484 → 496</td>
+<td style="text-align: right;">484 → 488</td>
+<td style="text-align: right;">410 → 414</td>
+</tr>
+<tr>
+<td><code>vec_de</code></td>
+<td></td>
+<td style="text-align: right;">1060 → 1092</td>
+<td style="text-align: right;">692 → 724</td>
+<td style="text-align: right;">628 → 660</td>
+<td style="text-align: right;">632 → 648</td>
+<td style="text-align: right;">580 → 620</td>
+</tr>
+<tr>
+<td><code>option_de</code></td>
+<td></td>
+<td style="text-align: right;">1064 → 1072</td>
+<td style="text-align: right;">706 → 712</td>
+<td style="text-align: right;">596 → 602</td>
+<td style="text-align: right;">558 → 558</td>
+<td style="text-align: right;">560 → 560</td>
+</tr>
+<tr>
+<td><code>busgen_de</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">8800 → 8924</td>
+<td style="text-align: right;">6238 → 6340</td>
+<td style="text-align: right;">5628 → 5718</td>
+<td style="text-align: right;">5168 → 5176</td>
+<td style="text-align: right;">4932 → 5028</td>
+</tr>
+<tr>
+<td><code>busgen_de</code></td>
+<td>final</td>
+<td style="text-align: right;">7828 → 7996</td>
+<td style="text-align: right;">5600 → 5660</td>
+<td style="text-align: right;">5058 → 5116</td>
+<td style="text-align: right;">4636 → 4756</td>
+<td style="text-align: right;">4320 → 4400</td>
+</tr>
+<tr>
+<td><code>busgen_ser</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">5372 → 5432</td>
+<td style="text-align: right;">3734 → 3762</td>
+<td style="text-align: right;">3338 → 3370</td>
+<td style="text-align: right;">3288 → 3336</td>
+<td style="text-align: right;">3394 → 3350</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>evolvable</td>
+<td style="text-align: right;">12816 → 12928</td>
+<td style="text-align: right;">9166 → 9246</td>
+<td style="text-align: right;">8286 → 8362</td>
+<td style="text-align: right;">7420 → 7488</td>
+<td style="text-align: right;">7576 → 7668</td>
+</tr>
+<tr>
+<td><code>busgen</code></td>
+<td>final</td>
+<td style="text-align: right;">11388 → 11572</td>
+<td style="text-align: right;">8210 → 8396</td>
+<td style="text-align: right;">7438 → 7616</td>
+<td style="text-align: right;">6652 → 6804</td>
+<td style="text-align: right;">6816 → 6908</td>
+</tr>
+<tr>
+<td><code>reply</code></td>
+<td></td>
+<td style="text-align: right;">7140 → 7140</td>
+<td style="text-align: right;">5178 → 5180</td>
+<td style="text-align: right;">4534 → 4536</td>
+<td style="text-align: right;">4202 → 4230</td>
+<td style="text-align: right;">3862 → 3866</td>
+</tr>
+</tbody>
+</table>
+<p>About 1 to 2.5 % of a whole codec. <code>busgen</code> final is 6804 on thumbv6m and 8396 on RV32IC with the saved depth stored
+back after the read; a decrement before and an increment after is 6768 and 8408, the check in one shared function
+called at every such read 6816 and 8408. There is no switch to turn the limit off: decoding a recursive type from
+untrusted data without it overflows the stack.</p>
 <h2 id="larger-mcus-cortex-m4f-m7">Larger MCUs: Cortex-M4F / M7<a class="headerlink" href="#larger-mcus-cortex-m4f-m7" title="Permanent link">&para;</a></h2>
 <p>The <code>thumbv7em</code> column is there to see whether Thumb-2 changes the picture. It does not: with the same profile the
 images are about as large as on Cortex-M0, and the changes above saved about as much. Before them (<code>925a29b1</code>) and

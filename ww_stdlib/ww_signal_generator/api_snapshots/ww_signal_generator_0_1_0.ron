@@ -46,16 +46,16 @@
         (ident: Some("gpio_pin"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [
             "The same pin\'s index in the device\'s `ww_gpio::Bank`, if it has one.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        159,
-        25,
-        141,
-        133,
-        113,
-        35,
-        100,
-        90,
+        126,
+        49,
+        17,
+        249,
+        31,
+        128,
+        106,
+        217,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
         4,
@@ -68,14 +68,14 @@
         103,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "RateLimit", signature: [
-        244,
-        170,
-        138,
-        1,
-        203,
+        3,
+        11,
+        140,
+        159,
+        145,
+        75,
         60,
-        70,
-        23,
+        35,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a pattern generator offers, see `PatternGenerator::capabilities`.",
@@ -101,7 +101,7 @@
         (ident: Some("analyzer_start"), default: None, since: None, ty: Bool, docs: [
             "[Start::AnalyzerTrigger] works.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "How often a pattern plays.",
     ], ident: "Repeat", generics: [], variants: [
@@ -110,7 +110,7 @@
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [], ident: "Forever", fields: Unit, discriminant: 2, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Edge", signature: [
         234,
         99,
@@ -135,7 +135,7 @@
         (docs: [
             "When this device\'s `LogicAnalyzer` triggers: a stimulus and its response on one time base.",
         ], ident: "AnalyzerTrigger", fields: Unit, discriminant: 2, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to play, see `PatternGenerator::configure`.",
     ], ident: "PgConfig", generics: [], fields: Named([
@@ -153,7 +153,7 @@
             "Levels before the start and after the end, bit `i` for `channels[i]`.",
         ], slot: None, series_opaque: false),
         (ident: Some("start"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `PatternGenerator::configure` actually set.",
     ], ident: "PgActual", generics: [], fields: Named([
@@ -165,7 +165,7 @@
         (ident: Some("width"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Raw words the generator expects ([ww_logic_analyzer::RawLayout::width]).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
@@ -188,7 +188,7 @@
         (docs: [
             "No channel with this index.",
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "StreamChunk", signature: [
         62,
         159,
@@ -200,14 +200,14 @@
         219,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        153,
-        191,
-        31,
-        141,
-        238,
-        144,
-        57,
-        75,
+        52,
+        96,
+        56,
+        168,
+        127,
+        126,
+        23,
+        16,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a pattern generator stands, see `PatternGenerator::status`.",
@@ -241,7 +241,7 @@
         (docs: [
             "Streaming couldn\'t keep up; output stopped at the idle levels.",
         ], ident: "Underrun", fields: Unit, discriminant: 5, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 4, type_name: "SampleFormat", signature: [
         130,
         171,
@@ -276,7 +276,7 @@
             (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None, series_opaque: false),
             (ident: Some("once"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
         94,
         190,
@@ -307,7 +307,7 @@
         (ident: Some("phase"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "0..=65535 = 0..360°, against the other channels started together.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `WaveformChannel::set` actually does.",
     ], ident: "WaveformActual", generics: [], fields: Named([
@@ -320,7 +320,7 @@
         (ident: Some("offset"), default: None, since: None, ty: Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 17)),
         ]), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of `WaveformGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it",
         "returns.",
@@ -333,7 +333,7 @@
         (docs: [
             "No channel with this index.",
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What an output does, see `WaveformChannel::state`.",
     ], ident: "WaveformState", generics: [], variants: [
@@ -353,7 +353,7 @@
             (ident: Some("waveform"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [], slot: None, series_opaque: false),
             (ident: Some("actual"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 4, type_name: "Linear", signature: [
         152,
         226,
@@ -402,14 +402,14 @@
         (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 15))), docs: [
             "Table formats.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s DACs offer, see `WaveformGenerator::capabilities`.",
     ], ident: "WgCapabilities", generics: [], fields: Named([
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 23))), docs: [
             "`channel[n]` is `channels[n]`.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Digital channels driven from a pattern at a fixed rate, all switching on the same tick.",

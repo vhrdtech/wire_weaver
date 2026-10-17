@@ -62,16 +62,16 @@
         (docs: [
             "Longer than this device takes, see its capabilities.",
         ], ident: "BufferTooBig", fields: Unit, discriminant: 1, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
-        153,
-        191,
-        31,
-        141,
-        238,
-        144,
-        57,
-        75,
+        52,
+        96,
+        56,
+        168,
+        127,
+        126,
+        23,
+        16,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
         4,
@@ -108,16 +108,16 @@
                 Type(OutOfLine(type_idx: 2)),
             ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Hertz", signature: [
-        159,
-        25,
-        141,
-        133,
-        113,
-        35,
-        100,
-        90,
+        126,
+        49,
+        17,
+        249,
+        31,
+        128,
+        106,
+        217,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Volt", signature: [
         94,
@@ -160,7 +160,7 @@
         (ident: Some("max_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Largest transfer this device does, at most [SPI_MAX].",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Bus role, set with `Spi::configure`.",
     ], ident: "SpiRole", generics: [], variants: [
@@ -171,7 +171,7 @@
         (docs: [
             "Data paths are not defined yet, see the crate-level docs.",
         ], ident: "Slave", fields: Unit, discriminant: 2, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [
         "Clock polarity and phase (CPOL/CPHA), the usual SPI mode numbering.",
     ], ident: "SpiMode", generics: [], variants: [
@@ -187,13 +187,13 @@
         (docs: [
             "CPOL = 1, CPHA = 1.",
         ], ident: "Mode3", fields: Unit, discriminant: 3, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Bit order of each word on the wire.",
     ], ident: "BitOrder", generics: [], variants: [
         (docs: [], ident: "MsbFirst", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "LsbFirst", fields: Unit, discriminant: 1, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "How CS is driven, set with `Spi::configure`.",
     ], ident: "CsMode", generics: [], variants: [
@@ -206,7 +206,7 @@
         (docs: [
             "Not driven by this device at all.",
         ], ident: "None", fields: Unit, discriminant: 2, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything the bus is configured with, see `Spi::configure`: what is asked for going in, what was actually set",
         "coming back.",
@@ -229,7 +229,7 @@
             "Voltage of the lines on adapters with level translators ([SpiCapabilities::io_levels]); `None` leaves it as",
             "it is going in (the only choice on a device without them), and is the answer of a device without them.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bus settings for `Spi::monitor`: everything needed to decode frames correctly, without the",
         "parts that only apply to driving the bus ([SpiConfig::role], [SpiConfig::cs]).",
@@ -242,7 +242,7 @@
         ])), docs: [
             "Input threshold level, as [SpiConfig::io_level].",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One frame seen by `Spi::monitor`: from CS asserted to released.",
     ], ident: "SpiFrame", generics: [], fields: Named([
@@ -260,7 +260,7 @@
         (ident: Some("miso"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [
             "What the device side (peripheral) drove, if monitored.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "An SPI master: configure the bus, full-duplex transfer, transactions with CS held, and plain writes.",

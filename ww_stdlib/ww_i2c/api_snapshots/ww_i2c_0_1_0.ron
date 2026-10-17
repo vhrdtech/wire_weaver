@@ -76,14 +76,14 @@
         103,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        159,
-        25,
-        141,
-        133,
-        113,
-        35,
-        100,
-        90,
+        126,
+        49,
+        17,
+        249,
+        31,
+        128,
+        106,
+        217,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What the adapter supports, see `I2c::i2c_capabilities`.",
@@ -134,7 +134,7 @@
         (ident: Some("bus_recovery"), default: None, since: None, ty: Bool, docs: [
             "`I2c::i2c_wiggle_clock` works.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(3), crate_idx: 0, docs: [
         "Bus mode, part of [I2cConfig].",
     ], ident: "I2cMode", generics: [], variants: [
@@ -158,7 +158,7 @@
         (docs: [
             "Only watch the bus, see `I2cMonitor`.",
         ], ident: "MonitorOnly", fields: Unit, discriminant: 3, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything the bus is configured with, see `I2c::i2c_configure`: what is asked for going in, what was actually",
         "set coming back.",
@@ -170,7 +170,7 @@
             "Bus voltage on adapters with level translators ([I2cCapabilities::io_levels]); `None` leaves it as it is going",
             "in (the only choice on a device without them), and is the answer of a device without them.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         187,
         44,
@@ -214,7 +214,7 @@
         (docs: [
             "No watch in this slot.",
         ], ident: "InvalidWatchSlot", fields: Unit, discriminant: 8, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(1), crate_idx: 0, docs: [
         "A 7-bit or 10-bit I2C address.",
         "",
@@ -227,16 +227,16 @@
         (docs: [], ident: "Ten", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(UB(10))), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        153,
-        191,
-        31,
-        141,
-        238,
-        144,
-        57,
-        75,
+        52,
+        96,
+        56,
+        168,
+        127,
+        126,
+        23,
+        16,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "When a transfer started (start condition) and ended (stop condition), in device time.",
@@ -247,7 +247,7 @@
         (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 1, args: [
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
         "Plain read, or a write followed by a read with a repeated start (a register read).",
     ], ident: "I2cReadKind", generics: [], variants: [
@@ -259,13 +259,13 @@
         ], ident: "RepeatedStart", fields: Named([
             (ident: Some("write"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of `I2c::i2c_read`.",
     ], ident: "I2cReadEnvelope", generics: [], fields: Named([
         (ident: Some("duration"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
         "One operation of an `I2c::i2c_transaction`.",
     ], ident: "I2cOp", generics: [], variants: [
@@ -279,7 +279,7 @@
         ], ident: "Read", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of `I2c::i2c_transaction`.",
     ], ident: "I2cTransactionResult", generics: [], fields: Named([
@@ -287,7 +287,7 @@
         (ident: Some("read"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [
             "The bytes of every [I2cOp::Read], concatenated in order.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Levels of the bus lines, see `I2c::i2c_lines_state`.",
     ], ident: "I2cLinesState", generics: [], fields: Named([
@@ -303,14 +303,14 @@
         ])), docs: [
             "Measured SDA voltage, on adapters that can measure it.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A result of a watch, on the `I2cWatch` `changes` stream; when the read started is the time in the event head. An error is reported once, when the watch starts to",
         "fail, and the next successful read is reported whatever the rule.",
     ], ident: "I2cWatchEvent", generics: [], fields: Named([
         (ident: Some("slot"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("result"), default: None, since: None, ty: Result(ok_ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 7)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `I2cWatch` can do.",
     ], ident: "I2cWatchCapabilities", generics: [], fields: Named([
@@ -325,14 +325,14 @@
         ]), docs: [
             "Shortest period of one watch.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Sized(size_bits: 0), crate_idx: 0, docs: [
         "One byte of an [I2cWatchReport::Matches] rule: the read byte matches when `byte & mask == value`. A `mask` of",
         "`0x00` ignores the byte. Two bytes on the wire.",
     ], ident: "I2cMatchByte", generics: [], fields: Named([
         (ident: Some("mask"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "When a watch sends its result.",
     ], ident: "I2cWatchReport", generics: [], variants: [
@@ -350,7 +350,7 @@
         ], ident: "Matches", fields: Named([
             (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 18))), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One autonomous read, see `I2cWatch::watch_add`.",
     ], ident: "I2cWatchConfig", generics: [], fields: Named([
@@ -369,7 +369,7 @@
         (ident: Some("report"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [
             "When to send a result.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "How a monitored transaction ended.",
     ], ident: "I2cRecordKind", generics: [], variants: [
@@ -385,7 +385,7 @@
         (docs: [
             "A start or stop in the middle of a byte, or a line stuck.",
         ], ident: "BusError", fields: Unit, discriminant: 3, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One transaction seen by `I2cMonitor`: from a start to the stop (or to the next repeated start).",
     ], ident: "I2cRecord", generics: [], fields: Named([
@@ -405,7 +405,7 @@
         (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Data bytes, without the address.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "An I2C master: configure the bus, write, read and scan, see the bus lines and free a stuck bus.",

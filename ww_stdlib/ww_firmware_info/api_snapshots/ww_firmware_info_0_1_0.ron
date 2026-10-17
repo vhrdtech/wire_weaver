@@ -77,7 +77,7 @@
         (ident: Some("dirty"), default: None, since: None, ty: Bool, docs: [
             "Uncommitted changes were present at build time.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "DateTime", signature: [
         29,
         39,
@@ -98,7 +98,7 @@
         ], ident: "Other", fields: Unnamed([
             (ident: None, default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `--version` shows of a firmware, see `FirmwareInfo::FIRMWARE`.",
     ], ident: "FirmwareSummary", generics: [], fields: Named([
@@ -117,7 +117,7 @@
         (ident: Some("profile"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Cargo profile the firmware was built with.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Cause of a reset.",
     ], ident: "ResetCause", generics: [], variants: [
@@ -151,16 +151,16 @@
         (docs: [
             "The device cannot tell.",
         ], ident: "Undetermined", fields: Unit, discriminant: 9, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "units::Second", signature: [
-        153,
-        191,
-        31,
-        141,
-        238,
-        144,
-        57,
-        75,
+        52,
+        96,
+        56,
+        168,
+        127,
+        126,
+        23,
+        16,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
         4,
@@ -202,7 +202,7 @@
         (ident: Some("exc_return"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "`EXC_RETURN` value of the exception entry.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Trap registers of a RISC-V core.",
     ], ident: "RiscVFault", generics: [], fields: Named([
@@ -221,7 +221,7 @@
         (ident: Some("sp"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Stack pointer.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Registers saved by a fault handler, one variant per architecture.",
         "",
@@ -239,7 +239,7 @@
         ], ident: "RiscV", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Why the device reset last and what was saved before it, see [LastReset::last_reset](crate::LastReset::last_reset).",
     ], ident: "ResetRecord", generics: [], fields: Named([
@@ -269,7 +269,7 @@
             "and so on. A record kept across later resets shows with a `cause` other than `Fault` / `Panic`; this says how",
             "old it is. 0 when there is no crash data.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Which firmware runs: what `--version` prints, and how to find its ELF.",

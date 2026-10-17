@@ -48,14 +48,14 @@
     (id: 3, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "PwmCaptureChannel", docs: [], optional: None),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        159,
-        25,
-        141,
-        133,
-        113,
-        35,
-        100,
-        90,
+        126,
+        49,
+        17,
+        249,
+        31,
+        128,
+        106,
+        217,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
         4,
@@ -83,7 +83,7 @@
             "Symmetric (center-aligned) counting instead of edge-aligned; usually halves the usable frequency range for",
             "the same duty resolution.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `PwmChannel::set_output` or `PwmChannel::set_duty` actually set, see [PwmState::Output].",
     ], ident: "PwmActual", generics: [], fields: Named([
@@ -93,7 +93,7 @@
         (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "0..=65535 = 0..100 %.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         187,
         44,
@@ -116,7 +116,7 @@
         (docs: [
             "The other channel of the group runs at another frequency.",
         ], ident: "SharedTimer", fields: Unit, discriminant: 1, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "The channel\'s output, see `PwmChannel::state`.",
     ], ident: "PwmState", generics: [], variants: [
@@ -128,7 +128,7 @@
         ], ident: "Output", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One PWM channel, see [PwmCapabilities::channels].",
     ], ident: "PwmChannelInfo", generics: [], fields: Named([
@@ -141,7 +141,7 @@
         (ident: Some("capture"), default: None, since: None, ty: Bool, docs: [
             "This channel is also in `PwmCapture`, at the same index.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s PWM offers, see `Pwm::capabilities`.",
     ], ident: "PwmCapabilities", generics: [], fields: Named([
@@ -161,7 +161,7 @@
         (ident: Some("duty_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Duty resolution of the hardware: `set_duty`\'s 0..=65535 range is rounded to this many bits.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What `PwmCaptureChannel::set_capture` measures, see [CaptureValue] for the matching result.",
     ], ident: "CaptureMode", generics: [], variants: [
@@ -180,16 +180,16 @@
         (docs: [
             "Rising (or falling, device-defined) edges counted over `gate`.",
         ], ident: "EdgeCount", fields: Unit, discriminant: 4, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        153,
-        191,
-        31,
-        141,
-        238,
-        144,
-        57,
-        75,
+        52,
+        96,
+        56,
+        168,
+        127,
+        126,
+        23,
+        16,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to measure, see `PwmCaptureChannel::capture` and `PwmCaptureChannel::set_capture`.",
@@ -202,7 +202,7 @@
             "long one measurement covers; [CaptureMode::PulseWidth] times the next single pulse, so `gate` only bounds",
             "how long it waits for one to start.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "A measurement, in the mode [CaptureConfig::mode] set; the variant always matches it.",
     ], ident: "CaptureValue", generics: [], variants: [
@@ -224,7 +224,7 @@
         (docs: [], ident: "EdgeCount", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None)), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One measurement with its time, see `PwmCaptureChannel::read_capture`.",
     ], ident: "CaptureSample", generics: [], fields: Named([
@@ -234,7 +234,7 @@
             "End of the measurement window.",
         ], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "One PWM output, see [PwmCapabilities::channels] for its group and whether it also captures.",

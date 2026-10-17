@@ -1123,6 +1123,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#introspection-and-dynamic-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Introspection and dynamic clients
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#whats-not-here-yet" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4828,6 +4839,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#introspection-and-dynamic-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Introspection and dynamic clients
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#whats-not-here-yet" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5119,6 +5141,22 @@ bounded instead).</p>
 field gets its own column at the end of the group, which an older reader skips and a newer reader reading older
 data fills from the default; a new enum variant an older reader doesn't know fails the same way a plain decode of
 that item would.</p>
+<h2 id="introspection-and-dynamic-clients">Introspection and dynamic clients<a class="headerlink" href="#introspection-and-dynamic-clients" title="Permanent link">&para;</a></h2>
+<p>A <code>Series&lt;T&gt;</code> in an API is in its introspection data as <code>Series&lt;T&gt;</code> (<code>ww_self::Type::Series</code>, with <code>T</code> as written and
+<code>#[series(opaque)]</code> marked on the field), so clients without generated code read it too: <code>ww</code> and the dynamic
+<code>wire_weaver_client</code> API show it as a list of items, and Python gives the items or, with <code>decode_columns</code>, one numpy
+array per leaf field:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">cols</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">readings</span><span class="o">.</span><span class="n">decode_columns</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>   <span class="c1"># or a property&#39;s / stream&#39;s decode_columns</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">cols</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>               <span class="c1"># array([3298, 3299, ...], dtype=int32)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">cols</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span>              <span class="c1"># variant of each item: array([&#39;Idle&#39;, &#39;Busy&#39;, ...], dtype=object)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">cols</span><span class="p">[</span><span class="s2">&quot;status.Fault.code&quot;</span><span class="p">]</span>   <span class="c1"># masked where an item is in another variant</span>
+</span></code></pre></div>
+<p>The dynamic decoder (<code>ww_self</code>, <code>ValueOwned::des_shrink_wrap_dyn</code> for the items, <code>des_series_columns_dyn</code> for the
+columns) walks the type tree with the same rules as the code the derive generates: column by column, restarting a
+column after an earlier enum or <code>Option</code> tag changes, a newer or older <code>T</code> read as the typed decoder reads it (missing
+fields take their declared <code>#[default]</code>). The bytes come from a device, so they are untrusted: malformed data is an
+error, and since an item can take no bits at all (a constant column), the work and the memory are bounded by the
+decode's budget (values and bytes of memory, a repeated value counted once per copy), not by the length of the bytes.</p>
 <h2 id="whats-not-here-yet">What's not here yet<a class="headerlink" href="#whats-not-here-yet" title="Permanent link">&para;</a></h2>
 <p><code>Series&lt;T&gt;</code> as a type you put in a property, method or stream today works end to end (phase 1 of SW-60). Picking the
 batch for you — a stream or property opting into batching (no size in the API itself: the device owns the batch

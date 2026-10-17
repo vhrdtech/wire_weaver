@@ -5093,8 +5093,24 @@ Use <code>dev["name"]</code> for a resource named like one of the <code>Device</
 <td><code>Range</code>, <code>RangeInclusive</code></td>
 <td><code>(start, end)</code> (<code>range</code> with step 1 accepted)</td>
 </tr>
+<tr>
+<td><code>Delta</code>, <code>DeltaOfDelta</code>, <code>XorFloat</code></td>
+<td><code>list</code> of <code>int</code> / <code>float</code> (any iterable accepted)</td>
+</tr>
+<tr>
+<td><code>Series&lt;T&gt;</code></td>
+<td><code>list</code> of <code>T</code>; numpy columns with <code>decode_columns</code> (below)</td>
+</tr>
 </tbody>
 </table>
+<p>A <code>Series&lt;T&gt;</code> (a method's return value, a property, a stream item) can also be read column by column: the
+<code>decode_columns(data)</code> of the method, property or stream gives a <code>dict</code> of field path to numpy array over all items
+(numpy is imported then, install it next to <code>wire_weaver</code>). Paths join field names with <code>.</code>, a variant's fields are
+under its name (<code>status.Fault.code</code>), tuple and array elements under their position (<code>pair.0</code>), a <code>Series</code> of plain
+numbers is under <code>""</code>. An enum also gives the variant of each item under its own path, an <code>Option</code> is transparent.
+Numbers and bools get their dtype, other leaves (strings, lists, <code>#[series(opaque)]</code> fields) are object arrays. A
+leaf some items don't have (in another variant, or <code>None</code>) is a masked array (<code>numpy.ma</code>). See
+<a href="../serdes/series/#introspection-and-dynamic-clients"><code>Series&lt;T&gt;</code></a>.</p>
 <h2 id="more">More<a class="headerlink" href="#more" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../python_advanced/#counted-and-reliable-streams">Counted and reliable streams</a>: positions, gaps, resuming from a cursor</li>

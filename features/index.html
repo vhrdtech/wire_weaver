@@ -5634,6 +5634,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   subscriptions sent again by <code>resume_streams()</code> after a reconnect; <code>Error::Unsupported</code> for a device whose API model
   predates API-38 (<code>wire_weaver_client::observe</code>, <code>docs/api/observing.md#the-host-side</code>, <code>tests/observe</code>,
   <code>observe_e2e_tests</code>). Not yet: levels under a resource array.</li>
+<li>✅ <strong>CLT-29 <code>Series&lt;T&gt;</code> in introspection and dynamic clients</strong> · <code>v0.5.x</code> — <code>ww_self::Type::Series</code> (and
+  <code>Field::series_opaque</code> for <code>#[series(opaque)]</code> fields) in the API model, emitted by codegen; a dynamic decoder in
+  <code>ww_self</code> reads a <code>Series</code> column by column from the type tree alone (<code>ValueOwned::des_shrink_wrap_dyn</code> gives the
+  items, <code>des_series_columns_dyn</code> the columns), with the typed decoder's rules (restarts after enum and <code>Option</code> tags,
+  evolvable structs both ways, declared defaults) and the decode budget bounding work and memory (a constant column
+  costs no bytes); <code>ww</code> shows the items, Python decodes the items or numpy columns (<code>decode_columns</code>, masked where an
+  item is in another variant or <code>None</code>). Dyn equals typed on the design's examples, on generated and on fuzzed series
+  (fuzz target <code>series-dynamic</code>, <code>tests/series</code>, <code>wire_weaver_py/tests/test_offline.py</code>,
+  <code>docs/serdes/series.md#introspection-and-dynamic-clients</code>). Not yet: writing a <code>Series</code> dynamically (Python
+  <code>encode</code> of a <code>Series</code> fails).</li>
 <li>✅ <strong>CLT-30 Link setup budget per transport</strong> · <code>v0.5.x</code> — the client re-sent <code>GetDeviceInfo</code> 5 times 50 ms apart (250 ms
   for every transport), so connecting through a debug probe (~17 ms per RTT write through a J-Link) mostly failed with
   <code>LinkSetup was not received</code>. Now a timeout per transport (USB, UDP, WebSocket 1 s, in-process 250 ms, RTT 10 s, one

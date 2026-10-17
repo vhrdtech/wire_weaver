@@ -504,6 +504,30 @@ with a generated server, even one whose methods all return plain values; `finish
 server, `Event` itself would have to lose its lengths: a `final_structure`/`sized` event, which is a wire change of
 `ww_client_server`.
 
+## Nesting depth
+
+The [nesting depth limit](wire_format.md#nesting-depth) (P2401) is a check in `split()`, one copy, and at every
+`read::<T>()` of a `final_structure` type in place (`Vec`, `RefVec`, `Option`, a `final_structure` user type): a
+compare with zero, a store before and one after. The counter itself fits in the padding of `BufReader`, which keeps
+its size. Before and after, the cases that changed by more than 4 bytes:
+
+| case | types | rv32i | rv32ic | rv32ic-relax | thumbv6m | thumbv7em |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `header_de` | | 884 → 900 | 566 → 582 | 484 → 496 | 484 → 488 | 410 → 414 |
+| `vec_de` | | 1060 → 1092 | 692 → 724 | 628 → 660 | 632 → 648 | 580 → 620 |
+| `option_de` | | 1064 → 1072 | 706 → 712 | 596 → 602 | 558 → 558 | 560 → 560 |
+| `busgen_de` | evolvable | 8800 → 8924 | 6238 → 6340 | 5628 → 5718 | 5168 → 5176 | 4932 → 5028 |
+| `busgen_de` | final | 7828 → 7996 | 5600 → 5660 | 5058 → 5116 | 4636 → 4756 | 4320 → 4400 |
+| `busgen_ser` | evolvable | 5372 → 5432 | 3734 → 3762 | 3338 → 3370 | 3288 → 3336 | 3394 → 3350 |
+| `busgen` | evolvable | 12816 → 12928 | 9166 → 9246 | 8286 → 8362 | 7420 → 7488 | 7576 → 7668 |
+| `busgen` | final | 11388 → 11572 | 8210 → 8396 | 7438 → 7616 | 6652 → 6804 | 6816 → 6908 |
+| `reply` | | 7140 → 7140 | 5178 → 5180 | 4534 → 4536 | 4202 → 4230 | 3862 → 3866 |
+
+About 1 to 2.5 % of a whole codec. `busgen` final is 6804 on thumbv6m and 8396 on RV32IC with the saved depth stored
+back after the read; a decrement before and an increment after is 6768 and 8408, the check in one shared function
+called at every such read 6816 and 8408. There is no switch to turn the limit off: decoding a recursive type from
+untrusted data without it overflows the stack.
+
 ## Larger MCUs: Cortex-M4F / M7
 
 The `thumbv7em` column is there to see whether Thumb-2 changes the picture. It does not: with the same profile the

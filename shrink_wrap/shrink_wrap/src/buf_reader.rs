@@ -68,16 +68,21 @@ impl<'i> BufReader<'i> {
         BufReader::new(buf).with_max_depth(self.depth_left)
     }
 
-    /// Go one level deeper, see [with_max_depth](Self::with_max_depth).
-    #[inline]
-    fn descend(&mut self) -> Result<(), Error> {
-        match self.depth_left.checked_sub(1) {
-            Some(left) => {
-                self.depth_left = left;
-                Ok(())
-            }
-            None => Err(Error::NestingTooDeep),
+    /// Read `T` in place, one level deeper, see [with_max_depth](Self::with_max_depth): the depth is given back
+    /// afterwards, also when the read fails.
+    #[inline(always)]
+    fn read_nested<T>(
+        &mut self,
+        read: impl FnOnce(&mut Self) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        let depth_left = self.depth_left;
+        if depth_left == 0 {
+            return Err(Error::NestingTooDeep);
         }
+        self.depth_left = depth_left - 1;
+        let value = read(self);
+        self.depth_left = depth_left;
+        value
     }
 
     /// Read bool with alignment of 1 bit.
@@ -496,12 +501,7 @@ impl<'i> BufReader<'i> {
                 let mut rd_split = self.split(size)?;
                 T::des_shrink_wrap(&mut rd_split)
             }
-            ElementSize::UnsizedFinalStructure => {
-                self.descend()?;
-                let value = T::des_shrink_wrap(self);
-                self.depth_left += 1;
-                value
-            }
+            ElementSize::UnsizedFinalStructure => self.read_nested(T::des_shrink_wrap),
             ElementSize::SelfDescribing | ElementSize::Sized { .. } => T::des_shrink_wrap(self),
         }
     }
@@ -515,12 +515,7 @@ impl<'i> BufReader<'i> {
                 let mut rd_split = self.split(size)?;
                 T::des_shrink_wrap_owned(&mut rd_split)
             }
-            ElementSize::UnsizedFinalStructure => {
-                self.descend()?;
-                let value = T::des_shrink_wrap_owned(self);
-                self.depth_left += 1;
-                value
-            }
+            ElementSize::UnsizedFinalStructure => self.read_nested(T::des_shrink_wrap_owned),
             ElementSize::SelfDescribing | ElementSize::Sized { .. } => {
                 T::des_shrink_wrap_owned(self)
             }

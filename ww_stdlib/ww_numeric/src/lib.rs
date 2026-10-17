@@ -650,4 +650,86 @@ impl NumericBaseType {
             _ => unimplemented!(),
         }
     }
+
+    /// `x` in this number type, exactly: `None` when it doesn't fit, for a type that is not enabled, and for
+    /// `F16`, `UB`, `IB`, `UN`, `IN`. Floats take `x` rounded to their precision.
+    pub fn from_i128(&self, x: i128) -> Option<NumericValue> {
+        Some(match self {
+            #[cfg(feature = "nibble")]
+            NumericBaseType::Nibble => NumericValue::Nibble(Nibble::new(u8::try_from(x).ok()?)?),
+            NumericBaseType::U8 => NumericValue::U8(x.try_into().ok()?),
+            #[cfg(feature = "u16")]
+            NumericBaseType::U16 => NumericValue::U16(x.try_into().ok()?),
+            #[cfg(feature = "u32")]
+            NumericBaseType::U32 => NumericValue::U32(x.try_into().ok()?),
+            #[cfg(feature = "unib32")]
+            NumericBaseType::UNib32 => NumericValue::UNib32(UNib32(x.try_into().ok()?)),
+            #[cfg(feature = "u64")]
+            NumericBaseType::U64 => NumericValue::U64(x.try_into().ok()?),
+            #[cfg(feature = "i32")]
+            NumericBaseType::I32 => NumericValue::I32(x.try_into().ok()?),
+            #[cfg(feature = "f32")]
+            NumericBaseType::F32 => NumericValue::F32(x as f32),
+            #[cfg(feature = "u128")]
+            NumericBaseType::U128 => NumericValue::U128(x.try_into().ok()?),
+            #[cfg(feature = "i8")]
+            NumericBaseType::I8 => NumericValue::I8(x.try_into().ok()?),
+            #[cfg(feature = "i16")]
+            NumericBaseType::I16 => NumericValue::I16(x.try_into().ok()?),
+            #[cfg(feature = "i64")]
+            NumericBaseType::I64 => NumericValue::I64(x.try_into().ok()?),
+            #[cfg(feature = "i128")]
+            NumericBaseType::I128 => NumericValue::I128(x),
+            #[cfg(feature = "f64")]
+            NumericBaseType::F64 => NumericValue::F64(x as f64),
+            #[cfg(feature = "uvlq32")]
+            NumericBaseType::UVlq32 => NumericValue::UVlq32(UVlq32(x.try_into().ok()?)),
+            #[cfg(feature = "uvlq64")]
+            NumericBaseType::UVlq64 => NumericValue::UVlq64(UVlq64(x.try_into().ok()?)),
+            _ => return None,
+        })
+    }
+
+    /// `x` in this number type: rounded to the nearest integer (halves away from zero) and saturated at the type's
+    /// range for integers, `NaN` as zero; as is for floats. `None` for a type that is not enabled and for `F16`,
+    /// `UB`, `IB`, `UN`, `IN`.
+    pub fn from_f32_saturating(&self, x: f32) -> Option<NumericValue> {
+        // `as` truncates toward zero and saturates, `NaN` becomes 0; `f32::round` is not in `core`
+        #[allow(unused_variables)]
+        let r = if x >= 0.0 { x + 0.5 } else { x - 0.5 };
+        Some(match self {
+            #[cfg(feature = "nibble")]
+            NumericBaseType::Nibble => NumericValue::Nibble(Nibble::new_masked((r as u8).min(15))),
+            NumericBaseType::U8 => NumericValue::U8(r as u8),
+            #[cfg(feature = "u16")]
+            NumericBaseType::U16 => NumericValue::U16(r as u16),
+            #[cfg(feature = "u32")]
+            NumericBaseType::U32 => NumericValue::U32(r as u32),
+            #[cfg(feature = "unib32")]
+            NumericBaseType::UNib32 => NumericValue::UNib32(UNib32(r as u32)),
+            #[cfg(feature = "u64")]
+            NumericBaseType::U64 => NumericValue::U64(r as u64),
+            #[cfg(feature = "i32")]
+            NumericBaseType::I32 => NumericValue::I32(r as i32),
+            #[cfg(feature = "f32")]
+            NumericBaseType::F32 => NumericValue::F32(x),
+            #[cfg(feature = "u128")]
+            NumericBaseType::U128 => NumericValue::U128(r as u128),
+            #[cfg(feature = "i8")]
+            NumericBaseType::I8 => NumericValue::I8(r as i8),
+            #[cfg(feature = "i16")]
+            NumericBaseType::I16 => NumericValue::I16(r as i16),
+            #[cfg(feature = "i64")]
+            NumericBaseType::I64 => NumericValue::I64(r as i64),
+            #[cfg(feature = "i128")]
+            NumericBaseType::I128 => NumericValue::I128(r as i128),
+            #[cfg(feature = "f64")]
+            NumericBaseType::F64 => NumericValue::F64(x as f64),
+            #[cfg(feature = "uvlq32")]
+            NumericBaseType::UVlq32 => NumericValue::UVlq32(UVlq32(r as u32)),
+            #[cfg(feature = "uvlq64")]
+            NumericBaseType::UVlq64 => NumericValue::UVlq64(UVlq64(r as u64)),
+            _ => return None,
+        })
+    }
 }

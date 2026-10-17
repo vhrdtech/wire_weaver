@@ -19,12 +19,12 @@ use ww_numeric::NumericValue;
 /// use ww_si::{Second, Unwrapper};
 ///
 /// // the device's clock read in full: 5000 s and a bit, in µs
-/// let now = Second::microseconds(5_000_000_123u64);
+/// let now = Second::micro(5_000_000_123u64);
 /// let mut unwrapper = Unwrapper::new(now).unwrap();
 /// // a timestamp of the same moment as U32 µs: 5_000_000_123 mod 2^32
-/// let wrapped = Second::microseconds(705_032_827u32);
+/// let wrapped = Second::micro(705_032_827u32);
 /// let full = unwrapper.unwrap(wrapped).unwrap();
-/// assert_eq!(full, Second::microseconds(5_000_000_123u64));
+/// assert_eq!(full, Second::micro(5_000_000_123u64));
 /// ```
 #[derive(Clone, Debug)]
 pub struct Unwrapper {
@@ -114,13 +114,13 @@ mod tests {
     use super::*;
 
     fn us32(x: u64) -> Second {
-        Second::microseconds((x % (1 << 32)) as u32)
+        Second::micro((x % (1 << 32)) as u32)
     }
 
     #[test]
     fn follows_wraps() {
         let start = 3 * (1u64 << 32) - 1000;
-        let mut unwrapper = Unwrapper::new(Second::microseconds(start)).unwrap();
+        let mut unwrapper = Unwrapper::new(Second::micro(start)).unwrap();
         // every 10 minutes for 5 hours: several wraps
         for i in 0..30u64 {
             let t = start + i * 600_000_000;
@@ -134,49 +134,46 @@ mod tests {
     #[test]
     fn before_and_after_anchor() {
         let now = 10 * (1u64 << 32) + 5;
-        let mut unwrapper = Unwrapper::new(Second::microseconds(now)).unwrap();
+        let mut unwrapper = Unwrapper::new(Second::micro(now)).unwrap();
         // a timestamp from just before the anchor, across the wrap
         let earlier = now - 100;
         assert_eq!(
             unwrapper.unwrap(us32(earlier)).unwrap(),
-            Second::microseconds(earlier)
+            Second::micro(earlier)
         );
         let later = now + 1_000_000;
-        assert_eq!(
-            unwrapper.unwrap(us32(later)).unwrap(),
-            Second::microseconds(later)
-        );
+        assert_eq!(unwrapper.unwrap(us32(later)).unwrap(), Second::micro(later));
     }
 
     #[test]
     fn anchor_in_another_prefix() {
         // anchor in ns, timestamps as u16 ms (wraps every 65.5 s)
         let now_ns = 1_000_000_123_456_789u64; // ~11.6 days
-        let mut unwrapper = Unwrapper::new(Second::nanoseconds(now_ns)).unwrap();
+        let mut unwrapper = Unwrapper::new(Second::nano(now_ns)).unwrap();
         let t_ms = now_ns / 1_000_000 + 20;
         let full = unwrapper
-            .unwrap(Second::milliseconds((t_ms % 65536) as u16))
+            .unwrap(Second::milli((t_ms % 65536) as u16))
             .unwrap();
         assert_eq!(full.prefix, Prefix::Milli);
         assert_eq!(full.value, NumericValue::U64(t_ms));
-        assert_eq!(unwrapper.last(), Second::milliseconds(t_ms));
+        assert_eq!(unwrapper.last(), Second::milli(t_ms));
     }
 
     #[test]
     fn early_after_start_is_not_negative() {
-        let mut unwrapper = Unwrapper::new(Second::microseconds(5u64)).unwrap();
+        let mut unwrapper = Unwrapper::new(Second::micro(5u64)).unwrap();
         let t = (1u64 << 32) - 3;
         // can't be from before the clock started: it is t, not -3
-        assert_eq!(unwrapper.unwrap(us32(t)).unwrap(), Second::microseconds(t));
+        assert_eq!(unwrapper.unwrap(us32(t)).unwrap(), Second::micro(t));
     }
 
     #[test]
     fn full_width_passes_through() {
-        let mut unwrapper = Unwrapper::new(Second::microseconds(5u64)).unwrap();
-        let t = Second::microseconds(u64::MAX);
+        let mut unwrapper = Unwrapper::new(Second::micro(5u64)).unwrap();
+        let t = Second::micro(u64::MAX);
         assert_eq!(unwrapper.unwrap(t).unwrap(), t);
         assert_eq!(
-            unwrapper.unwrap(Second::seconds_f32(1.0)),
+            unwrapper.unwrap(Second::from_f32(1.0)),
             Err(UnwrapError::NotAnInteger)
         );
     }

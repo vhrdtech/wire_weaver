@@ -1,7 +1,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-//! SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks
-//! (`Volt { prefix: Milli, value: U16(3300) }`), so the API says what a value means and each device chooses its own
-//! resolution and range.
+//! SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the
+//! unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and
+//! each device chooses its own resolution and range.
+//!
+//! Every quantity is the one generic [Quantity]`<U>`, and every unit a zero-size marker in [units]; the names APIs
+//! write are aliases (`pub type Volt = Quantity<units::Volt>`). Constructors, conversions, comparisons and formatting
+//! are written once for all of them, and `*` / `/` between quantities are checked by the compiler against a product
+//! table (`Volt * Ampere` is a `Watt`).
 //!
 //! Quantity groups are cargo features (`time`, `electrical`, `mechanical`, `angle`, `thermal`, `chemical`,
 //! `photometric`, `radiation`, `logarithmic`, `dimensionless`, `quantities` for all), as are the number types (`u16`,
@@ -9,21 +14,9 @@
 //!
 //! A value with the time it was taken is a [Timed] (feature `time`).
 
-#[cfg(all(feature = "mechanical", feature = "time"))]
-mod convert;
-#[cfg(any(
-    feature = "time",
-    feature = "electrical",
-    feature = "mechanical",
-    feature = "angle",
-    feature = "thermal",
-    feature = "chemical",
-    feature = "photometric",
-    feature = "radiation",
-    feature = "logarithmic",
-    feature = "dimensionless"
-))]
+mod algebra;
 mod ops;
+mod quantity;
 #[cfg(feature = "time")]
 mod timed;
 #[cfg(feature = "time")]
@@ -32,16 +25,59 @@ pub use timed::Timed;
 mod timestamp;
 #[cfg(feature = "host")]
 pub use timestamp::{UnwrapError, Unwrapper};
+mod unit;
+pub use unit::{Dim, Scale, Unit, UnitDiv, UnitExpr, UnitMul};
+pub mod units;
 
+use core::marker::PhantomData;
 use shrink_wrap::prelude::*;
 pub use ww_numeric;
 use ww_numeric::NumericValue;
 
-pub enum SIExpr<'i> {
-    Num(NumericValue),
-    Unit { prefix: Prefix, unit: Unit<'i> },
-    Mul((RefBox<'i, SIExpr<'i>>, RefBox<'i, SIExpr<'i>>)),
-    Div((RefBox<'i, SIExpr<'i>>, RefBox<'i, SIExpr<'i>>)),
+/// A value of the unit `U`: a prefix and a number in whatever storage the device picks. The unit is only in the type,
+/// it takes no space on the wire or in RAM; `Quantity<units::Volt>` is written [Volt].
+///
+/// On the wire the prefix (a `UNib32`, one nibble up to `Ronna`) and then the value with its number type
+/// (`final_structure`): `Volt::milli(3300u16)` is `12 e4 0c`. In a `Series` the prefix is a run and the value a
+/// numeric column that restarts where the prefix changes.
+///
+/// ```
+/// use ww_si::{Ampere, Volt, Watt};
+///
+/// let v = Volt::milli(250u8);
+/// assert_eq!(v, Volt::base(0.25f32));
+/// assert_eq!(format!("{v}"), "250 mV");
+/// assert_eq!(format!("{v:#}"), "0.25 V");
+/// let p: Watt = v * Ampere::base(2u8);
+/// assert_eq!(p, Watt::base(0.5f32));
+/// ```
+///
+/// Units that don't go together don't build. Only products in the table multiply:
+///
+/// ```compile_fail
+/// use ww_si::{AngularVelocity, Volt};
+///
+/// let _ = Volt::base(1u8) * AngularVelocity::base(1u8);
+/// ```
+///
+/// and only values of the same unit add up:
+///
+/// ```compile_fail
+/// use ww_si::{Ampere, Volt};
+///
+/// let _ = Volt::base(1u8) + Ampere::base(1u8);
+/// ```
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone),
+    final_structure,
+    series
+)]
+pub struct Quantity<U: Unit> {
+    pub prefix: Prefix,
+    pub value: NumericValue,
+    _unit: PhantomData<U>,
 }
 
 #[derive_shrink_wrap(
@@ -150,92 +186,40 @@ impl TryFrom<i8> for Prefix {
     }
 }
 
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Clone, Debug),
-    final_structure,
-    ww_repr = unib32
-)]
-pub enum BaseUnit<'i> {
-    Unitless,
-    Second,
-    Ampere,
-    Volt,
-    Ohm,
-    Hertz,
-    Watt,
-    Kelvin,
-
-    Meter,
-    Kilogram,
-    Mole,
-    Candela,
-    Radian,
-    Steradian,
-    Newton,
-    Pascal,
-    Joule,
-    Coulomb,
-    Farad,
-    Siemens,
-    Weber,
-    Tesla,
-    Henry,
-    DegreeCelsius,
-    Lumen,
-    Lux,
-    Becquerel,
-    Gray,
-    Sievert,
-    Katal,
-
-    Named {
-        name: &'i str,
-        symbol: &'i str,
-        exp: SIExp,
-    },
+impl Prefix {
+    /// The SI symbol: `m`, `µ`, `k`, `da`; empty for `Unit`.
+    pub const fn symbol(&self) -> &'static str {
+        match self {
+            Prefix::Unit => "",
+            Prefix::Milli => "m",
+            Prefix::Micro => "µ",
+            Prefix::Nano => "n",
+            Prefix::Pico => "p",
+            Prefix::Kilo => "k",
+            Prefix::Mega => "M",
+            Prefix::Giga => "G",
+            Prefix::Deca => "da",
+            Prefix::Hecto => "h",
+            Prefix::Tera => "T",
+            Prefix::Peta => "P",
+            Prefix::Exa => "E",
+            Prefix::Zetta => "Z",
+            Prefix::Yotta => "Y",
+            Prefix::Ronna => "R",
+            Prefix::Quetta => "Q",
+            Prefix::Deci => "d",
+            Prefix::Centi => "c",
+            Prefix::Femto => "f",
+            Prefix::Atto => "a",
+            Prefix::Zepto => "z",
+            Prefix::Yocto => "y",
+            Prefix::Ronto => "r",
+            Prefix::Quecto => "q",
+        }
+    }
 }
 
-pub struct Unit<'i> {
-    pub prefix: Prefix,
-    pub base: BaseUnit<'i>,
-    pub exp: i8,
-}
-
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug)
-)]
-pub struct SIExp {
-    pub second: INib8P3,
-    pub meter: INib8P3,
-    pub kilogram: INib8P3,
-    pub ampere: INib8P3,
-    #[flag]
-    candela: bool,
-    #[flag]
-    mole: bool,
-    #[flag]
-    kelvin: bool,
-    pub kelvin: Option<INib8P3>,
-    pub mole: Option<INib8P3>,
-    pub candela: Option<INib8P3>,
-}
-
-/// Any SI quantity with prefix (unit, milli, micro, kilo, mega, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-pub struct Quantity<'i> {
-    pub number: NumericValue,
-    pub unit: Unit<'i>,
-}
-
-// Base units
-
-/// Time quantity in seconds with prefix (s, ms, μs, ns, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+/// Time in seconds with a prefix (s, ms, µs, ns), and a device timestamp, see below.
 ///
 /// # As a timestamp
 ///
@@ -248,555 +232,199 @@ pub struct Quantity<'i> {
 /// Timestamps are never signed or floats. The host gets the full time back with [Unwrapper] (feature `host`),
 /// anchored on a full-width reading of the same clock (`ww_timebase::Clock::now()`).
 #[cfg(feature = "time")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Second {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
+pub type Second = Quantity<units::Second>;
 
-/// Length quantity in meters with prefix (m, mm, μm, km, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Meter {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Mass quantity in grams with prefix (g, mg, μg, kg, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// Note that gram is expressed with Prefix::Milli (milli-kilo-gram)
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct KiloGram {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Electric current quantity in Amperes with prefix (A, mA, μA, kA, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[cfg(feature = "electrical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Ampere {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Thermodynamic temperature quantity in Kelvin with prefix (K, mK, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[cfg(feature = "thermal")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Kelvin {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Amount of substance quantity in mole with prefix (mol, mmol, μmol, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[cfg(feature = "chemical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Mole {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Luminous intensity quantity in candela with prefix (cd, mcd, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-#[cfg(feature = "photometric")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Candela {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-// Derived units
-
-/// Frequency quantity in Hertz with prefix (Hz, mHz, kHz, MHz, GHz, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: s−1, 1/s
+/// Frequency in hertz with a prefix (Hz, kHz, MHz, GHz).
 #[cfg(feature = "time")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Hertz {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
+pub type Hertz = Quantity<units::Hertz>;
 
-/// Angle quantity in radians with prefix (rad, mrad, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: 1, m/m
+/// Frequency drift in hertz per second with a prefix (Hz/s, kHz/s).
+#[cfg(feature = "time")]
+pub type HertzPerSecond = Quantity<units::HertzPerSecond>;
+
+/// Symbol rate in baud with a prefix (Bd, kBd, MBd): the baud rate of a UART, the bit rate of a decoder.
+#[cfg(feature = "time")]
+pub type Baud = Quantity<units::Baud>;
+
+/// Electric current in amperes with a prefix (A, mA, µA, nA).
+#[cfg(feature = "electrical")]
+pub type Ampere = Quantity<units::Ampere>;
+
+/// Voltage in volts with a prefix (V, mV, µV, kV).
+#[cfg(feature = "electrical")]
+pub type Volt = Quantity<units::Volt>;
+
+/// Resistance in ohms with a prefix (Ω, kΩ, MΩ).
+#[cfg(feature = "electrical")]
+pub type Ohm = Quantity<units::Ohm>;
+
+/// Capacitance in farads with a prefix (F, µF, nF, pF).
+#[cfg(feature = "electrical")]
+pub type Farad = Quantity<units::Farad>;
+
+/// Conductance in siemens with a prefix (S, mS).
+#[cfg(feature = "electrical")]
+pub type Siemens = Quantity<units::Siemens>;
+
+/// Inductance in henries with a prefix (H, mH, µH).
+#[cfg(feature = "electrical")]
+pub type Henry = Quantity<units::Henry>;
+
+/// Electric charge in coulombs with a prefix (C, mC).
+#[cfg(feature = "electrical")]
+pub type Coulomb = Quantity<units::Coulomb>;
+
+/// Power in watts with a prefix (W, mW, kW).
+#[cfg(feature = "electrical")]
+pub type Watt = Quantity<units::Watt>;
+
+/// Magnetic flux in webers with a prefix (Wb, mWb).
+#[cfg(feature = "electrical")]
+pub type Weber = Quantity<units::Weber>;
+
+/// Magnetic flux density in teslas with a prefix (T, mT).
+#[cfg(feature = "electrical")]
+pub type Tesla = Quantity<units::Tesla>;
+
+/// Length in meters with a prefix (m, mm, µm, km).
+#[cfg(feature = "mechanical")]
+pub type Meter = Quantity<units::Meter>;
+
+/// Mass in grams with a prefix (g, mg, kg): 5 kg is `Gram::kilo(5u8)`.
+#[cfg(feature = "mechanical")]
+pub type Gram = Quantity<units::Gram>;
+
+/// Force in newtons with a prefix (N, mN, kN).
+#[cfg(feature = "mechanical")]
+pub type Newton = Quantity<units::Newton>;
+
+/// Pressure in pascals with a prefix (Pa, kPa, MPa).
+#[cfg(feature = "mechanical")]
+pub type Pascal = Quantity<units::Pascal>;
+
+/// Energy in joules with a prefix (J, mJ, kJ).
+#[cfg(feature = "mechanical")]
+pub type Joule = Quantity<units::Joule>;
+
+/// Torque in newton-meters with a prefix (N·m, mN·m), kept apart from [Joule].
+#[cfg(feature = "mechanical")]
+pub type Torque = Quantity<units::Torque>;
+
+/// Volume in litres with a prefix (L, mL, µL).
+#[cfg(feature = "mechanical")]
+pub type Litre = Quantity<units::Litre>;
+
+/// Volumetric flow in cubic meters per second with a prefix.
+#[cfg(feature = "mechanical")]
+pub type VolumetricFlow = Quantity<units::VolumetricFlow>;
+
+/// Speed in meters per second with a prefix (m/s, mm/s, km/s).
+#[cfg(feature = "mechanical")]
+pub type Speed = Quantity<units::Speed>;
+
+/// Acceleration in meters per second squared with a prefix.
+#[cfg(feature = "mechanical")]
+pub type Acceleration = Quantity<units::Acceleration>;
+
+/// Jerk in meters per second cubed with a prefix.
+#[cfg(feature = "mechanical")]
+pub type Jerk = Quantity<units::Jerk>;
+
+/// Snap in meters per second to the fourth with a prefix.
+#[cfg(feature = "mechanical")]
+pub type Snap = Quantity<units::Snap>;
+
+/// Yank in newtons per second with a prefix.
+#[cfg(feature = "mechanical")]
+pub type Yank = Quantity<units::Yank>;
+
+/// Angle in radians with a prefix (rad, mrad).
 #[cfg(feature = "angle")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Radian {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
+pub type Radian = Quantity<units::Radian>;
 
-/// Angle quantity in degree of arc with prefix (deg, mdeg, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: (π / 180) rad (≈ 17.5 mrad)
+/// Angle in degrees with a prefix (°, m°).
 #[cfg(feature = "angle")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Degree {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
+pub type Degree = Quantity<units::Degree>;
 
-/// Solid angle quantity in steradian with prefix (sr, msr, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: 1, m2/m2
+/// Solid angle in steradians with a prefix.
 #[cfg(feature = "angle")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Steradian {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
+pub type Steradian = Quantity<units::Steradian>;
 
-/// Force or weight quantity in Newtons with prefix (N, mN, kN, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg⋅m⋅s−2, kg⋅m/s2
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Newton {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
+/// Angular velocity in radians per second with a prefix (rad/s, krad/s).
+#[cfg(feature = "angle")]
+pub type AngularVelocity = Quantity<units::AngularVelocity>;
 
-/// Pressure or stress quantity in Pascals with prefix (Pa, mPa, kPa, MPa, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg⋅m−1⋅s−2, N/m2
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Pascal {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
+/// Angular acceleration in radians per second squared with a prefix.
+#[cfg(feature = "angle")]
+pub type AngularAcceleration = Quantity<units::AngularAcceleration>;
 
-/// Energy, work or heat quantity in Joules with prefix (J, mJ, kJ, MJ, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg⋅m2⋅s−2, m⋅N, C⋅V, W⋅s
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Joule {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Torque or moment of force quantity in newton-meters with prefix (N·m, mN·m, kN·m, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg⋅m2⋅s−2, N⋅m. Same dimension as [Joule], but not the same thing: a torque times an angle in radians is an
-/// energy.
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Torque {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Power or radiant flux quantity in Watts with prefix (W, mW, kW, MW, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg⋅m2⋅s−3, J/s, V⋅A
-#[cfg(feature = "electrical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Watt {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Electric charge quantity in Coulombs with prefix (C, mC, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: s⋅A, A⋅s, F⋅V
-#[cfg(feature = "electrical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Coulomb {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Voltage, electric potential or electromotive force quantity in Volts with prefix (V, mV, kV, MV, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg⋅m2⋅s−3⋅A−1, J/C, W/A
-#[cfg(feature = "electrical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Volt {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Capacitance quantity in Farads with prefix (F, pF, nF, uF, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg−1⋅m−2⋅s4⋅A2, C/V, s/Ω
-#[cfg(feature = "electrical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Farad {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Electrical resistance, reactance or impedance quantity in Ohms with prefix (Ω, kΩ, MΩ, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg⋅m2⋅s−3⋅A−2, V/A, 1/S
-#[cfg(feature = "electrical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Ohm {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Electrical admittance, conductance, susceptance quantity in Siemens with prefix (S, mS, kS, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg−1⋅m−2⋅s3⋅A2, A/V, 1/Ω
-#[cfg(feature = "electrical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Siemens {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Magnetic flux quantity in Webers with prefix (Wb, mWb, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg⋅m2⋅s−2⋅A−1, V⋅s, T⋅m2, J/A
-#[cfg(feature = "electrical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Weber {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Magnetic flux density quantity in Tesla with prefix (T, mT, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg⋅s−2⋅A−1, N/(A⋅m), Wb/m2, V⋅s/m2
-#[cfg(feature = "electrical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Tesla {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Inductance or permeance quantity in Henry with prefix (H, uH, mH, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: kg⋅m2⋅s−2⋅A−2, V⋅s/A, Wb/A, Ω⋅s
-#[cfg(feature = "electrical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Henry {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Temperature relative to -273.15K quantity in °C
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: K
+/// Thermodynamic temperature in kelvins with a prefix (K, mK).
 #[cfg(feature = "thermal")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct DegreeCelsius {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
+pub type Kelvin = Quantity<units::Kelvin>;
 
-/// Luminous flux quantity in candela (cd)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: cd, cd⋅sr
-#[cfg(feature = "photometric")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Lumen {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
+/// Temperature in degrees Celsius with a prefix (°C, m°C).
+#[cfg(feature = "thermal")]
+pub type DegreeCelsius = Quantity<units::DegreeCelsius>;
 
-/// Illuminance quantity in lux (lx)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: cd⋅m−2, lm/m2
-#[cfg(feature = "photometric")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Lux {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Radioactivity quantity in Becquerel (Bq)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: s−1, 1/s
-#[cfg(feature = "radiation")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Becquerel {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Absorbed does quantity in Gray (Gy)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: m2⋅s−2, J/kg
-#[cfg(feature = "radiation")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Gray {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Equivalent dose quantity in Sievert (Sv)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: m2⋅s−2, J/kg
-#[cfg(feature = "radiation")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Sievert {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Catalytic activity quantity in katal (kat)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: s−1⋅mol, mol/s
+/// Amount of substance in moles with a prefix (mol, mmol, µmol).
 #[cfg(feature = "chemical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Katal {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
+pub type Mole = Quantity<units::Mole>;
 
-// Related units
-/// Logarithmic ratio quantity
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+/// Catalytic activity in katals with a prefix.
+#[cfg(feature = "chemical")]
+pub type Katal = Quantity<units::Katal>;
+
+/// Luminous intensity in candelas with a prefix (cd, mcd).
+#[cfg(feature = "photometric")]
+pub type Candela = Quantity<units::Candela>;
+
+/// Luminous flux in lumens with a prefix.
+#[cfg(feature = "photometric")]
+pub type Lumen = Quantity<units::Lumen>;
+
+/// Illuminance in lux with a prefix.
+#[cfg(feature = "photometric")]
+pub type Lux = Quantity<units::Lux>;
+
+/// Radioactivity in becquerels with a prefix.
+#[cfg(feature = "radiation")]
+pub type Becquerel = Quantity<units::Becquerel>;
+
+/// Absorbed dose in grays with a prefix.
+#[cfg(feature = "radiation")]
+pub type Gray = Quantity<units::Gray>;
+
+/// Equivalent dose in sieverts with a prefix.
+#[cfg(feature = "radiation")]
+pub type Sievert = Quantity<units::Sievert>;
+
+/// Energy in electron-volts with a prefix (eV, keV, MeV).
+#[cfg(feature = "radiation")]
+pub type ElectronVolt = Quantity<units::ElectronVolt>;
+
+/// A fraction with a prefix (1, %, ‰, ppm as `Unit`, `Centi`, `Milli`, `Micro`): a duty cycle, a probability, a
+/// scale factor, an efficiency.
+#[cfg(feature = "dimensionless")]
+pub type Ratio = Quantity<units::Ratio>;
+
+#[cfg(feature = "dimensionless")]
+impl Ratio {
+    /// `value` in percent, `Prefix::Centi`: `Ratio::percent(50u8)` is one half.
+    pub fn percent(value: impl Into<NumericValue>) -> Self {
+        Self::new(Prefix::Centi, value)
+    }
+
+    /// `value` in per mille, `Prefix::Milli`.
+    pub fn per_mille(value: impl Into<NumericValue>) -> Self {
+        Self::new(Prefix::Milli, value)
+    }
+
+    /// `value` in parts per million, `Prefix::Micro`.
+    pub fn ppm(value: impl Into<NumericValue>) -> Self {
+        Self::new(Prefix::Micro, value)
+    }
+}
+/// A level in decibels, dB, without a prefix (a logarithm, not a [Ratio]).
 #[cfg(feature = "logarithmic")]
 #[derive_shrink_wrap(
     borrowed,
@@ -810,8 +438,7 @@ pub struct DeciBel {
     pub value: NumericValue,
 }
 
-/// Logarithmic ratio quantity relative to mW
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
+/// A power level in decibels relative to 1 mW, dBm, without a prefix.
 #[cfg(feature = "logarithmic")]
 #[derive_shrink_wrap(
     borrowed,
@@ -823,391 +450,4 @@ pub struct DeciBel {
 )]
 pub struct DeciBelmW {
     pub value: NumericValue,
-}
-
-/// Dimensionless ratio with prefix (1, %, ‰, ppm as `Centi`, `Milli`, `Micro`): a duty cycle, a probability, a
-/// scale factor, an efficiency. Backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// A fraction, not a logarithm: 0.5 is half, see `DeciBel` for a level.
-///
-/// SI: 1
-#[cfg(feature = "dimensionless")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Ratio {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Volume quantity in liters with prefix (l, ml, μl, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: 0.001 m3
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Litre {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Energy quantity in electron-volts with prefix (eV, kEv, MEv, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: J, kg⋅m2⋅s−2
-#[cfg(feature = "radiation")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct ElectronVolt {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-// Kinematics
-/// Speed quantity in meters per second with prefix (m/s, mm/s, km/s, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: m⋅s−1
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Speed {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Acceleration quantity in meters per second squared with prefix (m/s^2, mm/s^2, km/s^2, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: m⋅s−2
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Acceleration {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Jerk or jolt quantity in meters per second cubed with prefix (m/s^3, mm/s^3, km/s^3, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: m⋅s−3
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Jerk {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Snap or jounce quantity in meters per second to the fourth with prefix (m/s^4, mm/s^4, km/s^4, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: m⋅s−4
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Snap {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Yank quantity in kilogram meters per second cubed with prefix (kg * m/s^3, kg * mm/s^3, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: m⋅kg⋅s−3
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Yank {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Angular velocity quantity in radians per second with prefix (rad/s, krad/s, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: s−1
-#[cfg(feature = "angle")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct AngularVelocity {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Angular acceleration quantity in radians per second squared with prefix (rad/s^2, krad/s^2, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: s−2
-#[cfg(feature = "angle")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct AngularAcceleration {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Frequency drift quantity in Hertz per second with prefix (Hz/s, kHz/s, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: s−2
-#[cfg(feature = "time")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct HertzPerSecond {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Symbol rate in baud with prefix (Bd, kBd, MBd), backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64,
-/// etc.: the baud rate of a UART, the bit rate of a decoder. One baud is one symbol per second; for a UART a symbol
-/// is a bit, so 115 200 Bd is 115 200 bit/s on the line. A frequency of its own kind, so it is not mixed up with a
-/// clock in [Hertz].
-///
-/// SI: s−1
-#[cfg(feature = "time")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct Baud {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-/// Volumetric flow quantity in cubic meters per second with prefix (m^3/s, mm^3/s, km^3/s, etc.)
-/// backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.
-///
-/// SI: m3⋅s−1
-#[cfg(feature = "mechanical")]
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug),
-    final_structure,
-    series
-)]
-pub struct VolumetricFlow {
-    pub prefix: Prefix,
-    pub value: NumericValue,
-}
-
-// Dynamic
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct INib8P3(i8);
-
-impl INib8P3 {
-    pub const fn new(_n: u8) -> Option<INib8P3> {
-        todo!()
-    }
-
-    pub const fn minus_three() -> Self {
-        INib8P3(-3 + 3)
-    }
-    pub const fn minus_two() -> Self {
-        INib8P3(-2 + 3)
-    }
-    pub const fn minus_one() -> Self {
-        INib8P3(-1 + 3)
-    }
-    pub const fn zero() -> Self {
-        INib8P3(3)
-    }
-    pub const fn one() -> Self {
-        INib8P3(1 + 3)
-    }
-    pub const fn two() -> Self {
-        INib8P3(2 + 3)
-    }
-    pub const fn three() -> Self {
-        INib8P3(3 + 3)
-    }
-    pub const fn four() -> Self {
-        INib8P3(4 + 3)
-    }
-
-    pub const fn value(&self) -> i8 {
-        self.0 - 3
-    }
-}
-
-impl SerializeShrinkWrap for INib8P3 {
-    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
-
-    fn ser_shrink_wrap(&self, _wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
-        todo!()
-    }
-}
-
-impl<'i> DeserializeShrinkWrap<'i> for INib8P3 {
-    const ELEMENT_SIZE: ElementSize = <INib8P3 as SerializeShrinkWrap>::ELEMENT_SIZE;
-
-    fn des_shrink_wrap<'di>(_rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
-        todo!()
-    }
-}
-
-#[cfg(feature = "std")]
-impl SerializeShrinkWrapOwned for INib8P3 {
-    const ELEMENT_SIZE: ElementSize = <INib8P3 as SerializeShrinkWrap>::ELEMENT_SIZE;
-
-    fn ser_shrink_wrap_owned(&self, _wr: &mut BufWriterOwned) -> Result<(), ShrinkWrapError> {
-        todo!()
-    }
-}
-
-impl DeserializeShrinkWrapOwned for INib8P3 {
-    const ELEMENT_SIZE: ElementSize = <INib8P3 as SerializeShrinkWrap>::ELEMENT_SIZE;
-
-    fn des_shrink_wrap_owned(_rd: &mut BufReader<'_>) -> Result<Self, ShrinkWrapError> {
-        todo!()
-    }
-}
-
-#[macro_export]
-macro_rules! quantity {
-    ($value:literal s $value_ty:ident) => {
-        ww_si::Second { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal m $value_ty:ident) => {
-        ww_si::Meter { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal ms $value_ty:ident) => {
-        ww_si::Second { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal us $value_ty:ident) => {
-        ww_si::Second { prefix: ww_si::Prefix::Micro, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal ns $value_ty:ident) => {
-        ww_si::Second { prefix: ww_si::Prefix::Nano, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal Hz $value_ty:ident) => {
-        ww_si::Hertz { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal kHz $value_ty:ident) => {
-        ww_si::Hertz { prefix: ww_si::Prefix::Kilo, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal MHz $value_ty:ident) => {
-        ww_si::Hertz { prefix: ww_si::Prefix::Mega, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal Bd $value_ty:ident) => {
-        ww_si::Baud { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal g $value_ty:ident) => {
-        ww_si::KiloGram { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal uA $value_ty:ident) => {
-        ww_si::Ampere { prefix: ww_si::Prefix::Micro, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal mA $value_ty:ident) => {
-        ww_si::Ampere { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal A $value_ty:ident) => {
-        ww_si::Ampere { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal mV $value_ty:ident) => {
-        ww_si::Volt { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal V $value_ty:ident) => {
-        ww_si::Volt { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal Nm $value_ty:ident) => {
-        ww_si::Torque { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal mNm $value_ty:ident) => {
-        ww_si::Torque { prefix: ww_si::Prefix::Milli, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal % $value_ty:ident) => {
-        ww_si::Ratio { prefix: ww_si::Prefix::Centi, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-    ($value:literal m/s $value_ty:ident) => {
-        ww_si::Speed { prefix: ww_si::Prefix::Unit, value: ww_si::ww_numeric::value!(ww_si $value $value_ty) }
-    };
-}
-
-#[cfg(all(test, feature = "u32", feature = "time"))]
-mod tests {
-    use super::*;
-    use ww_numeric::NumericBaseType;
-
-    #[test]
-    fn quantity_macro() {
-        use crate as ww_si;
-        let time = quantity!(5 s u32);
-        assert_eq!(time.prefix, Prefix::Unit);
-        assert_eq!(time.value.ty(), NumericBaseType::U32);
-    }
 }

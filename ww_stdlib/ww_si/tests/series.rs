@@ -18,7 +18,7 @@ fn design_example() {
         .into_iter()
         .zip([152_000i32, 152_002, 151_999, 152_001])
         .map(|(v, i)| IvSample {
-            v: Volt::millivolts(v),
+            v: Volt::milli(v),
             i: Ampere::new(Prefix::Micro, i),
         })
         .collect();
@@ -43,9 +43,9 @@ fn timed_samples() {
     use ww_si::{Second, Timed};
     let items: Vec<Timed<IvSample>> = (0..100u32)
         .map(|k| Timed {
-            t: Second::microseconds(1_000_000 + k * 1000),
+            t: Second::micro(1_000_000 + k * 1000),
             value: IvSample {
-                v: Volt::millivolts(3300u16 + (k % 2) as u16),
+                v: Volt::milli(3300u16 + (k % 2) as u16),
                 i: Ampere::new(Prefix::Micro, 152_000i32),
             },
         })
@@ -63,4 +63,30 @@ fn timed_samples() {
     let back = SeriesOwned::<Timed<IvSample>>::from_ww_bytes_owned(&bytes).unwrap();
     assert_eq!(back[99].t.value, NumericValue::U32(1_099_000));
     assert_eq!(back[99].value.v.value, NumericValue::U16(3301));
+}
+
+/// `Series<Timed<Volt>>`: 32 samples at a 40 µs clock, the same 22 bytes as ww_si 0.1.
+#[test]
+fn timed_volt_bytes() {
+    use ww_si::{Second, Timed};
+    let items: Vec<Timed<Volt>> = (0..32u32)
+        .map(|k| {
+            Timed::new(
+                Second::micro(1_000_000 + k * 40),
+                Volt::milli(3300u16 + (k % 3) as u16),
+            )
+        })
+        .collect();
+    let bytes = Series::new(&items).to_ww_bytes_owned().unwrap();
+    assert_eq!(
+        bytes,
+        [
+            0x84, 0x21, 0x98, 0x00, 0x3d, 0x09, 0x02, 0xa0, 0x22, 0x28, 0x67, 0x20, 0xab, 0xae,
+            0x85, 0xd7, 0x5c, 0x2b, 0xae, 0xb1, 0x57, 0x5c
+        ]
+    );
+    let back = SeriesOwned::<Timed<Volt>>::from_ww_bytes_owned(&bytes).unwrap();
+    for (a, b) in back.iter().zip(&items) {
+        assert!(a.t.same_repr(&b.t) && a.value.same_repr(&b.value));
+    }
 }

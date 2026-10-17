@@ -1,5 +1,7 @@
 pub mod attachment;
 pub mod credit;
+#[cfg(test)]
+mod credit_sim;
 pub mod dyn_client;
 pub mod dyn_observe;
 pub mod dyn_positioned;

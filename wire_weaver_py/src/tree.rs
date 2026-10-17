@@ -868,7 +868,7 @@ impl Sink {
 
     /// Credit sinks: `(accepted, sent)` bytes (serialized values) in this session, None for other sinks or before `open()`.
     #[getter]
-    fn progress(&self) -> Option<(u32, u32)> {
+    fn progress(&self) -> Option<(u64, u64)> {
         let guard = self.sink.lock().expect("not poisoned");
         guard.as_ref().and_then(|sink| sink.credit_progress())
     }

@@ -98,8 +98,9 @@ stream costs almost nothing more than a counted one there, and adds backfill and
 A credit sink is its own resource kind (`ApiItemKind::FlowSink { ty, flow: FlowControl::Credit }` in `ww_self`), so
 turning a plain sink into a credit sink is an API break: its writes change. Each write is a
 `ww_client_server::CreditWrite { pos: UVlq32, data: TailBytes }` inside `RequestKind::Write`, `pos` being the byte
-position of the item's first byte since the session's `Open` (1 byte for the first 128 bytes of a session, 2 up to
-16 KiB, 3 up to 2 MiB, 4 up to 256 MiB). Three sideband messages carry the rest:
+position of the item's first byte since the session's `Open`, modulo 2^28 (see [below](#positions-wrap-at-256-mib)):
+1 byte for the first 128 bytes of a session, 2 up to 16 KiB, 3 up to 2 MiB, never more than 4. Three sideband
+messages carry the rest:
 
 | Sideband | Direction | Meaning |
 |---|---|---|
@@ -108,7 +109,7 @@ position of the item's first byte since the session's `Open` (1 byte for the fir
 | `Resend { have, grant }` | device → host | writes after `have` were lost: send again from byte `have` (an item boundary), up to `have + grant` |
 
 All three carry the whole state, so losing one is harmless: the next one, or the answer to the next query, replaces
-it. Positions are 32 bit, a session is limited to 4 GiB.
+it. Their positions are `UNib32`, modulo 2^28 as well.
 
 1. `Open` starts a session: the device resets its counters and answers with `Credit { have: 0, grant: capacity }`.
    Credit events left over from an earlier session are ignored by the host until this one arrives.
@@ -129,6 +130,27 @@ last one that arrived; the device answers with `Resend` instead of `Credit`. On 
 and sends everything again from its copy (go-back-N). Requests are processed in order, so when the device sees a
 `CreditQuery`, everything sent before it has arrived or is lost; a plain `Credit` never rewinds the host, the rest may
 still be in flight. An empty item takes one position, so its loss is noticed like any other.
+
+### Positions wrap at 256 MiB
+
+Both sides count positions in `u64`, so a session has no size limit. On the wire a position is sent modulo 2^28
+(`credit::POS_MODULUS`, `credit::wire_pos()`), the most a `UVlq32` holds in 4 bytes, and the receiver takes the full
+position nearest to the one it expects (`credit::extend_pos()`: from 2^27 behind it to 2^27 ahead, serial number
+arithmetic as in TCP). A value of 2^28 or more is no position: the device drops such a write (`CreditVerdict::Invalid`),
+the host ignores such a credit event.
+
+That reads every position right as long as it is less than 2^27 (128 MiB) away from what the receiver expects. Credit
+keeps it so: what the host has in flight, sent but not acknowledged, never exceeds the device's buffer, and the buffer
+is at most `credit::MAX_WINDOW`, 64 MiB, a quarter of the modulus. `SinkCredit::new` and `sized_for` refuse a larger
+one (a compile error in a `const`), `try_sized_for` and `set_capacity` return `SinkCreditError::BufferTooLarge`, and
+the host never puts more than `MAX_WINDOW` in flight whatever the device grants. One window on either side of the
+reference takes half the modulus; the other half is the margin for a late packet, a duplicate held back on UDP. Such a
+packet looks like a write from ahead (a gap, answered with a `Resend`) only when it arrives more than 64 MiB of traffic
+late, and like the expected write only when exactly a multiple of 256 MiB late: half a minute at 10 MB/s, far beyond
+how long a datagram lives on a network. Ordered links (USB, RTT, WebSocket) never deliver a late packet at all.
+
+The modulus is the same on every link and fixed by the protocol: nothing is announced at `Open`, there is nothing to
+configure.
 
 Credit sinks are planned to move onto the positions, acknowledgements and resume of counted and reliable streams
 (`API-34` in the [Feature tracker](../features.md)).

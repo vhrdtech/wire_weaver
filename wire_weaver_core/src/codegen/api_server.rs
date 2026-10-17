@@ -1859,7 +1859,8 @@ fn handle_stream(
                                 #send_sideband
                             }
                             ww_client_server::credit::CreditVerdict::Duplicate
-                            | ww_client_server::credit::CreditVerdict::Gap(None) => {}
+                            | ww_client_server::credit::CreditVerdict::Gap(None)
+                            | ww_client_server::credit::CreditVerdict::Invalid => {}
                         }
                         #ev_kind_builder
                         Ok(WrAction::WrittenOk(event_kind_builder))

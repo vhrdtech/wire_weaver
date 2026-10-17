@@ -102,6 +102,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-9, API-10 | Names and paths that don't collide | Generated names carry the whole trait chain; type paths come from Cargo. | api/folder_structure.md
 - API-30 | Counted and reliable streams | Exact counts of lost items; acknowledgements, resends and resume after a reconnect. | api/stream_reliability.md
 - API-28 | Credit sinks | Flow control for data sent to a device, so its buffer never overflows, and lossy links resume where they stopped. | api/credit_sinks.md
+- API-42 | Credit sinks without a size limit | Sessions of any length, positions at most 4 bytes on the wire. | api/stream_protocol.md#positions-wrap-at-256-mib
 - API-20 | Trait paths | Call a shared trait wherever it sits in a device's API. | api/addressing.md
 
 # Device side

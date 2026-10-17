@@ -2,6 +2,9 @@
 
 ### ⚠️ Breaking
 
+- **Breaking:** generated credit-sink servers drop a write whose position is 2^28 or more
+  (`CreditVerdict::Invalid`, API-42); positions wrap on the wire, see `ww_client_server`.
+
 - Generated std clients (CLT-28): `observe_<name>()` of a `+observe` property is the observe request now,
   `observe_<name>(mode)` returns a `PreparedObserve` (`.subscribe().await` gives an `Observer`) instead of a `Stream`
   of stream data; properties without `+observe` keep the old `observe_<name>()`. The modules of the generated levels

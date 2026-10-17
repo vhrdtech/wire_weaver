@@ -1,5 +1,10 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- **Breaking:** credit sinks have no 4 GiB session limit any more (API-42), positions wrap on the wire at 2^28; a
+  session over 256 MiB needs a device with the same change. `Sink.progress` is unchanged for Python.
+
 ### 🚀 Features
 
 - `Node.observe(cfg)` (TOOL-11): observes a trait level's `+observe` properties without generated code, from

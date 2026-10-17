@@ -311,14 +311,15 @@ pub enum StreamSideband {
     User(UNib32),
     /// Credit sinks, device to host: `have` bytes of items were accepted in order since `Open`, the host may send up
     /// to byte position `have + grant` (whole items only). Cumulative, a lost one is replaced by the next one.
+    /// `have` is a position on the wire, modulo 2^28, see [credit::wire_pos].
     // TODO(API-34): Credit, CreditQuery and Resend go, credit sinks move to Ack / Query / ResendFrom (no shim, the
     // wire may break before rePort rev B), ResendFrom may take the name Resend then
     Credit { have: UNib32, grant: UNib32 },
-    /// Credit sinks, host to device: the host has sent up to byte position `sent`, the device answers with
-    /// [StreamSideband::Credit] or [StreamSideband::Resend].
+    /// Credit sinks, host to device: the host has sent up to byte position `sent` (modulo 2^28), the device answers
+    /// with [StreamSideband::Credit] or [StreamSideband::Resend].
     CreditQuery { sent: UNib32 },
-    /// Credit sinks, device to host: writes after `have` were lost, the host sends again from byte position `have`
-    /// (always an item boundary), up to `have + grant` (go-back-N).
+    /// Credit sinks, device to host: writes after `have` (modulo 2^28) were lost, the host sends again from byte
+    /// position `have` (always an item boundary), up to `have + grant` (go-back-N).
     Resend { have: UNib32, grant: UNib32 },
     /// Counted and reliable streams (API-30), receiver to sender: every unit before `have` (live run) and before
     /// `backfill` (backfill run, while there is one) was received; the sender may have up to `grant` bytes of events
@@ -341,7 +342,8 @@ pub enum StreamSideband {
 }
 
 /// Data of a [RequestKind::Write] to a sink with credit-based flow control: the byte position of the item's first byte
-/// (bytes of items sent since the start of the session), then the item itself, the serialized value.
+/// (bytes of items sent since the start of the session, modulo 2^28, see [credit::wire_pos]), then the item itself,
+/// the serialized value.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug), final_structure)]
 pub struct CreditWrite<'i> {
     pub pos: UVlq32,

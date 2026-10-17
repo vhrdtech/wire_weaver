@@ -51,6 +51,11 @@ item**, or the host could never send it. Three things keep a transfer from getti
 - **The device consumes without waiting for more.** A device that collects data before writing it out (a flash page)
   has to write it once less room than the largest item is left: the host can't send the next item before that.
 
+At the other end, a buffer is at most 64 MiB (`credit::MAX_WINDOW`): `sized_for` doesn't compile with a larger one,
+`try_sized_for` and `set_capacity` return `SinkCreditError::BufferTooLarge`. That keeps positions on the wire short
+and unambiguous ([positions wrap at 256 MiB](stream_protocol.md#positions-wrap-at-256-mib)); a session itself has no
+size limit.
+
 ### Device side
 
 Generated server code does the bookkeeping; user code says how many bytes it can buffer and when it frees some. A
@@ -116,7 +121,8 @@ called with, what to `free()` once that value is consumed.
 
 - `flush()` / `flush_blocking()` / `try_flush()` waits until the device accepted everything sent so far, resending
   what was lost; `close()` flushes first, then sends `Close`.
-- `credit_progress()` returns `(accepted, sent)` bytes of the session, e.g. for a progress bar.
+- `credit_progress()` returns `(accepted, sent)` bytes of the session (`u64`, a session has no size limit), e.g. for
+  a progress bar.
 - `set_credit_config(CreditConfig { query_interval, stall_timeout })` tunes it to the link: `query_interval` (1 s by
   default) longer than the link's round trip, `stall_timeout` (30 s by default) longer than the device's worst stall
   (a flash sector erase takes 1-2 s); with no progress for that long, `send()` fails with a timeout.

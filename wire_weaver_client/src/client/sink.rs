@@ -195,7 +195,7 @@ impl<T> Sink<T> {
 
     /// Bytes the device accepted and bytes sent in this session of a credit sink (serialized values), e.g., for a
     /// progress bar.
-    pub fn credit_progress(&self) -> Option<(u32, u32)> {
+    pub fn credit_progress(&self) -> Option<(u64, u64)> {
         self.credit.as_ref().map(|c| (c.acked(), c.sent()))
     }
 

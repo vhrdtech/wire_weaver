@@ -106,12 +106,18 @@ Old hosts never send `Observe`, so they never receive a `PropertyUpdate`. A devi
 
 `SinkCredit` is the sans-IO device-side state machine behind a `#[credit] sink!(..)` ([credit sinks](../api/credit_sinks.md#credit-sinks)):
 generated code feeds it every write's byte position and length via `on_write` (returning a `CreditVerdict`:
-`Accept`, `Duplicate`, or `Gap` with an optional `Resend` to send), and user code only sets its capacity and calls
+`Accept`, `Duplicate`, `Gap` with an optional `Resend` to send, or `Invalid`), and user code only sets its capacity and calls
 `free(len)` as it consumes accepted bytes. `take_credit()` returns a `StreamSideband::Credit` to send once enough
 has been freed (or immediately after `open()`); `query(sent)` answers a host's `CreditQuery`. `SinkCredit::new`
 takes a plain buffer capacity; `sized_for`/`try_sized_for` additionally take the sink's largest item
-(`<SINK>_MAX_ITEM_BYTES` from the generated code) and panic (or error, for `try_sized_for`) if the buffer couldn't
-even hold one.
+(`<SINK>_MAX_ITEM_BYTES` from the generated code) and panic (or return `SinkCreditError::BufferTooSmall`, for
+`try_sized_for`) if the buffer couldn't even hold one. A buffer larger than `MAX_WINDOW` (64 MiB) is refused the same
+way (`BufferTooLarge`).
+
+Positions (`have()`, `freed()`, `limit()`) are `u64` from the session's start, with no limit on a session's size; on
+the wire they go modulo `POS_MODULUS` (2^28), `wire_pos()` and `extend_pos()` convert between the two
+([positions wrap at 256 MiB](../api/stream_protocol.md#positions-wrap-at-256-mib)). `open_at(pos)` starts a session at
+`pos` instead of 0, for tests of long sessions with the host starting at the same position.
 
 ## Worst-case message sizes (`max_len` module)
 

@@ -2,6 +2,11 @@
 
 ### ⚠️ Breaking
 
+- **Breaking:** credit sinks count positions in `u64` and send them modulo 2^28 (API-42): a session has no size
+  limit any more (it failed at 4 GiB, "open it again"). `Sink::credit_progress()` and `DynSink::credit_progress()`
+  return `Option<(u64, u64)>`. The host never has more than `ww_client_server::credit::MAX_WINDOW` (64 MiB) in
+  flight, whatever the device grants. A session over 256 MiB needs a device with the same change.
+
 - `Command::Connect` has a new field `link_setup_timeout_ms: Option<NonZeroU32>` (CLT-30): set `None` to use the
   transport's default. Link setup now gives a device a timeout per transport (USB, UDP, WebSocket 1 s, in-process 250
   ms, RTT 10 s) instead of 250 ms for all, with growing pauses between the retries of `GetDeviceInfo`.

@@ -6,10 +6,10 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use wire_weaver::shrink_wrap::{SerializeShrinkWrapOwned, UNib32, UVlq32};
-use ww_client_server::credit::item_span;
+use ww_client_server::credit::{MAX_WINDOW, extend_pos, item_span, wire_pos};
 use ww_client_server::{CreditWriteOwned, StreamSideband};
 
-use crate::{Error, StreamError};
+use crate::StreamError;
 
 /// Timing of a credit sink, tune it to the link.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,7 +17,7 @@ pub struct CreditConfig {
     /// Send `CreditQuery` when out of credit (or waiting in `flush()`) and nothing came from the device for this
     /// long. Should be longer than the link's round trip.
     pub query_interval: Duration,
-    /// Fail with [Error::Timeout] when the device made no progress for this long (no new credit, nothing accepted),
+    /// Fail with [crate::Error::Timeout] when the device made no progress for this long (no new credit, nothing accepted),
     /// longer than its worst stall (e.g., a flash sector erase). None waits forever.
     pub stall_timeout: Option<Duration>,
 }
@@ -48,21 +48,23 @@ pub(crate) struct CreditTx {
     pub(crate) config: CreditConfig,
     /// Open was sent for the current session
     opened: bool,
-    /// The device answered the Open (a Credit or Resend with `have == 0`), credit events before that are stale
+    /// The device answered the Open (a Credit or Resend with `have` at the start), credit events before that are
+    /// stale
     synced: bool,
-    /// Byte position of the next new item (bytes of items sent since Open, resends not counted)
-    sent: u32,
+    /// Byte position of the next new item (bytes of items sent since Open, resends not counted). Positions are full
+    /// `u64` here, the wire carries them modulo `POS_MODULUS` (`ww_client_server::credit`).
+    sent: u64,
     /// Bytes the device accepted in order
-    acked: u32,
+    acked: u64,
     /// Position up to which the host may send
-    limit: u32,
+    limit: u64,
     /// Largest grant seen: the device's receive buffer (the first grant after Open is all of it), an item bigger than
-    /// this can never be sent
+    /// this can never be sent. At most [MAX_WINDOW].
     window: u32,
     /// Items from `acked` to `sent`, kept for a resend: (byte position, item bytes)
-    unacked: VecDeque<(u32, Vec<u8>)>,
+    unacked: VecDeque<(u64, Vec<u8>)>,
     /// Resend everything in `unacked` from this position on
-    resend_from: Option<u32>,
+    resend_from: Option<u64>,
     last_progress: Instant,
     last_query: Instant,
 }
@@ -89,20 +91,29 @@ impl CreditTx {
     }
 
     /// Bytes the device accepted in this session.
-    pub(crate) fn acked(&self) -> u32 {
+    pub(crate) fn acked(&self) -> u64 {
         self.acked
     }
 
     /// Bytes sent in this session (not counting resends).
-    pub(crate) fn sent(&self) -> u32 {
+    pub(crate) fn sent(&self) -> u64 {
         self.sent
     }
 
     /// Start a new session, the caller sends Open.
     pub(crate) fn opening(&mut self, now: Instant) {
+        self.opening_at(now, 0);
+    }
+
+    /// [Self::opening] with the session starting at byte position `start`, for tests of long sessions with the
+    /// device's `SinkCredit::open_at`.
+    pub(crate) fn opening_at(&mut self, now: Instant, start: u64) {
         *self = CreditTx {
             config: self.config,
             opened: true,
+            sent: start,
+            acked: start,
+            limit: start,
             ..CreditTx::new(now)
         };
     }
@@ -125,19 +136,25 @@ impl CreditTx {
         }
         if !self.synced {
             // left over from a previous session, until the answer to Open
-            if have != 0 {
+            if have != wire_pos(self.acked) {
                 return true;
             }
             self.synced = true;
             self.last_progress = now;
         }
+        // nearest to what was acked: what the device has lies between acked and sent, at most a window apart
+        let Some(have) = extend_pos(self.acked, have) else {
+            return true;
+        };
         if have > self.sent {
             // can't be from this session
             return true;
         }
+        // never more than MAX_WINDOW in flight, or positions on the wire could be read wrong
+        let grant = grant.min(MAX_WINDOW);
         let mut progress = false;
         while let Some((pos, value)) = self.unacked.front() {
-            if pos + item_span(value.len() as u32) <= have {
+            if pos + item_span(value.len() as u32) as u64 <= have {
                 self.unacked.pop_front();
             } else {
                 break;
@@ -147,7 +164,7 @@ impl CreditTx {
             self.acked = have;
             progress = true;
         }
-        let limit = have.saturating_add(grant);
+        let limit = have + grant as u64;
         if limit > self.limit {
             self.limit = limit;
             progress = true;
@@ -176,13 +193,13 @@ impl CreditTx {
         let Some(idx) = self
             .unacked
             .iter()
-            .position(|(pos, value)| *pos + item_span(value.len() as u32) > from)
+            .position(|(pos, value)| *pos + item_span(value.len() as u32) as u64 > from)
         else {
             self.resend_from = None;
             return Ok(None);
         };
         let (pos, value) = &self.unacked[idx];
-        let end = *pos + item_span(value.len() as u32);
+        let end = *pos + item_span(value.len() as u32) as u64;
         if end > self.limit {
             return Ok(None);
         }
@@ -205,11 +222,7 @@ impl CreditTx {
         if len > self.window {
             return Err(too_big(value.len(), self.window));
         }
-        let Some(end) = self.sent.checked_add(item_span(len)) else {
-            return Err(StreamError::Other(Error::Other(
-                "credit sink session is limited to 4 GiB, open it again".into(),
-            )));
-        };
+        let end = self.sent + item_span(len) as u64;
         if end > self.limit {
             return Ok(None);
         }
@@ -228,7 +241,7 @@ impl CreditTx {
     pub(crate) fn query_now(&mut self, now: Instant) -> StreamSideband {
         self.last_query = now;
         StreamSideband::CreditQuery {
-            sent: UNib32(self.sent),
+            sent: UNib32(wire_pos(self.sent)),
         }
     }
 
@@ -260,9 +273,9 @@ impl CreditTx {
     }
 }
 
-fn encode(pos: u32, value: &[u8]) -> Result<Vec<u8>, StreamError> {
+fn encode(pos: u64, value: &[u8]) -> Result<Vec<u8>, StreamError> {
     let write = CreditWriteOwned {
-        pos: UVlq32(pos),
+        pos: UVlq32(wire_pos(pos)),
         data: TailBytesOwned(value.to_vec()),
     };
     Ok(write.to_ww_bytes_owned()?)
@@ -278,16 +291,16 @@ mod tests {
     use wire_weaver::shrink_wrap::{BufReader, DeserializeShrinkWrap};
     use ww_client_server::CreditWrite;
 
-    fn credit(have: u32, grant: u32) -> StreamSideband {
+    fn credit(have: u64, grant: u32) -> StreamSideband {
         StreamSideband::Credit {
-            have: UNib32(have),
+            have: UNib32(wire_pos(have)),
             grant: UNib32(grant),
         }
     }
 
-    fn resend(have: u32, grant: u32) -> StreamSideband {
+    fn resend(have: u64, grant: u32) -> StreamSideband {
         StreamSideband::Resend {
-            have: UNib32(have),
+            have: UNib32(wire_pos(have)),
             grant: UNib32(grant),
         }
     }
@@ -419,5 +432,45 @@ mod tests {
             Some(Due::Query(StreamSideband::CreditQuery { sent: UNib32(10) }))
         );
         assert_eq!(c.due(now + Duration::from_millis(50)), Some(Due::Stalled));
+    }
+
+    #[test]
+    fn positions_wrap_on_the_wire() {
+        const M: u64 = ww_client_server::credit::POS_MODULUS as u64;
+        for start in [M - 25, 3 * M - 1, (1 << 40) - 7] {
+            let now = Instant::now();
+            let mut c = CreditTx::new(now);
+            c.opening_at(now, start);
+            // stale: not the start of this session
+            assert!(c.on_sideband(credit(0, 100), now));
+            assert_eq!(c.try_new(&[0; 10]).unwrap(), None);
+            assert!(c.on_sideband(credit(start, 100), now));
+            let sent: Vec<u32> = (0..5)
+                .map(|_| pos(&c.try_new(&[0; 10]).unwrap().unwrap()))
+                .collect();
+            let wire = wire_pos;
+            assert_eq!(
+                sent,
+                [0, 10, 20, 30, 40].map(|d| wire(start + d)),
+                "wraps after the modulus"
+            );
+            // the write past the wrap was lost
+            c.on_sideband(resend(start + 30, 70), now);
+            let resent: Vec<u32> = std::iter::from_fn(|| c.next_resend().unwrap())
+                .map(|b| pos(&b))
+                .collect();
+            assert_eq!(resent, [wire(start + 30), wire(start + 40)]);
+            c.on_sideband(credit(start + 50, 100), now);
+            assert!(c.all_acked());
+            assert_eq!((c.acked(), c.sent()), (start + 50, start + 50));
+        }
+    }
+
+    #[test]
+    fn never_more_than_max_window_in_flight() {
+        let (mut c, now) = synced(10);
+        c.on_sideband(credit(0, u32::MAX), now);
+        assert_eq!(c.limit, MAX_WINDOW as u64);
+        assert_eq!(c.window, MAX_WINDOW);
     }
 }

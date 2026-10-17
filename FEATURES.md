@@ -345,6 +345,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `StreamError::ItemTooBig`. Device state in `ww_client_server::credit::SinkCredit`, dynamic and Python clients too.
   Used by `ww_dfu` `StageBulk::plan`. For bulk transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN
   tx. See also CLT-18 backpressure (`docs/api/credit_sinks.md`, `tests/credit_sink`).
+- ✅ **API-42 Credit-sink positions without a session limit** · `v0.5` — host (`CreditTx`) and device (`SinkCredit`)
+  count positions in `u64`, the wire carries them modulo 2^28 (`credit::POS_MODULUS`, at most 4 bytes as a `UVlq32`,
+  `UNib32` in the sideband), the receiver extends them from the position it expects (serial number arithmetic). The
+  buffer is at most `MAX_WINDOW` (64 MiB, a quarter of the modulus), checked at compile time by `sized_for`, and the
+  host never has more in flight; one fixed modulus on every link, nothing negotiated at `Open`. Tested over a seeded
+  lossy link (loss, duplicates, reordering, reconnects) with sessions starting near the wrap and far past 4 GiB
+  (`docs/api/stream_protocol.md#positions-wrap-at-256-mib`).
 - ✅ **API-31 Stream functions** — `#[stream(T, counted)] fn name(args) -> Result<A, E>` and `#[counted]` /
   `#[reliable] stream!(name: T)`: every stream (plain ones too) is opened by calling it (`RequestKind::StreamOpen`),
   with typed arguments and result; the device's handler named like the stream decides, `Ok` starts a session,
@@ -442,9 +449,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Scheduler`, `StreamCnt`; sans-IO, `no_std`, tested over a seeded lossy link with random disconnects),
   `ww_self::ApiItemKind::StreamFn`, codegen (API-31), the host runtime (CLT-23). Missing: credit sinks on it
   (API-34). The persistent store is done (SRV-15).
-- 📋 **API-34 Credit sinks on the stream protocol** · `v0.5` — positions in units (64 bit), `Ack` / `Query` / `Resend`
-  shared with reliable streams, sessions and resume for credit sinks, so a DFU plan continues after a reconnect;
-  `SinkCredit` moves into `ww_stream` (`docs/api/stream_reliability.md`).
+- 📋 **API-34 Credit sinks on the stream protocol** · `v0.5` — `Ack` / `Query` / `Resend` shared with reliable
+  streams, sessions and resume for credit sinks, so a DFU plan continues after a reconnect; `SinkCredit` moves into
+  `ww_stream` (`docs/api/stream_reliability.md`). Sink positions stay as API-42 has them (`u64` in state, modulo
+  2^28 on the wire, bounded by the window), streams keep their full `UVlq64` positions (their gaps are unbounded);
+  a resume cursor for a sink would carry a full position. A session id in `Open` and its answer would also stop a
+  late duplicate `Open` (UDP) from resetting a running session.
 - 💡 **API-24 Guarded calls for critical resources** · `v0.5.x` — for safety-critical actions, such as starting a motor
   or switching high power, a request that happens to match predefined bytes must not be enough. Add an extra
   check, e.g. a CRC over the resource identity and arguments (a "strict mode" per resource), or a

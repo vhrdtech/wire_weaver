@@ -2,6 +2,18 @@
 
 ### ⚠️ Breaking
 
+- **Breaking:** credit-sink positions wrap on the wire (API-42): `CreditWrite::pos` and the positions in
+  `StreamSideband::Credit`, `CreditQuery` and `Resend` are sent modulo 2^28 (`credit::POS_MODULUS`), so a session has
+  no size limit (was 4 GiB) and a write's position never takes more than 4 bytes. The wire types are unchanged and a
+  session under 256 MiB has the same bytes; a longer one needs both sides updated (an old host fails at 4 GiB, an old
+  device stalls after 256 MiB, a new device drops a position of 2^28 or more as `CreditVerdict::Invalid`).
+  `SinkCredit` counts in `u64`: `have()`, `freed()` and `limit()` return `u64`, `on_write()` and `query()` take the
+  wire position. A buffer is at most `credit::MAX_WINDOW` (64 MiB): `SinkCredit::new` and `sized_for` panic above it
+  (a compile error in a `const`), `try_sized_for` returns the new `SinkCreditError` (replaces `BufferTooSmall`,
+  which is now its `BufferTooSmall` variant, next to `BufferTooLarge`), `set_capacity` returns
+  `Result<(), SinkCreditError>`. New: `credit::wire_pos()`, `credit::extend_pos()`, `SinkCredit::open_at()` (tests
+  of long sessions), `CreditVerdict::Invalid`.
+
 - `ErrorKind` gets `Unknown(u32)` (SW-47): a framework error from a newer device decodes instead of failing the reply.
   `MultiIndex` is `no_future_version`: an index form the device doesn't know fails the request.
 Wire-incompatible with 0.1.0.

@@ -1146,7 +1146,7 @@ impl DynSink {
     }
 
     /// See [Sink::credit_progress].
-    pub fn credit_progress(&self) -> Option<(u32, u32)> {
+    pub fn credit_progress(&self) -> Option<(u64, u64)> {
         self.sink.credit_progress()
     }
 

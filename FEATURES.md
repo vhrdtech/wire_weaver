@@ -404,15 +404,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `tests/generics` (property, method argument, inside `Timed`, a `PhantomData` marker, dynamic client),
   `wire_weaver_core` unit tests, `ww api tree` (`docs/types.md#type-aliases`). `use .. as ..` renames are followed
   (API-46).
-- ✅ **API-46 Codegen names types by their module path** · `v0.5` — generated code names each user type the way
-  other crates can: the shortest path through `pub mod`s and `pub use` re-exports of its crate (by name, renamed,
-  glob), `<Name>Owned` looked up the same way; a type no other crate can reach is an error naming it. So a type in a
-  `pub mod` needs no root re-export, and the ww_si 0.2 layout (marker `units::Volt` next to the alias `Volt`) works.
-  The paths are a codegen-only table from the walker (`wire_weaver_core::CodegenBundle`, `load_for_codegen`,
-  `load_dep`), the API model and the wire are unchanged; equal definitions at different paths stay apart. The walker
-  follows `use .. as ..` imports. Tests `tests/module_paths` (pub module, lifetime two modules deep, rename, root
-  re-export, re-export under another name, two equal `Point`s), `tests/generics` (ww_si layout as property, method
-  argument, inside `Timed`), `wire_weaver_core` unit tests (`docs/types.md#types-in-modules`).
+- ✅ **API-46 Codegen names types by their module path** · `v0.5` — each struct and enum records the path other crates
+  name it by (`ItemStruct::path` / `ItemEnum::path` in `ww_self`, `None` at the crate root): the shortest one through
+  `pub mod`s and `pub use` re-exports (by name, renamed, glob); a type re-exported under another name is named that
+  way, a type no other crate can reach is an error naming it. Its identity in its crate is path and name
+  (`units::Volt` and a root `Volt` are two definitions): generated code names types by it (a type in a `pub mod`
+  needs no root re-export, the ww_si 0.2 layout of a marker `units::Volt` next to the alias `Volt` works), snapshots
+  take `#[derive_shrink_wrap]` types and unit marker structs from `pub mod`s too, and `SkippedFullVersion::type_name`,
+  signature resolution, `inline_skipped` and the definition cache look definitions up by it. Part of signatures, so
+  introspection data and API hashes changed (snapshots saved again). The walker follows `use .. as ..` imports, and
+  converts the arguments of `a::b::Ty<Arg>` where they are written. Tests `tests/module_paths` (pub module, lifetime
+  two modules deep, rename, root re-export, re-export under another name, two equal `Point`s,
+  `Quantity<units::Volt>` next to a root `Volt`), `tests/generics` (ww_si layout as property, method argument,
+  inside `Timed`), `wire_weaver_core` unit tests (a snapshot with `units::Volt` and a root `Volt` saved through RON
+  and put back in an API) (`docs/types.md#types-in-modules`).
 - ✅ **API-31 Stream functions** — `#[stream(T, counted)] fn name(args) -> Result<A, E>` and `#[counted]` /
   `#[reliable] stream!(name: T)`: every stream (plain ones too) is opened by calling it (`RequestKind::StreamOpen`),
   with typed arguments and result; the device's handler named like the stream decides, `Ok` starts a session,

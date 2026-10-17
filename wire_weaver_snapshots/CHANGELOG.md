@@ -2,6 +2,9 @@
 
 ### ⚠️ Breaking
 
+- Snapshots saved again with definitions' module paths (API-46, ww_self `ItemStruct::path`): the definitions are
+  the same, their signatures changed with the format, so a host with these snapshots finds the stdlib definitions of
+  a device built before only through the definition cache.
 - Snapshots saved again in the ww_self 0.3 format (API-43): the definitions are the same, their signatures changed
   with the format. The `ww_si` 0.1.0 snapshot holds the generic `Timed<T>`.
 

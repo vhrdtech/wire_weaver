@@ -294,12 +294,17 @@ left out of a struct's definition (it takes no bits on the wire), so `U` is a pa
 
 ### Types in modules
 
-A type the API uses can live in any module of its crate. Generated code names it the way other crates can: the
-shortest path through `pub mod`s and `pub use` re-exports (API-46). In the example above, that is `my_api::Volt` for
-the alias and `my_api::units::Volt` for the marker; a type in a private module re-exported at the root with `pub use
-ty::Ty;` is `my_api::Ty`, and one re-exported under another name (`pub use ty::Inner as Outer;`) is `my_api::Outer`.
-A type that other crates can't reach at all is an error that names it. The `<Name>Owned` variant of a type with a
-lifetime is looked up the same way: re-export it next to the type (`pub use ty::{Label, LabelOwned};`, or a glob).
+A type the API uses can live in any module of its crate. Each definition records the path other crates name it by:
+the shortest one through `pub mod`s and `pub use` re-exports (API-46). In the example above, that is `my_api::Volt`
+for the alias and `my_api::units::Volt` for the marker; a type in a private module re-exported at the root with `pub
+use ty::Ty;` is `my_api::Ty`, and one re-exported under another name (`pub use ty::Inner as Outer;`) is
+`my_api::Outer`, also in `ww` and the dynamic client. A type that other crates can't reach at all is an error that
+names it. The `<Name>Owned` variant of a type with a lifetime is named next to it: re-export it along with the type
+(`pub use ty::{Label, LabelOwned};`, or a glob).
+
+The path and the name are the definition's identity: `units::Volt` and a `Volt` at the crate root are two
+different types, in generated code, in API snapshots (`ww api save` takes the types of `pub mod`s too, unit marker
+structs like `pub struct Volt;` included) and in introspection data.
 
 ## Special types
 

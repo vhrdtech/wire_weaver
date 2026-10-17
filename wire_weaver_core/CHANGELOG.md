@@ -2,10 +2,11 @@
 
 ### ⚠️ Breaking
 
-- `gen_server`, `gen_client` and `gen_server_scaffold` take a `CodegenBundle` (the API model plus the path of each
-  definition, API-46) instead of an `ApiBundleOwned`; `load_dep` returns one, `load_for_codegen(path, trait)` is the
-  `load` for it. In a `build.rs`, pass what `load_dep` returns as before; where `load` fed codegen, call
-  `load_for_codegen`. `CodegenBundle` derefs to `ApiBundleOwned`.
+- Introspection data changes (API-46): each struct and enum carries its module path (ww_self `ItemStruct::path`),
+  so API hashes change and devices and hosts are rebuilt together; snapshots (`ww api save`) take
+  `#[derive_shrink_wrap]` types and unit marker structs (`pub struct Volt;`) from `pub mod`s too, and know each by
+  its path and name (`units::Volt` and a root `Volt` are two definitions). A type no other crate can reach is an
+  error naming it, and one re-exported under another name (`pub use inner::Inner as Renamed`) is named `Renamed`.
 - **Breaking:** generated credit-sink servers drop a write whose position is 2^28 or more
   (`CreditVerdict::Invalid`, API-42); positions wrap on the wire, see `ww_client_server`.
 
@@ -16,6 +17,10 @@
 
 ### 🐛 Fixes
 
+- In a path type with arguments (`units_lib::Quantity<units_lib::units::Volt>`) the arguments are converted where
+  they are written, not in the crate the path leads to ("Dependency not found" before) (API-46).
+- The walker parses each crate once per load (its crate cache was never filled), `snapshots_are_up_to_date` takes
+  4 s instead of 11 s.
 - Deferred return helpers (`<method>_send_return`, `_send_return_blocking`, `_ser_return_event`) are generated for
   deferred methods on nested trait levels too (SRV-20), named with the trait item prefix like the handler
   (`plug_vbus_cycle_send_return`); `method_model` patterns and the scaffold's deferred hint match the prefixed name.
@@ -23,10 +28,9 @@
 ### 🚀 Features
 
 - Generated code names each user type by the path other crates see (API-46): the shortest one through `pub mod`s and
-  `pub use` re-exports (by name, renamed, glob), `<Name>Owned` looked up the same way, instead of `<crate>::<Name>`.
-  A type in a `pub mod` no longer needs a root re-export, and a marker `units::Volt` next to an alias `Volt` (the
-  ww_si 0.2 layout) is the marker. A type no other crate can reach is an error naming it. Equal definitions at
-  different paths are separate entries of the types array. The API model and the wire are unchanged.
+  `pub use` re-exports (by name, renamed, glob), recorded in the definition, instead of `<crate>::<Name>`. A type in
+  a `pub mod` no longer needs a root re-export, and a marker `units::Volt` next to an alias `Volt` (the ww_si 0.2
+  layout) is the marker. Equal definitions at different paths are separate entries of the types array.
 - The walker follows renamed imports (`use units::Volt as V;`) to their definition (API-46).
 - Type aliases in APIs (API-45): `pub type Volt = Quantity<VoltUnit>;` and generic ones (`type Reading<T> =
   Timed<Quantity<T>>`, const parameters too) are found like structs and enums (in lib.rs, modules, `use` imports and

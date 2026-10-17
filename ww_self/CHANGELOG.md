@@ -2,6 +2,13 @@
 
 ### ⚠️ Breaking
 
+* `ItemStruct::path` / `ItemEnum::path` (`#[default = None]`, API-46): the modules from the crate root to where
+  other crates name the definition (`Some(["units"])` for `ww_si::units::Volt`, `None` at the root). A definition's
+  identity in its crate is its path and name, `qualified_name()` (`units::Volt`, also the free `qualified_name`):
+  `SkippedFullVersion::type_name` holds it, and signature resolution, `inline_skipped*` and the definition cache look
+  definitions up by it (cache file names write `::` as `.`). The path is part of signatures, so every signature and
+  the introspection bytes change (snapshots are saved again); struct literals of `ItemStructOwned` /
+  `ItemEnumOwned` need the new field.
 * `Type::Series(RefBox<Type>)` appended (SW-60, CLT-29): `Series<'i, T>` / `SeriesOwned<T>` in APIs, and
   `Field::series_opaque` (`#[default = false]`) for a field marked `#[series(opaque)]`. Exhaustive matches on
   `Type`/`TypeOwned` need a new arm, struct literals of `FieldOwned` the new field (`false`); the introspection

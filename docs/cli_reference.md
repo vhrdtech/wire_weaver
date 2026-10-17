@@ -150,12 +150,13 @@ options, so pass the same ones the `ww_codegen!` call uses:
 ww api scaffold examples/blinky_api --use-async -o firmware/src/server.rs
 ```
 
-`ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait and every `#[derive_shrink_wrap]` type
-defined in the crate's `src/lib.rs` (or re-exported from one of its modules with `pub use`) into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example
+`ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait defined in the crate's `src/lib.rs`, and every
+`#[derive_shrink_wrap]` type and unit marker struct (`pub struct Volt;`) defined there, in a `pub mod` at any depth,
+or re-exported from a module with `pub use` (each known by its path and name, `units::Volt`) into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example
 `ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron`. Commit the snapshot and never change it afterward.
 It is a regular API bundle in RON: the root is named after the crate and has one nested trait resource per trait,
 definitions from this crate are included, and traits and types from other crates are only referenced by crate
-version, name and signature. Save a snapshot of each of those crates too.
+version, path and name, and signature. Save a snapshot of each of those crates too.
 
 A signature is a hash of the full definition with docs, including everything it refers to, calculated as if nothing
 was skipped (`ww_self::signature`). A definition restored from another crate's snapshot can then be checked to be

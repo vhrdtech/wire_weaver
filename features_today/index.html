@@ -1024,6 +1024,8 @@
       
         
       
+        
+      
     
     
     
@@ -1137,6 +1139,33 @@
     
   
   Special types
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serdes/series/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Series&lt;T&gt;: compressed sequences of any derived type
 
     
   </span>
@@ -4939,7 +4968,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../serdes/showcase/#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address">Bit-sized fields and payloads</a></strong>: <code>U7</code>, <code>U10</code>, <code>I2</code> and friends in structs, enum variants and method arguments, e.g. a 7- or 10-bit I2C address in 8 or 11 bits.</li>
 <li><strong><a href="../types/">64-bit variable-length numbers</a></strong>: <code>UVlq64</code>, 1 to 10 bytes.</li>
 <li><strong><a href="../serdes/special_types/#delta-deltaofdelta-and-xorfloat-compressed-sequences">Compressed number sequences</a></strong>: <code>Delta</code> and <code>DeltaOfDelta</code> for timestamps and counters, <code>XorFloat</code> for slowly changing floats, anywhere in an API.</li>
-<li><strong>Columnar series</strong>: <code>Series&lt;T&gt;</code>: a list of any struct written field by field, with deltas and bit packing per field, several times smaller than a <code>Vec&lt;T&gt;</code> of samples. <span class="ww-status">in progress</span></li>
+<li><strong><a href="../serdes/series/">Columnar series</a></strong>: <code>Series&lt;T&gt;</code>: a list of any struct written field by field, with deltas and bit packing per field, several times smaller than a <code>Vec&lt;T&gt;</code> of samples.</li>
 <li><strong><a href="../serdes/layouts/#sparse-a-struct-of-optional-fields">Sparse structs</a></strong>: A struct of optional fields stored as an <code>OptionAnyVec</code>, for "only what changed" updates.</li>
 <li><strong><a href="../serdes/derive_reference/#validate-path">Checks on read</a></strong>: <code>validate = path</code> rejects out-of-range values as they are read.</li>
 <li><strong><a href="../serdes/derive_reference/#display"><code>Display</code> from doc comments</a></strong>: Error enums print their doc lines, no hand-written <code>Display</code>.</li>

@@ -859,6 +859,8 @@
       
         
       
+        
+      
     
     
     
@@ -975,6 +977,33 @@
     
   
   Special types
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Series&lt;T&gt;: compressed sequences of any derived type
 
     
   </span>
@@ -1375,6 +1404,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code>OptionAnyVec</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#seriest" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Series&lt;T&gt;</code>
       </span>
     </span>
   </a>
@@ -4931,6 +4971,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#seriest" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Series&lt;T&gt;</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5407,6 +5458,128 @@ with a third state (absent / value / error, SW-56) at no cost to the two-state v
 </table>
 <p>Dense wins for clustered sets up to a few dozen slots, the index list for a few slots among many, two-level for a
 few dense clusters far apart. The <a href="../showcase/#sparse-updates-with-optionanyvec">showcase</a> has the numbers.</p>
+<h3 id="seriest"><code>Series&lt;T&gt;</code><a class="headerlink" href="#seriest" title="Permanent link">&para;</a></h3>
+<p>SW-60. What <a href="../series/"><code>Series&lt;T&gt;</code> is for and when to reach for it</a> is its own page; this is the bit-level layout.
+All bit-level codes below write most significant bit first through the bit cursor, with no alignment unless stated;
+<code>nib(x)</code> is the <a href="../showcase/#unib32-variable-length-numbers-by-the-nibble"><code>UNib32</code></a> code written through the bit
+cursor without nibble alignment.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>n:          UNib32 (nibble-aligned)     number of items; 0: nothing else follows
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>group(T):   the columns of T over all n items
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>padding:    zero bits to the next byte
+</span></code></pre></div>
+<p><code>Series</code> is <code>ElementSize::Unsized</code>: as a field it gets a length slot in the parent's FIFO like any other evolvable
+value, and nothing <em>inside</em> a <code>Series</code> uses the FIFO - a lazy reader walks the columns in parallel, which would
+consume FIFO entries out of order. At the top of a message or stream item its extent is the buffer's own.</p>
+<p><strong>Groups.</strong> The group of a type over a subsequence of items (all of them at the top, fewer inside an enum variant
+or an <code>Option</code>) is written by the type's own rule, recursively; an empty subsequence writes nothing (its size is
+already known to the reader from the tag runs above it):</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Group</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>integers (<code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code>, <code>U1</code>..<code>U64</code>, <code>I2</code>..<code>I64</code>, <code>Nibble</code>, <code>UNib32</code>, <code>UVlq32</code>, <code>UVlq64</code>)</td>
+<td>a numeric column at the type's value width</td>
+</tr>
+<tr>
+<td><code>u128</code>, <code>i128</code></td>
+<td>a numeric column, predictor raw and coder plain only (other codes malformed)</td>
+</tr>
+<tr>
+<td><code>f32</code>, <code>f64</code></td>
+<td>a float column</td>
+</tr>
+<tr>
+<td><code>bool</code></td>
+<td>a two-valued run</td>
+</tr>
+<tr>
+<td>unit-only enum, or enum with data</td>
+<td>a tag run (always the general form, even with 2 variants: a later version may add a third), then, for each variant that has items here, the variant's fields as a struct group over just those items</td>
+</tr>
+<tr>
+<td><code>Option&lt;X&gt;</code></td>
+<td>the <code>{ None, Some(X) }</code> enum: a two-valued tag run, then <code>group(X)</code> over the <code>Some</code> items</td>
+</tr>
+<tr>
+<td>struct, <code>final_structure</code> / <code>self_describing</code> / <code>sized</code></td>
+<td>the fields' groups in declaration order</td>
+</tr>
+<tr>
+<td>struct, evolvable (<code>Unsized</code>, the default)</td>
+<td>outermost: <code>fields: nib</code> (how many fields this writer's <code>T</code> has), then the fields' groups; nested inside another group: <code>len: nib</code> (bits of the group after <code>len</code>), then the fields' groups</td>
+</tr>
+<tr>
+<td>tuple, <code>[X; N]</code></td>
+<td>like a <code>final_structure</code> struct of the elements</td>
+</tr>
+<tr>
+<td><code>&amp;str</code>/<code>String</code>, <code>&amp;[u8]</code>, <code>RefVec&lt;u8&gt;</code>/<code>Vec&lt;u8&gt;</code>, or any type marked <code>#[series(opaque)]</code></td>
+<td>an opaque run of the bytes (<code>to_ww_bytes</code> for <code>#[series(opaque)]</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Columns appear in the order the groups above produce them: depth first, declaration order, an enum's tag run
+before its variants' columns - the order a reader needs to find every column's start in one forward pass.</p>
+<p><strong>Numeric column:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>predictor:  2 bits   00 raw, 01 delta, 10 delta of delta, 11 escape (reserved in v1: malformed)
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>coder:      2 bits   00 prefix, 01 packed, 10 constant, 11 plain
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>values:     m values of width W
+</span></code></pre></div>
+<p>The values split into segments at restarts (below). With predictor delta or delta of delta, a segment's first value
+is written at the full width <code>W</code>; every other value is a <strong>residual</strong>: the zigzag of the difference to the
+previous value (delta) or of the change of that difference (delta of delta, the running difference starting at 0
+at each segment start), wrapped at <code>W</code> exactly as <a href="#delta-deltaofdelta-and-xorfloat"><code>Delta</code></a> does. With predictor
+raw there are no segment starts; every value is a residual (its zigzag for signed types, itself for unsigned ones).</p>
+<p>Coders, for the residuals:</p>
+<ul>
+<li><strong>prefix</strong> - each residual in the <a href="#delta-deltaofdelta-and-xorfloat"><code>Delta</code></a> code at width <code>W</code>.</li>
+<li><strong>packed</strong> - the residuals of a segment in blocks of 8 (the last block of a segment shorter, its length known
+  from <code>m</code> and the restarts): <code>width</code> in <code>bits(W)</code> bits (4 bits for <code>W = 8</code>, 5 for 16, 6 for 32, 7 for 64 - enough
+  for <code>0..=W</code>), then each residual of the block at exactly <code>width</code> bits. A block of all zeros costs only its width
+  field.</li>
+<li><strong>constant</strong> - the first residual of the column in the prefix code; every later residual equals it and is not
+  written. Delta + constant is <code>t0 + period</code> (a regular clock, a counter); raw + constant is a plain constant
+  column.</li>
+<li><strong>plain</strong> - each residual at the full width <code>W</code>.</li>
+</ul>
+<p>The writer may try any subset of predictor x coder combinations (or a fixed one via <code>CodecPolicy</code>) and keeps the
+smallest encoding; the reader follows whatever the 4-bit header says. Predictor <code>11</code> is reserved for a later,
+extended column mode (an escape, so existing codes keep their meaning and cost); a v1 reader fails on it with
+<code>Error::MalformedSeries</code>.</p>
+<p><strong>Float column:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the XorFloat code), others reserved
+</span></code></pre></div>
+<p>XOR: the first value of a segment at full width, then the <a href="#delta-deltaofdelta-and-xorfloat"><code>XorFloat</code></a> code
+against the previous value; a segment start also resets the leading/trailing zero window.</p>
+<p><strong>Run</strong> (discrete leaves - enum tags, <code>bool</code>, <code>Option</code> presence, opaque bytes):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>first:      value of the first item
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>repeat:     1, gap: nib, value      a change: gap = items since the previous change (or the start) minus 1;
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>                                    value left out when two-valued (a change just flips it)
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>end:        0
+</span></code></pre></div>
+<p>An enum's discriminant is written as <code>nib</code> (per its <code>ww_repr</code>); a <code>bool</code> as 1 bit; an opaque value as <code>len: nib</code>
+bytes, zero bits to the next byte, then the bytes. A change landing at or past the subsequence's end is malformed.</p>
+<p><strong>Restarts.</strong> A numeric or float column restarts (full value, codec state reset, packed block ended) at an item
+where: the item enters this enum variant (or <code>Some</code>) from another one, so the column only ever holds that variant's
+own items; an <strong>enum-typed field declared earlier in the same struct changed</strong> (<code>Volt { prefix, value }</code> restarts
+<code>value</code> when <code>prefix</code> changes, so 480 µA followed by 120 mA is a full value, not a delta of -360); or the enclosing
+group itself restarts (it propagates down). <code>bool</code>, string and opaque runs never restart anything - a flag toggling
+every other item would otherwise cost a full value each time. "Declared earlier" keeps one forward pass enough to
+decode, and keeps evolution working: a field appended later can never restart a column an older reader already
+knows how to read.</p>
+<p><strong>Evolution.</strong> <code>Series&lt;T&gt;</code> follows <code>T</code>'s own evolution rules, same as <code>Vec&lt;T&gt;</code> does: an appended <code>#[default = ..]</code>
+field's columns go at the end of its struct's group, which an older reader skips (nested: via the group length;
+outermost: the <code>Series</code> simply ends after the columns it knows, filling the field's default into every item for a
+newer reader reading older data). A <code>final_structure</code> / <code>self_describing</code> / <code>sized</code> struct has no count or length
+inside a <code>Series</code> either, exactly as in plain form. A new enum variant an older reader doesn't know fails with
+<code>Error::EnumFutureVersionOrMalformedData</code>, as a plain decode of that item would.</p>
+<p>The <a href="../showcase/#compressed-columns-seriest">showcase</a> has a 4-item example worked out byte by byte, including a
+column restart.</p>
 
 
 

@@ -852,6 +852,8 @@
       
         
       
+        
+      
     
     
     
@@ -965,6 +967,33 @@
     
   
   Special types
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serdes/series/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Series&lt;T&gt;: compressed sequences of any derived type
 
     
   </span>
@@ -5213,12 +5242,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   each with their own. Readers bound the value by it (a longer buffer stops at the right byte, a truncated one
   errors, newer trailing fields are skipped) or skip it without parsing. Fields before it must be <code>Sized</code> or
   <code>SelfDescribing</code>, checked at compile time. <code>docs/serdes/special_types.md</code>, showcase.</li>
-<li>🚧 <strong>SW-60 <code>Series&lt;T&gt;</code>: columnar compressed sequences of any derive type</strong> — a list of <code>T</code> (structs, enums with
+<li>✅ <strong>SW-60 <code>Series&lt;T&gt;</code>: columnar compressed sequences of any derive type</strong> — a list of <code>T</code> (structs, enums with
   data, <code>Option</code>, nested) written column by column, one column per leaf field: numbers as a numeric column whose
   predictor (raw, delta, delta of delta) and coder (SW-31 prefix code, bit-packed blocks of 8, constant, plain) the
   writer picks per column, floats plain or SW-32 XOR, enum tags, bools, <code>Option</code> presence and strings as runs (a value
   and one entry per change); a column restarts where an earlier enum field (a ww_si prefix) changes. 3 to 8 times
-  smaller than a plain <code>Vec&lt;T&gt;</code> of ADC samples, self-contained per batch. Done: the column codecs (numeric, 128-bit,
+  smaller than a plain <code>Vec&lt;T&gt;</code> of ADC samples, self-contained per batch: the column codecs (numeric, 128-bit,
   float, runs, codec choice by counting bits or a fixed <code>CodecPolicy</code>, no alloc, malformed input an error), the
   <code>Series&lt;'i, T&gt;</code> / <code>SeriesOwned&lt;T&gt;</code> types and the <code>SeriesColumns</code> trait with impls for the primitives, <code>Option</code>,
   tuples, arrays, strings and bytes (one-pass validating skim, parallel item iteration, evolvable structs both ways,
@@ -5226,7 +5255,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>shrink-wrap-series-type</code>; the opt-in <code>series</code> directive of <code>#[derive_shrink_wrap]</code> for structs (also generic,
   DER-14) and enums, <code>#[series(opaque)]</code> fields, compile errors naming the field for what v1 doesn't take, on
   <code>ww_si</code> quantities and <code>ww_numeric::NumericValue</code> (<code>shrink_wrap/tests/series_derive.rs</code>,
-  <code>ww_stdlib/ww_si/tests/series.rs</code>). Missing: docs, the dynamic decoder, batched streams on top.</li>
+  <code>ww_stdlib/ww_si/tests/series.rs</code>); docs (<code>docs/serdes/series.md</code>, the layout in
+  <code>docs/serdes/wire_format.md#seriest</code>, worked bytes in <code>docs/serdes/showcase.md#compressed-columns-seriest</code>).
+  <code>Series&lt;T&gt;</code> is usable today in any property, method or stream item; a dynamic (non-generated) decoder and
+  batching a stream or property into <code>Series&lt;Timed&lt;T&gt;&gt;</code> automatically build on it as their own items (CLT-29,
+  API-41), not blocking this one.</li>
 <li>📋 <strong>SW-42 <code>MAX_SIZE</code> on owned types</strong> · <code>v0.5.x</code> — <code>SerializeShrinkWrapOwned</code> has no worst-case size yet, only
   the borrowed trait has (SW-19); host code sizing a buffer for an owned value uses the borrowed type's.</li>
 <li>📋 <strong>SW-20 Sub-type numbers</strong> · <code>v0.5.x</code> — numbers restricted to a range, like <code>10..=25</code>, or a set with gaps, like
@@ -5387,6 +5420,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   device, so not a default.</li>
 <li>💡 <strong>API-39 Batched property samples</strong> — K samples of one fast property in one update, compressed with <code>Delta</code> /
   <code>XorFloat</code> (SW-50), for values sampled faster than the link can carry one update each.</li>
+<li>📋 <strong>API-41 Batched streams and properties on <code>Series</code></strong> — a stream or property opts into batching
+  (<code>+batched</code>/<code>batched</code>, no size in the API: the device owns the batch size through its own config, default 32,
+  the host picks latency) and sends <code>Series&lt;Timed&lt;T&gt;&gt;</code> (SW-60) batches instead of one item per event (device-side
+  <code>Batcher</code>, reliable streams storing encoded batches so a resend costs no re-encoding); the same mechanism under
+  API-39's batched property samples and a batched observe slot. Design only so far, with motor-demo numbers backing
+  it (integer storage over floats, default batch 32, autoranging cost cheap). Needs SW-60 (done) and CLT-29
+  (dynamic decoder).</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
 <li>🚧 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: <code>MAX_SIZE</code> of types (SW-19) and per-method <code>&lt;METHOD&gt;_REQUEST_MAX_LEN</code> /

@@ -949,9 +949,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reserved indices 4..=6, so a host sees input changes without opening the `event` stream of every pin (slow inputs,
   a dashboard). Blocked on API-29 array-index-bounds: `Pin` sits in `Bank::pin[]` (and banks usually in an array
   too), and levels under a resource array can't be observed until their bound is known (SRV-18).
-- 📋 **STD-34 `ww_recorder`** — control a recorder over WireWeaver: status, card facts, two-step format,
-  recordings, markers, track settings (flush thresholds, USB view mode), counters, refreshing the USB view. For the
-  SD card logbook of P2628 (repo `logbook`), usable by any recorder.
+- 🚧 **STD-34 `ww_recorder`** · `v0.5.x` — control a recorder over WireWeaver: `Recorder` (status, card facts,
+  two-step prepare/format with a token, recordings, markers, `sync`, settings with the flush thresholds, counters,
+  optional `refresh_usb`) and `Track[]` (info, enable, durability, compression, counters). For the SD card log store
+  of P2628 (repo `logring`), usable by any recorder. API crate, snapshot and docs page
+  `docs/std_library/ww_recorder.md` done, the scaffold compiles; the first server is the logring's (rePort
+  integration).
 - 💡 **STD-33 `ww_settings` single-sector mode** — a store in one sector with a RAM copy, for a part with exactly
   one sector to spare; a power cut during its erase loses every group (the window is the whole erase, 1 to 4 s on a
   128 KiB sector, see `docs/api/settings.md#parts-with-big-sectors`). Only if a device needs it.

@@ -84,6 +84,8 @@ The crates every device implements, whatever it does, so generic tools have one 
   `ww_defmt_logger` (repo root) is the device side
 * [`ww_counters`](ww_counters.md) — `Counters`: the device's `cnt` counters, decoded on the host with the firmware's
   ELF (`ww counters`)
+* [`ww_recorder`](ww_recorder.md) — `Recorder`, `Track`: control a logger that writes tracks to an SD card or flash:
+  status, card facts, two-step format, recordings, markers, flush settings, counters
 * [`ww_indication`](ww_indication.md) — `Indication`: LED and buzzer mode, brightness, identify
 * [`ww_dfu`](ww_dfu.md) — `UpdateNode`, `BootControl`, `Inventory`, `Stage`, `StageBulk`: firmware updates, A/B or
   in place, step by step or bulk

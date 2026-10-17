@@ -37,8 +37,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   assumptions, derive reference, special types, fixed and sparse layouts, showcase, use cases, C) and Nomicon pages
   (wire format internals, code size). The built-in types page is rewritten against the code. A "What works today"
   page is generated from `FEATURES.md` (`just features-page`), which is now the "Feature tracker", last in the nav.
-- Planned: STD-34 `ww_recorder`, an API to control a recorder (the SD card logbook of P2628, which lives in its own
-  repo); no code yet.
+- `ww_recorder` (STD-34), an API to control a recorder (the SD card log store of P2628, repo `logring`, or any
+  logger): `Recorder` with status, card facts, two-step format, recordings, markers, settings (flush thresholds) and
+  counters, and a `Track[]` array with per-track enable, durability and counters. Docs page
+  `docs/std_library/ww_recorder.md`; the first server is the logring's.
 - Motor controller demo (EX-11), `examples/motor_demo` and `motor_demo_api`: a VESC-like FOC controller driving a
   simulated motor ([motor_sim](https://github.com/vhrdtech/motor_sim)), its 52 variables observed in three rate
   tiers through one trait level each, on simulated time faster or slower than real time, in-process or over UDP. The

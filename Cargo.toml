@@ -113,6 +113,7 @@ ww_memory = { version = "0.1.0", path = "./ww_stdlib/ww_memory", default-feature
 ww_numeric = { version = "0.2.0", path = "./ww_stdlib/ww_numeric", default-features = false }
 ww_onewire = { version = "0.1.0", path = "./ww_stdlib/ww_onewire", default-features = false }
 ww_pwm = { version = "0.1.0", path = "./ww_stdlib/ww_pwm", default-features = false }
+ww_recorder = { version = "0.1.0", path = "./ww_stdlib/ww_recorder", default-features = false }
 ww_si = { version = "0.1.0", path = "./ww_stdlib/ww_si", default-features = false }
 ww_signal_generator = { version = "0.1.0", path = "./ww_stdlib/ww_signal_generator", default-features = false }
 ww_spi = { version = "0.1.0", path = "./ww_stdlib/ww_spi", default-features = false }

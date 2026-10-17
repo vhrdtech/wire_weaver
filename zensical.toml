@@ -109,6 +109,7 @@ nav = [
                     "std_library/ww_indication.md",
                     { "ww_dfu" = "std_library/ww_dfu.md" },
                     "std_library/ww_counters.md",
+                    "std_library/ww_recorder.md",
                     { "ww_dfu: A/B" = "std_library/ww_dfu_ab.md" },
                     { "ww_dfu: one slot" = "std_library/ww_dfu_one_slot.md" },
                     { "ww_dfu: internals" = "std_library/ww_dfu_internals.md" }

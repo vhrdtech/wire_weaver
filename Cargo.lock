@@ -6432,6 +6432,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_recorder"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_error",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_report"
 version = "0.5.0"
 dependencies = [

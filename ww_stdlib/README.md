@@ -17,6 +17,7 @@
 
 * `ww_dfu` - Firmware update data types and API.
 * `ww_counters` - The device's `cnt` counters over WireWeaver, decoded on the host with the firmware's ELF.
+* `ww_recorder` - Control a recorder (a logger writing many tracks to an SD card or flash): status, format, recordings, markers, settings.
 * `ww_log` - The device's log: defmt frames (decoded with the ELF) or text records, as reliable streams.
 * `ww_uid` - Device unique ID data types and requesting API.
 * `ww_board_info` - PCB/PCBA information (name, revision, etc.) and requesting API.

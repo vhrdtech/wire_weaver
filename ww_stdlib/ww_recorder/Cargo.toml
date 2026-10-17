@@ -1,0 +1,19 @@
+[package]
+name = "ww_recorder"
+version = "0.1.0"
+authors.workspace = true
+description = "Control a recorder (a logger writing many tracks to an SD card or flash) over WireWeaver"
+edition.workspace = true
+license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_error/std", "ww_si/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt", "ww_si/defmt"]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+wire_weaver.workspace = true
+ww_error = { workspace = true, default-features = false }
+ww_si = { workspace = true, default-features = false, features = ["time"] }

@@ -6,6 +6,7 @@ use crate::{
 };
 use anyhow::{Result, anyhow};
 use shrink_wrap::ElementSize;
+use std::collections::HashSet;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_version::FullVersionOwned;
 
@@ -187,21 +188,34 @@ impl ApiBundleOwned {
 impl TypeOwned {
     /// Returns true if this type contains a string, vector, or box at any depth.
     pub fn is_lifetime(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
+        self.is_lifetime_in(api_bundle, &mut HashSet::new())
+    }
+
+    /// `seen`: out-of-line definitions already looked into, each one is once (self-referential types).
+    fn is_lifetime_in(&self, api_bundle: &ApiBundleOwned, seen: &mut HashSet<u32>) -> Result<bool> {
         match self {
             TypeOwned::Bool => Ok(false),
             TypeOwned::NumericAny(_) => Ok(false),
             TypeOwned::OutOfLine { type_idx } => {
+                if !seen.insert(type_idx.0) {
+                    return Ok(false);
+                }
                 let ty = api_bundle.get_ty(type_idx.0)?;
-                ty.0.is_lifetime(api_bundle)
+                ty.0.is_lifetime_in(api_bundle, seen)
             }
             // the definition's own fields (parameters don't count), or one of the arguments
             TypeOwned::Instance { type_idx, args } => {
-                if api_bundle.get_ty(type_idx.0)?.0.is_lifetime(api_bundle)? {
+                if seen.insert(type_idx.0)
+                    && api_bundle
+                        .get_ty(type_idx.0)?
+                        .0
+                        .is_lifetime_in(api_bundle, seen)?
+                {
                     return Ok(true);
                 }
                 for arg in args {
                     if let GenericArgOwned::Type(ty) = arg
-                        && ty.is_lifetime(api_bundle)?
+                        && ty.is_lifetime_in(api_bundle, seen)?
                     {
                         return Ok(true);
                     }
@@ -212,28 +226,28 @@ impl TypeOwned {
             TypeOwned::Flag => Ok(false),
             TypeOwned::String => Ok(true),
             TypeOwned::Vec(_) => Ok(true),
-            TypeOwned::Array { ty, .. } => ty.is_lifetime(api_bundle),
+            TypeOwned::Array { ty, .. } => ty.is_lifetime_in(api_bundle, seen),
             TypeOwned::Tuple(types) => {
                 for ty in types {
-                    if ty.is_lifetime(api_bundle)? {
+                    if ty.is_lifetime_in(api_bundle, seen)? {
                         return Ok(true);
                     }
                 }
                 Ok(false)
             }
-            TypeOwned::Struct(item_struct) => item_struct.is_lifetime(api_bundle),
-            TypeOwned::Enum(item_enum) => item_enum.is_lifetime(api_bundle),
-            TypeOwned::Option { some_ty } => some_ty.is_lifetime(api_bundle),
+            TypeOwned::Struct(item_struct) => item_struct.fields.is_lifetime(api_bundle, seen),
+            TypeOwned::Enum(item_enum) => item_enum.is_lifetime_in(api_bundle, seen),
+            TypeOwned::Option { some_ty } => some_ty.is_lifetime_in(api_bundle, seen),
             TypeOwned::Result { ok_ty, err_ty } => {
-                if ok_ty.is_lifetime(api_bundle)? {
+                if ok_ty.is_lifetime_in(api_bundle, seen)? {
                     return Ok(true);
                 }
-                err_ty.is_lifetime(api_bundle)
+                err_ty.is_lifetime_in(api_bundle, seen)
             }
             TypeOwned::Box(_) => Ok(true),
             TypeOwned::Range(_) => Ok(false),
             TypeOwned::RangeInclusive(_) => Ok(false),
-            TypeOwned::MaxLen { ty, .. } => ty.is_lifetime(api_bundle),
+            TypeOwned::MaxLen { ty, .. } => ty.is_lifetime_in(api_bundle, seen),
             // a slice or a reader of the buffer, like RefVec
             TypeOwned::Delta(_)
             | TypeOwned::DeltaOfDelta(_)
@@ -365,6 +379,7 @@ impl TypeOwned {
             single_line,
             budget: HUMAN_DEFINITION_MAX_NODES,
             bytes_left: HUMAN_DEFINITION_MAX_BYTES,
+            open: vec![],
         };
         cx.ty(self, &[])
     }
@@ -573,6 +588,8 @@ struct DefCx<'a> {
     single_line: bool,
     budget: usize,
     bytes_left: usize,
+    /// Out-of-line definitions being written out, a self-referential one is named inside itself.
+    open: Vec<u32>,
 }
 
 impl DefCx<'_> {
@@ -594,8 +611,14 @@ impl DefCx<'_> {
         let api_bundle = self.api_bundle;
         match ty {
             TypeOwned::OutOfLine { type_idx } => {
-                let ty = api_bundle.get_ty(type_idx.0)?.0;
-                self.ty(ty, &[])
+                if self.open.contains(&type_idx.0) {
+                    return ty.human_name(true, api_bundle);
+                }
+                let def = api_bundle.get_ty(type_idx.0)?.0;
+                self.open.push(type_idx.0);
+                let s = self.ty(def, &[]);
+                self.open.pop();
+                s
             }
             TypeOwned::Instance { type_idx, args } => {
                 let mut args = args.clone();
@@ -732,11 +755,11 @@ impl FieldOwned {
 }
 
 impl FieldsOwned {
-    fn is_lifetime(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
+    fn is_lifetime(&self, api_bundle: &ApiBundleOwned, seen: &mut HashSet<u32>) -> Result<bool> {
         match self {
             FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) => {
                 for field in fields {
-                    if field.ty.is_lifetime(api_bundle)? {
+                    if field.ty.is_lifetime_in(api_bundle, seen)? {
                         return Ok(true);
                     }
                 }
@@ -750,7 +773,7 @@ impl FieldsOwned {
 impl ItemStructOwned {
     /// Returns true if this type contains a string, vector, or box at any depth.
     pub fn is_lifetime(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
-        self.fields.is_lifetime(api_bundle)
+        self.fields.is_lifetime(api_bundle, &mut HashSet::new())
     }
 
     pub fn is_unsized(&self) -> bool {
@@ -761,8 +784,12 @@ impl ItemStructOwned {
 impl ItemEnumOwned {
     /// Returns true if this type contains a string, vector, or box at any depth.
     pub fn is_lifetime(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
+        self.is_lifetime_in(api_bundle, &mut HashSet::new())
+    }
+
+    fn is_lifetime_in(&self, api_bundle: &ApiBundleOwned, seen: &mut HashSet<u32>) -> Result<bool> {
         for variant in &self.variants {
-            if variant.fields.is_lifetime(api_bundle)? {
+            if variant.fields.is_lifetime(api_bundle, seen)? {
                 return Ok(true);
             }
         }

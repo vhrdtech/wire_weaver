@@ -75,7 +75,8 @@ pub fn params_human_name(params: &[GenericParamOwned], bundle: &ApiBundleOwned) 
 /// - Parameters are used only inside the definition that has them, as what they are (a type parameter as a type,
 ///   an integer const parameter as a length). Const parameters are `bool` or integers.
 /// - Generic definitions are not part of a cycle: a definition can refer to itself (`enum Expr { Lit(u32),
-///   Neg(Box<Expr>) }`), directly or through others, only when none of them has parameters.
+///   Neg(Box<Expr>) }`), directly or through others, only when none of them has parameters, and only through a
+///   `Box` or a `Vec` (as in Rust: a value of `struct S { s: Option<S> }` would contain itself).
 /// - Nothing is nested deeper than [MAX_DEPTH], counted along the longest path a walk over the types takes when it
 ///   stops at a definition already on its path.
 ///
@@ -92,6 +93,7 @@ pub fn validate(bundle: &ApiBundleOwned) -> Result<()> {
     for idx in 0..bundle.types.len() {
         v.def_depth(idx as u32, 0)?;
     }
+    check_indirection(bundle)?;
     v.level(&bundle.root)?;
     for location in &bundle.traits {
         if let ApiLevelLocationOwned::InLine { level, .. } = location {
@@ -412,6 +414,166 @@ impl<'a> Validator<'a> {
             bail!("types are nested deeper than {MAX_DEPTH} levels");
         }
         Ok(depth)
+    }
+}
+
+/// Every cycle of definitions goes through a `Box` or a `Vec`. Run after the depth check: walks are bounded.
+fn check_indirection(bundle: &ApiBundleOwned) -> Result<()> {
+    let mut d = Direct {
+        bundle,
+        params: HashMap::new(),
+    };
+    // definitions each non-generic one contains not behind a Box or a Vec
+    let mut edges: Vec<Vec<u32>> = vec![vec![]; bundle.types.len()];
+    for (idx, location) in bundle.types.iter().enumerate() {
+        if let TypeLocationOwned::InLine { ty, .. } = location
+            && generics_of(ty).is_empty()
+        {
+            d.def(ty, &mut |c| {
+                if let Contained::Def(to) = c {
+                    edges[idx].push(to)
+                }
+            })?;
+        }
+    }
+    // a cycle of these: depth-first, iteratively
+    #[derive(Clone, Copy, PartialEq)]
+    enum Mark {
+        New,
+        Open,
+        Done,
+    }
+    let mut marks = vec![Mark::New; edges.len()];
+    for start in 0..edges.len() {
+        if marks[start] != Mark::New {
+            continue;
+        }
+        marks[start] = Mark::Open;
+        let mut stack = vec![(start, 0usize)];
+        while let Some((idx, next)) = stack.last_mut() {
+            let idx = *idx;
+            let Some(&to) = edges[idx].get(*next) else {
+                marks[idx] = Mark::Done;
+                stack.pop();
+                continue;
+            };
+            *next += 1;
+            let to = to as usize;
+            match marks.get(to).copied() {
+                Some(Mark::New) => {
+                    marks[to] = Mark::Open;
+                    stack.push((to, 0));
+                }
+                Some(Mark::Open) => bail!(
+                    "type {} contains itself, not behind a Box or a Vec",
+                    def_name(&bundle.types[to])
+                ),
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// A definition or a parameter of a generic definition, contained directly in a type.
+enum Contained {
+    Def(u32),
+    Param(u32),
+}
+
+/// What a definition contains directly, not behind a `Box` or a `Vec`.
+struct Direct<'a> {
+    bundle: &'a ApiBundleOwned,
+    /// Generic definition -> which of its parameters it contains directly.
+    params: HashMap<u32, Vec<bool>>,
+}
+
+impl Direct<'_> {
+    fn def(&mut self, ty: &TypeOwned, out: &mut dyn FnMut(Contained)) -> Result<()> {
+        match ty {
+            TypeOwned::Struct(s) => self.fields(&s.fields, out),
+            TypeOwned::Enum(e) => {
+                for variant in &e.variants {
+                    self.fields(&variant.fields, out)?;
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+
+    fn fields(&mut self, fields: &FieldsOwned, out: &mut dyn FnMut(Contained)) -> Result<()> {
+        if let FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) = fields {
+            for field in fields {
+                self.ty(&field.ty, out)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Calls `out` with each definition and parameter `ty` contains directly.
+    fn ty(&mut self, ty: &TypeOwned, out: &mut dyn FnMut(Contained)) -> Result<()> {
+        match ty {
+            TypeOwned::OutOfLine { type_idx } => out(Contained::Def(type_idx.0)),
+            TypeOwned::Param(idx) => out(Contained::Param(idx.0)),
+            TypeOwned::Instance { type_idx, args } => {
+                let direct = self.params_of(type_idx.0)?;
+                for (i, arg) in args.iter().enumerate() {
+                    // a definition that is not known could contain any of them
+                    if let GenericArgOwned::Type(arg) = arg
+                        && direct.as_ref().is_none_or(|d| d.get(i) == Some(&true))
+                    {
+                        self.ty(arg, out)?;
+                    }
+                }
+            }
+            TypeOwned::Option { some_ty: inner }
+            | TypeOwned::Array { ty: inner, .. }
+            | TypeOwned::MaxLen { ty: inner, .. } => self.ty(inner, out)?,
+            TypeOwned::Result { ok_ty, err_ty } => {
+                self.ty(ok_ty, out)?;
+                self.ty(err_ty, out)?;
+            }
+            TypeOwned::Tuple(types) => {
+                for ty in types {
+                    self.ty(ty, out)?;
+                }
+            }
+            TypeOwned::Struct(_) | TypeOwned::Enum(_) => self.def(ty, out)?,
+            TypeOwned::Box(_)
+            | TypeOwned::Vec(_)
+            | TypeOwned::Bool
+            | TypeOwned::NumericAny(_)
+            | TypeOwned::Flag
+            | TypeOwned::String
+            | TypeOwned::Range(_)
+            | TypeOwned::RangeInclusive(_)
+            | TypeOwned::Delta(_)
+            | TypeOwned::DeltaOfDelta(_)
+            | TypeOwned::XorFloat(_) => {}
+        }
+        Ok(())
+    }
+
+    /// Which parameters of the generic definition `types[idx]` it contains directly, memoized (generic
+    /// definitions are not in cycles, see [validate]); `None` for a skipped one.
+    fn params_of(&mut self, idx: u32) -> Result<Option<Vec<bool>>> {
+        if let Some(direct) = self.params.get(&idx) {
+            return Ok(Some(direct.clone()));
+        }
+        let Some(TypeLocationOwned::InLine { ty, .. }) = self.bundle.types.get(idx as usize) else {
+            return Ok(None);
+        };
+        let mut direct = vec![false; generics_of(ty).len()];
+        self.def(ty, &mut |c| {
+            if let Contained::Param(p) = c
+                && let Some(d) = direct.get_mut(p as usize)
+            {
+                *d = true;
+            }
+        })?;
+        self.params.insert(idx, direct.clone());
+        Ok(Some(direct))
     }
 }
 
@@ -1007,7 +1169,7 @@ fn fields_nodes(fields: &FieldsOwned) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{FieldOwned, Repr, VariantOwned};
+    use crate::{FieldOwned, FieldsValueOwned, Repr, VariantOwned};
     use shrink_wrap::ElementSize;
     use ww_numeric::NumericValue;
     use ww_version::{FullVersionOwned, VersionOwned};
@@ -1363,6 +1525,172 @@ mod tests {
         ));
         let mut b = bundle(types, out_of_line(2));
         prepare(&mut b).unwrap();
+    }
+
+    #[test]
+    fn cycles_without_indirection_are_errors() {
+        // struct A { a: B }, struct B { b: Option<A> }
+        let types = vec![
+            def("A", vec![], vec![field("a", out_of_line(1))]),
+            def(
+                "B",
+                vec![],
+                vec![field(
+                    "b",
+                    TypeOwned::Option {
+                        some_ty: Box::new(out_of_line(0)),
+                    },
+                )],
+            ),
+        ];
+        assert_invalid(bundle(types, out_of_line(0)), "not behind a Box or a Vec");
+        // struct A { t: Timed<A> }: Timed contains its parameter directly
+        let mut types = timed_and_buf();
+        types.push(def(
+            "A",
+            vec![],
+            vec![field(
+                "t",
+                instance(0, vec![GenericArgOwned::Type(out_of_line(2))]),
+            )],
+        ));
+        assert_invalid(bundle(types, out_of_line(2)), "not behind a Box or a Vec");
+        // struct W<T> { w: Vec<T> }, struct A { w: W<A> }: behind the Vec in W
+        let types = vec![
+            def(
+                "W",
+                vec![param("T")],
+                vec![field(
+                    "w",
+                    TypeOwned::Vec(Box::new(TypeOwned::Param(UNib32(0)))),
+                )],
+            ),
+            def(
+                "A",
+                vec![],
+                vec![field(
+                    "w",
+                    instance(0, vec![GenericArgOwned::Type(out_of_line(1))]),
+                )],
+            ),
+        ];
+        prepare(&mut bundle(types, out_of_line(1))).unwrap();
+    }
+
+    /// `struct L { v: u16, next: Option<Box<L>> }` at index 0, `enum E { Neg(Box<E>), Lit(u16) }` at index 1.
+    fn list_and_expr() -> ApiBundleOwned {
+        let list = def(
+            "L",
+            vec![],
+            vec![
+                field("v", u16_ty()),
+                field(
+                    "next",
+                    TypeOwned::Option {
+                        some_ty: Box::new(TypeOwned::Box(Box::new(out_of_line(0)))),
+                    },
+                ),
+            ],
+        );
+        let unnamed = |ty| {
+            FieldsOwned::Unnamed(vec![FieldOwned {
+                ident: None,
+                ..field("", ty)
+            }])
+        };
+        let variant = |ident: &str, discriminant, fields| VariantOwned {
+            docs: vec![],
+            ident: ident.into(),
+            fields,
+            discriminant: UNib32(discriminant),
+            since: None,
+        };
+        let expr = TypeLocationOwned::InLine {
+            ty: TypeOwned::Enum(ItemEnumOwned {
+                size: ElementSize::Unsized,
+                repr: Repr::Nibble,
+                crate_idx: UNib32(0),
+                docs: vec![],
+                ident: "E".into(),
+                generics: vec![],
+                variants: vec![
+                    variant("Neg", 0, unnamed(TypeOwned::Box(Box::new(out_of_line(1))))),
+                    variant("Lit", 1, unnamed(u16_ty())),
+                ],
+            }),
+            crate_idx: UNib32(0),
+        };
+        let mut b = bundle(vec![list, expr], out_of_line(0));
+        prepare(&mut b).unwrap();
+        b
+    }
+
+    fn list_value(len: usize) -> ValueOwned {
+        let mut value = None;
+        for i in 0..len {
+            value = Some(ValueOwned::Struct {
+                fields: FieldsValueOwned::Named(vec![
+                    ("v".into(), ValueOwned::Numeric(NumericValue::U16(i as u16))),
+                    ("next".into(), ValueOwned::Option(value.map(Box::new))),
+                ]),
+            });
+        }
+        value.unwrap()
+    }
+
+    fn on_stack<T: Send>(mib: usize, f: impl FnOnce() -> T + Send) -> T {
+        std::thread::scope(|s| {
+            std::thread::Builder::new()
+                .stack_size(mib << 20)
+                .spawn_scoped(s, f)
+                .unwrap()
+                .join()
+                .unwrap()
+        })
+    }
+
+    #[test]
+    fn self_referential_values() {
+        let b = list_and_expr();
+        let (list, expr) = (out_of_line(0), out_of_line(1));
+        // as deep as the dynamic decoder allows, on the default stack of a spawned thread
+        let depth = crate::MAX_DECODE_DEPTH / 4 - 1;
+        let value = list_value(depth);
+        let bytes = on_stack(64, || value.ser_shrink_wrap_dyn(&list, &b).unwrap());
+        let decoded = on_stack(2, || {
+            ValueOwned::des_shrink_wrap_dyn(&bytes, &list, &b).unwrap()
+        });
+        assert_eq!(decoded, value);
+        on_stack(64, || drop((value, decoded)));
+        // deeper is an error, also far deeper
+        for depth in [2 * depth, 2_000] {
+            let value = list_value(depth);
+            let bytes = on_stack(64, || value.ser_shrink_wrap_dyn(&list, &b).unwrap());
+            on_stack(64, || drop(value));
+            let err = on_stack(2, || {
+                ValueOwned::des_shrink_wrap_dyn(&bytes, &list, &b)
+                    .map(|v| on_stack(64, || drop(v)))
+                    .map_err(|e| e.to_string())
+            });
+            assert!(
+                matches!(&err, Err(e) if e.contains("nested deeper")),
+                "{err:?}"
+            );
+        }
+        // walks over the types stop at the definition they are in
+        assert!(list.is_lifetime(&b).unwrap());
+        assert_eq!(
+            expr.human_definition(&b, true).unwrap(),
+            "enum nib c::E {Neg(Box<c::E>), Lit(u16)}"
+        );
+        assert_eq!(ValueOwned::default(&list, &b).unwrap(), list_value(1));
+        assert_eq!(
+            ValueOwned::default(&expr, &b).unwrap(),
+            ValueOwned::Enum {
+                variant: "Lit".into(),
+                fields: FieldsValueOwned::Unnamed(vec![ValueOwned::Numeric(NumericValue::U16(0))]),
+            }
+        );
     }
 
     #[test]

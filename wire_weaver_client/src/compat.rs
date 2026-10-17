@@ -636,14 +636,22 @@ fn type_signature(bundle: &ApiBundleOwned, type_idx: u32) -> Option<Vec<u8>> {
     }
 }
 
+/// Deepest nesting of [TypeCheck::check]: types nested [MAX_DEPTH](ww_self::generics::MAX_DEPTH) levels on both
+/// sides, a self-referential one written out a few levels further on one side.
+const MAX_CHECK_DEPTH: usize = 4 * ww_self::generics::MAX_DEPTH;
+
 /// Checks that a value written as one type can be read as the other.
 pub(crate) struct TypeCheck<'a> {
     writer: &'a ApiBundleOwned,
     reader: &'a ApiBundleOwned,
     writer_name: &'static str,
     reader_name: &'static str,
-    /// Out-of-line types already compared or being compared, to stop on self-referential types.
-    seen: HashSet<(u32, u32)>,
+    /// Struct and enum definitions (by address, in-line ones too) already compared or being compared, to stop on
+    /// self-referential types: also when one side writes them out a level further than the other, as a bundle from
+    /// a device can.
+    seen: HashSet<(*const TypeOwned, *const TypeOwned)>,
+    /// Nesting depth of [Self::check] calls, bounded by [MAX_CHECK_DEPTH].
+    depth: usize,
     /// A smaller max length on the reader is an error, see [Bounds].
     strict_bounds: bool,
     /// Smaller max lengths on the reader found when they are not an error.
@@ -670,6 +678,7 @@ impl<'a> TypeCheck<'a> {
             writer_name,
             reader_name,
             seen: HashSet::new(),
+            depth: 0,
             strict_bounds: false,
             narrower: vec![],
         }
@@ -712,12 +721,18 @@ impl<'a> TypeCheck<'a> {
     }
 
     pub(crate) fn check(&mut self, w: &'a TypeOwned, r: &'a TypeOwned) -> Result<(), String> {
-        if let (TypeOwned::OutOfLine { type_idx: wi }, TypeOwned::OutOfLine { type_idx: ri }) =
-            (w, r)
-            && !self.seen.insert((wi.0, ri.0))
-        {
-            return Ok(());
+        if self.depth >= MAX_CHECK_DEPTH {
+            return Err(format!(
+                "types are nested deeper than {MAX_CHECK_DEPTH} levels, can't compare them"
+            ));
         }
+        self.depth += 1;
+        let result = self.check_inner(w, r);
+        self.depth -= 1;
+        result
+    }
+
+    fn check_inner(&mut self, w: &'a TypeOwned, r: &'a TypeOwned) -> Result<(), String> {
         // instances are left after ww_self::generics::prepare only when their definition is not known
         match (w, r) {
             (
@@ -767,6 +782,12 @@ impl<'a> TypeCheck<'a> {
                 );
             }
         };
+        if matches!(w, TypeOwned::Struct(_) | TypeOwned::Enum(_))
+            && matches!(r, TypeOwned::Struct(_) | TypeOwned::Enum(_))
+            && !self.seen.insert((w as *const _, r as *const _))
+        {
+            return Ok(());
+        }
         use TypeOwned::*;
         match (w, r) {
             // parameters of generic definitions, compared by position (the names don't matter)

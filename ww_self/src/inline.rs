@@ -16,7 +16,7 @@ use crate::{
 use anyhow::{Result, anyhow};
 use core::fmt::{Display, Formatter};
 use shrink_wrap::UNib32;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use ww_version::FullVersionOwned;
 
@@ -406,6 +406,8 @@ struct Import<'d, 'a, 'r> {
     /// Definitions missing from `dst` are copied in-line instead of appended as skipped: `src` is a cached
     /// definition, its parts are not in any snapshot under their signatures.
     inline_all: bool,
+    /// Entries of `src` that are not user-defined, copied as they are: index in `dst`, also while being copied.
+    copied: HashMap<u32, u32>,
     error: Option<anyhow::Error>,
 }
 
@@ -416,6 +418,7 @@ impl<'d, 'a, 'r> Import<'d, 'a, 'r> {
             src,
             resolve,
             inline_all: false,
+            copied: HashMap::new(),
             error: None,
         }
     }
@@ -448,11 +451,18 @@ impl<'d, 'a, 'r> Import<'d, 'a, 'r> {
             .get(idx as usize)
             .ok_or_else(|| anyhow!("Bad ApiBundle: no type with index: {idx}"))?;
         let Some((version, name)) = type_key(self.src, location) else {
-            // not user-defined (e.g. an array index type), copy as is
+            // not user-defined (e.g. an array index type), copy as is, once: it can refer to itself (a malformed
+            // bundle)
+            if let Some(&new) = self.copied.get(&idx) {
+                return Ok(new);
+            }
+            let new = self.dst.types.len();
+            self.copied.insert(idx, new as u32);
+            self.dst.types.push(location.clone());
             let mut location = location.clone();
             self.visit_type_location(&mut location);
-            self.dst.types.push(location);
-            return Ok(self.dst.types.len() as u32 - 1);
+            self.dst.types[new] = location;
+            return Ok(new as u32);
         };
         let dst = &*self.dst;
         if let Some(found) = dst

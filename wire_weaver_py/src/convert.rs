@@ -36,6 +36,26 @@ pub(crate) fn to_value(
     ty: &TypeOwned,
     bundle: &ApiBundleOwned,
 ) -> PyResult<ValueOwned> {
+    to_value_at(obj, ty, bundle, 0)
+}
+
+/// Deepest nesting of a value [to_value] converts: a self-referential type (`Option<Box<Node>>` in `Node`) is
+/// as deep as the object, which can also refer to itself (`l = []; l.append(l)`). As deep as a dynamic decoder
+/// reads.
+const MAX_VALUE_DEPTH: usize = wire_weaver_client::ww_self::MAX_DECODE_DEPTH;
+
+/// [to_value] of a value nested `depth` levels deep.
+fn to_value_at(
+    obj: &Bound<'_, PyAny>,
+    ty: &TypeOwned,
+    bundle: &ApiBundleOwned,
+    depth: usize,
+) -> PyResult<ValueOwned> {
+    if depth >= MAX_VALUE_DEPTH {
+        return Err(PyValueError::new_err(format!(
+            "value is nested deeper than {MAX_VALUE_DEPTH} levels"
+        )));
+    }
     let ty = resolve(ty, bundle)?;
     let expected = || {
         PyTypeError::new_err(format!(
@@ -59,7 +79,7 @@ pub(crate) fn to_value(
             ValueOwned::String(s.to_str()?.to_string())
         }
         TypeOwned::MaxLen { max_len, ty: inner } => {
-            let value = to_value(obj, inner, bundle)?;
+            let value = to_value_at(obj, inner, bundle, depth + 1)?;
             let len = match &value {
                 ValueOwned::String(s) => s.len(),
                 ValueOwned::Vec(items) | ValueOwned::Array(items) => items.len(),
@@ -75,18 +95,20 @@ pub(crate) fn to_value(
             }
             value
         }
-        TypeOwned::Vec(inner) => ValueOwned::Vec(to_items(obj, inner, bundle).map_err(|e| {
-            if e.is_instance_of::<PyTypeError>(obj.py()) && !is_iterable(obj) {
-                expected()
-            } else {
-                e
-            }
-        })?),
+        TypeOwned::Vec(inner) => {
+            ValueOwned::Vec(to_items(obj, inner, bundle, depth).map_err(|e| {
+                if e.is_instance_of::<PyTypeError>(obj.py()) && !is_iterable(obj) {
+                    expected()
+                } else {
+                    e
+                }
+            })?)
+        }
         TypeOwned::Array { len, ty: inner } => {
             let len = len
                 .fixed()
                 .map_err(|e| PyTypeError::new_err(e.to_string()))?;
-            let items = to_items(obj, inner, bundle)?;
+            let items = to_items(obj, inner, bundle, depth)?;
             if items.len() != len as usize {
                 return Err(PyValueError::new_err(format!(
                     "expected {len} elements, got {}",
@@ -107,12 +129,12 @@ pub(crate) fn to_value(
             let values = items
                 .iter()
                 .zip(types)
-                .map(|(item, ty)| to_value(item, ty, bundle))
+                .map(|(item, ty)| to_value_at(item, ty, bundle, depth + 1))
                 .collect::<PyResult<_>>()?;
             ValueOwned::Tuple(values)
         }
         TypeOwned::Struct(item_struct) => ValueOwned::Struct {
-            fields: to_fields(obj, &item_struct.fields, &item_struct.ident, bundle)?,
+            fields: to_fields(obj, &item_struct.fields, &item_struct.ident, bundle, depth)?,
         },
         TypeOwned::Enum(item_enum) => {
             let (variant, payload) = if let Ok(name) = obj.cast::<PyString>() {
@@ -141,7 +163,7 @@ pub(crate) fn to_value(
             let path = format!("{}::{}", item_enum.ident, def.ident);
             let fields = match (&def.fields, payload) {
                 (FieldsOwned::Unit, None) => FieldsValueOwned::Unit,
-                (_, Some(payload)) => to_fields(&payload, &def.fields, &path, bundle)?,
+                (_, Some(payload)) => to_fields(&payload, &def.fields, &path, bundle, depth)?,
                 (_, None) => {
                     return Err(PyValueError::new_err(format!(
                         "{path} has fields, pass {{\"{variant}\": fields}}"
@@ -154,7 +176,12 @@ pub(crate) fn to_value(
             if obj.is_none() {
                 ValueOwned::Option(None)
             } else {
-                ValueOwned::Option(Some(Box::new(to_value(obj, some_ty, bundle)?)))
+                ValueOwned::Option(Some(Box::new(to_value_at(
+                    obj,
+                    some_ty,
+                    bundle,
+                    depth + 1,
+                )?)))
             }
         }
         TypeOwned::Result { ok_ty, err_ty } => {
@@ -163,14 +190,14 @@ pub(crate) fn to_value(
                 return Err(expected());
             }
             if let Some(v) = dict.get_item("Ok")? {
-                ValueOwned::Result(Ok(Box::new(to_value(&v, ok_ty, bundle)?)))
+                ValueOwned::Result(Ok(Box::new(to_value_at(&v, ok_ty, bundle, depth + 1)?)))
             } else if let Some(v) = dict.get_item("Err")? {
-                ValueOwned::Result(Err(Box::new(to_value(&v, err_ty, bundle)?)))
+                ValueOwned::Result(Err(Box::new(to_value_at(&v, err_ty, bundle, depth + 1)?)))
             } else {
                 return Err(expected());
             }
         }
-        TypeOwned::Box(inner) => to_value(obj, inner, bundle)?,
+        TypeOwned::Box(inner) => to_value_at(obj, inner, bundle, depth + 1)?,
         TypeOwned::Range(base) => {
             let (start, end) = to_bounds(obj, base, true).ok_or_else(expected)??;
             ValueOwned::Range(start..end)
@@ -186,7 +213,7 @@ pub(crate) fn to_value(
             let element = TypeOwned::NumericAny(NumericAnyTypeOwned::Base(base.clone()));
             ValueOwned::Vec(
                 obj.try_iter()?
-                    .map(|item| to_value(&item?, &element, bundle))
+                    .map(|item| to_value_at(&item?, &element, bundle, depth + 1))
                     .collect::<PyResult<_>>()?,
             )
         }
@@ -210,6 +237,7 @@ fn to_items(
     obj: &Bound<'_, PyAny>,
     inner: &TypeOwned,
     bundle: &ApiBundleOwned,
+    depth: usize,
 ) -> PyResult<Vec<ValueOwned>> {
     if is_u8(inner, bundle) {
         if let Ok(b) = obj.cast::<PyBytes>() {
@@ -223,7 +251,7 @@ fn to_items(
         return Err(PyTypeError::new_err("expected a list, got str"));
     }
     obj.try_iter()?
-        .map(|item| to_value(&item?, inner, bundle))
+        .map(|item| to_value_at(&item?, inner, bundle, depth + 1))
         .collect()
 }
 
@@ -239,6 +267,7 @@ fn to_fields(
     defs: &FieldsOwned,
     path: &str,
     bundle: &ApiBundleOwned,
+    depth: usize,
 ) -> PyResult<FieldsValueOwned> {
     Ok(match defs {
         FieldsOwned::Named(defs) => {
@@ -264,7 +293,7 @@ fn to_fields(
                         field_names(defs)
                     )));
                 };
-                let value = to_value(&v, &def.ty, bundle)
+                let value = to_value_at(&v, &def.ty, bundle, depth + 1)
                     .map_err(|e| prefix_err(obj.py(), e, &format!("{path}.{name}")))?;
                 values.push((name, value));
             }
@@ -293,7 +322,7 @@ fn to_fields(
             let mut values = vec![];
             for (idx, (item, def)) in items.iter().zip(defs).enumerate() {
                 values.push(
-                    to_value(item, &def.ty, bundle)
+                    to_value_at(item, &def.ty, bundle, depth + 1)
                         .map_err(|e| prefix_err(obj.py(), e, &format!("{path}.{idx}")))?,
                 );
             }

@@ -91,8 +91,9 @@ impl ValueOwned {
             .collect()
     }
 
-    /// Default value of `ty`: zeros, empty lists and strings, `None`, the first variant of an enum. Fails for a
-    /// value larger than [DEFAULT_MAX_VALUES] values (a large array).
+    /// Default value of `ty`: zeros, empty lists and strings, `None`, the first variant of an enum (of a
+    /// self-referential one, the first that doesn't contain the enum itself). Fails for a value larger than
+    /// [DEFAULT_MAX_VALUES] values (a large array), and for a type each value of which contains another one.
     pub fn default(ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> Result<Self> {
         default_in(ty, api_bundle, &mut Budget::new(DEFAULT_MAX_VALUES))
     }
@@ -110,15 +111,35 @@ pub const DEFAULT_MAX_VALUES: usize = 1 << 20;
 
 /// Bounds the work and the memory of a dynamic decode: types (from a device's introspection data) can describe
 /// values much larger than their bytes (arrays of empty tuples, one-bit options nested many times, a `Series` of
-/// items in constant columns), and they are nested at most [MAX_DEPTH](crate::generics::MAX_DEPTH) deep only in a
-/// bundle that passed [validate](crate::generics::validate).
+/// items in constant columns), and values of self-referential types are as deep as their bytes say (types themselves
+/// are nested at most [MAX_DEPTH](crate::generics::MAX_DEPTH) deep in a bundle that passed
+/// [validate](crate::generics::validate)).
 pub(crate) struct Budget {
     /// Values that may still be created.
     values_left: usize,
     /// Memory they may still take: each value its `size_of`, strings and names their bytes.
     bytes_left: usize,
     depth: usize,
+    /// Out-of-line definitions whose default is being created ([ValueOwned::default] only): a self-referential type
+    /// takes an enum variant or an `Option` that doesn't refer back.
+    open: Vec<u32>,
 }
+
+/// The default value of a self-referential type would refer to itself (through this definition).
+#[derive(Debug)]
+struct RefersBack(u32);
+
+impl std::fmt::Display for RefersBack {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "type with index {} has no default value: each one contains another one",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for RefersBack {}
 
 /// Values a decode may create: a fixed allowance and a number per byte, enough for bit-packed data in containers.
 const VALUES_FIXED: usize = 1 << 16;
@@ -130,8 +151,11 @@ pub const DECODE_MAX_BYTES: usize = 64 << 20;
 const NAME_BYTES_PER_VALUE: usize = 32;
 /// Variants of an enum looked through to find the one read count as a value per this many.
 pub(crate) const VARIANTS_PER_VALUE: usize = 16;
-/// Deepest nesting of a decode: [MAX_DEPTH](crate::generics::MAX_DEPTH) type levels take up to two calls each.
-const MAX_DECODE_DEPTH: usize = 2 * crate::generics::MAX_DEPTH + 8;
+/// Deepest nesting of a decode (and of [ValueOwned::default]): [MAX_DEPTH](crate::generics::MAX_DEPTH) type levels
+/// take up to two calls each, a value of a self-referential type about four per level of the value
+/// (`Option<Box<List>>` in `List`: the `Option`, the `Box`, the out-of-line reference and the struct), so a list or
+/// a tree about 90 levels deep decodes. Stays within a 2 MiB thread stack in a debug build.
+pub const MAX_DECODE_DEPTH: usize = 4 * crate::generics::MAX_DEPTH;
 
 impl Budget {
     fn new(values: usize) -> Self {
@@ -139,6 +163,7 @@ impl Budget {
             values_left: values,
             bytes_left: DECODE_MAX_BYTES,
             depth: 0,
+            open: vec![],
         }
     }
 
@@ -261,8 +286,14 @@ fn default_inner(
                 Ok(ValueOwned::Numeric(default_numeric(numeric_base(any))?))
             }
             TypeOwned::OutOfLine { type_idx } => {
+                if b.open.contains(&type_idx.0) {
+                    return Err(RefersBack(type_idx.0).into());
+                }
                 let ty = api_bundle.get_ty(type_idx.0)?;
-                default_in(ty.0, api_bundle, b)
+                b.open.push(type_idx.0);
+                let value = default_in(ty.0, api_bundle, b);
+                b.open.pop();
+                value
             }
             TypeOwned::Flag => Err(anyhow!("flag type cannot be created manually")),
             TypeOwned::String => Ok(ValueOwned::String(String::new())),
@@ -294,13 +325,23 @@ fn default_inner(
             TypeOwned::Struct(item_struct) => Ok(ValueOwned::Struct {
                 fields: default_fields_in(&item_struct.fields, api_bundle, b)?,
             }),
+            // the first variant that doesn't contain the type itself (`Lit` of `enum Expr { Add(Box<Expr>, ..),
+            // Lit(u32) }`)
             TypeOwned::Enum(item_enum) => {
-                let variant = item_enum.variants.first().ok_or(anyhow!("Enum is empty"))?;
-                let fields = default_fields_in(&variant.fields, api_bundle, b)?;
-                Ok(ValueOwned::Enum {
-                    variant: b.name(&variant.ident)?,
-                    fields,
-                })
+                let mut refers_back = None;
+                for variant in &item_enum.variants {
+                    match default_fields_in(&variant.fields, api_bundle, b) {
+                        Ok(fields) => {
+                            return Ok(ValueOwned::Enum {
+                                variant: b.name(&variant.ident)?,
+                                fields,
+                            });
+                        }
+                        Err(e) if e.is::<RefersBack>() => refers_back = Some(e),
+                        Err(e) => return Err(e),
+                    }
+                }
+                Err(refers_back.unwrap_or_else(|| anyhow!("Enum is empty")))
             }
             TypeOwned::Option { .. } => Ok(ValueOwned::Option(None)),
             TypeOwned::Result { ok_ty, .. } => Ok(ValueOwned::Result(Err(Box::new(default_in(
@@ -440,26 +481,28 @@ fn des_ty(
         }
         TypeOwned::Vec(inner_ty) => {
             let len = rd.read_rev_len()?;
-            let mut items = Vec::with_capacity(len.min(rd.bytes_left() + 1));
-            for _ in 0..len {
-                items.push(des_field(rd, inner_ty, api_bundle, b)?);
-            }
-            Ok(ValueOwned::Vec(items))
+            Ok(ValueOwned::Vec(des_items(
+                rd,
+                len,
+                |_| inner_ty,
+                api_bundle,
+                b,
+            )?))
         }
-        TypeOwned::Array { len, ty } => {
-            let mut items = vec![];
-            for _ in 0..len.fixed()? {
-                items.push(des_field(rd, ty, api_bundle, b)?);
-            }
-            Ok(ValueOwned::Array(items))
-        }
-        TypeOwned::Tuple(types) => {
-            let mut values = vec![];
-            for ty in types {
-                values.push(des_field(rd, ty, api_bundle, b)?);
-            }
-            Ok(ValueOwned::Tuple(values))
-        }
+        TypeOwned::Array { len, ty } => Ok(ValueOwned::Array(des_items(
+            rd,
+            len.fixed()? as usize,
+            |_| ty,
+            api_bundle,
+            b,
+        )?)),
+        TypeOwned::Tuple(types) => Ok(ValueOwned::Tuple(des_items(
+            rd,
+            types.len(),
+            |i| &types[i],
+            api_bundle,
+            b,
+        )?)),
         TypeOwned::Struct(struct_def) if struct_def.sparse => {
             let fields = des_sparse_fields(rd, &struct_def.fields, api_bundle, b)?;
             Ok(ValueOwned::Struct { fields })
@@ -468,7 +511,47 @@ fn des_ty(
             let fields = des_fields(rd, &struct_def.fields, api_bundle, b)?;
             Ok(ValueOwned::Struct { fields })
         }
-        TypeOwned::Enum(enum_def) => {
+        TypeOwned::Enum(enum_def) => des_enum(rd, enum_def, api_bundle, b),
+        TypeOwned::Option { .. } | TypeOwned::Result { .. } => {
+            let flag = rd.read_bool()?;
+            des_flagged(rd, flag, ty, api_bundle, b)
+        }
+        // Box<T> is Unsized itself (its size is handled by des_field), T is read directly inside it
+        TypeOwned::Box(inner) => des_inner(rd, inner, api_bundle, b),
+        TypeOwned::Range(_)
+        | TypeOwned::RangeInclusive(_)
+        | TypeOwned::Delta(_)
+        | TypeOwned::DeltaOfDelta(_)
+        | TypeOwned::XorFloat(_) => des_numbers(rd, ty, b),
+    }
+}
+
+/// `len` values, the type of each given by `ty_of` (its index): own function, as all bulky parts of [des_ty], to
+/// keep its stack frame small, a value of a self-referential type goes through it at each level.
+#[inline(never)]
+fn des_items<'t>(
+    rd: &mut BufReader,
+    len: usize,
+    ty_of: impl Fn(usize) -> &'t TypeOwned,
+    api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
+) -> Result<Vec<ValueOwned>> {
+    let mut items = Vec::with_capacity(len.min(rd.bytes_left() + 1));
+    for i in 0..len {
+        items.push(des_field(rd, ty_of(i), api_bundle, b)?);
+    }
+    Ok(items)
+}
+
+#[inline(never)]
+fn des_enum(
+    rd: &mut BufReader,
+    enum_def: &ItemEnumOwned,
+    api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
+) -> Result<ValueOwned> {
+    {
+        {
             let discriminant = match enum_def.repr {
                 Repr::Nibble => rd.read_nib_value()? as u32,
                 Repr::BitAligned(bits) => rd.read_un32(bits)?,
@@ -502,12 +585,13 @@ fn des_ty(
                 fields,
             })
         }
-        TypeOwned::Option { .. } | TypeOwned::Result { .. } => {
-            let flag = rd.read_bool()?;
-            des_flagged(rd, flag, ty, api_bundle, b)
-        }
-        // Box<T> is Unsized itself (its size is handled by des_field), T is read directly inside it
-        TypeOwned::Box(inner) => des_inner(rd, inner, api_bundle, b),
+    }
+}
+
+/// Ranges and series.
+#[inline(never)]
+fn des_numbers(rd: &mut BufReader, ty: &TypeOwned, b: &mut Budget) -> Result<ValueOwned> {
+    match ty {
         TypeOwned::Range(base) => {
             let start = des_numeric(rd, base)?;
             let end = des_numeric(rd, base)?;
@@ -531,6 +615,7 @@ fn des_ty(
             }
             Ok(value)
         }
+        _ => bail!("internal: {ty:?} is not a range or a series"),
     }
 }
 

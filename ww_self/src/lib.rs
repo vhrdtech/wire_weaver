@@ -35,7 +35,7 @@ pub mod signature;
 #[cfg(feature = "std")]
 mod value;
 #[cfg(feature = "std")]
-pub use value::DEFAULT_MAX_VALUES;
+pub use value::{DEFAULT_MAX_VALUES, MAX_DECODE_DEPTH};
 #[cfg(feature = "std")]
 mod visitor;
 #[cfg(feature = "std")]

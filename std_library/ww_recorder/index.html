@@ -5172,9 +5172,12 @@ a power cut: nothing written before the last completed flush is lost, and the ne
 recordings, drops, card events), the data tracks follow from 1. <code>valid_indices_root_track</code> returns those, and they
 change only on a boot. Each <code>Track</code> has:</p>
 <ul>
-<li><code>info()</code>: the stream's resource path in the device API with indices (<code>can[1].rx</code>; the system track is <code>system</code>),
-  the item type, what a position counts (<code>bytes</code>, <code>frames</code>), a stable 64-bit key (the same track across sessions
-  and firmware that keeps the path) and the nominal rate;</li>
+<li><code>info()</code>: the track's identity, numbers only: the stream's resource path in the device API as resource ids with
+  array indices (the form requests use, <a href="../../api/addressing/">addressing</a>; empty for the system track), the item
+  type as its <code>ww_self</code> <a href="../ww_self/">signature</a> and <code>ww_global</code> id, a stable 64-bit key (the same track across
+  sessions and firmware that keeps the path, made from numbers only) and the nominal rate. The device has no
+  resource or type names at hand: a host makes <code>can[1].rx</code> and <code>ww_can_bus::Frame</code> from the device's API, and
+  what a position counts (bytes, frames) from the item type;</li>
 <li><code>enabled</code> (a disabled track keeps its place and position and counts its items as dropped; track 0 can't be
   disabled), <code>durability</code> (<code>Normal</code>: with the next flush; <code>Immediate</code>: written right after each item, for events and
   errors) and the optional <code>compression</code> (<code>None</code>, <code>Lz4</code>, <code>Heatshrink</code>);</li>

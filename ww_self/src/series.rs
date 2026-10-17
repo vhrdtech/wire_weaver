@@ -26,6 +26,7 @@ use shrink_wrap::series::dynamic::{
 };
 use shrink_wrap::series::{Level, StructExtent};
 use shrink_wrap::{BufReader, Nibble, UNib32, UVlq32, UVlq64};
+use std::collections::HashMap;
 use ww_numeric::{NumericBaseType, NumericValue};
 
 /// A `Series` read column by column: its item count and the columns of `T` over all items.
@@ -53,8 +54,9 @@ pub enum SeriesColumn {
         /// Field name, or the position for unnamed fields, tuple and array elements.
         fields: Vec<(String, SeriesColumn)>,
     },
-    /// An enum: the variant of each item (an index into `variants`), and each variant's fields over the items in
-    /// it.
+    /// An enum: the variant of each item (an index into `variants`), and the fields of each variant that has
+    /// items over those items (a variant no item is in is not listed: the type can have many more variants than
+    /// the `Series` has items).
     Enum {
         variant_of: Vec<u32>,
         variants: Vec<VariantColumns>,
@@ -70,6 +72,8 @@ pub enum SeriesColumn {
 #[derive(Clone, Debug, PartialEq)]
 pub struct VariantColumns {
     pub ident: String,
+    /// Position of the variant in the enum's definition ([ItemEnumOwned::variants](crate::ItemEnumOwned::variants)).
+    pub variant_idx: u32,
     /// [SeriesColumn::Fields] of the items in this variant ([FieldsKind::Unit] and no fields for a unit variant).
     pub fields: SeriesColumn,
 }
@@ -248,8 +252,13 @@ fn charge_names(column: &SeriesColumn, b: &mut Budget) -> Result<()> {
             variant_of,
             variants,
         } => {
-            for (idx, v) in variants.iter().enumerate() {
-                let count = variant_of.iter().filter(|&&i| i as usize == idx).count();
+            let mut counts = vec![0usize; variants.len()];
+            for &slot in variant_of {
+                if let Some(count) = counts.get_mut(slot as usize) {
+                    *count += 1;
+                }
+            }
+            for (v, count) in variants.iter().zip(counts) {
                 b.names(&v.ident, count)?;
                 charge_names(&v.fields, b)?;
             }
@@ -420,13 +429,17 @@ impl Decoder<'_, '_> {
                 ))
             }
             TypeOwned::Enum(item_enum) => {
-                let mut variant_of = Vec::with_capacity(m);
+                // the variants with items, in order of first appearance (a slot each): the definition index and
+                // the items in it; the work is per item and per tag change, never per variant of the type
+                let mut variant_of: Vec<u32> = Vec::with_capacity(m);
                 let mut tags = Vec::with_capacity(m);
+                let mut present: Vec<(usize, Vec<usize>)> = vec![];
+                let mut slot_of: HashMap<usize, u32> = HashMap::new();
                 let mut last: Option<(u32, u32)> = None;
                 let b = &mut *self.b;
                 read_run(rd, RunKind::Tag, m, |tag| {
-                    let idx = match last {
-                        Some((t, idx)) if t == tag => idx,
+                    let slot = match last {
+                        Some((t, slot)) if t == tag => slot,
                         _ => {
                             let position = item_enum
                                 .variants
@@ -438,42 +451,41 @@ impl Decoder<'_, '_> {
                             )
                             .map_err(|_| shrink_wrap::Error::MalformedSeries)?;
                             let idx = position
-                                .ok_or(shrink_wrap::Error::EnumFutureVersionOrMalformedData)?
-                                as u32;
-                            last = Some((tag, idx));
-                            idx
+                                .ok_or(shrink_wrap::Error::EnumFutureVersionOrMalformedData)?;
+                            let slot = *slot_of.entry(idx).or_insert_with(|| {
+                                present.push((idx, vec![]));
+                                (present.len() - 1) as u32
+                            });
+                            last = Some((tag, slot));
+                            slot
                         }
                     };
-                    variant_of.push(idx);
+                    present[slot as usize].1.push(variant_of.len());
+                    variant_of.push(slot);
                     tags.push(tag);
                     Ok(())
                 })?;
-                // the data variants' groups, in discriminant order
-                let mut order: Vec<usize> = (0..item_enum.variants.len()).collect();
-                order.sort_by_key(|&idx| item_enum.variants[idx].discriminant.0);
-                let mut variants: Vec<VariantColumns> = item_enum
-                    .variants
+                let mut variants: Vec<VariantColumns> = present
                     .iter()
-                    .map(|v| VariantColumns {
-                        ident: v.ident.clone(),
+                    .map(|&(idx, _)| VariantColumns {
+                        ident: item_enum.variants[idx].ident.clone(),
+                        variant_idx: idx as u32,
                         fields: SeriesColumn::Empty,
                     })
                     .collect();
-                for idx in order {
-                    let variant = &item_enum.variants[idx];
-                    let (kind, defs) = fields_of(&variant.fields);
-                    let items: Vec<usize> =
-                        (0..m).filter(|&i| variant_of[i] as usize == idx).collect();
-                    if items.is_empty() {
-                        continue;
-                    }
+                // the data variants' groups, in discriminant order
+                let mut order: Vec<usize> = (0..present.len()).collect();
+                order.sort_by_key(|&slot| item_enum.variants[present[slot].0].discriminant.0);
+                for slot in order {
+                    let (idx, items) = &present[slot];
+                    let (kind, defs) = fields_of(&item_enum.variants[*idx].fields);
                     // entering the variant from another one restarts it
                     let rs: Vec<bool> = items
                         .iter()
-                        .map(|&i| restarts[i] || (i > 0 && variant_of[i - 1] as usize != idx))
+                        .map(|&i| restarts[i] || (i > 0 && variant_of[i - 1] as usize != slot))
                         .collect();
                     let fields = self.struct_fields(rd, defs, &rs, StructExtent::All)?;
-                    variants[idx].fields = SeriesColumn::Fields {
+                    variants[slot].fields = SeriesColumn::Fields {
                         kind,
                         len: items.len(),
                         fields,
@@ -516,7 +528,8 @@ impl Decoder<'_, '_> {
             .collect();
         let m = restarts.len();
         let mut out = Vec::with_capacity(fields.len());
-        let mut tags: Vec<Option<Vec<u32>>> = Vec::with_capacity(fields.len());
+        // the restarts of the next field: the parent's, and where an enum or `Option` field before it changed
+        let mut rs = restarts.to_vec();
         for (j, (name, def)) in fields.iter().enumerate() {
             if !extent.has_field(rd, j) {
                 // an older writer: the field's default, else malformed
@@ -526,19 +539,18 @@ impl Decoder<'_, '_> {
                     .ok_or(shrink_wrap::Error::MalformedSeries)?;
                 self.b.copies(&value, m)?;
                 out.push((name.clone(), SeriesColumn::Default { value, len: m }));
-                tags.push(None);
                 continue;
             }
-            let rs = sibling_restarts(restarts, &tags);
             if def.series_opaque {
                 let column = self.opaque_field(rd, &def.ty, m)?;
                 out.push((name.clone(), column));
-                tags.push(None);
                 continue;
             }
             let (column, tag) = self.group(rd, &def.ty, &rs, Level::Nested)?;
             out.push((name.clone(), column));
-            tags.push(tag);
+            if let Some(tag) = tag {
+                add_tag_restarts(&mut rs, &tag);
+            }
         }
         extent.finish(rd, fields.len())?;
         Ok(out)
@@ -552,12 +564,13 @@ impl Decoder<'_, '_> {
         restarts: &[bool],
     ) -> Result<Vec<(String, SeriesColumn)>> {
         let mut out = vec![];
-        let mut tags: Vec<Option<Vec<u32>>> = vec![];
+        let mut rs = restarts.to_vec();
         for (j, ty) in types.enumerate() {
-            let rs = sibling_restarts(restarts, &tags);
             let (column, tag) = self.group(rd, ty, &rs, Level::Nested)?;
             out.push((j.to_string(), column));
-            tags.push(tag);
+            if let Some(tag) = tag {
+                add_tag_restarts(&mut rs, &tag);
+            }
         }
         Ok(out)
     }
@@ -619,12 +632,14 @@ impl Decoder<'_, '_> {
     }
 }
 
-/// The restarts of the next field of a struct (tuple, array, variant): the parent's, and where the tag of an earlier
-/// enum or `Option` field changed from the item before.
-fn sibling_restarts(restarts: &[bool], tags: &[Option<Vec<u32>>]) -> Vec<bool> {
-    (0..restarts.len())
-        .map(|i| restarts[i] || (i > 0 && tags.iter().flatten().any(|t| t.get(i) != t.get(i - 1))))
-        .collect()
+/// Adds to the restarts of the fields after an enum or `Option` field where its `tags` (one per item) changed from
+/// the item before.
+fn add_tag_restarts(restarts: &mut [bool], tags: &[u32]) {
+    for i in 1..restarts.len().min(tags.len()) {
+        if tags[i] != tags[i - 1] {
+            restarts[i] = true;
+        }
+    }
 }
 
 fn fields_of(fields: &FieldsOwned) -> (FieldsKind, &[FieldOwned]) {

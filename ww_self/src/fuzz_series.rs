@@ -344,6 +344,23 @@ pub fn bundle() -> ApiBundleOwned {
             ],
         ),
     ];
+    let timed = TypeOwned::Instance {
+        type_idx: UNib32(idx::TIMED),
+        args: vec![GenericArgOwned::Type(def(idx::IV_SAMPLE))],
+    };
+    let items = vec![
+        property(
+            0,
+            "timed_series",
+            TypeOwned::Series(Box::new(timed.clone())),
+        ),
+        property(1, "timed_vec", TypeOwned::Vec(Box::new(timed))),
+    ];
+    bundle_of(types, items)
+}
+
+/// A bundle of the definitions `types` and the API `items`, prepared.
+pub fn bundle_of(types: Vec<TypeOwned>, items: Vec<crate::ApiItemOwned>) -> ApiBundleOwned {
     let mut bundle = ApiBundleOwned {
         magic: crate::MAGIC,
         ww_self_version: crate::VERSION,
@@ -351,20 +368,7 @@ pub fn bundle() -> ApiBundleOwned {
             docs: vec![],
             crate_idx: UNib32(0),
             trait_name: "SeriesCheck".into(),
-            items: {
-                let timed = TypeOwned::Instance {
-                    type_idx: UNib32(idx::TIMED),
-                    args: vec![GenericArgOwned::Type(def(idx::IV_SAMPLE))],
-                };
-                vec![
-                    property(
-                        0,
-                        "timed_series",
-                        TypeOwned::Series(Box::new(timed.clone())),
-                    ),
-                    property(1, "timed_vec", TypeOwned::Vec(Box::new(timed))),
-                ]
-            },
+            items,
         },
         types: types
             .into_iter()
@@ -756,6 +760,8 @@ pub fn fuzz_one(bytes: &[u8]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SeriesColumn;
+    use shrink_wrap::BufWriterOwned;
 
     fn hex(bytes: &str) -> Vec<u8> {
         (0..bytes.len())
@@ -842,6 +848,128 @@ mod tests {
                 fuzz_one(&bytes);
             }
         }
+    }
+
+    /// A `Series` of `Many` (`FIELDS` fields of type 1) with `items` items, every field in variant 2 of its enum:
+    /// per field a tag run of the first tag and the end bit (a unit variant has no group).
+    fn all_variant_2(fields: usize, items: u32) -> Vec<u8> {
+        let mut wr = BufWriterOwned::new();
+        wr.write_unib32(items).unwrap();
+        for _ in 0..fields {
+            wr.write_un8(4, 2).unwrap();
+            wr.write_bool(false).unwrap();
+        }
+        wr.finish_and_take().unwrap()
+    }
+
+    /// An enum's columns list the variants with items, not the type's: a wide enum (a device describes its
+    /// types) in many fields is the work and the memory of the items, not of fields x variants.
+    #[test]
+    fn enum_columns_hold_the_variants_with_items() {
+        const VARIANTS: u32 = 100_000;
+        const FIELDS: usize = 64;
+        let wide = en(
+            "Wide",
+            ElementSize::SelfDescribing,
+            (0..VARIANTS)
+                .map(|d| unit_variant(&format!("V{d}"), d))
+                .collect(),
+        );
+        let fields = (0..FIELDS)
+            .map(|j| field(Some(&format!("f{j}")), def(1)))
+            .collect();
+        let many = st("Many", ElementSize::UnsizedFinalStructure, named(fields));
+        let bundle = bundle_of(vec![many, wide], vec![]);
+        let bytes = all_variant_2(FIELDS, 3);
+        let columns = ValueOwned::des_series_columns_dyn(&bytes, &series_of(0), &bundle).unwrap();
+        assert_eq!(columns.len, 3);
+        let SeriesColumn::Fields { fields, .. } = &columns.root else {
+            panic!("{columns:?}");
+        };
+        assert_eq!(fields.len(), FIELDS);
+        for (_, column) in fields {
+            let SeriesColumn::Enum {
+                variant_of,
+                variants,
+            } = column
+            else {
+                panic!("{column:?}");
+            };
+            assert_eq!(variant_of, &[0, 0, 0]);
+            assert_eq!(variants.len(), 1);
+            assert_eq!(variants[0].variant_idx, 2);
+            assert_eq!(variants[0].ident, "V2");
+        }
+        let items = ValueOwned::des_shrink_wrap_dyn(&bytes, &series_of(0), &bundle).unwrap();
+        let ValueOwned::Vec(items) = items else {
+            panic!("{items:?}");
+        };
+        assert_eq!(items.len(), 3);
+        let ValueOwned::Struct {
+            fields: crate::FieldsValueOwned::Named(fields),
+        } = &items[1]
+        else {
+            panic!("{items:?}");
+        };
+        assert_eq!(fields.len(), FIELDS);
+        assert_eq!(fields[FIELDS - 1].0, "f63");
+        assert_eq!(fields[FIELDS - 1].1, prefix_value("V2"));
+    }
+
+    /// The restarts of a field come from the enum and `Option` fields declared before it: a struct with many of
+    /// them is the work of their columns, not of the fields squared (every tag column re-walked for every later
+    /// field: the budget bounds fields x items, so many fields over a few items).
+    #[test]
+    fn sibling_restarts_are_linear_in_the_fields() {
+        const FIELDS: usize = 20_000;
+        const ITEMS: usize = 16;
+        let fields = (0..FIELDS)
+            .map(|j| {
+                field(
+                    Some(&format!("f{j}")),
+                    TypeOwned::Option {
+                        some_ty: Box::new(TypeOwned::Bool),
+                    },
+                )
+            })
+            .collect();
+        let flags = st("Flags", ElementSize::UnsizedFinalStructure, named(fields));
+        let bundle = bundle_of(vec![flags], vec![]);
+        // every field: `Some(true)` at every fourth item from the first, `None` elsewhere (a tag change at
+        // every `Some` and after it), and the bool column over the `Some` items, all true
+        let is_some = |i: usize| i.is_multiple_of(4);
+        let mut wr = BufWriterOwned::new();
+        wr.write_unib32(ITEMS as u32).unwrap();
+        for _ in 0..FIELDS {
+            wr.write_un8(4, 1).unwrap();
+            let mut last_change = 0;
+            for i in 1..ITEMS {
+                if is_some(i) != is_some(i - 1) {
+                    // a change: the gap from the one before (the value is left out, it flips)
+                    wr.write_bool(true).unwrap();
+                    wr.write_un8(4, (i - last_change - 1) as u8).unwrap();
+                    last_change = i;
+                }
+            }
+            wr.write_bool(false).unwrap();
+            wr.write_bool(true).unwrap();
+            wr.write_bool(false).unwrap();
+        }
+        let bytes = wr.finish_and_take().unwrap();
+        let start = std::time::Instant::now();
+        let columns = ValueOwned::des_series_columns_dyn(&bytes, &series_of(0), &bundle).unwrap();
+        let took = start.elapsed();
+        assert!(took < std::time::Duration::from_secs(2), "took {took:?}");
+        assert_eq!(columns.len, ITEMS);
+        let SeriesColumn::Fields { fields, .. } = &columns.root else {
+            panic!("{columns:?}");
+        };
+        assert_eq!(fields.len(), FIELDS);
+        let SeriesColumn::Option { some, inner } = &fields[FIELDS - 1].1 else {
+            panic!("{:?}", fields[FIELDS - 1]);
+        };
+        assert_eq!(some.iter().filter(|&&s| s).count(), ITEMS / 4);
+        assert_eq!(inner.len(), ITEMS / 4);
     }
 
     /// A series of items whose columns take no bits (constant) is bounded by the budget, not by its few bytes.

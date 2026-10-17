@@ -7,7 +7,10 @@
   `Type`/`TypeOwned` need a new arm, struct literals of `FieldOwned` the new field (`false`); the introspection
   format changes with them (snapshots are saved again). `ValueOwned::des_shrink_wrap_dyn` reads a `Series` as a
   `Vec` of its items, by the rules of the generated decoder (column by column, restarts, evolution, opaque fields);
-  `ValueOwned::des_series_columns_dyn` gives the columns themselves (`DecodedSeries`, `SeriesColumn`), without items.
+  `ValueOwned::des_series_columns_dyn` gives the columns themselves (`DecodedSeries`, `SeriesColumn`), without items:
+  an enum's column lists the variants with items only (`VariantColumns::variant_idx` is the position in the
+  definition), so a wide enum from a device costs the items, not fields x variants, and the restarts of a struct's
+  fields are kept as it goes, not re-walked per field.
   Writing a `Series` from a dynamic value is not supported yet (an error).
 * The dynamic decoder bounds memory, not only values (P2401#17oct-1125): a decode takes at most 64 MiB
   (`DECODE_MAX_BYTES`), each value its `size_of`, strings and names their bytes; a larger value is an error. Before,

@@ -5102,7 +5102,7 @@ packets), more would merge the frames of protocols that keep only a short gap be
 frames by 3.5 character times, which 2 still splits). A protocol with its own rule sets it in <code>UartConfig</code>.</p>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>ww_si::Baud</code> - a baud rate (<code>Baud::baud(115_200u32)</code>), in the number type and prefix the caller picks, like every
+<li><code>ww_si::Baud</code> - a baud rate (<code>Baud::base(115_200u32)</code>), in the number type and prefix the caller picks, like every
   other <code>ww_si</code> quantity.</li>
 <li><code>Mode</code> - <code>Asynchronous</code> (no flow control), <code>HardwareFlowControl</code> (RTS/CTS), <code>SoftwareFlowControl</code> (XON/XOFF),
   <code>HighZ</code> (all pins High-Z), <code>Test</code> (manual pin control through <code>set_pin_level</code>).</li>

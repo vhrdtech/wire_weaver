@@ -5712,6 +5712,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>Different</code> args chosen automatically), and a <code>DynResource</code> equivalent for the dynamic client
   (<code>docs/api/multi_requests.md</code>, <code>tests/properties</code>, <code>tests/methods</code>, <code>tests/dynamic</code>). Deferred methods inside a multi request are refused with
   <code>OperationNotSupported</code>.</li>
+<li>📋 <strong>CLT-32 Generic definitions from another revision by the evolution rules</strong> · <code>v0.5.x</code> — a definition a device
+  leaves out that differs from the host's snapshot (an unpublished crate changed without a bump) is found in the
+  definition cache and compared by the evolution rules, but only when it is not generic: for an instance of a generic
+  definition (<code>ww_si::Quantity&lt;U&gt;</code>, <code>Timed&lt;T&gt;</code>) <code>check_instances</code> compares identity and signature only, so a docs-only
+  change reads as incompatible. Compare the two generic definitions field by field with the arguments substituted.
+  Found by STD-38 (<code>wire_weaver_client</code> <code>compat::tests::other_revision</code> now use the marker <code>units::Volt</code>).</li>
 <li>📋 <strong>CLT-16 Verify the hash of a cached API bundle</strong> · <code>v0.5.x</code> (<code>wire_weaver_client/src/local_registry.rs</code>).</li>
 <li>📋 <strong>CLT-17 Reliable requests over unreliable media</strong> · <code>v0.5.x</code> — a second, non-increasing seq number to guard against
   a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.</li>
@@ -5904,6 +5910,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   prefixes and storage, <code>UVlq32</code> / <code>UVlq64</code> storage, <code>Baud</code> for baud rates (STD-13), <code>Ratio</code>, <code>Torque</code> and
   <code>Timed&lt;T&gt;</code> (EX-11). <code>docs/std_library/ww_si.md</code>,
   <code>docs/std_library/ww_numeric.md</code>. Zero-overhead typed quantities (<code>Volt&lt;u16, Milli&gt;</code>) are not part of it.</li>
+<li>✅ <strong>STD-38 <code>ww_si</code> 0.2: one generic <code>Quantity&lt;U: Unit&gt;</code></strong> · <code>v0.5</code> — every quantity is
+  <code>Quantity&lt;U&gt; { prefix, value, PhantomData&lt;U&gt; }</code> with a zero-size marker per unit in <code>ww_si::units</code> and the 0.1 names
+  as aliases (<code>KiloGram</code> → <code>Gram</code>); <code>Dim</code>, <code>Scale</code>, <code>UnitExpr</code>, <code>Unit</code> (own markers in API crates), <code>Per</code> / <code>Times</code>;
+  constructors, <code>quantize</code>, conversions (<code>to_si_f64</code> through each unit's scale), <code>with_prefix</code>, <code>same_repr</code>,
+  comparisons, <code>Display</code> / <code>Debug</code> / <code>defmt</code> written once; unit algebra checked by the compiler against a product
+  table verified at compile time; <code>units::by_name</code>. Same bytes on the wire as 0.1. <code>docs/std_library/ww_si.md</code>,
+  <code>ww_stdlib/ww_si/tests</code>; the 0.2.0 snapshot holds <code>Quantity</code>, every marker and <code>Per</code> / <code>Times</code>, so devices
+  leave them out of their introspection data. Other crates' call sites moved to the new constructors; the motor demo's
+  own helpers (<code>units.rs</code>) and <code>Load</code> units are the follow-up piece; <code>BaseUnit</code> stays until STD-37 (run-time units).</li>
 <li>✅ <strong>STD-24 <code>ww_firmware_info</code> / <code>ww_board_info</code> / <code>ww_uid</code> / <code>ww_user_info</code> device contract</strong> · <code>v0.5</code> — the info
     crates every device implements. <code>FirmwareInfo</code> const items <code>FIRMWARE</code> (name, version, git, build time, profile),
     <code>BUILD_ID</code> (GNU build id, finds the ELF) and optional <code>BUILD_RECORD</code>; <code>build::emit()</code> + <code>firmware_summary!()</code> for

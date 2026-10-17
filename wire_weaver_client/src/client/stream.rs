@@ -265,7 +265,7 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
                 return Ok(TypedStreamEvent::Data(item.value));
             }
             let ev = self.rx.recv().await.ok_or(StreamError::Closed)?;
-            if let Some(ev) = self.to_typed(ev)? {
+            if let Some(ev) = self.type_event(ev)? {
                 return Ok(ev);
             }
         }
@@ -280,14 +280,17 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
                 return Ok(TypedStreamEvent::Data(item.value));
             }
             let ev = self.rx.blocking_recv().ok_or(StreamError::Closed)?;
-            if let Some(ev) = self.to_typed(ev)? {
+            if let Some(ev) = self.type_event(ev)? {
                 return Ok(ev);
             }
         }
     }
 
     /// A raw event typed; a batched stream's data event gives its first item (None: an empty batch).
-    fn to_typed(&mut self, ev: RawStreamEvent) -> Result<Option<TypedStreamEvent<T>>, StreamError> {
+    fn type_event(
+        &mut self,
+        ev: RawStreamEvent,
+    ) -> Result<Option<TypedStreamEvent<T>>, StreamError> {
         Ok(Some(match ev {
             RawStreamEvent::Data(bytes) => match self.decode(&bytes)? {
                 Some(value) => TypedStreamEvent::Data(value),

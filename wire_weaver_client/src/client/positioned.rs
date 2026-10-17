@@ -595,7 +595,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
             match inner.pop(self.run) {
                 Some(entry) => {
                     drop(inner);
-                    if let Some(ev) = self.to_event(entry)? {
+                    if let Some(ev) = self.take_entry(entry)? {
                         return Ok(Some(ev));
                     }
                 }
@@ -636,7 +636,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
                 };
             };
             drop(inner);
-            if let Some(ev) = self.to_event(entry)? {
+            if let Some(ev) = self.take_entry(entry)? {
                 return Ok(ev);
             }
         }
@@ -644,7 +644,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
 
     /// The event of an entry; for a batched stream the first new item of its batch, the others go to `pending`
     /// (None: the host had every item of it).
-    fn to_event(&mut self, entry: Entry) -> Result<Option<StreamEvent<T>>, StreamError> {
+    fn take_entry(&mut self, entry: Entry) -> Result<Option<StreamEvent<T>>, StreamError> {
         let Entry::Item {
             head,
             skip,

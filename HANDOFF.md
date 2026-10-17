@@ -7,7 +7,7 @@ Done (committed, `just test` 1352/1352 and `just lint` green):
 
 Next:
 - When DER-15 (ww-phantomdata, branch s/17oct2026-ww-phantomdata) has PhantomData serdes + derive: cherry-pick/rebase onto it, change tests/generics_api `Quantity<U>` to `value: i32, _unit: PhantomData<U>` with marker `pub struct Volt;` in `units` (see TODO(API-45)), update test strings (`Quantity<Volt>`), mark FEATURES API-45 ✅.
-- `just build-docs` not run (ask the user first, it breaks a running serve-docs).
+- `just build-docs` clean (17 Oct 2026, after fixing two old series.md anchors).
 - `git rm HANDOFF.md`, then `tpm work ready`.
 
 Gotchas: an alias named like a built-in (`type Result<T> = ...`) still hits the built-in match first.

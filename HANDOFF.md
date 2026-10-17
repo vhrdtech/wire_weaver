@@ -23,8 +23,9 @@ Design: `~/git/tpm/prj/P2401-wireweaver/design/ww_si_generic.md` (all recommenda
 
 1. Wait for API-46 on master (parent pings), `tpm work rebase`.
 2. `cargo check --keep-going --workspace --all-targets`: the remaining errors (`Quantity<Quantity<..>>`, codegen naming the marker as the alias) should be gone; fix what is left in motor_demo, tests/generics, series, cfg_variants, counters, indication, io_can*, io_i2c, io_timebase, io_uart, examples/uart, ww_report, examples_mcu/usb_stm32h725ig uart.
-3. `just save-snapshots` (ww_si 0.2.0 snapshot; other crates' snapshots re-saved only if they must, their migration is piece 4), the `wire_weaver_core` snapshot test.
-4. FEATURES STD-38 → ✅, features page; `just test`, `just lint`, `just check-mcu`, `just check-examples-mcu`; `git rm HANDOFF.md`; `tpm work ready`.
+3. `wire_weaver_client` `compat::tests::other_revision::*` (3 tests) use `ww_si::Volt` as a skipped struct with fields (0.1 model); in 0.2 `Volt` is a field-less marker and there's no 0.2.0 snapshot yet, so they fail. After the snapshot, move their fixture to `Quantity` (the generic def with `prefix` / `value`) or the marker, whatever keeps what they test (a skipped definition from another revision, from the cache).
+4. `just save-snapshots` (ww_si 0.2.0 snapshot; other crates' snapshots re-saved only if they must, their migration is piece 4), the `wire_weaver_core` snapshot test.
+5. FEATURES STD-38 → ✅, features page; `just test`, `just lint`, `just check-mcu`, `just check-examples-mcu`; `git rm HANDOFF.md`; `tpm work ready`.
 
 ## Gotchas
 

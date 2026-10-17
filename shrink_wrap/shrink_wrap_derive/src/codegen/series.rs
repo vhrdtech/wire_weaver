@@ -24,6 +24,8 @@ pub(crate) struct SeriesSeed<'a> {
     pub(crate) is_ref: bool,
     pub(crate) cfg: Option<&'a TokenStream>,
     pub(crate) cp: &'a CratePath,
+    /// Also implement `SeriesStore` (SW-62), unless a field is opaque: off with `series(no_store)`.
+    pub(crate) store: bool,
 }
 
 /// A field as a `Series` sees it: flags left out, they are part of their `Option`.
@@ -78,6 +80,268 @@ impl SeriesSeed<'_> {
     fn impl_params(&self) -> TokenStream {
         let trait_ = self.sc(quote! { SeriesColumns });
         self.generics.impl_params(Some(quote! { #trait_<'i> }))
+    }
+
+    /// A block summing the `MAX_ITEM_BITS` or `MAX_FIXED_BITS` (`which`) of `fields`, starting from `start`; an
+    /// opaque field is unbounded.
+    fn bound_sum(
+        &self,
+        fields: &[SeriesField],
+        which: TokenStream,
+        start: TokenStream,
+    ) -> TokenStream {
+        let trait_ = self.sc(quote! { SeriesColumns });
+        let add = self.sc(quote! { bound::add });
+        let terms = fields.iter().map(|f| {
+            if f.opaque {
+                quote! { None }
+            } else {
+                let ty = &f.ty;
+                quote! { <#ty as #trait_<'i>>::#which }
+            }
+        });
+        quote! {
+            {
+                let __b: Option<usize> = #start;
+                #(let __b = #add(__b, #terms);)*
+                __b
+            }
+        }
+    }
+
+    /// `<'i, T, N, __N>`: the store type's arguments.
+    fn store_args(&self) -> TokenStream {
+        let lifetime = maybe_quote(self.has_lifetime, || quote! { 'i, });
+        let idents = self.generics.params.iter().map(|p| match p {
+            syn::GenericParam::Type(ty) => &ty.ident,
+            syn::GenericParam::Const(c) => &c.ident,
+            syn::GenericParam::Lifetime(_) => unreachable!("lifetimes are not kept"),
+        });
+        quote! { <#lifetime #(#idents,)* __N> }
+    }
+
+    /// The store type's definition, named `#store_ident`, with `fields` (`name: type,` each, `#[cfg]`s included),
+    /// and its `impl SeriesStore` with the bodies given.
+    fn store_impl(
+        &self,
+        store_ident: &Ident,
+        fields: TokenStream,
+        empty: TokenStream,
+        set: TokenStream,
+        get: TokenStream,
+    ) -> TokenStream {
+        let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
+        let ident = self.ident;
+        let lifetime = self.lifetime();
+        let store_trait = self.sc(quote! { SeriesStore });
+        let params = self.generics.impl_params(Some(store_trait.clone()));
+        let where_clause = self.generics.where_clause(&[]);
+        let def_lifetime = maybe_quote(self.has_lifetime, || quote! { 'i, });
+        let marker_lifetime = maybe_quote(self.has_lifetime, || quote! { &'i (), });
+        let type_params: Vec<_> = self.generics.type_params().map(|p| &p.ident).collect();
+        let args = self.store_args();
+        let doc = format!("The `SeriesStore` of [{ident}]: an array per leaf field.");
+        quote! {
+            #cfg
+            #[doc = #doc]
+            #[doc(hidden)]
+            #[allow(non_camel_case_types)]
+            pub struct #store_ident<#def_lifetime #params const __N: usize> #where_clause {
+                #fields
+                __params: ::core::marker::PhantomData<fn() -> (#marker_lifetime #(#type_params,)*)>,
+            }
+
+            #cfg
+            impl<#def_lifetime #params> #store_trait for #ident #lifetime #where_clause {
+                type Store<const __N: usize> = #store_ident #args;
+
+                fn empty_store<const __N: usize>() -> Self::Store<__N> {
+                    #empty
+                }
+
+                #[allow(unused_variables)]
+                fn set<const __N: usize>(store: &mut Self::Store<__N>, i: usize, item: &Self) {
+                    #set
+                }
+
+                #[allow(unused_variables)]
+                fn get<const __N: usize>(store: &Self::Store<__N>, i: usize) -> Self {
+                    #get
+                }
+            }
+        }
+    }
+
+    /// `impl SeriesStore` of a struct: a store per field.
+    fn series_store_struct(&self, fields: &[SeriesField]) -> TokenStream {
+        if !self.store || fields.iter().any(|f| f.opaque) {
+            return quote! {};
+        }
+        let store_trait = self.sc(quote! { SeriesStore });
+        let store_ident = format_ident!("__{}SeriesStore", self.ident);
+        let members: Vec<_> = fields.iter().map(|f| &f.member).collect();
+        let tys: Vec<_> = fields.iter().map(|f| &f.ty).collect();
+        self.store_impl(
+            &store_ident,
+            quote! { #(#members: <#tys as #store_trait>::Store<__N>,)* },
+            quote! {
+                #store_ident {
+                    #(#members: <#tys as #store_trait>::empty_store::<__N>(),)*
+                    __params: ::core::marker::PhantomData,
+                }
+            },
+            quote! { #(<#tys as #store_trait>::set::<__N>(&mut store.#members, i, &item.#members);)* },
+            quote! { Self { #(#members: <#tys as #store_trait>::get::<__N>(&store.#members, i)),* } },
+        )
+    }
+
+    /// `impl SeriesStore` of an enum: an array of discriminants (all of a `#[future_version]` one's `u32`, else the
+    /// smallest unsigned type that holds the largest), and a store per field of each data variant, written only for
+    /// the items in that variant.
+    fn series_store_enum(
+        &self,
+        variants: &[Variant],
+        data: &[(&Variant, Vec<SeriesField>)],
+        future_version: Option<&Ident>,
+        max_tag: u32,
+    ) -> TokenStream {
+        if !self.store
+            || data
+                .iter()
+                .any(|(_, fields)| fields.iter().any(|f| f.opaque))
+        {
+            return quote! {};
+        }
+        let store_trait = self.sc(quote! { SeriesStore });
+        let store_ident = format_ident!("__{}SeriesStore", self.ident);
+        let tag_ty = match (future_version, max_tag) {
+            (Some(_), _) => quote! { u32 },
+            (None, 0..=0xFF) => quote! { u8 },
+            (None, 0x100..=0xFFFF) => quote! { u16 },
+            (None, _) => quote! { u32 },
+        };
+        let d = |v: &Variant| proc_macro2::Literal::u32_unsuffixed(v.discriminant);
+        let slot = |v: &Variant, f: &SeriesField| {
+            format_ident!("__v{}_{}", v.discriminant, f.member.to_string())
+        };
+        let bind = |f: &SeriesField| format_ident!("__x_{}", f.member.to_string());
+        // `Self::V { a: __x_a, .. }` / `Self::V(__x__0, ..)`
+        let pattern = |v: &Variant, fields: &[SeriesField]| -> TokenStream {
+            let vi = &v.ident;
+            let binds = fields.iter().map(bind);
+            match &v.fields {
+                Fields::Named(_) => {
+                    let members = fields.iter().map(|f| &f.member);
+                    quote! { Self::#vi { #(#members: #binds),* } }
+                }
+                _ => quote! { Self::#vi(#(#binds),*) },
+            }
+        };
+
+        let mut store_fields = vec![];
+        let mut empties = vec![];
+        let mut set_arms = vec![];
+        for (v, fields) in data {
+            let on = v.cfg_attrs();
+            let slots: Vec<_> = fields.iter().map(|f| slot(v, f)).collect();
+            let tys: Vec<_> = fields.iter().map(|f| &f.ty).collect();
+            let binds: Vec<_> = fields.iter().map(bind).collect();
+            for (s, ty) in slots.iter().zip(&tys) {
+                store_fields.push(quote! { #on #s: <#ty as #store_trait>::Store<__N>, });
+                empties.push(quote! { #on #s: <#ty as #store_trait>::empty_store::<__N>(), });
+            }
+            let pat = pattern(v, fields);
+            set_arms.push(quote! {
+                #on
+                #pat => { #(<#tys as #store_trait>::set::<__N>(&mut store.#slots, i, #binds);)* }
+            });
+        }
+        let get_arms = variants.iter().map(|v| {
+            let on = v.cfg_attrs();
+            let dv = d(v);
+            let vi = &v.ident;
+            let value = match data.iter().find(|(dv, _)| dv.ident == v.ident) {
+                Some((_, fields)) => {
+                    let gets = fields.iter().map(|f| {
+                        let ty = &f.ty;
+                        let s = slot(v, f);
+                        quote! { <#ty as #store_trait>::get::<__N>(&store.#s, i) }
+                    });
+                    match &v.fields {
+                        Fields::Named(_) => {
+                            let members = fields.iter().map(|f| &f.member);
+                            quote! { Self::#vi { #(#members: #gets),* } }
+                        }
+                        _ => quote! { Self::#vi(#(#gets),*) },
+                    }
+                }
+                None => match &v.fields {
+                    Fields::Unit => quote! { Self::#vi },
+                    Fields::Named(_) => quote! { Self::#vi {} },
+                    Fields::Unnamed(_) => quote! { Self::#vi() },
+                },
+            };
+            quote! { #on #dv => #value, }
+        });
+        // a fresh store's tag: the first variant compiled in
+        let fill_steps = variants.iter().map(|v| {
+            let on = v.cfg_attrs();
+            let dv = d(v);
+            quote! { #on { if __d.is_none() { __d = Some(#dv); } } }
+        });
+        let (set_tag, other) = match future_version {
+            Some(fv) => (
+                quote! {
+                    store.__tag[i] = match item {
+                        Self::#fv(__d) => *__d,
+                        _ => item.discriminant() as #tag_ty,
+                    };
+                },
+                quote! { __d => Self::#fv(__d), },
+            ),
+            None => (
+                quote! { store.__tag[i] = item.discriminant() as #tag_ty; },
+                quote! { _ => unreachable!("an enum without variants has no items"), },
+            ),
+        };
+        self.store_impl(
+            &store_ident,
+            quote! {
+                __tag: [#tag_ty; __N],
+                #(#store_fields)*
+            },
+            quote! {
+                #[allow(unused_mut)]
+                const __FILL: #tag_ty = {
+                    let mut __d: Option<#tag_ty> = None;
+                    #(#fill_steps)*
+                    match __d {
+                        Some(__d) => __d,
+                        None => 0,
+                    }
+                };
+                #store_ident {
+                    __tag: [__FILL; __N],
+                    #(#empties)*
+                    __params: ::core::marker::PhantomData,
+                }
+            },
+            quote! {
+                #set_tag
+                #[allow(unreachable_patterns)]
+                match item {
+                    #(#set_arms)*
+                    _ => {}
+                }
+            },
+            quote! {
+                #[allow(clippy::match_single_binding, unreachable_patterns)]
+                match store.__tag[i] {
+                    #(#get_arms)*
+                    #other
+                }
+            },
+        )
     }
 
     fn fields<'f>(
@@ -318,12 +582,29 @@ impl SeriesSeed<'_> {
         });
         let members = fields.iter().map(|f| &f.member);
 
+        let max_item = self.bound_sum(&fields, quote! { MAX_ITEM_BITS }, quote! { Some(0) });
+        let head = self.sc(quote! { bound::STRUCT_HEAD_BITS });
+        let max_fixed = self.bound_sum(
+            &fields,
+            quote! { MAX_FIXED_BITS },
+            if evolvable {
+                quote! { Some(#head) }
+            } else {
+                quote! { Some(0) }
+            },
+        );
+        let store = self.series_store_struct(&fields);
+
         let params = self.impl_params();
         let where_clause = self.generics.where_clause(&[]);
         Ok(quote! {
+            #store
+
             #cfg
             impl<'i, #params> #trait_<'i> for #ident #lifetime #where_clause {
                 type Reader = (#sibling_tags<#n>, (#(Option<#readers>,)*));
+                const MAX_ITEM_BITS: Option<usize> = #max_item;
+                const MAX_FIXED_BITS: Option<usize> = #max_fixed;
 
                 fn write_group<'a, I, S>(
                     items: I,
@@ -571,6 +852,38 @@ impl SeriesSeed<'_> {
             })
             .collect::<Vec<_>>();
 
+        // the tag run, the widest data variant per item, the headers of every data variant
+        let max_tag = variants.iter().map(|v| v.discriminant).max().unwrap_or(0);
+        let tag_item = self.sc(quote! { bound::tag_run_item_bits });
+        let tag_fixed = self.sc(quote! { bound::tag_run_fixed_bits });
+        let max = self.sc(quote! { bound::max });
+        let add = self.sc(quote! { bound::add });
+        let variant_items = data.iter().map(|(v, fields)| {
+            let on = v.cfg_attrs();
+            let sum = self.bound_sum(fields, quote! { MAX_ITEM_BITS }, quote! { Some(0) });
+            quote! { #on { __widest = #max(__widest, #sum); } }
+        });
+        let variant_fixed = data.iter().map(|(v, fields)| {
+            let on = v.cfg_attrs();
+            let sum = self.bound_sum(fields, quote! { MAX_FIXED_BITS }, quote! { Some(0) });
+            quote! { #on { __fixed = #add(__fixed, #sum); } }
+        });
+        let max_item = quote! {
+            {
+                let mut __widest: Option<usize> = Some(0);
+                #(#variant_items)*
+                #add(Some(#tag_item(#max_tag)), __widest)
+            }
+        };
+        let max_fixed = quote! {
+            {
+                let mut __fixed: Option<usize> = Some(#tag_fixed(#max_tag));
+                #(#variant_fixed)*
+                __fixed
+            }
+        };
+        let store = self.series_store_enum(variants, &data, future_version, max_tag);
+
         let params = self.impl_params();
         let where_clause = self.generics.where_clause(&[]);
         let reader_generics = self.generics.ty(true);
@@ -620,9 +933,15 @@ impl SeriesSeed<'_> {
         Ok(quote! {
             #reader_def
 
+            #store
+
             #cfg
             impl<'i, #params> #trait_<'i> for #ident #lifetime #where_clause {
                 type Reader = #reader_ty;
+                #[allow(unused_mut)]
+                const MAX_ITEM_BITS: Option<usize> = #max_item;
+                #[allow(unused_mut)]
+                const MAX_FIXED_BITS: Option<usize> = #max_fixed;
 
                 fn write_group<'a, I, S>(
                     items: I,

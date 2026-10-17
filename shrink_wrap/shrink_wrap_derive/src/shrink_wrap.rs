@@ -253,7 +253,7 @@ fn generate_inner(
                 if args.series {
                     ts.append_all(
                         borrowed
-                            .series_seed(true, &ww_item_enum.generics)
+                            .series_seed(true, &ww_item_enum.generics, args.series_store)
                             .series_enum(
                                 &ww_item_enum.variants,
                                 future_version_ident(&ww_item_enum),
@@ -280,7 +280,7 @@ fn generate_inner(
                     if args.series {
                         ts.append_all(
                             owned
-                                .series_seed(false, &ww_item_enum.generics)
+                                .series_seed(false, &ww_item_enum.generics, args.series_store)
                                 .series_enum(
                                     &ww_item_enum.variants,
                                     future_version_ident(&ww_item_enum),
@@ -341,7 +341,7 @@ fn generate_inner(
                 if args.series {
                     ts.append_all(
                         borrowed
-                            .series_seed(true, &ww_item_struct.generics)
+                            .series_seed(true, &ww_item_struct.generics, args.series_store)
                             .series_struct(
                                 &ww_item_struct.fields,
                                 series_evolvable(&args.size_assumption),
@@ -366,7 +366,7 @@ fn generate_inner(
                 if args.series && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
                     ts.append_all(
                         owned
-                            .series_seed(false, &ww_item_struct.generics)
+                            .series_seed(false, &ww_item_struct.generics, args.series_store)
                             .series_struct(
                                 &ww_item_struct.fields,
                                 series_evolvable(&args.size_assumption),
@@ -695,7 +695,12 @@ impl<'a> CGSeed<'a> {
     }
 
     /// The `series` impl's view of the type, `is_ref` on the borrowed side.
-    fn series_seed<'p>(&'p self, is_ref: bool, generics: &'p Generics) -> SeriesSeed<'p> {
+    fn series_seed<'p>(
+        &'p self,
+        is_ref: bool,
+        generics: &'p Generics,
+        store: bool,
+    ) -> SeriesSeed<'p> {
         SeriesSeed {
             ident: &self.ident,
             generics,
@@ -703,6 +708,7 @@ impl<'a> CGSeed<'a> {
             is_ref,
             cfg: self.cfg.as_ref(),
             cp: self.crate_path,
+            store,
         }
     }
 

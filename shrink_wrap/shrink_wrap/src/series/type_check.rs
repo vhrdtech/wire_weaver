@@ -195,6 +195,18 @@ impl KitchenOwned {
     }
 }
 
+/// `bytes`, a `Series` of `n` items of `T`, are within [Series::max_bytes] when `T` has a bound.
+pub fn assert_within_bound<'i, T: SeriesColumns<'i> + 'i>(n: usize, bytes: &[u8]) {
+    if let Some(max) = Series::<T>::max_bytes(n) {
+        assert!(
+            bytes.len() <= max,
+            "{} bytes for {n} items of {}, bound {max}",
+            bytes.len(),
+            core::any::type_name::<T>()
+        );
+    }
+}
+
 /// Bytes as a source of choices: runs out into zeros.
 pub struct Picks<'a> {
     bytes: &'a [u8],
@@ -325,6 +337,8 @@ pub fn round_trip(items: &[KitchenOwned], policy: CodecPolicy) {
     let bytes = series.to_ww_bytes(&mut buf).expect("write").to_vec();
     let owned_bytes = SerializeShrinkWrapOwned::to_ww_bytes_owned(&series).expect("write owned");
     assert_eq!(bytes, owned_bytes);
+    // strings: no bound
+    assert_eq!(Series::<Kitchen<'_>>::max_bytes(1), None);
 
     let back = Series::<Kitchen<'_>>::from_ww_bytes(&bytes).expect("read");
     assert_eq!(back.len(), items.len());
@@ -378,6 +392,61 @@ pub fn random_bytes(bytes: &[u8]) {
     let _ = SeriesOwned::<OuterV1>::from_ww_bytes_owned(bytes);
 }
 
+/// A `NumericValue` from a pick: any variant, any value.
+fn numeric(picks: &mut Picks<'_>) -> NumericValue {
+    let v = picks.u64();
+    match picks.byte() % 5 {
+        0 => NumericValue::U8(v as u8),
+        1 => NumericValue::U16(v as u16),
+        2 => NumericValue::U32(v as u32),
+        3 => NumericValue::I32(v as i32),
+        _ => NumericValue::F32(f32::from_bits(v as u32)),
+    }
+}
+
+/// Items of a type with a bounded size, from `picks`: slowly changing values or anything at all (the worst case
+/// of the bound: every column changing at every item).
+pub fn timed_items(picks: &mut Picks<'_>, max: usize) -> Vec<TimedIv> {
+    let n = picks.byte() as usize % (max + 1);
+    let wild = picks.byte().is_multiple_of(2);
+    let mut items = Vec::new();
+    let mut num = 0i64;
+    for _ in 0..n {
+        num = picks.walk(num);
+        let q = |picks: &mut Picks<'_>, prev: Prefix| {
+            if wild {
+                Quantity::new(picks.prefix(prev), numeric(picks))
+            } else {
+                Quantity::new(prev, NumericValue::I32(num as i32))
+            }
+        };
+        items.push(Timed {
+            t: q(picks, Prefix::Micro),
+            value: IvSample {
+                v: q(picks, Prefix::Milli),
+                i: q(picks, Prefix::Micro),
+            },
+        });
+    }
+    items
+}
+
+/// Items of a bounded type round trip with `policy`, within [Series::max_bytes].
+pub fn bounded_round_trip(items: &[TimedIv], policy: CodecPolicy) {
+    let series = Series::with_policy(items, policy);
+    let bytes = SerializeShrinkWrapOwned::to_ww_bytes_owned(&series).expect("write");
+    let max = Series::<TimedIv>::max_bytes(items.len()).expect("bounded");
+    assert!(bytes.len() <= max, "{} bytes, bound {max}", bytes.len());
+    let back = SeriesOwned::<TimedIv>::from_ww_bytes_owned(&bytes).expect("read");
+    assert_eq!(back.len(), items.len());
+    for (a, b) in back.iter().zip(items) {
+        assert_eq!(
+            a.to_ww_bytes_owned().unwrap(),
+            b.to_ww_bytes_owned().unwrap()
+        );
+    }
+}
+
 /// The fuzz entry point: items from the bytes round trip, and the bytes themselves into every reader.
 pub fn fuzz_one(bytes: &[u8]) {
     random_bytes(bytes);
@@ -385,4 +454,6 @@ pub fn fuzz_one(bytes: &[u8]) {
     let policy = policy(picks.byte());
     let items = kitchen_items(&mut picks, 40);
     round_trip(&items, policy);
+    let items = timed_items(&mut picks, 40);
+    bounded_round_trip(&items, policy);
 }

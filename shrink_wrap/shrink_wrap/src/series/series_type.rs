@@ -49,6 +49,29 @@ impl<'i, T: SeriesColumns<'i>> Series<'i, T> {
         Series::Slice { items, policy }
     }
 
+    /// The most bytes a `Series` of `n` items of `T` takes, written from a byte boundary (as a field it always is)
+    /// with any [CodecPolicy]: `n`, [MAX_FIXED_BITS](SeriesColumns::MAX_FIXED_BITS) and `n` ×
+    /// [MAX_ITEM_BITS](SeriesColumns::MAX_ITEM_BITS), the padding. `None` for a `T` without a bound and for more
+    /// than [SERIES_MAX_ITEMS].
+    pub const fn max_bytes(n: usize) -> Option<usize> {
+        if n > SERIES_MAX_ITEMS {
+            return None;
+        }
+        let count = Some(super::bound::nib_bits(n as u32));
+        let bits = if n == 0 {
+            count
+        } else {
+            super::bound::add(
+                super::bound::add(count, T::MAX_FIXED_BITS),
+                super::bound::times(T::MAX_ITEM_BITS, n),
+            )
+        };
+        match bits {
+            Some(bits) => Some(bits.div_ceil(8)),
+            None => None,
+        }
+    }
+
     pub fn len(&self) -> usize {
         match self {
             Series::Slice { items, .. } => items.len(),

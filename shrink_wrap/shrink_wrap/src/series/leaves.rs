@@ -12,7 +12,7 @@ use super::group::{
     CodecPolicy, EnumTags, FieldItems, Level, SeriesColumns, SeriesCtx, SiblingCtx, SiblingTags,
     TagRun, VariantCtx, changed_before, no_earlier,
 };
-use super::{BitSink, XorBits, sign_extend};
+use super::{BitSink, XorBits, bound, sign_extend};
 use crate::un::{IN, U3, U4, U5, U6, UN};
 use crate::{BufReader, Error, Nibble, RefVec, UNib32, UVlq32, UVlq64};
 
@@ -70,6 +70,8 @@ macro_rules! numeric_leaf {
     ($ty:ty, $width:expr, $signed:expr, |$v:ident| $to:expr, |$b:ident| $from:expr) => {
         impl<'i> SeriesColumns<'i> for $ty {
             type Reader = Option<NumericReader<'i>>;
+            const MAX_ITEM_BITS: Option<usize> = Some(bound::numeric_item_bits($width));
+            const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
 
             fn write_group<'a, I, S>(
                 items: I,
@@ -154,6 +156,8 @@ macro_rules! numeric128 {
     ($ty:ty, $signed:literal) => {
         impl<'i> SeriesColumns<'i> for $ty {
             type Reader = Option<Numeric128Reader<'i>>;
+            const MAX_ITEM_BITS: Option<usize> = Some(bound::NUMERIC128_ITEM_BITS);
+            const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
 
             fn write_group<'a, I, S>(
                 items: I,
@@ -194,6 +198,11 @@ macro_rules! float_leaf {
     ($ty:ty) => {
         impl<'i> SeriesColumns<'i> for $ty {
             type Reader = Option<FloatReader<'i, $ty>>;
+            const MAX_ITEM_BITS: Option<usize> = Some(bound::float_item_bits(
+                <$ty as XorBits>::BITS,
+                <$ty as XorBits>::LEAD_BITS,
+            ));
+            const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
 
             fn write_group<'a, I, S>(
                 items: I,
@@ -233,6 +242,8 @@ float_leaf!(f64);
 
 impl<'i> SeriesColumns<'i> for bool {
     type Reader = Option<RunReader<'i, RunKind>>;
+    const MAX_ITEM_BITS: Option<usize> = Some(bound::BOOL_RUN_ITEM_BITS);
+    const MAX_FIXED_BITS: Option<usize> = Some(bound::BOOL_RUN_FIXED_BITS);
 
     fn write_group<'a, I, S>(
         items: I,
@@ -388,6 +399,10 @@ pub struct OptionReader<'i, R> {
 
 impl<'i, X: SeriesColumns<'i>> SeriesColumns<'i> for Option<X> {
     type Reader = OptionReader<'i, X::Reader>;
+    const MAX_ITEM_BITS: Option<usize> =
+        bound::add(Some(bound::OPTION_TAG_ITEM_BITS), X::MAX_ITEM_BITS);
+    const MAX_FIXED_BITS: Option<usize> =
+        bound::add(Some(bound::OPTION_TAG_FIXED_BITS), X::MAX_FIXED_BITS);
 
     fn write_group<'a, I, S>(
         items: I,
@@ -439,6 +454,8 @@ impl<'i, X: SeriesColumns<'i>> SeriesColumns<'i> for Option<X> {
 /// No columns: a `PhantomData` field takes no space in a series, like it takes none in a value (DER-15).
 impl<'i, T: ?Sized> SeriesColumns<'i> for core::marker::PhantomData<T> {
     type Reader = ();
+    const MAX_ITEM_BITS: Option<usize> = Some(0);
+    const MAX_FIXED_BITS: Option<usize> = Some(0);
 
     fn write_group<'a, I, S>(
         _items: I,
@@ -471,6 +488,16 @@ macro_rules! tuple {
     ($n:literal: $($t:ident $idx:tt),+) => {
         impl<'i, $($t: SeriesColumns<'i>),+> SeriesColumns<'i> for ($($t,)+) {
             type Reader = (SiblingTags<$n>, ($($t::Reader,)+));
+            const MAX_ITEM_BITS: Option<usize> = {
+                let bits = Some(0);
+                $(let bits = bound::add(bits, $t::MAX_ITEM_BITS);)+
+                bits
+            };
+            const MAX_FIXED_BITS: Option<usize> = {
+                let bits = Some(0);
+                $(let bits = bound::add(bits, $t::MAX_FIXED_BITS);)+
+                bits
+            };
 
             fn write_group<'a, I, S>(
                 items: I,
@@ -543,6 +570,24 @@ macro_rules! bit_count_enum {
                 EnumTags<'i>,
                 ($((<$bits as SeriesColumns<'i>>::Reader, <$val as SeriesColumns<'i>>::Reader),)+),
             );
+
+            // the tag run (discriminants 0 to 3), the widest variant per item, every variant's headers
+            const MAX_ITEM_BITS: Option<usize> = {
+                let bits = Some(0);
+                $(let bits = bound::max(
+                    bits,
+                    bound::add(<$bits>::MAX_ITEM_BITS, <$val>::MAX_ITEM_BITS),
+                );)+
+                bound::add(Some(bound::tag_run_item_bits(3)), bits)
+            };
+            const MAX_FIXED_BITS: Option<usize> = {
+                let bits = Some(bound::tag_run_fixed_bits(3));
+                $(let bits = bound::add(
+                    bits,
+                    bound::add(<$bits>::MAX_FIXED_BITS, <$val>::MAX_FIXED_BITS),
+                );)+
+                bits
+            };
 
             fn write_group<'a, I, S>(
                 items: I,
@@ -637,6 +682,8 @@ pub struct ArrayReader<R, const N: usize> {
 /// `[X; N]` like a `final_structure` struct of `N` fields. `X: Default` as for the plain array impls.
 impl<'i, X: SeriesColumns<'i> + Default, const N: usize> SeriesColumns<'i> for [X; N] {
     type Reader = ArrayReader<X::Reader, N>;
+    const MAX_ITEM_BITS: Option<usize> = bound::times(X::MAX_ITEM_BITS, N);
+    const MAX_FIXED_BITS: Option<usize> = bound::times(X::MAX_FIXED_BITS, N);
 
     fn write_group<'a, I, S>(
         items: I,

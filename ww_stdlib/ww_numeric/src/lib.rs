@@ -2,9 +2,11 @@
 
 #[cfg(feature = "std")]
 mod alloc;
+mod store;
 
 use shrink_wrap::prelude::*;
 pub use shrink_wrap::{UVlq32, UVlq64};
+pub use store::NumericValueStore;
 
 #[derive_shrink_wrap(
     borrowed,
@@ -147,7 +149,8 @@ pub enum SubTypeKind<'i> {
     derive(Copy, Clone, Debug, PartialEq),
     non_exhaustive,
     self_describing,
-    series,
+    // a store by hand: one payload array as wide as the widest variant, not one per variant
+    series(no_store),
     ww_repr = unib32
 )]
 pub enum NumericValue {

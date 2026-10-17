@@ -9,7 +9,9 @@ use hex_literal::hex;
 use proptest::prelude::*;
 
 fn bytes_of<'i, T: super::SeriesColumns<'i> + 'i>(items: &'i [T]) -> Vec<u8> {
-    Series::new(items).to_ww_bytes_owned().unwrap()
+    let bytes = Series::new(items).to_ww_bytes_owned().unwrap();
+    assert_within_bound::<T>(items.len(), &bytes);
+    bytes
 }
 
 fn iv(v: (Prefix, NumericValue), i: (Prefix, NumericValue)) -> IvSample {
@@ -147,6 +149,7 @@ where
 {
     let bytes = Series::new(items).to_ww_bytes_owned().unwrap();
     assert_eq!((bytes.len(), fnv(&bytes)), (size, hash), "{what}");
+    assert_within_bound::<T>(items.len(), &bytes);
     let back = SeriesOwned::<T>::from_ww_bytes_owned(&bytes).unwrap();
     assert_eq!(back.0, items, "{what}");
 }
@@ -485,6 +488,7 @@ fn primitive_round_trips() {
         let bytes = Series::new(items).to_ww_bytes_owned().unwrap();
         let back = SeriesOwned::<T>::from_ww_bytes_owned(&bytes).unwrap();
         assert_eq!(back.0, items);
+        assert_within_bound::<T>(items.len(), &bytes);
     }
     check(&[1u8, 2, 3]);
     check(&[-1i64, i64::MIN, i64::MAX, 0]);

@@ -14,6 +14,7 @@
 
 use crate::{BufReader, BufWriter, Error, SerializeShrinkWrap};
 
+pub mod bound;
 mod columns;
 /// Round trips of the column codecs for the `series-columns` fuzz target.
 #[cfg(fuzzing)]
@@ -26,6 +27,7 @@ mod golden_signals;
 mod group;
 mod leaves;
 mod series_type;
+mod store;
 #[cfg(all(feature = "std", any(test, fuzzing)))]
 #[doc(hidden)]
 pub mod type_check;
@@ -49,6 +51,7 @@ pub use leaves::{ArrayReader, OptionReader};
 #[cfg(feature = "std")]
 pub use series_type::SeriesOwned;
 pub use series_type::{SERIES_MAX_ITEMS, Series, SeriesIter, SeriesTryIter};
+pub use store::SeriesStore;
 
 pub use delta::{Delta, DeltaInt, DeltaIter, DeltaOfDelta, DeltaOfDeltaIter};
 #[cfg(feature = "std")]

@@ -548,6 +548,19 @@ pub trait SeriesColumns<'i>: Sized {
     /// Column cursors and codec state of all of `Self`'s columns.
     type Reader: Clone;
 
+    /// The most bits one item adds to this type's group, at any [Level] and with any [CodecPolicy]: every column
+    /// at its worst code (see [bound](super::bound)), every run changing at every item. `None` when a column has
+    /// no bound (a string, a byte list, an opaque field), also the default for impls that don't say.
+    ///
+    /// The group of `m` items (1 or more) takes at most `MAX_FIXED_BITS + m × MAX_ITEM_BITS` bits; a whole
+    /// `Series` is bounded by [Series::max_bytes](super::Series::max_bytes).
+    const MAX_ITEM_BITS: Option<usize> = None;
+
+    /// The most bits this type's group takes besides its items: column headers, the first value and end of each
+    /// run, an evolvable struct's head, for every column whether it has items or not. `None` together with
+    /// [MAX_ITEM_BITS](Self::MAX_ITEM_BITS).
+    const MAX_FIXED_BITS: Option<usize> = None;
+
     /// Writes this type's group over `items` (the subsequence, with the restart flag of each), column by column,
     /// walking `items` once or more per column.
     fn write_group<'a, I, S>(

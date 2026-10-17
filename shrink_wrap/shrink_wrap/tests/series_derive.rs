@@ -275,7 +275,8 @@ struct Track<'i> {
     status: Result<u8, Prefix>,
 }
 
-#[derive_shrink_wrap(borrowed, owned, series, derive(Clone, Debug, PartialEq))]
+// `Track` has no `SeriesStore` (an opaque field), so neither can `Tracks`
+#[derive_shrink_wrap(borrowed, owned, series(no_store), derive(Clone, Debug, PartialEq))]
 struct Tracks<'i> {
     track: Track<'i>,
     n: u32,

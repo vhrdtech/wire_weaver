@@ -1123,6 +1123,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#collecting-items-on-a-device-seriesstore" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Collecting items on a device: <code>SeriesStore</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#size-bounds" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Size bounds
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#introspection-and-dynamic-clients" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4897,6 +4919,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#collecting-items-on-a-device-seriesstore" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Collecting items on a device: <code>SeriesStore</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#size-bounds" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Size bounds
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#introspection-and-dynamic-clients" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5199,15 +5243,81 @@ bounded instead).</p>
 field gets its own column at the end of the group, which an older reader skips and a newer reader reading older
 data fills from the default; a new enum variant an older reader doesn't know fails the same way a plain decode of
 that item would.</p>
+<h2 id="collecting-items-on-a-device-seriesstore">Collecting items on a device: <code>SeriesStore</code><a class="headerlink" href="#collecting-items-on-a-device-seriesstore" title="Permanent link">&para;</a></h2>
+<p>SW-62. A device that sends items in batches keeps them somewhere until the batch is written. <code>SeriesStore</code> is that
+place: room for <code>N</code> items as a struct of arrays, one array per leaf field, which <code>#[derive_shrink_wrap(.., series)]</code>
+implements next to <code>SeriesColumns</code>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">use</span><span class="w"> </span><span class="n">shrink_wrap</span><span class="p">::</span><span class="n">series</span><span class="p">::</span><span class="n">SeriesStore</span><span class="p">;</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">store</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timed</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Ampere</span><span class="o">&gt;</span><span class="p">::</span><span class="n">empty_store</span><span class="p">::</span><span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">();</span><span class="w">       </span><span class="c1">// in a static or the device&#39;s state</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">Timed</span><span class="p">::</span><span class="n">set</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">store</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">Timed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">Ampere</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="n">i</span><span class="p">)));</span><span class="w"> </span><span class="c1">// item k of the batch</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">item</span><span class="p">:</span><span class="w"> </span><span class="nc">Timed</span><span class="o">&lt;</span><span class="n">Ampere</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timed</span><span class="p">::</span><span class="n">get</span><span class="p">(</span><span class="o">&amp;</span><span class="n">store</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">);</span>
+</span></code></pre></div>
+<p>Without padding between fields of different sizes it takes less RAM than the items themselves: <code>Store&lt;32&gt;</code> of
+<code>Timed&lt;Ampere&gt;</code> is 12 bytes per item with <code>ww_numeric</code>'s <code>U8</code>, <code>U32</code>, <code>I32</code> and <code>F32</code> enabled, where
+<code>[Timed&lt;Ampere&gt;; 32]</code> takes 24. What each kind of type keeps:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Store</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>numbers, <code>bool</code>, strings</td>
+<td>an array of themselves</td>
+</tr>
+<tr>
+<td>struct, tuple</td>
+<td>the stores of its fields</td>
+</tr>
+<tr>
+<td><code>[X; M]</code></td>
+<td><code>M</code> stores of <code>X</code></td>
+</tr>
+<tr>
+<td><code>Option&lt;X&gt;</code></td>
+<td>an array of flags and the store of <code>X</code></td>
+</tr>
+<tr>
+<td>enum</td>
+<td>an array of discriminants (<code>u8</code>, <code>u16</code> or <code>u32</code>, <code>u32</code> with a <code>#[future_version]</code>) and the stores of every data variant's fields</td>
+</tr>
+<tr>
+<td><code>PhantomData</code></td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><code>ww_numeric::NumericValue</code></td>
+<td>by hand: the variant (a byte) and one array as wide as the widest variant enabled</td>
+</tr>
+</tbody>
+</table>
+<p>An enum's store takes its discriminant plus the fields of all its variants per item, so for an enum with several
+data variants it can be bigger than the enum itself (<code>enum { A(u32), B(u32) }</code>: 9 bytes against 8).
+<code>series(no_store)</code> leaves the derived store out, to write a better one by hand as <code>NumericValue</code> does
+(<code>ww_numeric/src/store.rs</code>): one payload array for all its variants. A type with a <code>#[series(opaque)]</code> field gets no
+store, and a type with a field of such a type needs <code>series(no_store)</code> too.</p>
+<h2 id="size-bounds">Size bounds<a class="headerlink" href="#size-bounds" title="Permanent link">&para;</a></h2>
+<p>The batch has to fit into the message it goes out in, so a device needs to know how big a <code>Series</code> of <code>n</code> items can
+get without writing it. <code>SeriesColumns::MAX_ITEM_BITS</code> and <code>MAX_FIXED_BITS</code> are the worst case of a type's group,
+per item and per series: every column at its longest code under any <code>CodecPolicy</code> (not only the one <code>SMALLEST</code>
+picks), every run changing at every item. <code>Series::&lt;T&gt;::max_bytes(n)</code> puts them together with the count and the
+padding. Strings, byte lists and opaque fields have no bound (<code>None</code>).</p>
+<p>The bound is far from what real data takes: 32 samples of <code>Timed&lt;Volt&gt;</code> at a regular clock are 22 bytes, against a
+bound of 570 with the number types up to 32 bits and 1272 with every one enabled (<code>NumericValue</code> is bounded by its
+widest variant). It tells when a batch is safely below a budget, and a measurement (<code>BitCounter</code>) is needed only
+close to it.</p>
 <h2 id="introspection-and-dynamic-clients">Introspection and dynamic clients<a class="headerlink" href="#introspection-and-dynamic-clients" title="Permanent link">&para;</a></h2>
 <p>A <code>Series&lt;T&gt;</code> in an API is in its introspection data as <code>Series&lt;T&gt;</code> (<code>ww_self::Type::Series</code>, with <code>T</code> as written and
 <code>#[series(opaque)]</code> marked on the field), so clients without generated code read it too: <code>ww</code> and the dynamic
 <code>wire_weaver_client</code> API show it as a list of items, and Python gives the items or, with <code>decode_columns</code>, one numpy
 array per leaf field:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">cols</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">readings</span><span class="o">.</span><span class="n">decode_columns</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>   <span class="c1"># or a property&#39;s / stream&#39;s decode_columns</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">cols</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>               <span class="c1"># array([3298, 3299, ...], dtype=int32)</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">cols</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span>              <span class="c1"># variant of each item: array([&#39;Idle&#39;, &#39;Busy&#39;, ...], dtype=object)</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">cols</span><span class="p">[</span><span class="s2">&quot;status.Fault.code&quot;</span><span class="p">]</span>   <span class="c1"># masked where an item is in another variant</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">cols</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">readings</span><span class="o">.</span><span class="n">decode_columns</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>   <span class="c1"># or a property&#39;s / stream&#39;s decode_columns</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">cols</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>               <span class="c1"># array([3298, 3299, ...], dtype=int32)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">cols</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span>              <span class="c1"># variant of each item: array([&#39;Idle&#39;, &#39;Busy&#39;, ...], dtype=object)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">cols</span><span class="p">[</span><span class="s2">&quot;status.Fault.code&quot;</span><span class="p">]</span>   <span class="c1"># masked where an item is in another variant</span>
 </span></code></pre></div>
 <p>The dynamic decoder (<code>ww_self</code>, <code>ValueOwned::des_shrink_wrap_dyn</code> for the items, <code>des_series_columns_dyn</code> for the
 columns) walks the type tree with the same rules as the code the derive generates: column by column, restarting a

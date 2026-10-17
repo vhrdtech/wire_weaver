@@ -5140,6 +5140,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   appended); a malformed header is an error. Writer takes the present set up front (<code>SetBits</code> over a bitset, any
   increasing iterator), <code>OptionAnyVecWriter</code> / in-place <code>OptionAnyVecBuilder</code>. For a trait level's properties in one
   update (API-38). See <code>docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types</code>, <code>docs/serdes/showcase.md</code>.</li>
+<li>✅ <strong>SW-62 <code>SeriesStore</code> and series size bounds</strong>: room for <code>N</code> items of a <code>series</code> type as a struct of arrays
+  (<code>empty_store</code>, <code>set</code>, <code>get</code>), derived for structs (field stores) and enums (discriminants and every data
+  variant's fields), by hand for <code>ww_numeric::NumericValue</code> (a variant byte and one payload as wide as the widest
+  variant enabled): <code>Timed&lt;Ampere&gt;</code> takes 12 bytes per item with number types up to 32 bits, against 24 as items.
+  <code>SeriesColumns::MAX_ITEM_BITS</code> / <code>MAX_FIXED_BITS</code> and <code>Series::max_bytes(n)</code>: the worst case of a batch under any
+  codec policy, <code>None</code> for strings and opaque fields. <code>series(no_store)</code> leaves the derived store out. Piece 1 of
+  API-41. See <code>docs/serdes/series.md#collecting-items-on-a-device-seriesstore</code>,
+  <code>shrink_wrap/shrink_wrap/src/series/store_tests.rs</code>, <code>ww_stdlib/ww_si/tests/store.rs</code>.</li>
 <li>✅ <strong>SW-61 <code>RefVecBuilder&lt;T&gt;</code>: a list written in place</strong>, element by element (<code>push</code>, <code>extend</code>, <code>push_with</code> for a
   nested builder or an element written by hand), <code>finish</code> writes the count; same bytes as <code>RefVec::Slice</code>, as the
   whole buffer, a struct field or an element of another list. A failed push undoes its element, <code>with_max_len</code> for
@@ -5561,13 +5569,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   device, so not a default.</li>
 <li>💡 <strong>API-39 Batched property samples</strong> — K samples of one fast property in one update, compressed with <code>Delta</code> /
   <code>XorFloat</code> (SW-50), for values sampled faster than the link can carry one update each.</li>
-<li>📋 <strong>API-41 Batched streams and properties on <code>Series</code></strong> — a stream or property opts into batching
+<li>🚧 <strong>API-41 Batched streams and properties on <code>Series</code></strong> — a stream or property opts into batching
   (<code>+batched</code>/<code>batched</code>, no size in the API: the device owns the batch size through its own config, default 32,
   the host picks latency) and sends <code>Series&lt;Timed&lt;T&gt;&gt;</code> (SW-60) batches instead of one item per event (device-side
   <code>Batcher</code>, reliable streams storing encoded batches so a resend costs no re-encoding); the same mechanism under
-  API-39's batched property samples and a batched observe slot. Design only so far, with motor-demo numbers backing
-  it (integer storage over floats, default batch 32, autoranging cost cheap). Needs SW-60 (done) and CLT-29
-  (dynamic decoder).</li>
+  API-39's batched property samples and a batched observe slot. Designed, with motor-demo numbers backing it
+  (integer storage over floats, default batch 32, autoranging cost cheap); the batch store and size bounds are in
+  (SW-62). In: the device side, <code>ww_stream::batch</code> (<code>Batcher</code> with two stores handed between a producer, also an
+  interrupt, and the event loop through one atomic word, sealing on size, age and budget, encoding in the event
+  loop; <code>Outbox</code> for observe; <code>Batched</code> reliable and counted streams).
+  Missing: the <code>batched</code> API attribute, codegen, host-side unpacking (typed, dynamic, Python). Needs CLT-29 (dynamic
+  decoder).</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
 <li>🚧 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: <code>MAX_SIZE</code> of types (SW-19) and per-method <code>&lt;METHOD&gt;_REQUEST_MAX_LEN</code> /

@@ -5082,6 +5082,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../types/#special-types">Bytes to the end</a></strong>: <code>TailBytes</code> takes the rest of the buffer, written without a length; only allowed last.</li>
 <li><strong><a href="../serdes/special_types/#tailsizen-the-size-of-the-rest-of-a-value">Size of the rest of a value</a></strong>: <code>TailSize&lt;N&gt;</code>, filled in after writing, so a reader can skip a value or bound it.</li>
 <li><strong><a href="../serdes/special_types/#refvecbuilder-lists-written-in-place">Lists written in place</a></strong>: <code>RefVecBuilder</code> writes a list into the buffer one element at a time, from a loop or an iterator, with no slice and the same bytes.</li>
+<li><strong><a href="../serdes/series/#collecting-items-on-a-device-seriesstore">Series stores and size bounds</a></strong>: A batch of samples kept as one array per field until it is written as a <code>Series</code>, in half the RAM of the samples, and the most bytes the batch can take.</li>
 <li><strong><a href="../serdes/special_types/#optionanyvec-sparse-slots-of-any-types">Sparse slots</a></strong>: <code>OptionAnyVec</code>, a list of optional values of any types where only the present ones take space.</li>
 <li><strong><a href="../serdes/special_types/#eitheranyvec">Lists of either-or values</a></strong>: <code>EitherAnyVec</code> holds one of two types per element, the flags packed by eight, e.g. a list of results.</li>
 </ul>
@@ -5122,6 +5123,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong>Builders for events and errors</strong>: Written straight into the output buffer.</li>
 <li><strong><a href="../api/addressing/">Dispatch on index slices</a></strong>: Requests are routed by <code>match</code> on their path, the base of multi requests.</li>
 <li><strong><a href="../api/folder_structure/">Names and paths that don't collide</a></strong>: Generated names carry the whole trait chain; type paths come from Cargo.</li>
+<li><strong>Batched streams</strong>: Fast samples collected on the device and sent many per event as a compressed <code>Series</code>; the device side is in, the <code>batched</code> attribute and the host side are next. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/stream_reliability/">Counted and reliable streams</a></strong>: Exact counts of lost items; acknowledgements, resends and resume after a reconnect. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/credit_sinks/">Credit sinks</a></strong>: Flow control for data sent to a device, so its buffer never overflows, and lossy links resume where they stopped.</li>
 <li><strong><a href="../api/stream_protocol/#positions-wrap-at-256-mib">Credit sinks without a size limit</a></strong>: Sessions of any length, positions at most 4 bytes on the wire.</li>

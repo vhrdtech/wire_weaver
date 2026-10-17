@@ -28,10 +28,11 @@ use ww_stream::observe::ObserveLimits;
 use crate::controller::{
     Config, ControlValues, Controller, FocValues, PWM_HZ, Ran, TelemetryValues,
 };
-use crate::units::{I32In, SECONDS_PER_HOUR, Same, U32In, rad_per_s, rpm};
+use crate::units::{SECONDS_PER_HOUR, Same, rad_per_s, rpm};
+use ww_si::ww_numeric::NumericBaseType;
 use ww_si::{
-    Ampere, AngularVelocity, Coulomb, Degree, Joule, Prefix, Radian, Ratio, Second, Torque, Volt,
-    Watt, Weber,
+    Ampere, AngularVelocity, Coulomb, Degree, Joule, Prefix, Quantity, Radian, Ratio, Second,
+    Torque, Volt, Watt, Weber,
 };
 
 /// One PWM period, simulated µs.
@@ -62,8 +63,12 @@ fn motor(preset: Preset) -> (MotorParams, f32) {
 fn sim_load(load: Load) -> motor_sim::Load {
     match load {
         Load::None | Load::Unknown(_) => motor_sim::Load::None,
-        Load::Viscous { b } => motor_sim::Load::Viscous { b_nms_per_rad: b },
-        Load::Fan { k } => motor_sim::Load::Fan { k_nms2_per_rad2: k },
+        Load::Viscous { b } => motor_sim::Load::Viscous {
+            b_nms_per_rad: b.to_f32(),
+        },
+        Load::Fan { k } => motor_sim::Load::Fan {
+            k_nms2_per_rad2: k.to_f32(),
+        },
         Load::Constant { torque } => motor_sim::Load::Constant {
             torque_nm: torque.to_f32(),
         },
@@ -91,7 +96,9 @@ impl Default for Options {
         Options {
             time_scale: 1.0,
             preset: Preset::VescOutrunner,
-            load: Load::Fan { k: 2e-7 },
+            load: Load::Fan {
+                k: Quantity::from_f32(2e-7),
+            },
             profile: Profile::SpeedSteps,
             seed: 1,
         }
@@ -250,116 +257,102 @@ macro_rules! tier {
     };
 }
 
-/// A quantity of `$x` (an `f32` in the base unit) as an `I32` of `$prefix`.
-macro_rules! i32_in {
-    ($ty:ident $prefix:ident $x:expr) => {
-        $ty::new(Prefix::$prefix, $x.i32_in(Prefix::$prefix))
-    };
-}
-
-/// A quantity of `$x` (an `f32` in the base unit) as a `U32` of `$prefix`.
-macro_rules! u32_in {
-    ($ty:ident $prefix:ident $x:expr) => {
-        $ty::new(Prefix::$prefix, $x.u32_in(Prefix::$prefix))
-    };
-}
-
 tier!(foc: FocValues => FocQuantities, mark_foc;
-    i_a: Ampere = |v| i32_in!(Ampere Milli v.i_a),
+    i_a: Ampere = |v| Ampere::quantize(v.i_a, Prefix::Milli, NumericBaseType::I32),
         get_foc_i_a, mark_changed_foc_i_a;
-    i_b: Ampere = |v| i32_in!(Ampere Milli v.i_b),
+    i_b: Ampere = |v| Ampere::quantize(v.i_b, Prefix::Milli, NumericBaseType::I32),
         get_foc_i_b, mark_changed_foc_i_b;
-    i_c: Ampere = |v| i32_in!(Ampere Milli v.i_c),
+    i_c: Ampere = |v| Ampere::quantize(v.i_c, Prefix::Milli, NumericBaseType::I32),
         get_foc_i_c, mark_changed_foc_i_c;
-    i_alpha: Ampere = |v| i32_in!(Ampere Milli v.i_alpha),
+    i_alpha: Ampere = |v| Ampere::quantize(v.i_alpha, Prefix::Milli, NumericBaseType::I32),
         get_foc_i_alpha, mark_changed_foc_i_alpha;
-    i_beta: Ampere = |v| i32_in!(Ampere Milli v.i_beta),
+    i_beta: Ampere = |v| Ampere::quantize(v.i_beta, Prefix::Milli, NumericBaseType::I32),
         get_foc_i_beta, mark_changed_foc_i_beta;
-    i_d: Ampere = |v| i32_in!(Ampere Milli v.i_d),
+    i_d: Ampere = |v| Ampere::quantize(v.i_d, Prefix::Milli, NumericBaseType::I32),
         get_foc_i_d, mark_changed_foc_i_d;
-    i_q: Ampere = |v| i32_in!(Ampere Milli v.i_q),
+    i_q: Ampere = |v| Ampere::quantize(v.i_q, Prefix::Milli, NumericBaseType::I32),
         get_foc_i_q, mark_changed_foc_i_q;
-    v_d: Volt = |v| i32_in!(Volt Milli v.v_d),
+    v_d: Volt = |v| Volt::quantize(v.v_d, Prefix::Milli, NumericBaseType::I32),
         get_foc_v_d, mark_changed_foc_v_d;
-    v_q: Volt = |v| i32_in!(Volt Milli v.v_q),
+    v_q: Volt = |v| Volt::quantize(v.v_q, Prefix::Milli, NumericBaseType::I32),
         get_foc_v_q, mark_changed_foc_v_q;
-    v_alpha: Volt = |v| i32_in!(Volt Milli v.v_alpha),
+    v_alpha: Volt = |v| Volt::quantize(v.v_alpha, Prefix::Milli, NumericBaseType::I32),
         get_foc_v_alpha, mark_changed_foc_v_alpha;
-    v_beta: Volt = |v| i32_in!(Volt Milli v.v_beta),
+    v_beta: Volt = |v| Volt::quantize(v.v_beta, Prefix::Milli, NumericBaseType::I32),
         get_foc_v_beta, mark_changed_foc_v_beta;
-    duty_a: Ratio = |v| i32_in!(Ratio Micro v.duty_a),
+    duty_a: Ratio = |v| Ratio::quantize(v.duty_a, Prefix::Micro, NumericBaseType::I32),
         get_foc_duty_a, mark_changed_foc_duty_a;
-    duty_b: Ratio = |v| i32_in!(Ratio Micro v.duty_b),
+    duty_b: Ratio = |v| Ratio::quantize(v.duty_b, Prefix::Micro, NumericBaseType::I32),
         get_foc_duty_b, mark_changed_foc_duty_b;
-    duty_c: Ratio = |v| i32_in!(Ratio Micro v.duty_c),
+    duty_c: Ratio = |v| Ratio::quantize(v.duty_c, Prefix::Micro, NumericBaseType::I32),
         get_foc_duty_c, mark_changed_foc_duty_c;
-    phase: Radian = |v| i32_in!(Radian Micro v.phase),
+    phase: Radian = |v| Radian::quantize(v.phase, Prefix::Micro, NumericBaseType::I32),
         get_foc_phase, mark_changed_foc_phase;
-    phase_observer: Radian = |v| i32_in!(Radian Micro v.phase_observer),
+    phase_observer: Radian = |v| Radian::quantize(v.phase_observer, Prefix::Micro, NumericBaseType::I32),
         get_foc_phase_observer, mark_changed_foc_phase_observer;
-    phase_encoder: Radian = |v| i32_in!(Radian Micro v.phase_encoder),
+    phase_encoder: Radian = |v| Radian::quantize(v.phase_encoder, Prefix::Micro, NumericBaseType::I32),
         get_foc_phase_encoder, mark_changed_foc_phase_encoder;
-    observer_x1: Weber = |v| i32_in!(Weber Nano v.observer_x1),
+    observer_x1: Weber = |v| Weber::quantize(v.observer_x1, Prefix::Nano, NumericBaseType::I32),
         get_foc_observer_x1, mark_changed_foc_observer_x1;
-    observer_x2: Weber = |v| i32_in!(Weber Nano v.observer_x2),
+    observer_x2: Weber = |v| Weber::quantize(v.observer_x2, Prefix::Nano, NumericBaseType::I32),
         get_foc_observer_x2, mark_changed_foc_observer_x2;
-    v_bus: Volt = |v| i32_in!(Volt Milli v.v_bus),
+    v_bus: Volt = |v| Volt::quantize(v.v_bus, Prefix::Milli, NumericBaseType::I32),
         get_foc_v_bus, mark_changed_foc_v_bus;
-    phase_true: Radian = |v| i32_in!(Radian Micro v.phase_true),
+    phase_true: Radian = |v| Radian::quantize(v.phase_true, Prefix::Micro, NumericBaseType::I32),
         get_foc_phase_true, mark_changed_foc_phase_true;
 );
 
 tier!(control: ControlValues => ControlQuantities, mark_control;
-    speed_electrical: AngularVelocity = |v| i32_in!(AngularVelocity Milli rad_per_s(v.erpm)),
+    speed_electrical: AngularVelocity = |v| AngularVelocity::quantize(rad_per_s(v.erpm), Prefix::Milli, NumericBaseType::I32),
         get_control_speed_electrical, mark_changed_control_speed_electrical;
-    speed: AngularVelocity = |v| i32_in!(AngularVelocity Milli rad_per_s(v.rpm)),
+    speed: AngularVelocity = |v| AngularVelocity::quantize(rad_per_s(v.rpm), Prefix::Milli, NumericBaseType::I32),
         get_control_speed, mark_changed_control_speed;
-    id_set: Ampere = |v| i32_in!(Ampere Milli v.id_set),
+    id_set: Ampere = |v| Ampere::quantize(v.id_set, Prefix::Milli, NumericBaseType::I32),
         get_control_id_set, mark_changed_control_id_set;
-    iq_set: Ampere = |v| i32_in!(Ampere Milli v.iq_set),
+    iq_set: Ampere = |v| Ampere::quantize(v.iq_set, Prefix::Milli, NumericBaseType::I32),
         get_control_iq_set, mark_changed_control_iq_set;
-    id_filtered: Ampere = |v| i32_in!(Ampere Milli v.id_filtered),
+    id_filtered: Ampere = |v| Ampere::quantize(v.id_filtered, Prefix::Milli, NumericBaseType::I32),
         get_control_id_filtered, mark_changed_control_id_filtered;
-    iq_filtered: Ampere = |v| i32_in!(Ampere Milli v.iq_filtered),
+    iq_filtered: Ampere = |v| Ampere::quantize(v.iq_filtered, Prefix::Milli, NumericBaseType::I32),
         get_control_iq_filtered, mark_changed_control_iq_filtered;
-    i_motor: Ampere = |v| i32_in!(Ampere Milli v.i_motor),
+    i_motor: Ampere = |v| Ampere::quantize(v.i_motor, Prefix::Milli, NumericBaseType::I32),
         get_control_i_motor, mark_changed_control_i_motor;
-    i_input: Ampere = |v| i32_in!(Ampere Milli v.i_input),
+    i_input: Ampere = |v| Ampere::quantize(v.i_input, Prefix::Milli, NumericBaseType::I32),
         get_control_i_input, mark_changed_control_i_input;
-    duty_now: Ratio = |v| i32_in!(Ratio Micro v.duty_now),
+    duty_now: Ratio = |v| Ratio::quantize(v.duty_now, Prefix::Micro, NumericBaseType::I32),
         get_control_duty_now, mark_changed_control_duty_now;
-    torque: Torque = |v| i32_in!(Torque Milli v.torque),
+    torque: Torque = |v| Torque::quantize(v.torque, Prefix::Milli, NumericBaseType::I32),
         get_control_torque, mark_changed_control_torque;
-    position: Degree = |v| i32_in!(Degree Milli v.position_deg),
+    position: Degree = |v| Degree::quantize(v.position_deg, Prefix::Milli, NumericBaseType::I32),
         get_control_position, mark_changed_control_position;
-    observer_error: Degree = |v| i32_in!(Degree Milli v.observer_error_deg),
+    observer_error: Degree = |v| Degree::quantize(v.observer_error_deg, Prefix::Milli, NumericBaseType::I32),
         get_control_observer_error, mark_changed_control_observer_error;
-    speed_true: AngularVelocity = |v| i32_in!(AngularVelocity Milli rad_per_s(v.rpm_true)),
+    speed_true: AngularVelocity = |v| AngularVelocity::quantize(rad_per_s(v.rpm_true), Prefix::Milli, NumericBaseType::I32),
         get_control_speed_true, mark_changed_control_speed_true;
 );
 
 tier!(telemetry: TelemetryValues => TelemetryQuantities, mark_telemetry;
-    time: Second = |v| u32_in!(Second Milli v.time_s),
+    time: Second = |v| Second::quantize(v.time_s, Prefix::Milli, NumericBaseType::U32),
         get_telemetry_time, mark_changed_telemetry_time;
-    charge_drawn: Coulomb = |v| u32_in!(Coulomb Unit v.amp_hours * SECONDS_PER_HOUR),
+    charge_drawn: Coulomb = |v| Coulomb::quantize(v.amp_hours * SECONDS_PER_HOUR, Prefix::Unit, NumericBaseType::U32),
         get_telemetry_charge_drawn, mark_changed_telemetry_charge_drawn;
-    charge_returned: Coulomb = |v| u32_in!(Coulomb Unit v.amp_hours_charged * SECONDS_PER_HOUR),
+    charge_returned: Coulomb = |v| Coulomb::quantize(v.amp_hours_charged * SECONDS_PER_HOUR, Prefix::Unit, NumericBaseType::U32),
         get_telemetry_charge_returned, mark_changed_telemetry_charge_returned;
-    energy_drawn: Joule = |v| u32_in!(Joule Unit v.watt_hours * SECONDS_PER_HOUR),
+    energy_drawn: Joule = |v| Joule::quantize(v.watt_hours * SECONDS_PER_HOUR, Prefix::Unit, NumericBaseType::U32),
         get_telemetry_energy_drawn, mark_changed_telemetry_energy_drawn;
-    energy_returned: Joule = |v| u32_in!(Joule Unit v.watt_hours_charged * SECONDS_PER_HOUR),
+    energy_returned: Joule = |v| Joule::quantize(v.watt_hours_charged * SECONDS_PER_HOUR, Prefix::Unit, NumericBaseType::U32),
         get_telemetry_energy_returned, mark_changed_telemetry_energy_returned;
     tachometer: i32 = |v| v.tachometer,
         get_telemetry_tachometer, mark_changed_telemetry_tachometer;
     tachometer_abs: u32 = |v| v.tachometer_abs,
         get_telemetry_tachometer_abs, mark_changed_telemetry_tachometer_abs;
-    v_in: Volt = |v| i32_in!(Volt Milli v.v_in),
+    v_in: Volt = |v| Volt::quantize(v.v_in, Prefix::Milli, NumericBaseType::I32),
         get_telemetry_v_in, mark_changed_telemetry_v_in;
-    power_in: Watt = |v| i32_in!(Watt Centi v.power_in),
+    power_in: Watt = |v| Watt::quantize(v.power_in, Prefix::Centi, NumericBaseType::I32),
         get_telemetry_power_in, mark_changed_telemetry_power_in;
-    avg_motor_current: Ampere = |v| i32_in!(Ampere Milli v.avg_motor_current),
+    avg_motor_current: Ampere = |v| Ampere::quantize(v.avg_motor_current, Prefix::Milli, NumericBaseType::I32),
         get_telemetry_avg_motor_current, mark_changed_telemetry_avg_motor_current;
-    avg_input_current: Ampere = |v| i32_in!(Ampere Milli v.avg_input_current),
+    avg_input_current: Ampere = |v| Ampere::quantize(v.avg_input_current, Prefix::Milli, NumericBaseType::I32),
         get_telemetry_avg_input_current, mark_changed_telemetry_avg_input_current;
     fault: motor_demo_api::Fault = |v| v.fault,
         get_telemetry_fault, mark_changed_telemetry_fault;
@@ -439,7 +432,11 @@ impl Device {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
     ) -> GetResult<Ratio, ()> {
-        GetResult::Value(i32_in!(Ratio Micro self.ctl.set.duty))
+        GetResult::Value(Ratio::quantize(
+            self.ctl.set.duty,
+            Prefix::Micro,
+            NumericBaseType::I32,
+        ))
     }
 
     async fn set_control_current_target(
@@ -461,7 +458,11 @@ impl Device {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
     ) -> GetResult<Ampere, ()> {
-        GetResult::Value(i32_in!(Ampere Milli self.ctl.set.current))
+        GetResult::Value(Ampere::quantize(
+            self.ctl.set.current,
+            Prefix::Milli,
+            NumericBaseType::I32,
+        ))
     }
 
     async fn set_control_speed_target(
@@ -483,7 +484,11 @@ impl Device {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
     ) -> GetResult<AngularVelocity, ()> {
-        GetResult::Value(i32_in!(AngularVelocity Milli rad_per_s(self.ctl.set.erpm)))
+        GetResult::Value(AngularVelocity::quantize(
+            rad_per_s(self.ctl.set.erpm),
+            Prefix::Milli,
+            NumericBaseType::I32,
+        ))
     }
 
     async fn set_sim_time_scale(

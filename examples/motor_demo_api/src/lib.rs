@@ -17,9 +17,10 @@
 #![no_std]
 
 use wire_weaver::prelude::*;
+use ww_si::units::{AngularVelocity as RadPerS, Per, Times, Torque as Nm};
 use ww_si::{
-    Ampere, AngularVelocity, Coulomb, Degree, Joule, Radian, Ratio, Second, Torque, Volt, Watt,
-    Weber,
+    Ampere, AngularVelocity, Coulomb, Degree, Joule, Quantity, Radian, Ratio, Second, Torque, Volt,
+    Watt, Weber,
 };
 
 #[ww_api_root]
@@ -209,10 +210,12 @@ pub enum Fault {
 pub enum Load {
     /// Free shaft.
     None,
-    /// Torque = b·ω, N·m·s/rad: a coefficient without a ww_si quantity, stays f32.
-    Viscous { b: f32 },
-    /// Propeller: torque = k·ω·|ω|, N·m·s²/rad²: stays f32.
-    Fan { k: f32 },
+    /// Torque = b·ω, in N·m/(rad/s).
+    Viscous { b: Quantity<Per<Nm, RadPerS>> },
+    /// Propeller: torque = k·ω·|ω|, in N·m/(rad/s)².
+    Fan {
+        k: Quantity<Per<Nm, Times<RadPerS, RadPerS>>>,
+    },
     /// Constant torque.
     Constant { torque: Torque },
     /// Shaft held still.

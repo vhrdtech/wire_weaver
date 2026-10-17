@@ -6,7 +6,7 @@ use anyhow::{Context, bail};
 use motor_demo_api::Load;
 use wire_weaver_client::observe::{on_change, on_change_or_beat, periodic};
 use ww_client_server::observe::ObserveMode;
-use ww_si::Torque;
+use ww_si::{Quantity, Torque};
 
 /// `500us`, `1ms`, `2.5s`; a bare number is milliseconds.
 pub fn duration(s: &str) -> anyhow::Result<Duration> {
@@ -73,8 +73,12 @@ pub fn load(s: &str) -> anyhow::Result<Load> {
     Ok(match s.split_once(':') {
         None if s == "none" => Load::None,
         None if s == "locked" => Load::Locked,
-        Some(("viscous", v)) => Load::Viscous { b: num(v)? },
-        Some(("fan", v)) => Load::Fan { k: num(v)? },
+        Some(("viscous", v)) => Load::Viscous {
+            b: Quantity::from_f32(num(v)?),
+        },
+        Some(("fan", v)) => Load::Fan {
+            k: Quantity::from_f32(num(v)?),
+        },
         Some(("constant", v)) => Load::Constant {
             torque: Torque::from_f32(num(v)?),
         },
@@ -112,7 +116,12 @@ mod tests {
         for m in ["every:40us", "change:1ms", "beat:1ms/2s", "off"] {
             assert_eq!(mode_str(&mode(m).unwrap()), m);
         }
-        assert_eq!(load("fan:2e-7").unwrap(), Load::Fan { k: 2e-7 });
+        assert_eq!(
+            load("fan:2e-7").unwrap(),
+            Load::Fan {
+                k: Quantity::from_f32(2e-7)
+            }
+        );
         assert_eq!(
             load("constant:0.5").unwrap(),
             Load::Constant {

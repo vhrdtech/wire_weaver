@@ -1,5 +1,5 @@
 use super::{
-    crate_walker::{CrateContext, Scratch},
+    crate_walker::{CrateContext, Scratch, TypeInProgress},
     util::{
         collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_globs, use_tree_path_to,
     },
@@ -14,10 +14,9 @@ use ww_numeric::NumericValue;
 use ww_numeric::{IBits, NumericAnyTypeOwned, UBits};
 use ww_self::{
     FieldOwned, FieldsOwned, GenericArgOwned, GenericParamKindOwned, GenericParamOwned,
-    ItemEnumOwned, ItemStructOwned, Length, NumericBaseType, Repr, TypeOwned, ValueOwned,
-    VariantOwned,
+    ItemEnumOwned, ItemStructOwned, Length, NumericBaseType, Repr, TypeLocationOwned, TypeOwned,
+    ValueOwned, VariantOwned,
 };
-use ww_version::FullVersionOwned;
 
 pub(crate) fn convert_ty(
     ty: &Type,
@@ -252,32 +251,92 @@ pub(crate) fn convert_named_def(
 }
 
 /// `item` with `params` in scope while its fields are converted.
+///
+/// A type that refers to itself (through `RefBox`, `Vec`, `Option`, ..., directly or through other types) gets its
+/// index in the types array reserved when the reference is found, the reference points there. Generic definitions
+/// can't be part of such a cycle (each round could need a new instance, API-43).
 fn convert_def(
     def_cx: &CrateContext,
     item: &Item,
     params: Vec<GenericParamOwned>,
     scratch: &mut Scratch,
 ) -> Result<TypeOwned> {
+    let ty_name = match item {
+        Item::Enum(item_enum) => item_enum.ident.to_string(),
+        Item::Struct(item_struct) => item_struct.ident.to_string(),
+        _ => return Err(anyhow!("not a struct or an enum")),
+    };
+    let key = (def_cx.version().clone(), ty_name.clone());
+    if let Some(type_idx) = scratch.recursive_types.get(&key) {
+        return Ok(TypeOwned::OutOfLine {
+            type_idx: *type_idx,
+        });
+    }
+    if let Some(pos) = scratch.types_in_progress.iter().position(|t| t.key == key) {
+        return refer_back(def_cx, scratch, pos);
+    }
+    scratch.types_in_progress.push(TypeInProgress {
+        key,
+        generic: !params.is_empty(),
+        slot: None,
+    });
     let saved_scope = std::mem::replace(&mut scratch.generic_scope, params);
-    let result = (|| match item {
-        Item::Enum(item_enum) => {
-            let ty_name = item_enum.ident.to_string();
-            let key = enter_type(def_cx, scratch, &ty_name)?;
-            let ty = convert_item_enum(def_cx, scratch, ty_name, item_enum);
-            scratch.types_in_progress.retain(|k| k != &key);
-            ty
-        }
-        Item::Struct(item_struct) => {
-            let ty_name = item_struct.ident.to_string();
-            let key = enter_type(def_cx, scratch, &ty_name)?;
-            let ty = convert_item_struct(def_cx, scratch, ty_name, item_struct);
-            scratch.types_in_progress.retain(|k| k != &key);
-            ty
-        }
-        _ => Err(anyhow!("not a struct or an enum")),
-    })();
+    let ty = match item {
+        Item::Enum(item_enum) => convert_item_enum(def_cx, scratch, ty_name, item_enum),
+        Item::Struct(item_struct) => convert_item_struct(def_cx, scratch, ty_name, item_struct),
+        _ => unreachable!(),
+    };
     scratch.generic_scope = saved_scope;
-    result
+    let in_progress = scratch
+        .types_in_progress
+        .pop()
+        .expect("internal: types in progress out of balance");
+    let ty = ty?;
+    match in_progress.slot {
+        Some(type_idx) => {
+            let crate_idx = scratch.root_bundle.find_crate_or_create(def_cx);
+            scratch.root_bundle.types[type_idx.0 as usize] =
+                TypeLocationOwned::InLine { ty, crate_idx };
+            scratch.recursive_types.insert(in_progress.key, type_idx);
+            Ok(TypeOwned::OutOfLine { type_idx })
+        }
+        None => {
+            if let Some(type_idx) = scratch.root_bundle.find_type(&ty) {
+                return Ok(TypeOwned::OutOfLine { type_idx });
+            }
+            Ok(scratch.root_bundle.push_out_of_line(ty, def_cx))
+        }
+    }
+}
+
+/// A reference to `types_in_progress[pos]` while it is converted: its reserved index. Errors out when the cycle
+/// goes through a generic definition.
+fn refer_back(def_cx: &CrateContext, scratch: &mut Scratch, pos: usize) -> Result<TypeOwned> {
+    let cycle = &scratch.types_in_progress[pos..];
+    if let Some(generic) = cycle.iter().find(|t| t.generic) {
+        let names: Vec<&str> = cycle.iter().map(|t| t.key.1.as_str()).collect();
+        return Err(anyhow!(
+            "Generic type {} refers to itself (through {}), only types without parameters can",
+            generic.key.1,
+            names.join(" -> ")
+        )
+        .context(def_cx.err_context()));
+    }
+    let slot = match scratch.types_in_progress[pos].slot {
+        Some(slot) => slot,
+        None => {
+            // filled once the definition is converted
+            let slot = UNib32(scratch.root_bundle.types.len() as u32);
+            let crate_idx = scratch.root_bundle.find_crate_or_create(def_cx);
+            scratch.root_bundle.types.push(TypeLocationOwned::InLine {
+                ty: TypeOwned::Tuple(vec![]),
+                crate_idx,
+            });
+            scratch.types_in_progress[pos].slot = Some(slot);
+            slot
+        }
+    };
+    Ok(TypeOwned::OutOfLine { type_idx: slot })
 }
 
 /// Type and const parameters of the definition `ident` (lifetimes are left out), each with its default as written.
@@ -591,23 +650,6 @@ fn declares_or_imports(cx: &CrateContext, name: &str) -> bool {
     })
 }
 
-/// Mark a user-defined type as being converted, errors out if it is already, i.e., it refers to itself.
-fn enter_type(
-    current_crate: &CrateContext,
-    scratch: &mut Scratch,
-    ty_name: &str,
-) -> Result<(FullVersionOwned, String)> {
-    let key = (current_crate.version().clone(), ty_name.to_string());
-    if scratch.types_in_progress.contains(&key) {
-        return Err(
-            anyhow!("Self-referential type {ty_name} is not supported yet")
-                .context(current_crate.err_context()),
-        );
-    }
-    scratch.types_in_progress.push(key.clone());
-    Ok(key)
-}
-
 fn convert_ub_ib(user_ty: &str) -> Option<TypeOwned> {
     // u1, u2, .., u64, i2, i3, .., i64
     let user_ty = user_ty.to_lowercase();
@@ -684,11 +726,6 @@ fn convert_item_enum(
         generics: scratch.generic_scope.clone(),
         variants,
     });
-    if let Some(type_idx) = scratch.root_bundle.find_type(&ty) {
-        return Ok(TypeOwned::OutOfLine { type_idx });
-    }
-
-    let ty = scratch.root_bundle.push_out_of_line(ty, current_crate);
     Ok(ty)
 }
 
@@ -709,11 +746,6 @@ fn convert_item_struct(
         fields,
         sparse: args.sparse,
     });
-    if let Some(type_idx) = scratch.root_bundle.find_type(&ty) {
-        return Ok(TypeOwned::OutOfLine { type_idx });
-    }
-
-    let ty = scratch.root_bundle.push_out_of_line(ty, current_crate);
     Ok(ty)
 }
 

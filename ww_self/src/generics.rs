@@ -24,8 +24,10 @@ use std::collections::HashMap;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 
 /// Deepest nesting of types allowed in a bundle, counted along the longest path through type definitions (each
-/// `Vec`, `Option`, field, out-of-line reference, ... is one level). Walks over types (dynamic decoding, compatibility
-/// checks) recurse this deep at most once a bundle passed [validate].
+/// `Vec`, `Option`, field, out-of-line reference, ... is one level) that doesn't go through a definition twice. Walks
+/// over types (compatibility checks, layouts) that stop at a definition already on their path recurse this deep at
+/// most once a bundle passed [validate]. Walks over values of self-referential types (dynamic decoding) go as deep as
+/// the value, they bound their own depth.
 pub const MAX_DEPTH: usize = 96;
 /// Most concrete definitions [instantiate] adds to a bundle.
 pub const MAX_INSTANCES: usize = 4096;
@@ -72,8 +74,10 @@ pub fn params_human_name(params: &[GenericParamOwned], bundle: &ApiBundleOwned) 
 ///   type for a type parameter, a value of its type or a const parameter of the same type for a const one).
 /// - Parameters are used only inside the definition that has them, as what they are (a type parameter as a type,
 ///   an integer const parameter as a length). Const parameters are `bool` or integers.
-/// - Definitions don't refer to themselves, directly or through others, and nothing is nested deeper than
-///   [MAX_DEPTH].
+/// - Generic definitions are not part of a cycle: a definition can refer to itself (`enum Expr { Lit(u32),
+///   Neg(Box<Expr>) }`), directly or through others, only when none of them has parameters.
+/// - Nothing is nested deeper than [MAX_DEPTH], counted along the longest path a walk over the types takes when it
+///   stops at a definition already on its path.
 ///
 /// Skipped definitions can't be checked, uses of them are checked once they are put back. Takes time linear in the
 /// size of the bundle.
@@ -81,6 +85,9 @@ pub fn validate(bundle: &ApiBundleOwned) -> Result<()> {
     let mut v = Validator {
         bundle,
         defs: vec![Def::NotSeen; bundle.types.len()],
+        next_index: 0,
+        stack: vec![],
+        open: vec![],
     };
     for idx in 0..bundle.types.len() {
         v.def_depth(idx as u32, 0)?;
@@ -97,14 +104,31 @@ pub fn validate(bundle: &ApiBundleOwned) -> Result<()> {
 #[derive(Clone, Copy)]
 enum Def {
     NotSeen,
-    InProgress,
-    /// Nesting depth of the definition's own fields (parameters count as one level).
+    /// Being checked: on the stack of Tarjan's algorithm, the cycles (strongly connected components) of definitions
+    /// are found on the way.
+    Open {
+        index: usize,
+        low_link: usize,
+        /// Nesting depth of the definition's own fields, a reference to a definition of the same cycle counted as
+        /// one level.
+        local: usize,
+        /// Refers to itself directly.
+        self_ref: bool,
+    },
+    /// Nesting depth of the definition's own fields (parameters count as one level). For definitions in a cycle,
+    /// the sum of the depths of all of them: a walk that stops at a definition already on its path goes through
+    /// each one at most once.
     Depth(usize),
 }
 
 struct Validator<'a> {
     bundle: &'a ApiBundleOwned,
     defs: Vec<Def>,
+    /// Tarjan's algorithm: next index to give out, stack of definitions whose cycle is not closed yet.
+    next_index: usize,
+    stack: Vec<u32>,
+    /// Definitions whose fields are being walked, innermost last.
+    open: Vec<u32>,
 }
 
 type Scope<'a> = Option<&'a [GenericParamOwned]>;
@@ -145,44 +169,136 @@ impl<'a> Validator<'a> {
         Ok(())
     }
 
-    /// Nesting depth of the fields of `types[idx]`, checked once. `path`: nesting depth of the use.
+    /// Nesting depth of the fields of `types[idx]`, checked once; 0 for a definition in the same cycle as the one
+    /// whose fields refer to it (counted in the depth of the cycle). `path`: nesting depth of the use.
     fn def_depth(&mut self, idx: u32, path: usize) -> Result<usize> {
         let Some(location) = self.bundle.types.get(idx as usize) else {
             bail!("no type with index {idx}");
         };
         let depth = match self.defs[idx as usize] {
             Def::Depth(depth) => depth,
-            Def::InProgress => bail!("type {} refers to itself", def_name(location)),
+            Def::Open { index, .. } => {
+                // a cycle back to a definition still being checked
+                if let Some(&from) = self.open.last() {
+                    if from == idx
+                        && let Def::Open { self_ref, .. } = &mut self.defs[idx as usize]
+                    {
+                        *self_ref = true;
+                    }
+                    self.lower_link(from, index);
+                }
+                return Ok(0);
+            }
             Def::NotSeen => {
-                self.defs[idx as usize] = Def::InProgress;
-                let depth = match location {
-                    TypeLocationOwned::InLine { ty, .. } => match ty {
-                        TypeOwned::Struct(s) => {
-                            check_generics(&s.generics)?;
-                            self.fields_depth(&s.fields, &s.generics, path)?
-                        }
-                        TypeOwned::Enum(e) => {
-                            check_generics(&e.generics)?;
-                            let mut depth = 1;
-                            for variant in &e.variants {
-                                depth = depth.max(self.fields_depth(
-                                    &variant.fields,
-                                    &e.generics,
-                                    path,
-                                )?);
-                            }
-                            depth
-                        }
-                        _ => bail!("type with index {idx} is not a struct or an enum"),
-                    },
-                    TypeLocationOwned::SkippedFullVersion { .. } => 1,
+                let index = self.next_index;
+                self.next_index += 1;
+                self.defs[idx as usize] = Def::Open {
+                    index,
+                    low_link: index,
+                    local: 0,
+                    self_ref: false,
                 };
-                self.defs[idx as usize] = Def::Depth(depth);
-                depth
+                self.stack.push(idx);
+                self.open.push(idx);
+                let local = self.local_depth(idx, location, path);
+                self.open.pop();
+                let local = local?;
+                let Def::Open {
+                    low_link, self_ref, ..
+                } = self.defs[idx as usize]
+                else {
+                    bail!("internal: definition {idx} is not being checked");
+                };
+                self.defs[idx as usize] = Def::Open {
+                    index,
+                    low_link,
+                    local,
+                    self_ref,
+                };
+                if let Some(&from) = self.open.last() {
+                    self.lower_link(from, low_link);
+                }
+                if low_link != index {
+                    // in a cycle with a definition further up, which closes it
+                    return Ok(0);
+                }
+                self.close_cycle(idx)?
             }
         };
         if path + depth > MAX_DEPTH {
             bail!("types are nested deeper than {MAX_DEPTH} levels");
+        }
+        Ok(depth)
+    }
+
+    fn local_depth(
+        &mut self,
+        idx: u32,
+        location: &'a TypeLocationOwned,
+        path: usize,
+    ) -> Result<usize> {
+        Ok(match location {
+            TypeLocationOwned::InLine { ty, .. } => match ty {
+                TypeOwned::Struct(s) => {
+                    check_generics(&s.generics)?;
+                    self.fields_depth(&s.fields, &s.generics, path)?
+                }
+                TypeOwned::Enum(e) => {
+                    check_generics(&e.generics)?;
+                    let mut depth = 1;
+                    for variant in &e.variants {
+                        depth = depth.max(self.fields_depth(&variant.fields, &e.generics, path)?);
+                    }
+                    depth
+                }
+                _ => bail!("type with index {idx} is not a struct or an enum"),
+            },
+            TypeLocationOwned::SkippedFullVersion { .. } => 1,
+        })
+    }
+
+    fn lower_link(&mut self, idx: u32, to: usize) {
+        if let Def::Open { low_link, .. } = &mut self.defs[idx as usize] {
+            *low_link = (*low_link).min(to);
+        }
+    }
+
+    /// Pops the cycle (or the single definition) that `root` is the first definition of off the stack and gives
+    /// all of its definitions their depth.
+    fn close_cycle(&mut self, root: u32) -> Result<usize> {
+        let mut members = vec![];
+        loop {
+            let Some(idx) = self.stack.pop() else {
+                bail!("internal: cycle of {root} not on the stack");
+            };
+            members.push(idx);
+            if idx == root {
+                break;
+            }
+        }
+        let mut depth = 0usize;
+        let mut cyclic = members.len() > 1;
+        for &idx in &members {
+            if let Def::Open {
+                local, self_ref, ..
+            } = self.defs[idx as usize]
+            {
+                depth = depth.saturating_add(local);
+                cyclic |= self_ref;
+            }
+        }
+        if cyclic
+            && let Some(&generic) = members.iter().find(|&&idx| {
+                matches!(self.bundle.types.get(idx as usize), Some(TypeLocationOwned::InLine { ty, .. }) if !generics_of(ty).is_empty())
+            })
+        {
+            bail!(
+                "generic type {} refers to itself",
+                def_name(&self.bundle.types[generic as usize])
+            );
+        }
+        for &idx in &members {
+            self.defs[idx as usize] = Def::Depth(depth);
         }
         Ok(depth)
     }
@@ -488,10 +604,11 @@ pub fn instantiate(bundle: &mut ApiBundleOwned) -> Result<()> {
             }
         }
         while let Some(idx) = inst.pending.pop() {
-            let TypeLocationOwned::InLine { ty, .. } = &mut bundle.types[idx as usize] else {
+            let TypeLocationOwned::InLine { ty, .. } = &bundle.types[idx as usize] else {
                 continue;
             };
-            let mut ty = std::mem::replace(ty, TypeOwned::Bool);
+            // a copy: instances in it can name the definition itself (`Timed<Expr>` in `Expr`)
+            let mut ty = ty.clone();
             let result = inst.def(bundle, &mut ty);
             if let TypeLocationOwned::InLine { ty: slot, .. } = &mut bundle.types[idx as usize] {
                 *slot = ty;
@@ -1195,32 +1312,129 @@ mod tests {
         assert_invalid(bundle(types, TypeOwned::Bool), "not a struct or an enum");
     }
 
+    fn out_of_line(idx: u32) -> TypeOwned {
+        TypeOwned::OutOfLine {
+            type_idx: UNib32(idx),
+        }
+    }
+
     #[test]
-    fn cycles_are_errors() {
-        // struct A { a: B }, struct B { b: A }
+    fn self_referential_definitions_are_valid() {
+        // struct A { a: Vec<B> }, struct B { b: Option<Box<A>>, c: C }, struct C { c: Box<C> }
         let types = vec![
             def(
                 "A",
                 vec![],
-                vec![field(
-                    "a",
-                    TypeOwned::OutOfLine {
-                        type_idx: UNib32(1),
-                    },
-                )],
+                vec![field("a", TypeOwned::Vec(Box::new(out_of_line(1))))],
+            ),
+            def(
+                "B",
+                vec![],
+                vec![
+                    field(
+                        "b",
+                        TypeOwned::Option {
+                            some_ty: Box::new(TypeOwned::Box(Box::new(out_of_line(0)))),
+                        },
+                    ),
+                    field("c", out_of_line(2)),
+                ],
+            ),
+            def(
+                "C",
+                vec![],
+                vec![field("c", TypeOwned::Box(Box::new(out_of_line(2))))],
+            ),
+        ];
+        let mut b = bundle(types, out_of_line(0));
+        prepare(&mut b).unwrap();
+        // used as an argument of a generic definition: Timed<A> in A
+        let mut types = timed_and_buf();
+        types.push(def(
+            "A",
+            vec![],
+            vec![field(
+                "a",
+                TypeOwned::Vec(Box::new(instance(
+                    0,
+                    vec![GenericArgOwned::Type(out_of_line(2))],
+                ))),
+            )],
+        ));
+        let mut b = bundle(types, out_of_line(2));
+        prepare(&mut b).unwrap();
+    }
+
+    #[test]
+    fn long_cycles_are_bounded() {
+        // D0 { a: Box<D1> }, .., Dn { a: Box<D0> }: a walk from any of them goes through all of them
+        let cycle = |n: u32| -> Vec<_> {
+            (0..n)
+                .map(|i| {
+                    def(
+                        &format!("D{i}"),
+                        vec![],
+                        vec![field(
+                            "a",
+                            TypeOwned::Box(Box::new(out_of_line((i + 1) % n))),
+                        )],
+                    )
+                })
+                .collect()
+        };
+        prepare(&mut bundle(cycle(8), out_of_line(3))).unwrap();
+        assert_invalid(
+            bundle(cycle(MAX_DEPTH as u32 / 2), out_of_line(0)),
+            "nested deeper",
+        );
+    }
+
+    #[test]
+    fn cycles_through_generic_definitions_are_errors() {
+        // struct A<T> { a: Option<Box<A<T>>> }
+        let types = vec![def(
+            "A",
+            vec![param("T")],
+            vec![field(
+                "a",
+                TypeOwned::Option {
+                    some_ty: Box::new(TypeOwned::Box(Box::new(instance(
+                        0,
+                        vec![GenericArgOwned::Type(TypeOwned::Param(UNib32(0)))],
+                    )))),
+                },
+            )],
+        )];
+        assert_invalid(
+            bundle(
+                types,
+                instance(0, vec![GenericArgOwned::Type(TypeOwned::Bool)]),
+            ),
+            "generic type A refers to itself",
+        );
+        // struct A<T> { a: Vec<B>, t: T }, struct B { b: A<u16> }: the generic one is part of the cycle
+        let types = vec![
+            def(
+                "A",
+                vec![param("T")],
+                vec![
+                    field("a", TypeOwned::Vec(Box::new(out_of_line(1)))),
+                    field("t", TypeOwned::Param(UNib32(0))),
+                ],
             ),
             def(
                 "B",
                 vec![],
                 vec![field(
                     "b",
-                    TypeOwned::OutOfLine {
-                        type_idx: UNib32(0),
-                    },
+                    instance(0, vec![GenericArgOwned::Type(u16_ty())]),
                 )],
             ),
         ];
-        assert_invalid(bundle(types, TypeOwned::Bool), "refers to itself");
+        assert_invalid(
+            bundle(types, out_of_line(1)),
+            "generic type A refers to itself",
+        );
         // struct A<T> { a: Box<A<(T, T)>> }: never ending instances
         let types = vec![def(
             "A",

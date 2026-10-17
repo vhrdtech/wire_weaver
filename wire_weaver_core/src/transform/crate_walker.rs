@@ -104,11 +104,27 @@ pub(crate) struct Scratch {
     /// Reuse already converted traits instead of adding them again, when referenced more than once.
     /// Off for codegen to keep API hashes of existing APIs unchanged.
     pub(crate) dedup_traits: bool,
-    /// User-defined types being converted, to report self-referential types instead of recursing forever.
-    pub(crate) types_in_progress: Vec<(FullVersionOwned, String)>,
+    /// User-defined types being converted, to stop on self-referential types instead of recursing forever.
+    pub(crate) types_in_progress: Vec<TypeInProgress>,
+    /// Self-referential types already converted: their definitions refer to their own index, so they are found by
+    /// name, not by comparing definitions.
+    pub(crate) recursive_types: HashMap<TypeKey, UNib32>,
     /// Type and const parameters of the generic definition whose fields are being converted (API-43), empty
     /// outside of one.
     pub(crate) generic_scope: Vec<ww_self::GenericParamOwned>,
+}
+
+/// Crate and name of a user-defined type.
+pub(crate) type TypeKey = (FullVersionOwned, String);
+
+/// A user-defined type being converted.
+pub(crate) struct TypeInProgress {
+    pub(crate) key: TypeKey,
+    /// Whether the type has type or const parameters.
+    pub(crate) generic: bool,
+    /// Index reserved for the definition once the type turned out to refer to itself: the references to it while
+    /// it is converted point there.
+    pub(crate) slot: Option<UNib32>,
 }
 
 /// Scratch space used to hold types and traits

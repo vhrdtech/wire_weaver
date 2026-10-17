@@ -869,9 +869,9 @@ mod tests {
         assert!(bytes.len() < 1000, "{} bytes", bytes.len());
         let e = ValueOwned::des_shrink_wrap_dyn(&bytes, &series_timed, &bundle).unwrap_err();
         assert!(format!("{e}").contains("too large"), "{e}");
-        // the typed decoder takes them all
+        // the typed decoder takes them all (validated in one pass, items decoded lazily)
         assert_eq!(
-            SeriesOwned::<Timed<IvSample>>::from_ww_bytes_owned(&bytes)
+            shrink_wrap::series::Series::<Timed<IvSample>>::from_ww_bytes(&bytes)
                 .unwrap()
                 .len(),
             shrink_wrap::series::SERIES_MAX_ITEMS

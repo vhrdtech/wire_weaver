@@ -362,7 +362,7 @@ impl Gen<'_> {
         let out_of_line = |s: &mut Self| TypeOwned::OutOfLine {
             type_idx: s.index(defs),
         };
-        match self.byte() % if leaf { 3 } else { 10 } {
+        match self.byte() % if leaf { 3 } else { 11 } {
             0 => TypeOwned::Bool,
             1 => TypeOwned::NumericAny(NumericAnyTypeOwned::Base(NumericBaseType::U16)),
             2 => TypeOwned::String,
@@ -380,6 +380,8 @@ impl Gen<'_> {
             8 => TypeOwned::Option {
                 some_ty: Box::new(self.recursive_ty(defs, depth + 1)),
             },
+            // the column decoder of a Series, through the same depth limit
+            9 => TypeOwned::Series(Box::new(out_of_line(self))),
             _ => TypeOwned::Array {
                 len: Length::Fixed(UNib32((self.byte() % 3) as u32)),
                 ty: Box::new(self.recursive_ty(defs, depth + 1)),

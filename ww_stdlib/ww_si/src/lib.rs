@@ -498,7 +498,8 @@ pub struct Joule {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Torque {
     pub prefix: Prefix,
@@ -836,7 +837,8 @@ pub struct DeciBelmW {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Ratio {
     pub prefix: Prefix,

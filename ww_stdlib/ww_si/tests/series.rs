@@ -36,3 +36,31 @@ fn design_example() {
     }
     assert_eq!(back[3].i.value, NumericValue::I32(152_001));
 }
+
+/// `Timed<T>` (derived with a type parameter, DER-14) around the sample: a regular clock is a constant delta.
+#[test]
+fn timed_samples() {
+    use ww_si::{Second, Timed};
+    let items: Vec<Timed<IvSample>> = (0..100u32)
+        .map(|k| Timed {
+            t: Second::microseconds(1_000_000 + k * 1000),
+            value: IvSample {
+                v: Volt::millivolts(3300u16 + (k % 2) as u16),
+                i: Ampere::new(Prefix::Micro, 152_000i32),
+            },
+        })
+        .collect();
+    let bytes = Series::new(&items).to_ww_bytes_owned().unwrap();
+    let untimed: Vec<IvSample> = items.iter().map(|t| t.value).collect();
+    let without = Series::new(&untimed).to_ww_bytes_owned().unwrap();
+    // the time column: its prefix and storage runs, the header, the first value and the step
+    assert!(
+        bytes.len() <= without.len() + 10,
+        "{} vs {}",
+        bytes.len(),
+        without.len()
+    );
+    let back = SeriesOwned::<Timed<IvSample>>::from_ww_bytes_owned(&bytes).unwrap();
+    assert_eq!(back[99].t.value, NumericValue::U32(1_099_000));
+    assert_eq!(back[99].value.v.value, NumericValue::U16(3301));
+}

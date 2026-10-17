@@ -56,7 +56,10 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
                     optional: None,
                 });
             }
-            Item::Struct(item_struct) if has_attr(&item_struct.attrs, &["derive_shrink_wrap"]) => {
+            Item::Struct(item_struct)
+                if has_attr(&item_struct.attrs, &["derive_shrink_wrap"])
+                    && !has_type_params(&item_struct.generics) =>
+            {
                 convert_named_ty(&item_struct.ident, &entry, &mut scratch)?;
             }
             Item::Enum(item_enum) if has_attr(&item_enum.attrs, &["derive_shrink_wrap"]) => {
@@ -104,13 +107,21 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
 fn is_shrink_wrap_ty(cx: &CrateContext, name: &Ident) -> bool {
     cx.lib_rs_ast.items.iter().any(|item| match item {
         Item::Struct(item_struct) => {
-            &item_struct.ident == name && has_attr(&item_struct.attrs, &["derive_shrink_wrap"])
+            &item_struct.ident == name
+                && has_attr(&item_struct.attrs, &["derive_shrink_wrap"])
+                && !has_type_params(&item_struct.generics)
         }
         Item::Enum(item_enum) => {
             &item_enum.ident == name && has_attr(&item_enum.attrs, &["derive_shrink_wrap"])
         }
         _ => false,
     })
+}
+
+/// `struct Timed<T>` (DER-14): the API model has no type parameters, so such a type is left out of a crate's
+/// snapshot, as a hand-written type is.
+fn has_type_params(generics: &syn::Generics) -> bool {
+    generics.type_params().next().is_some()
 }
 
 fn has_attr(attrs: &[Attribute], names: &[&str]) -> bool {

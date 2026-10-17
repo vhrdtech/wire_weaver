@@ -302,7 +302,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   parameter, also with a lifetime (`Tagged<'i, T>` / `TaggedOwned<T>`); each impl bounds the parameters by its trait
   (serdes, owned serdes, `SeriesColumns`), the size of `T` is part of the struct's. No `where` clause or const
   parameters; enums, `fixed_layout`, `head_tail`, `sparse`, `display` and `validate` reject them (test
-  `shrink_wrap/tests/generic_items.rs`).
+  `shrink_wrap/tests/generic_items.rs`; `ww_si::Timed<T>`). The API model (`ww_self`) has no type parameters yet:
+  such types are left out of API snapshots.
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and

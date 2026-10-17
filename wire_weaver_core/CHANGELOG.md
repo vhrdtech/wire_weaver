@@ -20,6 +20,8 @@
 
 - The model parser accepts the `validate = path` directive of `#[derive_shrink_wrap]` (SW-58) and ignores it.
 - The model parser accepts the `series` directive of `#[derive_shrink_wrap]` (SW-60) and ignores it.
+- A crate's API snapshot leaves out derived types with type parameters (DER-14, `ww_si::Timed<T>`): the API model has
+  none yet.
 
 - Server and client codegen store every definition left out of the introspection data in the definition cache
   `~/.wire_weaver/definitions/` (EVO-9), so a host on the same machine can put back definitions of a device built from

@@ -16,13 +16,13 @@
 ### 🚀 Features
 
 * `Timed<T> { t: Second, value: T }` (feature `time`): a value with the time it was taken, `t` a device timestamp.
-  `final_structure`, written by hand with the bytes the derive gives the same two fields (the derive has no type
-  parameters), so it is not in the API snapshot yet.
+  `final_structure`, derived with a type parameter (DER-14) and `series`, so `Series<Timed<T>>` works; not in the
+  API snapshot yet (the API model has no type parameters).
 * `Ratio` (new feature group `dimensionless`, in `quantities`): a duty cycle, probability or scale factor, with
   `ratio`, `percent`, `per_mille`, `ppm`, `ratio_f32` and `quantity!(95 % u8)`.
 * `Torque` (feature `mechanical`): N·m, kept apart from `Joule`, with `newton_meters`, `millinewton_meters`,
   `newton_meters_f32`, `quantity!(250 mNm i32)` and `quantity!(2 Nm u8)`.
-* `Prefix` and every quantity can be a field of a `shrink_wrap::series::Series` item (SW-60, `series` directive): a
+* `Prefix` and every quantity (`Ratio` and `Torque` too) can be a field of a `shrink_wrap::series::Series` item (SW-60, `series` directive): a
   quantity is a run of its prefix and a numeric column of its value that restarts where the prefix changes. See
   `tests/series.rs` for the design's example, 14 bytes for 4 `Volt` / `Ampere` samples.
 * Constructors and conversions on every quantity (STD-23): `Volt::new(Prefix::Milli, 3300u16)` (any number type

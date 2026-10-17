@@ -91,7 +91,7 @@ fn ratio_and_torque() {
     let _ = Joule::new(Prefix::Unit, 1u8);
 }
 
-/// `Timed` is written by hand (the derive has no type parameters), with the bytes the derive gives the same fields.
+/// `Timed` is derived with a type parameter (DER-14): the bytes are what the derive gives the same fields without one.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),

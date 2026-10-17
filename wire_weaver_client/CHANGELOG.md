@@ -2,6 +2,12 @@
 
 ### 🚀 Features
 
+- Batched streams (API-41): `PositionedStream` and `Stream` of a batched stream give one item per entry of a batch
+  (one unit each, its own device time, `u32` µs unwrapped), leaving out the items a resend repeats;
+  `recv_batch` / `recv_batch_blocking` give whole batches (`Batch`, `BatchItem`). `PreparedStreamOpen::max_age`
+  asks how old a batch may get on the device (asked again on a resume), `PreparedStreamOpen::batched` with
+  `unpack_timed` / `unpack_untimed` (used by generated code). `StreamHandle` has an `Item` type.
+
 - `quantity` shows `ww_si::AnyQuantity` values (STD-37) like typed quantities: `DynQuantity::from_value` reads the
   unit from the value (`DynUnit::from_si_expr`, a named ww_si unit becomes the same `DynUnit::Known` as the typed
   quantity's), `to_value` writes any quantity whose unit has a dimension into an `AnyQuantity`

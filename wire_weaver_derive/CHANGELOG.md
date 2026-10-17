@@ -14,6 +14,8 @@
 
 ### 🚀 Features
 
+- The rustdoc trait of `#[ww_trait]` notes batched streams (`batched`, `#[batched]`, API-41).
+
 - `ww_codegen!(.., const_model = "SERIAL|BOARD=fn")` (API-36): which `const` items the server provides as a `fn` of
   the generated `<RootTrait>Consts` trait instead of a Rust const (`_=const` by default), see
   `docs/api/properties.md`.

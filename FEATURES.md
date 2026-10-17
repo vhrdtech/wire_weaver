@@ -508,9 +508,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (integer storage over floats, default batch 32, autoranging cost cheap); the batch store and size bounds are in
   (SW-62). In: the device side, `ww_stream::batch` (`Batcher` with two stores handed between a producer, also an
   interrupt, and the event loop through one atomic word, sealing on size, age and budget, encoding in the event
-  loop; `Outbox` for observe; `Batched` reliable and counted streams).
-  Missing: the `batched` API attribute, codegen, host-side unpacking (typed, dynamic, Python). Needs CLT-29 (dynamic
-  decoder).
+  loop; `Outbox` for observe; `Batched` reliable and counted streams), and batched streams end to end: `batched` /
+  `batched(untimed)` in `#[stream(..)]` and `#[batched]` on `stream!` for plain, counted and reliable streams,
+  `StreamOpen { max_age_us }`, generated `<name>_push` (O(1), interrupt-safe) and `poll_streams` encoding sealed
+  batches, typed clients giving items one by one with their own time or whole batches (`recv_batch`),
+  `tests/streams_batched`. Missing: dynamic client, `ww stream` and Python (piece 6), batched observe (`+batched`,
+  API-39 shape B), the docs page and the motor demo on it.
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

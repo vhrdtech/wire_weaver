@@ -4,6 +4,12 @@
 
 ### ⚠️ Breaking
 
+- `batch::Batched<S, T, N, Src = Batcher<T, N>>` (API-41): the batcher may be a `Consumer` split off a batcher whose
+  `Producer` runs elsewhere (`Batched::with_consumer`), so an interrupt can push while `poll_streams` encodes; it
+  keeps the host's max age within bounds (`grant_max_age`, `max_age_us`, `with_max_age`, `DEFAULT_MAX_AGE_US`,
+  `MIN_MAX_AGE_US`, `MAX_MAX_AGE_US`). New `batch::Plain` delivery state with `Consumer::poll_plain`, the
+  `BatchSource` and `Push` traits (generated `<stream>_push` takes any `Push`), `batch::Timed` re-exported.
+
 - `rx::Verdict::Accept` has a new field `skip` (API-47): the units at the start of the event the host already has
   (a resend or a resume from inside a multi-unit event); pass on only the units after them. Matches on it name the
   field or use `..`.

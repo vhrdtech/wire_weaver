@@ -190,6 +190,11 @@ opened, so it is a break of the API crate: bump its breaking version position, a
 `#[credit]` one. A plain `#[stream(T)] fn name()` without arguments and result is the same as `stream!(name: T)`, the
 same bytes in introspection.
 
+Batching a stream (API-41: `batched` / `batched(untimed)` in `#[stream(..)]`, `#[batched]` next to `stream!`), or
+un-batching it, or switching between timed and untimed, changes its item type on the wire (one `Series<Timed<T>>` or
+`Series<T>` per event instead of one `T`): a break of the API crate too. The batch size is the device's (it is not in
+the API), so changing it is not a break.
+
 ### API model
 
 API model (like `ww_client_server`) is part of the compatibility equation, it is not allowed to update the model

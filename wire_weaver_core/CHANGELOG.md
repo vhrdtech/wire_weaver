@@ -34,6 +34,16 @@
 
 ### 🚀 Features
 
+- Batched streams (API-41): `#[stream(T, delivery, batched)]` / `batched(untimed)` and `#[batched]` /
+  `#[batched(untimed)]` next to `stream!`, for plain, counted and reliable streams. Generated servers keep their
+  state in a `ww_stream::batch::Batched` (`stream_<name>()` returns it), grant the host's `max_age_us` on open and
+  resume, and `poll_streams` (now also for blocking servers with batched counted or plain streams) seals batches by
+  age, encodes each once and sends counted and plain ones right away, reliable ones through the store; it takes a
+  `ww_stream::batch::Scratch` when the API has batched streams. `stream_data_ser().<name>_push(to, value, t)` and
+  `<name>_push_many` are O(1) per item and never encode (an interrupt may call them). The scaffold writes
+  `Batched<.., 32>` states. Generated clients unpack batches into items. A batched item type that borrows is a
+  compile error.
+
 - Generated code names each user type by the path other crates see (API-46): the shortest one through `pub mod`s and
   `pub use` re-exports (by name, renamed, glob), recorded in the definition, instead of `<crate>::<Name>`. A type in
   a `pub mod` no longer needs a root re-export, and a marker `units::Volt` next to an alias `Volt` (the ww_si 0.2

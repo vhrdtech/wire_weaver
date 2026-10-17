@@ -2,6 +2,11 @@
 
 ### ⚠️ Breaking
 
+* `ApiItemKind::StreamFn` gets `batched: Option<Batching>` (`#[default = None]`, API-41), `enum Batching { Timed,
+  Untimed }`: a batched stream's events carry one `Series<Timed<T>>` (`Series<T>` untimed) each. A plain batched
+  `stream!` is a `StreamFn`. `StreamFnRef::batched`. API hashes of APIs with streams change; struct literals of
+  `ApiItemKindOwned::StreamFn` need the new field.
+
 * `ItemStruct::instance_of` / `ItemEnum::instance_of` (`#[default = None]`, `InstanceOf { type_idx, args }`, CLT-31):
   the generic definition and arguments a concrete definition was made from, set by `generics::instantiate` (and
   `substitute`), so a dynamic client can tell a value of `Quantity<units::Volt>` from its concrete `Quantity<Volt>`.

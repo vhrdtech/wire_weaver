@@ -2,6 +2,12 @@
 
 ### ⚠️ Breaking
 
+- Batched streams (API-41): `RequestKind::StreamOpen` gets `max_age_us: Option<UNib32>` (how old a batch may get on
+  the device before it is sent, the host's latency choice; before `args`) and `stream::StreamOpened` gets
+  `max_age_us: Option<UNib32>` (what the device granted; before `result`), with `StreamOpened::with_max_age_us`.
+  Wire-incompatible: devices and hosts are rebuilt together. New `stream::ser_stream_data_event` (a `StreamData`
+  event of a plain stream written in place, as `ser_stream_item_event` does for positioned ones).
+
 - **Breaking:** credit-sink positions wrap on the wire (API-42): `CreditWrite::pos` and the positions in
   `StreamSideband::Credit`, `CreditQuery` and `Resend` are sent modulo 2^28 (`credit::POS_MODULUS`), so a session has
   no size limit (was 4 GiB) and a write's position never takes more than 4 bytes. The wire types are unchanged and a

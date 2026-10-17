@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+- `ChannelInfo::unit` is a `ww_si::SIExpr<'i>` (STD-37) instead of `ww_si::BaseUnit<'i>`, which is removed: a unit of
+  ww_si is `SIExpr::of::<ww_si::units::Volt>()`, a device's own `SIExpr::Named { name, symbol, dim, scale }` with its
+  dimension and scale, so a host converts readings of any channel to SI. `ww_adc` re-exports `SIExpr` (and
+  `SIExprOwned` with `std`) instead of `BaseUnit`.
 - `AdcError<'i>`: the first variant is `#[common] Common(CommonError<'i>)` (STD-16): `Unsupported`, `InvalidArgument`,
   `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from `ww_error::CommonError`; `NoSuchChannel`
   stays. It is no longer `self_describing` (newer variants read as `Unknown(n)`), carries a lifetime (`AdcErrorOwned` on

@@ -113,7 +113,7 @@ pub trait AdcCapture {
 * `Reading` - `value: NumericValue` (in the channel's unit/prefix), `raw: u32` (the converter's raw code, for
   checking calibration), `t: Second`.
 * `AdcCapabilities<'i>` - `channels: MaxLen<RefVec<'i, ChannelInfo<'i>>, MAX_CHANNELS>`.
-* `ChannelInfo<'i>` - `name`, `unit: BaseUnit<'i>`, `prefix: Prefix`, `min` / `max: NumericValue`, `bits`
+* `ChannelInfo<'i>` - `name`, `unit: SIExpr<'i>` (a unit of ww_si or the device's own, see [run-time units](ww_si.md#units-known-only-at-run-time)), `prefix: Prefix`, `min` / `max: NumericValue`, `bits`
   (converter resolution), `calibrated: bool`, `raw_to_value: Option<Linear>` (how raw stream/capture samples turn
   into values; `None` if they don't linearly).
 * `Linear` - `scale: f32`, `offset: f32`; `value = raw * scale + offset`.

@@ -232,26 +232,11 @@ impl<U: Unit> fmt::Debug for Quantity<U> {
 #[cfg(feature = "defmt")]
 impl<U: Unit> defmt::Format for Quantity<U> {
     fn format(&self, f: defmt::Formatter<'_>) {
-        match self.value {
-            #[cfg(feature = "f32")]
-            NumericValue::F32(x) => defmt::write!(f, "{=f32}", x),
-            #[cfg(feature = "f64")]
-            NumericValue::F64(x) => defmt::write!(f, "{=f64}", x),
-            value => match value.to_i128() {
-                Some(x) => defmt::write!(f, "{=i128}", x),
-                None => defmt::write!(f, "?"),
-            },
-        }
+        defmt_number(&self.value, f);
         let unit = U::EXPR;
         if let UnitExpr::Named { symbol, .. } = unit {
             if symbol.is_empty() {
-                match self.prefix {
-                    Prefix::Unit => {}
-                    Prefix::Centi => defmt::write!(f, " %"),
-                    Prefix::Milli => defmt::write!(f, " ‰"),
-                    Prefix::Micro => defmt::write!(f, " ppm"),
-                    p => defmt::write!(f, "e{=i8}", i8::from(p)),
-                }
+                defmt_ratio_prefix(self.prefix, f);
             } else {
                 defmt::write!(f, " {=str}{=str}", self.prefix.symbol(), symbol);
             }
@@ -259,6 +244,33 @@ impl<U: Unit> defmt::Format for Quantity<U> {
             // compound units are rare on a device: the type name instead of a rendered tree
             defmt::write!(f, " {=str}{}", self.prefix.symbol(), DefmtName(unit));
         }
+    }
+}
+
+/// The number as stored, for `defmt`.
+#[cfg(feature = "defmt")]
+pub(crate) fn defmt_number(value: &NumericValue, f: defmt::Formatter<'_>) {
+    match *value {
+        #[cfg(feature = "f32")]
+        NumericValue::F32(x) => defmt::write!(f, "{=f32}", x),
+        #[cfg(feature = "f64")]
+        NumericValue::F64(x) => defmt::write!(f, "{=f64}", x),
+        value => match value.to_i128() {
+            Some(x) => defmt::write!(f, "{=i128}", x),
+            None => defmt::write!(f, "?"),
+        },
+    }
+}
+
+/// A ratio's prefix as %, ‰, ppm, for `defmt`.
+#[cfg(feature = "defmt")]
+pub(crate) fn defmt_ratio_prefix(prefix: Prefix, f: defmt::Formatter<'_>) {
+    match prefix {
+        Prefix::Unit => {}
+        Prefix::Centi => defmt::write!(f, " %"),
+        Prefix::Milli => defmt::write!(f, " ‰"),
+        Prefix::Micro => defmt::write!(f, " ppm"),
+        p => defmt::write!(f, "e{=i8}", i8::from(p)),
     }
 }
 

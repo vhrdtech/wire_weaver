@@ -56,8 +56,8 @@
 use wire_weaver::prelude::*;
 pub use ww_numeric::NumericValue;
 #[cfg(feature = "std")]
-pub use ww_si::BaseUnitOwned;
-pub use ww_si::{BaseUnit, Hertz, Prefix, Second};
+pub use ww_si::SIExprOwned;
+pub use ww_si::{Hertz, Prefix, SIExpr, Second};
 
 /// Most channels a device lists, and most channels in one stream or capture.
 pub const MAX_CHANNELS: usize = 32;
@@ -175,8 +175,9 @@ pub struct AdcCapabilities<'i> {
 pub struct ChannelInfo<'i> {
     /// For the user: "IO0", "VBUS", "die temperature".
     pub name: MaxLen<&'i str, MAX_NAME_LEN>,
-    /// Physical unit of [Reading::value], [ChannelInfo::min] and [ChannelInfo::max].
-    pub unit: BaseUnit<'i>,
+    /// Physical unit of [Reading::value], [ChannelInfo::min] and [ChannelInfo::max]: a unit of ww_si
+    /// (`SIExpr::of::<ww_si::units::Volt>()`) or the device's own, with its dimension and scale.
+    pub unit: SIExpr<'i>,
     /// SI prefix of the values.
     pub prefix: Prefix,
     /// Lowest value the channel can show.

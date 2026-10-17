@@ -42,6 +42,11 @@ pub enum SIExpr<'i> {
 }
 
 impl SIExpr<'static> {
+    /// The unit `U` on the wire: `SIExpr::of::<units::Volt>()`, [Unit::SI_EXPR].
+    pub fn of<U: Unit>() -> SIExpr<'static> {
+        U::SI_EXPR.clone()
+    }
+
     /// The run-time form of a named [UnitExpr], in `const` code. Panics (a compile error in `const` code) for a
     /// compound one: those have no `'static` children to point to, [Unit::SI_EXPR] of `Per` / `Times` has them.
     pub const fn named(e: &'static UnitExpr) -> SIExpr<'static> {
@@ -388,5 +393,65 @@ impl fmt::Debug for AnyQuantity<'_> {
         crate::quantity::fmt_number(&self.value, f)?;
         expr::write_unit(self.prefix, &self.unit, f)?;
         write!(f, " {:?})", self.value.ty())
+    }
+}
+
+/// The symbol, like `Display`; a compound unit in parentheses per level (`(N·m/(rad/s))`), as for a typed quantity.
+#[cfg(feature = "defmt")]
+impl defmt::Format for SIExpr<'_> {
+    fn format(&self, f: defmt::Formatter<'_>) {
+        DefmtExpr(self, 0).format(f)
+    }
+}
+
+#[cfg(feature = "defmt")]
+struct DefmtExpr<'a, 'i>(&'a SIExpr<'i>, usize);
+
+#[cfg(feature = "defmt")]
+impl defmt::Format for DefmtExpr<'_, '_> {
+    fn format(&self, f: defmt::Formatter<'_>) {
+        let depth = self.1 + 1;
+        if depth > crate::MAX_UNIT_DEPTH {
+            return defmt::write!(f, "…");
+        }
+        let child = |r: &RefBox<'_, SIExpr<'_>>, f: defmt::Formatter<'_>| match r.read() {
+            Ok(e) => DefmtExpr(&e, depth).format(f),
+            Err(_) => defmt::write!(f, "?"),
+        };
+        match self.0 {
+            SIExpr::Named { symbol, .. } => defmt::write!(f, "{=str}", symbol),
+            SIExpr::Mul(a, b) => {
+                defmt::write!(f, "(");
+                child(a, f);
+                defmt::write!(f, "·");
+                child(b, f);
+                defmt::write!(f, ")");
+            }
+            SIExpr::Div(a, b) => {
+                defmt::write!(f, "(");
+                child(a, f);
+                defmt::write!(f, "/");
+                child(b, f);
+                defmt::write!(f, ")");
+            }
+            SIExpr::Pow(a, n) => {
+                defmt::write!(f, "(");
+                child(a, f);
+                defmt::write!(f, "^{=i8})", n);
+            }
+        }
+    }
+}
+
+/// `3300 mV`, like `Display`.
+#[cfg(feature = "defmt")]
+impl defmt::Format for AnyQuantity<'_> {
+    fn format(&self, f: defmt::Formatter<'_>) {
+        crate::quantity::defmt_number(&self.value, f);
+        if let SIExpr::Named { symbol: "", .. } = self.unit {
+            crate::quantity::defmt_ratio_prefix(self.prefix, f);
+        } else {
+            defmt::write!(f, " {=str}{}", self.prefix.symbol(), self.unit);
+        }
     }
 }

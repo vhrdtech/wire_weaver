@@ -2692,6 +2692,7 @@ dependencies = [
  "wire_weaver_client",
  "ww_adc",
  "ww_client_server",
+ "ww_si",
  "ww_stream",
 ]
 

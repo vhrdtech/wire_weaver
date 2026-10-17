@@ -8,6 +8,7 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_adc::*;
+    use ww_si::units;
     use ww_stream::tx::Counted;
 
     /// Bytes per sample of `fmt`, see [SampleFormat].
@@ -68,7 +69,7 @@ mod tests {
             [
                 ChannelInfo {
                     name: MaxLen::new("VIN").unwrap(),
-                    unit: BaseUnit::Volt,
+                    unit: SIExpr::of::<units::Volt>(),
                     prefix: Prefix::Milli,
                     min: NumericValue::F32(0.0),
                     max: NumericValue::F32(3300.0),
@@ -81,7 +82,7 @@ mod tests {
                 },
                 ChannelInfo {
                     name: MaxLen::new("TEMP").unwrap(),
-                    unit: BaseUnit::DegreeCelsius,
+                    unit: SIExpr::of::<units::DegreeCelsius>(),
                     prefix: Prefix::Unit,
                     min: NumericValue::F32(-40.0),
                     max: NumericValue::F32(125.0),
@@ -473,7 +474,15 @@ mod tests {
 
         let caps = adc.capabilities().call().await.unwrap();
         assert_eq!(caps.channels.len(), 2);
-        assert_eq!(caps.channels.iter().next().unwrap().name.as_str(), "VIN");
+        let mut channels = caps.channels.iter();
+        let vin = channels.next().unwrap();
+        assert_eq!(vin.name.as_str(), "VIN");
+        // the unit known only at run time comes back as the ww_si unit it was made from
+        assert_eq!(vin.unit, *<units::Volt as ww_si::Unit>::EXPR);
+        assert_eq!(vin.unit.known(), Some(<units::Volt as ww_si::Unit>::EXPR));
+        let temp = channels.next().unwrap();
+        assert_eq!(temp.unit.to_string(), "°C");
+        assert_eq!(temp.unit.offset(), 273.15);
 
         let reading = adc.read(0).call().await.unwrap();
         let expected = 2048.0 * 3300.0 / 4095.0;

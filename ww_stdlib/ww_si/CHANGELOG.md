@@ -21,8 +21,10 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
 * The `Meter`-per-`Second` conversion (`TryFrom<(Meter, Per, Second)> for Speed`, `Per`, `ToF32`, `Error`) is removed:
   `Meter / Second` is a `Speed` (an `f32` one). `ww_si::units::Per` is now the compound unit marker.
 * Removed the unfinished dynamic types `Unit<'i>`, `Quantity<'i>` and the `SIExpr` stub; `Unit` is now the unit
-  marker trait. `BaseUnit`, `SIExp` and `INib8P3` stay as they were, for `ww_adc::ChannelInfo::unit`, until STD-37
-  replaces them with a run-time unit model.
+  marker trait. `BaseUnit`, `SIExp` and `INib8P3` (whose serdes were `todo!()`) are removed too (STD-37): a unit
+  known only at run time is an `SIExpr`, a value with one an `AnyQuantity` (below). `BaseUnit::Volt` becomes
+  `SIExpr::of::<units::Volt>()`, `BaseUnit::Named { name, symbol, exp }` becomes
+  `SIExpr::Named { name, symbol, dim, scale }`.
 * `DeciBel` and `DeciBelmW` stay plain structs without a prefix.
 
 ### 🚀 Features
@@ -31,8 +33,24 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
   decoded value) and `Prefix::scale_f64` / `scale_f32` (a number in units of the prefix to the unit itself), for
   dynamic clients (CLT-31).
 * `Dim` (SI exponents of s, m, kg, A, K, mol, cd, `Display` as `kg·m²·s⁻³·A⁻¹`), `Scale` (coherent, power of ten,
-  factor, affine for °C), `UnitExpr` (a named unit or a product / quotient tree, with `dim()`, `factor()`,
-  `symbol()`, `name()`) and the `Unit` trait (`DIM`, `EXPR`): an API crate can declare its own marker.
+  factor, affine for °C), `UnitExpr` (a named unit or a product / quotient / power tree, with `dim()`, `factor()`,
+  `symbol()`, `name()`) and the `Unit` trait (`DIM`, `EXPR`, `SI_EXPR`): an API crate can declare its own marker.
+* Units known only at run time (STD-37), the same model as the markers on the wire:
+  * `Dim` is a `sized` type of seven `I4` exponents (-8..=7, 28 bits; Volt is `d2 1f 00 0`): `Dim::new(s, m, kg,
+    a, k, mol, cd)` (`const`, a compile error out of range), `checked_new`, `exps()`, `checked_mul` / `checked_div` /
+    `checked_pow` for run-time trees. `Scale` goes on the wire too (a nibble, then its numbers).
+  * `SIExpr<'i>` { `Named { name, symbol, dim, scale }`, `Mul`, `Div`, `Pow` } with `RefBox` children, and
+    `SIExprOwned`: a unit as a tree, for a configurable sensor channel (`ww_adc::ChannelInfo::unit`). `dim()`,
+    `factor()`, `offset()`, `symbol()` / `Display`, `name()` give what `UnitExpr` gives, written by the same code, so a
+    run-time unit is shown exactly like the typed one (`N·m/(rad/s)`, `Per<Torque, AngularVelocity>`). Every walk
+    stops at `MAX_UNIT_DEPTH` (32) levels: a tree from another device can't overflow the stack.
+  * `SIExpr` ⇄ `UnitExpr`: `Unit::SI_EXPR` (`Per` / `Times` build their tree in `const`), `SIExpr::of::<U>()`,
+    `SIExpr::named(expr)` (`const`), `SIExprOwned::from(&UnitExpr)` for any tree; back, `SIExpr == UnitExpr` (same
+    tree) and `known()` (the `ww_si` unit of a named one).
+  * `AnyQuantity<'i> { prefix, value, unit: SIExpr }` and `AnyQuantityOwned`: `From<Quantity<U>>`,
+    `to_quantity::<U>()`, `to_f64`, `to_si_f64`, `Display` like a typed quantity (`3300 mV`, `{:#}` `3.3 V`), `Debug`,
+    `defmt::Format`. `AnyQuantity::from(Volt::milli(3300u16))` is 17 bytes, the typed value's 3 and the unit's 14.
+  * `UnitExpr::Pow(expr, n)`, shown as `m²`, `(m/s)²`, named `Pow<Meter, 2>`.
 * Written once for every quantity: `from_parts` (`const`), `new`, `base`, `milli`, `micro`, `nano`, `pico`, `centi`,
   `kilo`, `mega`, `giga`, `from_f32` (`const`); `quantize(x, prefix, storage)` (an `f32` rounded and saturated into
   the representation an API documents, computed in `f32`); `to_f64`, `to_f32`, `to_f64_in`, `to_i128_in`;

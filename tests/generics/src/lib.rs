@@ -116,7 +116,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 v: Volt,
             ) -> RpcResult<Volt> {
-                Ready(Quantity { value: v.value * 2 })
+                Ready(Quantity::new(v.value * 2))
             }
 
             fn set_voltage(
@@ -418,7 +418,7 @@ mod tests {
                 prefix: Prefix::Micro,
                 value: NumericValue::U16(20),
             },
-            Quantity { value: -5 },
+            Quantity::new(-5),
         )
     }
 
@@ -433,17 +433,17 @@ mod tests {
     async fn type_aliases() {
         let (device, data) = start("generics/aliases");
         let mut client = connect(&device).await;
-        let doubled = client.double(Quantity { value: 21 }).call().await.unwrap();
-        assert_eq!(doubled, Quantity { value: 42 });
+        let doubled = client.double(Quantity::new(21)).call().await.unwrap();
+        assert_eq!(doubled, Quantity::new(42));
 
         client
-            .write_voltage(Quantity { value: 3300 })
+            .write_voltage(Quantity::new(3300))
             .write()
             .await
             .unwrap();
         assert_eq!(
             client.read_voltage().read().await.unwrap(),
-            Quantity { value: 3300 }
+            Quantity::new(3300)
         );
         client
             .write_timed_voltage(timed_voltage())
@@ -472,10 +472,13 @@ mod tests {
         let (arg, ret) = method_types(&bundle, 6);
         assert_eq!(arg, ret);
         assert_eq!(arg, item_ty(&bundle, 7));
-        assert_eq!(arg.human_name(false, &bundle).unwrap(), "Quantity<i32>");
+        assert_eq!(
+            arg.human_name(false, &bundle).unwrap(),
+            "Quantity<VoltUnit>"
+        );
         assert_eq!(
             item_ty(&bundle, 8).human_name(false, &bundle).unwrap(),
-            "Timed<Quantity<i32>>"
+            "Timed<Quantity<VoltUnit>>"
         );
         assert_eq!(
             item_ty(&bundle, 9).human_definition(&bundle, true).unwrap(),
@@ -663,7 +666,7 @@ mod tests {
         );
 
         // type aliases: a property and inside `Timed`, the same bytes as the derived types
-        data.lock().unwrap().voltage = Some(Quantity { value: 3300 });
+        data.lock().unwrap().voltage = Some(Quantity::new(3300));
         let value = root.child("voltage").unwrap().read(cmd).await.unwrap();
         assert_eq!(value, named(vec![("value", num(NumericValue::I32(3300)))]));
         data.lock().unwrap().timed_voltage = Some(timed_voltage());

@@ -4,6 +4,7 @@
 //! property and inside `Timed`.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::marker::PhantomData;
 use wire_weaver::prelude::*;
 use ww_si::{Ampere, Timed};
 
@@ -25,24 +26,34 @@ trait Generics {
     property!(rw sample: Sample<u8>);
 }
 
-/// A value of the unit `U`, a stand-in for `ww_si::Quantity<U>`.
-// TODO(API-45): `value: i32, _unit: PhantomData<U>` with a marker `units::Volt` once DER-15 is in
+/// A value of the unit `U`, a stand-in for `ww_si::Quantity<U>`: the unit is only in the type (`PhantomData`, DER-15)
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
     derive(Debug, PartialEq, Clone, Copy)
 )]
 pub struct Quantity<U> {
-    pub value: U,
+    pub value: i32,
+    _unit: PhantomData<U>,
 }
 
-pub mod units {
-    /// Volts
-    pub type Volt = i32;
+impl<U> Quantity<U> {
+    pub const fn new(value: i32) -> Self {
+        Self {
+            value,
+            _unit: PhantomData,
+        }
+    }
 }
 
-/// Through an alias in a module, as `ww_si` defines them
-pub type Volt = Quantity<units::Volt>;
+/// Volts, a marker without serdes impls
+// TODO(API-46): `units::Volt`, as `ww_si` will have it, once codegen names types by their module path: today it writes
+// `generics_api::Volt`, which is the alias below
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct VoltUnit;
+
+/// A plain alias of a generic type
+pub type Volt = Quantity<VoltUnit>;
 
 /// A generic alias: its parameter goes into the types it names
 pub type Sample<T> = Pair<Window<2>, Reading<T>>;

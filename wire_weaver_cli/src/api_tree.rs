@@ -612,9 +612,9 @@ mod tests {
         let tree = render(&bundle, false);
         // `type Volt = Quantity<units::Volt>`, `type Sample<T> = Pair<Window<2>, Reading<T>>`: what they name
         for line in [
-            "├─ 6 fn double(v: Quantity<i32>) -> Quantity<i32>\n",
-            "├─ 7 rw property voltage: Quantity<i32>\n",
-            "├─ 8 rw property timed_voltage: Timed<Quantity<i32>>\n",
+            "├─ 6 fn double(v: Quantity<VoltUnit>) -> Quantity<VoltUnit>\n",
+            "├─ 7 rw property voltage: Quantity<VoltUnit>\n",
+            "├─ 8 rw property timed_voltage: Timed<Quantity<VoltUnit>>\n",
             "└─ 9 rw property sample: Pair<Window<2>, Reading<u8>>\n",
         ] {
             assert!(tree.contains(line), "{tree}");

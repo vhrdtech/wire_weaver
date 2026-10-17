@@ -395,15 +395,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reader allows (`MAX_DECODE_DEPTH`, ~90 levels on a 2 MiB stack in a debug build), Python objects are depth bounded
   (`docs/types.md#self-referential-types-refbox`; tests `tests/recursive`, `ww_self`/`wire_weaver_core`/
   `wire_weaver_client` unit tests, `fuzz` target `introspection`). `ww_si::SIExpr` is not derived yet.
-- 🚧 **API-45 Type aliases in APIs** · `v0.5` — `pub type Volt = Quantity<units::Volt>;` and generic aliases
+- ✅ **API-45 Type aliases in APIs** · `v0.5` — `pub type Volt = Quantity<VoltUnit>;` and generic aliases
   (`type Reading<T> = Timed<Quantity<T>>`, const parameters too) in every API position, found like structs and enums
   (lib.rs, modules, `use` imports, globs, other crates); the right-hand side is converted in the alias' crate with each
   parameter replaced by its argument. The API model has no alias definitions (what an alias names is used directly,
-  ww_si generic D2 a); alias definitions in `ww_self` are an idea for later. `PhantomData` fields are left out of a
-  struct's definition, the parameter stays in its generics (`ww_self::generics::prepare` accepts that). Tests
-  `tests/generics` (property, method argument, inside `Timed`, dynamic client), `wire_weaver_core` unit tests,
-  `ww api tree` (`docs/types.md#type-aliases`). Missing: the `tests/generics` stand-in `Quantity<U>` with a real
-  `PhantomData<U>` field, once DER-15 is in.
+  ww_si generic D2 a); alias definitions in `ww_self` are an idea for later. `PhantomData` fields (DER-15) are left
+  out of a struct's definition, the parameter stays in its generics (`ww_self::generics::prepare` accepts that). Tests
+  `tests/generics` (property, method argument, inside `Timed`, a `PhantomData` marker, dynamic client),
+  `wire_weaver_core` unit tests, `ww api tree` (`docs/types.md#type-aliases`). `use .. as ..` renames are not followed.
+- 📋 **API-46 Codegen names types by their module path** · `v0.5` — generated code names every user type
+  `<crate>::<Ident>` (from `ww_self`, which has no module path), so a type in a module must be re-exported at the
+  crate root, and a marker `units::Volt` next to an alias `Volt` at the root (the ww_si 0.2 layout, STD-38) comes out
+  as the alias. Needs the module path per definition for codegen: a codegen-only table from the walker, or a
+  `ww_self` field left out of signatures and the evolution check.
 - ✅ **API-31 Stream functions** — `#[stream(T, counted)] fn name(args) -> Result<A, E>` and `#[counted]` /
   `#[reliable] stream!(name: T)`: every stream (plain ones too) is opened by calling it (`RequestKind::StreamOpen`),
   with typed arguments and result; the device's handler named like the stream decides, `Ok` starts a session,

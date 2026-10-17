@@ -1485,4 +1485,26 @@ mod tests {
         let err = ValueOwned::des_shrink_wrap_dyn(&bytes, &ty, &b).unwrap_err();
         assert!(format!("{err}").contains("too large"), "{err}");
     }
+    #[test]
+    fn long_definitions_are_bounded() {
+        // L with a 100 KB name, T { f0..f1999: L }: 200 MB of text
+        let mut types = vec![def(&"L".repeat(100_000), vec![], vec![])];
+        let fields = (0..2000)
+            .map(|i| {
+                field(
+                    &format!("f{i}"),
+                    TypeOwned::OutOfLine {
+                        type_idx: UNib32(0),
+                    },
+                )
+            })
+            .collect();
+        types.push(def("T", vec![], fields));
+        let ty = TypeOwned::OutOfLine {
+            type_idx: UNib32(1),
+        };
+        let b = bundle(types, ty.clone());
+        let err = ty.human_definition(&b, true).unwrap_err();
+        assert!(format!("{err}").contains("bytes"), "{err}");
+    }
 }

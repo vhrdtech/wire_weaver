@@ -360,6 +360,7 @@ impl TypeOwned {
             api_bundle,
             single_line,
             budget: HUMAN_DEFINITION_MAX_NODES,
+            bytes_left: HUMAN_DEFINITION_MAX_BYTES,
         };
         cx.ty(self, &[])
     }
@@ -518,6 +519,9 @@ impl NameCx<'_> {
 
 /// Most types [TypeOwned::human_definition] writes out (an out-of-line definition used twice is written twice).
 pub const HUMAN_DEFINITION_MAX_NODES: usize = 10_000;
+/// Most bytes [TypeOwned::human_definition] writes, counting the text of each type also in the ones it is part of:
+/// names in a bundle from a device can be as long as the bundle.
+const HUMAN_DEFINITION_MAX_BYTES: usize = 16 << 20;
 
 fn param_name(params: &[GenericParamOwned], idx: u32) -> String {
     match params.get(idx as usize) {
@@ -563,10 +567,19 @@ struct DefCx<'a> {
     api_bundle: &'a ApiBundleOwned,
     single_line: bool,
     budget: usize,
+    bytes_left: usize,
 }
 
 impl DefCx<'_> {
     fn ty(&mut self, ty: &TypeOwned, params: &[GenericParamOwned]) -> Result<String> {
+        let s = self.ty_inner(ty, params)?;
+        self.bytes_left = self.bytes_left.checked_sub(s.len()).ok_or_else(|| {
+            anyhow!("definition is longer than {HUMAN_DEFINITION_MAX_BYTES} bytes")
+        })?;
+        Ok(s)
+    }
+
+    fn ty_inner(&mut self, ty: &TypeOwned, params: &[GenericParamOwned]) -> Result<String> {
         if self.budget == 0 {
             return Err(anyhow!(
                 "definition is longer than {HUMAN_DEFINITION_MAX_NODES} types"

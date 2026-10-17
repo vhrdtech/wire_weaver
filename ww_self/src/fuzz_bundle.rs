@@ -4,7 +4,8 @@
 //!
 //! The first byte picks how the rest is read: as a serialized bundle (what a device sends), or as a program that
 //! builds a bundle with generic definitions, instances and parameters, valid or not (indices out of range, wrong
-//! kinds and counts of arguments, cycles, deep nesting, growing instances), which random bytes rarely produce.
+//! kinds and counts of arguments, cycles, deep nesting, growing instances, long names, many fields or variants, wide
+//! tuples), which random bytes rarely produce.
 
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, FieldOwned, FieldsOwned,
@@ -67,9 +68,12 @@ fn use_bundle(mut bundle: ApiBundleOwned, value: &[u8]) {
         if let Ok(decoded) = ValueOwned::des_shrink_wrap_dyn(value, ty, &bundle)
             && let Ok(bytes) = decoded.ser_shrink_wrap_dyn(ty, &bundle)
         {
-            let again = ValueOwned::des_shrink_wrap_dyn(&bytes, ty, &bundle)
-                .expect("a written value is read back");
-            assert!(values_equal(&again, &decoded), "{again:?} != {decoded:?}");
+            // the budget is per byte: what was read from more bytes (trailing ones) may not fit into fewer
+            match ValueOwned::des_shrink_wrap_dyn(&bytes, ty, &bundle) {
+                Ok(again) => assert!(values_equal(&again, &decoded), "{again:?} != {decoded:?}"),
+                Err(e) if bytes.len() < value.len() && format!("{e}").contains("too large") => {}
+                Err(e) => panic!("a written value is read back: {e}"),
+            }
         }
     }
 }
@@ -92,6 +96,16 @@ impl Gen<'_> {
                 b
             }
             None => 0,
+        }
+    }
+
+    /// `base`, sometimes followed by up to 64 KB more: names are as long as a device makes them.
+    fn name(&mut self, base: String) -> String {
+        let b = self.byte();
+        if b.is_multiple_of(16) {
+            base + &"x".repeat(self.byte() as usize * 256)
+        } else {
+            base
         }
     }
 
@@ -172,7 +186,7 @@ impl Gen<'_> {
                 size: self.size(),
                 crate_idx: UNib32(0),
                 docs: vec![],
-                ident: format!("T{idx}"),
+                ident: self.name(format!("T{idx}")),
                 generics,
                 fields,
                 sparse: false,
@@ -185,21 +199,31 @@ impl Gen<'_> {
                 discriminant: UNib32(0),
                 since: None,
             }];
-            if self.byte().is_multiple_of(2) {
+            // more unit variants, up to a few thousand
+            let more = match self.byte() {
+                b if b.is_multiple_of(8) => self.byte() as u32 * 16,
+                b => (b % 2) as u32,
+            };
+            for d in 1..=more {
                 variants.push(VariantOwned {
                     docs: vec![],
-                    ident: "B".into(),
+                    ident: format!("B{d}"),
                     fields: FieldsOwned::Unit,
-                    discriminant: UNib32(1),
+                    discriminant: UNib32(d),
                     since: None,
                 });
             }
+            let repr = match self.byte() % 4 {
+                0 => Repr::BitAligned(self.byte() % 9),
+                1 => Repr::UNib32,
+                _ => Repr::Nibble,
+            };
             TypeOwned::Enum(ItemEnumOwned {
                 size: self.size(),
-                repr: Repr::Nibble,
+                repr,
                 crate_idx: UNib32(0),
                 docs: vec![],
-                ident: format!("T{idx}"),
+                ident: self.name(format!("T{idx}")),
                 generics,
                 variants,
             })
@@ -220,9 +244,14 @@ impl Gen<'_> {
 
     fn fields(&mut self, defs: u8, params: u8, depth: u8) -> FieldsOwned {
         let mut fields = vec![];
-        for i in 0..self.byte() % 4 {
+        // sometimes many, for a wide fan-out of nested definitions
+        let n = match self.byte() {
+            b if b & 0x40 != 0 => b % 17,
+            b => b % 4,
+        };
+        for i in 0..n {
             fields.push(FieldOwned {
-                ident: Some(format!("f{i}")),
+                ident: Some(self.name(format!("f{i}"))),
                 default: None,
                 since: None,
                 ty: self.ty(defs, params, depth),
@@ -241,7 +270,7 @@ impl Gen<'_> {
     fn ty(&mut self, defs: u8, params: u8, depth: u8) -> TypeOwned {
         let leaf = depth > 8;
         let boxed = |s: &mut Self| Box::new(s.ty(defs, params, depth + 1));
-        match self.byte() % if leaf { 4 } else { 14 } {
+        match self.byte() % if leaf { 4 } else { 15 } {
             0 => TypeOwned::Bool,
             1 => TypeOwned::NumericAny(NumericAnyTypeOwned::Base(NumericBaseType::U16)),
             2 => TypeOwned::Param(self.index(params)),
@@ -287,6 +316,12 @@ impl Gen<'_> {
                 ty: Box::new(TypeOwned::String),
             },
             12 => TypeOwned::String,
+            // a wide tuple of one leaf type (a parameter, a reference): names of instances with it repeat its name
+            13 => {
+                let n = self.byte() % 16 + 1;
+                let ty = self.ty(defs, params, 9);
+                TypeOwned::Tuple(vec![ty; n as usize])
+            }
             _ => TypeOwned::Result {
                 ok_ty: boxed(self),
                 err_ty: boxed(self),

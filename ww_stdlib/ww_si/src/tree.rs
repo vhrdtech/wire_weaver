@@ -1,5 +1,5 @@
 //! One walk over a unit tree: symbol, type name, dimension, factor, comparison and a quantity's `Display` are
-//! written once, for [UnitExpr](crate::UnitExpr), [SIExpr](crate::SIExpr) and its owned form, and for a client's own
+//! written once, for [UnitExpr], [SIExpr](crate::SIExpr) and its owned form, and for a client's own
 //! unit model (`wire_weaver_client`'s `DynUnit`): a unit known at run time or only from introspection data is shown
 //! exactly like the same unit known from a type.
 //!
@@ -87,7 +87,7 @@ impl<'a, E> Node<'a, E> {
     }
 }
 
-/// A unit tree: [UnitExpr](crate::UnitExpr) (`&'static` children), [SIExpr](crate::SIExpr) (children decoded on the
+/// A unit tree: [UnitExpr] (`&'static` children), [SIExpr](crate::SIExpr) (children decoded on the
 /// way), or a client's own model. Children are `Self`, usually a reference into the tree.
 pub trait Tree: Sized {
     /// The node, `None` when it can't be read (children that don't decode).

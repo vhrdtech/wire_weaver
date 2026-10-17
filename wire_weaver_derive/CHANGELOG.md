@@ -40,6 +40,10 @@
 
 ### 🐛 Fixes
 
+- `ww_codegen!` names types the API uses by their module path (API-46): a type in a `pub mod` of the API crate works
+  without a root re-export, a type re-exported under another name works, a marker `units::Volt` next to an alias
+  `Volt` is no longer taken for the alias, and `use .. as ..` imports in API crates are followed.
+
 - `ww_codegen!` docs and the error for an unknown `client` value list the real flavors (`std_client`,
   `trait_client`, `raw`) instead of `full_client` / `full_client+usb` / `async_worked`.
 - `#[ww_trait]` methods with a `MaxLen<&'i str, N>` (any const generic) argument compile: the helper aliases only

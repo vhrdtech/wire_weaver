@@ -402,12 +402,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   ww_si generic D2 a); alias definitions in `ww_self` are an idea for later. `PhantomData` fields (DER-15) are left
   out of a struct's definition, the parameter stays in its generics (`ww_self::generics::prepare` accepts that). Tests
   `tests/generics` (property, method argument, inside `Timed`, a `PhantomData` marker, dynamic client),
-  `wire_weaver_core` unit tests, `ww api tree` (`docs/types.md#type-aliases`). `use .. as ..` renames are not followed.
-- 📋 **API-46 Codegen names types by their module path** · `v0.5` — generated code names every user type
-  `<crate>::<Ident>` (from `ww_self`, which has no module path), so a type in a module must be re-exported at the
-  crate root, and a marker `units::Volt` next to an alias `Volt` at the root (the ww_si 0.2 layout, STD-38) comes out
-  as the alias. Needs the module path per definition for codegen: a codegen-only table from the walker, or a
-  `ww_self` field left out of signatures and the evolution check.
+  `wire_weaver_core` unit tests, `ww api tree` (`docs/types.md#type-aliases`). `use .. as ..` renames are followed
+  (API-46).
+- ✅ **API-46 Codegen names types by their module path** · `v0.5` — generated code names each user type the way
+  other crates can: the shortest path through `pub mod`s and `pub use` re-exports of its crate (by name, renamed,
+  glob), `<Name>Owned` looked up the same way; a type no other crate can reach is an error naming it. So a type in a
+  `pub mod` needs no root re-export, and the ww_si 0.2 layout (marker `units::Volt` next to the alias `Volt`) works.
+  The paths are a codegen-only table from the walker (`wire_weaver_core::CodegenBundle`, `load_for_codegen`,
+  `load_dep`), the API model and the wire are unchanged; equal definitions at different paths stay apart. The walker
+  follows `use .. as ..` imports. Tests `tests/module_paths` (pub module, lifetime two modules deep, rename, root
+  re-export, re-export under another name, two equal `Point`s), `tests/generics` (ww_si layout as property, method
+  argument, inside `Timed`), `wire_weaver_core` unit tests (`docs/types.md#types-in-modules`).
 - ✅ **API-31 Stream functions** — `#[stream(T, counted)] fn name(args) -> Result<A, E>` and `#[counted]` /
   `#[reliable] stream!(name: T)`: every stream (plain ones too) is opened by calling it (`RequestKind::StreamOpen`),
   with typed arguments and result; the device's handler named like the stream decides, `Ok` starts a session,

@@ -279,18 +279,27 @@ trait Supply {
     fn last(n: u8) -> Reading<u32>;
 }
 
-pub type Volt = Quantity<VoltUnit>;
+pub mod units {
+    pub struct Volt;
+}
+pub type Volt = Quantity<units::Volt>;
 pub type Reading<T> = Pair<Window<2>, Option<T>>;
 ```
 
-Aliases are found like structs and enums: in lib.rs, in modules, through `use` imports and globs, also in other
-crates. A generic alias puts its arguments where its parameters are, a const parameter too
+Aliases are found like structs and enums: in lib.rs, in modules, through `use` imports (renamed ones too, `use
+units::Volt as V`) and globs, also in other crates. A generic alias puts its arguments where its parameters are, a const parameter too
 (`type Buf<const N: usize> = Window<N>`). The API model has no entry for the alias itself: `voltage` is a
-`Quantity<VoltUnit>` there, and `ww`, the dynamic client and Python show it that way. A `PhantomData<U>` field is
+`Quantity<Volt>` there (the marker `units::Volt`), and `ww`, the dynamic client and Python show it that way. A `PhantomData<U>` field is
 left out of a struct's definition (it takes no bits on the wire), so `U` is a parameter that no field uses.
 
-Generated code names a type by its crate and name (`my_api::Volt`), so a type the API uses has to be reachable from
-the crate root under its own name for now (API-46).
+### Types in modules
+
+A type the API uses can live in any module of its crate. Generated code names it the way other crates can: the
+shortest path through `pub mod`s and `pub use` re-exports (API-46). In the example above, that is `my_api::Volt` for
+the alias and `my_api::units::Volt` for the marker; a type in a private module re-exported at the root with `pub use
+ty::Ty;` is `my_api::Ty`, and one re-exported under another name (`pub use ty::Inner as Outer;`) is `my_api::Outer`.
+A type that other crates can't reach at all is an error that names it. The `<Name>Owned` variant of a type with a
+lifetime is looked up the same way: re-export it next to the type (`pub use ty::{Label, LabelOwned};`, or a glob).
 
 ## Special types
 

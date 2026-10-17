@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+- `gen_server`, `gen_client` and `gen_server_scaffold` take a `CodegenBundle` (the API model plus the path of each
+  definition, API-46) instead of an `ApiBundleOwned`; `load_dep` returns one, `load_for_codegen(path, trait)` is the
+  `load` for it. In a `build.rs`, pass what `load_dep` returns as before; where `load` fed codegen, call
+  `load_for_codegen`. `CodegenBundle` derefs to `ApiBundleOwned`.
 - **Breaking:** generated credit-sink servers drop a write whose position is 2^28 or more
   (`CreditVerdict::Invalid`, API-42); positions wrap on the wire, see `ww_client_server`.
 
@@ -18,6 +22,12 @@
 
 ### 🚀 Features
 
+- Generated code names each user type by the path other crates see (API-46): the shortest one through `pub mod`s and
+  `pub use` re-exports (by name, renamed, glob), `<Name>Owned` looked up the same way, instead of `<crate>::<Name>`.
+  A type in a `pub mod` no longer needs a root re-export, and a marker `units::Volt` next to an alias `Volt` (the
+  ww_si 0.2 layout) is the marker. A type no other crate can reach is an error naming it. Equal definitions at
+  different paths are separate entries of the types array. The API model and the wire are unchanged.
+- The walker follows renamed imports (`use units::Volt as V;`) to their definition (API-46).
 - Type aliases in APIs (API-45): `pub type Volt = Quantity<VoltUnit>;` and generic ones (`type Reading<T> =
   Timed<Quantity<T>>`, const parameters too) are found like structs and enums (in lib.rs, modules, `use` imports and
   globs) and stand for what they name: the right-hand side is converted in the alias' crate, with each parameter

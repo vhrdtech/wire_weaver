@@ -19,8 +19,16 @@ pub fn rpm(rad_per_s: f32) -> f32 {
 
 /// `x * 10^-exp` rounded, in `f64` so an `i32` / `u32` of it is exact.
 fn scaled(x: f32, prefix: Prefix) -> f64 {
-    let exp: i8 = prefix.into();
-    (x as f64 * 10f64.powi(-(exp as i32))).round()
+    // the prefixes the demo uses without `powi`: this runs for every value at 25 kHz
+    let scale = match prefix {
+        Prefix::Unit => 1.0,
+        Prefix::Centi => 1e2,
+        Prefix::Milli => 1e3,
+        Prefix::Micro => 1e6,
+        Prefix::Nano => 1e9,
+        p => 10f64.powi(-(i8::from(p) as i32)),
+    };
+    (x as f64 * scale).round()
 }
 
 /// An `f32` in the base unit as an `I32` count of a prefix.
@@ -47,6 +55,13 @@ impl U32In for f32 {
     }
 }
 
+/// The same value in the same representation: for a quantity the same prefix and number, cheaper than its
+/// `PartialEq`, which compares across prefixes and number types. Change marks of the device run it for every value
+/// at 25 kHz.
+pub trait Same {
+    fn same(&self, other: &Self) -> bool;
+}
+
 /// A value as the host shows it, in `unit`: quantities in their base unit, or in rpm (`erpm`, `rpm`), Ah or Wh where
 /// VESC Tool shows those.
 pub trait Human {
@@ -56,6 +71,12 @@ pub trait Human {
 macro_rules! human_quantity {
     ($($ty:ident),*) => {
         $(
+            impl Same for ww_si::$ty {
+                fn same(&self, other: &Self) -> bool {
+                    self.prefix == other.prefix && self.value == other.value
+                }
+            }
+
             impl Human for ww_si::$ty {
                 fn human(&self, unit: &str) -> String {
                     let x = self.to_f64();
@@ -90,6 +111,12 @@ human_quantity!(
 macro_rules! human_debug {
     ($($ty:ty),*) => {
         $(
+            impl Same for $ty {
+                fn same(&self, other: &Self) -> bool {
+                    self == other
+                }
+            }
+
             impl Human for $ty {
                 fn human(&self, _unit: &str) -> String {
                     format!("{self:?}")

@@ -8,7 +8,8 @@ A VESC-like field oriented controller drives a simulated motor, and its ~50 vari
 [observed](../api/observing.md) by a host, each at the rate it asks for, within a byte budget per trait level. It shows what observing many fast-changing properties costs on the link, and what it would cost as one
 `StreamData` event per value.
 
-- `examples/motor_demo_api`: the API, 52 `+observe` properties in three trait levels, one per rate tier.
+- `examples/motor_demo_api`: the API, 52 `+observe` properties in three trait levels, one per rate tier, their
+  values `ww_si` quantities.
 - `examples/motor_demo`: the controller, the device (in this process or on a UDP socket), the host side counting
   and the `motor_demo` CLI.
 - The motor, inverter, mechanics and sensors are simulated by [motor_sim](https://github.com/vhrdtech/motor_sim) (a
@@ -17,8 +18,8 @@ A VESC-like field oriented controller drives a simulated motor, and its ~50 vari
 ```sh
 cargo run --release -p motor_demo -- observe --compare        # a device in this process, 3 tiers, 1 s reports
 cargo run --release -p motor_demo -- device --listen 127.0.0.1:9000
-cargo run --release -p motor_demo -- observe --udp 127.0.0.1:9000 --prop i_q=every:1ms,erpm,fault
-cargo run --release -p motor_demo -- list                     # every property with its unit
+cargo run --release -p motor_demo -- observe --udp 127.0.0.1:9000 --prop i_q=every:1ms,speed_electrical,fault
+cargo run --release -p motor_demo -- list                     # every property with the unit it is shown in
 source <(COMPLETE=bash motor_demo)                             # completion of commands and property names
 ```
 
@@ -29,8 +30,8 @@ The VESC firmware (vedderb/bldc) computes its variables in three tiers, and so d
 | Level | Rate | Properties | What |
 |---|---|---|---|
 | `foc` | 25 kHz, every PWM period | 21 | phase, αβ and dq currents, dq and αβ voltages, duties, the angle in use, the flux observer's and the encoder's angles, observer state, bus voltage, the true angle |
-| `control` | 1 kHz | 18 | setpoints (`mode`, `sensor_mode`, duty, current, erpm, all `rw`), PLL speed, current setpoints, filtered currents, input current, duty, torque, position, observer error, the true speed |
-| `telemetry` | 50 Hz | 13 | time, Ah and Wh drawn and charged, tachometer, input voltage and power, averaged currents, `fault`, the real time factor |
+| `control` | 1 kHz | 18 | setpoints (`mode`, `sensor_mode`, duty, current, speed, all `rw`), PLL speed, current setpoints, filtered currents, input current, duty, torque, position, observer error, the true speed |
+| `telemetry` | 50 Hz | 13 | time, charge and energy drawn and returned, tachometer, input voltage and power, averaged currents, `fault`, the real time factor |
 | `sim` | | 4 + 2 methods | `time_scale`, `load`, `motor`, `profile`; `inject(fault)`, `reset()` |
 
 ```rust
@@ -44,8 +45,8 @@ pub trait MotorDemo {
 
 #[ww_trait]
 pub trait Foc {
-    /// Phase a current as measured (offset calibrated), A.
-    property!(ro+observe i_a: f32);
+    /// Phase a current as measured (offset calibrated): `Milli` `I32`.
+    property!(ro+observe i_a: Ampere);
     // ..
 }
 ```
@@ -53,6 +54,30 @@ pub trait Foc {
 Each level is one observe subscription, so whatever is due in a level goes out in one `PropertyUpdate`, and a host
 asks for each tier at its own rate: `foc` at 1 kHz for a scope, `control` on change, `telemetry` at 10 Hz for a
 dashboard.
+
+### Values are `ww_si` quantities
+
+Every physical value is a [`ww_si`](../std_library/ww_si.md) quantity: `Ampere`, `Volt`, `Radian`, `Weber`,
+`AngularVelocity`, `Degree`, `Torque`, `Coulomb`, `Joule`, `Watt`, `Second`, and `Ratio` for duties, probabilities
+and the time scale. VESC's own units become SI: erpm is `speed_electrical` in rad/s (×60/2π back to erpm), Ah is
+`charge_drawn` in C (÷3600), Wh is `energy_drawn` in J (÷3600). The docs of each property give the prefix and
+storage the device sends it in, three number types in all:
+
+| Storage | For | Examples |
+|---|---|---|
+| `I32` at a fixed prefix | every signed physical value | currents and voltages in mA and mV, angles in µrad, speeds in mrad/s, flux in nWb, duties in millionths |
+| `U32` | totals that only grow | `time` in ms, `charge_drawn` in C, `energy_drawn` in J |
+| `F32` | values that span decades | `time_scale`, `real_time_factor`; setpoints the host writes |
+
+The prefix sets the resolution, so noise below it costs nothing: the device marks a value changed only when its
+quantity changed, which is why `telemetry` on change sends 311 values/s instead of the 520 it did with `f32`. Setters take whatever prefix and
+storage the host sends: the CLI writes `F32` in the base unit. A firmware of this API compiles `ww_si` with only the
+`i32`, `u32` and `f32` number types. The host shows values in the old units (erpm, rpm, Ah, Wh, degrees), as VESC
+Tool does.
+
+Next to `f32`, an `I32` quantity is one byte more per value (the prefix and storage nibbles): the `foc` level at
+1 kHz takes 117 kB/s instead of 96. Batched observe (`Series` of `Timed` values, API-39) is where the fixed prefix
+pays off: there the cost of a value is its change from the previous one, not its storage width.
 
 ## The device
 
@@ -89,25 +114,26 @@ Observing sim time ×1; periods and budgets below are device (simulated) time, r
   control    18× every:10ms, budget 20.0 kB/s
   telemetry  13× change:1ms, budget 20.0 kB/s
       t  level      updates/s  values/s     bytes/s   use  missed/s  StreamData/s  saving
-   1.0s  foc              101      2119     9.7 kB/s   48%         0      18.3 kB/s     47%
-   1.0s  control          101      1816     8.0 kB/s   40%         0      14.9 kB/s     47%
-   1.0s  telemetry         51       520     2.7 kB/s   13%         0       4.3 kB/s     37%
+   1.0s  foc              101      2118    11.8 kB/s   59%         0      20.4 kB/s     42%
+   1.0s  control          101      1815     9.6 kB/s   48%         0      16.5 kB/s     42%
+   1.0s  telemetry         51       311     2.2 kB/s   11%         0       2.9 kB/s     25%
 ```
 
 | Case | Level | Updates/s | Values/s | Bytes/s | As StreamData | Saving |
 |---|---|---|---|---|---|---|
-| all 52, `foc` and `control` every 1 ms, `telemetry` every 20 ms, 200 kB/s each | `foc` | 1000 | 21 007 | 96.0 kB/s | 181.1 kB/s | 47 % |
-| | `control` | 1000 | 18 006 | 79.0 kB/s | 148.0 kB/s | 47 % |
-| | `telemetry` | 50 | 654 | 3.1 kB/s | 5.3 kB/s | 42 % |
-| `foc` every PWM period, `time_scale` 0.01 | `foc` | 250 | 5 241 | 24.0 kB/s | 45.2 kB/s | 47 % |
+| all 52, `foc` and `control` every 1 ms, `telemetry` every 20 ms, 200 kB/s each | `foc` | 1000 | 21 005 | 117.0 kB/s | 202.1 kB/s | 42 % |
+| | `control` | 1000 | 18 005 | 95.0 kB/s | 164.0 kB/s | 42 % |
+| | `telemetry` | 50 | 654 | 3.7 kB/s | 5.9 kB/s | 38 % |
+| `foc` every PWM period, `time_scale` 0.01 | `foc` | 250 | 5 247 | 29.2 kB/s | 50.5 kB/s | 42 % |
 
 Where the bytes go: a `PropertyUpdate` has a header of 10 bytes (sequence, result, the level's path, `t` as a `u32` of
 microseconds; 4 bytes without `t`), then the update's presence header (a bit per slot, or a list of indices when
-few are present) and the values. One `f32` alone as `StreamData` takes 8 bytes (9 for a resource index above 15).
-An update of 21 `f32` takes 96 bytes, 4.6 per value.
+few are present) and the values. A current in mA as `I32` is 5 bytes, alone as `StreamData` 9 (10 for a resource
+index above 15). An update of 21 such values takes 117 bytes, 5.6 per value.
 
-`--time-scale 200` gave a real time factor of 80 for the simulator and controller (one thread); above that, the
-device falls behind and says so.
+`--time-scale 200` gives a real time factor of about 120 for the simulator and controller (one thread; ~140 with the
+`f32` API, the conversion of every value to its quantity at 25 kHz costs the rest); above that, the device falls
+behind and says so.
 
 ### A level short of budget
 
@@ -123,7 +149,8 @@ properties fit, or its bucket is full (`ww_stream::observe`, SRV-18):
 
 The same bytes now carry 2.7 times the values. What doesn't fit is reported in `missed`: 8000 due per second, 5331
 sent. A property held back counts as missed only once it really falls a period behind, so polling often doesn't
-inflate the count.
+inflate the count. Both rows were measured with the `f32` API; with quantities (a byte more per value) the same case
+gives 565 updates/s of 8 values, 31.0 kB/s, 41.8 kB/s as `StreamData` and 3472 missed/s.
 
 ## Tests
 

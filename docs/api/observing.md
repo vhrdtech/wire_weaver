@@ -194,9 +194,10 @@ many properties.
 Sending the same values one at a time as `StreamData` events (`stream_data_ser().<name>_send(..)`, see
 [Before observe requests](properties.md#before-observe-requests)) costs a separate event header per value instead
 of one header per level per update. The [motor demo](../examples/motor_demo.md#measured) measures this on a real
-controller with 52 observed properties: about **47% less bytes/s** observing a level than sending the same values
-as `StreamData`, growing with how many properties share one update (a single `f32` alone as `StreamData` already
-takes 8-9 bytes; an update of 21 of them as one `PropertyUpdate` takes 96 bytes, 4.6 bytes per value). A level
+controller with 52 observed properties: about **42% less bytes/s** observing a level than sending the same values
+as `StreamData`, growing with how many properties share one update (a single current, a `ww_si::Ampere` of mA as
+`I32`, 5 bytes, already takes 9-10 bytes alone as `StreamData`; an update of 21 such values as one `PropertyUpdate`
+takes 117 bytes, 5.6 bytes per value). A level
 short of its budget that holds for fuller updates (see [above](#the-device-side)) widens that gap further: the
 [same page](../examples/motor_demo.md#a-level-short-of-budget) measures 2.7x more values per byte once updates
 stop being sent one value at a time.

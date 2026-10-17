@@ -28,7 +28,7 @@ use ww_stream::observe::ObserveLimits;
 use crate::controller::{
     Config, ControlValues, Controller, FocValues, PWM_HZ, Ran, TelemetryValues,
 };
-use crate::units::{I32In, SECONDS_PER_HOUR, U32In, rad_per_s, rpm};
+use crate::units::{I32In, SECONDS_PER_HOUR, Same, U32In, rad_per_s, rpm};
 use ww_si::{
     Ampere, AngularVelocity, Coulomb, Degree, Joule, Prefix, Radian, Ratio, Second, Torque, Volt,
     Watt, Weber,
@@ -111,9 +111,10 @@ pub struct Device {
     seed: u64,
     /// PWM periods since the device started, never reset: the device's clock.
     steps: u64,
-    prev_foc: FocValues,
-    prev_control: ControlValues,
-    prev_telemetry: TelemetryValues,
+    /// Each tier's values as quantities, from its last run.
+    foc: FocQuantities,
+    control: ControlQuantities,
+    telemetry: TelemetryQuantities,
     prev_real_time_factor: f32,
     pub observe: api_impl::ObserveState,
 }
@@ -132,9 +133,9 @@ impl Device {
             real_time_factor: 0.0,
             seed: opts.seed,
             steps: 0,
-            prev_foc: FocValues::default(),
-            prev_control: ControlValues::default(),
-            prev_telemetry: TelemetryValues::default(),
+            foc: FocQuantities::new(&FocValues::default()),
+            control: ControlQuantities::new(&ControlValues::default()),
+            telemetry: TelemetryQuantities::new(&TelemetryValues::default()),
             prev_real_time_factor: 0.0,
             observe: api_impl::ObserveState::new(LIMITS),
         };
@@ -210,28 +211,39 @@ impl Device {
     }
 }
 
-/// Getters and change marks of one tier: each value is read by its getter, converted from the tier's `f32` values,
-/// and marked changed when the converted value differs from the previous run of the tier.
+/// The values of one tier as quantities: converted from the tier's `f32` values after each run of the tier, the
+/// ones that differ from the previous run ([Same]) marked changed, and kept for the getters.
 macro_rules! tier {
-    ($values:ident: $Values:ty, $prev:ident, $mark:ident;
-        $($get:ident, $changed:ident: $ty:ty = |$v:ident| $conv:expr;)*) => {
+    ($values:ident: $Values:ty => $Quantities:ident, $mark:ident;
+        $($name:ident: $ty:ty = |$v:ident| $conv:expr, $get:ident, $changed:ident;)*) => {
+        #[derive(Clone, Copy, Debug)]
+        struct $Quantities {
+            $($name: $ty,)*
+        }
+
+        impl $Quantities {
+            fn new(values: &$Values) -> Self {
+                $Quantities {
+                    $($name: { let $v = values; $conv },)*
+                }
+            }
+        }
+
         impl Device {
             $(
                 async fn $get(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<$ty, ()> {
-                    let $v = &self.ctl.$values;
-                    GetResult::Value($conv)
+                    GetResult::Value(self.$values.$name)
                 }
             )*
 
             fn $mark(&mut self) {
-                let (now, prev) = (self.ctl.$values, self.$prev);
+                let now = $Quantities::new(&self.ctl.$values);
                 $(
-                    let conv = |$v: &$Values| -> $ty { $conv };
-                    if conv(&now) != conv(&prev) {
+                    if !now.$name.same(&self.$values.$name) {
                         self.$changed();
                     }
                 )*
-                self.$prev = now;
+                self.$values = now;
             }
         }
     };
@@ -251,69 +263,105 @@ macro_rules! u32_in {
     };
 }
 
-tier!(foc: FocValues, prev_foc, mark_foc;
-    get_foc_i_a, mark_changed_foc_i_a: Ampere = |v| i32_in!(Ampere Milli v.i_a);
-    get_foc_i_b, mark_changed_foc_i_b: Ampere = |v| i32_in!(Ampere Milli v.i_b);
-    get_foc_i_c, mark_changed_foc_i_c: Ampere = |v| i32_in!(Ampere Milli v.i_c);
-    get_foc_i_alpha, mark_changed_foc_i_alpha: Ampere = |v| i32_in!(Ampere Milli v.i_alpha);
-    get_foc_i_beta, mark_changed_foc_i_beta: Ampere = |v| i32_in!(Ampere Milli v.i_beta);
-    get_foc_i_d, mark_changed_foc_i_d: Ampere = |v| i32_in!(Ampere Milli v.i_d);
-    get_foc_i_q, mark_changed_foc_i_q: Ampere = |v| i32_in!(Ampere Milli v.i_q);
-    get_foc_v_d, mark_changed_foc_v_d: Volt = |v| i32_in!(Volt Milli v.v_d);
-    get_foc_v_q, mark_changed_foc_v_q: Volt = |v| i32_in!(Volt Milli v.v_q);
-    get_foc_v_alpha, mark_changed_foc_v_alpha: Volt = |v| i32_in!(Volt Milli v.v_alpha);
-    get_foc_v_beta, mark_changed_foc_v_beta: Volt = |v| i32_in!(Volt Milli v.v_beta);
-    get_foc_duty_a, mark_changed_foc_duty_a: Ratio = |v| i32_in!(Ratio Micro v.duty_a);
-    get_foc_duty_b, mark_changed_foc_duty_b: Ratio = |v| i32_in!(Ratio Micro v.duty_b);
-    get_foc_duty_c, mark_changed_foc_duty_c: Ratio = |v| i32_in!(Ratio Micro v.duty_c);
-    get_foc_phase, mark_changed_foc_phase: Radian = |v| i32_in!(Radian Micro v.phase);
-    get_foc_phase_observer, mark_changed_foc_phase_observer: Radian = |v| i32_in!(Radian Micro v.phase_observer);
-    get_foc_phase_encoder, mark_changed_foc_phase_encoder: Radian = |v| i32_in!(Radian Micro v.phase_encoder);
-    get_foc_observer_x1, mark_changed_foc_observer_x1: Weber = |v| i32_in!(Weber Nano v.observer_x1);
-    get_foc_observer_x2, mark_changed_foc_observer_x2: Weber = |v| i32_in!(Weber Nano v.observer_x2);
-    get_foc_v_bus, mark_changed_foc_v_bus: Volt = |v| i32_in!(Volt Milli v.v_bus);
-    get_foc_phase_true, mark_changed_foc_phase_true: Radian = |v| i32_in!(Radian Micro v.phase_true);
+tier!(foc: FocValues => FocQuantities, mark_foc;
+    i_a: Ampere = |v| i32_in!(Ampere Milli v.i_a),
+        get_foc_i_a, mark_changed_foc_i_a;
+    i_b: Ampere = |v| i32_in!(Ampere Milli v.i_b),
+        get_foc_i_b, mark_changed_foc_i_b;
+    i_c: Ampere = |v| i32_in!(Ampere Milli v.i_c),
+        get_foc_i_c, mark_changed_foc_i_c;
+    i_alpha: Ampere = |v| i32_in!(Ampere Milli v.i_alpha),
+        get_foc_i_alpha, mark_changed_foc_i_alpha;
+    i_beta: Ampere = |v| i32_in!(Ampere Milli v.i_beta),
+        get_foc_i_beta, mark_changed_foc_i_beta;
+    i_d: Ampere = |v| i32_in!(Ampere Milli v.i_d),
+        get_foc_i_d, mark_changed_foc_i_d;
+    i_q: Ampere = |v| i32_in!(Ampere Milli v.i_q),
+        get_foc_i_q, mark_changed_foc_i_q;
+    v_d: Volt = |v| i32_in!(Volt Milli v.v_d),
+        get_foc_v_d, mark_changed_foc_v_d;
+    v_q: Volt = |v| i32_in!(Volt Milli v.v_q),
+        get_foc_v_q, mark_changed_foc_v_q;
+    v_alpha: Volt = |v| i32_in!(Volt Milli v.v_alpha),
+        get_foc_v_alpha, mark_changed_foc_v_alpha;
+    v_beta: Volt = |v| i32_in!(Volt Milli v.v_beta),
+        get_foc_v_beta, mark_changed_foc_v_beta;
+    duty_a: Ratio = |v| i32_in!(Ratio Micro v.duty_a),
+        get_foc_duty_a, mark_changed_foc_duty_a;
+    duty_b: Ratio = |v| i32_in!(Ratio Micro v.duty_b),
+        get_foc_duty_b, mark_changed_foc_duty_b;
+    duty_c: Ratio = |v| i32_in!(Ratio Micro v.duty_c),
+        get_foc_duty_c, mark_changed_foc_duty_c;
+    phase: Radian = |v| i32_in!(Radian Micro v.phase),
+        get_foc_phase, mark_changed_foc_phase;
+    phase_observer: Radian = |v| i32_in!(Radian Micro v.phase_observer),
+        get_foc_phase_observer, mark_changed_foc_phase_observer;
+    phase_encoder: Radian = |v| i32_in!(Radian Micro v.phase_encoder),
+        get_foc_phase_encoder, mark_changed_foc_phase_encoder;
+    observer_x1: Weber = |v| i32_in!(Weber Nano v.observer_x1),
+        get_foc_observer_x1, mark_changed_foc_observer_x1;
+    observer_x2: Weber = |v| i32_in!(Weber Nano v.observer_x2),
+        get_foc_observer_x2, mark_changed_foc_observer_x2;
+    v_bus: Volt = |v| i32_in!(Volt Milli v.v_bus),
+        get_foc_v_bus, mark_changed_foc_v_bus;
+    phase_true: Radian = |v| i32_in!(Radian Micro v.phase_true),
+        get_foc_phase_true, mark_changed_foc_phase_true;
 );
 
-tier!(control: ControlValues, prev_control, mark_control;
-    get_control_speed_electrical, mark_changed_control_speed_electrical: AngularVelocity =
-        |v| i32_in!(AngularVelocity Milli rad_per_s(v.erpm));
-    get_control_speed, mark_changed_control_speed: AngularVelocity =
-        |v| i32_in!(AngularVelocity Milli rad_per_s(v.rpm));
-    get_control_id_set, mark_changed_control_id_set: Ampere = |v| i32_in!(Ampere Milli v.id_set);
-    get_control_iq_set, mark_changed_control_iq_set: Ampere = |v| i32_in!(Ampere Milli v.iq_set);
-    get_control_id_filtered, mark_changed_control_id_filtered: Ampere = |v| i32_in!(Ampere Milli v.id_filtered);
-    get_control_iq_filtered, mark_changed_control_iq_filtered: Ampere = |v| i32_in!(Ampere Milli v.iq_filtered);
-    get_control_i_motor, mark_changed_control_i_motor: Ampere = |v| i32_in!(Ampere Milli v.i_motor);
-    get_control_i_input, mark_changed_control_i_input: Ampere = |v| i32_in!(Ampere Milli v.i_input);
-    get_control_duty_now, mark_changed_control_duty_now: Ratio = |v| i32_in!(Ratio Micro v.duty_now);
-    get_control_torque, mark_changed_control_torque: Torque = |v| i32_in!(Torque Milli v.torque);
-    get_control_position, mark_changed_control_position: Degree = |v| i32_in!(Degree Milli v.position_deg);
-    get_control_observer_error, mark_changed_control_observer_error: Degree =
-        |v| i32_in!(Degree Milli v.observer_error_deg);
-    get_control_speed_true, mark_changed_control_speed_true: AngularVelocity =
-        |v| i32_in!(AngularVelocity Milli rad_per_s(v.rpm_true));
+tier!(control: ControlValues => ControlQuantities, mark_control;
+    speed_electrical: AngularVelocity = |v| i32_in!(AngularVelocity Milli rad_per_s(v.erpm)),
+        get_control_speed_electrical, mark_changed_control_speed_electrical;
+    speed: AngularVelocity = |v| i32_in!(AngularVelocity Milli rad_per_s(v.rpm)),
+        get_control_speed, mark_changed_control_speed;
+    id_set: Ampere = |v| i32_in!(Ampere Milli v.id_set),
+        get_control_id_set, mark_changed_control_id_set;
+    iq_set: Ampere = |v| i32_in!(Ampere Milli v.iq_set),
+        get_control_iq_set, mark_changed_control_iq_set;
+    id_filtered: Ampere = |v| i32_in!(Ampere Milli v.id_filtered),
+        get_control_id_filtered, mark_changed_control_id_filtered;
+    iq_filtered: Ampere = |v| i32_in!(Ampere Milli v.iq_filtered),
+        get_control_iq_filtered, mark_changed_control_iq_filtered;
+    i_motor: Ampere = |v| i32_in!(Ampere Milli v.i_motor),
+        get_control_i_motor, mark_changed_control_i_motor;
+    i_input: Ampere = |v| i32_in!(Ampere Milli v.i_input),
+        get_control_i_input, mark_changed_control_i_input;
+    duty_now: Ratio = |v| i32_in!(Ratio Micro v.duty_now),
+        get_control_duty_now, mark_changed_control_duty_now;
+    torque: Torque = |v| i32_in!(Torque Milli v.torque),
+        get_control_torque, mark_changed_control_torque;
+    position: Degree = |v| i32_in!(Degree Milli v.position_deg),
+        get_control_position, mark_changed_control_position;
+    observer_error: Degree = |v| i32_in!(Degree Milli v.observer_error_deg),
+        get_control_observer_error, mark_changed_control_observer_error;
+    speed_true: AngularVelocity = |v| i32_in!(AngularVelocity Milli rad_per_s(v.rpm_true)),
+        get_control_speed_true, mark_changed_control_speed_true;
 );
 
-tier!(telemetry: TelemetryValues, prev_telemetry, mark_telemetry;
-    get_telemetry_time, mark_changed_telemetry_time: Second = |v| u32_in!(Second Milli v.time_s);
-    get_telemetry_charge_drawn, mark_changed_telemetry_charge_drawn: Coulomb =
-        |v| u32_in!(Coulomb Unit v.amp_hours * SECONDS_PER_HOUR);
-    get_telemetry_charge_returned, mark_changed_telemetry_charge_returned: Coulomb =
-        |v| u32_in!(Coulomb Unit v.amp_hours_charged * SECONDS_PER_HOUR);
-    get_telemetry_energy_drawn, mark_changed_telemetry_energy_drawn: Joule =
-        |v| u32_in!(Joule Unit v.watt_hours * SECONDS_PER_HOUR);
-    get_telemetry_energy_returned, mark_changed_telemetry_energy_returned: Joule =
-        |v| u32_in!(Joule Unit v.watt_hours_charged * SECONDS_PER_HOUR);
-    get_telemetry_tachometer, mark_changed_telemetry_tachometer: i32 = |v| v.tachometer;
-    get_telemetry_tachometer_abs, mark_changed_telemetry_tachometer_abs: u32 = |v| v.tachometer_abs;
-    get_telemetry_v_in, mark_changed_telemetry_v_in: Volt = |v| i32_in!(Volt Milli v.v_in);
-    get_telemetry_power_in, mark_changed_telemetry_power_in: Watt = |v| i32_in!(Watt Centi v.power_in);
-    get_telemetry_avg_motor_current, mark_changed_telemetry_avg_motor_current: Ampere =
-        |v| i32_in!(Ampere Milli v.avg_motor_current);
-    get_telemetry_avg_input_current, mark_changed_telemetry_avg_input_current: Ampere =
-        |v| i32_in!(Ampere Milli v.avg_input_current);
-    get_telemetry_fault, mark_changed_telemetry_fault: motor_demo_api::Fault = |v| v.fault;
+tier!(telemetry: TelemetryValues => TelemetryQuantities, mark_telemetry;
+    time: Second = |v| u32_in!(Second Milli v.time_s),
+        get_telemetry_time, mark_changed_telemetry_time;
+    charge_drawn: Coulomb = |v| u32_in!(Coulomb Unit v.amp_hours * SECONDS_PER_HOUR),
+        get_telemetry_charge_drawn, mark_changed_telemetry_charge_drawn;
+    charge_returned: Coulomb = |v| u32_in!(Coulomb Unit v.amp_hours_charged * SECONDS_PER_HOUR),
+        get_telemetry_charge_returned, mark_changed_telemetry_charge_returned;
+    energy_drawn: Joule = |v| u32_in!(Joule Unit v.watt_hours * SECONDS_PER_HOUR),
+        get_telemetry_energy_drawn, mark_changed_telemetry_energy_drawn;
+    energy_returned: Joule = |v| u32_in!(Joule Unit v.watt_hours_charged * SECONDS_PER_HOUR),
+        get_telemetry_energy_returned, mark_changed_telemetry_energy_returned;
+    tachometer: i32 = |v| v.tachometer,
+        get_telemetry_tachometer, mark_changed_telemetry_tachometer;
+    tachometer_abs: u32 = |v| v.tachometer_abs,
+        get_telemetry_tachometer_abs, mark_changed_telemetry_tachometer_abs;
+    v_in: Volt = |v| i32_in!(Volt Milli v.v_in),
+        get_telemetry_v_in, mark_changed_telemetry_v_in;
+    power_in: Watt = |v| i32_in!(Watt Centi v.power_in),
+        get_telemetry_power_in, mark_changed_telemetry_power_in;
+    avg_motor_current: Ampere = |v| i32_in!(Ampere Milli v.avg_motor_current),
+        get_telemetry_avg_motor_current, mark_changed_telemetry_avg_motor_current;
+    avg_input_current: Ampere = |v| i32_in!(Ampere Milli v.avg_input_current),
+        get_telemetry_avg_input_current, mark_changed_telemetry_avg_input_current;
+    fault: motor_demo_api::Fault = |v| v.fault,
+        get_telemetry_fault, mark_changed_telemetry_fault;
 );
 
 /// Setpoints, sim settings and methods

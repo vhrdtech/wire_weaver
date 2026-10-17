@@ -4268,6 +4268,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The API: one trait level per rate tier">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#values-are-ww_si-quantities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Values are <code>ww_si</code> quantities
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4693,6 +4710,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The API: one trait level per rate tier">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#values-are-ww_si-quantities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Values are <code>ww_si</code> quantities
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4856,7 +4890,8 @@
 <a href="../../api/observing/">observed</a> by a host, each at the rate it asks for, within a byte budget per trait level. It shows what observing many fast-changing properties costs on the link, and what it would cost as one
 <code>StreamData</code> event per value.</p>
 <ul>
-<li><code>examples/motor_demo_api</code>: the API, 52 <code>+observe</code> properties in three trait levels, one per rate tier.</li>
+<li><code>examples/motor_demo_api</code>: the API, 52 <code>+observe</code> properties in three trait levels, one per rate tier, their
+  values <code>ww_si</code> quantities.</li>
 <li><code>examples/motor_demo</code>: the controller, the device (in this process or on a UDP socket), the host side counting
   and the <code>motor_demo</code> CLI.</li>
 <li>The motor, inverter, mechanics and sensors are simulated by <a href="https://github.com/vhrdtech/motor_sim">motor_sim</a> (a
@@ -4864,8 +4899,8 @@
 </ul>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>observe<span class="w"> </span>--compare<span class="w">        </span><span class="c1"># a device in this process, 3 tiers, 1 s reports</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>device<span class="w"> </span>--listen<span class="w"> </span><span class="m">127</span>.0.0.1:9000
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>observe<span class="w"> </span>--udp<span class="w"> </span><span class="m">127</span>.0.0.1:9000<span class="w"> </span>--prop<span class="w"> </span><span class="nv">i_q</span><span class="o">=</span>every:1ms,erpm,fault
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>list<span class="w">                     </span><span class="c1"># every property with its unit</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>observe<span class="w"> </span>--udp<span class="w"> </span><span class="m">127</span>.0.0.1:9000<span class="w"> </span>--prop<span class="w"> </span><span class="nv">i_q</span><span class="o">=</span>every:1ms,speed_electrical,fault
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>list<span class="w">                     </span><span class="c1"># every property with the unit it is shown in</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">source</span><span class="w"> </span>&lt;<span class="o">(</span><span class="nv">COMPLETE</span><span class="o">=</span>bash<span class="w"> </span>motor_demo<span class="o">)</span><span class="w">                             </span><span class="c1"># completion of commands and property names</span>
 </span></code></pre></div>
 <h2 id="the-api-one-trait-level-per-rate-tier">The API: one trait level per rate tier<a class="headerlink" href="#the-api-one-trait-level-per-rate-tier" title="Permanent link">&para;</a></h2>
@@ -4890,13 +4925,13 @@
 <td><code>control</code></td>
 <td>1 kHz</td>
 <td>18</td>
-<td>setpoints (<code>mode</code>, <code>sensor_mode</code>, duty, current, erpm, all <code>rw</code>), PLL speed, current setpoints, filtered currents, input current, duty, torque, position, observer error, the true speed</td>
+<td>setpoints (<code>mode</code>, <code>sensor_mode</code>, duty, current, speed, all <code>rw</code>), PLL speed, current setpoints, filtered currents, input current, duty, torque, position, observer error, the true speed</td>
 </tr>
 <tr>
 <td><code>telemetry</code></td>
 <td>50 Hz</td>
 <td>13</td>
-<td>time, Ah and Wh drawn and charged, tachometer, input voltage and power, averaged currents, <code>fault</code>, the real time factor</td>
+<td>time, charge and energy drawn and returned, tachometer, input voltage and power, averaged currents, <code>fault</code>, the real time factor</td>
 </tr>
 <tr>
 <td><code>sim</code></td>
@@ -4916,14 +4951,54 @@
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Foc</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="sd">/// Phase a current as measured (offset calibrated), A.</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">i_a</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="sd">/// Phase a current as measured (offset calibrated): `Milli` `I32`.</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">i_a</span><span class="p">:</span><span class="w"> </span><span class="nc">Ampere</span><span class="p">);</span>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="c1">// ..</span>
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Each level is one observe subscription, so whatever is due in a level goes out in one <code>PropertyUpdate</code>, and a host
 asks for each tier at its own rate: <code>foc</code> at 1 kHz for a scope, <code>control</code> on change, <code>telemetry</code> at 10 Hz for a
 dashboard.</p>
+<h3 id="values-are-ww_si-quantities">Values are <code>ww_si</code> quantities<a class="headerlink" href="#values-are-ww_si-quantities" title="Permanent link">&para;</a></h3>
+<p>Every physical value is a <a href="../../std_library/ww_si/"><code>ww_si</code></a> quantity: <code>Ampere</code>, <code>Volt</code>, <code>Radian</code>, <code>Weber</code>,
+<code>AngularVelocity</code>, <code>Degree</code>, <code>Torque</code>, <code>Coulomb</code>, <code>Joule</code>, <code>Watt</code>, <code>Second</code>, and <code>Ratio</code> for duties, probabilities
+and the time scale. VESC's own units become SI: erpm is <code>speed_electrical</code> in rad/s (×60/2π back to erpm), Ah is
+<code>charge_drawn</code> in C (÷3600), Wh is <code>energy_drawn</code> in J (÷3600). The docs of each property give the prefix and
+storage the device sends it in, three number types in all:</p>
+<table>
+<thead>
+<tr>
+<th>Storage</th>
+<th>For</th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>I32</code> at a fixed prefix</td>
+<td>every signed physical value</td>
+<td>currents and voltages in mA and mV, angles in µrad, speeds in mrad/s, flux in nWb, duties in millionths</td>
+</tr>
+<tr>
+<td><code>U32</code></td>
+<td>totals that only grow</td>
+<td><code>time</code> in ms, <code>charge_drawn</code> in C, <code>energy_drawn</code> in J</td>
+</tr>
+<tr>
+<td><code>F32</code></td>
+<td>values that span decades</td>
+<td><code>time_scale</code>, <code>real_time_factor</code>; setpoints the host writes</td>
+</tr>
+</tbody>
+</table>
+<p>The prefix sets the resolution, so noise below it costs nothing: the device marks a value changed only when its
+quantity changed, which is why <code>telemetry</code> on change sends 311 values/s instead of the 520 it did with <code>f32</code>. Setters take whatever prefix and
+storage the host sends: the CLI writes <code>F32</code> in the base unit. A firmware of this API compiles <code>ww_si</code> with only the
+<code>i32</code>, <code>u32</code> and <code>f32</code> number types. The host shows values in the old units (erpm, rpm, Ah, Wh, degrees), as VESC
+Tool does.</p>
+<p>Next to <code>f32</code>, an <code>I32</code> quantity is one byte more per value (the prefix and storage nibbles): the <code>foc</code> level at
+1 kHz takes 117 kB/s instead of 96. Batched observe (<code>Series</code> of <code>Timed</code> values, API-39) is where the fixed prefix
+pays off: there the cost of a value is its change from the previous one, not its storage width.</p>
 <h2 id="the-device">The device<a class="headerlink" href="#the-device" title="Permanent link">&para;</a></h2>
 <p>The device's clock is simulated time, one PWM period (40 µs) per step; simulated time follows real time times
 <code>sim.time_scale</code>. Every step:</p>
@@ -4934,6 +5009,8 @@ dashboard.</p>
 <li>every value of a tier that ran and changed is marked, <code>mark_changed_&lt;name&gt;()</code>, so <code>change:</code> observers get it;</li>
 <li><code>poll_properties(out, (), now_us, buf)</code> sends what is due, with <code>now_us</code> the simulated microseconds.</li>
 </ol>
+<p>Messages are up to 4 KiB (<code>MAX_MESSAGE_LEN</code>) each way, the in-process and UDP buffers sized from it: room for the
+whole <code>foc</code> level batched, a <code>Series</code> of 32 values per property is about 1.3 kB.</p>
 <p><code>ObserveLimits::min_period_us</code> is one PWM period, so the 25 kHz tier can be observed at every step. Periods, the
 timestamps and the budgets are in device time: with <code>time_scale</code> 0.01, <code>every:40us</code> arrives at 250 Hz real, and the
 CLI converts <code>--budget</code> from real bytes per second. When a step can't keep up, the simulation falls behind instead of
@@ -4953,9 +5030,9 @@ property's change, without a timestamp.</p>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  control    18× every:10ms, budget 20.0 kB/s
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  telemetry  13× change:1ms, budget 20.0 kB/s
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>      t  level      updates/s  values/s     bytes/s   use  missed/s  StreamData/s  saving
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>   1.0s  foc              101      2119     9.7 kB/s   48%         0      18.3 kB/s     47%
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>   1.0s  control          101      1816     8.0 kB/s   40%         0      14.9 kB/s     47%
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>   1.0s  telemetry         51       520     2.7 kB/s   13%         0       4.3 kB/s     37%
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>   1.0s  foc              101      2118    11.8 kB/s   59%         0      20.4 kB/s     42%
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>   1.0s  control          101      1815     9.6 kB/s   48%         0      16.5 kB/s     42%
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>   1.0s  telemetry         51       311     2.2 kB/s   11%         0       2.9 kB/s     25%
 </span></code></pre></div>
 <table>
 <thead>
@@ -4974,46 +5051,47 @@ property's change, without a timestamp.</p>
 <td>all 52, <code>foc</code> and <code>control</code> every 1 ms, <code>telemetry</code> every 20 ms, 200 kB/s each</td>
 <td><code>foc</code></td>
 <td>1000</td>
-<td>21 007</td>
-<td>96.0 kB/s</td>
-<td>181.1 kB/s</td>
-<td>47 %</td>
+<td>21 005</td>
+<td>117.0 kB/s</td>
+<td>202.1 kB/s</td>
+<td>42 %</td>
 </tr>
 <tr>
 <td></td>
 <td><code>control</code></td>
 <td>1000</td>
-<td>18 006</td>
-<td>79.0 kB/s</td>
-<td>148.0 kB/s</td>
-<td>47 %</td>
+<td>18 005</td>
+<td>95.0 kB/s</td>
+<td>164.0 kB/s</td>
+<td>42 %</td>
 </tr>
 <tr>
 <td></td>
 <td><code>telemetry</code></td>
 <td>50</td>
 <td>654</td>
-<td>3.1 kB/s</td>
-<td>5.3 kB/s</td>
-<td>42 %</td>
+<td>3.7 kB/s</td>
+<td>5.9 kB/s</td>
+<td>38 %</td>
 </tr>
 <tr>
 <td><code>foc</code> every PWM period, <code>time_scale</code> 0.01</td>
 <td><code>foc</code></td>
 <td>250</td>
-<td>5 241</td>
-<td>24.0 kB/s</td>
-<td>45.2 kB/s</td>
-<td>47 %</td>
+<td>5 247</td>
+<td>29.2 kB/s</td>
+<td>50.5 kB/s</td>
+<td>42 %</td>
 </tr>
 </tbody>
 </table>
 <p>Where the bytes go: a <code>PropertyUpdate</code> has a header of 10 bytes (sequence, result, the level's path, <code>t</code> as a <code>u32</code> of
 microseconds; 4 bytes without <code>t</code>), then the update's presence header (a bit per slot, or a list of indices when
-few are present) and the values. One <code>f32</code> alone as <code>StreamData</code> takes 8 bytes (9 for a resource index above 15).
-An update of 21 <code>f32</code> takes 96 bytes, 4.6 per value.</p>
-<p><code>--time-scale 200</code> gave a real time factor of 80 for the simulator and controller (one thread); above that, the
-device falls behind and says so.</p>
+few are present) and the values. A current in mA as <code>I32</code> is 5 bytes, alone as <code>StreamData</code> 9 (10 for a resource
+index above 15). An update of 21 such values takes 117 bytes, 5.6 per value.</p>
+<p><code>--time-scale 200</code> gives a real time factor of about 120 for the simulator and controller (one thread; ~140 with the
+<code>f32</code> API, the conversion of every value to its quantity at 25 kHz costs the rest); above that, the device falls
+behind and says so.</p>
 <h3 id="a-level-short-of-budget">A level short of budget<a class="headerlink" href="#a-level-short-of-budget" title="Permanent link">&para;</a></h3>
 <p><code>--foc every:1ms --budget 30000</code> with 8 <code>foc</code> properties: 32 kB/s of values asked for, 30 kB/s granted, and
 <code>poll_properties</code> called every 40 µs. The scheduler used to send whatever fit the bucket at each call, so a level
@@ -5051,7 +5129,8 @@ properties fit, or its bucket is full (<code>ww_stream::observe</code>, SRV-18):
 </table>
 <p>The same bytes now carry 2.7 times the values. What doesn't fit is reported in <code>missed</code>: 8000 due per second, 5331
 sent. A property held back counts as missed only once it really falls a period behind, so polling often doesn't
-inflate the count.</p>
+inflate the count. Both rows were measured with the <code>f32</code> API; with quantities (a byte more per value) the same case
+gives 565 updates/s of 8 values, 31.0 kB/s, 41.8 kB/s as <code>StreamData</code> and 3472 missed/s.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
 <p><code>cargo nextest run -p motor_demo</code>:</p>
 <ul>

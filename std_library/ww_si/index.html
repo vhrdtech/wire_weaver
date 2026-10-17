@@ -3378,6 +3378,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#timed-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timed values
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#prefixes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4710,6 +4721,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#timed-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timed values
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#prefixes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4861,7 +4883,7 @@ whether that is a <code>u16</code> of mV or an <code>f32</code> of V, and the ho
 <tbody>
 <tr>
 <td><code>time</code></td>
-<td><code>Second</code>, <code>Hertz</code>, <code>HertzPerSecond</code>, <code>Baud</code></td>
+<td><code>Second</code>, <code>Hertz</code>, <code>HertzPerSecond</code>, <code>Baud</code>, <a href="#timed-values"><code>Timed&lt;T&gt;</code></a></td>
 </tr>
 <tr>
 <td><code>electrical</code></td>
@@ -4869,7 +4891,7 @@ whether that is a <code>u16</code> of mV or an <code>f32</code> of V, and the ho
 </tr>
 <tr>
 <td><code>mechanical</code></td>
-<td><code>Meter</code>, <code>KiloGram</code>, <code>Newton</code>, <code>Pascal</code>, <code>Joule</code>, <code>Litre</code>, <code>VolumetricFlow</code>, <code>Speed</code> .. <code>Yank</code></td>
+<td><code>Meter</code>, <code>KiloGram</code>, <code>Newton</code>, <code>Pascal</code>, <code>Joule</code>, <code>Torque</code>, <code>Litre</code>, <code>VolumetricFlow</code>, <code>Speed</code> .. <code>Yank</code></td>
 </tr>
 <tr>
 <td><code>angle</code></td>
@@ -4894,6 +4916,10 @@ whether that is a <code>u16</code> of mV or an <code>f32</code> of V, and the ho
 <tr>
 <td><code>logarithmic</code></td>
 <td><code>DeciBel</code>, <code>DeciBelmW</code></td>
+</tr>
+<tr>
+<td><code>dimensionless</code></td>
+<td><code>Ratio</code>: duty, probability, scale (a group of its own, as it is used next to any other)</td>
 </tr>
 <tr>
 <td><code>quantities</code></td>
@@ -4950,13 +4976,23 @@ whether that is a <code>u16</code> of mV or an <code>f32</code> of V, and the ho
 <td><code>Baud</code></td>
 <td><code>baud</code>, <code>kilobaud</code>, <code>megabaud</code>, <code>baud_f32</code></td>
 </tr>
+<tr>
+<td><code>Torque</code></td>
+<td><code>newton_meters</code>, <code>millinewton_meters</code>, <code>newton_meters_f32</code></td>
+</tr>
+<tr>
+<td><code>Ratio</code></td>
+<td><code>ratio</code>, <code>percent</code>, <code>per_mille</code>, <code>ppm</code>, <code>ratio_f32</code></td>
+</tr>
 </tbody>
 </table>
 <p><code>PartialEq</code> and <code>PartialOrd</code> compare values across prefixes and number types: <code>Volt::millivolts(1000u16) ==
 Volt::volts(1u8)</code>. Two integers are compared exactly, even 60 orders of magnitude apart; otherwise through <code>f64</code>.</p>
-<p>The <code>quantity!</code> macro is a shorthand for literals: <code>quantity!(3300 mV u16)</code>, <code>quantity!(400 kHz u32)</code>, <code>quantity!(115200 Bd u32)</code>.</p>
+<p>The <code>quantity!</code> macro is a shorthand for literals: <code>quantity!(3300 mV u16)</code>, <code>quantity!(400 kHz u32)</code>, <code>quantity!(115200 Bd u32)</code>, <code>quantity!(250 mNm i32)</code>, <code>quantity!(95 % u8)</code>.</p>
 <p><code>Baud</code> is a symbol rate, the baud rate of a UART or a protocol decoder, kept apart from <code>Hertz</code> so a baud rate
-is never taken for a clock frequency (and a tool shows <code>115200 Bd</code>, not <code>115.2 kHz</code>).</p>
+is never taken for a clock frequency (and a tool shows <code>115200 Bd</code>, not <code>115.2 kHz</code>). <code>Torque</code> (N·m) has the
+dimension of <code>Joule</code> but is kept apart the same way. <code>Ratio</code> is a plain fraction (0.5 is half; <code>percent</code> is
+<code>Centi</code>), for a duty cycle, a probability or a scale factor; <code>DeciBel</code> is the logarithmic one.</p>
 <h2 id="second-as-a-timestamp"><code>Second</code> as a timestamp<a class="headerlink" href="#second-as-a-timestamp" title="Permanent link">&para;</a></h2>
 <p>A <code>Second</code> that marks when something happened (an ADC sample, the start and end of an I2C transaction) is the
 device's time since its clock started. A device has one clock, so the timestamps of all its traits line up, and
@@ -5001,6 +5037,15 @@ closest to the previous one:</p>
 <p>That works while consecutive timestamps are less than half a wrap period apart; re-anchor with <code>anchor(now)</code> after
 a longer pause. Use one <code>Unwrapper</code> per stream. <code>U64</code> and signed values pass through unchanged. The anchor and the
 timestamps can be in different prefixes.</p>
+<h2 id="timed-values">Timed values<a class="headerlink" href="#timed-values" title="Permanent link">&para;</a></h2>
+<p><code>Timed&lt;T&gt; { t: Second, value: T }</code> is a value with the time it was taken, <code>t</code> a device timestamp as above: a
+sample of a property, an item of a stream (<code>Timed&lt;Ampere&gt;</code>). It is a <code>final_structure</code> struct of <code>t</code> and then
+<code>value</code>, the same bytes a <code>#[derive_shrink_wrap(final_structure)]</code> struct of those two fields has, so no fields can
+be added to it later.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="p">};</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">microseconds</span><span class="p">(</span><span class="mi">1_000_000</span><span class="k">u32</span><span class="p">),</span><span class="w"> </span><span class="n">Ampere</span><span class="p">::</span><span class="n">milliamperes</span><span class="p">(</span><span class="o">-</span><span class="mi">1200</span><span class="k">i32</span><span class="p">));</span>
+</span></code></pre></div>
 <h2 id="prefixes">Prefixes<a class="headerlink" href="#prefixes" title="Permanent link">&para;</a></h2>
 <p><code>Prefix</code> covers every SI prefix from <code>Quecto</code> (10⁻³⁰) to <code>Quetta</code> (10³⁰), <code>From&lt;Prefix&gt; for i8</code> gives the power
 of ten. The most used ones (<code>Unit</code>, <code>Milli</code>, <code>Micro</code>, <code>Nano</code>, <code>Pico</code>, <code>Kilo</code>, <code>Mega</code>, <code>Giga</code>) take one nibble on

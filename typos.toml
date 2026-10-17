@@ -5,6 +5,8 @@
 extend-exclude = ["tests/dfu_scenarios/transcripts/"]
 
 [default.extend-identifiers]
+# plural of PNG, read as "PN" + "Gs"
+PNGs = "PNGs"
 
 [default.extend-words]
 ## Project-specific acronyms and abbreviations

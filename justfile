@@ -18,6 +18,10 @@ dfu-transcripts:
 features-page:
     FEATURES_PAGE=update cargo nextest run -p features_page
 
+# Regenerate the WireWeaver and ShrinkWrap logos in docs/assets (light, dark, 2x PNG; needs rsvg-convert)
+logos:
+    uv run docs/assets/src/logos.py
+
 # What CI checks besides the tests: formatting, manifests, typos, clippy and rustdoc, warnings are errors
 lint:
     cargo fmt --all --check

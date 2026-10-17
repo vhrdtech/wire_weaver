@@ -183,9 +183,14 @@ pub struct Tree<'i> {
 The API model has each such definition once, referring to itself. As in Rust, every cycle goes through a `RefBox` or
 a list. Types with parameters can't be part of a cycle (`struct List<T> { next: Option<RefBox<'i, List<T>>> }` is
 an error), a type without them can use itself as an argument (`children: RefVec<'i, Timed<Tree<'i>>>`). A value is
-as deep as its bytes say; decoding it is bounded: the device's reader stops at
-[its depth limit](serdes/wire_format.md#nesting-depth), the dynamic client at about 90 levels, so a malformed or
-malicious value is an error, never a stack overflow.
+as deep as its bytes say; decoding it is bounded: the reader stops at
+[its depth limit](serdes/wire_format.md#nesting-depth), the dynamic client at about 70 levels, so a malformed or
+malicious value is an error, not a stack overflow on a host.
+
+!!! warning "Recursive types in firmware"
+    Generated server code reads arguments with the default limit of 128 levels, which a small MCU stack may not
+    hold: a host can send a value that deep. Until the server takes a lower limit, keep recursive types out of the
+    arguments of methods and properties a device serves, or give its task a stack large enough for 128 levels.
 
 ## Structs and enums
 

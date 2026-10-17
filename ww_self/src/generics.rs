@@ -1641,10 +1641,10 @@ mod tests {
         value.unwrap()
     }
 
-    fn on_stack<T: Send>(mib: usize, f: impl FnOnce() -> T + Send) -> T {
+    fn on_stack<T: Send>(kib: usize, f: impl FnOnce() -> T + Send) -> T {
         std::thread::scope(|s| {
             std::thread::Builder::new()
-                .stack_size(mib << 20)
+                .stack_size(kib << 10)
                 .spawn_scoped(s, f)
                 .unwrap()
                 .join()
@@ -1656,23 +1656,23 @@ mod tests {
     fn self_referential_values() {
         let b = list_and_expr();
         let (list, expr) = (out_of_line(0), out_of_line(1));
-        // as deep as the dynamic decoder allows, on the default stack of a spawned thread
+        // as deep as the dynamic decoder allows, on 1.5 MiB: a decode on a 2 MiB tokio worker keeps room for the frames above it
         let depth = crate::MAX_DECODE_DEPTH / 4 - 1;
         let value = list_value(depth);
-        let bytes = on_stack(64, || value.ser_shrink_wrap_dyn(&list, &b).unwrap());
-        let decoded = on_stack(2, || {
+        let bytes = on_stack(64 << 10, || value.ser_shrink_wrap_dyn(&list, &b).unwrap());
+        let decoded = on_stack(1536, || {
             ValueOwned::des_shrink_wrap_dyn(&bytes, &list, &b).unwrap()
         });
         assert_eq!(decoded, value);
-        on_stack(64, || drop((value, decoded)));
+        on_stack(64 << 10, || drop((value, decoded)));
         // deeper is an error, also far deeper
         for depth in [2 * depth, 2_000] {
             let value = list_value(depth);
-            let bytes = on_stack(64, || value.ser_shrink_wrap_dyn(&list, &b).unwrap());
-            on_stack(64, || drop(value));
-            let err = on_stack(2, || {
+            let bytes = on_stack(64 << 10, || value.ser_shrink_wrap_dyn(&list, &b).unwrap());
+            on_stack(64 << 10, || drop(value));
+            let err = on_stack(1536, || {
                 ValueOwned::des_shrink_wrap_dyn(&bytes, &list, &b)
-                    .map(|v| on_stack(64, || drop(v)))
+                    .map(|v| on_stack(64 << 10, || drop(v)))
                     .map_err(|e| e.to_string())
             });
             assert!(

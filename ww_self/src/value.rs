@@ -154,8 +154,9 @@ pub(crate) const VARIANTS_PER_VALUE: usize = 16;
 /// Deepest nesting of a decode (and of [ValueOwned::default]): [MAX_DEPTH](crate::generics::MAX_DEPTH) type levels
 /// take up to two calls each, a value of a self-referential type about four per level of the value
 /// (`Option<Box<List>>` in `List`: the `Option`, the `Box`, the out-of-line reference and the struct), so a list or
-/// a tree about 90 levels deep decodes. Stays within a 2 MiB thread stack in a debug build.
-pub const MAX_DECODE_DEPTH: usize = 4 * crate::generics::MAX_DEPTH;
+/// a tree about 70 levels deep decodes. Takes up to about 1.25 MiB of stack in a debug build (the deepest shapes
+/// measured, 4.4 KiB per call), so a decode fits on a 2 MiB tokio worker with room for the frames above it.
+pub const MAX_DECODE_DEPTH: usize = 3 * crate::generics::MAX_DEPTH;
 
 impl Budget {
     fn new(values: usize) -> Self {

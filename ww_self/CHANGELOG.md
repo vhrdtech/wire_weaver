@@ -21,8 +21,8 @@
   an error. Walks over types stop at a definition they are already in: `is_lifetime`, `human_definition` (names it
   inside itself), `ValueOwned::default` (the first enum variant that doesn't contain the enum; a type each value of which
   contains another one is an error). Values of such types decode as deep as their bytes say, bounded by the new
-  public `MAX_DECODE_DEPTH` (384 nested calls, about 90 levels of a recursive value, within a 2 MiB stack in a
-  debug build), up from 200. The decoder's stack frames are smaller.
+  public `MAX_DECODE_DEPTH` (288 nested calls, about 70 levels of a recursive value, at most about 1.25 MiB of
+  stack in a debug build), up from 200. The decoder's stack frames are smaller.
 
 * Generic types (API-43), 0.3.0: `ItemStruct` and `ItemEnum` have `generics` (type and const parameters,
   `GenericParam` / `GenericParamKind`); a generic definition's fields use `Type::Param(idx)` and `Length::Param(idx)`,

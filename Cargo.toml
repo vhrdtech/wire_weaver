@@ -163,7 +163,7 @@ io_uart_api = { version = "0.1.0", path = "./tests/io_uart_api" }
 log_defmt_api = { version = "0.1.0", path = "./tests/log_defmt_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 module_paths_api = { version = "0.1.0", path = "./tests/module_paths_api" }
-motor_demo_api = { version = "0.2.0", path = "./examples/motor_demo_api" }
+motor_demo_api = { version = "0.3.0", path = "./examples/motor_demo_api" }
 motor_sim = { git = "https://github.com/vhrdtech/motor_sim", rev = "84fe370f105c1fb1575e4749ed0a76f5943f0169" }
 multi_req_api = { version = "0.1.0", path = "./tests/multi_req_api" }
 observe_api = { version = "0.1.0", path = "./tests/observe_api" }

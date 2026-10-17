@@ -1,67 +1,151 @@
 //! What a unit is: its SI dimension, how its values become coherent SI, and how it is written.
 
+use crate::SIExpr;
+use crate::expr::{self, Node, Show, Tree};
 use core::fmt;
+use shrink_wrap::prelude::*;
 
-/// SI base-unit exponents of a unit: s, m, kg, A, K, mol, cd. Volt is kg·m²·s⁻³·A⁻¹:
-/// `Dim { s: -3, m: 2, kg: 1, a: -1, ..Dim::ONE }`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+/// SI base-unit exponents of a unit: s, m, kg, A, K, mol, cd, each from -8 to 7. Volt is kg·m²·s⁻³·A⁻¹:
+/// `Dim::new(-3, 2, 1, -1, 0, 0, 0)`.
+///
+/// On the wire seven 4-bit signed numbers in that order, 28 bits (`sized`): Volt is `d2 1f 00 0`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq, Hash),
+    sized
+)]
 pub struct Dim {
-    pub s: i8,
-    pub m: i8,
-    pub kg: i8,
-    pub a: i8,
-    pub k: i8,
-    pub mol: i8,
-    pub cd: i8,
+    pub s: I4,
+    pub m: I4,
+    pub kg: I4,
+    pub a: I4,
+    pub k: I4,
+    pub mol: I4,
+    pub cd: I4,
+}
+
+/// An exponent in `const` code, a compile error (a panic at run time) when out of -8..=7.
+pub(crate) const fn exp(e: i8) -> I4 {
+    match I4::new(e) {
+        Some(e) => e,
+        None => panic!("SI exponent out of -8..=7"),
+    }
+}
+
+const fn checked_exp(e: i16) -> Option<I4> {
+    if e < i8::MIN as i16 || e > i8::MAX as i16 {
+        return None;
+    }
+    I4::new(e as i8)
 }
 
 impl Dim {
     /// Dimensionless: a ratio, an angle in radians.
-    pub const ONE: Dim = Dim {
-        s: 0,
-        m: 0,
-        kg: 0,
-        a: 0,
-        k: 0,
-        mol: 0,
-        cd: 0,
-    };
+    pub const ONE: Dim = Dim::new(0, 0, 0, 0, 0, 0, 0);
 
-    /// The dimension of a product: exponents added.
-    pub const fn mul(self, o: Dim) -> Dim {
+    /// From the exponents of s, m, kg, A, K, mol, cd. Panics (a compile error in `const` code) when one is out of
+    /// -8..=7, [checked_new](Self::checked_new) doesn't.
+    pub const fn new(s: i8, m: i8, kg: i8, a: i8, k: i8, mol: i8, cd: i8) -> Dim {
         Dim {
-            s: self.s + o.s,
-            m: self.m + o.m,
-            kg: self.kg + o.kg,
-            a: self.a + o.a,
-            k: self.k + o.k,
-            mol: self.mol + o.mol,
-            cd: self.cd + o.cd,
+            s: exp(s),
+            m: exp(m),
+            kg: exp(kg),
+            a: exp(a),
+            k: exp(k),
+            mol: exp(mol),
+            cd: exp(cd),
         }
     }
 
-    /// The dimension of a quotient: exponents subtracted.
+    /// From the exponents in the order of [new](Self::new), `None` when one is out of -8..=7.
+    pub const fn checked_new(exps: [i8; 7]) -> Option<Dim> {
+        let mut i = 0;
+        while i < 7 {
+            if I4::new(exps[i]).is_none() {
+                return None;
+            }
+            i += 1;
+        }
+        Some(Dim::new(
+            exps[0], exps[1], exps[2], exps[3], exps[4], exps[5], exps[6],
+        ))
+    }
+
+    /// The exponents of s, m, kg, A, K, mol, cd.
+    pub const fn exps(&self) -> [i8; 7] {
+        [
+            self.s.value(),
+            self.m.value(),
+            self.kg.value(),
+            self.a.value(),
+            self.k.value(),
+            self.mol.value(),
+            self.cd.value(),
+        ]
+    }
+
+    const fn combine(self, o: Dim, sign: i16, times: i16) -> Option<Dim> {
+        let a = self.exps();
+        let b = o.exps();
+        let mut out = [0i8; 7];
+        let mut i = 0;
+        while i < 7 {
+            match checked_exp(a[i] as i16 * times + sign * b[i] as i16) {
+                Some(e) => out[i] = e.value(),
+                None => return None,
+            }
+            i += 1;
+        }
+        Dim::checked_new(out)
+    }
+
+    /// The dimension of a product: exponents added. `None` when one leaves -8..=7.
+    pub const fn checked_mul(self, o: Dim) -> Option<Dim> {
+        self.combine(o, 1, 1)
+    }
+
+    /// The dimension of a quotient: exponents subtracted. `None` when one leaves -8..=7.
+    pub const fn checked_div(self, o: Dim) -> Option<Dim> {
+        self.combine(o, -1, 1)
+    }
+
+    /// The dimension of a power: exponents multiplied by `n`. `None` when one leaves -8..=7.
+    pub const fn checked_pow(self, n: i8) -> Option<Dim> {
+        self.combine(Dim::ONE, 0, n as i16)
+    }
+
+    /// The dimension of a product, for unit markers: panics (a compile error in `const` code) when an exponent leaves
+    /// -8..=7.
+    pub const fn mul(self, o: Dim) -> Dim {
+        match self.checked_mul(o) {
+            Some(d) => d,
+            None => panic!("SI exponent out of -8..=7"),
+        }
+    }
+
+    /// The dimension of a quotient, for unit markers: panics (a compile error in `const` code) when an exponent
+    /// leaves -8..=7.
     pub const fn div(self, o: Dim) -> Dim {
-        Dim {
-            s: self.s - o.s,
-            m: self.m - o.m,
-            kg: self.kg - o.kg,
-            a: self.a - o.a,
-            k: self.k - o.k,
-            mol: self.mol - o.mol,
-            cd: self.cd - o.cd,
+        match self.checked_div(o) {
+            Some(d) => d,
+            None => panic!("SI exponent out of -8..=7"),
         }
     }
 
     /// `==` in `const` code.
     pub const fn same(self, o: Dim) -> bool {
-        self.s == o.s
-            && self.m == o.m
-            && self.kg == o.kg
-            && self.a == o.a
-            && self.k == o.k
-            && self.mol == o.mol
-            && self.cd == o.cd
+        let a = self.exps();
+        let b = o.exps();
+        let mut i = 0;
+        while i < 7 {
+            if a[i] != b[i] {
+                return false;
+            }
+            i += 1;
+        }
+        true
     }
 }
 
@@ -69,13 +153,13 @@ impl Dim {
 impl fmt::Display for Dim {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let parts = [
-            ("kg", self.kg),
-            ("m", self.m),
-            ("s", self.s),
-            ("A", self.a),
-            ("K", self.k),
-            ("mol", self.mol),
-            ("cd", self.cd),
+            ("kg", self.kg.value()),
+            ("m", self.m.value()),
+            ("s", self.s.value()),
+            ("A", self.a.value()),
+            ("K", self.k.value()),
+            ("mol", self.mol.value()),
+            ("cd", self.cd.value()),
         ];
         let mut first = true;
         for (symbol, exp) in parts {
@@ -98,7 +182,7 @@ impl fmt::Display for Dim {
     }
 }
 
-fn write_superscript(f: &mut fmt::Formatter<'_>, exp: i8) -> fmt::Result {
+pub(crate) fn write_superscript(f: &mut fmt::Formatter<'_>, exp: i8) -> fmt::Result {
     const DIGITS: [&str; 10] = ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"];
     if exp < 0 {
         f.write_str("⁻")?;
@@ -114,7 +198,17 @@ fn write_superscript(f: &mut fmt::Formatter<'_>, exp: i8) -> fmt::Result {
 }
 
 /// How a value in a unit becomes coherent SI (the unit of [Dim] with no factor): `si = value · factor + offset`.
-#[derive(Copy, Clone, Debug, PartialEq)]
+///
+/// On the wire a nibble for the variant and its numbers: `Coherent` is `0`, `Pow10(-3)` is `1` and `fd`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq),
+    ww_repr = u4,
+    // part of a unit's description: a reader can't convert with a scale it doesn't know
+    no_future_version
+)]
 pub enum Scale {
     /// The unit is coherent SI: V, A, N·m, rad.
     Coherent,
@@ -161,6 +255,8 @@ pub enum UnitExpr {
     },
     Mul(&'static UnitExpr, &'static UnitExpr),
     Div(&'static UnitExpr, &'static UnitExpr),
+    /// A unit to an integer power: m³ as `Pow(Meter, 3)`. No marker of this crate is one, a user's marker can be.
+    Pow(&'static UnitExpr, i8),
 }
 
 impl UnitExpr {
@@ -170,6 +266,10 @@ impl UnitExpr {
             UnitExpr::Named { dim, .. } => *dim,
             UnitExpr::Mul(a, b) => a.dim().mul(b.dim()),
             UnitExpr::Div(a, b) => a.dim().div(b.dim()),
+            UnitExpr::Pow(a, n) => match a.dim().checked_pow(*n) {
+                Some(d) => d,
+                None => panic!("SI exponent out of -8..=7"),
+            },
         }
     }
 
@@ -179,6 +279,7 @@ impl UnitExpr {
             UnitExpr::Named { scale, .. } => scale.factor(),
             UnitExpr::Mul(a, b) => a.factor() * b.factor(),
             UnitExpr::Div(a, b) => a.factor() / b.factor(),
+            UnitExpr::Pow(a, n) => crate::ops::powi_f64(a.factor(), *n),
         }
     }
 
@@ -195,6 +296,7 @@ impl UnitExpr {
         match self {
             UnitExpr::Named { scale, .. } => matches!(scale, Scale::Affine { .. }),
             UnitExpr::Mul(a, b) | UnitExpr::Div(a, b) => a.has_offset() || b.has_offset(),
+            UnitExpr::Pow(a, _) => a.has_offset(),
         }
     }
 
@@ -205,53 +307,35 @@ impl UnitExpr {
 
     /// The type name: `Volt`, `Per<Torque, AngularVelocity>`.
     pub fn name(&self) -> impl fmt::Display + '_ {
-        UnitName(self)
+        Show(self, |e, f, depth| expr::write_name(&e, f, depth))
     }
+}
 
-    /// Needs parentheses when it stands next to `·` or `/`.
-    fn is_compound(&self) -> bool {
-        match self {
-            UnitExpr::Named { symbol, .. } => symbol.contains(['/', '·']),
-            _ => true,
-        }
+impl Tree for &UnitExpr {
+    fn node(&self) -> Option<Node<'_, Self>> {
+        Some(match **self {
+            UnitExpr::Named {
+                name,
+                symbol,
+                dim,
+                scale,
+            } => Node::Named {
+                name,
+                symbol,
+                dim,
+                scale,
+            },
+            UnitExpr::Mul(a, b) => Node::Mul(a, b),
+            UnitExpr::Div(a, b) => Node::Div(a, b),
+            UnitExpr::Pow(a, n) => Node::Pow(a, n),
+        })
     }
 }
 
 /// The symbol: `V`, `N·m/(rad/s)`, `(rad/s)·(rad/s)`.
 impl fmt::Display for UnitExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn side(f: &mut fmt::Formatter<'_>, e: &UnitExpr, parens: bool) -> fmt::Result {
-            if parens {
-                write!(f, "({e})")
-            } else {
-                write!(f, "{e}")
-            }
-        }
-        match self {
-            UnitExpr::Named { symbol, .. } => f.write_str(symbol),
-            UnitExpr::Mul(a, b) => {
-                side(f, a, a.is_compound() && !matches!(a, UnitExpr::Mul(..)))?;
-                f.write_str("·")?;
-                side(f, b, b.is_compound() && !matches!(b, UnitExpr::Mul(..)))
-            }
-            UnitExpr::Div(a, b) => {
-                side(f, a, matches!(a, UnitExpr::Div(..)))?;
-                f.write_str("/")?;
-                side(f, b, b.is_compound())
-            }
-        }
-    }
-}
-
-struct UnitName<'a>(&'a UnitExpr);
-
-impl fmt::Display for UnitName<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0 {
-            UnitExpr::Named { name, .. } => f.write_str(name),
-            UnitExpr::Mul(a, b) => write!(f, "Times<{}, {}>", a.name(), b.name()),
-            UnitExpr::Div(a, b) => write!(f, "Per<{}, {}>", a.name(), b.name()),
-        }
+        expr::write_symbol(&self, f, 0)
     }
 }
 
@@ -266,7 +350,7 @@ impl fmt::Display for UnitName<'_> {
 /// pub struct Rpm;
 ///
 /// impl Unit for Rpm {
-///     const DIM: Dim = Dim { s: -1, ..Dim::ONE };
+///     const DIM: Dim = Dim::new(-1, 0, 0, 0, 0, 0, 0);
 ///     const EXPR: &'static UnitExpr = &UnitExpr::Named {
 ///         name: "Rpm",
 ///         symbol: "rpm",
@@ -284,6 +368,9 @@ pub trait Unit: Copy + Default + 'static {
     const DIM: Dim;
     /// Name, symbol and scale, or the tree of a compound unit.
     const EXPR: &'static UnitExpr;
+    /// The same unit as it goes on the wire in an [AnyQuantity](crate::AnyQuantity). Made from [EXPR](Self::EXPR)
+    /// for a named unit; a compound marker of its own (not `Per` / `Times`) writes its tree here too.
+    const SI_EXPR: &'static SIExpr<'static> = &SIExpr::named(Self::EXPR);
 }
 
 /// `Self · R` is a `Self::Output`: filled in by this crate's product table (`Volt · Ampere = Watt`), and for any unit

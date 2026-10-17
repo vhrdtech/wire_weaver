@@ -19,6 +19,17 @@ pub(crate) const fn pow10_f64(exp: i8) -> f64 {
     if exp < 0 { 1.0 / x } else { x }
 }
 
+/// `x^n` in `const` code (for [UnitExpr::Pow](crate::UnitExpr::Pow)).
+pub(crate) const fn powi_f64(x: f64, n: i8) -> f64 {
+    let mut y = 1.0;
+    let mut i = 0;
+    while i < n.unsigned_abs() {
+        y *= x;
+        i += 1;
+    }
+    if n < 0 { 1.0 / y } else { y }
+}
+
 /// `x * 10^exp`, for the powers prefixes have (-60..=60 between two of them).
 pub(crate) fn scale_f64(x: f64, exp: i8) -> f64 {
     let mut x = x;

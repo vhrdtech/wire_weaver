@@ -1,5 +1,6 @@
 //! Constructors, conversions, comparisons and formatting, written once for every [Quantity].
 
+use crate::expr::{Tree, write_unit};
 use crate::ops::{compare, scale_f32, scale_f64, to_i128_scaled};
 use crate::unit::{Unit, UnitExpr};
 use crate::{Prefix, Quantity};
@@ -190,40 +191,30 @@ pub(crate) fn fmt_number(value: &NumericValue, f: &mut fmt::Formatter<'_>) -> fm
     }
 }
 
-/// The prefix and the unit's symbol, as written after the number: `mV`, `kg`, `%` for a ratio in `Centi`.
-fn fmt_unit(prefix: Prefix, unit: &UnitExpr, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let dimensionless = matches!(unit, UnitExpr::Named { symbol: "", .. });
-    if dimensionless {
-        return match prefix {
-            Prefix::Unit => Ok(()),
-            Prefix::Centi => f.write_str(" %"),
-            Prefix::Milli => f.write_str(" ‰"),
-            Prefix::Micro => f.write_str(" ppm"),
-            p => write!(f, "e{}", i8::from(p)),
-        };
-    }
-    let compound = !matches!(unit, UnitExpr::Named { .. });
-    match (prefix, compound) {
-        (Prefix::Unit, _) => write!(f, " {unit}"),
-        (p, false) => write!(f, " {}{unit}", p.symbol()),
-        (p, true) => write!(f, " {}({unit})", p.symbol()),
-    }
-}
-
 /// `3300 mV`, the number as stored with its prefix; `{:#}` writes it in the unit itself: `3.3 V`.
 impl<U: Unit> fmt::Display for Quantity<U> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if f.alternate() {
-            match self.value {
-                #[cfg(feature = "f32")]
-                NumericValue::F32(_) => write!(f, "{}", self.to_f32())?,
-                _ => write!(f, "{}", self.to_f64())?,
-            }
-            fmt_unit(Prefix::Unit, U::EXPR, f)
-        } else {
-            fmt_number(&self.value, f)?;
-            fmt_unit(self.prefix, U::EXPR, f)
+        fmt_value(self.prefix, &self.value, &U::EXPR, f)
+    }
+}
+
+/// `Display` of a quantity, typed or not.
+pub(crate) fn fmt_value<E: Tree>(
+    prefix: Prefix,
+    value: &NumericValue,
+    unit: &E,
+    f: &mut fmt::Formatter<'_>,
+) -> fmt::Result {
+    if f.alternate() {
+        match *value {
+            #[cfg(feature = "f32")]
+            NumericValue::F32(x) => write!(f, "{}", scale_f32(x, prefix.into()))?,
+            _ => write!(f, "{}", scale_f64(value.to_f64(), prefix.into()))?,
         }
+        write_unit(Prefix::Unit, unit, f)
+    } else {
+        fmt_number(value, f)?;
+        write_unit(prefix, unit, f)
     }
 }
 
@@ -232,7 +223,7 @@ impl<U: Unit> fmt::Debug for Quantity<U> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}(", U::EXPR.name())?;
         fmt_number(&self.value, f)?;
-        fmt_unit(self.prefix, U::EXPR, f)?;
+        write_unit(self.prefix, &U::EXPR, f)?;
         write!(f, " {:?})", self.value.ty())
     }
 }
@@ -281,6 +272,7 @@ impl defmt::Format for DefmtName {
             UnitExpr::Named { symbol, .. } => defmt::write!(f, "{=str}", symbol),
             UnitExpr::Mul(a, b) => defmt::write!(f, "({}·{})", DefmtName(a), DefmtName(b)),
             UnitExpr::Div(a, b) => defmt::write!(f, "({}/{})", DefmtName(a), DefmtName(b)),
+            UnitExpr::Pow(a, n) => defmt::write!(f, "({}^{=i8})", DefmtName(a), n),
         }
     }
 }

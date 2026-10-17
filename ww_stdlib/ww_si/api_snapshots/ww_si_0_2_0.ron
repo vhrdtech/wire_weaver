@@ -16,13 +16,6 @@
     "",
     "A value with the time it was taken is a [Timed] (feature `time`).",
 ], crate_idx: 0, trait_name: "ww_si", items: []), types: [
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Time in seconds, s.",
-        "",
-        "As a device timestamp it is the device\'s time since its clock started, see [Second](crate::Second).",
-    ], ident: "Second", generics: [], fields: Unit, sparse: false, path: Some([
-        "units",
-    ]))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "Prefix", generics: [], variants: [
         (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Milli", fields: Unit, discriminant: 1, since: None),
@@ -60,6 +53,110 @@
         130,
         181,
     ]),
+    InLine(ty: Struct((size: Sized(size_bits: 0), crate_idx: 0, docs: [
+        "SI base-unit exponents of a unit: s, m, kg, A, K, mol, cd, each from -8 to 7. Volt is kg·m²·s⁻³·A⁻¹:",
+        "`Dim::new(-3, 2, 1, -1, 0, 0, 0)`.",
+        "",
+        "On the wire seven 4-bit signed numbers in that order, 28 bits (`sized`): Volt is `d2 1f 00 0`.",
+    ], ident: "Dim", generics: [], fields: Named([
+        (ident: Some("s"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("m"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("kg"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("a"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("k"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mol"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("cd"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "How a value in a unit becomes coherent SI (the unit of [Dim] with no factor): `si = value · factor + offset`.",
+        "",
+        "On the wire a nibble for the variant and its numbers: `Coherent` is `0`, `Pow10(-3)` is `1` and `fd`.",
+    ], ident: "Scale", generics: [], variants: [
+        (docs: [
+            "The unit is coherent SI: V, A, N·m, rad.",
+        ], ident: "Coherent", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "A power of ten: g is 10⁻³ kg, L is 10⁻³ m³.",
+        ], ident: "Pow10", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Any factor: ° is π/180 rad, eV is 1.602176634·10⁻¹⁹ J.",
+        ], ident: "Factor", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "A factor and an offset: °C is K − 273.15, `Affine { factor: 1.0, offset: 273.15 }`.",
+        ], ident: "Affine", fields: Named([
+            (ident: Some("factor"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 3, since: None),
+    ], path: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "A unit as a tree, on the wire: what [UnitExpr] is for a unit known from a type, for a unit known only at run time",
+        "(a configurable sensor channel, an ADC input whose unit is set by a jumper). A type-level unit maps one to one onto",
+        "an `SIExpr` ([Unit::SI_EXPR], [SIExpr::named]), so a dynamic client shows both the same way.",
+        "",
+        "Children are [RefBox]es: decoding an `SIExpr` reads only its top node, the rest is decoded when walked. Every",
+        "walk stops at [MAX_UNIT_DEPTH](crate::MAX_UNIT_DEPTH) levels.",
+        "",
+        "On the wire a nibble for the variant, then its fields: `Volt` is the name, the symbol, its [Dim] and [Scale].",
+    ], ident: "SIExpr", generics: [], variants: [
+        (docs: [
+            "A named unit: `name` is the marker\'s (`\"Volt\"`, a device\'s own `\"Rpm\"`), `symbol` as written after a number.",
+        ], ident: "Named", fields: Named([
+            (ident: Some("name"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
+            (ident: Some("symbol"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
+            (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "`A · B`, [Times](crate::units::Times).",
+        ], ident: "Mul", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 4)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 4)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "`A / B`, [Per](crate::units::Per).",
+        ], ident: "Div", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 4)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 4)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "`A` to an integer power.",
+        ], ident: "Pow", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 4)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 3, since: None),
+    ], path: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A value whose unit is only known at run time: a prefix, a number in whatever storage the device picks, and the",
+        "unit as an [SIExpr]. Shown, compared to SI and converted like a [Quantity] of the same unit; a typed quantity",
+        "becomes one with `From`, and back with [to_quantity](Self::to_quantity).",
+        "",
+        "On the wire the prefix, the value with its number type, and the unit: `3300 mV` is `12 e4 0c` (as `Volt`) and",
+        "then the `SIExpr` of `Volt`.",
+        "",
+        "```",
+        "use ww_si::{AnyQuantity, Volt};",
+        "",
+        "let v = AnyQuantity::from(Volt::milli(3300u16));",
+        "assert_eq!(format!(\"{v}\"), \"3300 mV\");",
+        "assert_eq!(format!(\"{v:#}\"), \"3.3 V\");",
+        "assert_eq!(v.to_quantity::<ww_si::units::Volt>(), Some(Volt::milli(3300u16)));",
+        "```",
+    ], ident: "AnyQuantity", generics: [], fields: Named([
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
+        (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Time in seconds, s.",
+        "",
+        "As a device timestamp it is the device\'s time since its clock started, see [Second](crate::Second).",
+    ], ident: "Second", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]))), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value of the unit `U`: a prefix and a number in whatever storage the device picks. The unit is only in the type,",
         "it takes no space on the wire or in RAM; `Quantity<units::Volt>` is written [Volt].",
@@ -97,8 +194,8 @@
     ], ident: "Quantity", generics: [
         (ident: "U", kind: Type),
     ], fields: Named([
-        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value with the time it was taken: a sample of a property, an item of a stream (`Timed<Ampere>`,",
@@ -113,8 +210,8 @@
     ], ident: "Timed", generics: [
         (ident: "T", kind: Type),
     ], fields: Named([
-        (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 0)),
+        (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 7, args: [
+            Type(OutOfLine(type_idx: 6)),
         ]), docs: [
             "When `value` was taken, device time.",
         ], slot: None, series_opaque: false),
@@ -359,12 +456,12 @@
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A level in decibels, dB, without a prefix (a logarithm, not a [Ratio]).",
     ], ident: "DeciBel", generics: [], fields: Named([
-        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A power level in decibels relative to 1 mW, dBm, without a prefix.",
     ], ident: "DeciBelmW", generics: [], fields: Named([
-        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A signed SI exponent in a nibble, offset by 3. To be replaced by STD-37 (its serdes are not written yet).",
@@ -374,16 +471,16 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "SI exponents of a [BaseUnit::Named]. To be replaced by STD-37 (its serdes are not written yet).",
     ], ident: "SIExp", generics: [], fields: Named([
-        (ident: Some("second"), default: None, since: None, ty: OutOfLine(type_idx: 52), docs: [], slot: None, series_opaque: false),
-        (ident: Some("meter"), default: None, since: None, ty: OutOfLine(type_idx: 52), docs: [], slot: None, series_opaque: false),
-        (ident: Some("kilogram"), default: None, since: None, ty: OutOfLine(type_idx: 52), docs: [], slot: None, series_opaque: false),
-        (ident: Some("ampere"), default: None, since: None, ty: OutOfLine(type_idx: 52), docs: [], slot: None, series_opaque: false),
+        (ident: Some("second"), default: None, since: None, ty: OutOfLine(type_idx: 56), docs: [], slot: None, series_opaque: false),
+        (ident: Some("meter"), default: None, since: None, ty: OutOfLine(type_idx: 56), docs: [], slot: None, series_opaque: false),
+        (ident: Some("kilogram"), default: None, since: None, ty: OutOfLine(type_idx: 56), docs: [], slot: None, series_opaque: false),
+        (ident: Some("ampere"), default: None, since: None, ty: OutOfLine(type_idx: 56), docs: [], slot: None, series_opaque: false),
         (ident: Some("candela"), default: None, since: None, ty: Flag, docs: [], slot: None, series_opaque: false),
         (ident: Some("mole"), default: None, since: None, ty: Flag, docs: [], slot: None, series_opaque: false),
         (ident: Some("kelvin"), default: None, since: None, ty: Flag, docs: [], slot: None, series_opaque: false),
-        (ident: Some("kelvin"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 52)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("mole"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 52)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("candela"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 52)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("kelvin"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 56)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mole"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 56)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("candela"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 56)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Enum((size: UnsizedFinalStructure, repr: UNib32, crate_idx: 0, docs: [
         "A unit known only at run time (`ww_adc::ChannelInfo::unit`). To be replaced by STD-37.",
@@ -421,7 +518,7 @@
         (docs: [], ident: "Named", fields: Named([
             (ident: Some("name"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
             (ident: Some("symbol"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
-            (ident: Some("exp"), default: None, since: None, ty: OutOfLine(type_idx: 53), docs: [], slot: None, series_opaque: false),
+            (ident: Some("exp"), default: None, since: None, ty: OutOfLine(type_idx: 57), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 30, since: None),
     ], path: None)), crate_idx: 0),
 ], traits: [], ext_crates: [

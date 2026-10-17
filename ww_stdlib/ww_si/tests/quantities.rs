@@ -166,16 +166,8 @@ fn display_and_debug() {
 
 #[test]
 fn units_and_dimensions() {
-    assert_eq!(
-        Volt::unit().dim(),
-        Dim {
-            kg: 1,
-            m: 2,
-            s: -3,
-            a: -1,
-            ..Dim::ONE
-        }
-    );
+    assert_eq!(Volt::unit().dim(), Dim::new(-3, 2, 1, -1, 0, 0, 0));
+    assert_eq!(Volt::unit().dim().exps(), [-3, 2, 1, -1, 0, 0, 0]);
     assert_eq!(Volt::unit().dim().to_string(), "kg·m²·s⁻³·A⁻¹");
     assert_eq!(Ratio::unit().dim().to_string(), "1");
     let fan = <Per<units::Torque, Times<units::AngularVelocity, units::AngularVelocity>> as ww_si::Unit>::DIM;

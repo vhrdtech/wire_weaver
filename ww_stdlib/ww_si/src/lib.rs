@@ -15,6 +15,12 @@
 //! A value with the time it was taken is a [Timed] (feature `time`).
 
 mod algebra;
+mod dynamic;
+mod expr;
+pub use dynamic::{AnyQuantity, SIExpr};
+#[cfg(feature = "std")]
+pub use dynamic::{AnyQuantityOwned, SIExprOwned};
+pub use expr::MAX_UNIT_DEPTH;
 mod ops;
 mod quantity;
 #[cfg(feature = "time")]

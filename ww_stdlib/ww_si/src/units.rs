@@ -8,9 +8,11 @@
 //! The markers are literal structs, so the snapshot of this crate holds them with their docs; their [Unit] impls come
 //! from one table below, the `SI:` dimension of each line is checked against the product table at compile time.
 
+use crate::SIExpr;
 #[allow(unused_imports)] // `Scale` with no quantity group enabled
 use crate::unit::{Dim, Scale, Unit, UnitExpr};
 use core::marker::PhantomData;
+use shrink_wrap::RefBox;
 
 // Time
 
@@ -276,11 +278,19 @@ pub struct Times<A, B> {
 impl<A: Unit, B: Unit> Unit for Per<A, B> {
     const DIM: Dim = A::DIM.div(B::DIM);
     const EXPR: &'static UnitExpr = &UnitExpr::Div(A::EXPR, B::EXPR);
+    const SI_EXPR: &'static SIExpr<'static> = &SIExpr::Div(
+        RefBox::Ref { value: A::SI_EXPR },
+        RefBox::Ref { value: B::SI_EXPR },
+    );
 }
 
 impl<A: Unit, B: Unit> Unit for Times<A, B> {
     const DIM: Dim = A::DIM.mul(B::DIM);
     const EXPR: &'static UnitExpr = &UnitExpr::Mul(A::EXPR, B::EXPR);
+    const SI_EXPR: &'static SIExpr<'static> = &SIExpr::Mul(
+        RefBox::Ref { value: A::SI_EXPR },
+        RefBox::Ref { value: B::SI_EXPR },
+    );
 }
 
 /// `impl Unit` for each marker, and [ALL] from the same lines.
@@ -289,7 +299,12 @@ macro_rules! units {
         $(
             #[cfg(feature = $feature)]
             impl Unit for $ty {
-                const DIM: Dim = Dim { $($d: $e,)* ..Dim::ONE };
+                const DIM: Dim = {
+                    #[allow(unused_mut)]
+                    let mut dim = Dim::ONE;
+                    $(dim.$d = crate::unit::exp($e);)*
+                    dim
+                };
                 const EXPR: &'static UnitExpr = &UnitExpr::Named {
                     name: stringify!($ty),
                     symbol: $symbol,

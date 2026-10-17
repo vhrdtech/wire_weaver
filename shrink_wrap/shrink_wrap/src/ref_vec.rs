@@ -329,7 +329,12 @@ mod tests {
         let long = RefVec::Slice { slice: &b[..] };
         assert!(short != long && long != short);
         assert!(RefVec::<u16>::Slice { slice: &[] } != short);
-        assert!(short == RefVec::Slice { slice: &[1u16, 2][..] });
+        assert!(
+            short
+                == RefVec::Slice {
+                    slice: &[1u16, 2][..]
+                }
+        );
     }
 
     #[test]

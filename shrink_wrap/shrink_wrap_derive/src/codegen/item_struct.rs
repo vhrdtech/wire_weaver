@@ -31,9 +31,22 @@ pub(crate) struct CGItemStruct<'i> {
     /// generic, even on its "borrowed" (`is_ref: true`) side.
     pub(crate) ambiguous: bool,
     pub(crate) crate_path: &'i CratePath,
+    /// Type parameters of the struct (DER-14), bounds as written.
+    pub(crate) type_params: &'i [syn::TypeParam],
 }
 
 impl<'i> CGItemStruct<'i> {
+    /// `<'i, T: Bound>` of the definition: the lifetime on the borrowed side, the type parameters with their bounds.
+    fn def_generics(&self, is_ref: bool) -> TokenStream {
+        let lifetime = (is_ref && !self.ambiguous).then(|| quote! { 'i });
+        let params = self.type_params.iter();
+        let all: Vec<TokenStream> = lifetime
+            .into_iter()
+            .chain(params.map(|p| quote! { #p }))
+            .collect();
+        maybe_quote(!all.is_empty(), || quote! { <#(#all),*> })
+    }
+
     pub(crate) fn def_rust(&self, is_ref: bool) -> TokenStream {
         let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
         let docs = &self.docs;
@@ -54,19 +67,27 @@ impl<'i> CGItemStruct<'i> {
             StructKind::Tuple => quote! { ( #fields ); },
             StructKind::Unit => quote! { ; },
         };
-        let lifetime = maybe_quote(is_ref && !self.ambiguous, || quote! { <'i> });
-        let assert_size = if let Some(size) = &self.size_assumption {
+        let lifetime = self.def_generics(is_ref);
+        // a const assert outside an impl can't name a generic type: the size it checks is the parameters'
+        let generic = !self.type_params.is_empty();
+        let assert_size = if generic {
+            quote! {}
+        } else if let Some(size) = &self.size_assumption {
             size.assert_element_size(self.ident, self.cfg, is_ref, quote! {}, "", self.crate_path)
         } else {
             quote! {}
         };
-        let assert_tail_size = assert_sized_before_tail_size(
-            &self.fields.iter().map(|f| &f.ty).collect::<Vec<_>>(),
-            self.ident,
-            self.cfg,
-            is_ref,
-            self.crate_path,
-        );
+        let assert_tail_size = if generic {
+            quote! {}
+        } else {
+            assert_sized_before_tail_size(
+                &self.fields.iter().map(|f| &f.ty).collect::<Vec<_>>(),
+                self.ident,
+                self.cfg,
+                is_ref,
+                self.crate_path,
+            )
+        };
         let ts = quote! {
             #cfg
             #docs
@@ -102,6 +123,7 @@ impl<'i> CGItemStruct<'i> {
         };
         serdes_scaffold(
             struct_name,
+            self.type_params,
             struct_ser,
             struct_des,
             self.cfg,
@@ -161,6 +183,7 @@ impl<'i> CGItemStruct<'i> {
         };
         serdes_scaffold(
             struct_name,
+            self.type_params,
             ser,
             des,
             self.cfg,

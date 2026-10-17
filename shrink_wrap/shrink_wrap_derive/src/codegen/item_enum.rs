@@ -341,6 +341,7 @@ impl<'i> CGItemEnum<'i> {
         let element_size = self.element_size(is_ref);
         serdes_scaffold(
             enum_name,
+            &[],
             enum_ser,
             enum_des,
             self.cfg,

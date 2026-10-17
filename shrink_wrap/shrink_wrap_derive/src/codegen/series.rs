@@ -7,13 +7,15 @@
 use crate::ast::item_enum::{Fields, Variant};
 use crate::ast::item_struct::Field;
 use crate::ast::ty::Type;
-use crate::codegen::util::{CratePath, maybe_quote};
+use crate::codegen::util::{CratePath, impl_params, maybe_quote, ty_generics};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
 /// What both impls need to know about the type.
 pub(crate) struct SeriesSeed<'a> {
     pub(crate) ident: &'a Ident,
+    /// A struct's type parameters (DER-14): each needs `SeriesColumns<'i>`.
+    pub(crate) type_params: &'a [syn::TypeParam],
     /// The type has a `<'i>` of its own.
     pub(crate) has_lifetime: bool,
     /// Borrowed side: opaque fields go through `SerializeShrinkWrap` / `DeserializeShrinkWrap<'i>`, else the owned
@@ -66,8 +68,15 @@ impl SeriesSeed<'_> {
         self.cp.item(quote! { series::#name })
     }
 
+    /// `<'i, T>` after the type's name.
     fn lifetime(&self) -> TokenStream {
-        maybe_quote(self.has_lifetime, || quote! { <'i> })
+        ty_generics(self.has_lifetime, self.type_params)
+    }
+
+    /// `T: SeriesColumns<'i>, ..` of the impl.
+    fn impl_params(&self) -> TokenStream {
+        let trait_ = self.sc(quote! { SeriesColumns });
+        impl_params(self.type_params, quote! { #trait_<'i> })
     }
 
     fn fields<'f>(
@@ -308,9 +317,10 @@ impl SeriesSeed<'_> {
         });
         let members = fields.iter().map(|f| &f.member);
 
+        let params = self.impl_params();
         Ok(quote! {
             #cfg
-            impl<'i> #trait_<'i> for #ident #lifetime {
+            impl<'i, #params> #trait_<'i> for #ident #lifetime {
                 type Reader = (#sibling_tags<#n>, (#(Option<#readers>,)*));
 
                 fn write_group<'a, I, S>(

@@ -21,13 +21,25 @@ enum NumericValue {
     I32(i32) = 6,
 }
 
-#[derive_shrink_wrap(borrowed, owned, series, final_structure, derive(Clone, Copy, Debug, PartialEq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    series,
+    final_structure,
+    derive(Clone, Copy, Debug, PartialEq)
+)]
 struct Volt {
     prefix: Prefix,
     value: NumericValue,
 }
 
-#[derive_shrink_wrap(borrowed, owned, series, final_structure, derive(Clone, Copy, Debug, PartialEq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    series,
+    final_structure,
+    derive(Clone, Copy, Debug, PartialEq)
+)]
 struct Ampere {
     prefix: Prefix,
     value: NumericValue,
@@ -129,7 +141,13 @@ fn enum_variants() {
 
 /// A field after an enum field restarts its column where the enum changed, in a struct and in a variant: with the
 /// delta + prefix code a restart is a full value, a delta across it a long residual.
-#[derive_shrink_wrap(borrowed, owned, series, final_structure, derive(Clone, Copy, Debug, PartialEq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    series,
+    final_structure,
+    derive(Clone, Copy, Debug, PartialEq)
+)]
 struct Scaled {
     prefix: Prefix,
     value: i32,
@@ -164,7 +182,12 @@ fn restarts_after_enum_fields() {
         .to_ww_bytes_owned()
         .unwrap();
     assert_eq!(bytes.len(), 13);
-    assert_eq!(SeriesOwned::<Scaled>::from_ww_bytes_owned(&bytes).unwrap().0, items);
+    assert_eq!(
+        SeriesOwned::<Scaled>::from_ww_bytes_owned(&bytes)
+            .unwrap()
+            .0,
+        items
+    );
 
     // the same inside a tuple variant: `Reading(prefix, value, _)`
     let events = [
@@ -176,7 +199,10 @@ fn restarts_after_enum_fields() {
     let with = Series::with_policy(&events, delta_prefix)
         .to_ww_bytes_owned()
         .unwrap();
-    let back: Vec<Event> = Series::<Event>::from_ww_bytes(&with).unwrap().iter().collect();
+    let back: Vec<Event> = Series::<Event>::from_ww_bytes(&with)
+        .unwrap()
+        .iter()
+        .collect();
     assert_eq!(back, events);
     // n 4, tag run 4 + 1, prefix run 14, value column 4 + 32 + 9 + 32 + 9, bool run 1 + 1: 111 bits
     assert_eq!(with.len(), 14);
@@ -228,7 +254,13 @@ fn nested_user_types() {
 
 /// `#[series(opaque)]`: a list of structs and a `Result` as opaque runs, in a nested evolvable struct (its group
 /// length is measured by serializing the values into the writer's free space).
-#[derive_shrink_wrap(borrowed, owned, series, final_structure, derive(Clone, Copy, Debug, PartialEq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    series,
+    final_structure,
+    derive(Clone, Copy, Debug, PartialEq)
+)]
 struct Point {
     x: i16,
     y: i16,
@@ -289,7 +321,14 @@ fn opaque_fields() {
     );
     let back = Series::<Tracks>::from_ww_bytes(&bytes).unwrap();
     for (a, b) in back.iter().zip(&owned) {
-        assert_eq!(a.track.points.iter().collect::<Result<Vec<_>, _>>().unwrap(), b.track.points);
+        assert_eq!(
+            a.track
+                .points
+                .iter()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
+            b.track.points
+        );
         assert_eq!(a.track.status, b.track.status);
     }
 
@@ -356,4 +395,48 @@ fn owned_only_and_unit() {
             marker: Marker,
         },
     ]);
+}
+
+/// A generic struct (DER-14) around a derived one: `Timed<IvSample>`, the time column first.
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    series,
+    final_structure,
+    derive(Clone, Copy, Debug, PartialEq)
+)]
+struct Timed<T> {
+    t: u32,
+    value: T,
+}
+
+#[test]
+fn generic_timed() {
+    let items: Vec<Timed<IvSample>> = (0..50u32)
+        .map(|k| Timed {
+            t: 1_000_000 + k * 1000,
+            value: IvSample {
+                v: Volt {
+                    prefix: Prefix::Milli,
+                    value: NumericValue::U16(3300 + (k % 3) as u16),
+                },
+                i: Ampere {
+                    prefix: Prefix::Micro,
+                    value: NumericValue::I32(152_000 - k as i32),
+                },
+            },
+        })
+        .collect();
+    let bytes = round_trip(&items);
+    // a regular clock is a constant delta: n, the header, the first time and the step
+    let plain = items.len() * 4;
+    let untimed: Vec<IvSample> = items.iter().map(|t| t.value).collect();
+    let without = Series::new(&untimed).to_ww_bytes_owned().unwrap();
+    assert!(
+        bytes.len() < without.len() + 9,
+        "{} vs {}",
+        bytes.len(),
+        without.len()
+    );
+    assert!(bytes.len() < plain);
 }

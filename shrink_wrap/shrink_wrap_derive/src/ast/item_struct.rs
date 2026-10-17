@@ -16,6 +16,8 @@ pub(crate) struct ItemStruct {
     pub(crate) sparse_slots: Option<Vec<u32>>,
     /// `struct S { a: u8 }`, `struct S(u8);` or `struct S;` (SW-59).
     pub(crate) kind: StructKind,
+    /// `struct Timed<T> { .. }` (DER-14): type parameters, bounds as written.
+    pub(crate) type_params: Vec<syn::TypeParam>,
 }
 
 /// How a struct's fields are written in Rust (SW-59). The wire format is the same: fields in order. A tuple struct's

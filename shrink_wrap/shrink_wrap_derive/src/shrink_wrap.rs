@@ -91,6 +91,7 @@ fn generate_inner(
     }
     check_fieldless_struct_args(&item, &args)?;
     check_series_args(&item, &args)?;
+    check_type_params_args(&item, &args)?;
     if args.validate.is_some()
         && (!matches!(item, Item::Struct(_)) || args.sparse || args.fixed_layout || args.head_tail)
     {
@@ -244,7 +245,7 @@ fn generate_inner(
                 }
                 ts.append_all(cg_item_enum.impl_common(true)?);
                 if args.series {
-                    ts.append_all(borrowed.series_seed(true).series_enum(
+                    ts.append_all(borrowed.series_seed(true, &[]).series_enum(
                         &ww_item_enum.variants,
                         future_version_ident(&ww_item_enum),
                     )?);
@@ -267,7 +268,7 @@ fn generate_inner(
                 if !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
                     ts.append_all(cg_item_enum.impl_common(false)?);
                     if args.series {
-                        ts.append_all(owned.series_seed(false).series_enum(
+                        ts.append_all(owned.series_seed(false, &[]).series_enum(
                             &ww_item_enum.variants,
                             future_version_ident(&ww_item_enum),
                         )?);
@@ -301,7 +302,8 @@ fn generate_inner(
                 false,
             );
 
-            if fixed_struct {
+            // a generic struct's layout depends on its parameters (DER-14)
+            if fixed_struct && ww_item_struct.type_params.is_empty() {
                 for ident in fixed_idents(&generate_borrowed, &generate_owned, ty_kind) {
                     if let Some(fast) = fixed_layout::fixed_struct(
                         ident,
@@ -323,10 +325,14 @@ fn generate_inner(
                     ts.append_all(cg_item_struct.display_and_error_rust(true, message));
                 }
                 if args.series {
-                    ts.append_all(borrowed.series_seed(true).series_struct(
-                        &ww_item_struct.fields,
-                        series_evolvable(&args.size_assumption),
-                    )?);
+                    ts.append_all(
+                        borrowed
+                            .series_seed(true, &ww_item_struct.type_params)
+                            .series_struct(
+                                &ww_item_struct.fields,
+                                series_evolvable(&args.size_assumption),
+                            )?,
+                    );
                 }
             }
 
@@ -344,10 +350,14 @@ fn generate_inner(
                     ts.append_all(cg_item_struct.display_and_error_rust(false, message));
                 }
                 if args.series && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
-                    ts.append_all(owned.series_seed(false).series_struct(
-                        &ww_item_struct.fields,
-                        series_evolvable(&args.size_assumption),
-                    )?);
+                    ts.append_all(
+                        owned
+                            .series_seed(false, &ww_item_struct.type_params)
+                            .series_struct(
+                                &ww_item_struct.fields,
+                                series_evolvable(&args.size_assumption),
+                            )?,
+                    );
                 }
             }
         }
@@ -503,6 +513,39 @@ fn check_series_args(item: &Item, args: &Args) -> Result<(), String> {
     Ok(())
 }
 
+/// Type parameters (DER-14) go with shrink_wrap's own encoding of a struct, and `series`.
+fn check_type_params_args(item: &Item, args: &Args) -> Result<(), String> {
+    let (name, generics) = match item {
+        Item::Struct(s) => (&s.ident, &s.generics),
+        Item::Enum(e) => (&e.ident, &e.generics),
+        _ => return Ok(()),
+    };
+    if generics.type_params().next().is_none() {
+        return Ok(());
+    }
+    if matches!(item, Item::Enum(_)) {
+        return Err(format!(
+            "`{name}`: type parameters are only supported on structs"
+        ));
+    }
+    let directive = if args.fixed_layout {
+        "fixed_layout"
+    } else if args.head_tail {
+        "head_tail"
+    } else if args.sparse {
+        "sparse"
+    } else if args.display {
+        "display"
+    } else if args.validate.is_some() {
+        "validate"
+    } else {
+        return Ok(());
+    };
+    Err(format!(
+        "`{name}`: type parameters don't go with `{directive}` (yet)"
+    ))
+}
+
 /// A struct's group in a `Series` has a field count or length when the struct is `Unsized`.
 fn series_evolvable(size_assumption: &Option<ObjectSize>) -> bool {
     matches!(size_assumption, None | Some(ObjectSize::Unsized))
@@ -646,9 +689,14 @@ impl<'a> CGSeed<'a> {
     }
 
     /// The `series` impl's view of the type, `is_ref` on the borrowed side.
-    fn series_seed(&self, is_ref: bool) -> SeriesSeed<'_> {
+    fn series_seed<'p>(
+        &'p self,
+        is_ref: bool,
+        type_params: &'p [syn::TypeParam],
+    ) -> SeriesSeed<'p> {
         SeriesSeed {
             ident: &self.ident,
+            type_params,
             has_lifetime: is_ref && !self.ambiguous,
             is_ref,
             cfg: self.cfg.as_ref(),
@@ -701,6 +749,7 @@ impl<'a> CGSeed<'a> {
             size_assumption: self.size_assumption.clone(),
             ambiguous: self.ambiguous,
             crate_path: self.crate_path,
+            type_params: &ww_item_struct.type_params,
         }
     }
 }

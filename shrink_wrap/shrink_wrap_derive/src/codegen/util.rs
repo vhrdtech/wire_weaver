@@ -42,9 +42,33 @@ impl CratePath {
     }
 }
 
+/// `<'i, T, U>` after a type's name (DER-14): its lifetime when it has one, then its type parameters. Empty for
+/// neither.
+pub(crate) fn ty_generics(has_lifetime: bool, params: &[syn::TypeParam]) -> TokenStream {
+    let idents = params.iter().map(|p| &p.ident);
+    match (has_lifetime, params.is_empty()) {
+        (false, true) => quote! {},
+        (true, true) => quote! { <'i> },
+        (false, false) => quote! { <#(#idents),*> },
+        (true, false) => quote! { <'i, #(#idents),*> },
+    }
+}
+
+/// `T: Own + #bound, U: ..` for an `impl<..>` (DER-14): each type parameter with its own bounds and `bound`, with a
+/// trailing comma; empty without parameters.
+pub(crate) fn impl_params(params: &[syn::TypeParam], bound: TokenStream) -> TokenStream {
+    let params = params.iter().map(|p| {
+        let ident = &p.ident;
+        let own = p.bounds.iter();
+        quote! { #ident: #(#own +)* #bound, }
+    });
+    quote! { #(#params)* }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn serdes_scaffold(
     ty_name: &Ident,
+    params: &[syn::TypeParam],
     ser: impl ToTokens,
     des: impl ToTokens,
     cfg: Option<&TokenStream>,
@@ -65,12 +89,15 @@ pub(crate) fn serdes_scaffold(
         let max_size_ty = cp.item(quote! { MaxSize });
         // The trait itself always carries a `'i` (the input buffer's lifetime); `#ty_lifetime` is
         // only applied to `#ty_name` when the type actually has a `<'i>` generic of its own.
-        let ty_lifetime = maybe_quote(has_lifetime, || quote! { <'i> });
+        let ty_lifetime = ty_generics(has_lifetime, params);
+        // a type parameter's size is part of the type's, so both impls need it to be serializable
+        let ser_params = impl_params(params, ser_trait.clone());
+        let des_params = impl_params(params, quote! { #ser_trait + #des_trait<'i> });
         // `false` only when no field can push a length, see SerializeShrinkWrap::PUSHES_LEN
         let pushes_len = pushes_len.unwrap_or_else(|| quote! { false });
         quote! {
             #cfg
-            impl<'i> #ser_trait for #ty_name #ty_lifetime {
+            impl<'i, #ser_params> #ser_trait for #ty_name #ty_lifetime {
                 const ELEMENT_SIZE: #element_size_ty = #element_size;
                 const PUSHES_LEN: bool = #pushes_len;
                 const MAX_SIZE: Option<#max_size_ty> = #max_size;
@@ -81,7 +108,7 @@ pub(crate) fn serdes_scaffold(
             }
 
             #cfg
-            impl<'i> #des_trait<'i> for #ty_name #ty_lifetime {
+            impl<'i, #des_params> #des_trait<'i> for #ty_name #ty_lifetime {
                 const ELEMENT_SIZE: #element_size_ty = #element_size;
 
                 fn des_shrink_wrap<'di>(rd: &'di mut #buf_reader<'i>) -> Result<Self, #error> {
@@ -91,9 +118,12 @@ pub(crate) fn serdes_scaffold(
         }
     } else {
         let buf_writer = cp.item(quote! { BufWriterOwned });
+        let ty_params = ty_generics(false, params);
+        let ser_params = impl_params(params, ser_trait.clone());
+        let des_params = impl_params(params, quote! { #ser_trait + #des_trait });
         quote! {
             #cfg
-            impl #ser_trait for #ty_name {
+            impl<#ser_params> #ser_trait for #ty_name #ty_params {
                 const ELEMENT_SIZE: #element_size_ty = #element_size;
 
                 fn ser_shrink_wrap_owned(&self, wr: &mut #buf_writer) -> Result<(), #error> {
@@ -102,7 +132,7 @@ pub(crate) fn serdes_scaffold(
             }
 
             #cfg
-            impl #des_trait for #ty_name {
+            impl<#des_params> #des_trait for #ty_name #ty_params {
                 const ELEMENT_SIZE: #element_size_ty = #element_size;
 
                 fn des_shrink_wrap_owned(rd: &mut #buf_reader<'_>) -> Result<Self, #error> {

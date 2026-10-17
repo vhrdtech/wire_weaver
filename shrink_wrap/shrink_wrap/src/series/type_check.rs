@@ -18,6 +18,8 @@ pub enum Prefix {
     Micro,
 }
 
+// the derive doesn't keep a `#[default]` on a variant
+#[allow(clippy::derivable_impls)]
 impl Default for Prefix {
     fn default() -> Self {
         Prefix::Unit
@@ -71,7 +73,7 @@ pub struct IvSample {
     pub i: Quantity,
 }
 
-/// `Timed<IvSample>`: `final_structure`, the time first.
+/// `ww_si::Timed<T>`: `final_structure`, the time first; generic (DER-14).
 #[derive_shrink_wrap(
     borrowed,
     owned,
@@ -79,10 +81,13 @@ pub struct IvSample {
     final_structure,
     derive(Clone, Copy, Debug, Default, PartialEq)
 )]
-pub struct TimedIv {
+pub struct Timed<T> {
     pub t: Quantity,
-    pub value: IvSample,
+    pub value: T,
 }
+
+/// The design's `Series<Timed<IvSample>>`.
+pub type TimedIv = Timed<IvSample>;
 
 /// [IvSample] with a field appended.
 #[derive_shrink_wrap(

@@ -82,6 +82,7 @@ impl ItemStruct {
             display,
             sparse_slots: None,
             kind,
+            type_params: type_params(item_struct)?,
         })
     }
 
@@ -154,8 +155,43 @@ impl ItemStruct {
             display,
             sparse_slots: Some(slots),
             kind: StructKind::from_syn(&item_struct.fields),
+            type_params: type_params(item_struct)?,
         })
     }
+}
+
+/// Type parameters of the struct (DER-14), bounds inline only; lifetimes are the type's own business (`'i`).
+fn type_params(item_struct: &syn::ItemStruct) -> Result<Vec<syn::TypeParam>, String> {
+    let name = &item_struct.ident;
+    if item_struct.generics.where_clause.is_some() {
+        return Err(format!(
+            "`{name}`: a where clause is not supported, write the bounds next to the type parameters"
+        ));
+    }
+    let mut params = vec![];
+    for param in &item_struct.generics.params {
+        match param {
+            syn::GenericParam::Type(ty) => {
+                if ty.default.is_some() {
+                    return Err(format!(
+                        "`{name}`: type parameter `{}` has a default, which is not supported",
+                        ty.ident
+                    ));
+                }
+                let mut ty = ty.clone();
+                ty.attrs.clear();
+                params.push(ty);
+            }
+            syn::GenericParam::Const(c) => {
+                return Err(format!(
+                    "`{name}`: const parameter `{}` is not supported",
+                    c.ident
+                ));
+            }
+            syn::GenericParam::Lifetime(_) => {}
+        }
+    }
+    Ok(params)
 }
 
 /// The field's name, `_0`, `_1`, ... for the fields of a tuple struct (SW-59).

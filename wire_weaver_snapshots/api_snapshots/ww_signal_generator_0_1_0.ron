@@ -1,6 +1,6 @@
 // ww_signal_generator 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Signal generators over WireWeaver: digital patterns on many pins at a fixed rate, and waveforms on DACs.",
     "",
     "# Traits",
@@ -39,8 +39,8 @@
 ]), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One output.",
-    ], ident: "PgChannelInfo", fields: Named([
-        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
+    ], ident: "PgChannelInfo", generics: [], fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "For the user: \"D0\", \"PB3\".",
         ], slot: None),
         (ident: Some("gpio_pin"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [
@@ -48,32 +48,32 @@
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Hertz", signature: [
-        96,
-        122,
-        185,
-        53,
-        99,
-        60,
+        233,
+        81,
+        169,
+        104,
+        162,
+        239,
+        216,
         13,
-        75,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "RateLimit", signature: [
-        61,
-        110,
-        14,
-        133,
-        123,
-        37,
-        174,
-        1,
+        59,
+        181,
+        211,
+        229,
+        109,
+        162,
+        72,
+        235,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a pattern generator offers, see `PatternGenerator::capabilities`.",
-    ], ident: "PgCapabilities", fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(OutOfLine(type_idx: 0))), docs: [
+    ], ident: "PgCapabilities", generics: [], fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 0))), docs: [
             "Channel `n` of every configuration is `channels[n]`.",
         ], slot: None),
-        (ident: Some("rates"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 2))), docs: [
+        (ident: Some("rates"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 2))), docs: [
             "Highest rate per channel count, ascending by count.",
         ], slot: None),
         (ident: Some("memory"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
@@ -94,7 +94,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "How often a pattern plays.",
-    ], ident: "Repeat", variants: [
+    ], ident: "Repeat", generics: [], variants: [
         (docs: [], ident: "Once", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Times", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
@@ -102,18 +102,18 @@
         (docs: [], ident: "Forever", fields: Unit, discriminant: 2, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Edge", signature: [
-        126,
-        131,
-        72,
-        99,
-        119,
-        58,
-        42,
-        35,
+        63,
+        74,
+        8,
+        150,
+        11,
+        60,
+        207,
+        121,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "When a pattern starts after `PatternGenerator::start`.",
-    ], ident: "Start", variants: [
+    ], ident: "Start", generics: [], variants: [
         (docs: [
             "Right away.",
         ], ident: "Now", fields: Unit, discriminant: 0, since: None),
@@ -128,8 +128,8 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to play, see `PatternGenerator::configure`.",
-    ], ident: "PgConfig", fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
+    ], ident: "PgConfig", generics: [], fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Output channels ([PgCapabilities::channels]), in the bit order of raw words and as the channel indices of",
             "transitions chunks.",
         ], slot: None),
@@ -144,7 +144,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `PatternGenerator::configure` actually set.",
-    ], ident: "PgActual", fields: Named([
+    ], ident: "PgActual", generics: [], fields: Named([
         (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
             "Samples per second.",
         ], slot: None),
@@ -153,19 +153,19 @@
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
-        122,
-        139,
-        242,
-        75,
-        84,
-        91,
-        80,
-        174,
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of `PatternGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it",
         "returns.",
-    ], ident: "PgError", variants: [
+    ], ident: "PgError", generics: [], variants: [
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
@@ -176,28 +176,28 @@
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "StreamChunk", signature: [
-        9,
-        39,
-        7,
-        229,
-        121,
-        164,
         62,
-        127,
+        159,
+        165,
+        181,
+        119,
+        71,
+        121,
+        219,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        178,
-        243,
         149,
-        13,
-        148,
-        206,
-        13,
-        103,
+        145,
+        124,
+        207,
+        145,
+        192,
+        245,
+        124,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a pattern generator stands, see `PatternGenerator::status`.",
-    ], ident: "PgStatus", variants: [
+    ], ident: "PgStatus", generics: [], variants: [
         (docs: [
             "Not configured, or stopped.",
         ], ident: "Idle", fields: Unit, discriminant: 0, since: None),
@@ -225,18 +225,18 @@
         ], ident: "Underrun", fields: Unit, discriminant: 5, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 4, type_name: "SampleFormat", signature: [
-        243,
-        43,
-        199,
-        225,
-        186,
-        149,
-        59,
-        56,
+        130,
+        171,
+        8,
+        27,
+        251,
+        145,
+        211,
+        19,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "The waveform\'s shape.",
-    ], ident: "Shape", variants: [
+    ], ident: "Shape", generics: [], variants: [
         (docs: [], ident: "Sine", fields: Unit, discriminant: 0, since: None),
         (docs: [
             "`duty`: 0..=65535 = 0..100 %.",
@@ -260,18 +260,18 @@
         ]), discriminant: 5, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
-        10,
-        248,
-        25,
-        90,
-        46,
-        0,
-        105,
-        254,
+        221,
+        136,
+        239,
+        139,
+        173,
+        19,
+        228,
+        149,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One output\'s waveform, see `WaveformChannel::set`.",
-    ], ident: "Waveform", fields: Named([
+    ], ident: "Waveform", generics: [], fields: Named([
         (ident: Some("shape"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None),
         (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
             "Repetitions per second (of the whole table for [Shape::Arbitrary]).",
@@ -286,7 +286,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `WaveformChannel::set` actually does.",
-    ], ident: "WaveformActual", fields: Named([
+    ], ident: "WaveformActual", generics: [], fields: Named([
         (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None),
         (ident: Some("amplitude"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None),
         (ident: Some("offset"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None),
@@ -294,7 +294,7 @@
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of `WaveformGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it",
         "returns.",
-    ], ident: "WgError", variants: [
+    ], ident: "WgError", generics: [], variants: [
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
@@ -306,7 +306,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What an output does, see `WaveformChannel::state`.",
-    ], ident: "WaveformState", variants: [
+    ], ident: "WaveformState", generics: [], variants: [
         (docs: [
             "Holding `level`.",
         ], ident: "Stopped", fields: Named([
@@ -323,19 +323,19 @@
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 4, type_name: "Linear", signature: [
-        146,
-        77,
-        142,
-        181,
-        52,
-        24,
-        245,
-        139,
+        152,
+        226,
+        105,
+        126,
+        157,
+        31,
+        187,
+        233,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One DAC output.",
-    ], ident: "WgChannelInfo", fields: Named([
-        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
+    ], ident: "WgChannelInfo", generics: [], fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "For the user: \"DAC1\", \"OUT A\".",
         ], slot: None),
         (ident: Some("min"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [
@@ -359,14 +359,14 @@
         (ident: Some("code_to_volt"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [
             "Codes of tables to volts.",
         ], slot: None),
-        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 14))), docs: [
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 14))), docs: [
             "Table formats.",
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s DACs offer, see `WaveformGenerator::capabilities`.",
-    ], ident: "WgCapabilities", fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(OutOfLine(type_idx: 22))), docs: [
+    ], ident: "WgCapabilities", generics: [], fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 22))), docs: [
             "`channel[n]` is `channels[n]`.",
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
@@ -446,7 +446,7 @@
             "`InvalidArgument`: out of range.",
         ], optional: None),
         (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 20)), errors: None), multiplicity: Flat, since: None, ident: "state", docs: [], optional: None),
-        (id: 3, kind: FlowSink(ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "table", docs: [
+        (id: 3, kind: FlowSink(ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "table", docs: [
             "Table of an [Shape::Arbitrary] waveform, raw codes appended in order; `Open` starts a new table, `Close`",
             "completes it. The credit is the free table memory.",
         ], optional: None),
@@ -459,7 +459,7 @@
             "The channels, their ranges and formats.",
         ], optional: None),
         (id: 2, kind: Method(args: [
-            (ident: "channels", ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8))))),
+            (ident: "channels", ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8))))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 19))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",

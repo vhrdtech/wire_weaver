@@ -16,7 +16,7 @@ use wire_weaver::shrink_wrap::{ElementSize, UNib32};
 use ww_self::signature;
 use ww_self::visit::Visit;
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
+    ApiBundleOwned, ApiItemKindOwned, GenericArgOwned, Length, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
     FieldOwned, FieldsOwned, ItemEnumOwned, ItemStructOwned, PropertyAccess, TypeLocationOwned,
     TypeOwned,
 };
@@ -718,6 +718,29 @@ impl<'a> TypeCheck<'a> {
         {
             return Ok(());
         }
+        // instances are left after ww_self::generics::prepare only when their definition is not known
+        match (w, r) {
+            (
+                TypeOwned::Instance {
+                    type_idx: wi,
+                    args: wa,
+                },
+                TypeOwned::Instance {
+                    type_idx: ri,
+                    args: ra,
+                },
+            ) => return self.check_instances((wi.0, wa), (ri.0, ra)),
+            (TypeOwned::Instance { .. }, _) | (_, TypeOwned::Instance { .. }) => {
+                return Err(format!(
+                    "{} on the {}, {} on the {}: a generic type definition is not available on one side",
+                    describe(w),
+                    self.writer_name,
+                    describe(r),
+                    self.reader_name
+                ));
+            }
+            _ => {}
+        }
         let (w_ty, r_ty) = (w, r);
         let (w, r) = match (resolve(self.writer, w)?, resolve(self.reader, r)?) {
             (ResolvedTy::Ty(w), ResolvedTy::Ty(r)) => (w, r),
@@ -753,22 +776,26 @@ impl<'a> TypeCheck<'a> {
                     ty: r,
                 },
             ) => {
-                self.check_bound(Some(max_len.0), Some(r_max_len.0))?;
+                self.check_bound(Some(fixed(max_len)?), Some(fixed(r_max_len)?))?;
                 self.check(w, r)
             }
             (MaxLen { max_len, ty: w }, r) => {
-                self.check_bound(Some(max_len.0), None)?;
+                self.check_bound(Some(fixed(max_len)?), None)?;
                 self.check(w, r)
             }
             (w, MaxLen { max_len, ty: r }) => {
-                self.check_bound(None, Some(max_len.0))?;
+                self.check_bound(None, Some(fixed(max_len)?))?;
                 self.check(w, r)
             }
             (Vec(w), Vec(r)) | (Box(w), Box(r)) => self.check(w, r),
             (Option { some_ty: w }, Option { some_ty: r }) => self.check(w, r),
             (Array { len, ty: w }, Array { len: r_len, ty: r }) => {
                 if len != r_len {
-                    return Err(format!("[_; {}] vs [_; {}]", len.0, r_len.0));
+                    return Err(format!(
+                        "[_; {}] vs [_; {}]",
+                        len.human_name(&[]),
+                        r_len.human_name(&[])
+                    ));
                 }
                 self.check(w, r)
             }
@@ -817,6 +844,58 @@ impl<'a> TypeCheck<'a> {
                 self.reader_name
             )),
         }
+    }
+
+    /// Instances of generic definitions that are not known: the same definition, the same arguments.
+    fn check_instances(
+        &mut self,
+        (wi, wa): (u32, &'a [GenericArgOwned]),
+        (ri, ra): (u32, &'a [GenericArgOwned]),
+    ) -> Result<(), String> {
+        let identity = |bundle: &'a ApiBundleOwned, idx: u32| match bundle.types.get(idx as usize) {
+            Some(TypeLocationOwned::InLine { ty, .. }) => user_type_identity(bundle, ty),
+            Some(TypeLocationOwned::SkippedFullVersion {
+                crate_idx,
+                type_name,
+                ..
+            }) => Some((bundle.crate_version(crate_idx.0).ok()?, type_name.as_str())),
+            None => None,
+        };
+        let (Some(w), Some(r)) = (identity(self.writer, wi), identity(self.reader, ri)) else {
+            return Err("bad API bundle: no generic type definition".into());
+        };
+        check_same_origin("type", w, r)?;
+        check_same_definition(
+            "type",
+            (w, self.writer_name),
+            (r, self.reader_name),
+            type_signature(self.writer, wi),
+            type_signature(self.reader, ri),
+        )?;
+        if wa.len() != ra.len() {
+            return Err(format!(
+                "{} with {} arguments vs {}",
+                w.1,
+                wa.len(),
+                ra.len()
+            ));
+        }
+        for (i, (w_arg, r_arg)) in wa.iter().zip(ra).enumerate() {
+            match (w_arg, r_arg) {
+                (GenericArgOwned::Type(w_ty), GenericArgOwned::Type(r_ty)) => self
+                    .check(w_ty, r_ty)
+                    .map_err(|e| format!("argument {i} of {}: {e}", w.1))?,
+                (GenericArgOwned::Const(w_value), GenericArgOwned::Const(r_value))
+                    if w_value == r_value => {}
+                _ => {
+                    return Err(format!(
+                        "argument {i} of {}: {w_arg:?} vs {r_arg:?}",
+                        w.1
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn check_struct(
@@ -970,6 +1049,11 @@ fn resolve<'a>(bundle: &'a ApiBundleOwned, ty: &'a TypeOwned) -> Result<Resolved
     }
 }
 
+/// A length or bound: a const parameter is only in a generic definition, which is not compared.
+fn fixed(len: &Length) -> Result<u32, String> {
+    len.fixed().map_err(|e| e.to_string())
+}
+
 fn user_type_identity<'a>(bundle: &'a ApiBundleOwned, ty: &'a TypeOwned) -> Option<Identity<'a>> {
     let (crate_idx, ident) = match ty {
         TypeOwned::Struct(s) => (s.crate_idx, &s.ident),
@@ -1008,7 +1092,9 @@ fn describe(ty: &TypeOwned) -> String {
         TypeOwned::Flag => "flag".into(),
         TypeOwned::String => "String".into(),
         TypeOwned::Vec(_) => "Vec".into(),
-        TypeOwned::Array { len, .. } => format!("array of {}", len.0),
+        TypeOwned::Array { len, .. } => format!("array of {}", len.human_name(&[])),
+        TypeOwned::Instance { type_idx, .. } => format!("instance of generic type #{}", type_idx.0),
+        TypeOwned::Param(idx) => format!("type parameter {}", idx.0),
         TypeOwned::Tuple(t) => format!("tuple of {}", t.len()),
         TypeOwned::Struct(s) => format!("struct {}", s.ident),
         TypeOwned::Enum(e) => format!("enum {}", e.ident),
@@ -1020,7 +1106,9 @@ fn describe(ty: &TypeOwned) -> String {
         TypeOwned::Delta(base) => format!("Delta<{}>", base.name()),
         TypeOwned::DeltaOfDelta(base) => format!("DeltaOfDelta<{}>", base.name()),
         TypeOwned::XorFloat(base) => format!("XorFloat<{}>", base.name()),
-        TypeOwned::MaxLen { max_len, ty } => format!("{} of at most {}", describe(ty), max_len.0),
+        TypeOwned::MaxLen { max_len, ty } => {
+            format!("{} of at most {}", describe(ty), max_len.human_name(&[]))
+        }
     }
 }
 
@@ -1581,6 +1669,7 @@ mod tests {
                 },
                 0,
             )
+            .unwrap()
         };
         let (tx, _rx) = tokio::sync::mpsc::channel(1);
         let mut cmd = Commander::new(tx);

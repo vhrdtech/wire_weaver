@@ -1,6 +1,6 @@
 // ww_memory 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Low-level access to memory or registers over WireWeaver: read and write words at addresses, and optionally watch",
     "addresses for changes.",
     "",
@@ -20,19 +20,19 @@
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Memory32", docs: [], optional: None),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
-        122,
-        139,
-        242,
-        75,
-        84,
-        91,
-        80,
-        174,
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of `Memory8` and `Memory32`: the common ones first, then what is specific to memory access. Each method",
         "lists the variants it returns.",
-    ], ident: "MemoryError", variants: [
+    ], ident: "MemoryError", generics: [], variants: [
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
@@ -47,7 +47,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "Access rights of a memory region.",
-    ], ident: "Access", variants: [
+    ], ident: "Access", generics: [], variants: [
         (docs: [], ident: "WriteOnly", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "ReadOnly", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "ReadWrite", fields: Unit, discriminant: 2, since: None),

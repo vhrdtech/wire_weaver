@@ -1,6 +1,6 @@
 // ww_uart 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.",
     "",
     "`Uart` is one port: configure it, receive on `rx`, send on the `tx` credit sink, and, on ports with the hardware",
@@ -40,18 +40,18 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uart", docs: [], optional: None),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        178,
-        243,
         149,
-        13,
-        148,
-        206,
-        13,
-        103,
+        145,
+        124,
+        207,
+        145,
+        192,
+        245,
+        124,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Line errors seen in a chunk.",
-    ], ident: "RxFlags", fields: Named([
+    ], ident: "RxFlags", generics: [], fields: Named([
         (ident: Some("parity_error"), default: None, since: None, ty: Bool, docs: [
             "A character\'s parity bit didn\'t match the configured [Parity].",
         ], slot: None),
@@ -68,7 +68,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Received bytes that came back to back, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the",
         "time in the event head, when the last one did is `end` (see the crate docs, \"Time\").",
-    ], ident: "RxChunk", fields: Named([
+    ], ident: "RxChunk", generics: [], fields: Named([
         (ident: Some("end"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
             "Device time when the chunk\'s last byte arrived (the end of its stop bit), on the same clock as the head\'s time",
             "of its first byte; the same as the head\'s for a one-byte chunk. `None` from a device that doesn\'t measure it:",
@@ -77,40 +77,40 @@
         (ident: Some("flags"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "Line errors seen while receiving this chunk, if any.",
         ], slot: None),
-        (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [
+        (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [
             "The received bytes.",
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Baud", signature: [
-        117,
-        233,
-        225,
-        198,
-        232,
-        102,
-        220,
-        215,
+        151,
+        208,
+        68,
+        43,
+        33,
+        199,
+        35,
+        145,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
-        10,
-        248,
-        25,
-        90,
-        46,
-        0,
-        105,
-        254,
+        221,
+        136,
+        239,
+        139,
+        173,
+        19,
+        228,
+        149,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a `Uart` implementation supports, see `Uart::capabilities`.",
-    ], ident: "Capabilities", fields: Named([
+    ], ident: "Capabilities", generics: [], fields: Named([
         (ident: Some("min_baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Lowest baud rate this device can set.",
         ], slot: None),
         (ident: Some("max_baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Highest baud rate this device can set.",
         ], slot: None),
-        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 4))), docs: [
+        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 4))), docs: [
             "Discrete IO levels [UartConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the adapter has",
             "no level control.",
         ], slot: None),
@@ -144,7 +144,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(3), crate_idx: 0, docs: [
         "Data bits per character.",
-    ], ident: "DataBits", variants: [
+    ], ident: "DataBits", generics: [], variants: [
         (docs: [], ident: "Eight", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Seven", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "Nine", fields: Unit, discriminant: 2, since: None),
@@ -153,7 +153,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
         "Parity checking mode.",
-    ], ident: "Parity", variants: [
+    ], ident: "Parity", generics: [], variants: [
         (docs: [
             "No parity bit.",
         ], ident: "None", fields: Unit, discriminant: 0, since: None),
@@ -166,7 +166,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(1), crate_idx: 0, docs: [
         "Number of stop bits transmitted after every character.",
-    ], ident: "StopBits", variants: [
+    ], ident: "StopBits", generics: [], variants: [
         (docs: [
             "One stop bit.",
         ], ident: "Stop1", fields: Unit, discriminant: 0, since: None),
@@ -174,7 +174,7 @@
             "Two stop bits.",
         ], ident: "Stop2", fields: Unit, discriminant: 1, since: None),
     ])), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Mode", variants: [
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Mode", generics: [], variants: [
         (docs: [
             "No flow control.",
         ], ident: "Asynchronous", fields: Unit, discriminant: 0, since: None),
@@ -194,7 +194,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything a port is configured with, see `Uart::configure`: what is asked for going in, what was actually set",
         "coming back.",
-    ], ident: "UartConfig", fields: Named([
+    ], ident: "UartConfig", generics: [], fields: Named([
         (ident: Some("baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
         (ident: Some("data_bits"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None),
         (ident: Some("parity"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None),
@@ -216,19 +216,19 @@
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
-        122,
-        139,
-        242,
-        75,
-        84,
-        91,
-        80,
-        174,
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of `Uart`: the common ones (unsupported, in use, no power, refused, ...); each method lists the variants it",
         "returns. Line errors of received data are not errors of a call, they are [RxFlags] of the chunk.",
-    ], ident: "UartError", variants: [
+    ], ident: "UartError", generics: [], variants: [
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
@@ -237,7 +237,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
         "Pin selector used in test mode (`Uart::set_pin_level`).",
-    ], ident: "Pin", variants: [
+    ], ident: "Pin", generics: [], variants: [
         (docs: [
             "Transmit pin.",
         ], ident: "Tx", fields: Unit, discriminant: 0, since: None),
@@ -253,7 +253,7 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Line settings of the watched link, the argument and the answer of `Uart::monitor`.",
-    ], ident: "MonitorConfig", fields: Named([
+    ], ident: "MonitorConfig", generics: [], fields: Named([
         (ident: Some("baud_rate"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Baud rate of the watched link.",
         ], slot: None),
@@ -275,7 +275,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Which line of the watched link a [MonitorChunk] came from.",
-    ], ident: "MonitorLine", variants: [
+    ], ident: "MonitorLine", generics: [], variants: [
         (docs: [
             "One direction of the link (rePort: RX).",
         ], ident: "A", fields: Unit, discriminant: 0, since: None),
@@ -285,7 +285,7 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bytes of one line of the watched link, see `Uart::monitor`.",
-    ], ident: "MonitorChunk", fields: Named([
+    ], ident: "MonitorChunk", generics: [], fields: Named([
         (ident: Some("line"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None),
         (ident: Some("chunk"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
     ]), sparse: false)), crate_idx: 0),
@@ -298,7 +298,7 @@
             "[UartConfig::idle_chars] character times, when it is full, or on a line error. A counted stream, unit: byte;",
             "the head\'s time is when the chunk\'s first byte arrived (always set), [RxChunk::end] when its last one did.",
         ], optional: None),
-        (id: 1, kind: FlowSink(ty: MaxLen(max_len: 256, ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "tx", docs: [
+        (id: 1, kind: FlowSink(ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "tx", docs: [
             "Bytes to send. Credit-based (API-28): the host never sends more than the device\'s TX buffer",
             "([Capabilities::tx_buffer]) holds.",
         ], optional: None),

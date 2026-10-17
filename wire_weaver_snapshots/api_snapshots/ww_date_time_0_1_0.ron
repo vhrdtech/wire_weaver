@@ -1,13 +1,13 @@
 // ww_date_time 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_date_time", items: []), types: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_date_time", items: []), types: [
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "Calendar year, `UNib32` of the year shifted by 2025, a negative shift cut to 20 bits (bit 19 is the sign), so that it",
         "takes no more than 6 nibbles.",
         "",
         "A derived struct, so that the API model describes what is on the wire: `ww introspect` and other dynamic clients",
         "decode values from the model.",
-    ], ident: "Year", fields: Named([
+    ], ident: "Year", generics: [], fields: Named([
         (ident: Some("shifted"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
@@ -17,7 +17,7 @@
         "* Minimal size is 13 bits (2025 <= year <= 2032).",
         "* Size is 17 bits (2033 <= year <= 2088)",
         "* Maximum size is 37 bits.",
-    ], ident: "NaiveDate", fields: Named([
+    ], ident: "NaiveDate", generics: [], fields: Named([
         (ident: Some("year"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "-262_142 <= year <= 262_141",
         ], slot: None),
@@ -27,7 +27,7 @@
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "ISO 8601 time without timezone.",
         "Size is 18 bits without nanoseconds and 49 bits with nanoseconds.",
-    ], ident: "NaiveTime", fields: Named([
+    ], ident: "NaiveTime", generics: [], fields: Named([
         (ident: Some("secs"), default: None, since: None, ty: NumericAny(Base(UB(17))), docs: [], slot: None),
         (ident: Some("frac"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UB(31)))), docs: [
             "< 1B for sec 0..=58, <2B for sec 59",
@@ -36,7 +36,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(3), crate_idx: 0, docs: [
         "Naive and fixed offset time zones, and room for adding up to 6 more without breaking compatibility.",
-    ], ident: "OtherTimezone", variants: [
+    ], ident: "OtherTimezone", generics: [], variants: [
         (docs: [], ident: "Naive", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "FixedOffset", fields: Named([
             (ident: Some("secs"), default: None, since: None, ty: NumericAny(Base(IB(18))), docs: [], slot: None),
@@ -45,7 +45,7 @@
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(1), crate_idx: 0, docs: [
         "Timezone information.",
         "UTC is preferred ant takes only 1 bit.",
-    ], ident: "Timezone", variants: [
+    ], ident: "Timezone", generics: [], variants: [
         (docs: [], ident: "UTC", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Other", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
@@ -62,7 +62,7 @@
         "* Size with naive / fixed offset time zone and nanoseconds is 84 bits.",
         "* +4 bits for 2033 <= year <= 2088 and so on.",
         "* +24 bits for year <2025.",
-    ], ident: "DateTime", fields: Named([
+    ], ident: "DateTime", generics: [], fields: Named([
         (ident: Some("date"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None),
         (ident: Some("time"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
         (ident: Some("timezone"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None),

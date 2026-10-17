@@ -1,6 +1,6 @@
 // ww_log 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logs of bare metal firmware over WireWeaver: defmt frames decoded on the host with the firmware\'s ELF, or text",
     "records for firmware without defmt.",
     "",
@@ -49,7 +49,7 @@
 ]), types: [
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "defmt wire encoding, as chosen by defmt\'s `encoding-raw` / `encoding-rzcobs` cargo feature.",
-    ], ident: "DefmtEncoding", variants: [
+    ], ident: "DefmtEncoding", generics: [], variants: [
         (docs: [
             "Frames as defmt writes them, back to back.",
         ], ident: "Raw", fields: Unit, discriminant: 0, since: None),
@@ -59,28 +59,28 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How to decode `LogDefmt::frames`, see `LogDefmt::DEFMT`.",
-    ], ident: "DefmtInfo", fields: Named([
+    ], ident: "DefmtInfo", generics: [], fields: Named([
         (ident: Some("encoding"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Encoding of the frames.",
         ], slot: None),
-        (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(NumericAny(Base(U8)))), docs: [
+        (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
             "GNU build id of the firmware (`.note.gnu.build-id`): which ELF decodes the frames. Empty when the firmware",
             "didn\'t keep the note; a host then falls back to the newest ELF it finds and warns.",
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
-        122,
-        139,
-        242,
-        75,
-        84,
-        91,
-        80,
-        174,
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of both traits in this crate. Each item says which variants it returns.",
-    ], ident: "LogError", variants: [
+    ], ident: "LogError", generics: [], variants: [
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
@@ -90,12 +90,12 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One or more whole defmt frames, back to back, in [DefmtInfo::encoding]. Never half a frame: a decoder fed one",
         "item after the other never has to resync, also with raw encoding and after a loss.",
-    ], ident: "DefmtFrames", fields: Named([
-        (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: 512, ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None),
+    ], ident: "DefmtFrames", generics: [], fields: Named([
+        (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "Severity of a [LogRecord], the five levels of `log`, `tracing` and `defmt`.",
-    ], ident: "Severity", variants: [
+    ], ident: "Severity", generics: [], variants: [
         (docs: [], ident: "Error", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Warn", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "Info", fields: Unit, discriminant: 2, since: None),
@@ -104,12 +104,12 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One text log message, see `LogText::records`.",
-    ], ident: "LogRecord", fields: Named([
+    ], ident: "LogRecord", generics: [], fields: Named([
         (ident: Some("severity"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [], slot: None),
-        (ident: Some("target"), default: None, since: None, ty: MaxLen(max_len: 48, ty: String), docs: [
+        (ident: Some("target"), default: None, since: None, ty: MaxLen(max_len: Fixed(48), ty: String), docs: [
             "Where it was logged, usually the module path (`usb_io_fw::power`). Cut to fit.",
         ], slot: None),
-        (ident: Some("message"), default: None, since: None, ty: MaxLen(max_len: 256, ty: String), docs: [
+        (ident: Some("message"), default: None, since: None, ty: MaxLen(max_len: Fixed(256), ty: String), docs: [
             "The formatted message, cut at the device\'s limit (at most [MAX_MESSAGE_LEN] bytes).",
         ], slot: None),
         (ident: Some("truncated"), default: None, since: None, ty: Bool, docs: [
@@ -118,7 +118,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "Which records `LogText` produces: `Info` means `Error`, `Warn` and `Info`.",
-    ], ident: "LevelFilter", variants: [
+    ], ident: "LevelFilter", generics: [], variants: [
         (docs: [
             "Nothing is logged.",
         ], ident: "Off", fields: Unit, discriminant: 0, since: None),

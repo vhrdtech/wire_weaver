@@ -1,10 +1,10 @@
 // ww_version 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_version", items: []), types: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_version", items: []), types: [
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Hash of the [ApiBundle] used to compare if client and server API\'s are identical.",
         "See also [ApiHashPair]",
-    ], ident: "ApiHash", fields: Named([
+    ], ident: "ApiHash", generics: [], fields: Named([
         (ident: Some("hash"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [], slot: None),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
@@ -20,7 +20,7 @@
         "Doc strings can consume a lot of FLASH space, or there might not be a lot of it to begin with.",
         "So it\'s beneficial to remove them, but still use full version when interacting with a device.",
         "Second hash allows to load full version from cache, while retaining compatibility guarantees.",
-    ], ident: "ApiHashPair", fields: Named([
+    ], ident: "ApiHashPair", generics: [], fields: Named([
         (ident: Some("no_docs"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Hash of the [ApiBundle] with all the doc strings removed.",
         ], slot: None),
@@ -33,7 +33,7 @@
         "SemVer version as defined by <https://semver.org> in ShrinkWrap format.",
         "The minimum size is 2 bytes, when major, minor, and patch are less than 8 and pre and build are None.",
         "[VersionOwned] is automatically generated from this definition as well and uses String instead.",
-    ], ident: "Version", fields: Named([
+    ], ident: "Version", generics: [], fields: Named([
         (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),
         (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),
         (ident: Some("patch"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),
@@ -47,24 +47,24 @@
             "Not used in compatibility checks, only treated as additional metadata.",
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
-    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "FullVersion", fields: Named([
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "FullVersion", generics: [], fields: Named([
         (ident: Some("crate_id"), default: None, since: None, ty: String, docs: [], slot: None),
         (ident: Some("version"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "GlobalTypeId", signature: [
-        109,
-        41,
-        114,
-        250,
-        185,
-        232,
-        114,
-        51,
+        150,
+        222,
+        149,
+        213,
+        118,
+        138,
+        81,
+        115,
     ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Compact version for traits-based requests that are made often or through limited bandwidth interfaces.",
         "Type id is globally unique across all crates, tracked manually via [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).",
-    ], ident: "CompactVersion", fields: Named([
+    ], ident: "CompactVersion", generics: [], fields: Named([
         (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None),
         (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),
         (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),
@@ -72,7 +72,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Version as major.minor.patch triplet, useful when names are not required.",
-    ], ident: "VersionTriplet", fields: Named([
+    ], ident: "VersionTriplet", generics: [], fields: Named([
         (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),
         (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),
         (ident: Some("patch"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),

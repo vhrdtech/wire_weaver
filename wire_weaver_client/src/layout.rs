@@ -16,11 +16,15 @@ use std::collections::HashMap;
 use wire_weaver::shrink_wrap::ElementSize;
 use ww_numeric::NumericAnyTypeOwned;
 use ww_self::{
-    ApiBundleOwned, FieldOwned, FieldsOwned, NumericBaseType, Repr, TypeLocationOwned, TypeOwned,
+    ApiBundleOwned, FieldOwned, FieldsOwned, Length, NumericBaseType, Repr, TypeLocationOwned,
+    TypeOwned,
 };
 
 /// Arrays longer than this are not expanded, but treated as one variable size leaf.
 const MAX_EXPANDED_ARRAY_LEN: u32 = 1024;
+/// Arrays that would make more leaves than this (nested ones) are not expanded either: types come from a device and
+/// can describe a lot of leaves in a few bytes.
+const MAX_LEAVES: usize = 1 << 16;
 
 #[derive(Clone, Debug, PartialEq)]
 enum Kind {
@@ -284,7 +288,14 @@ fn leaf(bundle: &ApiBundleOwned, ty: &TypeOwned, path: String, out: &mut Vec<Lea
                 granularity: 1,
             },
         },
-        TypeOwned::Array { len, ty } if len.0 <= MAX_EXPANDED_ARRAY_LEN => {
+        TypeOwned::Array {
+            len: Length::Fixed(len),
+            ty,
+        } if len.0 <= MAX_EXPANDED_ARRAY_LEN
+            && out.len().saturating_add(
+                leaf_count(bundle, ty, depth + 1).saturating_mul(len.0 as usize),
+            ) <= MAX_LEAVES =>
+        {
             for i in 0..len.0 {
                 leaf(bundle, ty, format!("{path}[{i}]"), out, depth + 1);
             }
@@ -293,6 +304,32 @@ fn leaf(bundle: &ApiBundleOwned, ty: &TypeOwned, path: String, out: &mut Vec<Lea
         _ => UNKNOWN,
     };
     out.push(Leaf { path, kind });
+}
+
+/// Number of leaves [leaf] makes of `ty`, saturating; follows it without building them.
+fn leaf_count(bundle: &ApiBundleOwned, ty: &TypeOwned, depth: u32) -> usize {
+    if depth > 16 {
+        return 1;
+    }
+    match ty {
+        TypeOwned::OutOfLine { type_idx } => match bundle.types.get(type_idx.0 as usize) {
+            Some(TypeLocationOwned::InLine { ty, .. }) => leaf_count(bundle, ty, depth + 1),
+            _ => 1,
+        },
+        TypeOwned::Struct(s) if !matches!(s.size, ElementSize::Unsized) => match &s.fields {
+            FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) => fields
+                .iter()
+                .fold(0usize, |n, f| n.saturating_add(leaf_count(bundle, &f.ty, depth + 1))),
+            FieldsOwned::Unit => 0,
+        },
+        TypeOwned::Array {
+            len: Length::Fixed(len),
+            ty,
+        } if len.0 <= MAX_EXPANDED_ARRAY_LEN => {
+            leaf_count(bundle, ty, depth + 1).saturating_mul(len.0 as usize)
+        }
+        _ => 1,
+    }
 }
 
 fn numeric(n: &NumericAnyTypeOwned) -> Kind {

@@ -1,6 +1,6 @@
 // ww_dfu 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Firmware update API: a set of small traits that every node taking part in an update picks from.",
     "",
     "**Start with the [guide](https://ww.vhrd.tech/std_library/ww_dfu/)** (`docs/std_library/ww_dfu.md` in the",
@@ -111,7 +111,7 @@
 ]), types: [
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Which firmware is answering.",
-    ], ident: "Role", variants: [
+    ], ident: "Role", generics: [], variants: [
         (docs: [
             "The application.",
         ], ident: "App", fields: Unit, discriminant: 0, since: None),
@@ -125,7 +125,7 @@
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "How an A/B device switches to the other slot. Both work the same for the host; they differ in the time the first",
         "boot after an update takes and in flash wear.",
-    ], ident: "SlotSwitch", variants: [
+    ], ident: "SlotSwitch", generics: [], variants: [
         (docs: [
             "The bootloader copies or swaps the slots\' contents page by page, so the image always runs from the same place",
             "(embassy-boot on single-bank parts such as STM32 F1 and G0). The first boot after an update, and a revert,",
@@ -140,7 +140,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "How a device switches between images; decides which [Target]s make sense.",
-    ], ident: "Profile", variants: [
+    ], ident: "Profile", generics: [], variants: [
         (docs: [
             "Two slots: the update is written to the inactive one, which then boots on trial and is kept or reverted",
             "(mode 1). How the switch happens is given.",
@@ -154,7 +154,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Where the device stands between two updates.",
-    ], ident: "BootState", variants: [
+    ], ident: "BootState", generics: [], variants: [
         (docs: [
             "The running image is confirmed. An update may be started.",
         ], ident: "Confirmed", fields: Unit, discriminant: 0, since: None),
@@ -176,7 +176,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "What happened to the last update.",
-    ], ident: "Outcome", variants: [
+    ], ident: "Outcome", generics: [], variants: [
         (docs: [
             "No update since the device was provisioned.",
         ], ident: "Nothing", fields: Unit, discriminant: 0, since: None),
@@ -195,7 +195,7 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How the last update ended.",
-    ], ident: "LastResult", fields: Named([
+    ], ident: "LastResult", generics: [], fields: Named([
         (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
             "What happened.",
         ], slot: None),
@@ -206,7 +206,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Which update traits a node implements. Lets a host decide what to do after a single call, which matters on slow",
         "links where introspection is expensive.",
-    ], ident: "Offers", fields: Named([
+    ], ident: "Offers", generics: [], fields: Named([
         (ident: Some("boot_control"), default: None, since: None, ty: Bool, docs: [
             "`BootControl` is here.",
         ], slot: None),
@@ -222,14 +222,14 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `UpdateNode::node` reports.",
-    ], ident: "NodeInfo", fields: Named([
+    ], ident: "NodeInfo", generics: [], fields: Named([
         (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Which firmware is answering.",
         ], slot: None),
         (ident: Some("profile"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
             "How this device switches between images.",
         ], slot: None),
-        (ident: Some("product"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
+        (ident: Some("product"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "Product name, as the release\'s manifest names it; the host uses it to pick the release line.",
         ], slot: None),
         (ident: Some("geometry_id"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
@@ -242,7 +242,7 @@
         (ident: Some("version_floor"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Lowest version this device will still accept (anti-rollback). Only ever goes up.",
         ], slot: None),
-        (ident: Some("manifest_digest"), default: None, since: None, ty: Option(some_ty: Array(len: 8, ty: NumericAny(Base(U8)))), docs: [
+        (ident: Some("manifest_digest"), default: None, since: None, ty: Option(some_ty: Array(len: Fixed(8), ty: NumericAny(Base(U8)))), docs: [
             "Digest of the app slot\'s manifest, if this node has it at hand (cached, or computed at boot); `None` means",
             "\"read it with `Inventory::manifest_digest`\".",
         ], slot: None),
@@ -258,7 +258,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
         "Why a request was refused.",
-    ], ident: "Error", variants: [
+    ], ident: "Error", generics: [], variants: [
         (docs: [
             "This node doesn\'t do that (a target it doesn\'t accept, revert without a previous image).",
         ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
@@ -328,7 +328,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Where `BootControl::reboot` goes.",
-    ], ident: "BootTarget", variants: [
+    ], ident: "BootTarget", generics: [], variants: [
         (docs: [
             "The app: the normal reset. Switches to a staged image or applies a stored plan if there is one.",
         ], ident: "App", fields: Unit, discriminant: 0, since: None),
@@ -338,7 +338,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "A slot of the flash, from the update\'s point of view.",
-    ], ident: "Slot", variants: [
+    ], ident: "Slot", generics: [], variants: [
         (docs: [
             "The image that runs (or, in an updater, the app slot being rewritten).",
         ], ident: "Active", fields: Unit, discriminant: 0, since: None),
@@ -348,7 +348,7 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Layout of a slot, as `Inventory::layout` reports it.",
-    ], ident: "SlotLayout", fields: Named([
+    ], ident: "SlotLayout", generics: [], fields: Named([
         (ident: Some("chunk_size"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Bytes per chunk: the unit hashed in the manifest and written by one WRITE step.",
         ], slot: None),
@@ -364,11 +364,11 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "The state of one chunk, as the manifest records it.",
-    ], ident: "ChunkState", variants: [
+    ], ident: "ChunkState", generics: [], variants: [
         (docs: [
             "Readable data with this hash.",
         ], ident: "Hash", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Array(len: 8, ty: NumericAny(Base(U8))), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), docs: [], slot: None),
         ]), discriminant: 0, since: None),
         (docs: [
             "Erased: every byte reads as erased. May be written without an erase.",
@@ -379,7 +379,7 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `Stage::limits` reports.",
-    ], ident: "StageLimits", fields: Named([
+    ], ident: "StageLimits", generics: [], fields: Named([
         (ident: Some("max_piece"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Largest data payload in one `Stage::write` or [PlanSegment], in bytes, at most [MAX_PIECE_LEN]. Chosen to",
             "fit the node\'s receive buffer.",
@@ -403,7 +403,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Where a plan goes on the node.",
-    ], ident: "Target", variants: [
+    ], ident: "Target", generics: [], variants: [
         (docs: [
             "Apply each step as it arrives: into the inactive slot (A/B, mode 1) or, in an updater, in place (mode 3).",
         ], ident: "Live", fields: Unit, discriminant: 0, since: None),
@@ -413,7 +413,7 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `Stage::begin` and `StageBulk::begin_bulk` answer.",
-    ], ident: "Session", fields: Named([
+    ], ident: "Session", generics: [], fields: Named([
         (ident: Some("steps"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Steps in the plan, from its header.",
         ], slot: None),
@@ -427,7 +427,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `Stage::progress` answers.",
-    ], ident: "Progress", fields: Named([
+    ], ident: "Progress", generics: [], fields: Named([
         (ident: Some("steps"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Steps in the plan.",
         ], slot: None),
@@ -443,7 +443,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Progress of long operations and session outcomes, on `Stage`\'s `event` stream.",
-    ], ident: "StageEvent", variants: [
+    ], ident: "StageEvent", generics: [], variants: [
         (docs: [
             "Hashing a slot for the manifest: `done` of `total` chunks.",
         ], ident: "Hashing", fields: Named([
@@ -475,17 +475,17 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A segment of a bulk plan, sent on `StageBulk`\'s `plan` sink.",
-    ], ident: "PlanSegment", fields: Named([
+    ], ident: "PlanSegment", generics: [], fields: Named([
         (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Where these bytes go: offset from the first byte after the plan header.",
         ], slot: None),
-        (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: 1024, ty: Vec(NumericAny(Base(U8)))), docs: [
+        (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(1024), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Plan bytes, at most [StageLimits::max_piece] (and never more than [MAX_PIECE_LEN]).",
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Status carried by a [PlanAck].",
-    ], ident: "BulkStatus", variants: [
+    ], ident: "BulkStatus", generics: [], variants: [
         (docs: [
             "Receiving; nothing wrong.",
         ], ident: "Receiving", fields: Unit, discriminant: 0, since: None),
@@ -504,7 +504,7 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "An acknowledgement on `StageBulk`\'s `plan_ack` stream.",
-    ], ident: "PlanAck", fields: Named([
+    ], ident: "PlanAck", generics: [], fields: Named([
         (ident: Some("have"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Bytes after the header the node has, in order. After a [BulkStatus::Gap] the host resends from here.",
         ], slot: None),
@@ -586,7 +586,7 @@
         ], optional: None),
         (id: 1, kind: Method(args: [
             (ident: "slot", ty: OutOfLine(type_idx: 10)),
-        ], return_ty: Some(Result(ok_ty: Array(len: 8, ty: NumericAny(Base(U8))), err_ty: OutOfLine(type_idx: 8))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), err_ty: OutOfLine(type_idx: 8))), errors: Some([
             (ident: "Unsupported", nested: None),
         ])), multiplicity: Flat, since: None, ident: "manifest_digest", docs: [
             "Digest of a slot\'s manifest, as the protocol spec defines it. Equal digests mean equal manifests, so a host",
@@ -601,7 +601,7 @@
             (ident: "slot", ty: OutOfLine(type_idx: 10)),
             (ident: "first", ty: NumericAny(Base(U16))),
             (ident: "count", ty: NumericAny(Base(U16))),
-        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: 64, ty: Vec(OutOfLine(type_idx: 12))), err_ty: OutOfLine(type_idx: 8))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 12))), err_ty: OutOfLine(type_idx: 8))), errors: Some([
             (ident: "Unsupported", nested: None),
             (ident: "OutOfRange", nested: None),
         ])), multiplicity: Flat, since: None, ident: "chunks", docs: [
@@ -627,7 +627,7 @@
         ], optional: None),
         (id: 1, kind: Method(args: [
             (ident: "target", ty: OutOfLine(type_idx: 14)),
-            (ident: "header", ty: MaxLen(max_len: 256, ty: Vec(NumericAny(Base(U8))))),
+            (ident: "header", ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8))))),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 8))), errors: Some([
             (ident: "BadHeader", nested: None),
             (ident: "BadSignature", nested: None),
@@ -674,7 +674,7 @@
             (ident: "index", ty: NumericAny(Base(U32))),
             (ident: "dst", ty: NumericAny(Base(U16))),
             (ident: "src", ty: NumericAny(Base(U16))),
-            (ident: "hash", ty: Array(len: 8, ty: NumericAny(Base(U8)))),
+            (ident: "hash", ty: Array(len: Fixed(8), ty: NumericAny(Base(U8)))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
             (ident: "NoSession", nested: None),
             (ident: "OutOfRange", nested: None),
@@ -695,9 +695,9 @@
         (id: 4, kind: Method(args: [
             (ident: "index", ty: NumericAny(Base(U32))),
             (ident: "dst", ty: NumericAny(Base(U16))),
-            (ident: "hash", ty: Array(len: 8, ty: NumericAny(Base(U8)))),
+            (ident: "hash", ty: Array(len: Fixed(8), ty: NumericAny(Base(U8)))),
             (ident: "offset", ty: NumericAny(Base(U32))),
-            (ident: "data", ty: MaxLen(max_len: 1024, ty: Vec(NumericAny(Base(U8))))),
+            (ident: "data", ty: MaxLen(max_len: Fixed(1024), ty: Vec(NumericAny(Base(U8))))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
             (ident: "NoSession", nested: None),
             (ident: "OutOfRange", nested: None),
@@ -771,7 +771,7 @@
     ], crate_idx: 0, trait_name: "StageBulk", items: [
         (id: 0, kind: Method(args: [
             (ident: "target", ty: OutOfLine(type_idx: 14)),
-            (ident: "header", ty: MaxLen(max_len: 256, ty: Vec(NumericAny(Base(U8))))),
+            (ident: "header", ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8))))),
             (ident: "total_len", ty: NumericAny(Base(U32))),
             (ident: "ack_every", ty: NumericAny(Base(U32))),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 8))), errors: Some([

@@ -1,13 +1,13 @@
 use super::{
     api::convert_trait,
     crate_walker::{CrateContext, Scratch},
-    ty::convert_ty_path_segment,
+    ty::convert_named_def,
     util::{collect_docs, use_tree_names},
 };
 use anyhow::{Context, Result};
 use shrink_wrap::UNib32;
 use std::path::Path;
-use syn::{Attribute, Ident, Item, PathSegment, Visibility};
+use syn::{Attribute, Ident, Item, Visibility};
 use ww_self::signature::{no_resolve, trait_signature, type_signature};
 use ww_self::visit::{self, Visit};
 use ww_self::visit_mut::{self, VisitMut};
@@ -56,10 +56,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
                     optional: None,
                 });
             }
-            Item::Struct(item_struct)
-                if has_attr(&item_struct.attrs, &["derive_shrink_wrap"])
-                    && !has_type_params(&item_struct.generics) =>
-            {
+            Item::Struct(item_struct) if has_attr(&item_struct.attrs, &["derive_shrink_wrap"]) => {
                 convert_named_ty(&item_struct.ident, &entry, &mut scratch)?;
             }
             Item::Enum(item_enum) if has_attr(&item_enum.attrs, &["derive_shrink_wrap"]) => {
@@ -107,21 +104,13 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
 fn is_shrink_wrap_ty(cx: &CrateContext, name: &Ident) -> bool {
     cx.lib_rs_ast.items.iter().any(|item| match item {
         Item::Struct(item_struct) => {
-            &item_struct.ident == name
-                && has_attr(&item_struct.attrs, &["derive_shrink_wrap"])
-                && !has_type_params(&item_struct.generics)
+            &item_struct.ident == name && has_attr(&item_struct.attrs, &["derive_shrink_wrap"])
         }
         Item::Enum(item_enum) => {
             &item_enum.ident == name && has_attr(&item_enum.attrs, &["derive_shrink_wrap"])
         }
         _ => false,
     })
-}
-
-/// `struct Timed<T>` (DER-14): the API model has no type parameters, so such a type is left out of a crate's
-/// snapshot, as a hand-written type is.
-fn has_type_params(generics: &syn::Generics) -> bool {
-    generics.type_params().next().is_some()
 }
 
 fn has_attr(attrs: &[Attribute], names: &[&str]) -> bool {
@@ -138,7 +127,8 @@ fn convert_named_ty(
     current_crate: &CrateContext,
     scratch: &mut Scratch,
 ) -> Result<()> {
-    convert_ty_path_segment(&PathSegment::from(ident.clone()), current_crate, scratch)
+    // generic definitions too (API-43), each once, without arguments
+    convert_named_def(ident, current_crate, scratch)
         .with_context(|| format!("converting type {ident}"))?;
     Ok(())
 }

@@ -1,6 +1,6 @@
 // ww_error 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Errors every WireWeaver API can return (STD-16).",
     "",
     "An API\'s error enum puts [CommonError] first, marked `#[common]`, and keeps its own variants for what is",
@@ -43,7 +43,7 @@
         "Put first in an API\'s error enum as `#[common] Common(CommonError<\'i>)`. `Unsupported` means the device knows",
         "the call and can\'t do what was asked; a call that has no implementation at all is the framework\'s",
         "`Unimplemented` instead.",
-    ], ident: "CommonError", variants: [
+    ], ident: "CommonError", generics: [], variants: [
         (docs: [
             "Not supported by this device (a mode, a range, a feature of the call).",
         ], ident: "Unsupported", fields: Unit, discriminant: 0, since: None),
@@ -53,12 +53,12 @@
             (ident: Some("arg"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
                 "Position of the argument, starting at 0.",
             ], slot: None),
-            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: 64, ty: String), docs: [], slot: None),
+            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None),
         ]), discriminant: 1, since: None),
         (docs: [
             "In use by {by}.",
         ], ident: "InUse", fields: Named([
-            (ident: Some("by"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [], slot: None),
+            (ident: Some("by"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [], slot: None),
         ]), discriminant: 2, since: None),
         (docs: [
             "Busy with another operation, try again later.",
@@ -66,17 +66,17 @@
         (docs: [
             "Not possible in the current state: {reason}.",
         ], ident: "WrongState", fields: Named([
-            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: 64, ty: String), docs: [], slot: None),
+            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None),
         ]), discriminant: 4, since: None),
         (docs: [
             "No power on {rail}.",
         ], ident: "NoPower", fields: Named([
-            (ident: Some("rail"), default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: [], slot: None),
+            (ident: Some("rail"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None),
         ]), discriminant: 5, since: None),
         (docs: [
             "Refused: {reason}.",
         ], ident: "Refused", fields: Named([
-            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: 64, ty: String), docs: [], slot: None),
+            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None),
         ]), discriminant: 6, since: None),
         (docs: [
             "Timed out.",

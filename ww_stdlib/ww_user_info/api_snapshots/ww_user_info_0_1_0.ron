@@ -1,6 +1,6 @@
 // ww_user_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "A name and notes the user gives a unit (STD-24), shown by `ww list`.",
     "",
     "# Persistence",
@@ -14,7 +14,7 @@
 ]), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device keeps of the user\'s name and notes.",
-    ], ident: "UserInfoCaps", fields: Named([
+    ], ident: "UserInfoCaps", generics: [], fields: Named([
         (ident: Some("name_max"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Longest name the device keeps, in bytes (at most 32).",
         ], slot: None),
@@ -26,18 +26,18 @@
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
-        122,
-        139,
-        242,
-        75,
-        84,
-        91,
-        80,
-        174,
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of writing the name or notes.",
-    ], ident: "UserInfoError", variants: [
+    ], ident: "UserInfoError", generics: [], variants: [
         (docs: [
             "Common error",
         ], ident: "Common", fields: Unnamed([
@@ -63,7 +63,7 @@
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "CAPABILITIES", docs: [
             "Lengths this device keeps and whether a written value survives a power cycle.",
         ], optional: None),
-        (id: 1, kind: Property(ty: MaxLen(max_len: 32, ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
+        (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
             (ident: "TooLong", nested: None),
             (ident: "Common", nested: Some([
                 "Busy",
@@ -72,7 +72,7 @@
         ])), multiplicity: Flat, since: None, ident: "name", docs: [
             "Short name of the unit, shown by `ww list`.",
         ], optional: None),
-        (id: 2, kind: Property(ty: MaxLen(max_len: 256, ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
+        (id: 2, kind: Property(ty: MaxLen(max_len: Fixed(256), ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
             (ident: "TooLong", nested: None),
             (ident: "Common", nested: Some([
                 "Busy",

@@ -1,6 +1,6 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",
     "Every device has one free-running clock that timestamps everything it captures, as [Second]s since the clock",
@@ -12,18 +12,18 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Clock", docs: [], optional: None),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        178,
-        243,
         149,
-        13,
-        148,
-        206,
-        13,
-        103,
+        145,
+        124,
+        207,
+        145,
+        192,
+        245,
+        124,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "A format a sync line can carry, see `ClockInfo::sync_formats`.",
-    ], ident: "SyncFormat", variants: [
+    ], ident: "SyncFormat", generics: [], variants: [
         (docs: [
             "IRIG-B time code.",
         ], ident: "IrigB", fields: Unit, discriminant: 0, since: None),
@@ -33,20 +33,20 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Static description of a device\'s clock, see `Clock::info`.",
-    ], ident: "ClockInfo", fields: Named([
+    ], ident: "ClockInfo", generics: [], fields: Named([
         (ident: Some("resolution"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Smallest step of the clock.",
         ], slot: None),
-        (ident: Some("source"), default: None, since: None, ty: MaxLen(max_len: 32, ty: String), docs: [
+        (ident: Some("source"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "\"RP2350 TIMER0\", \"DWT cycle counter\".",
         ], slot: None),
-        (ident: Some("sync_formats"), default: None, since: None, ty: MaxLen(max_len: 8, ty: Vec(OutOfLine(type_idx: 1))), docs: [
+        (ident: Some("sync_formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 1))), docs: [
             "Sync formats this device can use; empty without a sync line.",
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "State of a device\'s sync line, see `SyncStatus::state` and `TimeMapPoint::state`.",
-    ], ident: "SyncState", variants: [
+    ], ident: "SyncState", generics: [], variants: [
         (docs: [
             "Sync is off, or no signal has been seen yet: `now()` runs free.",
         ], ident: "Free", fields: Unit, discriminant: 0, since: None),
@@ -62,7 +62,7 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One point of the `time_map` stream: this device\'s local time mapped to the shared sync time.",
-    ], ident: "TimeMapPoint", fields: Named([
+    ], ident: "TimeMapPoint", generics: [], fields: Named([
         (ident: Some("local"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "This device\'s own time at the point.",
         ], slot: None),
@@ -75,7 +75,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What a device\'s sync line should do, see `Clock::configure_sync` / `Clock::sync_config`.",
-    ], ident: "SyncConfig", variants: [
+    ], ident: "SyncConfig", generics: [], variants: [
         (docs: [
             "No synchronisation; `now()` runs free.",
         ], ident: "Off", fields: Unit, discriminant: 0, since: None),
@@ -91,19 +91,19 @@
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
-        122,
-        139,
-        242,
-        75,
-        84,
-        91,
-        80,
-        174,
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of `Clock`: the common ones (unsupported sync line or format, invalid configuration, in use, wrong",
         "state); each method lists the variants it returns.",
-    ], ident: "ClockError", variants: [
+    ], ident: "ClockError", generics: [], variants: [
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
@@ -112,7 +112,7 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Current sync state of a device\'s clock, see `Clock::sync_status`.",
-    ], ident: "SyncStatus", fields: Named([
+    ], ident: "SyncStatus", generics: [], fields: Named([
         (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Current state of the sync state machine.",
         ], slot: None),
@@ -124,14 +124,14 @@
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "DateTime", signature: [
-        251,
-        93,
-        1,
-        94,
-        206,
-        195,
-        43,
+        131,
+        246,
         239,
+        92,
+        154,
+        105,
+        61,
+        117,
     ]),
 ], traits: [
     InLine(level: (docs: [

@@ -106,6 +106,9 @@ pub(crate) struct Scratch {
     pub(crate) dedup_traits: bool,
     /// User-defined types being converted, to report self-referential types instead of recursing forever.
     pub(crate) types_in_progress: Vec<(FullVersionOwned, String)>,
+    /// Type and const parameters of the generic definition whose fields are being converted (API-43), empty
+    /// outside of one.
+    pub(crate) generic_scope: Vec<ww_self::GenericParamOwned>,
 }
 
 /// Scratch space used to hold types and traits

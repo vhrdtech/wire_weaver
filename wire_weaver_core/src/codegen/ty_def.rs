@@ -3,7 +3,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{Lit, LitInt};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
-use ww_self::{ApiBundleOwned, TypeOwned};
+use ww_self::{ApiBundleOwned, GenericArgOwned, TypeOwned, ValueOwned};
 
 use crate::codegen::util::maybe_quote_cl;
 use crate::transform::WIRE_WEAVER_REEXPORTS;
@@ -52,6 +52,36 @@ fn ty_def_inner(
             let (ty, crate_idx) = api_bundle.get_ty(type_idx.0)?;
             ty_def_inner(api_bundle, ty, alloc, ty_pos, Some(crate_idx))
         }
+        // `Timed<Ampere>`, `TaggedOwned<String>` (API-43): the definition's own lifetime first, then the arguments
+        TypeOwned::Instance { type_idx, args } => {
+            let (def, crate_idx) = api_bundle.get_ty(type_idx.0)?;
+            let (ident, own_lifetime) = match def {
+                TypeOwned::Struct(item_struct) => {
+                    (&item_struct.ident, item_struct.is_lifetime(api_bundle)?)
+                }
+                TypeOwned::Enum(item_enum) => (&item_enum.ident, item_enum.is_lifetime(api_bundle)?),
+                _ => return Err(anyhow!("generic type with index {} is not a struct or an enum", type_idx.0)),
+            };
+            let mut generic_args = vec![];
+            if own_lifetime && !alloc {
+                generic_args.push(lifetime(ty_pos));
+            }
+            for arg in args {
+                generic_args.push(match arg {
+                    GenericArgOwned::Type(ty) => ty_def_inner(api_bundle, ty, alloc, ty_pos, None)?,
+                    GenericArgOwned::Const(value) => const_arg(value)?,
+                    GenericArgOwned::ConstParam(_) => {
+                        return Err(anyhow!("const parameter of {ident} outside of a generic definition"));
+                    }
+                });
+            }
+            let path = user_ty_path(Some(crate_idx), ident, own_lifetime && alloc, api_bundle)?;
+            Ok(quote! { #path #maybe_turbofish < #(#generic_args),* > })
+        }
+        TypeOwned::Param(idx) => Err(anyhow!(
+            "type parameter {} outside of a generic definition",
+            idx.0
+        )),
         TypeOwned::Flag => Err(anyhow!("Flag type cannot be in def position")),
         TypeOwned::String => Ok(if alloc {
             quote! { String }
@@ -71,7 +101,7 @@ fn ty_def_inner(
         TypeOwned::Array { len, ty } => {
             let ty = ty_def_inner(api_bundle, ty, alloc, ty_pos, None)?;
             let len = Lit::Int(LitInt::new(
-                format!("{}", len.0).as_str(),
+                format!("{}", len.fixed()?).as_str(),
                 Span::call_site(),
             ));
             Ok(quote! { [ #ty; #len ] })
@@ -147,7 +177,7 @@ fn ty_def_inner(
         TypeOwned::MaxLen { max_len, ty } => {
             let inner_ty = ty_def_inner(api_bundle, ty, alloc, ty_pos, None)?;
             let max_len = Lit::Int(LitInt::new(
-                format!("{}", max_len.0).as_str(),
+                format!("{}", max_len.fixed()?).as_str(),
                 Span::call_site(),
             ));
             Ok(quote! { wire_weaver::shrink_wrap::MaxLen #maybe_turbofish <#inner_ty, #max_len> })
@@ -155,15 +185,43 @@ fn ty_def_inner(
     }
 }
 
-fn user_ty_def(
+/// A const argument as a literal: `64`, `-1`, `true`.
+fn const_arg(value: &ValueOwned) -> Result<TokenStream> {
+    match value {
+        ValueOwned::Bool(b) => Ok(quote! { #b }),
+        ValueOwned::Numeric(n) => {
+            let v = n
+                .to_i128()
+                .ok_or_else(|| anyhow!("const argument {n:?} is not an integer"))?;
+            let lit = LitInt::new(&v.unsigned_abs().to_string(), Span::call_site());
+            Ok(if v < 0 {
+                quote! { { -#lit } }
+            } else {
+                quote! { #lit }
+            })
+        }
+        other => Err(anyhow!("const argument {other:?} is not a bool or an integer")),
+    }
+}
+
+/// `crate::Name`, `crate::NameOwned` with `owned`.
+fn user_ty_path(
     crate_idx: Option<u32>,
     ty_name: &str,
-    is_lifetime: bool,
-    alloc: bool,
-    ty_pos: TyPos,
+    owned: bool,
     api_bundle: &ApiBundleOwned,
 ) -> Result<TokenStream> {
-    let source_crate = if let Some(crate_idx) = crate_idx {
+    let source_crate = source_crate(crate_idx, api_bundle)?;
+    let ty_name = if owned {
+        Ident::new(&format!("{ty_name}Owned"), Span::call_site())
+    } else {
+        Ident::new(ty_name, Span::call_site())
+    };
+    Ok(quote! { #source_crate::#ty_name })
+}
+
+fn source_crate(crate_idx: Option<u32>, api_bundle: &ApiBundleOwned) -> Result<TokenStream> {
+    Ok(if let Some(crate_idx) = crate_idx {
         let name = api_bundle.crate_name(crate_idx)?;
         let reexported = WIRE_WEAVER_REEXPORTS.contains(&name);
         let name = Ident::new(name, Span::call_site());
@@ -175,7 +233,18 @@ fn user_ty_def(
         }
     } else {
         quote! {}
-    };
+    })
+}
+
+fn user_ty_def(
+    crate_idx: Option<u32>,
+    ty_name: &str,
+    is_lifetime: bool,
+    alloc: bool,
+    ty_pos: TyPos,
+    api_bundle: &ApiBundleOwned,
+) -> Result<TokenStream> {
+    let source_crate = source_crate(crate_idx, api_bundle)?;
     let maybe_turbofish = maybe_quote_cl(matches!(ty_pos, TyPos::Expr), || quote! { :: });
 
     if alloc {

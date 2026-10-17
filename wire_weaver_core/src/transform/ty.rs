@@ -8,12 +8,14 @@ use anyhow::{Context, Result, anyhow};
 use shrink_wrap::{ElementSize, UNib32};
 use syn::{
     Attribute, Expr, Fields, GenericArgument, Item, ItemEnum, ItemStruct, Lit, Meta, PathArguments,
-    PathSegment, Type, TypePath, parse_str,
+    PathSegment, Type, TypePath,
 };
 use ww_numeric::{IBits, NumericAnyTypeOwned, UBits};
+use ww_numeric::NumericValue;
 use ww_self::{
-    FieldOwned, FieldsOwned, ItemEnumOwned, ItemStructOwned, NumericBaseType, Repr, TypeOwned,
-    ValueOwned, VariantOwned,
+    FieldOwned, FieldsOwned, GenericArgOwned, GenericParamKindOwned, GenericParamOwned,
+    ItemEnumOwned, ItemStructOwned, Length, NumericBaseType, Repr, TypeOwned, ValueOwned,
+    VariantOwned,
 };
 use ww_version::FullVersionOwned;
 
@@ -24,16 +26,15 @@ pub(crate) fn convert_ty(
 ) -> Result<TypeOwned> {
     match ty {
         Type::Array(type_array) => {
-            let Expr::Lit(lit) = &type_array.len else {
-                return Err(anyhow!("only literals supported as array length"));
-            };
-            let Lit::Int(lit_int) = &lit.lit else {
-                return Err(anyhow!("only integers supported as array length"));
-            };
-            let len: u32 = lit_int.base10_parse().context("parsing array length")?;
+            let len = convert_length(&type_array.len, current_crate, scratch).ok_or_else(|| {
+                anyhow!(
+                    "array length must be an integer literal, a const of one in lib.rs or a const parameter"
+                )
+                .context(current_crate.err_context())
+            })?;
             let inner = convert_ty(&type_array.elem, current_crate, scratch)?;
             Ok(TypeOwned::Array {
-                len: UNib32(len),
+                len,
                 ty: Box::new(inner),
             })
         }
@@ -67,6 +68,21 @@ pub(crate) fn convert_ty_path(
     let Some((last, leading)) = segments.split_last() else {
         return Err(anyhow!("Empty type path"));
     };
+    // a parameter of the generic definition being converted
+    if leading.is_empty()
+        && ty_path.qself.is_none()
+        && matches!(last.arguments, PathArguments::None)
+        && let Some((idx, param)) = scope_param(scratch, &last.ident.to_string())
+    {
+        return match param.kind {
+            GenericParamKindOwned::Type => Ok(TypeOwned::Param(UNib32(idx))),
+            GenericParamKindOwned::Const { .. } => Err(anyhow!(
+                "const parameter {} is used as a type",
+                param.ident
+            )
+            .context(current_crate.err_context())),
+        };
+    }
     if leading.is_empty() {
         convert_ty_path_segment(last, current_crate, scratch)
     } else {
@@ -123,49 +139,424 @@ pub(crate) fn convert_ty_path_segment(
                 return Ok(ty);
             }
 
-            for item in &current_crate.lib_rs_ast.items {
-                match item {
-                    Item::Enum(item_enum) if item_enum.ident == user_ty => {
-                        let key = enter_type(current_crate, scratch, &ty_name)?;
-                        let ty = convert_item_enum(current_crate, scratch, ty_name, item_enum);
-                        scratch.types_in_progress.retain(|k| k != &key);
-                        return ty;
-                    }
-                    Item::Struct(item_struct) if item_struct.ident == user_ty => {
-                        let key = enter_type(current_crate, scratch, &ty_name)?;
-                        let ty = convert_item_struct(current_crate, scratch, ty_name, item_struct);
-                        scratch.types_in_progress.retain(|k| k != &key);
-                        return ty;
-                    }
-                    Item::Use(item_use) => {
-                        let Some(path) = use_tree_path_to(&item_use.tree, user_ty) else {
-                            continue;
-                        };
-                        let dependent_crate = current_crate.resolve_path(path, scratch)?;
-                        let ty: Type = parse_str(user_ty)?;
-                        return convert_ty(&ty, &dependent_crate, scratch);
-                    }
-                    _ => {}
-                }
+            let (def_cx, item) = find_user_item(segment, current_crate, scratch)?;
+            convert_user_ty(segment, &def_cx, &item, current_crate, scratch)
+        }
+    }
+}
+
+/// Definition of the user type `segment` names, and the crate it is in: defined in `current_crate`, imported by
+/// name, or through a glob import (looked into last, as Rust does).
+fn find_user_item(
+    segment: &PathSegment,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<(CrateContext, Item)> {
+    let user_ty = segment.ident.to_string();
+    let user_ty = user_ty.as_str();
+    for item in &current_crate.lib_rs_ast.items {
+        match item {
+            Item::Enum(item_enum) if item_enum.ident == user_ty => {
+                return Ok((current_crate.clone(), item.clone()));
             }
-            // `use wire_weaver::prelude::*` brings in `CommonError`: look into glob imports last, as Rust does
-            for item in &current_crate.lib_rs_ast.items {
-                let Item::Use(item_use) = item else {
+            Item::Struct(item_struct) if item_struct.ident == user_ty => {
+                return Ok((current_crate.clone(), item.clone()));
+            }
+            Item::Use(item_use) => {
+                let Some(path) = use_tree_path_to(&item_use.tree, user_ty) else {
                     continue;
                 };
-                for path in use_tree_globs(&item_use.tree) {
-                    // a glob into a crate that can't be walked (`std`) or that doesn't have the type
-                    let Ok(dependent_crate) = current_crate.resolve_path(path, scratch) else {
-                        continue;
-                    };
-                    if declares_or_imports(&dependent_crate, user_ty) {
-                        let ty: Type = parse_str(user_ty)?;
-                        return convert_ty(&ty, &dependent_crate, scratch);
-                    }
-                }
+                let dependent_crate = current_crate.resolve_path(path, scratch)?;
+                return find_user_item(segment, &dependent_crate, scratch);
             }
-            Err(anyhow!("Type {segment:?} not found").context(current_crate.err_context()))
+            _ => {}
         }
+    }
+    // `use wire_weaver::prelude::*` brings in `CommonError`: look into glob imports last, as Rust does
+    for item in &current_crate.lib_rs_ast.items {
+        let Item::Use(item_use) = item else {
+            continue;
+        };
+        for path in use_tree_globs(&item_use.tree) {
+            // a glob into a crate that can't be walked (`std`) or that doesn't have the type
+            let Ok(dependent_crate) = current_crate.resolve_path(path, scratch) else {
+                continue;
+            };
+            if declares_or_imports(&dependent_crate, user_ty) {
+                return find_user_item(segment, &dependent_crate, scratch);
+            }
+        }
+    }
+    Err(anyhow!("Type {segment:?} not found").context(current_crate.err_context()))
+}
+
+/// The user type `segment` names, defined as `item` in `def_cx`: an out-of-line reference, or an instance of a
+/// generic definition with the arguments of `segment` (converted in `current_crate`, in the current generic scope).
+fn convert_user_ty(
+    segment: &PathSegment,
+    def_cx: &CrateContext,
+    item: &Item,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<TypeOwned> {
+    let (ident, generics) = match item {
+        Item::Struct(item_struct) => (&item_struct.ident, &item_struct.generics),
+        Item::Enum(item_enum) => (&item_enum.ident, &item_enum.generics),
+        _ => return Err(anyhow!("{segment:?} is not a struct or an enum")),
+    };
+    let params = convert_generic_params(ident, generics, def_cx, scratch)?;
+    let args = convert_generic_args(segment, ident, &params, def_cx, current_crate, scratch)?;
+    let params: Vec<_> = params.into_iter().map(|(p, _)| p).collect();
+    let ty = convert_def(def_cx, item, params, scratch)?;
+    if args.is_empty() {
+        return Ok(ty);
+    }
+    let TypeOwned::OutOfLine { type_idx } = ty else {
+        return Err(anyhow!("internal: generic definition {ident} is not out-of-line"));
+    };
+    Ok(TypeOwned::Instance { type_idx, args })
+}
+
+/// Converts the definition of a struct or enum (generic or not, without arguments) into the types array, e.g. for
+/// a crate snapshot. Returns its index.
+pub(crate) fn convert_named_def(
+    ident: &syn::Ident,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<UNib32> {
+    let segment = PathSegment::from(ident.clone());
+    let (def_cx, item) = find_user_item(&segment, current_crate, scratch)?;
+    let generics = match &item {
+        Item::Struct(item_struct) => &item_struct.generics,
+        Item::Enum(item_enum) => &item_enum.generics,
+        _ => return Err(anyhow!("{ident} is not a struct or an enum")),
+    };
+    let params = convert_generic_params(ident, generics, &def_cx, scratch)?;
+    let params = params.into_iter().map(|(p, _)| p).collect();
+    match convert_def(&def_cx, &item, params, scratch)? {
+        TypeOwned::OutOfLine { type_idx } => Ok(type_idx),
+        _ => Err(anyhow!("internal: definition of {ident} is not out-of-line")),
+    }
+}
+
+/// `item` with `params` in scope while its fields are converted.
+fn convert_def(
+    def_cx: &CrateContext,
+    item: &Item,
+    params: Vec<GenericParamOwned>,
+    scratch: &mut Scratch,
+) -> Result<TypeOwned> {
+    let saved_scope = std::mem::replace(&mut scratch.generic_scope, params);
+    let result = (|| match item {
+        Item::Enum(item_enum) => {
+            let ty_name = item_enum.ident.to_string();
+            let key = enter_type(def_cx, scratch, &ty_name)?;
+            let ty = convert_item_enum(def_cx, scratch, ty_name, item_enum);
+            scratch.types_in_progress.retain(|k| k != &key);
+            ty
+        }
+        Item::Struct(item_struct) => {
+            let ty_name = item_struct.ident.to_string();
+            let key = enter_type(def_cx, scratch, &ty_name)?;
+            let ty = convert_item_struct(def_cx, scratch, ty_name, item_struct);
+            scratch.types_in_progress.retain(|k| k != &key);
+            ty
+        }
+        _ => Err(anyhow!("not a struct or an enum")),
+    })();
+    scratch.generic_scope = saved_scope;
+    result
+}
+
+/// Type and const parameters of the definition `ident` (lifetimes are left out), each with its default as written.
+fn convert_generic_params(
+    ident: &syn::Ident,
+    generics: &syn::Generics,
+    def_cx: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<Vec<(GenericParamOwned, Option<ParamDefault>)>> {
+    let mut params = vec![];
+    for param in &generics.params {
+        match param {
+            syn::GenericParam::Lifetime(_) => {}
+            syn::GenericParam::Type(type_param) => params.push((
+                GenericParamOwned {
+                    ident: type_param.ident.to_string(),
+                    kind: GenericParamKindOwned::Type,
+                },
+                type_param.default.clone().map(|(_, ty)| ParamDefault::Type(Box::new(ty))),
+            )),
+            syn::GenericParam::Const(const_param) => {
+                let ty = convert_const_param_ty(&const_param.ty).ok_or_else(|| {
+                    anyhow!(
+                        "{ident}: const parameter {} must be a bool or an integer",
+                        const_param.ident
+                    )
+                    .context(def_cx.err_context())
+                })?;
+                params.push((
+                    GenericParamOwned {
+                        ident: const_param.ident.to_string(),
+                        kind: GenericParamKindOwned::Const { ty },
+                    },
+                    const_param.default.clone().map(|(_, expr)| ParamDefault::Const(Box::new(expr))),
+                ));
+            }
+        }
+    }
+    let _ = scratch;
+    Ok(params)
+}
+
+/// Default of a parameter, `struct A<T = u8, const N: usize = 4>`.
+enum ParamDefault {
+    Type(Box<Type>),
+    Const(Box<Expr>),
+}
+
+/// Type of a const parameter: `bool` or an integer, `usize` as `u64`, `isize` as `i64`.
+fn convert_const_param_ty(ty: &Type) -> Option<TypeOwned> {
+    let Type::Path(type_path) = ty else {
+        return None;
+    };
+    let base = match type_path.path.get_ident()?.to_string().as_str() {
+        "bool" => return Some(TypeOwned::Bool),
+        "u8" => NumericBaseType::U8,
+        "u16" => NumericBaseType::U16,
+        "u32" => NumericBaseType::U32,
+        "u64" | "usize" => NumericBaseType::U64,
+        "u128" => NumericBaseType::U128,
+        "i8" => NumericBaseType::I8,
+        "i16" => NumericBaseType::I16,
+        "i32" => NumericBaseType::I32,
+        "i64" | "isize" => NumericBaseType::I64,
+        "i128" => NumericBaseType::I128,
+        _ => return None,
+    };
+    Some(numeric_base(base))
+}
+
+/// Arguments of `segment` for the parameters of `ident`: types and const values converted in `current_crate` with
+/// the current generic scope, missing trailing ones from the parameters' defaults (converted in `def_cx`).
+fn convert_generic_args(
+    segment: &PathSegment,
+    ident: &syn::Ident,
+    params: &[(GenericParamOwned, Option<ParamDefault>)],
+    def_cx: &CrateContext,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<Vec<GenericArgOwned>> {
+    let err = |msg: String| anyhow!("{ident}: {msg}").context(current_crate.err_context());
+    let written: Vec<&GenericArgument> = match &segment.arguments {
+        PathArguments::None => vec![],
+        PathArguments::AngleBracketed(args) => args
+            .args
+            .iter()
+            .filter(|a| !matches!(a, GenericArgument::Lifetime(_)))
+            .collect(),
+        PathArguments::Parenthesized(_) => return Err(err("expected <..> arguments".into())),
+    };
+    if written.len() > params.len() {
+        return Err(err(format!(
+            "has {} type and const parameters, got {} arguments",
+            params.len(),
+            written.len()
+        )));
+    }
+    let mut args = Vec::with_capacity(params.len());
+    for (idx, (param, default)) in params.iter().enumerate() {
+        let arg = match (written.get(idx), default) {
+            (Some(arg), _) => convert_generic_arg(arg, param, current_crate, scratch)
+                .map_err(|e| e.context(format!("argument {} of {ident}", param.ident)))?,
+            (None, Some(default)) => {
+                // the default is written in the definition's crate, where the caller's parameters are not in scope
+                let saved = std::mem::take(&mut scratch.generic_scope);
+                let arg = match default {
+                    ParamDefault::Type(ty) => {
+                        convert_ty(ty, def_cx, scratch).map(GenericArgOwned::Type)
+                    }
+                    ParamDefault::Const(expr) => {
+                        convert_const_arg(expr, param, def_cx, scratch).map(GenericArgOwned::Const)
+                    }
+                };
+                scratch.generic_scope = saved;
+                arg.map_err(|e| e.context(format!("default of {} of {ident}", param.ident)))?
+            }
+            (None, None) => {
+                return Err(err(format!("missing argument for {}", param.ident)));
+            }
+        };
+        args.push(arg);
+    }
+    Ok(args)
+}
+
+fn convert_generic_arg(
+    arg: &GenericArgument,
+    param: &GenericParamOwned,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<GenericArgOwned> {
+    match (&param.kind, arg) {
+        (GenericParamKindOwned::Type, GenericArgument::Type(ty)) => {
+            Ok(GenericArgOwned::Type(convert_ty(ty, current_crate, scratch)?))
+        }
+        (GenericParamKindOwned::Const { .. }, GenericArgument::Const(expr)) => {
+            const_param_or_value(expr, param, current_crate, scratch)
+        }
+        // `N` and `SIZE` alone parse as types
+        (GenericParamKindOwned::Const { .. }, GenericArgument::Type(Type::Path(type_path)))
+            if type_path.path.get_ident().is_some() =>
+        {
+            let expr = Expr::Path(syn::ExprPath {
+                attrs: vec![],
+                qself: None,
+                path: type_path.path.clone(),
+            });
+            const_param_or_value(&expr, param, current_crate, scratch)
+        }
+        _ => Err(anyhow!("expected a {}", match param.kind {
+            GenericParamKindOwned::Type => "type",
+            GenericParamKindOwned::Const { .. } => "const value",
+        })),
+    }
+}
+
+/// A const parameter of the definition being converted passed on, or a value.
+fn const_param_or_value(
+    expr: &Expr,
+    param: &GenericParamOwned,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<GenericArgOwned> {
+    if let Expr::Path(path) = expr
+        && let Some(name) = path.path.get_ident()
+        && let Some((idx, _)) = scope_param(scratch, &name.to_string())
+    {
+        return Ok(GenericArgOwned::ConstParam(UNib32(idx)));
+    }
+    Ok(GenericArgOwned::Const(convert_const_arg(
+        expr,
+        param,
+        current_crate,
+        scratch,
+    )?))
+}
+
+/// Value of a const argument: an integer or bool literal (also `-1`, `{ 4 }`), or a `const` of one in lib.rs.
+fn convert_const_arg(
+    expr: &Expr,
+    param: &GenericParamOwned,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<ValueOwned> {
+    let GenericParamKindOwned::Const { ty } = &param.kind else {
+        return Err(anyhow!("{} is not a const parameter", param.ident));
+    };
+    let value = const_expr_value(expr, current_crate).ok_or_else(|| {
+        anyhow!("expected an integer or bool literal, or a const of one in lib.rs")
+    })?;
+    let _ = scratch;
+    match (ty, value) {
+        (TypeOwned::Bool, ConstValue::Bool(b)) => Ok(ValueOwned::Bool(b)),
+        (TypeOwned::NumericAny(NumericAnyTypeOwned::Base(base)), ConstValue::Int(v)) => {
+            Ok(ValueOwned::Numeric(numeric_value(base, v)?))
+        }
+        (ty, value) => Err(anyhow!("{value:?} is not a value of {ty:?}")),
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ConstValue {
+    Bool(bool),
+    Int(i128),
+}
+
+fn const_expr_value(expr: &Expr, current_crate: &CrateContext) -> Option<ConstValue> {
+    match expr {
+        Expr::Lit(lit) => match &lit.lit {
+            Lit::Int(lit_int) => lit_int.base10_parse().ok().map(ConstValue::Int),
+            Lit::Bool(lit_bool) => Some(ConstValue::Bool(lit_bool.value)),
+            _ => None,
+        },
+        Expr::Unary(syn::ExprUnary {
+            op: syn::UnOp::Neg(_),
+            expr,
+            ..
+        }) => match const_expr_value(expr, current_crate)? {
+            ConstValue::Int(v) => Some(ConstValue::Int(v.checked_neg()?)),
+            ConstValue::Bool(_) => None,
+        },
+        Expr::Block(block) => match block.block.stmts.as_slice() {
+            [syn::Stmt::Expr(expr, None)] => const_expr_value(expr, current_crate),
+            _ => None,
+        },
+        Expr::Group(group) => const_expr_value(&group.expr, current_crate),
+        Expr::Paren(paren) => const_expr_value(&paren.expr, current_crate),
+        Expr::Path(path) => {
+            let name = path.path.get_ident()?.to_string();
+            current_crate
+                .lib_rs_ast
+                .items
+                .iter()
+                .find_map(|item| match item {
+                    Item::Const(item_const) if item_const.ident == name => {
+                        const_expr_value(&item_const.expr, current_crate)
+                    }
+                    _ => None,
+                })
+        }
+        _ => None,
+    }
+}
+
+/// `v` as a value of the integer type `base`, an error when it doesn't fit.
+fn numeric_value(base: &NumericBaseType, v: i128) -> Result<NumericValue> {
+    use NumericBaseType::*;
+    let out_of_range = || anyhow!("{v} is out of range of {base:?}");
+    Ok(match base {
+        U8 => NumericValue::U8(v.try_into().map_err(|_| out_of_range())?),
+        U16 => NumericValue::U16(v.try_into().map_err(|_| out_of_range())?),
+        U32 => NumericValue::U32(v.try_into().map_err(|_| out_of_range())?),
+        U64 => NumericValue::U64(v.try_into().map_err(|_| out_of_range())?),
+        U128 => NumericValue::U128(v.try_into().map_err(|_| out_of_range())?),
+        I8 => NumericValue::I8(v.try_into().map_err(|_| out_of_range())?),
+        I16 => NumericValue::I16(v.try_into().map_err(|_| out_of_range())?),
+        I32 => NumericValue::I32(v.try_into().map_err(|_| out_of_range())?),
+        I64 => NumericValue::I64(v.try_into().map_err(|_| out_of_range())?),
+        I128 => NumericValue::I128(v),
+        _ => return Err(anyhow!("{base:?} can't be the type of a const parameter")),
+    })
+}
+
+/// Index and definition of the parameter `name` of the generic definition being converted.
+fn scope_param<'s>(scratch: &'s Scratch, name: &str) -> Option<(u32, &'s GenericParamOwned)> {
+    scratch
+        .generic_scope
+        .iter()
+        .enumerate()
+        .find(|(_, p)| p.ident == name)
+        .map(|(idx, p)| (idx as u32, p))
+}
+
+/// Array length or `MaxLen` bound: an integer literal (also as `{ 64 }`), a `const` of one in lib.rs, or an integer
+/// const parameter of the definition being converted.
+fn convert_length(expr: &Expr, current_crate: &CrateContext, scratch: &Scratch) -> Option<Length> {
+    if let Expr::Path(path) = expr
+        && let Some(name) = path.path.get_ident()
+        && let Some((idx, param)) = scope_param(scratch, &name.to_string())
+    {
+        return matches!(param.kind, GenericParamKindOwned::Const { .. })
+            .then_some(Length::Param(UNib32(idx)));
+    }
+    if let Expr::Block(block) = expr
+        && let [syn::Stmt::Expr(expr, None)] = block.block.stmts.as_slice()
+    {
+        return convert_length(expr, current_crate, scratch);
+    }
+    match const_expr_value(expr, current_crate)? {
+        ConstValue::Int(v) => u32::try_from(v).ok().map(|v| Length::Fixed(UNib32(v))),
+        ConstValue::Bool(_) => None,
     }
 }
 
@@ -269,6 +660,7 @@ fn convert_item_enum(
         crate_idx: scratch.root_bundle.find_crate_or_create(current_crate),
         docs: collect_docs(&item_enum.attrs),
         ident: ty_name,
+        generics: scratch.generic_scope.clone(),
         variants,
     });
     if let Some(type_idx) = scratch.root_bundle.find_type(&ty) {
@@ -292,6 +684,7 @@ fn convert_item_struct(
         crate_idx: scratch.root_bundle.find_crate_or_create(current_crate),
         docs: collect_docs(&item_struct.attrs),
         ident: ty_name,
+        generics: scratch.generic_scope.clone(),
         fields,
         sparse: args.sparse,
     });
@@ -421,52 +814,29 @@ fn convert_ty_max_len(
         return Err(err("expected a type and a length"));
     };
     let max_len = match len {
-        GenericArgument::Const(expr) => max_len_value(expr, current_crate),
+        GenericArgument::Const(expr) => convert_length(expr, current_crate, scratch),
         // `N` alone parses as a type
-        GenericArgument::Type(Type::Path(type_path)) => match type_path.path.get_ident() {
-            Some(ident) => const_value(&ident.to_string(), current_crate),
-            None => None,
-        },
+        GenericArgument::Type(Type::Path(type_path)) if type_path.path.get_ident().is_some() => {
+            let expr = Expr::Path(syn::ExprPath {
+                attrs: vec![],
+                qself: None,
+                path: type_path.path.clone(),
+            });
+            convert_length(&expr, current_crate, scratch)
+        }
         _ => None,
     }
-    .ok_or_else(|| err("N must be an integer literal or a const of one in lib.rs"))?;
+    .ok_or_else(|| {
+        err("N must be an integer literal, a const of one in lib.rs or a const parameter")
+    })?;
     let inner_ty = convert_ty(inner_ty, current_crate, scratch)?;
     if !matches!(inner_ty, TypeOwned::Vec(_) | TypeOwned::String) {
         return Err(err("T must be a Vec, RefVec, String or &str"));
     }
     Ok(TypeOwned::MaxLen {
-        max_len: UNib32(max_len),
+        max_len,
         ty: Box::new(inner_ty),
     })
-}
-
-fn max_len_value(expr: &Expr, current_crate: &CrateContext) -> Option<u32> {
-    match expr {
-        Expr::Lit(lit) => match &lit.lit {
-            Lit::Int(lit_int) => lit_int.base10_parse().ok(),
-            _ => None,
-        },
-        Expr::Block(block) => match block.block.stmts.as_slice() {
-            [syn::Stmt::Expr(expr, None)] => max_len_value(expr, current_crate),
-            _ => None,
-        },
-        Expr::Path(path) => const_value(&path.path.get_ident()?.to_string(), current_crate),
-        _ => None,
-    }
-}
-
-/// Value of `const NAME: _ = <integer literal>;` in the crate's lib.rs.
-fn const_value(name: &str, current_crate: &CrateContext) -> Option<u32> {
-    current_crate
-        .lib_rs_ast
-        .items
-        .iter()
-        .find_map(|item| match item {
-            Item::Const(item_const) if item_const.ident == name => {
-                max_len_value(&item_const.expr, current_crate)
-            }
-            _ => None,
-        })
 }
 
 fn convert_ty_option(

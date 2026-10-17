@@ -1,6 +1,6 @@
 // ww_pwm 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
     "# Traits",
@@ -48,18 +48,18 @@
     (id: 3, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "PwmCaptureChannel", docs: [], optional: None),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Hertz", signature: [
-        96,
-        122,
-        185,
-        53,
-        99,
-        60,
+        233,
+        81,
+        169,
+        104,
+        162,
+        239,
+        216,
         13,
-        75,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to set, see `PwmChannel::set_output`.",
-    ], ident: "PwmOutput", fields: Named([
+    ], ident: "PwmOutput", generics: [], fields: Named([
         (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
         (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "0..=65535 = 0..100 %.",
@@ -74,26 +74,26 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `PwmChannel::set_output` or `PwmChannel::set_duty` actually set, see [PwmState::Output].",
-    ], ident: "PwmActual", fields: Named([
+    ], ident: "PwmActual", generics: [], fields: Named([
         (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
         (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "0..=65535 = 0..100 %.",
         ], slot: None),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
-        122,
-        139,
-        242,
-        75,
-        84,
-        91,
-        80,
-        174,
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of every trait in this crate: the common ones first, then what is specific to PWM. Each method lists the",
         "variants it returns.",
-    ], ident: "PwmError", variants: [
+    ], ident: "PwmError", generics: [], variants: [
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
@@ -105,7 +105,7 @@
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "The channel\'s output, see `PwmChannel::state`.",
-    ], ident: "PwmState", variants: [
+    ], ident: "PwmState", generics: [], variants: [
         (docs: [
             "Stopped: `PwmChannel::stop` was called, or the channel never started.",
         ], ident: "Idle", fields: Unit, discriminant: 0, since: None),
@@ -117,8 +117,8 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One PWM channel, see [PwmCapabilities::channels].",
-    ], ident: "PwmChannelInfo", fields: Named([
-        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: 16, ty: String), docs: [
+    ], ident: "PwmChannelInfo", generics: [], fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [
             "For the user: \"TIM1_CH1\", \"servo\", \"fan\".",
         ], slot: None),
         (ident: Some("group"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
@@ -130,8 +130,8 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s PWM offers, see `Pwm::capabilities`.",
-    ], ident: "PwmCapabilities", fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: 32, ty: Vec(OutOfLine(type_idx: 6))), docs: [
+    ], ident: "PwmCapabilities", generics: [], fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 6))), docs: [
             "Channel `n` of every method is `channels[n]`.",
         ], slot: None),
         (ident: Some("min_freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
@@ -146,7 +146,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What `PwmCaptureChannel::set_capture` measures, see [CaptureValue] for the matching result.",
-    ], ident: "CaptureMode", variants: [
+    ], ident: "CaptureMode", generics: [], variants: [
         (docs: [
             "No measurement; the channel is free for another function.",
         ], ident: "Off", fields: Unit, discriminant: 0, since: None),
@@ -164,18 +164,18 @@
         ], ident: "EdgeCount", fields: Unit, discriminant: 4, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        178,
-        243,
         149,
-        13,
-        148,
-        206,
-        13,
-        103,
+        145,
+        124,
+        207,
+        145,
+        192,
+        245,
+        124,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to measure, see `PwmCaptureChannel::capture` and `PwmCaptureChannel::set_capture`.",
-    ], ident: "CaptureConfig", fields: Named([
+    ], ident: "CaptureConfig", generics: [], fields: Named([
         (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None),
         (ident: Some("gate"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
             "Measurement window: for [CaptureMode::Frequency], [CaptureMode::DutyCycle] and [CaptureMode::EdgeCount], how",
@@ -185,7 +185,7 @@
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "A measurement, in the mode [CaptureConfig::mode] set; the variant always matches it.",
-    ], ident: "CaptureValue", variants: [
+    ], ident: "CaptureValue", generics: [], variants: [
         (docs: [], ident: "Frequency", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
         ]), discriminant: 0, since: None),
@@ -203,7 +203,7 @@
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One measurement with its time, see `PwmCaptureChannel::read_capture`.",
-    ], ident: "CaptureSample", fields: Named([
+    ], ident: "CaptureSample", generics: [], fields: Named([
         (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
             "End of the measurement window.",
         ], slot: None),

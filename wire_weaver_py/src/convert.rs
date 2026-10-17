@@ -64,10 +64,12 @@ pub(crate) fn to_value(
                 ValueOwned::Vec(items) | ValueOwned::Array(items) => items.len(),
                 _ => 0,
             };
-            if len > max_len.0 as usize {
+            let max_len = max_len
+                .fixed()
+                .map_err(|e| PyTypeError::new_err(e.to_string()))?;
+            if len > max_len as usize {
                 return Err(PyValueError::new_err(format!(
-                    "{len} elements, at most {} allowed (bytes for a string)",
-                    max_len.0
+                    "{len} elements, at most {max_len} allowed (bytes for a string)"
                 )));
             }
             value
@@ -80,11 +82,11 @@ pub(crate) fn to_value(
             }
         })?),
         TypeOwned::Array { len, ty: inner } => {
+            let len = len.fixed().map_err(|e| PyTypeError::new_err(e.to_string()))?;
             let items = to_items(obj, inner, bundle)?;
-            if items.len() != len.0 as usize {
+            if items.len() != len as usize {
                 return Err(PyValueError::new_err(format!(
-                    "expected {} elements, got {}",
-                    len.0,
+                    "expected {len} elements, got {}",
                     items.len()
                 )));
             }
@@ -185,7 +187,10 @@ pub(crate) fn to_value(
                     .collect::<PyResult<_>>()?,
             )
         }
-        TypeOwned::Flag | TypeOwned::OutOfLine { .. } => {
+        TypeOwned::Flag
+        | TypeOwned::OutOfLine { .. }
+        | TypeOwned::Instance { .. }
+        | TypeOwned::Param(_) => {
             return Err(PyTypeError::new_err(format!("unsupported type {ty:?}")));
         }
     })

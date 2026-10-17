@@ -153,6 +153,8 @@ pub fn compare(old: &ApiBundleOwned, new: &ApiBundleOwned) -> Result<Report, Str
     // definitions themselves are found
     let mut new = new.clone();
     new.ext_crates[0] = old_version.clone();
+    // the format a snapshot was saved in is not part of the definitions
+    new.ww_self_version = old.ww_self_version;
     let mut checker = Checker {
         old,
         new: &new,

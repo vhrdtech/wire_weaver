@@ -1,6 +1,6 @@
 // ww_indication 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 2, patch: 0), root: (docs: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device indication control (STD-28): one global mode every indicator (LED, buzzer, ...) follows.",
     "",
     "[Indication::mode] is the only item a device must implement. Per-unit [brightness](Indication::brightness),",
@@ -15,7 +15,7 @@
         "",
         "`Unsized` (default): a later version may add a mode (e.g. a \"Demo\" blink pattern) without breaking a host",
         "built against this one, which reads it as `Unknown(u32)` (SW-47).",
-    ], ident: "Mode", variants: [
+    ], ident: "Mode", generics: [], variants: [
         (docs: [
             "Every indicator off, including alerts.",
         ], ident: "AllOff", fields: Unit, discriminant: 0, since: None),
@@ -31,7 +31,7 @@
         "",
         "`Unsized` (default), for the same reason as [Mode]: room for a level between two of these without breaking",
         "older hosts.",
-    ], ident: "Brightness", variants: [
+    ], ident: "Brightness", generics: [], variants: [
         (docs: [
             "Night mode, non-distracting.",
         ], ident: "Lowest", fields: Unit, discriminant: 0, since: None),
@@ -49,24 +49,24 @@
         ], ident: "Highest", fields: Unit, discriminant: 4, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        178,
-        243,
         149,
-        13,
-        148,
-        206,
-        13,
-        103,
+        145,
+        124,
+        207,
+        145,
+        192,
+        245,
+        124,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
-        122,
-        139,
-        242,
-        75,
-        84,
-        91,
-        80,
-        174,
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
     ]),
 ], traits: [
     InLine(level: (docs: [

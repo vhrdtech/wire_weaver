@@ -688,10 +688,7 @@ mod tests {
                 quote! { deep: Option<[RefBox<'i, u8>; 2]> },
                 "`deep` of `S`: a RefBox",
             ),
-            (
-                quote! { span: Range<u8> },
-                "`span` of `S`: a range",
-            ),
+            (quote! { span: Range<u8> }, "`span` of `S`: a range"),
         ];
         for (field, message) in cases {
             let err = struct_error(field.clone()).unwrap_or_else(|| panic!("{field} compiled"));

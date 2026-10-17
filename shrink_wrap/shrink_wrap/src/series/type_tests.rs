@@ -503,6 +503,35 @@ fn primitive_round_trips() {
     check(&["a".to_string(), "".into(), "a".into()]);
     check(&[vec![1u8, 2], vec![]]);
     check(&[Some(Some(3u8)), Some(None), None]);
+    use crate::un::{IN, U3, U5, UN};
+    check(&[
+        UN::UN8 {
+            bit_count: U3::new(3).unwrap(),
+            value: 5,
+        },
+        UN::UN8 {
+            bit_count: U3::new(3).unwrap(),
+            value: 6,
+        },
+        UN::UN32 {
+            bit_count: U5::new(20).unwrap(),
+            value: 1 << 19,
+        },
+        UN::UN8 {
+            bit_count: U3::new(1).unwrap(),
+            value: 1,
+        },
+    ]);
+    check(&[
+        IN::IN32 {
+            bit_count: U5::new(17).unwrap(),
+            value: -65_000,
+        },
+        IN::IN8 {
+            bit_count: U3::new(4).unwrap(),
+            value: -8,
+        },
+    ]);
 }
 
 proptest! {

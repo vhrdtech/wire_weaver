@@ -80,6 +80,7 @@ pub trait BitSink {
 }
 
 /// `len: nib`, zero bits to the next byte, the bytes: an opaque run value.
+#[cfg(feature = "std")]
 pub(crate) fn put_opaque_value(sink: &mut impl BitSink, bytes: &[u8]) -> Result<(), Error> {
     columns::put_nib(
         sink,

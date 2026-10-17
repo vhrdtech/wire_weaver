@@ -147,6 +147,7 @@ pub enum SubTypeKind<'i> {
     derive(Copy, Clone, Debug, PartialEq),
     non_exhaustive,
     self_describing,
+    series,
     ww_repr = unib32
 )]
 pub enum NumericValue {

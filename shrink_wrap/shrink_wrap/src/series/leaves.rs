@@ -7,11 +7,13 @@ use super::columns::numeric::{
     Numeric128Reader, NumericKind, NumericReader, write_numeric, write_numeric128,
 };
 use super::columns::run::{Opaque, RunKind, RunReader, write_opaque_run, write_run};
+use super::group::write_enum_tags;
 use super::group::{
     CodecPolicy, EnumTags, FieldItems, Level, SeriesColumns, SeriesCtx, SiblingCtx, SiblingTags,
     TagRun, VariantCtx, changed_before, no_earlier,
 };
 use super::{BitSink, XorBits, sign_extend};
+use crate::un::{IN, U3, U4, U5, U6, UN};
 use crate::{BufReader, Error, Nibble, RefVec, UNib32, UVlq32, UVlq64};
 
 /// Skims a numeric column over `ctx`'s items: `None` for no items (no column is written).
@@ -499,6 +501,100 @@ tuple!(5: T0 0, T1 1, T2 2, T3 3, T4 4);
 tuple!(6: T0 0, T1 1, T2 2, T3 3, T4 4, T5 5);
 tuple!(7: T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6);
 tuple!(8: T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7);
+
+/// `UN` / `IN` (numbers whose bit count is data) by the enum rule: the tag run of the variant, then each variant's
+/// `bit_count` and `value` columns over its items (neither field is an enum, so they restart only where the item
+/// enters the variant).
+macro_rules! bit_count_enum {
+    ($ty:ident: $($v:ident($bits:ty, $val:ty) = $d:tt),+) => {
+        impl<'i> SeriesColumns<'i> for $ty {
+            type Reader = (
+                EnumTags<'i>,
+                ($((<$bits as SeriesColumns<'i>>::Reader, <$val as SeriesColumns<'i>>::Reader),)+),
+            );
+
+            fn write_group<'a, I, S>(
+                items: I,
+                sink: &mut S,
+                policy: &CodecPolicy,
+                _level: Level,
+            ) -> Result<(), Error>
+            where
+                I: Iterator<Item = (&'a Self, bool)> + Clone,
+                S: BitSink,
+                Self: 'a,
+            {
+                write_enum_tags(sink, items.clone().map(|(e, _)| e.series_tag().unwrap_or(0)))?;
+                $(
+                    let bits = FieldItems::new(
+                        items.clone(),
+                        |e: &'a Self| match e {
+                            $ty::$v { bit_count, .. } => Some(bit_count),
+                            #[allow(unreachable_patterns)]
+                            _ => None,
+                        },
+                        no_earlier::<Self>,
+                    );
+                    <$bits>::write_group(bits, sink, policy, Level::Nested)?;
+                    let value = FieldItems::new(
+                        items.clone(),
+                        |e: &'a Self| match e {
+                            $ty::$v { value, .. } => Some(value),
+                            #[allow(unreachable_patterns)]
+                            _ => None,
+                        },
+                        no_earlier::<Self>,
+                    );
+                    <$val>::write_group(value, sink, policy, Level::Nested)?;
+                )+
+                Ok(())
+            }
+
+            fn skim<C: SeriesCtx>(
+                rd: &mut BufReader<'i>,
+                ctx: C,
+                _level: Level,
+            ) -> Result<Self::Reader, Error> {
+                let tags = EnumTags::skim(rd, &ctx, |tag| match tag {
+                    0..=3 => Ok(()),
+                    _ => Err(Error::EnumFutureVersionOrMalformedData),
+                })?;
+                let readers = ($({
+                    let vctx = VariantCtx::new(ctx.clone(), tags.tag_run(), $d);
+                    let bits = <$bits>::skim(rd, vctx.clone(), Level::Nested)?;
+                    (bits, <$val>::skim(rd, vctx, Level::Nested)?)
+                },)+);
+                Ok((tags, readers))
+            }
+
+            fn next(reader: &mut Self::Reader, restart: bool) -> Result<Self, Error> {
+                let (tags, readers) = reader;
+                let (tag, entered) = tags.next_tag()?;
+                let restart = restart || entered;
+                match tag {
+                    $($d => Ok($ty::$v {
+                        bit_count: <$bits>::next(&mut readers.$d.0, restart)?,
+                        value: <$val>::next(&mut readers.$d.1, restart)?,
+                    }),)+
+                    _ => Err(Error::EnumFutureVersionOrMalformedData),
+                }
+            }
+
+            fn series_tag(&self) -> Option<u32> {
+                Some(match self {
+                    $($ty::$v { .. } => $d,)+
+                })
+            }
+
+            fn tag_run(reader: &Self::Reader) -> Option<TagRun<'i>> {
+                reader.0.tag_run()
+            }
+        }
+    };
+}
+
+bit_count_enum!(UN: UN8(U3, u8) = 0, UN16(U4, u16) = 1, UN32(U5, u32) = 2, UN64(U6, u64) = 3);
+bit_count_enum!(IN: IN8(U3, i8) = 0, IN16(U4, i16) = 1, IN32(U5, i32) = 2, IN64(U6, i64) = 3);
 
 /// Reader of an array `[X; N]`: one group per element.
 #[derive(Clone, Debug)]

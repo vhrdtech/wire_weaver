@@ -50,6 +50,7 @@ pub enum SIExpr<'i> {
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, PartialEq, Eq),
     self_describing,
+    series,
     ww_repr = unib32
 )]
 pub enum Prefix {
@@ -252,7 +253,8 @@ pub struct Quantity<'i> {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Second {
     pub prefix: Prefix,
@@ -267,7 +269,8 @@ pub struct Second {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Meter {
     pub prefix: Prefix,
@@ -284,7 +287,8 @@ pub struct Meter {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct KiloGram {
     pub prefix: Prefix,
@@ -299,7 +303,8 @@ pub struct KiloGram {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Ampere {
     pub prefix: Prefix,
@@ -314,7 +319,8 @@ pub struct Ampere {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Kelvin {
     pub prefix: Prefix,
@@ -329,7 +335,8 @@ pub struct Kelvin {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Mole {
     pub prefix: Prefix,
@@ -344,7 +351,8 @@ pub struct Mole {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Candela {
     pub prefix: Prefix,
@@ -363,7 +371,8 @@ pub struct Candela {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Hertz {
     pub prefix: Prefix,
@@ -380,7 +389,8 @@ pub struct Hertz {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Radian {
     pub prefix: Prefix,
@@ -397,7 +407,8 @@ pub struct Radian {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Degree {
     pub prefix: Prefix,
@@ -414,7 +425,8 @@ pub struct Degree {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Steradian {
     pub prefix: Prefix,
@@ -431,7 +443,8 @@ pub struct Steradian {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Newton {
     pub prefix: Prefix,
@@ -448,7 +461,8 @@ pub struct Newton {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Pascal {
     pub prefix: Prefix,
@@ -465,7 +479,8 @@ pub struct Pascal {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Joule {
     pub prefix: Prefix,
@@ -500,7 +515,8 @@ pub struct Torque {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Watt {
     pub prefix: Prefix,
@@ -517,7 +533,8 @@ pub struct Watt {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Coulomb {
     pub prefix: Prefix,
@@ -534,7 +551,8 @@ pub struct Coulomb {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Volt {
     pub prefix: Prefix,
@@ -551,7 +569,8 @@ pub struct Volt {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Farad {
     pub prefix: Prefix,
@@ -568,7 +587,8 @@ pub struct Farad {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Ohm {
     pub prefix: Prefix,
@@ -585,7 +605,8 @@ pub struct Ohm {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Siemens {
     pub prefix: Prefix,
@@ -602,7 +623,8 @@ pub struct Siemens {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Weber {
     pub prefix: Prefix,
@@ -619,7 +641,8 @@ pub struct Weber {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Tesla {
     pub prefix: Prefix,
@@ -636,7 +659,8 @@ pub struct Tesla {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Henry {
     pub prefix: Prefix,
@@ -653,7 +677,8 @@ pub struct Henry {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct DegreeCelsius {
     pub prefix: Prefix,
@@ -670,7 +695,8 @@ pub struct DegreeCelsius {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Lumen {
     pub prefix: Prefix,
@@ -687,7 +713,8 @@ pub struct Lumen {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Lux {
     pub prefix: Prefix,
@@ -704,7 +731,8 @@ pub struct Lux {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Becquerel {
     pub prefix: Prefix,
@@ -721,7 +749,8 @@ pub struct Becquerel {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Gray {
     pub prefix: Prefix,
@@ -738,7 +767,8 @@ pub struct Gray {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Sievert {
     pub prefix: Prefix,
@@ -755,7 +785,8 @@ pub struct Sievert {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Katal {
     pub prefix: Prefix,
@@ -771,7 +802,8 @@ pub struct Katal {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct DeciBel {
     pub value: NumericValue,
@@ -785,7 +817,8 @@ pub struct DeciBel {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct DeciBelmW {
     pub value: NumericValue,
@@ -820,7 +853,8 @@ pub struct Ratio {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Litre {
     pub prefix: Prefix,
@@ -837,7 +871,8 @@ pub struct Litre {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct ElectronVolt {
     pub prefix: Prefix,
@@ -855,7 +890,8 @@ pub struct ElectronVolt {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Speed {
     pub prefix: Prefix,
@@ -872,7 +908,8 @@ pub struct Speed {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Acceleration {
     pub prefix: Prefix,
@@ -889,7 +926,8 @@ pub struct Acceleration {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Jerk {
     pub prefix: Prefix,
@@ -906,7 +944,8 @@ pub struct Jerk {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Snap {
     pub prefix: Prefix,
@@ -923,7 +962,8 @@ pub struct Snap {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Yank {
     pub prefix: Prefix,
@@ -940,7 +980,8 @@ pub struct Yank {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct AngularVelocity {
     pub prefix: Prefix,
@@ -957,7 +998,8 @@ pub struct AngularVelocity {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct AngularAcceleration {
     pub prefix: Prefix,
@@ -974,7 +1016,8 @@ pub struct AngularAcceleration {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct HertzPerSecond {
     pub prefix: Prefix,
@@ -993,7 +1036,8 @@ pub struct HertzPerSecond {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct Baud {
     pub prefix: Prefix,
@@ -1010,7 +1054,8 @@ pub struct Baud {
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
-    final_structure
+    final_structure,
+    series
 )]
 pub struct VolumetricFlow {
     pub prefix: Prefix,

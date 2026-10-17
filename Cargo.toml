@@ -53,6 +53,7 @@ embedded-storage-async = "0.4.2"
 hex = { version = "0.4", default-features = false }
 hex-literal = "1"
 nusb = { version = "0.2", features = ["tokio"] }
+portable-atomic = { version = "1.15", default-features = false, features = ["require-cas"] }
 proc-macro2 = "1.0"
 proptest = "1.11"
 pyo3 = "0.29"

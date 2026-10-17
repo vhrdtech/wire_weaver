@@ -744,6 +744,14 @@ impl<M: LogMedium, const BUF: usize> StreamStore for LogStore<M, BUF> {
         self.push_inner(head, item).await
     }
 
+    fn max_item_len(&self) -> usize {
+        // a record, rounded up to the alignment, fits the segment's free space (a multiple of it) when its unrounded
+        // length does
+        (self.seg_size - self.seg_hdr_len)
+            .saturating_sub((REC_HEADER_LEN + MAX_HEAD) as u64)
+            .min(u32::MAX as u64) as usize
+    }
+
     async fn read<'b>(
         &mut self,
         pos: u64,

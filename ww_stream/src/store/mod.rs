@@ -52,6 +52,12 @@ pub trait StreamStore {
     /// Events before `pos` are acknowledged and may go. Events at or after `pos` are kept.
     async fn release(&mut self, pos: u64) -> Result<(), Self::Error>;
 
+    /// The longest item this store takes in one event, with any head: a longer one is [PushError::TooBig]. Bounds
+    /// the batches of a [Batched](crate::batch::Batched) stream. No limit by default.
+    fn max_item_len(&self) -> usize {
+        usize::MAX
+    }
+
     /// Session, oldest and newest kept positions, next position, bytes used and capacity, persistent or not.
     fn state(&self) -> StoreState;
 

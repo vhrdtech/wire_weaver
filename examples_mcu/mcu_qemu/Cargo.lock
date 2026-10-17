@@ -466,6 +466,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "portable-atomic"
+version = "1.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05c8b63e8d9609db387f0324918f81d68fe27748f084ef092fb35954d0539a85"
+
+[[package]]
 name = "proc-macro-crate"
 version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1002,6 +1008,7 @@ dependencies = [
 name = "ww_stream"
 version = "0.5.0"
 dependencies = [
+ "portable-atomic",
  "wire_weaver",
  "ww_client_server",
  "ww_si",

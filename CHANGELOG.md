@@ -117,6 +117,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   as a struct of arrays (`Timed<Ampere>` in 12 bytes per item where the items take 24), derived with `series`, by
   hand for `ww_numeric::NumericValue`; `Series::max_bytes(n)` bounds a batch before it is written. A `series` type
   nesting a type without a store needs `series(no_store)`; see `shrink_wrap/CHANGELOG.md`.
+- ww_stream: the device side of batched streams (API-41), `ww_stream::batch`: a `Batcher` collects items in two
+  struct-of-arrays stores shared by a producer (a control loop, an interrupt) and the event loop through one
+  atomic word, no lock: a push copies the item and never encodes or waits, a batch is sealed on size, age or event
+  budget, and the event loop encodes it once as a `Series` while the producer fills the other store; an `Outbox` for observed
+  properties; batched reliable and counted streams. The `batched` API attribute, codegen and the host side are
+  next; see `ww_stream/CHANGELOG.md`.
 
 ### Changed
 

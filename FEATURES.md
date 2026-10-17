@@ -489,13 +489,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   device, so not a default.
 - 💡 **API-39 Batched property samples** — K samples of one fast property in one update, compressed with `Delta` /
   `XorFloat` (SW-50), for values sampled faster than the link can carry one update each.
-- 📋 **API-41 Batched streams and properties on `Series`** — a stream or property opts into batching
+- 🚧 **API-41 Batched streams and properties on `Series`** — a stream or property opts into batching
   (`+batched`/`batched`, no size in the API: the device owns the batch size through its own config, default 32,
   the host picks latency) and sends `Series<Timed<T>>` (SW-60) batches instead of one item per event (device-side
   `Batcher`, reliable streams storing encoded batches so a resend costs no re-encoding); the same mechanism under
   API-39's batched property samples and a batched observe slot. Designed, with motor-demo numbers backing it
   (integer storage over floats, default batch 32, autoranging cost cheap); the batch store and size bounds are in
-  (SW-62). Needs SW-60 (done) and CLT-29 (dynamic decoder).
+  (SW-62). In: the device side, `ww_stream::batch` (`Batcher` with two stores handed between a producer, also an
+  interrupt, and the event loop through one atomic word, sealing on size, age and budget, encoding in the event
+  loop; `Outbox` for observe; `Batched` reliable and counted streams).
+  Missing: the `batched` API attribute, codegen, host-side unpacking (typed, dynamic, Python). Needs CLT-29 (dynamic
+  decoder).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

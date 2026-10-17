@@ -6668,6 +6668,7 @@ dependencies = [
  "crc",
  "embedded-sdmmc-types",
  "embedded-storage-async",
+ "portable-atomic",
  "wire_weaver",
  "ww_client_server",
  "ww_si",

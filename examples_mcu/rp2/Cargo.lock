@@ -2576,6 +2576,7 @@ dependencies = [
 name = "ww_stream"
 version = "0.5.0"
 dependencies = [
+ "portable-atomic",
  "wire_weaver",
  "ww_client_server",
  "ww_si",

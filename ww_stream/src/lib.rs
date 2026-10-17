@@ -14,6 +14,7 @@
 //! | [store] | [StreamStore](store::StreamStore), [RamRing](store::RamRing) | device |
 //! | [observe] | [ObserveTable](observe::ObserveTable): observed properties, budget, earliest deadline first (SRV-18) | device |
 //! | [sched] | [Scheduler](sched::Scheduler): which stream sends next, by priority | device |
+//! | [batch] | [Batcher](batch::Batcher), [Outbox](batch::Outbox), [Batched](batch::Batched): items as a struct of arrays, sent as one `Series` per event (API-41) | device |
 //! | [counters] | [StreamCnt](counters::StreamCnt) (`cnt` instance counters with the `cnt` feature), [TxStats](counters::TxStats) | device |
 //!
 //! **Sharing with producer tasks.** A [Reliable](tx::Reliable) is one `&mut` state: the producer pushes into it and
@@ -21,6 +22,7 @@
 //! then sends that buffer with the state released. Shared between tasks it sits behind the firmware's async mutex,
 //! held only for a push or a store read, never while the link is busy: a slow link never stalls a producer.
 
+pub mod batch;
 pub mod counters;
 pub mod observe;
 pub mod rx;

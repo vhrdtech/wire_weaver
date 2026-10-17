@@ -13,6 +13,7 @@ arbitrary = { version = "1", features = ["derive"] }
 shrink_wrap = { path = "../shrink_wrap/shrink_wrap" }
 ww_framer = { path = "../ww_framer", features = ["large", "very_large"] }
 ww_self = { path = "../ww_self" }
+ww_stream = { path = "../ww_stream", features = ["std"] }
 
 [[bin]]
 name = "framer-tx-rx"
@@ -87,6 +88,13 @@ bench = false
 [[bin]]
 name = "series-dynamic"
 path = "src/series_dynamic.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "batch-seal"
+path = "src/batch_seal.rs"
 test = false
 doc = false
 bench = false

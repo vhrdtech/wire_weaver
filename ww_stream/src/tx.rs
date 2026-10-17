@@ -605,6 +605,11 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
         }
     }
 
+    /// Units made while there is no session, counted as [push](Self::push) counts them (a batch not encoded).
+    pub(crate) fn lost_no_session(&mut self, units: u64) {
+        self.counting.add(StreamCnt::LostNoHost, units);
+    }
+
     fn credit_left(&self) -> bool {
         self.in_flight() < self.grant
     }

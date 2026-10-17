@@ -17,6 +17,8 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   implements it for structs (their fields' stores, no padding between fields) and enums (an array of discriminants
   and the stores of every data variant's fields), as a hidden `__<Name>SeriesStore` type. A type with a
   `#[series(opaque)]` field gets none; `series(no_store)` leaves it out to write one by hand.
+- `Series::encoded_len()` (API-41): the exact bytes a `Series` takes, by a counting pass over its items (nothing
+  written), so a batch can be measured before the room for it is made.
 - Series size bounds (SW-62): `SeriesColumns::MAX_ITEM_BITS` and `MAX_FIXED_BITS` (`Option<usize>`, `None` for
   strings, byte lists and opaque fields, and the default for hand-written impls), the worst case per item and per
   series under any `CodecPolicy`, implemented for every built-in type and by the derive; `Series::max_bytes(n)` puts

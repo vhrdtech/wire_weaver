@@ -381,6 +381,10 @@ impl<const N: usize> StreamStore for PersistentRamRing<'_, N> {
         Ok(())
     }
 
+    fn max_item_len(&self) -> usize {
+        Ring::<Crc32c>::max_item_len(N)
+    }
+
     async fn read<'b>(
         &mut self,
         pos: u64,

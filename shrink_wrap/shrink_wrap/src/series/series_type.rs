@@ -72,6 +72,21 @@ impl<'i, T: SeriesColumns<'i>> Series<'i, T> {
         }
     }
 
+    /// The bytes this `Series` takes, written from a byte boundary: counted with a [BitCounter](super::BitCounter)
+    /// pass over the items (about the CPU of writing them, nothing written), the raw length of a decoded one.
+    pub fn encoded_len(&self) -> Result<usize, Error> {
+        match self {
+            Series::Slice { items, policy } => {
+                let mut counter = super::BitCounter::new();
+                super::columns::put_nib(&mut counter, items.len().min(u32::MAX as usize) as u32)?;
+                write_series(&mut counter, items, policy)?;
+                Ok(counter.bits().div_ceil(8))
+            }
+            Series::Buf { raw: Some(raw), .. } => Ok(raw.len()),
+            Series::Buf { raw: None, .. } => Err(Error::MalformedSeries),
+        }
+    }
+
     pub fn len(&self) -> usize {
         match self {
             Series::Slice { items, .. } => items.len(),

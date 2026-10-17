@@ -26,9 +26,15 @@ cnt = { workspace = true, optional = true }
 crc = { workspace = true, optional = true }
 embedded-sdmmc-types = { version = "0.1", optional = true }
 embedded-storage-async = { workspace = true, optional = true }
+portable-atomic.workspace = true
 wire_weaver.workspace = true
 ww_client_server.workspace = true
 ww_si.workspace = true
 
 [dev-dependencies]
 crc.workspace = true
+ww_si = { workspace = true, features = ["std"] }
+
+[lints.rust]
+# `cargo fuzz` builds with `--cfg fuzzing`: the batch checks for fuzz/
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }

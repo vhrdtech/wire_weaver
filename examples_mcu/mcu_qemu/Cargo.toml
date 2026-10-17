@@ -52,3 +52,10 @@ path = "src/bin/series_encode_cpu_fixed_dod.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "qemu-batch-cpu"
+path = "src/bin/batch_cpu.rs"
+test = false
+doctest = false
+bench = false

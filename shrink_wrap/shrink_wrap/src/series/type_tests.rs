@@ -543,11 +543,11 @@ fn within_bound<T>(items: &[T], policy: CodecPolicy)
 where
     T: for<'i> super::SeriesColumns<'i> + Clone + SerializeShrinkWrapOwned + core::fmt::Debug,
 {
-    let bytes = Series::with_policy(items, policy)
-        .to_ww_bytes_owned()
-        .unwrap();
+    let series = Series::with_policy(items, policy);
+    let bytes = series.to_ww_bytes_owned().unwrap();
     let max = Series::<T>::max_bytes(items.len()).expect("bounded");
     assert!(bytes.len() <= max, "{} bytes > {max}", bytes.len());
+    assert_eq!(series.encoded_len(), Ok(bytes.len()), "counted");
     let back = SeriesOwned::<T>::from_ww_bytes_owned(&bytes).unwrap();
     for (a, b) in back.iter().zip(items) {
         assert_eq!(

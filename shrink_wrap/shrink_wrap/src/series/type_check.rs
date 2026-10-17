@@ -437,6 +437,7 @@ pub fn bounded_round_trip(items: &[TimedIv], policy: CodecPolicy) {
     let bytes = SerializeShrinkWrapOwned::to_ww_bytes_owned(&series).expect("write");
     let max = Series::<TimedIv>::max_bytes(items.len()).expect("bounded");
     assert!(bytes.len() <= max, "{} bytes, bound {max}", bytes.len());
+    assert_eq!(series.encoded_len(), Ok(bytes.len()), "counted");
     let back = SeriesOwned::<TimedIv>::from_ww_bytes_owned(&bytes).expect("read");
     assert_eq!(back.len(), items.len());
     for (a, b) in back.iter().zip(items) {

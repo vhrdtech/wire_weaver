@@ -136,6 +136,11 @@ impl<C: Check> Ring<C> {
         RECORD_OVERHEAD + C::LEN
     }
 
+    /// The longest item a ring of `n` bytes takes, with the longest head.
+    pub(super) const fn max_item_len(n: usize) -> usize {
+        n.saturating_sub(Self::overhead() + MAX_HEAD)
+    }
+
     fn wrap(n: usize, off: usize) -> usize {
         if off >= n { off - n } else { off }
     }
@@ -362,6 +367,10 @@ impl<const N: usize> StreamStore for RamRing<N> {
         item: &[u8],
     ) -> Result<(), PushError<RamRingError>> {
         self.ring.push(&mut self.buf, head, item, |_, _| {})
+    }
+
+    fn max_item_len(&self) -> usize {
+        Ring::<NoCheck>::max_item_len(N)
     }
 
     async fn read<'b>(

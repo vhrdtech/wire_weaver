@@ -107,6 +107,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-6 | Builders for events and errors | Written straight into the output buffer. |
 - API-7 | Dispatch on index slices | Requests are routed by `match` on their path, the base of multi requests. | api/addressing.md
 - API-9, API-10 | Names and paths that don't collide | Generated names carry the whole trait chain; type paths come from Cargo. | api/folder_structure.md
+- API-41 | Batched streams | Fast samples collected on the device and sent many per event as a compressed `Series`; the device side is in, the `batched` attribute and the host side are next. |
 - API-30 | Counted and reliable streams | Exact counts of lost items; acknowledgements, resends and resume after a reconnect. | api/stream_reliability.md
 - API-28 | Credit sinks | Flow control for data sent to a device, so its buffer never overflows, and lossy links resume where they stopped. | api/credit_sinks.md
 - API-42 | Credit sinks without a size limit | Sessions of any length, positions at most 4 bytes on the wire. | api/stream_protocol.md#positions-wrap-at-256-mib

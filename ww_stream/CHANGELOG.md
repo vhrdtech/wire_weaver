@@ -4,6 +4,31 @@
 
 ### 🚀 Features
 
+- `batch` module (API-41), the device side of batched streams and observed properties, `no_std` and without an
+  allocator:
+    - `Batcher<T, N>`: two struct-of-arrays stores (`SeriesStore`) of `N` items (up to `MAX_BATCH`, 8191), shared
+      by a `Producer` and a `Consumer` (`split()`) through one atomic word, no lock: the producer (a control loop,
+      an interrupt, another core) pushes with a copy of the item and two atomic operations, never an encode or a
+      wait (about 62 instructions per `Timed<Ampere>` on a Cortex-M3, 71 for the push that hands a full batch
+      over); the consumer encodes a sealed store while the producer fills the other one, then gives it back. A
+      batch is sealed at `N` items, when one more item could pass the event budget (a limit the consumer works out
+      from the worst case and the last batch's bytes per item), or by the consumer at the host's maximum age or a
+      smaller budget. When the spare isn't back the batch is lost, counted by the producer (`Seal::Lost`) and
+      reported before the store's next batch (`Encoded::lost_before`, `Polled::lost`). `encode_into` writes the
+      sealed batch once as a `Series<T>`, splitting it when it doesn't fit the room. Used from one task, the
+      batcher's own methods are those of both halves. `Cause`, `Seal`, `Polled`, `Encoded`, `EncodeError`,
+      `BatchStats`, `DEFAULT_BATCH` (32), `DEFAULT_POLICY` (`SMALLEST` with `std`, else `FIXED_DELTA_PACKED`).
+      Targets without compare-exchange (`thumbv6m`) need `portable-atomic`'s `critical-section` (or
+      `unsafe-assume-single-core`) feature in the firmware.
+    - `Scratch<BYTES>` (`scratch_bytes::<T>(n)`): one buffer the items of a batch are rebuilt in while it is
+      counted or encoded, shared by every batcher of a server (about 70 instructions per item over the encode).
+    - `Outbox<BYTES>`: encoded batches of one trait level's observed properties, oldest first; `push_from` drops
+      older entries to make room (counted as missed), `iter`, `first_of`, `remove_first_of`, `pop_oldest`.
+    - `Batched<S, T, N>`: a stream with its batcher (`split()` gives the halves and the stream);
+      `Consumer::poll_reliable` puts each batch into a `Reliable` store as one event (`units` = items, no head
+      `t`, resends copy it), `Consumer::poll_counted` returns the head and bytes of a `Counted` event to send.
+- `StreamStore::max_item_len()` (default: no limit), implemented by `RamRing`, `PersistentRamRing` and `LogStore`:
+  the longest item a store takes in one event, the budget of a batched reliable stream.
 - `StoreState::session` docs: sessions with bit 31 set are reserved for stores that start a stream by themselves
   (a logring boot that didn't recover positions, P2628 S3); hosts and firmware keep it clear.
 - `observe` module (SRV-18), the device side of observed properties for generated servers: `ObserveTable<N>` per

@@ -1,5 +1,8 @@
+# A test is killed after period * terminate-after. The default is 30 s: unit tests take well under a second alone, but
+# the gate runs everything in parallel on a small PC, and a test that needs 1 s alone has been seen over 3 s there.
+# A hang still shows up as a SLOW line after 10 s.
 [profile.default]
-slow-timeout = { period = "3s", terminate-after = 1 }
+slow-timeout = { period = "10s", terminate-after = 3 }
 
 # CI runners (and coverage instrumentation) are slower, give tests more time before killing them
 [profile.ci]
@@ -7,30 +10,30 @@ slow-timeout = { period = "15s", terminate-after = 2 }
 fail-fast = false
 
 # property and random-buffer tests run hundreds of cases each, the LogStore and ww_settings power-cut tests one per
-# write: give them more time, keep 3 s for everything else
+# write: give them more time, everything else gets the 30 s default
 [[profile.default.overrides]]
 filter = '(package(shrink_wrap_c) & binary(cross)) | (package(shrink_wrap) & (binary(latched_reads) | binary(sub_byte) | binary(ref_vec_skip))) | (package(ww_stream) & test(/power_cut_/)) | (package(ww_settings) & binary(power_cut))'
-slow-timeout = { period = "15s", terminate-after = 1 }
+slow-timeout = { period = "20s", terminate-after = 3 }
 
 # re-parses every saved API snapshot's crate (ww_global and all of ww_stdlib), about 6 s in debug
 [[profile.default.overrides]]
 filter = 'package(wire_weaver_core) & test(snapshots_are_up_to_date)'
-slow-timeout = { period = "15s", terminate-after = 1 }
+slow-timeout = { period = "20s", terminate-after = 3 }
 
-# the other snapshot tests re-parse several snapshot crates, 2-2.5 s in debug: over 3 s on a loaded PC
+# the other snapshot tests re-parse several snapshot crates, 2-2.5 s in debug: several times that on a loaded PC
 [[profile.default.overrides]]
 filter = 'package(wire_weaver_core) & test(/^transform::snapshot::tests::/)'
-slow-timeout = { period = "15s", terminate-after = 1 }
+slow-timeout = { period = "20s", terminate-after = 3 }
 
-# the kitchen-sink round trip encodes and decodes every type of the series, 1.2 s alone: over 3 s on a loaded PC
+# the kitchen-sink round trip encodes and decodes every type of the series, 1.2 s alone: several times that on a loaded PC
 [[profile.default.overrides]]
 filter = 'package(shrink_wrap) & test(series::type_tests::kitchen_round_trips)'
-slow-timeout = { period = "15s", terminate-after = 1 }
+slow-timeout = { period = "20s", terminate-after = 3 }
 
 # encodes a 65535-item Series (the most a Series takes) to check the dynamic decoder's budget, 1.3 s alone
 [[profile.default.overrides]]
 filter = 'package(ww_self) & test(fuzz_series::tests::amplification_is_bounded)'
-slow-timeout = { period = "15s", terminate-after = 1 }
+slow-timeout = { period = "20s", terminate-after = 3 }
 
 # `just test-power-cut`: ww_settings power cuts at every step in release, tens of seconds per test
 [profile.power-cut]

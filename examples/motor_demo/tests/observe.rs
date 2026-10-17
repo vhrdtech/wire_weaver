@@ -41,13 +41,16 @@ async fn run(session: &motor_demo::host::Session, real: Duration) -> Stats {
     session.take()
 }
 
+/// Updates per second of device time. Periods are in device time and a busy PC slows the device's clock along with
+/// the wall clock (see `device.rs`), so this holds under load where a count per wall-clock second does not.
 fn rate(stats: &Stats, name: &str) -> f64 {
     let p = find(name).unwrap();
-    let count = stats.levels[&p.level]
-        .props
-        .get(&p.index)
-        .map_or(0, |s| s.count);
-    count as f64 / stats.since.elapsed().as_secs_f64()
+    let level = &stats.levels[&p.level];
+    let count = level.props.get(&p.index).map_or(0, |s| s.count);
+    if count == 0 {
+        return 0.0;
+    }
+    (count - 1) as f64 / level.sim_span_s()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -120,10 +123,16 @@ async fn budget_limits_the_rate() {
     .unwrap();
     let stats = run(&session, Duration::from_secs(1)).await;
     let foc = &stats.levels[&Level::Foc];
-    let bytes_per_s = foc.bytes as f64 / stats.since.elapsed().as_secs_f64();
+    let bytes_per_s = foc.bytes as f64 / foc.sim_span_s();
     // 21 values a millisecond would be ~110 kB/s
-    assert!(bytes_per_s < 22_000.0, "{bytes_per_s:.0} B/s");
-    assert!(bytes_per_s > 15_000.0, "{bytes_per_s:.0} B/s");
+    assert!(
+        bytes_per_s < 22_000.0,
+        "{bytes_per_s:.0} B/s of device time"
+    );
+    assert!(
+        bytes_per_s > 15_000.0,
+        "{bytes_per_s:.0} B/s of device time"
+    );
     assert!(foc.missed > 0, "{foc:?}");
 }
 
@@ -147,11 +156,12 @@ async fn slow_motion() {
     .await
     .unwrap();
     let stats = run(&session, Duration::from_secs(1)).await;
-    // 25 kHz of device time at a tenth of real time
+    // 25 kHz of device time
     let r = rate(&stats, "i_q");
-    assert!((r - 2_500.0).abs() < 400.0, "{r:.0} Hz");
+    assert!((r - 25_000.0).abs() < 4_000.0, "{r:.0} Hz of device time");
+    // a tenth of real time at most (a busy PC makes it less)
     let sim = stats.levels[&Level::Foc].sim_span_s();
-    assert!((sim - 0.1).abs() < 0.02, "{sim} s of device time");
+    assert!(sim > 0.02 && sim < 0.12, "{sim} s of device time");
 }
 
 /// Faster than real time: the device's clock runs ahead, a 10 ms period arrives five times as often.
@@ -173,8 +183,15 @@ async fn fast_forward() {
     .await
     .unwrap();
     let stats = run(&session, Duration::from_secs(1)).await;
+    // 10 ms periods are device time, so 100 Hz of it, however busy the PC
     let r = rate(&stats, "speed_electrical");
-    assert!((r - 500.0).abs() < 75.0, "{r:.0} Hz");
+    assert!((r - 100.0).abs() < 15.0, "{r:.1} Hz of device time");
+    // and it did run ahead of real time, with a bound that holds even when starved
+    let sim = stats.levels[&Level::Control].sim_span_s();
+    assert!(
+        sim > 2.0 * stats.since.elapsed().as_secs_f64(),
+        "{sim} s of device time"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

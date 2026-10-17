@@ -14,7 +14,7 @@
 use crate::convert::to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::{PyDict, PyList, PyString};
 use wire_weaver_client::ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use wire_weaver_client::ww_self::{ApiBundleOwned, FieldsOwned, TypeOwned, ValueOwned};
 use wire_weaver_client::ww_self::{DecodedSeries, FieldsKind, SeriesColumn};
@@ -71,9 +71,12 @@ impl<'py> Columns<'py, '_> {
             // the columns of a type are only known from its bytes (an evolved struct may have more fields than
             // its definition), a group no item is in has none
             SeriesColumn::Empty => Ok(()),
-            SeriesColumn::Leaf(values) => self.leaf(values.iter(), resolved, rows, path),
+            SeriesColumn::Leaf(values) => self.values_leaf(values.iter(), resolved, rows, path),
             SeriesColumn::Default { value, len } => {
-                self.leaf(std::iter::repeat_n(value, *len), resolved, rows, path)
+                // one object, every item refers to it
+                let value = to_py(self.py, value, resolved, self.bundle)?;
+                let items = std::iter::repeat_n(value, *len).map(Ok);
+                self.leaf(items, dtype(resolved, self.bundle), rows, path)
             }
             SeriesColumn::Fields { kind, fields, .. } => {
                 let shape = match resolved {
@@ -91,16 +94,18 @@ impl<'py> Columns<'py, '_> {
                 let TypeOwned::Enum(item_enum) = resolved else {
                     return Err(mismatch(path));
                 };
-                let names: Vec<ValueOwned> = variant_of
+                // the variant name of each item: one string per variant, shared by its items
+                let idents: Vec<Bound<'py, PyAny>> = variants
                     .iter()
-                    .map(|&idx| {
-                        variants
-                            .get(idx as usize)
-                            .map(|v| ValueOwned::String(v.ident.clone()))
-                            .ok_or_else(|| mismatch(path))
-                    })
-                    .collect::<PyResult<_>>()?;
-                self.leaf(names.iter(), &TypeOwned::String, rows, path)?;
+                    .map(|v| PyString::new(self.py, &v.ident).into_any())
+                    .collect();
+                let names = variant_of.iter().map(|&slot| {
+                    idents
+                        .get(slot as usize)
+                        .cloned()
+                        .ok_or_else(|| mismatch(path))
+                });
+                self.leaf(names, None, rows, path)?;
                 // the rows of each variant, in one pass over the items
                 let mut rows_of: Vec<Vec<usize>> = vec![vec![]; variants.len()];
                 for (&row, &slot) in rows.iter().zip(variant_of) {
@@ -165,11 +170,26 @@ impl<'py> Columns<'py, '_> {
         Ok(())
     }
 
-    /// One array of `self.len` items, the values at `rows`, masked at the others.
-    fn leaf<'v>(
+    /// [leaf](Self::leaf) of decoded values of type `ty`.
+    fn values_leaf<'v>(
         &mut self,
         values: impl Iterator<Item = &'v ValueOwned>,
         ty: &TypeOwned,
+        rows: &[usize],
+        path: &str,
+    ) -> PyResult<()> {
+        let (py, bundle) = (self.py, self.bundle);
+        let items = values.map(|v| to_py(py, v, ty, bundle));
+        self.leaf(items, dtype(ty, bundle), rows, path)
+    }
+
+    /// One array of `self.len` items: the Python objects `present` at `rows` (one per row, an object may be
+    /// shared by several), masked at the other items; `dtype` for a column of numbers or bools, `None` for an
+    /// object array.
+    fn leaf(
+        &mut self,
+        present: impl Iterator<Item = PyResult<Bound<'py, PyAny>>>,
+        dtype: Option<&'static str>,
         rows: &[usize],
         path: &str,
     ) -> PyResult<()> {
@@ -185,25 +205,18 @@ impl<'py> Columns<'py, '_> {
             .cells_left
             .checked_sub(self.len)
             .ok_or_else(|| PyValueError::new_err(format!("more than {MAX_CELLS} cells")))?;
-        let values: Vec<_> = values.collect();
-        if values.len() != rows.len() {
+        let present: Vec<_> = present.collect::<PyResult<_>>()?;
+        if present.len() != rows.len() {
             return Err(mismatch(path));
         }
         let np = &self.numpy;
-        let dtype = dtype(ty, self.bundle);
         let present = match dtype {
-            Some(dtype) => {
-                let items = values
-                    .iter()
-                    .map(|v| to_py(py, v, ty, self.bundle))
-                    .collect::<PyResult<Vec<_>>>()?;
-                np.call_method1("array", (PyList::new(py, items)?, dtype))?
-            }
+            Some(dtype) => np.call_method1("array", (PyList::new(py, &present)?, dtype))?,
             None => {
                 // element by element: `numpy.array` would make a list of lists 2-D
-                let array = np.call_method1("empty", (values.len(), "object"))?;
-                for (idx, v) in values.iter().enumerate() {
-                    array.set_item(idx, to_py(py, v, ty, self.bundle)?)?;
+                let array = np.call_method1("empty", (present.len(), "object"))?;
+                for (idx, v) in present.iter().enumerate() {
+                    array.set_item(idx, v)?;
                 }
                 array
             }

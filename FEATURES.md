@@ -395,6 +395,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reader allows (`MAX_DECODE_DEPTH`, ~90 levels on a 2 MiB stack in a debug build), Python objects are depth bounded
   (`docs/types.md#self-referential-types-refbox`; tests `tests/recursive`, `ww_self`/`wire_weaver_core`/
   `wire_weaver_client` unit tests, `fuzz` target `introspection`). `ww_si::SIExpr` is not derived yet.
+- 🚧 **API-45 Type aliases in APIs** · `v0.5` — `pub type Volt = Quantity<units::Volt>;` and generic aliases
+  (`type Reading<T> = Timed<Quantity<T>>`, const parameters too) in every API position, found like structs and enums
+  (lib.rs, modules, `use` imports, globs, other crates); the right-hand side is converted in the alias' crate with each
+  parameter replaced by its argument. The API model has no alias definitions (what an alias names is used directly,
+  ww_si generic D2 a); alias definitions in `ww_self` are an idea for later. `PhantomData` fields are left out of a
+  struct's definition, the parameter stays in its generics (`ww_self::generics::prepare` accepts that). Tests
+  `tests/generics` (property, method argument, inside `Timed`, dynamic client), `wire_weaver_core` unit tests,
+  `ww api tree` (`docs/types.md#type-aliases`). Missing: the `tests/generics` stand-in `Quantity<U>` with a real
+  `PhantomData<U>` field, once DER-15 is in.
 - ✅ **API-31 Stream functions** — `#[stream(T, counted)] fn name(args) -> Result<A, E>` and `#[counted]` /
   `#[reliable] stream!(name: T)`: every stream (plain ones too) is opened by calling it (`RequestKind::StreamOpen`),
   with typed arguments and result; the device's handler named like the stream decides, `Ok` starts a session,

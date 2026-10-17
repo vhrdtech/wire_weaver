@@ -91,6 +91,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Shared traits](api/traits.md)**: `impl Gpio`, `impl Uart` from the standard library, so common tools work with your device.
 - **[Constants](api/properties.md#const-items)**: `const NAME: T;` items, read once per connection and cached.
 - **[Generic types](types.md#generic-types-in-an-api)**: `Timed<Ampere>`, `Window<4>` and your own generic structs and enums anywhere in an API, also in the dynamic client and Python.
+- **[Type aliases](types.md#type-aliases)**: `type Volt = Quantity<units::Volt>` and generic aliases anywhere in an API; tools show what they name. <span class="ww-status">in progress</span>
 - **[Self-referential types](types.md#self-referential-types-refbox)**: Trees and expressions (`RefBox`, a list of the type itself) anywhere in an API, also in the dynamic client and Python.
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>

@@ -18,6 +18,13 @@
 
 ### 🚀 Features
 
+- Type aliases in APIs (API-45): `pub type Volt = Quantity<units::Volt>;` and generic ones (`type Reading<T> =
+  Timed<Quantity<T>>`, const parameters too) are found like structs and enums (in lib.rs, modules, `use` imports and
+  globs) and stand for what they name: the right-hand side is converted in the alias' crate, with each parameter
+  replaced by its argument. An alias is not a definition of its own in the API model. They were an error ("Type .. not
+  found").
+- `PhantomData<T>` fields are left out of a struct's definition in the API model (zero bits on the wire, DER-15); the
+  parameter stays in the definition's generics, used by no field.
 - `Series<'i, T>` / `SeriesOwned<T>` in APIs (SW-60, CLT-29): the API model has them as `Type::Series`, with
   `#[series(opaque)]` fields marked (`Field::series_opaque`); generated servers and clients use the types as written.
   The stream serializers name the value's lifetime (`'i`): `Series` is invariant over it.

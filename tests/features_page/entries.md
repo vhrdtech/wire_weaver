@@ -86,6 +86,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-3 | Shared traits | `impl Gpio`, `impl Uart` from the standard library, so common tools work with your device. | api/traits.md
 - API-36 | Constants | `const NAME: T;` items, read once per connection and cached. | api/properties.md#const-items
 - API-43 | Generic types | `Timed<Ampere>`, `Window<4>` and your own generic structs and enums anywhere in an API, also in the dynamic client and Python. | types.md#generic-types-in-an-api
+- API-45 | Type aliases | `type Volt = Quantity<units::Volt>` and generic aliases anywhere in an API; tools show what they name. | types.md#type-aliases
 - API-44 | Self-referential types | Trees and expressions (`RefBox`, a list of the type itself) anywhere in an API, also in the dynamic client and Python. | types.md#self-referential-types-refbox
 
 ## Advanced

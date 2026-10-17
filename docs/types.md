@@ -267,6 +267,29 @@ Arguments can be types, integer and `bool` literals, `const` items of the crate,
 (`struct Outer<const N: usize> { window: Window<N> }`), or left to the parameter's default. How a generic type may
 change is in the [evolution rules](evolution/rules.md#generic-types).
 
+### Type aliases
+
+A `type` alias stands for what it names, in every API position (API-45):
+
+```rust
+#[ww_trait]
+trait Supply {
+    property!(ro voltage: Volt);
+    property!(ro sampled: Timed<Volt>);
+    fn last(n: u8) -> Reading<u32>;
+}
+
+pub type Volt = Quantity<units::Volt>;
+pub type Reading<T> = Pair<Window<2>, Option<T>>;
+```
+
+Aliases are found like structs and enums: in lib.rs, in modules, through `use` imports and globs, also in other
+crates. A generic alias puts its arguments where its parameters are, a const parameter too
+(`type Buf<const N: usize> = Window<N>`). The API model has no entry for the
+alias itself: `voltage` is a `Quantity<Volt>` there, and `ww`, the dynamic client and Python show it that way. A
+`PhantomData<U>` field is left out of a struct's definition (it takes no bits on the wire), so `U` is a parameter that
+no field uses.
+
 ## Special types
 
 For particular jobs, on their own page:

@@ -18,7 +18,7 @@ Task P2401#17oct-1011. FEATURES id is **API-43** (the brief said API-42, which w
 ## Open
 
 1. Child session **decode-depth** (top model, on omarchy-m1, branch s/17oct2026-decode-depth from origin/master) fixes P2401#17oct-1103 (+security medium, pre-existing): shrink_wrap owned decode of recursive types has no depth limit, a ~38 KB introspection blob with 10k nested Type::Vec aborts the host with a stack overflow before `prepare` runs. When it says ready with a SHA: fetch its branch (it's on another PC: `git fetch` from its remote/ask how tpm moves it) and cherry-pick; then extend `ww_self::fuzz_bundle` with a deep-nesting case if the child didn't.
-2. Security pass before `tpm work ready` (tpm roles/security.md checklist) over the untrusted path: generics.rs validate/instantiate, value.rs budget, compat.rs instance checks, layout cap, introspect.rs. Do it on top model per the rules (this session is opus: spawn a short `--model top` review session or ask parent).
+2. Security pass: child session **generic-sec** (spawned `--model top --from-here` from c2ffa298, branch s/17oct2026-generic-sec, worktree ~/git/.wt/generic-sec on this PC; top resolved to opus). It fixes findings on its branch and reports SHAs: cherry-pick them, rerun `just test` / `just lint`.
 3. Optional: `just build-docs` only after asking the user (may break a running serve-docs).
 4. Before ready: `git rm HANDOFF.md`, commit, `tpm work ready --note "..."`.
 

@@ -5266,6 +5266,10 @@ giving a stream arguments or a result (<code>#[stream(T)] fn name(args) -&gt; Re
 opened, so it is a break of the API crate: bump its breaking version position, as for a plain sink becoming a
 <code>#[credit]</code> one. A plain <code>#[stream(T)] fn name()</code> without arguments and result is the same as <code>stream!(name: T)</code>, the
 same bytes in introspection.</p>
+<p>Batching a stream (API-41: <code>batched</code> / <code>batched(untimed)</code> in <code>#[stream(..)]</code>, <code>#[batched]</code> next to <code>stream!</code>), or
+un-batching it, or switching between timed and untimed, changes its item type on the wire (one <code>Series&lt;Timed&lt;T&gt;&gt;</code> or
+<code>Series&lt;T&gt;</code> per event instead of one <code>T</code>): a break of the API crate too. The batch size is the device's (it is not in
+the API), so changing it is not a break.</p>
 <h3 id="api-model">API model<a class="headerlink" href="#api-model" title="Permanent link">&para;</a></h3>
 <p>API model (like <code>ww_client_server</code>) is part of the compatibility equation, it is not allowed to update the model
 version without breaking compatibility.</p>

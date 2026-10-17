@@ -1390,4 +1390,26 @@ mod tests {
             value
         );
     }
+
+    #[test]
+    fn definition_referring_to_itself_is_an_error_everywhere() {
+        // types[0] = OutOfLine(0): no bytes are read while following it, only the definition check stops it
+        let self_ref = TypeOwned::OutOfLine {
+            type_idx: UNib32(0),
+        };
+        let mut b = bundle(
+            vec![TypeLocationOwned::InLine {
+                ty: self_ref.clone(),
+                crate_idx: UNib32(0),
+            }],
+            self_ref.clone(),
+        );
+        assert!(self_ref.is_unsized(&b).is_err());
+        assert!(ValueOwned::des_shrink_wrap_dyn(&[0; 8], &self_ref, &b).is_err());
+        assert!(ValueOwned::default(&self_ref, &b).is_err());
+        assert!(ValueOwned::Bool(true)
+            .ser_shrink_wrap_dyn(&self_ref, &b)
+            .is_err());
+        assert!(prepare(&mut b).is_err());
+    }
 }

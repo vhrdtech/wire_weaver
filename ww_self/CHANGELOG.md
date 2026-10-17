@@ -117,6 +117,9 @@
 
 ### 🐛 Fixes
 
+* `ApiBundleOwned::get_ty` is an error for a type entry that isn't a struct or an enum (P2401): an entry referring
+  to itself (`types[i] = OutOfLine(i)`) sent `is_unsized`, value encoding and defaults into endless recursion on an
+  untrusted bundle, before `prepare` checked it.
 * Dynamic decoding (`ValueOwned::des_shrink_wrap_dyn` and friends) and `ValueOwned::default` are bounded: a value
   budget per input byte and a nesting limit, so an array of empty tuples or deeply nested options in a device's types
   is an error instead of exhausting memory or the stack. `human_definition` writes at most

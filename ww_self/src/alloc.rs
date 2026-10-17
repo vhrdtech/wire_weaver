@@ -141,6 +141,14 @@ impl ApiBundleOwned {
             .get(type_idx as usize)
             .ok_or(anyhow!("Bad ApiBundle: no type with index: {}", type_idx))?;
         if let TypeLocationOwned::InLine { ty, crate_idx } = location {
+            // only structs and enums are definitions: one that refers to another type (or to itself) would send
+            // every walker following it into a loop on an untrusted bundle
+            if !matches!(ty, TypeOwned::Struct(_) | TypeOwned::Enum(_)) {
+                return Err(anyhow!(
+                    "Bad ApiBundle: type with index: {} is not a struct or an enum",
+                    type_idx
+                ));
+            }
             Ok((ty, crate_idx.0))
         } else {
             Err(anyhow!(

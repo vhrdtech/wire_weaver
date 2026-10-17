@@ -655,3 +655,140 @@ impl SeriesSeed<'_> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::shrink_wrap::shrink_wrap_attr;
+    use proc_macro2::TokenStream;
+    use quote::quote;
+
+    /// The compile error the derive gives, `None` when it generates code.
+    fn error_of(args: TokenStream, item: TokenStream) -> Option<String> {
+        let s = shrink_wrap_attr(args, item).to_string();
+        s.contains("compile_error").then_some(s)
+    }
+
+    fn struct_error(field: TokenStream) -> Option<String> {
+        error_of(
+            quote! { borrowed, owned, series },
+            quote! { struct S<'i> { a: u8, #field, z: &'i str } },
+        )
+    }
+
+    #[test]
+    fn v1_exclusions_name_the_field() {
+        let cases = [
+            (quote! { tree: RefBox<'i, u8> }, "`tree` of `S`: a RefBox"),
+            (
+                quote! { r: Result<u8, u16> },
+                "`r` of `S`: Result is not in Series v1",
+            ),
+            (quote! { list: RefVec<'i, u16> }, "`list` of `S`: a list"),
+            (
+                quote! { deep: Option<[RefBox<'i, u8>; 2]> },
+                "`deep` of `S`: a RefBox",
+            ),
+            (
+                quote! { span: Range<u8> },
+                "`span` of `S`: a range",
+            ),
+        ];
+        for (field, message) in cases {
+            let err = struct_error(field.clone()).unwrap_or_else(|| panic!("{field} compiled"));
+            assert!(err.contains(message), "{err}");
+            assert!(err.contains("#[series(opaque)]"), "{err}");
+        }
+        let err = struct_error(quote! { size: TailSize }).unwrap();
+        assert!(err.contains("`size` of `S`: TailSize"), "{err}");
+    }
+
+    #[test]
+    fn opaque_fields_and_byte_lists_compile() {
+        for field in [
+            quote! { #[series(opaque)] tree: RefBox<'i, u8> },
+            quote! { #[series(opaque)] r: Result<u8, u16> },
+            quote! { #[series(opaque)] list: RefVec<'i, u16> },
+            quote! { bytes: RefVec<'i, u8> },
+            quote! { pair: (u8, Option<[i16; 2]>) },
+        ] {
+            assert_eq!(struct_error(field.clone()), None, "{field}");
+        }
+    }
+
+    #[test]
+    fn exclusions_in_enum_variants() {
+        let err = error_of(
+            quote! { borrowed, owned, series, ww_repr = u4 },
+            quote! { enum E<'i> { A, B { r: Result<u8, u8> }, C(&'i str) } },
+        )
+        .unwrap();
+        assert!(err.contains("`r` of `E::B`: Result"), "{err}");
+        let err = error_of(
+            quote! { borrowed, owned, series, ww_repr = u4 },
+            quote! { enum E { A(#[series(opaque)] Option<u8>) } },
+        )
+        .unwrap();
+        assert!(err.contains("tuple variant"), "{err}");
+    }
+
+    #[test]
+    fn directives_series_does_not_go_with() {
+        let err = error_of(
+            quote! { owned, series, sparse },
+            quote! { struct SOwned { a: Option<u8> } },
+        )
+        .unwrap();
+        assert!(err.contains("sparse structs are not in Series v1"), "{err}");
+        let err = error_of(
+            quote! { borrowed, owned, series },
+            quote! { struct T(u8, u16); },
+        )
+        .unwrap();
+        assert!(err.contains("`T` is a tuple struct"), "{err}");
+        let err = error_of(
+            quote! { borrowed, owned },
+            quote! { struct S { #[series(opaque)] a: u8 } },
+        )
+        .unwrap();
+        assert!(err.contains("needs the `series` directive"), "{err}");
+        let err = error_of(
+            quote! { borrowed, owned, series },
+            quote! { struct S { #[series(opaq)] a: u8 } },
+        )
+        .unwrap();
+        assert!(
+            err.contains("field `a`: expected #[series(opaque)]"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn type_parameters() {
+        assert_eq!(
+            error_of(
+                quote! { borrowed, owned, series, final_structure },
+                quote! { struct Timed<T: Copy> { t: u32, value: T } },
+            ),
+            None
+        );
+        let err = error_of(
+            quote! { borrowed, owned, ww_repr = u4 },
+            quote! { enum E<T> { A(T) } },
+        )
+        .unwrap();
+        assert!(err.contains("only supported on structs"), "{err}");
+        let err = error_of(
+            quote! { borrowed, owned, display },
+            quote! { /// msg
+            struct S<T> { a: T } },
+        )
+        .unwrap();
+        assert!(err.contains("don't go with `display`"), "{err}");
+        let err = error_of(
+            quote! { borrowed, owned },
+            quote! { struct S<T> where T: Copy { a: T } },
+        )
+        .unwrap();
+        assert!(err.contains("where clause"), "{err}");
+    }
+}

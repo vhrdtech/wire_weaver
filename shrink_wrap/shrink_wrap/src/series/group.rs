@@ -492,7 +492,56 @@ fn put_nib_groups(sink: &mut impl BitSink, mut value: u32, groups: u8) -> Result
 
 /// A type that can be the item type of a [Series](super::Series), or a field of one: writes and reads its group of
 /// columns. Implemented here for the primitives, `Option`, tuples, arrays, strings and byte lists, and by
-/// `#[derive_shrink_wrap(.., series)]` for structs and enums.
+/// `#[derive_shrink_wrap(.., series)]` for structs (named fields, also with type parameters) and enums:
+///
+/// ```
+/// use shrink_wrap::prelude::*;
+/// use shrink_wrap::series::{Series, SeriesOwned};
+///
+/// #[derive_shrink_wrap(borrowed, owned, series, ww_repr = unib32, self_describing, derive(Clone, Copy, Debug, PartialEq))]
+/// enum Scale {
+///     Milli,
+///     Micro,
+/// }
+///
+/// #[derive_shrink_wrap(borrowed, owned, series, derive(Clone, Copy, Debug, PartialEq))]
+/// struct Sample {
+///     scale: Scale,
+///     value: i32, // restarts where `scale` changes
+/// }
+///
+/// let items = [Sample { scale: Scale::Micro, value: 480 }, Sample { scale: Scale::Milli, value: 120 }];
+/// let bytes = Series::new(&items).to_ww_bytes_owned().unwrap();
+/// assert_eq!(SeriesOwned::<Sample>::from_ww_bytes_owned(&bytes).unwrap().0, items);
+/// ```
+///
+/// A field type outside of what `Series` v1 takes is a compile error naming the field, unless it is marked
+/// `#[series(opaque)]` (an opaque run of the value's own bytes, compared with `==`):
+///
+/// ```compile_fail
+/// use shrink_wrap::prelude::*;
+///
+/// #[derive_shrink_wrap(owned, series)]
+/// struct LogOwned {
+///     lines: Vec<String>, // lists are not columns in v1: #[series(opaque)]
+/// }
+/// ```
+///
+/// A field of a user type needs that type to have `series` too:
+///
+/// ```compile_fail
+/// use shrink_wrap::prelude::*;
+///
+/// #[derive_shrink_wrap(borrowed, owned)]
+/// struct Inner {
+///     a: u8,
+/// }
+///
+/// #[derive_shrink_wrap(borrowed, owned, series)]
+/// struct Outer {
+///     inner: Inner, // the trait `SeriesColumns<'i>` is not implemented for `Inner`
+/// }
+/// ```
 ///
 /// Every method gets the group's subsequence: an empty one writes and reads nothing at all.
 pub trait SeriesColumns<'i>: Sized {

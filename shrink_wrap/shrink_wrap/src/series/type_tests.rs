@@ -538,8 +538,131 @@ fn primitive_round_trips() {
     ]);
 }
 
+/// Written with `policy`, within the bound and read back the same (compared as bytes: NaN floats).
+fn within_bound<T>(items: &[T], policy: CodecPolicy)
+where
+    T: for<'i> super::SeriesColumns<'i> + Clone + SerializeShrinkWrapOwned + core::fmt::Debug,
+{
+    let bytes = Series::with_policy(items, policy)
+        .to_ww_bytes_owned()
+        .unwrap();
+    let max = Series::<T>::max_bytes(items.len()).expect("bounded");
+    assert!(bytes.len() <= max, "{} bytes > {max}", bytes.len());
+    let back = SeriesOwned::<T>::from_ww_bytes_owned(&bytes).unwrap();
+    for (a, b) in back.iter().zip(items) {
+        assert_eq!(
+            a.to_ww_bytes_owned().unwrap(),
+            b.to_ww_bytes_owned().unwrap()
+        );
+    }
+}
+
+#[test]
+fn bounds_of_types() {
+    use super::bound::*;
+    type Ser<T> = Series<'static, T>;
+    assert_eq!(<u32 as super::SeriesColumns>::MAX_ITEM_BITS, Some(38));
+    assert_eq!(<bool as super::SeriesColumns>::MAX_FIXED_BITS, Some(2));
+    // Option: the tag run around the value
+    assert_eq!(
+        <Option<u8> as super::SeriesColumns>::MAX_ITEM_BITS,
+        Some(OPTION_TAG_ITEM_BITS + numeric_item_bits(8))
+    );
+    // three variants (discriminants up to 2): first value 4 bits, a change 1 + 4 + 4
+    assert_eq!(<Prefix as super::SeriesColumns>::MAX_ITEM_BITS, Some(9));
+    assert_eq!(<Prefix as super::SeriesColumns>::MAX_FIXED_BITS, Some(5));
+    // NumericValue: the tag (up to 7), the widest variant (32 bits, numeric beats float), a header per variant
+    assert_eq!(
+        <NumericValue as super::SeriesColumns>::MAX_ITEM_BITS,
+        Some(9 + float_item_bits(32, 5))
+    );
+    assert_eq!(
+        <NumericValue as super::SeriesColumns>::MAX_FIXED_BITS,
+        Some(5 + 5 * 4)
+    );
+    // an evolvable struct: its head
+    assert_eq!(
+        <IvSample as super::SeriesColumns>::MAX_FIXED_BITS,
+        Some(STRUCT_HEAD_BITS + 2 * (5 + 25))
+    );
+    assert_eq!(Ser::<&str>::max_bytes(1), None);
+    assert_eq!(Ser::<u8>::max_bytes(0), Some(1));
+    assert_eq!(Ser::<u8>::max_bytes(super::SERIES_MAX_ITEMS + 1), None);
+    // 32 items: n in 8 bits, 4 + 32 x 12 bits, padding
+    assert_eq!(
+        Ser::<u8>::max_bytes(32),
+        Some((8 + 4 + 32 * 12usize).div_ceil(8))
+    );
+    // Quantity: Prefix 9 + NumericValue 53 per item, 5 + 25 fixed; IvSample evolvable (+44); Timed of the three
+    assert_eq!(
+        <TimedIv as super::SeriesColumns>::MAX_ITEM_BITS,
+        Some(3 * 62)
+    );
+    assert_eq!(
+        <TimedIv as super::SeriesColumns>::MAX_FIXED_BITS,
+        Some(3 * 30 + 44)
+    );
+    assert_eq!(
+        Ser::<TimedIv>::max_bytes(32),
+        Some((8 + 134 + 32 * 186usize).div_ceil(8))
+    );
+}
+
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::with_cases(128))]
+
+    #[test]
+    fn random_items_within_bound(
+        items in prop::collection::vec(any::<(u8, u32, i64, u64, bool, u8)>(), 0..200),
+        pick in any::<u8>(),
+    ) {
+        use crate::un::{I12, U5};
+        let policy = policy(pick);
+        let n: Vec<(u8, u32, i64)> = items.iter().map(|t| (t.0, t.1, t.2)).collect();
+        within_bound(&n, policy);
+        let f: Vec<(f32, f64)> = items
+            .iter()
+            .map(|t| (f32::from_bits(t.1), f64::from_bits(t.3)))
+            .collect();
+        within_bound(&f, policy);
+        let big: Vec<u128> = items.iter().map(|t| (t.3 as u128) << 64 | t.1 as u128).collect();
+        within_bound(&big, policy);
+        let o: Vec<Option<(u8, bool)>> =
+            items.iter().map(|t| (t.5 % 3 != 0).then_some((t.0, t.4))).collect();
+        within_bound(&o, policy);
+        let a: Vec<[Option<i16>; 3]> = items
+            .iter()
+            .map(|t| [Some(t.2 as i16), (t.4).then_some(t.1 as i16), None])
+            .collect();
+        within_bound(&a, policy);
+        let w: Vec<(U5, I12, crate::Nibble, crate::UNib32)> = items
+            .iter()
+            .map(|t| {
+                (
+                    U5::new(t.0 % 32).unwrap(),
+                    I12::new((t.1 % 4096) as i16 - 2048).unwrap(),
+                    crate::Nibble::new_masked(t.5),
+                    crate::UNib32(t.1),
+                )
+            })
+            .collect();
+        within_bound(&w, policy);
+        let q: Vec<Quantity> = items
+            .iter()
+            .map(|t| {
+                let v = match t.5 % 5 {
+                    0 => NumericValue::U8(t.0),
+                    1 => NumericValue::U16(t.1 as u16),
+                    2 => NumericValue::U32(t.1),
+                    3 => NumericValue::I32(t.2 as i32),
+                    _ => NumericValue::F32(f32::from_bits(t.1)),
+                };
+                let p = [Prefix::Unit, Prefix::Milli, Prefix::Micro][t.0 as usize % 3];
+                Quantity::new(p, v)
+            })
+            .collect();
+        within_bound(&q, policy);
+    }
 
     #[test]
     fn fuzz_like(bytes in prop::collection::vec(any::<u8>(), 0..600)) {

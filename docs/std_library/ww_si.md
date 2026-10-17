@@ -177,7 +177,9 @@ assert_eq!(k.to_string(), "2 N·m/((rad/s)·(rad/s))");
 
 An API crate can declare its own marker: a field-less struct deriving `Copy, Clone, Debug, Default` and an `impl
 Unit` with its dimension and `UnitExpr` (see the `Unit` rustdoc, a revolutions-per-minute example). It works with
-every method above; it has no products, and clients that don't know it show it by name.
+every method above; it has no products, and clients that don't know it show it by name. Its `UnitExpr` can be a
+power too, `UnitExpr::Pow(&METER, 2)` is shown as `m²`; a marker whose `UnitExpr` is not a named one writes its
+[run-time form](#units-known-only-at-run-time) `SI_EXPR` as well.
 
 ## `Second` as a timestamp
 
@@ -263,8 +265,61 @@ In Rust, `wire_weaver_client::quantity::DynQuantity::from_value(&value, &ty, &bu
 and a `DynUnit`; its `Display` is the same text as the typed `Quantity`'s, `to_si_f64()` converts through the unit's
 scale and `to_value()` makes a value to write. See `wire_weaver_py/README.md` for the Python side.
 
-`BaseUnit` (a unit known only at run time, used by `ww_adc::ChannelInfo::unit`) is still the one from ww_si 0.1; a
-run-time unit model that maps onto the markers replaces it later.
+## Units known only at run time
+
+Some units are not known when the API is written: an ADC input whose unit is set by configuration, a generic sensor
+channel, a calibration that turns volts into bar. For those the unit goes on the wire as an `SIExpr`, and a value
+with one is an `AnyQuantity { prefix, value, unit }`:
+
+```rust
+use ww_si::units::{self, AngularVelocity, Per, Torque};
+use ww_si::{AnyQuantity, Dim, Prefix, SIExpr, Scale, Volt};
+
+// a ww_si unit, or a typed quantity turned into one
+let v = AnyQuantity::from(Volt::milli(3300u16));
+assert_eq!(v.to_string(), "3300 mV");
+assert_eq!(format!("{v:#}"), "3.3 V");
+assert_eq!(v.to_quantity::<units::Volt>(), Some(Volt::milli(3300u16)));
+let unit = SIExpr::of::<Per<Torque, AngularVelocity>>();
+assert_eq!(unit.to_string(), "N·m/(rad/s)");
+
+// a device's own unit: its dimension and scale make it convertible to SI anyway
+let rpm = SIExpr::Named {
+    name: "Rpm",
+    symbol: "rpm",
+    dim: Dim::new(-1, 0, 0, 0, 0, 0, 0),
+    scale: Scale::Factor(core::f64::consts::TAU / 60.0),
+};
+let speed = AnyQuantity::new(Prefix::Kilo, 3u8, rpm);
+assert_eq!(speed.to_string(), "3 krpm");
+```
+
+`SIExpr` is the same model as the markers, put on the wire: `Named { name, symbol, dim, scale }`, `Mul`, `Div` and
+`Pow` of other `SIExpr`s (through `RefBox`, so decoding one reads only its top node). A marker's `UnitExpr` maps one
+to one onto an `SIExpr` (`Unit::SI_EXPR`, `SIExpr::of::<U>()`; `SIExprOwned::from(&UnitExpr)` on a host), and back
+`SIExpr == UnitExpr` compares the trees and `known()` finds the ww_si unit of a named one. Symbol, name, dimension
+and factor are computed by the same code for both, so a run-time unit is shown exactly like the typed one. A tree
+that comes from another device is walked at most `MAX_UNIT_DEPTH` (32) levels deep: a deeper part has no dimension
+and is shown as `…`, it can't overflow the stack.
+
+`Dim` is seven 4-bit signed exponents in the order s, m, kg, A, K, mol, cd (each -8..=7, 28 bits, `sized`).
+`Dim::new` is `const` and refuses an exponent out of range at compile time; `checked_mul`, `checked_div` and
+`checked_pow` give `None` for a run-time tree whose exponents leave the range. `Scale` is a nibble and then its
+numbers. These are the bytes:
+
+| Value                                        | Bytes                                         |
+|----------------------------------------------|-----------------------------------------------|
+| `Dim` of `Volt` (s⁻³ m² kg A⁻¹)              | `d2 1f 00 0`                                  |
+| `Scale::Coherent`                            | `0`                                           |
+| `Scale::Pow10(-3)`                           | `1` `fd`                                      |
+| `Scale::Factor(0.5)`                         | `2` and the `f64`, 8 bytes                    |
+| `SIExpr::of::<units::Volt>()`                | `00 56 6f 6c 74 56 d2 1f 00 00 00 01 14`, 13 B |
+| `SIExpr::of::<Per<Torque, AngularVelocity>>()` | 49 B                                        |
+| `AnyQuantity::from(Volt::milli(3300u16))`    | `12 e4 0c`, the 13 B of the unit, `59`: 17 B  |
+
+The unit costs bytes on every value (17 bytes instead of 3 for 3300 mV), so a value whose unit is known when the
+API is written stays a typed quantity, and a channel's unit is better sent once in its description than with every
+reading: `ww_adc` has `ChannelInfo::unit: SIExpr<'i>` and plain numbers in its readings.
 
 ## Prefixes
 

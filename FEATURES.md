@@ -394,7 +394,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   definitions, default values: the first enum variant that doesn't contain the enum); values decode as deep as the
   reader allows (`MAX_DECODE_DEPTH`, ~90 levels on a 2 MiB stack in a debug build), Python objects are depth bounded
   (`docs/types.md#self-referential-types-refbox`; tests `tests/recursive`, `ww_self`/`wire_weaver_core`/
-  `wire_weaver_client` unit tests, `fuzz` target `introspection`). `ww_si::SIExpr` is not derived yet.
+  `wire_weaver_client` unit tests, `fuzz` target `introspection`). `ww_si::SIExpr` is one (STD-37).
 - ✅ **API-45 Type aliases in APIs** · `v0.5` — `pub type Volt = Quantity<VoltUnit>;` and generic aliases
   (`type Reading<T> = Timed<Quantity<T>>`, const parameters too) in every API position, found like structs and enums
   (lib.rs, modules, `use` imports, globs, other crates); the right-hand side is converted in the alias' crate with each
@@ -906,7 +906,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   table verified at compile time; `units::by_name`. Same bytes on the wire as 0.1. `docs/std_library/ww_si.md`,
   `ww_stdlib/ww_si/tests`; the 0.2.0 snapshot holds `Quantity`, every marker and `Per` / `Times`, so devices
   leave them out of their introspection data. Other crates' call sites moved to the new constructors; the motor demo's
-  own helpers (`units.rs`) and `Load` units are the follow-up piece; `BaseUnit` stays until STD-37 (run-time units).
+  own helpers (`units.rs`) and `Load` units are the follow-up piece; `BaseUnit` is replaced by STD-37 (run-time units).
+- 🚧 **STD-37 `ww_si` units known only at run time** · `v0.5` — `SIExpr<'i>` { `Named { name, symbol, dim, scale }`,
+  `Mul`, `Div`, `Pow` } (recursive through `RefBox`, API-44) and `AnyQuantity<'i> { prefix, value, unit }`: the
+  marker model on the wire, `Dim` as seven 4-bit exponents (`sized`), `Scale` too. A marker's `UnitExpr` maps one to
+  one onto an `SIExpr` (`Unit::SI_EXPR`, `SIExpr::of`, `SIExprOwned::from`; back `==` and `known()`), shown, named
+  and converted to SI by the same code as typed units, walks bounded by `MAX_UNIT_DEPTH`. `ww_adc::ChannelInfo::unit`
+  is one; `BaseUnit`, `SIExp`, `INib8P3` are removed. `docs/std_library/ww_si.md#units-known-only-at-run-time` (byte
+  layouts), `ww_stdlib/ww_si/tests/dynamic.rs`, `tests/io_adc`. Missing: dynamic clients, `ww` and Python showing an
+  `AnyQuantity` like a typed quantity (with CLT-31), an `AnyQuantity` property in a test API.
 - ✅ **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** · `v0.5` — the info
     crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),
     `BUILD_ID` (GNU build id, finds the ELF) and optional `BUILD_RECORD`; `build::emit()` + `firmware_summary!()` for

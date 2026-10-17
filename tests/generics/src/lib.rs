@@ -376,10 +376,11 @@ mod tests {
         let bundle = bundle();
         let mut defs = generic_defs(&bundle);
         defs.sort();
+        // `Quantity` twice: the stand-in of this API and `ww_si::Quantity` (in `Timed<Ampere>`, ww_si 0.2)
         assert_eq!(
             defs,
             [
-                "Outer", "Pair", "Quantity", "Reading", "Tagged", "Timed", "Window"
+                "Outer", "Pair", "Quantity", "Quantity", "Reading", "Tagged", "Timed", "Window"
             ]
         );
         let (arg, ret) = method_types(&bundle, 0);
@@ -496,7 +497,11 @@ mod tests {
             panic!("property");
         };
         assert!(matches!(ty, TypeOwned::OutOfLine { .. }));
-        assert_eq!(ty.human_name(false, bundle).unwrap(), "Timed<Ampere>");
+        // `Ampere` is `ww_si::Quantity<units::Ampere>` (STD-38), named as written until clients know quantities (CLT-31)
+        assert_eq!(
+            ty.human_name(false, bundle).unwrap(),
+            "Timed<Quantity<Ampere>>"
+        );
         let ApiItemKindOwned::Property { ty, .. } = &bundle.get_item(&[4]).unwrap().kind else {
             panic!("property");
         };

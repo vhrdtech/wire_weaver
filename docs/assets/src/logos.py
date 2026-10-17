@@ -460,10 +460,7 @@ def shrink_wrap(th: Theme) -> str:
     defs = (
         pdefs
         + rdefs
-        + f'<mask id="sleeve-gap" maskUnits="userSpaceOnUse" x="-100" y="-100" width="1000" height="400">'
-        f'<rect x="-100" y="-100" width="1000" height="400" fill="#fff"/>'
-        f'<path d="{outline}" fill="#000" stroke="#000" stroke-width="{fmt(2 * GAP)}" stroke-linejoin="round"/></mask>'
-        f'<linearGradient id="rim-fade" gradientUnits="userSpaceOnUse" x1="{fmt(rim_x[0])}" y1="0" x2="{fmt(rim_x[-1])}" y2="0">'
+        + f'<linearGradient id="rim-fade" gradientUnits="userSpaceOnUse" x1="{fmt(rim_x[0])}" y1="0" x2="{fmt(rim_x[-1])}" y2="0">'
         f'<stop offset="0" stop-color="{th.sleeve_rim}" stop-opacity="0"/>'
         f'<stop offset="0.12" stop-color="{th.sleeve_rim}"/><stop offset="0.88" stop-color="{th.sleeve_rim}"/>'
         f'<stop offset="1" stop-color="{th.sleeve_rim}" stop-opacity="0"/></linearGradient>'
@@ -479,8 +476,9 @@ def shrink_wrap(th: Theme) -> str:
         f'<rect x="-100" y="-100" width="1000" height="400" fill="url(#relief-fade)"/></mask>'
     )
     body = (
-        f'<g mask="url(#sleeve-gap)">{pbody}</g>'
-        f'<path d="{outline}" fill="{th.sleeve}"/>'
+        # The sleeve lies directly on the pair: no clear rim at its ends.
+        pbody
+        + f'<path d="{outline}" fill="{th.sleeve}"/>'
         f'<g clip-path="url(#sleeve-clip)"><g mask="url(#relief-mask)">{rbody}</g></g>'
         + stroke(top.path(rim_x, -4.8), "url(#rim-fade)", 3.2, "round", ' opacity="0.55"')
         + f'<path d="{t.d}" fill="{th.sleeve_text}"/>'

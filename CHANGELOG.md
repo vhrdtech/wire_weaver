@@ -20,8 +20,15 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   `llvm-size` measures each set's own flash. Flash: ~98.0 KB (M3) / ~75.7 KB (M4F) `.text`, within 70 B across
   codec sets (the trial-every-codec code for `SMALLEST` is a runtime branch, not a monomorphization axis, so it
   stays linked in regardless of which policy a bin uses); against a `ww_si`-free baseline bin (`qemu-bounded`,
-  28.9 KB) linking `ww_si`'s `Series`/`NumericValue` codecs once costs about 69 KB. Instruction counts
-  (semihosting `SYS_ELAPSED` under `-icount shift=0`) pending a `qemu-system-arm` install on the build machine.
+  28.9 KB) linking `ww_si`'s `Series`/`NumericValue` codecs once costs about 69 KB. Instruction counts (semihosting
+  `SYS_ELAPSED` measures host wall-clock time, not instructions, regardless of `-icount`; counted instead from a
+  `qemu-system-arm -accel tcg,one-insn-per-tb=on -d exec,nochain` trace, bracketed by two marker functions): a
+  fixed codec is 3.3x-3.9x cheaper than `SMALLEST` in CPU (not the ~10x first guessed), `fixed(delta,packed)` and
+  `fixed(delta-of-delta,packed)` cost about the same. At the full FOC rate (21 properties x 25 kHz), even the
+  fixed codecs need about 1 billion instructions/second on Cortex-M3, well past any M3/M4/M4F/M7 budget — full-rate,
+  all-properties batched observe needs a property subset or a lower rate on real hardware, not just a cheaper
+  codec. D4 (no_std default): `fixed(delta,packed)`, pending confirmation from DWT cycle counts on an
+  STM32H725IG/M7 (follow-up on omarchy-m1). See `prj/P2401-wireweaver/design/batched_streams.md` for the numbers.
 - shrink_wrap: `RefVecBuilder<T>` (SW-61) writes a list in place, one element at a time, with the bytes of the same
   `RefVec::Slice`. **Breaking:** it replaces `RefVecU8Builder` (`RefVecBuilder::<u8>::write_bytes_with`); see
   `shrink_wrap/CHANGELOG.md`.

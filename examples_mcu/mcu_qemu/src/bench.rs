@@ -1,11 +1,20 @@
 //! Shared body of the `qemu-series-encode-cpu-*` bins (TEST-23): encodes the recorded `i_a` signal
-//! ([super::motor_signal]) as `Series<Timed<Ampere>>` at n = 8/32/64 under one fixed [CodecPolicy], printing the
-//! instructions retired per encode (QEMU `-icount shift=0` makes the semihosting `SYS_ELAPSED` tick count equal
-//! to it) and the encoded length, then exits QEMU. One bin per codec set, so `cargo size` / `llvm-size` of each
-//! ELF is that codec set's own flash, not every codec linked together.
+//! ([super::motor_signal]) as `Series<Timed<Ampere>>` at n = 8/32/64 under one fixed [CodecPolicy], prints the
+//! encoded length, then exits QEMU. One bin per codec set, so `cargo size` / `llvm-size` of each ELF is that
+//! codec set's own flash, not every codec linked together.
+//!
+//! Semihosting `SYS_ELAPSED` is host wall-clock time (`get_clock()` in QEMU's `arm-compat-semi.c`), not tied to
+//! `-icount` at all, so it cannot time an encode in instructions (an earlier version of this file assumed it
+//! could; it measured 0 every time). Instructions are counted from outside instead: [mark_start] and [mark_end]
+//! bracket the measured call with two distinctly-sized, `#[inline(never)]` marker functions at fixed addresses;
+//! running under `qemu-system-arm -d exec,nochain -singlestep -D <tracefile>` logs one trace line per retired
+//! instruction, so the instruction count is the line distance between one `mark_start` call and the matching
+//! `mark_end` call (both found by address, via `nm --demangle` on the release ELF). The first of the four
+//! `mark_start`/`mark_end` occurrences brackets nothing (calibration: the fixed cost of the two calls
+//! themselves, to subtract from the other three); the next three bracket n = 8, 32, 64 in that order.
 
 use core::fmt::Write;
-use cortex_m_semihosting::{debug, hio, nr, syscall1};
+use cortex_m_semihosting::{debug, hio};
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
 use wire_weaver::shrink_wrap::series::CodecPolicy;
@@ -13,11 +22,14 @@ use ww_si::{Ampere, Second, Timed};
 
 const BATCH_SIZES: [usize; 3] = [8, 32, 64];
 
-/// Semihosting `SYS_ELAPSED` (0x30): under `-icount shift=0` one QEMU virtual nanosecond is one retired
-/// instruction, so the low 32 bits of the elapsed tick count (ample for a few thousand instructions) is an
-/// instruction count.
-fn elapsed_insns() -> u32 {
-    unsafe { syscall1(nr::ELAPSED, 0) as u32 }
+#[inline(never)]
+fn mark_start() {
+    unsafe { core::arch::asm!("nop", options(nostack, preserves_flags)) }
+}
+
+#[inline(never)]
+fn mark_end() {
+    unsafe { core::arch::asm!("nop", "nop", options(nostack, preserves_flags)) }
 }
 
 pub fn run(policy_name: &str, policy: CodecPolicy) -> ! {
@@ -30,19 +42,15 @@ pub fn run(policy_name: &str, policy: CodecPolicy) -> ! {
     });
 
     writeln!(stdout, "policy={policy_name}").unwrap();
+    mark_start();
+    mark_end();
     for &n in &BATCH_SIZES {
         let series = Series::with_policy(&items[..n], policy);
         let mut buf = [0u8; 512];
-        let t0 = elapsed_insns();
+        mark_start();
         let encoded = series.to_ww_bytes(&mut buf).unwrap();
-        let t1 = elapsed_insns();
-        writeln!(
-            stdout,
-            "n={n} insns={} bytes={}",
-            t1.wrapping_sub(t0),
-            encoded.len()
-        )
-        .unwrap();
+        mark_end();
+        writeln!(stdout, "n={n} bytes={}", encoded.len()).unwrap();
     }
 
     debug::exit(debug::EXIT_SUCCESS);

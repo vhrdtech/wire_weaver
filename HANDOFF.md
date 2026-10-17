@@ -1,51 +1,49 @@
 # TEST-23 series-encode-cpu: handoff
 
-Task: piece 4 of `prj/P2401-wireweaver/design/batched_streams.md` (CPU/flash of `Series<Timed<Ampere>>` encode
-on Cortex-M3/M4F under three codec policies). Plan read and followed; parent session batched-streams@omarchy-m1.
+Piece 4 of `prj/P2401-wireweaver/design/batched_streams.md` is done on this session's side: flash and
+instruction-count table written into the design note's "Measured or to be measured" section and into
+`CHANGELOG.md`, with a D4 recommendation. Parent session (batched-streams@omarchy-m1) is following up with
+real DWT cycle counts on an STM32H725IG/M7 (J-Link, omarchy-m1) before D4 is final.
 
-## Done
+## What's in this commit
 
-- Real recorded signal: 64 consecutive FOC ticks of `examples/motor_demo`'s simulator (`Device::new(Options::default())`,
-  preset `VescOutrunner`, profile `SpeedSteps`, seed 1, default `Fan` load), `motor.truth().i_a` quantized
-  `Ampere::quantize(.., Prefix::Milli, NumericBaseType::I32)`, starting right after the 8000 -> -4000 erpm step at
-  t = 1.0 s (sharpest transient in the run). Baked into `examples_mcu/mcu_qemu/src/motor_signal.rs`
-  (and copied into `mcu_qemu_m4f`). Generated with a now-deleted scratch
-  `examples/motor_demo/examples/scratch_dump_ia.rs` (private `Device` fields, so it had to live inside the
-  `motor_demo` crate; regenerate the same way if the signal needs to change).
-- `examples_mcu/mcu_qemu` (Cortex-M3, existing crate, target `thumbv7m-none-eabi`, qemu `lm3s6965evb`): three new
-  bins `qemu-series-encode-cpu-{smallest,fixed-delta,fixed-dod}`, one per `CodecPolicy` (`src/bin/series_encode_cpu_*.rs`,
-  shared body in `src/bench.rs`). Each loops n = 8/32/64, times `Series::to_ww_bytes` with semihosting `SYS_ELAPSED`
-  (meant to be read under qemu `-icount shift=0`, where one virtual ns = one retired instruction), prints via
-  semihosting stdout, exits.
-- New crate `examples_mcu/mcu_qemu_m4f` (Cortex-M4F, target `thumbv7em-none-eabihf`, qemu `mps2-an386`): same
-  three bins. Memory map (flash 0x00400000/4M, RAM 0x20000000/4M) confirmed against Zephyr's MPS2 board docs.
-  `justfile`: added `check-examples-mcu-qemu-m4f`, wired into `check-examples-mcu`.
-- `cargo check` and `cargo clippy` clean on both crates (only the pre-existing `empty_loop` warning shared with
-  `bounded.rs`/`ww_gpio.rs`, not gated by CI for `examples_mcu`); `cargo fmt --check` clean on both.
-- Flash measured (`llvm-size`, release): see the table already written into the design note's "Measured or to be
-  measured" section (also in `CHANGELOG.md` under `[Unreleased]`). Finding: flash is within 70 B across all three
-  codec sets on both cores — `CodecPolicy` is a runtime value read inside one shared generic encoder, not a
-  per-codec monomorphization axis, so `SMALLEST`'s "try every codec" code stays linked into a `fixed`-only bin
-  too. The design's "a fixed codec skips the trials" claim is about CPU time, not flash — said explicitly in the
-  design note so piece 8's docs page doesn't repeat it as a flash saving.
+- `examples_mcu/mcu_qemu` (Cortex-M3, `lm3s6965evb`, existing crate) and `examples_mcu/mcu_qemu_m4f` (new crate,
+  Cortex-M4F, `mps2-an386`): three bins each (`*-smallest`, `*-fixed-delta`, `*-fixed-dod`), one per
+  `CodecPolicy`, encoding 64 real recorded `i_a` samples from `examples/motor_demo`'s simulator as
+  `Series<Timed<Ampere>>` at n = 8/32/64.
+- Semihosting `SYS_ELAPSED` does **not** give instruction counts (it is `get_clock()`, host wall-clock time,
+  unrelated to `-icount`) — found out the hard way, see the design note and the doc comment at the top of
+  `bench.rs` in both crates. Instructions are counted externally instead: `bench.rs`'s `mark_start`/`mark_end`
+  (`#[inline(never)]`) bracket the measured `to_ww_bytes` call; a qemu run with
+  `-accel tcg,one-insn-per-tb=on -d exec,nochain -D <tracefile>` logs one trace line per instruction, and the
+  line distance between a `mark_start` and its matching `mark_end` (found by address via `nm`, minus the Thumb
+  bit) is the instruction count, minus the same distance with nothing between the markers (calibration, the
+  first of the four occurrences; the other three are n = 8, 32, 64 in that order).
 
-## Blocked
+## Reproducing / porting to the H725
 
-- **`qemu-system-arm` is not installed** on this login (gpd-omarchy): `pacman -Ss qemu-system-arm` shows it in
-  `extra/` but `which qemu-system-arm` fails. Installing it needs root (`sudo pacman -S qemu-system-arm`), which
-  this session cannot do; `tpm ask` isn't wired up yet in this tpm version, so it went to the parent in words via
-  `tpm work say`. Once installed: run each of the 6 bins (`cargo run --release --bin <name>`, picking up the
-  `.cargo/config.toml` runner) and read the three `n=.. insns=.. bytes=..` lines per bin from the semihosting
-  stdout; fold the instruction counts into the design note's table next to the flash numbers already there, and
-  only then make the D4 (no_std default codec) recommendation — don't guess it from flash alone.
-- Separately, the plan also asks to file an ask for Roman to plug a nucleo (DWT cycles on real hardware,
-  nucleo_h743zi2 / nucleo_g0b1re already in `examples_mcu`) — said in the same `tpm work say`, still open, not
-  blocking the qemu numbers.
+```
+cd examples_mcu/mcu_qemu   # or mcu_qemu_m4f
+cargo build --release
+nm target/<triple>/release/<bin> | grep mark      # mark_start / mark_end addresses, -1 for the Thumb bit
+qemu-system-arm -cpu <cpu> -machine <machine> -nographic -semihosting-config enable=on,target=native \
+  -accel tcg,one-insn-per-tb=on -d exec,nochain -D trace.log -kernel target/<triple>/release/<bin>
+```
+(`<cpu>`/`<machine>` from that crate's `.cargo/config.toml` runner line.) The design note's recipe has the exact
+flags; the line-counting itself was a throwaway Python script (not committed) — straightforward to redo, or to
+swap for real DWT `CYCCNT` reads around the same `mark_start`/`to_ww_bytes`/`mark_end` on the H725 (no qemu
+trace needed there, DWT is real hardware).
 
-## Next
+## Numbers (also in the design note)
 
-1. Once `qemu-system-arm` lands: `cd examples_mcu/mcu_qemu && cargo run --release --bin qemu-series-encode-cpu-smallest`
-   (and the other two M3 bins), same in `mcu_qemu_m4f` for the three M4F bins. Collect instructions per (n, policy, core).
-2. Add the instruction-count columns to the table already in `prj/P2401-wireweaver/design/batched_streams.md`
-   ("Measured or to be measured"), replace the "Blocked" note, and write the D4 recommendation the plan asks for.
-3. `tpm work ready` once the table and recommendation are in.
+Flash is within 70 B across codec sets on both cores (`SMALLEST`'s trial code isn't eliminated by a fixed
+policy — that's a CPU saving, not a flash one). Instructions: a fixed codec is 3.3x-3.9x cheaper than
+`SMALLEST`, not the ~10x guessed; `fixed(delta,packed)` and `fixed(delta-of-delta,packed)` cost about the same.
+At the full FOC rate (21 properties x 25 kHz) even a fixed codec needs ~1 billion instructions/second on
+Cortex-M3 — no M3/M4/M4F/M7 part gets there, so full-rate all-properties batched observe needs a property
+subset or a lower rate regardless of codec. D4 recommendation: `fixed(delta,packed)` as the no_std default.
+
+## Next (parent's follow-up)
+
+DWT cycle counts on the STM32H725IG (M7) via J-Link on omarchy-m1, then confirm or revise D4 with real cycles
+next to these instruction counts (instructions are a proxy, ~1-1.5 cycles each from flash with wait states).

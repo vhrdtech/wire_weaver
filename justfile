@@ -203,3 +203,8 @@ fuzz-shrink-wrap-latched:
 [working-directory('fuzz')]
 fuzz-shrink-wrap-series-type:
     cargo +nightly fuzz run shrink-wrap-series-type -- -max_len=4096
+
+# Fuzz decoding recursive types at random nesting limits: bounded by the limit, never a stack overflow
+[working-directory('fuzz')]
+fuzz-shrink-wrap-nesting:
+    cargo +nightly fuzz run shrink-wrap-nesting -- -max_len=4096

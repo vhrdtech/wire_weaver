@@ -81,6 +81,14 @@ fn store_inner(
     };
 
     let api_crate = api_bundle.crate_version(api_bundle.root.crate_idx.0)?;
+    // the crate name comes from the device and names the file: a plain crate name, or no file
+    if !is_plain_crate_name(&api_crate.crate_id) {
+        warn!(
+            "API crate name {:?} from the device is not a crate name, not caching its bundle",
+            api_crate.crate_id
+        );
+        return Ok(());
+    }
     let file_name = format!(
         "{}{}",
         api_crate.filename_friendly(),
@@ -115,4 +123,30 @@ fn read_back(path: &std::path::Path) -> bool {
     fs::read_to_string(path)
         .ok()
         .is_some_and(|s| ron::from_str::<ApiBundleOwned>(&s).is_ok())
+}
+
+/// Whether `name` is a crate name as Cargo allows them (letters, digits, `_` and `-`), so that it is one path
+/// component and nothing else as a file name.
+fn is_plain_crate_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_crate_name_names_a_cache_file() {
+        assert!(is_plain_crate_name("ww_gpio"));
+        assert!(is_plain_crate_name("my-api2"));
+        assert!(!is_plain_crate_name(""));
+        assert!(!is_plain_crate_name("../.bashrc"));
+        assert!(!is_plain_crate_name("/tmp/x"));
+        assert!(!is_plain_crate_name("a/b"));
+        assert!(!is_plain_crate_name("a\\b"));
+        assert!(!is_plain_crate_name("ünïcode"));
+    }
 }

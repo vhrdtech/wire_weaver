@@ -281,6 +281,13 @@
   (defaults to the Commander's default timeout).
 - `Stream::recv_all_bytes_timeout()`/`recv_all_bytes_timeout_blocking()` fail if no event arrives within the timeout.
 
+### 🐛 Fixes
+
+- A downloaded API bundle is cached in `~/.wire_weaver/` only when the device's API crate name is a plain crate name
+  (letters, digits, `_`, `-`): the name made the file name as it was, so a device could name a path outside the cache
+  (`../x`), and with the rewrite of cache files that don't read back, write there. Other names are logged and not
+  cached.
+
 ### ⚠️ Breaking
 
 - `DynResourceKind::Method` has an `errors` field (API-32), matches need `..`.

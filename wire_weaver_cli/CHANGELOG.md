@@ -8,6 +8,9 @@
 
 ### 🚀 Features
 
+- `ww introspect` (const values) and `ww observe` show `ww_si` quantities with their units: `3300 mV`,
+  `0.00012 N·m/(rad/s)`, a unit marker `ww_si` doesn't know by its name (`1500 Rpm`); values are formatted by their
+  types now (CLT-31).
 - `ww api tree -t` shows generic definitions with their parameters (`struct Pair<A, B>`, `Window<const N: u64>`) and
   names them in fields; uses read `Pair<u8, u16>` (API-43). `ww api save` saves a snapshot again when only the ww_self
   format changed ("reformatted").

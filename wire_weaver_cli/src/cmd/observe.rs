@@ -5,9 +5,11 @@ use anyhow::{Context, Result, anyhow, bail};
 use clap::Args;
 use console::style;
 use human_repr::HumanCount;
+use std::collections::HashMap;
 use std::time::Instant;
 use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver_client::observe::ObserveMode;
+use wire_weaver_client::ww_self::TypeOwned;
 use wire_weaver_client::{DynClient, DynResource};
 
 #[derive(Args)]
@@ -59,6 +61,10 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
         None => ObserveMode::OnChange { min_us: UNib32(0) },
     };
     let entries = props.iter().map(|(index, ..)| (*index, mode)).collect();
+    let types: HashMap<&str, &TypeOwned> = props
+        .iter()
+        .map(|(_, name, ty)| (name.as_str(), ty))
+        .collect();
     let mut observer = level
         .observe(device.cmd(), entries)
         .await
@@ -83,7 +89,11 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
         let values = update
             .values
             .iter()
-            .map(|(name, value)| format!("{name}: {}", crate::value_fmt::fmt_value(value)))
+            .map(|(name, value)| {
+                let ty = types.get(name.as_str()).copied();
+                let value = crate::value_fmt::fmt_value(value, ty, level.bundle());
+                format!("{name}: {value}")
+            })
             .collect::<Vec<_>>()
             .join(", ");
         let missed = if update.missed > 0 {

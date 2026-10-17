@@ -58,6 +58,11 @@
 
 ### 🚀 Features
 
+- `quantity` module (CLT-31): `ww_si::Quantity<U>` values (ww_si 0.2 and later) recognized from introspection data
+  alone. `DynQuantity::from_value(value, ty, bundle)` gives prefix, number and unit, `Display` writes it as `ww_si`
+  does (`3300 mV`, `{:#}` `3.3 V`), `to_f64`, `to_si_f64`; `DynUnit` is a named unit of `ww_si::units` (found with
+  `units::by_name`: symbol, `dim()`, `factor()`), a `Per` / `Times` tree of them (`N·m/(rad/s)`), or a marker `ww_si`
+  doesn't know, by its name and docs (`Unknown`); `unit_of`, `is_quantity`, `DynUnit::from_expr`.
 - Generic types (API-43): the dynamic client reads and writes instances of generic types as concrete types;
   compatibility checks compare instances of definitions neither side knows by definition and arguments; the
   evolution check (`ww api check`) compares parameters by position and kind (renaming one is no change). `compare`

@@ -130,6 +130,8 @@ impl Introspect {
             transport_cmd_tx: self.transport_cmd_tx,
             path_kind: PathKindOwned::Absolute { path: vec![] },
             rx,
+            unpacker: crate::client::batch::Unpacker::new(None),
+            pending: Default::default(),
             _phantom: Default::default(),
         };
         let ww_self_bytes = stream.recv_all_bytes_timeout(self.timeout).await?;
@@ -142,6 +144,8 @@ impl Introspect {
             transport_cmd_tx: self.transport_cmd_tx,
             path_kind: PathKindOwned::Absolute { path: vec![] },
             rx,
+            unpacker: crate::client::batch::Unpacker::new(None),
+            pending: Default::default(),
             _phantom: Default::default(),
         };
         let ww_self_bytes = stream.recv_all_bytes_timeout_blocking(self.timeout)?;

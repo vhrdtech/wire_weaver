@@ -15,6 +15,7 @@
 
 use crate::Error;
 use crate::StreamError;
+use crate::client::batch::unwrap_t;
 use crate::event_loop::command::Command;
 use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::rx_dispatcher::ResponseReceiver;
@@ -33,9 +34,7 @@ use wire_weaver::shrink_wrap::{
 use ww_client_server::observe::{ObserveEntry, ObserveGrantedOwned, ObserveRequestOwned};
 pub use ww_client_server::observe::{ObserveMode, ObserveRefusal, ObserveRefused};
 use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
-use ww_si::Prefix;
 pub use ww_si::Second;
-use ww_si::ww_numeric::NumericValue;
 
 /// `ObserveMode::OnChange`: sent when the value changes, at most once every `min`.
 pub fn on_change(min: Duration) -> ObserveMode {
@@ -179,28 +178,6 @@ pub struct Observed<T> {
     pub missed: u32,
     /// When the update arrived.
     pub received: Instant,
-}
-
-/// A device time of `Second { Micro, U32 }`, which wraps every 71.6 minutes, as microseconds since the device's
-/// clock started counting: `Second { Micro, U64 }`, given the previous one in `last`. Other times stay as they are.
-fn unwrap_t(last: &mut Option<u64>, t: Second) -> Second {
-    let (Prefix::Micro, NumericValue::U32(us)) = (&t.prefix, &t.value) else {
-        return t;
-    };
-    let us = *us as u64;
-    let unwrapped = match *last {
-        None => us,
-        Some(prev) => {
-            let mut at = (prev & !0xffff_ffff) | us;
-            // wrapped since: more than half the range back
-            if at + (1 << 31) < prev {
-                at += 1 << 32;
-            }
-            at
-        }
-    };
-    *last = Some(unwrapped);
-    Second::from_parts(Prefix::Micro, NumericValue::U64(unwrapped))
 }
 
 /// The latest value of one property, in a level's `<Trait>Latest`.
@@ -409,7 +386,7 @@ struct LevelState<U: LevelUpdate> {
     routed: bool,
     /// The next answer is to a resume
     resuming: bool,
-    /// Device time of the last update, µs, unwrapped (see [unwrap_t])
+    /// Device time of the last update, µs, unwrapped (see `batch::unwrap_t`)
     last_t: Option<u64>,
 }
 
@@ -950,29 +927,6 @@ mod tests {
     }
 
     const MS: Duration = Duration::from_millis(1);
-
-    #[test]
-    fn device_time_unwrapped() {
-        let us32 = |v: u32| Second::from_parts(Prefix::Micro, NumericValue::U32(v));
-        let us = |t: &Second| match t.value {
-            NumericValue::U64(v) => v,
-            _ => panic!("{t:?}"),
-        };
-        let mut last = None;
-        assert_eq!(us(&unwrap_t(&mut last, us32(5))), 5);
-        assert_eq!(
-            us(&unwrap_t(&mut last, us32(u32::MAX - 10))),
-            u32::MAX as u64 - 10
-        );
-        // wrapped
-        assert_eq!(us(&unwrap_t(&mut last, us32(20))), (1 << 32) + 20);
-        assert_eq!(us(&unwrap_t(&mut last, us32(1_000))), (1 << 32) + 1_000);
-        // a little back (not expected, but not a wrap)
-        assert_eq!(us(&unwrap_t(&mut last, us32(900))), (1 << 32) + 900);
-        // other times as they are
-        let ms = Second::from_parts(Prefix::Milli, NumericValue::U32(7));
-        assert_eq!(unwrap_t(&mut last, ms), ms);
-    }
 
     #[test]
     fn merge_gives_everyone_at_least_what_it_asked_for() {

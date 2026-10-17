@@ -13,9 +13,9 @@ use quote::quote;
 use syn::{LitStr, Path};
 use ww_self::errors::{error_list_docs, fmt_error_list, method_err_ty};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Delivery,
-    ErrorVariantOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess, StreamFnRef,
-    TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Batching,
+    Delivery, ErrorVariantOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess,
+    StreamFnRef, TypeOwned,
 };
 
 /// API client code generation configuration.
@@ -810,6 +810,22 @@ fn handle_stream_fn(
             }, #resource)
         };
     }
+    // a batched stream's events are batches: the handle unpacks them into items (API-41)
+    let batched = match stream.batched {
+        None => quote! {},
+        Some(Batching::Timed) => {
+            quote! { .batched(wire_weaver_client::unpack_timed::<#item_ty>) }
+        }
+        Some(Batching::Untimed) => {
+            quote! { .batched(wire_weaver_client::unpack_untimed::<#item_ty>) }
+        }
+        Some(Batching::Unknown(_)) => {
+            let e = format!(
+                "batched stream {ident}: a form of batching this wire_weaver doesn't know, update it"
+            );
+            quote! { compile_error!(#e) }
+        }
+    };
     let docs = docs.iter().map(|s| quote! { #[doc = #s] });
     let delivery_opt = match &delivery {
         Some(d) => quote! { Some(#d) },
@@ -823,7 +839,7 @@ fn handle_stream_fn(
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;
-            self.cmd.prepare_stream_open(path_kind, #delivery_opt, args_bytes) #with_error_list
+            self.cmd.prepare_stream_open(path_kind, #delivery_opt, args_bytes) #with_error_list #batched
         }
     };
     if let Some(delivery) = delivery {
@@ -835,7 +851,7 @@ fn handle_stream_fn(
             pub fn #resume(&self #maybe_index_arg, cursor: wire_weaver_client::ww_client_server::stream::StreamCursor) -> wire_weaver_client::PreparedStreamOpen<(), #handle_ty> {
                 #index_chain_push
                 let path_kind = #path_kind;
-                self.cmd.prepare_stream_resume(path_kind, #delivery, cursor)
+                self.cmd.prepare_stream_resume(path_kind, #delivery, cursor) #batched
             }
 
             /// State of the stream on the device: open or not, session, positions, store use.

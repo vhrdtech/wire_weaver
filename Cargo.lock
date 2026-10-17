@@ -4927,6 +4927,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "streams_batched"
+version = "0.1.0"
+dependencies = [
+ "streams_batched_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
+name = "streams_batched_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
 name = "streams_borrowed_error"
 version = "0.1.0"
 dependencies = [

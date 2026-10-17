@@ -17,6 +17,7 @@ pub mod quantity;
 mod tracing;
 
 pub use client::attachment::Attachment;
+pub use client::batch::{Batch, BatchItem, Unpack, unpack_timed, unpack_untimed};
 pub use client::credit::CreditConfig;
 pub use client::dyn_client::DynClient;
 pub use client::dyn_observe::{DynConfig, DynObserved, DynObserver};

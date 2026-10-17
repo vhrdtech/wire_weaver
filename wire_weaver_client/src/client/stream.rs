@@ -1,7 +1,9 @@
 use crate::Error;
+use crate::client::batch::{BatchItem, Unpacker};
 use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::event_queue::TryRecvError;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
+use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::ops::ControlFlow;
 use std::time::{Duration, Instant};
@@ -16,6 +18,10 @@ pub struct Stream<T> {
     pub(crate) transport_cmd_tx: TransportCommander,
     pub(crate) path_kind: PathKindOwned,
     pub(crate) rx: StreamUpdateReceiver,
+    /// Batched streams (API-41): how an event becomes items
+    pub(crate) unpacker: Unpacker<T>,
+    /// Items of the last batch not taken yet
+    pub(crate) pending: VecDeque<BatchItem<T>>,
     pub(crate) _phantom: PhantomData<T>,
 }
 
@@ -111,7 +117,44 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     ///
     /// See [Self::recv_blocking] for a blocking variant of this method.
     pub async fn recv(&mut self) -> Result<T, StreamError> {
-        let bytes = loop {
+        loop {
+            if let Some(item) = self.pending.pop_front() {
+                return Ok(item.value);
+            }
+            let bytes = self.recv_data().await?;
+            if let Some(value) = self.decode(&bytes)? {
+                return Ok(value);
+            }
+        }
+    }
+
+    /// The rest of the next batch of a batched stream (API-41), or the next one whole: its items, each with its
+    /// device time (unwrapped, as in [StreamEvent::Item](crate::StreamEvent::Item)). An item of a stream that isn't
+    /// batched is a batch of one, without a time.
+    pub async fn recv_batch(&mut self) -> Result<Vec<BatchItem<T>>, StreamError> {
+        loop {
+            if !self.pending.is_empty() {
+                return Ok(self.pending.drain(..).collect());
+            }
+            let bytes = self.recv_data().await?;
+            self.decode_all(&bytes)?;
+        }
+    }
+
+    /// Blocking variant of [Self::recv_batch].
+    pub fn recv_batch_blocking(&mut self) -> Result<Vec<BatchItem<T>>, StreamError> {
+        loop {
+            if !self.pending.is_empty() {
+                return Ok(self.pending.drain(..).collect());
+            }
+            let bytes = self.recv_data_blocking()?;
+            self.decode_all(&bytes)?;
+        }
+    }
+
+    /// Bytes of the next data event, skipping [RawStreamEvent::Connected] and [RawStreamEvent::Dropped].
+    async fn recv_data(&mut self) -> Result<Vec<u8>, StreamError> {
+        loop {
             let ev = self.rx.recv().await.ok_or(StreamError::Closed)?;
             if matches!(
                 ev,
@@ -122,19 +165,13 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
             let RawStreamEvent::Data(bytes) = ev else {
                 return Err(StreamError::UnexpectedEvent(ev));
             };
-            break bytes;
-        };
-        let data = T::from_ww_bytes_owned(&bytes)?;
-        Ok(data)
+            return Ok(bytes);
+        }
     }
 
-    /// Receive one data event in a blocking manner and deserialize it.
-    /// Skip [RawStreamEvent::Connected] events.
-    /// Returns an error if any kind of sideband or Disconnected event is received instead.
-    ///
-    /// See [Self::recv] for an asynchronous variant of this method.
-    pub fn recv_blocking(&mut self) -> Result<T, StreamError> {
-        let bytes = loop {
+    /// Blocking variant of [Self::recv_data].
+    fn recv_data_blocking(&mut self) -> Result<Vec<u8>, StreamError> {
+        loop {
             let ev = self.rx.blocking_recv().ok_or(StreamError::Closed)?;
             if matches!(
                 ev,
@@ -145,10 +182,47 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
             let RawStreamEvent::Data(bytes) = ev else {
                 return Err(StreamError::UnexpectedEvent(ev));
             };
-            break bytes;
-        };
-        let data = T::from_ww_bytes_owned(&bytes)?;
-        Ok(data)
+            return Ok(bytes);
+        }
+    }
+
+    /// The value of a data event; for a batched stream its first item, the others go to `pending` (None: an empty
+    /// batch).
+    fn decode(&mut self, bytes: &[u8]) -> Result<Option<T>, StreamError> {
+        if !self.unpacker.is_batched() {
+            return Ok(Some(T::from_ww_bytes_owned(bytes)?));
+        }
+        self.decode_all(bytes)?;
+        Ok(self.pending.pop_front().map(|item| item.value))
+    }
+
+    /// Every item of a data event into `pending`.
+    fn decode_all(&mut self, bytes: &[u8]) -> Result<(), StreamError> {
+        if self.unpacker.is_batched() {
+            let items = self.unpacker.unpack(bytes)?;
+            self.pending.extend(items);
+        } else {
+            let value = T::from_ww_bytes_owned(bytes)?;
+            self.pending.push_back(BatchItem { t: None, value });
+        }
+        Ok(())
+    }
+
+    /// Receive one data event in a blocking manner and deserialize it.
+    /// Skip [RawStreamEvent::Connected] events.
+    /// Returns an error if any kind of sideband or Disconnected event is received instead.
+    ///
+    /// See [Self::recv] for an asynchronous variant of this method.
+    pub fn recv_blocking(&mut self) -> Result<T, StreamError> {
+        loop {
+            if let Some(item) = self.pending.pop_front() {
+                return Ok(item.value);
+            }
+            let bytes = self.recv_data_blocking()?;
+            if let Some(value) = self.decode(&bytes)? {
+                return Ok(value);
+            }
+        }
     }
 
     /// Try to receive one data event and deserialize it.
@@ -157,7 +231,10 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     ///
     /// See [Self::recv] for an asynchronous variant of this method.
     pub fn try_recv(&mut self) -> Result<Option<T>, StreamError> {
-        let bytes = loop {
+        loop {
+            if let Some(item) = self.pending.pop_front() {
+                return Ok(Some(item.value));
+            }
             match self.rx.try_recv() {
                 Ok(ev) => {
                     if matches!(
@@ -169,30 +246,60 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
                     let RawStreamEvent::Data(bytes) = ev else {
                         return Err(StreamError::UnexpectedEvent(ev));
                     };
-                    break bytes;
+                    if let Some(value) = self.decode(&bytes)? {
+                        return Ok(Some(value));
+                    }
                 }
                 Err(TryRecvError::Empty) => return Ok(None),
                 Err(TryRecvError::Disconnected) => return Err(StreamError::Closed),
             }
-        };
-        let data = T::from_ww_bytes_owned(&bytes)?;
-        Ok(Some(data))
+        }
     }
 
     /// Receive one event of any kind (data or sideband), deserialize if data is received.
     ///
     /// See [Self::recv_any_blocking] for a blocking variant of this method.
     pub async fn recv_any(&mut self) -> Result<TypedStreamEvent<T>, StreamError> {
-        let ev = self.rx.recv().await.ok_or(StreamError::Closed)?;
-        to_typed(ev)
+        loop {
+            if let Some(item) = self.pending.pop_front() {
+                return Ok(TypedStreamEvent::Data(item.value));
+            }
+            let ev = self.rx.recv().await.ok_or(StreamError::Closed)?;
+            if let Some(ev) = self.to_typed(ev)? {
+                return Ok(ev);
+            }
+        }
     }
 
     /// Receive one event of any kind (data or sideband), deserialize if data is received.
     ///
     /// See [Self::recv_any] for an asynchronous variant of this method.
     pub fn recv_any_blocking(&mut self) -> Result<TypedStreamEvent<T>, StreamError> {
-        let ev = self.rx.blocking_recv().ok_or(StreamError::Closed)?;
-        to_typed(ev)
+        loop {
+            if let Some(item) = self.pending.pop_front() {
+                return Ok(TypedStreamEvent::Data(item.value));
+            }
+            let ev = self.rx.blocking_recv().ok_or(StreamError::Closed)?;
+            if let Some(ev) = self.to_typed(ev)? {
+                return Ok(ev);
+            }
+        }
+    }
+
+    /// A raw event typed; a batched stream's data event gives its first item (None: an empty batch).
+    fn to_typed(&mut self, ev: RawStreamEvent) -> Result<Option<TypedStreamEvent<T>>, StreamError> {
+        Ok(Some(match ev {
+            RawStreamEvent::Data(bytes) => match self.decode(&bytes)? {
+                Some(value) => TypedStreamEvent::Data(value),
+                None => return Ok(None),
+            },
+            RawStreamEvent::Sideband(s) => TypedStreamEvent::Sideband(s),
+            RawStreamEvent::Connected => TypedStreamEvent::Connected,
+            RawStreamEvent::Disconnected => TypedStreamEvent::Disconnected,
+            RawStreamEvent::Dropped { events, bytes } => {
+                TypedStreamEvent::Dropped { events, bytes }
+            }
+        }))
     }
 }
 
@@ -285,22 +392,5 @@ fn recv_all_inner(ev: RawStreamEvent, buf: &mut Vec<u8>) -> Result<ControlFlow<(
         RawStreamEvent::Connected => Ok(ControlFlow::Continue(())),
         RawStreamEvent::Sideband(StreamSideband::Close) => Ok(ControlFlow::Break(())),
         e => Err(StreamError::UnexpectedEvent(e)),
-    }
-}
-
-fn to_typed<T: DeserializeShrinkWrapOwned>(
-    ev: RawStreamEvent,
-) -> Result<TypedStreamEvent<T>, StreamError> {
-    match ev {
-        RawStreamEvent::Data(bytes) => {
-            let data = T::from_ww_bytes_owned(&bytes)?;
-            Ok(TypedStreamEvent::Data(data))
-        }
-        RawStreamEvent::Sideband(s) => Ok(TypedStreamEvent::Sideband(s)),
-        RawStreamEvent::Connected => Ok(TypedStreamEvent::Connected),
-        RawStreamEvent::Disconnected => Ok(TypedStreamEvent::Disconnected),
-        RawStreamEvent::Dropped { events, bytes } => {
-            Ok(TypedStreamEvent::Dropped { events, bytes })
-        }
     }
 }

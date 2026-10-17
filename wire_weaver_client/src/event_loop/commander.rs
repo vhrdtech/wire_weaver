@@ -17,7 +17,7 @@ use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
 use crate::{
     AckMode, DEFAULT_REQUEST_TIMEOUT, PositionedStream, PreparedRead, PreparedStreamOpen,
-    PreparedWrite, Sink,
+    PreparedWrite, Sink, StreamHandle,
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -247,7 +247,7 @@ impl Commander {
     /// stream (handle `S` = [Stream](crate::Stream)), the kind of a counted or reliable one (`S` =
     /// [PositionedStream](crate::PositionedStream)); `args` are the serialized arguments like
     /// [Self::prepare_call]'s; `R` is the stream function's result, see [StreamOpenResult](crate::StreamOpenResult).
-    pub fn prepare_stream_open<R, S>(
+    pub fn prepare_stream_open<R, S: StreamHandle>(
         &self,
         path: PathKind<'_>,
         delivery: Option<ww_self::Delivery>,
@@ -271,6 +271,7 @@ impl Commander {
             timeout_override: None,
             raw_fallible: false,
             error_check: None,
+            unpack: None,
             _phantom: PhantomData,
         }
     }
@@ -488,6 +489,8 @@ impl Commander {
             transport_cmd_tx: self.transport(),
             path_kind,
             rx,
+            unpacker: crate::client::batch::Unpacker::new(None),
+            pending: Default::default(),
             _phantom: PhantomData,
         })
     }
@@ -504,6 +507,8 @@ impl Commander {
             transport_cmd_tx: self.transport(),
             path_kind,
             rx,
+            unpacker: crate::client::batch::Unpacker::new(None),
+            pending: Default::default(),
             _phantom: PhantomData,
         })
     }

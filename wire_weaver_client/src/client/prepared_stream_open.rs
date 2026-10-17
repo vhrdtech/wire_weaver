@@ -16,12 +16,14 @@ use ww_client_server::stream::StreamOpenedOwned;
 use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
 use ww_stream::{Opened, StreamCursor};
 
+use crate::client::batch::{Unpack, Unpacker};
 use crate::client::positioned::{AckMode, PositionedConfig, PositionedStream, Shared};
 use crate::error_list::{self, ErrorList};
 use crate::event_loop::command::{Command, StreamOpenHook};
 use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::rx_dispatcher::{ResponseReceiver, StreamUpdateReceiver};
 use crate::{Error, Stream};
+use std::collections::VecDeque;
 
 /// Result type of a stream function: `()` for `stream!` and functions without a result, `Result<A, E>` for
 /// fallible ones. The stream is open only when it is `Ok`.
@@ -94,10 +96,12 @@ mod sealed {
 /// A stream handle that opening a stream returns: [Stream] for plain streams, [PositionedStream] for counted and
 /// reliable ones.
 pub trait StreamHandle: sealed::Sealed + Sized {
+    /// What the handle receives.
+    type Item;
     #[doc(hidden)]
     fn positioned() -> bool;
     #[doc(hidden)]
-    fn from_parts(parts: HandleParts) -> Self;
+    fn from_parts(parts: HandleParts, unpack: Option<Unpack<Self::Item>>) -> Self;
 }
 
 #[doc(hidden)]
@@ -118,11 +122,13 @@ enum Parts {
 
 impl<T> sealed::Sealed for Stream<T> {}
 impl<T> StreamHandle for Stream<T> {
+    type Item = T;
+
     fn positioned() -> bool {
         false
     }
 
-    fn from_parts(parts: HandleParts) -> Self {
+    fn from_parts(parts: HandleParts, unpack: Option<Unpack<T>>) -> Self {
         let Parts::Plain {
             transport_cmd_tx,
             path_kind,
@@ -135,6 +141,8 @@ impl<T> StreamHandle for Stream<T> {
             transport_cmd_tx,
             path_kind,
             rx,
+            unpacker: Unpacker::new(unpack),
+            pending: VecDeque::new(),
             _phantom: PhantomData,
         }
     }
@@ -142,11 +150,13 @@ impl<T> StreamHandle for Stream<T> {
 
 impl<T> sealed::Sealed for PositionedStream<T> {}
 impl<T> StreamHandle for PositionedStream<T> {
+    type Item = T;
+
     fn positioned() -> bool {
         true
     }
 
-    fn from_parts(parts: HandleParts) -> Self {
+    fn from_parts(parts: HandleParts, unpack: Option<Unpack<T>>) -> Self {
         let Parts::Positioned {
             transport_cmd_tx,
             path_kind,
@@ -160,6 +170,8 @@ impl<T> StreamHandle for PositionedStream<T> {
             transport_cmd_tx,
             path_kind,
             run: None,
+            unpacker: Unpacker::new(unpack),
+            pending: VecDeque::new(),
             _phantom: PhantomData,
         }
     }
@@ -169,7 +181,7 @@ impl<T> StreamHandle for PositionedStream<T> {
 /// `Commander::prepare_stream_resume` (`device.samples_resume(cursor)`). Does nothing until
 /// [call](Self::call) or [blocking_call](Self::blocking_call).
 #[must_use = "PreparedStreamOpen does nothing, unless call() or blocking_call() is used"]
-pub struct PreparedStreamOpen<R, S> {
+pub struct PreparedStreamOpen<R, S: StreamHandle> {
     pub(crate) postpone_err: Result<(), Error>,
     pub(crate) transport_cmd_tx: TransportCommander,
     pub(crate) path_kind: PathKindOwned,
@@ -186,13 +198,15 @@ pub struct PreparedStreamOpen<R, S> {
     pub(crate) raw_fallible: bool,
     /// `#[errors(..)]` of the stream function (API-32), checked on the device's error, see [Self::with_error_list]
     pub(crate) error_check: Option<ErrorCheck<R>>,
+    /// A batched stream's events become items with it (API-41), see [Self::batched]
+    pub(crate) unpack: Option<Unpack<S::Item>>,
     pub(crate) _phantom: PhantomData<(R, S)>,
 }
 
 /// Checks a stream function's result against its `#[errors(..)]` list.
 pub(crate) type ErrorCheck<R> = Box<dyn Fn(&R) + Send + Sync>;
 
-impl<A, E: Debug + 'static, S> PreparedStreamOpen<Result<A, E>, S> {
+impl<A, E: Debug + 'static, S: StreamHandle> PreparedStreamOpen<Result<A, E>, S> {
     /// The stream function's `#[errors(..)]` list (API-32), used by generated client code: a device error outside
     /// it is logged as a warning (a panic with [set_strict_error_lists](crate::set_strict_error_lists)).
     /// `resource` names the stream function in the message.
@@ -234,6 +248,14 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
         self
     }
 
+    /// The stream is batched (API-41): each event is a batch of items, `unpack` ([unpack_timed](crate::unpack_timed)
+    /// or [unpack_untimed](crate::unpack_untimed)) decodes one, and the handle gives them one by one. Used by
+    /// generated client code.
+    pub fn batched(mut self, unpack: Unpack<S::Item>) -> Self {
+        self.unpack = Some(unpack);
+        self
+    }
+
     /// Batched streams (API-41): the most a batch may wait on the device before it is sent, the latency the host
     /// accepts for fewer, bigger events; the device's default without it. The device clamps it to what it supports
     /// (rounded to microseconds, at most `u32::MAX` µs). Ignored by streams that aren't batched.
@@ -258,7 +280,13 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
         let (parts, (cmd, done_rx)) = self.start(plain_rx)?;
         self.transport_cmd_tx.send_command(cmd).await?;
         let response = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning);
-        finish::<R, S>(parts, response, open_check, self.error_check.as_ref())
+        finish::<R, S>(
+            parts,
+            response,
+            open_check,
+            self.error_check.as_ref(),
+            self.unpack,
+        )
     }
 
     /// Blocking variant of [Self::call].
@@ -278,7 +306,13 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
         let response = done_rx
             .blocking_recv()
             .map_err(|_| Error::RxDispatcherNotRunning);
-        finish::<R, S>(parts, response, open_check, self.error_check.as_ref())
+        finish::<R, S>(
+            parts,
+            response,
+            open_check,
+            self.error_check.as_ref(),
+            self.unpack,
+        )
     }
 
     /// Checks, the open request and what it needs (a plain stream's receiver, registered before the request goes
@@ -403,6 +437,7 @@ fn finish<R: StreamOpenResult, S: StreamHandle>(
     response: Result<Result<Vec<u8>, Error>, Error>,
     open_check: fn(&[u8]) -> bool,
     error_check: Option<&ErrorCheck<R>>,
+    unpack: Option<Unpack<S::Item>>,
 ) -> Result<R::With<S>, Error> {
     let decoded = response.and_then(|r| r).and_then(|bytes| {
         let (_, result) = decode_opened(&bytes)?;
@@ -430,14 +465,14 @@ fn finish<R: StreamOpenResult, S: StreamHandle>(
         }
         Ok((r, false)) => {
             discard(&parts);
-            return Ok(r.with(S::from_parts(HandleParts(parts))));
+            return Ok(r.with(S::from_parts(HandleParts(parts), unpack)));
         }
         Err(e) => {
             discard(&parts);
             return Err(e);
         }
     };
-    Ok(result.with(S::from_parts(HandleParts(parts))))
+    Ok(result.with(S::from_parts(HandleParts(parts), unpack)))
 }
 
 /// The stream didn't open: its handle goes without closing it on the device.

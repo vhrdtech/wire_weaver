@@ -17,6 +17,7 @@ use ww_client_server::{PathKindOwned, StreamSideband};
 use ww_stream::rx::{Gaps, Receiver, Verdict};
 use ww_stream::{Opened, StreamCursor, StreamHead};
 
+use crate::client::batch::{Batch, BatchItem, Unpacker};
 use crate::event_loop::commander::TransportCommander;
 use crate::{Error, StreamError};
 
@@ -36,6 +37,10 @@ pub enum StreamEvent<T> {
     /// When the device sends an item again from inside it (a resend or a resume from a position in the middle of a
     /// multi-unit item), `pos` and `units` cover only the units that are new to the host; `value` and `t` are the
     /// whole item's.
+    ///
+    /// A batched stream (API-41) gives one `Item` per entry of a batch, one unit each, with the entry's own time;
+    /// the items of a batch the host already had are left out. Times the device sends as wrapping `u32`
+    /// microseconds come unwrapped, as a `u64` counting on across wraps.
     Item {
         pos: u64,
         units: u64,
@@ -474,6 +479,10 @@ pub struct PositionedStream<T> {
     pub(crate) path_kind: PathKindOwned,
     /// Some for a half of [Self::split]
     pub(crate) run: Option<Run>,
+    /// Batched streams: how an event becomes items
+    pub(crate) unpacker: Unpacker<T>,
+    /// Items of the last batch not taken yet
+    pub(crate) pending: VecDeque<StreamEvent<T>>,
     pub(crate) _phantom: PhantomData<T>,
 }
 
@@ -494,21 +503,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
 
     /// Blocking variant of [Self::recv_event].
     pub fn recv_event_blocking(&mut self) -> Result<StreamEvent<T>, StreamError> {
-        let mut inner = self.shared.lock();
-        loop {
-            if let Some(entry) = inner.pop(self.run) {
-                drop(inner);
-                return to_event(entry);
-            }
-            if inner.finished(self.run) {
-                return Err(StreamError::Closed);
-            }
-            inner = self
-                .shared
-                .cond
-                .wait(inner)
-                .unwrap_or_else(|e| e.into_inner());
-        }
+        self.take_blocking(None)
     }
 
     /// Next event if there is one queued, without waiting.
@@ -521,27 +516,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
         &mut self,
         timeout: Duration,
     ) -> Result<StreamEvent<T>, StreamError> {
-        let deadline = Instant::now() + timeout;
-        let mut inner = self.shared.lock();
-        loop {
-            if let Some(entry) = inner.pop(self.run) {
-                drop(inner);
-                return to_event(entry);
-            }
-            if inner.finished(self.run) {
-                return Err(StreamError::Closed);
-            }
-            let left = deadline.saturating_duration_since(Instant::now());
-            if left.is_zero() {
-                return Err(Error::Timeout.into());
-            }
-            inner = self
-                .shared
-                .cond
-                .wait_timeout(inner, left)
-                .unwrap_or_else(|e| e.into_inner())
-                .0;
-        }
+        self.take_blocking(Some(Instant::now() + timeout))
     }
 
     /// Next value; gaps, resumes and disconnects are skipped (they are counted in [Self::stats] and logged).
@@ -572,16 +547,143 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
         Ok(None)
     }
 
-    fn try_take(&mut self) -> Result<Option<StreamEvent<T>>, StreamError> {
-        let mut inner = self.shared.lock();
-        match inner.pop(self.run) {
-            Some(entry) => {
-                drop(inner);
-                to_event(entry).map(Some)
+    /// The rest of the next batch, or the next one whole (API-41): its items, each with its device time, for code
+    /// that works on blocks. Gaps, resumes and disconnects are skipped as by [Self::recv]. An item of a stream that
+    /// isn't batched is a batch of one.
+    pub async fn recv_batch(&mut self) -> Result<Batch<T>, StreamError> {
+        loop {
+            let ev = self.recv_event().await?;
+            if let Some(batch) = self.batch_from(ev) {
+                return Ok(batch);
             }
-            None if inner.finished(self.run) => Err(StreamError::Closed),
-            None => Ok(None),
         }
+    }
+
+    /// Blocking variant of [Self::recv_batch].
+    pub fn recv_batch_blocking(&mut self) -> Result<Batch<T>, StreamError> {
+        loop {
+            let ev = self.recv_event_blocking()?;
+            if let Some(batch) = self.batch_from(ev) {
+                return Ok(batch);
+            }
+        }
+    }
+
+    /// `ev` and the items of its batch still pending, if it is an item.
+    fn batch_from(&mut self, ev: StreamEvent<T>) -> Option<Batch<T>> {
+        let StreamEvent::Item {
+            pos, t, run, value, ..
+        } = ev
+        else {
+            return None;
+        };
+        let mut items = vec![BatchItem { t, value }];
+        // the pending events are the rest of this item's batch, nothing else
+        items.extend(self.pending.drain(..).filter_map(|ev| match ev {
+            StreamEvent::Item { t, value, .. } => Some(BatchItem { t, value }),
+            _ => None,
+        }));
+        Some(Batch { pos, run, items })
+    }
+
+    fn try_take(&mut self) -> Result<Option<StreamEvent<T>>, StreamError> {
+        loop {
+            if let Some(ev) = self.pending.pop_front() {
+                return Ok(Some(ev));
+            }
+            let mut inner = self.shared.lock();
+            match inner.pop(self.run) {
+                Some(entry) => {
+                    drop(inner);
+                    if let Some(ev) = self.to_event(entry)? {
+                        return Ok(Some(ev));
+                    }
+                }
+                None if inner.finished(self.run) => return Err(StreamError::Closed),
+                None => return Ok(None),
+            }
+        }
+    }
+
+    /// The next event, waiting until `deadline` (forever without one).
+    fn take_blocking(&mut self, deadline: Option<Instant>) -> Result<StreamEvent<T>, StreamError> {
+        loop {
+            if let Some(ev) = self.pending.pop_front() {
+                return Ok(ev);
+            }
+            let shared = self.shared.clone();
+            let mut inner = shared.lock();
+            let entry = loop {
+                if let Some(entry) = inner.pop(self.run) {
+                    break entry;
+                }
+                if inner.finished(self.run) {
+                    return Err(StreamError::Closed);
+                }
+                inner = match deadline {
+                    None => shared.cond.wait(inner).unwrap_or_else(|e| e.into_inner()),
+                    Some(deadline) => {
+                        let left = deadline.saturating_duration_since(Instant::now());
+                        if left.is_zero() {
+                            return Err(Error::Timeout.into());
+                        }
+                        shared
+                            .cond
+                            .wait_timeout(inner, left)
+                            .unwrap_or_else(|e| e.into_inner())
+                            .0
+                    }
+                };
+            };
+            drop(inner);
+            if let Some(ev) = self.to_event(entry)? {
+                return Ok(ev);
+            }
+        }
+    }
+
+    /// The event of an entry; for a batched stream the first new item of its batch, the others go to `pending`
+    /// (None: the host had every item of it).
+    fn to_event(&mut self, entry: Entry) -> Result<Option<StreamEvent<T>>, StreamError> {
+        let Entry::Item {
+            head,
+            skip,
+            run,
+            bytes,
+        } = entry
+        else {
+            return to_event(entry).map(Some);
+        };
+        if !self.unpacker.is_batched() {
+            return to_event(Entry::Item {
+                head,
+                skip,
+                run,
+                bytes,
+            })
+            .map(Some);
+        }
+        let items = self.unpacker.unpack(&bytes)?;
+        if items.len() as u64 != head.units {
+            warn!(
+                "batched stream {:?}: an event of {} units has {} items",
+                self.path_kind,
+                head.units,
+                items.len()
+            );
+        }
+        let mut ext = head.ext;
+        for (i, item) in items.into_iter().enumerate().skip(skip as usize) {
+            self.pending.push_back(StreamEvent::Item {
+                pos: head.pos + i as u64,
+                units: 1,
+                t: item.t,
+                ext: ext.take(),
+                run,
+                value: item.value,
+            });
+        }
+        Ok(self.pending.pop_front())
     }
 
     /// Split into the live run and the backfill run, two handles each delivering its run in order (a dashboard
@@ -597,6 +699,8 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
             transport_cmd_tx: self.transport_cmd_tx.clone(),
             path_kind: self.path_kind.clone(),
             run: Some(Run::Backfill),
+            unpacker: self.unpacker.fork(),
+            pending: VecDeque::new(),
             _phantom: PhantomData,
         };
         let mut live = self;

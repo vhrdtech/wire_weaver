@@ -726,6 +726,41 @@ types
     }
 
     #[test]
+    fn renders_recursive_types() {
+        console::set_colors_enabled(false);
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/recursive_api");
+        let mut bundle = wire_weaver_core::load(&path, Some("Recursive".into()), false).unwrap();
+        // as introspection data is used
+        wire_weaver_client::ww_self::generics::prepare(&mut bundle).unwrap();
+        let expected = "\
+trait Recursive recursive_api@0.1.0
+├─ 0 fn eval(expr: Expr) -> Option<i32>
+│  /// Value of the expression, `None` when it is nested too deep or has a variant from a newer version
+├─ 1 fn unwrap_neg(expr: Expr) -> Option<Expr>
+│  /// The expression with its outermost negation removed
+├─ 2 rw property tree: Tree
+└─ 3 stream exprs: Expr
+";
+        assert_eq!(render(&bundle, false), expected);
+        let expected = "\
+types
+├─ 0 enum recursive_api::Expr unsized, repr u4
+│  /// An integer expression
+│  ├─ 0 Add(Box<Expr>, Box<Expr>)
+│  ├─ 1 Mul
+│  │  ├─ a: Box<Expr>
+│  │  └─ b: Box<Expr>
+│  ├─ 2 Neg(Box<Expr>)
+│  └─ 3 Lit(i32)
+└─ 1 struct recursive_api::Tree unsized
+   /// A labelled tree, children in a list
+   ├─ label: String
+   └─ children: Vec<Tree>
+";
+        assert_eq!(render_types(&bundle, false), expected);
+    }
+
+    #[test]
     fn renders_common_errors() {
         console::set_colors_enabled(false);
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/common_error_api");

@@ -167,6 +167,7 @@ motor_sim = { git = "https://github.com/vhrdtech/motor_sim", rev = "84fe370f105c
 multi_req_api = { version = "0.1.0", path = "./tests/multi_req_api" }
 observe_api = { version = "0.1.0", path = "./tests/observe_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }
+recursive_api = { version = "0.1.0", path = "./tests/recursive_api" }
 series_api = { version = "0.1.0", path = "./tests/series_api" }
 settings_api = { version = "0.1.0", path = "./examples/settings_api" }
 streams_api = { version = "0.1.0", path = "./tests/streams_api" }

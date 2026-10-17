@@ -1383,6 +1383,52 @@ mod tests {
     "#;
 
     #[test]
+    fn self_referential_types_written_out_differently() {
+        // A { x: Box<A> }, written out a level further at every other step on each side, so that out-of-line
+        // references never meet: the host's A is `A { x: Box<A { x: Box<A> }> }`, the device's argument is an
+        // in-line `A { x: Box<A> }` around that
+        let mut host = bundle(
+            "recursive",
+            "0.1.0",
+            "#[ww_api_root] pub trait Api { fn f(a: A<'i>); } pub struct A<'i> { x: RefBox<'i, A<'i>> }",
+        );
+        let TypeLocationOwned::InLine { ty: a, .. } = host.types[0].clone() else {
+            panic!("in-line");
+        };
+        let TypeOwned::Struct(mut outer) = a.clone() else {
+            panic!("struct");
+        };
+        let FieldsOwned::Named(fields) = &mut outer.fields else {
+            panic!("named");
+        };
+        fields[0].ty = TypeOwned::Box(Box::new(a.clone()));
+        if let TypeLocationOwned::InLine { ty, .. } = &mut host.types[0] {
+            *ty = TypeOwned::Struct(outer);
+        }
+        let mut device = host.clone();
+        let ApiItemKindOwned::Method { args, .. } = &mut device.root.items[0].kind else {
+            panic!("method");
+        };
+        args[0].ty = a;
+        let ApiItemKindOwned::Method {
+            args: host_args, ..
+        } = &host.root.items[0].kind
+        else {
+            panic!("method");
+        };
+        let ApiItemKindOwned::Method {
+            args: device_args, ..
+        } = &device.root.items[0].kind
+        else {
+            panic!("method");
+        };
+        let mut check = TypeCheck::new(&host, &device, "client", "device");
+        assert_eq!(check.check(&host_args[0].ty, &device_args[0].ty), Ok(()));
+        let mut check = TypeCheck::new(&device, &host, "device", "client");
+        assert_eq!(check.check(&device_args[0].ty, &host_args[0].ty), Ok(()));
+    }
+
+    #[test]
     fn identical_apis() {
         let compat = compat(BLINKY, BLINKY);
         assert!(compat.mismatches().is_empty());

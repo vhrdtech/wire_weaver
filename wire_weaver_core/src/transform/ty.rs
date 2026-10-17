@@ -1064,3 +1064,102 @@ fn get_default_attr(
         Err(anyhow!("expected #[default = value]").context(current_crate.err_context()))
     }
 }
+
+#[cfg(test)]
+mod recursive_tests {
+    use std::path::PathBuf;
+    use ww_self::{ApiBundleOwned, TypeLocationOwned, TypeOwned};
+
+    /// Loads trait `Api` from a throwaway crate with `lib_rs` (after the trait).
+    fn load(name: &str, methods: &str, types: &str) -> anyhow::Result<ApiBundleOwned> {
+        let dir: PathBuf = std::env::temp_dir()
+            .join("ww_core_recursive_tests")
+            .join(format!("{name}-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(
+            dir.join("Cargo.toml"),
+            "[package]\nname = \"test_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+        )
+        .unwrap();
+        let lib_rs = format!("#[ww_api_root]\npub trait Api {{\n{methods}\n}}\n{types}");
+        std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
+        let bundle = crate::load(&dir, Some("Api".into()), false);
+        std::fs::remove_dir_all(&dir).unwrap();
+        bundle
+    }
+
+    fn names(bundle: &ApiBundleOwned) -> Vec<String> {
+        bundle
+            .types
+            .iter()
+            .map(|location| match location {
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Struct(s),
+                    ..
+                } => s.ident.clone(),
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Enum(e),
+                    ..
+                } => e.ident.clone(),
+                other => format!("{other:?}"),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn self_referential_types_once() {
+        let bundle = load(
+            "mutual",
+            "fn a(a: A<'i>);\nfn b(b: B<'i>) -> W<'i, A<'i>>;",
+            "
+            pub struct A<'i> { b: RefVec<'i, B<'i>>, w: W<'i, A<'i>> }
+            #[derive_shrink_wrap(ww_repr = u4)]
+            pub enum B<'i> { Leaf, A(RefBox<'i, A<'i>>) }
+            pub struct W<'i, T> { items: RefVec<'i, T> }
+            ",
+        )
+        .unwrap();
+        // the generic definition, A, and B, each once
+        let mut types = names(&bundle);
+        types.sort();
+        assert_eq!(types, ["A", "B", "W"]);
+        let mut prepared = bundle.clone();
+        ww_self::generics::prepare(&mut prepared).unwrap();
+        let ty = &bundle.root.items[0].kind;
+        let ww_self::ApiItemKindOwned::Method { args, .. } = ty else {
+            panic!("method");
+        };
+        assert_eq!(
+            args[0].ty.human_definition(&prepared, true).unwrap(),
+            "struct test_api::A {b: Vec<enum ub4 test_api::B {Leaf, A(Box<test_api::A>)}>, \
+             w: struct test_api::W<A> {items: Vec<test_api::A>}}"
+        );
+    }
+
+    #[test]
+    fn generic_types_referring_to_themselves_are_errors() {
+        let e = load(
+            "generic",
+            "fn a(a: L<'i, u8>);",
+            "pub struct L<'i, T> { v: T, next: Option<RefBox<'i, L<'i, T>>> }",
+        )
+        .unwrap_err();
+        assert!(
+            format!("{e:#}").contains("Generic type L refers to itself (through L)"),
+            "{e:#}"
+        );
+        let e = load(
+            "generic_through",
+            "fn a(a: A<'i>);",
+            "
+            pub struct A<'i> { g: G<'i, u8> }
+            pub struct G<'i, T> { v: T, a: RefVec<'i, A<'i>> }
+            ",
+        )
+        .unwrap_err();
+        assert!(
+            format!("{e:#}").contains("Generic type G refers to itself (through A -> G)"),
+            "{e:#}"
+        );
+    }
+}

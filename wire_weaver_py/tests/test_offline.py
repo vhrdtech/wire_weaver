@@ -297,3 +297,24 @@ def test_series_columns():
         api.readings.decode_columns(data[:10])
     with pytest.raises(ValueError):
         api.sum.decode_columns(b"")
+
+
+def test_recursive_types():
+    # self-referential types: an expression tree through RefBox, a tree through a list of itself
+    api = ww.load_api(str(API_CRATE.parent / "recursive_api"), "Recursive")
+    assert api.eval.signature == "eval(expr: Expr) -> Option<i32>"
+    assert api.tree.signature == "rw tree: Tree"
+    expr = {"Mul": dict(a={"Add": ({"Lit": 1}, {"Lit": 2})}, b={"Neg": {"Lit": 3}})}
+    assert api.eval.encode_args(expr)
+    tree = dict(label="root", children=[dict(label="a", children=[]), dict(label="b", children=[])])
+    assert api.tree.decode(api.tree.encode(tree)) == tree
+    # as deep as the object: bounded, also for one that contains itself
+    deep = {"Lit": 7}
+    for _ in range(1000):
+        deep = {"Neg": deep}
+    with pytest.raises(ValueError, match="nested deeper"):
+        api.eval.encode_args(deep)
+    looped = dict(label="loop", children=[])
+    looped["children"].append(looped)
+    with pytest.raises(ValueError, match="nested deeper"):
+        api.tree.encode(looped)

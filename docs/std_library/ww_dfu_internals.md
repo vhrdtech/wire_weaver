@@ -22,8 +22,10 @@ one and the change is looked at. So the bytes here are the bytes the current cod
   the host are masked with a random key; they are shown unmasked with the key zeroed.
 - **The device** is a simulation with real firmware logic on a simulated flash: two banks with NOR semantics (programming
   only clears bits), 8 chunks of 64 bytes, erase blocks of 128 bytes, a plan area, an apply journal, and power cuts
-  injected at a given step. A reset restarts the device thread on the same link endpoint, running the bootloader logic
-  first; the host reconnects as it would to a real device. The firmwares are generated `ww_dfu` servers
+  injected at a given step. It runs as a task next to the host on one single-threaded runtime, as firmware runs on one
+  core, so every run of a scenario interleaves host and device the same way (over the simulated USB the clock is paused
+  as well, timeouts don't depend on the machine's load). A reset restarts the device task on the same link endpoint,
+  running the bootloader logic first; the host reconnects as it would to a real device. The firmwares are generated `ww_dfu` servers
   (`tests/dfu_app_api`, `tests/dfu_lean_app_api`, `tests/dfu_updater_api`).
 - **The plan format** is a small stand-in for chunky's (a 35-byte header with a toy signature; steps `01 block`,
   `02 dst src hash`, `03 dst hash len data`), so the step bytes in the transcripts are readable. Hashes are SHA-256

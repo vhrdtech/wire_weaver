@@ -1,4 +1,4 @@
-//! The simulated device: a thread that boots (the bootloader runs on [Flash]), runs a firmware on one link until it
+//! The simulated device: a task that boots (the bootloader runs on [Flash]), runs a firmware on one link until it
 //! resets (a reboot request or a power cut), and boots again, always on the same link endpoint, as a real device
 //! comes back under the same USB serial, IP address and port.
 //!
@@ -69,33 +69,26 @@ pub struct Device {
 }
 
 impl Device {
-    /// Start a device with `flash` on `link`; `name` must be unique per test (the simulated USB serial number).
-    pub fn start(name: &str, link: Link, flash: Flash) -> Device {
+    /// Start a device with `flash` on `link`; `name` must be unique per test (the simulated USB serial number). The
+    /// device runs as a local task on the test's own runtime, single-threaded as real firmware is: the test runs
+    /// inside a [tokio::task::LocalSet] (see `scenarios::run`).
+    pub async fn start(name: &str, link: Link, flash: Flash) -> Device {
         let flash = Arc::new(Mutex::new(flash));
         let rec = Recorder::default();
         let (boots_tx, boots) = mpsc::unbounded_channel();
         let (stop_tx, stop_rx) = mpsc::unbounded_channel();
-        let (addr_tx, addr_rx) = std::sync::mpsc::channel();
-        let (thread_flash, thread_rec, name) = (flash.clone(), rec.clone(), name.to_string());
-        std::thread::spawn(move || {
-            tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(device_thread(
-                    name,
-                    link,
-                    thread_flash,
-                    thread_rec,
-                    boots_tx,
-                    stop_rx,
-                    addr_tx,
-                ))
-        });
+        let (media, addr) = Media::bind(name, link).await;
+        tokio::task::spawn_local(device_task(
+            media,
+            flash.clone(),
+            rec.clone(),
+            boots_tx,
+            stop_rx,
+        ));
         Device {
             flash,
             rec,
-            addr: addr_rx.recv().unwrap(),
+            addr,
             boots,
             _stop: stop_tx,
         }
@@ -106,7 +99,7 @@ impl Device {
         tokio::time::timeout(std::time::Duration::from_secs(5), self.boots.recv())
             .await
             .expect("device boots")
-            .expect("device thread runs")
+            .expect("device task runs")
     }
 }
 
@@ -123,36 +116,42 @@ enum Media {
     Udp(UdpSocket),
 }
 
-async fn device_thread(
-    name: String,
-    link: Link,
+impl Media {
+    /// The device's endpoint on `link` and where the host finds it.
+    async fn bind(name: &str, link: Link) -> (Media, Addr) {
+        match link {
+            Link::UsbFullSpeed | Link::UsbHighSpeed => {
+                let path = format!("dfu/{name}");
+                let packet = if link == Link::UsbFullSpeed { 64 } else { 512 };
+                (
+                    Media::Usb {
+                        path: path.clone(),
+                        packet,
+                    },
+                    Addr::InProcess(path),
+                )
+            }
+            Link::WebSocket => {
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let url = format!("ws://{}/ww", listener.local_addr().unwrap());
+                (Media::WebSocket(listener), Addr::WebSocket(url))
+            }
+            Link::Udp => {
+                let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+                let addr = socket.local_addr().unwrap().to_string();
+                (Media::Udp(socket), Addr::Udp(addr))
+            }
+        }
+    }
+}
+
+async fn device_task(
+    media: Media,
     flash: Arc<Mutex<Flash>>,
     rec: Recorder,
     boots: mpsc::UnboundedSender<flash::Firmware>,
     mut stop: mpsc::UnboundedReceiver<()>,
-    addr: std::sync::mpsc::Sender<Addr>,
 ) {
-    let media = match link {
-        Link::UsbFullSpeed | Link::UsbHighSpeed => {
-            let path = format!("dfu/{name}");
-            _ = addr.send(Addr::InProcess(path.clone()));
-            Media::Usb {
-                path,
-                packet: if link == Link::UsbFullSpeed { 64 } else { 512 },
-            }
-        }
-        Link::WebSocket => {
-            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let url = format!("ws://{}/ww", listener.local_addr().unwrap());
-            _ = addr.send(Addr::WebSocket(url));
-            Media::WebSocket(listener)
-        }
-        Link::Udp => {
-            let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-            _ = addr.send(Addr::Udp(socket.local_addr().unwrap().to_string()));
-            Media::Udp(socket)
-        }
-    };
     loop {
         let fw = loop {
             // a power cut while the bootloader works: it runs again

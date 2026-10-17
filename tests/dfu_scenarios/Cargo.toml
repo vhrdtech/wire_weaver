@@ -12,7 +12,7 @@ dfu_app_api.workspace = true
 dfu_lean_app_api.workspace = true
 dfu_updater_api.workspace = true
 sha2.workspace = true
-tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "net", "time"] }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "net", "time", "test-util"] }
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["in_process", "udp", "ws"] }

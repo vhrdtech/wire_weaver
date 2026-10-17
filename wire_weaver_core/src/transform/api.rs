@@ -127,7 +127,36 @@ pub(crate) fn convert_api_items(
         }
         idx += 1;
     }
+    reject_group_item_collisions(&items).context(current_crate.err_context())?;
     Ok(items)
+}
+
+/// An `#[optional(group)]` named like an item of the same trait could not be omitted as a whole (`omit` resolves the
+/// item first), so the name is refused.
+fn reject_group_item_collisions(items: &[ApiItemOwned]) -> Result<()> {
+    for item in items {
+        let Some(group) = item.optional.as_ref().and_then(|o| o.group.as_deref()) else {
+            continue;
+        };
+        if let Some(other) = items.iter().find(|i| i.ident == group) {
+            return Err(anyhow!(
+                "optional group `{group}` has the same name as the {} `{}` in the same trait, so `omit = [\"{group}\"]` \
+                 could only leave out the item, never the whole group: give the group a different name, e.g. \
+                 #[optional({group}_group)]",
+                item_kind_name(&other.kind),
+                other.ident
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn item_kind_name(kind: &ApiItemKindOwned) -> &'static str {
+    match kind {
+        ApiItemKindOwned::Method { .. } => "method",
+        ApiItemKindOwned::Property { .. } => "property",
+        _ => "item",
+    }
 }
 
 fn convert_api_item_fn(
@@ -567,5 +596,47 @@ impl Parse for ReservedMacroArgs {
         let _: Token![..=] = input.parse()?;
         let end = input.parse()?;
         Ok(ReservedMacroArgs { start, end })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ww_self::OptionalOwned;
+
+    fn method(ident: &str, group: Option<&str>) -> ApiItemOwned {
+        ApiItemOwned {
+            id: UNib32(0),
+            kind: ApiItemKindOwned::Method {
+                args: vec![],
+                return_ty: None,
+                errors: None,
+            },
+            multiplicity: Multiplicity::Flat,
+            since: None,
+            ident: ident.into(),
+            docs: vec![],
+            optional: group.map(|g| OptionalOwned {
+                group: Some(g.into()),
+            }),
+        }
+    }
+
+    #[test]
+    fn group_named_like_item_is_refused() {
+        let items = [method("format", None), method("fmt_x", Some("format"))];
+        let err = reject_group_item_collisions(&items)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("group `format`") && err.contains("method `format`"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn distinct_names_pass() {
+        let items = [method("format", None), method("fmt_x", Some("formatting"))];
+        reject_group_item_collisions(&items).unwrap();
     }
 }

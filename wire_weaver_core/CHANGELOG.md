@@ -17,6 +17,8 @@
 
 ### 🐛 Fixes
 
+- An `#[optional(group)]` named like an item of the same trait (group `format`, method `format`) is a compile error
+  naming both, instead of `omit` silently dropping only the item.
 - Snapshots (`ww api save`) take generic marker structs too: a public struct whose fields are all `PhantomData`
   (`ww_si::units::Per<A, B>`), like a unit struct, so a `Quantity<Per<..>>` in an API is skipped as known (STD-38).
 - In a path type with arguments (`units_lib::Quantity<units_lib::units::Volt>`) the arguments are converted where

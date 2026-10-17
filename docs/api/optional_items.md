@@ -44,7 +44,7 @@ ww_codegen!(nucleo_api::Nucleo for Server, server = true, omit = ["i2c.i2c_wiggl
 
 `ww_codegen!(.., server = true, omit = [..])` takes paths `"<trait item>.<..>.<item or group>"` from the API root,
 without array indices: `"periph.channel.run"` leaves `run` out of every `periph[i].channel[j]`. Items of the API root
-itself are named directly (`omit = ["reset"]`). An item and a group of the same name: the item wins. Naming an item
+itself are named directly (`omit = ["reset"]`). A group may not share a name with an item of the same trait (group `format` and method `format`): `#[ww_trait]` refuses it with an error naming both, rename the group. Naming an item
 twice (by name and through its group, or in `omit` and `omit_if`) is a compile error, as is an unknown name.
 
 `omit_if(<cfg>) = [..]` ties optional items to the device crate's own Cargo features:

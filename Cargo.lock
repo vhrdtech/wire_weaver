@@ -6532,6 +6532,7 @@ name = "ww_numeric"
 version = "0.2.0"
 dependencies = [
  "defmt 1.1.1",
+ "proptest",
  "serde",
  "shrink_wrap",
 ]

@@ -28,6 +28,8 @@ mod group;
 mod leaves;
 mod series_type;
 mod store;
+#[cfg(all(test, feature = "std"))]
+mod store_tests;
 #[cfg(all(feature = "std", any(test, fuzzing)))]
 #[doc(hidden)]
 pub mod type_check;

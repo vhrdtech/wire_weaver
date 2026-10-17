@@ -5,6 +5,9 @@ default:
 # Test everything
 test:
     cargo nextest run --workspace --no-fail-fast
+    # a firmware's SeriesStore sizes, with the number types up to 32 bits only
+    cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store
+    cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store
 
 # ww_settings power cuts at every step of every write and erase (release; `just test` samples them in debug)
 test-power-cut:

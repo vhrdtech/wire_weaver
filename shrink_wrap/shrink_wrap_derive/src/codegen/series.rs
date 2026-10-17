@@ -1102,6 +1102,34 @@ mod tests {
     }
 
     #[test]
+    fn no_store() {
+        let has_store = |args: TokenStream, item: TokenStream| {
+            let s = shrink_wrap_attr(args, item).to_string();
+            assert!(!s.contains("compile_error"), "{s}");
+            s.contains("SeriesStore for")
+        };
+        assert!(has_store(
+            quote! { borrowed, owned, series },
+            quote! { struct S { a: u8 } }
+        ));
+        assert!(!has_store(
+            quote! { borrowed, owned, series(no_store) },
+            quote! { struct S { a: u8 } }
+        ));
+        // an opaque field has no store, so neither has the type
+        assert!(!has_store(
+            quote! { owned, series },
+            quote! { struct SOwned { #[series(opaque)] a: Vec<String> } }
+        ));
+        let err = error_of(
+            quote! { borrowed, series(no_stor) },
+            quote! { struct S { a: u8 } },
+        )
+        .unwrap();
+        assert!(err.contains("expected series or series(no_store)"), "{err}");
+    }
+
+    #[test]
     fn type_parameters() {
         let compiles = [
             (

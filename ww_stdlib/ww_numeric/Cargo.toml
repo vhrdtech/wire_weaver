@@ -56,3 +56,6 @@ uvlq64 = []
 defmt = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 shrink_wrap.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

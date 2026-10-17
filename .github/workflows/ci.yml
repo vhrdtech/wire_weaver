@@ -89,6 +89,9 @@ jobs:
         with:
           tool: cargo-nextest
       - run: cargo nextest run --workspace --all-targets --profile ci
+      # a firmware's SeriesStore sizes, with the number types up to 32 bits only
+      - run: cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store --profile ci
+      - run: cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store --profile ci
       # nextest does not run doctests
       - run: cargo test --workspace --doc
 

@@ -421,5 +421,5 @@ newer reader reading older data). A `final_structure` / `self_describing` / `siz
 inside a `Series` either, exactly as in plain form. A new enum variant an older reader doesn't know fails with
 `Error::EnumFutureVersionOrMalformedData`, as a plain decode of that item would.
 
-The [showcase](showcase.md#compressed-columns-series-t) has a 4-item example worked out byte by byte, including a
+The [showcase](showcase.md#compressed-columns-seriest) has a 4-item example worked out byte by byte, including a
 column restart.

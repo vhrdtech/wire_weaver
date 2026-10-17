@@ -508,7 +508,7 @@ a file.
 
 ## Compressed columns: `Series<T>`
 
-[`Series<T>`](series.md) ([layout](wire_format.md#series-t)) writes a list column by column instead of item by
+[`Series<T>`](series.md) ([layout](wire_format.md#seriest)) writes a list column by column instead of item by
 item. `IvSample { v: Volt, i: Ampere }`, `Volt`/`Ampere` each a ww_si-shaped `{ prefix: Prefix, value: NumericValue }`
 (`series`, `final_structure`), 4 readings with `v` around 3300 mV and `i` around 152 000 µA, both in their usual
 range:
@@ -534,7 +534,7 @@ assert_eq!(
 residuals: `+1, 0, -2`), then the same shape for `i`'s prefix, tag and `I32` column (delta + packed: `152000`, then
 `+2, -3, +2`). The header and first-value bytes are what batches of 4 pay for; at 100 items the same `IvSample`
 shrinks to 104 bytes (7.7x smaller) because they're paid once per batch, not once per item - see
-[sizes against `Vec<T>`](series.md#sizes-against-vec-t).
+[sizes against `Vec<T>`](series.md#sizes-against-vect).
 
 The same 4 items, but `i` jumps from the µA range to the mA range after item 2 (`Milli U16` storage once there):
 

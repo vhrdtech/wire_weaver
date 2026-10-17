@@ -53,7 +53,7 @@ A `Series` is self-contained: every batch carries its own first values and codec
 corrupts the next one, on any stream.
 
 The full bit-level layout (column order, run and numeric column encoding, restarts, evolution) is in
-[wire format internals](wire_format.md#series-t); this page is about when and why to reach for it.
+[wire format internals](wire_format.md#seriest); this page is about when and why to reach for it.
 
 ## Sizes against `Vec<T>`
 
@@ -70,7 +70,7 @@ The full bit-level layout (column order, run and numeric column encoding, restar
 7.7x smaller on a steady signal, 3.2x on a noisy one, against the smallest plain form. With time added
 (`Series<Timed<IvSample>>`, `t` as microseconds since batch start) against a `final_structure` `Vec` of
 `{ t, v, i }` (13 B/item plain): 113 B steady, 260 B noisy, regular 1 kHz; a regular clock costs nothing extra
-(constant delta), ±3 µs of jitter adds about 6 bits/item. [`Timed<T>`](#time-timed-t) is just another struct field,
+(constant delta), ±3 µs of jitter adds about 6 bits/item. [`Timed<T>`](#time-timedt) is just another struct field,
 not a special case.
 
 Bytes per item by batch size, steady signal (plain `final_structure` / `Series`):
@@ -83,7 +83,7 @@ A single item costs one byte more than plain (the column headers have to be paid
 already smaller, and most of the gain is there by 32 items — the default batch size the implementation (and the
 planned API-41 batching) uses.
 
-The [showcase](showcase.md#compressed-columns-series-t) has the exact bytes of a 4-item batch, checked against the
+The [showcase](showcase.md#compressed-columns-seriest) has the exact bytes of a 4-item batch, checked against the
 running code.
 
 ## Integer storage beats floats

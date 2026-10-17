@@ -805,6 +805,42 @@ impl DeserializeShrinkWrapOwned for () {
     }
 }
 
+/// Zero bits like `()`, for any `T`: a field that only carries a type parameter (a unit marker) costs nothing on
+/// the wire, and `T` needs no impls (DER-15).
+impl<T: ?Sized> SerializeShrinkWrap for core::marker::PhantomData<T> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 0 };
+    const MAX_SIZE: Option<MaxSize> = Some(MaxSize::ZERO);
+
+    fn ser_shrink_wrap(&self, _wr: &mut BufWriter) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: ?Sized> SerializeShrinkWrapOwned for core::marker::PhantomData<T> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 0 };
+
+    fn ser_shrink_wrap_owned(&self, _wr: &mut BufWriterOwned) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+impl<'i, T: ?Sized> DeserializeShrinkWrap<'i> for core::marker::PhantomData<T> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 0 };
+
+    fn des_shrink_wrap<'di>(_rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+        Ok(core::marker::PhantomData)
+    }
+}
+
+impl<T: ?Sized> DeserializeShrinkWrapOwned for core::marker::PhantomData<T> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: 0 };
+
+    fn des_shrink_wrap_owned(_rd: &mut BufReader<'_>) -> Result<Self, Error> {
+        Ok(core::marker::PhantomData)
+    }
+}
+
 impl<T: SerializeShrinkWrap> SerializeShrinkWrap for core::ops::Range<T> {
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE.add(T::ELEMENT_SIZE);
     const PUSHES_LEN: bool = write_pushes_len::<T>();

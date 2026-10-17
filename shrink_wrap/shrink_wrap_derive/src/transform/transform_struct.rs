@@ -83,7 +83,8 @@ impl ItemStruct {
             display,
             sparse_slots: None,
             kind,
-            generics: Generics::from_syn(&item_struct.generics),
+            generics: Generics::from_syn(&item_struct.generics)
+                .with_field_types(item_struct.fields.iter().map(|f| &f.ty)),
         })
     }
 
@@ -156,7 +157,8 @@ impl ItemStruct {
             display,
             sparse_slots: Some(slots),
             kind: StructKind::from_syn(&item_struct.fields),
-            generics: Generics::from_syn(&item_struct.generics),
+            generics: Generics::from_syn(&item_struct.generics)
+                .with_field_types(item_struct.fields.iter().map(|f| &f.ty)),
         })
     }
 }

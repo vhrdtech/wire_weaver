@@ -10,6 +10,11 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- `PhantomData<T>` fields (DER-15): `PhantomData<T>` serializes to zero bits (`ElementSize::Sized { size_bits: 0 }`
+  and `MaxSize::ZERO`, like `()`) borrowed and owned, and is a `SeriesColumns` with no columns, for any `T` (no
+  bounds). `#[derive_shrink_wrap]` leaves a type parameter that the fields only use inside `PhantomData<..>` without
+  the serdes and `SeriesColumns` bounds it puts on the other parameters (DER-14), so `struct Quantity<U> { value:
+  i32, _unit: PhantomData<U> }` works with a bare unit marker `U` and writes the same bytes as without the field.
 - `series::dynamic` (CLT-29): the column readers of `Series` for decoders that know `T` only at run time
   (`read_count`, `read_numeric`, `read_numeric128`, `read_float`, `read_run` with `RunKind`, `read_opaque_run`,
   `read_struct_head`), one whole column per call, validating as the typed readers do. `ww_self`'s dynamic decoder is

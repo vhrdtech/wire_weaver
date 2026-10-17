@@ -78,7 +78,12 @@ impl ItemEnum {
             // ident: item_enum.ident.clone(),
             variants,
             future_version,
-            generics: Generics::from_syn(&item_enum.generics),
+            generics: Generics::from_syn(&item_enum.generics).with_field_types(
+                item_enum
+                    .variants
+                    .iter()
+                    .flat_map(|v| v.fields.iter().map(|f| &f.ty)),
+            ),
         })
     }
 }

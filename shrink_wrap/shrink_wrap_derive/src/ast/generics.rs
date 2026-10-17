@@ -1,6 +1,7 @@
-use proc_macro2::TokenStream;
-use quote::quote;
-use syn::{GenericParam, TypeParam, WhereClause};
+use proc_macro2::{Ident, TokenStream, TokenTree};
+use quote::{ToTokens, quote};
+use std::collections::HashSet;
+use syn::{GenericArgument, GenericParam, PathArguments, Type, TypeParam, WhereClause};
 
 /// Type and const parameters of a derived struct or enum and its where clause (DER-14), as written. Lifetimes are
 /// the type's own business: the borrowed side has `'i`, the owned side none.
@@ -9,6 +10,9 @@ pub(crate) struct Generics {
     /// `T: Bound = Default` and `const N: usize = 4`, in the order written, attributes removed.
     pub(crate) params: Vec<GenericParam>,
     pub(crate) where_clause: Option<WhereClause>,
+    /// Type parameters that the fields only use inside `PhantomData<..>` (DER-15): a unit marker needs no serdes or
+    /// `SeriesColumns`, so the impls don't bound them by their trait.
+    pub(crate) phantom_only: HashSet<Ident>,
 }
 
 impl Generics {
@@ -29,7 +33,23 @@ impl Generics {
         Generics {
             params,
             where_clause: generics.where_clause.clone(),
+            phantom_only: HashSet::new(),
         }
+    }
+
+    /// Marks the type parameters that the field types `tys` use only inside `PhantomData<..>` (DER-15). A use the
+    /// walk doesn't look into (a macro, a qualified path, a function pointer, ..) counts as a real one.
+    pub(crate) fn with_field_types<'a>(mut self, tys: impl IntoIterator<Item = &'a Type>) -> Self {
+        let mut used = HashSet::new();
+        for ty in tys {
+            collect_used_idents(ty, &mut used);
+        }
+        self.phantom_only = self
+            .type_params()
+            .map(|p| p.ident.clone())
+            .filter(|ident| !used.contains(ident))
+            .collect();
+        self
     }
 
     /// No parameters and no where clause: the code is the same as before DER-14.
@@ -78,11 +98,12 @@ impl Generics {
         let params = self.params.iter().map(|p| match p {
             GenericParam::Type(ty) => {
                 let ident = &ty.ident;
+                let bound = bound.clone().filter(|_| !self.phantom_only.contains(ident));
                 let bounds = ty
                     .bounds
                     .iter()
                     .map(|b| quote! { #b })
-                    .chain(bound.clone())
+                    .chain(bound)
                     .collect::<Vec<_>>();
                 if bounds.is_empty() {
                     quote! { #ident, }
@@ -121,6 +142,59 @@ impl Generics {
             self.where_clause(&[])
         } else {
             self.where_clause(&[quote! { Self: ::core::fmt::Debug }])
+        }
+    }
+}
+
+/// Every identifier of `ty` that can name a type parameter, leaving out the arguments of `PhantomData<..>`.
+fn collect_used_idents(ty: &Type, used: &mut HashSet<Ident>) {
+    match ty {
+        Type::Path(p) if p.qself.is_none() => {
+            let Some(last) = p.path.segments.last() else {
+                return;
+            };
+            if last.ident == "PhantomData" {
+                return;
+            }
+            for segment in &p.path.segments {
+                used.insert(segment.ident.clone());
+                match &segment.arguments {
+                    PathArguments::None => {}
+                    PathArguments::AngleBracketed(args) => {
+                        for arg in &args.args {
+                            match arg {
+                                GenericArgument::Type(ty) => collect_used_idents(ty, used),
+                                GenericArgument::Lifetime(_) => {}
+                                other => collect_token_idents(other.to_token_stream(), used),
+                            }
+                        }
+                    }
+                    other => collect_token_idents(other.to_token_stream(), used),
+                }
+            }
+        }
+        Type::Array(a) => {
+            collect_used_idents(&a.elem, used);
+            collect_token_idents(a.len.to_token_stream(), used);
+        }
+        Type::Slice(s) => collect_used_idents(&s.elem, used),
+        Type::Reference(r) => collect_used_idents(&r.elem, used),
+        Type::Ptr(p) => collect_used_idents(&p.elem, used),
+        Type::Paren(p) => collect_used_idents(&p.elem, used),
+        Type::Group(g) => collect_used_idents(&g.elem, used),
+        Type::Tuple(t) => t.elems.iter().for_each(|ty| collect_used_idents(ty, used)),
+        other => collect_token_idents(other.to_token_stream(), used),
+    }
+}
+
+fn collect_token_idents(tokens: TokenStream, used: &mut HashSet<Ident>) {
+    for tt in tokens {
+        match tt {
+            TokenTree::Ident(ident) => {
+                used.insert(ident);
+            }
+            TokenTree::Group(g) => collect_token_idents(g.stream(), used),
+            _ => {}
         }
     }
 }

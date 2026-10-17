@@ -436,6 +436,37 @@ impl<'i, X: SeriesColumns<'i>> SeriesColumns<'i> for Option<X> {
     }
 }
 
+/// No columns: a `PhantomData` field takes no space in a series, like it takes none in a value (DER-15).
+impl<'i, T: ?Sized> SeriesColumns<'i> for core::marker::PhantomData<T> {
+    type Reader = ();
+
+    fn write_group<'a, I, S>(
+        _items: I,
+        _sink: &mut S,
+        _policy: &CodecPolicy,
+        _level: Level,
+    ) -> Result<(), Error>
+    where
+        I: Iterator<Item = (&'a Self, bool)> + Clone,
+        S: BitSink,
+        Self: 'a,
+    {
+        Ok(())
+    }
+
+    fn skim<C: SeriesCtx>(
+        _rd: &mut BufReader<'i>,
+        _ctx: C,
+        _level: Level,
+    ) -> Result<Self::Reader, Error> {
+        Ok(())
+    }
+
+    fn next(_reader: &mut Self::Reader, _restart: bool) -> Result<Self, Error> {
+        Ok(core::marker::PhantomData)
+    }
+}
+
 macro_rules! tuple {
     ($n:literal: $($t:ident $idx:tt),+) => {
         impl<'i, $($t: SeriesColumns<'i>),+> SeriesColumns<'i> for ($($t,)+) {

@@ -6,7 +6,8 @@ use crate::{
     args::Args,
     ast::{item_enum::ItemEnum, item_struct::ItemStruct, object_size::ObjectSize, repr::Repr},
     codegen::{
-        fixed_layout, head_tail, item_enum::CGItemEnum, item_struct::CGItemStruct, util::CratePath,
+        fixed_layout, head_tail, item_enum::CGItemEnum, item_struct::CGItemStruct,
+        series::SeriesSeed, util::CratePath,
     },
     transform::docs_util::add_notes,
 };
@@ -89,6 +90,7 @@ fn generate_inner(
         check_sparse_args(&item, &args)?;
     }
     check_fieldless_struct_args(&item, &args)?;
+    check_series_args(&item, &args)?;
     if args.validate.is_some()
         && (!matches!(item, Item::Struct(_)) || args.sparse || args.fixed_layout || args.head_tail)
     {
@@ -241,6 +243,12 @@ fn generate_inner(
                     ts.append_all(cg_item_enum.display_and_error_rust(true));
                 }
                 ts.append_all(cg_item_enum.impl_common(true)?);
+                if args.series {
+                    ts.append_all(borrowed.series_seed(true).series_enum(
+                        &ww_item_enum.variants,
+                        future_version_ident(&ww_item_enum),
+                    )?);
+                }
             }
 
             if let Some(owned) = generate_owned {
@@ -258,6 +266,12 @@ fn generate_inner(
                 // an ambiguous type is the same one as borrowed, which has the impls already
                 if !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
                     ts.append_all(cg_item_enum.impl_common(false)?);
+                    if args.series {
+                        ts.append_all(owned.series_seed(false).series_enum(
+                            &ww_item_enum.variants,
+                            future_version_ident(&ww_item_enum),
+                        )?);
+                    }
                 }
             }
         }
@@ -308,6 +322,12 @@ fn generate_inner(
                 if let Some(message) = &display_message {
                     ts.append_all(cg_item_struct.display_and_error_rust(true, message));
                 }
+                if args.series {
+                    ts.append_all(borrowed.series_seed(true).series_struct(
+                        &ww_item_struct.fields,
+                        series_evolvable(&args.size_assumption),
+                    )?);
+                }
             }
 
             if let Some(owned) = generate_owned {
@@ -322,6 +342,12 @@ fn generate_inner(
                     && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed)
                 {
                     ts.append_all(cg_item_struct.display_and_error_rust(false, message));
+                }
+                if args.series && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
+                    ts.append_all(owned.series_seed(false).series_struct(
+                        &ww_item_struct.fields,
+                        series_evolvable(&args.size_assumption),
+                    )?);
                 }
             }
         }
@@ -433,6 +459,57 @@ fn check_fieldless_struct_args(item: &Item, args: &Args) -> Result<(), String> {
          e.g. a `U4` field",
         item_struct.ident
     ))
+}
+
+/// `series` (SW-60): what v1 of `Series` takes (design `series.md`), and `#[series(opaque)]` only with it.
+fn check_series_args(item: &Item, args: &Args) -> Result<(), String> {
+    let (name, fields): (_, Vec<&syn::Field>) = match item {
+        Item::Struct(s) => (&s.ident, s.fields.iter().collect()),
+        Item::Enum(e) => (
+            &e.ident,
+            e.variants.iter().flat_map(|v| v.fields.iter()).collect(),
+        ),
+        _ => return Ok(()),
+    };
+    if !args.series {
+        if fields
+            .iter()
+            .any(|f| f.attrs.iter().any(|a| a.path().is_ident("series")))
+        {
+            return Err(format!(
+                "`{name}`: #[series(..)] on a field needs the `series` directive on the type"
+            ));
+        }
+        return Ok(());
+    }
+    if args.sparse {
+        return Err(format!(
+            "series: `{name}` is sparse, sparse structs are not in Series v1 (their slots can be removed, which needs \
+             a rule of its own)"
+        ));
+    }
+    if args.head_tail {
+        return Err(format!(
+            "series: `{name}` is head_tail, a Series item is a shrink_wrap type"
+        ));
+    }
+    if let Item::Struct(s) = item
+        && let syn::Fields::Unnamed(_) = s.fields
+    {
+        return Err(format!(
+            "series: `{name}` is a tuple struct, not in Series v1: name its fields"
+        ));
+    }
+    Ok(())
+}
+
+/// A struct's group in a `Series` has a field count or length when the struct is `Unsized`.
+fn series_evolvable(size_assumption: &Option<ObjectSize>) -> bool {
+    matches!(size_assumption, None | Some(ObjectSize::Unsized))
+}
+
+fn future_version_ident(item: &ItemEnum) -> Option<&Ident> {
+    item.future_version.as_ref().map(|fv| &fv.ident)
 }
 
 /// `sparse` (DER-13) is a struct encoding of its own: none of the other encodings or size assumptions go with it.
@@ -565,6 +642,17 @@ impl<'a> CGSeed<'a> {
             size_assumption,
             ambiguous,
             crate_path,
+        }
+    }
+
+    /// The `series` impl's view of the type, `is_ref` on the borrowed side.
+    fn series_seed(&self, is_ref: bool) -> SeriesSeed<'_> {
+        SeriesSeed {
+            ident: &self.ident,
+            has_lifetime: is_ref && !self.ambiguous,
+            is_ref,
+            cfg: self.cfg.as_ref(),
+            cp: self.crate_path,
         }
     }
 

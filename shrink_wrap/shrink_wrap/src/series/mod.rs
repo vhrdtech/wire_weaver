@@ -12,7 +12,7 @@
 //! [Series] (SW-60) goes further for lists of structs and enums: one column per leaf field, each with its own
 //! predictor and coder, discrete leaves as runs of changes; see [SeriesColumns] for the types it takes.
 
-use crate::{BufReader, BufWriter, Error};
+use crate::{BufReader, BufWriter, Error, SerializeShrinkWrap};
 
 mod columns;
 /// Round trips of the column codecs for the `series-columns` fuzz target.
@@ -40,9 +40,9 @@ pub use columns::{
     BitCounter, CodecPolicy, Coder, FloatCodec, NumericCodec, PACKED_BLOCK, Predictor,
 };
 pub use group::{
-    EnumTags, FieldItems, Level, RootCtx, SeriesColumns, SeriesCtx, SiblingCtx, SiblingTags, Slot,
-    StructExtent, TagRun, VariantCtx, changed_before, no_earlier, skim_struct_head,
-    write_enum_tags, write_struct_head,
+    EnumTags, FieldItems, Level, OpaqueField, OpaqueReader, RootCtx, SeriesColumns, SeriesCtx,
+    SiblingCtx, SiblingTags, Slot, StructExtent, TagRun, VariantCtx, changed_before, no_earlier,
+    skim_struct_head, write_enum_tags, write_struct_head,
 };
 pub use leaves::{ArrayReader, OptionReader};
 #[cfg(feature = "std")]
@@ -68,6 +68,58 @@ pub trait BitSink {
     fn align_byte(&mut self);
     /// Whole bytes, after aligning to a byte.
     fn put_bytes(&mut self, bytes: &[u8]) -> Result<(), Error>;
+
+    /// An opaque run value of `value`'s own bytes: `len: nib` of what [to_ww_bytes](SerializeShrinkWrap::to_ww_bytes)
+    /// gives, zero bits to the next byte, then those bytes. Serialized into the writer's free space first, so
+    /// nothing is allocated (`BufWriterOwned` and a [BitCounter] without [scratch](Self::scratch) use a `Vec`).
+    fn put_serialized<V: SerializeShrinkWrap + ?Sized>(&mut self, value: &V) -> Result<(), Error>;
+
+    /// Free memory after what is written, for a [BitCounter] to serialize opaque values into while it measures a
+    /// group ([BitCounter::with_scratch]); its contents are not kept.
+    fn scratch(&mut self) -> &mut [u8];
+}
+
+/// `len: nib`, zero bits to the next byte, the bytes: an opaque run value.
+pub(crate) fn put_opaque_value(sink: &mut impl BitSink, bytes: &[u8]) -> Result<(), Error> {
+    columns::put_nib(
+        sink,
+        u32::try_from(bytes.len()).map_err(|_| Error::LenTooLong)?,
+    )?;
+    sink.put_bytes(bytes)
+}
+
+/// `value`'s `to_ww_bytes` in a `Vec`, for writers without a buffer of their own: grows until it fits.
+#[cfg(feature = "std")]
+pub(crate) fn serialize_to_vec<V: SerializeShrinkWrap + ?Sized>(
+    value: &V,
+) -> Result<Vec<u8>, Error> {
+    let mut buf = vec![0u8; 256];
+    loop {
+        match value.to_ww_bytes(&mut buf).map(|bytes| bytes.len()) {
+            Ok(len) => {
+                buf.truncate(len);
+                return Ok(buf);
+            }
+            // the largest value a `BufWriter` can hold: lengths are 16 bits, nested ones too
+            Err(e) if is_out_of_space(e) && buf.len() < 1 << 24 => buf.resize(buf.len() * 4, 0),
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+/// Errors a `BufWriter` gives when its buffer is too small.
+#[cfg(feature = "std")]
+fn is_out_of_space(e: Error) -> bool {
+    matches!(
+        e,
+        Error::OutOfBoundsWriteBool
+            | Error::OutOfBoundsWriteU4
+            | Error::OutOfBoundsWriteU8
+            | Error::OutOfBoundsWriteRawSlice
+            | Error::OutOfBoundsWriteUN
+            | Error::OutOfBoundsRev
+            | Error::OutOfBoundsRevCompact
+    )
 }
 
 impl BitSink for BufWriter<'_> {
@@ -90,6 +142,20 @@ impl BitSink for BufWriter<'_> {
 
     fn put_bytes(&mut self, bytes: &[u8]) -> Result<(), Error> {
         self.write_raw_slice(bytes)
+    }
+
+    fn put_serialized<V: SerializeShrinkWrap + ?Sized>(&mut self, value: &V) -> Result<(), Error> {
+        // serialized past the room `len: nib` (at most 44 bits) and the padding can take, then moved in place
+        let at = self.scratch_start();
+        let len = value.to_ww_bytes(self.scratch())?.len();
+        columns::put_nib(self, u32::try_from(len).map_err(|_| Error::LenTooLong)?)?;
+        self.align_byte();
+        self.move_in(at, len)
+    }
+
+    fn scratch(&mut self) -> &mut [u8] {
+        let at = self.scratch_start();
+        self.free_from(at)
     }
 }
 
@@ -114,6 +180,14 @@ impl BitSink for crate::BufWriterOwned {
 
     fn put_bytes(&mut self, bytes: &[u8]) -> Result<(), Error> {
         self.write_raw_slice(bytes)
+    }
+
+    fn put_serialized<V: SerializeShrinkWrap + ?Sized>(&mut self, value: &V) -> Result<(), Error> {
+        put_opaque_value(self, &serialize_to_vec(value)?)
+    }
+
+    fn scratch(&mut self) -> &mut [u8] {
+        &mut []
     }
 }
 

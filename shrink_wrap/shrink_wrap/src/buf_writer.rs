@@ -710,6 +710,32 @@ impl<'i> BufWriter<'i> {
     }
 }
 
+/// Room for a value serialized ahead of the write position and moved back ([put_serialized](crate::series::BitSink::put_serialized)).
+impl BufWriter<'_> {
+    /// First byte after the current one and 6 more: where a value goes that is preceded by up to 44 bits and a
+    /// padding to the byte.
+    pub(crate) fn scratch_start(&self) -> usize {
+        self.byte_idx + 8
+    }
+
+    /// The free bytes from `at` up to the reverse lengths at the back, empty when there are none.
+    pub(crate) fn free_from(&mut self, at: usize) -> &mut [u8] {
+        let at = at.min(self.len_bytes);
+        &mut self.buf[at..self.len_bytes]
+    }
+
+    /// Moves `len` bytes from `at` to the write position, which is byte-aligned and not after `at`.
+    pub(crate) fn move_in(&mut self, at: usize, len: usize) -> Result<(), Error> {
+        debug_assert!(self.bit_idx == 7 && self.byte_idx <= at);
+        if at + len > self.len_bytes {
+            return Err(Error::OutOfBoundsWriteRawSlice);
+        }
+        self.buf.copy_within(at..at + len, self.byte_idx);
+        self.byte_idx += len;
+        Ok(())
+    }
+}
+
 impl BufWriterState {
     pub(crate) fn bits_in_byte_left(&self) -> u8 {
         if self.byte_idx >= self.len_bytes {

@@ -108,6 +108,16 @@ pub(crate) fn write_opaque_run<'a, S: BitSink>(
     write_changes(sink, items, put, put)
 }
 
+/// Writes a run of opaque values compared with `==`, each changed one (and the first) with `put`
+/// ([BitSink::put_serialized] or an opaque value of bytes). Writes nothing for no items.
+pub(crate) fn write_opaque_values<'a, V: PartialEq + ?Sized + 'a, S: BitSink>(
+    sink: &mut S,
+    items: impl Iterator<Item = &'a V>,
+    put: impl Fn(&mut S, &V) -> Result<(), Error>,
+) -> Result<(), Error> {
+    write_changes(sink, items, &put, &put)
+}
+
 /// How a [RunReader] reads the values of its run.
 pub trait RunValues<'i>: Copy {
     type Value: Copy;

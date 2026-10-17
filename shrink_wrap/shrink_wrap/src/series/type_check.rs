@@ -1,199 +1,37 @@
-//! Test types for `Series<T>` with hand-written [SeriesColumns] impls (what `#[derive_shrink_wrap(.., series)]`
-//! will generate), and the round trip / random bytes checks shared by the unit tests and the `series-type` fuzz
+//! Test types for `Series<T>` with `#[derive_shrink_wrap(.., series)]` (the bytes of the design's examples and
+//! tables come out of the same impls the derive writes for any user type), and the round trip / random bytes checks shared by the unit tests and the `series-type` fuzz
 //! target (`cargo fuzz` builds with `--cfg fuzzing`, which makes this module public): a mismatch or a panic is a
 //! bug.
 
-use super::{
-    BitCounter, BitSink, CodecPolicy, EnumTags, FieldItems, Level, Series, SeriesColumns,
-    SeriesCtx, SeriesOwned, SiblingCtx, SiblingTags, TagRun, VariantCtx, changed_before,
-    no_earlier, skim_struct_head, write_enum_tags, write_struct_head,
-};
+use super::{CodecPolicy, Series, SeriesColumns, SeriesOwned};
 use crate::un::U5;
 use crate::{
-    BufReader, BufWriter, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, Error, Nibble,
-    SerializeShrinkWrap, SerializeShrinkWrapOwned,
+    BufReader, BufWriter, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, Nibble, RefVec,
+    SerializeShrinkWrap, SerializeShrinkWrapOwned, derive_shrink_wrap,
 };
 
-/// A struct's impl: `evolvable` or not, its `N` fields with their indices and the default each takes when the
-/// data has no column for it (an older writer).
-macro_rules! series_struct {
-    ($name:ident $(<$lt:lifetime>)?, $evolvable:expr, $n:literal; $($f:ident: $t:ty = $default:expr, $idx:tt);+ $(;)?) => {
-        impl<'i> SeriesColumns<'i> for $name $(<$lt>)? {
-            type Reader = (SiblingTags<$n>, ($(Option<<$t as SeriesColumns<'i>>::Reader>,)+));
-
-            fn write_group<'a, I, S>(
-                items: I,
-                sink: &mut S,
-                policy: &CodecPolicy,
-                level: Level,
-            ) -> Result<(), Error>
-            where
-                I: Iterator<Item = (&'a Self, bool)> + Clone,
-                S: BitSink,
-                Self: 'a,
-            {
-                if items.clone().next().is_none() {
-                    return Ok(());
-                }
-                write_struct_head(sink, level, $evolvable, $n, |start| {
-                    let mut counter = BitCounter::at(start);
-                    Self::write_group(items.clone(), &mut counter, policy, Level::Fields)?;
-                    Ok(counter.bits())
-                })?;
-                let tags = |s: &Self| [$(s.$f.series_tag()),+];
-                $(
-                    let field = FieldItems::new(
-                        items.clone(),
-                        |s: &'a Self| Some(&s.$f),
-                        move |p: &'a Self, c: &'a Self| changed_before(&tags(p), &tags(c), $idx),
-                    );
-                    <$t as SeriesColumns>::write_group(field, sink, policy, Level::Nested)?;
-                )+
-                Ok(())
-            }
-
-            #[allow(unused_assignments)]
-            fn skim<C: SeriesCtx>(
-                rd: &mut BufReader<'i>,
-                ctx: C,
-                level: Level,
-            ) -> Result<Self::Reader, Error> {
-                let head = skim_struct_head(rd, &ctx, level, $evolvable)?;
-                let mut runs: [Option<TagRun<'i>>; $n] = [None; $n];
-                let readers = ($(
-                    if head.has_field(rd, $idx) {
-                        let r = <$t as SeriesColumns>::skim(rd, SiblingCtx::new(ctx.clone(), runs), Level::Nested)?;
-                        runs[$idx] = <$t as SeriesColumns>::tag_run(&r);
-                        Some(r)
-                    } else {
-                        None
-                    },
-                )+);
-                head.finish(rd, $n)?;
-                Ok((SiblingTags::new(), readers))
-            }
-
-            fn next(reader: &mut Self::Reader, restart: bool) -> Result<Self, Error> {
-                let (sib, readers) = reader;
-                sib.begin();
-                Ok($name {
-                    $($f: match &mut readers.$idx {
-                        Some(r) => {
-                            let v = <$t as SeriesColumns>::next(r, sib.restart(restart))?;
-                            sib.record($idx, v.series_tag());
-                            v
-                        }
-                        None => $default,
-                    },)+
-                })
-            }
-        }
-    };
-}
-
-/// An enum's impl: unit variants and one-field variants (in discriminant order, with their index among the
-/// one-field ones).
-macro_rules! series_enum {
-    ($name:ident; units: [$($uv:ident = $ud:literal),*]; data: [$($dv:ident($t:ty) = $dd:literal, $di:tt),*]) => {
-        impl $name {
-            fn discriminant(&self) -> u32 {
-                match self {
-                    $($name::$uv => $ud,)*
-                    $($name::$dv(_) => $dd,)*
-                }
-            }
-        }
-
-        impl<'i> SeriesColumns<'i> for $name {
-            type Reader = (EnumTags<'i>, ($(<$t as SeriesColumns<'i>>::Reader,)*));
-
-            fn write_group<'a, I, S>(
-                items: I,
-                sink: &mut S,
-                _policy: &CodecPolicy,
-                _level: Level,
-            ) -> Result<(), Error>
-            where
-                I: Iterator<Item = (&'a Self, bool)> + Clone,
-                S: BitSink,
-                Self: 'a,
-            {
-                write_enum_tags(sink, items.clone().map(|(e, _)| e.discriminant()))?;
-                $(
-                    let variant = FieldItems::new(
-                        items.clone(),
-                        |e: &'a Self| match e {
-                            $name::$dv(x) => Some(x),
-                            #[allow(unreachable_patterns)]
-                            _ => None,
-                        },
-                        no_earlier::<Self>,
-                    );
-                    <$t as SeriesColumns>::write_group(variant, sink, _policy, Level::Nested)?;
-                )*
-                Ok(())
-            }
-
-            fn skim<C: SeriesCtx>(
-                rd: &mut BufReader<'i>,
-                ctx: C,
-                _level: Level,
-            ) -> Result<Self::Reader, Error> {
-                #[allow(clippy::manual_range_patterns)]
-                let tags = EnumTags::skim(rd, &ctx, |tag| match tag {
-                    $($ud)|* $(| $dd)* => Ok(()),
-                    _ => Err(Error::EnumFutureVersionOrMalformedData),
-                })?;
-                let readers = ($(
-                    <$t as SeriesColumns>::skim(
-                        rd,
-                        VariantCtx::new(ctx.clone(), tags.tag_run(), $dd),
-                        Level::Nested,
-                    )?,
-                )*);
-                Ok((tags, readers))
-            }
-
-            fn next(reader: &mut Self::Reader, _restart: bool) -> Result<Self, Error> {
-                let (tags, _readers) = reader;
-                let (tag, _entered) = tags.next_tag()?;
-                match tag {
-                    $($ud => Ok($name::$uv),)*
-                    $($dd => Ok($name::$dv(<$t as SeriesColumns>::next(&mut _readers.$di, _restart || _entered)?)),)*
-                    _ => Err(Error::EnumFutureVersionOrMalformedData),
-                }
-            }
-
-            fn series_tag(&self) -> Option<u32> {
-                Some(self.discriminant())
-            }
-
-            fn tag_run(reader: &Self::Reader) -> Option<TagRun<'i>> {
-                reader.0.tag_run()
-            }
-        }
-    };
-}
-
 /// `ww_si::Prefix`, the three variants the design's cases use, at their discriminants.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive_shrink_wrap(borrowed, owned, series, self_describing, ww_repr = unib32, derive(Clone, Copy, Debug, PartialEq))]
 pub enum Prefix {
-    #[default]
     Unit,
     Milli,
     Micro,
 }
 
-series_enum!(Prefix; units: [Unit = 0, Milli = 1, Micro = 2]; data: []);
+impl Default for Prefix {
+    fn default() -> Self {
+        Prefix::Unit
+    }
+}
 
 /// `ww_numeric::NumericValue`, some of its variants, at their discriminants.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive_shrink_wrap(borrowed, owned, series, self_describing, ww_repr = unib32, derive(Clone, Copy, Debug, PartialEq))]
 pub enum NumericValue {
-    U8(u8),
-    U16(u16),
-    U32(u32),
-    I32(i32),
-    F32(f32),
+    U8(u8) = 1,
+    U16(u16) = 2,
+    U32(u32) = 3,
+    I32(i32) = 6,
+    F32(f32) = 7,
 }
 
 impl Default for NumericValue {
@@ -202,16 +40,18 @@ impl Default for NumericValue {
     }
 }
 
-series_enum!(NumericValue; units: []; data: [U8(u8) = 1, 0, U16(u16) = 2, 1, U32(u32) = 3, 2, I32(i32) = 6, 3, F32(f32) = 7, 4]);
-
 /// `ww_si::Volt`, `Ampere`, `Second`, ...: `final_structure`.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    series,
+    final_structure,
+    derive(Clone, Copy, Debug, Default, PartialEq)
+)]
 pub struct Quantity {
     pub prefix: Prefix,
     pub value: NumericValue,
 }
-
-series_struct!(Quantity, false, 2; prefix: Prefix = Prefix::Unit, 0; value: NumericValue = NumericValue::U8(0), 1);
 
 impl Quantity {
     pub fn new(prefix: Prefix, value: NumericValue) -> Self {
@@ -220,72 +60,76 @@ impl Quantity {
 }
 
 /// The design's sample: evolvable.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    series,
+    derive(Clone, Copy, Debug, Default, PartialEq)
+)]
 pub struct IvSample {
     pub v: Quantity,
     pub i: Quantity,
 }
 
-series_struct!(IvSample, true, 2; v: Quantity = Quantity::default(), 0; i: Quantity = Quantity::default(), 1);
-
 /// `Timed<IvSample>`: `final_structure`, the time first.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    series,
+    final_structure,
+    derive(Clone, Copy, Debug, Default, PartialEq)
+)]
 pub struct TimedIv {
     pub t: Quantity,
     pub value: IvSample,
 }
 
-series_struct!(TimedIv, false, 2; t: Quantity = Quantity::default(), 0; value: IvSample = IvSample::default(), 1);
-
 /// [IvSample] with a field appended.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    series,
+    derive(Clone, Copy, Debug, Default, PartialEq)
+)]
 pub struct IvSampleV2 {
     pub v: Quantity,
     pub i: Quantity,
+    #[default = None]
     pub range_ok: Option<bool>,
 }
 
-series_struct!(IvSampleV2, true, 3; v: Quantity = Quantity::default(), 0; i: Quantity = Quantity::default(), 1;
-    range_ok: Option<bool> = None, 2);
-
 /// Nested evolvable struct, version 1.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive_shrink_wrap(borrowed, owned, series, derive(Clone, Debug, Default, PartialEq))]
 pub struct InnerV1 {
     pub x: u16,
 }
 
-series_struct!(InnerV1, true, 1; x: u16 = 0, 0);
-
 /// [InnerV1] with an enum and a string appended (the string aligns to a byte inside the group).
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct InnerV2 {
+#[derive_shrink_wrap(borrowed, owned, series, derive(Clone, Debug, Default, PartialEq))]
+pub struct InnerV2<'i> {
     pub x: u16,
+    #[default = Prefix::Unit]
     pub unit: Prefix,
-    pub label: String,
+    #[default = Default::default()]
+    pub label: &'i str,
 }
 
-series_struct!(InnerV2, true, 3; x: u16 = 0, 0; unit: Prefix = Prefix::Unit, 1; label: String = String::new(), 2);
-
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive_shrink_wrap(borrowed, owned, series, derive(Clone, Debug, Default, PartialEq))]
 pub struct OuterV1 {
     pub a: u8,
     pub inner: InnerV1,
     pub b: i32,
 }
 
-series_struct!(OuterV1, false, 3; a: u8 = 0, 0; inner: InnerV1 = InnerV1::default(), 1; b: i32 = 0, 2);
-
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct OuterV2 {
+#[derive_shrink_wrap(borrowed, owned, series, derive(Clone, Debug, Default, PartialEq))]
+pub struct OuterV2<'i> {
     pub a: u8,
-    pub inner: InnerV2,
+    pub inner: InnerV2<'i>,
     pub b: i32,
 }
 
-series_struct!(OuterV2, false, 3; a: u8 = 0, 0; inner: InnerV2 = InnerV2::default(), 1; b: i32 = 0, 2);
-
-/// Every kind of leaf and group, borrowed.
-#[derive(Clone, Debug, PartialEq)]
+/// Every kind of leaf and group, borrowed (`Kitchen`) and owned (`KitchenOwned`).
+#[derive_shrink_wrap(borrowed, owned, series, derive(Clone, Debug, PartialEq))]
 pub struct Kitchen<'i> {
     pub flag: bool,
     pub q: Option<Quantity>,
@@ -298,38 +142,9 @@ pub struct Kitchen<'i> {
     pub nib: Nibble,
     pub u5: U5,
     pub bytes: &'i [u8],
-    pub inner: Option<InnerV2>,
+    pub inner: Option<InnerV2<'i>>,
     pub prefixes: [Prefix; 2],
 }
-
-series_struct!(Kitchen<'i>, true, 13; flag: bool = false, 0; q: Option<Quantity> = None, 1; name: &'i str = "", 2;
-    pair: (u8, Prefix, i64) = (0, Prefix::Unit, 0), 3; arr: [i16; 3] = [0; 3], 4; f: f32 = 0.0, 5; d: f64 = 0.0, 6;
-    big: u128 = 0, 7; nib: Nibble = Nibble::new_masked(0), 8; u5: U5 = U5::zero(), 9; bytes: &'i [u8] = &[], 10;
-    inner: Option<InnerV2> = None, 11; prefixes: [Prefix; 2] = [Prefix::Unit; 2], 12);
-
-/// [Kitchen], owned.
-#[derive(Clone, Debug, PartialEq)]
-pub struct KitchenOwned {
-    pub flag: bool,
-    pub q: Option<Quantity>,
-    pub name: String,
-    pub pair: (u8, Prefix, i64),
-    pub arr: [i16; 3],
-    pub f: f32,
-    pub d: f64,
-    pub big: u128,
-    pub nib: Nibble,
-    pub u5: U5,
-    pub bytes: Vec<u8>,
-    pub inner: Option<InnerV2>,
-    pub prefixes: [Prefix; 2],
-}
-
-series_struct!(KitchenOwned, true, 13; flag: bool = false, 0; q: Option<Quantity> = None, 1;
-    name: String = String::new(), 2; pair: (u8, Prefix, i64) = (0, Prefix::Unit, 0), 3; arr: [i16; 3] = [0; 3], 4;
-    f: f32 = 0.0, 5; d: f64 = 0.0, 6; big: u128 = 0, 7; nib: Nibble = Nibble::new_masked(0), 8;
-    u5: U5 = U5::zero(), 9; bytes: Vec<u8> = Vec::new(), 10; inner: Option<InnerV2> = None, 11;
-    prefixes: [Prefix; 2] = [Prefix::Unit; 2], 12);
 
 impl Default for KitchenOwned {
     fn default() -> Self {
@@ -364,8 +179,12 @@ impl KitchenOwned {
             big: self.big,
             nib: self.nib,
             u5: self.u5,
-            bytes: &self.bytes,
-            inner: self.inner.clone(),
+            bytes: RefVec::new_bytes(&self.bytes),
+            inner: self.inner.as_ref().map(|i| InnerV2 {
+                x: i.x,
+                unit: i.unit,
+                label: &i.label,
+            }),
             prefixes: self.prefixes,
         }
     }
@@ -458,7 +277,7 @@ pub fn kitchen_items(picks: &mut Picks<'_>, max: usize) -> Vec<KitchenOwned> {
         k.inner = if picks.byte().is_multiple_of(3) {
             None
         } else {
-            Some(InnerV2 {
+            Some(InnerV2Owned {
                 x: num as u16,
                 unit: picks.prefix(Prefix::Micro),
                 label: if picks.byte().is_multiple_of(2) {
@@ -545,7 +364,7 @@ pub fn random_bytes(bytes: &[u8]) {
     walk::<Kitchen<'_>>(bytes);
     walk::<IvSample>(bytes);
     walk::<TimedIv>(bytes);
-    walk::<OuterV2>(bytes);
+    walk::<OuterV2<'_>>(bytes);
     walk::<Option<(u8, bool)>>(bytes);
     walk::<u32>(bytes);
     if let Ok(owned) = SeriesOwned::<KitchenOwned>::from_ww_bytes_owned(bytes) {

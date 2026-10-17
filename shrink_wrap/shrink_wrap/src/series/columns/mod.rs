@@ -27,7 +27,7 @@ mod golden;
 mod tests;
 
 use super::BitSink;
-use crate::{BufReader, Error};
+use crate::{BufReader, Error, SerializeShrinkWrap};
 
 /// What the 2-bit predictor field of a numeric column names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -117,14 +117,17 @@ impl Default for CodecPolicy {
 /// Residuals per block of the packed coder.
 pub const PACKED_BLOCK: u8 = 8;
 
-/// A [BitSink] that only counts, to compare codecs or to measure a group without writing.
-#[derive(Clone, Copy, Debug)]
-pub struct BitCounter {
+/// A [BitSink] that only counts, to compare codecs or to measure a group without writing. Opaque values of
+/// `#[series(opaque)]` fields ([put_serialized](BitSink::put_serialized)) are serialized to be measured: into the
+/// scratch memory of [with_scratch](Self::with_scratch), else (`std`) into a `Vec`.
+#[derive(Debug)]
+pub struct BitCounter<'s> {
     start: usize,
     pos: usize,
+    scratch: &'s mut [u8],
 }
 
-impl BitCounter {
+impl BitCounter<'static> {
     /// Counts from a byte boundary (only [align_byte](BitSink::align_byte) depends on the start).
     pub const fn new() -> Self {
         BitCounter::at(0)
@@ -132,7 +135,18 @@ impl BitCounter {
 
     /// Counts from bit position `start` of a buffer, so that byte alignment comes out as it would there.
     pub const fn at(start: usize) -> Self {
-        BitCounter { start, pos: start }
+        BitCounter::with_scratch(start, &mut [])
+    }
+}
+
+impl<'s> BitCounter<'s> {
+    /// [at](BitCounter::at), with memory to serialize opaque values into (the writer's [scratch](BitSink::scratch)).
+    pub const fn with_scratch(start: usize, scratch: &'s mut [u8]) -> Self {
+        BitCounter {
+            start,
+            pos: start,
+            scratch,
+        }
     }
 
     /// Bits counted since the start.
@@ -141,13 +155,13 @@ impl BitCounter {
     }
 }
 
-impl Default for BitCounter {
+impl Default for BitCounter<'static> {
     fn default() -> Self {
         BitCounter::new()
     }
 }
 
-impl BitSink for BitCounter {
+impl BitSink for BitCounter<'_> {
     fn bit_pos(&self) -> usize {
         self.pos
     }
@@ -170,6 +184,24 @@ impl BitSink for BitCounter {
         self.align_byte();
         self.pos += bytes.len() * 8;
         Ok(())
+    }
+
+    fn put_serialized<V: SerializeShrinkWrap + ?Sized>(&mut self, value: &V) -> Result<(), Error> {
+        let len = match value.to_ww_bytes(self.scratch) {
+            Ok(bytes) => bytes.len(),
+            #[cfg(feature = "std")]
+            Err(_) => crate::series::serialize_to_vec(value)?.len(),
+            #[cfg(not(feature = "std"))]
+            Err(e) => return Err(e),
+        };
+        put_nib(self, u32::try_from(len).map_err(|_| Error::LenTooLong)?)?;
+        self.align_byte();
+        self.pos += len * 8;
+        Ok(())
+    }
+
+    fn scratch(&mut self) -> &mut [u8] {
+        self.scratch
     }
 }
 

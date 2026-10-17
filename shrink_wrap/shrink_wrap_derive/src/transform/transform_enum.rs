@@ -251,6 +251,12 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
             for (def_order_idx, field) in fields_unnamed.unnamed.iter().enumerate() {
                 let (field, _is_explicit_flag) =
                     transform_field(def_order_idx as u32, field, path)?;
+                if field.series_opaque {
+                    return Err(format!(
+                        "field {def_order_idx} of a tuple variant: #[series(opaque)] is only on named fields, \
+                         name the variant's fields"
+                    ));
+                }
                 // TODO: Do unnamed fields have to have since, id, default, etc?
                 // TODO: explicit flags in unnamed fields?
                 if field.ty.contains_backfill() {

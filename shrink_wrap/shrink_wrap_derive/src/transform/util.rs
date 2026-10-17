@@ -4,7 +4,7 @@ use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_flag_attr,
-    take_id_attr, take_since_attr,
+    take_id_attr, take_series_attr, take_since_attr,
 };
 use crate::transform::transform_ty::transform_type;
 use proc_macro2::{Ident, Span};
@@ -98,6 +98,7 @@ pub(crate) fn create_flags(fields: &mut Vec<Field>, explicit_flags: &[Ident]) {
             },
             _since: None,
             default: None,
+            series_opaque: false,
         };
         fields.insert(pos + shift, flag);
     }
@@ -266,6 +267,8 @@ pub(crate) fn transform_field(
 
     let ty = transform_type(field.ty, Some(&mut field.attrs), &path)?;
     let default = take_default_attr(&mut field.attrs)?;
+    let series_opaque =
+        take_series_attr(&mut field.attrs).map_err(|e| format!("field `{ident}`: {e}"))?;
     let flag = take_flag_attr(&mut field.attrs);
     let id = take_id_attr(&mut field.attrs).unwrap_or(def_order_idx);
     let docs = collect_docs_attrs(&mut field.attrs);
@@ -274,6 +277,12 @@ pub(crate) fn transform_field(
     if flag.is_some() {
         if !matches!(ty, Type::Bool) {
             return Err(format!("{ident:?} flag type is not bool"));
+        }
+        if series_opaque {
+            return Err(format!(
+                "field `{ident}`: a #[flag] has no column of its own in a Series, #[series(opaque)] goes on the \
+                 Option or Result"
+            ));
         }
         let result_ident = ident;
         let ident = if flag.is_some() {
@@ -293,6 +302,7 @@ pub(crate) fn transform_field(
                 ty: Type::IsOk(result_ident),
                 _since: None,
                 default,
+                series_opaque,
             },
             true,
         ))
@@ -305,6 +315,7 @@ pub(crate) fn transform_field(
                 ty,
                 _since: take_since_attr(&mut field.attrs)?,
                 default,
+                series_opaque,
             },
             false,
         ))

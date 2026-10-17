@@ -16,10 +16,10 @@
 //! changed, and wherever the enclosing group restarts. `Option` counts as an enum here; bools, strings and opaque
 //! fields restart nothing.
 
-use super::BitSink;
-use super::columns::run::{RunKind, RunReader};
+use super::columns::run::{Opaque, RunKind, RunReader, write_opaque_values};
 use super::columns::{get_nib, put_nib};
-use crate::{BufReader, Error};
+use super::{BitCounter, BitSink};
+use crate::{BufReader, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 use core::marker::PhantomData;
 
 pub use super::columns::CodecPolicy;
@@ -435,16 +435,16 @@ pub fn skim_struct_head<C: SeriesCtx>(
 }
 
 /// Writes what a struct's group has before its fields, for items present: the field count `fields` of an
-/// evolvable struct at [Level::Outermost], or its group length at [Level::Nested], `body_bits(start)` being the
-/// bits of its fields written from bit position `start` ([BitCounter](super::BitCounter::at) and
-/// [Level::Fields]). The length is the shortest `nib` that fits; when byte-aligned fields make the length depend on
-/// its own size, it takes one more group than it needs.
+/// evolvable struct at [Level::Outermost], or its group length at [Level::Nested], measured by `body` writing the
+/// struct's fields ([Level::Fields]) into a [BitCounter] that starts where they will. The length is the shortest
+/// `nib` that fits; when byte-aligned fields make the length depend on its own size, it takes one more group than
+/// it needs.
 pub fn write_struct_head<S: BitSink>(
     sink: &mut S,
     level: Level,
     evolvable: bool,
     fields: u32,
-    body_bits: impl Fn(usize) -> Result<usize, Error>,
+    body: impl Fn(&mut BitCounter<'_>) -> Result<(), Error>,
 ) -> Result<(), Error> {
     if !evolvable {
         return Ok(());
@@ -455,8 +455,10 @@ pub fn write_struct_head<S: BitSink>(
         Level::Nested => {
             let start = sink.bit_pos();
             for groups in 1..=11u8 {
-                let bits = body_bits(start + 4 * groups as usize)?;
-                let bits = u32::try_from(bits).map_err(|_| Error::LenTooLong)?;
+                let mut counter =
+                    BitCounter::with_scratch(start + 4 * groups as usize, sink.scratch());
+                body(&mut counter)?;
+                let bits = u32::try_from(counter.bits()).map_err(|_| Error::LenTooLong)?;
                 if nib_groups(bits) <= groups {
                     return put_nib_groups(sink, bits, groups);
                 }
@@ -530,5 +532,101 @@ pub trait SeriesColumns<'i>: Sized {
     /// An enum's tag run at its first item, from a fresh [skim](Self::skim) result; `None` for every other type.
     fn tag_run(_reader: &Self::Reader) -> Option<TagRun<'i>> {
         None
+    }
+}
+
+/// The group of a field marked `#[series(opaque)]`, of a type `V` without [SeriesColumns] (a list, an
+/// `OptionAnyVec`, a foreign type): an opaque run of each value's own `to_ww_bytes`, a change where the value is not
+/// `==` the one before. `..._owned` for the owned side (`SerializeShrinkWrapOwned` / `DeserializeShrinkWrapOwned`).
+pub struct OpaqueField<V: ?Sized>(PhantomData<V>);
+
+/// Column cursor of an [OpaqueField].
+#[derive(Clone, Copy, Debug)]
+pub struct OpaqueReader<'i>(Option<RunReader<'i, Opaque>>);
+
+impl<'i> OpaqueReader<'i> {
+    /// The next item's bytes.
+    pub fn next_bytes(&mut self) -> Result<&'i [u8], Error> {
+        self.0.as_mut().ok_or(Error::MalformedSeries)?.next()
+    }
+
+    /// Skims the run over `ctx`'s items, every value checked with `check`, so that iterating can't fail.
+    fn skim<C: SeriesCtx>(
+        rd: &mut BufReader<'i>,
+        ctx: &C,
+        check: impl Fn(&'i [u8]) -> Result<(), Error>,
+    ) -> Result<Self, Error> {
+        let m = ctx.present()?;
+        if m == 0 {
+            return Ok(OpaqueReader(None));
+        }
+        let run = RunReader::new(*rd, Opaque, m)?;
+        let mut walk = run;
+        for _ in 0..m {
+            check(walk.next()?)?;
+        }
+        *rd = walk.finish()?;
+        Ok(OpaqueReader(Some(run)))
+    }
+}
+
+impl<V: PartialEq> OpaqueField<V> {
+    pub fn write_group<'a, I, S>(items: I, sink: &mut S) -> Result<(), Error>
+    where
+        V: SerializeShrinkWrap + 'a,
+        I: Iterator<Item = (&'a V, bool)>,
+        S: BitSink,
+    {
+        write_opaque_values(sink, items.map(|(v, _)| v), |sink, v| {
+            sink.put_serialized(v)
+        })
+    }
+
+    pub fn skim<'i, C: SeriesCtx>(
+        rd: &mut BufReader<'i>,
+        ctx: &C,
+    ) -> Result<OpaqueReader<'i>, Error>
+    where
+        V: DeserializeShrinkWrap<'i>,
+    {
+        OpaqueReader::skim(rd, ctx, |bytes| V::from_ww_bytes(bytes).map(|_| ()))
+    }
+
+    pub fn next<'i>(reader: &mut OpaqueReader<'i>) -> Result<V, Error>
+    where
+        V: DeserializeShrinkWrap<'i>,
+    {
+        V::from_ww_bytes(reader.next_bytes()?)
+    }
+
+    #[cfg(feature = "std")]
+    pub fn write_group_owned<'a, I, S>(items: I, sink: &mut S) -> Result<(), Error>
+    where
+        V: crate::SerializeShrinkWrapOwned + 'a,
+        I: Iterator<Item = (&'a V, bool)>,
+        S: BitSink,
+    {
+        write_opaque_values(sink, items.map(|(v, _)| v), |sink, v| {
+            super::put_opaque_value(sink, &v.to_ww_bytes_owned()?)
+        })
+    }
+
+    #[cfg(feature = "std")]
+    pub fn skim_owned<'i, C: SeriesCtx>(
+        rd: &mut BufReader<'i>,
+        ctx: &C,
+    ) -> Result<OpaqueReader<'i>, Error>
+    where
+        V: crate::DeserializeShrinkWrapOwned,
+    {
+        OpaqueReader::skim(rd, ctx, |bytes| V::from_ww_bytes_owned(bytes).map(|_| ()))
+    }
+
+    #[cfg(feature = "std")]
+    pub fn next_owned(reader: &mut OpaqueReader<'_>) -> Result<V, Error>
+    where
+        V: crate::DeserializeShrinkWrapOwned,
+    {
+        V::from_ww_bytes_owned(reader.next_bytes()?)
     }
 }

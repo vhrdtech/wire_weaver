@@ -363,10 +363,10 @@ fn evolution_outermost() {
 /// sees the group end and fills the defaults. The string in the new field aligns to a byte inside the group.
 #[test]
 fn evolution_nested() {
-    let v2: Vec<OuterV2> = (0..30)
-        .map(|k| OuterV2 {
+    let v2: Vec<OuterV2Owned> = (0..30)
+        .map(|k| OuterV2Owned {
             a: k as u8,
-            inner: InnerV2 {
+            inner: InnerV2Owned {
                 x: 1000 + k * 3,
                 unit: if k < 12 { Prefix::Milli } else { Prefix::Micro },
                 label: if k % 7 == 0 {
@@ -392,14 +392,14 @@ fn evolution_nested() {
     assert_eq!(old_read.0, v1);
 
     let old_bytes = bytes_of(&v1);
-    let new_read = SeriesOwned::<OuterV2>::from_ww_bytes_owned(&old_bytes).unwrap();
-    let expected: Vec<OuterV2> = v1
+    let new_read = SeriesOwned::<OuterV2Owned>::from_ww_bytes_owned(&old_bytes).unwrap();
+    let expected: Vec<OuterV2Owned> = v1
         .iter()
-        .map(|o| OuterV2 {
+        .map(|o| OuterV2Owned {
             a: o.a,
-            inner: InnerV2 {
+            inner: InnerV2Owned {
                 x: o.inner.x,
-                ..InnerV2::default()
+                ..InnerV2Owned::default()
             },
             b: o.b,
         })

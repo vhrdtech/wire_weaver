@@ -58,6 +58,25 @@ pub(crate) fn take_default_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Optio
     Ok(Some(name_value.value))
 }
 
+/// Take `#[series(opaque)]` (SW-60): whether the field is an opaque run in a `Series`.
+pub(crate) fn take_series_attr(attrs: &mut Vec<syn::Attribute>) -> Result<bool, String> {
+    let Some(attr_idx) = attrs.iter().position(|a| a.path().is_ident("series")) else {
+        return Ok(false);
+    };
+    let attr = attrs.remove(attr_idx);
+    if attrs.iter().any(|a| a.path().is_ident("series")) {
+        return Err("more than one #[series(..)]".into());
+    }
+    let ok = match &attr.meta {
+        Meta::List(list) => list.tokens.to_string() == "opaque",
+        _ => false,
+    };
+    if !ok {
+        return Err("expected #[series(opaque)]".into());
+    }
+    Ok(true)
+}
+
 /// Take `#[slot = N]` (DER-13, a field of a `sparse` struct) and return `N`.
 pub(crate) fn take_slot_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<u32>, String> {
     let Some(attr_idx) = attrs.iter().position(|a| a.path().is_ident("slot")) else {

@@ -80,6 +80,8 @@ pub(crate) struct Field {
     pub(crate) ty: Type,
     pub(crate) _since: Option<Version>,
     pub(crate) default: Option<Expr>,
+    /// `#[series(opaque)]` (SW-60): in a `Series`, an opaque run of the value's own bytes instead of its columns.
+    pub(crate) series_opaque: bool,
 }
 
 impl ItemStruct {

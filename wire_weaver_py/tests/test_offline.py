@@ -245,14 +245,18 @@ def test_generic_types():
     api = ww.load_api(str(API_CRATE.parent / "generics_api"), "Generics")
     assert api.swap.signature == "swap(pair: Pair<u8, u16>) -> Pair<u16, u8>"
     assert api.outer.signature == "rw outer: Outer<3>"
-    assert api.latest.signature == "rw latest: Timed<Ampere>"
+    # `Ampere` is `ww_si::Quantity<units::Ampere>` (STD-38), named by its definition (alias names are not in ww_self)
+    assert api.latest.signature == "rw latest: Timed<Quantity<Ampere>>"
     assert api.readings.signature == "stream readings: Reading<i16>"
     outer = dict(id=7, window=dict(samples=[1, 2, 0xFFF]))
     assert api.outer.decode(api.outer.encode(outer)) == outer
     with pytest.raises(ValueError):
         api.outer.encode(dict(id=7, window=dict(samples=[1, 2])))
     latest = dict(t=dict(prefix="Milli", value={"U32": 1500}), value=dict(prefix="Micro", value={"I16": -250}))
-    assert api.latest.decode(api.latest.encode(latest)) == latest
+    # quantities decode as ww.Quantity (CLT-31), the plain dict form still encodes
+    decoded = api.latest.decode(api.latest.encode(latest))
+    assert (str(decoded["t"]), str(decoded["value"])) == ("1500 ms", "-250 µA")
+    assert api.latest.encode(decoded) == api.latest.encode(latest)
     assert api.swap.encode_args(dict(a=1, b=300))
 
 
@@ -318,3 +322,39 @@ def test_recursive_types():
     looped["children"].append(looped)
     with pytest.raises(ValueError, match="nested deeper"):
         api.tree.encode(looped)
+
+
+QUANTITIES_CRATE = Path(__file__).parents[2] / "tests" / "quantities_api"
+
+
+def test_quantities():
+    api = ww.load_api(str(QUANTITIES_CRATE), "Quantities")
+    # Volt::milli(3300u16), as the derived type writes it
+    q = api.voltage.decode(bytes.fromhex("12e40c"))
+    assert isinstance(q, ww.Quantity)
+    assert str(q) == "3300 mV"
+    assert repr(q) == "Quantity(3300 mV U16)"
+    assert (q.value, q.prefix, q.exponent, q.storage) == (3300, "Milli", -3, "U16")
+    assert (q.symbol, q.unit) == ("V", "Volt")
+    assert q.dim == {"kg": 1, "m": 2, "s": -3, "A": -1}
+    assert float(q) == 3.3
+    assert q.to_si() == 3.3
+    assert api.voltage.encode(q).hex() == "12e40c"
+    # a number in the unit itself
+    v = api.voltage.decode(api.voltage.encode(1.5))
+    assert (str(v), v.storage, v.prefix) == ("1.5 V", "F64", "Unit")
+    assert api.voltage.decode(api.voltage.encode(5)).value == 5
+
+    # compound unit
+    b = api.damping.decode(api.damping.encode(1.2e-4))
+    assert (b.symbol, b.unit) == ("N·m/(rad/s)", "Per<Torque, AngularVelocity>")
+    assert b.dim == {"kg": 1, "m": 2, "s": -1}
+    assert str(b) == "0.00012 N·m/(rad/s)"
+    with pytest.raises(ValueError, match="in Volt where one in Per<Torque, AngularVelocity> is expected"):
+        api.damping.encode(q)
+
+    # a unit marker ww_si doesn't know: by name and docs
+    s = api.speed.decode(api.speed.encode(1500))
+    assert (str(s), s.symbol, s.unit, s.dim, s.docs) == ("1500 Rpm", "Rpm", "Rpm", None, ["Revolutions per minute"])
+    with pytest.raises(ValueError, match="not known to ww_si"):
+        s.to_si()

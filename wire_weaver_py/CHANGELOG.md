@@ -7,6 +7,10 @@
 
 ### 🚀 Features
 
+- `ww.Quantity` (CLT-31): a `ww_si` quantity (ww_si 0.2 and later) decodes to an object with `value`, `prefix`,
+  `exponent`, `storage`, `symbol`, `unit`, `dim`, `docs`, `to_si()`, `float()` and `str()` (`3300 mV`); writes take a
+  `Quantity` of the same unit or a number in the unit itself (an `int` as `I32` / `I64`, a `float` as `F64`), the
+  `{"prefix": .., "value": {..}}` form still works. Decoded quantities used to be that dict.
 - `Series<T>` (SW-60, CLT-29) values are a `list` of items; `decode_columns(data)` on a method, property or stream
   of a `Series` gives a `dict` of field path -> numpy array over all items, masked arrays for leaves some items
   don't have (another variant, `None`). numpy is imported then, not a dependency. See `docs/python.md#values`.

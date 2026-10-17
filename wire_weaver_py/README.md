@@ -70,6 +70,22 @@ dev = ww.connect(api=api)
 | `Option<T>`                     | `None` or `T`, a missing `Option` field is `None`                    |
 | `Result<T, E>`                  | `{"Ok": T}` or `{"Err": E}`                                          |
 | `Range`, `RangeInclusive`       | `(start, end)` (`range` with step 1 accepted)                        |
+| `ww_si` quantity (`Volt`, ..)   | `ww.Quantity` (a `Quantity` of the same unit, an `int` or `float` in the unit itself accepted) |
+
+A `ww.Quantity` (ww_si 0.2 and later) keeps what the device sent and knows its unit:
+
+```python
+q = dev.supply.read()        # Quantity(3300 mV U16)
+str(q), float(q)             # "3300 mV", 3.3 (in the unit itself)
+q.value, q.prefix, q.exponent, q.storage   # 3300, "Milli", -3, "U16"
+q.symbol, q.unit, q.dim      # "V", "Volt", {"kg": 1, "m": 2, "s": -3, "A": -1}
+q.to_si()                    # 3.3, through the unit's scale: 90 ° is 1.5708 (rad), 20 °C is 293.15 (K)
+dev.supply.write(1.5)        # 1.5 V
+```
+
+Compound units are written out (`N·m/(rad/s)` for `Quantity<Per<Torque, AngularVelocity>>`); a unit marker `ww_si`
+doesn't know (an API's own `struct Rpm;`) has its name as `symbol`, its docs in `docs`, `dim` is `None` and `to_si()`
+raises `ValueError`.
 
 ## Interactive console
 

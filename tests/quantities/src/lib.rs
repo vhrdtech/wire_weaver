@@ -286,4 +286,27 @@ mod tests {
         assert_eq!(i.to_string(), "152 mA");
         assert_eq!(format!("{i:#}"), "0.152 A");
     }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn quantities_written_back() {
+        let (device, values) = start("quantities/write");
+        let (client, root) = connect(&device).await;
+        let mut v = read_quantity(&client, &root, "voltage").await;
+        v.prefix = Prefix::Micro;
+        v.value = NumericValue::I32(-1500);
+        let voltage = root.child("voltage").unwrap();
+        let (_, ty) = read(&client, &root, "voltage").await;
+        let value = v.to_value(&ty, root.bundle()).unwrap();
+        voltage.write(client.cmd(), &value).await.unwrap();
+        let written = values.lock().unwrap().voltage;
+        assert!(written.same_repr(&Volt::micro(-1500i32)));
+        assert_eq!(read_quantity(&client, &root, "voltage").await, v);
+
+        // only into a quantity of the same unit
+        let (_, damping) = read(&client, &root, "damping").await;
+        assert_eq!(
+            v.to_value(&damping, root.bundle()).unwrap_err(),
+            "a quantity in Volt where one in Per<Torque, AngularVelocity> is expected"
+        );
+    }
 }

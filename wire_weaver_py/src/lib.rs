@@ -18,6 +18,7 @@ mod columns;
 mod convert;
 mod observe;
 mod positioned;
+mod quantity;
 mod tree;
 
 use pyo3::create_exception;
@@ -303,6 +304,7 @@ fn wire_weaver_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(load_api, m)?)?;
     m.add_function(wrap_pyfunction!(list_devices, m)?)?;
     m.add_class::<Device>()?;
+    m.add_class::<quantity::Quantity>()?;
     m.add_class::<Node>()?;
     m.add_class::<Array>()?;
     m.add_class::<Method>()?;

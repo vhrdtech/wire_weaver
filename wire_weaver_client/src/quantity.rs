@@ -12,6 +12,7 @@
 //! [DynQuantity] is a value with that unit: `3300 mV` as stored, `3.3 V` with `{:#}`, [DynQuantity::to_si_f64].
 
 use std::fmt;
+use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use ww_numeric::NumericValue;
 use ww_self::{
     ApiBundleOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned, TypeOwned, ValueOwned,
@@ -188,6 +189,30 @@ impl DynQuantity {
             value: number?,
             unit,
         })
+    }
+
+    /// The value of `ty` (a `ww_si::Quantity` of the same unit) this quantity is, for writing it.
+    pub fn to_value(&self, ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<ValueOwned, String> {
+        let Some(unit) = unit_of(ty, bundle) else {
+            return Err(format!(
+                "a quantity in {} where {} is expected",
+                self.unit.name(),
+                ty.human_name(false, bundle)
+                    .unwrap_or_else(|_| "another type".into())
+            ));
+        };
+        if unit != self.unit {
+            return Err(format!(
+                "a quantity in {} where one in {} is expected",
+                self.unit.name(),
+                unit.name()
+            ));
+        }
+        // the unit is only in the type (`PhantomData`): every `Quantity<U>` has the same bytes
+        let bytes = ww_si::Quantity::<ww_si::units::Ratio>::from_parts(self.prefix, self.value)
+            .to_ww_bytes_owned()
+            .map_err(|e| format!("{e:?}"))?;
+        ValueOwned::des_shrink_wrap_dyn(&bytes, ty, bundle).map_err(|e| format!("{e:#}"))
     }
 
     /// The value in the unit itself (no prefix) as `f64`, as `ww_si::Quantity::to_f64`.

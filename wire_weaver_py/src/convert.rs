@@ -19,13 +19,16 @@
 //! | `Range`, `RangeInclusive`         | `(start, end)` (`range` with step 1 accepted)                       |
 //! | `Delta`, `DeltaOfDelta`, `XorFloat` | `list` of `int` / `float` (any iterable accepted)                 |
 //! | `Series<T>`                       | `list` of `T` (columns as numpy arrays: `decode_columns`)           |
+//! | `ww_si` quantity (`Volt`, ..)      | `Quantity` (a `Quantity` of the same unit, or a number in the unit itself accepted) |
 
+use crate::quantity::Quantity;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{
     PyBool, PyByteArray, PyBytes, PyDict, PyFloat, PyInt, PyList, PyRange, PyString, PyTuple,
 };
 use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
+use wire_weaver_client::quantity::{DynQuantity, Prefix, unit_of};
 use wire_weaver_client::ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned,
@@ -57,6 +60,33 @@ fn to_value_at(
         )));
     }
     let ty = resolve(ty, bundle)?;
+    if let Some(unit) = unit_of(ty, bundle) {
+        let q = if let Ok(q) = obj.cast::<Quantity>() {
+            Some(q.get().q.clone())
+        } else if obj.is_instance_of::<PyInt>() && !obj.is_instance_of::<PyBool>() {
+            let n: i64 = obj.extract()?;
+            let value = match i32::try_from(n) {
+                Ok(n) => NumericValue::I32(n),
+                Err(_) => NumericValue::I64(n),
+            };
+            Some(DynQuantity {
+                prefix: Prefix::Unit,
+                value,
+                unit,
+            })
+        } else if obj.is_instance_of::<PyFloat>() {
+            Some(DynQuantity {
+                prefix: Prefix::Unit,
+                value: NumericValue::F64(obj.extract()?),
+                unit,
+            })
+        } else {
+            None
+        };
+        if let Some(q) = q {
+            return q.to_value(ty, bundle).map_err(PyValueError::new_err);
+        }
+    }
     let expected = || {
         PyTypeError::new_err(format!(
             "expected {}, got {}: {}",
@@ -506,6 +536,9 @@ pub(crate) fn to_py<'py>(
     bundle: &ApiBundleOwned,
 ) -> PyResult<Bound<'py, PyAny>> {
     let ty = resolve(ty, bundle)?;
+    if let Some(q) = DynQuantity::from_value(value, ty, bundle) {
+        return Ok(Bound::new(py, Quantity { q })?.into_any());
+    }
     Ok(match (value, ty) {
         (_, TypeOwned::MaxLen { ty: inner, .. }) => to_py(py, value, inner, bundle)?,
         (ValueOwned::Bool(b), _) => PyBool::new(py, *b).to_owned().into_any(),
@@ -648,7 +681,7 @@ fn fields_to_py<'py>(
     })
 }
 
-fn numeric_to_py<'py>(py: Python<'py>, n: &NumericValue) -> PyResult<Bound<'py, PyAny>> {
+pub(crate) fn numeric_to_py<'py>(py: Python<'py>, n: &NumericValue) -> PyResult<Bound<'py, PyAny>> {
     use NumericValue as V;
     Ok(match n {
         V::Nibble(v) => v.value().into_pyobject(py)?.into_any(),

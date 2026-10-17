@@ -21,6 +21,9 @@ Wire-incompatible with 0.1.1.
 
 ### 🚀 Features
 
+* `NumericValue` can be a field of a `shrink_wrap::series::Series` item (SW-60, `series` directive): a tag run of
+  the storage type, then one column per type in use; a variant whose feature is off is `EnumVariantDisabled` on
+  reading, as in plain form.
 * `NumericValue::UVlq32(UVlq32)` and `UVlq64(UVlq64)` (features `uvlq32`, `uvlq64`, part of `all`), discriminants
   16 and 17, and `NumericBaseType::UVlq32` / `UVlq64` (STD-23): variable-length storage, 1 byte for values up to 127.
   `ww_numeric::{UVlq32, UVlq64}` re-exported, `value!(300 uvlq32)`.

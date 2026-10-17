@@ -259,8 +259,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Series<'i, T>` / `SeriesOwned<T>` types and the `SeriesColumns` trait with impls for the primitives, `Option`,
   tuples, arrays, strings and bytes (one-pass validating skim, parallel item iteration, evolvable structs both ways,
   the design's examples and size tables as golden bytes), fuzz targets `shrink-wrap-series-columns` and
-  `shrink-wrap-series-type`. Missing: the opt-in `series` derive flag (structs and enums have hand-written impls
-  only), docs, the dynamic decoder, batched streams on top.
+  `shrink-wrap-series-type`; the opt-in `series` directive of `#[derive_shrink_wrap]` for structs (also generic,
+  DER-14) and enums, `#[series(opaque)]` fields, compile errors naming the field for what v1 doesn't take, on
+  `ww_si` quantities and `ww_numeric::NumericValue` (`shrink_wrap/tests/series_derive.rs`,
+  `ww_stdlib/ww_si/tests/series.rs`). Missing: docs, the dynamic decoder, batched streams on top.
 - 📋 **SW-42 `MAX_SIZE` on owned types** · `v0.5.x` — `SerializeShrinkWrapOwned` has no worst-case size yet, only
   the borrowed trait has (SW-19); host code sizing a buffer for an owned value uses the borrowed type's.
 - 📋 **SW-20 Sub-type numbers** · `v0.5.x` — numbers restricted to a range, like `10..=25`, or a set with gaps, like
@@ -296,6 +298,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **DER-10 Generic arguments on user field types**: `Foo<u8>`, `Wrapper<'i, T>` are emitted as written,
   `Wrapper<'i, T>` maps to `WrapperOwned<T>` in the owned variant (`docs/serdes/derive.md`, type mapping; test
   `shrink_wrap/tests/generic_external.rs`).
+- ✅ **DER-14 Type parameters on derived structs**: `struct Timed<T> { t: Second, value: T }`, bounds next to the
+  parameter, also with a lifetime (`Tagged<'i, T>` / `TaggedOwned<T>`); each impl bounds the parameters by its trait
+  (serdes, owned serdes, `SeriesColumns`), the size of `T` is part of the struct's. No `where` clause or const
+  parameters; enums, `fixed_layout`, `head_tail`, `sparse`, `display` and `validate` reject them (test
+  `shrink_wrap/tests/generic_items.rs`).
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and

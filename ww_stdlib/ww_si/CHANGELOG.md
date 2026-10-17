@@ -22,6 +22,9 @@
   `ratio`, `percent`, `per_mille`, `ppm`, `ratio_f32` and `quantity!(95 % u8)`.
 * `Torque` (feature `mechanical`): N·m, kept apart from `Joule`, with `newton_meters`, `millinewton_meters`,
   `newton_meters_f32`, `quantity!(250 mNm i32)` and `quantity!(2 Nm u8)`.
+* `Prefix` and every quantity can be a field of a `shrink_wrap::series::Series` item (SW-60, `series` directive): a
+  quantity is a run of its prefix and a numeric column of its value that restarts where the prefix changes. See
+  `tests/series.rs` for the design's example, 14 bytes for 4 `Volt` / `Ampere` samples.
 * Constructors and conversions on every quantity (STD-23): `Volt::new(Prefix::Milli, 3300u16)` (any number type
   through `From<..> for NumericValue`), `to_f64()` / `to_f32()` in the base unit, `to_f64_in(prefix)`,
   `to_i128_in(prefix)` (exact for integers). Named constructors for `Volt` (`volts`, `millivolts`, `microvolts`,

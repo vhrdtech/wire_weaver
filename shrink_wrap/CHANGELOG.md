@@ -38,10 +38,32 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `UVlq64`, `f32`, `f64`, `bool`, `Option<X>`, tuples up to 8, `[X; N]`, `&str`, `String`, `&[u8]`, `Vec<u8>` and
   `RefVec<u8>`; and the pieces a struct or enum impl is made of (`Level`, `SeriesCtx` with `RootCtx` /
   `VariantCtx` / `SiblingCtx`, `FieldItems`, `SiblingTags`, `EnumTags`, `write_struct_head` / `skim_struct_head`,
-  `BitCounter`), which the coming `series` derive flag will generate. Columns restart on entering an enum variant
+  `BitCounter`), which the `series` directive of the derive generates. Columns restart on entering an enum variant
   (or `Some`) and where an enum field (also an `Option`) declared earlier changed. Evolvable structs write their
   field count (outermost) or group length (nested), so fields appended with a default read both ways. New fuzz
   target `shrink-wrap-series-type`. `BitSink` is public, with `bit_pos()`.
+- `series` directive of `#[derive_shrink_wrap]` (SW-60): implements `SeriesColumns` for the struct (named fields)
+  or enum (unit, tuple and named variants; tag run, then each data variant's fields in discriminant order), borrowed
+  and owned, so it can be the item of a `Series` or a field of one; nested user types through their own impls. An
+  evolvable struct writes its field count or group length, a field without `#[default = ..]` missing from older data
+  is `MalformedSeries`; `#[future_version]` items can't be written (`EnumFutureVersionOrMalformedData`), a variant
+  compiled out is `EnumVariantDisabled` on reading. What `Series` v1 doesn't take is a compile error naming the
+  field: `RefBox` (recursive types), `Result`, lists other than of `u8`, ranges, `TailSize`, sparse and tuple
+  structs, `head_tail`. `#[series(opaque)]` on a named field writes it as an opaque run of its own `to_ww_bytes`
+  instead (a change where the value isn't `==` the previous one), e.g. a `RefVec<'i, Point>`; without allocation on
+  the borrowed side: the value is serialized into the writer's free space (`BitSink::put_serialized`,
+  `BitSink::scratch`, `BitCounter::with_scratch`), `OpaqueField` / `OpaqueReader` are the generated code's helpers.
+  `write_struct_head` hands its closure a `BitCounter` to measure the fields with. The design's golden bytes and
+  size tables come out the same through the derive as through the hand-written impls before.
+- Type parameters on derived structs (DER-14): `struct Timed<T> { t: Second, value: T }` with
+  `#[derive_shrink_wrap(..)]`, bounds next to the parameter (`T: Copy`), also with a lifetime (`Tagged<'i, T>`,
+  owned `TaggedOwned<T>`). Each impl bounds the parameters by its trait (`T: SerializeShrinkWrap +
+  DeserializeShrinkWrap<'i>` for the borrowed side, the owned traits for the owned one, `SeriesColumns<'i>` with
+  `series`); the size of `T` is part of the struct's. No `where` clause, const parameters or defaults; enums,
+  `fixed_layout`, `head_tail`, `sparse`, `display` and `validate` reject type parameters, and the const size asserts
+  of `final_structure` / `sized` are left out for such a type. See `tests/generic_items.rs`.
+- `SeriesColumns` for `UN` and `IN` (SW-60), by the enum rule: a tag run, then each variant's `bit_count` and
+  `value` columns, so `ww_numeric::NumericValue` with `un` / `in` can be a `Series` field.
 - Column codecs of `Series<T>` (SW-60), crate internal: numeric columns of 1- to 64-bit integers (a 4-bit header: predictor raw / delta / delta of delta,
   `11` an escape that is `MalformedSeries` for now; coder SW-31 prefix code / bit-packed blocks of 8 with a width per
   block / constant / plain; segments at restarts), 128-bit columns (raw + plain only), `f32` / `f64` columns (plain
@@ -329,6 +351,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
+- `RefVec == RefVec` was `true` when one list is a prefix of the other (an empty one equal to any): the lengths are compared too now.
 - Fields with `#[default = ..]` (SW-15) read as their default only when they start at the end of the data (written
   by an older version) and their read runs out of data. Before, any error in such a field gave the default, so a
   malformed or truncated value was silently replaced. The flag of an evolved `Option` or `Result` falls back with

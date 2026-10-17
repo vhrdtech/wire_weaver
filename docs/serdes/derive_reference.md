@@ -12,7 +12,7 @@ so do the examples):
 
 ```text
 borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse, ww_repr,
-discriminants, display, validate, no_future_version|future_version
+discriminants, display, validate, series, no_future_version|future_version
 ```
 
 | Directive                                          | Section                                                                     |
@@ -23,6 +23,8 @@ discriminants, display, validate, no_future_version|future_version
 | `fixed_layout`, `head_tail`, `sparse`               | [Fixed and sparse layouts](layouts.md)                                       |
 | `ww_repr`, `discriminants`, `no_future_version`, `future_version` | [Enums](#enums)                                               |
 | `display`, `validate`                               | [Messages and checks](#messages-and-checks)                                  |
+| `series`                                            | [`series`](#series)                                                          |
+| type parameters (`struct Timed<T>`)                 | [Type parameters](#type-parameters)                                          |
 | `crate_path`                                        | [`crate_path`](#crate_pathpath)                                              |
 | `#[default]`, `#[flag]`, `#[slot]`, `#[future_version]`, `#[cfg]` | [Field and variant attributes](#field-and-variant-attributes) |
 
@@ -338,6 +340,38 @@ impl Year {
 }
 ```
 
+## `series`
+
+SW-60. Also implements `shrink_wrap::series::SeriesColumns` for the type (borrowed and owned), so that it can be
+the item of a `Series<T>` (a list written column by column) or a field of one. A struct's fields are columns in
+declaration order, an enum is a run of its tags and then each data variant's fields. Fields of user types need
+`series` on their type too.
+
+```rust
+#[derive_shrink_wrap(borrowed, owned, series, final_structure)]
+pub struct Volt { pub prefix: Prefix, pub value: NumericValue }
+```
+
+What a `Series` doesn't take in its first version is a compile error naming the field: `RefBox` (recursive types),
+`Result`, lists other than of `u8`, ranges, `TailSize`; `sparse` and tuple structs, `head_tail`. `#[series(opaque)]`
+on a named field writes it as an opaque run of its own bytes instead, so that any serializable type fits (it then
+needs `PartialEq`: a value is written again where it changed).
+
+## Type parameters
+
+DER-14. A struct can have type parameters, with bounds next to them (no `where` clause, no const parameters):
+
+```rust
+#[derive_shrink_wrap(borrowed, owned, series, final_structure)]
+pub struct Timed<T> { pub t: Second, pub value: T }
+```
+
+Each generated impl bounds the parameters by its own trait (`T: SerializeShrinkWrap + DeserializeShrinkWrap<'i>`
+for the borrowed side, the owned traits for the owned one, `SeriesColumns<'i>` with `series`), and the size of `T`
+is part of the struct's: `Timed<u32>` is `final_structure`, `Timed` of an evolvable struct holds an `Unsized` field.
+With a lifetime, `Tagged<'i, T>` gets the owned `TaggedOwned<T>`. Enums, `fixed_layout`, `head_tail`, `sparse`,
+`display` and `validate` don't take type parameters yet.
+
 ## `crate_path(<path>)`
 
 Generated code refers to `shrink_wrap` items by path, so no import is needed for the macro, and the names it uses
@@ -364,6 +398,7 @@ When neither crate is a dependency and nothing is given, the names are left unqu
 | `#[future_version]`     | the last enum variant    | holds discriminants from a newer version ([above](#no_future_version-future_version-name-enums-only))            |
 | `#[cfg(..)]`            | enum variants            | compiles the variant out ([above](#cfg-on-enum-variants))                                                        |
 | `#[display("..")]`      | variants, with `display` | the message instead of the doc line ([above](#display))                                                          |
+| `#[series(opaque)]`     | named fields, with `series` | the field is an opaque run of its own bytes in a `Series` ([above](#series))                                  |
 
 Special field types the macro handles itself: [`TailSize<N>`](special_types.md#tailsizen-the-size-of-the-rest-of-a-value)
 (filled in with the size of the rest of the value; only in types without a size assumption, the same on the borrowed

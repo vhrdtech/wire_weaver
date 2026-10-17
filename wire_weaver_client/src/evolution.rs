@@ -623,6 +623,39 @@ mod tests {
         assert!(report.check_version().is_ok());
     }
 
+    const GENERIC: &str = r#"
+        #[derive_shrink_wrap]
+        pub struct Timed<T> {
+            pub t: u32,
+            pub value: T,
+        }
+
+        #[derive_shrink_wrap]
+        pub struct Window<const N: usize> {
+            pub samples: [u16; N],
+        }
+    "#;
+
+    /// API-43: parameters are compared by position and kind, their names don't matter.
+    #[test]
+    fn generic_definitions() {
+        assert_eq!(report(GENERIC, GENERIC).change, Change::None);
+        let renamed = GENERIC
+            .replace("Timed<T>", "Timed<V>")
+            .replace("value: T", "value: V");
+        assert_ne!(report(GENERIC, &renamed).change, Change::Breaking);
+        let more = GENERIC
+            .replace("Timed<T>", "Timed<T, U>")
+            .replace("pub t: u32", "pub t: U");
+        assert_breaking(&report(GENERIC, &more), "parameters <T> vs <T, U>");
+        let other_kind = GENERIC.replace("const N: usize", "const N: u8");
+        assert_breaking(&report(GENERIC, &other_kind), "parameters");
+        let fixed = GENERIC
+            .replace("Window<const N: usize>", "Window")
+            .replace("[u16; N]", "[u16; 4]");
+        assert_breaking(&report(GENERIC, &fixed), "parameters");
+    }
+
     #[test]
     fn docs_only_need_a_compatible_bump() {
         let new = API.replace("/// Turn on", "/// Turn the LED on");

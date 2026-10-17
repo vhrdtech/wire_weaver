@@ -41,6 +41,23 @@ pub fn prepare(bundle: &mut ApiBundleOwned) -> Result<()> {
     validate(bundle)
 }
 
+/// Parameters of a generic definition as written, `<T, const N: u64>`; empty without parameters.
+pub fn params_human_name(params: &[GenericParamOwned], bundle: &ApiBundleOwned) -> Result<String> {
+    if params.is_empty() {
+        return Ok(String::new());
+    }
+    let mut names = Vec::with_capacity(params.len());
+    for p in params {
+        names.push(match &p.kind {
+            GenericParamKindOwned::Type => p.ident.clone(),
+            GenericParamKindOwned::Const { ty } => {
+                format!("const {}: {}", p.ident, ty.human_name(false, bundle)?)
+            }
+        });
+    }
+    Ok(format!("<{}>", names.join(", ")))
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Validation
 

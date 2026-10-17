@@ -238,3 +238,19 @@ def test_observable_properties():
         "current": "u32",
         "position": "u32",
     }
+
+
+def test_generic_types():
+    # generic types (API-43): definitions once, each use with its arguments, concrete for encode / decode
+    api = ww.load_api(str(API_CRATE.parent / "generics_api"), "Generics")
+    assert api.swap.signature == "swap(pair: Pair<u8, u16>) -> Pair<u16, u8>"
+    assert api.outer.signature == "rw outer: Outer<3>"
+    assert api.latest.signature == "rw latest: Timed<Ampere>"
+    assert api.readings.signature == "stream readings: Reading<i16>"
+    outer = dict(id=7, window=dict(samples=[1, 2, 0xFFF]))
+    assert api.outer.decode(api.outer.encode(outer)) == outer
+    with pytest.raises(ValueError):
+        api.outer.encode(dict(id=7, window=dict(samples=[1, 2])))
+    latest = dict(t=dict(prefix="Milli", value={"U32": 1500}), value=dict(prefix="Micro", value={"I16": -250}))
+    assert api.latest.decode(api.latest.encode(latest)) == latest
+    assert api.swap.encode_args(dict(a=1, b=300))

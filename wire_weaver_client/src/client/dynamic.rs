@@ -92,7 +92,9 @@ pub enum DynResourceKind<'a> {
 }
 
 impl DynResource {
-    /// Root of the API.
+    /// Root of the API. Values are encoded and decoded with concrete types: a bundle with generic types in it
+    /// has to be [prepared](ww_self::generics::prepare) first, as introspection data from a device
+    /// ([Commander::device_introspect](crate::Commander::device_introspect)) is.
     pub fn root(bundle: Arc<ApiBundleOwned>) -> Self {
         DynResource {
             bundle,

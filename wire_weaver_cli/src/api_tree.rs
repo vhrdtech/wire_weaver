@@ -8,8 +8,8 @@ use wire_weaver_client::ww_self::errors::{error_list_docs, fmt_error_list};
 use wire_weaver_client::ww_self::visit::{self, Visit};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, Delivery,
-    FieldsOwned, FlowControl, ItemEnumOwned, ItemStructOwned, Multiplicity, PropertyAccess, Repr,
-    TypeLocationOwned, TypeOwned,
+    FieldsOwned, FlowControl, GenericParamOwned, ItemEnumOwned, ItemStructOwned, Multiplicity,
+    PropertyAccess, Repr, TypeLocationOwned, TypeOwned,
 };
 
 /// Render the resource tree starting from the bundle root, ending with a newline.
@@ -32,6 +32,7 @@ pub(crate) fn render_with_values(
         omitted: ids(&bundle.root_omitted),
         path: vec![],
         values,
+        params: &[],
     };
     printer.header();
     printer.visit_api_level(&bundle.root);
@@ -49,6 +50,7 @@ pub(crate) fn render_types(bundle: &ApiBundleOwned, skip_docs: bool) -> String {
         omitted: vec![],
         path: vec![],
         values: &HashMap::new(),
+        params: &[],
     };
     printer.types();
     printer.out
@@ -100,6 +102,8 @@ struct TreePrinter<'a> {
     path: Vec<u32>,
     /// Values of `const` items read from a device, shown after their type
     values: &'a HashMap<Vec<u32>, String>,
+    /// Parameters of the generic definition being printed, to name them in its fields (API-43).
+    params: &'a [GenericParamOwned],
 }
 
 fn ids(omitted: &Option<Vec<shrink_wrap::UNib32>>) -> Vec<u32> {
@@ -330,7 +334,7 @@ impl TreePrinter<'_> {
     }
 
     fn ty(&self, ty: &TypeOwned) -> String {
-        match ty.human_name(false, self.bundle) {
+        match ty.human_name_in(false, self.bundle, self.params) {
             Ok(name) => style(name).true_color(0xA6, 0xBB, 0x77).to_string(),
             Err(e) => style(format!("<{e}>")).red().to_string(),
         }
@@ -415,16 +419,29 @@ impl<'a> TreePrinter<'a> {
     fn item_struct(&mut self, item_struct: &'a ItemStructOwned) {
         _ = write!(self.out, "{} ", style("struct").blue());
         self.type_ident(item_struct.crate_idx.0, &item_struct.ident);
+        self.params = &item_struct.generics;
+        self.generics();
         self.unnamed_fields(&item_struct.fields);
         _ = writeln!(self.out, " {}", style(size_name(&item_struct.size)).dim());
         self.visit_docs(&item_struct.docs);
         self.fields(&item_struct.fields);
+        self.params = &[];
+    }
+
+    /// `<T, const N: u64>` of a generic definition.
+    fn generics(&mut self) {
+        match wire_weaver_client::ww_self::generics::params_human_name(self.params, self.bundle) {
+            Ok(params) => _ = write!(self.out, "{}", style(params).true_color(0xA6, 0xBB, 0x77)),
+            Err(e) => _ = write!(self.out, "{}", style(format!("<{e}>")).red()),
+        }
     }
 
     /// `is_common`: `ww_error::CommonError`, the errors every API can return (STD-16).
     fn item_enum(&mut self, item_enum: &'a ItemEnumOwned, is_common: bool) {
         _ = write!(self.out, "{} ", style("enum").blue());
         self.type_ident(item_enum.crate_idx.0, &item_enum.ident);
+        self.params = &item_enum.generics;
+        self.generics();
         let repr = match item_enum.repr {
             Repr::Nibble => "nib".to_string(),
             Repr::BitAligned(bits) => format!("u{bits}"),
@@ -465,6 +482,7 @@ impl<'a> TreePrinter<'a> {
             self.fields(&variant.fields);
             self.prefix.truncate(parent_prefix_len);
         }
+        self.params = &[];
     }
 
     /// Tuple fields, `(T1, T2)`, on the same line as the struct or variant name.

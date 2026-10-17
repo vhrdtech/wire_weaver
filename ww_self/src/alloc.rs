@@ -1,8 +1,8 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
     ArgumentOwned, Delivery, ErrorVariantOwned, FieldOwned, FieldsOwned, FlowControl,
-    GenericArgOwned, GenericParamKindOwned, GenericParamOwned, ItemEnumOwned, ItemStructOwned,
-    Length, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
+    GenericArgOwned, GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length, Multiplicity, Repr,
+    TypeLocationOwned, TypeOwned,
 };
 use anyhow::{Result, anyhow};
 use shrink_wrap::ElementSize;
@@ -470,26 +470,6 @@ impl Length {
     }
 }
 
-/// `<T, const N: u64>`, empty without parameters.
-fn generics_human_name(
-    params: &[GenericParamOwned],
-    api_bundle: &ApiBundleOwned,
-) -> Result<String> {
-    if params.is_empty() {
-        return Ok(String::new());
-    }
-    let mut names = Vec::with_capacity(params.len());
-    for p in params {
-        names.push(match &p.kind {
-            GenericParamKindOwned::Type => p.ident.clone(),
-            GenericParamKindOwned::Const { ty } => {
-                format!("const {}: {}", p.ident, ty.human_name(false, api_bundle)?)
-            }
-        });
-    }
-    Ok(format!("<{}>", names.join(", ")))
-}
-
 struct DefCx<'a> {
     api_bundle: &'a ApiBundleOwned,
     single_line: bool,
@@ -547,7 +527,7 @@ impl DefCx<'_> {
                     "struct {}::{}{} ",
                     api_bundle.crate_name(item_struct.crate_idx.0)?,
                     item_struct.ident,
-                    generics_human_name(&item_struct.generics, api_bundle)?
+                    crate::generics::params_human_name(&item_struct.generics, api_bundle)?
                 );
                 s += self
                     .fields(&item_struct.fields, &item_struct.generics)?
@@ -567,7 +547,7 @@ impl DefCx<'_> {
                     "enum {repr} {}::{}{} {{",
                     api_bundle.crate_name(item_enum.crate_idx.0)?,
                     item_enum.ident,
-                    generics_human_name(&item_enum.generics, api_bundle)?
+                    crate::generics::params_human_name(&item_enum.generics, api_bundle)?
                 );
                 for (idx, variant) in item_enum.variants.iter().enumerate() {
                     s += &variant.ident;

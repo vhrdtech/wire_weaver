@@ -268,7 +268,11 @@ fn semver_req(req: &str) -> PyResult<wire_weaver_client::ww_version::semver::Ver
 #[pyo3(signature = (path, trait_name=None))]
 fn load_api(py: Python<'_>, path: PathBuf, trait_name: Option<String>) -> PyResult<Node> {
     let bundle = py
-        .detach(|| wire_weaver_core::load(&path, trait_name, false))
+        .detach(|| {
+            let mut bundle = wire_weaver_core::load(&path, trait_name, false)?;
+            // generic types used with their arguments, concrete for encode / decode (API-43)
+            wire_weaver_client::ww_self::generics::prepare(&mut bundle).map(|()| bundle)
+        })
         .map_err(|e| WireWeaverError::new_err(format!("{e:#}")))?;
     Ok(Node {
         res: DynResource::root(Arc::new(bundle)),

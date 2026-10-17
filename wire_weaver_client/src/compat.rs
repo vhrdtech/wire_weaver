@@ -17,8 +17,8 @@ use ww_self::signature;
 use ww_self::visit::Visit;
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
-    FieldOwned, FieldsOwned, GenericArgOwned, ItemEnumOwned, ItemStructOwned, Length,
-    PropertyAccess, TypeLocationOwned, TypeOwned,
+    FieldOwned, FieldsOwned, GenericArgOwned, GenericParamKindOwned, GenericParamOwned,
+    ItemEnumOwned, ItemStructOwned, Length, PropertyAccess, TypeLocationOwned, TypeOwned,
 };
 use ww_version::{FullVersionOwned, VersionTriplet};
 
@@ -769,6 +769,18 @@ impl<'a> TypeCheck<'a> {
         };
         use TypeOwned::*;
         match (w, r) {
+            // parameters of generic definitions, compared by position (the names don't matter)
+            (Param(w_idx), Param(r_idx)) if w_idx == r_idx => Ok(()),
+            (
+                MaxLen {
+                    max_len: Length::Param(w_idx),
+                    ty: w,
+                },
+                MaxLen {
+                    max_len: Length::Param(r_idx),
+                    ty: r,
+                },
+            ) if w_idx == r_idx => self.check(w, r),
             (
                 MaxLen { max_len, ty: w },
                 MaxLen {
@@ -900,10 +912,12 @@ impl<'a> TypeCheck<'a> {
         w: &'a ItemStructOwned,
         r: &'a ItemStructOwned,
     ) -> Result<(), String> {
+        check_generics(&w.generics, &r.generics)?;
         self.check_fields(&w.size, &w.fields, &r.size, &r.fields)
     }
 
     fn check_enum(&mut self, w: &'a ItemEnumOwned, r: &'a ItemEnumOwned) -> Result<(), String> {
+        check_generics(&w.generics, &r.generics)?;
         if w.repr != r.repr {
             return Err(format!("repr {:?} vs {:?}", w.repr, r.repr));
         }
@@ -1046,7 +1060,36 @@ fn resolve<'a>(bundle: &'a ApiBundleOwned, ty: &'a TypeOwned) -> Result<Resolved
     }
 }
 
-/// A length or bound: a const parameter is only in a generic definition, which is not compared.
+/// Type and const parameters of two versions of a generic definition: the same number, of the same kinds, in the
+/// same order. Renaming one is not a change on the wire.
+fn check_generics(w: &[GenericParamOwned], r: &[GenericParamOwned]) -> Result<(), String> {
+    let kinds = |params: &[GenericParamOwned]| {
+        params
+            .iter()
+            .map(|p| match &p.kind {
+                GenericParamKindOwned::Type => p.ident.clone(),
+                GenericParamKindOwned::Const { ty } => format!("const {}: {ty:?}", p.ident),
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let same = w.len() == r.len()
+        && w.iter().zip(r).all(|(w, r)| match (&w.kind, &r.kind) {
+            (GenericParamKindOwned::Type, GenericParamKindOwned::Type) => true,
+            (GenericParamKindOwned::Const { ty: w }, GenericParamKindOwned::Const { ty: r }) => {
+                w == r
+            }
+            _ => false,
+        });
+    if same {
+        Ok(())
+    } else {
+        Err(format!("parameters <{}> vs <{}>", kinds(w), kinds(r)))
+    }
+}
+
+/// A length or bound that is a number: a const parameter only on one side, or two different ones, can't be
+/// compared.
 fn fixed(len: &Length) -> Result<u32, String> {
     len.fixed().map_err(|e| e.to_string())
 }

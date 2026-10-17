@@ -288,3 +288,16 @@ fn timed_wire_bytes() {
         Timed::new(t, value)
     );
 }
+
+#[test]
+fn prefix_names() {
+    for prefix in Prefix::ALL {
+        let bytes = prefix.to_ww_bytes_owned().unwrap();
+        let back = Prefix::from_ww_bytes_owned(&bytes).unwrap();
+        assert_eq!(back, prefix);
+        assert_eq!(Prefix::from_name(prefix.name()), Some(prefix));
+        assert_eq!(format!("{prefix:?}"), prefix.name());
+    }
+    assert_eq!(Prefix::from_name("Milli"), Some(Prefix::Milli));
+    assert_eq!(Prefix::from_name("milli"), None);
+}

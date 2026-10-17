@@ -187,6 +187,82 @@ impl TryFrom<i8> for Prefix {
 }
 
 impl Prefix {
+    /// Every prefix, in the order of the enum (by discriminant).
+    pub const ALL: [Prefix; 25] = [
+        Prefix::Unit,
+        Prefix::Milli,
+        Prefix::Micro,
+        Prefix::Nano,
+        Prefix::Pico,
+        Prefix::Kilo,
+        Prefix::Mega,
+        Prefix::Giga,
+        Prefix::Deca,
+        Prefix::Hecto,
+        Prefix::Tera,
+        Prefix::Peta,
+        Prefix::Exa,
+        Prefix::Zetta,
+        Prefix::Yotta,
+        Prefix::Ronna,
+        Prefix::Quetta,
+        Prefix::Deci,
+        Prefix::Centi,
+        Prefix::Femto,
+        Prefix::Atto,
+        Prefix::Zepto,
+        Prefix::Yocto,
+        Prefix::Ronto,
+        Prefix::Quecto,
+    ];
+
+    /// The variant's name, `"Milli"`: how a dynamic client sees it in a decoded value.
+    pub const fn name(&self) -> &'static str {
+        match self {
+            Prefix::Unit => "Unit",
+            Prefix::Milli => "Milli",
+            Prefix::Micro => "Micro",
+            Prefix::Nano => "Nano",
+            Prefix::Pico => "Pico",
+            Prefix::Kilo => "Kilo",
+            Prefix::Mega => "Mega",
+            Prefix::Giga => "Giga",
+            Prefix::Deca => "Deca",
+            Prefix::Hecto => "Hecto",
+            Prefix::Tera => "Tera",
+            Prefix::Peta => "Peta",
+            Prefix::Exa => "Exa",
+            Prefix::Zetta => "Zetta",
+            Prefix::Yotta => "Yotta",
+            Prefix::Ronna => "Ronna",
+            Prefix::Quetta => "Quetta",
+            Prefix::Deci => "Deci",
+            Prefix::Centi => "Centi",
+            Prefix::Femto => "Femto",
+            Prefix::Atto => "Atto",
+            Prefix::Zepto => "Zepto",
+            Prefix::Yocto => "Yocto",
+            Prefix::Ronto => "Ronto",
+            Prefix::Quecto => "Quecto",
+        }
+    }
+
+    /// The prefix whose [name](Self::name) is `name`.
+    pub fn from_name(name: &str) -> Option<Prefix> {
+        Self::ALL.into_iter().find(|p| p.name() == name)
+    }
+
+    /// `x` in units of this prefix as a number in the unit itself: `Prefix::Milli.scale_f64(3300.0)` is 3.3, rounded
+    /// the same way as [Quantity::to_f64].
+    pub fn scale_f64(&self, x: f64) -> f64 {
+        ops::scale_f64(x, (*self).into())
+    }
+
+    /// `x` in units of this prefix as a number in the unit itself, in `f32`, as [Quantity::to_f32].
+    pub fn scale_f32(&self, x: f32) -> f32 {
+        ops::scale_f32(x, (*self).into())
+    }
+
     /// The SI symbol: `m`, `µ`, `k`, `da`; empty for `Unit`.
     pub const fn symbol(&self) -> &'static str {
         match self {

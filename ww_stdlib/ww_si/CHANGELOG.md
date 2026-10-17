@@ -27,6 +27,9 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
 
 ### 🚀 Features
 
+* `Prefix::ALL`, `Prefix::name()` (`"Milli"`) `Prefix::from_name()` (the variant names a dynamic client sees in a
+  decoded value) and `Prefix::scale_f64` / `scale_f32` (a number in units of the prefix to the unit itself), for
+  dynamic clients (CLT-31).
 * `Dim` (SI exponents of s, m, kg, A, K, mol, cd, `Display` as `kg·m²·s⁻³·A⁻¹`), `Scale` (coherent, power of ten,
   factor, affine for °C), `UnitExpr` (a named unit or a product / quotient tree, with `dim()`, `factor()`,
   `symbol()`, `name()`) and the `Unit` trait (`DIM`, `EXPR`): an API crate can declare its own marker.

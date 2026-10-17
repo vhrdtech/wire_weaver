@@ -13,6 +13,7 @@ pub mod follow;
 pub use client::observe;
 mod layout;
 mod local_registry;
+pub mod quantity;
 mod tracing;
 
 pub use client::attachment::Attachment;

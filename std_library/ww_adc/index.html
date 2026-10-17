@@ -5083,7 +5083,7 @@ and the device time of a block's first set travel in the event head the framewor
 <li><code>Reading</code> - <code>value: NumericValue</code> (in the channel's unit/prefix), <code>raw: u32</code> (the converter's raw code, for
   checking calibration), <code>t: Second</code>.</li>
 <li><code>AdcCapabilities&lt;'i&gt;</code> - <code>channels: MaxLen&lt;RefVec&lt;'i, ChannelInfo&lt;'i&gt;&gt;, MAX_CHANNELS&gt;</code>.</li>
-<li><code>ChannelInfo&lt;'i&gt;</code> - <code>name</code>, <code>unit: BaseUnit&lt;'i&gt;</code>, <code>prefix: Prefix</code>, <code>min</code> / <code>max: NumericValue</code>, <code>bits</code>
+<li><code>ChannelInfo&lt;'i&gt;</code> - <code>name</code>, <code>unit: SIExpr&lt;'i&gt;</code> (a unit of ww_si or the device's own, see <a href="../ww_si/#units-known-only-at-run-time">run-time units</a>), <code>prefix: Prefix</code>, <code>min</code> / <code>max: NumericValue</code>, <code>bits</code>
   (converter resolution), <code>calibrated: bool</code>, <code>raw_to_value: Option&lt;Linear&gt;</code> (how raw stream/capture samples turn
   into values; <code>None</code> if they don't linearly).</li>
 <li><code>Linear</code> - <code>scale: f32</code>, <code>offset: f32</code>; <code>value = raw * scale + offset</code>.</li>

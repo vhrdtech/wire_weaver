@@ -5211,6 +5211,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <li><strong><a href="../std_library/ww_error/">Common errors</a></strong>: <code>CommonError</code> (<code>Busy</code>, <code>Timeout</code>, <code>InvalidArgument</code>, ...) shared by all APIs.</li>
 <li><strong><a href="../std_library/ww_si/">Units and numbers</a></strong>: <code>ww_si</code> quantities like volts, hertz and seconds, <code>ww_numeric</code> values.</li>
 <li><strong><a href="../std_library/ww_si/#unit-algebra">Units checked by the compiler</a></strong>: One generic quantity type with the unit in the type: <code>Volt * Ampere</code> is a <code>Watt</code>, <code>Volt + Ampere</code> doesn't build, <code>3300 mV</code> prints itself.</li>
+<li><strong><a href="../std_library/ww_si/#units-known-only-at-run-time">Units known at run time</a></strong>: A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one.</li>
 <li><strong><a href="../std_library/ww_date_time/">Date and time</a></strong>: <code>ww_date_time</code>.</li>
 <li><strong><a href="../std_library/io_family/">IO family</a></strong>: GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../std_library/ww_gpio/">GPIO</a></strong>: Pins and banks, and reading or writing several pins at one instant.</li>

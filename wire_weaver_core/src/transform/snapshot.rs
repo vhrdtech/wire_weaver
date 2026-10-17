@@ -778,6 +778,116 @@ mod tests {
         ));
     }
 
+    /// Two crates in a throwaway directory: `units_lib` with a marker `units::Volt` next to a root `Volt` of another
+    /// shape, and `api` using both (API-46).
+    fn same_name_crates(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir()
+            .join("ww_core_snapshot_tests")
+            .join(format!("{name}-{}", std::process::id()));
+        let write = |path: &str, contents: &str| {
+            let path = dir.join(path);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, contents).unwrap();
+        };
+        write(
+            "units_lib/Cargo.toml",
+            "[package]\nname = \"units_lib\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+        );
+        write(
+            "units_lib/src/lib.rs",
+            "
+            /// A value of unit `U`
+            #[derive_shrink_wrap(borrowed)]
+            pub struct Quantity<U> { pub value: i32, _u: PhantomData<U> }
+            /// Volts on their own
+            #[derive_shrink_wrap(borrowed)]
+            pub struct Volt { pub mv: u16 }
+            pub mod units {
+                /// The unit marker
+                pub struct Volt;
+            }
+            ",
+        );
+        write(
+            "api/Cargo.toml",
+            "[package]\nname = \"api\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
+             [dependencies]\nunits_lib = { path = \"../units_lib\" }\n",
+        );
+        write(
+            "api/src/lib.rs",
+            "
+            #[ww_api_root]
+            pub trait Api {
+                fn a(v: units_lib::Volt, q: units_lib::Quantity<units_lib::units::Volt>);
+            }
+            ",
+        );
+        dir
+    }
+
+    /// A marker `units::Volt` and a root `Volt` are two definitions: both in the crate's snapshot, both skipped by
+    /// name in an API that uses them, each put back from the snapshot (saved and restored through RON) as itself.
+    #[test]
+    fn same_name_in_a_module_is_another_definition() {
+        let dir = same_name_crates("same_name");
+        let units = load_crate(&dir.join("units_lib"));
+        let api = load_crate(&dir.join("api"));
+        std::fs::remove_dir_all(&dir).unwrap();
+        let (units, mut api) = (units.unwrap(), api.unwrap());
+
+        let mut names: Vec<String> = units
+            .types
+            .iter()
+            .filter_map(|l| match l {
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Struct(s),
+                    ..
+                } => Some(s.qualified_name()),
+                _ => None,
+            })
+            .collect();
+        names.sort();
+        assert_eq!(names, ["Quantity", "Volt", "units::Volt"]);
+
+        let skipped: Vec<&str> = api
+            .types
+            .iter()
+            .filter_map(|l| match l {
+                TypeLocationOwned::SkippedFullVersion { type_name, .. } => Some(type_name.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(skipped, ["Volt", "units::Volt", "Quantity"]);
+
+        // saved and restored as `ww api save` and wire_weaver_snapshots do
+        let saved = ron::to_string(&units).unwrap();
+        let restored: ApiBundleOwned = ron::from_str(&saved).unwrap();
+        assert_eq!(ron::to_string(&restored).unwrap(), saved);
+
+        let snapshots = [restored];
+        let resolve = from_snapshots(&snapshots);
+        let not_inlined = ww_self::inline::inline_skipped(&mut api, &resolve);
+        assert!(not_inlined.is_empty(), "{not_inlined:?}");
+        let defs: Vec<String> = api
+            .types
+            .iter()
+            .map(|l| match l {
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Struct(s),
+                    ..
+                } => {
+                    let fields = match &s.fields {
+                        ww_self::FieldsOwned::Named(fields) => fields.len(),
+                        _ => 0,
+                    };
+                    format!("{} {fields}", s.qualified_name())
+                }
+                other => format!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(defs, ["Volt 1", "units::Volt 0", "Quantity 1"]);
+    }
+
     /// Signature of the API root, as if it was a trait.
     fn root_signature(bundle: &ApiBundleOwned) -> Vec<u8> {
         let mut bundle = bundle.clone();

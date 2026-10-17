@@ -6,7 +6,7 @@
 mod tests {
     use module_paths_api::geometry::Point;
     use module_paths_api::geometry::shapes::{Label, LabelOwned};
-    use module_paths_api::{Hidden, Renamed, other};
+    use module_paths_api::{Hidden, Quantity, Renamed, Volt, other, units};
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
@@ -56,6 +56,14 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<Label<'_>> {
                 Ready(Label { text: "probe" })
+            }
+
+            fn convert(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                q: Quantity<units::Volt>,
+            ) -> RpcResult<Volt> {
+                Ready(Volt { mv: q.value * 1000 })
             }
 
             fn set_hidden(
@@ -187,6 +195,12 @@ mod tests {
             text: "hello".into(),
         };
         assert_eq!(client.measure(label).call().await.unwrap(), 5);
+        let v = client
+            .convert(Quantity::<units::Volt>::new(3))
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(v, Volt { mv: 3000 });
         assert_eq!(
             client.name().call().await.unwrap(),
             LabelOwned {
@@ -211,5 +225,43 @@ mod tests {
             Renamed { id: 70_000 }
         );
         assert_eq!(data.lock().unwrap().renamed, Some(Renamed { id: 70_000 }));
+    }
+
+    /// Each definition is known by its path and name (`units::Volt` and `Volt` are two), a type re-exported under
+    /// another name by that name.
+    #[test]
+    fn definitions_have_their_paths() {
+        use wire_weaver_client::ww_self::{TypeLocationOwned, TypeOwned};
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../module_paths_api");
+        let bundle = wire_weaver_core::load(&path, None, false).unwrap();
+        let mut names: Vec<String> = bundle
+            .types
+            .iter()
+            .filter_map(|l| match l {
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Struct(s),
+                    ..
+                } => Some(s.qualified_name()),
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Enum(e),
+                    ..
+                } => Some(e.qualified_name()),
+                _ => None,
+            })
+            .collect();
+        names.sort();
+        assert_eq!(
+            names,
+            [
+                "Hidden",
+                "Quantity",
+                "Renamed",
+                "Volt",
+                "geometry::Point",
+                "geometry::shapes::Label",
+                "other::Point",
+                "units::Volt",
+            ]
+        );
     }
 }

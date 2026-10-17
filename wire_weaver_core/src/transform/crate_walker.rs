@@ -240,7 +240,11 @@ impl CrateContext {
         if scratch.root_bundle.ext_crates.is_empty() {
             scratch.root_bundle.find_crate_or_create(&crate_cx);
         }
-        Ok(Rc::new(crate_cx))
+        let crate_cx = Rc::new(crate_cx);
+        scratch
+            .crates
+            .insert(crate_cx.version.clone(), crate_cx.clone());
+        Ok(crate_cx)
     }
 
     pub(crate) fn load_dependent_crate(

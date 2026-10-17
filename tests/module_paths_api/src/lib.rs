@@ -1,9 +1,11 @@
 //! Types in modules (API-46): generated code names each one by the path other crates see, not `<crate>::<Name>`. A
 //! type in a `pub mod` that isn't re-exported, one with a lifetime two modules deep (its `LabelOwned` on the client),
 //! one imported under another name (`use .. as ..`), one in a private module re-exported at the root, one re-exported
-//! under another name, and two equal definitions with the same name in different modules.
+//! under another name, two equal definitions with the same name in different modules, and a unit marker
+//! `units::Volt` next to a root `Volt` of another shape.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::marker::PhantomData;
 use geometry::Point as Spot;
 use wire_weaver::prelude::*;
 
@@ -17,6 +19,8 @@ trait ModulePaths {
     fn measure(label: geometry::shapes::Label<'i>) -> u32;
     /// The device's name
     fn name() -> geometry::shapes::Label<'i>;
+    /// The quantity as a plain `Volt`
+    fn convert(q: Quantity<units::Volt>) -> Volt;
     property!(rw hidden: Hidden);
     property!(rw renamed: Renamed);
 }
@@ -83,3 +87,39 @@ mod hidden {
 
 pub use hidden::Hidden;
 pub use hidden::Inner as Renamed;
+
+/// A value of the unit `U`, the unit only in the type
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Clone, Copy)
+)]
+pub struct Quantity<U> {
+    pub value: i32,
+    _unit: PhantomData<U>,
+}
+
+impl<U> Quantity<U> {
+    pub const fn new(value: i32) -> Self {
+        Self {
+            value,
+            _unit: PhantomData,
+        }
+    }
+}
+
+/// Volts in millivolts, named like the marker in `units`
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Clone, Copy)
+)]
+pub struct Volt {
+    pub mv: i32,
+}
+
+pub mod units {
+    /// The unit marker, no serdes of its own
+    #[derive(Debug, PartialEq, Clone, Copy)]
+    pub struct Volt;
+}

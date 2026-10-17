@@ -98,14 +98,26 @@ pub(crate) fn convert_ty_path(
     if leading.is_empty() {
         convert_ty_path_segment(last, current_crate, scratch)
     } else {
+        // `a::b::Ty<Arg>`: `Ty` is looked up in `a::b`, `Arg` is written here
         let cx = current_crate.resolve_path(leading.iter().map(|s| &s.ident), scratch)?;
-        convert_ty_path_segment(last, &cx, scratch)
+        convert_segment_in(last, current_crate, &cx, scratch)
     }
 }
 
 pub(crate) fn convert_ty_path_segment(
     segment: &PathSegment,
     current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<TypeOwned> {
+    convert_segment_in(segment, current_crate, current_crate, scratch)
+}
+
+/// `segment`, written in `current_crate`, a user type in it looked up in `lookup_cx` (a module or crate the path
+/// leads to).
+fn convert_segment_in(
+    segment: &PathSegment,
+    current_crate: &CrateContext,
+    lookup_cx: &CrateContext,
     scratch: &mut Scratch,
 ) -> Result<TypeOwned> {
     let ty_name = segment.ident.to_string();
@@ -160,7 +172,7 @@ pub(crate) fn convert_ty_path_segment(
                 return Ok(ty);
             }
 
-            let (def_cx, item) = find_user_item(user_ty, current_crate, scratch)?;
+            let (def_cx, item) = find_user_item(user_ty, lookup_cx, scratch)?;
             convert_user_ty(segment, &def_cx, &item, current_crate, scratch)
         }
     }

@@ -25,6 +25,10 @@ const MAX_EXPANDED_ARRAY_LEN: u32 = 1024;
 /// Arrays that would make more leaves than this (nested ones) are not expanded either: types come from a device and
 /// can describe a lot of leaves in a few bytes.
 const MAX_LEAVES: usize = 1 << 16;
+/// Most types followed to flatten one side, counting the ones [leaf_count] looks at: in-line structs with many fields
+/// of other such structs describe exponentially many leaves (or none, for empty ones) in a few bytes.
+const MAX_WORK: usize = 1 << 20;
+const TOO_LARGE: &str = "types are too large to compare their bit layouts";
 
 #[derive(Clone, Debug, PartialEq)]
 enum Kind {
@@ -65,8 +69,8 @@ pub(crate) fn check_padding_reuse(
     byte_aligned: bool,
 ) -> Result<(), String> {
     let (mut old, mut new) = (vec![], vec![]);
-    flatten(fewer_bundle, fewer, "", &mut old, 0);
-    flatten(more_bundle, more, "", &mut new, 0);
+    flatten(fewer_bundle, fewer, "", &mut old, 0, &mut MAX_WORK.clone())?;
+    flatten(more_bundle, more, "", &mut new, 0, &mut MAX_WORK.clone())?;
 
     let variable = |leaves: &[Leaf]| -> Vec<(String, Kind)> {
         leaves
@@ -81,10 +85,17 @@ pub(crate) fn check_padding_reuse(
                 .into(),
         );
     }
+    let mut new_by_path: HashMap<&str, Vec<&Kind>> = HashMap::new();
+    for l in &new {
+        new_by_path
+            .entry(l.path.as_str())
+            .or_default()
+            .push(&l.kind);
+    }
     for leaf in &old {
-        if !new
-            .iter()
-            .any(|l| l.path == leaf.path && l.kind == leaf.kind)
+        if !new_by_path
+            .get(leaf.path.as_str())
+            .is_some_and(|kinds| kinds.contains(&&leaf.kind))
         {
             return Err(format!("field `{}` removed or changed", leaf.path));
         }
@@ -175,9 +186,11 @@ fn compare_segment(old: &[Leaf], new: &[Leaf], start: u32, end_align: u32) -> Re
                 leaf.path
             ));
         }
-        let overlaps = old_positions
-            .iter()
-            .any(|(s, e)| *leaf_start < *e && *s < *leaf_end);
+        // positions are in order, both starts and ends
+        let first_ending_after = old_positions.partition_point(|(_, e)| *e <= *leaf_start);
+        let overlaps = old_positions[first_ending_after..]
+            .first()
+            .is_some_and(|(s, _)| *s < *leaf_end);
         if overlaps || *leaf_end > old_end {
             return Err(format!(
                 "new field `{}` doesn't fit into unused padding bits (for a type starting at bit offset {start})",
@@ -217,7 +230,8 @@ fn flatten(
     prefix: &str,
     out: &mut Vec<Leaf>,
     depth: u32,
-) {
+    work: &mut usize,
+) -> Result<(), String> {
     for (i, field) in fields.iter().enumerate() {
         let name = match &field.ident {
             Some(ident) => ident.clone(),
@@ -234,18 +248,36 @@ fn flatten(
         } else {
             path
         };
-        leaf(bundle, &field.ty, path, out, depth);
+        leaf(bundle, &field.ty, path, out, depth, work)?;
     }
+    Ok(())
 }
 
-fn leaf(bundle: &ApiBundleOwned, ty: &TypeOwned, path: String, out: &mut Vec<Leaf>, depth: u32) {
+/// Takes one unit of `work`, an error when there is none left or there are too many leaves.
+fn take(work: &mut usize, out: &[Leaf]) -> Result<(), String> {
+    if *work == 0 || out.len() >= MAX_LEAVES {
+        return Err(TOO_LARGE.into());
+    }
+    *work -= 1;
+    Ok(())
+}
+
+fn leaf(
+    bundle: &ApiBundleOwned,
+    ty: &TypeOwned,
+    path: String,
+    out: &mut Vec<Leaf>,
+    depth: u32,
+    work: &mut usize,
+) -> Result<(), String> {
+    take(work, out)?;
     // self-referential types are not fixed size anyway
     if depth > 16 {
         out.push(Leaf {
             path,
             kind: UNKNOWN,
         });
-        return;
+        return Ok(());
     }
     let kind = match ty {
         TypeOwned::Bool | TypeOwned::Flag => Kind::Fixed {
@@ -256,7 +288,7 @@ fn leaf(bundle: &ApiBundleOwned, ty: &TypeOwned, path: String, out: &mut Vec<Lea
         TypeOwned::NumericAny(n) => numeric(n),
         TypeOwned::OutOfLine { type_idx } => match bundle.types.get(type_idx.0 as usize) {
             Some(TypeLocationOwned::InLine { ty, .. }) => {
-                return leaf(bundle, ty, path, out, depth + 1);
+                return leaf(bundle, ty, path, out, depth + 1, work);
             }
             _ => UNKNOWN,
         },
@@ -265,8 +297,7 @@ fn leaf(bundle: &ApiBundleOwned, ty: &TypeOwned, path: String, out: &mut Vec<Lea
                 FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) => fields.as_slice(),
                 FieldsOwned::Unit => &[],
             };
-            flatten(bundle, fields, &path, out, depth + 1);
-            return;
+            return flatten(bundle, fields, &path, out, depth + 1, work);
         }
         TypeOwned::Enum(e)
             if e.variants
@@ -293,34 +324,43 @@ fn leaf(bundle: &ApiBundleOwned, ty: &TypeOwned, path: String, out: &mut Vec<Lea
             ty,
         } if len.0 <= MAX_EXPANDED_ARRAY_LEN
             && out.len().saturating_add(
-                leaf_count(bundle, ty, depth + 1).saturating_mul(len.0 as usize),
+                leaf_count(bundle, ty, depth + 1, work)?.saturating_mul(len.0 as usize),
             ) <= MAX_LEAVES =>
         {
             for i in 0..len.0 {
-                leaf(bundle, ty, format!("{path}[{i}]"), out, depth + 1);
+                leaf(bundle, ty, format!("{path}[{i}]"), out, depth + 1, work)?;
             }
-            return;
+            return Ok(());
         }
         _ => UNKNOWN,
     };
     out.push(Leaf { path, kind });
+    Ok(())
 }
 
 /// Number of leaves [leaf] makes of `ty`, saturating; follows it without building them.
-fn leaf_count(bundle: &ApiBundleOwned, ty: &TypeOwned, depth: u32) -> usize {
+fn leaf_count(
+    bundle: &ApiBundleOwned,
+    ty: &TypeOwned,
+    depth: u32,
+    work: &mut usize,
+) -> Result<usize, String> {
+    take(work, &[])?;
     if depth > 16 {
-        return 1;
+        return Ok(1);
     }
-    match ty {
+    Ok(match ty {
         TypeOwned::OutOfLine { type_idx } => match bundle.types.get(type_idx.0 as usize) {
-            Some(TypeLocationOwned::InLine { ty, .. }) => leaf_count(bundle, ty, depth + 1),
+            Some(TypeLocationOwned::InLine { ty, .. }) => leaf_count(bundle, ty, depth + 1, work)?,
             _ => 1,
         },
         TypeOwned::Struct(s) if !matches!(s.size, ElementSize::Unsized) => match &s.fields {
             FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) => {
-                fields.iter().fold(0usize, |n, f| {
-                    n.saturating_add(leaf_count(bundle, &f.ty, depth + 1))
-                })
+                let mut n = 0usize;
+                for f in fields {
+                    n = n.saturating_add(leaf_count(bundle, &f.ty, depth + 1, work)?);
+                }
+                n
             }
             FieldsOwned::Unit => 0,
         },
@@ -328,10 +368,10 @@ fn leaf_count(bundle: &ApiBundleOwned, ty: &TypeOwned, depth: u32) -> usize {
             len: Length::Fixed(len),
             ty,
         } if len.0 <= MAX_EXPANDED_ARRAY_LEN => {
-            leaf_count(bundle, ty, depth + 1).saturating_mul(len.0 as usize)
+            leaf_count(bundle, ty, depth + 1, work)?.saturating_mul(len.0 as usize)
         }
         _ => 1,
-    }
+    })
 }
 
 fn numeric(n: &NumericAnyTypeOwned) -> Kind {
@@ -388,4 +428,104 @@ fn repr(repr: &Repr) -> Kind {
 
 fn gcd(a: u32, b: u32) -> u32 {
     if b == 0 { a } else { gcd(b, a % b) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wire_weaver::shrink_wrap::UNib32;
+    use ww_self::{ApiLevelOwned, ItemStructOwned};
+    use ww_version::{FullVersionOwned, VersionOwned};
+
+    fn field(name: &str, ty: TypeOwned) -> FieldOwned {
+        FieldOwned {
+            ident: Some(name.into()),
+            default: None,
+            since: None,
+            ty,
+            docs: vec![],
+            slot: None,
+        }
+    }
+
+    /// `S0 {}`, `Sk { f0..f15: S(k-1) }`: 16^8 leaves, or none at all, in a few hundred bytes of types.
+    fn fan_out(leaf_ty: Option<TypeOwned>) -> ApiBundleOwned {
+        let s = |ident: String, fields| TypeLocationOwned::InLine {
+            ty: TypeOwned::Struct(ItemStructOwned {
+                size: ElementSize::UnsizedFinalStructure,
+                crate_idx: UNib32(0),
+                docs: vec![],
+                ident,
+                generics: vec![],
+                fields,
+                sparse: false,
+            }),
+            crate_idx: UNib32(0),
+        };
+        let first = match leaf_ty {
+            Some(ty) => FieldsOwned::Named(vec![field("x", ty)]),
+            None => FieldsOwned::Unit,
+        };
+        let mut types = vec![s("S0".into(), first)];
+        for k in 1..10u32 {
+            let fields = (0..16)
+                .map(|i| {
+                    field(
+                        &format!("f{i}"),
+                        TypeOwned::OutOfLine {
+                            type_idx: UNib32(k - 1),
+                        },
+                    )
+                })
+                .collect();
+            types.push(s(format!("S{k}"), FieldsOwned::Named(fields)));
+        }
+        ApiBundleOwned {
+            magic: ww_self::MAGIC,
+            ww_self_version: ww_self::VERSION,
+            root: ApiLevelOwned {
+                docs: vec![],
+                crate_idx: UNib32(0),
+                trait_name: "Api".into(),
+                items: vec![],
+            },
+            types,
+            traits: vec![],
+            ext_crates: vec![FullVersionOwned::new(
+                "c".into(),
+                VersionOwned::new(0, 1, 0),
+            )],
+            root_omitted: None,
+        }
+    }
+
+    #[test]
+    fn fan_out_of_structs_is_bounded() {
+        let top = |b: &ApiBundleOwned| {
+            vec![field(
+                "a",
+                TypeOwned::OutOfLine {
+                    type_idx: UNib32(b.types.len() as u32 - 1),
+                },
+            )]
+        };
+        for leaf_ty in [None, Some(TypeOwned::Bool)] {
+            let b = fan_out(leaf_ty.clone());
+            let (fewer, mut more) = (top(&b), top(&b));
+            more.push(field("b", TypeOwned::Bool));
+            let start = std::time::Instant::now();
+            let err = check_padding_reuse(&b, &fewer, &b, &more, false).unwrap_err();
+            assert_eq!(err, TOO_LARGE, "{leaf_ty:?}");
+            assert!(start.elapsed().as_secs() < 5);
+            // an array of them
+            let arr = vec![field(
+                "a",
+                TypeOwned::Array {
+                    len: Length::Fixed(UNib32(1000)),
+                    ty: Box::new(fewer[0].ty.clone()),
+                },
+            )];
+            assert!(check_padding_reuse(&b, &arr, &b, &arr, false).is_err());
+        }
+    }
 }

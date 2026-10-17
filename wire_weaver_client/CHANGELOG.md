@@ -342,6 +342,11 @@
 
 - The padding-bit layout check expands nested arrays of a device's types only up to 65 536 leaves, instead of
   without limit.
+- The padding-bit layout check (compatibility of a device's types that gained fields) is bounded in its work too, not
+  only in array leaves: in-line structs with many fields of other such structs made exponentially many leaves (or
+  visits, for empty ones) from a few hundred bytes of introspection data and hung the host; now "types are too large
+  to compare their bit layouts". Old fields are looked up by path and overlaps found by binary search, instead of
+  quadratic scans over up to 65 536 leaves.
 
 - Dropping a `Commander` clone no longer disconnects the device for every other clone: only the last one to drop does. `ww info` and `ww report` ended with "Called a method that required event loop to be running" because the trait clients of `ww_report::Contract` disconnected on drop and `ww` then disconnected again.
 

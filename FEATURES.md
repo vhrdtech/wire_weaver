@@ -1039,6 +1039,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   of P2628 (repo `logring`), usable by any recorder. API crate, snapshot and docs page
   `docs/std_library/ww_recorder.md` done, the scaffold compiles; the first server is the logring's (rePort
   integration).
+- 🚧 **STD-39 `ww_block`** · `v0.5.x` — a block device over WireWeaver (SD card, eMMC, flash): `BlockDevice` with
+  `geometry` (block size and count, blocks per call, erase unit, erased value), free `read` and device-side `crc`
+  (CRC-32, `ww_block::crc32`), `claim` / `release` of a write lease that stops the card's own user, `write` with a
+  CRC and `erase` under it, and the optional `bulk` group: the `write_runs` credit sink acknowledged on the counted
+  `written` stream, and the counted `read_runs` stream. Who may claim is the firmware's choice per link
+  (`Common(Refused)`). Tier T1 of P2628 (logring's PC `LinkMedium`, S2 prepare on the PC). API crate, snapshot,
+  docs page `docs/std_library/ww_block.md` and the round trip `tests/block_sd` done, the scaffold compiles; the
+  first server is the logring's.
+- 🚧 **STD-40 `ww_sd`** · `v0.5.x` — raw SD card access over WireWeaver: `SdCard` with `capabilities`, `state`, the
+  `detect` stream, raw `registers` (CID, CSD, OCR, RCA, SCR, SD Status), `reinit` with a per-step `InitReport`, and
+  `command`: one raw command with an optional data phase, answering response bytes, `CardStatus` bits, the
+  `Outcome` and timing. Commands are `Free`, need the `ww_block` lease, or are `Restricted` (CMD42, CMD27) unless
+  the firmware builds with `raw-sd-unrestricted` (`ww_sd::check_access`). Tier T0 of P2628. API crate, snapshot,
+  docs page `docs/std_library/ww_sd.md` and the round trip `tests/block_sd` done, the scaffold compiles; a device
+  needs a raw-command hook in its SD driver (not checked yet for embassy-stm32's `Sdmmc`).
 - 💡 **STD-33 `ww_settings` single-sector mode** — a store in one sector with a RAM copy, for a part with exactly
   one sector to spare; a power cut during its erase loses every group (the window is the whole erase, 1 to 4 s on a
   128 KiB sector, see `docs/api/settings.md#parts-with-big-sectors`). Only if a device needs it.

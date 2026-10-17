@@ -283,6 +283,8 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Signal generator](std_library/ww_signal_generator.md)**: Replays captures, drives DAC channels. <span class="ww-status">in progress</span>
 - **[Counters](std_library/ww_counters.md)**: A device's `cnt` counters, named on the host from its firmware file.
 - **[Recorder control](std_library/ww_recorder.md)**: Status, format, recordings, markers and settings of a logger that writes to an SD card. <span class="ww-status">in progress</span>
+- **[Block device](std_library/ww_block.md)**: Read, check and write an SD card or flash by block over the link, writes under a lease. <span class="ww-status">in progress</span>
+- **[Raw SD card](std_library/ww_sd.md)**: Registers, init report and raw commands with timing, for bring-up and card checks. <span class="ww-status">in progress</span>
 - **[Age of a crash record](std_library/ww_firmware_info.md)**: How many boots ago the saved crash happened.
 - **[Settings store](api/settings.md)**: A device's settings in its own flash, power-cut safe, readable by older and newer firmware. <span class="ww-status">hardware check open</span>
 - **[Versions](std_library/ww_version.md)**: `ww_version`.

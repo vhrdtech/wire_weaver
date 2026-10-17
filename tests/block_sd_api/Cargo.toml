@@ -1,0 +1,17 @@
+[package]
+name = "block_sd_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_block/std", "ww_sd/std"]
+
+[dependencies]
+wire_weaver.workspace = true
+ww_block.workspace = true
+ww_sd.workspace = true

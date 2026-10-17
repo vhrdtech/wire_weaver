@@ -1,0 +1,18 @@
+[package]
+name = "ww_block"
+version = "0.1.0"
+authors.workspace = true
+description = "Read, write and erase a block device (SD card, eMMC, flash) over WireWeaver, writes under a lease"
+edition.workspace = true
+license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_error/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt"]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+wire_weaver.workspace = true
+ww_error = { workspace = true, default-features = false }

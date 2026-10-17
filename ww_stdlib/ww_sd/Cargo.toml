@@ -1,0 +1,21 @@
+[package]
+name = "ww_sd"
+version = "0.1.0"
+authors.workspace = true
+description = "Raw SD card access over WireWeaver: registers, init report, raw commands with timing"
+edition.workspace = true
+license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_error/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt"]
+# Lets CMD42 (lock/unlock) and CMD27 (program CSD, permanent write protect) through `check_access`, with the lease.
+# Bring-up firmware only: these commands can lock a card or damage it for good.
+raw-sd-unrestricted = []
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+wire_weaver.workspace = true
+ww_error = { workspace = true, default-features = false }

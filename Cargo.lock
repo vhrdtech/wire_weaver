@@ -443,6 +443,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "block_sd"
+version = "0.1.0"
+dependencies = [
+ "block_sd_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_block",
+ "ww_client_server",
+ "ww_sd",
+ "ww_stream",
+]
+
+[[package]]
+name = "block_sd_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_block",
+ "ww_sd",
+]
+
+[[package]]
 name = "board_info"
 version = "0.1.0"
 dependencies = [
@@ -6286,6 +6311,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_block"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_error",
+]
+
+[[package]]
 name = "ww_board_info"
 version = "0.1.0"
 dependencies = [
@@ -6551,6 +6585,15 @@ dependencies = [
  "ww_si",
  "ww_uid",
  "ww_user_info",
+]
+
+[[package]]
+name = "ww_sd"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_error",
 ]
 
 [[package]]

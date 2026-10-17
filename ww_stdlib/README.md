@@ -27,6 +27,8 @@
 * `ww_uart` - UART data types and remote bridging API.
 * `ww_i2c` - I2C bus data types and remote bridging API.
 * `ww_memory` - Low-level access to memory or registers (8- and 32-bit), with optional watches.
+* `ww_block` - Block device (SD card, eMMC, flash): read, device-side CRC, erase and write under a lease, optional bulk transfers.
+* `ww_sd` - Raw SD card access: state, registers, init report, raw commands with response, status bits and timing.
 * `ww_indication` - Device indication LED control API.
 
 ### Meta

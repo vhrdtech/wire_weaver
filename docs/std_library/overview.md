@@ -69,6 +69,10 @@ queried at runtime, one `configure()` call per bus, common errors, typed `ww_si`
   playback, DAC waveforms
 * [`ww_memory`](ww_memory.md) — `Memory8`, `Memory32`: read and write words at addresses, optional watches, for
   register maps and raw memory access
+* [`ww_block`](ww_block.md) — `BlockDevice`: read, CRC, erase and write an SD card, eMMC or flash by block; writes
+  under a lease that stops the card's own user, optional bulk sink and read stream
+* [`ww_sd`](ww_sd.md) — `SdCard`: an SD card's state, raw registers, init with a per-step report, raw commands with
+  response, status bits and timing
 
 ## Device contract
 

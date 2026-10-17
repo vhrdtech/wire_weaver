@@ -95,6 +95,7 @@ ww_self = { version = "0.3.0", path = "./ww_self" }
 
 # ww_stdlib, each crate has its own version
 ww_adc = { version = "0.1.0", path = "./ww_stdlib/ww_adc", default-features = false }
+ww_block = { version = "0.1.0", path = "./ww_stdlib/ww_block", default-features = false }
 ww_board_info = { version = "0.1.0", path = "./ww_stdlib/ww_board_info", default-features = false }
 ww_can_bus = { version = "0.1.0", path = "./ww_stdlib/ww_can_bus", default-features = false }
 ww_client_server = { version = "0.2.0", path = "./ww_stdlib/ww_client_server", default-features = false }
@@ -114,6 +115,7 @@ ww_numeric = { version = "0.2.0", path = "./ww_stdlib/ww_numeric", default-featu
 ww_onewire = { version = "0.1.0", path = "./ww_stdlib/ww_onewire", default-features = false }
 ww_pwm = { version = "0.1.0", path = "./ww_stdlib/ww_pwm", default-features = false }
 ww_recorder = { version = "0.1.0", path = "./ww_stdlib/ww_recorder", default-features = false }
+ww_sd = { version = "0.1.0", path = "./ww_stdlib/ww_sd", default-features = false }
 ww_si = { version = "0.2.0", path = "./ww_stdlib/ww_si", default-features = false }
 ww_signal_generator = { version = "0.1.0", path = "./ww_stdlib/ww_signal_generator", default-features = false }
 ww_spi = { version = "0.1.0", path = "./ww_stdlib/ww_spi", default-features = false }
@@ -130,6 +132,7 @@ array_of_streams_api = { version = "0.1.0", path = "./tests/array_of_streams_api
 blinky = { version = "0.1.0", path = "./examples/blinky" }
 blinky_api = { version = "0.1.0", path = "./examples/blinky_api" }
 blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved" }
+block_sd_api = { version = "0.1.0", path = "./tests/block_sd_api" }
 board_info_api = { version = "0.1.0", path = "./tests/board_info_api" }
 bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }
 cfg_variants_api = { version = "0.1.0", path = "./tests/cfg_variants_api" }

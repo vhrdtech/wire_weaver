@@ -1,0 +1,323 @@
+// ww_block 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "A block device over WireWeaver (STD-39): an SD card, eMMC or flash read, checked, written and erased in whole",
+    "blocks by their address (LBA).",
+    "",
+    "[BlockDevice] is a thin layer over the driver a firmware has anyway, and it lets a host do almost everything",
+    "else: read a live card with a PC tool as if it were in a card reader, lay out a filesystem on the PC and write",
+    "it out, image a card over the link, or test a card with writes, CRCs and timings.",
+    "",
+    "- **Reads are free**: [BlockDevice::read], [BlockDevice::crc] and the bulk [BlockDevice::read_runs] work at any",
+    "  time, also while the device writes the card itself (it serialises the bus).",
+    "- **Writes need a lease**: [BlockDevice::claim] stops the card\'s own user first (a recorder syncs and unmounts",
+    "  its log), and every write and erase carries the lease it returned. One lease at a time, it lapses after",
+    "  `lease_s` seconds without a call, [BlockDevice::release] gives the card back.",
+    "- **Bulk** (`#[optional(bulk)]`): runs of blocks on the [BlockDevice::write_runs] credit sink, acknowledged on",
+    "  [BlockDevice::written], and a whole range read on the [BlockDevice::read_runs] stream, for slow links and long",
+    "  jobs. A device without it leaves the group out (`omit = [\"card.bulk\"]`).",
+    "",
+    "Who may claim the card and write it is the firmware\'s choice per link (e.g. USB and RTT yes, a remote UDP link",
+    "no): a link that may not answers [BlockDevice::claim] with `Common(Refused)`. This crate has no access rules of",
+    "its own.",
+    "",
+    "Register-level access to memory or a chip is `ww_memory`; raw SD commands and registers are `ww_sd`.",
+    "",
+    "Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.",
+], crate_idx: 0, trait_name: "ww_block", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BlockDevice", docs: [], optional: None),
+]), types: [
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "Kind of medium, see [Geometry::kind].",
+        "",
+        "`Unsized` (default): a later version may add a kind without breaking a host built against this one.",
+    ], ident: "MediumKind", generics: [], variants: [
+        (docs: [
+            "SD card (SDSC, SDHC, SDXC, SDUC), in SD or SPI mode.",
+        ], ident: "SdCard", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Soldered or socketed eMMC.",
+        ], ident: "Emmc", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "SPI, QSPI or parallel NOR flash.",
+        ], ident: "NorFlash", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "NAND flash with its own block management.",
+        ], ident: "NandFlash", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "RAM disk, file on a host, anything else.",
+        ], ident: "Other", fields: Unit, discriminant: 4, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "What erased blocks read as, see [Geometry::erased].",
+    ], ident: "Erased", generics: [], variants: [
+        (docs: [
+            "All bytes `0x00`.",
+        ], ident: "Zeros", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "All bytes `0xff`.",
+        ], ident: "Ones", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Not defined (an SD card may answer either, eMMC discard leaves old data).",
+        ], ident: "Unspecified", fields: Unit, discriminant: 2, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The medium, see [BlockDevice::geometry].",
+    ], ident: "Geometry", generics: [], fields: Named([
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
+        (ident: Some("block_size"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Bytes per block: 512 for SD cards and eMMC, the program unit (or the sector) for flash.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("block_count"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
+            "Blocks on the medium; the last LBA is one less.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("max_blocks"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "Most blocks one [BlockDevice::read], [BlockDevice::write] or bulk run carries on this device, at most",
+            "[MAX_TRANSFER] bytes: what fits its message size and buffers (1 on a device with 1 KiB messages).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("erase_blocks"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Blocks in an erase unit: the allocation unit (AU) of an SD card, the sector of a NOR flash. Erases and large",
+            "writes are fastest in whole, aligned units.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("best_write_blocks"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
+            "The write size that measured fastest, in blocks, `None` when not measured.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("erased"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+            "What erased blocks read as.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("erase_before_write"), default: None, since: None, ty: Bool, docs: [
+            "The medium must be erased before a block can be written again (NOR flash): a write to a block that isn\'t",
+            "erased fails or corrupts it.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("read_only"), default: None, since: None, ty: Bool, docs: [
+            "The medium is write-protected (switch, register bit, or a read-only firmware): [BlockDevice::claim] answers",
+            "`ReadOnly`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("medium_id"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
+            "Changes when another medium is inserted (from the card\'s CID, or a counter): a host notices a swap between",
+            "calls. 0 if the device can\'t tell.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "Product name of the medium (CID of a card, JEDEC part of a flash), empty if unknown.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Errors of the block device calls.",
+    ], ident: "BlockError", generics: [], variants: [
+        (docs: [
+            "Common error",
+        ], ident: "Common", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "No card in the slot, or the medium doesn\'t answer.",
+        ], ident: "NoMedium", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "A block past the last one.",
+        ], ident: "OutOfRange", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "The lease lapsed, was released, or is not the current one: claim the card again.",
+        ], ident: "BadLease", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "The data\'s CRC-32 doesn\'t match the one given: nothing was written.",
+        ], ident: "BadCrc", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "The medium is write-protected.",
+        ], ident: "ReadOnly", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "The medium reported a read error (or its data failed the device\'s own check).",
+        ], ident: "ReadFailed", fields: Named([
+            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 6, since: None),
+        (docs: [
+            "The medium reported a write or erase error: what was written may be partly there.",
+        ], ident: "WriteFailed", fields: Named([
+            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 7, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One run of [BlockDevice::write_runs]: whole blocks at `lba`, as [BlockDevice::write] takes them.",
+    ], ident: "WriteRun", generics: [], fields: Named([
+        (ident: Some("lease"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("lba"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("crc"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "CRC-32 ([crc32]) of `data`, checked before anything is written.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "What became of a run, see [RunAck::status]. The same as [BlockDevice::write]\'s answer.",
+        "",
+        "`Unsized` (default): a later version may add an outcome without breaking a host built against this one.",
+    ], ident: "RunStatus", generics: [], variants: [
+        (docs: [
+            "On the medium.",
+        ], ident: "Written", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Not whole blocks, or more than [Geometry::max_blocks].",
+        ], ident: "BadLength", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "OutOfRange", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "BadLease", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "BadCrc", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "WriteFailed", fields: Unit, discriminant: 5, since: None),
+        (docs: [], ident: "NoMedium", fields: Unit, discriminant: 6, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The outcome of one run of [BlockDevice::write_runs], on [BlockDevice::written].",
+    ], ident: "RunAck", generics: [], fields: Named([
+        (ident: Some("lba"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
+            "The run\'s first block and its length in blocks.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("count"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("status"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One run of [BlockDevice::read_runs]: the blocks from `lba`.",
+    ], ident: "ReadRun", generics: [], fields: Named([
+        (ident: Some("lba"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "A block device: an SD card, eMMC, or a NOR or NAND flash, addressed in blocks.",
+        "",
+        "# Errors",
+        "",
+        "[BlockError]: the `Common` variants and the block device\'s own, listed on each call.",
+    ], crate_idx: 0, trait_name: "BlockDevice", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 2), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "NoMedium", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "geometry", docs: [
+            "Block size and count, blocks per call, erase unit, what erased blocks read as, read-only flag. `NoMedium`",
+            "without a card.",
+        ], optional: None),
+        (id: 1, kind: Method(args: [
+            (ident: "lba", ty: NumericAny(Base(U64))),
+            (ident: "count", ty: NumericAny(Base(U16))),
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Busy",
+                "InvalidArgument",
+            ])),
+            (ident: "NoMedium", nested: None),
+            (ident: "OutOfRange", nested: None),
+            (ident: "ReadFailed", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "read", docs: [
+            "Reads `count` blocks from `lba`, at most [Geometry::max_blocks]. Allowed at any time, also while the device",
+            "writes the card itself.",
+            "",
+            "`OutOfRange` past the last block, `Common(InvalidArgument)` for more than [Geometry::max_blocks].",
+        ], optional: None),
+        (id: 2, kind: Method(args: [
+            (ident: "lba", ty: NumericAny(Base(U64))),
+            (ident: "count", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Busy",
+            ])),
+            (ident: "NoMedium", nested: None),
+            (ident: "OutOfRange", nested: None),
+            (ident: "ReadFailed", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "crc", docs: [
+            "CRC-32 (see [crc32]) of `count` blocks from `lba`, computed on the device: the host checks what it wrote",
+            "without reading it back over a slow link. Takes as long as reading the blocks.",
+        ], optional: None),
+        (id: 3, kind: Method(args: [
+            (ident: "lease_s", ty: NumericAny(Base(U16))),
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Busy",
+                "Refused",
+                "InvalidArgument",
+            ])),
+            (ident: "NoMedium", nested: None),
+            (ident: "ReadOnly", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "claim", docs: [
+            "Takes the card for writing and returns a lease. Stops the card\'s own user first (a recorder syncs and",
+            "unmounts its log), so it may take a while to answer. Every write and erase carries the lease, and each such",
+            "call renews it; after `lease_s` seconds without one, or when the medium is removed, it lapses and the card",
+            "goes back to its user. One lease at a time.",
+            "",
+            "`Common(Busy)` while another lease is held, `Common(Refused)` when this link may not write the card (the",
+            "firmware\'s choice), `ReadOnly` for a read-only medium.",
+        ], optional: None),
+        (id: 4, kind: Method(args: [
+            (ident: "lease", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "BadLease", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "release", docs: [
+            "Gives the card back: its user mounts it again (and finds what the host wrote). `BadLease` for a lease that",
+            "lapsed or is not the current one.",
+        ], optional: None),
+        (id: 5, kind: Method(args: [
+            (ident: "lease", ty: NumericAny(Base(U32))),
+            (ident: "lba", ty: NumericAny(Base(U64))),
+            (ident: "data", ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8))))),
+            (ident: "crc", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "Common", nested: Some([
+                "InvalidArgument",
+            ])),
+            (ident: "NoMedium", nested: None),
+            (ident: "OutOfRange", nested: None),
+            (ident: "BadLease", nested: None),
+            (ident: "BadCrc", nested: None),
+            (ident: "WriteFailed", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "write", docs: [
+            "Writes whole blocks at `lba`, at most [Geometry::max_blocks]. `crc` is the CRC-32 ([crc32]) of `data`, checked",
+            "before anything is written. Answers when the blocks are on the medium.",
+            "",
+            "`Common(InvalidArgument)` when `data` is not whole blocks or more than [Geometry::max_blocks], `BadCrc` when `crc` doesn\'t match (nothing is",
+            "written).",
+        ], optional: None),
+        (id: 6, kind: Method(args: [
+            (ident: "lease", ty: NumericAny(Base(U32))),
+            (ident: "lba", ty: NumericAny(Base(U64))),
+            (ident: "count", ty: NumericAny(Base(U32))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "NoMedium", nested: None),
+            (ident: "OutOfRange", nested: None),
+            (ident: "BadLease", nested: None),
+            (ident: "WriteFailed", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "erase", docs: [
+            "Erases `count` blocks from `lba` (CMD38 on an SD card, a sector erase on flash, a discard on eMMC). Whole",
+            "erase units ([Geometry::erase_blocks]) where it can; afterwards the blocks read as [Geometry::erased].",
+            "Takes as long as the medium needs.",
+        ], optional: None),
+        (id: 7, kind: FlowSink(ty: OutOfLine(type_idx: 5), flow: Credit), multiplicity: Flat, since: None, ident: "write_runs", docs: [
+            "Bulk write: runs of blocks, each with the lease from [BlockDevice::claim], acknowledged one by one on",
+            "[BlockDevice::written] once on the medium (or refused). Credit-based (API-28): the host never sends more",
+            "than the device has room for. For long jobs and slow links: writing a prepared filesystem, an image.",
+        ], optional: Some((group: Some("bulk")))),
+        (id: 8, kind: StreamFn(ty: OutOfLine(type_idx: 7), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "written", docs: [
+            "The outcome of each run of [BlockDevice::write_runs], in the order they came. A counted stream, unit: run.",
+        ], optional: Some((group: Some("bulk")))),
+        (id: 9, kind: StreamFn(ty: OutOfLine(type_idx: 8), delivery: Counted, args: [
+            (ident: "lba", ty: NumericAny(Base(U64))),
+            (ident: "count", ty: NumericAny(Base(U64))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Busy",
+            ])),
+            (ident: "NoMedium", nested: None),
+            (ident: "OutOfRange", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "read_runs", docs: [
+            "Bulk read: `count` blocks from `lba` as runs of up to [Geometry::max_blocks] on this stream, at the link\'s",
+            "full speed instead of one call per run. The stream ends when the last run is sent; opening it again starts",
+            "another range. A counted stream, unit: block.",
+        ], optional: Some((group: Some("bulk")))),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_block", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None)

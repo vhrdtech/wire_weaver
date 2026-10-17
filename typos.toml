@@ -17,6 +17,8 @@ ser = "ser"
 hsi = "hsi"
 # GPIO output type (push-pull / open-drain)
 ot = "ot"
+# SD card status AKE_SEQ_ERROR (authentication key exchange)
+ake = "ake"
 
 [default]
 extend-ignore-identifiers-re = []

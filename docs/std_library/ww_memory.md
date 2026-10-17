@@ -12,6 +12,9 @@ optionally watch addresses for changes. It is `no_std` by default and depends on
 ww_memory = "0.1"
 ```
 
+A card or flash read and written in whole blocks (geometry and erase units, a write lease, CRCs, bulk transfers) is a
+different contract: that is [`ww_block`](ww_block.md).
+
 ## Traits
 
 | Trait      | Address | Word  | For                                                    |

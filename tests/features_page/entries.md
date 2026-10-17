@@ -264,6 +264,8 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-22 | Signal generator | Replays captures, drives DAC channels. | std_library/ww_signal_generator.md
 - STD-25 | Counters | A device's `cnt` counters, named on the host from its firmware file. | std_library/ww_counters.md
 - STD-34 | Recorder control | Status, format, recordings, markers and settings of a logger that writes to an SD card. | std_library/ww_recorder.md
+- STD-39 | Block device | Read, check and write an SD card or flash by block over the link, writes under a lease. | std_library/ww_block.md
+- STD-40 | Raw SD card | Registers, init report and raw commands with timing, for bring-up and card checks. | std_library/ww_sd.md
 - STD-27 | Age of a crash record | How many boots ago the saved crash happened. | std_library/ww_firmware_info.md
 - STD-32 | Settings store | A device's settings in its own flash, power-cut safe, readable by older and newer firmware. | api/settings.md
 - STD-2 | Versions | `ww_version`. | std_library/ww_version.md

@@ -101,13 +101,20 @@ impl<'py> Columns<'py, '_> {
                     })
                     .collect::<PyResult<_>>()?;
                 self.leaf(names.iter(), &TypeOwned::String, rows, path)?;
-                for (idx, variant) in variants.iter().enumerate() {
+                // the rows of each variant, in one pass over the items
+                let mut rows_of: Vec<Vec<usize>> = vec![vec![]; variants.len()];
+                for (&row, &slot) in rows.iter().zip(variant_of) {
+                    rows_of
+                        .get_mut(slot as usize)
+                        .ok_or_else(|| mismatch(path))?
+                        .push(row);
+                }
+                for (variant, variant_rows) in variants.iter().zip(rows_of) {
                     let def = item_enum
                         .variants
-                        .iter()
-                        .find(|d| d.ident == variant.ident)
+                        .get(variant.variant_idx as usize)
+                        .filter(|d| d.ident == variant.ident)
                         .ok_or_else(|| mismatch(path))?;
-                    let variant_rows = subset(rows, variant_of, |v| v as usize == idx);
                     let path = join(path, &variant.ident);
                     match &variant.fields {
                         SeriesColumn::Fields { kind, fields, .. } => self.fields(
@@ -141,11 +148,18 @@ impl<'py> Columns<'py, '_> {
         rows: &[usize],
         path: &str,
     ) -> PyResult<()> {
-        for (idx, (name, col)) in fields.iter().enumerate() {
+        // the decoder gives one column per field of the type (flags left out), in its order
+        let defs = shape
+            .field_types(kind, fields.len())
+            .ok_or_else(|| mismatch(path))?;
+        if defs.len() != fields.len() {
+            return Err(mismatch(path));
+        }
+        for ((name, col), (ident, ty)) in fields.iter().zip(defs) {
             let path = join(path, name);
-            let ty = shape
-                .field_ty(kind, idx, name)
-                .ok_or_else(|| mismatch(&path))?;
+            if ident.is_some_and(|ident| ident != name) {
+                return Err(mismatch(&path));
+            }
             self.column(col, ty, rows, &path)?;
         }
         Ok(())
@@ -263,21 +277,25 @@ enum Shape<'t> {
 }
 
 impl<'t> Shape<'t> {
-    /// Type of field `idx` named `name`.
-    fn field_ty(self, kind: FieldsKind, idx: usize, name: &str) -> Option<&'t TypeOwned> {
-        let defs = match (self, kind) {
-            (Shape::Tuple(types), FieldsKind::Tuple) => return types.get(idx),
-            (Shape::Array(ty), FieldsKind::Array) => return Some(ty),
-            (Shape::Fields(FieldsOwned::Named(defs) | FieldsOwned::Unnamed(defs)), _) => defs,
-            _ => return None,
-        };
-        match kind {
-            FieldsKind::Named => defs
+    /// The name (of a named field) and type of each field in column order, `columns` of them for an array;
+    /// `None` when the shape is not of `kind`.
+    fn field_types(
+        self,
+        kind: FieldsKind,
+        columns: usize,
+    ) -> Option<Vec<(Option<&'t str>, &'t TypeOwned)>> {
+        Some(match (self, kind) {
+            (Shape::Tuple(types), FieldsKind::Tuple) => types.iter().map(|ty| (None, ty)).collect(),
+            (Shape::Array(ty), FieldsKind::Array) => vec![(None, ty); columns],
+            (Shape::Fields(FieldsOwned::Unit), FieldsKind::Unit) => vec![],
+            (Shape::Fields(FieldsOwned::Named(defs)), FieldsKind::Named)
+            | (Shape::Fields(FieldsOwned::Unnamed(defs)), FieldsKind::Unnamed) => defs
                 .iter()
-                .find(|d| d.ident.as_deref() == Some(name))
-                .map(|d| &d.ty),
-            _ => defs.get(idx).map(|d| &d.ty),
-        }
+                .filter(|d| !d.is_flag())
+                .map(|d| (d.ident.as_deref(), &d.ty))
+                .collect(),
+            _ => return None,
+        })
     }
 }
 

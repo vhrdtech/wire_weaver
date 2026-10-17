@@ -5684,6 +5684,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (fuzz target <code>series-dynamic</code>, <code>tests/series</code>, <code>wire_weaver_py/tests/test_offline.py</code>,
   <code>docs/serdes/series.md#introspection-and-dynamic-clients</code>). Not yet: writing a <code>Series</code> dynamically (Python
   <code>encode</code> of a <code>Series</code> fails).</li>
+<li>✅ <strong>CLT-31 Quantities in dynamic clients, <code>ww</code> and Python</strong> · <code>v0.5.x</code> — a <code>ww_si::Quantity&lt;U&gt;</code> (ww_si 0.2 and
+  later) is recognized from introspection data alone: a concrete definition records the generic one and arguments it
+  was made from (<code>ww_self::ItemStruct::instance_of</code>, host-derived, rejected from devices, left out of signatures), the
+  unit comes from <code>ww_si::units::by_name</code>, the <code>Per</code> / <code>Times</code> tree, or a marker of the API's own crate by name and
+  docs. <code>wire_weaver_client::quantity</code> (<code>DynQuantity</code>: <code>3300 mV</code>, <code>{:#}</code> <code>3.3 V</code>, <code>to_si_f64</code>, <code>to_value</code>; <code>DynUnit</code>),
+  <code>ww introspect</code> const values and <code>ww observe</code> print with symbols, Python <code>ww.Quantity</code> (<code>value</code>, <code>prefix</code>,
+  <code>exponent</code>, <code>storage</code>, <code>symbol</code>, <code>unit</code>, <code>dim</code>, <code>docs</code>, <code>to_si()</code>; writes take a <code>Quantity</code> or a number in the unit)
+  (<code>docs/std_library/ww_si.md#in-ww-python-and-dynamic-clients</code>, <code>tests/quantities</code>, <code>wire_weaver_py/tests</code>). Types
+  are still named by their definitions (<code>Timed&lt;Quantity&lt;Ampere&gt;&gt;</code>), alias names need ww_self type aliases.</li>
 <li>✅ <strong>CLT-30 Link setup budget per transport</strong> · <code>v0.5.x</code> — the client re-sent <code>GetDeviceInfo</code> 5 times 50 ms apart (250 ms
   for every transport), so connecting through a debug probe (~17 ms per RTT write through a J-Link) mostly failed with
   <code>LinkSetup was not received</code>. Now a timeout per transport (USB, UDP, WebSocket 1 s, in-process 250 ms, RTT 10 s, one

@@ -3502,6 +3502,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#in-ww-python-and-dynamic-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In <code>ww</code>, Python and dynamic clients
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#prefixes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4900,6 +4911,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#in-ww-python-and-dynamic-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In <code>ww</code>, Python and dynamic clients
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#prefixes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5388,6 +5410,21 @@ as in ww_si 0.1, where each quantity was a struct of its own, so recorded data a
 <p>In the API model a use of <code>Volt</code> is an instance of the generic <code>Quantity</code> with the marker <code>units::Volt</code> as its
 argument (an alias is not a definition of its own). Both are in the <code>ww_si</code> snapshot, so a device sends a reference
 to them, not their definitions.</p>
+<h2 id="in-ww-python-and-dynamic-clients">In <code>ww</code>, Python and dynamic clients<a class="headerlink" href="#in-ww-python-and-dynamic-clients" title="Permanent link">&para;</a></h2>
+<p>A client that only has a device's introspection data still knows a quantity for what it is: <code>ww introspect</code> and
+<code>ww observe</code> print <code>3300 mV</code>, Python gets a <code>ww.Quantity</code>. The unit comes from the marker: a marker of <code>ww_si::units</code>
+by its name through <code>units::by_name</code> (symbol, dimension and scale), <code>Per&lt;A, B&gt;</code> and <code>Times&lt;A, B&gt;</code> as a tree of their
+parts (<code>0.00012 N·m/(rad/s)</code>), and a marker of your own API crate (<code>struct Rpm;</code>) by its name and docs, without a
+dimension or a conversion to SI. This works for ww_si 0.2 and later.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">q</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">supply</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>        <span class="c1"># Quantity(3300 mV U16)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nb">str</span><span class="p">(</span><span class="n">q</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>             <span class="c1"># &quot;3300 mV&quot;, 3.3</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">q</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">q</span><span class="o">.</span><span class="n">dim</span>              <span class="c1"># &quot;V&quot;, {&quot;kg&quot;: 1, &quot;m&quot;: 2, &quot;s&quot;: -3, &quot;A&quot;: -1}</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">q</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                    <span class="c1"># 3.3</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">supply</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">1.5</span><span class="p">)</span>        <span class="c1"># 1.5 V</span>
+</span></code></pre></div>
+<p>In Rust, <code>wire_weaver_client::quantity::DynQuantity::from_value(&amp;value, &amp;ty, &amp;bundle)</code> gives the prefix, the number
+and a <code>DynUnit</code>; its <code>Display</code> is the same text as the typed <code>Quantity</code>'s, <code>to_si_f64()</code> converts through the unit's
+scale and <code>to_value()</code> makes a value to write. See <code>wire_weaver_py/README.md</code> for the Python side.</p>
 <p><code>BaseUnit</code> (a unit known only at run time, used by <code>ww_adc::ChannelInfo::unit</code>) is still the one from ww_si 0.1; a
 run-time unit model that maps onto the markers replaces it later.</p>
 <h2 id="prefixes">Prefixes<a class="headerlink" href="#prefixes" title="Permanent link">&para;</a></h2>

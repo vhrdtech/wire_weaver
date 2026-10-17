@@ -317,7 +317,7 @@ impl Parse for Args {
                 "sparse" => sparse = true,
                 "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
                 | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants"
-                | "crate_path" | "non_exhaustive" | "no_future_version" | "display" => {
+                | "crate_path" | "non_exhaustive" | "no_future_version" | "display" | "series" => {
                     // Directives irrelevant to wire_weaver_core's introspection (it only cares
                     // about `ww_repr`, the size assumption and `sparse`) - skip their arguments, if any.
                     if input.peek(syn::token::Paren) {

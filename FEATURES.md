@@ -249,12 +249,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   each with their own. Readers bound the value by it (a longer buffer stops at the right byte, a truncated one
   errors, newer trailing fields are skipped) or skip it without parsing. Fields before it must be `Sized` or
   `SelfDescribing`, checked at compile time. `docs/serdes/special_types.md`, showcase.
-- 🚧 **SW-60 `Series<T>`: columnar compressed sequences of any derive type** — a list of `T` (structs, enums with
+- ✅ **SW-60 `Series<T>`: columnar compressed sequences of any derive type** — a list of `T` (structs, enums with
   data, `Option`, nested) written column by column, one column per leaf field: numbers as a numeric column whose
   predictor (raw, delta, delta of delta) and coder (SW-31 prefix code, bit-packed blocks of 8, constant, plain) the
   writer picks per column, floats plain or SW-32 XOR, enum tags, bools, `Option` presence and strings as runs (a value
   and one entry per change); a column restarts where an earlier enum field (a ww_si prefix) changes. 3 to 8 times
-  smaller than a plain `Vec<T>` of ADC samples, self-contained per batch. Done: the column codecs (numeric, 128-bit,
+  smaller than a plain `Vec<T>` of ADC samples, self-contained per batch: the column codecs (numeric, 128-bit,
   float, runs, codec choice by counting bits or a fixed `CodecPolicy`, no alloc, malformed input an error), the
   `Series<'i, T>` / `SeriesOwned<T>` types and the `SeriesColumns` trait with impls for the primitives, `Option`,
   tuples, arrays, strings and bytes (one-pass validating skim, parallel item iteration, evolvable structs both ways,
@@ -262,7 +262,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `shrink-wrap-series-type`; the opt-in `series` directive of `#[derive_shrink_wrap]` for structs (also generic,
   DER-14) and enums, `#[series(opaque)]` fields, compile errors naming the field for what v1 doesn't take, on
   `ww_si` quantities and `ww_numeric::NumericValue` (`shrink_wrap/tests/series_derive.rs`,
-  `ww_stdlib/ww_si/tests/series.rs`). Missing: docs, the dynamic decoder, batched streams on top.
+  `ww_stdlib/ww_si/tests/series.rs`); docs (`docs/serdes/series.md`, the layout in
+  `docs/serdes/wire_format.md#series-t`, worked bytes in `docs/serdes/showcase.md#compressed-columns-series-t`).
+  `Series<T>` is usable today in any property, method or stream item; a dynamic (non-generated) decoder and
+  batching a stream or property into `Series<Timed<T>>` automatically build on it as their own items (CLT-29,
+  API-41), not blocking this one.
 - 📋 **SW-42 `MAX_SIZE` on owned types** · `v0.5.x` — `SerializeShrinkWrapOwned` has no worst-case size yet, only
   the borrowed trait has (SW-19); host code sizing a buffer for an owned value uses the borrowed type's.
 - 📋 **SW-20 Sub-type numbers** · `v0.5.x` — numbers restricted to a range, like `10..=25`, or a set with gaps, like
@@ -423,6 +427,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   device, so not a default.
 - 💡 **API-39 Batched property samples** — K samples of one fast property in one update, compressed with `Delta` /
   `XorFloat` (SW-50), for values sampled faster than the link can carry one update each.
+- 📋 **API-41 Batched streams and properties on `Series`** — a stream declared `batched(max_n, max_ms)` sends
+  `Series<Timed<T>>` (SW-60) batches instead of one item per event (device-side `Batcher`, reliable streams storing
+  encoded batches so a resend costs no re-encoding); the same batcher under API-39's batched property samples and a
+  batched observe slot. Design only so far, with motor-demo numbers backing it (integer storage over floats,
+  default batch 32, autoranging cost cheap). Needs SW-60 (done) and CLT-29 (dynamic decoder).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

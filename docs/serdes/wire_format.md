@@ -315,3 +315,111 @@ Header bits from a nibble boundary:
 
 Dense wins for clustered sets up to a few dozen slots, the index list for a few slots among many, two-level for a
 few dense clusters far apart. The [showcase](showcase.md#sparse-updates-with-optionanyvec) has the numbers.
+
+### `Series<T>`
+
+SW-60. What [`Series<T>` is for and when to reach for it](series.md) is its own page; this is the bit-level layout.
+All bit-level codes below write most significant bit first through the bit cursor, with no alignment unless stated;
+`nib(x)` is the [`UNib32`](showcase.md#unib32-variable-length-numbers-by-the-nibble) code written through the bit
+cursor without nibble alignment.
+
+```text
+n:          UNib32 (nibble-aligned)     number of items; 0: nothing else follows
+group(T):   the columns of T over all n items
+padding:    zero bits to the next byte
+```
+
+`Series` is `ElementSize::Unsized`: as a field it gets a length slot in the parent's FIFO like any other evolvable
+value, and nothing *inside* a `Series` uses the FIFO - a lazy reader walks the columns in parallel, which would
+consume FIFO entries out of order. At the top of a message or stream item its extent is the buffer's own.
+
+**Groups.** The group of a type over a subsequence of items (all of them at the top, fewer inside an enum variant
+or an `Option`) is written by the type's own rule, recursively; an empty subsequence writes nothing (its size is
+already known to the reader from the tag runs above it):
+
+| Type | Group |
+|---|---|
+| integers (`u8`..`u64`, `i8`..`i64`, `U1`..`U64`, `I2`..`I64`, `Nibble`, `UNib32`, `UVlq32`, `UVlq64`) | a numeric column at the type's value width |
+| `u128`, `i128` | a numeric column, predictor raw and coder plain only (other codes malformed) |
+| `f32`, `f64` | a float column |
+| `bool` | a two-valued run |
+| unit-only enum, or enum with data | a tag run (always the general form, even with 2 variants: a later version may add a third), then, for each variant that has items here, the variant's fields as a struct group over just those items |
+| `Option<X>` | the `{ None, Some(X) }` enum: a two-valued tag run, then `group(X)` over the `Some` items |
+| struct, `final_structure` / `self_describing` / `sized` | the fields' groups in declaration order |
+| struct, evolvable (`Unsized`, the default) | outermost: `fields: nib` (how many fields this writer's `T` has), then the fields' groups; nested inside another group: `len: nib` (bits of the group after `len`), then the fields' groups |
+| tuple, `[X; N]` | like a `final_structure` struct of the elements |
+| `&str`/`String`, `&[u8]`, `RefVec<u8>`/`Vec<u8>`, or any type marked `#[series(opaque)]` | an opaque run of the bytes (`to_ww_bytes` for `#[series(opaque)]`) |
+
+Columns appear in the order the groups above produce them: depth first, declaration order, an enum's tag run
+before its variants' columns - the order a reader needs to find every column's start in one forward pass.
+
+**Numeric column:**
+
+```text
+predictor:  2 bits   00 raw, 01 delta, 10 delta of delta, 11 escape (reserved in v1: malformed)
+coder:      2 bits   00 prefix, 01 packed, 10 constant, 11 plain
+values:     m values of width W
+```
+
+The values split into segments at restarts (below). With predictor delta or delta of delta, a segment's first value
+is written at the full width `W`; every other value is a **residual**: the zigzag of the difference to the
+previous value (delta) or of the change of that difference (delta of delta, the running difference starting at 0
+at each segment start), wrapped at `W` exactly as [`Delta`](#delta-deltaofdelta-and-xorfloat) does. With predictor
+raw there are no segment starts; every value is a residual (its zigzag for signed types, itself for unsigned ones).
+
+Coders, for the residuals:
+
+- **prefix** - each residual in the [`Delta`](#delta-deltaofdelta-and-xorfloat) code at width `W`.
+- **packed** - the residuals of a segment in blocks of 8 (the last block of a segment shorter, its length known
+  from `m` and the restarts): `width` in `bits(W)` bits (4 bits for `W = 8`, 5 for 16, 6 for 32, 7 for 64 - enough
+  for `0..=W`), then each residual of the block at exactly `width` bits. A block of all zeros costs only its width
+  field.
+- **constant** - the first residual of the column in the prefix code; every later residual equals it and is not
+  written. Delta + constant is `t0 + period` (a regular clock, a counter); raw + constant is a plain constant
+  column.
+- **plain** - each residual at the full width `W`.
+
+The writer may try any subset of predictor x coder combinations (or a fixed one via `CodecPolicy`) and keeps the
+smallest encoding; the reader follows whatever the 4-bit header says. Predictor `11` is reserved for a later,
+extended column mode (an escape, so existing codes keep their meaning and cost); a v1 reader fails on it with
+`Error::MalformedSeries`.
+
+**Float column:**
+
+```text
+codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the XorFloat code), others reserved
+```
+
+XOR: the first value of a segment at full width, then the [`XorFloat`](#delta-deltaofdelta-and-xorfloat) code
+against the previous value; a segment start also resets the leading/trailing zero window.
+
+**Run** (discrete leaves - enum tags, `bool`, `Option` presence, opaque bytes):
+
+```text
+first:      value of the first item
+repeat:     1, gap: nib, value      a change: gap = items since the previous change (or the start) minus 1;
+                                    value left out when two-valued (a change just flips it)
+end:        0
+```
+
+An enum's discriminant is written as `nib` (per its `ww_repr`); a `bool` as 1 bit; an opaque value as `len: nib`
+bytes, zero bits to the next byte, then the bytes. A change landing at or past the subsequence's end is malformed.
+
+**Restarts.** A numeric or float column restarts (full value, codec state reset, packed block ended) at an item
+where: the item enters this enum variant (or `Some`) from another one, so the column only ever holds that variant's
+own items; an **enum-typed field declared earlier in the same struct changed** (`Volt { prefix, value }` restarts
+`value` when `prefix` changes, so 480 µA followed by 120 mA is a full value, not a delta of -360); or the enclosing
+group itself restarts (it propagates down). `bool`, string and opaque runs never restart anything - a flag toggling
+every other item would otherwise cost a full value each time. "Declared earlier" keeps one forward pass enough to
+decode, and keeps evolution working: a field appended later can never restart a column an older reader already
+knows how to read.
+
+**Evolution.** `Series<T>` follows `T`'s own evolution rules, same as `Vec<T>` does: an appended `#[default = ..]`
+field's columns go at the end of its struct's group, which an older reader skips (nested: via the group length;
+outermost: the `Series` simply ends after the columns it knows, filling the field's default into every item for a
+newer reader reading older data). A `final_structure` / `self_describing` / `sized` struct has no count or length
+inside a `Series` either, exactly as in plain form. A new enum variant an older reader doesn't know fails with
+`Error::EnumFutureVersionOrMalformedData`, as a plain decode of that item would.
+
+The [showcase](showcase.md#compressed-columns-series-t) has a 4-item example worked out byte by byte, including a
+column restart.

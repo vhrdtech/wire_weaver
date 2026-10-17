@@ -26,6 +26,7 @@ nav = [
                     { "Size assumptions" = "serdes/size_assumptions.md" },
                     "serdes/derive_reference.md",
                     "serdes/special_types.md",
+                    "serdes/series.md",
                     "serdes/layouts.md",
                     "serdes/showcase.md",
                     "serdes/use_cases.md",

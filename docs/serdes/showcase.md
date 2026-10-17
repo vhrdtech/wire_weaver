@@ -506,6 +506,63 @@ one `XorFloat` per series holds a minute or an hour of samples, and the block is
 (see [bounding from the inside](#bounding-a-value-from-the-inside-with-tailsize)), so it can sit at any offset of
 a file.
 
+## Compressed columns: `Series<T>`
+
+[`Series<T>`](series.md) ([layout](wire_format.md#series-t)) writes a list column by column instead of item by
+item. `IvSample { v: Volt, i: Ampere }`, `Volt`/`Ampere` each a ww_si-shaped `{ prefix: Prefix, value: NumericValue }`
+(`series`, `final_structure`), 4 readings with `v` around 3300 mV and `i` around 152 000 µA, both in their usual
+range:
+
+```rust
+let items: Vec<IvSample> = [3300u16, 3301, 3301, 3299]
+    .into_iter()
+    .zip([152_000i32, 152_002, 151_999, 152_001])
+    .map(|(v, i)| IvSample {
+        v: Volt { prefix: Prefix::Milli, value: NumericValue::U16(v) },
+        i: Ampere { prefix: Prefix::Micro, value: NumericValue::I32(i) },
+    })
+    .collect();
+assert_eq!(
+    Series::new(&items).to_ww_bytes_owned().unwrap(),
+    hex!("42 11 14 33 90 51 91 8a 00 04 a3 80 1c b0")
+);
+```
+
+14 bytes against 33 for the smallest plain form (`Vec<IvSample>` as `final_structure`, no evolution): `4` (`n = 4`),
+`2` (`IvSample`'s 2 fields), `v`'s prefix run (`Milli`, no change, end: `0001 0`), `v`'s value tag run (`U16`, end),
+`v`'s `U16` column (header `01 01`: delta + packed, first value `3300` at full width, then a packed block of 3
+residuals: `+1, 0, -2`), then the same shape for `i`'s prefix, tag and `I32` column (delta + packed: `152000`, then
+`+2, -3, +2`). The header and first-value bytes are what batches of 4 pay for; at 100 items the same `IvSample`
+shrinks to 104 bytes (7.7x smaller) because they're paid once per batch, not once per item - see
+[sizes against `Vec<T>`](series.md#sizes-against-vec-t).
+
+The same 4 items, but `i` jumps from the µA range to the mA range after item 2 (`Milli U16` storage once there):
+
+```rust
+let items: Vec<IvSample> = [
+    (3300u16, Prefix::Micro, NumericValue::I32(480)),
+    (3300, Prefix::Micro, NumericValue::I32(482)),
+    (3301, Prefix::Milli, NumericValue::U16(120)),
+    (3300, Prefix::Milli, NumericValue::U16(121)),
+]
+.into_iter()
+.map(|(v, i_prefix, i_value)| IvSample {
+    v: Volt { prefix: Prefix::Milli, value: NumericValue::U16(v) },
+    i: Ampere { prefix: i_prefix, value: i_value },
+})
+.collect();
+assert_eq!(
+    Series::new(&items).to_ww_bytes_owned().unwrap(),
+    hex!("42 11 14 33 90 44 94 44 d1 20 5e 2f 22 57 81 e2 00")
+);
+```
+
+17 bytes against 29 plain. `i`'s prefix run now has a change (`Micro`, gap 1, `Milli`, end) and so does its value
+tag run (`I32`, gap 1, `U16`, end); because the prefix is an **enum field declared earlier** in `Ampere`, `i`'s
+numeric column restarts where it changes: the `I32` column holds only `480, 482` (one delta), the `U16` column
+starts fresh at `120` (not a delta of -362 against 482) and holds just `120, 121`. Columns never carry a delta
+across a boundary the reader can't make sense of.
+
 ## Sparse updates with `OptionAnyVec`
 
 A trait level with 32 `f32` properties, of which 3 changed since the last update: slots 3, 17 and 30 with `1.0`,

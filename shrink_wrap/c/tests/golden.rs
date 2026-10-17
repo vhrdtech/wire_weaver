@@ -354,6 +354,7 @@ fn error_numbers() {
         (MalformedOptionAnyVec, "MALFORMED_OPTION_ANY_VEC"),
         (OptionAnyVecWrongSlot, "OPTION_ANY_VEC_WRONG_SLOT"),
         (OptionAnyVecUnknownSlot, "OPTION_ANY_VEC_UNKNOWN_SLOT"),
+        (NestingTooDeep, "NESTING_TOO_DEEP"),
     ];
     for (e, name) in names {
         let line = format!("SW_ERR_{name} = {},", e as u32);

@@ -67,6 +67,8 @@ string but at the end of the buffer. Both are explained below.
 - **`no_std` and no allocator,** also for strings, lists and nested types, for reading and writing. On the host,
   the same type gets an owned twin (`Sample` → `SampleOwned`) with `String` and `Vec`, writing the same bytes.
 - **Zero-copy reading.** A `&str` or a list read from the buffer points into it.
+- **Safe on untrusted data.** A malformed buffer is an error, never a panic, and a recursive type nested too deep
+  is `Error::NestingTooDeep` instead of a stack overflow ([nesting depth](wire_format.md#nesting-depth)).
 - **Evolvable.** By default a type can get new fields later; old and new code keep reading each other's data
   ([derive: evolving types](derive.md#evolving-types)).
 - **Many types out of the box:** integers of any bit width, variable-length numbers, strings and lists with an

@@ -109,7 +109,11 @@ const MODE_INDEX_LIST: u8 = PresenceMode::IndexList as u8;
 impl<'i> OptionAnyVec<'i> {
     /// Parse the header of a vec that takes all of `data` (as written by [OptionAnyVecWriter::finish_and_take]).
     pub fn new(data: &'i [u8]) -> Result<Self, Error> {
-        let mut rd = BufReader::new(data);
+        Self::read_from(BufReader::new(data), data)
+    }
+
+    /// [new](Self::new) with `rd` over `data`: the slots are read at its depth.
+    fn read_from(mut rd: BufReader<'i>, data: &'i [u8]) -> Result<Self, Error> {
         let header = Header::read(&mut rd)?;
         Ok(OptionAnyVec {
             data,
@@ -453,7 +457,9 @@ impl<'i> DeserializeShrinkWrap<'i> for OptionAnyVec<'i> {
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-        OptionAnyVec::new(rd.read_raw_slice(rd.bytes_left())?)
+        let data = rd.read_raw_slice(rd.bytes_left())?;
+        // the slots of a sparse struct are read at its depth, a sparse struct that contains itself is bounded too
+        OptionAnyVec::read_from(rd.nested(data), data)
     }
 }
 

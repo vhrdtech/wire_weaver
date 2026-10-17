@@ -106,6 +106,28 @@ sub-reader bounded to exactly the number of bytes a length slot says a value tak
 
 See the [evolution rules](../evolution/rules.md) for which changes stay wire-compatible.
 
+### Nesting depth
+
+A type that contains itself (`Box<T>`, `RefBox<T>`, `Vec<T>` or `RefVec<T>` of a type with `T` in it, like a tree
+or the introspection `Type` / `Value`) is read by a recursion as deep as the data: 38 KB of 10 000 nested lists
+would overflow the stack of whoever reads them. So `BufReader` counts how deep it is, and a value nested deeper than
+it allows is `Error::NestingTooDeep`:
+
+- `read::<T>()` / `read_owned::<T>()` of a value that is neither `Sized` nor `SelfDescribing` goes one level deeper,
+  and back up when it is done; `split()` gives a reader one level deeper. Every field, list element and boxed value
+  is read that way, so every way a type can contain itself takes a level per step.
+- Values read later keep the depth they were read at: a `RefBox`, a `RefVec`, the slots of a `sparse` struct and the
+  elements of an `EitherAnyVec` are read with a reader as deep as the one they came from.
+- `BufReader::new` allows `BufReader::DEFAULT_MAX_DEPTH` = **128** levels, `from_ww_bytes` and
+  `from_ww_bytes_owned` too. `BufReader::new(buf).with_max_depth(n)` sets another limit, `depth_left()` tells what
+  is left.
+
+128 is far more than real data needs: the introspection data of every API in this repository's tests reads within 20. A
+level costs about 3.5 KiB of stack in a debug build (far less in release), so 128 levels of the introspection
+`Type` take about 450 KiB, well within the 2 MiB of a spawned thread. Lower the limit on a small stack (an MCU) that
+decodes a recursive type. A hand-written `des_shrink_wrap` that calls `T::des_shrink_wrap` of a nested value directly,
+without `read`, takes no level for it: read nested values with `read` there too.
+
 ### `BufWriterOwned`
 
 `BufWriterOwned` writes the same bits into a growable `Vec<u8>` instead of a fixed slice (`std` only), and has no

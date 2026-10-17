@@ -58,7 +58,8 @@ typedef enum {
     SW_ERR_MAX_LEN_EXCEEDED = 27,
     SW_ERR_MALFORMED_OPTION_ANY_VEC = 28,
     SW_ERR_OPTION_ANY_VEC_WRONG_SLOT = 29,
-    SW_ERR_OPTION_ANY_VEC_UNKNOWN_SLOT = 30
+    SW_ERR_OPTION_ANY_VEC_UNKNOWN_SLOT = 30,
+    SW_ERR_NESTING_TOO_DEEP = 31
 } sw_error;
 
 /** A borrowed run of octets inside a reader's buffer (bytes or a UTF-8 string, not NUL terminated). */

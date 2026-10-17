@@ -116,6 +116,10 @@ pub enum Error {
     /// a slot it reads: a gap between the fields of a `sparse` struct (DER-13). Its size is unknown, so the slots
     /// after it can't be found. Slots are only ever appended, so the writer is not a compatible version.
     OptionAnyVecUnknownSlot,
+    /// Values are nested deeper than the reader allows ([BufReader::with_max_depth], by default
+    /// [BufReader::DEFAULT_MAX_DEPTH]): a recursive type read from data that is malformed, or made to overflow the
+    /// stack.
+    NestingTooDeep,
 }
 
 impl Display for Error {

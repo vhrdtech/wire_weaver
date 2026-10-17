@@ -23,6 +23,8 @@ use either::Either;
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct EitherAnyVec<'i> {
     data: &'i [u8],
+    /// Of the reader it was read from: its elements are read at that depth, see [BufReader::with_max_depth]
+    depth_left: u16,
 }
 
 /// Iterator over EitherAnyVec
@@ -61,7 +63,10 @@ pub struct EitherAnyVecMarker {
 
 impl<'i> EitherAnyVec<'i> {
     pub fn new(data: &'i [u8]) -> Self {
-        Self { data }
+        Self {
+            data,
+            depth_left: BufReader::DEFAULT_MAX_DEPTH,
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -71,7 +76,7 @@ impl<'i> EitherAnyVec<'i> {
     pub fn iter(&self) -> EitherAnyVecIter<'i> {
         EitherAnyVecIter {
             flags: None,
-            rd: BufReader::new(self.data),
+            rd: BufReader::new(self.data).with_max_depth(self.depth_left),
         }
     }
 }
@@ -249,6 +254,7 @@ impl<'i> DeserializeShrinkWrap<'i> for EitherAnyVec<'i> {
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         Ok(EitherAnyVec {
             data: rd.read_raw_slice(rd.bytes_left())?,
+            depth_left: rd.depth_left(),
         })
     }
 }
@@ -336,6 +342,16 @@ mod tests {
         0b1111_1000,
         // 0x19,
     ];
+
+    #[test]
+    fn elements_are_read_at_its_depth() {
+        // the elements are read later, from the bytes alone: they keep the depth the vec was read at
+        let mut rd = BufReader::new(NUMBERS).with_max_depth(3);
+        let ev = EitherAnyVec::des_shrink_wrap(&mut rd).unwrap();
+        assert_eq!(ev.iter().rd.depth_left(), 3);
+        let ev = EitherAnyVec::new(NUMBERS);
+        assert_eq!(ev.iter().rd.depth_left(), BufReader::DEFAULT_MAX_DEPTH);
+    }
 
     #[test]
     fn numbers() {

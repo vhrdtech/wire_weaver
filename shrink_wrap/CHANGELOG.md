@@ -355,6 +355,16 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
+- Decoding a recursive type (`Box<T>`, `RefBox<T>`, `Vec<T>` or `RefVec<T>` of a type that contains itself, like
+  `ww_self`'s `TypeOwned` and `ValueOwned`) had no nesting limit: 38 KB of untrusted data with 10 000 nested lists
+  overflowed the stack and aborted the reading process (P2401). `BufReader` now counts the levels: `read()` /
+  `read_owned()` of a value that is not `Sized` or `SelfDescribing` and `split()` go one level deeper, and past the
+  limit the read fails with the new `Error::NestingTooDeep` (C: `SW_ERR_NESTING_TOO_DEEP`, 31). Values read later
+  keep the depth they were read at (`RefBox`, `RefVec`, the slots of a `sparse` struct, `EitherAnyVec` elements).
+  The limit is `BufReader::DEFAULT_MAX_DEPTH` = 128 for `BufReader::new`, `from_ww_bytes` and
+  `from_ww_bytes_owned`; `BufReader::with_max_depth(n)` sets another one, `depth_left()` reads what is left. Same
+  wire format; only data nested deeper than the limit, far deeper than real data, no longer decodes. See
+  `docs/serdes/wire_format.md` ("Nesting depth"). New fuzz target `shrink-wrap-nesting`.
 - `RefVec == RefVec` was `true` when one list is a prefix of the other (an empty one equal to any): the lengths are compared too now.
 - Fields with `#[default = ..]` (SW-15) read as their default only when they start at the end of the data (written
   by an older version) and their read runs out of data. Before, any error in such a field gave the default, so a

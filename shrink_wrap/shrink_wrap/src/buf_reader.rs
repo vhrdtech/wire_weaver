@@ -21,6 +21,8 @@ pub struct BufReader<'i> {
     bit_idx: u8,
     /// First error of the `read_*_latch` methods since the last [latched](Self::latched)
     latch: Option<Error>,
+    /// How many more levels of nested values may be read, see [with_max_depth](Self::with_max_depth)
+    depth_left: u16,
 }
 
 impl<'i> BufReader<'i> {
@@ -34,6 +36,47 @@ impl<'i> BufReader<'i> {
             byte_idx: 0,
             bit_idx: 7,
             latch: None,
+            depth_left: Self::DEFAULT_MAX_DEPTH,
+        }
+    }
+
+    /// How deep values may be nested in a reader made with [new](Self::new): enough for any real data, and
+    /// shallow enough that a recursive type (`Box<T>`, `Vec<T>` or `RefVec<T>` of a type that contains itself)
+    /// read this deep stays far within a 2 MiB thread stack, also in a debug build.
+    pub const DEFAULT_MAX_DEPTH: u16 = 128;
+
+    /// Limit how deep values may be nested, from this reader on: [read](Self::read) of a value that is not
+    /// `Sized`, and [split](Self::split), go one level deeper, and fail with [Error::NestingTooDeep] when there is
+    /// none left. This is what keeps the decoding of a recursive type, from untrusted data, from overflowing the
+    /// stack. `0` allows no nested value at all.
+    ///
+    /// Each level costs a few hundred bytes of stack (more in a debug build), so lower it on a small stack (an MCU)
+    /// that decodes recursive types.
+    pub fn with_max_depth(mut self, max_depth: u16) -> Self {
+        self.depth_left = max_depth;
+        self
+    }
+
+    /// How many more levels of nested values this reader may go into, see [with_max_depth](Self::with_max_depth).
+    pub fn depth_left(&self) -> u16 {
+        self.depth_left
+    }
+
+    /// A reader of `buf`, at this reader's depth: for a value that keeps its bytes and reads them later, so that
+    /// what it reads then is still bounded by the depth it was read at.
+    pub(crate) fn nested(&self, buf: &'i [u8]) -> Self {
+        BufReader::new(buf).with_max_depth(self.depth_left)
+    }
+
+    /// Go one level deeper, see [with_max_depth](Self::with_max_depth).
+    #[inline]
+    fn descend(&mut self) -> Result<(), Error> {
+        match self.depth_left.checked_sub(1) {
+            Some(left) => {
+                self.depth_left = left;
+                Ok(())
+            }
+            None => Err(Error::NestingTooDeep),
         }
     }
 
@@ -440,36 +483,61 @@ impl<'i> BufReader<'i> {
     /// For Unsized types, size is read from the back of the buffer as reverse UNib32.
     /// Then [split](BufReader::split) reader is used to actually deserialize the value.
     ///
+    /// A value that is not `Sized` or `SelfDescribing` is read one level deeper, see
+    /// [with_max_depth](Self::with_max_depth).
+    ///
     /// Note that values deserialized with this method must be serialized with [write](crate::BufWriter::write).
     /// Values serialized with [ser_shrink_wrap](crate::SerializeShrinkWrap::ser_shrink_wrap) must be
     /// deserialized with [des_shrink_wrap](DeserializeShrinkWrap::des_shrink_wrap).
     pub fn read<T: DeserializeShrinkWrap<'i>>(&mut self) -> Result<T, Error> {
-        if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
-            let size = self.read_rev_len()?;
-            let mut rd_split = self.split(size)?;
-            T::des_shrink_wrap(&mut rd_split)
-        } else {
-            T::des_shrink_wrap(self)
+        match T::ELEMENT_SIZE {
+            ElementSize::Unsized => {
+                let size = self.read_rev_len()?;
+                let mut rd_split = self.split(size)?;
+                T::des_shrink_wrap(&mut rd_split)
+            }
+            ElementSize::UnsizedFinalStructure => {
+                self.descend()?;
+                let value = T::des_shrink_wrap(self);
+                self.depth_left += 1;
+                value
+            }
+            ElementSize::SelfDescribing | ElementSize::Sized { .. } => T::des_shrink_wrap(self),
         }
     }
 
     /// Read any value that implements DeserializeShrinkWrapOwned.
     /// See [read](Self::read) for more information.
     pub fn read_owned<T: DeserializeShrinkWrapOwned>(&mut self) -> Result<T, Error> {
-        if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
-            let size = self.read_rev_len()?;
-            let mut rd_split = self.split(size)?;
-            T::des_shrink_wrap_owned(&mut rd_split)
-        } else {
-            T::des_shrink_wrap_owned(self)
+        match T::ELEMENT_SIZE {
+            ElementSize::Unsized => {
+                let size = self.read_rev_len()?;
+                let mut rd_split = self.split(size)?;
+                T::des_shrink_wrap_owned(&mut rd_split)
+            }
+            ElementSize::UnsizedFinalStructure => {
+                self.descend()?;
+                let value = T::des_shrink_wrap_owned(self);
+                self.depth_left += 1;
+                value
+            }
+            ElementSize::SelfDescribing | ElementSize::Sized { .. } => {
+                T::des_shrink_wrap_owned(self)
+            }
         }
     }
 
     /// Align to byte and split off a BufReader which can read up to the len bytes.
     /// This is the main mechanism used for forwards and backwards compatibility, as it allows for older code
     /// to ignore newer data by simply skipping additional bytes it doesn't know about.
+    ///
+    /// The split off reader is one level deeper than this one: it fails with [Error::NestingTooDeep] when this
+    /// one has no level left, see [with_max_depth](Self::with_max_depth).
     pub fn split(&mut self, len: usize) -> Result<Self, Error> {
         self.kept()?;
+        let Some(depth_left) = self.depth_left.checked_sub(1) else {
+            return Err(Error::NestingTooDeep);
+        };
         self.align_byte();
         if self.bytes_left() < len {
             return Err(Error::OutOfBoundsSplit);
@@ -485,6 +553,7 @@ impl<'i> BufReader<'i> {
             byte_idx: 0,
             bit_idx: 7,
             latch: None,
+            depth_left,
         })
     }
 
@@ -1227,6 +1296,7 @@ mod tests {
                             byte_idx,
                             bit_idx,
                             latch: None,
+                            depth_left: BufReader::DEFAULT_MAX_DEPTH,
                         };
                         states += 1;
                         for op in Op::all() {

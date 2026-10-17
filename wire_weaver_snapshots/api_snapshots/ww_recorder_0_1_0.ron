@@ -155,15 +155,25 @@
             (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 6, since: None),
     ], path: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "Second", signature: [
-        101,
-        42,
-        201,
-        111,
-        172,
-        147,
-        218,
-        147,
+    SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
+        153,
+        191,
+        31,
+        141,
+        238,
+        144,
+        57,
+        75,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        4,
+        183,
+        179,
+        156,
+        254,
+        22,
+        5,
+        103,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What the recorder is doing, see [Recorder::status].",
@@ -175,7 +185,9 @@
         (ident: Some("recording"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
             "The running recording, if any.",
         ], slot: None, series_opaque: false),
-        (ident: Some("device_time"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
+        (ident: Some("device_time"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 8, args: [
+            Type(OutOfLine(type_idx: 7)),
+        ])), docs: [
             "Device time of the newest record, `None` before the first.",
         ], slot: None, series_opaque: false),
         (ident: Some("ring_used_bytes"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
@@ -244,12 +256,12 @@
             "Flush size that wrote fastest on this card in bytes (0: not measured): the device\'s default for",
             "[Settings::flush_bytes].",
         ], slot: None, series_opaque: false),
-        (ident: Some("rating"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
+        (ident: Some("rating"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The card, see [Recorder::card].",
     ], ident: "CardFacts", generics: [], fields: Named([
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
         (ident: Some("capacity_bytes"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
             "Capacity the card reports, in bytes.",
         ], slot: None, series_opaque: false),
@@ -278,10 +290,10 @@
         (ident: Some("video_class"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Video speed class (6, 10, 30, 60, 90), 0 unknown.",
         ], slot: None, series_opaque: false),
-        (ident: Some("content"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+        (ident: Some("content"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [
             "What is on the card.",
         ], slot: None, series_opaque: false),
-        (ident: Some("check"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 12)), docs: [
+        (ident: Some("check"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 13)), docs: [
             "Result of the last card check, `None` before one.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None)), crate_idx: 0),
@@ -304,8 +316,8 @@
         (ident: Some("valid_for_s"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Seconds the token stays valid.",
         ], slot: None, series_opaque: false),
-        (ident: Some("action"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: [], slot: None, series_opaque: false),
-        (ident: Some("card"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [
+        (ident: Some("action"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None, series_opaque: false),
+        (ident: Some("card"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: [
             "The card, with the result of its last check if it had one.",
         ], slot: None, series_opaque: false),
         (ident: Some("erases_bytes"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
@@ -359,14 +371,18 @@
         (ident: Some("session"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Session it started in.",
         ], slot: None, series_opaque: false),
-        (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
-        (ident: Some("start"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
+        (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
+        (ident: Some("start"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 8, args: [
+            Type(OutOfLine(type_idx: 7)),
+        ])), docs: [
             "Device time of the start (shifted back by the pre-trigger), `None` if the clock was not running.",
         ], slot: None, series_opaque: false),
-        (ident: Some("stopped"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 17)), docs: [
+        (ident: Some("stopped"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 18)), docs: [
             "`None` while it runs.",
         ], slot: None, series_opaque: false),
-        (ident: Some("duration"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
+        (ident: Some("duration"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 8, args: [
+            Type(OutOfLine(type_idx: 7)),
+        ])), docs: [
             "Length in device time, `None` while it runs or unknown.",
         ], slot: None, series_opaque: false),
         (ident: Some("bytes"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
@@ -438,13 +454,13 @@
             "Milliseconds after which a flush with data is written even if small (default 1000): the most a power cut",
             "takes when data comes slowly. Takes effect at once.",
         ], slot: None, series_opaque: false),
-        (ident: Some("full"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
+        (ident: Some("full"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [
             "What to do when the ring is full. Takes effect from the next boot.",
         ], slot: None, series_opaque: false),
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [
             "Whether tracks are written all the time or only in recordings. Takes effect from the next boot.",
         ], slot: None, series_opaque: false),
-        (ident: Some("usb_view"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [
+        (ident: Some("usb_view"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [
             "How the log is split in the USB view. Takes effect at the next [Recorder::refresh_usb] or mount.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None)), crate_idx: 0),
@@ -477,7 +493,9 @@
         (ident: Some("sessions"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [
             "Sessions since the format (this one included).",
         ], slot: None, series_opaque: false),
-        (ident: Some("oldest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
+        (ident: Some("oldest"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 8, args: [
+            Type(OutOfLine(type_idx: 7)),
+        ])), docs: [
             "Device time of the oldest data still in the ring, `None` if empty or unknown.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None)), crate_idx: 0),
@@ -527,16 +545,16 @@
             "events), the data tracks follow from 1. The indices valid right now are the session\'s tracks; they change",
             "only when the device boots.",
         ], optional: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 9)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "What the recorder is doing now.",
         ], optional: None),
-        (id: 2, kind: Method(args: [], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 13))), errors: None), multiplicity: Flat, since: None, ident: "card", docs: [
+        (id: 2, kind: Method(args: [], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 14))), errors: None), multiplicity: Flat, since: None, ident: "card", docs: [
             "Facts about the card in the slot, `None` without a card. Reads what the card reports (SD Status, CID); the",
             "speed rating is the result of the last card check, made by [Recorder::format].",
         ], optional: None),
         (id: 3, kind: Method(args: [
-            (ident: "action", ty: OutOfLine(type_idx: 14)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 2))), errors: Some([
+            (ident: "action", ty: OutOfLine(type_idx: 15)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 16), err_ty: OutOfLine(type_idx: 2))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
                 "Unsupported",
@@ -574,7 +592,7 @@
             "offer\'s limits, `CardFailed` when the check finds a fake or broken card (nothing is formatted then).",
         ], optional: None),
         (id: 5, kind: Method(args: [
-            (ident: "trigger", ty: OutOfLine(type_idx: 16)),
+            (ident: "trigger", ty: OutOfLine(type_idx: 17)),
             (ident: "pre_trigger_s", ty: NumericAny(Base(U16))),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 2))), errors: Some([
             (ident: "Common", nested: Some([
@@ -599,14 +617,14 @@
         ], optional: None),
         (id: 7, kind: Method(args: [
             (ident: "after", ty: NumericAny(Base(U32))),
-        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 18))), err_ty: OutOfLine(type_idx: 2))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 19))), err_ty: OutOfLine(type_idx: 2))), errors: Some([
             (ident: "NotLogging", nested: None),
         ])), multiplicity: Flat, since: None, ident: "recordings", docs: [
             "Recordings on the card, oldest first, up to [MAX_RECORDINGS] with id above `after` (0 for the first page).",
             "Recordings whose data the ring has already overwritten are not listed.",
         ], optional: None),
         (id: 8, kind: Method(args: [
-            (ident: "kind", ty: OutOfLine(type_idx: 19)),
+            (ident: "kind", ty: OutOfLine(type_idx: 20)),
             (ident: "label", ty: MaxLen(max_len: Fixed(64), ty: String)),
             (ident: "value", ty: Option(some_ty: NumericAny(Base(I64)))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2))), errors: Some([
@@ -624,7 +642,7 @@
             "Writes what is in RAM to the card now (all tracks), instead of waiting for `flush_bytes` or",
             "`flush_interval_ms`. Answers when it is on the card. Before a planned power-off, on a brown-out warning.",
         ], optional: None),
-        (id: 10, kind: Property(ty: OutOfLine(type_idx: 23), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
+        (id: 10, kind: Property(ty: OutOfLine(type_idx: 24), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "Unsupported",
@@ -632,7 +650,7 @@
         ])), multiplicity: Flat, since: None, ident: "settings", docs: [
             "Settings: flush thresholds, full policy, recording mode, USB view. Each field says when it takes effect.",
         ], optional: None),
-        (id: 11, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 24)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
+        (id: 11, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 25)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
             "Totals since the card was formatted and since this boot.",
         ], optional: None),
         (id: 12, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2))), errors: Some([
@@ -649,5 +667,5 @@
 ], ext_crates: [
     (crate_id: "ww_recorder", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

@@ -152,15 +152,25 @@
             "The device cannot tell.",
         ], ident: "Undetermined", fields: Unit, discriminant: 9, since: None),
     ], path: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "Second", signature: [
-        101,
-        42,
-        201,
-        111,
-        172,
-        147,
-        218,
-        147,
+    SkippedFullVersion(crate_idx: 3, type_name: "units::Second", signature: [
+        153,
+        191,
+        31,
+        141,
+        238,
+        144,
+        57,
+        75,
+    ]),
+    SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
+        4,
+        183,
+        179,
+        156,
+        254,
+        22,
+        5,
+        103,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Exception frame and fault status registers of a Cortex-M core.",
@@ -222,12 +232,12 @@
         (docs: [
             "ARMv6-M to ARMv8-M cores (RP2040, RP2350 Cortex-M33, STM32).",
         ], ident: "CortexM", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "RISC-V cores (RP2350 Hazard3, ESP32-C).",
         ], ident: "RiscV", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -239,10 +249,12 @@
         (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Build id of the firmware that crashed: the record may be older than an update. Empty when unknown.",
         ], slot: None, series_opaque: false),
-        (ident: Some("uptime"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 6)), docs: [
+        (ident: Some("uptime"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 7, args: [
+            Type(OutOfLine(type_idx: 6)),
+        ])), docs: [
             "Device time of the crash since its boot.",
         ], slot: None, series_opaque: false),
-        (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
+        (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
             "Registers saved by the fault handler, for a fault or panic.",
         ], slot: None, series_opaque: false),
         (ident: Some("stack"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U32)))), docs: [
@@ -282,7 +294,7 @@
         "Capturing the record is firmware infrastructure (a fault or panic handler writing into RAM that survives a",
         "reset); this trait only reports it.",
     ], crate_idx: 0, trait_name: "LastReset", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 11)), errors: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
             "Cause of the last reset and, after a crash, the record saved before it.",
         ], optional: None),
         (id: 1, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "boot_count", docs: [
@@ -296,5 +308,5 @@
     (crate_id: "ww_firmware_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

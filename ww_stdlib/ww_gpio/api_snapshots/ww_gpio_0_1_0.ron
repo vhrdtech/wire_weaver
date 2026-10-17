@@ -154,27 +154,43 @@
             "Output level to set.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "Volt", signature: [
-        83,
-        225,
-        210,
-        47,
-        23,
-        129,
-        62,
-        159,
+    SkippedFullVersion(crate_idx: 2, type_name: "units::Volt", signature: [
+        94,
+        190,
+        166,
+        249,
+        222,
+        38,
+        16,
+        236,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        4,
+        183,
+        179,
+        156,
+        254,
+        22,
+        5,
+        103,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "GPIO bank capabilities: supported IO levels, modes, custom modes, etc.",
     ], ident: "BankCapabilities", generics: [], fields: Named([
-        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 10))), docs: [
+        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 11, args: [
+            Type(OutOfLine(type_idx: 10)),
+        ]))), docs: [
             "Discrete IO levels [BankConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the bank has no",
             "level control.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
+        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 11, args: [
+            Type(OutOfLine(type_idx: 10)),
+        ])), docs: [
             "Lowest IO level of an adjustable supply, if the bank has one.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
+        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 11, args: [
+            Type(OutOfLine(type_idx: 10)),
+        ])), docs: [
             "Highest IO level of an adjustable supply, if the bank has one.",
         ], slot: None, series_opaque: false),
         (ident: Some("push_pull"), default: None, since: None, ty: Bool, docs: [
@@ -209,7 +225,9 @@
         "Everything a bank is configured with, see `Bank::configure`: what is asked for going in, what was actually set",
         "coming back.",
     ], ident: "BankConfig", generics: [], fields: Named([
-        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 11, args: [
+            Type(OutOfLine(type_idx: 10)),
+        ])), docs: [
             "IO level of every pin of the bank, on hardware with level translators ([BankCapabilities::io_levels]); `None`",
             "leaves it as it is going in (the only choice on a bank without them), and is the answer of such a bank.",
         ], slot: None, series_opaque: false),
@@ -334,12 +352,12 @@
             "`InvalidArgument` for an index that isn\'t a pin of the bank or is listed twice, `Unsupported` if the bank",
             "can\'t do it, `InUse` / `NoPower` / `Refused` as in [Pin::set_mode].",
         ], optional: None),
-        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 11)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Capabilities that each pin of the bank supports.",
         ], optional: None),
         (id: 9, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 12)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 3))), errors: Some([
+            (ident: "config", ty: OutOfLine(type_idx: 13)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "Refused",
@@ -356,5 +374,5 @@
 ], ext_crates: [
     (crate_id: "ww_gpio", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

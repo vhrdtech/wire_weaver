@@ -48,15 +48,25 @@
             "Visible outside.",
         ], ident: "Highest", fields: Unit, discriminant: 4, since: None),
     ], path: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        101,
-        42,
-        201,
-        111,
-        172,
-        147,
-        218,
-        147,
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
+        153,
+        191,
+        31,
+        141,
+        238,
+        144,
+        57,
+        75,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
+        4,
+        183,
+        179,
+        156,
+        254,
+        22,
+        5,
+        103,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         187,
@@ -81,8 +91,10 @@
             "indicators have no adjustable brightness.",
         ], optional: Some((group: None))),
         (id: 2, kind: Method(args: [
-            (ident: "duration", ty: OutOfLine(type_idx: 2)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
+            (ident: "duration", ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 2)),
+            ])),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "Unsupported", nested: None),
             (ident: "Busy", nested: None),
         ])), multiplicity: Flat, since: None, ident: "identify", docs: [
@@ -96,6 +108,6 @@
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_indication", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

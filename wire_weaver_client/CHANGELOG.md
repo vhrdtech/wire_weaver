@@ -2,6 +2,9 @@
 
 ### 🐛 Fixes
 
+- The compatibility check names an in-line type by its module path, as a skipped one is named: `units::Volt` on one
+  side and the same marker left out on the other were reported as `ww_si::units::Volt vs ww_si::Volt` (API-46,
+  STD-38).
 - Self-referential types (API-44): the compatibility check (`ApiCompat`, the evolution check) remembers the struct and
   enum definitions it compared also when one side writes them out further than the other (a device can), and gives
   up past a depth bound; before, such a pair of types recursed until the stack overflowed.

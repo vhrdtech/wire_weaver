@@ -17,6 +17,8 @@
 
 ### 🐛 Fixes
 
+- Snapshots (`ww api save`) take generic marker structs too: a public struct whose fields are all `PhantomData`
+  (`ww_si::units::Per<A, B>`), like a unit struct, so a `Quantity<Per<..>>` in an API is skipped as known (STD-38).
 - In a path type with arguments (`units_lib::Quantity<units_lib::units::Volt>`) the arguments are converted where
   they are written, not in the crate the path leads to ("Dependency not found" before) (API-46).
 - The walker parses each crate once per load (its crate cache was never filled), `snapshots_are_up_to_date` takes

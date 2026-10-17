@@ -907,7 +907,7 @@ fn convert_fields(
 }
 
 /// `PhantomData<T>`, also as `core::marker::PhantomData<T>`.
-fn is_phantom_data(ty: &Type) -> bool {
+pub(crate) fn is_phantom_data(ty: &Type) -> bool {
     matches!(ty, Type::Path(p) if p.qself.is_none() && p.path.segments.last().is_some_and(|s| s.ident == "PhantomData"))
 }
 

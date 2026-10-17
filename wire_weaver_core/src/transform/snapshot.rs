@@ -1,7 +1,7 @@
 use super::{
     api::convert_trait,
     crate_walker::{CrateContext, Scratch},
-    ty::convert_named_def,
+    ty::{convert_named_def, is_phantom_data},
     util::{collect_docs, use_tree_names},
 };
 use anyhow::{Context, Result};
@@ -113,13 +113,16 @@ fn convert_snapshot_item(item: &Item, cx: &CrateContext, scratch: &mut Scratch) 
     Ok(())
 }
 
-/// A `#[derive_shrink_wrap]` struct, or a unit struct without parameters: a marker named only in types
-/// (`ww_si::units::Volt`, API-46), which needs no serdes of its own.
+/// A `#[derive_shrink_wrap]` struct, or a public marker named only in types, which needs no serdes of its own: a unit
+/// struct (`ww_si::units::Volt`, API-46) or a struct whose fields are all `PhantomData`, generic or not
+/// (`ww_si::units::Per<A, B>`, STD-38); the walker leaves `PhantomData` fields out, so both are field-less.
 fn is_snapshot_struct(item_struct: &syn::ItemStruct) -> bool {
     has_attr(&item_struct.attrs, &["derive_shrink_wrap"])
-        || (matches!(item_struct.fields, syn::Fields::Unit)
-            && item_struct.generics.params.is_empty()
-            && matches!(item_struct.vis, Visibility::Public(_)))
+        || (matches!(item_struct.vis, Visibility::Public(_))
+            && item_struct
+                .fields
+                .iter()
+                .all(|field| is_phantom_data(&field.ty)))
 }
 
 fn is_snapshot_ty(cx: &CrateContext, name: &Ident) -> bool {
@@ -580,8 +583,10 @@ mod tests {
                 matches!(l, TypeLocationOwned::SkippedFullVersion { type_name, .. } if type_name == name)
             })
         };
-        assert!(skipped("Volt"));
-        assert!(skipped("Second"));
+        // `Volt` and `Second` are aliases: the generic `Quantity` and the markers are what is skipped
+        assert!(skipped("Quantity"));
+        assert!(skipped("units::Volt"));
+        assert!(skipped("units::Second"));
         assert!(skipped("CommonError"));
 
         // every index points to an existing entry
@@ -661,21 +666,25 @@ mod tests {
     #[test]
     fn skipped_type_signature_matches_its_crate_snapshot() {
         let uart = load("../ww_stdlib/ww_uart");
-        let volt = type_idx(&uart, "Volt");
-        let TypeLocationOwned::SkippedFullVersion { signature, .. } = &uart.types[volt as usize]
+        let quantity = type_idx(&uart, "Quantity");
+        let TypeLocationOwned::SkippedFullVersion { signature, .. } =
+            &uart.types[quantity as usize]
         else {
-            panic!("Volt is not skipped");
+            panic!("Quantity is not skipped");
         };
         assert_eq!(signature.len(), ww_self::signature::SIGNATURE_LEN);
 
-        // Volt refers to ww_numeric types, which are skipped in the ww_si snapshot as well
+        // Quantity refers to ww_numeric types, which are skipped in the ww_si snapshot as well
         let snapshots = [load("../ww_stdlib/ww_si"), load("../ww_stdlib/ww_numeric")];
         let resolve = from_snapshots(&snapshots);
-        assert!(type_signature(&uart, volt, &no_resolve).is_err());
-        assert_eq!(signature, &type_signature(&uart, volt, &resolve).unwrap());
+        assert!(type_signature(&uart, quantity, &no_resolve).is_err());
+        assert_eq!(
+            signature,
+            &type_signature(&uart, quantity, &resolve).unwrap()
+        );
 
-        let second = type_idx(&uart, "Second");
-        assert_ne!(signature, &type_signature(&uart, second, &resolve).unwrap());
+        let volt = type_idx(&uart, "units::Volt");
+        assert_ne!(signature, &type_signature(&uart, volt, &resolve).unwrap());
     }
 
     #[test]
@@ -805,6 +814,8 @@ mod tests {
             pub mod units {
                 /// The unit marker
                 pub struct Volt;
+                /// A generic marker
+                pub struct Per<A, B> { _a: core::marker::PhantomData<A>, _b: core::marker::PhantomData<B> }
             }
             ",
         );
@@ -819,6 +830,7 @@ mod tests {
             #[ww_api_root]
             pub trait Api {
                 fn a(v: units_lib::Volt, q: units_lib::Quantity<units_lib::units::Volt>);
+                fn b(q: units_lib::Quantity<units_lib::units::Per<units_lib::units::Volt, units_lib::units::Volt>>);
             }
             ",
         );
@@ -847,7 +859,7 @@ mod tests {
             })
             .collect();
         names.sort();
-        assert_eq!(names, ["Quantity", "Volt", "units::Volt"]);
+        assert_eq!(names, ["Quantity", "Volt", "units::Per", "units::Volt"]);
 
         let skipped: Vec<&str> = api
             .types
@@ -857,7 +869,7 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(skipped, ["Volt", "units::Volt", "Quantity"]);
+        assert_eq!(skipped, ["Volt", "units::Volt", "Quantity", "units::Per"]);
 
         // saved and restored as `ww api save` and wire_weaver_snapshots do
         let saved = ron::to_string(&units).unwrap();
@@ -885,7 +897,10 @@ mod tests {
                 other => format!("{other:?}"),
             })
             .collect();
-        assert_eq!(defs, ["Volt 1", "units::Volt 0", "Quantity 1"]);
+        assert_eq!(
+            defs,
+            ["Volt 1", "units::Volt 0", "Quantity 1", "units::Per 0"]
+        );
     }
 
     /// Signature of the API root, as if it was a trait.

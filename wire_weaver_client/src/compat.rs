@@ -9,6 +9,7 @@
 //! names don't matter, positions do. Direction matters as well: an `Unsized` struct written by one side can have more
 //! trailing fields than the reader knows about (they are skipped), but a reader's extra fields must have `#[default]`.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -440,7 +441,7 @@ fn compare_kinds<'a>(
                 // not enough information (e.g., compact version only), items are still compared one by one
                 return Ok(());
             };
-            check_same_origin("trait", identity, device_identity)?;
+            check_same_origin("trait", &identity, &device_identity)?;
             // when both are in-line, their items are compared one by one instead
             let skipped = |bundle: &ApiBundleOwned, idx: u32| {
                 !matches!(
@@ -451,8 +452,8 @@ fn compare_kinds<'a>(
             if skipped(client, trait_idx.0) || skipped(device, device_trait_idx.0) {
                 check_same_definition(
                     "trait",
-                    (identity, client_name),
-                    (device_identity, device_name),
+                    (&identity, client_name),
+                    (&device_identity, device_name),
                     trait_signature(client, trait_idx.0),
                     trait_signature(device, device_trait_idx.0),
                 )?;
@@ -536,8 +537,9 @@ fn check_signature<'a>(
     Ok(())
 }
 
-/// Crate and name of a trait or type, and it's version.
-type Identity<'a> = (&'a FullVersionOwned, &'a str);
+/// Crate and name of a trait or type, and its version. A type's name has its module path (`units::Volt`, API-46), as
+/// a skipped one is named.
+type Identity<'a> = (&'a FullVersionOwned, Cow<'a, str>);
 
 fn trait_identity(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Identity<'_>> {
     let (crate_idx, name) = match bundle.traits.get(trait_idx as usize)? {
@@ -549,10 +551,10 @@ fn trait_identity(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Identity<'_
         } => (*crate_idx, trait_name.as_str()),
         ApiLevelLocationOwned::SkippedCompactVersion { .. } => return None,
     };
-    Some((bundle.crate_version(crate_idx.0).ok()?, name))
+    Some((bundle.crate_version(crate_idx.0).ok()?, Cow::Borrowed(name)))
 }
 
-fn check_same_origin(what: &str, a: Identity, b: Identity) -> Result<(), String> {
+fn check_same_origin(what: &str, a: &Identity, b: &Identity) -> Result<(), String> {
     if a.0.crate_id != b.0.crate_id || a.1 != b.1 {
         return Err(format!(
             "{what} {}::{} vs {}::{}",
@@ -573,8 +575,8 @@ fn check_same_origin(what: &str, a: Identity, b: Identity) -> Result<(), String>
 /// signature in the snapshots or in the definition cache. Only possible to check when both signatures are known.
 fn check_same_definition(
     what: &str,
-    (a, a_name): (Identity, &str),
-    (b, b_name): (Identity, &str),
+    (a, a_name): (&Identity, &str),
+    (b, b_name): (&Identity, &str),
     a_signature: Option<Vec<u8>>,
     b_signature: Option<Vec<u8>>,
 ) -> Result<(), String> {
@@ -768,15 +770,15 @@ impl<'a> TypeCheck<'a> {
                 else {
                     return Err("type definition is not available on one side".into());
                 };
-                check_same_origin("type", w, r)?;
+                check_same_origin("type", &w, &r)?;
                 let signature = |bundle, ty: &TypeOwned| match ty {
                     TypeOwned::OutOfLine { type_idx } => type_signature(bundle, type_idx.0),
                     _ => None,
                 };
                 return check_same_definition(
                     "type",
-                    (w, self.writer_name),
-                    (r, self.reader_name),
+                    (&w, self.writer_name),
+                    (&r, self.reader_name),
                     signature(self.writer, w_ty),
                     signature(self.reader, r_ty),
                 );
@@ -893,17 +895,20 @@ impl<'a> TypeCheck<'a> {
                 crate_idx,
                 type_name,
                 ..
-            }) => Some((bundle.crate_version(crate_idx.0).ok()?, type_name.as_str())),
+            }) => Some((
+                bundle.crate_version(crate_idx.0).ok()?,
+                Cow::Borrowed(type_name.as_str()),
+            )),
             None => None,
         };
         let (Some(w), Some(r)) = (identity(self.writer, wi), identity(self.reader, ri)) else {
             return Err("bad API bundle: no generic type definition".into());
         };
-        check_same_origin("type", w, r)?;
+        check_same_origin("type", &w, &r)?;
         check_same_definition(
             "type",
-            (w, self.writer_name),
-            (r, self.reader_name),
+            (&w, self.writer_name),
+            (&r, self.reader_name),
             type_signature(self.writer, wi),
             type_signature(self.reader, ri),
         )?;
@@ -1077,7 +1082,10 @@ fn resolve<'a>(bundle: &'a ApiBundleOwned, ty: &'a TypeOwned) -> Result<Resolved
             let version = bundle
                 .crate_version(crate_idx.0)
                 .map_err(|e| e.to_string())?;
-            Ok(ResolvedTy::Skipped((version, type_name.as_str())))
+            Ok(ResolvedTy::Skipped((
+                version,
+                Cow::Borrowed(type_name.as_str()),
+            )))
         }
         None => Err(format!("bad API bundle: no type with index {}", type_idx.0)),
     }
@@ -1118,12 +1126,12 @@ fn fixed(len: &Length) -> Result<u32, String> {
 }
 
 fn user_type_identity<'a>(bundle: &'a ApiBundleOwned, ty: &'a TypeOwned) -> Option<Identity<'a>> {
-    let (crate_idx, ident) = match ty {
-        TypeOwned::Struct(s) => (s.crate_idx, &s.ident),
-        TypeOwned::Enum(e) => (e.crate_idx, &e.ident),
+    let (crate_idx, name) = match ty {
+        TypeOwned::Struct(s) => (s.crate_idx, s.qualified_name()),
+        TypeOwned::Enum(e) => (e.crate_idx, e.qualified_name()),
         _ => return None,
     };
-    Some((bundle.crate_version(crate_idx.0).ok()?, ident.as_str()))
+    Some((bundle.crate_version(crate_idx.0).ok()?, Cow::Owned(name)))
 }
 
 pub(crate) fn fields(fields: &FieldsOwned) -> &[FieldOwned] {
@@ -1234,7 +1242,9 @@ mod tests {
         use ww_self::definition_cache::{self, Kind};
         use ww_self::signature::{canonical_type_bytes, signature_of};
 
-        /// `read`, `write` and `supply` (returns `ww_si::Volt`)
+        /// `read`, `write` and `supply` (returns `ww_si::Volt`, `Quantity<units::Volt>`). The fixture is the marker
+        /// `units::Volt`, a plain definition: one from another revision is compared by the evolution rules. A generic
+        /// definition (`Quantity`) is compared by its signature only (CLT-32).
         const SUPPLY: u32 = 2;
 
         fn full() -> ApiBundleOwned {
@@ -1242,14 +1252,14 @@ mod tests {
             wire_weaver_core::load(&dir, None, false).unwrap()
         }
 
-        fn volt_idx(bundle: &ApiBundleOwned) -> usize {
+        fn marker_idx(bundle: &ApiBundleOwned) -> usize {
             bundle
                 .types
                 .iter()
                 .position(|l| {
-                    matches!(l, TypeLocationOwned::InLine { ty: TypeOwned::Struct(s), .. } if s.ident == "Volt")
+                    matches!(l, TypeLocationOwned::InLine { ty: TypeOwned::Struct(s), .. } if s.qualified_name() == "units::Volt")
                 })
-                .expect("Volt in-line")
+                .expect("units::Volt in-line")
         }
 
         fn cache_dir(name: &str) -> PathBuf {
@@ -1260,8 +1270,9 @@ mod tests {
             dir
         }
 
-        /// What the host has (Volt from its snapshot), and what a device built from another revision of `ww_si`
-        /// sends: Volt left out, under the signature of `older` Volt, which is stored in `cache` when given.
+        /// What the host has (`units::Volt` from its snapshot), and what a device built from another revision of
+        /// `ww_si` sends: `units::Volt` left out, under the signature of `older` `units::Volt`, which is stored in
+        /// `cache` when given.
         fn host_and_device(
             older: impl FnOnce(&mut ItemStructOwned),
             cache: Option<&std::path::Path>,
@@ -1269,22 +1280,22 @@ mod tests {
             let full = full();
             let sent = wire_weaver_core::transform::skip_known(&full).unwrap();
             let mut older_full = full.clone();
-            let idx = volt_idx(&older_full);
+            let idx = marker_idx(&older_full);
             let TypeLocationOwned::InLine {
-                ty: TypeOwned::Struct(volt),
+                ty: TypeOwned::Struct(marker),
                 ..
             } = &mut older_full.types[idx]
             else {
                 unreachable!()
             };
-            older(volt);
-            let volt_crate_idx = volt.crate_idx.0;
+            older(marker);
+            let marker_crate_idx = marker.crate_idx.0;
             let resolve = |v: &_| crate::snapshots::get(v);
             let bytes = canonical_type_bytes(&older_full, idx as u32, &resolve).unwrap();
             let older_signature = signature_of(&bytes);
-            let version = older_full.crate_version(volt_crate_idx).unwrap().clone();
+            let version = older_full.crate_version(marker_crate_idx).unwrap().clone();
             if let Some(dir) = cache {
-                definition_cache::store(dir, Kind::Type, &version, "Volt", &bytes).unwrap();
+                definition_cache::store(dir, Kind::Type, &version, "units::Volt", &bytes).unwrap();
             }
 
             let mut device = sent.clone();
@@ -1295,13 +1306,13 @@ mod tests {
                     signature,
                     ..
                 } = location
-                    && type_name == "Volt"
+                    && type_name == "units::Volt"
                 {
                     host_signature = signature.clone();
                     *signature = older_signature.clone();
                 }
             }
-            assert!(!host_signature.is_empty(), "Volt is left out");
+            assert!(!host_signature.is_empty(), "units::Volt is left out");
             assert_ne!(host_signature, older_signature);
             let mut host = sent;
             inline_known_in(&mut host, None);
@@ -1312,14 +1323,14 @@ mod tests {
         fn compatible_definition_from_the_cache() {
             let dir = cache_dir("compatible");
             let (host, mut device, host_signature, older_signature) = host_and_device(
-                |volt| volt.docs = vec!["Docs of an older revision".into()],
+                |marker| marker.docs = vec!["Docs of an older revision".into()],
                 Some(&dir),
             );
             let inlined = inline_known_in(&mut device, Some(&dir));
             assert!(inlined.not_inlined.is_empty(), "{:?}", inlined.not_inlined);
             assert_eq!(inlined.from_cache.len(), 1);
             let from_cache = &inlined.from_cache[0];
-            assert_eq!(from_cache.name, "Volt");
+            assert_eq!(from_cache.name, "units::Volt");
             assert_eq!(from_cache.signature, older_signature);
             assert_eq!(from_cache.snapshot_signature, Some(host_signature));
             let compat = ApiCompat::new(&host, &device);
@@ -1332,12 +1343,8 @@ mod tests {
         fn incompatible_definition_from_the_cache() {
             let dir = cache_dir("incompatible");
             let (host, mut device, _, _) = host_and_device(
-                |volt| {
-                    let FieldsOwned::Named(fields) = &mut volt.fields else {
-                        unreachable!()
-                    };
-                    fields[1].ty = TypeOwned::Bool;
-                },
+                // a final structure can't be read as an evolvable one
+                |marker| marker.size = ElementSize::UnsizedFinalStructure,
                 Some(&dir),
             );
             inline_known_in(&mut device, Some(&dir));
@@ -1350,7 +1357,7 @@ mod tests {
         fn definition_not_in_the_cache() {
             let dir = cache_dir("missing");
             let (host, mut device, host_signature, older_signature) = host_and_device(
-                |volt| volt.docs = vec!["Docs of an older revision".into()],
+                |marker| marker.docs = vec!["Docs of an older revision".into()],
                 None,
             );
             let inlined = inline_known_in(&mut device, Some(&dir));
@@ -1360,7 +1367,7 @@ mod tests {
                 panic!("expected incompatible");
             };
             for part in [
-                "ww_si::Volt 0.1.0",
+                "ww_si::units::Volt 0.2.0",
                 &hex(&host_signature),
                 &hex(&older_signature),
                 "different revisions of ww_si",

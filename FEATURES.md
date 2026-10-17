@@ -691,6 +691,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Different` args chosen automatically), and a `DynResource` equivalent for the dynamic client
   (`docs/api/multi_requests.md`, `tests/properties`, `tests/methods`, `tests/dynamic`). Deferred methods inside a multi request are refused with
   `OperationNotSupported`.
+- 📋 **CLT-32 Generic definitions from another revision by the evolution rules** · `v0.5.x` — a definition a device
+  leaves out that differs from the host's snapshot (an unpublished crate changed without a bump) is found in the
+  definition cache and compared by the evolution rules, but only when it is not generic: for an instance of a generic
+  definition (`ww_si::Quantity<U>`, `Timed<T>`) `check_instances` compares identity and signature only, so a docs-only
+  change reads as incompatible. Compare the two generic definitions field by field with the arguments substituted.
+  Found by STD-38 (`wire_weaver_client` `compat::tests::other_revision` now use the marker `units::Volt`).
 - 📋 **CLT-16 Verify the hash of a cached API bundle** · `v0.5.x` (`wire_weaver_client/src/local_registry.rs`).
 - 📋 **CLT-17 Reliable requests over unreliable media** · `v0.5.x` — a second, non-increasing seq number to guard against
   a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.
@@ -883,6 +889,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   prefixes and storage, `UVlq32` / `UVlq64` storage, `Baud` for baud rates (STD-13), `Ratio`, `Torque` and
   `Timed<T>` (EX-11). `docs/std_library/ww_si.md`,
   `docs/std_library/ww_numeric.md`. Zero-overhead typed quantities (`Volt<u16, Milli>`) are not part of it.
+- ✅ **STD-38 `ww_si` 0.2: one generic `Quantity<U: Unit>`** · `v0.5` — every quantity is
+  `Quantity<U> { prefix, value, PhantomData<U> }` with a zero-size marker per unit in `ww_si::units` and the 0.1 names
+  as aliases (`KiloGram` → `Gram`); `Dim`, `Scale`, `UnitExpr`, `Unit` (own markers in API crates), `Per` / `Times`;
+  constructors, `quantize`, conversions (`to_si_f64` through each unit's scale), `with_prefix`, `same_repr`,
+  comparisons, `Display` / `Debug` / `defmt` written once; unit algebra checked by the compiler against a product
+  table verified at compile time; `units::by_name`. Same bytes on the wire as 0.1. `docs/std_library/ww_si.md`,
+  `ww_stdlib/ww_si/tests`; the 0.2.0 snapshot holds `Quantity`, every marker and `Per` / `Times`, so devices
+  leave them out of their introspection data. Other crates' call sites moved to the new constructors; the motor demo's
+  own helpers (`units.rs`) and `Load` units are the follow-up piece; `BaseUnit` stays until STD-37 (run-time units).
 - ✅ **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** · `v0.5` — the info
     crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),
     `BUILD_ID` (GNU build id, finds the ELF) and optional `BUILD_RECORD`; `build::emit()` + `firmware_summary!()` for
@@ -999,15 +1014,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reserved indices 4..=6, so a host sees input changes without opening the `event` stream of every pin (slow inputs,
   a dashboard). Blocked on API-29 array-index-bounds: `Pin` sits in `Bank::pin[]` (and banks usually in an array
   too), and levels under a resource array can't be observed until their bound is known (SRV-18).
-- 🚧 **STD-38 `ww_si` 0.2: one generic `Quantity<U: Unit>`** · `v0.5` — every quantity is
-  `Quantity<U> { prefix, value, PhantomData<U> }` with a zero-size marker per unit in `ww_si::units` and the 0.1 names
-  as aliases (`KiloGram` → `Gram`); `Dim`, `Scale`, `UnitExpr`, `Unit` (own markers in API crates), `Per` / `Times`;
-  constructors, `quantize`, conversions (`to_si_f64` through each unit's scale), `with_prefix`, `same_repr`,
-  comparisons, `Display` / `Debug` / `defmt` written once; unit algebra checked by the compiler against a product
-  table verified at compile time; `units::by_name`. Same bytes on the wire as 0.1. `docs/std_library/ww_si.md`,
-  `ww_stdlib/ww_si/tests`. Open: codegen'd APIs that use a quantity need API-46 (the marker comes out as the alias),
-  then the ww_si 0.2.0 snapshot; migration of the other crates and the motor demo is its own piece; `BaseUnit` stays
-  until STD-37 (run-time units).
 - 🚧 **STD-34 `ww_recorder`** · `v0.5.x` — control a recorder over WireWeaver: `Recorder` (status, card facts,
   two-step prepare/format with a token, recordings, markers, `sync`, settings with the flush thresholds, counters,
   optional `refresh_usb`) and `Track[]` (info, enable, durability, compression, counters). For the SD card log store

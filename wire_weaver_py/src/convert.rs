@@ -217,13 +217,15 @@ fn to_value_at(
                     .collect::<PyResult<_>>()?,
             )
         }
-        TypeOwned::Series(inner) => ValueOwned::Vec(to_items(obj, inner, bundle).map_err(|e| {
-            if e.is_instance_of::<PyTypeError>(obj.py()) && !is_iterable(obj) {
-                expected()
-            } else {
-                e
-            }
-        })?),
+        TypeOwned::Series(inner) => {
+            ValueOwned::Vec(to_items(obj, inner, bundle, depth).map_err(|e| {
+                if e.is_instance_of::<PyTypeError>(obj.py()) && !is_iterable(obj) {
+                    expected()
+                } else {
+                    e
+                }
+            })?)
+        }
         TypeOwned::Flag
         | TypeOwned::OutOfLine { .. }
         | TypeOwned::Instance { .. }

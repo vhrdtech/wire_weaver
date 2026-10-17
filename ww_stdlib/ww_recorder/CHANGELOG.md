@@ -10,7 +10,9 @@
     `recording_start` / `recording_stop` / `recordings` (`Trigger`, `StopReason`, `RecordingInfo`), `marker`
     (`MarkerKind`), `sync`, the property `settings` (`Settings`: `flush_bytes`, `flush_interval_ms`, `FullPolicy`,
     `RecordingMode`, `UsbView`), `counters` (`RecorderCounters`) and the optional `refresh_usb`.
-  - `Track`: `info` (`TrackInfo`), the properties `enabled`, `durability` (`Durability`) and the optional
+  - `Track`: `info` (`TrackInfo`: numbers only, the path as resource ids `MaxLen<RefVec<UNib32>, MAX_PATH>`, the item
+    type as `ItemType` with its `ww_self` signature and `ww_global` id, the stable key, the rate; names are made on
+    the host from the device's API), the properties `enabled`, `durability` (`Durability`) and the optional
     `compression` (`Compression`), and `counters` (`TrackCounters`).
   - `RecorderError` with the `Common` variant and `NoCard`, `BadToken`, `CardFailed`, `NotLogging`,
     `RecordingRunning`, `NoRecording`.

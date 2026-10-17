@@ -129,9 +129,12 @@ a power cut: nothing written before the last completed flush is lost, and the ne
 recordings, drops, card events), the data tracks follow from 1. `valid_indices_root_track` returns those, and they
 change only on a boot. Each `Track` has:
 
-- `info()`: the stream's resource path in the device API with indices (`can[1].rx`; the system track is `system`),
-  the item type, what a position counts (`bytes`, `frames`), a stable 64-bit key (the same track across sessions
-  and firmware that keeps the path) and the nominal rate;
+- `info()`: the track's identity, numbers only: the stream's resource path in the device API as resource ids with
+  array indices (the form requests use, [addressing](../api/addressing.md); empty for the system track), the item
+  type as its `ww_self` [signature](ww_self.md) and `ww_global` id, a stable 64-bit key (the same track across
+  sessions and firmware that keeps the path, made from numbers only) and the nominal rate. The device has no
+  resource or type names at hand: a host makes `can[1].rx` and `ww_can_bus::Frame` from the device's API, and
+  what a position counts (bytes, frames) from the item type;
 - `enabled` (a disabled track keeps its place and position and counts its items as dropped; track 0 can't be
   disabled), `durability` (`Normal`: with the next flush; `Immediate`: written right after each item, for events and
   errors) and the optional `compression` (`None`, `Lz4`, `Heatshrink`);

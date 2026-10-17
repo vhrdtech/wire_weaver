@@ -29,8 +29,10 @@ pub use ww_si::Second;
 pub const MAX_RECORDINGS: usize = 8;
 /// Longest label of a [Recorder::marker], in bytes.
 pub const MAX_LABEL: usize = 64;
-/// Longest name in the status and card facts (card product name, track path), in bytes.
+/// Longest name in the status and card facts (card product name), in bytes.
 pub const MAX_NAME: usize = 48;
+/// Most resource ids in a [TrackInfo::path].
+pub const MAX_PATH: usize = 16;
 
 /// Control of a recorder: a logger that writes tracks to a card or flash.
 ///
@@ -529,19 +531,36 @@ pub enum Compression {
     Heatshrink,
 }
 
-/// A track's identity, see [Track::info].
+/// A track's identity, see [Track::info]. Numbers only: the device has no resource or type names at hand, a host
+/// makes them (`can[1].rx`, `ww_can_bus::Frame`) from the device's API.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct TrackInfo<'i> {
-    /// The stream's resource path in the device API, with indices: `can[1].rx`. The system track is `system`.
-    pub path: MaxLen<&'i str, MAX_NAME>,
-    /// The item type: crate, version and path, as the PC tool finds it in the API bundle.
-    pub item_type: MaxLen<&'i str, MAX_NAME>,
-    /// What a position counts: `bytes`, `frames`, `samples`. May be empty.
-    pub units: MaxLen<&'i str, 16>,
-    /// Stable 64-bit key: the same track across sessions and firmware versions that keep its path.
+    /// The stream's resource path in the device API as resource ids, array indices included: the form requests use
+    /// (`docs/api/addressing.md`). Empty for the system track.
+    pub path: MaxLen<RefVec<'i, UNib32>, MAX_PATH>,
+    /// What the track's items are.
+    pub item_type: ItemType,
+    /// Stable 64-bit key: the same track across sessions and firmware versions that keep its path. Made from
+    /// numbers only (what names the API root across firmware updates, and the path).
     pub key: u64,
     /// Nominal items per second, 0 unknown.
     pub rate: u32,
+}
+
+/// The type of a track's items, see [TrackInfo::item_type]. A host finds crate, version and type path in the
+/// device's API from the track's path, and recognises kinds of data (a CAN frame, a defmt frame) by these.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
+pub struct ItemType {
+    /// The type's `ww_self` signature (`ww_self::signature`, `docs/std_library/ww_self.md`), `None` when the
+    /// device doesn't know it.
+    pub signature: Option<[u8; 8]>,
+    /// The `ww_global` id of the type's crate (the number of its `GlobalTypeId`), when it has one.
+    pub global_id: Option<UNib32>,
 }
 
 /// What a track has stored, see [Track::counters]. Since this boot unless it says otherwise.
@@ -664,6 +683,25 @@ mod tests {
         let mut buf = [0u8; 64];
         let bytes = s.to_ww_bytes(&mut buf).unwrap();
         assert_eq!(Settings::from_ww_bytes(bytes).unwrap(), s);
+    }
+
+    #[test]
+    fn track_info_is_numbers() {
+        let path = [UNib32(3), UNib32(1), UNib32(0)];
+        let info = TrackInfo {
+            path: MaxLen::new(RefVec::Slice { slice: &path }).unwrap(),
+            item_type: ItemType {
+                signature: Some([1, 2, 3, 4, 5, 6, 7, 8]),
+                global_id: Some(UNib32(0)),
+            },
+            key: 0x0123_4567_89ab_cdef,
+            rate: 2000,
+        };
+        let mut buf = [0u8; 64];
+        let bytes = info.to_ww_bytes(&mut buf).unwrap();
+        // the numbers and a few bytes of lengths and flags, no names
+        assert!(bytes.len() <= 28, "{} bytes", bytes.len());
+        assert_eq!(TrackInfo::from_ww_bytes(bytes).unwrap(), info);
     }
 
     #[test]

@@ -10,6 +10,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- `series::dynamic` (CLT-29): the column readers of `Series` for decoders that know `T` only at run time
+  (`read_count`, `read_numeric`, `read_numeric128`, `read_float`, `read_run` with `RunKind`, `read_opaque_run`,
+  `read_struct_head`), one whole column per call, validating as the typed readers do. `ww_self`'s dynamic decoder is
+  built on them.
 - `RefVecBuilder<T>` (SW-61): writes a `RefVec<'i, T>` in place, element by element, into a `BufWriter` that may
   hold other data too, without a slice of the elements: `new(&mut wr)`, `push(&mut wr, &value)`,
   `extend(&mut wr, items)`, `push_with(&mut wr, |wr| ..)` for an element written by other means (a nested builder,

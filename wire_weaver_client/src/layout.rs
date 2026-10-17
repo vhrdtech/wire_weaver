@@ -445,6 +445,7 @@ mod tests {
             ty,
             docs: vec![],
             slot: None,
+            series_opaque: false,
         }
     }
 

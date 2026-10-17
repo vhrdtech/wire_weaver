@@ -88,7 +88,8 @@ fn store_inner(
     );
     let registry_path = registry_path()?;
     let file_path = registry_path.join(&file_name);
-    if matches!(fs::exists(&file_path), Ok(true)) {
+    // kept when it reads back: a file of an older ww_self format is written again
+    if read_back(&file_path) {
         return Ok(());
     }
     fs::create_dir_all(&registry_path)?;
@@ -107,4 +108,11 @@ fn registry_path() -> Result<PathBuf> {
     Ok(std::env::home_dir()
         .ok_or(anyhow!("no home directory"))?
         .join(".wire_weaver"))
+}
+
+/// Whether the cached bundle at `path` exists and is readable in this ww_self format.
+fn read_back(path: &std::path::Path) -> bool {
+    fs::read_to_string(path)
+        .ok()
+        .is_some_and(|s| ron::from_str::<ApiBundleOwned>(&s).is_ok())
 }

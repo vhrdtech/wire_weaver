@@ -36,13 +36,13 @@
     ], ident: "ClockInfo", generics: [], fields: Named([
         (ident: Some("resolution"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Smallest step of the clock.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("source"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "\"RP2350 TIMER0\", \"DWT cycle counter\".",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("sync_formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 1))), docs: [
             "Sync formats this device can use; empty without a sync line.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "State of a device\'s sync line, see `SyncStatus::state` and `TimeMapPoint::state`.",
@@ -65,13 +65,13 @@
     ], ident: "TimeMapPoint", generics: [], fields: Named([
         (ident: Some("local"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "This device\'s own time at the point.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("shared"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The corresponding shared (master) time.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Sync state at the point, so a host can tell a real lock from a stale mapping.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What a device\'s sync line should do, see `Clock::configure_sync` / `Clock::sync_config`.",
@@ -82,12 +82,12 @@
         (docs: [
             "This device drives the sync line in `format`, so others can lock to it.",
         ], ident: "Master", fields: Named([
-            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None),
+            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "This device locks `now()` to a master\'s sync line in `format`.",
         ], ident: "Slave", fields: Named([
-            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None),
+            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
@@ -107,7 +107,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -115,13 +115,13 @@
     ], ident: "SyncStatus", generics: [], fields: Named([
         (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Current state of the sync state machine.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("offset"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
             "Local minus shared time at the last lock, when known.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("last_lock"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
             "Local time of the last lock.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "DateTime", signature: [
         131,

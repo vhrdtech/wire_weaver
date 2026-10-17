@@ -21,7 +21,7 @@
         ], ident: "Strap", fields: Named([
             (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
                 "The raw value read.",
-            ], slot: None),
+            ], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "Neither: the firmware assumes the revision it was built for.",
@@ -42,25 +42,25 @@
     ], ident: "BoardSummary", generics: [], fields: Named([
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "Board series, `B200`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("revision"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: String), docs: [
             "Hardware revision as printed on the board, `B`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("revision_source"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "How the firmware knows the revision.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("variant"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "PCB assembly variant.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("bom_variant"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "PCB assembly BOM variant.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("serial"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "Serial number.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("build_date"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "Build date, if available.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [

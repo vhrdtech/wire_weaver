@@ -62,27 +62,27 @@
     ], ident: "BufferInfo", generics: [], fields: Named([
         (ident: Some("used_words"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Words taken by counters (`cnt::ram_used_words()`), fixed at link time: what a host reads.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("capacity_words"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Size of the buffer.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The counter buffers of this firmware and how to decode them, see [Counters::INFO].",
     ], ident: "CountersInfo", generics: [], fields: Named([
         (ident: Some("format"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "`cnt` format version (`cnt::SIGNATURE_VERSION`, in `_CNT_SIGNATURE`; 2 today): how the host reads the words.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("ram"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The RAM buffer.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("backup"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
             "The backup buffer, `None` when the firmware has none (`CNT_BKP_BUFFER_SIZE_WORDS` is 0).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
             "GNU build id of the firmware (20 bytes with sha1), to find its ELF; empty when the firmware didn\'t keep the",
             "note in flash (the host then can\'t check its ELF). The same as `ww_firmware_info::FirmwareInfo::BUILD_ID`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "One of the two `cnt` buffers.",
@@ -110,7 +110,7 @@
         (docs: [
             "Common error",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
     ])), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Second", signature: [
@@ -128,14 +128,14 @@
     ], ident: "WordChange", generics: [], fields: Named([
         (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
             "Word index in the buffer.",
-        ], slot: None),
-        (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None),
+        ], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Counter words that changed, see [Counters::watch].",
     ], ident: "CounterChanges", generics: [], fields: Named([
-        (ident: Some("buffer"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
-        (ident: Some("words"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 6))), docs: [], slot: None),
+        (ident: Some("buffer"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+        (ident: Some("words"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 6))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [

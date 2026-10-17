@@ -132,6 +132,15 @@ pub(crate) fn convert_ty_path_segment(
         "RangeInclusive" => convert_ty_range_inclusive(segment, current_crate, scratch),
         "Delta" | "DeltaOwned" | "DeltaOfDelta" | "DeltaOfDeltaOwned" | "XorFloat"
         | "XorFloatOwned" => convert_ty_series(segment, current_crate, scratch),
+        // SW-60: the item type in its own columns
+        "Series" | "SeriesOwned" => {
+            let inner_ty = get_inner_angle_bracketed_ty(segment, current_crate)?;
+            Ok(TypeOwned::Series(Box::new(convert_ty(
+                inner_ty,
+                current_crate,
+                scratch,
+            )?)))
+        }
         "Box" | "RefBox" => convert_ty_ref_box(segment, current_crate, scratch),
         user_ty => {
             if let Some(ty) = convert_ub_ib(user_ty) {
@@ -743,6 +752,7 @@ fn convert_fields(
                     default,
                     since,
                     slot,
+                    series_opaque: has_series_opaque(&f.attrs),
                 });
             }
             if matches!(fields, Fields::Unnamed(_)) {
@@ -753,6 +763,14 @@ fn convert_fields(
         }
         Fields::Unit => Ok(FieldsOwned::Unit),
     }
+}
+
+/// `#[series(opaque)]` (SW-60): the field is an opaque run of its bytes in a `Series`; the derive checks the form.
+fn has_series_opaque(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|a| {
+        a.path().is_ident("series")
+            && matches!(&a.meta, syn::Meta::List(list) if list.tokens.to_string() == "opaque")
+    })
 }
 
 /// `#[slot = N]` (DER-13, a field of a `sparse` struct).

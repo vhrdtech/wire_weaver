@@ -18,6 +18,11 @@
 
 ### 🚀 Features
 
+- `Series<'i, T>` / `SeriesOwned<T>` in APIs (SW-60, CLT-29): the API model has them as `Type::Series`, with
+  `#[series(opaque)]` fields marked (`Field::series_opaque`); generated servers and clients use the types as written.
+  The stream serializers name the value's lifetime (`'i`): `Series` is invariant over it.
+- A cached bundle in `~/.wire_weaver/` that doesn't read back in this ww_self format is written again (it was kept,
+  and hosts couldn't use it).
 - Generic user types in APIs (API-43): `Timed<Ampere>`, `Window<4>`, `Reading<i16>`, `Tagged<'i, T>` as arguments,
   return values, properties, stream items and fields, through `crate_walker` into dependency crates. A generic
   definition goes into the types array once with its parameters, each use is an instance with its arguments (types,

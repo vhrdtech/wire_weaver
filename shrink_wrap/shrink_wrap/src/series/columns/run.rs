@@ -237,7 +237,6 @@ impl<'i, K: RunValues<'i>> RunReader<'i, K> {
     }
 
     /// Whether the next item starts a new value (false for the first item): read before [next](Self::next).
-    #[cfg(any(test, fuzzing))]
     pub(crate) fn changes_next(&self) -> bool {
         self.pos == self.next_change
     }

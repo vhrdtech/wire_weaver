@@ -235,7 +235,10 @@ impl TypeOwned {
             TypeOwned::RangeInclusive(_) => Ok(false),
             TypeOwned::MaxLen { ty, .. } => ty.is_lifetime(api_bundle),
             // a slice or a reader of the buffer, like RefVec
-            TypeOwned::Delta(_) | TypeOwned::DeltaOfDelta(_) | TypeOwned::XorFloat(_) => Ok(true),
+            TypeOwned::Delta(_)
+            | TypeOwned::DeltaOfDelta(_)
+            | TypeOwned::XorFloat(_)
+            | TypeOwned::Series(_) => Ok(true),
         }
     }
 
@@ -256,7 +259,8 @@ impl TypeOwned {
             )),
             TypeOwned::Struct(item_struct) => Ok(item_struct.is_unsized()),
             TypeOwned::Enum(item_enum) => Ok(item_enum.is_unsized()),
-            TypeOwned::Box(_) => Ok(true),
+            // its byte length goes into the parent's FIFO, nothing inside uses it
+            TypeOwned::Box(_) | TypeOwned::Series(_) => Ok(true),
             TypeOwned::Bool
             | TypeOwned::NumericAny(_)
             | TypeOwned::Flag
@@ -480,6 +484,7 @@ impl NameCx<'_> {
             TypeOwned::Flag => self.push("flag"),
             TypeOwned::String => self.push("String"),
             TypeOwned::Vec(inner) => self.list("Vec<", ">", [inner.as_ref()]),
+            TypeOwned::Series(inner) => self.list("Series<", ">", [inner.as_ref()]),
             TypeOwned::Array { len, ty } => {
                 self.push("[")?;
                 self.ty(ty)?;
@@ -612,6 +617,7 @@ impl DefCx<'_> {
                 }
             }
             TypeOwned::Vec(inner) => Ok(format!("Vec<{}>", self.ty(inner, params)?)),
+            TypeOwned::Series(inner) => Ok(format!("Series<{}>", self.ty(inner, params)?)),
             TypeOwned::Array { len, ty } => Ok(format!(
                 "[{}; {}]",
                 self.ty(ty, params)?,

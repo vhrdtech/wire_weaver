@@ -257,6 +257,7 @@ impl Gen<'_> {
                 ty: self.ty(defs, params, depth),
                 docs: vec![],
                 slot: None,
+                series_opaque: self.byte().is_multiple_of(8),
             });
         }
         FieldsOwned::Named(fields)
@@ -270,7 +271,7 @@ impl Gen<'_> {
     fn ty(&mut self, defs: u8, params: u8, depth: u8) -> TypeOwned {
         let leaf = depth > 8;
         let boxed = |s: &mut Self| Box::new(s.ty(defs, params, depth + 1));
-        match self.byte() % if leaf { 4 } else { 15 } {
+        match self.byte() % if leaf { 4 } else { 16 } {
             0 => TypeOwned::Bool,
             1 => TypeOwned::NumericAny(NumericAnyTypeOwned::Base(NumericBaseType::U16)),
             2 => TypeOwned::Param(self.index(params)),
@@ -322,10 +323,11 @@ impl Gen<'_> {
                 let ty = self.ty(defs, params, 9);
                 TypeOwned::Tuple(vec![ty; n as usize])
             }
-            _ => TypeOwned::Result {
+            14 => TypeOwned::Result {
                 ok_ty: boxed(self),
                 err_ty: boxed(self),
             },
+            _ => TypeOwned::Series(boxed(self)),
         }
     }
 }

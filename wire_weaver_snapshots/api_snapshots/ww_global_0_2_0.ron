@@ -2,7 +2,7 @@
 // Do not edit, bump the crate version and save a new snapshot instead.
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_global", items: []), types: [
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "GlobalTypeId", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None),
+        (ident: Some("id"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_global", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

@@ -94,13 +94,13 @@
     ], ident: "Reading", generics: [], fields: Named([
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "In the channel\'s [ChannelInfo::unit] and [ChannelInfo::prefix].",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("raw"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "The converter\'s raw code (for checking calibration).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
             "When the sample was taken.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
@@ -119,7 +119,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "No channel with this index.",
@@ -138,43 +138,43 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`value = raw * scale + offset`, in the channel\'s unit and prefix.",
     ], ident: "Linear", generics: [], fields: Named([
-        (ident: Some("scale"), default: None, since: None, ty: NumericAny(Base(F32)), docs: [], slot: None),
-        (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(F32)), docs: [], slot: None),
+        (ident: Some("scale"), default: None, since: None, ty: NumericAny(Base(F32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(F32)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One analog input.",
     ], ident: "ChannelInfo", generics: [], fields: Named([
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "For the user: \"IO0\", \"VBUS\", \"die temperature\".",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [
             "Physical unit of [Reading::value], [ChannelInfo::min] and [ChannelInfo::max].",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
             "SI prefix of the values.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("min"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Lowest value the channel can show.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("max"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Highest value the channel can show.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Converter resolution.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("calibrated"), default: None, since: None, ty: Bool, docs: [
             "Whether readings are calibrated for this unit (per-device factors) or nominal only.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("raw_to_value"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
             "How raw samples of streams and captures turn into values; `None` if they don\'t linearly.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s ADC offers, see `Adc::capabilities`.",
     ], ident: "AdcCapabilities", generics: [], fields: Named([
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 8))), docs: [
             "Channel `n` of every method is `channels[n]`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Hertz", signature: [
         233,
@@ -211,59 +211,59 @@
     ], ident: "StreamConfig", generics: [], fields: Named([
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Channel indices, in the order samples are interleaved.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
             "Sample sets per second.",
-        ], slot: None),
-        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None),
+        ], slot: None, series_opaque: false),
+        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
         (ident: Some("flush_interval"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
             "Send a block at least this often even if it isn\'t full (small rates would wait long otherwise); `None` lets",
             "the device choose (around 10 ms).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What opening `AdcStream::samples` actually set.",
     ], ident: "StreamActual", generics: [], fields: Named([
         (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
             "Sample sets per second.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Raw samples of a stream, see `AdcStream::samples`; its position and time are in the event\'s head.",
     ], ident: "SampleBlock", generics: [], fields: Named([
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Whole sample sets, interleaved in the order of [StreamConfig::channels], packed as [StreamConfig::format].",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `AdcStream` can do.",
     ], ident: "StreamCapabilities", generics: [], fields: Named([
         (ident: Some("max_total_rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
             "Highest sample rate of all channels together (samples, not sets, per second), alone on the link.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("max_channels"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Most channels in one stream.",
-        ], slot: None),
-        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 11))), docs: [], slot: None),
+        ], slot: None, series_opaque: false),
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 11))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `AdcCapture` can do.",
     ], ident: "CaptureCapabilities", generics: [], fields: Named([
         (ident: Some("max_total_rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
             "Highest sample rate of all channels together (samples per second).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("max_bytes"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Capture memory in bytes.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("simultaneous"), default: None, since: None, ty: Bool, docs: [
             "Whether the channels of one sample set are sampled at the same instant (simultaneous sampling ADCs, or",
             "several ADCs triggered together).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("level_trigger"), default: None, since: None, ty: Bool, docs: [
             "Which [Trigger]s work.",
-        ], slot: None),
-        (ident: Some("external_trigger"), default: None, since: None, ty: Bool, docs: [], slot: None),
-        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 11))), docs: [], slot: None),
+        ], slot: None, series_opaque: false),
+        (ident: Some("external_trigger"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 11))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "When a capture starts.",
@@ -274,14 +274,14 @@
         (docs: [
             "When `channel` rises through `level` (in the channel\'s unit and prefix).",
         ], ident: "Rising", fields: Named([
-            (ident: Some("channel"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
-            (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
+            (ident: Some("channel"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "When `channel` falls through `level`.",
         ], ident: "Falling", fields: Named([
-            (ident: Some("channel"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
-            (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
+            (ident: Some("channel"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "On the device\'s external trigger input, or another device\'s trigger.",
@@ -292,28 +292,28 @@
     ], ident: "CaptureConfig", generics: [], fields: Named([
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Channel indices, in the order samples are interleaved.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
             "Sample sets per second.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("sets"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Sample sets to keep in total, `pre_trigger` included.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("pre_trigger"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Sample sets to keep from before the trigger.",
-        ], slot: None),
-        (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None),
-        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None),
+        ], slot: None, series_opaque: false),
+        (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
+        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `AdcCapture::capture` actually set.",
     ], ident: "CaptureActual", generics: [], fields: Named([
         (ident: Some("rate"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
             "Sample sets per second.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("bytes"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Size of the data once done, for `AdcCapture::capture_read`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a capture stands, see `AdcCapture::capture_status`.",
@@ -327,14 +327,14 @@
         (docs: [
             "Triggered at `t`, taking the rest.",
         ], ident: "Triggered", fields: Named([
-            (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
+            (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "Done: data ready to read. `t_first` is the time of the first set, `t_trigger` the trigger\'s.",
         ], ident: "Done", fields: Named([
-            (ident: Some("t_first"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
-            (ident: Some("t_trigger"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [], slot: None),
-            (ident: Some("sets"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
+            (ident: Some("t_first"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+            (ident: Some("t_trigger"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("sets"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
 ], traits: [

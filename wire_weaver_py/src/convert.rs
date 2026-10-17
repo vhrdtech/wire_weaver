@@ -18,6 +18,7 @@
 //! | `Result<T, E>`                    | `{"Ok": T}` or `{"Err": E}`                                         |
 //! | `Range`, `RangeInclusive`         | `(start, end)` (`range` with step 1 accepted)                       |
 //! | `Delta`, `DeltaOfDelta`, `XorFloat` | `list` of `int` / `float` (any iterable accepted)                 |
+//! | `Series<T>`                       | `list` of `T` (columns as numpy arrays: `decode_columns`)           |
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -189,6 +190,13 @@ pub(crate) fn to_value(
                     .collect::<PyResult<_>>()?,
             )
         }
+        TypeOwned::Series(inner) => ValueOwned::Vec(to_items(obj, inner, bundle).map_err(|e| {
+            if e.is_instance_of::<PyTypeError>(obj.py()) && !is_iterable(obj) {
+                expected()
+            } else {
+                e
+            }
+        })?),
         TypeOwned::Flag
         | TypeOwned::OutOfLine { .. }
         | TypeOwned::Instance { .. }
@@ -490,6 +498,13 @@ pub(crate) fn to_py<'py>(
                     .collect::<PyResult<Vec<_>>>()?;
                 PyList::new(py, items)?.into_any()
             }
+        }
+        (ValueOwned::Vec(items), TypeOwned::Series(inner)) => {
+            let items = items
+                .iter()
+                .map(|v| to_py(py, v, inner, bundle))
+                .collect::<PyResult<Vec<_>>>()?;
+            PyList::new(py, items)?.into_any()
         }
         (
             ValueOwned::Vec(items),

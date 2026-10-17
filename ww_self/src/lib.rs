@@ -18,10 +18,18 @@ pub mod errors;
 #[cfg(all(feature = "std", any(test, fuzzing)))]
 #[doc(hidden)]
 pub mod fuzz_bundle;
+/// The dynamic `Series` decoder against the generated one, for the `series-dynamic` fuzz target.
+#[cfg(all(feature = "std", any(test, fuzzing)))]
+#[doc(hidden)]
+pub mod fuzz_series;
 #[cfg(feature = "std")]
 pub mod generics;
 #[cfg(feature = "std")]
 pub mod inline;
+#[cfg(feature = "std")]
+mod series;
+#[cfg(feature = "std")]
+pub use series::{DecodedSeries, FieldsKind, SeriesColumn, VariantColumns};
 #[cfg(feature = "std")]
 pub mod signature;
 #[cfg(feature = "std")]
@@ -407,6 +415,11 @@ pub enum Type<'i> {
     /// Type parameter of the generic struct or enum this type is in: index into its
     /// [generics](ItemStruct::generics), which must be a [type parameter](GenericParamKind::Type).
     Param(UNib32),
+    /// List of `T` written column by column, one column per leaf field, `Series<'i, T>` / `SeriesOwned<T>` (SW-60).
+    /// Same place in its parent as [Vec](Type::Vec) (`Unsized`), its own layout inside (`docs/serdes/series.md`).
+    /// `T` is a struct, enum, tuple, array, `Option` or primitive of Series v1, fields marked `#[series(opaque)]`
+    /// carry [Field::series_opaque].
+    Series(RefBox<'i, Type<'i>>),
 }
 
 /// Length of an [array](Type::Array) or the bound of a [MaxLen](Type::MaxLen): a number, or a const parameter of the
@@ -555,6 +568,10 @@ pub struct Field<'i> {
     /// non-`sparse` struct.
     #[default = None]
     pub slot: Option<UNib32>,
+    /// `#[series(opaque)]` (SW-60): inside a [Series](Type::Series), the field is an opaque run of its value's own
+    /// bytes instead of its columns.
+    #[default = false]
+    pub series_opaque: bool,
 }
 
 #[derive_shrink_wrap(

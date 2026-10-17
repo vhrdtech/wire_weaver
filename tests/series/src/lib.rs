@@ -8,6 +8,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
+    use wire_weaver::shrink_wrap::{Series, SeriesOwned};
     use wire_weaver_client::ww_numeric::NumericBaseType;
     use wire_weaver_client::ww_numeric::NumericValue;
     use wire_weaver_client::ww_self::{
@@ -24,6 +25,7 @@ mod tests {
         use super::*;
         use series_api::Capture;
         use tests_common::TestProcessEvents;
+        use wire_weaver::shrink_wrap::Series;
         use wire_weaver::{GetResult, SetResult};
 
         pub struct Server {
@@ -32,6 +34,8 @@ mod tests {
             pub ramp: Vec<i16>,
             pub scaled: Vec<f32>,
             pub stamps: Vec<u64>,
+            pub readings: Vec<series_api::Reading<'static>>,
+            pub history: Vec<ww_si::Timed<ww_si::Volt>>,
         }
 
         impl Server {
@@ -95,6 +99,37 @@ mod tests {
 
             fn close_samples(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
 
+            fn readings(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                n: u8,
+            ) -> RpcResult<Series<'_, series_api::Reading<'_>>> {
+                self.readings = super::readings(n as usize);
+                Ready(Series::new(&self.readings))
+            }
+
+            fn history(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<Series<'_, ww_si::Timed<ww_si::Volt>>> {
+                self.history = super::history();
+                Ready(Series::new(&self.history))
+            }
+
+            fn batches(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                Ready(())
+            }
+
+            fn close_batches(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
+
+            fn sideband_batches(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _sideband: ww_client_server::StreamSideband,
+            ) -> Option<ww_client_server::StreamSideband> {
+                None
+            }
+
             fn sideband_samples(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -106,7 +141,7 @@ mod tests {
 
         pub mod api_impl {
             wire_weaver::ww_codegen!(
-                series_api :: Series for super::Server,
+                series_api :: Sequences for super::Server,
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
@@ -148,7 +183,7 @@ mod tests {
 
         mod api_client {
             wire_weaver::ww_codegen!(
-                series_api :: Series for super::StdClient,
+                series_api :: Sequences for super::StdClient,
                 client = "std_client",
                 // debug_to_file = "../../target/tests_series_client.rs"
             );
@@ -157,6 +192,48 @@ mod tests {
 
     use server::api_impl;
     use std_client::StdClient;
+
+    /// Readings that switch scale, status and label now and then.
+    fn readings(n: usize) -> Vec<series_api::Reading<'static>> {
+        use series_api::{Reading, Scale, Status};
+        const NOTES: [&str; 2] = ["calibrated", "warm"];
+        (0..n)
+            .map(|k| Reading {
+                scale: if k % 7 < 4 {
+                    Scale::Milli
+                } else {
+                    Scale::Micro
+                },
+                value: 3300 + (k as i32 % 5) - 2,
+                label: ["a", "a", "b"][k % 3],
+                notes: RefVec::Slice {
+                    slice: &NOTES[..k % 3],
+                },
+                status: match k % 5 {
+                    0 => Status::Idle,
+                    1 | 2 => Status::Busy(k as u8),
+                    _ => Status::Fault { code: 7 },
+                },
+                ok: (k % 4 != 0).then_some(k % 2 == 0),
+            })
+            .collect()
+    }
+
+    fn history() -> Vec<ww_si::Timed<ww_si::Volt>> {
+        use ww_si::{Prefix, Second, Timed, Volt};
+        (0..50u32)
+            .map(|k| Timed {
+                t: Second {
+                    prefix: Prefix::Micro,
+                    value: NumericValue::U32(1_000_000 + k * 1000),
+                },
+                value: Volt {
+                    prefix: Prefix::Milli,
+                    value: NumericValue::I32(3300 + (k as i32 % 3)),
+                },
+            })
+            .collect()
+    }
 
     const TIMESTAMPS: [u32; 6] = [
         1_000_000, 1_000_100, 1_000_200, 1_000_300, 1_000_401, 1_000_500,
@@ -170,11 +247,13 @@ mod tests {
             ramp: vec![],
             scaled: vec![],
             stamps: vec![],
+            readings: vec![],
+            history: vec![],
         };
         let device = tests_common::start_device(
             path,
             server,
-            series_api::SERIES_FULL_GID,
+            series_api::SEQUENCES_FULL_GID,
             api_impl::api_hash(),
         );
         (device, data)
@@ -189,7 +268,10 @@ mod tests {
 
     fn bundle() -> Arc<ApiBundleOwned> {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../series_api");
-        Arc::new(wire_weaver_core::load(&path, Some("Series".into()), false).unwrap())
+        let mut bundle = wire_weaver_core::load(&path, Some("Sequences".into()), false).unwrap();
+        // generic instances (`Timed<Volt>`) replaced with their own definitions, as for a device's bundle
+        wire_weaver_client::ww_self::generics::prepare(&mut bundle).unwrap();
+        Arc::new(bundle)
     }
 
     fn capture() -> series_api::CaptureOwned {
@@ -404,5 +486,142 @@ mod tests {
         stamps.write(cmd, &values).await.unwrap();
         assert_eq!(data.lock().unwrap().stamps, vec![5, 7]);
         assert_eq!(stamps.read(cmd).await.unwrap(), values);
+    }
+
+    /// `items` as a plain `Vec<T>` read by the dynamic decoder: what a `Series` of them must read as.
+    fn plain_dyn<T: SerializeShrinkWrapOwned + Clone>(
+        items: &[T],
+        item_ty: &TypeOwned,
+        bundle: &ApiBundleOwned,
+    ) -> ValueOwned {
+        let bytes = items.to_vec().to_ww_bytes_owned().unwrap();
+        ValueOwned::des_shrink_wrap_dyn(&bytes, &TypeOwned::Vec(Box::new(item_ty.clone())), bundle)
+            .unwrap()
+    }
+
+    fn return_ty(bundle: &ApiBundleOwned, id: u32) -> TypeOwned {
+        let ApiItemKindOwned::Method { return_ty, .. } = &bundle.get_item(&[id]).unwrap().kind
+        else {
+            panic!("method");
+        };
+        return_ty.clone().unwrap()
+    }
+
+    fn owned_readings(n: usize) -> Vec<series_api::ReadingOwned> {
+        readings(n)
+            .into_iter()
+            .map(|r| series_api::ReadingOwned {
+                scale: r.scale,
+                value: r.value,
+                label: r.label.into(),
+                notes: r.notes.iter().map(|s| s.unwrap().to_string()).collect(),
+                status: r.status,
+                ok: r.ok,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn series_in_introspection() {
+        let bundle = bundle();
+        let readings = return_ty(&bundle, 6);
+        let TypeOwned::Series(item) = &readings else {
+            panic!("{readings:?}");
+        };
+        assert_eq!(
+            readings.human_name(false, &bundle).unwrap(),
+            "Series<Reading>"
+        );
+        let TypeOwned::Struct(reading) = item.get_in_line(&bundle).unwrap() else {
+            panic!("struct");
+        };
+        let opaque: Vec<_> = match &reading.fields {
+            wire_weaver_client::ww_self::FieldsOwned::Named(fields) => fields
+                .iter()
+                .filter(|f| f.series_opaque)
+                .map(|f| f.ident.clone().unwrap())
+                .collect(),
+            _ => panic!("named"),
+        };
+        assert_eq!(opaque, ["notes"]);
+        let history = return_ty(&bundle, 7);
+        assert!(matches!(history, TypeOwned::Series(_)), "{history:?}");
+    }
+
+    /// The bytes of the generated server's `Series`, read by the dynamic decoder, are the items the typed client
+    /// reads.
+    #[test]
+    fn dynamic_decode_equals_typed() {
+        let bundle = bundle();
+        let ty = return_ty(&bundle, 6);
+        let TypeOwned::Series(item_ty) = &ty else {
+            panic!("series");
+        };
+        for n in [0, 1, 2, 9, 100] {
+            let items = readings(n);
+            let bytes = Series::new(&items).to_ww_bytes_owned().unwrap();
+            let typed =
+                SeriesOwned::<series_api::ReadingOwned>::from_ww_bytes_owned(&bytes).unwrap();
+            assert_eq!(typed.0, owned_readings(n));
+            let dynamic = ValueOwned::des_shrink_wrap_dyn(&bytes, &ty, &bundle).unwrap();
+            assert_eq!(dynamic, plain_dyn(&typed.0, item_ty, &bundle), "{n} items");
+            let columns = ValueOwned::des_series_columns_dyn(&bytes, &ty, &bundle).unwrap();
+            assert_eq!(columns.len, n);
+        }
+
+        let ty = return_ty(&bundle, 7);
+        let TypeOwned::Series(item_ty) = &ty else {
+            panic!("series");
+        };
+        let items = history();
+        let bytes = Series::new(&items).to_ww_bytes_owned().unwrap();
+        assert!(bytes.len() < items.len() * 2, "{} bytes", bytes.len());
+        let dynamic = ValueOwned::des_shrink_wrap_dyn(&bytes, &ty, &bundle).unwrap();
+        assert_eq!(dynamic, plain_dyn(&items, item_ty, &bundle));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn series_through_clients_and_streams() {
+        let (device, _data) = start("series/series");
+        let mut client = connect(&device).await;
+        let readings = client.readings(40).call().await.unwrap();
+        assert_eq!(readings.0, owned_readings(40));
+        let history = client.history().call().await.unwrap();
+        assert_eq!(history.0, history_items());
+
+        let mut batches = client.batches().call().await.unwrap();
+        let items = super::tests::readings(12);
+        let mut scratch = [0u8; 512];
+        device.send(
+            api_impl::stream_data_ser()
+                .batches(&Series::new(&items), &mut scratch)
+                .unwrap(),
+        );
+        assert_eq!(batches.recv().await.unwrap().0, owned_readings(12));
+        drop(batches);
+        drop(client);
+
+        let (device, _data) = start("series/series-dynamic");
+        let dynamic = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        let bundle = bundle();
+        let root = DynResource::root(bundle.clone());
+        let r = root
+            .child("readings")
+            .unwrap()
+            .call(dynamic.cmd(), &[ValueOwned::Numeric(NumericValue::U8(9))])
+            .await
+            .unwrap()
+            .unwrap();
+        let TypeOwned::Series(item_ty) = return_ty(&bundle, 6) else {
+            panic!("series");
+        };
+        assert_eq!(r, plain_dyn(&owned_readings(9), &item_ty, &bundle));
+    }
+
+    fn history_items() -> Vec<ww_si::Timed<ww_si::Volt>> {
+        history()
     }
 }

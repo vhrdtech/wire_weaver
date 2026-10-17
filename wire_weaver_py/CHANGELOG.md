@@ -7,6 +7,7 @@
 
 ### 🚀 Features
 
+- `Series<T>` (SW-60, CLT-29) values are a `list` of items.
 - Generic types (API-43): `load_api` instantiates them, `Timed<Ampere>`, `Window<4>` encode and decode like any
   struct; signatures read `rw outer: Outer<3>`.
 

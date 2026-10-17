@@ -52,13 +52,13 @@
         ], ident: "InvalidArgument", fields: Named([
             (ident: Some("arg"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
                 "Position of the argument, starting at 0.",
-            ], slot: None),
-            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None),
+            ], slot: None, series_opaque: false),
+            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "In use by {by}.",
         ], ident: "InUse", fields: Named([
-            (ident: Some("by"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [], slot: None),
+            (ident: Some("by"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "Busy with another operation, try again later.",
@@ -66,17 +66,17 @@
         (docs: [
             "Not possible in the current state: {reason}.",
         ], ident: "WrongState", fields: Named([
-            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None),
+            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
         (docs: [
             "No power on {rail}.",
         ], ident: "NoPower", fields: Named([
-            (ident: Some("rail"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None),
+            (ident: Some("rail"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
         (docs: [
             "Refused: {reason}.",
         ], ident: "Refused", fields: Named([
-            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None),
+            (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 6, since: None),
         (docs: [
             "Timed out.",
@@ -84,7 +84,7 @@
         (docs: [
             "Hardware fault {code:#x}.",
         ], ident: "Fault", fields: Named([
-            (ident: Some("code"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
+            (ident: Some("code"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 8, since: None),
     ])), crate_idx: 0),
 ], traits: [], ext_crates: [

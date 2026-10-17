@@ -9,7 +9,8 @@ repository.workspace = true
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
+std = ["wire_weaver/std", "ww_si/std"]
 
 [dependencies]
 wire_weaver.workspace = true
+ww_si = { workspace = true, features = ["time", "electrical"] }

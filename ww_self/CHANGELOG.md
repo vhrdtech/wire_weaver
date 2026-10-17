@@ -2,6 +2,16 @@
 
 ### ⚠️ Breaking
 
+* `Type::Series(RefBox<Type>)` appended (SW-60, CLT-29): `Series<'i, T>` / `SeriesOwned<T>` in APIs, and
+  `Field::series_opaque` (`#[default = false]`) for a field marked `#[series(opaque)]`. Exhaustive matches on
+  `Type`/`TypeOwned` need a new arm, struct literals of `FieldOwned` the new field (`false`); the introspection
+  format changes with them (snapshots are saved again). `ValueOwned::des_shrink_wrap_dyn` reads a `Series` as a
+  `Vec` of its items, by the rules of the generated decoder (column by column, restarts, evolution, opaque fields);
+  `ValueOwned::des_series_columns_dyn` gives the columns themselves (`DecodedSeries`, `SeriesColumn`), without items.
+  Writing a `Series` from a dynamic value is not supported yet (an error).
+* The dynamic decoder bounds memory, not only values (P2401#17oct-1125): a decode takes at most 64 MiB
+  (`DECODE_MAX_BYTES`), each value its `size_of`, strings and names their bytes; a larger value is an error. Before,
+  64 KB of data could become 4 M values (about 400 MB).
 * Generic types (API-43), 0.3.0: `ItemStruct` and `ItemEnum` have `generics` (type and const parameters,
   `GenericParam` / `GenericParamKind`); a generic definition's fields use `Type::Param(idx)` and `Length::Param(idx)`,
   a use is `Type::Instance { type_idx, args }` with `GenericArg::{Type, Const, ConstParam}`. `Type::Array::len` and

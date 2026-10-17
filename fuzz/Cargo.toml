@@ -83,3 +83,10 @@ path = "src/shrink_wrap_nesting.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "series-dynamic"
+path = "src/series_dynamic.rs"
+test = false
+doc = false
+bench = false

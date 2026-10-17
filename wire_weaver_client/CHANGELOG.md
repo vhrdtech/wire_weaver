@@ -2,6 +2,9 @@
 
 ### ⚠️ Breaking
 
+- `Series<T>` (SW-60, CLT-29): dynamic clients read it (`DynResource` values are a `Vec` of items), the
+  compatibility check compares a `Series` as a `Vec` of the same item type. A cached bundle in `~/.wire_weaver/` that
+  doesn't read in this ww_self format is downloaded and written again. Needs a device built with the same ww_self.
 - Introspection data is checked and its generic types instantiated after known definitions are put back
   (`ww_self::generics::prepare`, API-43): malformed data from a device is an error (`Introspect::get` and friends,
   connecting logs it and goes on without the device's API), `IntrospectBundle::from_sent` returns a `Result`. Needs a

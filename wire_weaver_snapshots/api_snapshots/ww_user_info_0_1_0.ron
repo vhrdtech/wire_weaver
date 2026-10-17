@@ -17,13 +17,13 @@
     ], ident: "UserInfoCaps", generics: [], fields: Named([
         (ident: Some("name_max"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Longest name the device keeps, in bytes (at most 32).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("notes_max"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Longest notes the device keeps, in bytes (at most 256, 0 when notes are left out).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("persistent"), default: None, since: None, ty: Bool, docs: [
             "A written value survives a power cycle.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
@@ -41,14 +41,14 @@
         (docs: [
             "Common error",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "Longer than this device keeps ({max} bytes)",
         ], ident: "TooLong", fields: Named([
             (ident: Some("max"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
                 "What the device keeps, from `CAPABILITIES`.",
-            ], slot: None),
+            ], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
 ], traits: [

@@ -108,23 +108,28 @@ impl ValueOwned {
 /// Most values [ValueOwned::default] creates.
 pub const DEFAULT_MAX_VALUES: usize = 1 << 20;
 
-/// Bounds the work of a dynamic decode: types (from a device's introspection data) can describe values much larger
-/// than their bytes (arrays of empty tuples, one-bit options nested many times), and they are nested at most
-/// [MAX_DEPTH](crate::generics::MAX_DEPTH) deep only in a bundle that passed
-/// [validate](crate::generics::validate).
-struct Budget {
+/// Bounds the work and the memory of a dynamic decode: types (from a device's introspection data) can describe
+/// values much larger than their bytes (arrays of empty tuples, one-bit options nested many times, a `Series` of
+/// items in constant columns), and they are nested at most [MAX_DEPTH](crate::generics::MAX_DEPTH) deep only in a
+/// bundle that passed [validate](crate::generics::validate).
+pub(crate) struct Budget {
     /// Values that may still be created.
     values_left: usize,
+    /// Memory they may still take: each value its `size_of`, strings and names their bytes.
+    bytes_left: usize,
     depth: usize,
 }
 
 /// Values a decode may create: a fixed allowance and a number per byte, enough for bit-packed data in containers.
 const VALUES_FIXED: usize = 1 << 16;
 const VALUES_PER_BYTE: usize = 64;
+/// Most memory the values of one decode take, whatever its size: 64 bytes of input can't become 4 KB of values
+/// times 64 K (a few such messages in flight would exhaust a small host, P2401#17oct-1125).
+pub const DECODE_MAX_BYTES: usize = 64 << 20;
 /// Each value has its own copy of its field or variant name: names count as a value per this many bytes.
 const NAME_BYTES_PER_VALUE: usize = 32;
 /// Variants of an enum looked through to find the one read count as a value per this many.
-const VARIANTS_PER_VALUE: usize = 16;
+pub(crate) const VARIANTS_PER_VALUE: usize = 16;
 /// Deepest nesting of a decode: [MAX_DEPTH](crate::generics::MAX_DEPTH) type levels take up to two calls each.
 const MAX_DECODE_DEPTH: usize = 2 * crate::generics::MAX_DEPTH + 8;
 
@@ -132,39 +137,112 @@ impl Budget {
     fn new(values: usize) -> Self {
         Budget {
             values_left: values,
+            bytes_left: DECODE_MAX_BYTES,
             depth: 0,
         }
     }
 
-    fn for_bytes(len: usize) -> Self {
+    pub(crate) fn for_bytes(len: usize) -> Self {
         Self::new(VALUES_FIXED.saturating_add(len.saturating_mul(VALUES_PER_BYTE)))
     }
 
-    fn take(&mut self, values: usize) -> Result<()> {
-        self.values_left = self.values_left.checked_sub(values).ok_or_else(|| {
-            anyhow!("value is too large for its size in bytes (malformed type or data)")
-        })?;
+    fn too_large() -> anyhow::Error {
+        anyhow!("value is too large for its size in bytes (malformed type or data)")
+    }
+
+    pub(crate) fn take(&mut self, values: usize) -> Result<()> {
+        self.values_left = self
+            .values_left
+            .checked_sub(values)
+            .ok_or_else(Self::too_large)?;
+        self.bytes(values.saturating_mul(size_of::<ValueOwned>()))
+    }
+
+    /// Heap memory of a value: the bytes of a string or a name.
+    pub(crate) fn bytes(&mut self, bytes: usize) -> Result<()> {
+        self.bytes_left = self
+            .bytes_left
+            .checked_sub(bytes)
+            .ok_or_else(|| anyhow!("value takes more than {DECODE_MAX_BYTES} bytes of memory"))?;
         Ok(())
     }
 
     /// A copy of a field or variant name, taking its share of values: types (from a device) can have names as long
     /// as their bytes, and values of zero bits (empty tuples in a `Vec`) each get one.
     fn name(&mut self, name: &str) -> Result<String> {
-        self.take(name.len() / NAME_BYTES_PER_VALUE)?;
+        self.names(name, 1)?;
         Ok(name.to_string())
+    }
+
+    /// The share of `count` copies of a name.
+    pub(crate) fn names(&mut self, name: &str, count: usize) -> Result<()> {
+        self.take((name.len() / NAME_BYTES_PER_VALUE).saturating_mul(count))?;
+        self.bytes(name.len().saturating_mul(count))
+    }
+
+    /// `count` more copies of `value`: its values and its strings, each time.
+    pub(crate) fn copies(&mut self, value: &ValueOwned, count: usize) -> Result<()> {
+        let (values, bytes) = value_size(value);
+        self.take(values.saturating_mul(count))?;
+        self.bytes(bytes.saturating_mul(count))
+    }
+
+    /// One level deeper; [leave](Self::leave) after.
+    pub(crate) fn enter(&mut self) -> Result<()> {
+        if self.depth >= MAX_DECODE_DEPTH {
+            bail!("value is nested deeper than {MAX_DECODE_DEPTH} levels");
+        }
+        self.depth += 1;
+        Ok(())
+    }
+
+    pub(crate) fn leave(&mut self) {
+        self.depth -= 1;
     }
 
     /// Runs `f` one level deeper, after taking one value.
     fn nested<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T>) -> Result<T> {
-        if self.depth >= MAX_DECODE_DEPTH {
-            bail!("value is nested deeper than {MAX_DECODE_DEPTH} levels");
-        }
-        self.take(1)?;
-        self.depth += 1;
-        let result = f(self);
-        self.depth -= 1;
+        self.enter()?;
+        let result = self.take(1).and_then(|_| f(self));
+        self.leave();
         result
     }
+}
+
+/// Values in `value` and the bytes of its strings and names: what a copy of it takes. Bounded by what made `value`
+/// (a decode, or a default from the bundle), walked without recursion.
+fn value_size(value: &ValueOwned) -> (usize, usize) {
+    let mut values = 0usize;
+    let mut bytes = 0usize;
+    let mut stack = vec![value];
+    while let Some(v) = stack.pop() {
+        values += 1;
+        match v {
+            ValueOwned::String(s) => bytes += s.len(),
+            ValueOwned::Vec(items) | ValueOwned::Array(items) | ValueOwned::Tuple(items) => {
+                stack.extend(items)
+            }
+            ValueOwned::Struct { fields: f } | ValueOwned::Enum { fields: f, .. } => {
+                if let ValueOwned::Enum { variant, .. } = v {
+                    bytes += variant.len();
+                }
+                match f {
+                    FieldsValueOwned::Named(named) => {
+                        for (name, v) in named {
+                            bytes += name.len();
+                            stack.push(v);
+                        }
+                    }
+                    FieldsValueOwned::Unnamed(unnamed) => stack.extend(unnamed),
+                    FieldsValueOwned::Unit => {}
+                }
+            }
+            ValueOwned::Option(Some(inner)) => stack.push(inner),
+            ValueOwned::Result(Ok(inner) | Err(inner)) => stack.push(inner),
+            _ => {}
+        }
+    }
+    (values, bytes)
 }
 
 fn default_in(ty: &TypeOwned, api_bundle: &ApiBundleOwned, b: &mut Budget) -> Result<ValueOwned> {
@@ -191,7 +269,8 @@ fn default_inner(
             TypeOwned::Vec(_)
             | TypeOwned::Delta(_)
             | TypeOwned::DeltaOfDelta(_)
-            | TypeOwned::XorFloat(_) => Ok(ValueOwned::Vec(vec![])),
+            | TypeOwned::XorFloat(_)
+            | TypeOwned::Series(_) => Ok(ValueOwned::Vec(vec![])),
             TypeOwned::MaxLen { ty, .. } => default_in(ty, api_bundle, b),
             TypeOwned::Array { len, ty } => {
                 let len = len.fixed()? as usize;
@@ -324,7 +403,7 @@ fn des_field(
     }
 }
 
-fn des_inner(
+pub(crate) fn des_inner(
     rd: &mut BufReader,
     ty: &TypeOwned,
     api_bundle: &ApiBundleOwned,
@@ -439,6 +518,7 @@ fn des_ty(
             let end = des_numeric(rd, base)?;
             Ok(ValueOwned::RangeInclusive(start..=end))
         }
+        TypeOwned::Series(item_ty) => crate::series::des_series(rd, item_ty, api_bundle, b),
         TypeOwned::Delta(base) | TypeOwned::DeltaOfDelta(base) | TypeOwned::XorFloat(base) => {
             let series = match ty {
                 TypeOwned::Delta(_) => Series::Delta,
@@ -640,7 +720,7 @@ fn des_numeric(rd: &mut BufReader, base_ty: &NumericBaseType) -> Result<NumericV
 }
 
 /// Smallest standard unsigned value to hold `bits`-bit number.
-fn unsigned_value(bits: u8, value: u64) -> NumericValue {
+pub(crate) fn unsigned_value(bits: u8, value: u64) -> NumericValue {
     match bits {
         0..=8 => NumericValue::U8(value as u8),
         9..=16 => NumericValue::U16(value as u16),
@@ -650,7 +730,7 @@ fn unsigned_value(bits: u8, value: u64) -> NumericValue {
 }
 
 /// Smallest standard signed value to hold `bits`-bit number.
-fn signed_value(bits: u8, value: i64) -> NumericValue {
+pub(crate) fn signed_value(bits: u8, value: i64) -> NumericValue {
     match bits {
         0..=8 => NumericValue::I8(value as i8),
         9..=16 => NumericValue::I16(value as i16),
@@ -830,6 +910,8 @@ fn ser_inner(
             };
             ser_series(wr, items, series, base)?;
         }
+        // TODO(CLT-29): a dynamic Series writer (codec choice, struct heads), for a host sending one
+        TypeOwned::Series(_) => bail!("writing a Series from a dynamic value is not supported yet"),
     }
     Ok(())
 }

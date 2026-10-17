@@ -183,6 +183,15 @@ fn ty_def_inner(
                 quote! { wire_weaver::shrink_wrap::#name #maybe_turbofish <#l, #base> }
             })
         }
+        TypeOwned::Series(item_ty) => {
+            let item_ty = ty_def_inner(api_bundle, item_ty, alloc, ty_pos, None)?;
+            Ok(if alloc {
+                quote! { wire_weaver::shrink_wrap::SeriesOwned #maybe_turbofish <#item_ty> }
+            } else {
+                let l = lifetime(ty_pos);
+                quote! { wire_weaver::shrink_wrap::Series #maybe_turbofish <#l, #item_ty> }
+            })
+        }
         TypeOwned::MaxLen { max_len, ty } => {
             let inner_ty = ty_def_inner(api_bundle, ty, alloc, ty_pos, None)?;
             let max_len = Lit::Int(LitInt::new(

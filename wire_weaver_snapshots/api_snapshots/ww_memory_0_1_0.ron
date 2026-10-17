@@ -36,7 +36,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "An address outside `address_range`, or a range that runs past its end.",
@@ -52,7 +52,7 @@
         (docs: [], ident: "ReadOnly", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "ReadWrite", fields: Unit, discriminant: 2, since: None),
         (docs: [], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
 ], traits: [

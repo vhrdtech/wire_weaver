@@ -28,7 +28,7 @@
         (docs: [
             "Anything else, named.",
         ], ident: "Other", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
@@ -49,7 +49,7 @@
         (docs: [
             "Anything else, named.",
         ], ident: "Other", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -57,13 +57,13 @@
     ], ident: "UniqueId", generics: [], fields: Named([
         (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "What the bytes of `value` are.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("source"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
             "Who provides the id.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: Vec(NumericAny(Base(U8)))), docs: [
             "The id, up to 16 bytes: 6 for a MAC, 8 for an EUI-64, 16 for a UUID, a chip\'s own length otherwise.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [

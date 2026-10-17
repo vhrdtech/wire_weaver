@@ -19,13 +19,13 @@
     ], ident: "IoPinEnabledEvents", generics: [], fields: Named([
         (ident: Some("rising"), default: None, since: None, ty: Bool, docs: [
             "Report `IoPinEvent::RisingEdge`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("falling"), default: None, since: None, ty: Bool, docs: [
             "Report `IoPinEvent::FallingEdge`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("custom"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [
             "Indices of device-specific sources to report as `IoPinEvent::Custom`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
@@ -44,7 +44,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "The pins of this bank share one mode, and another pin is in a different one.",
@@ -63,7 +63,7 @@
         (docs: [
             "Device-specific event source not covered above.",
         ], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
@@ -87,7 +87,7 @@
         (docs: [
             "Device-specific mode not covered above, e.g. an alternate function.",
         ], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
@@ -105,7 +105,7 @@
         (docs: [
             "Device-specific pull configuration not covered above.",
         ], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
@@ -122,7 +122,7 @@
         (docs: [
             "Device-specific drive strength not covered above.",
         ], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -130,29 +130,29 @@
     ], ident: "PinCapabilities", generics: [], fields: Named([
         (ident: Some("modes"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 5))), docs: [
             "Modes the pin can be switched to with `Pin::set_mode`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("pulls"), default: None, since: None, ty: MaxLen(max_len: Fixed(4), ty: Vec(OutOfLine(type_idx: 6))), docs: [
             "Pull configurations the pin\'s `pull` property accepts.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("speeds"), default: None, since: None, ty: MaxLen(max_len: Fixed(5), ty: Vec(OutOfLine(type_idx: 7))), docs: [
             "Drive strengths the pin\'s `speed` property accepts.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("events"), default: None, since: None, ty: Bool, docs: [
             "The `event` stream works on this pin.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [
             "Name printed on the board or in the datasheet: \"IO4\", \"PB5\".",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "One entry of [Bank::write_outputs]: a pin (index into `Bank::pin[]`) and the level to drive it to.",
     ], ident: "PinLevel", generics: [], fields: Named([
         (ident: Some("pin"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
             "Index into `Bank::pin[]`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Output level to set.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Volt", signature: [
         221,
@@ -170,40 +170,40 @@
         (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 10))), docs: [
             "Discrete IO levels [BankConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the bank has no",
             "level control.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
             "Lowest IO level of an adjustable supply, if the bank has one.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
             "Highest IO level of an adjustable supply, if the bank has one.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("push_pull"), default: None, since: None, ty: Bool, docs: [
             "At least one pin of the bank supports `Mode::PushPullOutput`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("open_drain"), default: None, since: None, ty: Bool, docs: [
             "At least one pin of the bank supports `Mode::OpenDrainOutput`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("input"), default: None, since: None, ty: Bool, docs: [
             "At least one pin of the bank supports `Mode::Input`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("individually_configurable_pins"), default: None, since: None, ty: Bool, docs: [
             "Pins of the bank can be put in different modes independently; otherwise every pin shares one mode.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("custom_mode"), default: None, since: None, ty: Vec(String), docs: [
             "Descriptions of the bank\'s `Mode::Custom` variants, indexed by their `u8` payload.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("custom_pull"), default: None, since: None, ty: Vec(String), docs: [
             "Descriptions of the bank\'s `Pull::Custom` variants, indexed by their `u8` payload.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("custom_speed"), default: None, since: None, ty: Vec(String), docs: [
             "Descriptions of the bank\'s `Speed::Custom` variants, indexed by their `u8` payload.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("simultaneous_read"), default: Some(Bool(false)), since: None, ty: Bool, docs: [
             "[Bank::read_inputs] samples every pin of one call at the same instant (one register read).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("simultaneous_write"), default: Some(Bool(false)), since: None, ty: Bool, docs: [
             "[Bank::write_outputs] sets every pin of one call at the same instant (one register write).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything a bank is configured with, see `Bank::configure`: what is asked for going in, what was actually set",
@@ -212,7 +212,7 @@
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
             "IO level of every pin of the bank, on hardware with level translators ([BankCapabilities::io_levels]); `None`",
             "leaves it as it is going in (the only choice on a bank without them), and is the answer of such a bank.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [

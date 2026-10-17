@@ -256,6 +256,7 @@ impl<'a> Validator<'a> {
                 1
             }
             TypeOwned::Vec(inner)
+            | TypeOwned::Series(inner)
             | TypeOwned::Option { some_ty: inner }
             | TypeOwned::Box(inner) => 1 + self.ty_depth(inner, scope, path + 1)?,
             TypeOwned::Array { len, ty } | TypeOwned::MaxLen { max_len: len, ty } => {
@@ -590,6 +591,7 @@ impl Instantiator {
                 Ok(())
             }
             TypeOwned::Vec(inner)
+            | TypeOwned::Series(inner)
             | TypeOwned::Option { some_ty: inner }
             | TypeOwned::Box(inner)
             | TypeOwned::Array { ty: inner, .. }
@@ -811,6 +813,7 @@ impl Substitute<'_> {
                 }
             }
             TypeOwned::Vec(inner) => TypeOwned::Vec(boxed(self, inner)?),
+            TypeOwned::Series(inner) => TypeOwned::Series(boxed(self, inner)?),
             TypeOwned::Option { some_ty } => TypeOwned::Option {
                 some_ty: boxed(self, some_ty)?,
             },
@@ -847,6 +850,7 @@ impl Substitute<'_> {
 fn count_nodes(ty: &TypeOwned) -> usize {
     match ty {
         TypeOwned::Vec(inner)
+        | TypeOwned::Series(inner)
         | TypeOwned::Option { some_ty: inner }
         | TypeOwned::Box(inner)
         | TypeOwned::Array { ty: inner, .. }
@@ -907,6 +911,7 @@ mod tests {
             ty,
             docs: vec![],
             slot: None,
+            series_opaque: false,
         }
     }
 

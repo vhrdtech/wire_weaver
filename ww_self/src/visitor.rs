@@ -187,6 +187,7 @@ macro_rules! define_visitor {
         ) {
             match node {
                 TypeOwned::Vec(ty)
+                | TypeOwned::Series(ty)
                 | TypeOwned::Array { ty, .. }
                 | TypeOwned::Option { some_ty: ty }
                 | TypeOwned::Box(ty)
@@ -349,6 +350,7 @@ mod tests {
             since: None,
             ty,
             slot: None,
+            series_opaque: false,
         }
     }
 

@@ -799,7 +799,9 @@ impl<'a> TypeCheck<'a> {
                 self.check_bound(None, Some(fixed(max_len)?))?;
                 self.check(w, r)
             }
-            (Vec(w), Vec(r)) | (Box(w), Box(r)) => self.check(w, r),
+            // a Series of T evolves as T does (SW-60)
+            // TODO(CLT-29): a field's #[series(opaque)] changed is other bytes inside a Series only
+            (Vec(w), Vec(r)) | (Box(w), Box(r)) | (Series(w), Series(r)) => self.check(w, r),
             (Option { some_ty: w }, Option { some_ty: r }) => self.check(w, r),
             (Array { len, ty: w }, Array { len: r_len, ty: r }) => {
                 if len != r_len {
@@ -1132,6 +1134,7 @@ fn describe(ty: &TypeOwned) -> String {
         TypeOwned::Flag => "flag".into(),
         TypeOwned::String => "String".into(),
         TypeOwned::Vec(_) => "Vec".into(),
+        TypeOwned::Series(_) => "Series".into(),
         TypeOwned::Array { len, .. } => format!("array of {}", len.human_name(&[])),
         TypeOwned::Instance { type_idx, .. } => format!("instance of generic type #{}", type_idx.0),
         TypeOwned::Param(idx) => format!("type parameter {}", idx.0),

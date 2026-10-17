@@ -60,25 +60,25 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to set, see `PwmChannel::set_output`.",
     ], ident: "PwmOutput", generics: [], fields: Named([
-        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
+        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "0..=65535 = 0..100 %.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("inverted"), default: None, since: None, ty: Bool, docs: [
             "Active level inverted: idle low instead of high, or the reverse.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("phase_correct"), default: None, since: None, ty: Bool, docs: [
             "Symmetric (center-aligned) counting instead of edge-aligned; usually halves the usable frequency range for",
             "the same duty resolution.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `PwmChannel::set_output` or `PwmChannel::set_duty` actually set, see [PwmState::Output].",
     ], ident: "PwmActual", generics: [], fields: Named([
-        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
+        (ident: Some("freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "0..=65535 = 0..100 %.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         187,
@@ -97,7 +97,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "The other channel of the group runs at another frequency.",
@@ -112,7 +112,7 @@
         (docs: [
             "Running, with what was actually set.",
         ], ident: "Output", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -120,29 +120,29 @@
     ], ident: "PwmChannelInfo", generics: [], fields: Named([
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [
             "For the user: \"TIM1_CH1\", \"servo\", \"fan\".",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("group"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Channels with the same group share a timer and so a frequency, see the crate docs.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("capture"), default: None, since: None, ty: Bool, docs: [
             "This channel is also in `PwmCapture`, at the same index.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s PWM offers, see `Pwm::capabilities`.",
     ], ident: "PwmCapabilities", generics: [], fields: Named([
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 6))), docs: [
             "Channel `n` of every method is `channels[n]`.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("min_freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Lowest frequency any channel can be set to.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("max_freq"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Highest frequency any channel can be set to.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("duty_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Duty resolution of the hardware: `set_duty`\'s 0..=65535 range is rounded to this many bits.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What `PwmCaptureChannel::set_capture` measures, see [CaptureValue] for the matching result.",
@@ -176,29 +176,29 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to measure, see `PwmCaptureChannel::capture` and `PwmCaptureChannel::set_capture`.",
     ], ident: "CaptureConfig", generics: [], fields: Named([
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
         (ident: Some("gate"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
             "Measurement window: for [CaptureMode::Frequency], [CaptureMode::DutyCycle] and [CaptureMode::EdgeCount], how",
             "long one measurement covers; [CaptureMode::PulseWidth] times the next single pulse, so `gate` only bounds",
             "how long it waits for one to start.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "A measurement, in the mode [CaptureConfig::mode] set; the variant always matches it.",
     ], ident: "CaptureValue", generics: [], variants: [
         (docs: [], ident: "Frequency", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "0..=65535 = 0..100 %.",
         ], ident: "DutyCycle", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [], ident: "PulseWidth", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [], ident: "EdgeCount", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ])), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -206,8 +206,8 @@
     ], ident: "CaptureSample", generics: [], fields: Named([
         (ident: Some("t"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
             "End of the measurement window.",
-        ], slot: None),
-        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None),
+        ], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [

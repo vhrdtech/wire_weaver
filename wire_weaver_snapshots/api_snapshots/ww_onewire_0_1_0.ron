@@ -51,7 +51,7 @@
         "A 1-Wire ROM id: an 8-bit family code, a 48-bit serial number, and a CRC8 of the other seven bytes",
         "(`bytes[0..7]`), most to least significant as read off the bus.",
     ], ident: "RomId", generics: [], fields: Named([
-        (ident: Some("bytes"), default: None, since: None, ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), docs: [], slot: None),
+        (ident: Some("bytes"), default: None, since: None, ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
         149,
@@ -68,12 +68,12 @@
     ], ident: "OneWireTransaction", generics: [], fields: Named([
         (ident: Some("rom"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
             "`None` = skip ROM (one device on the bus).",
-        ], slot: None),
-        (ident: Some("write"), default: None, since: None, ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None),
-        (ident: Some("read_len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None),
+        ], slot: None, series_opaque: false),
+        (ident: Some("write"), default: None, since: None, ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("read_len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
         (ident: Some("strong_pullup"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "Drive the bus high this long after the last byte (parasite-powered parts converting or writing).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         187,
@@ -92,7 +92,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "No device answered the reset.",
@@ -110,19 +110,19 @@
     ], ident: "SearchState", generics: [], fields: Named([
         (ident: Some("last_rom"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The last ROM id found, continuing the tree walk from the bit after it.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("last_discrepancy"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Bit position (1-64, counting from the first bit sent) of the last fork where the search took the 0-branch",
             "while a 1-branch was still open; the next page explores that 1-branch first.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One page of `OneWire::search` results.",
     ], ident: "SearchPage", generics: [], fields: Named([
-        (ident: Some("roms"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 0))), docs: [], slot: None),
+        (ident: Some("roms"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 0))), docs: [], slot: None, series_opaque: false),
         (ident: Some("next"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 5)), docs: [
             "Where to continue, `None` when all devices were found.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Volt", signature: [
         221,
@@ -139,19 +139,19 @@
     ], ident: "OneWireCapabilities", generics: [], fields: Named([
         (ident: Some("pins"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(MaxLen(max_len: Fixed(16), ty: String))), docs: [
             "Pins the bus can be put on, by name.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 7))), docs: [
             "Discrete IO levels [OneWireConfig::io_level] can be set to (e.g. 3.3 V, 5 V); empty if the adapter has no",
             "level control.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
             "Lowest IO level of an adjustable supply, if the adapter has one.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
             "Highest IO level of an adjustable supply, if the adapter has one.",
-        ], slot: None),
-        (ident: Some("overdrive"), default: None, since: None, ty: Bool, docs: [], slot: None),
-        (ident: Some("strong_pullup"), default: None, since: None, ty: Bool, docs: [], slot: None),
+        ], slot: None, series_opaque: false),
+        (ident: Some("overdrive"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
+        (ident: Some("strong_pullup"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "1-Wire bus timing.",
@@ -163,28 +163,28 @@
         "Everything the bus is configured with, see `OneWire::configure`: what is asked for going in, what was actually",
         "set coming back.",
     ], ident: "OneWireConfig", generics: [], fields: Named([
-        (ident: Some("enabled"), default: None, since: None, ty: Bool, docs: [], slot: None),
+        (ident: Some("enabled"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         (ident: Some("pin"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Index into [OneWireCapabilities::pins].",
-        ], slot: None),
-        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None),
+        ], slot: None, series_opaque: false),
+        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
             "Voltage of the bus on adapters with level translators ([OneWireCapabilities::io_levels]); `None` leaves it as",
             "it is going in (the only choice on a device without them), and is the answer of a device without them.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of one `OneWire::triplet` step.",
     ], ident: "Triplet", generics: [], fields: Named([
         (ident: Some("id_bit"), default: None, since: None, ty: Bool, docs: [
             "This bit position, as driven by the device(s) still on the bus.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("cmp_bit"), default: None, since: None, ty: Bool, docs: [
             "Complement of `id_bit`, driven right after it; equal to `id_bit` at a fork between devices.",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
         (ident: Some("direction"), default: None, since: None, ty: Bool, docs: [
             "The bit this step actually selected (sent back onto the bus for the devices to compare against).",
-        ], slot: None),
+        ], slot: None, series_opaque: false),
     ]), sparse: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [

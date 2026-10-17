@@ -1440,4 +1440,49 @@ mod tests {
         let err = prepare(&mut b).unwrap_err();
         assert!(format!("{err:#}").contains("longer than"), "{err:#}");
     }
+    #[test]
+    fn decode_work_is_bounded() {
+        // Vec<S>, S { <100 KB name>: () } as final structure: zero bits per element, each value has the name
+        let long = "n".repeat(100_000);
+        let s = TypeOwned::Struct(ItemStructOwned {
+            size: ElementSize::UnsizedFinalStructure,
+            crate_idx: UNib32(0),
+            docs: vec![],
+            ident: "S".into(),
+            generics: vec![],
+            fields: FieldsOwned::Named(vec![field(&long, TypeOwned::Tuple(vec![]))]),
+            sparse: false,
+        });
+        let ty = TypeOwned::Vec(Box::new(s));
+        let b = bundle(vec![], ty.clone());
+        // 30 000 elements
+        let mut buf = [0u8; 16];
+        let mut wr = shrink_wrap::BufWriter::new(&mut buf);
+        wr.write_rev_len(30_000).unwrap();
+        let bytes = wr.finish().unwrap().to_vec();
+        let err = ValueOwned::des_shrink_wrap_dyn(&bytes, &ty, &b).unwrap_err();
+        assert!(format!("{err}").contains("too large"), "{err}");
+        // Vec<E>, E with 100 000 variants and a zero-bit discriminant: each element looks through all of them
+        let e = TypeOwned::Enum(ItemEnumOwned {
+            size: ElementSize::UnsizedFinalStructure,
+            repr: Repr::BitAligned(0),
+            crate_idx: UNib32(0),
+            docs: vec![],
+            ident: "E".into(),
+            generics: vec![],
+            variants: (0..100_000u32)
+                .map(|i| VariantOwned {
+                    docs: vec![],
+                    ident: format!("V{i}"),
+                    fields: FieldsOwned::Unit,
+                    discriminant: UNib32(100_000 - i - 1),
+                    since: None,
+                })
+                .collect(),
+        });
+        let ty = TypeOwned::Vec(Box::new(e));
+        let b = bundle(vec![], ty.clone());
+        let err = ValueOwned::des_shrink_wrap_dyn(&bytes, &ty, &b).unwrap_err();
+        assert!(format!("{err}").contains("too large"), "{err}");
+    }
 }

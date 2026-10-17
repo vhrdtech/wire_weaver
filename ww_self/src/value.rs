@@ -19,6 +19,7 @@ use shrink_wrap::{
     SerializeShrinkWrapOwned, UNib32, UVlq32, UVlq64, XorFloatOwned,
 };
 use std::borrow::Cow;
+use std::collections::HashMap;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 
 impl ValueOwned {
@@ -120,6 +121,10 @@ struct Budget {
 /// Values a decode may create: a fixed allowance and a number per byte, enough for bit-packed data in containers.
 const VALUES_FIXED: usize = 1 << 16;
 const VALUES_PER_BYTE: usize = 64;
+/// Each value has its own copy of its field or variant name: names count as a value per this many bytes.
+const NAME_BYTES_PER_VALUE: usize = 32;
+/// Variants of an enum looked through to find the one read count as a value per this many.
+const VARIANTS_PER_VALUE: usize = 16;
 /// Deepest nesting of a decode: [MAX_DEPTH](crate::generics::MAX_DEPTH) type levels take up to two calls each.
 const MAX_DECODE_DEPTH: usize = 2 * crate::generics::MAX_DEPTH + 8;
 
@@ -140,6 +145,13 @@ impl Budget {
             anyhow!("value is too large for its size in bytes (malformed type or data)")
         })?;
         Ok(())
+    }
+
+    /// A copy of a field or variant name, taking its share of values: types (from a device) can have names as long
+    /// as their bytes, and values of zero bits (empty tuples in a `Vec`) each get one.
+    fn name(&mut self, name: &str) -> Result<String> {
+        self.take(name.len() / NAME_BYTES_PER_VALUE)?;
+        Ok(name.to_string())
     }
 
     /// Runs `f` one level deeper, after taking one value.
@@ -207,7 +219,7 @@ fn default_inner(
                 let variant = item_enum.variants.first().ok_or(anyhow!("Enum is empty"))?;
                 let fields = default_fields_in(&variant.fields, api_bundle, b)?;
                 Ok(ValueOwned::Enum {
-                    variant: variant.ident.clone(),
+                    variant: b.name(&variant.ident)?,
                     fields,
                 })
             }
@@ -236,7 +248,7 @@ fn default_fields_in(
             FieldsOwned::Named(named) => {
                 let mut named_values = vec![];
                 for field in named.iter().filter(|f| !f.is_flag()) {
-                    let name = field.ident.clone().unwrap_or_default();
+                    let name = b.name(field.ident.as_deref().unwrap_or_default())?;
                     let value = default_in(&field.ty, api_bundle, b)?;
                     named_values.push((name, value));
                 }
@@ -386,11 +398,12 @@ fn des_ty(
                 Repr::ByteAlignedU16 => rd.read_u16()? as u32,
                 Repr::ByteAlignedU32 => rd.read_u32()?,
             };
-            let Some(variant) = enum_def
+            let position = enum_def
                 .variants
                 .iter()
-                .find(|v| v.discriminant.0 == discriminant)
-            else {
+                .position(|v| v.discriminant.0 == discriminant);
+            b.take(position.unwrap_or(enum_def.variants.len()) / VARIANTS_PER_VALUE)?;
+            let Some(variant) = position.map(|idx| &enum_def.variants[idx]) else {
                 // a variant from a newer version: an Unsized enum is bounded by its size slot, its fields are
                 // skipped with it (SW-16)
                 if matches!(enum_def.size, ElementSize::Unsized) {
@@ -406,7 +419,7 @@ fn des_ty(
             };
             let fields = des_fields(rd, &variant.fields, api_bundle, b)?;
             Ok(ValueOwned::Enum {
-                variant: variant.ident.to_string(),
+                variant: b.name(&variant.ident)?,
                 fields,
             })
         }
@@ -477,7 +490,7 @@ fn des_fields(
     Ok(match fields {
         FieldsOwned::Named(defs) => {
             let mut values = vec![];
-            let mut flags: Vec<(&str, Flag)> = vec![];
+            let mut flags: HashMap<&str, Flag> = HashMap::new();
             for (idx, def) in defs.iter().enumerate() {
                 let name = def.ident.as_deref().unwrap_or_default();
                 if def.is_flag() {
@@ -494,15 +507,12 @@ fn des_fields(
                         }
                         Err(e) => return Err(e.into()),
                     };
-                    flags.push((name, Flag { value, at_end }));
+                    flags.entry(name).or_insert(Flag { value, at_end });
                     continue;
                 }
-                let flag = flags
-                    .iter()
-                    .position(|(n, _)| *n == name)
-                    .map(|idx| flags.remove(idx).1);
+                let flag = flags.remove(name);
                 values.push((
-                    name.to_string(),
+                    b.name(name)?,
                     des_struct_field(rd, def, flag, api_bundle, b)?,
                 ));
             }
@@ -535,7 +545,7 @@ fn des_sparse_fields(
     let mut iter = vec.iter();
     let mut values = vec![];
     for def in defs {
-        let name = def.ident.clone().unwrap_or_default();
+        let name = b.name(def.ident.as_deref().unwrap_or_default())?;
         let slot = def
             .slot
             .ok_or_else(|| anyhow!("sparse field '{name}' has no slot"))?;

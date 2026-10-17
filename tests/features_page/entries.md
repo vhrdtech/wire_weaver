@@ -50,6 +50,7 @@ copying. Every message between host and device is made of it, and it works on it
 - DER-2 | Checked discriminants | Variant numbers must fit the chosen `ww_repr`, implicit ones count like in Rust. | serdes/derive_reference.md#ww_repr-repr-enums-only
 - DER-10, DER-11 | Generic field types | `Wrapper<'i, T>` and types from `macro_rules` work as fields. | serdes/derive.md#type-mapping
 - DER-14 | Generic types | Structs and enums with type and const parameters (`Timed<T>`, `Buf<const N: usize>`) and where clauses derive like any other type. | serdes/derive_reference.md#generics
+- DER-15 | `PhantomData` fields | A zero-bit `PhantomData<U>` field carries a unit marker type (`Quantity<Volt>`) that needs no impls of its own. | serdes/derive_reference.md#generics
 - SW-11 | Growing writer | `BufWriterOwned` for hosts, when the size isn't known up front. | serdes/shrink_wrap.md
 - SW-12 | Writing in place | Builders that write a value straight into the output buffer, and patching a field after the rest is written. | serdes/showcase.md
 - SW-44, SW-45 | Fixed layouts | Types with a fixed byte layout get fields at constant offsets, read and written without a parser, and a matching C header. | serdes/layouts.md#fixed_layout-fields-at-fixed-offsets

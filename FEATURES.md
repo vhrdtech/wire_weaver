@@ -310,6 +310,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `validate` and `discriminants` take generics, `fixed_layout`, `head_tail` and `sparse` reject them
   (`docs/serdes/derive_reference.md#generics`; tests `shrink_wrap/tests/generic_items.rs`, `series_derive.rs`;
   `ww_si::Timed<T>`). In APIs and the API model: API-43.
+- ✅ **DER-15 `PhantomData` fields**: `PhantomData<T>` is zero bits (`Sized { size_bits: 0 }`, like `()`) borrowed
+  and owned, and a `SeriesColumns` with no columns, for any `T`; the derive leaves a type parameter used only inside
+  `PhantomData<..>` without the serdes / `SeriesColumns` bounds of DER-14, so `struct Quantity<U> { value: i32,
+  _unit: PhantomData<U> }` works with a bare unit marker and writes the same bytes as without the field
+  (`docs/serdes/derive_reference.md#generics`; test `shrink_wrap/tests/phantom_data.rs`). For `ww_si` units.
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and

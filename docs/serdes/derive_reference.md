@@ -377,6 +377,21 @@ pub enum Packet<T, const N: usize> where T: Copy + Default { Data([T; N]), Empty
   `series`). The bounds next to the parameters and the where clause are carried into the definition and every impl
   as written; what a field needs beyond that is yours to add (an array `[T; N]` is read into a default one, so
   `T: Default`).
+- A type parameter the fields use only inside `PhantomData<..>` gets none of these bounds (DER-15), so a unit marker
+  needs no impls of its own; `PhantomData<T>` is zero bits (`Sized { size_bits: 0 }`, like `()`) and has no column
+  in a `Series`. A `Quantity<Volt>` writes the same bytes as the struct without the field:
+
+    ```rust
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub struct Volt; // a marker: no serdes, no SeriesColumns
+
+    #[derive_shrink_wrap(borrowed, owned, series, final_structure, derive(Clone, Copy, Debug, PartialEq))]
+    pub struct Quantity<U> { pub value: i32, pub _unit: PhantomData<U> }
+    ```
+
+    A parameter that a field also uses outside `PhantomData` keeps its bounds; a use the derive doesn't look into
+    (inside a macro, a qualified path `<T as Tr>::X`, a function pointer) counts as a real one. The derive's own
+    `derive(Clone, Copy, ..)` is Rust's and still asks `U: Clone, Copy`, which a marker derives anyway.
 - The size of `T` and `N` is part of the type's: `Timed<u32>` is `final_structure`, `Timed` of an evolvable struct
   holds an `Unsized` field, a `sized` `Buf<const N: usize> { len: u8, data: [u8; N] }` is `8 + 8 * N` bits. A
   `sized` enum's variants must be one size for the arguments it is used with (`enum Either<T> { Left(T), Right(T) }`

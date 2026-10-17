@@ -8,6 +8,8 @@
 
 ### 🚀 Features
 
+- `ww introspect` and `ww observe` show `ww_si::AnyQuantity` values (STD-37) with their units like typed quantities
+  (`3300 mV`, `1013 mbar` for a unit the device sent).
 - `ww introspect` (const values) and `ww observe` show `ww_si` quantities with their units: `3300 mV`,
   `0.00012 N·m/(rad/s)`, a unit marker `ww_si` doesn't know by its name (`1500 Rpm`); values are formatted by their
   types now (CLT-31).

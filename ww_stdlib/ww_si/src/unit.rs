@@ -1,7 +1,7 @@
 //! What a unit is: its SI dimension, how its values become coherent SI, and how it is written.
 
 use crate::SIExpr;
-use crate::expr::{self, Node, Show, Tree};
+use crate::tree;
 use core::fmt;
 use shrink_wrap::prelude::*;
 
@@ -307,35 +307,14 @@ impl UnitExpr {
 
     /// The type name: `Volt`, `Per<Torque, AngularVelocity>`.
     pub fn name(&self) -> impl fmt::Display + '_ {
-        Show(self, |e, f, depth| expr::write_name(&e, f, depth))
-    }
-}
-
-impl Tree for &UnitExpr {
-    fn node(&self) -> Option<Node<'_, Self>> {
-        Some(match **self {
-            UnitExpr::Named {
-                name,
-                symbol,
-                dim,
-                scale,
-            } => Node::Named {
-                name,
-                symbol,
-                dim,
-                scale,
-            },
-            UnitExpr::Mul(a, b) => Node::Mul(a, b),
-            UnitExpr::Div(a, b) => Node::Div(a, b),
-            UnitExpr::Pow(a, n) => Node::Pow(a, n),
-        })
+        tree::name_of(self)
     }
 }
 
 /// The symbol: `V`, `N·m/(rad/s)`, `(rad/s)·(rad/s)`.
 impl fmt::Display for UnitExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        expr::write_symbol(&self, f, 0)
+        fmt::Display::fmt(&tree::symbol(&self), f)
     }
 }
 

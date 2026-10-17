@@ -1,7 +1,7 @@
 //! Constructors, conversions, comparisons and formatting, written once for every [Quantity].
 
-use crate::expr::{Tree, write_unit};
 use crate::ops::{compare, scale_f32, scale_f64, to_i128_scaled};
+use crate::tree::{self, write_unit};
 use crate::unit::{Unit, UnitExpr};
 use crate::{Prefix, Quantity};
 use core::cmp::Ordering;
@@ -176,45 +176,10 @@ impl<U: Unit> PartialOrd for Quantity<U> {
     }
 }
 
-/// The number as stored: integers exactly, `f32` as `f32` (3.3, not 3.299999952316284).
-pub(crate) fn fmt_number(value: &NumericValue, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match *value {
-        #[cfg(feature = "f32")]
-        NumericValue::F32(x) => write!(f, "{x}"),
-        #[cfg(feature = "f64")]
-        NumericValue::F64(x) => write!(f, "{x}"),
-        value => match value.to_i128() {
-            Some(x) => write!(f, "{x}"),
-            // u128 above i128::MAX, UN / IN
-            None => write!(f, "{}", value.to_f64()),
-        },
-    }
-}
-
 /// `3300 mV`, the number as stored with its prefix; `{:#}` writes it in the unit itself: `3.3 V`.
 impl<U: Unit> fmt::Display for Quantity<U> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_value(self.prefix, &self.value, &U::EXPR, f)
-    }
-}
-
-/// `Display` of a quantity, typed or not.
-pub(crate) fn fmt_value<E: Tree>(
-    prefix: Prefix,
-    value: &NumericValue,
-    unit: &E,
-    f: &mut fmt::Formatter<'_>,
-) -> fmt::Result {
-    if f.alternate() {
-        match *value {
-            #[cfg(feature = "f32")]
-            NumericValue::F32(x) => write!(f, "{}", scale_f32(x, prefix.into()))?,
-            _ => write!(f, "{}", scale_f64(value.to_f64(), prefix.into()))?,
-        }
-        write_unit(Prefix::Unit, unit, f)
-    } else {
-        fmt_number(value, f)?;
-        write_unit(prefix, unit, f)
+        fmt::Display::fmt(&tree::quantity(self.prefix, &self.value, &U::EXPR), f)
     }
 }
 
@@ -222,7 +187,7 @@ pub(crate) fn fmt_value<E: Tree>(
 impl<U: Unit> fmt::Debug for Quantity<U> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}(", U::EXPR.name())?;
-        fmt_number(&self.value, f)?;
+        tree::write_number(&self.value, f)?;
         write_unit(self.prefix, &U::EXPR, f)?;
         write!(f, " {:?})", self.value.ty())
     }

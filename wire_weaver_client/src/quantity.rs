@@ -9,30 +9,45 @@
 //! - `units::Per<A, B>` and `units::Times<A, B>` as a tree of their parts (`N·m/(rad/s)`),
 //! - any other marker (a user's own `struct Rpm;`) by its name and docs only.
 //!
-//! [DynQuantity] is a value with that unit: `3300 mV` as stored, `3.3 V` with `{:#}`, [DynQuantity::to_si_f64].
+//! A value of `ww_si::AnyQuantity` (STD-37) carries its unit as an `SIExpr`: a named unit `ww_si` has becomes the same
+//! [DynUnit] as the typed quantity's, a device's own named unit keeps the dimension and scale it sent.
+//!
+//! [DynQuantity] is a value with that unit: `3300 mV` as stored, `3.3 V` with `{:#}`, [DynQuantity::to_si_f64]. Units
+//! are shown, named and converted by `ww_si::tree`, the code that does it for typed quantities.
 
 use std::fmt;
-use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
+use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, RefBox, SerializeShrinkWrapOwned};
 use ww_numeric::NumericValue;
 use ww_self::{
-    ApiBundleOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned, TypeOwned, ValueOwned,
+    ApiBundleOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned, ItemStructOwned, TypeOwned,
+    ValueOwned,
 };
-pub use ww_si::{Dim, Prefix, UnitExpr};
+use ww_si::tree::{self, Tree};
+use ww_si::{AnyQuantity, AnyQuantityOwned, SIExpr, SIExprOwned, Scale};
+pub use ww_si::{Dim, MAX_UNIT_DEPTH, Prefix, UnitExpr};
 
-/// Deepest nesting of `Per` / `Times` followed in a unit, a deeper part is shown by its type name.
-pub const MAX_UNIT_DEPTH: usize = 32;
-
-/// The unit of a `Quantity<U>`, built from `U` as introspection data describes it.
+/// The unit of a `Quantity<U>`, built from `U` as introspection data describes it, or of an `AnyQuantity`, built
+/// from the `SIExpr` the device sent with the value.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DynUnit {
     /// A named unit of `ww_si::units`: symbol, dimension and scale are known.
     Known(&'static UnitExpr),
+    /// A named unit sent by a device in an `AnyQuantity` that `ww_si` doesn't have (its own `Rpm`): symbol,
+    /// dimension and scale as the device sent them.
+    Named {
+        name: String,
+        symbol: String,
+        dim: Dim,
+        scale: Scale,
+    },
     /// A marker `ww_si` doesn't know, a user's own (`struct Rpm;`): its name and docs, nothing else.
     Unknown { name: String, docs: Vec<String> },
     /// `units::Per<A, B>`, `A / B`.
     Per(Box<DynUnit>, Box<DynUnit>),
     /// `units::Times<A, B>`, `A · B`.
     Times(Box<DynUnit>, Box<DynUnit>),
+    /// `A` to an integer power (`UnitExpr::Pow`, `SIExpr::Pow`).
+    Pow(Box<DynUnit>, i8),
 }
 
 impl DynUnit {
@@ -46,17 +61,79 @@ impl DynUnit {
             UnitExpr::Div(a, b) => {
                 DynUnit::Per(Box::new(Self::from_expr(a)), Box::new(Self::from_expr(b)))
             }
+            UnitExpr::Pow(a, n) => DynUnit::Pow(Box::new(Self::from_expr(a)), *n),
         }
+    }
+
+    /// The unit of an `AnyQuantity`: a named unit `ww_si` has is [Known](DynUnit::Known), so it is the same
+    /// `DynUnit` as the typed quantity's. Followed [MAX_UNIT_DEPTH] levels deep, a part that is deeper or doesn't
+    /// decode is an unknown `?`.
+    pub fn from_si_expr(expr: &SIExpr<'_>) -> Self {
+        fn conv(e: &SIExpr<'_>, depth: usize) -> DynUnit {
+            let unknown = || DynUnit::Unknown {
+                name: "?".into(),
+                docs: vec![],
+            };
+            if depth >= MAX_UNIT_DEPTH {
+                return unknown();
+            }
+            let child = |r: &RefBox<'_, SIExpr<'_>>| match r.read() {
+                Ok(e) => Box::new(conv(&e, depth + 1)),
+                Err(_) => Box::new(unknown()),
+            };
+            match e {
+                SIExpr::Named {
+                    name,
+                    symbol,
+                    dim,
+                    scale,
+                } => match e.known() {
+                    Some(known) => DynUnit::Known(known),
+                    None => DynUnit::Named {
+                        name: name.to_string(),
+                        symbol: symbol.to_string(),
+                        dim: *dim,
+                        scale: *scale,
+                    },
+                },
+                SIExpr::Mul(a, b) => DynUnit::Times(child(a), child(b)),
+                SIExpr::Div(a, b) => DynUnit::Per(child(a), child(b)),
+                SIExpr::Pow(a, n) => DynUnit::Pow(child(a), *n),
+            }
+        }
+        conv(expr, 0)
+    }
+
+    /// The unit as it goes on the wire in an `AnyQuantity`, `None` when a part of it is an unknown marker (no
+    /// dimension or scale to send).
+    pub fn to_si_expr(&self) -> Option<SIExprOwned> {
+        Some(match self {
+            DynUnit::Known(expr) => SIExprOwned::from(*expr),
+            DynUnit::Named {
+                name,
+                symbol,
+                dim,
+                scale,
+            } => SIExprOwned::Named {
+                name: name.clone(),
+                symbol: symbol.clone(),
+                dim: *dim,
+                scale: *scale,
+            },
+            DynUnit::Unknown { .. } => return None,
+            DynUnit::Per(a, b) => {
+                SIExprOwned::Div(Box::new(a.to_si_expr()?), Box::new(b.to_si_expr()?))
+            }
+            DynUnit::Times(a, b) => {
+                SIExprOwned::Mul(Box::new(a.to_si_expr()?), Box::new(b.to_si_expr()?))
+            }
+            DynUnit::Pow(a, n) => SIExprOwned::Pow(Box::new(a.to_si_expr()?), *n),
+        })
     }
 
     /// The type name: `Volt`, `Per<Torque, AngularVelocity>`, `Rpm`.
     pub fn name(&self) -> String {
-        match self {
-            DynUnit::Known(expr) => expr.name().to_string(),
-            DynUnit::Unknown { name, .. } => name.clone(),
-            DynUnit::Per(a, b) => format!("Per<{}, {}>", a.name(), b.name()),
-            DynUnit::Times(a, b) => format!("Times<{}, {}>", a.name(), b.name()),
-        }
+        tree::name(&Part::Dyn(self)).to_string()
     }
 
     /// The symbol as written after a number: `V`, `N·m/(rad/s)`, empty for a ratio; an unknown marker's name stands
@@ -67,30 +144,17 @@ impl DynUnit {
 
     /// SI base-unit exponents, `None` when a part of the unit is an unknown marker.
     pub fn dim(&self) -> Option<Dim> {
-        match self {
-            DynUnit::Known(expr) => Some(expr.dim()),
-            DynUnit::Unknown { .. } => None,
-            DynUnit::Per(a, b) => Some(a.dim()?.div(b.dim()?)),
-            DynUnit::Times(a, b) => Some(a.dim()?.mul(b.dim()?)),
-        }
+        tree::dim(&Part::Dyn(self))
     }
 
     /// Factor to coherent SI (offsets left out, as in [UnitExpr::factor]), `None` with an unknown marker in it.
     pub fn factor(&self) -> Option<f64> {
-        match self {
-            DynUnit::Known(expr) => Some(expr.factor()),
-            DynUnit::Unknown { .. } => None,
-            DynUnit::Per(a, b) => Some(a.factor()? / b.factor()?),
-            DynUnit::Times(a, b) => Some(a.factor()? * b.factor()?),
-        }
+        tree::factor(&Part::Dyn(self))
     }
 
     /// Offset to coherent SI: only a named unit with an affine scale (°C) has one.
     pub fn offset(&self) -> f64 {
-        match self {
-            DynUnit::Known(expr) => expr.offset(),
-            _ => 0.0,
-        }
+        tree::offset(&Part::Dyn(self))
     }
 
     /// Docs of an unknown marker, empty otherwise.
@@ -100,25 +164,43 @@ impl DynUnit {
             _ => &[],
         }
     }
+}
 
-    /// Dimensionless with no symbol ([Ratio](ww_si::units::Ratio)): a prefix is written as %, ‰, ppm.
-    fn is_ratio(&self) -> bool {
-        matches!(self, DynUnit::Known(UnitExpr::Named { symbol: "", .. }))
-    }
+/// A [DynUnit] or a part of a `UnitExpr` in it, walked by `ww_si::tree`: shown, named and converted by the same
+/// code as a typed quantity's unit.
+#[derive(Clone, Copy)]
+enum Part<'a> {
+    Dyn(&'a DynUnit),
+    Expr(&'static UnitExpr),
+}
 
-    fn is_named(&self) -> bool {
-        matches!(
-            self,
-            DynUnit::Known(UnitExpr::Named { .. }) | DynUnit::Unknown { .. }
-        )
-    }
-
-    /// Needs parentheses next to `·` or `/`, as [UnitExpr] writes it.
-    fn is_compound(&self) -> bool {
+impl Tree for Part<'_> {
+    fn node(&self) -> Option<tree::Node<'_, Self>> {
         match self {
-            DynUnit::Known(UnitExpr::Named { symbol, .. }) => symbol.contains(['/', '·']),
-            DynUnit::Unknown { .. } => false,
-            _ => true,
+            Part::Expr(expr) => Some(expr.node()?.map(Part::Expr)),
+            Part::Dyn(unit) => Some(match unit {
+                DynUnit::Known(expr) => expr.node()?.map(Part::Expr),
+                DynUnit::Named {
+                    name,
+                    symbol,
+                    dim,
+                    scale,
+                } => tree::Node::Named {
+                    name,
+                    symbol,
+                    dim: Some(*dim),
+                    scale: Some(*scale),
+                },
+                DynUnit::Unknown { name, .. } => tree::Node::Named {
+                    name,
+                    symbol: name,
+                    dim: None,
+                    scale: None,
+                },
+                DynUnit::Per(a, b) => tree::Node::Div(Part::Dyn(a), Part::Dyn(b)),
+                DynUnit::Times(a, b) => tree::Node::Mul(Part::Dyn(a), Part::Dyn(b)),
+                DynUnit::Pow(a, n) => tree::Node::Pow(Part::Dyn(a), *n),
+            }),
         }
     }
 }
@@ -126,27 +208,7 @@ impl DynUnit {
 /// The symbol, written as `ww_si` writes the same unit: `V`, `N·m/(rad/s)`, `(rad/s)·(rad/s)`.
 impl fmt::Display for DynUnit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn side(f: &mut fmt::Formatter<'_>, u: &DynUnit, parens: bool) -> fmt::Result {
-            if parens {
-                write!(f, "({u})")
-            } else {
-                write!(f, "{u}")
-            }
-        }
-        match self {
-            DynUnit::Known(expr) => write!(f, "{expr}"),
-            DynUnit::Unknown { name, .. } => f.write_str(name),
-            DynUnit::Times(a, b) => {
-                side(f, a, a.is_compound() && !matches!(**a, DynUnit::Times(..)))?;
-                f.write_str("·")?;
-                side(f, b, b.is_compound() && !matches!(**b, DynUnit::Times(..)))
-            }
-            DynUnit::Per(a, b) => {
-                side(f, a, matches!(**a, DynUnit::Per(..)))?;
-                f.write_str("/")?;
-                side(f, b, b.is_compound())
-            }
-        }
+        fmt::Display::fmt(&tree::symbol(&Part::Dyn(self)), f)
     }
 }
 
@@ -159,9 +221,19 @@ pub struct DynQuantity {
 }
 
 impl DynQuantity {
-    /// `value` of type `ty` as a quantity, `None` when `ty` is not a `ww_si::Quantity<U>` or the value doesn't match
-    /// it.
+    /// `value` of type `ty` as a quantity, `None` when `ty` is not a `ww_si::Quantity<U>` or `ww_si::AnyQuantity`, or
+    /// the value doesn't match it.
     pub fn from_value(value: &ValueOwned, ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<Self> {
+        if is_any_quantity(ty, bundle) {
+            // decoded by the derived type, the unit tree walked with its depth bound
+            let bytes = value.ser_shrink_wrap_dyn(ty, bundle).ok()?;
+            let q = AnyQuantity::from_ww_bytes(&bytes).ok()?;
+            return Some(DynQuantity {
+                prefix: q.prefix,
+                value: q.value,
+                unit: DynUnit::from_si_expr(&q.unit),
+            });
+        }
         let unit = unit_of(ty, bundle)?;
         let ValueOwned::Struct {
             fields: FieldsValueOwned::Named(fields),
@@ -191,8 +263,26 @@ impl DynQuantity {
         })
     }
 
-    /// The value of `ty` (a `ww_si::Quantity` of the same unit) this quantity is, for writing it.
+    /// The value of `ty` (a `ww_si::Quantity` of the same unit, or an `AnyQuantity` with this unit) this quantity is,
+    /// for writing it.
     pub fn to_value(&self, ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<ValueOwned, String> {
+        if is_any_quantity(ty, bundle) {
+            let Some(unit) = self.unit.to_si_expr() else {
+                return Err(format!(
+                    "a quantity in {} has no dimension and scale to send in an AnyQuantity",
+                    self.unit.name()
+                ));
+            };
+            let bytes = AnyQuantityOwned {
+                prefix: self.prefix,
+                value: self.value,
+                unit,
+            }
+            .to_ww_bytes_owned()
+            .map_err(|e| format!("{e:?}"))?;
+            return ValueOwned::des_shrink_wrap_dyn(&bytes, ty, bundle)
+                .map_err(|e| format!("{e:#}"));
+        }
         let Some(unit) = unit_of(ty, bundle) else {
             return Err(format!(
                 "a quantity in {} where {} is expected",
@@ -228,49 +318,13 @@ impl DynQuantity {
 }
 
 /// `3300 mV`, the number as stored with its prefix; `{:#}` writes it in the unit itself: `3.3 V`. The same text as
-/// `ww_si::Quantity`'s `Display`.
+/// `ww_si::Quantity`'s `Display`, written by the same code.
 impl fmt::Display for DynQuantity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if f.alternate() {
-            match self.value {
-                NumericValue::F32(x) => write!(f, "{}", self.prefix.scale_f32(x))?,
-                _ => write!(f, "{}", self.to_f64())?,
-            }
-            fmt_unit(Prefix::Unit, &self.unit, f)
-        } else {
-            fmt_number(&self.value, f)?;
-            fmt_unit(self.prefix, &self.unit, f)
-        }
-    }
-}
-
-/// The number as stored: integers exactly, `f32` as `f32`.
-fn fmt_number(value: &NumericValue, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match *value {
-        NumericValue::F32(x) => write!(f, "{x}"),
-        NumericValue::F64(x) => write!(f, "{x}"),
-        value => match value.to_i128() {
-            Some(x) => write!(f, "{x}"),
-            None => write!(f, "{}", value.to_f64()),
-        },
-    }
-}
-
-/// The prefix and the unit's symbol after the number: ` mV`, ` %` for a ratio in `Centi`.
-fn fmt_unit(prefix: Prefix, unit: &DynUnit, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if unit.is_ratio() {
-        return match prefix {
-            Prefix::Unit => Ok(()),
-            Prefix::Centi => f.write_str(" %"),
-            Prefix::Milli => f.write_str(" ‰"),
-            Prefix::Micro => f.write_str(" ppm"),
-            p => write!(f, "e{}", i8::from(p)),
-        };
-    }
-    match (prefix, unit.is_named()) {
-        (Prefix::Unit, _) => write!(f, " {unit}"),
-        (p, true) => write!(f, " {}{unit}", p.symbol()),
-        (p, false) => write!(f, " {}({unit})", p.symbol()),
+        fmt::Display::fmt(
+            &tree::quantity(self.prefix, &self.value, &Part::Dyn(&self.unit)),
+            f,
+        )
     }
 }
 
@@ -299,9 +353,14 @@ pub fn unit_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<DynUnit> {
     Some(unit(u, bundle, 0))
 }
 
-/// Whether `ty` is a `ww_si::Quantity<U>`, see [unit_of].
+/// Whether `ty` is a `ww_si::Quantity<U>`, see [unit_of], or a `ww_si::AnyQuantity`.
 pub fn is_quantity(ty: &TypeOwned, bundle: &ApiBundleOwned) -> bool {
-    unit_of(ty, bundle).is_some()
+    unit_of(ty, bundle).is_some() || is_any_quantity(ty, bundle)
+}
+
+/// Whether `ty` is a `ww_si::AnyQuantity`, a value with its unit (ww_si 0.2 and later).
+pub fn is_any_quantity(ty: &TypeOwned, bundle: &ApiBundleOwned) -> bool {
+    matches!(ty.get_in_line(bundle), Ok(TypeOwned::Struct(s)) if is_ww_si_struct(s, None, "AnyQuantity", bundle))
 }
 
 fn instance_of<'a>(ty: &'a TypeOwned, bundle: &'a ApiBundleOwned) -> Option<&'a InstanceOfOwned> {
@@ -314,10 +373,20 @@ fn instance_of<'a>(ty: &'a TypeOwned, bundle: &'a ApiBundleOwned) -> Option<&'a 
 
 /// `bundle.types[type_idx]` is `ww_si::<path>::<ident>` of ww_si 0.2 or later.
 fn is_ww_si(type_idx: u32, path: Option<&[&str]>, ident: &str, bundle: &ApiBundleOwned) -> bool {
-    let Ok((TypeOwned::Struct(s), crate_idx)) = bundle.get_ty(type_idx) else {
+    let Ok((TypeOwned::Struct(s), _)) = bundle.get_ty(type_idx) else {
         return false;
     };
-    let Ok(version) = bundle.crate_version(crate_idx) else {
+    is_ww_si_struct(s, path, ident, bundle)
+}
+
+/// `s` is `ww_si::<path>::<ident>` of ww_si 0.2 or later.
+fn is_ww_si_struct(
+    s: &ItemStructOwned,
+    path: Option<&[&str]>,
+    ident: &str,
+    bundle: &ApiBundleOwned,
+) -> bool {
+    let Ok(version) = bundle.crate_version(s.crate_idx.0) else {
         return false;
     };
     let v = &version.version;
@@ -374,6 +443,7 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wire_weaver::shrink_wrap::SerializeShrinkWrap;
     use ww_si::units::{
         AngularVelocity, Degree, DegreeCelsius, Meter, Per, Ratio, Second, Speed, Times, Torque,
     };
@@ -394,6 +464,13 @@ mod tests {
         assert_eq!(d.unit.dim(), Some(U::DIM));
         assert_eq!(d.to_f64(), q.to_f64());
         assert_eq!(d.to_si_f64(), Some(q.to_si_f64()));
+        // as an AnyQuantity: its unit on the wire gives the same DynUnit back, and goes out the same way
+        let any = ww_si::AnyQuantity::from(q);
+        let mut buf = [0u8; 256];
+        let bytes = any.to_ww_bytes(&mut buf).unwrap();
+        let back = ww_si::AnyQuantity::from_ww_bytes(bytes).unwrap();
+        assert_eq!(DynUnit::from_si_expr(&back.unit), d.unit);
+        assert_eq!(d.unit.to_si_expr().unwrap(), SIExprOwned::from(U::EXPR));
     }
 
     #[test]
@@ -411,5 +488,39 @@ mod tests {
         same(Quantity::<Per<Per<Meter, Second>, Second>>::base(3u8));
         same(Quantity::<Times<Per<Meter, Second>, Second>>::micro(7u32));
         same(Quantity::<Times<Times<Meter, Meter>, Meter>>::kilo(2u8));
+        same(Quantity::<Square>::base(4u8));
+        same(Quantity::<Per<Meter, Square>>::milli(4u8));
+    }
+
+    /// A user's marker that is a power: `m²`.
+    #[derive(Copy, Clone, Debug, Default)]
+    struct Square;
+
+    impl Unit for Square {
+        const DIM: ww_si::Dim = ww_si::Dim::new(0, 2, 0, 0, 0, 0, 0);
+        const EXPR: &'static UnitExpr = &UnitExpr::Pow(<Meter as Unit>::EXPR, 2);
+        const SI_EXPR: &'static SIExpr<'static> = &SIExpr::Pow(
+            RefBox::Ref {
+                value: <Meter as Unit>::SI_EXPR,
+            },
+            2,
+        );
+    }
+
+    #[test]
+    fn powers_and_unknown_parts() {
+        let d = DynUnit::from_expr(<Square as Unit>::EXPR);
+        assert_eq!(d.to_string(), "m²");
+        assert_eq!(d.name(), "Pow<Meter, 2>");
+        let unknown = DynUnit::Pow(
+            Box::new(DynUnit::Unknown {
+                name: "Rpm".into(),
+                docs: vec![],
+            }),
+            2,
+        );
+        assert_eq!(unknown.to_string(), "Rpm²");
+        assert_eq!((unknown.dim(), unknown.factor()), (None, None));
+        assert_eq!(unknown.to_si_expr(), None);
     }
 }

@@ -907,14 +907,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww_stdlib/ww_si/tests`; the 0.2.0 snapshot holds `Quantity`, every marker and `Per` / `Times`, so devices
   leave them out of their introspection data. Other crates' call sites moved to the new constructors; the motor demo's
   own helpers (`units.rs`) and `Load` units are the follow-up piece; `BaseUnit` is replaced by STD-37 (run-time units).
-- 🚧 **STD-37 `ww_si` units known only at run time** · `v0.5` — `SIExpr<'i>` { `Named { name, symbol, dim, scale }`,
+- ✅ **STD-37 `ww_si` units known only at run time** · `v0.5` — `SIExpr<'i>` { `Named { name, symbol, dim, scale }`,
   `Mul`, `Div`, `Pow` } (recursive through `RefBox`, API-44) and `AnyQuantity<'i> { prefix, value, unit }`: the
   marker model on the wire, `Dim` as seven 4-bit exponents (`sized`), `Scale` too. A marker's `UnitExpr` maps one to
   one onto an `SIExpr` (`Unit::SI_EXPR`, `SIExpr::of`, `SIExprOwned::from`; back `==` and `known()`), shown, named
   and converted to SI by the same code as typed units, walks bounded by `MAX_UNIT_DEPTH`. `ww_adc::ChannelInfo::unit`
   is one; `BaseUnit`, `SIExp`, `INib8P3` are removed. `docs/std_library/ww_si.md#units-known-only-at-run-time` (byte
-  layouts), `ww_stdlib/ww_si/tests/dynamic.rs`, `tests/io_adc`. Missing: dynamic clients, `ww` and Python showing an
-  `AnyQuantity` like a typed quantity (with CLT-31), an `AnyQuantity` property in a test API.
+  layouts), `ww_stdlib/ww_si/tests/dynamic.rs`, `tests/io_adc`. Dynamic clients, `ww` and Python show an
+  `AnyQuantity` like the typed quantity of its unit (CLT-31's `DynQuantity`, both rendered by the public `ww_si::tree`
+  walk), a device's own unit with its dimension and scale; writes take any quantity whose unit has a dimension.
+  `tests/quantities` (an `AnyQuantity` property through the in-process transport), `wire_weaver_py/tests`.
 - ✅ **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** · `v0.5` — the info
     crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),
     `BUILD_ID` (GNU build id, finds the ELF) and optional `BUILD_RECORD`; `build::emit()` + `firmware_summary!()` for

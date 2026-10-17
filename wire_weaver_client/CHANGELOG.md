@@ -1,5 +1,14 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `quantity` shows `ww_si::AnyQuantity` values (STD-37) like typed quantities: `DynQuantity::from_value` reads the
+  unit from the value (`DynUnit::from_si_expr`, a named ww_si unit becomes the same `DynUnit::Known` as the typed
+  quantity's), `to_value` writes any quantity whose unit has a dimension into an `AnyQuantity`
+  (`DynUnit::to_si_expr`), `is_any_quantity`, and `is_quantity` covers both. New `DynUnit::Named` (a device's own
+  unit with its dimension and scale) and `DynUnit::Pow`. `DynUnit` and `DynQuantity` are shown and converted by
+  `ww_si::tree`, the code of the typed `Display`, instead of a copy of it; `MAX_UNIT_DEPTH` is `ww_si`'s.
+
 ### 🐛 Fixes
 
 - The compatibility check names an in-line type by its module path, as a skipped one is named: `units::Volt` on one

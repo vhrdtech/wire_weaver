@@ -28,7 +28,7 @@ use pyo3::types::{
     PyBool, PyByteArray, PyBytes, PyDict, PyFloat, PyInt, PyList, PyRange, PyString, PyTuple,
 };
 use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
-use wire_weaver_client::quantity::{DynQuantity, Prefix, unit_of};
+use wire_weaver_client::quantity::{DynQuantity, Prefix, is_any_quantity, unit_of};
 use wire_weaver_client::ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned,
@@ -60,6 +60,16 @@ fn to_value_at(
         )));
     }
     let ty = resolve(ty, bundle)?;
+    // a value with its unit: a `ww.Quantity` (read from any quantity) brings the unit along
+    if is_any_quantity(ty, bundle)
+        && let Ok(q) = obj.cast::<Quantity>()
+    {
+        return q
+            .get()
+            .q
+            .to_value(ty, bundle)
+            .map_err(PyValueError::new_err);
+    }
     if let Some(unit) = unit_of(ty, bundle) {
         let q = if let Ok(q) = obj.cast::<Quantity>() {
             Some(q.get().q.clone())

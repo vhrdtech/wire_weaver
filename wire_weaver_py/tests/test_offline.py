@@ -358,3 +358,17 @@ def test_quantities():
     assert (str(s), s.symbol, s.unit, s.dim, s.docs) == ("1500 Rpm", "Rpm", "Rpm", None, ["Revolutions per minute"])
     with pytest.raises(ValueError, match="not known to ww_si"):
         s.to_si()
+
+    # a value with its unit (AnyQuantity, STD-37): AnyQuantity::from(Volt::milli(3300u16)) as the derived type writes it
+    any_volt = "12e40c" + "00566f6c7456d21f0000000114" + "59"
+    a = api.sensor.decode(bytes.fromhex(any_volt))
+    assert isinstance(a, ww.Quantity)
+    # the same quantity as the typed property's
+    assert a == q
+    assert (str(a), a.symbol, a.unit, a.dim) == ("3300 mV", "V", "Volt", {"kg": 1, "m": 2, "s": -3, "A": -1})
+    assert api.sensor.encode(a).hex() == any_volt
+    # any quantity goes in with its unit, the compound one too
+    assert api.sensor.decode(api.sensor.encode(b)) == b
+    assert str(api.sensor.decode(api.sensor.encode(b))) == "0.00012 N·m/(rad/s)"
+    with pytest.raises(ValueError, match="no dimension and scale to send"):
+        api.sensor.encode(s)

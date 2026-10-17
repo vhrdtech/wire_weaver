@@ -1,8 +1,8 @@
 //! Units known only at run time: [SIExpr] and [AnyQuantity], the same model as the markers of [units](crate::units)
 //! put on the wire.
 
-use crate::expr::{self, Node, Show, Tree};
 use crate::ops::scale_f64;
+use crate::tree::{self, Node, Tree};
 use crate::unit::{Dim, Scale, Unit, UnitExpr};
 use crate::{Prefix, Quantity};
 use core::fmt;
@@ -71,18 +71,18 @@ impl<'i> SIExpr<'i> {
     /// SI base-unit exponents of the whole tree; `None` when one leaves -8..=7, a part doesn't decode or the tree is
     /// deeper than [MAX_UNIT_DEPTH](crate::MAX_UNIT_DEPTH).
     pub fn dim(&self) -> Option<Dim> {
-        expr::dim(self, 0)
+        tree::dim(self)
     }
 
     /// The factor to coherent SI of the whole tree (offsets left out, as in [UnitExpr::factor]); `None` like
     /// [dim](Self::dim).
     pub fn factor(&self) -> Option<f64> {
-        expr::factor(self, 0)
+        tree::factor(self)
     }
 
     /// The offset to coherent SI: only a named unit with an `Affine` scale (°C) has one.
     pub fn offset(&self) -> f64 {
-        expr::offset(self)
+        tree::offset(self)
     }
 
     /// The symbol as written after a number: `V`, `N·m/(rad/s)`, empty for a ratio. Same as `Display`.
@@ -92,7 +92,7 @@ impl<'i> SIExpr<'i> {
 
     /// The type name, as the typed unit is called: `Volt`, `Per<Torque, AngularVelocity>`.
     pub fn name(&self) -> impl fmt::Display + '_ {
-        Show(self, expr::write_name)
+        tree::name(self)
     }
 
     /// The named unit of this crate this is, if it is one (same name, symbol, dimension and scale as in
@@ -116,8 +116,8 @@ impl<'i> Tree for SIExpr<'i> {
             } => Node::Named {
                 name,
                 symbol,
-                dim: *dim,
-                scale: *scale,
+                dim: Some(*dim),
+                scale: Some(*scale),
             },
             SIExpr::Mul(a, b) => Node::Mul(a.read().ok()?, b.read().ok()?),
             SIExpr::Div(a, b) => Node::Div(a.read().ok()?, b.read().ok()?),
@@ -129,14 +129,14 @@ impl<'i> Tree for SIExpr<'i> {
 /// The same unit tree: every named unit with the same name, symbol, dimension and scale, in the same shape.
 impl PartialEq<UnitExpr> for SIExpr<'_> {
     fn eq(&self, other: &UnitExpr) -> bool {
-        expr::same(self, &other, 0)
+        tree::same(self, &other)
     }
 }
 
 /// The symbol, written as [UnitExpr] writes the same unit: `V`, `N·m/(rad/s)`.
 impl fmt::Display for SIExpr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        expr::write_symbol(self, f, 0)
+        fmt::Display::fmt(&tree::symbol(self), f)
     }
 }
 
@@ -157,8 +157,8 @@ mod owned {
                 } => Node::Named {
                     name,
                     symbol,
-                    dim: *dim,
-                    scale: *scale,
+                    dim: Some(*dim),
+                    scale: Some(*scale),
                 },
                 SIExprOwned::Mul(a, b) => Node::Mul(&**a, &**b),
                 SIExprOwned::Div(a, b) => Node::Div(&**a, &**b),
@@ -192,22 +192,22 @@ mod owned {
     impl SIExprOwned {
         /// Like [SIExpr::dim].
         pub fn dim(&self) -> Option<Dim> {
-            expr::dim(&self, 0)
+            tree::dim(&self)
         }
 
         /// Like [SIExpr::factor].
         pub fn factor(&self) -> Option<f64> {
-            expr::factor(&self, 0)
+            tree::factor(&self)
         }
 
         /// Like [SIExpr::offset].
         pub fn offset(&self) -> f64 {
-            expr::offset(&self)
+            tree::offset(&self)
         }
 
         /// Like [SIExpr::name].
         pub fn name(&self) -> impl fmt::Display + '_ {
-            Show(self, |e, f, depth| expr::write_name(&e, f, depth))
+            tree::name_of(self)
         }
 
         /// Like [SIExpr::known].
@@ -221,13 +221,13 @@ mod owned {
 
     impl PartialEq<UnitExpr> for SIExprOwned {
         fn eq(&self, other: &UnitExpr) -> bool {
-            expr::same(&self, &other, 0)
+            tree::same(&self, &other)
         }
     }
 
     impl fmt::Display for SIExprOwned {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            expr::write_symbol(&self, f, 0)
+            fmt::Display::fmt(&tree::symbol(&self), f)
         }
     }
 
@@ -251,7 +251,7 @@ mod owned {
     /// Like `Display` of [AnyQuantity].
     impl fmt::Display for AnyQuantityOwned {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            crate::quantity::fmt_value(self.prefix, &self.value, &&self.unit, f)
+            fmt::Display::fmt(&tree::quantity(self.prefix, &self.value, &&self.unit), f)
         }
     }
 
@@ -382,7 +382,7 @@ impl<U: Unit> From<Quantity<U>> for AnyQuantity<'static> {
 /// the same unit writes it.
 impl fmt::Display for AnyQuantity<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        crate::quantity::fmt_value(self.prefix, &self.value, &self.unit, f)
+        fmt::Display::fmt(&tree::quantity(self.prefix, &self.value, &self.unit), f)
     }
 }
 
@@ -390,8 +390,8 @@ impl fmt::Display for AnyQuantity<'_> {
 impl fmt::Debug for AnyQuantity<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("AnyQuantity(")?;
-        crate::quantity::fmt_number(&self.value, f)?;
-        expr::write_unit(self.prefix, &self.unit, f)?;
+        tree::write_number(&self.value, f)?;
+        tree::write_unit(self.prefix, &self.unit, f)?;
         write!(f, " {:?})", self.value.ty())
     }
 }

@@ -71,6 +71,7 @@ dev = ww.connect(api=api)
 | `Result<T, E>`                  | `{"Ok": T}` or `{"Err": E}`                                          |
 | `Range`, `RangeInclusive`       | `(start, end)` (`range` with step 1 accepted)                        |
 | `ww_si` quantity (`Volt`, ..)   | `ww.Quantity` (a `Quantity` of the same unit, an `int` or `float` in the unit itself accepted) |
+| `ww_si::AnyQuantity`            | `ww.Quantity` (any `Quantity`, its unit goes along)                  |
 
 A `ww.Quantity` (ww_si 0.2 and later) keeps what the device sent and knows its unit:
 
@@ -86,6 +87,10 @@ dev.supply.write(1.5)        # 1.5 V
 Compound units are written out (`N·m/(rad/s)` for `Quantity<Per<Torque, AngularVelocity>>`); a unit marker `ww_si`
 doesn't know (an API's own `struct Rpm;`) has its name as `symbol`, its docs in `docs`, `dim` is `None` and `to_si()`
 raises `ValueError`.
+
+An `AnyQuantity` (a value whose unit is only known at run time, STD-37) is a `ww.Quantity` too, the same as the typed
+quantity of its unit (`==` holds). A unit the device sent that `ww_si` doesn't have keeps its symbol, `dim` and
+scale, so `to_si()` works; writing takes any `ww.Quantity` whose unit has a dimension (not a marker known by name only).
 
 ## Interactive console
 

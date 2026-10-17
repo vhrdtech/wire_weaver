@@ -51,6 +51,9 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
     `to_quantity::<U>()`, `to_f64`, `to_si_f64`, `Display` like a typed quantity (`3300 mV`, `{:#}` `3.3 V`), `Debug`,
     `defmt::Format`. `AnyQuantity::from(Volt::milli(3300u16))` is 17 bytes, the typed value's 3 and the unit's 14.
   * `UnitExpr::Pow(expr, n)`, shown as `m²`, `(m/s)²`, named `Pow<Meter, 2>`.
+  * `ww_si::tree`: `Tree` and `Node` (a named node's dimension and scale can be `None`, for a unit known by name only)
+    with `symbol`, `name`, `dim`, `factor`, `offset`, `same` and `quantity` (a quantity's `Display`): the one walk
+    behind `UnitExpr`, `SIExpr` and the typed `Display`, for a client's own unit model (`wire_weaver_client::quantity`).
 * Written once for every quantity: `from_parts` (`const`), `new`, `base`, `milli`, `micro`, `nano`, `pico`, `centi`,
   `kilo`, `mega`, `giga`, `from_f32` (`const`); `quantize(x, prefix, storage)` (an `f32` rounded and saturated into
   the representation an API documents, computed in `f32`); `to_f64`, `to_f32`, `to_f64_in`, `to_i128_in`;

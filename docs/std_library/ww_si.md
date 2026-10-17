@@ -265,6 +265,12 @@ In Rust, `wire_weaver_client::quantity::DynQuantity::from_value(&value, &ty, &bu
 and a `DynUnit`; its `Display` is the same text as the typed `Quantity`'s, `to_si_f64()` converts through the unit's
 scale and `to_value()` makes a value to write. See `wire_weaver_py/README.md` for the Python side.
 
+An [`AnyQuantity`](#units-known-only-at-run-time) goes the same way: `DynQuantity::from_value` reads its unit from the
+value, a named unit of ww_si becomes the same `DynUnit` as the typed quantity's (so `3300 mV` either way), a device's
+own unit keeps the dimension and scale it sent, and `ww`, Python and `to_value()` treat it like any other quantity.
+`DynUnit` is shown and converted by `ww_si::tree`, the code behind the typed `Display`: a client with its own unit
+model implements `ww_si::tree::Tree` for it and gets the same text.
+
 ## Units known only at run time
 
 Some units are not known when the API is written: an ADC input whose unit is set by configuration, a generic sensor

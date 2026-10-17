@@ -48,7 +48,8 @@ impl Quantity {
     }
 
     /// The SI dimension as base-unit exponents, `{"kg": 1, "m": 2, "s": -3, "A": -1}` for a volt, `{}` when
-    /// dimensionless, `None` when the unit is not known to `ww_si`.
+    /// dimensionless, `None` when the unit is a marker known by its name only (not one of `ww_si`, nor a unit a
+    /// device sent with its dimension in an `AnyQuantity`).
     #[getter]
     fn dim<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
         let Some(dim) = self.q.unit.dim() else {
@@ -56,13 +57,13 @@ impl Quantity {
         };
         let dict = PyDict::new(py);
         for (symbol, exp) in [
-            ("kg", dim.kg),
-            ("m", dim.m),
-            ("s", dim.s),
-            ("A", dim.a),
-            ("K", dim.k),
-            ("mol", dim.mol),
-            ("cd", dim.cd),
+            ("kg", dim.kg.value()),
+            ("m", dim.m.value()),
+            ("s", dim.s.value()),
+            ("A", dim.a.value()),
+            ("K", dim.k.value()),
+            ("mol", dim.mol.value()),
+            ("cd", dim.cd.value()),
         ] {
             if exp != 0 {
                 dict.set_item(symbol, exp)?;
@@ -88,7 +89,7 @@ impl Quantity {
     fn to_si(&self) -> PyResult<f64> {
         self.q.to_si_f64().ok_or_else(|| {
             PyValueError::new_err(format!(
-                "unit {} is not known to ww_si, its scale to SI is not known",
+                "unit {} is not known to ww_si and has no scale to SI",
                 self.q.unit.name()
             ))
         })

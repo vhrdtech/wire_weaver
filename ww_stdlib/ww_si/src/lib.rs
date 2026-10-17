@@ -20,11 +20,11 @@
 
 mod algebra;
 mod dynamic;
-mod expr;
+pub mod tree;
 pub use dynamic::{AnyQuantity, SIExpr};
 #[cfg(feature = "std")]
 pub use dynamic::{AnyQuantityOwned, SIExprOwned};
-pub use expr::MAX_UNIT_DEPTH;
+pub use tree::MAX_UNIT_DEPTH;
 mod ops;
 mod quantity;
 #[cfg(feature = "time")]

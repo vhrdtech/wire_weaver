@@ -7,12 +7,14 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use wire_weaver_client::quantity::{DynQuantity, DynUnit, unit_of};
+    use wire_weaver_client::quantity::{DynQuantity, DynUnit, is_quantity, unit_of};
     use wire_weaver_client::ww_self::{ApiItemKindOwned, TypeOwned, ValueOwned};
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
     use ww_si::units::{self, AngularVelocity, Per, Torque};
     use ww_si::ww_numeric::NumericValue;
-    use ww_si::{Ampere, Prefix, Quantity, Second, Timed, Unit, Volt};
+    use ww_si::{
+        Ampere, AnyQuantity, Dim, Prefix, Quantity, SIExpr, Scale, Second, Timed, Unit, Volt,
+    };
 
     type Damping = Quantity<Per<Torque, AngularVelocity>>;
 
@@ -20,6 +22,22 @@ mod tests {
         voltage: Volt,
         damping: Damping,
         speed: Quantity<Rpm>,
+        /// The `AnyQuantity` property, serialized.
+        sensor: Vec<u8>,
+    }
+
+    /// A pressure sensor input in bar, a unit `ww_si` doesn't have: sent with its dimension and scale.
+    fn bar() -> SIExpr<'static> {
+        SIExpr::Named {
+            name: "Bar",
+            symbol: "bar",
+            dim: Dim::new(-2, -1, 1, 0, 0, 0, 0),
+            scale: Scale::Pow10(5),
+        }
+    }
+
+    fn sensor() -> AnyQuantity<'static> {
+        AnyQuantity::new(Prefix::Milli, 1013u16, bar())
     }
 
     fn values() -> Values {
@@ -27,6 +45,7 @@ mod tests {
             voltage: Volt::milli(3300u16),
             damping: Damping::from_f32(1.2e-4),
             speed: Quantity::<Rpm>::base(1500u16),
+            sensor: sensor().to_ww_bytes(&mut [0u8; 64]).unwrap().to_vec(),
         }
     }
 
@@ -48,6 +67,8 @@ mod tests {
         pub struct Server {
             pub values: Arc<Mutex<Values>>,
             pub history: Vec<Timed<Ampere>>,
+            /// Bytes of the sensor value `get_sensor` returns.
+            pub sensor: Vec<u8>,
         }
 
         impl Server {
@@ -105,6 +126,28 @@ mod tests {
             ) -> GetResult<Quantity<Rpm>, ()> {
                 GetResult::Value(self.values.lock().unwrap().speed)
             }
+
+            fn set_sensor(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: AnyQuantity<'_>,
+            ) -> SetResult<()> {
+                let mut buf = [0u8; 256];
+                let bytes = value.to_ww_bytes(&mut buf).unwrap();
+                self.values.lock().unwrap().sensor = bytes.to_vec();
+                SetResult::Set
+            }
+
+            fn get_sensor(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<AnyQuantity<'_>, ()> {
+                self.sensor = self.values.lock().unwrap().sensor.clone();
+                match AnyQuantity::from_ww_bytes(&self.sensor) {
+                    Ok(q) => GetResult::Value(q),
+                    Err(_) => GetResult::GetError(()),
+                }
+            }
         }
 
         pub mod api_impl {
@@ -137,6 +180,7 @@ mod tests {
         let server = server::Server {
             values: values.clone(),
             history: history(),
+            sensor: vec![],
         };
         let device = tests_common::start_device(
             path,
@@ -307,6 +351,72 @@ mod tests {
         assert_eq!(
             v.to_value(&damping, root.bundle()).unwrap_err(),
             "a quantity in Volt where one in Per<Torque, AngularVelocity> is expected"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn any_quantity_property() {
+        let (device, _values) = start("quantities/any");
+        let (client, root) = connect(&device).await;
+        let (_, ty) = read(&client, &root, "sensor").await;
+        assert!(is_quantity(&ty, root.bundle()));
+        assert!(
+            unit_of(&ty, root.bundle()).is_none(),
+            "the unit is in the value, not the type"
+        );
+        let p = read_quantity(&client, &root, "sensor").await;
+        assert_eq!(
+            p.unit,
+            DynUnit::Named {
+                name: "Bar".into(),
+                symbol: "bar".into(),
+                dim: Dim::new(-2, -1, 1, 0, 0, 0, 0),
+                scale: Scale::Pow10(5),
+            }
+        );
+        // the device's own unit, shown and converted as the device's AnyQuantity shows it
+        assert_eq!(p.to_string(), "1013 mbar");
+        assert_eq!(p.to_string(), sensor().to_string());
+        assert_eq!(format!("{p:#}"), format!("{:#}", sensor()));
+        assert_eq!(p.to_si_f64(), sensor().to_si_f64());
+        assert_eq!(p.unit.dim().unwrap().to_string(), "kg·m⁻¹·s⁻²");
+        assert_eq!(p.unit.name(), "Bar");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn any_quantity_like_typed() {
+        let (device, values) = start("quantities/any_typed");
+        let (client, root) = connect(&device).await;
+        let sensor = root.child("sensor").unwrap();
+        let (_, sensor_ty) = read(&client, &root, "sensor").await;
+        let bundle = root.bundle();
+
+        // a typed quantity read from one property, written into the AnyQuantity: its unit goes along
+        for name in ["voltage", "damping"] {
+            let typed = read_quantity(&client, &root, name).await;
+            let value = typed.to_value(&sensor_ty, bundle).unwrap();
+            sensor.write(client.cmd(), &value).await.unwrap();
+            let any = read_quantity(&client, &root, "sensor").await;
+            // the same DynUnit as the typed property's, so shown the same
+            assert_eq!(any, typed);
+            assert_eq!(any.to_string(), typed.to_string());
+            assert_eq!(format!("{any:#}"), format!("{typed:#}"));
+            assert_eq!(any.to_si_f64(), typed.to_si_f64());
+        }
+        // the device got the unit tree of the typed quantity
+        let bytes = values.lock().unwrap().sensor.clone();
+        let got = AnyQuantity::from_ww_bytes(&bytes).unwrap();
+        assert_eq!(
+            got.to_quantity::<Per<Torque, AngularVelocity>>(),
+            Some(Damping::from_f32(1.2e-4))
+        );
+        assert_eq!(got.to_string(), "0.00012 N·m/(rad/s)");
+
+        // a unit known by name only has nothing to send
+        let speed = read_quantity(&client, &root, "speed").await;
+        assert_eq!(
+            speed.to_value(&sensor_ty, bundle).unwrap_err(),
+            "a quantity in Rpm has no dimension and scale to send in an AnyQuantity"
         );
     }
 }

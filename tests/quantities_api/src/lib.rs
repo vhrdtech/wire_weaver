@@ -1,11 +1,12 @@
 //! `ww_si` quantities in an API, as dynamic clients see them (CLT-31): a named unit, a `Series` of `Timed` values, a
-//! compound unit (`Per`) and a unit marker of this crate that `ww_si` doesn't know.
+//! compound unit (`Per`), a unit marker of this crate that `ww_si` doesn't know, and a value whose unit is only known
+//! at run time (`AnyQuantity`, STD-37).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
 use ww_si::units::{AngularVelocity, Per, Torque};
-use ww_si::{Ampere, Dim, Quantity, Scale, Timed, Unit, UnitExpr, Volt};
+use ww_si::{Ampere, AnyQuantity, Dim, Quantity, Scale, Timed, Unit, UnitExpr, Volt};
 
 #[ww_trait]
 trait Quantities {
@@ -15,6 +16,8 @@ trait Quantities {
     /// Viscous damping: torque per angular velocity
     property!(rw damping: Quantity<Per<Torque, AngularVelocity>>);
     property!(rw speed: Quantity<Rpm>);
+    /// A sensor input whose unit is set by configuration, sent with every value (STD-37)
+    property!(rw sensor: AnyQuantity<'i>);
 }
 
 /// Revolutions per minute
@@ -22,7 +25,7 @@ trait Quantities {
 pub struct Rpm;
 
 impl Unit for Rpm {
-    const DIM: Dim = Dim { s: -1, ..Dim::ONE };
+    const DIM: Dim = Dim::new(-1, 0, 0, 0, 0, 0, 0);
     const EXPR: &'static UnitExpr = &UnitExpr::Named {
         name: "Rpm",
         symbol: "rpm",

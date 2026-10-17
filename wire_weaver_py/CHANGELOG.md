@@ -7,6 +7,9 @@
 
 ### 🚀 Features
 
+- `ww_si::AnyQuantity` values (STD-37) decode to `ww.Quantity`, the same as the typed quantity of their unit, and take
+  any `ww.Quantity` whose unit has a dimension on write; `dim` and `to_si()` work for a unit a device sent with its
+  dimension and scale.
 - `ww.Quantity` (CLT-31): a `ww_si` quantity (ww_si 0.2 and later) decodes to an object with `value`, `prefix`,
   `exponent`, `storage`, `symbol`, `unit`, `dim`, `docs`, `to_si()`, `float()` and `str()` (`3300 mV`); writes take a
   `Quantity` of the same unit or a number in the unit itself (an `int` as `I32` / `I64`, a `float` as `F64`), the

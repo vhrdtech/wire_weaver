@@ -13,7 +13,7 @@ wire_weaver = { path = "../../wire_weaver", default-features = false, features =
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
 ww_stream = { path = "../../ww_stream", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
-ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "f32"] }
+ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "f32", "time", "i32", "u32"] }
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
 bounded_api = { path = "../../tests/bounded_api", default-features = false }
 
@@ -28,6 +28,27 @@ bench = false
 [[bin]]
 name = "qemu-bounded"
 path = "src/bin/bounded.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-series-encode-cpu-smallest"
+path = "src/bin/series_encode_cpu_smallest.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-series-encode-cpu-fixed-delta"
+path = "src/bin/series_encode_cpu_fixed_delta.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-series-encode-cpu-fixed-dod"
+path = "src/bin/series_encode_cpu_fixed_dod.rs"
 test = false
 doctest = false
 bench = false

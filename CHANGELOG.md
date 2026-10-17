@@ -13,6 +13,15 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- `examples_mcu/mcu_qemu` (Cortex-M3, `lm3s6965evb`) and a new `examples_mcu/mcu_qemu_m4f` (Cortex-M4F,
+  `mps2-an386`) gain a `Series<Timed<Ampere>>` encode benchmark (TEST-23, piece 4 of the batched-streams design):
+  the motor demo's real recorded `i_a` signal, at n = 8/32/64 under `CodecPolicy::SMALLEST`,
+  `fixed(delta,packed)` and `fixed(delta-of-delta,packed)`, one bin per codec set so `cargo size` /
+  `llvm-size` measures each set's own flash. Flash: ~98.0 KB (M3) / ~75.7 KB (M4F) `.text`, within 70 B across
+  codec sets (the trial-every-codec code for `SMALLEST` is a runtime branch, not a monomorphization axis, so it
+  stays linked in regardless of which policy a bin uses); against a `ww_si`-free baseline bin (`qemu-bounded`,
+  28.9 KB) linking `ww_si`'s `Series`/`NumericValue` codecs once costs about 69 KB. Instruction counts
+  (semihosting `SYS_ELAPSED` under `-icount shift=0`) pending a `qemu-system-arm` install on the build machine.
 - shrink_wrap: `RefVecBuilder<T>` (SW-61) writes a list in place, one element at a time, with the bytes of the same
   `RefVec::Slice`. **Breaking:** it replaces `RefVecU8Builder` (`RefVecBuilder::<u8>::write_bytes_with`); see
   `shrink_wrap/CHANGELOG.md`.

@@ -77,11 +77,17 @@ check-mcu:
 check-examples-mcu:
     # Checking examples-mcu
     @just check-examples-mcu-qemu
+    @just check-examples-mcu-qemu-m4f
     @just check-examples-mcu-nucleo-h743zi2
     @just check-examples-mcu-nucleo-g0b1re
     @just check-examples-mcu-stm32h725ig
     @just check-examples-mcu-rp2
     @just check-examples-mcu-ecc-flash-g0b1
+
+[working-directory('examples_mcu/mcu_qemu_m4f')]
+check-examples-mcu-qemu-m4f:
+    # Checking mcu_qemu_m4f
+    @cargo check
 
 [working-directory('examples_mcu/mcu_qemu')]
 check-examples-mcu-qemu:

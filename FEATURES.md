@@ -663,6 +663,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (fuzz target `series-dynamic`, `tests/series`, `wire_weaver_py/tests/test_offline.py`,
   `docs/serdes/series.md#introspection-and-dynamic-clients`). Not yet: writing a `Series` dynamically (Python
   `encode` of a `Series` fails).
+- ✅ **CLT-31 Quantities in dynamic clients, `ww` and Python** · `v0.5.x` — a `ww_si::Quantity<U>` (ww_si 0.2 and
+  later) is recognized from introspection data alone: a concrete definition records the generic one and arguments it
+  was made from (`ww_self::ItemStruct::instance_of`, host-derived, rejected from devices, left out of signatures), the
+  unit comes from `ww_si::units::by_name`, the `Per` / `Times` tree, or a marker of the API's own crate by name and
+  docs. `wire_weaver_client::quantity` (`DynQuantity`: `3300 mV`, `{:#}` `3.3 V`, `to_si_f64`, `to_value`; `DynUnit`),
+  `ww introspect` const values and `ww observe` print with symbols, Python `ww.Quantity` (`value`, `prefix`,
+  `exponent`, `storage`, `symbol`, `unit`, `dim`, `docs`, `to_si()`; writes take a `Quantity` or a number in the unit)
+  (`docs/std_library/ww_si.md#in-ww-python-and-dynamic-clients`, `tests/quantities`, `wire_weaver_py/tests`). Types
+  are still named by their definitions (`Timed<Quantity<Ampere>>`), alias names need ww_self type aliases.
 - ✅ **CLT-30 Link setup budget per transport** · `v0.5.x` — the client re-sent `GetDeviceInfo` 5 times 50 ms apart (250 ms
   for every transport), so connecting through a debug probe (~17 ms per RTT write through a J-Link) mostly failed with
   `LinkSetup was not received`. Now a timeout per transport (USB, UDP, WebSocket 1 s, in-process 250 ms, RTT 10 s, one

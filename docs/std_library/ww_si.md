@@ -243,6 +243,26 @@ In the API model a use of `Volt` is an instance of the generic `Quantity` with t
 argument (an alias is not a definition of its own). Both are in the `ww_si` snapshot, so a device sends a reference
 to them, not their definitions.
 
+## In `ww`, Python and dynamic clients
+
+A client that only has a device's introspection data still knows a quantity for what it is: `ww introspect` and
+`ww observe` print `3300 mV`, Python gets a `ww.Quantity`. The unit comes from the marker: a marker of `ww_si::units`
+by its name through `units::by_name` (symbol, dimension and scale), `Per<A, B>` and `Times<A, B>` as a tree of their
+parts (`0.00012 N·m/(rad/s)`), and a marker of your own API crate (`struct Rpm;`) by its name and docs, without a
+dimension or a conversion to SI. This works for ww_si 0.2 and later.
+
+```python
+q = dev.supply.read()        # Quantity(3300 mV U16)
+str(q), float(q)             # "3300 mV", 3.3
+q.symbol, q.dim              # "V", {"kg": 1, "m": 2, "s": -3, "A": -1}
+q.to_si()                    # 3.3
+dev.supply.write(1.5)        # 1.5 V
+```
+
+In Rust, `wire_weaver_client::quantity::DynQuantity::from_value(&value, &ty, &bundle)` gives the prefix, the number
+and a `DynUnit`; its `Display` is the same text as the typed `Quantity`'s, `to_si_f64()` converts through the unit's
+scale and `to_value()` makes a value to write. See `wire_weaver_py/README.md` for the Python side.
+
 `BaseUnit` (a unit known only at run time, used by `ww_adc::ChannelInfo::unit`) is still the one from ww_si 0.1; a
 run-time unit model that maps onto the markers replaces it later.
 

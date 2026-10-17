@@ -1,4 +1,5 @@
-use super::{api::convert_api_items, util::collect_docs};
+use super::api::convert_api_items;
+use super::util::{UseLeaf, collect_docs, use_tree_leaves};
 use anyhow::{Context, Result, anyhow};
 use cargo_toml::{Dependency, DepsSet, Inheritable, Manifest};
 use shrink_wrap::UNib32;
@@ -9,6 +10,8 @@ use std::rc::Rc;
 use syn::{File, Item};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, TypeLocationOwned, TypeOwned};
 use ww_version::{FullVersionOwned, VersionOwned};
+
+use crate::codegen::{CodegenBundle, TypePath};
 
 /// Crates re-exported by `wire_weaver`, usable without depending on them directly.
 pub(crate) const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_error", "ww_version"];
@@ -40,6 +43,11 @@ pub fn load(
     trait_name: Option<String>,
     _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
 ) -> Result<ApiBundleOwned> {
+    Ok(load_for_codegen(crate_path, trait_name)?.bundle)
+}
+
+/// [load] together with what code generation needs on top of the API model: the path of each definition.
+pub fn load_for_codegen(crate_path: &Path, trait_name: Option<String>) -> Result<CodegenBundle> {
     let mut scratch = Scratch::default();
     load_inner(crate_path, trait_name, &mut scratch)
 }
@@ -49,7 +57,7 @@ pub fn load(
 pub fn load_dep(
     dep_name: impl AsRef<str>,
     trait_name: Option<impl AsRef<str>>,
-) -> Result<ApiBundleOwned> {
+) -> Result<CodegenBundle> {
     let mut scratch = Scratch::default();
     let current_crate_path = std::env::var("CARGO_MANIFEST_DIR").map_err(|_|
         anyhow!("CARGO_MANIFEST_DIR not set, cannot determine current crate path. Consider calling this method from a build.rs script.")
@@ -69,7 +77,7 @@ fn load_inner(
     crate_path: &Path,
     trait_name: Option<String>,
     scratch: &mut Scratch,
-) -> Result<ApiBundleOwned> {
+) -> Result<CodegenBundle> {
     let entry = CrateContext::load(crate_path, scratch)?;
     let trait_name = find_trait_if_none(trait_name, &entry.lib_rs_ast)?;
     let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
@@ -81,7 +89,7 @@ fn load_inner(
         trait_name,
         items,
     };
-    Ok(ApiBundleOwned {
+    let bundle = ApiBundleOwned {
         magic: ww_self::MAGIC,
         ww_self_version: ww_self::VERSION,
         root,
@@ -89,6 +97,10 @@ fn load_inner(
         traits: scratch.root_bundle.traits.clone(),
         ext_crates: scratch.root_bundle.ext_crates.clone(),
         root_omitted: None,
+    };
+    Ok(CodegenBundle {
+        bundle,
+        type_paths: scratch.root_bundle.type_paths.clone(),
     })
 }
 
@@ -115,9 +127,11 @@ pub(crate) struct Scratch {
     /// Parameters of the type alias whose right-hand side is being converted (API-45), each with the argument it
     /// stands for, already converted where the alias is used; empty outside of one.
     pub(crate) alias_args: Vec<(String, ww_self::GenericArgOwned)>,
+    /// Public paths already found ([CrateContext::public_path]), by crate, module and name of the definition.
+    public_paths: HashMap<(FullVersionOwned, Vec<ModSegment>, String), Vec<String>>,
 }
 
-/// Crate and name of a user-defined type.
+/// Crate and module-qualified name (`units::Volt`) of a user-defined type.
 pub(crate) type TypeKey = (FullVersionOwned, String);
 
 /// A user-defined type being converted.
@@ -134,6 +148,9 @@ pub(crate) struct TypeInProgress {
 #[derive(Default)]
 pub(crate) struct ApiBundleScratch {
     pub(crate) types: Vec<TypeLocationOwned>,
+    /// For each entry of `types`, the paths other crates name a struct or enum by; `None` for the other types (an
+    /// index type). Used by codegen only, not part of the API model.
+    pub(crate) type_paths: Vec<Option<TypePath>>,
     pub(crate) traits: Vec<ApiLevelLocationOwned>,
     pub(crate) ext_crates: Vec<FullVersionOwned>,
 }
@@ -152,27 +169,41 @@ impl ApiBundleScratch {
         idx.into()
     }
 
-    pub(crate) fn find_type(&self, ty: &TypeOwned) -> Option<UNib32> {
+    /// An equal definition already in `types`: the same type in the same crate, at the same path.
+    pub(crate) fn find_def(
+        &mut self,
+        ty: &TypeOwned,
+        current_crate: &CrateContext,
+        path: &TypePath,
+    ) -> Option<UNib32> {
+        let crate_idx = self.find_crate_or_create(current_crate);
         self.types
             .iter()
-            .enumerate()
-            .find(|(_idx, tl)| {
-                if let TypeLocationOwned::InLine { ty: t, .. } = tl {
-                    t == ty
-                } else {
-                    false
-                }
+            .zip(&self.type_paths)
+            .position(|(tl, p)| {
+                matches!(tl, TypeLocationOwned::InLine { ty: t, crate_idx: c } if t == ty && *c == crate_idx)
+                    && p.as_ref() == Some(path)
             })
-            .map(|(idx, _)| (idx as u32).into())
+            .map(|idx| (idx as u32).into())
     }
 
-    pub(crate) fn push_out_of_line(
+    /// Adds the definition of a struct or enum, named `path` from other crates.
+    pub(crate) fn push_def(
         &mut self,
         ty: TypeOwned,
         current_crate: &CrateContext,
+        path: TypePath,
     ) -> TypeOwned {
         let type_idx = self.push_out_of_line_idx(ty, current_crate);
+        self.type_paths[type_idx.0 as usize] = Some(path);
         TypeOwned::OutOfLine { type_idx }
+    }
+
+    /// Reserves an entry for a definition that is filled in once converted.
+    pub(crate) fn reserve_def(&mut self, current_crate: &CrateContext, path: TypePath) -> UNib32 {
+        let type_idx = self.push_out_of_line_idx(TypeOwned::Tuple(vec![]), current_crate);
+        self.type_paths[type_idx.0 as usize] = Some(path);
+        type_idx
     }
 
     pub(crate) fn push_out_of_line_idx(
@@ -186,6 +217,7 @@ impl ApiBundleScratch {
         let type_idx = self.types.len() as u32;
         let crate_idx = self.find_crate_or_create(current_crate);
         self.types.push(TypeLocationOwned::InLine { ty, crate_idx });
+        self.type_paths.push(None);
         type_idx.into()
     }
 }
@@ -198,8 +230,18 @@ pub(crate) struct CrateContext {
     pub(crate) lib_rs_ast: File,
     /// Directory where files of the child modules of `lib_rs_ast` are.
     mod_dir: PathBuf,
+    /// Modules from the crate root to `lib_rs_ast`, each with whether it is `pub`; empty for the crate root.
+    mod_path: Vec<ModSegment>,
     // crate_path: PathBuf,
     // lib_rs_source: String,
+}
+
+/// A module on the way from the crate root to a [CrateContext].
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct ModSegment {
+    pub(crate) name: String,
+    /// `pub mod`, reachable from other crates if the modules before it are.
+    pub(crate) public: bool,
 }
 
 /// Cargo.toml manifest together with its file path
@@ -229,6 +271,7 @@ impl CrateContext {
             manifest,
             version,
             lib_rs_ast: lib_rs,
+            mod_path: vec![],
         };
         // the root crate is always first in ext_crates, even when no types are referenced from it; the others are
         // added when a type or trait of theirs is, not when a path only goes through them (`wire_weaver::prelude`)
@@ -308,16 +351,131 @@ impl CrateContext {
                 parse_rs(&path)?
             }
         };
+        let mut mod_path = self.mod_path.clone();
+        mod_path.push(ModSegment {
+            name: name.to_string(),
+            public: matches!(item_mod.vis, syn::Visibility::Public(_)),
+        });
         Ok(Some(Self {
             manifest: self.manifest.clone(),
             version: self.version.clone(),
             lib_rs_ast: ast,
             mod_dir,
+            mod_path,
         }))
     }
 
     pub(crate) fn err_context(&self) -> String {
         format!("{:?}", self.version)
+    }
+
+    /// Paths by which other crates name `ident` defined here, and its `<ident>Owned` variant (which the derive puts
+    /// next to it, for a type with a lifetime).
+    pub(crate) fn type_path(&self, ident: &str, scratch: &mut Scratch) -> Result<TypePath> {
+        let path = self.public_path(ident, scratch)?;
+        let owned = self.public_path(&format!("{ident}Owned"), scratch).ok();
+        Ok(TypePath { path, owned })
+    }
+
+    /// `ident` qualified with the modules it is in from the crate root: `units::Volt`.
+    pub(crate) fn qualified_name(&self, ident: &str) -> String {
+        let mut name: String = self
+            .mod_path
+            .iter()
+            .map(|m| format!("{}::", m.name))
+            .collect();
+        name.push_str(ident);
+        name
+    }
+
+    /// Path after the crate name by which other crates name `ident`, a struct or enum defined in this module
+    /// (API-46): the shortest one through `pub` modules and `pub use` re-exports of this crate. `["Ty"]` for a type
+    /// defined or re-exported at the crate root, `["units", "Volt"]` for one in `pub mod units` that isn't.
+    pub(crate) fn public_path(&self, ident: &str, scratch: &mut Scratch) -> Result<Vec<String>> {
+        let key = (
+            self.version.clone(),
+            self.mod_path.clone(),
+            ident.to_string(),
+        );
+        if let Some(path) = scratch.public_paths.get(&key) {
+            return Ok(path.clone());
+        }
+        let mut cx = Self::load_from_manifest(self.manifest.clone(), scratch)?;
+        let mut path = vec![];
+        for segment in self.mod_path.iter().map(Some).chain([None]) {
+            if let Some(name) = cx.exported_name(self, ident, scratch, 0) {
+                path.push(name);
+                scratch.public_paths.insert(key, path.clone());
+                return Ok(path);
+            }
+            let Some(segment) = segment.filter(|s| s.public) else {
+                break;
+            };
+            path.push(segment.name.clone());
+            cx = Rc::new(
+                cx.module(&segment.name)?
+                    .ok_or_else(|| anyhow!("internal: module {} not found", segment.name))?,
+            );
+        }
+        Err(anyhow!(
+            "{} is not reachable from other crates, so generated code can't name it: make the modules on its way \
+             `pub` or re-export it with `pub use`",
+            self.qualified_name(ident)
+        )
+        .context(self.err_context()))
+    }
+
+    /// The name under which this module makes `ident`, defined in `def_cx`, public: `ident` when this is `def_cx`,
+    /// the name of a `pub use` of it (by name, renamed or through a glob) otherwise. Only re-exports within the crate
+    /// are followed, `depth` bounds the chain.
+    fn exported_name(
+        &self,
+        def_cx: &Self,
+        ident: &str,
+        scratch: &mut Scratch,
+        depth: u8,
+    ) -> Option<String> {
+        if self.version == def_cx.version && self.mod_path == def_cx.mod_path {
+            return Some(ident.to_string());
+        }
+        if depth >= 8 {
+            return None;
+        }
+        for item in &self.lib_rs_ast.items {
+            let Item::Use(item_use) = item else {
+                continue;
+            };
+            if !matches!(item_use.vis, syn::Visibility::Public(_)) {
+                continue;
+            }
+            for (path, leaf) in use_tree_leaves(&item_use.tree) {
+                let is_local = path.first().is_some_and(|first| {
+                    *first == "self" || *first == "crate" || self.has_module(&first.to_string())
+                });
+                if !is_local {
+                    continue;
+                }
+                let Ok(module) = self.resolve_path(path, scratch) else {
+                    continue;
+                };
+                if module.mod_path == self.mod_path {
+                    // `pub use self::*`
+                    continue;
+                }
+                let exported = module.exported_name(def_cx, ident, scratch, depth + 1);
+                let name = match (leaf, exported) {
+                    (_, None) => continue,
+                    (UseLeaf::Name(name), Some(exported)) if *name == exported => exported,
+                    (UseLeaf::Rename { name, rename }, Some(exported)) if *name == exported => {
+                        rename.to_string()
+                    }
+                    (UseLeaf::Glob, Some(exported)) => exported,
+                    _ => continue,
+                };
+                return Some(name);
+            }
+        }
+        None
     }
 
     pub(crate) fn version(&self) -> &FullVersionOwned {

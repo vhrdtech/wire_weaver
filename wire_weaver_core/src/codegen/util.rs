@@ -1,8 +1,9 @@
+use crate::codegen::CodegenBundle;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{Path, PathArguments, PathSegment};
-use ww_self::{ApiBundleOwned, ApiLevelOwned};
+use ww_self::ApiLevelOwned;
 
 pub fn maybe_quote(condition: bool, tokens_if_true: TokenStream) -> TokenStream {
     if condition {
@@ -42,7 +43,7 @@ impl ErrorSeq {
     }
 }
 
-pub(crate) fn mod_name(api_level: &ApiLevelOwned, api_bundle: &ApiBundleOwned) -> Ident {
+pub(crate) fn mod_name(api_level: &ApiLevelOwned, api_bundle: &CodegenBundle) -> Ident {
     let crate_name = api_level.crate_name(api_bundle).unwrap();
     Ident::new(
         format!(
@@ -55,7 +56,7 @@ pub(crate) fn mod_name(api_level: &ApiLevelOwned, api_bundle: &ApiBundleOwned) -
     )
 }
 
-pub(crate) fn source_marker(api_level: &ApiLevelOwned, api_bundle: &ApiBundleOwned) -> TokenStream {
+pub(crate) fn source_marker(api_level: &ApiLevelOwned, api_bundle: &CodegenBundle) -> TokenStream {
     let crate_name = api_level.crate_name(api_bundle).unwrap();
     let crate_name = Ident::new(crate_name, Span::call_site());
     let trait_full_gid = Ident::new(

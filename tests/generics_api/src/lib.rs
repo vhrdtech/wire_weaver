@@ -1,7 +1,7 @@
 //! Generic user types in an API (API-43): type and const parameters, generic enums, a lifetime next to a parameter,
 //! a const parameter passed on, and `ww_si::Timed<T>` from a snapshot, as method arguments and return values,
 //! properties and stream items. Type aliases (API-45), plain and generic, as a method argument and return value, a
-//! property and inside `Timed`.
+//! property and inside `Timed`, named like its unit marker in a module (ww_si 0.2 layout, API-46).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::marker::PhantomData;
@@ -46,14 +46,15 @@ impl<U> Quantity<U> {
     }
 }
 
-/// Volts, a marker without serdes impls
-// TODO(API-46): `units::Volt`, as `ww_si` will have it, once codegen names types by their module path: today it writes
-// `generics_api::Volt`, which is the alias below
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct VoltUnit;
+/// Unit markers, as `ww_si::units` has them: a marker and the alias of its quantity share a name (API-46)
+pub mod units {
+    /// Volts, a marker without serdes impls
+    #[derive(Debug, PartialEq, Clone, Copy)]
+    pub struct Volt;
+}
 
-/// A plain alias of a generic type
-pub type Volt = Quantity<VoltUnit>;
+/// A plain alias of a generic type, named like the marker in `units`
+pub type Volt = Quantity<units::Volt>;
 
 /// A generic alias: its parameter goes into the types it names
 pub type Sample<T> = Pair<Window<2>, Reading<T>>;

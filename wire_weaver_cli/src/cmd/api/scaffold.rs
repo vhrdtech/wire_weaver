@@ -2,7 +2,7 @@ use anyhow::{Context, Result, anyhow};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use wire_weaver_core::{ServerScaffoldConfig, gen_server_scaffold, load};
+use wire_weaver_core::{ServerScaffoldConfig, gen_server_scaffold, load_for_codegen};
 
 pub(crate) fn scaffold(
     crate_path: PathBuf,
@@ -10,7 +10,7 @@ pub(crate) fn scaffold(
     config: ServerScaffoldConfig,
     output: Option<PathBuf>,
 ) -> Result<()> {
-    let api_bundle = load(&crate_path, trait_name, false)?;
+    let api_bundle = load_for_codegen(&crate_path, trait_name)?;
     let code = rustfmt(gen_server_scaffold(&api_bundle, &config)?)?;
     match output {
         Some(path) => {

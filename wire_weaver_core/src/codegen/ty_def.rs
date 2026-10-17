@@ -1,9 +1,10 @@
+use crate::codegen::CodegenBundle;
 use anyhow::{Result, anyhow};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{Lit, LitInt};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
-use ww_self::{ApiBundleOwned, GenericArgOwned, TypeOwned, ValueOwned};
+use ww_self::{GenericArgOwned, TypeOwned, ValueOwned};
 
 use crate::codegen::util::maybe_quote_cl;
 use crate::transform::WIRE_WEAVER_REEXPORTS;
@@ -19,7 +20,7 @@ pub(crate) enum TyPos {
 }
 
 pub(crate) fn ty_def(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     ty: &TypeOwned,
     alloc: bool,
     ty_pos: TyPos,
@@ -28,33 +29,34 @@ pub(crate) fn ty_def(
 }
 
 pub(crate) fn ty_def_by_idx(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     type_idx: u32,
     alloc: bool,
     ty_pos: TyPos,
 ) -> Result<TokenStream> {
-    let ty = api_bundle.get_ty(type_idx)?;
-    ty_def_inner(api_bundle, ty.0, alloc, ty_pos, Some(ty.1))
+    let (ty, _) = api_bundle.get_ty(type_idx)?;
+    ty_def_inner(api_bundle, ty, alloc, ty_pos, Some(type_idx))
 }
 
 fn ty_def_inner(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     ty: &TypeOwned,
     alloc: bool,
     ty_pos: TyPos,
-    crate_idx: Option<u32>,
+    // index of `ty` in the types array, when it is a definition from there
+    type_idx: Option<u32>,
 ) -> Result<TokenStream> {
     let maybe_turbofish = maybe_quote_cl(matches!(ty_pos, TyPos::Expr), || quote! { :: });
     match ty {
         TypeOwned::Bool => Ok(quote! { bool }),
         TypeOwned::NumericAny(numeric_any) => Ok(ty_def_numeric_any(numeric_any)),
         TypeOwned::OutOfLine { type_idx } => {
-            let (ty, crate_idx) = api_bundle.get_ty(type_idx.0)?;
-            ty_def_inner(api_bundle, ty, alloc, ty_pos, Some(crate_idx))
+            let (ty, _) = api_bundle.get_ty(type_idx.0)?;
+            ty_def_inner(api_bundle, ty, alloc, ty_pos, Some(type_idx.0))
         }
         // `Timed<Ampere>`, `TaggedOwned<String>` (API-43): the definition's own lifetime first, then the arguments
         TypeOwned::Instance { type_idx, args } => {
-            let (def, crate_idx) = api_bundle.get_ty(type_idx.0)?;
+            let (def, _) = api_bundle.get_ty(type_idx.0)?;
             let (ident, own_lifetime) = match def {
                 TypeOwned::Struct(item_struct) => {
                     (&item_struct.ident, item_struct.is_lifetime(api_bundle)?)
@@ -84,7 +86,7 @@ fn ty_def_inner(
                     }
                 });
             }
-            let path = user_ty_path(Some(crate_idx), ident, own_lifetime && alloc, api_bundle)?;
+            let path = user_ty_path(Some(type_idx.0), ident, own_lifetime && alloc, api_bundle)?;
             Ok(quote! { #path #maybe_turbofish < #(#generic_args),* > })
         }
         TypeOwned::Param(idx) => Err(anyhow!(
@@ -124,7 +126,7 @@ fn ty_def_inner(
             Ok(quote! { ( #(#types),* ) })
         }
         TypeOwned::Struct(item_struct) => user_ty_def(
-            crate_idx,
+            type_idx,
             &item_struct.ident,
             item_struct.is_lifetime(api_bundle)?,
             alloc,
@@ -132,7 +134,7 @@ fn ty_def_inner(
             api_bundle,
         ),
         TypeOwned::Enum(item_enum) => user_ty_def(
-            crate_idx,
+            type_idx,
             &item_enum.ident,
             item_enum.is_lifetime(api_bundle)?,
             alloc,
@@ -224,65 +226,66 @@ fn const_arg(value: &ValueOwned) -> Result<TokenStream> {
     }
 }
 
-/// `crate::Name`, `crate::NameOwned` with `owned`.
+/// `crate::Name`, `crate::module::Name`, `crate::NameOwned` with `owned`.
 fn user_ty_path(
-    crate_idx: Option<u32>,
+    type_idx: Option<u32>,
     ty_name: &str,
     owned: bool,
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
 ) -> Result<TokenStream> {
-    let source_crate = source_crate(crate_idx, api_bundle)?;
-    let ty_name = if owned {
-        Ident::new(&format!("{ty_name}Owned"), Span::call_site())
-    } else {
-        Ident::new(ty_name, Span::call_site())
-    };
-    Ok(quote! { #source_crate::#ty_name })
-}
-
-fn source_crate(crate_idx: Option<u32>, api_bundle: &ApiBundleOwned) -> Result<TokenStream> {
-    Ok(if let Some(crate_idx) = crate_idx {
-        let name = api_bundle.crate_name(crate_idx)?;
-        let reexported = WIRE_WEAVER_REEXPORTS.contains(&name);
-        let name = Ident::new(name, Span::call_site());
-        if reexported {
-            // `CommonError` without a dependency on `ww_error`, as the API crate itself
-            quote! { wire_weaver::#name }
-        } else {
-            quote! { #name }
-        }
-    } else {
-        quote! {}
-    })
-}
-
-fn user_ty_def(
-    crate_idx: Option<u32>,
-    ty_name: &str,
-    is_lifetime: bool,
-    alloc: bool,
-    ty_pos: TyPos,
-    api_bundle: &ApiBundleOwned,
-) -> Result<TokenStream> {
-    let source_crate = source_crate(crate_idx, api_bundle)?;
-    let maybe_turbofish = maybe_quote_cl(matches!(ty_pos, TyPos::Expr), || quote! { :: });
-
-    if alloc {
-        let ty_name = if is_lifetime {
+    let Some(type_idx) = type_idx else {
+        let ty_name = if owned {
             Ident::new(&format!("{ty_name}Owned"), Span::call_site())
         } else {
             Ident::new(ty_name, Span::call_site())
         };
-        Ok(quote! { #source_crate::#ty_name })
+        return Ok(quote! { #ty_name });
+    };
+    let (_, crate_idx) = api_bundle.get_ty(type_idx)?;
+    let name = api_bundle.crate_name(crate_idx)?;
+    let reexported = WIRE_WEAVER_REEXPORTS.contains(&name);
+    let name = Ident::new(name, Span::call_site());
+    let source_crate = if reexported {
+        // `CommonError` without a dependency on `ww_error`, as the API crate itself
+        quote! { wire_weaver::#name }
     } else {
-        // no_std
-        let ty_name = Ident::new(ty_name, Span::call_site());
-        if is_lifetime {
-            let l = lifetime(ty_pos);
-            Ok(quote! { #source_crate::#ty_name #maybe_turbofish <#l> })
-        } else {
-            Ok(quote! { #source_crate::#ty_name })
-        }
+        quote! { #name }
+    };
+    // the path other crates name it by (API-46), the API model only has its name
+    let type_path = api_bundle
+        .type_paths
+        .get(type_idx as usize)
+        .and_then(Option::as_ref)
+        .ok_or_else(|| anyhow!("internal: no path for type {ty_name} (index {type_idx})"))?;
+    let path = if owned {
+        type_path.owned.as_ref().ok_or_else(|| {
+            anyhow!(
+                "{ty_name}Owned is not reachable from other crates: re-export it next to {}",
+                type_path.path.join("::")
+            )
+        })?
+    } else {
+        &type_path.path
+    };
+    let path = path.iter().map(|s| Ident::new(s, Span::call_site()));
+    Ok(quote! { #source_crate #(::#path)* })
+}
+
+fn user_ty_def(
+    type_idx: Option<u32>,
+    ty_name: &str,
+    is_lifetime: bool,
+    alloc: bool,
+    ty_pos: TyPos,
+    api_bundle: &CodegenBundle,
+) -> Result<TokenStream> {
+    let maybe_turbofish = maybe_quote_cl(matches!(ty_pos, TyPos::Expr), || quote! { :: });
+    let path = user_ty_path(type_idx, ty_name, alloc && is_lifetime, api_bundle)?;
+    if !alloc && is_lifetime {
+        let l = lifetime(ty_pos);
+        Ok(quote! { #path #maybe_turbofish <#l> })
+    } else {
+        Ok(path)
     }
 }
 

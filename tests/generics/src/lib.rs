@@ -472,13 +472,10 @@ mod tests {
         let (arg, ret) = method_types(&bundle, 6);
         assert_eq!(arg, ret);
         assert_eq!(arg, item_ty(&bundle, 7));
-        assert_eq!(
-            arg.human_name(false, &bundle).unwrap(),
-            "Quantity<VoltUnit>"
-        );
+        assert_eq!(arg.human_name(false, &bundle).unwrap(), "Quantity<Volt>");
         assert_eq!(
             item_ty(&bundle, 8).human_name(false, &bundle).unwrap(),
-            "Timed<Quantity<VoltUnit>>"
+            "Timed<Quantity<Volt>>"
         );
         assert_eq!(
             item_ty(&bundle, 9).human_definition(&bundle, true).unwrap(),

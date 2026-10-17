@@ -194,20 +194,51 @@ pub(crate) fn get_flow_attr(
     Ok(Some(FlowControl::Credit))
 }
 
-/// Path segments leading to `type_name` imported by a `use` tree, e.g. `[a, b]` for `use a::{b::Ty, Other}`.
-pub(crate) fn use_tree_path_to<'t>(tree: &'t UseTree, type_name: &str) -> Option<Vec<&'t Ident>> {
+/// Path segments leading to `type_name` imported by a `use` tree and the name it has there, e.g. `([a, b], Ty)` for
+/// `use a::{b::Ty, Other}` and `([a], Ty)` for `use a::Ty as Renamed` looked up as `Renamed`.
+pub(crate) fn use_tree_path_to<'t>(
+    tree: &'t UseTree,
+    type_name: &str,
+) -> Option<(Vec<&'t Ident>, &'t Ident)> {
+    use_tree_leaves(tree)
+        .into_iter()
+        .find_map(|(path, leaf)| match leaf {
+            UseLeaf::Name(name) if name == type_name => Some((path, name)),
+            UseLeaf::Rename { name, rename } if rename == type_name => Some((path, name)),
+            _ => None,
+        })
+}
+
+/// What a `use` tree brings in at the end of a path.
+pub(crate) enum UseLeaf<'t> {
+    /// `use a::Ty`
+    Name(&'t Ident),
+    /// `use a::Ty as Renamed`
+    Rename { name: &'t Ident, rename: &'t Ident },
+    /// `use a::*`
+    Glob,
+}
+
+/// Everything a `use` tree imports, each with the path segments leading to it.
+pub(crate) fn use_tree_leaves(tree: &UseTree) -> Vec<(Vec<&Ident>, UseLeaf<'_>)> {
     match tree {
-        UseTree::Path(use_path) => {
-            let mut path = use_tree_path_to(&use_path.tree, type_name)?;
-            path.insert(0, &use_path.ident);
-            Some(path)
-        }
-        UseTree::Name(use_name) => (use_name.ident == type_name).then(Vec::new),
-        UseTree::Rename(_) | UseTree::Glob(_) => None,
-        UseTree::Group(use_group) => use_group
-            .items
-            .iter()
-            .find_map(|item| use_tree_path_to(item, type_name)),
+        UseTree::Path(use_path) => use_tree_leaves(&use_path.tree)
+            .into_iter()
+            .map(|(mut path, leaf)| {
+                path.insert(0, &use_path.ident);
+                (path, leaf)
+            })
+            .collect(),
+        UseTree::Name(use_name) => vec![(vec![], UseLeaf::Name(&use_name.ident))],
+        UseTree::Rename(use_rename) => vec![(
+            vec![],
+            UseLeaf::Rename {
+                name: &use_rename.ident,
+                rename: &use_rename.rename,
+            },
+        )],
+        UseTree::Glob(_) => vec![(vec![], UseLeaf::Glob)],
+        UseTree::Group(use_group) => use_group.items.iter().flat_map(use_tree_leaves).collect(),
     }
 }
 

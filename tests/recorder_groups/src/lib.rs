@@ -1,5 +1,5 @@
 //! A small firmware leaves every optional group of `ww_recorder::Recorder` out with `omit` (STD-34): `format`,
-//! `recordings`, `markers`, `track_settings`, `counters` (both levels) and `usb` stay uncompiled, only the minimum
+//! `recordings`, `markers`, `track_settings`, `counting` (both levels) and `usb` stay uncompiled, only the minimum
 //! (`status`, `card`, `sync`, `settings`, `track[].info` and `enabled`) is served. See
 //! `docs/std_library/ww_recorder.md`.
 
@@ -149,8 +149,8 @@ mod tests {
                     "recorder.recording",
                     "recorder.markers",
                     "recorder.track.track_settings",
-                    "recorder.counters",
-                    "recorder.track.counters",
+                    "recorder.counting",
+                    "recorder.track.counting",
                     "recorder.usb",
                     "recorder.track.compression",
                 ],
@@ -199,8 +199,8 @@ mod tests {
                     "recorder.recording",
                     "recorder.markers",
                     "recorder.track.track_settings",
-                    "recorder.counters",
-                    "recorder.track.counters",
+                    "recorder.counting",
+                    "recorder.track.counting",
                     "recorder.usb",
                     "recorder.track.compression",
                 ],

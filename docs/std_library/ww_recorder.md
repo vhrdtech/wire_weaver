@@ -174,7 +174,7 @@ The minimum every device keeps, whatever it leaves out: `status`, `card`, `sync`
 | `recording` | `recording_start`, `recording_stop`, `recordings` | logs one continuous span, nothing to label |
 | `markers` | `marker` | has no button or application event worth finding again |
 | `track_settings` | `track[].durability` | flushes every track the same way, no per-track timing |
-| `counters` | `counters`, `track[].counters` | has no status screen and doesn't judge the card by its wear |
+| `counting` | `counters`, `track[].counters` | has no status screen and doesn't judge the card by its wear |
 | `usb` | `refresh_usb` | has no USB mass storage view |
 
 `track[].compression` keeps its own plain `#[optional]` (not a group of its own): a device without a codec leaves
@@ -191,8 +191,8 @@ ww_codegen!(
         "recorder.recording",
         "recorder.markers",
         "recorder.track.track_settings",
-        "recorder.counters",
-        "recorder.track.counters",
+        "recorder.counting",
+        "recorder.track.counting",
         "recorder.usb",
     ],
 );
@@ -212,7 +212,7 @@ cargo ww api scaffold ww_stdlib/ww_recorder --name Recorder
 
 It prints the server struct, a stub for every handler (`status`, `card`, `prepare_format`, ..., `track_info`,
 `track_counters`, `valid_indices_root_track`, the `settings` getter and setter) and the matching `ww_codegen!`; the
-output compiles as it is. `--omit formatting,recording,markers,track.track_settings,counters,track.counters,usb`
+output compiles as it is. `--omit formatting,recording,markers,track.track_settings,counting,track.counting,usb`
 leaves the same groups' stubs out.
 
 ## Evolution

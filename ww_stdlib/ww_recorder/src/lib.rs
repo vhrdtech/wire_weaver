@@ -121,7 +121,7 @@ pub trait Recorder {
     property!(rw settings: Settings, RecorderError<'i>);
 
     /// Totals since the card was formatted and since this boot.
-    #[optional(counters)]
+    #[optional(counting)]
     fn counters() -> RecorderCounters;
 
     /// Tells the USB mass storage view to show the log as it is now. The view is a snapshot taken when the host
@@ -155,7 +155,7 @@ pub trait Track {
     property!(rw compression: Compression, RecorderError<'i>);
 
     /// What the track has stored and lost.
-    #[optional(counters)]
+    #[optional(counting)]
     fn counters() -> TrackCounters;
 }
 

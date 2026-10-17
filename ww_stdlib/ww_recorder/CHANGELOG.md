@@ -19,7 +19,7 @@
 - Optional groups (P2628#17oct-1922): a small firmware can leave a whole tier out with one `omit` / `omit_if` entry
   instead of one call at a time. `#[optional(formatting)]` on `prepare_format` / `format`, `#[optional(recording)]`
   on `recording_start` / `recording_stop` / `recordings`, `#[optional(markers)]` on `marker`,
-  `#[optional(track_settings)]` on `Track::durability`, `#[optional(counters)]` on `Recorder::counters` and
+  `#[optional(track_settings)]` on `Track::durability`, `#[optional(counting)]` on `Recorder::counters` and
   `Track::counters`, `#[optional(usb)]` on `refresh_usb` (was a bare `#[optional]`). `Track::compression` keeps its
   own plain `#[optional]`. The minimum every device keeps: `status`, `card`, `sync`, `settings`, `track[].info` and
   `track[].enabled`. See the table in `docs/std_library/ww_recorder.md`; `tests/recorder_groups` compiles and

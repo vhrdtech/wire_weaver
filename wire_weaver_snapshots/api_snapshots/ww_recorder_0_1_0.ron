@@ -544,7 +544,7 @@
         ], optional: Some((group: None))),
         (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
             "What the track has stored and lost.",
-        ], optional: Some((group: Some("counters")))),
+        ], optional: Some((group: Some("counting")))),
     ]), crate_idx: 0),
     InLine(level: (docs: [
         "Control of a recorder: a logger that writes tracks to a card or flash.",
@@ -665,7 +665,7 @@
         ], optional: None),
         (id: 11, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 26)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
             "Totals since the card was formatted and since this boot.",
-        ], optional: Some((group: Some("counters")))),
+        ], optional: Some((group: Some("counting")))),
         (id: 12, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",

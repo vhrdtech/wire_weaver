@@ -163,6 +163,7 @@ fn variant(ident: &str, d: u32, fields: FieldsOwned) -> VariantOwned {
 
 fn st(ident: &str, size: ElementSize, fields: FieldsOwned) -> TypeOwned {
     TypeOwned::Struct(ItemStructOwned {
+        instance_of: None,
         size,
         crate_idx: UNib32(0),
         docs: vec![],
@@ -176,6 +177,7 @@ fn st(ident: &str, size: ElementSize, fields: FieldsOwned) -> TypeOwned {
 
 fn en(ident: &str, size: ElementSize, variants: Vec<VariantOwned>) -> TypeOwned {
     TypeOwned::Enum(ItemEnumOwned {
+        instance_of: None,
         size,
         repr: Repr::UNib32,
         crate_idx: UNib32(0),
@@ -223,6 +225,7 @@ pub fn bundle() -> ApiBundleOwned {
     };
     let unnamed = |ty| FieldsOwned::Unnamed(vec![field(None, ty)]);
     let timed = ItemStructOwned {
+        instance_of: None,
         size: ElementSize::UnsizedFinalStructure,
         crate_idx: UNib32(0),
         docs: vec![],

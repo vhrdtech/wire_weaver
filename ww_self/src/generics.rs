@@ -15,8 +15,8 @@
 
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiLevelLocationOwned, ApiLevelOwned, FieldOwned,
-    FieldsOwned, GenericArgOwned, GenericParamKindOwned, GenericParamOwned, ItemEnumOwned,
-    ItemStructOwned, Length, TypeLocationOwned, TypeOwned, ValueOwned,
+    FieldsOwned, GenericArgOwned, GenericParamKindOwned, GenericParamOwned, InstanceOfOwned,
+    ItemEnumOwned, ItemStructOwned, Length, TypeLocationOwned, TypeOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
@@ -41,6 +41,16 @@ pub const MAX_NAME_LEN: usize = 1024;
 /// again. Run on every bundle from outside (a device's introspection data, a file) before using it dynamically,
 /// after skipped definitions are put back ([crate::inline]).
 pub fn prepare(bundle: &mut ApiBundleOwned) -> Result<()> {
+    for location in &bundle.types {
+        if let TypeLocationOwned::InLine { ty, .. } = location
+            && instance_of(ty).is_some()
+        {
+            bail!(
+                "type {} says which instance it is, only instantiating on the host does that",
+                def_ty_name(ty)
+            );
+        }
+    }
     validate(bundle)?;
     instantiate(bundle)?;
     validate(bundle)
@@ -239,24 +249,58 @@ impl<'a> Validator<'a> {
         location: &'a TypeLocationOwned,
         path: usize,
     ) -> Result<usize> {
-        Ok(match location {
-            TypeLocationOwned::InLine { ty, .. } => match ty {
-                TypeOwned::Struct(s) => {
-                    check_generics(&s.generics)?;
-                    self.fields_depth(&s.fields, &s.generics, path)?
+        let TypeLocationOwned::InLine { ty, .. } = location else {
+            return Ok(1);
+        };
+        let depth = match ty {
+            TypeOwned::Struct(s) => {
+                check_generics(&s.generics)?;
+                self.fields_depth(&s.fields, &s.generics, path)?
+            }
+            TypeOwned::Enum(e) => {
+                check_generics(&e.generics)?;
+                let mut depth = 1;
+                for variant in &e.variants {
+                    depth = depth.max(self.fields_depth(&variant.fields, &e.generics, path)?);
                 }
-                TypeOwned::Enum(e) => {
-                    check_generics(&e.generics)?;
-                    let mut depth = 1;
-                    for variant in &e.variants {
-                        depth = depth.max(self.fields_depth(&variant.fields, &e.generics, path)?);
-                    }
-                    depth
-                }
-                _ => bail!("type with index {idx} is not a struct or an enum"),
-            },
-            TypeLocationOwned::SkippedFullVersion { .. } => 1,
-        })
+                depth
+            }
+            _ => bail!("type with index {idx} is not a struct or an enum"),
+        };
+        match instance_of(ty) {
+            Some(inst) => Ok(depth.max(self.instance_of_depth(ty, inst, path)?)),
+            None => Ok(depth),
+        }
+    }
+
+    /// Checks [instance_of](crate::ItemStruct::instance_of) of the concrete definition `ty` as a use of the generic
+    /// definition it names, nesting depth of its arguments.
+    fn instance_of_depth(
+        &mut self,
+        ty: &'a TypeOwned,
+        inst: &'a InstanceOfOwned,
+        path: usize,
+    ) -> Result<usize> {
+        if !generics_of(ty).is_empty() {
+            bail!("generic type {} says which instance it is", def_ty_name(ty));
+        }
+        let Some(TypeLocationOwned::InLine { ty: generic, .. }) =
+            self.bundle.types.get(inst.type_idx.0 as usize)
+        else {
+            bail!(
+                "type {} is an instance of type {}, which is not a known definition",
+                def_ty_name(ty),
+                inst.type_idx.0
+            );
+        };
+        check_args(def_ty_name(generic), generics_of(generic), &inst.args, None)?;
+        let mut depth = 1;
+        for arg in &inst.args {
+            if let GenericArgOwned::Type(arg) = arg {
+                depth = depth.max(1 + self.ty_depth(arg, None, path + 1)?);
+            }
+        }
+        Ok(depth)
     }
 
     fn lower_link(&mut self, idx: u32, to: usize) {
@@ -397,11 +441,17 @@ impl<'a> Validator<'a> {
                 if !s.generics.is_empty() {
                     bail!("generic struct {} is not in the types array", s.ident);
                 }
+                if s.instance_of.is_some() {
+                    bail!("instance {} is not in the types array", s.ident);
+                }
                 1 + self.fields_depth(&s.fields, &[], path + 1)?
             }
             TypeOwned::Enum(e) => {
                 if !e.generics.is_empty() {
                     bail!("generic enum {} is not in the types array", e.ident);
+                }
+                if e.instance_of.is_some() {
+                    bail!("instance {} is not in the types array", e.ident);
                 }
                 let mut depth = 1;
                 for variant in &e.variants {
@@ -712,6 +762,14 @@ fn generics_of(ty: &TypeOwned) -> &[GenericParamOwned] {
     }
 }
 
+fn instance_of(ty: &TypeOwned) -> Option<&InstanceOfOwned> {
+    match ty {
+        TypeOwned::Struct(s) => s.instance_of.as_ref(),
+        TypeOwned::Enum(e) => e.instance_of.as_ref(),
+        _ => None,
+    }
+}
+
 fn def_ty_name(ty: &TypeOwned) -> &str {
     match ty {
         TypeOwned::Struct(s) => &s.ident,
@@ -981,6 +1039,10 @@ pub fn substitute(
         args: args.to_vec(),
     }
     .human_name_bounded(false, bundle, &[], MAX_NAME_LEN)?;
+    let instance_of = InstanceOfOwned {
+        type_idx: UNib32(type_idx),
+        args: args.to_vec(),
+    };
     let mut sub = Substitute { args, nodes: 0 };
     let ty = match def {
         TypeOwned::Struct(s) => TypeOwned::Struct(ItemStructOwned {
@@ -992,6 +1054,7 @@ pub fn substitute(
             generics: vec![],
             fields: sub.fields(&s.fields, 0)?,
             sparse: s.sparse,
+            instance_of: Some(instance_of),
         }),
         TypeOwned::Enum(e) => {
             let mut variants = Vec::with_capacity(e.variants.len());
@@ -1009,6 +1072,7 @@ pub fn substitute(
                 path: e.path.clone(),
                 generics: vec![],
                 variants,
+                instance_of: Some(instance_of),
             })
         }
         _ => bail!("type with index {type_idx} is not a struct or an enum"),
@@ -1220,6 +1284,7 @@ mod tests {
     ) -> TypeLocationOwned {
         TypeLocationOwned::InLine {
             ty: TypeOwned::Struct(ItemStructOwned {
+                instance_of: None,
                 size: ElementSize::Unsized,
                 crate_idx: UNib32(0),
                 docs: vec![],
@@ -1351,6 +1416,68 @@ mod tests {
             ty.human_definition(&b, true).unwrap(),
             "struct c::Buf<const N: u64> {data: [u16; N]}"
         );
+    }
+
+    #[test]
+    fn concrete_definitions_record_their_instance() {
+        // Timed<Buf<2>>: Buf<2> becomes types[2], Timed<Buf<2>> types[3]
+        let ty = instance(0, vec![GenericArgOwned::Type(instance(1, vec![n(2)]))]);
+        let mut b = bundle(timed_and_buf(), ty);
+        prepare(&mut b).unwrap();
+        let instance_of = |b: &ApiBundleOwned, idx: usize| match &b.types[idx] {
+            TypeLocationOwned::InLine {
+                ty: TypeOwned::Struct(s),
+                ..
+            } => s.instance_of.clone(),
+            _ => unreachable!(),
+        };
+        assert_eq!(instance_of(&b, 0), None);
+        assert_eq!(
+            instance_of(&b, 2),
+            Some(InstanceOfOwned {
+                type_idx: UNib32(1),
+                args: vec![n(2)]
+            })
+        );
+        assert_eq!(
+            instance_of(&b, 3),
+            Some(InstanceOfOwned {
+                type_idx: UNib32(0),
+                args: vec![GenericArgOwned::Type(out_of_line(2))]
+            })
+        );
+
+        // host-derived: not in signatures
+        let mut cleared = b.clone();
+        for location in &mut cleared.types {
+            if let TypeLocationOwned::InLine {
+                ty: TypeOwned::Struct(s),
+                ..
+            } = location
+            {
+                s.instance_of = None;
+            }
+        }
+        let no_resolve = &crate::signature::no_resolve;
+        assert_eq!(
+            crate::signature::type_signature(&b, 3, no_resolve).unwrap(),
+            crate::signature::type_signature(&cleared, 3, no_resolve).unwrap()
+        );
+
+        // checked like an instance
+        let mut wrong = b.clone();
+        if let TypeLocationOwned::InLine {
+            ty: TypeOwned::Struct(s),
+            ..
+        } = &mut wrong.types[3]
+        {
+            s.instance_of.as_mut().unwrap().type_idx = UNib32(2);
+        }
+        let err = validate(&wrong).unwrap_err();
+        assert!(format!("{err:#}").contains("is not generic"), "{err:#}");
+
+        // never from outside
+        assert_invalid(b, "says which instance it is");
     }
 
     fn assert_invalid(b: ApiBundleOwned, msg: &str) {
@@ -1613,6 +1740,7 @@ mod tests {
         };
         let expr = TypeLocationOwned::InLine {
             ty: TypeOwned::Enum(ItemEnumOwned {
+                instance_of: None,
                 size: ElementSize::Unsized,
                 repr: Repr::Nibble,
                 crate_idx: UNib32(0),
@@ -1899,6 +2027,7 @@ mod tests {
         let mut types = timed_and_buf();
         types.push(TypeLocationOwned::InLine {
             ty: TypeOwned::Enum(ItemEnumOwned {
+                instance_of: None,
                 size: ElementSize::Unsized,
                 repr: Repr::Nibble,
                 crate_idx: UNib32(0),
@@ -2000,6 +2129,7 @@ mod tests {
         // Vec<S>, S { <100 KB name>: () } as final structure: zero bits per element, each value has the name
         let long = "n".repeat(100_000);
         let s = TypeOwned::Struct(ItemStructOwned {
+            instance_of: None,
             size: ElementSize::UnsizedFinalStructure,
             crate_idx: UNib32(0),
             docs: vec![],
@@ -2020,6 +2150,7 @@ mod tests {
         assert!(format!("{err}").contains("too large"), "{err}");
         // Vec<E>, E with 100 000 variants and a zero-bit discriminant: each element looks through all of them
         let e = TypeOwned::Enum(ItemEnumOwned {
+            instance_of: None,
             size: ElementSize::UnsizedFinalStructure,
             repr: Repr::BitAligned(0),
             crate_idx: UNib32(0),

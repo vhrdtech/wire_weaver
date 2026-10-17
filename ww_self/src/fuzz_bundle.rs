@@ -198,6 +198,7 @@ impl Gen<'_> {
                 docs: vec![],
                 ident: self.name(format!("T{idx}")),
                 path: None,
+                instance_of: None,
                 generics,
                 fields,
                 sparse: false,
@@ -236,6 +237,7 @@ impl Gen<'_> {
                 docs: vec![],
                 ident: self.name(format!("T{idx}")),
                 path: None,
+                instance_of: None,
                 generics,
                 variants,
             })

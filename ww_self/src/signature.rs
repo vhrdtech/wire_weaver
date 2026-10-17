@@ -355,11 +355,15 @@ impl VisitMut for Canonical<'_, '_> {
     }
 
     fn visit_item_struct(&mut self, node: &mut ItemStructOwned) {
+        // host-derived, not part of what was sent
+        node.instance_of = None;
         self.remap(&mut node.crate_idx, Self::crate_idx);
         visit_mut::visit_item_struct(self, node)
     }
 
     fn visit_item_enum(&mut self, node: &mut ItemEnumOwned) {
+        // host-derived, not part of what was sent
+        node.instance_of = None;
         self.remap(&mut node.crate_idx, Self::crate_idx);
         visit_mut::visit_item_enum(self, node)
     }

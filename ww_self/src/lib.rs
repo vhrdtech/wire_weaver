@@ -466,6 +466,18 @@ pub enum GenericParamKind<'i> {
     Const { ty: Type<'i> },
 }
 
+/// Where a concrete definition comes from: generic definition `type_idx` with `args`, as in a [Type::Instance]
+/// (see [ItemStruct::instance_of]).
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct InstanceOf<'i> {
+    pub type_idx: UNib32,
+    pub args: RefVec<'i, GenericArg<'i>>,
+}
+
 /// Argument of a [Type::Instance], for the parameter at the same position.
 #[derive_shrink_wrap(
     owned(feature = "std"),
@@ -550,6 +562,13 @@ pub struct ItemStruct<'i> {
     /// (`units::Volt` and a root `Volt` are different definitions), see [ItemStructOwned::qualified_name].
     #[default = None]
     pub path: Option<RefVec<'i, &'i str>>,
+    /// The generic definition and arguments this concrete definition was made from by
+    /// [instantiate](crate::generics::instantiate) (`Quantity<units::Volt>` for the concrete `Quantity<Volt>`), so
+    /// that a dynamic client can tell which generic type a value is of. Set only by `instantiate`, on the host: never
+    /// in a bundle from a device or a file ([prepare](crate::generics::prepare) rejects one), and left out of
+    /// [signatures](crate::signature).
+    #[default = None]
+    pub instance_of: Option<InstanceOf<'i>>,
 }
 
 #[derive_shrink_wrap(
@@ -599,6 +618,13 @@ pub struct ItemEnum<'i> {
     /// (`units::Volt` and a root `Volt` are different definitions), see [ItemEnumOwned::qualified_name].
     #[default = None]
     pub path: Option<RefVec<'i, &'i str>>,
+    /// The generic definition and arguments this concrete definition was made from by
+    /// [instantiate](crate::generics::instantiate) (`Quantity<units::Volt>` for the concrete `Quantity<Volt>`), so
+    /// that a dynamic client can tell which generic type a value is of. Set only by `instantiate`, on the host: never
+    /// in a bundle from a device or a file ([prepare](crate::generics::prepare) rejects one), and left out of
+    /// [signatures](crate::signature).
+    #[default = None]
+    pub instance_of: Option<InstanceOf<'i>>,
 }
 
 #[derive_shrink_wrap(

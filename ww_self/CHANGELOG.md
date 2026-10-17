@@ -2,6 +2,12 @@
 
 ### ⚠️ Breaking
 
+* `ItemStruct::instance_of` / `ItemEnum::instance_of` (`#[default = None]`, `InstanceOf { type_idx, args }`, CLT-31):
+  the generic definition and arguments a concrete definition was made from, set by `generics::instantiate` (and
+  `substitute`), so a dynamic client can tell a value of `Quantity<units::Volt>` from its concrete `Quantity<Volt>`.
+  Host-derived: `generics::prepare` rejects a bundle that carries it, `validate` checks it as a use of the generic
+  definition, signatures leave it out, the visitors walk its arguments. Struct literals of `ItemStructOwned` /
+  `ItemEnumOwned` need the new field (`instance_of: None`).
 * `ItemStruct::path` / `ItemEnum::path` (`#[default = None]`, API-46): the modules from the crate root to where
   other crates name the definition (`Some(["units"])` for `ww_si::units::Volt`, `None` at the root). A definition's
   identity in its crate is its path and name, `qualified_name()` (`units::Volt`, also the free `qualified_name`):

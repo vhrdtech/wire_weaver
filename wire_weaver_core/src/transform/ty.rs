@@ -820,6 +820,7 @@ fn convert_item_enum(
     let repr = get_repr(&item_enum.attrs, current_crate, &ty_name)?;
     let size = get_size_assumption(&item_enum.attrs, current_crate)?;
     let ty = TypeOwned::Enum(ItemEnumOwned {
+        instance_of: None,
         size,
         repr,
         crate_idx: scratch.root_bundle.find_crate_or_create(current_crate),
@@ -842,6 +843,7 @@ fn convert_item_struct(
     let args = derive_shrink_wrap_args(&item_struct.attrs, current_crate)?;
     let fields = convert_fields(&item_struct.fields, current_crate, scratch, args.sparse)?;
     let ty = TypeOwned::Struct(ItemStructOwned {
+        instance_of: None,
         size: args.size_assumption.unwrap_or(ElementSize::Unsized),
         crate_idx: scratch.root_bundle.find_crate_or_create(current_crate),
         docs: collect_docs(&item_struct.attrs),

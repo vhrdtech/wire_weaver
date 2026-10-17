@@ -453,6 +453,7 @@ mod tests {
     fn fan_out(leaf_ty: Option<TypeOwned>) -> ApiBundleOwned {
         let s = |ident: String, fields| TypeLocationOwned::InLine {
             ty: TypeOwned::Struct(ItemStructOwned {
+                instance_of: None,
                 size: ElementSize::UnsizedFinalStructure,
                 crate_idx: UNib32(0),
                 docs: vec![],

@@ -233,6 +233,13 @@ macro_rules! define_visitor {
             for param in & $($mut)? node.generics {
                 visit_generic_param(v, param);
             }
+            if let Some(instance_of) = & $($mut)? node.instance_of {
+                for arg in & $($mut)? instance_of.args {
+                    if let GenericArgOwned::Type(ty) = arg {
+                        v.visit_type(ty);
+                    }
+                }
+            }
             v.visit_fields(& $($mut)? node.fields);
         }
 
@@ -254,6 +261,13 @@ macro_rules! define_visitor {
             v.visit_ident(& $($mut)? node.ident);
             for param in & $($mut)? node.generics {
                 visit_generic_param(v, param);
+            }
+            if let Some(instance_of) = & $($mut)? node.instance_of {
+                for arg in & $($mut)? instance_of.args {
+                    if let GenericArgOwned::Type(ty) = arg {
+                        v.visit_type(ty);
+                    }
+                }
             }
             for variant in & $($mut)? node.variants {
                 v.visit_variant(variant);
@@ -356,6 +370,7 @@ mod tests {
 
     fn bundle() -> ApiBundleOwned {
         let item_struct = TypeOwned::Struct(ItemStructOwned {
+            instance_of: None,
             size: ElementSize::Unsized,
             crate_idx: UNib32(0),
             docs: docs("struct"),
@@ -366,6 +381,7 @@ mod tests {
             sparse: false,
         });
         let item_enum = TypeOwned::Enum(ItemEnumOwned {
+            instance_of: None,
             size: ElementSize::Unsized,
             repr: Repr::UNib32,
             crate_idx: UNib32(0),

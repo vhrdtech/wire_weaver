@@ -263,7 +263,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   DER-14) and enums, `#[series(opaque)]` fields, compile errors naming the field for what v1 doesn't take, on
   `ww_si` quantities and `ww_numeric::NumericValue` (`shrink_wrap/tests/series_derive.rs`,
   `ww_stdlib/ww_si/tests/series.rs`); docs (`docs/serdes/series.md`, the layout in
-  `docs/serdes/wire_format.md#series-t`, worked bytes in `docs/serdes/showcase.md#compressed-columns-series-t`).
+  `docs/serdes/wire_format.md#seriest`, worked bytes in `docs/serdes/showcase.md#compressed-columns-seriest`).
   `Series<T>` is usable today in any property, method or stream item; a dynamic (non-generated) decoder and
   batching a stream or property into `Series<Timed<T>>` automatically build on it as their own items (CLT-29,
   API-41), not blocking this one.
@@ -427,11 +427,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   device, so not a default.
 - 💡 **API-39 Batched property samples** — K samples of one fast property in one update, compressed with `Delta` /
   `XorFloat` (SW-50), for values sampled faster than the link can carry one update each.
-- 📋 **API-41 Batched streams and properties on `Series`** — a stream declared `batched(max_n, max_ms)` sends
-  `Series<Timed<T>>` (SW-60) batches instead of one item per event (device-side `Batcher`, reliable streams storing
-  encoded batches so a resend costs no re-encoding); the same batcher under API-39's batched property samples and a
-  batched observe slot. Design only so far, with motor-demo numbers backing it (integer storage over floats,
-  default batch 32, autoranging cost cheap). Needs SW-60 (done) and CLT-29 (dynamic decoder).
+- 📋 **API-41 Batched streams and properties on `Series`** — a stream or property opts into batching
+  (`+batched`/`batched`, no size in the API: the device owns the batch size through its own config, default 32,
+  the host picks latency) and sends `Series<Timed<T>>` (SW-60) batches instead of one item per event (device-side
+  `Batcher`, reliable streams storing encoded batches so a resend costs no re-encoding); the same mechanism under
+  API-39's batched property samples and a batched observe slot. Design only so far, with motor-demo numbers backing
+  it (integer storage over floats, default batch 32, autoranging cost cheap). Needs SW-60 (done) and CLT-29
+  (dynamic decoder).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

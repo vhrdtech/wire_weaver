@@ -80,8 +80,8 @@ Bytes per item by batch size, steady signal (plain `final_structure` / `Series`)
 | bytes/item | 9.0 / 10.0 | 8.5 / 6.0 | 8.3 / 3.5 | 8.1 / 2.1 | 8.1 / 1.6 | 8.0 / 1.2 | 8.0 / 1.1 | 8.0 / 1.0 | 8.0 / 0.9 |
 
 A single item costs one byte more than plain (the column headers have to be paid once); from 2 items on `Series` is
-already smaller, and most of the gain is there by 32 items — the default batch size the implementation (and the
-planned API-41 batching) uses.
+already smaller, and most of the gain is there by 32 items — the default batch size the planned API-41 batching
+is expected to use.
 
 The [showcase](showcase.md#compressed-columns-seriest) has the exact bytes of a 4-item batch, checked against the
 running code.
@@ -133,8 +133,8 @@ that item would.
 ## What's not here yet
 
 `Series<T>` as a type you put in a property, method or stream today works end to end (phase 1 of SW-60). Picking the
-batch for you — a stream declared `batched(max_n = .., max_ms = ..)` sending `Series<Timed<T>>` batches instead of
-one item per event, and the matching batched observe property updates — is phase 2, tracked as API-41 in the
-[feature tracker](../features.md), and not implemented yet. The numbers above (default batch 32,
-integer storage, autoranging cost) come from a simulator built for that work and already hold for `Series` used by
-hand.
+batch for you — a stream or property opting into batching (no size in the API itself: the device owns the batch
+size through its own config, default 32, and the host picks latency) sending `Series<Timed<T>>` batches instead of
+one item per event — is phase 2, tracked as API-41 in the [feature tracker](../features.md), and not implemented
+yet. The numbers above (default batch 32, integer storage, autoranging cost) come from a simulator built for that
+work and already hold for `Series` used by hand.

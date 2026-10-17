@@ -2852,6 +2852,8 @@
       
         
       
+        
+      
     
     
     
@@ -3127,6 +3129,33 @@
     
   
   ww_counters
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_recorder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_recorder
 
     
   </span>
@@ -5941,9 +5970,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   reserved indices 4..=6, so a host sees input changes without opening the <code>event</code> stream of every pin (slow inputs,
   a dashboard). Blocked on API-29 array-index-bounds: <code>Pin</code> sits in <code>Bank::pin[]</code> (and banks usually in an array
   too), and levels under a resource array can't be observed until their bound is known (SRV-18).</li>
-<li>📋 <strong>STD-34 <code>ww_recorder</code></strong> — control a recorder over WireWeaver: status, card facts, two-step format,
-  recordings, markers, track settings (flush thresholds, USB view mode), counters, refreshing the USB view. For the
-  SD card logbook of P2628 (repo <code>logbook</code>), usable by any recorder.</li>
+<li>🚧 <strong>STD-34 <code>ww_recorder</code></strong> · <code>v0.5.x</code> — control a recorder over WireWeaver: <code>Recorder</code> (status, card facts,
+  two-step prepare/format with a token, recordings, markers, <code>sync</code>, settings with the flush thresholds, counters,
+  optional <code>refresh_usb</code>) and <code>Track[]</code> (info, enable, durability, compression, counters). For the SD card log store
+  of P2628 (repo <code>logring</code>), usable by any recorder. API crate, snapshot and docs page
+  <code>docs/std_library/ww_recorder.md</code> done, the scaffold compiles; the first server is the logring's (rePort
+  integration).</li>
 <li>💡 <strong>STD-33 <code>ww_settings</code> single-sector mode</strong> — a store in one sector with a RAM copy, for a part with exactly
   one sector to spare; a power cut during its erase loses every group (the window is the whole erase, 1 to 4 s on a
   128 KiB sector, see <code>docs/api/settings.md#parts-with-big-sectors</code>). Only if a device needs it.</li>

@@ -3286,6 +3286,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "module_paths"
+version = "0.1.0"
+dependencies = [
+ "module_paths_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+]
+
+[[package]]
+name = "module_paths_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "motor_demo"
 version = "0.1.0"
 dependencies = [

@@ -47,13 +47,13 @@ mod tests {
         vec![
             BankModel {
                 name: "PA",
-                reference_voltage: ww_si::quantity!(3300 mV u16),
+                reference_voltage: ww_si::Volt::milli(3300u16),
                 pins: vec![PinModel::default(); 4],
                 simultaneous: true,
             },
             BankModel {
                 name: "PB",
-                reference_voltage: ww_si::quantity!(1800 mV u16),
+                reference_voltage: ww_si::Volt::milli(1800u16),
                 pins: vec![PinModel::default(); 2],
                 simultaneous: false,
             },
@@ -116,7 +116,7 @@ mod tests {
 
             /// The event loop's producer: what the edges left for the `event` streams.
             fn produce(&mut self, out: &mut impl BlockingEventOut) {
-                let t = ww_si::Second::microseconds(self.start.elapsed().as_micros() as u32);
+                let t = ww_si::Second::micro(self.start.elapsed().as_micros() as u32);
                 for (index_chain, ev) in std::mem::take(&mut self.pending) {
                     let (bank, pin) = Self::idx(index_chain);
                     let _ = api_impl::stream_data_ser()
@@ -217,7 +217,18 @@ mod tests {
                     self.banks.lock().unwrap()[index_chain[0].0 as usize].simultaneous;
                 Ready(BankCapabilities {
                     io_levels: MaxLen::new(RefVec::Slice {
-                        slice: &[ww_si::quantity!(3300 mV u16), ww_si::quantity!(1800 mV u16)],
+                        slice: &const {
+                            [
+                                ww_si::Volt::from_parts(
+                                    ww_si::Prefix::Milli,
+                                    ww_si::ww_numeric::NumericValue::U16(3300),
+                                ),
+                                ww_si::Volt::from_parts(
+                                    ww_si::Prefix::Milli,
+                                    ww_si::ww_numeric::NumericValue::U16(1800),
+                                ),
+                            ]
+                        },
                     })
                     .unwrap(),
                     io_level_min: None,
@@ -243,7 +254,7 @@ mod tests {
                 let bank = index_chain[0].0 as usize;
                 let mut banks = self.banks.lock().unwrap();
                 if let Some(level) = config.io_level {
-                    let supported = [ww_si::quantity!(3300 mV u16), ww_si::quantity!(1800 mV u16)];
+                    let supported = [ww_si::Volt::milli(3300u16), ww_si::Volt::milli(1800u16)];
                     if !supported.contains(&level) {
                         return Ready(Err(CommonError::Unsupported.into()));
                     }
@@ -556,22 +567,22 @@ mod tests {
             .call()
             .await
             .unwrap();
-        assert_eq!(actual.io_level, Some(ww_si::Volt::millivolts(3300u16)));
+        assert_eq!(actual.io_level, Some(ww_si::Volt::milli(3300u16)));
 
         let actual = client
             .bank(0)
             .configure(BankConfig {
-                io_level: Some(ww_si::Volt::millivolts(1800u16)),
+                io_level: Some(ww_si::Volt::milli(1800u16)),
             })
             .call()
             .await
             .unwrap();
-        assert_eq!(actual.io_level, Some(ww_si::Volt::millivolts(1800u32)));
+        assert_eq!(actual.io_level, Some(ww_si::Volt::milli(1800u32)));
 
         let err = client
             .bank(0)
             .configure(BankConfig {
-                io_level: Some(ww_si::Volt::volts(5u8)),
+                io_level: Some(ww_si::Volt::base(5u8)),
             })
             .call()
             .await

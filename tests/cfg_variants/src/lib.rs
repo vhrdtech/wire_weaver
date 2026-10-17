@@ -36,10 +36,10 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<ww_si::Volt> {
-                RpcResult::Ready(ww_si::Volt {
-                    prefix: ww_si::Prefix::Milli,
-                    value: ww_si::ww_numeric::NumericValue::I32(3300),
-                })
+                RpcResult::Ready(ww_si::Volt::from_parts(
+                    ww_si::Prefix::Milli,
+                    ww_si::ww_numeric::NumericValue::I32(3300),
+                ))
             }
         }
 

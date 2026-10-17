@@ -451,3 +451,150 @@ pub struct DeciBel {
 pub struct DeciBelmW {
     pub value: NumericValue,
 }
+
+// Run-time units, as ww_si 0.1 had them: kept for `ww_adc::ChannelInfo::unit` until STD-37 replaces them with a
+// run-time unit model (`Dim`, `SIExpr`, `AnyQuantity`) that maps onto the markers of `units`.
+
+/// A unit known only at run time (`ww_adc::ChannelInfo::unit`). To be replaced by STD-37.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Debug),
+    final_structure,
+    ww_repr = unib32
+)]
+pub enum BaseUnit<'i> {
+    Unitless,
+    Second,
+    Ampere,
+    Volt,
+    Ohm,
+    Hertz,
+    Watt,
+    Kelvin,
+
+    Meter,
+    Kilogram,
+    Mole,
+    Candela,
+    Radian,
+    Steradian,
+    Newton,
+    Pascal,
+    Joule,
+    Coulomb,
+    Farad,
+    Siemens,
+    Weber,
+    Tesla,
+    Henry,
+    DegreeCelsius,
+    Lumen,
+    Lux,
+    Becquerel,
+    Gray,
+    Sievert,
+    Katal,
+
+    Named {
+        name: &'i str,
+        symbol: &'i str,
+        exp: SIExp,
+    },
+}
+
+/// SI exponents of a [BaseUnit::Named]. To be replaced by STD-37 (its serdes are not written yet).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug)
+)]
+pub struct SIExp {
+    pub second: INib8P3,
+    pub meter: INib8P3,
+    pub kilogram: INib8P3,
+    pub ampere: INib8P3,
+    #[flag]
+    candela: bool,
+    #[flag]
+    mole: bool,
+    #[flag]
+    kelvin: bool,
+    pub kelvin: Option<INib8P3>,
+    pub mole: Option<INib8P3>,
+    pub candela: Option<INib8P3>,
+}
+
+/// A signed SI exponent in a nibble, offset by 3. To be replaced by STD-37 (its serdes are not written yet).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct INib8P3(i8);
+
+impl INib8P3 {
+    pub const fn new(_n: u8) -> Option<INib8P3> {
+        todo!()
+    }
+
+    pub const fn minus_three() -> Self {
+        INib8P3(-3 + 3)
+    }
+    pub const fn minus_two() -> Self {
+        INib8P3(-2 + 3)
+    }
+    pub const fn minus_one() -> Self {
+        INib8P3(-1 + 3)
+    }
+    pub const fn zero() -> Self {
+        INib8P3(3)
+    }
+    pub const fn one() -> Self {
+        INib8P3(1 + 3)
+    }
+    pub const fn two() -> Self {
+        INib8P3(2 + 3)
+    }
+    pub const fn three() -> Self {
+        INib8P3(3 + 3)
+    }
+    pub const fn four() -> Self {
+        INib8P3(4 + 3)
+    }
+
+    pub const fn value(&self) -> i8 {
+        self.0 - 3
+    }
+}
+
+impl SerializeShrinkWrap for INib8P3 {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn ser_shrink_wrap(&self, _wr: &mut BufWriter) -> Result<(), ShrinkWrapError> {
+        todo!()
+    }
+}
+
+impl<'i> DeserializeShrinkWrap<'i> for INib8P3 {
+    const ELEMENT_SIZE: ElementSize = <INib8P3 as SerializeShrinkWrap>::ELEMENT_SIZE;
+
+    fn des_shrink_wrap<'di>(_rd: &'di mut BufReader<'i>) -> Result<Self, ShrinkWrapError> {
+        todo!()
+    }
+}
+
+#[cfg(feature = "std")]
+impl SerializeShrinkWrapOwned for INib8P3 {
+    const ELEMENT_SIZE: ElementSize = <INib8P3 as SerializeShrinkWrap>::ELEMENT_SIZE;
+
+    fn ser_shrink_wrap_owned(&self, _wr: &mut BufWriterOwned) -> Result<(), ShrinkWrapError> {
+        todo!()
+    }
+}
+
+impl DeserializeShrinkWrapOwned for INib8P3 {
+    const ELEMENT_SIZE: ElementSize = <INib8P3 as SerializeShrinkWrap>::ELEMENT_SIZE;
+
+    fn des_shrink_wrap_owned(_rd: &mut BufReader<'_>) -> Result<Self, ShrinkWrapError> {
+        todo!()
+    }
+}

@@ -42,10 +42,10 @@ struct Ev {
 }
 
 fn time(i: u64) -> ww_si::Second {
-    ww_si::Second {
-        prefix: ww_si::Prefix::Micro,
-        value: ww_si::ww_numeric::NumericValue::U32((i * 1000) as u32),
-    }
+    ww_si::Second::from_parts(
+        ww_si::Prefix::Micro,
+        ww_si::ww_numeric::NumericValue::U32((i * 1000) as u32),
+    )
 }
 
 /// A stream of events: varied sizes, units, an occasional `lost` and a timestamp on every event.

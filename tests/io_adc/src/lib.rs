@@ -112,10 +112,10 @@ mod tests {
             }
 
             fn now(&self) -> Second {
-                Second {
-                    prefix: Prefix::Micro,
-                    value: NumericValue::U32(self.start.elapsed().as_micros() as u32),
-                }
+                Second::from_parts(
+                    Prefix::Micro,
+                    NumericValue::U32(self.start.elapsed().as_micros() as u32),
+                )
             }
 
             fn busy(&self) -> bool {
@@ -190,10 +190,7 @@ mod tests {
                     numeric_as_u32(config.rate.value) * prefix_scale(config.rate.prefix);
                 let capped = requested.min(500_000);
                 let actual = StreamActual {
-                    rate: Hertz {
-                        prefix: Prefix::Unit,
-                        value: NumericValue::U32(capped),
-                    },
+                    rate: Hertz::from_parts(Prefix::Unit, NumericValue::U32(capped)),
                 };
                 self.stream.config = Some(StoredStreamConfig {
                     channels: config.channels.as_slice().to_vec(),
@@ -247,10 +244,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<StreamCapabilities<'_>> {
                 Ready(StreamCapabilities {
-                    max_total_rate: Hertz {
-                        prefix: Prefix::Kilo,
-                        value: NumericValue::U32(500),
-                    },
+                    max_total_rate: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(500)),
                     max_channels: self.channels.len() as u8,
                     formats: MaxLen::new(RefVec::Slice {
                         slice: &[SampleFormat::U8, SampleFormat::U16],
@@ -264,10 +258,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<CaptureCapabilities<'_>> {
                 Ready(CaptureCapabilities {
-                    max_total_rate: Hertz {
-                        prefix: Prefix::Kilo,
-                        value: NumericValue::U32(500),
-                    },
+                    max_total_rate: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(500)),
                     max_bytes: 4096,
                     simultaneous: true,
                     level_trigger: true,
@@ -505,10 +496,7 @@ mod tests {
 
         let config = |format| StreamConfigOwned {
             channels: MaxLen::new(vec![0, 1]).unwrap(),
-            rate: Hertz {
-                prefix: Prefix::Kilo,
-                value: NumericValue::U32(1000),
-            },
+            rate: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(1000)),
             format,
             flush_interval: None,
         };
@@ -570,10 +558,7 @@ mod tests {
         let actual = adc_capture
             .capture(CaptureConfigOwned {
                 channels: MaxLen::new(vec![0]).unwrap(),
-                rate: Hertz {
-                    prefix: Prefix::Kilo,
-                    value: NumericValue::U32(100),
-                },
+                rate: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(100)),
                 sets: 4,
                 pre_trigger: 0,
                 trigger: Trigger::Now,
@@ -623,10 +608,7 @@ mod tests {
         adc_capture
             .capture(CaptureConfigOwned {
                 channels: MaxLen::new(vec![0]).unwrap(),
-                rate: Hertz {
-                    prefix: Prefix::Kilo,
-                    value: NumericValue::U32(100),
-                },
+                rate: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(100)),
                 sets: 2,
                 pre_trigger: 0,
                 trigger: Trigger::Rising {
@@ -657,10 +639,7 @@ mod tests {
         adc_stream
             .samples(StreamConfigOwned {
                 channels: MaxLen::new(vec![0]).unwrap(),
-                rate: Hertz {
-                    prefix: Prefix::Unit,
-                    value: NumericValue::U32(10),
-                },
+                rate: Hertz::from_parts(Prefix::Unit, NumericValue::U32(10)),
                 format: SampleFormat::U8,
                 flush_interval: None,
             })

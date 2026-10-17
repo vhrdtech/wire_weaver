@@ -276,20 +276,20 @@ mod tests {
 
         client
             .indication()
-            .identify(Second::seconds_f32(2.0))
+            .identify(Second::from_f32(2.0))
             .call()
             .await
             .unwrap();
         assert_eq!(storage.lock().unwrap().identify_calls, 1);
         assert_eq!(
             storage.lock().unwrap().last_identify,
-            Some(Second::seconds_f32(2.0))
+            Some(Second::from_f32(2.0))
         );
 
         storage.lock().unwrap().busy = true;
         let r = client
             .indication()
-            .identify(Second::seconds_f32(1.0))
+            .identify(Second::from_f32(1.0))
             .call()
             .await;
         assert!(
@@ -327,7 +327,7 @@ mod tests {
         assert!(matches!(
             client
                 .indication()
-                .identify(Second::seconds_f32(1.0))
+                .identify(Second::from_f32(1.0))
                 .call()
                 .await,
             Err(CallError::Unimplemented { .. })

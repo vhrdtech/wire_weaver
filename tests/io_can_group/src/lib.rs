@@ -55,7 +55,7 @@ mod tests {
             Model {
                 clock: GroupClock {
                     source: 0,
-                    frequency: Hertz::megahertz(80u8),
+                    frequency: Hertz::mega(80u8),
                 },
                 enabled: false,
                 controllers: Default::default(),
@@ -156,7 +156,7 @@ mod tests {
                     (std::mem::take(&mut m.pending), m.group_state())
                 };
                 let ser = api_impl::stream_data_ser();
-                let t = Some(Second::microseconds(1000u16));
+                let t = Some(Second::micro(1000u16));
                 for p in pending {
                     match p {
                         Pending::Rx(i, id, data) => {
@@ -228,8 +228,8 @@ mod tests {
                         .zip(self.names)
                         .map(|((_, f), name)| ClockSource {
                             name: MaxLen::new_unchecked(name),
-                            min: Hertz::hertz(f / 30),
-                            max: Hertz::hertz(*f),
+                            min: Hertz::base(f / 30),
+                            max: Hertz::base(*f),
                         })
                         .collect::<Vec<_>>()
                         .into_boxed_slice(),
@@ -291,7 +291,7 @@ mod tests {
                 let div = source_hz.div_ceil(hz(clock.frequency)).clamp(1, 30);
                 m.clock = GroupClock {
                     source: clock.source,
-                    frequency: Hertz::hertz(source_hz / div),
+                    frequency: Hertz::base(source_hz / div),
                 };
                 Ready(Ok(m.clock))
             }
@@ -697,7 +697,7 @@ mod tests {
 
     fn rate(kbit: u16, sample_point: u16) -> Timing {
         Timing::Rate {
-            rate: Baud::kilobaud(kbit),
+            rate: Baud::kilo(kbit),
             sample_point,
         }
     }
@@ -780,7 +780,7 @@ mod tests {
             .can()
             .set_clock(GroupClock {
                 source: 0,
-                frequency: Hertz::megahertz(40u8),
+                frequency: Hertz::mega(40u8),
             })
             .call()
             .await

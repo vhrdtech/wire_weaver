@@ -398,10 +398,7 @@ mod tests {
         bytes
     }
 
-    const MICROS: Second = Second {
-        prefix: Prefix::Micro,
-        value: NumericValue::U32(0x1234_5678),
-    };
+    const MICROS: Second = Second::from_parts(Prefix::Micro, NumericValue::U32(0x1234_5678));
 
     #[test]
     fn pos_only() {
@@ -495,10 +492,10 @@ mod tests {
         );
 
         let t64 = StreamHead {
-            t: Some(Second {
-                prefix: Prefix::Micro,
-                value: NumericValue::U64(1 << 40),
-            }),
+            t: Some(Second::from_parts(
+                Prefix::Micro,
+                NumericValue::U64(1 << 40),
+            )),
             ..head
         };
         assert_eq!(bytes(&t64).len(), 2 + 9);

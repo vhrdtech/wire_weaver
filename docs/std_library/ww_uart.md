@@ -134,7 +134,7 @@ frames by 3.5 character times, which 2 still splits). A protocol with its own ru
 
 ## Types
 
-* `ww_si::Baud` - a baud rate (`Baud::baud(115_200u32)`), in the number type and prefix the caller picks, like every
+* `ww_si::Baud` - a baud rate (`Baud::base(115_200u32)`), in the number type and prefix the caller picks, like every
   other `ww_si` quantity.
 * `Mode` - `Asynchronous` (no flow control), `HardwareFlowControl` (RTS/CTS), `SoftwareFlowControl` (XON/XOFF),
   `HighZ` (all pins High-Z), `Test` (manual pin control through `set_pin_level`).

@@ -15,14 +15,8 @@ mod tests {
     use ww_si::ww_numeric::NumericValue;
     use ww_stream::tx::Counted;
 
-    const MAX_FREQ: Hertz = Hertz {
-        prefix: Prefix::Mega,
-        value: NumericValue::U32(80),
-    };
-    const MIN_FREQ: Hertz = Hertz {
-        prefix: Prefix::Unit,
-        value: NumericValue::U32(1),
-    };
+    const MAX_FREQ: Hertz = Hertz::from_parts(Prefix::Mega, NumericValue::U32(80));
+    const MIN_FREQ: Hertz = Hertz::from_parts(Prefix::Unit, NumericValue::U32(1));
 
     /// `Hertz`/`Second` don't derive `PartialEq` (their `NumericValue` carries `f32`), compare fields instead.
     fn hz_eq(a: Hertz, b: Hertz) -> bool {
@@ -344,10 +338,7 @@ mod tests {
         let mut channel = pwm.channel(0);
 
         let output = PwmOutput {
-            freq: Hertz {
-                prefix: Prefix::Kilo,
-                value: NumericValue::U32(10),
-            },
+            freq: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(10)),
             duty: 32768,
             inverted: false,
             phase_correct: false,
@@ -399,10 +390,7 @@ mod tests {
 
         let config = CaptureConfig {
             mode: CaptureMode::Frequency,
-            gate: Second {
-                prefix: Prefix::Milli,
-                value: NumericValue::U32(100),
-            },
+            gate: Second::from_parts(Prefix::Milli, NumericValue::U32(100)),
         };
         let actual = channel.set_capture(config).call().await.unwrap();
         assert_eq!(actual.mode, CaptureMode::Frequency);
@@ -419,14 +407,8 @@ mod tests {
 
         // the device "measures" something; nothing here models real hardware, so the test sets it directly
         let sample = CaptureSample {
-            t: Second {
-                prefix: Prefix::Milli,
-                value: NumericValue::U32(100),
-            },
-            value: CaptureValue::Frequency(Hertz {
-                prefix: Prefix::Kilo,
-                value: NumericValue::U32(5),
-            }),
+            t: Second::from_parts(Prefix::Milli, NumericValue::U32(100)),
+            value: CaptureValue::Frequency(Hertz::from_parts(Prefix::Kilo, NumericValue::U32(5))),
         };
         m.lock().unwrap().capture_sample[0] = Some(sample);
         let got = channel.read_capture().call().await.unwrap();
@@ -443,10 +425,7 @@ mod tests {
 
         let config = |mode| CaptureConfig {
             mode,
-            gate: Second {
-                prefix: Prefix::Milli,
-                value: NumericValue::U32(100),
-            },
+            gate: Second::from_parts(Prefix::Milli, NumericValue::U32(100)),
         };
         let r = channel
             .capture(config(CaptureMode::Off))
@@ -477,10 +456,7 @@ mod tests {
         );
 
         let sample = CaptureSample {
-            t: Second {
-                prefix: Prefix::Milli,
-                value: NumericValue::U32(1),
-            },
+            t: Second::from_parts(Prefix::Milli, NumericValue::U32(1)),
             value: CaptureValue::DutyCycle(12345),
         };
         m.lock().unwrap().measured.push((0, sample));

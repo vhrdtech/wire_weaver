@@ -534,9 +534,11 @@ impl<const N: usize> Plan<N> {
     /// `t` of the update, with [ObserveLimits::timestamps]: microseconds as a wrapping `u32`, as stream heads have
     /// it.
     pub fn t(&self) -> Option<ww_si::Second> {
-        self.t.map(|us| ww_si::Second {
-            prefix: ww_si::Prefix::Micro,
-            value: ww_si::ww_numeric::NumericValue::U32(us as u32),
+        self.t.map(|us| {
+            ww_si::Second::from_parts(
+                ww_si::Prefix::Micro,
+                ww_si::ww_numeric::NumericValue::U32(us as u32),
+            )
         })
     }
 

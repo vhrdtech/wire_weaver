@@ -370,18 +370,18 @@ fn t_is_a_wrapping_u32() {
     let plan = t.plan((1 << 32) + 5, &limits);
     assert_eq!(
         plan.t(),
-        Some(ww_si::Second {
-            prefix: ww_si::Prefix::Micro,
-            value: ww_si::ww_numeric::NumericValue::U32(5),
-        })
+        Some(ww_si::Second::from_parts(
+            ww_si::Prefix::Micro,
+            ww_si::ww_numeric::NumericValue::U32(5)
+        ))
     );
     // prefix and number type in one byte, then the u32: 4 bytes less than a u64
     let mut buf = [0u8; 32];
     let t32 = event_overhead(&mut buf, &[UNib32(1)], plan.t(), None).unwrap();
-    let t64 = ww_si::Second {
-        prefix: ww_si::Prefix::Micro,
-        value: ww_si::ww_numeric::NumericValue::U64(5),
-    };
+    let t64 = ww_si::Second::from_parts(
+        ww_si::Prefix::Micro,
+        ww_si::ww_numeric::NumericValue::U64(5),
+    );
     let t64 = event_overhead(&mut buf, &[UNib32(1)], Some(t64), None).unwrap();
     let without = event_overhead(&mut buf, &[UNib32(1)], None, None).unwrap();
     assert_eq!(t64 - t32, 4);

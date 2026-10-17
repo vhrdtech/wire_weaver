@@ -58,13 +58,13 @@ mod tests {
         fn default() -> Self {
             Model {
                 config: UartConfig {
-                    baud_rate: Baud::baud(115_200u32),
+                    baud_rate: Baud::base(115_200u32),
                     data_bits: DataBits::Eight,
                     parity: Parity::None,
                     stop_bits: StopBits::Stop1,
                     mode: Mode::Asynchronous,
                     prevent_back_feed: false,
-                    io_level: Some(ww_si::quantity!(3300 mV u16)),
+                    io_level: Some(ww_si::Volt::milli(3300u16)),
                     idle_chars: ww_uart::IDLE_CHARS_DEFAULT,
                 },
                 pin_levels: vec![],
@@ -81,10 +81,21 @@ mod tests {
     /// Fixed, device-wide limits reported by `Uart::capabilities`.
     fn capabilities() -> Capabilities<'static> {
         Capabilities {
-            min_baud_rate: Baud::baud(110u32),
-            max_baud_rate: Baud::baud(921_600u32),
+            min_baud_rate: Baud::base(110u32),
+            max_baud_rate: Baud::base(921_600u32),
             io_levels: MaxLen::new(RefVec::Slice {
-                slice: &[ww_si::quantity!(1800 mV u16), ww_si::quantity!(3300 mV u16)],
+                slice: &const {
+                    [
+                        ww_si::Volt::from_parts(
+                            ww_si::Prefix::Milli,
+                            ww_si::ww_numeric::NumericValue::U16(1800),
+                        ),
+                        ww_si::Volt::from_parts(
+                            ww_si::Prefix::Milli,
+                            ww_si::ww_numeric::NumericValue::U16(3300),
+                        ),
+                    ]
+                },
             })
             .unwrap(),
             io_level_min: None,
@@ -127,12 +138,12 @@ mod tests {
                     measured_char_us,
                 } in received
                 {
-                    let t = ww_si::Second::microseconds(first_us);
+                    let t = ww_si::Second::micro(first_us);
                     let char_us = measured_char_us.unwrap_or(CHAR_TIME_US);
                     let end_us = first_us + (bytes.len() as u32 - 1) * char_us;
                     first_us = end_us + 4 * char_us;
                     let chunk = RxChunk {
-                        end: measured_char_us.map(|_| ww_si::Second::microseconds(end_us)),
+                        end: measured_char_us.map(|_| ww_si::Second::micro(end_us)),
                         flags: None,
                         bytes: MaxLen::new(RefVec::new_bytes(&bytes)).unwrap(),
                     };
@@ -266,11 +277,11 @@ mod tests {
                 config: MonitorConfig,
             ) -> RpcResult<Result<MonitorConfig, UartError<'_>>> {
                 // this monitor decodes from 300 Bd up
-                if config.baud_rate < Baud::baud(300u32) {
+                if config.baud_rate < Baud::base(300u32) {
                     return Ready(Err(CommonError::Unsupported.into()));
                 }
                 let actual = MonitorConfig {
-                    io_level: config.io_level.or(Some(ww_si::quantity!(3300 mV u16))),
+                    io_level: config.io_level.or(Some(ww_si::Volt::milli(3300u16))),
                     ..config
                 };
                 self.m.lock().unwrap().monitor_config = Some(actual.clone());
@@ -385,12 +396,12 @@ mod tests {
         let client = connect(&device).await;
 
         let caps = client.uart().capabilities().call().await.unwrap();
-        assert_eq!(caps.min_baud_rate, Baud::baud(110u32));
-        assert_eq!(caps.max_baud_rate, Baud::baud(921_600u64));
+        assert_eq!(caps.min_baud_rate, Baud::base(110u32));
+        assert_eq!(caps.max_baud_rate, Baud::base(921_600u64));
         assert_eq!(caps.io_levels.len(), 2);
 
         let config = UartConfig {
-            baud_rate: Baud::baud(9600u32),
+            baud_rate: Baud::base(9600u32),
             data_bits: DataBits::Seven,
             parity: Parity::Even,
             stop_bits: StopBits::Stop2,
@@ -406,8 +417,8 @@ mod tests {
             .await
             .unwrap();
         // `None` keeps the IO level, the answer says which one is in effect
-        assert_eq!(actual.io_level, Some(ww_si::Volt::millivolts(3300u16)));
-        assert_eq!(actual.baud_rate, Baud::baud(9600u16));
+        assert_eq!(actual.io_level, Some(ww_si::Volt::milli(3300u16)));
+        assert_eq!(actual.baud_rate, Baud::base(9600u16));
         // 0 idle characters is taken as 1
         assert_eq!(actual.idle_chars, 1);
         // start + 7 data + parity + 2 stop
@@ -416,7 +427,7 @@ mod tests {
         assert!(matches!(m.lock().unwrap().config.parity, Parity::Even));
 
         let too_fast = UartConfig {
-            baud_rate: Baud::megabaud(3u8),
+            baud_rate: Baud::mega(3u8),
             ..config.clone()
         };
         let r = client.uart().configure(too_fast).call().await;
@@ -426,7 +437,7 @@ mod tests {
         ));
 
         let at_5v = UartConfig {
-            io_level: Some(ww_si::Volt::volts(5u8)),
+            io_level: Some(ww_si::Volt::base(5u8)),
             ..config
         };
         let r = client.uart().configure(at_5v).call().await;
@@ -463,7 +474,7 @@ mod tests {
         let (device, m) = start("io_uart/break", Model::default());
         let client = connect(&device).await;
 
-        let duration = ww_si::quantity!(10 s u32);
+        let duration = ww_si::Second::base(10u32);
         client.uart().send_break(duration).call().await.unwrap();
         assert_eq!(m.lock().unwrap().send_break_calls.len(), 1);
 
@@ -542,7 +553,7 @@ mod tests {
         };
         let r = client
             .uart()
-            .monitor(config(Baud::baud(110u32)))
+            .monitor(config(Baud::base(110u32)))
             .call()
             .await
             .unwrap();
@@ -557,20 +568,20 @@ mod tests {
 
         let (actual, mut lines) = client
             .uart()
-            .monitor(config(Baud::baud(115_200u32)))
+            .monitor(config(Baud::base(115_200u32)))
             .call()
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(actual.baud_rate, Baud::baud(115_200u32));
-        assert_eq!(actual.io_level, Some(ww_si::Volt::millivolts(3300u16)));
+        assert_eq!(actual.baud_rate, Baud::base(115_200u32));
+        assert_eq!(actual.io_level, Some(ww_si::Volt::milli(3300u16)));
         assert_eq!(
             m.lock()
                 .unwrap()
                 .monitor_config
                 .as_ref()
                 .map(|c| c.baud_rate),
-            Some(Baud::baud(115_200u32))
+            Some(Baud::base(115_200u32))
         );
 
         // a request on line A, the answer on line B, in the order they arrived

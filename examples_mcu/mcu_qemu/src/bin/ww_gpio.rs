@@ -63,7 +63,7 @@ impl ServerState {
     ) -> RpcResult<BankCapabilities<'_>> {
         let cap = BankCapabilities {
             io_levels: MaxLen::new_unchecked(RefVec::Slice {
-                slice: &[ww_si::quantity!(3.3 V f32)],
+                slice: &const { [ww_si::Volt::from_f32(3.3)] },
             }),
             io_level_min: None,
             io_level_max: None,

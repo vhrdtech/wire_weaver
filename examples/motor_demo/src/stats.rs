@@ -168,10 +168,9 @@ pub fn find(name: &str) -> Option<&'static Prop> {
 pub fn property_update_len(level: Level, t: Option<&Second>, missed: u32, data: &[u8]) -> usize {
     let path = [UNib32(level as u32)];
     let t = t.map(|t| match (t.prefix, t_us(Some(t))) {
-        (ww_si::Prefix::Micro, Some(us)) => Second {
-            prefix: ww_si::Prefix::Micro,
-            value: NumericValue::U32(us as u32),
-        },
+        (ww_si::Prefix::Micro, Some(us)) => {
+            Second::from_parts(ww_si::Prefix::Micro, NumericValue::U32(us as u32))
+        }
         _ => *t,
     });
     let event = Event {
@@ -335,12 +334,9 @@ mod tests {
     #[test]
     fn one_value_costs_more_alone() {
         // one current of the foc level, timestamp in µs
-        let t = Second {
-            prefix: ww_si::Prefix::Micro,
-            value: NumericValue::U64(123_456),
-        };
+        let t = Second::from_parts(ww_si::Prefix::Micro, NumericValue::U64(123_456));
         let mut u = crate::device::api_impl::FocUpdate::from_ww_bytes(&[]).unwrap();
-        u.i_q = Some(ww_si::Ampere::milliamperes(1500i32));
+        u.i_q = Some(ww_si::Ampere::milli(1500i32));
         let mut buf = [0u8; 64];
         let data = u.to_ww_bytes(&mut buf).unwrap().to_vec();
         let update = property_update_len(Level::Foc, Some(&t), 0, &data);

@@ -70,7 +70,7 @@ impl<U: Unit> Quantity<U> {
 
     /// `value` in the unit itself, stored as `f32`.
     #[cfg(feature = "f32")]
-    pub fn from_f32(value: f32) -> Self {
+    pub const fn from_f32(value: f32) -> Self {
         Self::from_parts(Prefix::Unit, NumericValue::F32(value))
     }
 

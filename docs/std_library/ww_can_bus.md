@@ -101,14 +101,14 @@ let actual = node
     .can()
     .configure(CanConfig {
         mode: Mode::Normal,
-        nominal: Timing::Rate { rate: Baud::kilobaud(500u16), sample_point: 875 },
+        nominal: Timing::Rate { rate: Baud::kilo(500u16), sample_point: 875 },
         fd: Some(FdConfig {
-            data: Timing::Rate { rate: Baud::megabaud(2u8), sample_point: 750 },
+            data: Timing::Rate { rate: Baud::mega(2u8), sample_point: 750 },
             tdc: Tdc::Auto,
             iso: true,
         }),
         options,
-        bus_off_recovery: Some(Second::milliseconds(100u8)),
+        bus_off_recovery: Some(Second::milli(100u8)),
     })
     .call()
     .await?;

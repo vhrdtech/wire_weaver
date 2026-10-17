@@ -150,10 +150,10 @@ fn too_big_and_small_buffer() {
 #[test]
 fn big_positions_and_full_heads() {
     let mut ring = RamRing::<512>::new();
-    let t = ww_si::Second {
-        prefix: ww_si::Prefix::Micro,
-        value: ww_si::ww_numeric::NumericValue::U64(u64::MAX),
-    };
+    let t = ww_si::Second::from_parts(
+        ww_si::Prefix::Micro,
+        ww_si::ww_numeric::NumericValue::U64(u64::MAX),
+    );
     let h = StreamHead {
         pos: (1 << 50) + 7,
         units: 1 << 40,

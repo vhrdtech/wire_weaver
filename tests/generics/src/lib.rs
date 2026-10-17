@@ -264,14 +264,8 @@ mod tests {
 
     fn latest() -> Timed<Ampere> {
         Timed::new(
-            Second {
-                prefix: Prefix::Milli,
-                value: NumericValue::U32(1500),
-            },
-            Ampere {
-                prefix: Prefix::Micro,
-                value: NumericValue::I16(-250),
-            },
+            Second::from_parts(Prefix::Milli, NumericValue::U32(1500)),
+            Ampere::from_parts(Prefix::Micro, NumericValue::I16(-250)),
         )
     }
 
@@ -414,10 +408,7 @@ mod tests {
 
     fn timed_voltage() -> Timed<Volt> {
         Timed::new(
-            Second {
-                prefix: Prefix::Micro,
-                value: NumericValue::U16(20),
-            },
+            Second::from_parts(Prefix::Micro, NumericValue::U16(20)),
             Quantity::new(-5),
         )
     }

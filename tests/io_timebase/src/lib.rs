@@ -15,10 +15,7 @@ mod tests {
     };
 
     fn micros(value: u32) -> Second {
-        Second {
-            prefix: Prefix::Micro,
-            value: NumericValue::U32(value),
-        }
+        Second::from_parts(Prefix::Micro, NumericValue::U32(value))
     }
 
     fn as_micros(s: &Second) -> u32 {

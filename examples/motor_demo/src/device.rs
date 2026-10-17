@@ -375,7 +375,7 @@ impl Device {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
     ) -> GetResult<Ratio, ()> {
-        GetResult::Value(Ratio::ratio_f32(self.real_time_factor))
+        GetResult::Value(Ratio::from_f32(self.real_time_factor))
     }
 
     async fn set_control_mode(
@@ -503,7 +503,7 @@ impl Device {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
     ) -> GetResult<Ratio, ()> {
-        GetResult::Value(Ratio::ratio_f32(self.time_scale))
+        GetResult::Value(Ratio::from_f32(self.time_scale))
     }
 
     async fn set_sim_load(

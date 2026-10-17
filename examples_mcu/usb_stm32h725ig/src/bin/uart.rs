@@ -110,12 +110,12 @@ async fn send_received_bytes(
     }
     let chunk = RxChunk {
         // measured: the idle interrupt came one character after it
-        end: Some(ww_si::Second::microseconds(end_us)),
+        end: Some(ww_si::Second::micro(end_us)),
         flags: None,
         bytes: MaxLen::new_unchecked(RefVec::new_bytes(bytes)),
     };
     // units: bytes; the head's time is the first byte's
-    let first = ww_si::Second::microseconds(first_us);
+    let first = ww_si::Second::micro(first_us);
     let r = server_impl::stream_data_ser()
         .uart(index)
         .rx_send(rx, &chunk, bytes.len() as u64, Some(first), &mut out)
@@ -226,10 +226,10 @@ impl ServerState {
         _index: [UNib32; 1],
     ) -> RpcResult<Capabilities<'_>> {
         let cap = Capabilities {
-            min_baud_rate: Baud::baud(1200u32),
-            max_baud_rate: Baud::megabaud(12u32),
+            min_baud_rate: Baud::base(1200u32),
+            max_baud_rate: Baud::mega(12u32),
             io_levels: MaxLen::new_unchecked(RefVec::Slice {
-                slice: &[ww_si::quantity!(3.3 V f32)],
+                slice: &const { [ww_si::Volt::from_f32(3.3)] },
             }),
             io_level_min: None,
             io_level_max: None,

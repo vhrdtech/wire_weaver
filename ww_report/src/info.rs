@@ -313,7 +313,7 @@ async fn last_reset(client: &LastResetClient) -> Part<LastReset> {
     Part::Value(LastReset {
         cause: format!("{:?}", record.cause),
         build_id: hex(record.build_id.as_slice()),
-        uptime_s: record.uptime.as_ref().map(|s| s.to_f64_seconds()),
+        uptime_s: record.uptime.as_ref().map(|s| s.to_f64()),
         fault,
         fault_addresses,
         stack: record.stack.as_slice().to_vec(),

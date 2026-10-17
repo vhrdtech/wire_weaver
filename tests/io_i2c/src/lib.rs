@@ -19,10 +19,7 @@ mod tests {
     use ww_stream::tx::Counted;
 
     fn secs(v: u32) -> Second {
-        Second {
-            prefix: Prefix::Micro,
-            value: NumericValue::U32(v),
-        }
+        Second::from_parts(Prefix::Micro, NumericValue::U32(v))
     }
 
     fn unsupported() -> I2cError<'static> {
@@ -204,8 +201,8 @@ mod tests {
                     io_level_max: None,
                     max_write_len: ww_i2c::MAX_WRITE_LEN as u32,
                     max_read_len: MAX_READ_LEN as u32,
-                    min_freq: Hertz::kilohertz(1u16),
-                    max_freq: Hertz::kilohertz(400u16),
+                    min_freq: Hertz::kilo(1u16),
+                    max_freq: Hertz::kilo(400u16),
                     driver_name: MaxLen::new_unchecked("mock"),
                     master_supported: true,
                     slave_supported: false,
@@ -225,7 +222,7 @@ mod tests {
                 if config.io_level.is_some() {
                     return Ready(Err(unsupported()));
                 }
-                let max = Hertz::kilohertz(400u16);
+                let max = Hertz::kilo(400u16);
                 let mode = match config.mode {
                     I2cMode::Master { speed, monitor } if speed > max => I2cMode::Master {
                         speed: max,
@@ -740,7 +737,7 @@ mod tests {
             .i2c()
             .i2c_configure(I2cConfig {
                 mode: I2cMode::Master {
-                    speed: Hertz::megahertz(1u8),
+                    speed: Hertz::mega(1u8),
                     monitor: false,
                 },
                 io_level: None,
@@ -751,7 +748,7 @@ mod tests {
         assert_eq!(
             actual.mode,
             I2cMode::Master {
-                speed: Hertz::kilohertz(400u16),
+                speed: Hertz::kilo(400u16),
                 monitor: false
             }
         );
@@ -761,7 +758,7 @@ mod tests {
             .i2c()
             .i2c_configure(I2cConfig {
                 mode: I2cMode::Disabled,
-                io_level: Some(ww_si::Volt::millivolts(1800u16)),
+                io_level: Some(ww_si::Volt::milli(1800u16)),
             })
             .call()
             .await

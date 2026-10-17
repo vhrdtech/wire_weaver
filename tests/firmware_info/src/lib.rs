@@ -46,7 +46,7 @@ mod tests {
                         ResetCause::PowerOn
                     },
                     build_id: MaxLen::new_unchecked(RefVec::new_bytes(&BUILD_ID)),
-                    uptime: Some(ww_si::Second::milliseconds(1500u32)),
+                    uptime: Some(ww_si::Second::milli(1500u32)),
                     fault: crash.as_ref().map(|c| c.fault.clone()),
                     stack: MaxLen::new_unchecked(RefVec::Slice { slice: &STACK }),
                     message: MaxLen::new_unchecked(if crash.is_some() { "HardFault" } else { "" }),

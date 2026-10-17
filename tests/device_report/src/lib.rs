@@ -157,7 +157,7 @@ mod tests {
                     boots_since_crash: 2,
                     cause: ResetCause::Panic,
                     build_id: MaxLen::new_unchecked(RefVec::new_bytes(&self.build_id)),
-                    uptime: Some(ww_si::Second::milliseconds(2500u32)),
+                    uptime: Some(ww_si::Second::milli(2500u32)),
                     fault: Some(Fault::CortexM(CortexMFault {
                         pc: self.crash_pc,
                         lr: self.crash_pc + 6,

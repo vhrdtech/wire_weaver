@@ -155,7 +155,7 @@ mod tests {
                     mode: TransceiverMode::Normal,
                     fault: None,
                 },
-                bus_timing: segments_for(Baud::kilobaud(250u16), 875).unwrap(),
+                bus_timing: segments_for(Baud::kilo(250u16), 875).unwrap(),
                 before_sleep: Mode::Off,
             }
         }
@@ -252,7 +252,7 @@ mod tests {
     fn capabilities(full: bool) -> Capabilities<'static> {
         let termination: &'static [Ohm] = Box::leak(Box::new([ohms_120()]));
         Capabilities {
-            clock: Hertz::megahertz(80u8),
+            clock: Hertz::mega(80u8),
             nominal: timing_limits(),
             data: full.then(|| TimingLimits {
                 prescaler_max: 32,
@@ -280,7 +280,7 @@ mod tests {
             long_dlc: false,
             auto_recovery: true,
             timestamps: Some(ww_can_bus::TimestampInfo {
-                resolution: Second::microseconds(1u8),
+                resolution: Second::micro(1u8),
                 point: ww_can_bus::TimestampPoint::StartOfFrame,
             }),
             rx_fifos: if full { 2 } else { 1 },
@@ -435,7 +435,7 @@ mod tests {
                     let mut m = self.m.lock().unwrap();
                     (std::mem::take(&mut m.pending), m.status)
                 };
-                let t = Some(Second::microseconds(self.start.elapsed().as_micros() as u32));
+                let t = Some(Second::micro(self.start.elapsed().as_micros() as u32));
                 let ser = api_impl::stream_data_ser();
                 for p in pending {
                     let _ = match p {
@@ -457,8 +457,7 @@ mod tests {
                                 id,
                                 outcome,
                                 // the mock's frames wait 120 µs in its queue
-                                queued: (outcome == TxOutcome::Sent)
-                                    .then(|| Second::microseconds(120u8)),
+                                queued: (outcome == TxOutcome::Sent).then(|| Second::micro(120u8)),
                             };
                             ser.can().tx_events_send_blocking(
                                 &mut self.can_tx_events_stream,
@@ -642,7 +641,7 @@ mod tests {
             ) -> GetResult<BusLoad, ()> {
                 let frames = self.m.lock().unwrap().sent.len() as u32;
                 Value(BusLoad {
-                    window: Second::milliseconds(100u8),
+                    window: Second::milli(100u8),
                     load: 0,
                     frames,
                     errors: 0,
@@ -848,7 +847,7 @@ mod tests {
                             kind: f.kind,
                             data: MaxLen::new(RefVec::new_bytes(data)).unwrap(),
                         },
-                        time: Some(Second::microseconds(self.start.elapsed().as_micros() as u32)),
+                        time: Some(Second::micro(self.start.elapsed().as_micros() as u32)),
                     }
                 });
                 Ready(Ok(frame))
@@ -1216,7 +1215,7 @@ mod tests {
     }
 
     const RATE_500K: fn() -> Timing = || Timing::Rate {
-        rate: Baud::kilobaud(500u16),
+        rate: Baud::kilo(500u16),
         sample_point: 875,
     };
 
@@ -1226,14 +1225,14 @@ mod tests {
         let client = connect(&device).await;
 
         let caps = client.can().capabilities().call().await.unwrap();
-        assert_eq!(caps.clock, Hertz::megahertz(80u8));
+        assert_eq!(caps.clock, Hertz::mega(80u8));
         assert!(caps.data.is_some());
         assert_eq!(caps.termination.len(), 1);
 
         // a bit rate in, segments out: 80 MHz / 500 kbit/s = 160 quanta, 140 before the sample point
         let fd = FdConfig {
             data: Timing::Rate {
-                rate: Baud::megabaud(2u8),
+                rate: Baud::mega(2u8),
                 sample_point: 750,
             },
             tdc: Tdc::Auto,
@@ -1271,7 +1270,7 @@ mod tests {
             .can()
             .configure(loopback(
                 Timing::Rate {
-                    rate: Baud::baud(333_333u32),
+                    rate: Baud::base(333_333u32),
                     sample_point: 875,
                 },
                 None,
@@ -1301,7 +1300,7 @@ mod tests {
         let client = connect(&device).await;
         let fd = FdConfig {
             data: Timing::Rate {
-                rate: Baud::megabaud(4u8),
+                rate: Baud::mega(4u8),
                 sample_point: 800,
             },
             tdc: Tdc::Off,
@@ -1363,7 +1362,7 @@ mod tests {
             assert_eq!(ev.id, f.id);
             assert_eq!(ev.outcome, TxOutcome::Sent);
             // measured on the device
-            assert_eq!(ev.queued, Some(Second::microseconds(120u8)));
+            assert_eq!(ev.queued, Some(Second::micro(120u8)));
         }
 
         // without FD, an FD frame is rejected
@@ -1598,7 +1597,7 @@ mod tests {
             .unwrap();
 
         // a cyclic frame every 100 ms, then cleared
-        let period = Second::milliseconds(100u8);
+        let period = Second::milli(100u8);
         let heartbeat = MockFrame::std(0x701, &[5]);
         client
             .can()
@@ -1769,11 +1768,11 @@ mod tests {
         let client = connect(&device).await;
 
         let rate = |kbit: u16, sample_point| Timing::Rate {
-            rate: Baud::kilobaud(kbit),
+            rate: Baud::kilo(kbit),
             sample_point,
         };
         let candidates = |list: Vec<Timing>| MaxLen::new(list).unwrap();
-        let per = Second::milliseconds(200u8);
+        let per = Second::milli(200u8);
         // the mock's bus runs at 250 kbit/s, 87.5 %
         let found = client
             .can()
@@ -1817,7 +1816,7 @@ mod tests {
 
         let mut load = client.can().observe_bus_load().await.unwrap();
         let measured = BusLoad {
-            window: Second::milliseconds(100u8),
+            window: Second::milli(100u8),
             load: 347,
             frames: 120,
             errors: 1,
@@ -1827,7 +1826,7 @@ mod tests {
         assert_eq!(load.recv().await.unwrap(), measured);
         assert_eq!(
             client.can().read_bus_load().read().await.unwrap().window,
-            Second::milliseconds(100u8)
+            Second::milli(100u8)
         );
     }
 

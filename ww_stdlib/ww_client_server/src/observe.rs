@@ -161,10 +161,7 @@ mod tests {
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
 
-    const MICROS: Second = Second {
-        prefix: Prefix::Micro,
-        value: NumericValue::U32(0x1234_5678),
-    };
+    const MICROS: Second = Second::from_parts(Prefix::Micro, NumericValue::U32(0x1234_5678));
 
     #[test]
     fn request_round_trip() {

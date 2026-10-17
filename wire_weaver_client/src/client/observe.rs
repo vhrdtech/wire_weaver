@@ -200,10 +200,7 @@ fn unwrap_t(last: &mut Option<u64>, t: Second) -> Second {
         }
     };
     *last = Some(unwrapped);
-    Second {
-        prefix: Prefix::Micro,
-        value: NumericValue::U64(unwrapped),
-    }
+    Second::from_parts(Prefix::Micro, NumericValue::U64(unwrapped))
 }
 
 /// The latest value of one property, in a level's `<Trait>Latest`.
@@ -956,10 +953,7 @@ mod tests {
 
     #[test]
     fn device_time_unwrapped() {
-        let us32 = |v: u32| Second {
-            prefix: Prefix::Micro,
-            value: NumericValue::U32(v),
-        };
+        let us32 = |v: u32| Second::from_parts(Prefix::Micro, NumericValue::U32(v));
         let us = |t: &Second| match t.value {
             NumericValue::U64(v) => v,
             _ => panic!("{t:?}"),
@@ -976,10 +970,7 @@ mod tests {
         // a little back (not expected, but not a wrap)
         assert_eq!(us(&unwrap_t(&mut last, us32(900))), (1 << 32) + 900);
         // other times as they are
-        let ms = Second {
-            prefix: Prefix::Milli,
-            value: NumericValue::U32(7),
-        };
+        let ms = Second::from_parts(Prefix::Milli, NumericValue::U32(7));
         assert_eq!(unwrap_t(&mut last, ms), ms);
     }
 

@@ -76,7 +76,7 @@ pub fn load(s: &str) -> anyhow::Result<Load> {
         Some(("viscous", v)) => Load::Viscous { b: num(v)? },
         Some(("fan", v)) => Load::Fan { k: num(v)? },
         Some(("constant", v)) => Load::Constant {
-            torque: Torque::newton_meters_f32(num(v)?),
+            torque: Torque::from_f32(num(v)?),
         },
         _ => bail!("not a load: {s} (none, locked, viscous:B, fan:K, constant:T)"),
     })
@@ -116,7 +116,7 @@ mod tests {
         assert_eq!(
             load("constant:0.5").unwrap(),
             Load::Constant {
-                torque: Torque::newton_meters_f32(0.5)
+                torque: Torque::from_f32(0.5)
             }
         );
         assert!(load("fan").is_err());

@@ -20,17 +20,11 @@ mod tests {
     const MAX_LEN: usize = 64;
 
     fn volt(value: f32) -> Volt {
-        Volt {
-            prefix: Prefix::Unit,
-            value: NumericValue::F32(value),
-        }
+        Volt::from_parts(Prefix::Unit, NumericValue::F32(value))
     }
 
     fn second(prefix: Prefix, value: u32) -> Second {
-        Second {
-            prefix,
-            value: NumericValue::U32(value),
-        }
+        Second::from_parts(prefix, NumericValue::U32(value))
     }
 
     fn wrong_state() -> SpiError<'static> {
@@ -171,19 +165,11 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<SpiCapabilities<'_>> {
-                const IO_LEVELS: [Volt; 1] = [Volt {
-                    prefix: Prefix::Unit,
-                    value: NumericValue::F32(3.3),
-                }];
+                const IO_LEVELS: [Volt; 1] =
+                    [Volt::from_parts(Prefix::Unit, NumericValue::F32(3.3))];
                 Ready(SpiCapabilities {
-                    min_freq: ww_si::Hertz {
-                        prefix: Prefix::Kilo,
-                        value: NumericValue::U32(100),
-                    },
-                    max_freq: ww_si::Hertz {
-                        prefix: Prefix::Mega,
-                        value: NumericValue::U32(10),
-                    },
+                    min_freq: ww_si::Hertz::from_parts(Prefix::Kilo, NumericValue::U32(100)),
+                    max_freq: ww_si::Hertz::from_parts(Prefix::Mega, NumericValue::U32(10)),
                     min_word_bits: 8,
                     max_word_bits: 8,
                     master: true,
@@ -352,10 +338,7 @@ mod tests {
     fn configured_master(cs: CsMode) -> SpiConfig {
         SpiConfig {
             role: SpiRole::Master,
-            freq: ww_si::Hertz {
-                prefix: Prefix::Mega,
-                value: NumericValue::U32(1),
-            },
+            freq: ww_si::Hertz::from_parts(Prefix::Mega, NumericValue::U32(1)),
             mode: SpiMode::Mode0,
             bit_order: BitOrder::MsbFirst,
             word_bits: 8,

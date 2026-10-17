@@ -224,15 +224,9 @@ mod tests {
 
     #[test]
     fn seconds_of_device_times() {
-        let t = Second {
-            prefix: Prefix::Micro,
-            value: NumericValue::U32(4_000_000_123),
-        };
+        let t = Second::from_parts(Prefix::Micro, NumericValue::U32(4_000_000_123));
         assert!((seconds(&t) - 4000.000123).abs() < 1e-9);
-        let t = Second {
-            prefix: Prefix::Milli,
-            value: NumericValue::U64(1500),
-        };
+        let t = Second::from_parts(Prefix::Milli, NumericValue::U64(1500));
         assert_eq!(seconds(&t), 1.5);
     }
 }

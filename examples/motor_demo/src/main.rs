@@ -323,7 +323,7 @@ async fn run_observe(a: ObserveArgs) -> anyhow::Result<()> {
 async fn setup(client: &MotorDemo, a: &ObserveArgs) -> anyhow::Result<()> {
     let sim = client.sim();
     if let Some(s) = a.sim.time_scale {
-        sim.write_time_scale(Ratio::ratio_f32(s)).write().await?;
+        sim.write_time_scale(Ratio::from_f32(s)).write().await?;
     }
     if let Some(m) = a.sim.motor {
         sim.write_motor(preset(m)).write().await?;
@@ -342,13 +342,13 @@ async fn setup(client: &MotorDemo, a: &ObserveArgs) -> anyhow::Result<()> {
     }
     if let Some(v) = a.current {
         control
-            .write_current_target(Ampere::amperes_f32(v))
+            .write_current_target(Ampere::from_f32(v))
             .write()
             .await?;
     }
     if let Some(v) = a.duty {
         control
-            .write_duty_target(Ratio::ratio_f32(v))
+            .write_duty_target(Ratio::from_f32(v))
             .write()
             .await?;
     }

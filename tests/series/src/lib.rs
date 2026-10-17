@@ -223,14 +223,8 @@ mod tests {
         use ww_si::{Prefix, Second, Timed, Volt};
         (0..50u32)
             .map(|k| Timed {
-                t: Second {
-                    prefix: Prefix::Micro,
-                    value: NumericValue::U32(1_000_000 + k * 1000),
-                },
-                value: Volt {
-                    prefix: Prefix::Milli,
-                    value: NumericValue::I32(3300 + (k as i32 % 3)),
-                },
+                t: Second::from_parts(Prefix::Micro, NumericValue::U32(1_000_000 + k * 1000)),
+                value: Volt::from_parts(Prefix::Milli, NumericValue::I32(3300 + (k as i32 % 3))),
             })
             .collect()
     }

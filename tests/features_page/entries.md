@@ -150,6 +150,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-7 | Cached API descriptions | A device's description is downloaded once, then found by its hash. | std_library/ww_self.md
 - CLT-15 | Multi requests | Read many properties or call a method on many array elements in one request. | api/multi_requests.md
 - CLT-28 | Observing properties | Typed subscriptions and a cache of the latest values, shared by everyone watching. | api/observing.md#the-host-side
+- CLT-29 | `Series` without generated code | `ww`, Python and any dynamic client read a `Series<T>` from introspection alone, Python as numpy columns. | serdes/series.md#introspection-and-dynamic-clients
 - CLT-30 | Link setup timeout | Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time. | cli.md
 - CLT-10 | Calls that work on any device | Shared traits called whatever a device's own API version. | std_library/device_contract.md
 - CLT-21 | Following a reboot | Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). | transport/follow_reboot.md

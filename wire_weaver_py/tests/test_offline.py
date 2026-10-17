@@ -149,7 +149,7 @@ def test_max_len():
 
 def test_series():
     # Delta / DeltaOfDelta / XorFloat (SW-50): lists of numbers, written with their codec
-    api = ww.load_api(str(API_CRATE.parent / "series_api"), "Series")
+    api = ww.load_api(str(API_CRATE.parent / "series_api"), "Sequences")
     assert api.stamps.signature == "rw stamps: DeltaOfDelta<u64>"
     stamps = [1_700_000_000_000, 1_700_000_000_250, 1_700_000_000_500]
     encoded = api.stamps.encode(stamps)
@@ -254,3 +254,46 @@ def test_generic_types():
     latest = dict(t=dict(prefix="Milli", value={"U32": 1500}), value=dict(prefix="Micro", value={"I16": -250}))
     assert api.latest.decode(api.latest.encode(latest)) == latest
     assert api.swap.encode_args(dict(a=1, b=300))
+
+
+# `readings(6)` from tests/series, as the generated server writes it (`READINGS_6_HEX` there)
+READINGS_6_HEX = (
+    "6609884dce2671b3919cace6671040618880628080618880620800860863616c696272617465640291841063616c696272617465647761"
+    "726d4292808000860863616c696272617465640291841063616c696272617465647761726d429204062510093141c212810800"
+)
+
+
+def test_series_columns():
+    # CLT-29: a Series<T> as items and as numpy columns, leaves under a variant or an Option masked
+    np = pytest.importorskip("numpy")
+    api = ww.load_api(str(API_CRATE.parent / "series_api"), "Sequences")
+    assert api.readings.signature == "readings(n: u8) -> Series<Reading>"
+    data = bytes.fromhex(READINGS_6_HEX)
+
+    items = api.readings.decode_return(data)
+    assert len(items) == 6
+    assert items[2] == dict(
+        scale="Milli", value=3300, label="b", notes=["calibrated", "warm"], status={"Busy": 2}, ok=True
+    )
+
+    cols = api.readings.decode_columns(data)
+    assert sorted(cols) == ["label", "notes", "ok", "scale", "status", "status.Busy.0", "status.Fault.code", "value"]
+    assert cols["value"].dtype == np.int32
+    assert cols["value"].tolist() == [3298, 3299, 3300, 3301, 3302, 3298]
+    assert cols["scale"].tolist() == ["Milli"] * 4 + ["Micro"] * 2
+    assert cols["label"].tolist() == ["a", "a", "b", "a", "a", "b"]
+    assert cols["notes"].tolist() == [[], ["calibrated"], ["calibrated", "warm"], [], ["calibrated"], ["calibrated", "warm"]]
+    assert cols["status"].tolist() == ["Idle", "Busy", "Busy", "Fault", "Fault", "Idle"]
+    busy = cols["status.Busy.0"]
+    assert busy.dtype == np.uint8
+    assert busy.tolist() == [None, 1, 2, None, None, None]
+    assert cols["status.Fault.code"].tolist() == [None, None, None, 7, 7, None]
+    assert cols["ok"].dtype == np.bool_
+    assert cols["ok"].tolist() == [None, False, True, False, None, False]
+    # every item has a value: a plain array, not a masked one
+    assert not isinstance(cols["value"], np.ma.MaskedArray)
+
+    with pytest.raises(ww.WireWeaverError):
+        api.readings.decode_columns(data[:10])
+    with pytest.raises(ValueError):
+        api.sum.decode_columns(b"")

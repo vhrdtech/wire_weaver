@@ -130,6 +130,27 @@ field gets its own column at the end of the group, which an older reader skips a
 data fills from the default; a new enum variant an older reader doesn't know fails the same way a plain decode of
 that item would.
 
+## Introspection and dynamic clients
+
+A `Series<T>` in an API is in its introspection data as `Series<T>` (`ww_self::Type::Series`, with `T` as written and
+`#[series(opaque)]` marked on the field), so clients without generated code read it too: `ww` and the dynamic
+`wire_weaver_client` API show it as a list of items, and Python gives the items or, with `decode_columns`, one numpy
+array per leaf field:
+
+```python
+cols = dev.readings.decode_columns(data)   # or a property's / stream's decode_columns
+cols["value"]               # array([3298, 3299, ...], dtype=int32)
+cols["status"]              # variant of each item: array(['Idle', 'Busy', ...], dtype=object)
+cols["status.Fault.code"]   # masked where an item is in another variant
+```
+
+The dynamic decoder (`ww_self`, `ValueOwned::des_shrink_wrap_dyn` for the items, `des_series_columns_dyn` for the
+columns) walks the type tree with the same rules as the code the derive generates: column by column, restarting a
+column after an earlier enum or `Option` tag changes, a newer or older `T` read as the typed decoder reads it (missing
+fields take their declared `#[default]`). The bytes come from a device, so they are untrusted: malformed data is an
+error, and since an item can take no bits at all (a constant column), the work and the memory are bounded by the
+decode's budget (values and bytes of memory, a repeated value counted once per copy), not by the length of the bytes.
+
 ## What's not here yet
 
 `Series<T>` as a type you put in a property, method or stream today works end to end (phase 1 of SW-60). Picking the

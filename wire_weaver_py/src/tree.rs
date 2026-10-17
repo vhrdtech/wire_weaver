@@ -1,6 +1,7 @@
 //! Python objects mirroring the API tree: traits are attributes, arrays are indexed with `[]`, methods are callable,
 //! properties are read and written with `read()` / `write()`, streams are iterated.
 
+use crate::columns::decode_columns;
 use crate::convert::{prefix_err, to_py, to_value, type_name};
 use crate::observe::Observer;
 use crate::positioned::PositionedStream;
@@ -526,6 +527,15 @@ impl Method {
         Ok(to_py(py, &value, &ty, bundle)?.unbind())
     }
 
+    /// Deserialize a `Series<T>` return value as sent by a device into numpy columns: a `dict` of field path ->
+    /// array over all items (masked where an item doesn't have the field).
+    fn decode_columns<'py>(&self, py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyDict>> {
+        let ty = self
+            .return_ty()
+            .ok_or_else(|| PyValueError::new_err("the method returns nothing"))?;
+        decode_columns(py, data, &ty, self.res.bundle())
+    }
+
     fn __repr__(&self) -> String {
         repr_with_docs("method", &self.res)
     }
@@ -615,6 +625,12 @@ impl Property {
         let value = ValueOwned::des_shrink_wrap_dyn(data, &ty, self.res.bundle())
             .map_err(|e| WireWeaverError::new_err(format!("{e:#}")))?;
         Ok(to_py(py, &value, &ty, self.res.bundle())?.unbind())
+    }
+
+    /// Deserialize a `Series<T>` value as sent by a device into numpy columns: a `dict` of field path -> array
+    /// over all items (masked where an item doesn't have the field).
+    fn decode_columns<'py>(&self, py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyDict>> {
+        decode_columns(py, data, &self.ty(), self.res.bundle())
     }
 
     fn __repr__(&self) -> String {
@@ -772,6 +788,16 @@ impl Stream {
         let value = ValueOwned::des_shrink_wrap_dyn(data, &ty, self.res.bundle())
             .map_err(|e| WireWeaverError::new_err(format!("{e:#}")))?;
         self.item_to_py(py, value)
+    }
+
+    /// Deserialize a `Series<T>` item as sent by a device into numpy columns: a `dict` of field path -> array
+    /// over all items of it (masked where an item doesn't have the field).
+    fn decode_columns<'py>(&self, py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyDict>> {
+        let ty = match self.res.kind() {
+            Ok(DynResourceKind::Stream { ty, .. }) => ty.clone(),
+            _ => unreachable!(),
+        };
+        decode_columns(py, data, &ty, self.res.bundle())
     }
 
     fn __repr__(&self) -> String {

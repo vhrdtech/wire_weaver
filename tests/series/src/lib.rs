@@ -580,6 +580,17 @@ mod tests {
         assert_eq!(dynamic, plain_dyn(&items, item_ty, &bundle));
     }
 
+    /// `readings(6)` as the generated server writes it, also decoded into numpy columns by
+    /// `wire_weaver_py/tests/test_offline.py`.
+    const READINGS_6_HEX: &str = "6609884dce2671b3919cace6671040618880628080618880620800860863616c696272617465640291841063616c696272617465647761726d4292808000860863616c696272617465640291841063616c696272617465647761726d429204062510093141c212810800";
+
+    #[test]
+    fn readings_golden_bytes() {
+        let bytes = Series::new(&readings(6)).to_ww_bytes_owned().unwrap();
+        let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+        assert_eq!(hex, READINGS_6_HEX);
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn series_through_clients_and_streams() {
         let (device, _data) = start("series/series");

@@ -14,7 +14,10 @@ classifiers = [
 dynamic = ["version"]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "numpy>=2.0.2",
+    "pytest>=8",
+]
 
 [tool.maturin]
 module-name = "wire_weaver"

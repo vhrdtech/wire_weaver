@@ -613,6 +613,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   subscriptions sent again by `resume_streams()` after a reconnect; `Error::Unsupported` for a device whose API model
   predates API-38 (`wire_weaver_client::observe`, `docs/api/observing.md#the-host-side`, `tests/observe`,
   `observe_e2e_tests`). Not yet: levels under a resource array.
+- ✅ **CLT-29 `Series<T>` in introspection and dynamic clients** · `v0.5.x` — `ww_self::Type::Series` (and
+  `Field::series_opaque` for `#[series(opaque)]` fields) in the API model, emitted by codegen; a dynamic decoder in
+  `ww_self` reads a `Series` column by column from the type tree alone (`ValueOwned::des_shrink_wrap_dyn` gives the
+  items, `des_series_columns_dyn` the columns), with the typed decoder's rules (restarts after enum and `Option` tags,
+  evolvable structs both ways, declared defaults) and the decode budget bounding work and memory (a constant column
+  costs no bytes); `ww` shows the items, Python decodes the items or numpy columns (`decode_columns`, masked where an
+  item is in another variant or `None`). Dyn equals typed on the design's examples, on generated and on fuzzed series
+  (fuzz target `series-dynamic`, `tests/series`, `wire_weaver_py/tests/test_offline.py`,
+  `docs/serdes/series.md#introspection-and-dynamic-clients`). Not yet: writing a `Series` dynamically (Python
+  `encode` of a `Series` fails).
 - ✅ **CLT-30 Link setup budget per transport** · `v0.5.x` — the client re-sent `GetDeviceInfo` 5 times 50 ms apart (250 ms
   for every transport), so connecting through a debug probe (~17 ms per RTT write through a J-Link) mostly failed with
   `LinkSetup was not received`. Now a timeout per transport (USB, UDP, WebSocket 1 s, in-process 250 ms, RTT 10 s, one

@@ -159,6 +159,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - **[Cached API descriptions](std_library/ww_self.md)**: A device's description is downloaded once, then found by its hash.
 - **[Multi requests](api/multi_requests.md)**: Read many properties or call a method on many array elements in one request.
 - **[Observing properties](api/observing.md#the-host-side)**: Typed subscriptions and a cache of the latest values, shared by everyone watching.
+- **[`Series` without generated code](serdes/series.md#introspection-and-dynamic-clients)**: `ww`, Python and any dynamic client read a `Series<T>` from introspection alone, Python as numpy columns.
 - **[Link setup timeout](cli.md)**: Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time.
 - **[Calls that work on any device](std_library/device_contract.md)**: Shared traits called whatever a device's own API version. <span class="ww-status">in progress</span>
 - **[Following a reboot](transport/follow_reboot.md)**: Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). <span class="ww-status">in progress</span>

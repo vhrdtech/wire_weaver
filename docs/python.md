@@ -152,6 +152,17 @@ Blocking calls release the GIL, and waiting on a stream can be interrupted with 
 | `Option<T>`                     | `None` or `T`, a missing `Option` field is `None`                    |
 | `Result<T, E>`                  | `{"Ok": T}` or `{"Err": E}`                                          |
 | `Range`, `RangeInclusive`       | `(start, end)` (`range` with step 1 accepted)                        |
+| `Delta`, `DeltaOfDelta`, `XorFloat` | `list` of `int` / `float` (any iterable accepted)               |
+| `Series<T>`                     | `list` of `T`; numpy columns with `decode_columns` (below)           |
+
+A `Series<T>` (a method's return value, a property, a stream item) can also be read column by column: the
+`decode_columns(data)` of the method, property or stream gives a `dict` of field path to numpy array over all items
+(numpy is imported then, install it next to `wire_weaver`). Paths join field names with `.`, a variant's fields are
+under its name (`status.Fault.code`), tuple and array elements under their position (`pair.0`), a `Series` of plain
+numbers is under `""`. An enum also gives the variant of each item under its own path, an `Option` is transparent.
+Numbers and bools get their dtype, other leaves (strings, lists, `#[series(opaque)]` fields) are object arrays. A
+leaf some items don't have (in another variant, or `None`) is a masked array (`numpy.ma`). See
+[`Series<T>`](serdes/series.md#introspection-and-dynamic-clients).
 
 ## More
 

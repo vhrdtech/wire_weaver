@@ -14,6 +14,7 @@
 //!
 //! See `convert` for how values map to Python objects.
 
+mod columns;
 mod convert;
 mod observe;
 mod positioned;

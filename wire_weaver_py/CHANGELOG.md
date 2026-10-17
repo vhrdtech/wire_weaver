@@ -7,7 +7,9 @@
 
 ### 🚀 Features
 
-- `Series<T>` (SW-60, CLT-29) values are a `list` of items.
+- `Series<T>` (SW-60, CLT-29) values are a `list` of items; `decode_columns(data)` on a method, property or stream
+  of a `Series` gives a `dict` of field path -> numpy array over all items, masked arrays for leaves some items
+  don't have (another variant, `None`). numpy is imported then, not a dependency. See `docs/python.md#values`.
 - Generic types (API-43): `load_api` instantiates them, `Timed<Ampere>`, `Window<4>` encode and decode like any
   struct; signatures read `rw outer: Outer<3>`.
 

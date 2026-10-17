@@ -770,7 +770,24 @@ impl FieldsOwned {
     }
 }
 
+/// `units::Volt` for a definition named `ident` at `path` (API-46), `Volt` at the crate root: its identity in its
+/// crate, as [TypeLocationOwned::SkippedFullVersion]'s `type_name` has it.
+pub fn qualified_name(path: Option<&[String]>, ident: &str) -> String {
+    let mut name: String = path
+        .unwrap_or_default()
+        .iter()
+        .map(|m| format!("{m}::"))
+        .collect();
+    name.push_str(ident);
+    name
+}
+
 impl ItemStructOwned {
+    /// `units::Volt`: [qualified_name] of this definition.
+    pub fn qualified_name(&self) -> String {
+        qualified_name(self.path.as_deref(), &self.ident)
+    }
+
     /// Returns true if this type contains a string, vector, or box at any depth.
     pub fn is_lifetime(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
         self.fields.is_lifetime(api_bundle, &mut HashSet::new())
@@ -782,6 +799,11 @@ impl ItemStructOwned {
 }
 
 impl ItemEnumOwned {
+    /// `units::Volt`: [qualified_name] of this definition.
+    pub fn qualified_name(&self) -> String {
+        qualified_name(self.path.as_deref(), &self.ident)
+    }
+
     /// Returns true if this type contains a string, vector, or box at any depth.
     pub fn is_lifetime(&self, api_bundle: &ApiBundleOwned) -> Result<bool> {
         self.is_lifetime_in(api_bundle, &mut HashSet::new())

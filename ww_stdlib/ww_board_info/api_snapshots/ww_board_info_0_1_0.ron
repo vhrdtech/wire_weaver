@@ -26,16 +26,16 @@
         (docs: [
             "Neither: the firmware assumes the revision it was built for.",
         ], ident: "Assumed", fields: Unit, discriminant: 2, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
-        131,
-        246,
-        239,
-        92,
-        154,
-        105,
-        61,
-        117,
+        29,
+        39,
+        248,
+        111,
+        249,
+        238,
+        133,
+        56,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The PCB and its assembly, see [BoardInfo::BOARD].",
@@ -61,7 +61,7 @@
         (ident: Some("build_date"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "Build date, if available.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The PCB and its assembly.",

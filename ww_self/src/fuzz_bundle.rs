@@ -197,6 +197,7 @@ impl Gen<'_> {
                 crate_idx: UNib32(0),
                 docs: vec![],
                 ident: self.name(format!("T{idx}")),
+                path: None,
                 generics,
                 fields,
                 sparse: false,
@@ -234,6 +235,7 @@ impl Gen<'_> {
                 crate_idx: UNib32(0),
                 docs: vec![],
                 ident: self.name(format!("T{idx}")),
+                path: None,
                 generics,
                 variants,
             })

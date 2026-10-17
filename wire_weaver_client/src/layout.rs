@@ -457,6 +457,7 @@ mod tests {
                 crate_idx: UNib32(0),
                 docs: vec![],
                 ident,
+                path: None,
                 generics: vec![],
                 fields,
                 sparse: false,

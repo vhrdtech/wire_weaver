@@ -17,8 +17,9 @@ use ww_self::{
 };
 use ww_version::FullVersionOwned;
 
-/// Load all `#[ww_trait]`/`#[ww_api_root]` traits and all `#[derive_shrink_wrap]` types defined in a crate's `src/lib.rs`,
-/// and types re-exported from its modules with `pub use`.
+/// Load all `#[ww_trait]`/`#[ww_api_root]` traits defined in a crate's `src/lib.rs`, and all `#[derive_shrink_wrap]`
+/// types and unit marker structs (`pub struct Volt;`) defined there, in its `pub mod`s at any depth, or re-exported
+/// with `pub use` from its modules. Each is known by its path and name (`units::Volt`, API-46).
 ///
 /// Intended to be saved and kept around as a crate snapshot, so that API bundles can refer to its traits and types
 /// by crate name, version and item name only ([TypeLocationOwned::SkippedFullVersion] and
@@ -56,28 +57,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
                     optional: None,
                 });
             }
-            Item::Struct(item_struct) if has_attr(&item_struct.attrs, &["derive_shrink_wrap"]) => {
-                convert_named_ty(&item_struct.ident, &entry, &mut scratch)?;
-            }
-            Item::Enum(item_enum) if has_attr(&item_enum.attrs, &["derive_shrink_wrap"]) => {
-                convert_named_ty(&item_enum.ident, &entry, &mut scratch)?;
-            }
-            // e.g. `mod ty; pub use ty::Ty;`
-            Item::Use(item_use) if matches!(item_use.vis, Visibility::Public(_)) => {
-                for (path, name) in use_tree_names(&item_use.tree) {
-                    let is_local = path.first().is_some_and(|first| {
-                        *first == "self"
-                            || *first == "crate"
-                            || entry.has_module(&first.to_string())
-                    });
-                    if is_local
-                        && is_shrink_wrap_ty(&*entry.resolve_path(path, &mut scratch)?, name)
-                    {
-                        convert_named_ty(name, &entry, &mut scratch)?;
-                    }
-                }
-            }
-            _ => {}
+            _ => convert_snapshot_item(item, &entry, &mut scratch)?,
         }
     }
 
@@ -101,11 +81,50 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
     Ok(bundle)
 }
 
-fn is_shrink_wrap_ty(cx: &CrateContext, name: &Ident) -> bool {
-    cx.lib_rs_ast.items.iter().any(|item| match item {
-        Item::Struct(item_struct) => {
-            &item_struct.ident == name && has_attr(&item_struct.attrs, &["derive_shrink_wrap"])
+/// The types `item` of `cx` (the crate root or a module) puts into a snapshot: itself, what it re-exports, or the
+/// types of a `pub mod`.
+fn convert_snapshot_item(item: &Item, cx: &CrateContext, scratch: &mut Scratch) -> Result<()> {
+    match item {
+        Item::Struct(item_struct) if is_snapshot_struct(item_struct) => {
+            convert_named_ty(&item_struct.ident, cx, scratch)?;
         }
+        Item::Enum(item_enum) if has_attr(&item_enum.attrs, &["derive_shrink_wrap"]) => {
+            convert_named_ty(&item_enum.ident, cx, scratch)?;
+        }
+        // e.g. `mod ty; pub use ty::Ty;`
+        Item::Use(item_use) if matches!(item_use.vis, Visibility::Public(_)) => {
+            for (path, name) in use_tree_names(&item_use.tree) {
+                let is_local = path.first().is_some_and(|first| {
+                    *first == "self" || *first == "crate" || cx.has_module(&first.to_string())
+                });
+                if is_local && is_snapshot_ty(&*cx.resolve_path(path, scratch)?, name) {
+                    convert_named_ty(name, cx, scratch)?;
+                }
+            }
+        }
+        Item::Mod(item_mod) if matches!(item_mod.vis, Visibility::Public(_)) => {
+            let module = cx.resolve_path([&item_mod.ident], scratch)?;
+            for item in &module.lib_rs_ast.items {
+                convert_snapshot_item(item, &module, scratch)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// A `#[derive_shrink_wrap]` struct, or a unit struct without parameters: a marker named only in types
+/// (`ww_si::units::Volt`, API-46), which needs no serdes of its own.
+fn is_snapshot_struct(item_struct: &syn::ItemStruct) -> bool {
+    has_attr(&item_struct.attrs, &["derive_shrink_wrap"])
+        || (matches!(item_struct.fields, syn::Fields::Unit)
+            && item_struct.generics.params.is_empty()
+            && matches!(item_struct.vis, Visibility::Public(_)))
+}
+
+fn is_snapshot_ty(cx: &CrateContext, name: &Ident) -> bool {
+    cx.lib_rs_ast.items.iter().any(|item| match item {
+        Item::Struct(item_struct) => &item_struct.ident == name && is_snapshot_struct(item_struct),
         Item::Enum(item_enum) => {
             &item_enum.ident == name && has_attr(&item_enum.attrs, &["derive_shrink_wrap"])
         }
@@ -163,16 +182,18 @@ pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
         let (crate_idx, name) = match entry {
             Entry::Type(idx) => match &bundle.types[idx as usize] {
                 TypeLocationOwned::InLine {
-                    ty:
-                        TypeOwned::Struct(ItemStructOwned { ident, .. })
-                        | TypeOwned::Enum(ItemEnumOwned { ident, .. }),
+                    ty: TypeOwned::Struct(s),
                     crate_idx,
-                } => (crate_idx.0, ident),
+                } => (crate_idx.0, s.qualified_name()),
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Enum(e),
+                    crate_idx,
+                } => (crate_idx.0, e.qualified_name()),
                 _ => return Ok(None),
             },
             Entry::Trait(idx) => match &bundle.traits[idx as usize] {
                 ApiLevelLocationOwned::InLine { level, crate_idx } => {
-                    (crate_idx.0, &level.trait_name)
+                    (crate_idx.0, level.trait_name.clone())
                 }
                 _ => return Ok(None),
             },
@@ -183,7 +204,7 @@ pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
         };
         let (signature, known_signature) = match entry {
             Entry::Type(idx) => {
-                let Some(known_idx) = find_type(snapshot, name) else {
+                let Some(known_idx) = find_type(snapshot, &name) else {
                     return Ok(None);
                 };
                 (
@@ -192,7 +213,7 @@ pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
                 )
             }
             Entry::Trait(idx) => {
-                let Some(known_idx) = find_trait(snapshot, name) else {
+                let Some(known_idx) = find_trait(snapshot, &name) else {
                     return Ok(None);
                 };
                 (
@@ -213,15 +234,21 @@ fn known<'a>(version: &FullVersionOwned) -> Option<&'a ApiBundleOwned> {
     wire_weaver_snapshots::get(version)
 }
 
+/// In-line definition of the type named `name` (`units::Volt`, API-46) in a snapshot of its crate.
 fn find_type(snapshot: &ApiBundleOwned, name: &str) -> Option<u32> {
     snapshot
         .types
         .iter()
-        .position(|location| {
-            matches!(location, TypeLocationOwned::InLine {
-                ty: TypeOwned::Struct(ItemStructOwned { ident, .. }) | TypeOwned::Enum(ItemEnumOwned { ident, .. }),
+        .position(|location| match location {
+            TypeLocationOwned::InLine {
+                ty: TypeOwned::Struct(s),
                 crate_idx: UNib32(0),
-            } if ident == name)
+            } => s.qualified_name() == name,
+            TypeLocationOwned::InLine {
+                ty: TypeOwned::Enum(e),
+                crate_idx: UNib32(0),
+            } => e.qualified_name() == name,
+            _ => false,
         })
         .map(|idx| idx as u32)
 }
@@ -286,8 +313,8 @@ fn skip(
             continue;
         };
         let type_name = match ty {
-            TypeOwned::Struct(ItemStructOwned { ident, .. })
-            | TypeOwned::Enum(ItemEnumOwned { ident, .. }) => ident.clone(),
+            TypeOwned::Struct(s) => s.qualified_name(),
+            TypeOwned::Enum(e) => e.qualified_name(),
             // array index types that are not user-defined
             _ => continue,
         };

@@ -167,6 +167,7 @@ fn st(ident: &str, size: ElementSize, fields: FieldsOwned) -> TypeOwned {
         crate_idx: UNib32(0),
         docs: vec![],
         ident: ident.into(),
+        path: None,
         generics: vec![],
         fields,
         sparse: false,
@@ -180,6 +181,7 @@ fn en(ident: &str, size: ElementSize, variants: Vec<VariantOwned>) -> TypeOwned 
         crate_idx: UNib32(0),
         docs: vec![],
         ident: ident.into(),
+        path: None,
         generics: vec![],
         variants,
     })
@@ -225,6 +227,7 @@ pub fn bundle() -> ApiBundleOwned {
         crate_idx: UNib32(0),
         docs: vec![],
         ident: "Timed".into(),
+        path: None,
         generics: vec![GenericParamOwned {
             ident: "T".into(),
             kind: GenericParamKindOwned::Type,

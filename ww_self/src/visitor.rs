@@ -360,6 +360,7 @@ mod tests {
             crate_idx: UNib32(0),
             docs: docs("struct"),
             ident: "S".into(),
+            path: None,
             generics: vec![],
             fields: FieldsOwned::Named(vec![field(Some("a"), TypeOwned::Bool)]),
             sparse: false,
@@ -370,6 +371,7 @@ mod tests {
             crate_idx: UNib32(0),
             docs: docs("enum"),
             ident: "E".into(),
+            path: None,
             generics: vec![],
             variants: vec![VariantOwned {
                 docs: docs("variant"),

@@ -334,23 +334,26 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// Crate version and name of a user-defined type (in-line struct or enum, or skipped).
+/// Crate version and qualified name (`units::Volt`, API-46) of a user-defined type (in-line struct or enum, or
+/// skipped).
 fn type_key<'b>(
     bundle: &'b ApiBundleOwned,
     location: &'b TypeLocationOwned,
-) -> Option<(&'b FullVersionOwned, &'b str)> {
+) -> Option<(&'b FullVersionOwned, String)> {
     let (crate_idx, name) = match location {
         TypeLocationOwned::InLine {
-            ty:
-                TypeOwned::Struct(ItemStructOwned { ident, .. })
-                | TypeOwned::Enum(ItemEnumOwned { ident, .. }),
+            ty: TypeOwned::Struct(s),
             crate_idx,
-        } => (crate_idx, ident),
+        } => (crate_idx, s.qualified_name()),
+        TypeLocationOwned::InLine {
+            ty: TypeOwned::Enum(e),
+            crate_idx,
+        } => (crate_idx, e.qualified_name()),
         TypeLocationOwned::SkippedFullVersion {
             crate_idx,
             type_name,
             ..
-        } => (crate_idx, type_name),
+        } => (crate_idx, type_name.clone()),
         TypeLocationOwned::InLine { .. } => return None,
     };
     Some((bundle.crate_version(crate_idx.0).ok()?, name))
@@ -380,7 +383,7 @@ fn find_type(bundle: &ApiBundleOwned, version: &FullVersionOwned, name: &str) ->
         .iter()
         .position(|location| {
             matches!(location, TypeLocationOwned::InLine { .. })
-                && type_key(bundle, location) == Some((version, name))
+                && type_key(bundle, location).is_some_and(|(v, n)| v == version && n == name)
         })
         .map(|idx| idx as u32)
 }
@@ -468,7 +471,7 @@ impl<'d, 'a, 'r> Import<'d, 'a, 'r> {
         if let Some(found) = dst
             .types
             .iter()
-            .position(|l| type_key(dst, l) == Some((version, name)))
+            .position(|l| type_key(dst, l).is_some_and(|(v, n)| v == version && n == name))
         {
             return Ok(found as u32);
         }

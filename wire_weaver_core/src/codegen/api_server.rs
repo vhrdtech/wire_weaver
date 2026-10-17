@@ -1,6 +1,5 @@
 //! # Implementation details:
 //! * Server's index chain contains only array indices on the way to a resource
-use crate::codegen::CodegenBundle;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::omit::{Omission, Omissions, Omit};
 use crate::codegen::server::observe::{Observe, mark_changed_ident};
@@ -18,8 +17,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use syn::{Lit, LitInt, Path};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
-    ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Delivery, FlowControl,
-    Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Delivery,
+    FlowControl, Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
 };
 use ww_version::FullVersionOwned;
 
@@ -108,7 +107,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
 ///
 /// Alternatively, use `wire_weaver_derive::ww_codegen!` proc-macro if you do not want to use build.rs.
 pub fn gen_server(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     config: impl Into<GenServerConfigRaw>,
 ) -> TokenStream {
     let config: GenServerConfigRaw = config.into();
@@ -409,7 +408,7 @@ pub fn gen_server(
 /// Reliable streams of the API: name of their handlers (with the trait chain prefix) and absolute path, or an
 /// error message for one that can't be polled.
 fn reliable_streams_recursive(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
     prefix: Option<&String>,
     path: &mut Vec<u32>,
@@ -458,7 +457,7 @@ fn reliable_streams_recursive(
 /// `poll_streams` on the server: sends what reliable streams have in their stores, as the send scheduler of
 /// `ww_stream` picks (priority, live before backfill, round-robin), and their queries. Not generated without
 /// reliable streams.
-fn poll_streams(api_bundle: &CodegenBundle, use_async: bool) -> TokenStream {
+fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
     let mut streams = vec![];
     reliable_streams_recursive(
         api_bundle,
@@ -558,7 +557,7 @@ fn poll_streams(api_bundle: &CodegenBundle, use_async: bool) -> TokenStream {
 /// Traits under a resource array are left out (a global path can't select an index), and when a trait is implemented
 /// several times, the first one in depth first, id order is used. A trait matches when the requested crate version is
 /// protocol compatible with the one this API was built with (same major, and same minor before 1.0).
-fn global_trait_path(api_bundle: &CodegenBundle) -> TokenStream {
+fn global_trait_path(api_bundle: &ApiBundleOwned) -> TokenStream {
     let mut traits = vec![];
     global_traits_recursive(api_bundle, &api_bundle.root, &mut vec![], &mut traits);
     let arms = traits.iter().map(|(path, crate_version, trait_name)| {
@@ -585,7 +584,7 @@ fn global_trait_path(api_bundle: &CodegenBundle) -> TokenStream {
 }
 
 fn global_traits_recursive(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
     path: &mut Vec<u32>,
     traits: &mut Vec<(Vec<u32>, FullVersionOwned, String)>,
@@ -781,7 +780,7 @@ fn process_request_inner_recursive(
     level_name_chain: String,
     item_path: &[String],
     omissions: &Omissions,
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
     index_chain: IndexChain,
     crate_name: &str,
@@ -873,7 +872,7 @@ fn mod_ident(level: &ApiLevelOwned, crate_name: &str) -> Ident {
 
 #[allow(clippy::too_many_arguments)]
 fn level_matchers(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
     omitted: &BTreeMap<u32, Omission>,
     level_name_chain: &str,
@@ -987,7 +986,7 @@ fn level_matchers(
 }
 
 fn level_matcher(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     api_item: &ApiItemOwned,
     level_name_chain: &str,
     index_chain: IndexChain,
@@ -1100,7 +1099,7 @@ impl ApiServerCGContext<'_> {
 
 #[allow(clippy::too_many_arguments)]
 fn handle_method(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
     mod_ident: &Ident,
     cx: &ApiServerCGContext,
@@ -1180,7 +1179,7 @@ fn handle_method(
 
 #[allow(clippy::too_many_arguments)]
 fn handle_property(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
     cx: &ApiServerCGContext,
     ident: &Ident,
@@ -1349,7 +1348,7 @@ fn handle_property(
 /// A `const` item (API-36): read only, its value comes from the generated `<Trait>Consts` trait the server struct
 /// implements, an associated const or a `fn`, see [consts_trait].
 fn handle_const(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
     cx: &ApiServerCGContext,
     ident: &Ident,
@@ -1400,7 +1399,7 @@ fn const_idents(prefix: Option<&String>, ident: &Ident) -> (Ident, Ident) {
 /// `pub trait <RootTrait>Consts`: one associated const or `fn` (per `const_model`) for every `const` item of the
 /// API, the server struct implements it. Not generated when the API has no `const` items.
 fn consts_trait(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     omissions: &Omissions,
     cx: &ApiServerCGContext,
 ) -> TokenStream {
@@ -1434,7 +1433,7 @@ fn consts_trait(
 
 #[allow(clippy::too_many_arguments)]
 fn consts_trait_recursive(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
     omissions: &Omissions,
     item_path: &[String],
@@ -1509,7 +1508,7 @@ fn consts_trait_recursive(
 /// commands to `sideband_<name>` as before.
 #[allow(clippy::too_many_arguments)]
 fn handle_stream_fn(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
     mod_ident: &Ident,
     cx: &ApiServerCGContext<'_>,
@@ -1702,7 +1701,7 @@ fn handle_stream_fn(
 
 #[allow(clippy::too_many_arguments)]
 fn handle_stream(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     index_chain: IndexChain,
     cx: &ApiServerCGContext<'_>,
     ident: &Ident,
@@ -1896,7 +1895,7 @@ fn handle_stream(
 }
 
 fn args_structs_recursive(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
     no_alloc: bool,
     seen: &mut Vec<Ident>,
@@ -1926,7 +1925,7 @@ fn args_structs_recursive(
 /// like its handler: worst-case lengths of a call request with an absolute path and of the answer with the value,
 /// `None` when an argument or the return type has no bound.
 fn max_len_consts_recursive(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
     ident_prefix: Option<&String>,
     path: &[u32],
@@ -2063,7 +2062,7 @@ fn des_args(
 }
 
 fn deferred_method_return_ser_methods(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
     ident_prefix: Option<&String>,
     no_alloc: bool,

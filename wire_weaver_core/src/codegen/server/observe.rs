@@ -6,7 +6,6 @@
 //! API-29): `Observe` on a level under an array answers `OperationNotSupported`. Properties are observable when
 //! declared with `+observe`, not in an array themselves and not `#[optional]`.
 
-use crate::codegen::CodegenBundle;
 use crate::codegen::omit::Omissions;
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::codegen::util::{ErrorSeq, add_prefix, maybe_quote};
@@ -15,7 +14,9 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use std::collections::BTreeSet;
-use ww_self::{ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess, TypeOwned};
+use ww_self::{
+    ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess, TypeOwned,
+};
 
 /// A trait level that `Observe` can address.
 struct Level {
@@ -47,7 +48,7 @@ pub(crate) struct Observe {
 
 impl Observe {
     pub(crate) fn collect(
-        api_bundle: &CodegenBundle,
+        api_bundle: &ApiBundleOwned,
         omissions: &Omissions,
         property_model: &PropertyModel,
     ) -> Self {
@@ -71,7 +72,7 @@ impl Observe {
     #[allow(clippy::too_many_arguments)]
     fn walk(
         &mut self,
-        api_bundle: &CodegenBundle,
+        api_bundle: &ApiBundleOwned,
         level: &ApiLevelOwned,
         omissions: &Omissions,
         property_model: &PropertyModel,
@@ -161,7 +162,7 @@ impl Observe {
     }
 
     /// `ObserveState` and the `<Trait>Update` types, outside of the server struct's impl.
-    pub(crate) fn items(&self, api_bundle: &CodegenBundle, no_alloc: bool) -> TokenStream {
+    pub(crate) fn items(&self, api_bundle: &ApiBundleOwned, no_alloc: bool) -> TokenStream {
         if !self.is_enabled() {
             return quote! {};
         }
@@ -228,7 +229,7 @@ impl Observe {
     /// `observe_request`, `mark_changed_<name>()` and `poll_properties`, in the server struct's impl.
     pub(crate) fn methods(
         &self,
-        api_bundle: &CodegenBundle,
+        api_bundle: &ApiBundleOwned,
         use_async: bool,
         medium_ty: &TokenStream,
         error_seq: &mut ErrorSeq,
@@ -358,7 +359,7 @@ impl Observe {
 
     fn poll_properties(
         &self,
-        api_bundle: &CodegenBundle,
+        api_bundle: &ApiBundleOwned,
         use_async: bool,
         medium_ty: &TokenStream,
     ) -> TokenStream {
@@ -527,7 +528,7 @@ pub(crate) fn mark_changed_ident(prefixed: &Ident) -> Ident {
 /// `<Trait>Update`: a sparse struct with one `Option` per observable property of a level, in the slot of its
 /// resource index, the data of the level's `PropertyUpdate`.
 fn update_struct(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     level: &Level,
     name: &str,
     no_alloc: bool,

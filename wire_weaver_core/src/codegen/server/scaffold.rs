@@ -2,7 +2,6 @@
 //! [gen_server](crate::gen_server) expects to be implemented on the server struct.
 //!
 //! Handler names and signatures must stay in sync with `codegen/api_server.rs`.
-use crate::codegen::CodegenBundle;
 use crate::codegen::omit::{Omissions, Omit};
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::const_model::{ConstModel, ConstModelKind};
@@ -13,8 +12,8 @@ use convert_case::{Case, Casing};
 use std::fmt::Write;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
-    ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Delivery, FlowControl, Multiplicity,
-    PropertyAccess, StreamFnRef, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Delivery, FlowControl,
+    Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
 };
 
 /// Server scaffold generation configuration, same meaning as the `ww_codegen!` arguments.
@@ -42,7 +41,7 @@ pub struct ServerScaffoldConfig {
 ///
 /// The output is not formatted, run it through rustfmt.
 pub fn gen_server_scaffold(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     config: &ServerScaffoldConfig,
 ) -> Result<String> {
     let method_model_str = if config.method_model.is_empty() {
@@ -175,7 +174,7 @@ pub fn gen_server_scaffold(
 }
 
 struct Scaffold<'a> {
-    api_bundle: &'a CodegenBundle,
+    api_bundle: &'a ApiBundleOwned,
     no_alloc: bool,
     use_async: bool,
     /// `_cx: &mut Context<..>, ` argument every handler takes

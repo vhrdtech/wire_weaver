@@ -1,4 +1,3 @@
-use crate::codegen::CodegenBundle;
 use crate::codegen::ty_def::ty_def;
 use crate::codegen::util;
 use crate::codegen::util::maybe_quote;
@@ -6,10 +5,13 @@ use crate::codegen::{index_chain::IndexChain, ty_def::TyPos};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use ww_self::{ApiItemKindOwned, ApiLevelOwned, Delivery, Multiplicity, PropertyAccess, TypeOwned};
+use ww_self::{
+    ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Delivery, Multiplicity, PropertyAccess,
+    TypeOwned,
+};
 
 pub(crate) fn stream_ser_methods_recursive(
-    bundle: &CodegenBundle,
+    bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
     index_chain: IndexChain,
     no_alloc: bool,
@@ -244,7 +246,7 @@ pub(crate) fn stream_ser_methods_recursive(
 /// `poll_streams` on the server sends it; `<name>_event` serializes an event of either.
 #[allow(clippy::too_many_arguments)]
 fn positioned_ser_methods(
-    bundle: &CodegenBundle,
+    bundle: &ApiBundleOwned,
     ident: &str,
     ty: &TypeOwned,
     delivery: Delivery,
@@ -423,7 +425,7 @@ fn positioned_ser_methods(
 }
 
 /// Largest item of a sink with flow control in bytes, to check its receive buffer (`SinkCredit::sized_for`).
-fn max_item_bytes(bundle: &CodegenBundle, ident: &str, ty: &TypeOwned) -> TokenStream {
+fn max_item_bytes(bundle: &ApiBundleOwned, ident: &str, ty: &TypeOwned) -> TokenStream {
     let const_name = Ident::new(
         format!("{}_MAX_ITEM_BYTES", ident.to_case(Case::UpperSnake)).as_str(),
         Span::call_site(),
@@ -542,7 +544,7 @@ fn let_index_chain(mut index_chain: IndexChain, id: u32, is_array: bool) -> Toke
     }
 }
 
-fn stream_ser_struct_name(api_level: &ApiLevelOwned, api_bundle: &CodegenBundle) -> Ident {
+fn stream_ser_struct_name(api_level: &ApiLevelOwned, api_bundle: &ApiBundleOwned) -> Ident {
     let mod_name = util::mod_name(api_level, api_bundle);
     Ident::new(
         format!("{}_stream_serializer", mod_name)

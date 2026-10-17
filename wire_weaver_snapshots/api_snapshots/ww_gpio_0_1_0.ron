@@ -13,7 +13,7 @@
     ], ident: "Level", generics: [], variants: [
         (docs: [], ident: "Low", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "High", fields: Unit, discriminant: 1, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Event sources of an IO pin (interrupts) to report on the `Pin::event` stream, its argument.",
     ], ident: "IoPinEnabledEvents", generics: [], fields: Named([
@@ -26,7 +26,7 @@
         (ident: Some("custom"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [
             "Indices of device-specific sources to report as `IoPinEvent::Custom`.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -49,7 +49,7 @@
         (docs: [
             "The pins of this bank share one mode, and another pin is in a different one.",
         ], ident: "DifferentModes", fields: Unit, discriminant: 1, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "IO pin asynchronous event (interrupt reason), sent on the `Pin::event` stream; when it happened is in the event\'s",
         "head.",
@@ -65,7 +65,7 @@
         ], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "IO pin mode (Push-Pull, Open-Drain, Input, etc.)",
     ], ident: "Mode", generics: [], variants: [
@@ -89,7 +89,7 @@
         ], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "IO pin pull configuration (pull-up, pull-down, etc.)",
     ], ident: "Pull", generics: [], variants: [
@@ -107,7 +107,7 @@
         ], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "IO pin drive strength configuration",
     ], ident: "Speed", generics: [], variants: [
@@ -124,7 +124,7 @@
         ], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What one pin can do, see `Pin::capabilities`.",
     ], ident: "PinCapabilities", generics: [], fields: Named([
@@ -143,7 +143,7 @@
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [
             "Name printed on the board or in the datasheet: \"IO4\", \"PB5\".",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "One entry of [Bank::write_outputs]: a pin (index into `Bank::pin[]`) and the level to drive it to.",
     ], ident: "PinLevel", generics: [], fields: Named([
@@ -153,16 +153,16 @@
         (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Output level to set.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Volt", signature: [
-        221,
-        136,
-        239,
-        139,
-        173,
-        19,
-        228,
-        149,
+        83,
+        225,
+        210,
+        47,
+        23,
+        129,
+        62,
+        159,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "GPIO bank capabilities: supported IO levels, modes, custom modes, etc.",
@@ -204,7 +204,7 @@
         (ident: Some("simultaneous_write"), default: Some(Bool(false)), since: None, ty: Bool, docs: [
             "[Bank::write_outputs] sets every pin of one call at the same instant (one register write).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything a bank is configured with, see `Bank::configure`: what is asked for going in, what was actually set",
         "coming back.",
@@ -213,7 +213,7 @@
             "IO level of every pin of the bank, on hardware with level translators ([BankCapabilities::io_levels]); `None`",
             "leaves it as it is going in (the only choice on a bank without them), and is the answer of such a bank.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "One pin from a GPIO bank.",

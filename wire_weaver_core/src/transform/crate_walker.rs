@@ -11,8 +11,6 @@ use syn::{File, Item};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, TypeLocationOwned, TypeOwned};
 use ww_version::{FullVersionOwned, VersionOwned};
 
-use crate::codegen::{CodegenBundle, TypePath};
-
 /// Crates re-exported by `wire_weaver`, usable without depending on them directly.
 pub(crate) const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_error", "ww_version"];
 
@@ -43,11 +41,6 @@ pub fn load(
     trait_name: Option<String>,
     _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
 ) -> Result<ApiBundleOwned> {
-    Ok(load_for_codegen(crate_path, trait_name)?.bundle)
-}
-
-/// [load] together with what code generation needs on top of the API model: the path of each definition.
-pub fn load_for_codegen(crate_path: &Path, trait_name: Option<String>) -> Result<CodegenBundle> {
     let mut scratch = Scratch::default();
     load_inner(crate_path, trait_name, &mut scratch)
 }
@@ -57,7 +50,7 @@ pub fn load_for_codegen(crate_path: &Path, trait_name: Option<String>) -> Result
 pub fn load_dep(
     dep_name: impl AsRef<str>,
     trait_name: Option<impl AsRef<str>>,
-) -> Result<CodegenBundle> {
+) -> Result<ApiBundleOwned> {
     let mut scratch = Scratch::default();
     let current_crate_path = std::env::var("CARGO_MANIFEST_DIR").map_err(|_|
         anyhow!("CARGO_MANIFEST_DIR not set, cannot determine current crate path. Consider calling this method from a build.rs script.")
@@ -77,7 +70,7 @@ fn load_inner(
     crate_path: &Path,
     trait_name: Option<String>,
     scratch: &mut Scratch,
-) -> Result<CodegenBundle> {
+) -> Result<ApiBundleOwned> {
     let entry = CrateContext::load(crate_path, scratch)?;
     let trait_name = find_trait_if_none(trait_name, &entry.lib_rs_ast)?;
     let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
@@ -89,7 +82,7 @@ fn load_inner(
         trait_name,
         items,
     };
-    let bundle = ApiBundleOwned {
+    Ok(ApiBundleOwned {
         magic: ww_self::MAGIC,
         ww_self_version: ww_self::VERSION,
         root,
@@ -97,10 +90,6 @@ fn load_inner(
         traits: scratch.root_bundle.traits.clone(),
         ext_crates: scratch.root_bundle.ext_crates.clone(),
         root_omitted: None,
-    };
-    Ok(CodegenBundle {
-        bundle,
-        type_paths: scratch.root_bundle.type_paths.clone(),
     })
 }
 
@@ -148,9 +137,6 @@ pub(crate) struct TypeInProgress {
 #[derive(Default)]
 pub(crate) struct ApiBundleScratch {
     pub(crate) types: Vec<TypeLocationOwned>,
-    /// For each entry of `types`, the paths other crates name a struct or enum by; `None` for the other types (an
-    /// index type). Used by codegen only, not part of the API model.
-    pub(crate) type_paths: Vec<Option<TypePath>>,
     pub(crate) traits: Vec<ApiLevelLocationOwned>,
     pub(crate) ext_crates: Vec<FullVersionOwned>,
 }
@@ -169,41 +155,18 @@ impl ApiBundleScratch {
         idx.into()
     }
 
-    /// An equal definition already in `types`: the same type in the same crate, at the same path.
-    pub(crate) fn find_def(
-        &mut self,
-        ty: &TypeOwned,
-        current_crate: &CrateContext,
-        path: &TypePath,
-    ) -> Option<UNib32> {
-        let crate_idx = self.find_crate_or_create(current_crate);
+    pub(crate) fn find_type(&self, ty: &TypeOwned) -> Option<UNib32> {
         self.types
             .iter()
-            .zip(&self.type_paths)
-            .position(|(tl, p)| {
-                matches!(tl, TypeLocationOwned::InLine { ty: t, crate_idx: c } if t == ty && *c == crate_idx)
-                    && p.as_ref() == Some(path)
+            .enumerate()
+            .find(|(_idx, tl)| {
+                if let TypeLocationOwned::InLine { ty: t, .. } = tl {
+                    t == ty
+                } else {
+                    false
+                }
             })
-            .map(|idx| (idx as u32).into())
-    }
-
-    /// Adds the definition of a struct or enum, named `path` from other crates.
-    pub(crate) fn push_def(
-        &mut self,
-        ty: TypeOwned,
-        current_crate: &CrateContext,
-        path: TypePath,
-    ) -> TypeOwned {
-        let type_idx = self.push_out_of_line_idx(ty, current_crate);
-        self.type_paths[type_idx.0 as usize] = Some(path);
-        TypeOwned::OutOfLine { type_idx }
-    }
-
-    /// Reserves an entry for a definition that is filled in once converted.
-    pub(crate) fn reserve_def(&mut self, current_crate: &CrateContext, path: TypePath) -> UNib32 {
-        let type_idx = self.push_out_of_line_idx(TypeOwned::Tuple(vec![]), current_crate);
-        self.type_paths[type_idx.0 as usize] = Some(path);
-        type_idx
+            .map(|(idx, _)| (idx as u32).into())
     }
 
     pub(crate) fn push_out_of_line_idx(
@@ -217,7 +180,6 @@ impl ApiBundleScratch {
         let type_idx = self.types.len() as u32;
         let crate_idx = self.find_crate_or_create(current_crate);
         self.types.push(TypeLocationOwned::InLine { ty, crate_idx });
-        self.type_paths.push(None);
         type_idx.into()
     }
 }
@@ -369,12 +331,17 @@ impl CrateContext {
         format!("{:?}", self.version)
     }
 
-    /// Paths by which other crates name `ident` defined here, and its `<ident>Owned` variant (which the derive puts
-    /// next to it, for a type with a lifetime).
-    pub(crate) fn type_path(&self, ident: &str, scratch: &mut Scratch) -> Result<TypePath> {
-        let path = self.public_path(ident, scratch)?;
-        let owned = self.public_path(&format!("{ident}Owned"), scratch).ok();
-        Ok(TypePath { path, owned })
+    /// Where and under which name other crates find `ident`, a struct or enum defined in this module (API-46): the
+    /// modules of its [public path](Self::public_path), `None` at the crate root, and its name there (`Renamed` for
+    /// `pub use inner::Inner as Renamed`).
+    pub(crate) fn public_name(
+        &self,
+        ident: &str,
+        scratch: &mut Scratch,
+    ) -> Result<(Option<Vec<String>>, String)> {
+        let mut path = self.public_path(ident, scratch)?;
+        let name = path.pop().expect("a public path ends with the name");
+        Ok(((!path.is_empty()).then_some(path), name))
     }
 
     /// `ident` qualified with the modules it is in from the crate root: `units::Volt`.

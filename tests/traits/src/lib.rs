@@ -478,7 +478,7 @@ mod tests {
     #[test]
     fn scaffold_leaves_out_omitted_items() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../traits_api");
-        let bundle = wire_weaver_core::load_for_codegen(&path, Some("Traits".into())).unwrap();
+        let bundle = wire_weaver_core::load(&path, Some("Traits".into()), false).unwrap();
         let config = wire_weaver_core::ServerScaffoldConfig {
             server_struct: "Server".into(),
             no_alloc: true,

@@ -52,6 +52,8 @@ fn file_path(
     signature: &[u8],
 ) -> PathBuf {
     let signature: String = signature.iter().map(|b| format!("{b:02x}")).collect();
+    // `units::Volt` (API-46) as `units.Volt`, `:` is not allowed in file names everywhere
+    let name = name.replace("::", ".");
     dir.join(format!(
         "{}-{}-{name}-{signature}.ww",
         version.filename_friendly(),
@@ -110,10 +112,10 @@ pub fn load(
         Kind::Type => {
             matches!(
                 bundle.types.first(),
-                Some(TypeLocationOwned::InLine { ty: TypeOwned::Struct(s), .. }) if s.ident == name
+                Some(TypeLocationOwned::InLine { ty: TypeOwned::Struct(s), .. }) if s.qualified_name() == name
             ) || matches!(
                 bundle.types.first(),
-                Some(TypeLocationOwned::InLine { ty: TypeOwned::Enum(e), .. }) if e.ident == name
+                Some(TypeLocationOwned::InLine { ty: TypeOwned::Enum(e), .. }) if e.qualified_name() == name
             )
         }
     };

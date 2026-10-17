@@ -544,6 +544,12 @@ pub struct ItemStruct<'i> {
     /// (TOOL-11) must know this to read the struct's bytes correctly.
     #[default = false]
     pub sparse: bool,
+    /// Modules from the crate root to where other crates name this definition (API-46), `None` at the crate root:
+    /// `["units"]` for `ww_si::units::Volt`. The shortest path through `pub mod`s and `pub use` re-exports, so a type
+    /// in a private module re-exported at the root has `None`. Its identity in its crate is the path and [Self::ident]
+    /// (`units::Volt` and a root `Volt` are different definitions), see [ItemStructOwned::qualified_name].
+    #[default = None]
+    pub path: Option<RefVec<'i, &'i str>>,
 }
 
 #[derive_shrink_wrap(
@@ -587,6 +593,12 @@ pub struct ItemEnum<'i> {
     /// Type and const parameters, as for [ItemStruct::generics].
     pub generics: RefVec<'i, GenericParam<'i>>,
     pub variants: RefVec<'i, Variant<'i>>,
+    /// Modules from the crate root to where other crates name this definition (API-46), `None` at the crate root:
+    /// `["units"]` for `ww_si::units::Volt`. The shortest path through `pub mod`s and `pub use` re-exports, so a type
+    /// in a private module re-exported at the root has `None`. Its identity in its crate is the path and [Self::ident]
+    /// (`units::Volt` and a root `Volt` are different definitions), see [ItemEnumOwned::qualified_name].
+    #[default = None]
+    pub path: Option<RefVec<'i, &'i str>>,
 }
 
 #[derive_shrink_wrap(

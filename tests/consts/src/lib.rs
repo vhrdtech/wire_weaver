@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn scaffold_has_consts_impl() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../consts_api");
-        let bundle = wire_weaver_core::load_for_codegen(&path, Some("ConstsTest".into())).unwrap();
+        let bundle = wire_weaver_core::load(&path, Some("ConstsTest".into()), false).unwrap();
         let config = wire_weaver_core::ServerScaffoldConfig {
             server_struct: "Server".into(),
             no_alloc: true,

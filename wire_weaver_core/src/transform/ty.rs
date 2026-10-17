@@ -160,17 +160,16 @@ pub(crate) fn convert_ty_path_segment(
                 return Ok(ty);
             }
 
-            let (def_cx, item) = find_user_item(segment, user_ty, current_crate, scratch)?;
+            let (def_cx, item) = find_user_item(user_ty, current_crate, scratch)?;
             convert_user_ty(segment, &def_cx, &item, current_crate, scratch)
         }
     }
 }
 
-/// Definition of the user type `segment` names as `user_ty` in `current_crate` (a struct, an enum or a type alias),
+/// Definition of the user type named `user_ty` in `current_crate` (a struct, an enum or a type alias),
 /// and the crate or module it is in: defined in `current_crate`, imported by name (`use a::Ty`, `use a::Ty as
 /// Renamed`), or through a glob import (looked into last, as Rust does).
 fn find_user_item(
-    segment: &PathSegment,
     user_ty: &str,
     current_crate: &CrateContext,
     scratch: &mut Scratch,
@@ -191,7 +190,7 @@ fn find_user_item(
                     continue;
                 };
                 let dependent_crate = current_crate.resolve_path(path, scratch)?;
-                return find_user_item(segment, &name.to_string(), &dependent_crate, scratch);
+                return find_user_item(&name.to_string(), &dependent_crate, scratch);
             }
             _ => {}
         }
@@ -207,7 +206,7 @@ fn find_user_item(
                 continue;
             };
             if declares_or_imports(&dependent_crate, user_ty) {
-                return find_user_item(segment, user_ty, &dependent_crate, scratch);
+                return find_user_item(user_ty, &dependent_crate, scratch);
             }
         }
     }
@@ -284,8 +283,7 @@ pub(crate) fn convert_named_def(
     current_crate: &CrateContext,
     scratch: &mut Scratch,
 ) -> Result<UNib32> {
-    let segment = PathSegment::from(ident.clone());
-    let (def_cx, item) = find_user_item(&segment, &ident.to_string(), current_crate, scratch)?;
+    let (def_cx, item) = find_user_item(&ident.to_string(), current_crate, scratch)?;
     let generics = match &item {
         Item::Struct(item_struct) => &item_struct.generics,
         Item::Enum(item_enum) => &item_enum.generics,
@@ -324,10 +322,10 @@ fn convert_def(
         });
     }
     if let Some(pos) = scratch.types_in_progress.iter().position(|t| t.key == key) {
-        return refer_back(def_cx, &ty_name, scratch, pos);
+        return refer_back(def_cx, scratch, pos);
     }
-    // the path generated code names it by (API-46), checked before its fields
-    let path = def_cx.type_path(&ty_name, scratch)?;
+    // where and under which name other crates find it (API-46), checked before its fields
+    let (path, ident) = def_cx.public_name(&ty_name, scratch)?;
     scratch.types_in_progress.push(TypeInProgress {
         key,
         generic: !params.is_empty(),
@@ -336,8 +334,8 @@ fn convert_def(
     let saved_scope = std::mem::replace(&mut scratch.generic_scope, params);
     let saved_alias_args = std::mem::take(&mut scratch.alias_args);
     let ty = match item {
-        Item::Enum(item_enum) => convert_item_enum(def_cx, scratch, ty_name, item_enum),
-        Item::Struct(item_struct) => convert_item_struct(def_cx, scratch, ty_name, item_struct),
+        Item::Enum(item_enum) => convert_item_enum(def_cx, scratch, ident, path, item_enum),
+        Item::Struct(item_struct) => convert_item_struct(def_cx, scratch, ident, path, item_struct),
         _ => unreachable!(),
     };
     scratch.alias_args = saved_alias_args;
@@ -356,22 +354,19 @@ fn convert_def(
             Ok(TypeOwned::OutOfLine { type_idx })
         }
         None => {
-            if let Some(type_idx) = scratch.root_bundle.find_def(&ty, def_cx, &path) {
+            // the same definition used again: equal including its path, `other::Point` is not `geometry::Point`
+            if let Some(type_idx) = scratch.root_bundle.find_type(&ty) {
                 return Ok(TypeOwned::OutOfLine { type_idx });
             }
-            Ok(scratch.root_bundle.push_def(ty, def_cx, path))
+            let type_idx = scratch.root_bundle.push_out_of_line_idx(ty, def_cx);
+            Ok(TypeOwned::OutOfLine { type_idx })
         }
     }
 }
 
 /// A reference to `types_in_progress[pos]` while it is converted: its reserved index. Errors out when the cycle
 /// goes through a generic definition.
-fn refer_back(
-    def_cx: &CrateContext,
-    ty_name: &str,
-    scratch: &mut Scratch,
-    pos: usize,
-) -> Result<TypeOwned> {
+fn refer_back(def_cx: &CrateContext, scratch: &mut Scratch, pos: usize) -> Result<TypeOwned> {
     let cycle = &scratch.types_in_progress[pos..];
     if let Some(generic) = cycle.iter().find(|t| t.generic) {
         let names: Vec<&str> = cycle.iter().map(|t| t.key.1.as_str()).collect();
@@ -386,8 +381,12 @@ fn refer_back(
         Some(slot) => slot,
         None => {
             // filled once the definition is converted
-            let path = def_cx.type_path(ty_name, scratch)?;
-            let slot = scratch.root_bundle.reserve_def(def_cx, path);
+            let slot = UNib32(scratch.root_bundle.types.len() as u32);
+            let crate_idx = scratch.root_bundle.find_crate_or_create(def_cx);
+            scratch.root_bundle.types.push(TypeLocationOwned::InLine {
+                ty: TypeOwned::Tuple(vec![]),
+                crate_idx,
+            });
             scratch.types_in_progress[pos].slot = Some(slot);
             slot
         }
@@ -768,6 +767,7 @@ fn convert_item_enum(
     current_crate: &CrateContext,
     scratch: &mut Scratch,
     ty_name: String,
+    path: Option<Vec<String>>,
     item_enum: &ItemEnum,
 ) -> Result<TypeOwned> {
     let mut variants = vec![];
@@ -815,6 +815,7 @@ fn convert_item_enum(
         ident: ty_name,
         generics: scratch.generic_scope.clone(),
         variants,
+        path,
     });
     Ok(ty)
 }
@@ -823,6 +824,7 @@ fn convert_item_struct(
     current_crate: &CrateContext,
     scratch: &mut Scratch,
     ty_name: String,
+    path: Option<Vec<String>>,
     item_struct: &ItemStruct,
 ) -> Result<TypeOwned> {
     let args = derive_shrink_wrap_args(&item_struct.attrs, current_crate)?;
@@ -835,6 +837,7 @@ fn convert_item_struct(
         generics: scratch.generic_scope.clone(),
         fields,
         sparse: args.sparse,
+        path,
     });
     Ok(ty)
 }
@@ -1171,15 +1174,6 @@ mod recursive_tests {
 
     /// Loads trait `Api` from a throwaway crate with `lib_rs` (after the trait).
     pub(super) fn load(name: &str, methods: &str, types: &str) -> anyhow::Result<ApiBundleOwned> {
-        Ok(load_for_codegen(name, methods, types)?.bundle)
-    }
-
-    /// [load], with the paths of the definitions.
-    pub(super) fn load_for_codegen(
-        name: &str,
-        methods: &str,
-        types: &str,
-    ) -> anyhow::Result<crate::CodegenBundle> {
         let dir: PathBuf = std::env::temp_dir()
             .join("ww_core_recursive_tests")
             .join(format!("{name}-{}", std::process::id()));
@@ -1191,7 +1185,7 @@ mod recursive_tests {
         .unwrap();
         let lib_rs = format!("#[ww_api_root]\npub trait Api {{\n{methods}\n}}\n{types}");
         std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
-        let bundle = crate::load_for_codegen(&dir, Some("Api".into()));
+        let bundle = crate::load(&dir, Some("Api".into()), false);
         std::fs::remove_dir_all(&dir).unwrap();
         bundle
     }
@@ -1397,8 +1391,8 @@ mod alias_tests {
 
 #[cfg(test)]
 mod module_path_tests {
-    use super::recursive_tests::{load_for_codegen, names};
-    use crate::CodegenBundle;
+    use super::recursive_tests::load;
+    use ww_self::{ApiBundleOwned, TypeLocationOwned, TypeOwned};
 
     const TYPES: &str = "
         use geometry::Point as Spot;
@@ -1435,19 +1429,21 @@ mod module_path_tests {
         pub use chain::Deep;
     ";
 
-    /// `name` -> path of each definition, sorted.
-    fn paths(bundle: &CodegenBundle) -> Vec<String> {
-        let mut paths: Vec<String> = names(bundle)
-            .into_iter()
-            .zip(&bundle.type_paths)
-            .map(|(name, path)| {
-                let path = path.as_ref().unwrap();
-                let owned = path
-                    .owned
-                    .as_ref()
-                    .map(|p| p.join("::"))
-                    .unwrap_or_default();
-                format!("{name}: {} {owned}", path.path.join("::"))
+    /// Qualified name of each definition, sorted.
+    fn paths(bundle: &ApiBundleOwned) -> Vec<String> {
+        let mut paths: Vec<String> = bundle
+            .types
+            .iter()
+            .filter_map(|location| match location {
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Struct(s),
+                    ..
+                } => Some(s.qualified_name()),
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Enum(e),
+                    ..
+                } => Some(e.qualified_name()),
+                _ => None,
             })
             .collect();
         paths.sort();
@@ -1456,7 +1452,7 @@ mod module_path_tests {
 
     #[test]
     fn definitions_are_named_by_their_public_path() {
-        let bundle = load_for_codegen(
+        let bundle = load(
             "paths",
             "fn a(v: Volt, p: geometry::Point, s: Spot, o: other::Point, l: geometry::shapes::Label<'i>, \
              h: Hidden, g: Glob, r: Renamed, d: Deep);",
@@ -1466,27 +1462,26 @@ mod module_path_tests {
         assert_eq!(
             paths(&bundle),
             [
-                // through a module's re-export, which names `Deep` only
-                "Deep: Deep ",
-                "Glob: Glob GlobOwned",
-                // `HiddenOwned` through the glob
-                "Hidden: Hidden HiddenOwned",
-                // `Inner` is not re-exported under its own name, `InnerOwned` not at all
-                "Inner: Renamed ",
-                "Label: geometry::shapes::Label geometry::shapes::LabelOwned",
+                // through the root's re-exports: by name, by a glob, through a module's re-export
+                "Deep",
+                "Glob",
+                "Hidden",
+                "Quantity",
+                // re-exported under another name only, so named that way
+                "Renamed",
                 // `Spot` is `geometry::Point`, `other::Point` is a definition of its own though equal
-                "Point: geometry::Point geometry::PointOwned",
-                "Point: other::Point other::PointOwned",
-                "Quantity: Quantity QuantityOwned",
+                "geometry::Point",
+                "geometry::shapes::Label",
+                "other::Point",
                 // the marker, not the alias at the root
-                "Volt: units::Volt units::VoltOwned",
+                "units::Volt",
             ]
         );
     }
 
     #[test]
     fn unreachable_types_are_errors() {
-        let e = load_for_codegen(
+        let e = load(
             "unreachable",
             "fn a(p: private::P);",
             "mod private { pub struct P { x: u8 } }",

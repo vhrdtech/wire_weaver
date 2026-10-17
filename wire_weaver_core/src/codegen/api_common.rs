@@ -1,10 +1,9 @@
-use crate::codegen::CodegenBundle;
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::codegen::util::maybe_quote;
 use convert_case::Casing;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{TokenStreamExt, quote};
-use ww_self::{ApiItemKindOwned, ApiLevelOwned};
+use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned};
 
 /// Name of the struct a method's arguments are serialized through. With alloc the struct holds owned types
 /// (`Vec`, `String`), and shrink_wrap wants such a struct's name to end in `Owned`.
@@ -20,7 +19,7 @@ pub fn args_struct_ident(method: &str, no_alloc: bool) -> Ident {
 }
 
 pub fn args_structs(
-    api_bundle: &CodegenBundle,
+    api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
     no_alloc: bool,
 ) -> TokenStream {

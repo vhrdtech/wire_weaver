@@ -25,7 +25,7 @@
         (docs: [
             "Every indicator behaves as designed.",
         ], ident: "Normal", fields: Unit, discriminant: 2, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Indicator brightness, see [Indication::brightness].",
         "",
@@ -47,16 +47,16 @@
         (docs: [
             "Visible outside.",
         ], ident: "Highest", fields: Unit, discriminant: 4, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        149,
-        145,
-        124,
-        207,
-        145,
-        192,
-        245,
-        124,
+        101,
+        42,
+        201,
+        111,
+        172,
+        147,
+        218,
+        147,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         187,

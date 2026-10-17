@@ -44,7 +44,7 @@
         (ident: Some("rate"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Nominal items per second, 0 unknown.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -83,7 +83,7 @@
         (docs: [
             "No recording is running.",
         ], ident: "NoRecording", fields: Unit, discriminant: 6, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "When a track is flushed, see [Track::durability].",
     ], ident: "Durability", generics: [], variants: [
@@ -93,14 +93,14 @@
         (docs: [
             "Written to the card right after each item: for events and errors. Costs a write per item.",
         ], ident: "Immediate", fields: Unit, discriminant: 1, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Compression of a track\'s batches, see [Track::compression].",
     ], ident: "Compression", generics: [], variants: [
         (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Lz4", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "Heatshrink", fields: Unit, discriminant: 2, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a track has stored, see [Track::counters]. Since this boot unless it says otherwise.",
     ], ident: "TrackCounters", generics: [], fields: Named([
@@ -120,7 +120,7 @@
         (ident: Some("dropped"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [
             "Units refused or lost on the way: producer overflow, disabled track, full ring.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "The recorder\'s state, see [Status::state].",
         "",
@@ -154,16 +154,16 @@
         ], ident: "Failed", fields: Named([
             (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 6, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Second", signature: [
-        149,
-        145,
-        124,
-        207,
-        145,
-        192,
-        245,
-        124,
+        101,
+        42,
+        201,
+        111,
+        172,
+        147,
+        218,
+        147,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What the recorder is doing, see [Recorder::status].",
@@ -182,7 +182,7 @@
             "Bytes of the ring holding data now, and its capacity. Equal once the ring went round.",
         ], slot: None, series_opaque: false),
         (ident: Some("ring_capacity_bytes"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Kind of medium, see [CardFacts::kind].",
     ], ident: "CardKind", generics: [], variants: [
@@ -195,7 +195,7 @@
         (docs: [
             "SPI or QSPI NOR flash.",
         ], ident: "NorFlash", fields: Unit, discriminant: 4, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What is on a card, see [CardFacts::content].",
     ], ident: "CardContent", generics: [], variants: [
@@ -211,7 +211,7 @@
         (docs: [
             "A ring file that is not where the device put it, see [State::Unbound].",
         ], ident: "UnboundRing", fields: Unit, discriminant: 3, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "How the card does against the configured data rate, see [CardCheck::rating].",
     ], ident: "Rating", generics: [], variants: [
@@ -227,7 +227,7 @@
         (docs: [
             "Not checked.",
         ], ident: "Unchecked", fields: Unit, discriminant: 3, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of a card check, see [CardFacts::check]. Rates the card against [Settings] and the data rate configured.",
     ], ident: "CardCheck", generics: [], fields: Named([
@@ -245,7 +245,7 @@
             "[Settings::flush_bytes].",
         ], slot: None, series_opaque: false),
         (ident: Some("rating"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The card, see [Recorder::card].",
     ], ident: "CardFacts", generics: [], fields: Named([
@@ -284,7 +284,7 @@
         (ident: Some("check"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 12)), docs: [
             "Result of the last card check, `None` before one.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What a format starts from, see [Recorder::prepare_format].",
     ], ident: "FormatAction", generics: [], variants: [
@@ -294,7 +294,7 @@
         (docs: [
             "Create the ring file again after [State::Unbound], keeping the files of the read-write region.",
         ], ident: "RecreateRing", fields: Unit, discriminant: 1, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a format would do, the answer of [Recorder::prepare_format].",
     ], ident: "FormatOffer", generics: [], fields: Named([
@@ -323,7 +323,7 @@
         (ident: Some("ring_bytes"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
             "Bytes the ring gets with the default region.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What started a recording, see [Recorder::recording_start] and [RecordingInfo].",
         "",
@@ -335,7 +335,7 @@
         (docs: [
             "The device\'s button.",
         ], ident: "Button", fields: Unit, discriminant: 1, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Why a recording ended, see [RecordingInfo::stopped].",
     ], ident: "StopReason", generics: [], variants: [
@@ -351,7 +351,7 @@
         (docs: [
             "The device rebooted or lost power and did not continue it.",
         ], ident: "Reboot", fields: Unit, discriminant: 3, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One recording of [Recorder::recordings].",
     ], ident: "RecordingInfo", generics: [], fields: Named([
@@ -372,7 +372,7 @@
         (ident: Some("bytes"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
             "Bytes of the ring the span covers, all tracks.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What a marker is for, see [Recorder::marker].",
         "",
@@ -392,7 +392,7 @@
         ], ident: "User", fields: Named([
             (ident: Some("code"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Behaviour of a full ring, see [Settings::full].",
     ], ident: "FullPolicy", generics: [], variants: [
@@ -402,7 +402,7 @@
         (docs: [
             "Stop writing and count what is refused ([State::Full]).",
         ], ident: "DropNewest", fields: Unit, discriminant: 1, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Which items are written, see [Settings::mode].",
     ], ident: "RecordingMode", generics: [], variants: [
@@ -412,7 +412,7 @@
         (docs: [
             "Tracks are written only inside recordings.",
         ], ident: "Triggered", fields: Unit, discriminant: 1, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How the USB view splits the log, see [Settings::usb_view]. The recordings folder is always there.",
     ], ident: "UsbView", generics: [], fields: Named([
@@ -425,7 +425,7 @@
         (ident: Some("csv"), default: None, since: None, ty: Bool, docs: [
             "Fixed-width CSV files next to the native ones, for tracks that have one.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Settings of the recorder, see [Recorder::settings].",
     ], ident: "Settings", generics: [], fields: Named([
@@ -447,7 +447,7 @@
         (ident: Some("usb_view"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [
             "How the log is split in the USB view. Takes effect at the next [Recorder::refresh_usb] or mount.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Totals, see [Recorder::counters]. Numbers are variable length: an idle recorder\'s answer is a few bytes.",
     ], ident: "RecorderCounters", generics: [], fields: Named([
@@ -480,7 +480,7 @@
         (ident: Some("oldest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
             "Device time of the oldest data still in the ring, `None` if empty or unknown.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "One track of the log, `Recorder::track[n]`.",

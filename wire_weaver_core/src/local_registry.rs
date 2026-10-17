@@ -3,10 +3,7 @@ use ron::ser::{PrettyConfig, to_string_pretty};
 use std::fs;
 use ww_self::definition_cache::{self, Kind};
 use ww_self::signature::{canonical_trait_bytes, canonical_type_bytes, signature_of};
-use ww_self::{
-    ApiBundleOwned, ApiLevelLocationOwned, ItemEnumOwned, ItemStructOwned, TypeLocationOwned,
-    TypeOwned,
-};
+use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, TypeLocationOwned, TypeOwned};
 
 pub(crate) fn cache_api_bundle(api_bundle: &ApiBundleOwned, contains_docs: bool, hash: &[u8]) {
     if let Err(e) = cache_api_bundle_inner(api_bundle, contains_docs, hash) {
@@ -73,15 +70,19 @@ pub(crate) fn cache_definitions_in(
         let version = sent.crate_version(crate_idx.0)?;
         let Some(idx) = full.types.iter().position(|l| match l {
             TypeLocationOwned::InLine {
-                ty:
-                    TypeOwned::Struct(ItemStructOwned {
-                        ident, crate_idx, ..
-                    })
-                    | TypeOwned::Enum(ItemEnumOwned {
-                        ident, crate_idx, ..
-                    }),
+                ty: TypeOwned::Struct(s),
                 ..
-            } => ident == type_name && full.crate_version(crate_idx.0).ok() == Some(version),
+            } => {
+                s.qualified_name() == *type_name
+                    && full.crate_version(s.crate_idx.0).ok() == Some(version)
+            }
+            TypeLocationOwned::InLine {
+                ty: TypeOwned::Enum(e),
+                ..
+            } => {
+                e.qualified_name() == *type_name
+                    && full.crate_version(e.crate_idx.0).ok() == Some(version)
+            }
             _ => false,
         }) else {
             continue;

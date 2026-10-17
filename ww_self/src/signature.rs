@@ -199,12 +199,12 @@ impl<'a, 'r> Canonical<'a, 'r> {
             let TypeLocationOwned::InLine { ty, .. } = location else {
                 return false;
             };
-            let (crate_idx, ident) = match ty {
-                TypeOwned::Struct(s) => (s.crate_idx, &s.ident),
-                TypeOwned::Enum(e) => (e.crate_idx, &e.ident),
+            let (crate_idx, qualified_name) = match ty {
+                TypeOwned::Struct(s) => (s.crate_idx, s.qualified_name()),
+                TypeOwned::Enum(e) => (e.crate_idx, e.qualified_name()),
                 _ => return false,
             };
-            ident == name
+            qualified_name == *name
                 && other
                     .crate_version(crate_idx.0)
                     .is_ok_and(|v| v.crate_id == version.crate_id)

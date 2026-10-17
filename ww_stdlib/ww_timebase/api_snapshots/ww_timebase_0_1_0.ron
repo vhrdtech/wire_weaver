@@ -12,14 +12,14 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Clock", docs: [], optional: None),
 ]), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Second", signature: [
-        149,
-        145,
-        124,
-        207,
-        145,
-        192,
-        245,
-        124,
+        101,
+        42,
+        201,
+        111,
+        172,
+        147,
+        218,
+        147,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "A format a sync line can carry, see `ClockInfo::sync_formats`.",
@@ -30,7 +30,7 @@
         (docs: [
             "Pulse-per-second, edge-only: carries phase, not time of day (see `Clock::set_time_of_day`).",
         ], ident: "Pps", fields: Unit, discriminant: 1, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Static description of a device\'s clock, see `Clock::info`.",
     ], ident: "ClockInfo", generics: [], fields: Named([
@@ -43,7 +43,7 @@
         (ident: Some("sync_formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 1))), docs: [
             "Sync formats this device can use; empty without a sync line.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "State of a device\'s sync line, see `SyncStatus::state` and `TimeMapPoint::state`.",
     ], ident: "SyncState", generics: [], variants: [
@@ -59,7 +59,7 @@
         (docs: [
             "Was locked, lost the signal, and is coasting on the last known offset until it reacquires or times out.",
         ], ident: "Holdover", fields: Unit, discriminant: 3, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One point of the `time_map` stream: this device\'s local time mapped to the shared sync time.",
     ], ident: "TimeMapPoint", generics: [], fields: Named([
@@ -72,7 +72,7 @@
         (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Sync state at the point, so a host can tell a real lock from a stale mapping.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What a device\'s sync line should do, see `Clock::configure_sync` / `Clock::sync_config`.",
     ], ident: "SyncConfig", generics: [], variants: [
@@ -89,7 +89,7 @@
         ], ident: "Slave", fields: Named([
             (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         187,
         44,
@@ -109,7 +109,7 @@
         ], ident: "Common", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
-    ])), crate_idx: 0),
+    ], path: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Current sync state of a device\'s clock, see `Clock::sync_status`.",
     ], ident: "SyncStatus", generics: [], fields: Named([
@@ -122,16 +122,16 @@
         (ident: Some("last_lock"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
             "Local time of the last lock.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "DateTime", signature: [
-        131,
-        246,
-        239,
-        92,
-        154,
-        105,
-        61,
-        117,
+        29,
+        39,
+        248,
+        111,
+        249,
+        238,
+        133,
+        56,
     ]),
 ], traits: [
     InLine(level: (docs: [

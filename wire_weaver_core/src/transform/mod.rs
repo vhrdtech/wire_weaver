@@ -7,6 +7,6 @@ mod ty;
 mod util;
 
 pub use api::{PropertyMacroArgs, StreamAndImplMacroArgs};
-pub use crate_walker::{load, load_dep, load_for_codegen};
+pub use crate_walker::{load, load_dep};
 pub use errors::ErrorListError;
 pub use snapshot::{load_crate, skip_known};

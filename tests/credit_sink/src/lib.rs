@@ -928,7 +928,7 @@ mod tests {
     #[test]
     fn scaffold_has_credit_handlers() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../credit_sink_api");
-        let bundle = wire_weaver_core::load_for_codegen(&path, Some("CreditSinks".into())).unwrap();
+        let bundle = wire_weaver_core::load(&path, Some("CreditSinks".into()), false).unwrap();
         let config = wire_weaver_core::ServerScaffoldConfig {
             server_struct: "Server".into(),
             no_alloc: true,

@@ -988,6 +988,7 @@ pub fn substitute(
             crate_idx: s.crate_idx,
             docs: s.docs.clone(),
             ident,
+            path: s.path.clone(),
             generics: vec![],
             fields: sub.fields(&s.fields, 0)?,
             sparse: s.sparse,
@@ -1005,6 +1006,7 @@ pub fn substitute(
                 crate_idx: e.crate_idx,
                 docs: e.docs.clone(),
                 ident,
+                path: e.path.clone(),
                 generics: vec![],
                 variants,
             })
@@ -1222,6 +1224,7 @@ mod tests {
                 crate_idx: UNib32(0),
                 docs: vec![],
                 ident: ident.into(),
+                path: None,
                 generics,
                 fields: FieldsOwned::Named(fields),
                 sparse: false,
@@ -1615,6 +1618,7 @@ mod tests {
                 crate_idx: UNib32(0),
                 docs: vec![],
                 ident: "E".into(),
+                path: None,
                 generics: vec![],
                 variants: vec![
                     variant("Neg", 0, unnamed(TypeOwned::Box(Box::new(out_of_line(1))))),
@@ -1900,6 +1904,7 @@ mod tests {
                 crate_idx: UNib32(0),
                 docs: vec![],
                 ident: "E".into(),
+                path: None,
                 generics: vec![const_param("N")],
                 variants: vec![VariantOwned {
                     docs: vec![],
@@ -1999,6 +2004,7 @@ mod tests {
             crate_idx: UNib32(0),
             docs: vec![],
             ident: "S".into(),
+            path: None,
             generics: vec![],
             fields: FieldsOwned::Named(vec![field(&long, TypeOwned::Tuple(vec![]))]),
             sparse: false,
@@ -2019,6 +2025,7 @@ mod tests {
             crate_idx: UNib32(0),
             docs: vec![],
             ident: "E".into(),
+            path: None,
             generics: vec![],
             variants: (0..100_000u32)
                 .map(|i| VariantOwned {

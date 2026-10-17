@@ -1005,6 +1005,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Generic types in an API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#type-aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Type aliases
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4979,6 +4996,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Generic types in an API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#type-aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Type aliases
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5370,6 +5404,25 @@ the same bytes as the derived ones.</p>
 <p>Arguments can be types, integer and <code>bool</code> literals, <code>const</code> items of the crate, a const parameter passed on
 (<code>struct Outer&lt;const N: usize&gt; { window: Window&lt;N&gt; }</code>), or left to the parameter's default. How a generic type may
 change is in the <a href="../evolution/rules/#generic-types">evolution rules</a>.</p>
+<h3 id="type-aliases">Type aliases<a class="headerlink" href="#type-aliases" title="Permanent link">&para;</a></h3>
+<p>A <code>type</code> alias stands for what it names, in every API position (API-45):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Supply</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="w"> </span><span class="n">voltage</span><span class="p">:</span><span class="w"> </span><span class="nc">Volt</span><span class="p">);</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="w"> </span><span class="n">sampled</span><span class="p">:</span><span class="w"> </span><span class="nc">Timed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">last</span><span class="p">(</span><span class="n">n</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Reading</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">}</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Volt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="o">&lt;</span><span class="n">VoltUnit</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Reading</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pair</span><span class="o">&lt;</span><span class="n">Window</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></code></pre></div>
+<p>Aliases are found like structs and enums: in lib.rs, in modules, through <code>use</code> imports and globs, also in other
+crates. A generic alias puts its arguments where its parameters are, a const parameter too
+(<code>type Buf&lt;const N: usize&gt; = Window&lt;N&gt;</code>). The API model has no entry for the alias itself: <code>voltage</code> is a
+<code>Quantity&lt;VoltUnit&gt;</code> there, and <code>ww</code>, the dynamic client and Python show it that way. A <code>PhantomData&lt;U&gt;</code> field is
+left out of a struct's definition (it takes no bits on the wire), so <code>U</code> is a parameter that no field uses.</p>
+<p>Generated code names a type by its crate and name (<code>my_api::Volt</code>), so a type the API uses has to be reachable from
+the crate root under its own name for now (API-46).</p>
 <h2 id="special-types">Special types<a class="headerlink" href="#special-types" title="Permanent link">&para;</a></h2>
 <p>For particular jobs, on their own page:</p>
 <table>

@@ -5659,23 +5659,37 @@ needs <code>PartialEq</code>: a value is written again where it changed).</p>
   <code>series</code>). The bounds next to the parameters and the where clause are carried into the definition and every impl
   as written; what a field needs beyond that is yours to add (an array <code>[T; N]</code> is read into a default one, so
   <code>T: Default</code>).</li>
-<li>The size of <code>T</code> and <code>N</code> is part of the type's: <code>Timed&lt;u32&gt;</code> is <code>final_structure</code>, <code>Timed</code> of an evolvable struct
+<li>
+<p>A type parameter the fields use only inside <code>PhantomData&lt;..&gt;</code> gets none of these bounds (DER-15), so a unit marker
+  needs no impls of its own; <code>PhantomData&lt;T&gt;</code> is zero bits (<code>Sized { size_bits: 0 }</code>, like <code>()</code>) and has no column
+  in a <code>Series</code>. A <code>Quantity&lt;Volt&gt;</code> writes the same bytes as the struct without the field:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="cp">#[derive(Clone, Copy, Debug, PartialEq)]</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Volt</span><span class="p">;</span><span class="w"> </span><span class="c1">// a marker: no serdes, no SeriesColumns</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, series, final_structure, derive(Clone, Copy, Debug, PartialEq))]</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Quantity</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">_unit</span><span class="p">:</span><span class="w"> </span><span class="nc">PhantomData</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<p>A parameter that a field also uses outside <code>PhantomData</code> keeps its bounds; a use the derive doesn't look into
+(inside a macro, a qualified path <code>&lt;T as Tr&gt;::X</code>, a function pointer) counts as a real one. The derive's own
+<code>derive(Clone, Copy, ..)</code> is Rust's and still asks <code>U: Clone, Copy</code>, which a marker derives anyway.
+- The size of <code>T</code> and <code>N</code> is part of the type's: <code>Timed&lt;u32&gt;</code> is <code>final_structure</code>, <code>Timed</code> of an evolvable struct
   holds an <code>Unsized</code> field, a <code>sized</code> <code>Buf&lt;const N: usize&gt; { len: u8, data: [u8; N] }</code> is <code>8 + 8 * N</code> bits. A
   <code>sized</code> enum's variants must be one size for the arguments it is used with (<code>enum Either&lt;T&gt; { Left(T), Right(T) }</code>
   always is). The const asserts that check a <code>sized</code> / <code>final_structure</code> type next to its definition can't name a
-  generic type, so they are left out: the check happens where the size is used.</li>
-<li>Const parameters can be of any type Rust takes (integers, <code>bool</code>, <code>char</code>) and go wherever a const goes: array
-  lengths, <code>MaxLen&lt;T, N&gt;</code>, <code>TailSize&lt;N&gt;</code>, arguments of other types (<code>Buf&lt;N&gt;</code>).</li>
-<li>With a lifetime, <code>Tagged&lt;'i, T&gt;</code> gets the owned <code>TaggedOwned&lt;T&gt;</code>. A bound or where clause that names <code>'i</code> only
-  fits the borrowed side; keep those on types that are only <code>borrowed</code>.</li>
-<li><code>display</code> works on generic types: a field the message prints needs a <code>Display</code> bound, and <code>Error</code> is implemented
+  generic type, so they are left out: the check happens where the size is used.
+- Const parameters can be of any type Rust takes (integers, <code>bool</code>, <code>char</code>) and go wherever a const goes: array
+  lengths, <code>MaxLen&lt;T, N&gt;</code>, <code>TailSize&lt;N&gt;</code>, arguments of other types (<code>Buf&lt;N&gt;</code>).
+- With a lifetime, <code>Tagged&lt;'i, T&gt;</code> gets the owned <code>TaggedOwned&lt;T&gt;</code>. A bound or where clause that names <code>'i</code> only
+  fits the borrowed side; keep those on types that are only <code>borrowed</code>.
+- <code>display</code> works on generic types: a field the message prints needs a <code>Display</code> bound, and <code>Error</code> is implemented
   where the type is <code>Debug</code>. <code>validate</code> takes a generic function (<code>validate = Ordered::check</code> with an
-  <code>impl&lt;T: PartialOrd&gt; Ordered&lt;T&gt;</code>). The <code>discriminants</code> enum has unit variants only, so no parameters.</li>
-<li><code>fixed_layout</code>, <code>head_tail</code> and <code>sparse</code> lay out one concrete type, and reject generics with an error naming the
-  type.</li>
-<li>In an API (API-43) a generic type is used with its arguments, <code>fn sum(window: Window&lt;4&gt;)</code>, and is in the API model
+  <code>impl&lt;T: PartialOrd&gt; Ordered&lt;T&gt;</code>). The <code>discriminants</code> enum has unit variants only, so no parameters.
+- <code>fixed_layout</code>, <code>head_tail</code> and <code>sparse</code> lay out one concrete type, and reject generics with an error naming the
+  type.
+- In an API (API-43) a generic type is used with its arguments, <code>fn sum(window: Window&lt;4&gt;)</code>, and is in the API model
   once with its parameters; const parameters there are integers or <code>bool</code> (<code>usize</code> is <code>u64</code>), a <code>char</code> one is an
-  error naming the type. See <a href="../../types/#generic-types-in-an-api">generic types in an API</a>.</li>
+  error naming the type. See <a href="../../types/#generic-types-in-an-api">generic types in an API</a>.</p>
+</li>
 </ul>
 <h2 id="crate_pathpath"><code>crate_path(&lt;path&gt;)</code><a class="headerlink" href="#crate_pathpath" title="Permanent link">&para;</a></h2>
 <p>Generated code refers to <code>shrink_wrap</code> items by path, so no import is needed for the macro, and the names it uses
@@ -5683,8 +5697,8 @@ needs <code>PartialEq</code>: a value is written again where it changed).</p>
 <code>Cargo.toml</code>: <code>::shrink_wrap</code> (or whatever it is renamed to), or <code>::wire_weaver::shrink_wrap</code> when only
 <code>wire_weaver</code> is a dependency. <code>crate_path(..)</code> overrides that, for a crate that reaches <code>shrink_wrap</code> through some
 other re-export:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Point</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Point</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>When neither crate is a dependency and nothing is given, the names are left unqualified and
 <code>use shrink_wrap::prelude::*</code> is needed.</p>

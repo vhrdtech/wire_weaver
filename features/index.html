@@ -5332,6 +5332,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>validate</code> and <code>discriminants</code> take generics, <code>fixed_layout</code>, <code>head_tail</code> and <code>sparse</code> reject them
   (<code>docs/serdes/derive_reference.md#generics</code>; tests <code>shrink_wrap/tests/generic_items.rs</code>, <code>series_derive.rs</code>;
   <code>ww_si::Timed&lt;T&gt;</code>). In APIs and the API model: API-43.</li>
+<li>✅ <strong>DER-15 <code>PhantomData</code> fields</strong>: <code>PhantomData&lt;T&gt;</code> is zero bits (<code>Sized { size_bits: 0 }</code>, like <code>()</code>) borrowed
+  and owned, and a <code>SeriesColumns</code> with no columns, for any <code>T</code>; the derive leaves a type parameter used only inside
+  <code>PhantomData&lt;..&gt;</code> without the serdes / <code>SeriesColumns</code> bounds of DER-14, so <code>struct Quantity&lt;U&gt; { value: i32,
+  _unit: PhantomData&lt;U&gt; }</code> works with a bare unit marker and writes the same bytes as without the field
+  (<code>docs/serdes/derive_reference.md#generics</code>; test <code>shrink_wrap/tests/phantom_data.rs</code>). For <code>ww_si</code> units.</li>
 <li>✅ <strong>DER-11 Field type from a macro_rules <code>$T:ty</code> fragment</strong>: accepted like the type written directly, instead of
   rejected as an unsupported <code>syn::Type::Group</code> (test <code>shrink_wrap/tests/macro_ty_fragment.rs</code>).</li>
 <li>✅ <strong>DER-12 <code>Display</code> from doc comments</strong>: a <code>display</code> directive writes <code>core::fmt::Display</code> and
@@ -5412,6 +5417,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   reader allows (<code>MAX_DECODE_DEPTH</code>, ~90 levels on a 2 MiB stack in a debug build), Python objects are depth bounded
   (<code>docs/types.md#self-referential-types-refbox</code>; tests <code>tests/recursive</code>, <code>ww_self</code>/<code>wire_weaver_core</code>/
   <code>wire_weaver_client</code> unit tests, <code>fuzz</code> target <code>introspection</code>). <code>ww_si::SIExpr</code> is not derived yet.</li>
+<li>✅ <strong>API-45 Type aliases in APIs</strong> · <code>v0.5</code> — <code>pub type Volt = Quantity&lt;VoltUnit&gt;;</code> and generic aliases
+  (<code>type Reading&lt;T&gt; = Timed&lt;Quantity&lt;T&gt;&gt;</code>, const parameters too) in every API position, found like structs and enums
+  (lib.rs, modules, <code>use</code> imports, globs, other crates); the right-hand side is converted in the alias' crate with each
+  parameter replaced by its argument. The API model has no alias definitions (what an alias names is used directly,
+  ww_si generic D2 a); alias definitions in <code>ww_self</code> are an idea for later. <code>PhantomData</code> fields (DER-15) are left
+  out of a struct's definition, the parameter stays in its generics (<code>ww_self::generics::prepare</code> accepts that). Tests
+  <code>tests/generics</code> (property, method argument, inside <code>Timed</code>, a <code>PhantomData</code> marker, dynamic client),
+  <code>wire_weaver_core</code> unit tests, <code>ww api tree</code> (<code>docs/types.md#type-aliases</code>). <code>use .. as ..</code> renames are not followed.</li>
+<li>📋 <strong>API-46 Codegen names types by their module path</strong> · <code>v0.5</code> — generated code names every user type
+  <code>&lt;crate&gt;::&lt;Ident&gt;</code> (from <code>ww_self</code>, which has no module path), so a type in a module must be re-exported at the
+  crate root, and a marker <code>units::Volt</code> next to an alias <code>Volt</code> at the root (the ww_si 0.2 layout, STD-38) comes out
+  as the alias. Needs the module path per definition for codegen: a codegen-only table from the walker, or a
+  <code>ww_self</code> field left out of signatures and the evolution check.</li>
 <li>✅ <strong>API-31 Stream functions</strong> — <code>#[stream(T, counted)] fn name(args) -&gt; Result&lt;A, E&gt;</code> and <code>#[counted]</code> /
   <code>#[reliable] stream!(name: T)</code>: every stream (plain ones too) is opened by calling it (<code>RequestKind::StreamOpen</code>),
   with typed arguments and result; the device's handler named like the stream decides, <code>Ok</code> starts a session,

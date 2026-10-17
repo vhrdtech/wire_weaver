@@ -4995,7 +4995,7 @@ batch instead of one item at a time) is planned as API-41, see the <a href="../.
 below needs it.</p>
 <h2 id="which-t">Which <code>T</code><a class="headerlink" href="#which-t" title="Permanent link">&para;</a></h2>
 <p>Any <code>#[derive_shrink_wrap(.., series)]</code> struct or enum, nested to any depth, including generic ones
-(<code>Timed&lt;T&gt;</code>, <a href="../derive_reference/#type-parameters">DER-14</a>): structs (named fields), unit-only enums and enums with
+(<code>Timed&lt;T&gt;</code>, <a href="../derive_reference/#generics">DER-14</a>): structs (named fields), unit-only enums and enums with
 data, <code>Option</code>, integers (<code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code>, <code>U1</code>..<code>U64</code>, <code>I2</code>..<code>I64</code>, 128-bit), <code>f32</code>/<code>f64</code>, <code>bool</code>, tuples,
 arrays, <code>&amp;str</code>/<code>String</code>/bytes (as an opaque run), and any other type marked <code>#[series(opaque)]</code>. A field of a user
 type needs <code>series</code> on that type too; see <a href="../derive_reference/#series"><code>series</code></a> for the exact directive and what it
@@ -5117,7 +5117,7 @@ gets this for free, while a bare <code>f32</code> pays for every bit of mantissa
 <code>ww_si</code> went from 96 to 117 kB/s. Quantities pay off once they're batched into a <code>Series</code>; sending one at a time
 gets you the worse of both.</p>
 <h2 id="time-timedt">Time: <code>Timed&lt;T&gt;</code><a class="headerlink" href="#time-timedt" title="Permanent link">&para;</a></h2>
-<p><code>ww_si::Timed&lt;T&gt; { t: Second, value: T }</code> (<a href="../derive_reference/#type-parameters">DER-14</a> generic struct with
+<p><code>ww_si::Timed&lt;T&gt; { t: Second, value: T }</code> (<a href="../derive_reference/#generics">DER-14</a> generic struct with
 <code>series</code>) is not a special case of <code>Series</code> — it gets a <code>t</code> column like any other field, and a regular sampling
 rate costs about nothing (delta + constant: <code>t0 + period</code>). Use <code>Series&lt;Timed&lt;T&gt;&gt;</code> wherever a batch needs its own
 timestamps; where a stream already carries time for the whole batch, a plain <code>Series&lt;T&gt;</code> works just as well.</p>

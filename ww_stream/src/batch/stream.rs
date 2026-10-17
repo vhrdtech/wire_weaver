@@ -1,19 +1,71 @@
-//! Batched streams: the consumer side for a [Reliable] and a [Counted] stream, and [Batched] to keep a stream and
-//! its batcher together.
+//! Batched streams: the consumer side for a [Reliable], a [Counted] and a [Plain] stream, and [Batched] to keep a
+//! stream and its batcher together.
 
-use super::{Batcher, Consumer, EncodeError, Producer, Scratch, Seal};
+use super::{BatchSource, Batcher, Consumer, EncodeError, Producer, Push, Scratch, Seal};
 use crate::StreamHead;
 use crate::store::StreamStore;
 use crate::tx::{Counted, Pushed, Reliable};
+use core::marker::PhantomData;
 use wire_weaver::shrink_wrap::Error;
 use wire_weaver::shrink_wrap::series::{CodecPolicy, SeriesColumns, SeriesStore};
 
-/// A stream whose items are batched: the delivery state `S` ([Reliable], [Counted]) and the [Batcher] of its items
-/// (`Timed<T>` for a timed stream). Events carry one batch each, `units` = its items, no head `t`.
-/// [split](Self::split) it for a producer in another context.
-pub struct Batched<S, T: SeriesStore, const N: usize> {
+/// [Batched::max_age_us] when the host asks for none: 100 ms.
+pub const DEFAULT_MAX_AGE_US: u32 = 100_000;
+/// Least max age a host gets by default ([Batched::with_max_age]): 1 ms; a smaller wish is raised to it.
+pub const MIN_MAX_AGE_US: u32 = 1_000;
+/// Most max age a host gets by default: 10 s; a bigger wish is lowered to it.
+pub const MAX_MAX_AGE_US: u32 = 10_000_000;
+
+/// A stream whose items are batched: the delivery state `S` ([Reliable], [Counted], [Plain]) and the batcher of its
+/// items (`Timed<T>` for a timed stream). Events carry one batch each, `units` = its items, no head `t`.
+///
+/// `Src` is where the consumer half comes from: the [Batcher] itself (the default, a producer in the same task pushes
+/// through [Batched::push] or [split](Self::split)), or a [Consumer] whose [Producer] lives elsewhere, an interrupt
+/// handler or another core, both split off a `&'static mut Batcher` ([Batched::with_consumer]).
+///
+/// It also keeps how old a batch may get before it is sent, as the host asked when it opened the stream, within
+/// the device's bounds ([grant_max_age](Self::grant_max_age)).
+pub struct Batched<S, T: SeriesStore, const N: usize, Src = Batcher<T, N>> {
     pub stream: S,
-    pub batcher: Batcher<T, N>,
+    pub batcher: Src,
+    max_age: MaxAge,
+    _item: PhantomData<fn(T)>,
+}
+
+/// Bounds and the granted value of a batched stream's max age, µs.
+#[derive(Debug, Clone, Copy)]
+struct MaxAge {
+    min: u32,
+    default: u32,
+    max: u32,
+    granted: u32,
+}
+
+/// Delivery state of a plain batched stream: batches are sent while a host has it open, dropped (and counted as
+/// lost in the batcher's stats) while none has.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Plain {
+    open: bool,
+}
+
+impl Plain {
+    pub const fn new() -> Self {
+        Plain { open: false }
+    }
+
+    /// A host opened the stream.
+    pub fn open(&mut self) {
+        self.open = true;
+    }
+
+    /// The host closed it.
+    pub fn close(&mut self) {
+        self.open = false;
+    }
+
+    pub fn is_open(&self) -> bool {
+        self.open
+    }
 }
 
 /// What [Consumer::poll_reliable] did.
@@ -35,6 +87,13 @@ pub enum BatchedError<E> {
     Store(E),
 }
 
+const DEFAULT_BOUNDS: MaxAge = MaxAge {
+    min: MIN_MAX_AGE_US,
+    default: DEFAULT_MAX_AGE_US,
+    max: MAX_MAX_AGE_US,
+    granted: DEFAULT_MAX_AGE_US,
+};
+
 impl<S, T, const N: usize> Batched<S, T, N>
 where
     T: SeriesStore + for<'a> SeriesColumns<'a>,
@@ -43,6 +102,8 @@ where
         Batched {
             stream,
             batcher: Batcher::new(policy),
+            max_age: DEFAULT_BOUNDS,
+            _item: PhantomData,
         }
     }
 
@@ -64,10 +125,76 @@ where
     }
 }
 
-impl<St, const K: usize, T, const N: usize> Batched<Reliable<St, K>, T, N>
+impl<'c, S, T, const N: usize> Batched<S, T, N, Consumer<'c, T, N>>
+where
+    T: SeriesStore + for<'a> SeriesColumns<'a>,
+{
+    /// The consumer half of a batcher whose producer pushes from another context: both are
+    /// [split](Batcher::split) off a batcher that outlives them (a `static`, a `StaticCell`).
+    pub fn with_consumer(stream: S, consumer: Consumer<'c, T, N>) -> Self {
+        Batched {
+            stream,
+            batcher: consumer,
+            max_age: DEFAULT_BOUNDS,
+            _item: PhantomData,
+        }
+    }
+}
+
+impl<S, T, const N: usize, Src> Batched<S, T, N, Src>
+where
+    T: SeriesStore + for<'a> SeriesColumns<'a>,
+    Src: BatchSource<T, N>,
+{
+    /// Bounds of the max age a host may ask for, and what it gets when it asks for none, µs
+    /// ([MIN_MAX_AGE_US], [DEFAULT_MAX_AGE_US], [MAX_MAX_AGE_US] otherwise). `min` is at least 1.
+    pub fn with_max_age(mut self, min_us: u32, default_us: u32, max_us: u32) -> Self {
+        let min = min_us.max(1);
+        let max = max_us.max(min);
+        let default = default_us.clamp(min, max);
+        self.max_age = MaxAge {
+            min,
+            default,
+            max,
+            granted: default,
+        };
+        self
+    }
+
+    /// A host opened (or resumed) the stream asking for batches at most `requested` µs old (`None`: the default):
+    /// the age within the bounds, which the poll seals batches at from now on and the host is told.
+    pub fn grant_max_age(&mut self, requested: Option<u32>) -> u32 {
+        let m = &mut self.max_age;
+        m.granted = requested.map_or(m.default, |r| r.clamp(m.min, m.max));
+        m.granted
+    }
+
+    /// The max age granted last, µs: a batch is sealed and sent once its first item is this old.
+    pub fn max_age_us(&self) -> u32 {
+        self.max_age.granted
+    }
+
+    /// The consumer half.
+    pub fn consumer(&mut self) -> Consumer<'_, T, N> {
+        self.batcher.consumer()
+    }
+}
+
+impl<S, T, const N: usize> Push<T> for Batched<S, T, N>
+where
+    T: SeriesStore + for<'a> SeriesColumns<'a>,
+{
+    #[inline]
+    fn push(&mut self, item: &T) -> Seal {
+        self.batcher.push(item)
+    }
+}
+
+impl<St, const K: usize, T, const N: usize, Src> Batched<Reliable<St, K>, T, N, Src>
 where
     St: StreamStore,
     T: SeriesStore + for<'a> SeriesColumns<'a>,
+    Src: BatchSource<T, N>,
 {
     /// [Consumer::poll_reliable].
     pub async fn poll<const B: usize>(
@@ -84,9 +211,10 @@ where
     }
 }
 
-impl<T, const N: usize> Batched<Counted, T, N>
+impl<T, const N: usize, Src> Batched<Counted, T, N, Src>
 where
     T: SeriesStore + for<'a> SeriesColumns<'a>,
+    Src: BatchSource<T, N>,
 {
     /// [Consumer::poll_counted].
     pub fn poll<'b, const B: usize>(
@@ -99,6 +227,25 @@ where
         self.batcher
             .consumer()
             .poll_counted(&mut self.stream, now_us, max_age_us, scratch, buf)
+    }
+}
+
+impl<T, const N: usize, Src> Batched<Plain, T, N, Src>
+where
+    T: SeriesStore + for<'a> SeriesColumns<'a>,
+    Src: BatchSource<T, N>,
+{
+    /// [Consumer::poll_plain].
+    pub fn poll<'b, const B: usize>(
+        &mut self,
+        now_us: u64,
+        max_age_us: Option<u64>,
+        scratch: &mut Scratch<B>,
+        buf: &'b mut [u8],
+    ) -> Result<Option<(usize, &'b [u8])>, Error> {
+        self.batcher
+            .consumer()
+            .poll_plain(&self.stream, now_us, max_age_us, scratch, buf)
     }
 }
 
@@ -208,6 +355,39 @@ where
                 Err(EncodeError::NoRoom) => {
                     let (items, lost_before) = self.discard_sealed();
                     stream.lost(lost_before + items as u64);
+                }
+                Err(EncodeError::Write(e)) => return Err(e),
+            }
+        }
+    }
+
+    /// The event loop's turn for a batched plain stream: seals on age and budget (`buf`'s length), then encodes
+    /// the next sealed batch into `buf` and returns its items and bytes, to send right away as stream data. Call
+    /// again while it returns one. While no host has the stream open a sealed batch is dropped unencoded (counted
+    /// in [stats](Consumer::stats) as lost); a plain stream reports no losses to the host.
+    pub fn poll_plain<'b, const B: usize>(
+        &mut self,
+        stream: &Plain,
+        now_us: u64,
+        max_age_us: Option<u64>,
+        scratch: &mut Scratch<B>,
+        buf: &'b mut [u8],
+    ) -> Result<Option<(usize, &'b [u8])>, Error> {
+        // a plain stream has no positions to report the producer's losses in: they stay in the stats
+        self.poll(now_us, max_age_us, buf.len());
+        loop {
+            if !self.has_sealed() {
+                return Ok(None);
+            }
+            if !stream.is_open() {
+                self.discard_sealed();
+                continue;
+            }
+            match self.encode_into(scratch, buf) {
+                Ok(Some(enc)) => return Ok(Some((enc.items, &buf[..enc.len]))),
+                Ok(None) => return Ok(None),
+                Err(EncodeError::NoRoom) => {
+                    self.discard_sealed();
                 }
                 Err(EncodeError::Write(e)) => return Err(e),
             }

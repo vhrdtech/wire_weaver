@@ -264,6 +264,7 @@ impl Commander {
             delivery,
             args,
             resume: None,
+            max_age_us: None,
             ack_mode: AckMode::default(),
             window: crate::DEFAULT_WINDOW,
             queue_bytes: self.stream_queue_bytes,
@@ -440,12 +441,14 @@ impl Commander {
                 continue;
             }
             let path = inner.path.clone();
+            let max_age_us = inner.max_age_us();
             drop(inner);
             let bytes = ww_client_server::RequestOwned {
                 seq: UVlq32Backfill(0),
                 path_kind: PathKindOwned::Absolute { path },
                 kind: RequestKindOwned::StreamOpen {
                     resume: Some(cursor),
+                    max_age_us: max_age_us.map(UNib32),
                     args: TailBytesOwned(vec![]),
                 },
             }

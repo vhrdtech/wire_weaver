@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::sync::oneshot;
-use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UVlq32Backfill};
+use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32, UVlq32Backfill};
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use wire_weaver::shrink_wrap::{
     BufReader, ElementSize, Error as ShrinkWrapError, SerializeShrinkWrapOwned,
@@ -176,6 +176,8 @@ pub struct PreparedStreamOpen<R, S> {
     pub(crate) delivery: Option<ww_self::Delivery>,
     pub(crate) args: Vec<u8>,
     pub(crate) resume: Option<StreamCursor>,
+    /// Batched streams: the most a batch may wait on the device, µs (None: the device's default)
+    pub(crate) max_age_us: Option<u32>,
     pub(crate) ack_mode: AckMode,
     pub(crate) window: u32,
     pub(crate) queue_bytes: usize,
@@ -229,6 +231,14 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
     /// default.
     pub fn queue_bytes(mut self, bytes: usize) -> Self {
         self.queue_bytes = bytes;
+        self
+    }
+
+    /// Batched streams (API-41): the most a batch may wait on the device before it is sent, the latency the host
+    /// accepts for fewer, bigger events; the device's default without it. The device clamps it to what it supports
+    /// (rounded to microseconds, at most `u32::MAX` µs). Ignored by streams that aren't batched.
+    pub fn max_age(mut self, max_age: Duration) -> Self {
+        self.max_age_us = Some(u32::try_from(max_age.as_micros()).unwrap_or(u32::MAX));
         self
     }
 
@@ -298,6 +308,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
             path_kind: self.path_kind.clone(),
             kind: RequestKindOwned::StreamOpen {
                 resume: self.resume,
+                max_age_us: self.max_age_us.map(UNib32),
                 args: TailBytesOwned(self.args.clone()),
             },
         }
@@ -330,6 +341,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
                 ack_mode: self.ack_mode,
                 window: self.window,
                 queue_bytes: self.queue_bytes,
+                max_age_us: self.max_age_us,
             },
         );
         let cmd = Command::OpenStream {

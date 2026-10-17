@@ -150,6 +150,10 @@ pub enum RequestKind<'i> {
     StreamOpen {
         /// Resume from this point instead of starting a new session.
         resume: Option<StreamCursor>,
+        /// Batched streams (API-41): how old a batch may get on the device before it is sent, in µs, the host's
+        /// latency choice; `None` takes the device's default. The device clamps it and answers with what it
+        /// granted ([stream::StreamOpened::max_age_us]). Ignored by streams that aren't batched.
+        max_age_us: Option<UNib32>,
         /// Arguments of the stream function, serialized like [RequestKind::Call] arguments.
         args: TailBytes<'i>,
     },
@@ -628,8 +632,13 @@ impl RequestKind<'_> {
                 sideband: *sideband,
             },
             RequestKind::Introspect => RequestKindOwned::Introspect,
-            RequestKind::StreamOpen { resume, args } => RequestKindOwned::StreamOpen {
+            RequestKind::StreamOpen {
+                resume,
+                max_age_us,
+                args,
+            } => RequestKindOwned::StreamOpen {
                 resume: *resume,
+                max_age_us: *max_age_us,
                 args: args.make_owned(),
             },
             RequestKind::Observe { cfg } => RequestKindOwned::Observe {

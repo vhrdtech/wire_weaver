@@ -151,6 +151,8 @@ pub(crate) struct PositionedConfig {
     pub window: u32,
     /// Counted: bytes of items queued before new ones are dropped
     pub queue_bytes: usize,
+    /// Batched: what the host asked as the most a batch may wait on the device, µs, asked again on a resume
+    pub max_age_us: Option<u32>,
 }
 
 /// Receiving state of one counted or reliable stream, shared between the event loop and the user's handles.
@@ -235,6 +237,10 @@ impl Inner {
 
     pub(crate) fn cursor(&self) -> Option<StreamCursor> {
         self.rx.cursor()
+    }
+
+    pub(crate) fn max_age_us(&self) -> Option<u32> {
+        self.config.max_age_us
     }
 
     /// The device answered the open (or a resume from `cursor`).
@@ -725,6 +731,7 @@ mod tests {
                 ack_mode: AckMode::OnReceive,
                 window: DEFAULT_WINDOW,
                 queue_bytes,
+                max_age_us: None,
             },
         )
     }

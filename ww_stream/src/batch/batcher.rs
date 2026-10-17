@@ -367,6 +367,55 @@ where
     }
 }
 
+/// Where a [Batched](super::Batched) stream takes its consumer half from: a [Batcher] it owns, or a [Consumer]
+/// split off a batcher whose [Producer] runs elsewhere.
+pub trait BatchSource<T: SeriesStore, const N: usize> {
+    fn consumer(&mut self) -> Consumer<'_, T, N>;
+}
+
+impl<T, const N: usize> BatchSource<T, N> for Batcher<T, N>
+where
+    T: SeriesStore + for<'x> SeriesColumns<'x>,
+{
+    fn consumer(&mut self) -> Consumer<'_, T, N> {
+        Consumer(self)
+    }
+}
+
+impl<T: SeriesStore, const N: usize> BatchSource<T, N> for Consumer<'_, T, N> {
+    fn consumer(&mut self) -> Consumer<'_, T, N> {
+        // the one consumer, borrowed: `&mut self` keeps it the only one meanwhile
+        Consumer(self.0)
+    }
+}
+
+/// Something items can be pushed into in O(1): a [Producer], a [Batcher] or a [Batched](super::Batched) stream
+/// that owns its batcher. Generated `<stream>_push` takes any of them.
+pub trait Push<T> {
+    /// See [Producer::push].
+    fn push(&mut self, item: &T) -> Seal;
+}
+
+impl<T, const N: usize> Push<T> for Producer<'_, T, N>
+where
+    T: SeriesStore + for<'x> SeriesColumns<'x>,
+{
+    #[inline]
+    fn push(&mut self, item: &T) -> Seal {
+        self.0.produce(Some(item), None)
+    }
+}
+
+impl<T, const N: usize> Push<T> for Batcher<T, N>
+where
+    T: SeriesStore + for<'x> SeriesColumns<'x>,
+{
+    #[inline]
+    fn push(&mut self, item: &T) -> Seal {
+        self.produce(Some(item), None)
+    }
+}
+
 impl<'a, T, const N: usize> Consumer<'a, T, N>
 where
     T: SeriesStore + for<'x> SeriesColumns<'x>,

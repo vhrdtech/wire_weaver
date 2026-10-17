@@ -43,9 +43,13 @@ mod batcher;
 mod outbox;
 mod stream;
 
-pub use batcher::{Batcher, Consumer, MAX_BATCH, Polled, Producer};
+pub use batcher::{BatchSource, Batcher, Consumer, MAX_BATCH, Polled, Producer, Push};
 pub use outbox::{OUTBOX_ENTRY_HEADER, Outbox, OutboxEntry, OutboxPush};
-pub use stream::{Batched, BatchedError, BatchedPoll};
+pub use stream::{
+    Batched, BatchedError, BatchedPoll, DEFAULT_MAX_AGE_US, MAX_MAX_AGE_US, MIN_MAX_AGE_US, Plain,
+};
+/// The item of a timed batched stream, re-exported for generated code.
+pub use ww_si::Timed;
 
 use core::mem::MaybeUninit;
 use wire_weaver::shrink_wrap::Error;

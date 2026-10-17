@@ -493,6 +493,76 @@ fn counted_batches_with_heads() {
 }
 
 #[test]
+fn plain_batches_while_open() {
+    let mut s = Batched::<_, Sample, 32>::new(Plain::new(), CodecPolicy::SMALLEST);
+    let mut scratch = Scr::new();
+    let mut buf = [0u8; 512];
+    // no host: dropped unencoded
+    for k in 0..4 {
+        s.push(&sample(k));
+    }
+    assert_eq!(s.poll(0, Some(0), &mut scratch, &mut buf), Ok(None));
+    assert_eq!(s.batcher.stats().encoded, 0);
+    assert_eq!(s.batcher.stats().discarded, 4);
+    s.stream.open();
+    for k in 4..10 {
+        s.push(&sample(k));
+    }
+    let (items, bytes) = s
+        .poll(10, Some(0), &mut scratch, &mut buf)
+        .unwrap()
+        .unwrap();
+    assert_eq!(items, 6);
+    assert_eq!(
+        decode::<Sample>(bytes),
+        (4..10).map(sample).collect::<Vec<_>>()
+    );
+    s.stream.close();
+    s.push(&sample(10));
+    assert_eq!(s.poll(20, Some(0), &mut scratch, &mut buf), Ok(None));
+}
+
+#[test]
+fn max_age_within_bounds() {
+    let mut s = Batched::<_, Sample, 32>::new(Plain::new(), CodecPolicy::SMALLEST);
+    assert_eq!(s.max_age_us(), DEFAULT_MAX_AGE_US);
+    assert_eq!(s.grant_max_age(Some(0)), MIN_MAX_AGE_US);
+    assert_eq!(s.grant_max_age(Some(u32::MAX)), MAX_MAX_AGE_US);
+    assert_eq!(s.grant_max_age(Some(20_000)), 20_000);
+    assert_eq!(s.max_age_us(), 20_000);
+    assert_eq!(s.grant_max_age(None), DEFAULT_MAX_AGE_US);
+    let mut s = s.with_max_age(0, 5, 3);
+    // min at least 1, max at least min, default within them
+    assert_eq!(s.max_age_us(), 3);
+    assert_eq!(s.grant_max_age(Some(0)), 1);
+}
+
+#[test]
+fn consumer_apart_from_its_producer() {
+    let batcher = Box::leak(Box::new(Batcher::<Sample, 32>::new(CodecPolicy::SMALLEST)));
+    let (mut producer, consumer) = batcher.split();
+    let mut s = Batched::with_consumer(Counted::new(), consumer);
+    s.stream.start_session(1);
+    s.stream
+        .resume(StreamCursor {
+            session: UVlq32(1),
+            pos: UVlq64(0),
+        })
+        .unwrap();
+    for k in 0..5 {
+        Push::push(&mut producer, &sample(k));
+    }
+    let mut scratch = Scr::new();
+    let mut buf = [0u8; 512];
+    let (head, bytes) = s.poll(0, Some(0), &mut scratch, &mut buf).unwrap().unwrap();
+    assert_eq!((head.pos, head.units), (0, 5));
+    assert_eq!(
+        decode::<Sample>(bytes),
+        (0..5).map(sample).collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn random_runs() {
     let mut rng = Rng::new(7);
     for _ in 0..40 {

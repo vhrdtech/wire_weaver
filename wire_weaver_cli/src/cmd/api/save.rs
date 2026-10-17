@@ -22,12 +22,13 @@ pub(crate) fn save(crate_path: PathBuf, force: bool) -> Result<()> {
         Some((old_path, old)) => {
             let report = evolution::compare(&old, &bundle).map_err(|e| anyhow!(e))?;
             let same_version = old_path == file_path;
-            if same_version && report.change == Change::None {
-                if old.ww_self_version == bundle.ww_self_version {
-                    println!("{} is up to date", file_path.display());
-                    return Ok(());
-                }
-                // the same definitions, saved again in the current ww_self format
+            // the same definitions in another ww_self format are saved again
+            if same_version
+                && report.change == Change::None
+                && old.ww_self_version == bundle.ww_self_version
+            {
+                println!("{} is up to date", file_path.display());
+                return Ok(());
             }
             if report.change != Change::None {
                 print_report(&report, &old_path, "source");

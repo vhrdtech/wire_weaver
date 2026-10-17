@@ -149,7 +149,7 @@ impl Gen<'_> {
         }
         let mut generics = vec![];
         for p in 0..(b >> 4) % 4 {
-            let kind = if self.byte() % 3 == 0 {
+            let kind = if self.byte().is_multiple_of(3) {
                 GenericParamKindOwned::Const {
                     ty: match self.byte() % 4 {
                         0 => TypeOwned::Bool,
@@ -185,7 +185,7 @@ impl Gen<'_> {
                 discriminant: UNib32(0),
                 since: None,
             }];
-            if self.byte() % 2 == 0 {
+            if self.byte().is_multiple_of(2) {
                 variants.push(VariantOwned {
                     docs: vec![],
                     ident: "B".into(),

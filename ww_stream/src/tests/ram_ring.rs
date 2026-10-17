@@ -43,14 +43,15 @@ fn push_read_release() {
     assert_eq!(st.used_bytes, 5 * rec(4) as u64);
     assert!(!st.persistent);
 
-    // exact position, a position inside an event and before everything
+    // exact position, a position inside an event (the event that holds it) and before everything
     assert_eq!(read(&mut ring, 13), Some((head(13, 3), vec![1; 4])));
-    assert_eq!(read(&mut ring, 14).unwrap().0.pos, 16);
+    assert_eq!(read(&mut ring, 14).unwrap().0.pos, 13);
     assert_eq!(read(&mut ring, 0).unwrap().0.pos, 10);
     assert_eq!(read(&mut ring, 22).unwrap().0.pos, 22);
-    assert_eq!(read(&mut ring, 23), None);
+    assert_eq!(read(&mut ring, 24).unwrap().0.pos, 22, "inside the newest");
+    assert_eq!(read(&mut ring, 25), None);
     // backwards after a forward read (the hint must not get in the way)
-    assert_eq!(read(&mut ring, 11).unwrap().0.pos, 13);
+    assert_eq!(read(&mut ring, 11).unwrap().0.pos, 10);
 
     // release only whole events before the position
     block_on(ring.release(15)).unwrap();
@@ -103,7 +104,12 @@ fn drop_newest_when_full() {
     );
     block_on(ring.release(2)).unwrap();
     push(&mut ring, 6, 2, &[4; 8]).unwrap();
-    assert_eq!(read(&mut ring, 3).unwrap().0.pos, 6);
+    assert_eq!(read(&mut ring, 3).unwrap().0.pos, 2);
+    assert_eq!(
+        read(&mut ring, 4).unwrap().0.pos,
+        6,
+        "in the units lost before it"
+    );
 }
 
 #[test]

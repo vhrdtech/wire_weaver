@@ -110,6 +110,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-41 | Batched streams | Fast samples collected on the device and sent many per event as a compressed `Series`; the device side is in, the `batched` attribute and the host side are next. |
 - API-30 | Counted and reliable streams | Exact counts of lost items; acknowledgements, resends and resume after a reconnect. | api/stream_reliability.md
 - API-28 | Credit sinks | Flow control for data sent to a device, so its buffer never overflows, and lossy links resume where they stopped. | api/credit_sinks.md
+- API-47 | Resend and resume inside a batch | A resend or a resume from the middle of a multi-unit item gets only the units you don't have. | api/stream_protocol.md#positions-inside-an-event
 - API-42 | Credit sinks without a size limit | Sessions of any length, positions at most 4 bytes on the wire. | api/stream_protocol.md#positions-wrap-at-256-mib
 - API-20 | Trait paths | Call a shared trait wherever it sits in a device's API. | api/addressing.md
 

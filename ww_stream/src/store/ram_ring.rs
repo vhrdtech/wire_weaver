@@ -72,6 +72,8 @@ pub(super) struct Ring<C: Check> {
     pub(super) newest: Option<u64>,
     /// Offset of the newest record
     pub(super) newest_off: usize,
+    /// Where the newest record ends
+    pub(super) newest_end: u64,
     pub(super) next: u64,
     pub(super) dropped_units: u64,
     /// Offset and position of a record at or after the last one read, so sequential reads don't scan from the start
@@ -124,6 +126,7 @@ impl<C: Check> Ring<C> {
             oldest: None,
             newest: None,
             newest_off: 0,
+            newest_end: 0,
             next: 0,
             dropped_units: 0,
             hint: None,
@@ -260,6 +263,7 @@ impl<C: Check> Ring<C> {
         }
         self.newest = Some(head.pos);
         self.newest_off = off;
+        self.newest_end = head.end();
         self.next = head.end();
         Ok(())
     }
@@ -271,7 +275,10 @@ impl<C: Check> Ring<C> {
         out: &'b mut [u8],
     ) -> Result<Option<StoredEvent<'b>>, RamRingError> {
         let n = buf.len();
-        if self.used == 0 || self.newest.is_some_and(|n| n < pos) {
+        if self.used == 0 {
+            return Ok(None);
+        }
+        if self.newest_end <= pos && self.newest.is_some_and(|n| n < pos) {
             return Ok(None);
         }
         let (mut off, mut walked) = match self.hint {
@@ -285,13 +292,14 @@ impl<C: Check> Ring<C> {
             }
             _ => (self.start, 0),
         };
-        if self.newest.is_some_and(|n| n == pos) {
+        // the newest record holds `pos`
+        if self.newest.is_some_and(|n| n <= pos) {
             off = self.newest_off;
             walked = 0;
         }
         loop {
             let rec = Self::record(buf, off);
-            if rec.pos >= pos {
+            if rec.pos >= pos || rec.end > pos {
                 self.hint = Some((off, rec.pos));
                 let item_len = rec.len - Self::overhead() - rec.head_len;
                 if out.len() < item_len {
@@ -336,6 +344,7 @@ impl<C: Check> Ring<C> {
             session: self.session,
             oldest: self.oldest,
             newest: self.newest,
+            newest_end: self.newest.map(|_| self.newest_end),
             next: self.next,
             used_bytes: self.used as u64,
             capacity_bytes: capacity as u64,
@@ -352,6 +361,7 @@ impl<C: Check> Ring<C> {
         self.oldest = None;
         self.newest = None;
         self.newest_off = 0;
+        self.newest_end = 0;
         self.next = 0;
         self.dropped_units = 0;
         self.hint = None;

@@ -313,6 +313,7 @@ impl<'a, const N: usize> PersistentRamRing<'a, N> {
             ring.oldest.get_or_insert(rec.pos);
             ring.newest = Some(rec.pos);
             ring.newest_off = off;
+            ring.newest_end = rec.end;
             prev_end = Some(rec.end);
             walked += rec.len;
             off = (off + rec.len) % N;

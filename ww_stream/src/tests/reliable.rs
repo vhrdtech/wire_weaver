@@ -114,9 +114,10 @@ fn go_back_n() {
     for _ in 0..6 {
         send(&mut dev, Run::Live).unwrap();
     }
-    // 6..9 got lost: everything from there again, and 0..6 counts as acknowledged
+    // 6..9 got lost: everything from there again; 0..6 stays in the store until an Ack passes it (the host may
+    // not have confirmed it yet, AckMode::Explicit)
     sb(&mut dev, resend(6, 1000));
-    assert_eq!(dev.store().state().oldest, Some(6));
+    assert_eq!(dev.store().state().oldest, Some(0));
     let again: Vec<_> = core::iter::from_fn(|| send(&mut dev, Run::Live))
         .map(|h| (h.pos, h.lost))
         .collect();
@@ -148,7 +149,7 @@ fn merged_flight_records() {
     let first = send(&mut dev, Run::Live).unwrap();
     assert!(first.pos <= 5);
     // an ack inside a merged record frees it only when the whole record is acknowledged
-    sb(&mut dev, ack(5, None, 1000));
+    sb(&mut dev, ack(1, None, 1000));
     assert!(dev.in_flight() >= 8);
 }
 

@@ -32,6 +32,10 @@ pub const DEFAULT_STREAM_QUEUE_BYTES: usize = 4 << 20;
 #[derive(Debug, Clone, PartialEq)]
 pub enum StreamEvent<T> {
     /// An item, at position `pos` (of its first unit) in its `run`, `units` long.
+    ///
+    /// When the device sends an item again from inside it (a resend or a resume from a position in the middle of a
+    /// multi-unit item), `pos` and `units` cover only the units that are new to the host; `value` and `t` are the
+    /// whole item's.
     Item {
         pos: u64,
         units: u64,
@@ -97,6 +101,8 @@ pub struct StreamStats {
 enum Entry {
     Item {
         head: StreamHead,
+        /// Units at the start of the item the host had already (see [Verdict::Accept])
+        skip: u64,
         run: Run,
         bytes: Vec<u8>,
     },
@@ -233,6 +239,8 @@ impl Inner {
 
     /// The device answered the open (or a resume from `cursor`).
     pub(crate) fn opened(&mut self, cursor: Option<StreamCursor>, opened: &Opened) {
+        // positions may start over (another session): a drop still being counted ends here
+        self.flush_host_gaps();
         let (gaps, ended) = self.rx.opened(cursor, opened);
         self.attached = true;
         if let Some(cursor) = cursor {
@@ -252,6 +260,7 @@ impl Inner {
                 run,
                 gaps,
                 backfill_done,
+                skip,
             } => {
                 self.push_gaps(&gaps);
                 let reliable = self.is_reliable();
@@ -260,12 +269,12 @@ impl Inner {
                     // plain drop-newest: reported as one gap once an item fits again
                     let gap = self.host_gap[i].get_or_insert(ww_stream::rx::Gap {
                         run,
-                        at: head.pos,
+                        at: head.pos + skip,
                         units: 0,
                         cause: Cause::Host,
                     });
                     gap.units = head.end() - gap.at;
-                    self.lost_host += head.units;
+                    self.lost_host += head.units - skip;
                 } else {
                     if self.queued_bytes + data.len() > self.config.queue_bytes {
                         // a reliable device never has more in flight than the window
@@ -280,6 +289,7 @@ impl Inner {
                     }
                     self.push(Entry::Item {
                         head,
+                        skip,
                         run,
                         bytes: data.to_vec(),
                     });
@@ -327,6 +337,7 @@ impl Inner {
 
     /// The link went down (`keep`: the stream stays registered for a resume on the next connection).
     pub(crate) fn disconnected(&mut self, keep: bool) {
+        self.flush_host_gaps();
         self.rx.close();
         self.attached = keep;
         self.push(Entry::Disconnected);
@@ -339,6 +350,19 @@ impl Inner {
 
     pub(crate) fn is_finished(&self) -> bool {
         self.closed || self.device_closed
+    }
+
+    /// Report the units dropped because the host queue was full (counted streams) that no item has closed yet.
+    fn flush_host_gaps(&mut self) {
+        for i in 0..self.host_gap.len() {
+            if let Some(gap) = self.host_gap[i].take() {
+                warn!(
+                    "stream {:?}: host queue full, dropped {} units at {}",
+                    self.path, gap.units, gap.at
+                );
+                self.push(Entry::Gap(gap));
+            }
+        }
     }
 
     fn push_gaps(&mut self, gaps: &Gaps) {
@@ -655,9 +679,14 @@ impl<T> Drop for PositionedStream<T> {
 
 fn to_event<T: DeserializeShrinkWrapOwned>(entry: Entry) -> Result<StreamEvent<T>, StreamError> {
     Ok(match entry {
-        Entry::Item { head, run, bytes } => StreamEvent::Item {
-            pos: head.pos,
-            units: head.units,
+        Entry::Item {
+            head,
+            skip,
+            run,
+            bytes,
+        } => StreamEvent::Item {
+            pos: head.pos + skip,
+            units: head.units - skip,
             t: head.t,
             ext: head.ext,
             run,
@@ -682,4 +711,59 @@ fn to_event<T: DeserializeShrinkWrapOwned>(entry: Entry) -> Result<StreamEvent<T
         Entry::Disconnected => StreamEvent::Disconnected,
         Entry::Closed => StreamEvent::Closed,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn counted(queue_bytes: usize) -> Arc<Shared> {
+        Shared::new(
+            vec![],
+            PositionedConfig {
+                delivery: ww_self::Delivery::Counted,
+                ack_mode: AckMode::OnReceive,
+                window: DEFAULT_WINDOW,
+                queue_bytes,
+            },
+        )
+    }
+
+    fn entries(inner: &mut Inner) -> Vec<String> {
+        core::iter::from_fn(|| inner.pop(None))
+            .map(|e| format!("{e:?}"))
+            .collect()
+    }
+
+    /// A counted stream drops items while the host queue is full, then the device reboots (a new session, positions
+    /// from 0): the drop is reported in the old session, the new one starts clean (it panicked on an underflow).
+    #[test]
+    fn host_queue_gap_ends_at_reopen() {
+        let shared = counted(16);
+        let mut inner = shared.lock();
+        let opened = |session| Opened {
+            session,
+            oldest: 0,
+            live_from: 0,
+            resume_from: None,
+        };
+        inner.opened(None, &opened(1));
+        for pos in 0..100 {
+            inner.on_item(StreamHead::at(pos), &[0; 8]);
+        }
+        assert!(inner.host_gap[0].is_some());
+        inner.disconnected(true);
+        let cursor = inner.cursor();
+        inner.opened(cursor, &opened(2));
+        inner.on_item(StreamHead::at(0), &[0; 8]);
+        let got = entries(&mut inner);
+        assert!(got[2].contains("at: 2, units: 98, cause: Host"), "{got:?}");
+        assert!(got[3].starts_with("Disconnected"), "{got:?}");
+        assert!(got[4].starts_with("Resumed"), "{got:?}");
+        assert_eq!(got.len(), 5, "{got:?}");
+        // the queue was still full: a new drop, in the new session's positions
+        let gap = inner.host_gap[0].unwrap();
+        assert_eq!((gap.at, gap.units), (0, 1));
+        assert_eq!(inner.lost_host, 99);
+    }
 }

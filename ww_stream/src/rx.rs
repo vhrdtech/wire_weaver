@@ -139,6 +139,17 @@ impl Seen {
             .any(|&(ra, rb)| ra <= a && b <= rb)
     }
 
+    /// Where the part of `a..b` the host has from `a` on ends (`a` when it doesn't have `a`), at most `b`.
+    ///
+    /// Ranges start where a live run started (at an event or at the units lost before one) and may end inside an
+    /// event (an explicit `ack` in the middle of it), so what the host has of an event is a prefix of it.
+    fn had_from(&self, a: u64, b: u64) -> u64 {
+        self.ranges[..self.len]
+            .iter()
+            .find(|&&(ra, rb)| ra <= a && a < rb)
+            .map_or(a, |&(_, rb)| rb.min(b))
+    }
+
     /// `gaps` without the parts the host already has.
     fn clip(&self, gaps: Gaps) -> Gaps {
         let mut out = Gaps::NONE;
@@ -176,11 +187,13 @@ impl Seen {
 /// What to do with an event, see [Receiver::on_item].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
-    /// Pass it on to user code, after reporting `gaps`. `backfill_done`: it completed the backfill run.
+    /// Pass it on to user code, after reporting `gaps`, without its first `skip` units: the host has them (a resend
+    /// or a resume from inside a multi-unit event). `backfill_done`: it completed the backfill run.
     Accept {
         run: Run,
         gaps: Gaps,
         backfill_done: bool,
+        skip: u64,
     },
     /// Received before: drop it.
     Duplicate,
@@ -474,7 +487,9 @@ impl Receiver {
             Run::Live => &mut self.live,
             Run::Backfill => &mut self.backfill.as_mut().expect("run_of").run,
         };
-        if head.pos < state.expect {
+        // the event holds `expect`: a resend or a resume from inside it, the units before `expect` were had
+        let overlap = head.pos < state.expect && state.expect < head.end();
+        if head.pos < state.expect && !overlap {
             if let Some((at, end)) = state.link_gap
                 && head.pos >= at
                 && head.pos < end
@@ -485,9 +500,11 @@ impl Receiver {
             self.stats.duplicates += 1;
             return Verdict::Duplicate;
         }
+        // where the new units start
+        let start = head.pos.max(state.expect);
         let prev_end = head.after_previous();
         let mut gaps = Gaps::NONE;
-        if prev_end > state.expect {
+        if !overlap && prev_end > state.expect {
             match delivery {
                 Delivery::Counted => {
                     gaps.push(Gap {
@@ -516,7 +533,7 @@ impl Receiver {
         gaps.push(Gap {
             run,
             at: lost_at,
-            units: head.pos - lost_at,
+            units: start - lost_at,
             cause: Cause::Device,
         });
         state.expect = head.end();
@@ -536,7 +553,14 @@ impl Receiver {
             b.complete = true;
             backfill_done = true;
         }
-        if self.seen.contains(head.pos, head.end()) {
+        let had = self.seen.had_from(start, head.end());
+        let all_had = if start < head.end() {
+            had >= head.end()
+        } else {
+            // an event without units: had when it sits in a range the host had
+            self.seen.contains(start, start)
+        };
+        if all_had {
             self.stats.duplicates += 1;
             // the reported gaps count as had too, so acknowledgements move over all of it
             for gap in gaps.iter() {
@@ -548,11 +572,12 @@ impl Receiver {
                 backfill_done,
             };
         }
-        self.stats.received += head.units;
+        self.stats.received += head.end() - had;
         Verdict::Accept {
             run,
             gaps,
             backfill_done,
+            skip: had - head.pos,
         }
     }
 
@@ -567,7 +592,9 @@ impl Receiver {
         }
     }
 
-    /// User code confirms every unit before `pos` (an event boundary), see [AckMode::Explicit].
+    /// User code confirms every unit before `pos`, see [AckMode::Explicit]. It may be inside an event (the items of
+    /// a batch saved one by one): a resume from there gets that event again, without the confirmed units
+    /// ([Verdict::Accept]'s `skip`).
     pub fn ack(&mut self, pos: u64) {
         self.advance_ack(pos.saturating_sub(1), pos);
     }
@@ -650,11 +677,17 @@ impl Receiver {
             return None;
         }
         let grant = UVlq32(self.window);
+        let backfill = self.backfill.as_ref().map(|b| b.run.acked);
+        let moved = (self.live.acked, backfill) != self.last_acked;
+        let resend_due = |r: &Resend| {
+            r.sent_ms
+                .is_none_or(|t| now_ms.saturating_sub(t) >= self.resend_timeout_ms)
+        };
+        // a ResendFrom acknowledges nothing (user code may not have confirmed what came before it): an Ack that
+        // moved goes first, so the device frees its store as soon as it may
+        let ack_first = moved && self.resend.iter().flatten().any(resend_due);
         for resend in self.resend.iter_mut().flatten() {
-            let due = resend
-                .sent_ms
-                .is_none_or(|t| now_ms.saturating_sub(t) >= self.resend_timeout_ms);
-            if due {
+            if !ack_first && resend_due(resend) {
                 resend.sent_ms = Some(now_ms);
                 self.stats.resend_requests += 1;
                 return Some(StreamSideband::ResendFrom {
@@ -663,8 +696,6 @@ impl Receiver {
                 });
             }
         }
-        let backfill = self.backfill.as_ref().map(|b| b.run.acked);
-        let moved = (self.live.acked, backfill) != self.last_acked;
         let interval = self
             .last_ack_ms
             .is_none_or(|t| now_ms.saturating_sub(t) >= self.ack_interval_ms);
@@ -675,7 +706,7 @@ impl Receiver {
             && self
                 .last_ack_ms
                 .is_some_and(|t| now_ms.saturating_sub(t) >= self.resend_timeout_ms);
-        if !(self.ack_due || (moved && interval) || stalled) {
+        if !(self.ack_due || (moved && interval) || stalled || ack_first) {
             return None;
         }
         self.ack_due = false;

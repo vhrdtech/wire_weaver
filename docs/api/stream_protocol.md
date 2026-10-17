@@ -81,7 +81,9 @@ All three carry the whole state, so losing one is harmless: the next one replace
 
 - **The device** keeps every event in its store until an `Ack` passes it, sends while the bytes in flight before the
   next event are below the grant (so a grant smaller than an item can't stall the stream), and goes back on
-  `ResendFrom` (go-back-N). With no host, nothing is acknowledged: the store fills, then data is dropped and counted.
+  `ResendFrom` (go-back-N). A `ResendFrom` acknowledges nothing (with `Explicit` the host may have received more
+  than its user code confirmed); the host sends an `Ack` right before it when its position moved. With no host,
+  nothing is acknowledged: the store fills, then data is dropped and counted.
 - **The host** accepts events of each run in order only, drops duplicates, asks for a resend once per gap, and
   acknowledges every half window or 100 ms. The window is what the host queues for the stream (4 MiB by default): a
   host that doesn't read stops granting, the device stops sending and keeps the data in its store, so the host's
@@ -89,6 +91,16 @@ All three carry the whole state, so losing one is harmless: the next one replace
 - **When data counts as received** (`AckMode`): by default when user code takes an event; with `Explicit`, only when
   user code confirms it, for example after writing it to disk.
 - Defaults: a resend is asked again after 500 ms, the device queries after 200 ms of silence, the first grant is 4 KiB.
+
+### Positions inside an event
+
+An event of several units (a block of samples, a batch) has positions inside it, and the host can stand at one of
+them: user code confirmed part of a batch (`ack(pos)` with `Explicit`, items saved one by one) and resumes from that
+cursor, or a `ResendFrom` comes from such a position. The device never splits an event: it sends the event that holds
+the position, whole and with its own `pos` (a store reads "the event that holds `pos`, or the first one after it").
+The host takes it without the units it has (`Verdict::Accept { skip }` of `ww_stream::rx::Receiver`): a typed
+`PositionedStream` gives it with `pos` and `units` of the new part, the value is the whole item. The same holds for
+ranges the host had before a resume (they may end inside an event). An event that is all had is a duplicate.
 
 On USB the link doesn't lose, so `ResendFrom` never happens and an `Ack` is a few bytes every half window: a reliable
 stream costs almost nothing more than a counted one there, and adds backfill and bounded host memory.

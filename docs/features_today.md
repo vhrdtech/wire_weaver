@@ -115,6 +115,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **Batched streams**: Fast samples collected on the device and sent many per event as a compressed `Series`; the device side is in, the `batched` attribute and the host side are next. <span class="ww-status">in progress</span>
 - **[Counted and reliable streams](api/stream_reliability.md)**: Exact counts of lost items; acknowledgements, resends and resume after a reconnect. <span class="ww-status">in progress</span>
 - **[Credit sinks](api/credit_sinks.md)**: Flow control for data sent to a device, so its buffer never overflows, and lossy links resume where they stopped.
+- **[Resend and resume inside a batch](api/stream_protocol.md#positions-inside-an-event)**: A resend or a resume from the middle of a multi-unit item gets only the units you don't have.
 - **[Credit sinks without a size limit](api/stream_protocol.md#positions-wrap-at-256-mib)**: Sessions of any length, positions at most 4 bytes on the wire.
 - **[Trait paths](api/addressing.md)**: Call a shared trait wherever it sits in a device's API. <span class="ww-status">in progress</span>
 

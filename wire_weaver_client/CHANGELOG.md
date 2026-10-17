@@ -11,6 +11,13 @@
 
 ### 🐛 Fixes
 
+- Positioned streams (API-47): an item the device sends again from inside it (a resend, or a resume from a cursor
+  confirmed in the middle of a multi-unit item) is no longer dropped as a duplicate or reported as lost:
+  `StreamEvent::Item` gives it with `pos` and `units` of the units new to the host, the value is the whole item.
+- Counted streams: units dropped because the host queue was full are reported when the stream is disconnected or
+  opened again, not left pending; after a device reboot (a new session, positions from 0) the next dropped item
+  made the host panic on an underflow (debug builds) or report a gap of about 2⁶⁴ units.
+
 - The compatibility check names an in-line type by its module path, as a skipped one is named: `units::Volt` on one
   side and the same marker left out on the other were reported as `ww_si::units::Volt vs ww_si::Volt` (API-46,
   STD-38).

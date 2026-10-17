@@ -617,10 +617,14 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
     /// What this stream could send now, for the [Scheduler](crate::sched::Scheduler).
     pub fn ready(&self) -> StreamReady {
         let credit = self.attached && self.credit_left();
-        let newest = self.store.state().newest;
+        let state = self.store.state();
+        // the newest event is at or after `next`, or holds it (a resend from inside it); not `state.next`, which
+        // goes past it when units were lost after it
+        let live_ready = state.newest.is_some_and(|n| n >= self.live.next)
+            || state.newest_end.is_some_and(|end| end > self.live.next);
         StreamReady {
             priority: self.priority,
-            live: credit && newest.is_some_and(|n| n >= self.live.next),
+            live: credit && live_ready,
             backfill: credit
                 // also when the store has nothing there: next_event finds out the backlog is gone
                 && self
@@ -655,6 +659,8 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                 b.tail_gone = true;
                 let acked = b.run.acked;
                 self.ack_backfill(acked);
+                // the run may have ended: the live run's acknowledgements free the store now
+                self.release_acked().await?;
             }
             return Ok(None);
         };
@@ -667,13 +673,16 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                     backfill.tail_gone = true;
                     let acked = backfill.run.acked;
                     self.ack_backfill(acked);
+                    self.release_acked().await?;
                     return Ok(None);
                 }
                 &mut backfill.run
             }
         };
         let mut head = event.head;
-        let skipped = head.pos - state.next;
+        // an event that holds `next` (a resend or a resume from inside it) goes whole with its own position, the
+        // host drops the units it has
+        let skipped = head.pos.saturating_sub(state.next);
         head.lost = (skipped > 0).then_some(skipped);
         let resend = head.end() <= state.high;
         state
@@ -749,28 +758,26 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                 self.last_query_ms = None;
                 self.counting.add(StreamCnt::ResendRequests, 1);
                 let from = from.0;
+                // not an acknowledgement: in AckMode::Explicit the host may have received more than its user code
+                // confirmed, what is before `from` stays in the store until an `Ack` frees it. Never back before
+                // what was acknowledged; when `from` is inside an event, next_event sends the event that holds it
                 match &mut self.backfill {
                     Some(b) if from < b.end => {
-                        if from < b.run.acked || from > b.run.next {
+                        if from < b.run.acked || from > b.run.high {
                             self.counting.add(StreamCnt::Overruns, 1);
                             self.query_now = true;
                             return Ok(());
                         }
-                        self.ack_backfill(from);
-                        if let Some(b) = &mut self.backfill {
-                            // the host acknowledged up to an event boundary: never back before it
-                            b.run.next = b.run.flight.rewind(from).max(b.run.acked);
-                            b.tail_gone = false;
-                        }
+                        b.run.next = b.run.flight.rewind(from).max(b.run.acked);
+                        b.tail_gone = false;
                     }
                     _ => {
-                        if from < self.live.acked || from > self.live.next {
+                        if from < self.live.acked || from > self.live.high {
                             // the host is out of step (the backfill run it asks for ended here): tell it
                             self.counting.add(StreamCnt::Overruns, 1);
                             self.query_now = true;
                             return Ok(());
                         }
-                        self.ack_live(from);
                         self.live.next = self.live.flight.rewind(from).max(self.live.acked);
                     }
                 }
@@ -778,6 +785,12 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
             }
             _ => return Ok(()),
         }
+        self.release_acked().await
+    }
+
+    /// Free the store up to what is acknowledged: the backfill run's position while there is one, else the live
+    /// run's.
+    async fn release_acked(&mut self) -> Result<(), S::Error> {
         let release = match &self.backfill {
             Some(b) => b.run.acked,
             None => self.live.acked,
@@ -790,8 +803,11 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
     }
 
     /// Returns false for an acknowledgement beyond what was sent (ignored, counted as an overrun).
+    ///
+    /// What was sent goes up to `high`: after a go-back (a late `ResendFrom` on a reordering link) `next` may be
+    /// below what the host has, sending goes on after what it acknowledges.
     fn ack_live(&mut self, have: u64) -> bool {
-        if have > self.live.next {
+        if have > self.live.high {
             self.counting.add(StreamCnt::Overruns, 1);
             return false;
         }
@@ -799,6 +815,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
             let bytes = self.live.flight.ack(have);
             self.counting.add(StreamCnt::Acked, bytes);
             self.live.acked = have;
+            self.live.next = self.live.next.max(have);
         }
         true
     }
@@ -807,7 +824,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
         let Some(b) = &mut self.backfill else {
             return;
         };
-        if have > b.run.next {
+        if have > b.run.high {
             self.counting.add(StreamCnt::Overruns, 1);
             return;
         }
@@ -815,6 +832,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
             let bytes = b.run.flight.ack(have);
             self.counting.add(StreamCnt::Acked, bytes);
             b.run.acked = have;
+            b.run.next = b.run.next.max(have);
         }
         if b.run.acked >= b.end {
             self.backfill = None;

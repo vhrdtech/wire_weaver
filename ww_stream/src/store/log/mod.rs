@@ -130,6 +130,8 @@ pub struct LogStore<M: LogMedium, const BUF: usize> {
     oldest: Option<u64>,
     /// Position of the newest event pushed (released or not)
     newest: Option<u64>,
+    /// Where it ends
+    newest_end: u64,
     next: u64,
     dropped_units: u64,
 
@@ -254,6 +256,7 @@ impl<M: LogMedium, const BUF: usize> LogStore<M, BUF> {
             low: 0,
             oldest: None,
             newest: None,
+            newest_end: 0,
             next: 0,
             dropped_units: 0,
             stage: [0xff; BUF],
@@ -357,12 +360,15 @@ impl<M: LogMedium, const BUF: usize> LogStore<M, BUF> {
         // the end of the log: the last whole record of the tail segment
         self.next = tail_header.first_pos;
         self.newest = tail_header.newest;
+        // the segment was opened right after its newest event
+        self.newest_end = tail_header.first_pos;
         let mut off = self.seg_hdr_len;
         loop {
             match self.record_at(self.tail_seq, off, true).await? {
                 Ok(rec) => {
                     self.next = rec.head.end();
                     self.newest = Some(rec.head.pos);
+                    self.newest_end = rec.head.end();
                     off += rec.len;
                 }
                 Err(torn) => {
@@ -512,8 +518,8 @@ impl<M: LogMedium, const BUF: usize> LogStore<M, BUF> {
         }))
     }
 
-    /// The first record from `off` in segment `seq` on (into later segments) with `pos >= from` and that ends after
-    /// `low`, or `None`.
+    /// The first record from `off` in segment `seq` on (into later segments) that holds `from` or starts at or
+    /// after it, and that ends after `low`, or `None`.
     async fn first_at_or_after(
         &mut self,
         mut seq: u64,
@@ -526,7 +532,8 @@ impl<M: LogMedium, const BUF: usize> LogStore<M, BUF> {
             }
             match self.record_at(seq, off, false).await? {
                 Ok(rec) => {
-                    if rec.head.pos >= from && rec.head.end() > self.low {
+                    let at_or_after = rec.head.pos >= from || rec.head.end() > from;
+                    if at_or_after && rec.head.end() > self.low {
                         return Ok(Some(rec));
                     }
                     off += rec.len;
@@ -732,6 +739,7 @@ impl<M: LogMedium, const BUF: usize> LogStore<M, BUF> {
         }
         self.newest = Some(head.pos);
         self.next = head.end();
+        self.newest_end = head.end();
         self.epoch_pending = false;
         Ok(())
     }
@@ -757,12 +765,13 @@ impl<M: LogMedium, const BUF: usize> StreamStore for LogStore<M, BUF> {
         pos: u64,
         buf: &'b mut [u8],
     ) -> Result<Option<StoredEvent<'b>>, Self::Error> {
-        if self.oldest.is_none() || self.newest.is_some_and(|n| n < pos) {
+        // nothing holds `pos` or comes after it
+        if self.oldest.is_none() || self.newest_end <= pos && self.newest.is_some_and(|n| n < pos) {
             return Ok(None);
         }
         let (seq, off) = match self.hint {
-            // every record before the hint is at or before its position
-            Some(h) if h.pos < pos && h.seq >= self.head_seq => (h.seq, h.off),
+            // the hint points right after a record that ends at or before `pos`, so do all before it
+            Some(h) if h.pos < pos && h.end <= pos && h.seq >= self.head_seq => (h.seq, h.off),
             _ => (self.locate(pos).await?, self.seg_hdr_len),
         };
         let (mut seq, mut off) = (seq, off);
@@ -848,6 +857,7 @@ impl<M: LogMedium, const BUF: usize> StreamStore for LogStore<M, BUF> {
             session: self.session,
             oldest: self.oldest,
             newest: self.oldest.and(self.newest),
+            newest_end: self.oldest.and(self.newest).map(|_| self.newest_end),
             next: self.next,
             used_bytes: (self.tail_seq - self.head_seq) * self.seg_size + open_part,
             capacity_bytes: self.segments * self.seg_size,
@@ -862,6 +872,7 @@ impl<M: LogMedium, const BUF: usize> StreamStore for LogStore<M, BUF> {
         self.low = 0;
         self.oldest = None;
         self.newest = None;
+        self.newest_end = 0;
         self.next = 0;
         self.dropped_units = 0;
         self.hint = None;

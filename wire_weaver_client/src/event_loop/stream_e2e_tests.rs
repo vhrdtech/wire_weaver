@@ -144,6 +144,8 @@ impl WireWeaverAsyncApiBackend for Dev {
 enum Produce {
     /// Items `from..to` into a stream
     Items { stream: u32, from: u32, to: u32 },
+    /// Units `from..to` into the reliable stream, `units` per item (a batch), each item holding its first unit
+    Batches { from: u32, to: u32, units: u32 },
 }
 
 fn stream_event(stream: u32, head: StreamHead, item: &[u8], buf: &mut [u8]) -> Vec<u8> {
@@ -212,7 +214,16 @@ async fn run_device(
                 }
             }
             Some(p) = produce.recv() => {
-                let Produce::Items { stream, from, to } = p;
+                let (stream, from, to) = match p {
+                    Produce::Items { stream, from, to } => (stream, from, to),
+                    Produce::Batches { from, to, units } => {
+                        for first in (from..to).step_by(units as usize) {
+                            let units = units.min(to - first);
+                            dev.reliable.push(&item(first), units as u64, None).await.unwrap();
+                        }
+                        continue;
+                    }
+                };
                 for i in from..to {
                     if stream == RELIABLE {
                         dev.reliable.push(&item(i), 1, None).await.unwrap();
@@ -626,6 +637,93 @@ async fn s6_resume_after_host_restart_from_saved_cursor() {
     }
     assert!(seen[..60].iter().all(|s| !s), "nothing before the cursor");
     assert_eq!(s.stats().received, 90);
+    conn.host_exits().await;
+}
+
+/// S6 with batches: the recorder saved part of a batch (the items of a batch one by one) and resumes from a cursor
+/// inside it; the batch comes again whole, the stream gives it with only the units after the cursor, and every unit
+/// after the cursor arrives once.
+#[tokio::test]
+async fn s6_resume_from_a_cursor_inside_a_batch() {
+    let (produce_tx, produce_rx) = mpsc::unbounded_channel();
+    let conn = connect_host(Dev::new(), produce_rx).await;
+    let mut s = conn
+        .cmd
+        .prepare_stream_open::<(), PositionedStream<TailBytesOwned>>(
+            path(RELIABLE),
+            Some(ww_self::Delivery::Reliable),
+            Ok(vec![]),
+        )
+        .ack_mode(AckMode::Explicit)
+        .call()
+        .await
+        .unwrap();
+    produce_tx
+        .send(Produce::Batches {
+            from: 0,
+            to: 100,
+            units: 10,
+        })
+        .unwrap();
+    for i in 0..10 {
+        let StreamEvent::Item { pos, units, .. } = next(&mut s).await else {
+            panic!("batch {i}")
+        };
+        assert_eq!((pos, units), (i * 10, 10));
+    }
+    // saved the first 35 units, crashed in the middle of the fourth batch
+    s.ack(35);
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    let cursor = s.cursor().unwrap();
+    assert_eq!(cursor.pos.0, 35);
+    drop(s);
+    let (dev, produce_rx) = conn.host_exits().await;
+
+    produce_tx
+        .send(Produce::Batches {
+            from: 100,
+            to: 150,
+            units: 10,
+        })
+        .unwrap();
+    let conn = connect_host(dev, produce_rx).await;
+    let mut s = conn
+        .cmd
+        .prepare_stream_resume::<TailBytesOwned>(
+            path(RELIABLE),
+            ww_self::Delivery::Reliable,
+            cursor,
+        )
+        .call()
+        .await
+        .unwrap();
+    assert!(matches!(next(&mut s).await, StreamEvent::Resumed { .. }));
+    let mut seen = [0u8; 150];
+    let mut backfill_done = false;
+    while seen[35..].contains(&0) || !backfill_done {
+        match next(&mut s).await {
+            StreamEvent::Item {
+                pos, units, value, ..
+            } => {
+                // the value is the whole batch's, `pos` and `units` the part new to the host
+                assert_eq!(index(&value) as u64, pos / 10 * 10);
+                if pos == 35 {
+                    assert_eq!(units, 5);
+                }
+                for u in pos..pos + units {
+                    seen[u as usize] += 1;
+                }
+            }
+            StreamEvent::BackfillDone => backfill_done = true,
+            ev => panic!("{ev:?}"),
+        }
+    }
+    assert!(
+        seen[..35].iter().all(|&n| n == 0),
+        "nothing before the cursor"
+    );
+    assert!(seen[35..].iter().all(|&n| n == 1), "{seen:?}");
+    assert_eq!(s.stats().received, 115);
     conn.host_exits().await;
 }
 

@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `rx::Verdict::Accept` has a new field `skip` (API-47): the units at the start of the event the host already has
+  (a resend or a resume from inside a multi-unit event); pass on only the units after them. Matches on it name the
+  field or use `..`.
+- `store::StreamStore::read(pos)` returns the event that holds `pos` (`head.pos <= pos < head.end()`), else the
+  first one after it (API-47); before, a position inside an event read the next one. `RamRing`,
+  `PersistentRamRing` and `LogStore` do so; a store of your own has to as well.
+- `store::StoreState` has a new field `newest_end`: where the newest kept event ends (`next` goes past it when units
+  were lost after it, or a recovery cut records off). Stores fill it in; code building a `StoreState` sets it.
+
+### 🐛 Fixes
+
+- Partial overlap of multi-unit events (API-47): a `ResendFrom` or a resume from a position inside an event sends
+  that event whole with its own position, without a `lost` (before, the units after the position in it were
+  reported lost, or `next_event` underflowed); `rx::Receiver` accepts an event that holds its position with `skip`
+  instead of dropping it as a duplicate, and an event partly inside a range the host had before a resume the same
+  way. `Receiver::ack` may take a position inside an event.
+- `tx::Reliable` no longer treats a `ResendFrom` as an acknowledgement: with `AckMode::Explicit` it freed store data
+  the host had received but not confirmed, and a crash in between lost it. `rx::Receiver::poll` sends an `Ack`
+  right before a `ResendFrom` when its position moved, so the store is freed as soon as before.
+- `tx::Reliable` takes an `Ack` or `ResendFrom` up to the highest position it sent, not only up to where it goes on
+  sending: a late `ResendFrom` (reordering link) moved that back below what the host had, and its next `Ack` was
+  ignored as an overrun; a backfill run whose rest the store had dropped never ended.
+- `tx::Reliable::ready` no longer reports the live run ready after it sent the newest event when the store's `next`
+  is past that event (after a power-cut recovery of `PersistentRamRing` cut records off): every poll read the store
+  for nothing until the next push. It looks at `StoreState::newest_end`.
+- `tx::Reliable::next_event` frees the store up to the live run's acknowledged position when the backfill run ends
+  there (the store dropped the rest of the backlog); before, that waited for another `Ack`.
+
 ### 🚀 Features
 
 - `batch` module (API-41), the device side of batched streams and observed properties, `no_std` and without an

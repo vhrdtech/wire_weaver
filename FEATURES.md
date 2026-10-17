@@ -412,6 +412,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `tests/generics` (property, method argument, inside `Timed`, a `PhantomData` marker, dynamic client),
   `wire_weaver_core` unit tests, `ww api tree` (`docs/types.md#type-aliases`). `use .. as ..` renames are followed
   (API-46).
+- ✅ **API-47 Resend and resume from inside a multi-unit event** · `v0.5` — an event of several units (a block, a
+  batch, API-41) may be asked for again from a position inside it: a `ResendFrom` there, or a resume from a cursor
+  user code confirmed in the middle of it (`AckMode::Explicit`). The device sends the event that holds the position
+  whole (`StreamStore::read` returns it for every store), the host's `Receiver` takes it with
+  `Verdict::Accept { skip }` (also for ranges it had before a resume), `PositionedStream` gives the new units. Fixed
+  with it: `ResendFrom` no longer counts as an acknowledgement on the device (the store kept less than an explicit
+  host had confirmed), acknowledgements and resends are valid up to the highest position sent (a late `ResendFrom`
+  on a reordering link stalled a backfill), the store is released when the backfill run ends in `next_event`. Tests
+  `ww_stream` `tests/sim.rs` (batches of 1..64 units, a resend from every position inside, a resume cursor inside a
+  batch, chaos with acks inside batches), `wire_weaver_client` `stream_e2e_tests`
+  (`docs/api/stream_protocol.md#positions-inside-an-event`).
 - ✅ **API-46 Codegen names types by their module path** · `v0.5` — each struct and enum records the path other crates
   name it by (`ItemStruct::path` / `ItemEnum::path` in `ww_self`, `None` at the crate root): the shortest one through
   `pub mod`s and `pub use` re-exports (by name, renamed, glob); a type re-exported under another name is named that

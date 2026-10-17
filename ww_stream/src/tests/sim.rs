@@ -95,15 +95,23 @@ fn host_takes(rx: &mut Receiver, got: &mut Got, msg: ToHost, ack_now: bool) {
                 run,
                 gaps,
                 backfill_done,
+                skip,
             } => {
                 got.gaps.extend(gaps.iter().copied());
                 got.backfill_done += backfill_done as usize;
                 // the item carries its own position: proves the right bytes came with the head
                 assert_eq!(u64::from_le_bytes(item[..8].try_into().unwrap()), head.pos);
+                assert!(skip < head.units.max(1), "{head:?} skip {skip}");
                 if ack_now {
                     rx.delivered(&head, item.len());
                 }
-                got.items.push((run, head, item));
+                // what user code gets: the units after `skip`
+                let taken = StreamHead {
+                    pos: head.pos + skip,
+                    units: head.units - skip,
+                    ..head
+                };
+                got.items.push((run, taken, item));
             }
             Verdict::Had {
                 gaps,
@@ -133,6 +141,12 @@ struct ReliableSim<const N: usize> {
     now: u64,
     /// (pos, end) of every event the producer stored
     made: Vec<(u64, u64)>,
+    /// Units per event, the least and the most
+    units: (u64, u64),
+    /// With [AckMode::Explicit]: after each step, confirm up to the end of the last item of each run
+    confirm: bool,
+    /// ... or up to a random unit inside it (a batch saved item by item)
+    ack_inside: bool,
 }
 
 impl<const N: usize> ReliableSim<N> {
@@ -146,12 +160,15 @@ impl<const N: usize> ReliableSim<N> {
             got: Got::default(),
             now: 0,
             made: Vec::new(),
+            units: (1, 4),
+            confirm: false,
+            ack_inside: false,
         }
     }
 
     fn produce(&mut self, events: usize) {
         for _ in 0..events {
-            let units = self.rng.range(1, 4);
+            let units = self.rng.range(self.units.0, self.units.1);
             let pos = self.dev.next_pos();
             let mut item = pos.to_le_bytes().to_vec();
             item.resize(self.rng.range(8, 24) as usize, 0xaa);
@@ -213,6 +230,9 @@ impl<const N: usize> ReliableSim<N> {
         for msg in self.down.take() {
             host_takes(&mut self.rx, &mut self.got, msg, true);
         }
+        if self.confirm {
+            self.confirm();
+        }
         while let Some(sb) = self.rx.poll(self.now) {
             self.up.send(&mut self.rng, sb);
         }
@@ -240,6 +260,21 @@ impl<const N: usize> ReliableSim<N> {
             self.dev.ready(),
             self.debug()
         );
+    }
+
+    /// Explicit acks: user code confirms what it saved, see `confirm`.
+    fn confirm(&mut self) {
+        for run in [Run::Live, Run::Backfill] {
+            let Some((_, h, _)) = self.got.items.iter().rev().find(|(r, ..)| *r == run) else {
+                continue;
+            };
+            let to = if self.ack_inside && h.units > 1 {
+                self.rng.range(h.pos + 1, h.end() - 1)
+            } else {
+                h.end()
+            };
+            self.rx.ack(to);
+        }
     }
 
     fn debug(&self) -> String {
@@ -515,9 +550,11 @@ fn reliable_store_full_drop_newest_counted_exactly() {
         sim.got.gaps
     );
     assert!(reported >= lost);
-    assert_eq!(reported, sim.dev.stats().lost_store_full);
+    // units lost after the last stored event are reported with the next one, if there is one
+    let trailing = sim.dev.next_pos() - sim.made.last().unwrap().1;
+    assert_eq!(reported + trailing, sim.dev.stats().lost_store_full);
     let received: u64 = sim.got.items.iter().map(|(_, h, _)| h.units).sum();
-    assert_eq!(received + reported, sim.dev.next_pos());
+    assert_eq!(received + reported + trailing, sim.dev.next_pos());
 }
 
 #[test]
@@ -768,6 +805,261 @@ fn reliable_chaos() {
         assert!(
             sim.dev.store().state().oldest.is_none(),
             "seed {seed}: all released"
+        );
+    }
+}
+
+/// Batches of 1..64 units over a lossy link: every unit arrives once, nothing is reported missing.
+#[test]
+fn reliable_batches_lossy_link() {
+    for seed in 0..40 {
+        let mut sim = ReliableSim::new(seed, RamRing::<16384>::new(), Faults::UDP, Faults::UDP);
+        sim.units = (1, 64);
+        sim.open(1);
+        for _ in 0..60 {
+            sim.produce(4);
+            sim.step();
+        }
+        sim.drain();
+        assert_complete(&sim.made, &sim.got);
+        assert!(sim.got.gaps.is_empty(), "seed {seed}: {:?}", sim.got.gaps);
+        assert_eq!(sim.rx.stats().received, sim.dev.next_pos(), "seed {seed}");
+    }
+}
+
+/// A `ResendFrom` from every position inside a batch: the device sends the whole batch again with its own position
+/// (no `lost`), the receiver takes it without the units before the position.
+#[test]
+fn reliable_resend_from_every_position_inside_a_batch() {
+    use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
+    for n in 1..=64u64 {
+        for k in 0..n {
+            let mut dev = Reliable::<RamRing<4096>, 8>::new(RamRing::new()).initial_grant(10_000);
+            block_on(dev.open(1)).unwrap();
+            for (units, fill) in [(3, 1u8), (n, 2), (2, 3)] {
+                block_on(dev.push(&[fill; 8], units, None)).unwrap();
+            }
+            let mut buf = [0u8; 16];
+            let mut sent = Vec::new();
+            while let Some(ev) = block_on(dev.next_event(Run::Live, &mut buf)).unwrap() {
+                sent.push(ev.head);
+            }
+            assert_eq!(sent.len(), 3);
+            // the host got the first event and the batch up to `from`, then lost the rest of it
+            let from = 3 + k;
+            let resend = StreamSideband::ResendFrom {
+                from: UVlq64(from),
+                grant: UVlq32(10_000),
+            };
+            block_on(dev.on_sideband(&resend, 0)).unwrap();
+            // not an acknowledgement: everything stays until an Ack passes it
+            assert_eq!(dev.store().state().oldest, Some(0), "n {n} k {k}");
+            let ev = block_on(dev.next_event(Run::Live, &mut buf))
+                .unwrap()
+                .unwrap();
+            assert_eq!(ev.head, sent[1], "n {n} k {k}");
+            assert_eq!(ev.item, [2; 8]);
+            let next = block_on(dev.next_event(Run::Live, &mut buf))
+                .unwrap()
+                .unwrap();
+            assert_eq!(next.head, sent[2], "n {n} k {k}");
+
+            // a receiver that has every unit before `from` (a resume from there)
+            let mut rx = Receiver::new(Delivery::Reliable);
+            let cursor = StreamCursor {
+                session: UVlq32(1),
+                pos: UVlq64(from),
+            };
+            let resumed = Opened {
+                session: 1,
+                oldest: 0,
+                live_from: from,
+                resume_from: None,
+            };
+            let (gaps, _) = rx.opened(Some(cursor), &resumed);
+            assert!(gaps.is_empty());
+            assert!(
+                matches!(
+                    rx.on_item(&sent[1]),
+                    Verdict::Accept { skip, gaps, .. } if skip == k && gaps.is_empty()
+                ),
+                "n {n} k {k}"
+            );
+            assert!(matches!(
+                rx.on_item(&sent[2]),
+                Verdict::Accept { skip: 0, gaps, .. } if gaps.is_empty()
+            ));
+            assert_eq!(rx.on_item(&sent[1]), Verdict::Duplicate);
+            assert_eq!(rx.stats().received, n - k + 2);
+            rx.delivered(&sent[2], 8);
+            assert_eq!(rx.cursor().unwrap().pos.0, 3 + n + 2);
+        }
+    }
+}
+
+/// A host that saved part of a batch crashes and resumes from a cursor inside it: from there on every unit
+/// arrives exactly once (`ResendFrom`s inside the batch too, on a lossy link), nothing is reported missing.
+fn resume_inside(n: u64, k: u64, after: usize, faults: Faults, seed: u64) {
+    use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
+    let mut sim = ReliableSim::new(seed, RamRing::<32768>::new(), faults, faults);
+    block_on(sim.dev.start_session(4)).unwrap();
+    for units in [3, n] {
+        let pos = sim.dev.next_pos();
+        let mut item = pos.to_le_bytes().to_vec();
+        item.resize(12, 0xbb);
+        block_on(sim.dev.push(&item, units, None)).unwrap();
+        sim.made.push((pos, pos + units));
+    }
+    sim.produce(after);
+    let from = 3 + k;
+    sim.rx = Receiver::new(Delivery::Reliable)
+        .window(1024)
+        .ack_mode(AckMode::Explicit);
+    sim.confirm = true;
+    sim.resume_from(StreamCursor {
+        session: UVlq32(4),
+        pos: UVlq64(from),
+    });
+    for _ in 0..5 {
+        sim.produce(1);
+        sim.step();
+    }
+    sim.drain();
+    let ctx = format!("n {n} k {k} after {after} seed {seed}");
+    assert!(sim.got.gaps.is_empty(), "{ctx}: {:?}", sim.got.gaps);
+    let mut got: Vec<(u64, u64)> = sim
+        .got
+        .items
+        .iter()
+        .map(|(_, h, _)| (h.pos, h.end()))
+        .collect();
+    got.sort();
+    let mut at = from;
+    for (a, b) in got {
+        assert_eq!(a, at, "{ctx}: hole or twice at {at}");
+        at = b;
+    }
+    assert_eq!(at, sim.dev.next_pos(), "{ctx}");
+    assert_eq!(sim.rx.stats().received, sim.dev.next_pos() - from, "{ctx}");
+}
+
+#[test]
+fn reliable_resume_cursor_inside_a_batch() {
+    for n in 1..=64 {
+        for k in 0..n {
+            // the batch is the newest event, or has events after it
+            resume_inside(n, k, 0, Faults::NONE, 0);
+            resume_inside(n, k, 3, Faults::NONE, 0);
+        }
+    }
+    let faults = Faults {
+        drop: 30,
+        dup: 10,
+        reorder: 20,
+    };
+    for seed in 0..300 {
+        let mut rng = Rng::new(seed);
+        let n = rng.range(2, 64);
+        let k = rng.range(1, n - 1);
+        resume_inside(n, k, rng.range(0, 6) as usize, faults, seed);
+    }
+}
+
+/// [reliable_chaos] with batches of 1..64 units and explicit acks inside them: resumes land inside batches, in the
+/// backfill and in ranges the host had before. Every unit is received (maybe twice, after a resume) or reported in
+/// exactly one gap, never neither; both only when the store dropped units the host received but hadn't confirmed
+/// (resumes go from the confirmed cursor).
+#[test]
+fn reliable_batches_chaos() {
+    let env = |name: &str, default: u64| {
+        std::env::var(name)
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(default)
+    };
+    let from = env("SIM_SEED_FROM", 0);
+    for seed in from..from + env("SIM_SEEDS", 60) {
+        let policy = if seed % 2 == 0 {
+            FullPolicy::DropNewest
+        } else {
+            FullPolicy::DropOldest
+        };
+        let mut sim = ReliableSim::new(
+            seed,
+            RamRing::<3000>::new().with_policy(policy),
+            Faults::UDP,
+            Faults::UDP,
+        );
+        sim.units = (1, 64);
+        sim.rx = Receiver::new(Delivery::Reliable)
+            .window(1024)
+            .ack_mode(AckMode::Explicit);
+        sim.confirm = true;
+        sim.ack_inside = true;
+        sim.open(1);
+        let mut connected = true;
+        for _ in 0..300 {
+            let events = sim.rng.range(0, 4) as usize;
+            sim.produce(events);
+            if sim.rng.chance(2) {
+                let units = sim.rng.range(1, 30);
+                sim.dev.lost(units);
+            }
+            if connected {
+                sim.step();
+                if sim.rng.chance(3) {
+                    sim.disconnect();
+                    connected = false;
+                }
+            } else if sim.rng.chance(10) {
+                sim.resume();
+                connected = true;
+            }
+        }
+        if !connected {
+            sim.resume();
+        }
+        sim.ack_inside = false;
+        sim.drain();
+
+        let end = sim.dev.next_pos() as usize;
+        let mut received = vec![0u32; end];
+        let mut reported = vec![0u32; end];
+        let mut store = vec![false; end];
+        for (_, h, _) in &sim.got.items {
+            for u in h.pos..h.end() {
+                received[u as usize] += 1;
+            }
+        }
+        for g in &sim.got.gaps {
+            for u in g.at..g.at + g.units {
+                reported[u as usize] += 1;
+                // the store's: dropped before a resume (Store), or while the run was sent (drop oldest, the sender
+                // reports what it skips as `lost`)
+                store[u as usize] = g.cause == Cause::Store
+                    || g.cause == Cause::Device && policy == FullPolicy::DropOldest;
+            }
+        }
+        // units lost after the last stored event are reported with the next one, if there is one
+        let last = sim.made.last().unwrap().1 as usize;
+        for u in 0..end {
+            let ok = match (received[u], reported[u]) {
+                (0, 1) => true,
+                (r, 0) => r > 0 || u >= last,
+                // received, not confirmed yet, and dropped by the store: lost from the confirmed cursor's view
+                (_, 1) => store[u],
+                _ => false,
+            };
+            assert!(
+                ok,
+                "seed {seed}: unit {u} received {} times, reported {} times",
+                received[u], reported[u]
+            );
+        }
+        assert!(
+            sim.dev.store().state().oldest.is_none(),
+            "seed {seed}: all released {}",
+            sim.debug()
         );
     }
 }

@@ -40,7 +40,8 @@ pub trait StreamStore {
     /// and stores nothing, the caller counts the units as lost.
     async fn push(&mut self, head: &StreamHead, item: &[u8]) -> Result<(), PushError<Self::Error>>;
 
-    /// Copy the event at `pos`, or the first one after it, into `buf`. `None` when there is none.
+    /// Copy the event that holds `pos` (`head.pos <= pos < head.end()`, a position inside a multi-unit event),
+    /// or else the first one after it, into `buf`. `None` when there is none.
     ///
     /// `buf` must hold the biggest item pushed, a smaller one is an error of the store.
     async fn read<'b>(
@@ -84,6 +85,9 @@ pub struct StoreState {
     pub oldest: Option<u64>,
     /// Position of the newest kept event, `None` when empty.
     pub newest: Option<u64>,
+    /// Position right after the newest kept event's units, `None` when empty. Below `next` when units were lost
+    /// after it, or records were cut by a recovery.
+    pub newest_end: Option<u64>,
     /// Position right after the newest event's units (0 in a new session): where the stream continues, unless units
     /// were lost after it. A persistent store gives the sender its position back after a reboot.
     pub next: u64,

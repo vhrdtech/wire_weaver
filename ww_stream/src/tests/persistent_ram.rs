@@ -216,6 +216,7 @@ fn records_written_over_are_cut() {
     let (state, events) = contents(&mut store);
     assert_eq!(events.len(), 2);
     assert_eq!((state.newest, state.next), (Some(2), 10), "positions go on");
+    assert_eq!(state.newest_end, Some(4));
     block_on(store.push(&head(10, 1), b"next")).unwrap();
     assert_eq!(store.state().newest, Some(10));
 }
@@ -373,4 +374,37 @@ fn reliable_continues_after_reset() {
             (50, Some(1))
         ]
     );
+}
+
+/// After a recovery cut records off, `next` is past the newest kept event: a live run that sent the newest event has
+/// nothing more to send, it isn't reported ready (it was, until the next push: a store read per poll for nothing).
+#[test]
+fn live_run_inside_newest_after_cut_is_not_ready() {
+    let mut area = Box::new(RamArea::<N>::new());
+    let mut store = PersistentRamRing::attach(&mut area);
+    block_on(store.reset(3)).unwrap();
+    for i in 0..5u64 {
+        block_on(store.push(&head(i * 2, 2), &[i as u8; 8])).unwrap();
+    }
+    let rec = PERSISTENT_RECORD_OVERHEAD + 3 + 8;
+    let mut area = reset_copy(&area);
+    let mut image = area.image().to_vec();
+    image[2 * crate::store::SLOT_LEN + 2 * rec + rec - 2] ^= 0x10;
+    area.load_image(&image);
+    let store = PersistentRamRing::attach(&mut area);
+    let mut dev = Reliable::<_, 8>::new(store);
+    dev.continue_stored_session();
+    let opened = block_on(dev.resume(StreamCursor {
+        session: UVlq32(3),
+        pos: UVlq64(1),
+    }))
+    .unwrap();
+    assert_eq!((opened.live_from, opened.resume_from), (2, Some(1)));
+    let mut buf = [0u8; 16];
+    let ev = block_on(dev.next_event(Run::Live, &mut buf))
+        .unwrap()
+        .unwrap();
+    assert_eq!((ev.head.pos, ev.head.units), (2, 2));
+    assert!(!dev.ready().live, "nothing left to send in the live run");
+    assert_eq!(block_on(dev.next_event(Run::Live, &mut buf)).unwrap(), None);
 }

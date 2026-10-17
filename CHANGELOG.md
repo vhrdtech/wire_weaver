@@ -148,6 +148,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Fixed
 
+- Reliable streams (API-47): a resend or a resume from inside a multi-unit event (a batch confirmed item by item)
+  gets that event again whole and the host keeps only the units it doesn't have; `ResendFrom` no longer frees store
+  data an explicit host hadn't confirmed; a late `ResendFrom` no longer stalls a backfill. **Breaking** for code
+  matching `ww_stream::rx::Verdict::Accept` (new `skip`) and for custom `StreamStore`s (`read` returns the event
+  that holds a position); see `ww_stream/CHANGELOG.md`.
 - ww_device: RTT devices panicked on their first request since TR-12 (an embassy-time `Timer` polled with a no-op
   waker); the async server now polls with the task's own waker (TR-13).
 - Observed properties short of budget (SRV-18) no longer send one value per update: a level holds until all its due

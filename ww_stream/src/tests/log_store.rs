@@ -103,7 +103,7 @@ where
     let mut out = Vec::new();
     let mut pos = from;
     while let Some(ev) = read(s, pos) {
-        pos = ev.head.pos + 1;
+        pos = ev.head.end().max(ev.head.pos + 1);
         out.push(ev);
     }
     out
@@ -142,11 +142,16 @@ where
     assert_eq!(st.next, evs[39].head.end());
     assert_eq!(read_all(&mut s, 0), evs);
 
-    // inside an event: the next one; random access after sequential reads
-    let mid = &evs[20];
-    assert_eq!(read(&mut s, mid.head.pos + 1), Some(evs[21].clone()));
+    // inside an event: the event that holds it; random access after sequential reads
+    let mid = &evs[21];
+    assert!(mid.head.units > 1);
+    assert_eq!(read(&mut s, mid.head.pos + 1), Some(mid.clone()));
     assert_eq!(read(&mut s, evs[3].head.pos), Some(evs[3].clone()));
+    assert_eq!(read(&mut s, evs[39].head.end() - 1), Some(evs[39].clone()));
     assert_eq!(read(&mut s, evs[39].head.end()), None);
+    // forward again from inside an event, after the hint moved past it
+    assert_eq!(read(&mut s, evs[22].head.pos), Some(evs[22].clone()));
+    assert_eq!(read(&mut s, evs[21].head.end() - 1), Some(evs[21].clone()));
 
     // release: events that end at or before the position go
     block_on(s.release(evs[10].head.end())).unwrap();

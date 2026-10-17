@@ -12,14 +12,9 @@ fail-fast = false
 filter = '(package(shrink_wrap_c) & binary(cross)) | (package(shrink_wrap) & (binary(latched_reads) | binary(sub_byte) | binary(ref_vec_skip))) | (package(ww_stream) & test(/power_cut_/)) | (package(ww_settings) & binary(power_cut))'
 slow-timeout = { period = "15s", terminate-after = 1 }
 
-# re-parses every saved API snapshot's crate (ww_global and all of ww_stdlib), about 2.5 s in debug, 12 s on a very loaded PC
+# re-parses every saved API snapshot's crate (ww_global and all of ww_stdlib), about 2.5 s in debug, 6 s at load 2 per core
 [[profile.default.overrides]]
 filter = 'package(wire_weaver_core) & test(snapshots_are_up_to_date)'
-slow-timeout = { period = "15s", terminate-after = 1 }
-
-# the other snapshot tests re-parse several snapshot crates, under 1 s in debug, more on a loaded PC
-[[profile.default.overrides]]
-filter = 'package(wire_weaver_core) & test(/^transform::snapshot::tests::/)'
 slow-timeout = { period = "15s", terminate-after = 1 }
 
 # the kitchen-sink round trip encodes and decodes every type of the series, 1.2 s alone: over 3 s on a loaded PC
@@ -32,9 +27,10 @@ slow-timeout = { period = "15s", terminate-after = 1 }
 filter = 'package(ww_self) & test(fuzz_series::tests::amplification_is_bounded)'
 slow-timeout = { period = "15s", terminate-after = 1 }
 
-# fuzz-like loops over thousands of generated inputs, each 1.2-2.5 s alone in debug: over 3 s on a loaded PC
+# fuzz-like loops over generated inputs, each a round trip and several dynamic decodes: 1.2-2.5 s alone in debug
+# (fuzz_series' 140 inputs and random_bytes_never_panic 0.5 s, 2.6-2.9 s with the PC at load 2 per core), over 3 s on a loaded PC
 [[profile.default.overrides]]
-filter = '(package(shrink_wrap) & test(series::type_tests::fuzz_like)) | (package(ww_self) & test(fuzz_bundle::tests::random_inputs))'
+filter = '(package(shrink_wrap) & (test(series::type_tests::fuzz_like) | test(series::type_tests::random_bytes_never_panic))) | (package(ww_self) & (test(fuzz_bundle::tests::random_inputs) | test(fuzz_series::tests::generated_items_and_random_bytes)))'
 slow-timeout = { period = "15s", terminate-after = 1 }
 
 # observe a simulated device for a fixed span of its own time: on a loaded PC the simulation falls behind real time,

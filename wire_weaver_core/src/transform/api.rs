@@ -112,6 +112,7 @@ pub(crate) fn convert_api_items(
                         access: PropertyAccess::Const,
                         write_err_ty: None,
                         errors: None,
+                        batch_item_ty: None,
                     },
                     multiplicity: Multiplicity::Flat,
                     since,
@@ -342,8 +343,8 @@ pub(crate) fn timed_instance(
     let ww_si_cx = current_crate
         .resolve_path(std::iter::once(&ww_si), scratch)
         .context(
-            "a batched timed stream needs ww_si as a dependency (Timed<T>'s wire form comes from there); \
-             depend on it, or use batched(untimed) if T already carries its own time",
+            "a batched timed stream or +batched property needs ww_si as a dependency (Timed<T>'s wire form \
+             comes from there); depend on it, or for a stream use batched(untimed) if T already carries its own time",
         )?;
     let timed = Ident::new("Timed", proc_macro2::Span::call_site());
     let type_idx = convert_named_def(&timed, &ww_si_cx, scratch)?;
@@ -381,6 +382,17 @@ fn convert_api_item_property(
         scratch,
     )
     .context(current_crate.err_context())?;
+    let batched = matches!(
+        args.access,
+        PropertyAccess::ReadOnly { batched: true, .. }
+            | PropertyAccess::ReadWrite { batched: true, .. }
+    );
+    // a `Batched::Series` slot of an observe update carries `Series<Timed<T>>` (API-39)
+    let batch_item_ty = if batched {
+        Some(timed_instance(&ty, current_crate, scratch)?)
+    } else {
+        None
+    };
 
     Ok(ApiItemOwned {
         id: UNib32(idx),
@@ -389,6 +401,7 @@ fn convert_api_item_property(
             access: args.access,
             write_err_ty,
             errors,
+            batch_item_ty,
         },
         multiplicity,
         since,
@@ -713,41 +726,60 @@ mod tests {
     /// and `ww_self::generics::prepare` instantiated it with this API's own item type.
     #[test]
     fn batched_timed_stream_wire_item_round_trips() {
+        wire_item_round_trips(
+            "streams_batched_api",
+            None,
+            "reliable",
+            "frames",
+            "Timed<Sample>",
+        );
+    }
+
+    /// The same for a `+batched` property (API-39): a `Batched::Series` slot carries `Series<Timed<T>>`.
+    #[test]
+    fn batched_property_wire_item_round_trips() {
+        wire_item_round_trips(
+            "observe_batched_api",
+            Some("ObserveBatched"),
+            "reading",
+            "mode",
+            "Timed<Reading>",
+        );
+    }
+
+    /// `timed` has a `Timed<T>` batch item that survives a device leaving `Timed` out, `plain` has none.
+    fn wire_item_round_trips(
+        api_crate: &str,
+        trait_name: Option<&str>,
+        timed: &str,
+        plain: &str,
+        instance_name: &str,
+    ) {
         use shrink_wrap::SerializeShrinkWrapOwned;
         use ww_self::{FieldsOwned, TypeLocationOwned};
 
-        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/streams_batched_api");
-        let full = crate::load(&crate_path, None, false).unwrap();
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../tests")
+            .join(api_crate);
+        let full = crate::load(&crate_path, trait_name.map(String::from), false).unwrap();
 
-        let batch_item_ty = |name: &str| match &full
-            .root
-            .items
-            .iter()
-            .find(|i| i.ident == name)
-            .unwrap_or_else(|| panic!("no item named {name}"))
-            .kind
-        {
-            ApiItemKindOwned::StreamFn { batch_item_ty, .. } => batch_item_ty.clone(),
-            other => panic!("'{name}' is not a stream function: {other:?}"),
-        };
+        // untimed stream or a property that isn't batched: no extra wire data
+        assert_eq!(batch_item_ty_of(&full, plain), None);
 
-        // untimed: Series<T> is already derivable from `ty`, no extra wire data
-        assert_eq!(batch_item_ty("frames"), None);
-
-        // timed: a Timed<Sample> instance, pointing at the Timed generic definition in ww_si
-        let ty = batch_item_ty("reliable").expect("a batch_item_ty");
+        // a Timed<T> instance, pointing at the Timed generic definition in ww_si
+        let ty = batch_item_ty_of(&full, timed).expect("a batch_item_ty");
         let TypeOwned::Instance { type_idx, args } = &ty else {
             panic!("expected an Instance, got {ty:?}");
         };
         assert_eq!(args.len(), 1);
         let TypeLocationOwned::InLine {
-            ty: TypeOwned::Struct(timed),
+            ty: TypeOwned::Struct(timed_def),
             crate_idx,
         } = &full.types[type_idx.0 as usize]
         else {
             panic!("expected Timed's generic definition in-line");
         };
-        assert_eq!(timed.ident, "Timed");
+        assert_eq!(timed_def.ident, "Timed");
         assert_eq!(full.ext_crates[crate_idx.0 as usize].crate_id, "ww_si");
 
         // sent by a device: Timed is known from ww_si's snapshot, left out and replaced by a signature
@@ -759,44 +791,43 @@ mod tests {
         );
         assert!(sent.to_ww_bytes_owned().unwrap().len() < full.to_ww_bytes_owned().unwrap().len());
 
-        // on the host: put back from the embedded snapshot and instantiate with this API's own Sample
+        // on the host: put back from the embedded snapshot and instantiate with this API's own item type
         let mut received = sent;
         let not_inlined = wire_weaver_snapshots::inline_skipped(&mut received);
         assert!(not_inlined.is_empty(), "{not_inlined:?}");
         ww_self::generics::prepare(&mut received).unwrap();
 
-        let ty = batch_item_ty_of(&received, "reliable");
+        let ty = batch_item_ty_of(&received, timed).expect("a batch_item_ty");
         let TypeOwned::OutOfLine { type_idx } = ty else {
             panic!("expected the instance resolved to a concrete definition, got {ty:?}");
         };
         let TypeLocationOwned::InLine {
-            ty: TypeOwned::Struct(timed),
+            ty: TypeOwned::Struct(timed_def),
             ..
         } = &received.types[type_idx.0 as usize]
         else {
-            panic!("expected a concrete Timed<Sample> definition");
+            panic!("expected a concrete {instance_name} definition");
         };
-        assert_eq!(timed.ident, "Timed<Sample>");
-        let FieldsOwned::Named(fields) = &timed.fields else {
+        assert_eq!(timed_def.ident, instance_name);
+        let FieldsOwned::Named(fields) = &timed_def.fields else {
             panic!("expected named fields")
         };
         let names: Vec<_> = fields.iter().map(|f| f.ident.as_deref()).collect();
         assert_eq!(names, [Some("t"), Some("value")]);
     }
 
-    fn batch_item_ty_of(bundle: &ww_self::ApiBundleOwned, name: &str) -> TypeOwned {
+    fn batch_item_ty_of(bundle: &ww_self::ApiBundleOwned, name: &str) -> Option<TypeOwned> {
         match &bundle
             .root
             .items
             .iter()
             .find(|i| i.ident == name)
-            .unwrap()
+            .unwrap_or_else(|| panic!("no item named {name}"))
             .kind
         {
-            ApiItemKindOwned::StreamFn { batch_item_ty, .. } => {
-                batch_item_ty.clone().expect("a batch_item_ty")
-            }
-            other => panic!("'{name}' is not a stream function: {other:?}"),
+            ApiItemKindOwned::StreamFn { batch_item_ty, .. }
+            | ApiItemKindOwned::Property { batch_item_ty, .. } => batch_item_ty.clone(),
+            other => panic!("'{name}' is neither a stream function nor a property: {other:?}"),
         }
     }
 

@@ -242,6 +242,11 @@ pub enum ApiItemKind<'i> {
         /// as for [Method](ApiItemKind::Method).
         #[default = None]
         errors: Option<RefVec<'i, ErrorVariant<'i>>>,
+        /// `+batched` properties only (API-39): the `Timed<T>` instance whose `Series` an observe update carries in
+        /// a `Batched::Series` slot, computed once when the model is built, as
+        /// [StreamFn::batch_item_ty](ApiItemKind::StreamFn). `None` for a property that isn't batched.
+        #[default = None]
+        batch_item_ty: Option<Type<'i>>,
     },
     Stream {
         ty: Type<'i>,

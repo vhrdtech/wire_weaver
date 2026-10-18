@@ -134,6 +134,7 @@ impl Gen<'_> {
                     access: PropertyAccess::Const,
                     write_err_ty: None,
                     errors: None,
+                    batch_item_ty: None,
                 },
                 multiplicity: Multiplicity::Flat,
                 since: None,

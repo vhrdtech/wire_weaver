@@ -157,8 +157,14 @@ impl<'a> Validator<'a> {
                     .chain(return_ty.as_ref())
                     .collect(),
                 ApiItemKindOwned::Property {
-                    ty, write_err_ty, ..
-                } => std::iter::once(ty).chain(write_err_ty.as_ref()).collect(),
+                    ty,
+                    write_err_ty,
+                    batch_item_ty,
+                    ..
+                } => std::iter::once(ty)
+                    .chain(write_err_ty.as_ref())
+                    .chain(batch_item_ty.as_ref())
+                    .collect(),
                 ApiItemKindOwned::Stream { ty, .. } | ApiItemKindOwned::FlowSink { ty, .. } => {
                     vec![ty]
                 }
@@ -891,8 +897,12 @@ impl Instantiator {
             {
                 self.ty(bundle, ty)?;
             }
-            // the wire item of a batched timed stream (API-41): not reachable from `ty` alone
+            // the wire item of a batched timed stream (API-41) or property (API-39): not reachable from `ty` alone
             if let ApiItemKindOwned::StreamFn {
+                batch_item_ty: Some(ty),
+                ..
+            }
+            | ApiItemKindOwned::Property {
                 batch_item_ty: Some(ty),
                 ..
             } = &mut item.kind
@@ -1330,6 +1340,7 @@ mod tests {
                         access: crate::PropertyAccess::Const,
                         write_err_ty: None,
                         errors: None,
+                        batch_item_ty: None,
                     },
                     multiplicity: crate::Multiplicity::Flat,
                     since: None,

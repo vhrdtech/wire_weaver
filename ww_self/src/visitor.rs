@@ -146,9 +146,17 @@ macro_rules! define_visitor {
                         v.visit_type(ty);
                     }
                 }
-                ApiItemKindOwned::Property { ty, write_err_ty, .. } => {
+                ApiItemKindOwned::Property {
+                    ty,
+                    write_err_ty,
+                    batch_item_ty,
+                    ..
+                } => {
                     v.visit_type(ty);
                     if let Some(ty) = write_err_ty {
+                        v.visit_type(ty);
+                    }
+                    if let Some(ty) = batch_item_ty {
                         v.visit_type(ty);
                     }
                 }

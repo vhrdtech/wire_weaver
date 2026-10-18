@@ -408,6 +408,7 @@ fn level_method(
             ty,
             write_err_ty,
             errors,
+            ..
         } => handle_property(
             api_bundle,
             api_level,

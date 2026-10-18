@@ -20,6 +20,8 @@
 
 - `property!(ro+observe+batched ..)` / `rw+observe+batched` (API-39): `+batched` after `+observe` (alone it is a
   parse error saying so) sets ww_self's `PropertyAccess::{ReadOnly, ReadWrite}::batched`, so API hashes change.
+  The model item of such a property carries `batch_item_ty`, its `Timed<T>` instance resolved from `ww_si` (a
+  `+batched` property needs `ww_si` as a dependency), for dynamic clients to decode `Batched::Series` slots.
 - Introspection data changes (API-46): each struct and enum carries its module path (ww_self `ItemStruct::path`),
   so API hashes change and devices and hosts are rebuilt together; snapshots (`ww api save`) take
   `#[derive_shrink_wrap]` types and unit marker structs (`pub struct Volt;`) from `pub mod`s too, and know each by

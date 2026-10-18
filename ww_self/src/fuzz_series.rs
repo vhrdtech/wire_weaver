@@ -412,6 +412,7 @@ fn property(id: u32, ident: &str, ty: TypeOwned) -> crate::ApiItemOwned {
             access: crate::PropertyAccess::Const,
             write_err_ty: None,
             errors: None,
+            batch_item_ty: None,
         },
         multiplicity: crate::Multiplicity::Flat,
         since: None,

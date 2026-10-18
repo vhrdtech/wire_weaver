@@ -18,6 +18,9 @@
   / `StreamFnRef::wire_item_ty()` (what one event actually carries). `Timed`'s own definition is a known type from
   the `ww_si` snapshot, so a device only adds one `Instance` reference per batched timed stream (a handful of
   bytes), not `Timed`'s fields.
+* `ApiItemKind::Property` gets `batch_item_ty: Option<Type>` (`#[default = None]`, API-39), the same for a
+  `+batched` property: the `Timed<T>` instance whose `Series` a `Batched::Series` observe slot carries. `None` for a
+  property that isn't batched. Struct literals of `ApiItemKindOwned::Property` need the new field.
 
 * `ItemStruct::instance_of` / `ItemEnum::instance_of` (`#[default = None]`, `InstanceOf { type_idx, args }`, CLT-31):
   the generic definition and arguments a concrete definition was made from, set by `generics::instantiate` (and

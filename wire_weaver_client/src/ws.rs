@@ -75,12 +75,22 @@ impl Transport for WsTransport {
     type Tx = WsTx;
     type Rx = WsRx;
 
-    async fn connect(&mut self, handle: DeviceHandle) -> Result<Opened<WsTx, WsRx>, String> {
+    async fn connect(
+        &mut self,
+        handle: DeviceHandle,
+        tap: ww_tap::RecorderLink,
+    ) -> Result<Opened<WsTx, WsRx>, String> {
         let url = handle
             .downcast::<String>()
             .map_err(|_| "expected WebSocket URL".to_string())?;
         let (ws, _response) = connect(&url).await.map_err(|e| format!("{url}: {e}"))?;
         let (tx, rx) = ws.split();
+        // one message per WebSocket message, no frames of its own
+        let mut tap = tap;
+        ww_tap::Tap::session(
+            &mut tap,
+            &crate::tap::host_session(ww_tap::Medium::WebSocket, ww_tap::Framer::None, 0, &url),
+        );
         Ok(Opened {
             tx: WsTx(tx),
             rx: WsRx {
@@ -200,8 +210,12 @@ mod tests {
 
         type Tx = WsTx;
         type Rx = WsRx;
-        async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<WsTx, WsRx>, String> {
-            WsTransport.connect(Box::new(self.0.clone())).await
+        async fn connect(
+            &mut self,
+            _: DeviceHandle,
+            tap: ww_tap::RecorderLink,
+        ) -> Result<Opened<WsTx, WsRx>, String> {
+            WsTransport.connect(Box::new(self.0.clone()), tap).await
         }
     }
 
@@ -273,7 +287,12 @@ mod tests {
             .local_addr()
             .unwrap();
         let mut transport = WsTransport;
-        let r = transport.connect(Box::new(format!("ws://{addr}/ww"))).await;
+        let r = transport
+            .connect(
+                Box::new(format!("ws://{addr}/ww")),
+                crate::tap::default_recorder().link(),
+            )
+            .await;
         let Err(e) = r else {
             panic!("connected to nothing")
         };

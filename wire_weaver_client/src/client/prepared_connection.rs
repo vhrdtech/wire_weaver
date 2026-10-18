@@ -273,6 +273,7 @@ async fn try_connect(
             client_version: config.client_version.clone(),
             max_seq: config.max_seq,
             link_setup_timeout_ms: config.link_setup_timeout_ms,
+            tap: config.tap.clone(),
             connected_tx: Some(connected_tx),
             failed_tx: None,
         })
@@ -295,6 +296,7 @@ fn try_connect_blocking(
             client_version: config.client_version.clone(),
             max_seq: config.max_seq,
             link_setup_timeout_ms: config.link_setup_timeout_ms,
+            tap: config.tap.clone(),
             connected_tx: Some(connected_tx),
             failed_tx: None,
         })

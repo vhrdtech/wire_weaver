@@ -11,6 +11,7 @@ use super::ww_nusb::{Sink, Source};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Transport};
+use ww_tap::{Dir, RecorderLink, Tap};
 
 type TxFramer = ww_framer::TxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
 type RxFramer = ww_framer::FramedRxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
@@ -26,6 +27,7 @@ struct NusbTransport;
 pub(crate) struct NusbTx {
     framer: TxFramer,
     sink: Sink,
+    tap: RecorderLink,
     /// Keeps the device open while endpoints are in use
     _device: nusb::Device,
 }
@@ -33,6 +35,7 @@ pub(crate) struct NusbTx {
 pub(crate) struct NusbRx {
     framer: RxFramer,
     source: Source,
+    tap: RecorderLink,
 }
 
 impl Transport for NusbTransport {
@@ -43,7 +46,11 @@ impl Transport for NusbTransport {
     type Tx = NusbTx;
     type Rx = NusbRx;
 
-    async fn connect(&mut self, handle: DeviceHandle) -> Result<Opened<NusbTx, NusbRx>, String> {
+    async fn connect(
+        &mut self,
+        handle: DeviceHandle,
+        tap: ww_tap::RecorderLink,
+    ) -> Result<Opened<NusbTx, NusbRx>, String> {
         let di = handle
             .downcast::<nusb::DeviceInfo>()
             .map_err(|_| "expected nusb::DeviceInfo handle".to_string())?;
@@ -54,16 +61,26 @@ impl Transport for NusbTransport {
             .map_err(|e| e.to_string())?;
         let source = Source::new(&dev.interface, dev.ep_in, dev.max_packet_size, is_bulk)
             .map_err(|e| e.to_string())?;
+        let mut tap = tap;
+        let peer = di.serial_number().unwrap_or_default();
+        tap.session(&crate::tap::host_session(
+            ww_tap::Medium::Usb,
+            crate::tap::FRAMED_CRC16,
+            dev.max_packet_size,
+            peer,
+        ));
         Ok(Opened {
             tx: NusbTx {
                 framer: TxFramer::new(dev.max_packet_size),
                 sink,
+                tap: tap.clone(),
                 _device: dev.device,
             },
             rx: NusbRx {
                 // must hold one maximum message plus one more packet, see FramedRx docs
                 framer: RxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + dev.max_packet_size),
                 source,
+                tap,
             },
         })
     }
@@ -77,6 +94,9 @@ impl NusbTx {
         }
         let frame = &self.framer.buf()[..len];
         trace!("tx frame: {len}: {frame:02x?}");
+        if self.tap.wants_frames() {
+            self.tap.frame(Dir::Tx, frame);
+        }
         self.sink
             .write_packet(frame)
             .await
@@ -128,9 +148,13 @@ impl MessageRx for NusbRx {
             }
             let mut stage_err = false;
             let framer = &mut self.framer;
+            let tap = &mut self.tap;
             self.source
                 .read_packet_with(|packet| {
                     trace!("rx frame: {}: {packet:02x?}", packet.len());
+                    if tap.wants_frames() {
+                        tap.frame(Dir::Rx, packet);
+                    }
                     stage_err = framer.stage(packet).is_err();
                 })
                 .await
@@ -236,7 +260,11 @@ mod tests {
 
         type Tx = MockTx;
         type Rx = MockRx;
-        async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<MockTx, MockRx>, String> {
+        async fn connect(
+            &mut self,
+            _: DeviceHandle,
+            _: ww_tap::RecorderLink,
+        ) -> Result<Opened<MockTx, MockRx>, String> {
             self.0.take().ok_or("already connected".into())
         }
     }
@@ -367,6 +395,7 @@ mod tests {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
                 link_setup_timeout_ms: None,
+                tap: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "test".into(),
                     VersionOwned::new(0, 1, 0),
@@ -419,6 +448,7 @@ mod tests {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
                 link_setup_timeout_ms: None,
+                tap: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "".into(),
                     VersionOwned::new(0, 0, 0),

@@ -10,7 +10,7 @@ use ww_link::{DisconnectReason, LinkSetup, Message};
 use ww_version::{FullVersionOwned, VersionOwned};
 
 use super::loopback::{LOOPBACK_HEADER_LEN, LoopbackTest, Status, TestOut};
-use super::{ToRx, ToTx, Tracers, is_due};
+use super::{ToRx, ToTx, is_due};
 use crate::DEFAULT_MAX_MESSAGE_SIZE;
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::{
@@ -18,7 +18,10 @@ use crate::event_loop::command::{
 };
 use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::event_loop::transport::LinkSetupPacing;
+use crate::tap::{LinkEvents, default_recorder, trace_events};
+use crate::tracing::TraceEvent;
 use crate::{Error, SeqTy};
+use ww_tap::{Layers, Recorder, RecorderLink};
 
 const PING_INTERVAL: Duration = Duration::from_millis(ww_link::PING_INTERVAL_MS);
 /// Largest seq number that is serialized into 1 byte.
@@ -40,7 +43,7 @@ pub(crate) enum TxInput {
 pub(crate) enum TxOutput {
     /// Open a transport to the device behind this handle (from [Command::Connect]),
     /// then feed [TxInput::TransportUp] or [TxInput::TransportError].
-    Connect(DeviceHandle),
+    Connect(DeviceHandle, RecorderLink),
     /// Link message to write into the framer. Frames that fill up along the way are sent right away,
     /// a partially filled one is kept until [TxOutput::Flush].
     Send {
@@ -87,7 +90,14 @@ pub(crate) struct TxCore {
     phase: Phase,
     output: VecDeque<TxOutput>,
     scratch: Vec<u8>,
-    tracers: Tracers,
+    /// Link events into the link's tap
+    events: LinkEvents,
+    /// Where the link is recorded, from [Command::Connect]
+    recorder: Option<Recorder>,
+    /// [Command::RegisterTracer] before the link exists, subscribed at connect
+    pending_tracers: Vec<tokio::sync::mpsc::UnboundedSender<TraceEvent>>,
+    /// The device's `DeviceInfo` bytes, for the session once the link is up
+    device_info: Vec<u8>,
 
     exited_tx: Option<tokio::sync::oneshot::Sender<EventLoopResidual>>,
     /// From a disconnect command, notified by the wrapper once the transport is closed, see [Self::take_disconnected_tx]
@@ -132,7 +142,10 @@ impl TxCore {
             phase: Phase::Idle,
             output: VecDeque::new(),
             scratch: vec![0u8; DEFAULT_MAX_MESSAGE_SIZE],
-            tracers: Tracers::default(),
+            events: LinkEvents::default(),
+            recorder: None,
+            pending_tracers: Vec::new(),
+            device_info: Vec::new(),
             exited_tx: None,
             disconnected_tx: None,
             client_version: None,
@@ -163,7 +176,7 @@ impl TxCore {
             }
             TxInput::TransportUp => self.on_transport_up(now),
             TxInput::TransportError(e) => {
-                self.tracers.error(&e);
+                self.events.error(&e);
                 Err(anyhow!(Error::Transport(e)))
             }
             TxInput::FromRx(msg) => self.on_from_rx(now, msg),
@@ -235,6 +248,7 @@ impl TxCore {
                 client_version,
                 max_seq,
                 link_setup_timeout_ms,
+                tap,
                 connected_tx,
                 failed_tx,
             } => {
@@ -259,17 +273,28 @@ impl TxCore {
                 }
                 self.client_version = Some(*client_version.clone());
                 self.phase = Phase::Connecting;
-                self.output.push_back(TxOutput::Connect(handle));
+                let recorder = tap.unwrap_or_else(|| default_recorder().clone());
+                let link = recorder.link();
+                for tx in self.pending_tracers.drain(..) {
+                    recorder.subscribe_fn(Layers::MESSAGES, trace_events(link.id(), tx));
+                }
+                self.recorder = Some(recorder);
+                self.events.set(link.clone());
+                self.output
+                    .push_back(TxOutput::Connect(handle, link.clone()));
                 // rx needs these to check DeviceInfo and to report the connection
                 self.output.push_back(TxOutput::ToRx(ToRx::TransportUp {
                     client_version,
                     connected_tx,
+                    link,
                 }));
             }
             Command::RegisterTracer { trace_event_tx } => {
-                self.tracers.register(trace_event_tx.clone());
-                self.output
-                    .push_back(TxOutput::ToRx(ToRx::RegisterTracer(trace_event_tx)));
+                match (&self.recorder, self.events.link()) {
+                    (Some(recorder), Some(link)) => recorder
+                        .subscribe_fn(Layers::MESSAGES, trace_events(link.id(), trace_event_tx)),
+                    _ => self.pending_tracers.push(trace_event_tx),
+                }
             }
             Command::DisconnectKeepStreams {
                 disconnected_tx,
@@ -278,7 +303,7 @@ impl TxCore {
                 info!("disconnecting on user request (but keeping streams ready for re-use)");
                 // before rx learns that the link is down
                 self.output.push_back(TxOutput::ToRx(ToRx::KeepStreams));
-                self.tracers.disconnected("client request", true);
+                self.events.disconnected("client request", true);
                 self.send_disconnect(now, reason);
                 self.disconnected_tx = disconnected_tx;
                 return Ok(Flow::Exit(
@@ -290,7 +315,7 @@ impl TxCore {
                 reason,
             } => {
                 info!("disconnecting and stopping event loop on user request");
-                self.tracers.disconnected("client request", false);
+                self.events.disconnected("client request", false);
                 self.send_disconnect(now, reason);
                 self.disconnected_tx = disconnected_tx;
                 return Ok(Flow::Exit(EventLoopExitReason::DisconnectCommand));
@@ -412,7 +437,6 @@ impl TxCore {
                 hook,
             }));
         }
-        self.tracers.request(&bytes);
         self.output.push_back(TxOutput::Send {
             kind: ww_link::Kind::Data0 as u8,
             message: bytes,
@@ -444,6 +468,9 @@ impl TxCore {
                     warn!("unexpected DeviceInfo in {:?}, ignoring", self.phase);
                     return Ok(Flow::Continue);
                 }
+                self.device_info =
+                    wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(&*info)
+                        .unwrap_or_default();
                 self.frame_accumulation_time =
                     Duration::from_micros(info.packet_accumulation_time_us as u64);
                 self.device_max_message_len = info.dev_max_message_len as usize;
@@ -467,7 +494,7 @@ impl TxCore {
                 info!("link setup complete");
                 self.phase = Phase::Up;
                 self.next_ping_at = Some(now + PING_INTERVAL);
-                self.tracers.connected();
+                self.events.link_ready(&self.device_info);
                 while let Some((bytes, done_tx, hook)) = self.held_until_up.pop_front() {
                     self.on_send_message(now, bytes, done_tx, hook);
                 }

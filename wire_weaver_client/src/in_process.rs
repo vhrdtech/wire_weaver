@@ -42,6 +42,7 @@ use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Selected, Transport};
+use ww_tap::Tap;
 
 type Message = (u8, Vec<u8>);
 
@@ -384,7 +385,11 @@ impl Transport for InProcessTransport {
     type Tx = HostTx;
     type Rx = HostRx;
 
-    async fn connect(&mut self, handle: DeviceHandle) -> Result<Opened<HostTx, HostRx>, String> {
+    async fn connect(
+        &mut self,
+        handle: DeviceHandle,
+        tap: ww_tap::RecorderLink,
+    ) -> Result<Opened<HostTx, HostRx>, String> {
         let path = handle
             .downcast::<String>()
             .map_err(|_| "expected in-process device path".to_string())?;
@@ -399,15 +404,29 @@ impl Transport for InProcessTransport {
         device
             .send(Connection { to_device, to_host })
             .map_err(|_| format!("in-process device '{path}' is gone"))?;
+        let mut tap = tap;
+        tap.session(&match usb_packet {
+            Some(p) => crate::tap::host_session(
+                ww_tap::Medium::InProcessUsb,
+                crate::tap::FRAMED_CRC16,
+                p,
+                &path,
+            ),
+            None => {
+                crate::tap::host_session(ww_tap::Medium::InProcess, ww_tap::Framer::None, 0, &path)
+            }
+        });
         Ok(Opened {
             tx: HostTx {
                 to_device: to_device_tx,
                 framer: usb_packet.map(UsbTxFramer::new),
+                tap: tap.clone(),
             },
             rx: HostRx {
                 from_device: to_host_rx,
                 message: None,
                 framer: usb_packet.map(|p| UsbRxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + p)),
+                tap,
             },
         })
     }
@@ -421,12 +440,25 @@ struct HostTx {
     to_device: mpsc::UnboundedSender<Message>,
     /// Some for a simulated USB device: messages are packed into packets
     framer: Option<UsbTxFramer>,
+    tap: ww_tap::RecorderLink,
 }
 
 fn send(to_device: &mpsc::UnboundedSender<Message>, message: Message) -> Result<(), String> {
     to_device
         .send(message)
         .map_err(|_| "in-process device is gone".to_string())
+}
+
+/// Send a simulated USB packet, recording it first.
+fn send_packet(
+    to_device: &mpsc::UnboundedSender<Message>,
+    tap: &mut ww_tap::RecorderLink,
+    packet: Vec<u8>,
+) -> Result<(), String> {
+    if tap.wants_frames() {
+        tap.frame(ww_tap::Dir::Tx, &packet);
+    }
+    send(to_device, (0, packet))
 }
 
 impl MessageTx for HostTx {
@@ -439,7 +471,7 @@ impl MessageTx for HostTx {
                 Ok(true) => return Ok(()),
                 // frame is full (or the message continues into the next one): send and retry
                 Ok(false) => match framer.flush_to_vec() {
-                    Some(packet) => send(&self.to_device, (0, packet))?,
+                    Some(packet) => send_packet(&self.to_device, &mut self.tap, packet)?,
                     None => return Err("framing error: cannot progress".into()),
                 },
                 Err(()) => {
@@ -454,7 +486,7 @@ impl MessageTx for HostTx {
 
     async fn flush(&mut self) -> Result<(), String> {
         if let Some(packet) = self.framer.as_mut().and_then(|f| f.flush_to_vec()) {
-            send(&self.to_device, (0, packet))?;
+            send_packet(&self.to_device, &mut self.tap, packet)?;
         }
         Ok(())
     }
@@ -466,6 +498,7 @@ struct HostRx {
     message: Option<Message>,
     /// Some for a simulated USB device: packets are reassembled into messages
     framer: Option<UsbRxFramer>,
+    tap: ww_tap::RecorderLink,
 }
 
 impl MessageRx for HostRx {
@@ -493,6 +526,9 @@ impl MessageRx for HostRx {
                 .recv()
                 .await
                 .ok_or_else(|| "in-process device is gone".to_string())?;
+            if self.tap.wants_frames() {
+                self.tap.frame(ww_tap::Dir::Rx, &packet);
+            }
             framer
                 .stage(&packet)
                 .map_err(|_| "out of staging area, this is a bug".to_string())?;
@@ -521,8 +557,14 @@ mod tests {
 
         type Tx = HostTx;
         type Rx = HostRx;
-        async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<HostTx, HostRx>, String> {
-            InProcessTransport.connect(Box::new(self.0.clone())).await
+        async fn connect(
+            &mut self,
+            _: DeviceHandle,
+            tap: ww_tap::RecorderLink,
+        ) -> Result<Opened<HostTx, HostRx>, String> {
+            InProcessTransport
+                .connect(Box::new(self.0.clone()), tap)
+                .await
         }
     }
 

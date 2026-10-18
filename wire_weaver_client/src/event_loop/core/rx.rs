@@ -14,11 +14,12 @@ use tracing::{debug, error, info, trace, warn};
 use ww_link::{DisconnectReason, Message};
 use ww_version::FullVersionOwned;
 
-use super::{ToRx, ToTx, Tracers, compact_to_full, is_due};
+use super::{ToRx, ToTx, compact_to_full, is_due};
 use crate::Error;
 use crate::device_info::{ConnectionInfo, DeviceApiInfo};
 use crate::event_loop::command::EventLoopExitReason;
 use crate::event_loop::rx_dispatcher::{DispatcherCommand, DispatcherMessage, RxDispatcher};
+use crate::tap::LinkEvents;
 
 const PEER_TIMEOUT: Duration = Duration::from_millis(ww_link::PEER_TIMEOUT_MS);
 /// How many messages that fail to decode (probably from an old session or a different link version)
@@ -58,7 +59,8 @@ pub(crate) struct RxCore {
     phase: Phase,
     dispatcher: RxDispatcher,
     output: VecDeque<RxOutput>,
-    tracers: Tracers,
+    /// Link events into the link's tap
+    events: LinkEvents,
 
     connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
     client_version: Option<FullVersionOwned>,
@@ -80,7 +82,7 @@ impl RxCore {
             phase: Phase::Idle,
             dispatcher: RxDispatcher::default(),
             output: VecDeque::new(),
-            tracers: Tracers::default(),
+            events: LinkEvents::default(),
             connected_tx: None,
             client_version: None,
             device_api_info: None,
@@ -96,7 +98,7 @@ impl RxCore {
                 message: payload,
             } => self.on_message(now, kind, payload),
             RxInput::TransportError(e) => {
-                self.tracers.error(&e);
+                self.events.error(&e);
                 Err(anyhow!(Error::Transport(e)))
             }
             RxInput::FromTx(msg) => {
@@ -171,7 +173,6 @@ impl RxCore {
                     },
                 );
             }
-            ToRx::RegisterTracer(tx) => self.tracers.register(tx),
             ToRx::ObserveRoute { hook } => self
                 .dispatcher
                 .handle_cmd(now, DispatcherCommand::ObserveRoute { hook }),
@@ -179,7 +180,9 @@ impl RxCore {
             ToRx::TransportUp {
                 client_version,
                 connected_tx,
+                link,
             } => {
+                self.events.set(link);
                 self.phase = Phase::LinkSetup;
                 self.client_version = Some(*client_version);
                 self.connected_tx = connected_tx;
@@ -228,7 +231,7 @@ impl RxCore {
                 Ok(None)
             }
             Err(e) => {
-                self.tracers.error(&format!("{e:?}"));
+                self.events.error(&format!("{e:?}"));
                 if self.malformed_messages_left > 0 {
                     warn!(
                         "malformed link message {e:?}, probably old message from previous session or link version mismatch?"
@@ -256,12 +259,11 @@ impl RxCore {
                     warn!("got empty event data, ignoring");
                     return Ok(None);
                 }
-                self.tracers.event(bytes);
                 self.dispatcher
                     .handle_msg(DispatcherMessage::MessageBytes(bytes));
             }
             Message::Disconnect(reason) => {
-                self.tracers
+                self.events
                     .disconnected(&format!("remote: {reason:?}"), false);
                 if self.phase != Phase::Up && reason != DisconnectReason::IncompatibleVersion {
                     warn!(

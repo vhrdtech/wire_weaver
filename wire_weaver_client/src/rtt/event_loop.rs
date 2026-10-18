@@ -62,11 +62,26 @@ impl Transport for RttTransport {
     type Rx = RttRx;
 
     /// Attaching is slow (RAM is scanned for the RTT control block) and blocking, so it happens on the IO thread.
-    async fn connect(&mut self, handle: DeviceHandle) -> Result<Opened<RttTx, RttRx>, String> {
+    async fn connect(
+        &mut self,
+        handle: DeviceHandle,
+        tap: ww_tap::RecorderLink,
+    ) -> Result<Opened<RttTx, RttRx>, String> {
         let handle = handle
             .downcast::<RttHandle>()
             .map_err(|_| "expected RttHandle".to_string())?;
-        stream::open(CONFIG, move || {
+        let mut tap = tap;
+        let peer = format!("{} via {}", handle.target, handle.probe.identifier);
+        ww_tap::Tap::session(
+            &mut tap,
+            &crate::tap::host_session(
+                ww_tap::Medium::Rtt,
+                crate::tap::STREAM_PLAIN,
+                crate::DEFAULT_MAX_MESSAGE_SIZE,
+                &peer,
+            ),
+        );
+        stream::open(CONFIG, tap, move || {
             ProbeRtt::attach(*handle).map_err(|e| format!("RTT: {e:#}"))
         })
         .await

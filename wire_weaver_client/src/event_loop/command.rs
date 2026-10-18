@@ -33,6 +33,8 @@ pub enum Command {
         /// How long link setup may take, [ClientConfig::link_setup_timeout](crate::ClientConfig::link_setup_timeout).
         /// None - transport's default. Milliseconds, to keep [Command] small.
         link_setup_timeout_ms: Option<std::num::NonZeroU32>,
+        /// Where the link is recorded, [ClientConfig::tap](crate::ClientConfig::tap); None - the default recorder.
+        tap: Option<ww_tap::Recorder>,
         /// Connection status sender.
         connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
         /// Before exiting, event loop will return it's command receiver through this channel.
@@ -154,7 +156,7 @@ pub enum EventLoopExitReason {
 }
 
 const _: () = {
-    assert!(size_of::<Command>() <= 64); // was 56
+    assert!(size_of::<Command>() <= 72); // was 56, then 64 until Connect took the tap
 };
 
 /// Tunables of [Command::LoopbackTest], [Default] has the values `ww usb-loopback` uses unless told otherwise.

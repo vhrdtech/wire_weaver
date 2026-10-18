@@ -15,6 +15,7 @@ use tracing::{debug, trace, warn};
 use ww_framer::traits::{Checksum, Head, Tail};
 
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened};
+use ww_tap::Tap;
 
 /// Byte stream medium, used from the IO thread only. Both calls must not wait for the other side.
 pub(crate) trait BlockingStreamIo {
@@ -53,6 +54,7 @@ pub(crate) type StreamOpened<H, C, T> = Opened<StreamTx<H, C, T>, StreamRx<H, C,
 /// Messages up to [DEFAULT_MAX_MESSAGE_SIZE](crate::DEFAULT_MAX_MESSAGE_SIZE) can be sent and received.
 pub(crate) async fn open<I, H, C, T>(
     config: StreamConfig,
+    tap: ww_tap::RecorderLink,
     open: impl FnOnce() -> Result<I, String> + Send + 'static,
 ) -> Result<StreamOpened<H, C, T>, String>
 where
@@ -106,6 +108,7 @@ where
             exited,
             error: error.clone(),
             name: config.name,
+            tap: tap.clone(),
         },
         rx: StreamRx {
             framer: ww_framer::FramedRxOwned::new(
@@ -116,6 +119,7 @@ where
             chunk_pos: 0,
             error,
             name: config.name,
+            tap,
         },
     })
 }
@@ -198,6 +202,7 @@ pub(crate) struct StreamTx<H, C, T> {
     exited: watch::Receiver<bool>,
     error: Arc<OnceLock<String>>,
     name: &'static str,
+    tap: ww_tap::RecorderLink,
 }
 
 impl<H: Head<UserKind = u8>, C: Checksum, T: Tail> StreamTx<H, C, T> {
@@ -205,6 +210,9 @@ impl<H: Head<UserKind = u8>, C: Checksum, T: Tail> StreamTx<H, C, T> {
         let Some(chunk) = self.framer.flush_to_vec() else {
             return Ok(false);
         };
+        if self.tap.wants_frames() {
+            self.tap.frame(ww_tap::Dir::Tx, &chunk);
+        }
         let to_io = self.to_io.as_ref().ok_or("closed")?;
         to_io
             .send(chunk)
@@ -277,6 +285,7 @@ pub(crate) struct StreamRx<H: Head, C, T> {
     chunk_pos: usize,
     error: Arc<OnceLock<String>>,
     name: &'static str,
+    tap: ww_tap::RecorderLink,
 }
 
 impl<H, C, T> MessageRx for StreamRx<H, C, T>
@@ -301,6 +310,10 @@ where
                     .await
                     .ok_or_else(|| exit_error(&self.error, self.name))??;
                 self.chunk_pos = 0;
+                // a stream's frames are the chunks read, cut anywhere
+                if self.tap.wants_frames() {
+                    self.tap.frame(ww_tap::Dir::Rx, &self.chunk);
+                }
             }
             if self.framer.free() == 0 {
                 // only possible if the device sent a message larger than advertised

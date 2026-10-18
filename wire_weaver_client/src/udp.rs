@@ -19,6 +19,7 @@ use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Selected, Transport};
+use ww_tap::Tap;
 
 type TxFramer = ww_framer::TxOwned<ww_link::UdpHead, ww_link::UdpChecksum, ww_link::UdpTail>;
 type RxFramer = ww_framer::FramedRxOwned<ww_link::UdpHead, ww_link::UdpChecksum, ww_link::UdpTail>;
@@ -73,22 +74,35 @@ impl Transport for UdpTransport {
     type Tx = UdpTx;
     type Rx = UdpRx;
 
-    async fn connect(&mut self, handle: DeviceHandle) -> Result<Opened<UdpTx, UdpRx>, String> {
+    async fn connect(
+        &mut self,
+        handle: DeviceHandle,
+        tap: ww_tap::RecorderLink,
+    ) -> Result<Opened<UdpTx, UdpRx>, String> {
         let addr = handle
             .downcast::<String>()
             .map_err(|_| "expected UDP address".to_string())?;
         let socket = connect(&addr).await.map_err(|e| format!("{addr}: {e}"))?;
         let socket = std::sync::Arc::new(socket);
+        let mut tap = tap;
+        tap.session(&crate::tap::host_session(
+            ww_tap::Medium::Udp,
+            crate::tap::FRAMED_CRC16,
+            ww_link::UDP_MAX_DATAGRAM_LEN,
+            &addr,
+        ));
         Ok(Opened {
             tx: UdpTx {
                 framer: TxFramer::new(ww_link::UDP_MAX_DATAGRAM_LEN),
                 socket: socket.clone(),
+                tap: tap.clone(),
             },
             rx: UdpRx {
                 // must hold one maximum message plus one more frame, see FramedRx docs
                 framer: RxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + MAX_RX_DATAGRAM_LEN),
                 datagram: vec![0; MAX_RX_DATAGRAM_LEN],
                 socket,
+                tap,
             },
         })
     }
@@ -114,6 +128,7 @@ async fn connect(addr: &str) -> std::io::Result<UdpSocket> {
 struct UdpTx {
     framer: TxFramer,
     socket: std::sync::Arc<UdpSocket>,
+    tap: ww_tap::RecorderLink,
 }
 
 impl UdpTx {
@@ -124,6 +139,9 @@ impl UdpTx {
         }
         let frame = &self.framer.buf()[..len];
         trace!("tx datagram: {len}: {frame:02x?}");
+        if self.tap.wants_frames() {
+            self.tap.frame(ww_tap::Dir::Tx, frame);
+        }
         self.socket.send(frame).await.map_err(describe_io_error)?;
         Ok(true)
     }
@@ -160,6 +178,7 @@ struct UdpRx {
     /// Receive buffer, a datagram is staged into the framer right away
     datagram: Vec<u8>,
     socket: std::sync::Arc<UdpSocket>,
+    tap: ww_tap::RecorderLink,
 }
 
 impl MessageRx for UdpRx {
@@ -180,6 +199,9 @@ impl MessageRx for UdpRx {
                 .map_err(describe_io_error)?;
             let datagram = &self.datagram[..len];
             trace!("rx datagram: {len}: {datagram:02x?}");
+            if self.tap.wants_frames() {
+                self.tap.frame(ww_tap::Dir::Rx, datagram);
+            }
             if self.framer.stage(datagram).is_err() {
                 return Err("out of staging area, this is a bug".into());
             }
@@ -216,8 +238,12 @@ mod tests {
 
         type Tx = UdpTx;
         type Rx = UdpRx;
-        async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<UdpTx, UdpRx>, String> {
-            UdpTransport.connect(Box::new(self.0.clone())).await
+        async fn connect(
+            &mut self,
+            _: DeviceHandle,
+            tap: ww_tap::RecorderLink,
+        ) -> Result<Opened<UdpTx, UdpRx>, String> {
+            UdpTransport.connect(Box::new(self.0.clone()), tap).await
         }
     }
 
@@ -366,7 +392,10 @@ mod tests {
     #[tokio::test]
     async fn unresolvable_name_fails_connect() {
         let r = UdpTransport
-            .connect(Box::new("no-such-host.invalid:9000".to_string()))
+            .connect(
+                Box::new("no-such-host.invalid:9000".to_string()),
+                crate::tap::default_recorder().link(),
+            )
             .await;
         let Err(e) = r else {
             panic!("resolved an invalid name")

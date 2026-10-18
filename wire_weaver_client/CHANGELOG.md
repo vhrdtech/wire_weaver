@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `Command::Connect` has a `tap: Option<ww_tap::Recorder>` field (None: the default recorder); code building it by hand adds `tap: None`. `TraceEvent` / `Command::RegisterTracer` work as before, now an adapter over the tap's message and link event records, so events arrive batched (at most the recorder's flush time, 10 ms, later).
 * The compatibility check no longer knows `Delta` / `DeltaOfDelta` / `XorFloat` (removed from ww_self); a
   `Series<T>`'s codecs are picked per column when writing and are not part of its type, only `T` is compared.
 - One rule for every device time the client gives out (P2401#17oct-2214b): `StreamEvent::Item::t` of every
@@ -17,6 +18,7 @@
 
 ### 🚀 Features
 
+- Link tap on the host (TR-14): every client event loop records its link into a `ww_tap::Recorder`, the process-wide `tap::default_recorder()` unless `ClientConfig::tap(recorder)` names one. Transports give the `Session` (medium, framer, frame size, peer) and their frames (USB packets, UDP datagrams, RTT chunks, simulated USB packets), the event loop the messages both ways and the link events (`Connected`, `LinkReady` with the device's `DeviceInfo`, `Disconnected`, `Error`); nothing is copied while nobody subscribes. `wire_weaver_client::tap` re-exports what a consumer needs, `ww_tap` and `ww_logbook` are re-exported.
 - Batched observe in the typed client (API-39): `observe_<name>(mode)` of a `+observe+batched` property gives one
   `Observed` per sample, each with its own device time (unwrapped by the level's device time, the same for every
   observer), whether the device sends one value or a batch; `Commander::prepare_observe_samples`,

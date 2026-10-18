@@ -67,9 +67,14 @@ pub(crate) trait Transport {
     fn link_setup_timeout(&self) -> Duration;
     /// Must return only once the medium is usable: link setup starts right after, and requests sent before
     /// the medium is up pile up and are all answered later (e.g., while attaching to a debug probe).
+    ///
+    /// `tap` records the link (TR-14): a transport gives it the [Session](ww_tap::Session) once it knows the medium
+    /// and, if it has frames, every frame both ways ([Tap::frame](ww_tap::Tap::frame), when
+    /// [wanted](ww_tap::Tap::wants_frames)); messages and link events are recorded by the event loop.
     fn connect(
         &mut self,
         handle: DeviceHandle,
+        tap: ww_tap::RecorderLink,
     ) -> impl Future<Output = Result<Opened<Self::Tx, Self::Rx>, String>> + Send;
 }
 

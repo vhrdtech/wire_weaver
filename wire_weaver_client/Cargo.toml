@@ -47,11 +47,13 @@ ww_client_server = { workspace = true, features = ["std"] }
 ww_device = { workspace = true, optional = true }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_link = { workspace = true, features = ["std"] }
+ww_logbook = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_picoboot.workspace = true
 ww_self = { workspace = true, features = ["expr", "serde", "std"] }
 ww_si = { workspace = true, features = ["std"] }
 ww_stream = { workspace = true, features = ["std"] }
+ww_tap = { workspace = true, features = ["std"] }
 ww_version = { workspace = true, features = ["std"] }
 
 [dev-dependencies]

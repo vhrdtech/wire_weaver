@@ -42,8 +42,8 @@ use crate::event_loop::command::EventLoopExitReason;
 use crate::event_loop::command::StreamOpenHook;
 use crate::event_loop::rx_dispatcher::{ResponseSender, StreamUpdateSender};
 use crate::event_loop::transport::{MessageRx, MessageTx, Transport};
-use crate::tracing::TraceEvent;
 use ww_client_server::PathKindOwned;
+use ww_tap::{Dir, RecorderLink, Tap};
 
 pub(crate) use rx::{RxCore, RxInput, RxOutput};
 pub(crate) use tx::{TxCore, TxInput, TxOutput};
@@ -87,7 +87,6 @@ pub(crate) enum ToRx {
         stream_event_tx: StreamUpdateSender,
         registered_tx: oneshot::Sender<()>,
     },
-    RegisterTracer(mpsc::UnboundedSender<TraceEvent>),
     /// Route a trait level's `PropertyUpdate` events to its observers
     ObserveRoute {
         hook: Box<crate::client::observe::ObserveRouteHook>,
@@ -97,6 +96,8 @@ pub(crate) enum ToRx {
         /// Used for the compatibility check against DeviceInfo, empty crate_id = skip
         client_version: Box<ww_version::FullVersionOwned>,
         connected_tx: Option<oneshot::Sender<crate::device_info::ConnectionInfo>>,
+        /// The link's tap, for rx's link events
+        link: ww_tap::RecorderLink,
     },
     /// Tx exits on [Command::DisconnectKeepStreams]: counted and reliable streams stay open for a resume on the next
     /// connection ([crate::Commander::resume_streams]).
@@ -118,49 +119,6 @@ fn compact_to_full(v: &ww_version::CompactVersion) -> ww_version::FullVersionOwn
     )
 }
 
-/// Fan-out to registered tracers, dropping the ones whose receiver is gone.
-#[derive(Default)]
-pub(crate) struct Tracers(Vec<mpsc::UnboundedSender<TraceEvent>>);
-
-impl Tracers {
-    pub fn register(&mut self, tx: mpsc::UnboundedSender<TraceEvent>) {
-        self.0.push(tx);
-    }
-
-    fn emit(&mut self, event: impl Fn() -> TraceEvent) {
-        self.0.retain(|tx| tx.send(event()).is_ok());
-    }
-
-    pub fn connected(&mut self) {
-        self.emit(|| TraceEvent::Connected {});
-    }
-
-    pub fn request(&mut self, bytes: &[u8]) {
-        self.emit(|| TraceEvent::Request {
-            bytes: bytes.to_vec(),
-        });
-    }
-
-    pub fn event(&mut self, bytes: &[u8]) {
-        self.emit(|| TraceEvent::Event {
-            bytes: bytes.to_vec(),
-        });
-    }
-
-    pub fn disconnected(&mut self, reason: &str, keep_streams: bool) {
-        self.emit(|| TraceEvent::Disconnected {
-            reason: reason.to_string(),
-            keep_streams,
-        });
-    }
-
-    pub fn error(&mut self, reason: &str) {
-        self.emit(|| TraceEvent::Error {
-            reason: reason.to_string(),
-        });
-    }
-}
-
 /// Current time on tokio's clock, which is the wall clock unless a test paused it (`start_paused`): the cores and
 /// the timers they ask for then run on virtual time together.
 pub(crate) fn now() -> Instant {
@@ -171,7 +129,7 @@ pub(crate) async fn worker<T: Transport + 'static>(cmd_rx: mpsc::Receiver<Comman
     let (to_rx_tx, to_rx_rx) = mpsc::unbounded_channel::<ToRx>();
     let (to_tx_tx, to_tx_rx) = mpsc::unbounded_channel::<ToTx>();
     // rx endpoint is opened by the tx task (it handles Connect) and handed over
-    let (msg_rx_tx, msg_rx_rx) = oneshot::channel::<T::Rx>();
+    let (msg_rx_tx, msg_rx_rx) = oneshot::channel::<(T::Rx, RecorderLink)>();
 
     let rx_task = tokio::spawn(rx_task::<T>(msg_rx_rx, to_rx_rx, to_tx_tx));
     let (tx_core_result, cmd_rx) = tx_task(cmd_rx, connector, to_tx_rx, to_rx_tx, msg_rx_tx).await;
@@ -200,7 +158,7 @@ async fn tx_task<T: Transport>(
     mut connector: T,
     mut from_rx: mpsc::UnboundedReceiver<ToTx>,
     to_rx: mpsc::UnboundedSender<ToRx>,
-    msg_rx_tx: oneshot::Sender<T::Rx>,
+    msg_rx_tx: oneshot::Sender<(T::Rx, RecorderLink)>,
 ) -> (
     (TxCore, anyhow::Result<EventLoopExitReason>),
     mpsc::Receiver<Command>,
@@ -208,13 +166,15 @@ async fn tx_task<T: Transport>(
     let mut core = TxCore::new(connector.link_setup_timeout());
     let mut msg_tx: Option<T::Tx> = None;
     let mut msg_rx_tx = Some(msg_rx_tx);
+    // records the messages this task sends
+    let mut tap: Option<RecorderLink> = None;
 
     let result = loop {
         // Drain outputs first, do not feed new inputs until done.
         let mut exit = None;
         while let Some(output) = core.poll_output() {
             match output {
-                TxOutput::Connect(handle) => {
+                TxOutput::Connect(handle, link) => {
                     let Some(msg_rx_tx) = msg_rx_tx.take() else {
                         // proper way to re-connect to the same device, or another one, is to tear down this event loop
                         // then take the residual and start a new one, sending a connect command there
@@ -222,10 +182,13 @@ async fn tx_task<T: Transport>(
                         warn!("ignoring connect command, while already connected, this is a bug");
                         continue;
                     };
-                    match connector.connect(handle).await {
+                    match connector.connect(handle, link.clone()).await {
                         Ok(o) => {
                             msg_tx = Some(o.tx);
-                            if let Err(rx) = msg_rx_tx.send(o.rx) {
+                            let mut l = link.clone();
+                            l.link_event(&ww_tap::LinkEvent::Connected);
+                            tap = Some(link.clone());
+                            if let Err((rx, _)) = msg_rx_tx.send((o.rx, link)) {
                                 rx.close().await;
                                 core.handle(
                                     now(),
@@ -244,6 +207,9 @@ async fn tx_task<T: Transport>(
                         continue;
                     };
                     trace!("tx msg kind={kind} len={}: {message:02x?}", message.len());
+                    if tap.wants_messages() {
+                        tap.message(Dir::Tx, kind, &message);
+                    }
                     if let Err(e) = msg_tx.write_message(kind, &message).await {
                         // Core is responsible for not sending oversized messages, so this is a bug or a
                         // wrong frame size, not something the device did
@@ -313,13 +279,15 @@ async fn tx_task<T: Transport>(
 }
 
 async fn rx_task<T: Transport>(
-    msg_rx_rx: oneshot::Receiver<T::Rx>,
+    msg_rx_rx: oneshot::Receiver<(T::Rx, RecorderLink)>,
     mut from_tx: mpsc::UnboundedReceiver<ToRx>,
     to_tx: mpsc::UnboundedSender<ToTx>,
 ) -> RxCore {
     let mut core = RxCore::new();
     let mut msg_rx_rx = Some(msg_rx_rx);
     let mut msg_rx: Option<T::Rx> = None;
+    // records the messages this task receives
+    let mut tap: Option<RecorderLink> = None;
 
     loop {
         // Everything tx told us goes in first, see RxCore docs on ordering
@@ -360,7 +328,10 @@ async fn rx_task<T: Transport>(
                 r = rx_rx => {
                     msg_rx_rx = None;
                     match r {
-                        Ok(r) => msg_rx = Some(r),
+                        Ok((r, link)) => {
+                            msg_rx = Some(r);
+                            tap = Some(link);
+                        }
                         // tx task is gone, e.g., the transport failed to open: whatever it said before
                         // (Stop with the error, to answer connected_tx) is still queued, handle it first
                         Err(_) => continue,
@@ -384,6 +355,9 @@ async fn rx_task<T: Transport>(
                 match r {
                     Ok((kind, message)) => {
                         trace!("rx msg kind={kind} len={}: {message:02x?}", message.len());
+                        if tap.wants_messages() {
+                            tap.message(Dir::Rx, kind, message);
+                        }
                         // Expect for this answer may have arrived while we were reading
                         while let Ok(msg) = from_tx.try_recv() {
                             core.handle(now, RxInput::FromTx(msg));
@@ -401,7 +375,7 @@ async fn rx_task<T: Transport>(
     }
     // rx half might have been handed over, but not picked up yet
     if msg_rx.is_none() {
-        msg_rx = msg_rx_rx.and_then(|mut rx_rx| rx_rx.try_recv().ok());
+        msg_rx = msg_rx_rx.and_then(|mut rx_rx| rx_rx.try_recv().ok().map(|(rx, _)| rx));
     }
     if let Some(msg_rx) = msg_rx {
         msg_rx.close().await;
@@ -468,7 +442,7 @@ mod tests {
                 while let Some(o) = self.tx.poll_output() {
                     progressed = true;
                     match o {
-                        TxOutput::Connect(_) => self.connects += 1,
+                        TxOutput::Connect(..) => self.connects += 1,
                         TxOutput::Send {
                             kind,
                             message: payload,
@@ -558,6 +532,7 @@ mod tests {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
                 link_setup_timeout_ms: None,
+                tap: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "test".into(),
                     VersionOwned::new(0, 1, 0),
@@ -848,6 +823,7 @@ mod tests {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
                 link_setup_timeout_ms: None,
+                tap: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "".into(),
                     VersionOwned::new(0, 0, 0),
@@ -965,6 +941,7 @@ mod tests {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
                 link_setup_timeout_ms,
+                tap: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "".into(),
                     VersionOwned::new(0, 0, 0),
@@ -1023,6 +1000,7 @@ mod tests {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
                 link_setup_timeout_ms: None,
+                tap: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "test".into(),
                     VersionOwned::new(0, 2, 0),
@@ -1158,6 +1136,7 @@ mod tests {
         async fn connect(
             &mut self,
             _: crate::event_loop::DeviceHandle,
+            _: ww_tap::RecorderLink,
         ) -> Result<crate::event_loop::transport::Opened<NoTx, ChanRx>, String> {
             unreachable!()
         }
@@ -1178,12 +1157,16 @@ mod tests {
             for _ in 0..4 {
                 tokio::task::yield_now().await;
             }
+            let link = crate::tap::default_recorder().link();
             assert!(
                 rx_half_tx
-                    .send(ChanRx {
-                        ch: msg_rx,
-                        last: (0, vec![]),
-                    })
+                    .send((
+                        ChanRx {
+                            ch: msg_rx,
+                            last: (0, vec![]),
+                        },
+                        link.clone()
+                    ))
                     .is_ok()
             );
             to_rx_tx
@@ -1193,6 +1176,7 @@ mod tests {
                         VersionOwned::new(0, 0, 0),
                     )),
                     connected_tx: None,
+                    link,
                 })
                 .unwrap();
 

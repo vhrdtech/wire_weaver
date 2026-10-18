@@ -91,7 +91,11 @@ impl Transport for PipeTransport {
 
     type Tx = HostTx;
     type Rx = HostRx;
-    async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<HostTx, HostRx>, String> {
+    async fn connect(
+        &mut self,
+        _: DeviceHandle,
+        _: ww_tap::RecorderLink,
+    ) -> Result<Opened<HostTx, HostRx>, String> {
         self.0.take().ok_or("already connected".into())
     }
 }
@@ -283,6 +287,7 @@ pub(crate) async fn connect(cmd_tx: &mpsc::Sender<Command>, version: (u32, u32))
             handle: Box::new(()),
             max_seq: crate::DEFAULT_MAX_SEQ,
             link_setup_timeout_ms: None,
+            tap: None,
             client_version: Box::new(FullVersionOwned::new(
                 "test_api".into(),
                 VersionOwned::new(version.0, version.1, 0),
@@ -393,14 +398,18 @@ impl Transport for StreamPipe {
 
     type Tx = StreamTx<RttHead, RttChecksum, RttTail>;
     type Rx = StreamRx<RttHead, RttChecksum, RttTail>;
-    async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<Self::Tx, Self::Rx>, String> {
+    async fn connect(
+        &mut self,
+        _: DeviceHandle,
+        tap: ww_tap::RecorderLink,
+    ) -> Result<Opened<Self::Tx, Self::Rx>, String> {
         let (up, down) = self.0.take().ok_or("already connected")?;
         let config = StreamConfig {
             name: "test_stream",
             poll_interval: Duration::from_millis(1),
             read_chunk: 256,
         };
-        stream::open(config, move || Ok(HostIo { up, down })).await
+        stream::open(config, tap, move || Ok(HostIo { up, down })).await
     }
 }
 
@@ -726,13 +735,17 @@ async fn stream_open_error_fails_connect() {
 
         type Tx = StreamTx<RttHead, RttChecksum, RttTail>;
         type Rx = StreamRx<RttHead, RttChecksum, RttTail>;
-        async fn connect(&mut self, _: DeviceHandle) -> Result<Opened<Self::Tx, Self::Rx>, String> {
+        async fn connect(
+            &mut self,
+            _: DeviceHandle,
+            tap: ww_tap::RecorderLink,
+        ) -> Result<Opened<Self::Tx, Self::Rx>, String> {
             let config = StreamConfig {
                 name: "test_stream",
                 poll_interval: Duration::from_millis(1),
                 read_chunk: 256,
             };
-            stream::open(config, || Err::<HostIo, _>("no probe".to_string())).await
+            stream::open(config, tap, || Err::<HostIo, _>("no probe".to_string())).await
         }
     }
     let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);

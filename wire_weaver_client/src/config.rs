@@ -36,6 +36,7 @@ pub struct ClientConfig {
     traits_only: bool,
     stream_queue_bytes: Option<usize>,
     link_setup_timeout: Option<Duration>,
+    tap: Option<ww_tap::Recorder>,
 }
 
 pub(crate) struct ValidatedConfig {
@@ -51,6 +52,8 @@ pub(crate) struct ValidatedConfig {
     pub(crate) link_setup_timeout_ms: Option<std::num::NonZeroU32>,
     pub(crate) introspect_client: Option<IntrospectBundle>,
     pub(crate) traits_only: bool,
+    /// [ClientConfig::tap], None for [crate::tap::default_recorder]
+    pub(crate) tap: Option<ww_tap::Recorder>,
 }
 
 #[derive(Clone, Debug)]
@@ -253,6 +256,7 @@ impl ClientConfig {
             }),
             introspect_client,
             traits_only: s.traits_only,
+            tap: s.tap,
         })
     }
 
@@ -464,6 +468,14 @@ impl ClientConfig {
     pub fn link_setup_timeout(self, timeout: Duration) -> Self {
         let mut c = self;
         c.link_setup_timeout = Some(timeout);
+        c
+    }
+
+    /// Record this client's links into `recorder` (TR-14) instead of [crate::tap::default_recorder]: sessions, link
+    /// events, messages and frames, for a monitor or a capture subscribed to it.
+    pub fn tap(self, recorder: ww_tap::Recorder) -> Self {
+        let mut c = self;
+        c.tap = Some(recorder);
         c
     }
 

@@ -10,7 +10,7 @@ cortex-m-semihosting = "0.6"
 panic-semihosting = { version = "0.7", features = ["exit"] }
 
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
-ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "time", "i32", "u32"] }
+ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "angle", "dimensionless", "time", "i32", "u32"] }
 
 [[bin]]
 name = "qemu-m4f-series-encode-cpu-smallest"
@@ -43,6 +43,20 @@ bench = false
 [[bin]]
 name = "qemu-m4f-series-encode-baseline"
 path = "src/bin/series_encode_baseline.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-shared-clock-delta-packed"
+path = "src/bin/shared_clock_delta_packed.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-shared-clock-raw-plain"
+path = "src/bin/shared_clock_raw_plain.rs"
 test = false
 doctest = false
 bench = false

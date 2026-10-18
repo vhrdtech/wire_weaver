@@ -4,7 +4,7 @@
 //! so no `nm` is needed.
 //!
 //! ```text
-//! cargo run --release -- <cpu> <machine> <elf> [--profile]
+//! cargo run --release -- <cpu> <machine> <elf> [--profile] [--pcs=<fn>] [--max-insns=N] [--timeout=SECONDS]
 //! cargo run --release -- cortex-m3 lm3s6965evb ../mcu_qemu/target/thumbv7m-none-eabi/release/qemu-series-encode-cpu-fixed-delta
 //! ```
 //!
@@ -13,34 +13,124 @@
 //! instructions spent in each function (its own instructions only, not its callees'), most first.
 //! `--pcs=<part of a function name>` adds, per bracket, how often each instruction of the functions whose name has
 //! that part ran, by address: next to `llvm-objdump -d` of the ELF, where the time goes inside a function.
+//!
+//! The trace is read from QEMU's stderr as it comes, never written to a file (one line per instruction is
+//! gigabytes for a long run). A bin that doesn't exit is stopped after `--max-insns=N` traced instructions
+//! (default 200 million) or `--timeout=SECONDS` (default 600), and the run fails saying so.
 
 use std::collections::HashMap;
-use std::process::{Command, ExitCode};
+use std::io::{BufRead, BufReader};
+use std::process::{Command, ExitCode, Stdio};
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
+
+/// Instructions traced before QEMU is stopped, unless `--max-insns=` says otherwise: a bin that never exits (a
+/// fault loop, a missing semihosting exit) ends here instead of running forever.
+const MAX_INSNS: u64 = 200_000_000;
+/// Wall-clock seconds before QEMU is stopped, unless `--timeout=` says otherwise.
+const TIMEOUT_S: u64 = 600;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let profile = args.iter().any(|a| a == "--profile");
     let pcs = args.iter().find_map(|a| a.strip_prefix("--pcs="));
+    let max_insns = match args.iter().find_map(|a| a.strip_prefix("--max-insns=")) {
+        Some(n) => match n.parse() {
+            Ok(n) => n,
+            Err(e) => {
+                eprintln!("--max-insns={n}: {e}");
+                return ExitCode::FAILURE;
+            }
+        },
+        None => MAX_INSNS,
+    };
+    let timeout = match args.iter().find_map(|a| a.strip_prefix("--timeout=")) {
+        Some(s) => match s.parse() {
+            Ok(s) => Duration::from_secs(s),
+            Err(e) => {
+                eprintln!("--timeout={s}: {e}");
+                return ExitCode::FAILURE;
+            }
+        },
+        None => Duration::from_secs(TIMEOUT_S),
+    };
     let pos: Vec<&String> = args.iter().filter(|a| !a.starts_with("--")).collect();
     let [cpu, machine, elf] = pos[..] else {
-        eprintln!("usage: qemu_icount <cpu> <machine> <elf> [--profile] [--pcs=<function name part>]");
+        eprintln!(
+            "usage: qemu_icount <cpu> <machine> <elf> [--profile] [--pcs=<function name part>] [--max-insns=N] \
+             [--timeout=SECONDS]"
+        );
         return ExitCode::FAILURE;
     };
-    let trace = std::env::temp_dir().join(format!("qemu_icount_{}.log", std::process::id()));
-    let status = Command::new("qemu-system-arm")
+    // no -D: QEMU writes the trace to its stderr, read here line by line as it comes, never to a file
+    let child = Command::new("qemu-system-arm")
         .args(["-cpu", cpu, "-machine", machine, "-nographic"])
         .args(["-semihosting-config", "enable=on,target=native"])
-        .args([
-            "-accel",
-            "tcg,one-insn-per-tb=on",
-            "-d",
-            "exec,nochain",
-            "-D",
-        ])
-        .arg(&trace)
+        .args(["-accel", "tcg,one-insn-per-tb=on", "-d", "exec,nochain"])
         .arg("-kernel")
         .arg(elf)
-        .status();
+        .stdin(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn();
+    let mut child = match child {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("can't run qemu-system-arm: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let stderr = child.stderr.take().expect("piped");
+    // QEMU is stopped from here when the reader gives up, so the reader runs on its own thread
+    let (stop_tx, stop_rx) = mpsc::channel::<&'static str>();
+    let pcs_owned = pcs.map(str::to_owned);
+    let reader = std::thread::spawn(move || {
+        let mut tracer = Tracer::new(pcs_owned);
+        let mut traced = 0u64;
+        for line in BufReader::new(stderr).lines() {
+            let Ok(line) = line else { break };
+            if !line.starts_with("Trace ") {
+                eprintln!("{line}");
+                continue;
+            }
+            traced += 1;
+            if traced > max_insns {
+                let _ = stop_tx.send("instruction cap");
+                break;
+            }
+            tracer.line(&line);
+        }
+        tracer.out
+    });
+    let started = Instant::now();
+    let why = loop {
+        if let Ok(why) = stop_rx.try_recv() {
+            break Some(why);
+        }
+        match child.try_wait() {
+            Ok(Some(_)) => break None,
+            Ok(None) => {}
+            Err(e) => {
+                eprintln!("can't wait for qemu: {e}");
+                break Some("error");
+            }
+        }
+        if started.elapsed() > timeout {
+            break Some("timeout");
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    if let Some(why) = why {
+        let _ = child.kill();
+        let _ = child.wait();
+        let _ = reader.join();
+        eprintln!(
+            "stopped qemu ({why}: --max-insns={max_insns}, --timeout={}): the bin did not exit",
+            timeout.as_secs()
+        );
+        return ExitCode::FAILURE;
+    }
+    let status = child.wait();
+    let brackets = reader.join().expect("trace reader");
     match status {
         Ok(s) if s.success() => {}
         Ok(s) => {
@@ -48,20 +138,10 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
         Err(e) => {
-            eprintln!("can't run qemu-system-arm: {e}");
+            eprintln!("can't wait for qemu: {e}");
             return ExitCode::FAILURE;
         }
     }
-    let text = std::fs::read_to_string(&trace);
-    let _ = std::fs::remove_file(&trace);
-    let text = match text {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!("can't read the trace: {e}");
-            return ExitCode::FAILURE;
-        }
-    };
-    let brackets = brackets(&text, pcs);
     let Some(calibration) = brackets.first().map(|b| b.count) else {
         eprintln!("no mark_start .. mark_end bracket in the trace");
         return ExitCode::FAILURE;
@@ -85,7 +165,6 @@ fn main() -> ExitCode {
     }
     ExitCode::SUCCESS
 }
-
 #[derive(Default)]
 struct Bracket {
     count: usize,
@@ -133,36 +212,54 @@ fn short(name: &str) -> String {
     out
 }
 
-fn brackets(text: &str, pcs: Option<&str>) -> Vec<Bracket> {
-    let mut out = Vec::new();
-    let mut open: Option<Bracket> = None;
-    let mut prev = "";
-    let mut names: HashMap<&str, String> = HashMap::new();
-    for line in text.lines().filter(|l| l.starts_with("Trace ")) {
-        let Some(sym) = symbol(line) else { continue };
-        let name = names
-            .entry(sym)
+/// Splits the trace into `mark_start` .. `mark_end` brackets, one line at a time.
+struct Tracer {
+    pcs: Option<String>,
+    out: Vec<Bracket>,
+    open: Option<Bracket>,
+    prev: String,
+    names: HashMap<String, String>,
+}
+
+impl Tracer {
+    fn new(pcs: Option<String>) -> Self {
+        Tracer {
+            pcs,
+            out: Vec::new(),
+            open: None,
+            prev: String::new(),
+            names: HashMap::new(),
+        }
+    }
+
+    fn line(&mut self, line: &str) {
+        let Some(sym) = symbol(line) else { return };
+        let name = self
+            .names
+            .entry(sym.to_owned())
             .or_insert_with(|| short(&format!("{:#}", rustc_demangle::demangle(sym))));
-        let entered = sym != prev;
-        prev = sym;
+        let entered = sym != self.prev;
+        if entered {
+            self.prev.clear();
+            self.prev.push_str(sym);
+        }
         if entered && name.ends_with("::mark_start") {
-            open = Some(Bracket::default());
-            continue;
+            self.open = Some(Bracket::default());
+            return;
         }
         if entered && name.ends_with("::mark_end") {
-            out.extend(open.take());
-            continue;
+            self.out.extend(self.open.take());
+            return;
         }
-        if let Some(b) = open.as_mut() {
+        if let Some(b) = self.open.as_mut() {
             // the rest of mark_start after its first instruction, and the call of mark_end, count as overhead
             b.count += 1;
             *b.per_fn.entry(name.clone()).or_default() += 1;
-            if let (Some(part), Some(pc)) = (pcs, pc(line))
+            if let (Some(part), Some(pc)) = (self.pcs.as_deref(), pc(line))
                 && name.contains(part)
             {
                 *b.per_pc.entry(pc).or_default() += 1;
             }
         }
     }
-    out
 }

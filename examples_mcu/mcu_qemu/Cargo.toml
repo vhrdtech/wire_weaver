@@ -13,7 +13,7 @@ wire_weaver = { path = "../../wire_weaver", default-features = false, features =
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
 ww_stream = { path = "../../ww_stream", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
-ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "f32", "time", "i32", "u32"] }
+ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "angle", "dimensionless", "f32", "time", "i32", "u32"] }
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
 bounded_api = { path = "../../tests/bounded_api", default-features = false }
 
@@ -70,6 +70,20 @@ bench = false
 [[bin]]
 name = "qemu-series-encode-baseline"
 path = "src/bin/series_encode_baseline.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-shared-clock-delta-packed"
+path = "src/bin/shared_clock_delta_packed.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-shared-clock-raw-plain"
+path = "src/bin/shared_clock_raw_plain.rs"
 test = false
 doctest = false
 bench = false

@@ -5697,8 +5697,10 @@ can't tell which one a device uses.</p>
 <li><strong>Reader</strong>: <code>&lt;Level&gt;Cells::reader()</code> goes to <code>ObserveBatches::init</code> or <code>new</code> (one per cells level, in the order
   of the levels), which then borrow the cells: <code>ObserveBatches&lt;'static&gt;</code> for a <code>static</code>, or
   <code>ww_stream::batch::CellsReader::shared(arc)</code> for cells in an <code>Arc</code> on <code>std</code>. Each <code>poll_properties</code> copies the
-  rows committed since the last one into one staging batch, then encodes and sends it as the sampler's batches are:
-  the same columns, the same bytes.</li>
+  rows committed since the last one into one staging batch, the time and the observed properties' columns only,
+  then encodes and sends it as the sampler's batches are: the same columns, the same bytes. A property observed
+  while rows are staged gets its column copied for them from the ring, so it has the batch's earlier samples as
+  with <code>sample()</code>; if the interrupt wrote over those rows meanwhile, they go without it and the next batch has it.</li>
 <li><strong>Ring size</strong>: <code>R</code> rows (<code>&lt;Level&gt;Cells&lt;R&gt;</code>) hold what the interrupt commits between two <code>poll_properties</code> calls;
   <code>R - 1</code> can wait. A row the writer writes over before it is read (the ring lapped) is dropped and counted in
   <code>missed</code>, never sent with values of two rows. RAM is <code>R</code> rows plus one batch of <code>observe_batch</code> rows, about what

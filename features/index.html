@@ -5169,6 +5169,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   appended); a malformed header is an error. Writer takes the present set up front (<code>SetBits</code> over a bitset, any
   increasing iterator), <code>OptionAnyVecWriter</code> / in-place <code>OptionAnyVecBuilder</code>. For a trait level's properties in one
   update (API-38). See <code>docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types</code>, <code>docs/serdes/showcase.md</code>.</li>
+<li>✅ <strong>SW-64 <code>Series</code> written straight from a <code>SeriesStore</code></strong>, column by column, the same bytes as the item walk:
+  <code>SeriesStore::columnar</code> / <code>write_store</code> (leaves, <code>Option</code>, arrays, tuples, derived structs and enums, by hand for
+  <code>NumericValue</code>) and <code>series::write_store_series</code>, used by <code>ww_stream</code>'s batchers on their own. Needs one variant
+  per enum and <code>Option</code> over the rows (a prefix change falls back to the walk). One FOC level batch (21 x
+  <code>Series&lt;T&gt;</code> + clock, n = 32, <code>DeltaPacked</code>): 74.9 k instructions on a Cortex-M3 instead of 143.5 k, 100 k cycles on
+  an STM32H725 instead of 312 k (60 k against 125 k at <code>opt-level = 3</code>). See
+  <code>docs/serdes/series.md#from-the-store-column-by-column</code>, <code>shrink_wrap/shrink_wrap/src/series/store_write_tests.rs</code>,
+  <code>examples_mcu/mcu_qemu</code> (<code>qemu-store-columns</code>).</li>
 <li>✅ <strong>SW-63 Fast and small <code>Series</code> encoding on MCUs</strong>, the same bytes: about 6x fewer instructions per item on
   a Cortex-M3/M4F (<code>Series&lt;Timed&lt;Ampere&gt;&gt;</code>, n = 32: 341 with a fixed codec, 969 with <code>SMALLEST</code>; 25 200 cycles per
   batch of 32 on an STM32H725), and codec policies fixed at compile time (<code>SeriesPolicy</code>, <code>FixedCodecs</code>,
@@ -5391,6 +5399,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (SW-37) came with its feature, <code>shrink-wrap-option-any-vec</code> with SW-55 and DER-13 (sparse structs), <code>shrink-wrap-series-columns</code> and <code>shrink-wrap-series-type</code> with SW-60, <code>shrink-wrap-nesting</code> with the nesting depth limit (recursive types at random limits). Round-trip every built-in type and the derive's features.</li>
 <li>🔍 <strong>SW-23 Tuple enum variants evolution</strong> — check that tuple variants evolve as <code>docs/evolution/rules.md</code> says
   (fields can be appended) and add a test.</li>
+<li>💡 <strong>SW-65 Aligned plain <code>Series</code> columns</strong> — numbers byte-aligned and little-endian at their width (numeric
+  escape <code>11 11</code>, float codec <code>0010</code>, an <code>AlignedPlain</code> policy), copied from a <code>SeriesStore</code>: 34 k cycles per FOC
+  level batch on an STM32H725 at <code>opt-level = 3</code> against 60 k for column-wise <code>DeltaPacked</code> (SW-64), for 2.3x the
+  bytes. Built and measured on branch <code>s/18oct2026-memcpy-fast-sw65</code>, not landed; may come back after observe cells
+  and a <code>u32</code> payload in <code>NumericValueStore</code>.</li>
 <li>💡 <strong>SW-24 ZigZag encoding for signed variable length numbers</strong> — consider ZigZag (as in protobuf) so that small
   negative values stay short, e.g. signed counterparts of <code>UNib32</code>/<code>UVlq32</code>.</li>
 <li>💡 <strong>SW-25 In-place builder for server handlers</strong> · <code>v0.5.x</code> — a new step-by-step / partial builder (e.g. for a

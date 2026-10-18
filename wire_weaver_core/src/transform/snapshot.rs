@@ -918,7 +918,8 @@ mod tests {
     #[test]
     fn snapshots_are_up_to_date() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-        let mut crate_paths = vec![root.join("ww_global")];
+        // as `just save-snapshots`: ww_global, the link tap's records, ww_stdlib
+        let mut crate_paths = vec![root.join("ww_global"), root.join("ww_tap")];
         for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {
             let path = entry.unwrap().path();
             // ww_client_server is the protocol itself, not used in APIs

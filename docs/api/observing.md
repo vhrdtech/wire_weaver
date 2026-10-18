@@ -228,6 +228,18 @@ To sample from an interrupt or another thread, `ObserveBatches::split()` hands o
 the interrupt) and the consumers, which the `ObserveState` takes instead (`ObserveState::new(limits, consumers)`,
 the batches in a `static`). `ww api scaffold` writes the `observe_batch` argument and says how to build the state.
 
+On a firmware, build the batches where they stay: `ObserveBatches::init` writes them into a `static` in place,
+every store where it lives. `new` returns them by value, and building them that way takes a stack frame of a few
+times their size (31.6 KB for the motor demo's 21 FOC values on a Cortex-M4F, more than a small MCU has):
+
+```rust
+static BATCHES: StaticCell<api_impl::ObserveBatches> = StaticCell::new();
+
+let batches = api_impl::ObserveBatches::init(BATCHES.uninit(), ww_stream::batch::DEFAULT_POLICY);
+let (samplers, consumers) = batches.split(); // samplers.root to the interrupt
+let observe = api_impl::ObserveState::new(ObserveLimits::DEFAULT, consumers);
+```
+
 - **Batches**: each level with `+batched` properties has two stores of `observe_batch = N` rows (codegen argument,
   default 32), a row being one `sample()` call's time and values, kept column by column: the sampler fills one
   store while the event loop encodes the other. RAM is 2 x N x (the time and every value): for 21 FOC currents and
@@ -264,11 +276,17 @@ can't tell which one a device uses.
 ```rust
 // ww_codegen!(motor_demo_api::MotorDemo for Device, server = true, .., observe_cells = "root_foc")
 static FOC: api_impl::RootFocCells<32> = api_impl::RootFocCells::new(); // const fn, a ring of 32 rows
+static BATCHES: StaticCell<api_impl::ObserveBatches<'static>> = StaticCell::new();
 
 let mut server = Server {
+    // an `ObserveState<&'static mut ObserveBatches<'static>>`: the batches stay in their static
     observe: api_impl::ObserveState::new(
         ObserveLimits::DEFAULT,
-        api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY, FOC.reader().unwrap()),
+        api_impl::ObserveBatches::init(
+            BATCHES.uninit(),
+            ww_stream::batch::DEFAULT_POLICY,
+            FOC.reader().unwrap(),
+        ),
     ),
     // ..
 };
@@ -288,8 +306,8 @@ w.commit(Second::micro(now_us));
   fences: no lock, no read-modify-write, nothing on the stack but the values. A debug build panics at `commit` when
   a setter of the row wasn't called; a release build pays nothing for that. With nobody observing, the setters
   still store: put them (or the expensive values) under `if w.is_sampling() { .. }`.
-- **Reader**: `<Level>Cells::reader()` goes to `ObserveBatches::new` (one per cells level, in the order of the
-  levels), which then borrows the cells: `ObserveBatches<'static>` for a `static`, or
+- **Reader**: `<Level>Cells::reader()` goes to `ObserveBatches::init` or `new` (one per cells level, in the order
+  of the levels), which then borrow the cells: `ObserveBatches<'static>` for a `static`, or
   `ww_stream::batch::CellsReader::shared(arc)` for cells in an `Arc` on `std`. Each `poll_properties` copies the
   rows committed since the last one into one staging batch, then encodes and sends it as the sampler's batches are:
   the same columns, the same bytes.
@@ -302,9 +320,9 @@ w.commit(Second::micro(now_us));
   When nothing waits, both send the same bytes.
 - **Types**: the property types need `SeriesCells` (`#[derive_shrink_wrap(.., series(cells))]`, see
   [`Series`](../serdes/series.md)); `ww_si` quantities, numbers and `bool` have it.
-- **Cost**: on an STM32H725 a row of the 21 FOC values takes 357 cycles at `opt-level = "z"` against 1 400 through
-  `sample()`, 342 against 423 at `opt-level = 3`, a row with cold caches about half the sampler's, and 44-52 B of stack
-  against 116-388 B; the copy into the staging batch moves to `poll_properties`. See
+- **Cost**: on an STM32H725 a row of the 21 FOC values takes 354 cycles at `opt-level = "z"` against 412 through
+  `sample()`, 328 against 419 at `opt-level = 3`, and 44-52 B of stack against 108-116 B; the copy into the staging
+  batch moves to `poll_properties`. See
   [Batching: observe cells, measured](batching.md#observe-cells-measured).
 
 `ww api scaffold --observe-cells root_foc` writes the `static`, the `ObserveState` type and the `ww_codegen!`

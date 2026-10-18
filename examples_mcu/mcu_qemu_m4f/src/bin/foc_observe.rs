@@ -1,4 +1,4 @@
-//! Observe cells against `<Level>Sampler::sample` (API-50), Cortex-M4F (`mps2-an386`: the 64 KB of the Cortex-M3 model are too few while `ObserveBatches::new` builds the default stores on the stack): one row of the motor demo's 21 FOC
+//! Observe cells against `<Level>Sampler::sample` (API-50), Cortex-M4F (`mps2-an386`; the Cortex-M3 twin is `qemu-foc-observe`): one row of the motor demo's 21 FOC
 //! properties per call, the gate closed and open, and every `poll_properties` ([foc_observe]). Run under
 //! `qemu_icount`: the first `mark_start`/`mark_end` pair is calibration, then one pair per measured call, in the
 //! order the bin prints them (`bracket=..` lines); then the bytes sent, the stack per call and the RAM of the

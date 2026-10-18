@@ -136,8 +136,9 @@ pub fn gen_server_scaffold(
         writeln!(
             s.fields,
             "/// Observed properties (SRV-18): what hosts observe and when it is due, see `poll_properties`;
-             /// `ObserveState::new(limits, api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY, {}))`;
-             /// the levels on observe cells take samples in place through their cells' writer, the others with
+             /// `ObserveState::new(limits, api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY, {}))`
+             /// (on a firmware `ObserveBatches::init(STATIC_CELL.uninit(), ..)`, built in place, and
+             /// `ObserveState<&'static mut ObserveBatches<'static>>`); the levels on observe cells take samples in place through their cells' writer, the others with
              /// `observe.samplers().<level>.sample(t, ..)` (API-39, API-50)
              pub observe: {observe_state},",
             readers.join(", ")
@@ -146,7 +147,8 @@ pub fn gen_server_scaffold(
         writeln!(
             s.fields,
             "/// Observed properties (SRV-18): what hosts observe and when it is due, see `poll_properties`;
-             /// `ObserveState::new(limits, api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY))`, take
+             /// `ObserveState::new(limits, api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY))` (on a
+             /// firmware `ObserveBatches::init(STATIC_CELL.uninit(), ..)`, built in place in a `static`), take
              /// samples of `+batched` properties with `observe.samplers().<level>.sample(t, ..)` (or `split()` the
              /// batches for an interrupt) (API-39)
              pub observe: api_impl::ObserveState,"

@@ -4744,6 +4744,7 @@ dependencies = [
  "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client",
+ "wire_weaver_core",
  "ww_client_server",
  "ww_si",
  "ww_stream",

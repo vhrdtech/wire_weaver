@@ -93,8 +93,9 @@ impl DynBatching {
         bytes: &[u8],
         bundle: &ApiBundleOwned,
     ) -> Result<Vec<BatchItem<ValueOwned>>, StreamError> {
-        let ValueOwned::Vec(items) = ValueOwned::des_shrink_wrap_dyn(bytes, &self.wire_item_ty, bundle)
-            .map_err(|e| StreamError::Other(Error::Other(format!("batched stream: {e:#}"))))?
+        let ValueOwned::Vec(items) =
+            ValueOwned::des_shrink_wrap_dyn(bytes, &self.wire_item_ty, bundle)
+                .map_err(|e| StreamError::Other(Error::Other(format!("batched stream: {e:#}"))))?
         else {
             return Err(StreamError::Other(Error::Other(
                 "batched stream: expected a Series value".into(),

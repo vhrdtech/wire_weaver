@@ -587,7 +587,9 @@ impl DynResource {
         match self.stream_fn_ref() {
             // a bare `stream!(name: T)` with `#[batched]` (API-41): delivery is Plain, but it's modeled as a
             // StreamFn now that it carries `batched`, same as a plain stream otherwise
-            Some(s) if s.delivery == Delivery::Plain && s.args.is_empty() && s.return_ty.is_none() => {
+            Some(s)
+                if s.delivery == Delivery::Plain && s.args.is_empty() && s.return_ty.is_none() =>
+            {
                 Ok(ty)
             }
             Some(_) => Err(Error::Other(format!(
@@ -1072,7 +1074,7 @@ pub struct DynStream {
     is_bytes: bool,
     bundle: Arc<ApiBundleOwned>,
     batched: Option<crate::client::dyn_positioned::DynBatching>,
-    pending: std::collections::VecDeque<ValueOwned>,
+    pending: std::collections::VecDeque<BatchItem<ValueOwned>>,
 }
 
 impl DynStream {
@@ -1123,7 +1125,7 @@ impl DynStream {
     pub async fn recv(&mut self) -> Result<ValueOwned, StreamError> {
         loop {
             if let Some(v) = self.pending.pop_front() {
-                return Ok(v);
+                return Ok(v.value);
             }
             let ev = self.stream.recv_any().await?;
             self.handle(ev)?;
@@ -1134,7 +1136,7 @@ impl DynStream {
     pub fn recv_blocking(&mut self) -> Result<ValueOwned, StreamError> {
         loop {
             if let Some(v) = self.pending.pop_front() {
-                return Ok(v);
+                return Ok(v.value);
             }
             let ev = self.stream.recv_any_blocking()?;
             self.handle(ev)?;
@@ -1145,7 +1147,7 @@ impl DynStream {
     pub fn try_recv(&mut self) -> Result<Option<ValueOwned>, StreamError> {
         loop {
             if let Some(v) = self.pending.pop_front() {
-                return Ok(Some(v));
+                return Ok(Some(v.value));
             }
             match self.stream.try_recv_any()? {
                 Some(ev) => self.handle(ev)?,
@@ -1159,16 +1161,16 @@ impl DynStream {
     pub async fn recv_batch(&mut self) -> Result<Vec<BatchItem<ValueOwned>>, StreamError> {
         loop {
             if !self.pending.is_empty() {
-                return Ok(self.pending.drain(..).map(|value| BatchItem { t: None, value }).collect());
+                return Ok(self.pending.drain(..).collect());
             }
             let ev = self.stream.recv_any().await?;
-            self.handle_batch(ev)?;
+            self.handle(ev)?;
         }
     }
 
-    /// One raw event: data decoded (into `pending`, items for a batched stream, one value otherwise), a
-    /// reconnection restarts the device time, anything else (sideband, a disconnect) is an error, as for
-    /// [Stream::recv].
+    /// One raw event: data decoded into `pending` (every item of a batched stream's data event, with its own time;
+    /// one value, without a time, otherwise), a reconnection restarts the device time, anything else (sideband, a
+    /// disconnect) is an error, as for [Stream::recv].
     fn handle(&mut self, ev: TypedStreamEvent<TailBytesOwned>) -> Result<(), StreamError> {
         match ev {
             TypedStreamEvent::Data(bytes) => self.decode(&bytes)?,
@@ -1188,40 +1190,17 @@ impl DynStream {
         Ok(())
     }
 
-    /// Like [Self::handle], but every item of a batched stream's data event goes into `pending` with its own time
-    /// (for [Self::recv_batch]: nothing is ever decoded down to just the first item).
-    fn handle_batch(&mut self, ev: TypedStreamEvent<TailBytesOwned>) -> Result<(), StreamError> {
-        match ev {
-            TypedStreamEvent::Data(bytes) => match &mut self.batched {
-                None => self.pending.push_back(decode_item(
-                    self.is_bytes,
-                    &self.ty,
-                    &self.bundle,
-                    bytes,
-                )?),
-                Some(batched) => {
-                    let items = batched.decode(&bytes, &self.bundle)?;
-                    self.pending.extend(items.into_iter().map(|i| i.value));
-                }
-            },
-            other => self.handle(other)?,
-        }
-        Ok(())
-    }
-
-    /// One item's bytes into `pending`: a batched stream's data event is every one of its items, a plain one is
-    /// the value itself.
+    /// One item's bytes into `pending`: a batched stream's data event is every one of its items, each with its own
+    /// time, a plain one is the value itself, without a time.
     fn decode(&mut self, bytes: &TailBytesOwned) -> Result<(), StreamError> {
         match &mut self.batched {
-            None => self.pending.push_back(decode_item(
-                self.is_bytes,
-                &self.ty,
-                &self.bundle,
-                bytes.clone(),
-            )?),
+            None => self.pending.push_back(BatchItem {
+                t: None,
+                value: decode_item(self.is_bytes, &self.ty, &self.bundle, bytes.clone())?,
+            }),
             Some(batched) => {
                 let items = batched.decode(bytes, &self.bundle)?;
-                self.pending.extend(items.into_iter().map(|i| i.value));
+                self.pending.extend(items);
             }
         }
         Ok(())

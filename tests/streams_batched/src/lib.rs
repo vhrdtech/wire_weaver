@@ -436,4 +436,318 @@ mod tests {
             }
         }
     }
+
+    /// The same streams through the dynamic client (`wire_weaver_client::DynResource`, API-41's biggest untested
+    /// gap at the point this module was added): `DynStream`/`DynPositionedStream` decode a batched event into
+    /// items with their own unwrapped time, same as the typed client above. `max_age` isn't exposed by
+    /// [wire_weaver_client::DynResource::positioned_stream] yet (CLT-23-adjacent), so a partial batch is sealed by
+    /// calling `flush` instead of waiting for it to age out; which trigger seals it doesn't change the event
+    /// sequence that follows.
+    mod dyn_client {
+        use super::*;
+        use std::path::Path;
+        use std::sync::Arc;
+        use wire_weaver_client::ww_numeric::NumericValue as N;
+        use wire_weaver_client::ww_self::{ApiBundleOwned, FieldsValueOwned, ValueOwned};
+        use wire_weaver_client::{AckMode, ClientConfig, DynClient, DynResource, DynStreamOpen};
+
+        /// A loaded API bundle keeps generics as an uninstantiated `Instance` (`Timed<Sample>` for the timed
+        /// streams below): `ww_self::generics::prepare` is what a device-introspected bundle already went
+        /// through, resolving them into the concrete types a batched stream's decode needs.
+        fn bundle() -> Arc<ApiBundleOwned> {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../streams_batched_api");
+            let mut bundle =
+                wire_weaver_core::load(&path, Some("StreamsBatched".into()), false).unwrap();
+            wire_weaver_client::ww_self::generics::prepare(&mut bundle).unwrap();
+            Arc::new(bundle)
+        }
+
+        async fn connect(device: &TestDevice) -> DynClient {
+            DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+                .connect()
+                .await
+                .expect("connect")
+        }
+
+        fn num(n: N) -> ValueOwned {
+            ValueOwned::Numeric(n)
+        }
+
+        fn field<'a>(v: &'a ValueOwned, name: &str) -> &'a ValueOwned {
+            let ValueOwned::Struct {
+                fields: FieldsValueOwned::Named(fields),
+            } = v
+            else {
+                panic!("expected a struct, got {v:?}")
+            };
+            &fields
+                .iter()
+                .find(|(n, _)| n == name)
+                .unwrap_or_else(|| panic!("no field '{name}' in {v:?}"))
+                .1
+        }
+
+        fn sample_value(v: &ValueOwned) -> i32 {
+            match field(v, "value") {
+                ValueOwned::Numeric(N::I32(x)) => *x,
+                other => panic!("expected an I32, got {other:?}"),
+            }
+        }
+
+        fn frame_fields(v: &ValueOwned) -> (u32, bool) {
+            let number = match field(v, "number") {
+                ValueOwned::Numeric(N::U32(x)) => *x,
+                other => panic!("expected a U32, got {other:?}"),
+            };
+            let ok = match field(v, "ok") {
+                ValueOwned::Bool(b) => *b,
+                other => panic!("expected a Bool, got {other:?}"),
+            };
+            (number, ok)
+        }
+
+        /// Plain batched timed stream (`DynStream`): items and a whole batch, the device clock wraps mid-stream,
+        /// see [super::plain_values_and_batches].
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn plain_values_and_batches() {
+            let device = start("streams_batched/dyn_plain");
+            let client = connect(&device).await;
+            let cmd = client.cmd();
+            let root = DynResource::root(bundle());
+            let mut plain = root.child("plain").unwrap().stream(cmd).await.unwrap();
+
+            root.child("produce")
+                .unwrap()
+                .call(cmd, &[num(N::U32(3)), num(N::U32(u32::MAX - 50))])
+                .await
+                .unwrap();
+            root.child("flush").unwrap().call(cmd, &[]).await.unwrap();
+            for k in 0..3i32 {
+                let v = tokio::time::timeout(WAIT, plain.recv())
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(sample_value(&v), k);
+            }
+
+            root.child("produce")
+                .unwrap()
+                .call(cmd, &[num(N::U32(2)), num(N::U32(900))])
+                .await
+                .unwrap();
+            root.child("flush").unwrap().call(cmd, &[]).await.unwrap();
+            let batch = tokio::time::timeout(WAIT, plain.recv_batch())
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(batch.len(), 2);
+            assert_eq!(batch[0].t, Some(Second::micro((1u64 << 32) + 900)));
+            assert_eq!(batch[1].t, Some(Second::micro((1u64 << 32) + 940)));
+            assert_eq!(sample_value(&batch[1].value), 4);
+        }
+
+        /// Counted batched timed stream (`DynPositionedStream`): items with their positions and times across a
+        /// batch sealed full and one sealed in part, the device clock wraps mid-stream, see
+        /// [super::counted_items_with_their_times].
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn counted_items_with_their_times() {
+            let device = start("streams_batched/dyn_counted");
+            let client = connect(&device).await;
+            let cmd = client.cmd();
+            let root = DynResource::root(bundle());
+            let DynStreamOpen::Open { stream, .. } = root
+                .child("counted")
+                .unwrap()
+                .positioned_stream(cmd, &[], AckMode::OnReceive, None)
+                .await
+                .unwrap()
+            else {
+                panic!("rejected")
+            };
+            let mut counted = *stream;
+
+            let t0 = u32::MAX - 200;
+            root.child("produce")
+                .unwrap()
+                .call(cmd, &[num(N::U32(10)), num(N::U32(t0))])
+                .await
+                .unwrap();
+            for k in 0..10u64 {
+                match tokio::time::timeout(WAIT, counted.recv_event())
+                    .await
+                    .unwrap()
+                    .unwrap()
+                {
+                    StreamEvent::Item {
+                        pos,
+                        units,
+                        t,
+                        run,
+                        value,
+                        ..
+                    } => {
+                        assert_eq!((pos, units, run), (k, 1, Run::Live));
+                        assert_eq!(t, t_of(t0, k), "item {k}");
+                        assert_eq!(sample_value(&value), k as i32);
+                    }
+                    ev => panic!("{ev:?}"),
+                }
+            }
+
+            // whole batches: 8 sealed full, then 3 sealed by flush; the clock goes on. `flush` has to wait for
+            // the full batch to be taken first: calling it while that batch is still sealed and undrained would
+            // lose the filling one instead (`Seal::Lost`, see `ww_stream::batch`), not report it as a gap.
+            root.child("produce")
+                .unwrap()
+                .call(cmd, &[num(N::U32(11)), num(N::U32(t0.wrapping_add(400)))])
+                .await
+                .unwrap();
+            let batch = tokio::time::timeout(WAIT, counted.recv_batch())
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!((batch.pos, batch.items.len()), (10, 8));
+            assert_eq!(sample_value(&batch.items[0].value), 10);
+            assert_eq!(batch.items[7].t, t_of(t0, 17));
+            root.child("flush").unwrap().call(cmd, &[]).await.unwrap();
+            // a batch taken in part: the rest of it
+            assert!(matches!(
+                tokio::time::timeout(WAIT, counted.recv_event())
+                    .await
+                    .unwrap()
+                    .unwrap(),
+                StreamEvent::Item { pos: 18, .. }
+            ));
+            let batch = tokio::time::timeout(WAIT, counted.recv_batch())
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!((batch.pos, batch.items.len()), (19, 2));
+        }
+
+        /// Reliable batched timed stream, opened through a stream function with an argument and a `Result`
+        /// (`DynResource::positioned_stream`): the rejection, and items across a batch sealed full, one lost
+        /// (the device can't encode a second full batch within the same request) and one sealed by flush, see
+        /// [super::reliable_result_and_items].
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn reliable_result_and_items() {
+            let device = start("streams_batched/dyn_reliable");
+            let client = connect(&device).await;
+            let cmd = client.cmd();
+            let root = DynResource::root(bundle());
+            let reliable_res = root.child("reliable").unwrap();
+
+            let rejected = reliable_res
+                .positioned_stream(cmd, &[num(N::I32(0))], AckMode::OnReceive, None)
+                .await
+                .unwrap();
+            let DynStreamOpen::Rejected(err) = rejected else {
+                panic!("expected a rejection, got an open stream")
+            };
+            assert_eq!(
+                err,
+                ValueOwned::Enum {
+                    variant: "ZeroGain".into(),
+                    fields: FieldsValueOwned::Unit,
+                }
+            );
+
+            let open = reliable_res
+                .positioned_stream(cmd, &[num(N::I32(3))], AckMode::OnReceive, None)
+                .await
+                .unwrap();
+            let DynStreamOpen::Open { stream, .. } = open else {
+                panic!("expected an open stream, got a rejection")
+            };
+            let mut reliable = *stream;
+
+            // in one request, with no event loop turn in between: the first batch of 8 is sealed, the second
+            // can't be (the first isn't encoded yet) and is lost, the last 4 are sealed by flush. `flush` has to
+            // wait for the first batch to be taken (received here) first, same reasoning as the `counted` test
+            // above: calling it earlier could lose the filling batch too (`Seal::Lost`, not a gap).
+            root.child("produce")
+                .unwrap()
+                .call(cmd, &[num(N::U32(20)), num(N::U32(0))])
+                .await
+                .unwrap();
+            let mut got = vec![];
+            while got.len() < 8 {
+                got.push(
+                    tokio::time::timeout(WAIT, reliable.recv_event())
+                        .await
+                        .unwrap()
+                        .unwrap(),
+                );
+            }
+            root.child("flush").unwrap().call(cmd, &[]).await.unwrap();
+            while got.len() < 13 {
+                got.push(
+                    tokio::time::timeout(WAIT, reliable.recv_event())
+                        .await
+                        .unwrap()
+                        .unwrap(),
+                );
+            }
+            for (i, ev) in got.into_iter().enumerate() {
+                let k = if i < 8 { i as u64 } else { i as u64 + 7 };
+                match ev {
+                    StreamEvent::Gap {
+                        at, units, cause, ..
+                    } if i == 8 => assert_eq!((at, units, cause), (8, 8, Cause::Device)),
+                    StreamEvent::Item {
+                        pos,
+                        units,
+                        t,
+                        value,
+                        ..
+                    } => {
+                        assert_eq!((pos, units), (k, 1));
+                        assert_eq!(t, t_of(0, k));
+                        assert_eq!(sample_value(&value), 3 * k as i32);
+                    }
+                    ev => panic!("{i}: {ev:?}"),
+                }
+            }
+        }
+
+        /// `batched(untimed)` through `DynPositionedStream`: items without a time column, see
+        /// [super::untimed_frames].
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn untimed_frames() {
+            let device = start("streams_batched/dyn_untimed");
+            let client = connect(&device).await;
+            let cmd = client.cmd();
+            let root = DynResource::root(bundle());
+            let DynStreamOpen::Open { stream, .. } = root
+                .child("frames")
+                .unwrap()
+                .positioned_stream(cmd, &[], AckMode::OnReceive, None)
+                .await
+                .unwrap()
+            else {
+                panic!("rejected")
+            };
+            let mut frames = *stream;
+
+            root.child("produce")
+                .unwrap()
+                .call(cmd, &[num(N::U32(4)), num(N::U32(0))])
+                .await
+                .unwrap();
+            root.child("flush").unwrap().call(cmd, &[]).await.unwrap();
+            for k in 0..4u32 {
+                match tokio::time::timeout(WAIT, frames.recv_event())
+                    .await
+                    .unwrap()
+                    .unwrap()
+                {
+                    StreamEvent::Item { pos, t, value, .. } => {
+                        assert_eq!((pos, t), (k as u64, None));
+                        assert_eq!(frame_fields(&value), (k, k % 3 != 0));
+                    }
+                    ev => panic!("{ev:?}"),
+                }
+            }
+        }
+    }
 }

@@ -524,7 +524,14 @@ fn samples_mode_validated_and_clamped() {
     // every sample asked for, one per 10 µs at most granted
     assert_eq!(granted(&t, &DESC_B), [entry(3, samples(10, 1_000))]);
     assert_eq!(t.samples(1), Some((10, 1_000)));
-    apply(&mut t, &DESC_B, &[entry(3, samples(25, 1_000))], false, None).unwrap();
+    apply(
+        &mut t,
+        &DESC_B,
+        &[entry(3, samples(25, 1_000))],
+        false,
+        None,
+    )
+    .unwrap();
     assert_eq!(t.samples(1), Some((25, 1_000)));
     apply(
         &mut t,

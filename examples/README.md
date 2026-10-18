@@ -13,5 +13,6 @@ increasing complexity:
 * `uart_api`, `uart` - USB/Ethernet/CAN to UART bridge
 * `defmt_log_api`, `defmt_log` - the firmware's `defmt` log streamed to the host with `ww_log`
 * `settings_api`, `settings` - two properties kept across a reboot by `ww_settings`, on a simulated flash
-* `motor_demo_api`, `motor_demo` - a VESC-like FOC controller on a simulated motor, its ~50 variables observed in
-  three rate tiers; see `docs/examples/motor_demo.md`
+
+The motor controller demo (`motor_demo_api`, `motor_demo`: a VESC-like FOC controller on a simulated motor, its ~50
+variables observed in three rate tiers) lives in [motor_sim](https://github.com/vhrdtech/motor_sim); see `docs/examples/motor_demo.md`.

@@ -79,7 +79,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   first, with an optional bulk credit sink and read stream. `ww_sd::SdCard` gives raw registers, an init report and
   single raw commands with response, status bits and timing; commands that can lock or damage a card are refused
   unless the firmware builds with `raw-sd-unrestricted`. Docs pages `docs/std_library/ww_block.md` and `ww_sd.md`.
-- Motor controller demo (EX-11), `examples/motor_demo` and `motor_demo_api`: a VESC-like FOC controller driving a
+- Motor controller demo (EX-11), `motor_demo` and `motor_demo_api` (code in the
+  [motor_sim](https://github.com/vhrdtech/motor_sim) repo since 18 Oct 2026): a VESC-like FOC controller driving a
   simulated motor ([motor_sim](https://github.com/vhrdtech/motor_sim)), its 52 variables observed in three rate
   tiers through one trait level each, on simulated time faster or slower than real time, in-process or over UDP. The
   `motor_demo` CLI shows achieved rates, bytes against the budget, missed sends and the comparison with one
@@ -148,6 +149,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Changed
 
+- The motor controller demo (EX-11) moved out of `examples/` into the [motor_sim](https://github.com/vhrdtech/motor_sim)
+  repo with its history (`cd motor_sim && cargo run -p motor_demo`, against a `../wire_weaver` checkout), so it
+  can grow into a full simulator with a GUI without those dependencies in this workspace. Its docs page stays here
+  (`docs/examples/motor_demo.md`); `motor_demo_api` and the `motor_sim` git dependency left `[workspace.dependencies]`.
+  `tests/observe` gains what the demo's tests covered beyond it: two levels observed at once under their own budgets
+  (one at the device's default), and values due together costing less in one update than one update each.
 - shrink_wrap: a unit struct with `sized`, `final_structure`, `self_describing` or `fixed_layout` is a compile
   error (zero bits that could never change); the docs explain that a plain unit struct records its length inside a
   parent and can grow fields later.

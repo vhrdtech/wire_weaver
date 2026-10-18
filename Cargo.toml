@@ -126,7 +126,6 @@ ww_user_info = { version = "0.1.0", path = "./ww_stdlib/ww_user_info", default-f
 ww_version = { version = "0.2.0", path = "./ww_stdlib/ww_version", default-features = false }
 
 # examples and tests, not published
-# motor simulator of the motor_demo example, its own repo, not on crates.io (v0.1.0)
 all_gpio_api = { version = "0.1.0", path = "./examples/all_gpio_api" }
 array_of_streams_api = { version = "0.1.0", path = "./tests/array_of_streams_api" }
 blinky = { version = "0.1.0", path = "./examples/blinky" }
@@ -166,8 +165,6 @@ io_uart_api = { version = "0.1.0", path = "./tests/io_uart_api" }
 log_defmt_api = { version = "0.1.0", path = "./tests/log_defmt_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 module_paths_api = { version = "0.1.0", path = "./tests/module_paths_api" }
-motor_demo_api = { version = "0.3.0", path = "./examples/motor_demo_api" }
-motor_sim = { git = "https://github.com/vhrdtech/motor_sim", rev = "84fe370f105c1fb1575e4749ed0a76f5943f0169" }
 multi_req_api = { version = "0.1.0", path = "./tests/multi_req_api" }
 observe_api = { version = "0.1.0", path = "./tests/observe_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }

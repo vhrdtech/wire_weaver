@@ -533,7 +533,8 @@ mod tests {
         assert!(refused.is_empty());
         assert_eq!(budget, 10_000);
         b.run(1_000, 200_000, 1_000).await;
-        let sends = motor_sends(&b.drain().await);
+        let updates = b.drain().await;
+        let sends = motor_sends(&updates);
         // the first poll after the request sends all (at 0 or 1 ms, the device polls while the clock still stands
         // at 0), then on the grid from there, held to the period
         let start = sends["speed"][0];
@@ -547,6 +548,59 @@ mod tests {
         assert_eq!(sends["speed"], grid(10_000));
         assert_eq!(sends["current"], grid(20_000));
         assert_eq!(sends["position"], grid(5_000));
+        // values due together go in one update: two more values cost less than an update of their own
+        let len_of = |values: usize| {
+            updates
+                .iter()
+                .find(|u| {
+                    let m = MotorUpdate::from_ww_bytes(&u.data).unwrap();
+                    [m.speed.is_some(), m.current.is_some(), m.position.is_some()]
+                        .iter()
+                        .filter(|v| **v)
+                        .count()
+                        == values
+                })
+                .unwrap()
+                .len
+        };
+        let (one, three) = (len_of(1), len_of(3));
+        assert!(three < 2 * one, "3 values: {three} B, 1 value: {one} B");
+    }
+
+    /// Two levels observed at once, each held to its own budget: the motor level asks for more than its budget and
+    /// misses sends, the root level is not slowed down by it and gets the device's default budget.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn levels_have_their_own_budgets() {
+        let mut b = Bench::start("observe/levels_have_their_own_budgets", limits()).await;
+        let (_, _, root_budget) = b
+            .observe(&[], &[periodic(TEMP, 10_000)], false, None)
+            .await
+            .unwrap();
+        assert_eq!(root_budget, limits().default_budget);
+        let (_, _, motor_budget) = b
+            .observe(
+                &[MOTOR],
+                &[
+                    periodic(SPEED, 1_000),
+                    periodic(CURRENT, 1_000),
+                    periodic(POSITION, 1_000),
+                ],
+                false,
+                Some(1_000),
+            )
+            .await
+            .unwrap();
+        assert_eq!(motor_budget, 1_000);
+        b.run(1_000, 300_000, 1_000).await;
+        let updates = b.drain().await;
+        let (root, motor): (Vec<_>, Vec<_>) = updates.iter().partition(|u| u.path.is_empty());
+        // root: every 10 ms, nothing missed
+        assert!((29..=31).contains(&root.len()), "{}", root.len());
+        assert!(root.iter().all(|u| u.missed == 0));
+        // motor: held to 1 kB/s plus the bucket, the rest counted as missed
+        let motor_bytes: usize = motor.iter().map(|u| u.len).sum();
+        assert!(motor_bytes <= 300 + 100, "{motor_bytes}");
+        assert!(motor.iter().map(|u| u.missed).sum::<u32>() > 0);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

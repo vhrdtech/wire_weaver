@@ -33,12 +33,6 @@ slow-timeout = { period = "15s", terminate-after = 1 }
 filter = '(package(shrink_wrap) & (test(series::type_tests::fuzz_like) | test(series::type_tests::random_bytes_never_panic))) | (package(ww_self) & (test(fuzz_bundle::tests::random_inputs) | test(fuzz_series::tests::generated_items_and_random_bytes)))'
 slow-timeout = { period = "15s", terminate-after = 1 }
 
-# observe a simulated device for a fixed span of its own time: on a loaded PC the simulation falls behind real time,
-# so a 1 s run takes longer
-[[profile.default.overrides]]
-filter = 'package(motor_demo) & binary(observe)'
-slow-timeout = { period = "15s", terminate-after = 1 }
-
 # `just test-power-cut`: ww_settings power cuts at every step in release, tens of seconds per test
 [profile.power-cut]
 slow-timeout = { period = "60s", terminate-after = 5 }

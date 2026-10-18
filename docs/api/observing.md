@@ -205,7 +205,7 @@ stop being sent one value at a time.
 
 ## Walk-through: the motor demo
 
-[`examples/motor_demo`](../examples/motor_demo.md) observes a simulated FOC motor controller's ~50 properties
+The [motor demo](../examples/motor_demo.md) (code in [motor_sim](https://github.com/vhrdtech/motor_sim)) observes a simulated FOC motor controller's ~50 properties
 across three trait levels (one per rate tier: 25 kHz, 1 kHz, 50 Hz), each tier as one observe subscription at
 whatever rate a host asks for, within a budget. It's the reference for everything on this page in a real API:
 declaring `+observe` properties by tier, wiring `ObserveState`/`poll_properties`/`mark_changed_<name>` on the

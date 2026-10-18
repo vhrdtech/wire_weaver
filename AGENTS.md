@@ -60,8 +60,8 @@ under the gate's parallel load) is a bug to find first: `quantities_with_their_u
 walker re-parsed the same module files over a hundred times per API. Only tests that are heavy by design (fuzz-like
 loops over thousands of inputs, power-cut runs, re-parsing every snapshot crate) get a per-test override with a
 comment saying why and how long they take alone; never raise the default. Tests must not assert wall-clock rates:
-`motor_demo`'s observe tests run for a span of device time and count per device second (the simulated device falls
-behind real time on a busy PC). Check timing changes with `cargo nextest run --stress-count N` while CPU burners
+`tests/observe` drives the device with a fake clock and counts per device microsecond (a device in real time falls
+behind on a busy PC). Check timing changes with `cargo nextest run --stress-count N` while CPU burners
 load the PC.
 
 CI (`.github/workflows/ci.yml`) fails on any warning: `cargo fmt --check`, `cargo sort -w -g --check` (plain

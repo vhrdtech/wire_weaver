@@ -313,7 +313,7 @@ Working projects to start from: host programs, firmware for a few boards, and th
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
 - **[UDP over a USB network adapter](examples/examples.md)**: An RP2 board and its host side.
-- **[Motor controller demo](examples/motor_demo.md)**: 52 observed properties at three rates on a simulated motor.
+- **[Motor controller demo](examples/motor_demo.md)**: 52 observed properties at three rates on a simulated motor, in the motor_sim repo.
 - **[Counters in firmware](std_library/ww_counters.md)**: `cnt` counters in every probe-connected board example.
 - **[Settings demo](api/settings.md)**: Settings that survive a reboot, on the host and on two Nucleo boards.
 

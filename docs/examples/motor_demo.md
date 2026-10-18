@@ -8,14 +8,22 @@ A VESC-like field oriented controller drives a simulated motor, and its ~50 vari
 [observed](../api/observing.md) by a host, each at the rate it asks for, within a byte budget per trait level. It shows what observing many fast-changing properties costs on the link, and what it would cost as one
 `StreamData` event per value.
 
-- `examples/motor_demo_api`: the API, 52 `+observe` properties in three trait levels, one per rate tier, their
+The demo lives in its own repo, [motor_sim](https://github.com/vhrdtech/motor_sim), next to the motor simulator it drives (it will grow into a
+full simulator with a GUI there, and those dependencies stay out of WireWeaver's workspace):
+
+- [`motor_demo_api`](https://github.com/vhrdtech/motor_sim/tree/main/motor_demo_api): the API, 52 `+observe` properties in three trait levels, one per rate tier, their
   values `ww_si` quantities.
-- `examples/motor_demo`: the controller, the device (in this process or on a UDP socket), the host side counting
+- [`motor_demo`](https://github.com/vhrdtech/motor_sim/tree/main/motor_demo): the controller, the device (in this process or on a UDP socket), the host side counting
   and the `motor_demo` CLI.
-- The motor, inverter, mechanics and sensors are simulated by [motor_sim](https://github.com/vhrdtech/motor_sim) (a
+- [`motor_sim`](https://github.com/vhrdtech/motor_sim/tree/main/motor_sim): the motor, inverter, mechanics and sensors (a
   PMSM in dq, solved exactly per PWM period, with ADC noise, offsets and quantisation, an encoder and seeded faults).
 
+It builds against a WireWeaver checkout next to it (`../wire_weaver`):
+
 ```sh
+git clone https://github.com/vhrdtech/wire_weaver
+git clone https://github.com/vhrdtech/motor_sim
+cd motor_sim
 cargo run --release -p motor_demo -- observe --compare        # a device in this process, 3 tiers, 1 s reports
 cargo run --release -p motor_demo -- device --listen 127.0.0.1:9000
 cargo run --release -p motor_demo -- observe --udp 127.0.0.1:9000 --prop i_q=every:1ms,speed_electrical,fault
@@ -157,7 +165,7 @@ gives 565 updates/s of 8 values, 31.0 kB/s, 41.8 kB/s as `StreamData` and 3472 m
 
 ## Tests
 
-`cargo nextest run -p motor_demo`:
+`cargo nextest run -p motor_demo` in motor_sim:
 
 - `tests/controller.rs`: the controller against the simulator without WireWeaver: current, speed (both
   directions) and duty control, the observer tracking the angle and running sensorless, hybrid start from

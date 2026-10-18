@@ -24,7 +24,12 @@ New to WireWeaver: start with `blinky_api` and `blinky` (an API with two methods
 | `uart_api`, `uart`                                | USB/Ethernet/CAN to UART bridge                                             |
 | `settings_api`, `settings`                        | Two properties kept across a reboot by [`ww_settings`](../api/settings.md), on a simulated flash |
 | `defmt_log_api`, `defmt_log`                      | The firmware's `defmt` log streamed to the host with [`ww_log`](../std_library/ww_log.md) (firmware: `rp2`) |
-| `motor_demo_api`, `motor_demo`                    | [Motor controller demo](motor_demo.md): ~50 properties observed in three rate tiers, on a simulated motor |
+
+## In other repos
+
+| Example | What it shows |
+|---|---|
+| [motor_sim](https://github.com/vhrdtech/motor_sim): `motor_demo_api`, `motor_demo` | [Motor controller demo](motor_demo.md): ~50 properties observed in three rate tiers, on a simulated motor |
 
 ## Firmware ([`examples_mcu/`](https://github.com/vhrdtech/wire_weaver/tree/master/examples_mcu))
 

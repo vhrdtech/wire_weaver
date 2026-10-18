@@ -679,7 +679,14 @@ mod tests {
         let updates = b.drain().await;
         // `current` as single values: one right away, then every 2 ms, the last sample's value from the getter
         let ones: Vec<(Option<u64>, i32)> = updates.iter().flat_map(Update::current).collect();
-        assert_eq!(ones, [(Some(0), 0), (Some(2_000), 10), (Some(4_000), 10)]);
+        // (where the grid starts depends on the first poll after the request)
+        assert!(ones.len() >= 2, "{ones:?}");
+        assert!(
+            ones.windows(2)
+                .all(|w| w[1].0.unwrap() - w[0].0.unwrap() == 2_000),
+            "{ones:?}"
+        );
+        assert_eq!(ones.last().unwrap().1, 10, "{ones:?}");
         let readings: Vec<_> = updates.iter().flat_map(Update::readings).collect();
         assert_eq!(readings.len(), 4);
         assert_eq!(readings[0], (500, reading(7)));
@@ -793,5 +800,96 @@ mod tests {
         );
         // newest kept, in order, no duplicates
         assert!(current.windows(2).all(|w| w[0] < w[1]), "{current:?}");
+    }
+
+    /// Full microseconds of a time as the host gives it (unwrapped into a `U64`)
+    fn full_us(t: Option<Second>) -> u64 {
+        match t.map(|t| (t.prefix, t.value)) {
+            Some((ww_si::Prefix::Micro, ww_si::ww_numeric::NumericValue::U64(t))) => t,
+            t => panic!("timestamp {t:?}"),
+        }
+    }
+
+    /// Feed `count` samples `dt_us` apart from `t0_us` in bursts of 6, polling between them.
+    async fn feed(b: &mut Bench, count: u32, t0_us: u64, dt_us: u32, first: i32) -> u64 {
+        let mut done = 0;
+        let mut now = b.clock.load(Ordering::Relaxed);
+        while done < count {
+            let n = (count - done).min(6);
+            b.sample(
+                n,
+                (t0_us + (done * dt_us) as u64) as u32,
+                dt_us,
+                first + done as i32,
+            )
+            .await;
+            done += n;
+            now += 1_000;
+            b.at(now).await;
+        }
+        b.run(now + 1_000, now + 10_000, 1_000).await;
+        now + 10_000
+    }
+
+    /// A property observer of a batched property gets one `Observed` per sample with its own device time,
+    /// unwrapped across the wrap of the device's `u32` µs clock.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_gets_every_sample_with_its_time() {
+        use wire_weaver_client::observe::samples;
+        let mut b = Bench::start("observe_batched/host_samples", 512).await;
+        let mut current = b
+            .client
+            .observe_current(samples(Duration::from_millis(5)))
+            .subscribe()
+            .await
+            .unwrap();
+        let wrap = 1u64 << 32;
+        let t0 = wrap - 600;
+        feed(&mut b, 30, t0, 40, 100).await;
+        let mut got = vec![];
+        while got.len() < 30 {
+            let u = tokio::time::timeout(Duration::from_secs(2), current.recv())
+                .await
+                .expect("a sample in time")
+                .unwrap();
+            assert_eq!(u.missed, 0);
+            got.push((full_us(u.t), u.value));
+        }
+        let expected: Vec<(u64, i32)> = (0..30).map(|i| (t0 + i as u64 * 40, 100 + i)).collect();
+        assert_eq!(got, expected);
+        assert!(got.last().unwrap().0 > wrap);
+    }
+
+    /// A level observer: `samples(max_age)` puts every batched property into `Samples` mode; the update's batched
+    /// slots carry the samples with unwrapped times, the latest-value cache has the last one.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_observes_a_level_in_samples_mode() {
+        use client::api_client::observe_batched_api_observe_batched::ObserveBatchedObserve;
+        use wire_weaver_client::observe::{BatchedOwned, samples};
+        let mut b = Bench::start("observe_batched/host_level", 512).await;
+        let cfg = ObserveBatchedObserve::default().samples(Duration::from_millis(5));
+        assert_eq!(cfg.current, Some(samples(Duration::from_millis(5))));
+        assert_eq!(cfg.mode, None);
+        let mut level = b.client.observe(cfg).subscribe().await.unwrap();
+        assert!(level.granted().unwrap().refused.is_empty());
+        feed(&mut b, 12, 2_000, 40, 0).await;
+        let mut readings = vec![];
+        while let Some(u) = level.try_recv().unwrap() {
+            assert_eq!(u.t, None, "only batches");
+            match u.value.reading {
+                Some(BatchedOwned::Series(s)) => {
+                    readings.extend(s.0.into_iter().map(|i| (full_us(Some(i.t)), i.value)))
+                }
+                None => {}
+                other => panic!("{other:?}"),
+            }
+        }
+        assert_eq!(readings.len(), 12);
+        assert_eq!(readings[11], (2_000 + 11 * 40, reading(11)));
+        level.with_latest(|l| {
+            let current = l.current.as_ref().unwrap();
+            assert_eq!(current.value, 11);
+            assert_eq!(full_us(current.t), 2_000 + 11 * 40);
+        });
     }
 }

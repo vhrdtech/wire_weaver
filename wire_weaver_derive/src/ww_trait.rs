@@ -177,14 +177,18 @@ fn doc_trait(
                         let (index, array) = index_arg(&args.multiplicity);
                         let access = match args.access {
                             PropertyAccess::Const => "Constant property, never changes.",
-                            PropertyAccess::ReadOnly { observe: false, .. } => "Read-only property.",
+                            PropertyAccess::ReadOnly { observe: false, .. } => {
+                                "Read-only property."
+                            }
                             PropertyAccess::ReadOnly { batched: true, .. } => {
                                 "Read-only property, changes and every sample can be observed."
                             }
                             PropertyAccess::ReadOnly { observe: true, .. } => {
                                 "Read-only property, changes can be observed."
                             }
-                            PropertyAccess::ReadWrite { observe: false, .. } => "Read-write property.",
+                            PropertyAccess::ReadWrite { observe: false, .. } => {
+                                "Read-write property."
+                            }
                             PropertyAccess::ReadWrite { batched: true, .. } => {
                                 "Read-write property, changes and every sample can be observed."
                             }

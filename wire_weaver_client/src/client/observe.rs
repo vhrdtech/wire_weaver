@@ -31,8 +31,8 @@ use tracing::{debug, warn};
 use wire_weaver::shrink_wrap::{
     DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned, UNib32, UVlq32Backfill,
 };
+pub use ww_client_server::observe::{BatchedOwned, ObserveMode, ObserveRefusal, ObserveRefused};
 use ww_client_server::observe::{ObserveEntry, ObserveGrantedOwned, ObserveRequestOwned};
-pub use ww_client_server::observe::{ObserveMode, ObserveRefusal, ObserveRefused};
 use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
 pub use ww_si::Second;
 
@@ -91,6 +91,10 @@ pub trait LevelUpdate: DeserializeShrinkWrapOwned + Debug + Send + 'static {
 
     /// Move the properties present in this update into `latest`.
     fn update_latest(self, latest: &mut Self::Latest, received: Instant, t: Option<Second>);
+
+    /// Every device time of the samples in `Batched::Series` slots (API-39), in slot order, oldest first in each:
+    /// the level unwraps them in order once, every observer gets the same.
+    fn times_mut(&mut self, _f: &mut dyn FnMut(&mut Second)) {}
 }
 
 /// Settings of a level: the generated `<Trait>Observe`, one `Option<ObserveMode>` per property.
@@ -274,6 +278,8 @@ pub enum ObserveEvent<T> {
 struct RawUpdate {
     data: Vec<u8>,
     t: Option<Second>,
+    /// The samples' times unwrapped, as [LevelUpdate::times_mut] visits them
+    times: Vec<Second>,
     missed: u32,
     received: Instant,
 }
@@ -462,14 +468,25 @@ impl<U: LevelUpdate> Level<U> {
 impl<U: LevelUpdate> LevelRoute for Level<U> {
     fn on_update(&self, received: Instant, t: Option<Second>, missed: u32, data: &[u8]) {
         let mut state = self.lock();
+        let update = U::from_ww_bytes_owned(data);
+        // samples first: they were taken before the values the head `t` is the time of
+        let mut times = vec![];
+        let update = update.map(|mut update| {
+            update.times_mut(&mut |t| {
+                *t = state.time.unwrap(*t);
+                times.push(*t);
+            });
+            update
+        });
         let t = t.map(|t| state.time.unwrap(t));
         let raw = Arc::new(RawUpdate {
             data: data.to_vec(),
             t,
+            times,
             missed,
             received,
         });
-        match U::from_ww_bytes_owned(data) {
+        match update {
             Ok(update) => update.update_latest(&mut state.latest, received, t),
             Err(e) => warn!("property update of {:?} not decoded: {e:?}", self.path),
         }
@@ -695,9 +712,28 @@ pub struct Observer<U: LevelUpdate, T = U> {
     id: u64,
     queue: Arc<Queue>,
     transport: TransportCommander,
-    extract: fn(U) -> Option<T>,
+    extract: Extract<U, T>,
+    /// Samples of an update not given out yet
+    pending: VecDeque<ObserveEvent<T>>,
     _phantom: PhantomData<fn() -> T>,
 }
+
+/// What an [Observer] takes from each update.
+#[doc(hidden)]
+pub enum Extract<U, T> {
+    /// The update itself, or one property's value.
+    One(fn(U) -> Option<T>),
+    /// The samples of a `+batched` property (API-39): one value, or every item of a batch with its time.
+    Samples(fn(U) -> Option<BatchedOwned<T>>),
+}
+
+impl<U, T> Clone for Extract<U, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<U, T> Copy for Extract<U, T> {}
 
 /// A subscription being set up, see [crate::Commander::prepare_observe].
 #[doc(hidden)]
@@ -707,7 +743,7 @@ pub struct PreparedObserve<U: LevelUpdate, T> {
     pub(crate) path: Vec<UNib32>,
     pub(crate) cfg: ObserveConfig,
     pub(crate) queue_bytes: usize,
-    pub(crate) extract: fn(U) -> Option<T>,
+    pub(crate) extract: Extract<U, T>,
 }
 
 impl<U: LevelUpdate, T> PreparedObserve<U, T> {
@@ -752,6 +788,7 @@ impl<U: LevelUpdate, T> PreparedObserve<U, T> {
             queue,
             transport: self.transport.clone(),
             extract: self.extract,
+            pending: VecDeque::new(),
             _phantom: PhantomData,
         };
         Ok((observer, send_pending(permits, pending?)))
@@ -785,44 +822,72 @@ impl<U: LevelUpdate, T> PreparedObserve<U, T> {
 }
 
 impl<U: LevelUpdate, T> Observer<U, T> {
-    fn decode(&self, item: QueueItem) -> Result<Option<ObserveEvent<T>>, StreamError> {
-        Ok(Some(match item {
+    /// The events of a queue item into `pending`.
+    fn decode(&mut self, item: QueueItem) -> Result<(), StreamError> {
+        let ev = match item {
             QueueItem::Update(raw) => {
-                let update = U::from_ww_bytes_owned(&raw.data)?;
-                let Some(value) = (self.extract)(update) else {
-                    return Ok(None);
+                let mut update = U::from_ww_bytes_owned(&raw.data)?;
+                let mut times = raw.times.iter();
+                update.times_mut(&mut |t| {
+                    if let Some(full) = times.next() {
+                        *t = *full;
+                    }
+                });
+                let observed = |value, t, missed| {
+                    ObserveEvent::Update(Observed {
+                        value,
+                        t,
+                        missed,
+                        received: raw.received,
+                    })
                 };
-                ObserveEvent::Update(Observed {
-                    value,
-                    t: raw.t,
-                    missed: raw.missed,
-                    received: raw.received,
-                })
+                match self.extract {
+                    Extract::One(extract) => match extract(update) {
+                        Some(value) => observed(value, raw.t, raw.missed),
+                        None => return Ok(()),
+                    },
+                    Extract::Samples(extract) => {
+                        let Some(batched) = extract(update) else {
+                            return Ok(());
+                        };
+                        // what was missed goes with the first sample
+                        let mut missed = raw.missed;
+                        for (value, t) in batched.into_samples(raw.t) {
+                            self.pending
+                                .push_back(observed(value, t, std::mem::take(&mut missed)));
+                        }
+                        return Ok(());
+                    }
+                }
             }
             QueueItem::Disconnected => ObserveEvent::Disconnected,
             QueueItem::Resumed => ObserveEvent::Resumed,
             QueueItem::Dropped { events } => ObserveEvent::Dropped { events },
-        }))
+        };
+        self.pending.push_back(ev);
+        Ok(())
     }
 
     /// Next update, [ObserveEvent::Disconnected], [ObserveEvent::Resumed] or [ObserveEvent::Dropped].
     /// [StreamError::Closed] once nothing more can come (the link went down without `keep_streams`).
     pub async fn recv_event(&mut self) -> Result<ObserveEvent<T>, StreamError> {
         loop {
-            let item = self.queue.pop_async().await?;
-            if let Some(ev) = self.decode(item)? {
+            if let Some(ev) = self.pending.pop_front() {
                 return Ok(ev);
             }
+            let item = self.queue.pop_async().await?;
+            self.decode(item)?;
         }
     }
 
     /// Blocking variant of [Self::recv_event].
     pub fn recv_event_blocking(&mut self) -> Result<ObserveEvent<T>, StreamError> {
         loop {
-            let item = self.queue.pop_blocking()?;
-            if let Some(ev) = self.decode(item)? {
+            if let Some(ev) = self.pending.pop_front() {
                 return Ok(ev);
             }
+            let item = self.queue.pop_blocking()?;
+            self.decode(item)?;
         }
     }
 
@@ -846,12 +911,17 @@ impl<U: LevelUpdate, T> Observer<U, T> {
 
     /// An update if one is queued, skipping the other events.
     pub fn try_recv(&mut self) -> Result<Option<Observed<T>>, StreamError> {
-        while let Some(item) = self.queue.try_pop()? {
-            if let Some(ObserveEvent::Update(u)) = self.decode(item)? {
-                return Ok(Some(u));
+        loop {
+            while let Some(ev) = self.pending.pop_front() {
+                if let ObserveEvent::Update(u) = ev {
+                    return Ok(Some(u));
+                }
             }
+            let Some(item) = self.queue.try_pop()? else {
+                return Ok(None);
+            };
+            self.decode(item)?;
         }
-        Ok(None)
     }
 
     /// Updates dropped because this observer's queue was full.
@@ -1027,8 +1097,14 @@ mod tests {
     /// Every sample for one observer is every sample for all, as fresh as the most impatient one wants.
     #[test]
     fn merge_samples() {
-        let a = cfg(&[(0, samples(20 * MS)), (1, samples_every(MS, 50 * MS))], None);
-        let b = cfg(&[(0, periodic(5 * MS)), (1, samples_every(2 * MS, 10 * MS))], None);
+        let a = cfg(
+            &[(0, samples(20 * MS)), (1, samples_every(MS, 50 * MS))],
+            None,
+        );
+        let b = cfg(
+            &[(0, periodic(5 * MS)), (1, samples_every(2 * MS, 10 * MS))],
+            None,
+        );
         assert_eq!(
             ObserveConfig::merge([&a, &b]),
             cfg(
@@ -1037,9 +1113,6 @@ mod tests {
             )
         );
         let c = cfg(&[(0, on_change(30 * MS))], None);
-        assert_eq!(
-            ObserveConfig::merge([&c, &a]).entries[&0],
-            samples(20 * MS)
-        );
+        assert_eq!(ObserveConfig::merge([&c, &a]).entries[&0], samples(20 * MS));
     }
 }

@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+- Generated std clients of APIs with `+observe+batched` properties (API-39): their slots in `<Trait>Update` are
+  `BatchedOwned<T>`, `<Trait>Latest` keeps the last sample, `<Trait>Observe::samples(max_age)` observes every
+  sample of each batched property of the level, `observe_<name>` yields one value per sample.
+
 - Batched observe on the server (API-39): an API with `+observe+batched` properties gets `ObserveState<B =
   ObserveBatches>` (`new(limits, batches)`, one `Outbox` per level with such properties), `ObserveBatches`
   (`new(policy)`, `split()` into `ObserveSamplers` and `ObserveBatchConsumers` for samplers in an interrupt or

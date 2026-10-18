@@ -6,12 +6,22 @@
 //! property is observable when declared with `+observe` and not in an array itself.
 
 use crate::codegen::ty_def::{TyPos, ty_def};
+use crate::codegen::util::maybe_quote;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess};
 
-/// The observable properties of a level, by resource index: name and type.
-pub(crate) fn observable_props(api_level: &ApiLevelOwned) -> Vec<(u32, &str, &ww_self::TypeOwned)> {
+/// An observable property of a level.
+pub(crate) struct ObservableProp<'a> {
+    pub(crate) index: u32,
+    pub(crate) name: &'a str,
+    pub(crate) ty: &'a ww_self::TypeOwned,
+    /// `+batched` (API-39): its slot is a `BatchedOwned<T>`
+    pub(crate) batched: bool,
+}
+
+/// The observable properties of a level, by resource index.
+pub(crate) fn observable_props(api_level: &ApiLevelOwned) -> Vec<ObservableProp<'_>> {
     api_level
         .items
         .iter()
@@ -19,12 +29,21 @@ pub(crate) fn observable_props(api_level: &ApiLevelOwned) -> Vec<(u32, &str, &ww
             ApiItemKindOwned::Property {
                 ty,
                 access:
-                    PropertyAccess::ReadOnly { observe: true, .. }
-                    | PropertyAccess::ReadWrite { observe: true, .. },
+                    PropertyAccess::ReadOnly {
+                        observe: true,
+                        batched,
+                    }
+                    | PropertyAccess::ReadWrite {
+                        observe: true,
+                        batched,
+                    },
                 ..
-            } if matches!(item.multiplicity, Multiplicity::Flat) => {
-                Some((item.id.0, item.ident.as_str(), ty))
-            }
+            } if matches!(item.multiplicity, Multiplicity::Flat) => Some(ObservableProp {
+                index: item.id.0,
+                name: item.ident.as_str(),
+                ty,
+                batched: *batched,
+            }),
             _ => None,
         })
         .collect()
@@ -41,7 +60,7 @@ pub(crate) fn level_names(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
     let t = &api_level.trait_name;
     let owned = observable_props(api_level)
         .iter()
-        .any(|(_, _, ty)| ty.is_lifetime(api_bundle).unwrap());
+        .any(|p| p.ty.is_lifetime(api_bundle).unwrap());
     let suffix = if owned { "Owned" } else { "" };
     LevelNames {
         update: Ident::new(&format!("{t}Update{suffix}"), Span::call_site()),
@@ -59,13 +78,69 @@ pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
     );
     let idents: Vec<Ident> = props
         .iter()
-        .map(|(_, name, _)| Ident::new(name, Span::call_site()))
+        .map(|p| Ident::new(p.name, Span::call_site()))
         .collect();
-    let indices: Vec<u32> = props.iter().map(|(index, _, _)| *index).collect();
+    let indices: Vec<u32> = props.iter().map(|p| p.index).collect();
     let tys: Vec<TokenStream> = props
         .iter()
-        .map(|(_, _, ty)| ty_def(api_bundle, ty, true, TyPos::Def).unwrap())
+        .map(|p| ty_def(api_bundle, p.ty, true, TyPos::Def).unwrap())
         .collect();
+    let slot_tys: Vec<TokenStream> = props
+        .iter()
+        .zip(&tys)
+        .map(|(p, ty)| {
+            crate::codegen::server::observe::batched_slot_ty(p.batched, ty.clone(), true)
+        })
+        .collect();
+    // a value into `latest`: the last sample of a batched slot
+    let to_latest = props.iter().zip(&idents).map(|(p, ident)| {
+        if p.batched {
+            quote! {
+                if let Some(batched) = self.#ident {
+                    if let Some((value, t)) = batched.into_samples(t).pop() {
+                        latest.#ident = Some(wire_weaver_client::observe::Sample { value, received, t });
+                    }
+                }
+            }
+        } else {
+            quote! {
+                if let Some(value) = self.#ident {
+                    latest.#ident = Some(wire_weaver_client::observe::Sample { value, received, t });
+                }
+            }
+        }
+    });
+    let batched_idents: Vec<&Ident> = props
+        .iter()
+        .zip(&idents)
+        .filter(|(p, _)| p.batched)
+        .map(|(_, i)| i)
+        .collect();
+    let times_mut = maybe_quote(
+        !batched_idents.is_empty(),
+        quote! {
+            fn times_mut(&mut self, f: &mut dyn FnMut(&mut wire_weaver_client::observe::Second)) {
+                #(
+                    if let Some(batched) = &mut self.#batched_idents {
+                        for t in batched.times_mut() {
+                            f(t);
+                        }
+                    }
+                )*
+            }
+        },
+    );
+    let samples_fn = maybe_quote(
+        !batched_idents.is_empty(),
+        quote! {
+            /// Every sample of each `+batched` property of the level, in batches at most `max_age` old (API-39,
+            /// `ObserveMode::Samples`).
+            pub fn samples(mut self, max_age: std::time::Duration) -> Self {
+                #(self.#batched_idents = Some(wire_weaver_client::observe::samples(max_age));)*
+                self
+            }
+        },
+    );
     let trait_name = &api_level.trait_name;
     let update_doc = format!(
         " Data of a `PropertyUpdate` of `{trait_name}` (CLT-28): its observable properties by resource index, the \
@@ -87,7 +162,7 @@ pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
         pub struct #update {
             #(
                 #[slot = #indices]
-                pub #idents: Option<#tys>,
+                pub #idents: Option<#slot_tys>,
             )*
         }
 
@@ -104,6 +179,7 @@ pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
         }
 
         impl #config {
+            #samples_fn
             #(
                 #[doc = #setter_docs]
                 pub fn #idents(mut self, mode: wire_weaver_client::observe::ObserveMode) -> Self {
@@ -142,12 +218,10 @@ pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
                 received: std::time::Instant,
                 t: Option<wire_weaver_client::observe::Second>,
             ) {
-                #(
-                    if let Some(value) = self.#idents {
-                        latest.#idents = Some(wire_weaver_client::observe::Sample { value, received, t });
-                    }
-                )*
+                #(#to_latest)*
             }
+
+            #times_mut
         }
     }
 }
@@ -181,6 +255,7 @@ pub(crate) fn property_observe_fn(
     api_level: &ApiLevelOwned,
     prop: &Ident,
     ty: &TokenStream,
+    batched: bool,
     level_chain: TokenStream,
     path_kind: &TokenStream,
 ) -> TokenStream {
@@ -190,12 +265,23 @@ pub(crate) fn property_observe_fn(
         " Observe `{prop}` with `mode` (CLT-28): its values as the device sends them, fanned out from the observed \
         level (one subscription per level on the device, see `observe()`)."
     );
+    let (doc, prepare) = if batched {
+        (
+            format!(
+                "{doc} `+batched` (API-39): with `observe::samples(max_age)` every sample the device takes, one \
+                `Observed` each with its own device time."
+            ),
+            quote! { prepare_observe_samples },
+        )
+    } else {
+        (doc, quote! { prepare_observe })
+    };
     quote! {
         #[doc = #doc]
         pub fn #observe(&self, mode: wire_weaver_client::observe::ObserveMode) -> wire_weaver_client::observe::PreparedObserve<#update, #ty> {
             #level_chain
             let path_kind = #path_kind;
-            self.cmd.prepare_observe(path_kind, #config::default().#prop(mode), |u: #update| u.#prop)
+            self.cmd.#prepare(path_kind, #config::default().#prop(mode), |u: #update| u.#prop)
         }
     }
 }

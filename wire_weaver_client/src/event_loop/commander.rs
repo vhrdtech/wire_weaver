@@ -380,6 +380,26 @@ impl Commander {
         cfg: U::Config,
         extract: fn(U) -> Option<T>,
     ) -> PreparedObserve<U, T> {
+        self.prepare_observe_with(path, cfg, crate::observe::Extract::One(extract))
+    }
+
+    /// [prepare_observe](Self::prepare_observe) of a `+batched` property (API-39): the observer gets one value per
+    /// sample, each with its own device time, whether the device sends them one by one or in batches.
+    pub fn prepare_observe_samples<U: LevelUpdate, T>(
+        &self,
+        path: PathKind<'_>,
+        cfg: U::Config,
+        extract: fn(U) -> Option<crate::observe::BatchedOwned<T>>,
+    ) -> PreparedObserve<U, T> {
+        self.prepare_observe_with(path, cfg, crate::observe::Extract::Samples(extract))
+    }
+
+    fn prepare_observe_with<U: LevelUpdate, T>(
+        &self,
+        path: PathKind<'_>,
+        cfg: U::Config,
+        extract: crate::observe::Extract<U, T>,
+    ) -> PreparedObserve<U, T> {
         let resolved = self
             .check_observe_supported()
             .and_then(|()| self.resolve_path(path));

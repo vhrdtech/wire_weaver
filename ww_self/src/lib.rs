@@ -362,15 +362,9 @@ pub enum PropertyAccess {
     /// Property can only be read but can change on the server and be observed for changes. `batched` (API-39,
     /// `+batched`, implies `observe`): a host may observe every sample the device takes, sent in batches
     /// (`ObserveMode::Samples`), its observe slot is a `Batched<T>`.
-    ReadOnly {
-        observe: bool,
-        batched: bool,
-    },
+    ReadOnly { observe: bool, batched: bool },
     /// Property can be read, written and observed for changes, `batched` as for `ReadOnly`
-    ReadWrite {
-        observe: bool,
-        batched: bool,
-    },
+    ReadWrite { observe: bool, batched: bool },
     /// Property can only be written
     WriteOnly,
 }

@@ -15,6 +15,12 @@
 
 ### 🚀 Features
 
+- Batched observe in the typed client (API-39): `observe_<name>(mode)` of a `+observe+batched` property gives one
+  `Observed` per sample, each with its own device time (unwrapped by the level's device time, the same for every
+  observer), whether the device sends one value or a batch; `Commander::prepare_observe_samples`,
+  `observe::Extract`, `observe::BatchedOwned` re-exported. `LevelUpdate::times_mut` (default: none) visits the
+  samples' times of an update.
+
 - `observe::samples(max_age)` / `samples_every(every, max_age)` (API-39): `ObserveMode::Samples` for
   `+observe+batched` properties. Observers of one level merge into `Samples` when any of them asks for it (the
   finest grid, the shortest age any of them waits for).

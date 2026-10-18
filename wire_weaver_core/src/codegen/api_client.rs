@@ -708,8 +708,14 @@ fn handle_property(
 
     let observe_fns = if let (
         Some(level_chain),
-        PropertyAccess::ReadWrite { observe: true, .. }
-        | PropertyAccess::ReadOnly { observe: true, .. },
+        PropertyAccess::ReadWrite {
+            observe: true,
+            batched,
+        }
+        | PropertyAccess::ReadOnly {
+            observe: true,
+            batched,
+        },
     ) = (level_chain, access)
     {
         client_observe::property_observe_fn(
@@ -717,6 +723,7 @@ fn handle_property(
             api_level,
             prop_name,
             &def_ty,
+            *batched,
             level_chain.clone(),
             &path_kind,
         )

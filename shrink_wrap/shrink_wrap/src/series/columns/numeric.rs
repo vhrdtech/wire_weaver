@@ -385,12 +385,40 @@ fn put_aligned<W: Word>(
     values: impl Iterator<Item = W>,
 ) -> Result<(), Error> {
     sink.align_byte();
-    let bytes = aligned_bytes(kind.width);
     let mask = mask(kind.width);
-    for value in values {
-        sink.put_bytes(&(value.to_u64() & mask).to_le_bytes()[..bytes])?;
+    let values = values.map(|v| v.to_u64() & mask);
+    // a copy of a known size per value, not a call
+    match aligned_bytes(kind.width) {
+        1 => put_aligned_chunks::<1>(sink, values),
+        2 => put_aligned_chunks::<2>(sink, values),
+        3 => put_aligned_chunks::<3>(sink, values),
+        4 => put_aligned_chunks::<4>(sink, values),
+        5 => put_aligned_chunks::<5>(sink, values),
+        6 => put_aligned_chunks::<6>(sink, values),
+        7 => put_aligned_chunks::<7>(sink, values),
+        _ => put_aligned_chunks::<8>(sink, values),
     }
-    Ok(())
+}
+
+/// `B` low bytes of each value, little-endian, gathered in a chunk on the stack: one copy into the sink per chunk,
+/// not per value.
+#[inline(always)]
+fn put_aligned_chunks<const B: usize>(
+    sink: &mut impl BitSink,
+    values: impl Iterator<Item = u64>,
+) -> Result<(), Error> {
+    let mut chunk = [0u8; 64];
+    let mut at = 0;
+    for value in values {
+        if at + B > chunk.len() {
+            sink.put_bytes(&chunk[..at])?;
+            at = 0;
+        }
+        let le = value.to_le_bytes();
+        chunk[at..at + B].copy_from_slice(&le[..B]);
+        at += B;
+    }
+    sink.put_bytes(&chunk[..at])
 }
 
 /// Writes the column with `codec`, header included, which the caller checked fits (constant).

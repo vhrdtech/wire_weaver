@@ -10,10 +10,13 @@
 //! once is 16 KB of `Timed<T>` and more than the Cortex-M3 model's 64 KB of RAM once the compiler keeps copies on
 //! the stack.
 
+// each bin uses a part: `run` or `run_store`
+#![allow(dead_code)]
+
 use super::foc_signals as sig;
 use wire_weaver::prelude::*;
-use wire_weaver::shrink_wrap::Series;
-use wire_weaver::shrink_wrap::series::SeriesPolicy;
+use wire_weaver::shrink_wrap::series::{SeriesPolicy, SeriesStore, write_store_series};
+use wire_weaver::shrink_wrap::{BufWriter, Series};
 use ww_si::{Ampere, Radian, Ratio, Second, Timed, Volt, Weber};
 
 /// Samples per property per batch.
@@ -21,7 +24,9 @@ pub const N: usize = 32;
 /// Batches in the recorded signals.
 pub const BATCHES: usize = 2;
 
-/// What a measured `Series` is.
+/// What a measured `Series` is; the `Store*` ones are the shared clock's `Series` written straight from a
+/// `SeriesStore` of the items (`write_store_series`, the column-by-column writer, experiment series-memcpy-fast),
+/// the others by the item walk.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Group {
     /// One property's `Series<Timed<T>>`: what batched observe sends today.
@@ -33,10 +38,20 @@ pub enum Group {
     /// One `Series<Timed<FocRow>>`, every property an `Option` column next to one time column: a shared clock as
     /// one series per level batch.
     Row,
+    StoreUntimed,
+    StoreClock,
 }
 
 impl Group {
+    /// What [run] measures.
     pub const ALL: [Group; 4] = [Group::Timed, Group::Untimed, Group::Clock, Group::Row];
+    /// What [run_store] measures.
+    pub const STORE: [Group; 4] = [
+        Group::Untimed,
+        Group::Clock,
+        Group::StoreUntimed,
+        Group::StoreClock,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -44,6 +59,8 @@ impl Group {
             Group::Untimed => "21 x Series<T>",
             Group::Clock => "1 x Series<Second>",
             Group::Row => "1 x Series<Timed<Row of 21 Option<T>>>",
+            Group::StoreUntimed => "21 x Series<T> from the store",
+            Group::StoreClock => "1 x Series<Second> from the store",
         }
     }
 }
@@ -57,8 +74,8 @@ fn t(batch: usize, i: usize) -> Second {
     Second::micro(sig::T0_US + (batch * N + i) as u32 * sig::DT_US)
 }
 
-/// Builds one `Series`' items and measures their encode, in a frame of its own (the items of one property, not of
-/// the whole level, on the stack at a time).
+/// Builds one `Series`' items and measures their encode by the item walk, in a frame of its own (the items of one
+/// property, not of the whole level, on the stack at a time).
 #[inline(never)]
 fn one<T, P: SeriesPolicy + Copy>(
     group: Group,
@@ -70,13 +87,63 @@ fn one<T, P: SeriesPolicy + Copy>(
     T: for<'i> wire_weaver::shrink_wrap::series::SeriesColumns<'i>,
 {
     let items: [T; N] = core::array::from_fn(item);
-    let mut buf = [0u8; 8192];
+    let mut buf = [0u8; 4096];
     meter.measure(group, batch, &mut || {
         Series::with_policy(&items[..], policy)
             .to_ww_bytes(&mut buf)
             .unwrap()
             .len()
     });
+}
+
+/// [one], then the same `Series` written from a `SeriesStore` of the items as `store_group`: the same bytes.
+#[inline(never)]
+fn one_and_store<T, P: SeriesPolicy + Copy>(
+    group: Group,
+    store_group: Group,
+    batch: usize,
+    item: impl Fn(usize) -> T,
+    policy: P,
+    meter: &mut impl Meter,
+) where
+    T: for<'i> wire_weaver::shrink_wrap::series::SeriesColumns<'i> + SeriesStore,
+{
+    let items: [T; N] = core::array::from_fn(item);
+    walk_and_store(group, store_group, batch, &items, policy, meter);
+}
+
+/// The body of [one_and_store], once per item type (not per property: the flash).
+#[inline(never)]
+fn walk_and_store<T, P: SeriesPolicy + Copy>(
+    group: Group,
+    store_group: Group,
+    batch: usize,
+    items: &[T; N],
+    policy: P,
+    meter: &mut impl Meter,
+) where
+    T: for<'i> wire_weaver::shrink_wrap::series::SeriesColumns<'i> + SeriesStore,
+{
+    let mut buf = [0u8; 4096];
+    let mut walk = 0;
+    meter.measure(group, batch, &mut || {
+        walk = Series::with_policy(&items[..], policy)
+            .to_ww_bytes(&mut buf)
+            .unwrap()
+            .len();
+        walk
+    });
+    let mut store = T::empty_store::<N>();
+    for (i, item) in items.iter().enumerate() {
+        T::set(&mut store, i, item);
+    }
+    let mut from_store = [0u8; 4096];
+    meter.measure(store_group, batch, &mut || {
+        let mut wr = BufWriter::new(&mut from_store);
+        assert!(write_store_series::<T, P, N>(&mut wr, &store, 0..N, &policy).unwrap());
+        wr.finish_and_take().unwrap().len()
+    });
+    assert_eq!(buf[..walk], from_store[..walk], "store and walk differ");
 }
 
 /// One sample of the level, every property optional (observed or not, on its grid or not).
@@ -125,6 +192,24 @@ macro_rules! level {
                         $($name: Some($ty::$prefix(sig::$signal[batch * N + i])),)*
                     })
                 }, policy, meter);
+            }
+        }
+
+        /// Per batch: the 21 untimed series and the clock, each by the item walk and then from a store (in
+        /// separate bins from [run]: the Cortex-M3 model's 256 KB of flash don't hold both).
+        pub fn run_store<P: SeriesPolicy + Copy>(policy: P, meter: &mut impl Meter) {
+            for batch in 0..BATCHES {
+                $(
+                    one_and_store(
+                        Group::Untimed,
+                        Group::StoreUntimed,
+                        batch,
+                        |i| $ty::$prefix(sig::$signal[batch * N + i]),
+                        policy,
+                        meter,
+                    );
+                )*
+                one_and_store(Group::Clock, Group::StoreClock, batch, |i| t(batch, i), policy, meter);
             }
         }
     };

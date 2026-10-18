@@ -94,3 +94,10 @@ path = "src/bin/memcpy_columns.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "qemu-store-columns"
+path = "src/bin/store_columns.rs"
+test = false
+doctest = false
+bench = false

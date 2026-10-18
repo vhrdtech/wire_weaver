@@ -1,7 +1,8 @@
 //! Core clock cycles of the shared clock measurement (idea I-2) on the STM32H725IG (Cortex-M7, 540 MHz, I- and
 //! D-cache on), counted with the DWT cycle counter: one FOC level batch of 32 samples of all 21 motor demo
 //! properties as 21 x `Series<Timed<T>>` against 21 x `Series<T>` + one `Series<Second>` (the `mcu_qemu`
-//! `shared_clock` bench), two batches, under `DeltaPacked` and `RawPlain`. Each encode runs five times: the first
+//! `shared_clock` bench), two batches, under `DeltaPacked`, `RawPlain` and `AlignedPlain`, and the shared clock's
+//! columns written straight from a `SeriesStore` (experiment series-memcpy-fast). Each encode runs five times: the first
 //! is with cold caches, the best of the rest is the warm number. `cargo run --release --bin
 //! stm32h725ig-shared-clock-cycles` prints them over defmt.
 #![no_std]
@@ -15,7 +16,7 @@ use embassy_stm32::Config;
 use embassy_stm32::time::mhz;
 use panic_probe as _;
 use shared_clock::{BATCHES, Group};
-use wire_weaver::shrink_wrap::series::{DeltaPacked, RawPlain, SeriesPolicy};
+use wire_weaver::shrink_wrap::series::{AlignedPlain, DeltaPacked, RawPlain, SeriesPolicy};
 
 #[path = "../../../mcu_qemu/src/foc_signals.rs"]
 mod foc_signals;
@@ -25,9 +26,9 @@ mod shared_clock;
 /// Warm cycles (the best of four runs after the first) and cold ones (the first run) summed per batch and group,
 /// and the bytes.
 struct Cycles {
-    warm: [[u32; 4]; BATCHES],
-    cold: [[u32; 4]; BATCHES],
-    bytes: [[usize; 4]; BATCHES],
+    warm: [[u32; 6]; BATCHES],
+    cold: [[u32; 6]; BATCHES],
+    bytes: [[usize; 6]; BATCHES],
 }
 
 impl shared_clock::Meter for Cycles {
@@ -50,27 +51,42 @@ impl shared_clock::Meter for Cycles {
     }
 }
 
-fn measure<P: SeriesPolicy + Copy>(name: &str, policy: P) {
-    let mut c = Cycles {
-        warm: [[0; 4]; BATCHES],
-        cold: [[0; 4]; BATCHES],
-        bytes: [[0; 4]; BATCHES],
-    };
-    shared_clock::run(policy, &mut c);
-    for batch in 0..BATCHES {
-        for group in Group::ALL {
-            let g = group as usize;
-            info!(
-                "{} batch={} {} bytes={} cycles cold={} warm={}",
-                name,
-                batch,
-                group.label(),
-                c.bytes[batch][g],
-                c.cold[batch][g],
-                c.warm[batch][g]
-            );
+impl Cycles {
+    fn new() -> Self {
+        Cycles {
+            warm: [[0; 6]; BATCHES],
+            cold: [[0; 6]; BATCHES],
+            bytes: [[0; 6]; BATCHES],
         }
     }
+
+    fn print(&self, name: &str, groups: &[Group]) {
+        for batch in 0..BATCHES {
+            for &group in groups {
+                let g = group as usize;
+                info!(
+                    "{} batch={} {} bytes={} cycles cold={} warm={}",
+                    name,
+                    batch,
+                    group.label(),
+                    self.bytes[batch][g],
+                    self.cold[batch][g],
+                    self.warm[batch][g]
+                );
+            }
+        }
+    }
+}
+
+/// The item walk of every group ([shared_clock::run]), then the shared clock's columns from a store
+/// ([shared_clock::run_store], its walk groups measured again and not printed).
+fn measure<P: SeriesPolicy + Copy>(name: &str, policy: P) {
+    let mut walk = Cycles::new();
+    shared_clock::run(policy, &mut walk);
+    walk.print(name, &Group::ALL);
+    let mut store = Cycles::new();
+    shared_clock::run_store(policy, &mut store);
+    store.print(name, &[Group::StoreUntimed, Group::StoreClock]);
 }
 
 #[entry]
@@ -112,6 +128,7 @@ fn main() -> ! {
 
     measure("DeltaPacked", DeltaPacked);
     measure("RawPlain", RawPlain);
+    measure("AlignedPlain", AlignedPlain);
     info!("done");
     loop {
         cortex_m::asm::wfi();

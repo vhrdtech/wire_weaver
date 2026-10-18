@@ -290,6 +290,24 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
         }
     }
 
+    /// Try to receive one event of any kind without waiting, see [Self::recv_any].
+    pub fn try_recv_any(&mut self) -> Result<Option<TypedStreamEvent<T>>, StreamError> {
+        loop {
+            if let Some(item) = self.pending.pop_front() {
+                return Ok(Some(TypedStreamEvent::Data(item.value)));
+            }
+            match self.rx.try_recv() {
+                Ok(ev) => {
+                    if let Some(ev) = self.type_event(ev)? {
+                        return Ok(Some(ev));
+                    }
+                }
+                Err(TryRecvError::Empty) => return Ok(None),
+                Err(TryRecvError::Disconnected) => return Err(StreamError::Closed),
+            }
+        }
+    }
+
     /// A raw event typed; a batched stream's data event gives its first item (None: an empty batch).
     fn type_event(
         &mut self,

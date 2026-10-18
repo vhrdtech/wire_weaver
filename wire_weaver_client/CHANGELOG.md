@@ -20,6 +20,12 @@
   `recv_batch` / `recv_batch_blocking` give whole batches (`Batch`, `BatchItem`). `PreparedStreamOpen::max_age`
   asks how old a batch may get on the device (asked again on a resume), `PreparedStreamOpen::batched` with
   `unpack_timed` / `unpack_untimed` (used by generated code). `StreamHandle` has an `Item` type.
+- Batched streams in the dynamic client (API-41): `DynPositionedStream` and `DynStream` give one `ValueOwned` item
+  per entry of a batch, decoded dynamically from `StreamFnRef::batch_item_ty` / `wire_item_ty()` (`ww_self`'s
+  `Series`/struct decoder, no generated code involved), with their own device time (`DynQuantity::from_value` reads
+  the batch item's `t` field); `recv_batch` / `recv_batch_blocking` on both give whole batches, same shape as the
+  typed handles'. `Stream::try_recv_any` (non-blocking variant of `recv_any`), for `DynStream::try_recv` to see a
+  reconnect without going through `recv`/`recv_blocking`.
 
 - `quantity` shows `ww_si::AnyQuantity` values (STD-37) like typed quantities: `DynQuantity::from_value` reads the
   unit from the value (`DynUnit::from_si_expr`, a named ww_si unit becomes the same `DynUnit::Known` as the typed

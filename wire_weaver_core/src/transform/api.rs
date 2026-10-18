@@ -333,7 +333,7 @@ fn batch_item_ty(
 /// The `ww_si::Timed` generic definition instantiated with `item_ty` (API-41): the wire item of a batched timed
 /// stream is `Series` of this. `Timed` isn't named anywhere in the trait's own source (only `item_ty` is, as the
 /// stream's plain item type), so it's resolved from `ww_si` directly rather than walked from a type a user wrote.
-fn timed_instance(
+pub(crate) fn timed_instance(
     item_ty: &TypeOwned,
     current_crate: &CrateContext,
     scratch: &mut Scratch,

@@ -95,6 +95,23 @@ pub trait LevelUpdate: DeserializeShrinkWrapOwned + Debug + Send + 'static {
     /// Every device time of the samples in `Batched::Series` slots (API-39), in slot order, oldest first in each:
     /// the level unwraps them in order once, every observer gets the same.
     fn times_mut(&mut self, _f: &mut dyn FnMut(&mut Second)) {}
+
+    /// [Self::times_mut] as the level visits them, with its `latest` at hand: an update that can't find its times
+    /// on its own (the dynamic client's, it needs the level's schema kept there) overrides this.
+    fn level_times_mut(&mut self, _latest: &Self::Latest, f: &mut dyn FnMut(&mut Second)) {
+        self.times_mut(f)
+    }
+
+    /// The times [Self::level_times_mut] visited, unwrapped by the level, put back before an observer takes the
+    /// update.
+    fn set_times(&mut self, times: &[Second]) {
+        let mut times = times.iter();
+        self.times_mut(&mut |t| {
+            if let Some(full) = times.next() {
+                *t = *full;
+            }
+        });
+    }
 }
 
 /// Settings of a level: the generated `<Trait>Observe`, one `Option<ObserveMode>` per property.
@@ -467,12 +484,13 @@ impl<U: LevelUpdate> Level<U> {
 
 impl<U: LevelUpdate> LevelRoute for Level<U> {
     fn on_update(&self, received: Instant, t: Option<Second>, missed: u32, data: &[u8]) {
-        let mut state = self.lock();
+        let mut guard = self.lock();
+        let state = &mut *guard;
         let update = U::from_ww_bytes_owned(data);
         // samples first: they were taken before the values the head `t` is the time of
         let mut times = vec![];
         let update = update.map(|mut update| {
-            update.times_mut(&mut |t| {
+            update.level_times_mut(&state.latest, &mut |t| {
                 *t = state.time.unwrap(*t);
                 times.push(*t);
             });
@@ -744,7 +762,12 @@ pub struct PreparedObserve<U: LevelUpdate, T> {
     pub(crate) cfg: ObserveConfig,
     pub(crate) queue_bytes: usize,
     pub(crate) extract: Extract<U, T>,
+    /// Sets up the level's `latest` when an observer subscribes (the dynamic client keeps its schema there).
+    pub(crate) init_latest: Option<InitLatest<U>>,
 }
+
+/// See [PreparedObserve::init_latest].
+pub(crate) type InitLatest<U> = Arc<dyn Fn(&mut <U as LevelUpdate>::Latest) + Send + Sync>;
 
 impl<U: LevelUpdate, T> PreparedObserve<U, T> {
     /// Bytes per second the level's updates may take on the link, by default the device decides. Observers of a
@@ -774,6 +797,9 @@ impl<U: LevelUpdate, T> PreparedObserve<U, T> {
             .unwrap_or_else(|e| e.into_inner());
         let level = level_of::<U>(&mut levels, &self.path)?;
         let mut state = level.lock();
+        if let Some(init) = &self.init_latest {
+            init(&mut state.latest);
+        }
         let id = state.next_id;
         state.next_id += 1;
         let queue = Queue::new(self.queue_bytes);
@@ -827,12 +853,7 @@ impl<U: LevelUpdate, T> Observer<U, T> {
         let ev = match item {
             QueueItem::Update(raw) => {
                 let mut update = U::from_ww_bytes_owned(&raw.data)?;
-                let mut times = raw.times.iter();
-                update.times_mut(&mut |t| {
-                    if let Some(full) = times.next() {
-                        *t = *full;
-                    }
-                });
+                update.set_times(&raw.times);
                 let observed = |value, t, missed| {
                     ObserveEvent::Update(Observed {
                         value,

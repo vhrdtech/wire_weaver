@@ -20,7 +20,7 @@ pub use client::attachment::Attachment;
 pub use client::batch::{Batch, BatchItem, Unpack, unpack_timed, unpack_untimed};
 pub use client::credit::CreditConfig;
 pub use client::dyn_client::DynClient;
-pub use client::dyn_observe::{DynConfig, DynObserved, DynObserver};
+pub use client::dyn_observe::{DynConfig, DynObserved, DynObserver, DynSamples};
 pub use client::dyn_positioned::{DynPositionedStream, DynStreamOpen, seconds};
 pub use client::dynamic::{
     DynMultiArgs, DynMultiValue, DynResource, DynResourceKind, DynSink, DynStream,

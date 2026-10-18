@@ -892,4 +892,70 @@ mod tests {
             assert_eq!(full_us(current.t), 2_000 + 11 * 40);
         });
     }
+
+    /// The dynamic client (TOOL-11) decodes `Batched` slots from introspection alone: every sample of each
+    /// property with its time unwrapped by the level across the `u32` µs wrap, the newest in `values`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dynamic_observer_gets_every_sample() {
+        use std::collections::BTreeMap;
+        use wire_weaver_client::DynResource;
+        use wire_weaver_client::observe::samples;
+        use wire_weaver_client::ww_numeric::NumericValue;
+        use wire_weaver_client::ww_self::{FieldsValueOwned, ValueOwned};
+        let mut b = Bench::start("observe_batched/dynamic", 512).await;
+        let bundle = b
+            .client
+            .cmd
+            .device_introspect()
+            .expect("introspection enabled")
+            .api_bundle
+            .clone();
+        let root = DynResource::root(bundle);
+        let mode = samples(Duration::from_millis(5));
+        let entries = BTreeMap::from([(CURRENT, mode), (READING, mode)]);
+        let mut observer = root.observe(&b.client.cmd, entries).await.unwrap();
+        assert!(observer.granted().unwrap().refused.is_empty());
+        let wrap = 1u64 << 32;
+        let t0 = wrap - 600;
+        feed(&mut b, 30, t0, 40, 100).await;
+        let mut current = vec![];
+        let mut readings = vec![];
+        while current.len() < 30 {
+            let u = tokio::time::timeout(Duration::from_secs(2), observer.recv())
+                .await
+                .expect("an update in time")
+                .unwrap();
+            assert_eq!(u.t, None, "only batches");
+            assert_eq!(u.missed, 0);
+            for s in &u.samples {
+                let newest = u.values.iter().find(|(name, _)| *name == s.name);
+                assert_eq!(newest.map(|(_, v)| v), s.items.last().map(|(v, _)| v));
+                for (value, t) in &s.items {
+                    let t = full_us(*t);
+                    match (s.name.as_str(), value) {
+                        ("current", ValueOwned::Numeric(NumericValue::I32(v))) => {
+                            current.push((t, *v))
+                        }
+                        ("reading", ValueOwned::Struct { fields }) => {
+                            let FieldsValueOwned::Named(fields) = fields else {
+                                panic!("{fields:?}")
+                            };
+                            readings.push((t, fields[0].1.clone()));
+                        }
+                        other => panic!("{other:?}"),
+                    }
+                }
+            }
+        }
+        let expected: Vec<(u64, i32)> = (0..30).map(|i| (t0 + i as u64 * 40, 100 + i)).collect();
+        assert_eq!(current, expected);
+        assert_eq!(readings.len(), 30);
+        assert_eq!(
+            readings[29],
+            (
+                t0 + 29 * 40,
+                ValueOwned::Numeric(NumericValue::I32(2 * 129))
+            )
+        );
+    }
 }

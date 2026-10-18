@@ -17,11 +17,13 @@
 //! # }
 //! ```
 
-use crate::client::dyn_observe::{DynConfig, DynObserver, DynUpdate, LevelSchema};
+use crate::client::dyn_observe::{
+    BatchedSlot, DynConfig, DynLatest, DynObserver, DynUpdate, LevelSchema,
+};
 use crate::client::dyn_positioned::{DynPositionedStream, DynStreamOpen};
 use crate::client::prepared_stream_open::RawOpenResult;
 use crate::error_list;
-use crate::observe::ObserveMode;
+use crate::observe::{ObserveMode, PreparedObserve};
 use crate::{
     AckMode, BatchItem, Commander, CreditConfig, Error, PositionedStream, PreparedRead,
     PreparedStreamOpen, RawStreamEvent, Sink, Stream, StreamCursor, StreamError, TypedStreamEvent,
@@ -509,9 +511,15 @@ impl DynResource {
         Ok(self.observe_schema()?.props().to_vec())
     }
 
+    /// Resource indices of this level's `+batched` properties (API-39): those [ObserveMode::Samples] observes
+    /// every sample of.
+    pub fn batched_properties(&self) -> Result<Vec<u32>, Error> {
+        Ok(self.observe_schema()?.batched_indices().collect())
+    }
+
     fn observe_schema(&self) -> Result<LevelSchema, Error> {
         let level = self.level()?;
-        let props = level
+        let props_iter = level
             .items
             .iter()
             .filter(|item| matches!(item.multiplicity, Multiplicity::Flat))
@@ -519,14 +527,40 @@ impl DynResource {
                 ApiItemKindOwned::Property {
                     ty,
                     access:
-                        PropertyAccess::ReadOnly { observe: true, .. }
-                        | PropertyAccess::ReadWrite { observe: true, .. },
+                        PropertyAccess::ReadOnly {
+                            observe: true,
+                            batched,
+                        }
+                        | PropertyAccess::ReadWrite {
+                            observe: true,
+                            batched,
+                        },
+                    batch_item_ty,
                     ..
-                } => Some((item.id.0, item.ident.clone(), ty.clone())),
+                } => Some((item, ty, *batched, batch_item_ty)),
                 _ => None,
-            })
-            .collect();
-        Ok(LevelSchema::new(self.bundle.clone(), props))
+            });
+        let mut props = vec![];
+        let mut batched_slots = vec![];
+        for (item, ty, batched, batch_item_ty) in props_iter {
+            let slot = match (batched, batch_item_ty) {
+                (false, _) => None,
+                (true, Some(item_ty)) => {
+                    Some(BatchedSlot::new(item_ty, &self.bundle).map_err(|e| {
+                        Error::User(format!("+batched property {}: {e:#}", item.ident))
+                    })?)
+                }
+                (true, None) => {
+                    return Err(Error::User(format!(
+                        "+batched property {} without batch_item_ty in the device's model",
+                        item.ident
+                    )));
+                }
+            };
+            props.push((item.id.0, item.ident.clone(), ty.clone()));
+            batched_slots.push(slot);
+        }
+        Ok(LevelSchema::new(self.bundle.clone(), props, batched_slots))
     }
 
     /// Observe this trait level's `+observe` properties without generated code (TOOL-11): one device subscription
@@ -537,12 +571,8 @@ impl DynResource {
         cmd: &Commander,
         entries: BTreeMap<u32, ObserveMode>,
     ) -> Result<DynObserver, Error> {
-        let schema = self.observe_schema()?;
-        let prepared = cmd.prepare_observe::<DynUpdate, DynUpdate>(
-            self.path_kind()?,
-            DynConfig(entries),
-            Some,
-        );
+        let schema = Arc::new(self.observe_schema()?);
+        let prepared = observe_prepared(cmd, self.path_kind()?, entries, &schema);
         Ok(DynObserver::new(prepared.subscribe().await?, schema))
     }
 
@@ -552,12 +582,8 @@ impl DynResource {
         cmd: &Commander,
         entries: BTreeMap<u32, ObserveMode>,
     ) -> Result<DynObserver, Error> {
-        let schema = self.observe_schema()?;
-        let prepared = cmd.prepare_observe::<DynUpdate, DynUpdate>(
-            self.path_kind()?,
-            DynConfig(entries),
-            Some,
-        );
+        let schema = Arc::new(self.observe_schema()?);
+        let prepared = observe_prepared(cmd, self.path_kind()?, entries, &schema);
         Ok(DynObserver::new(prepared.subscribe_blocking()?, schema))
     }
 
@@ -1349,4 +1375,19 @@ impl DynSink {
 
 fn other(e: anyhow::Error) -> Error {
     Error::Other(format!("{e:#}"))
+}
+
+/// [DynResource::observe]'s subscription: the level gets `schema` to find the samples' times with (API-39).
+fn observe_prepared(
+    cmd: &Commander,
+    path: PathKind<'_>,
+    entries: BTreeMap<u32, ObserveMode>,
+    schema: &Arc<LevelSchema>,
+) -> PreparedObserve<DynUpdate, DynUpdate> {
+    let mut prepared = cmd.prepare_observe::<DynUpdate, DynUpdate>(path, DynConfig(entries), Some);
+    let schema = schema.clone();
+    prepared.init_latest = Some(Arc::new(move |latest: &mut DynLatest| {
+        latest.schema = Some(schema.clone())
+    }));
+    prepared
 }

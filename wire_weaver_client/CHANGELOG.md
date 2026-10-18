@@ -19,7 +19,13 @@
   `Observed` per sample, each with its own device time (unwrapped by the level's device time, the same for every
   observer), whether the device sends one value or a batch; `Commander::prepare_observe_samples`,
   `observe::Extract`, `observe::BatchedOwned` re-exported. `LevelUpdate::times_mut` (default: none) visits the
-  samples' times of an update.
+  samples' times of an update; `level_times_mut` (with the level's `latest`) and `set_times` (default: through
+  `times_mut`) let an update that can't find its times alone take part.
+
+- Batched observe in the dynamic client (API-39): `DynObserver` decodes `Batched` slots of `+batched` properties
+  from introspection alone, `DynObserved::samples` (`DynSamples`: name, every sample with its device time, unwrapped
+  by the level as for typed observers), the newest sample in `DynObserved::values`.
+  `DynResource::batched_properties()` lists the level's `+batched` properties.
 
 - `observe::samples(max_age)` / `samples_every(every, max_age)` (API-39): `ObserveMode::Samples` for
   `+observe+batched` properties. Observers of one level merge into `Samples` when any of them asks for it (the

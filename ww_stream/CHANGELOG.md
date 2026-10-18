@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### 🚀 Features
+
+- Observe cells (API-39, D8): `batch::RowCells<Row, R>` (`const fn new`, for a `static`), a level's rows as a ring
+  of atomics written in place by one `RowWriter` (a context with the values: a control loop, an interrupt) and read
+  by one `CellsReader` (`R` erased, `&dyn CellsSource`, or an `Arc` on `std`); `RowWriter::commit(t)` takes the row
+  on the level's grid as `<Level>Sampler::sample` does and publishes it between two release fences, no
+  read-modify-write; the reader copies rows and drops those the writer lapped meanwhile (seqlock), counted as lost,
+  never sent mixed. `batch::Staged`, one staging store fed from the ring and sealed at `N` rows, the budget or the
+  age, encoded by the same `Outbox::push_rows_from`, so a cells level sends the default path's bytes.
+  `batch::LevelRowCells` (the time column's cells) for generated rows. Tests include a writer and a reader on two
+  threads under miri (`just miri`, a CI job).
+
+### ⚠️ Breaking
+
+- `Outbox::push_rows_from` takes any `batch::RowsSource` (a `Consumer` as before, or a `Staged`): the policy is
+  its associated type, so a caller naming `push_rows_from::<R, N, P, B>` names the source instead.
+
 ### ⚠️ Breaking
 
 - `batch::Batcher<T, N, P = DefaultPolicy>`, `Producer`, `Consumer` and `Batched::new` take the codec policy as a

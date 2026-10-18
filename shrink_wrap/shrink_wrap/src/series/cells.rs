@@ -29,7 +29,7 @@ use core::sync::atomic::{AtomicBool, AtomicU8, AtomicU16, AtomicU32, Ordering};
 /// zeroed cells copies out as needn't be a meaningful item: only rows that were [put](Self::put) are copied.
 pub unsafe trait SeriesCells: SeriesStore {
     /// The arrays of atomics of `R` items.
-    type Cells<const R: usize>: Sync;
+    type Cells<const R: usize>: Send + Sync;
 
     /// Puts `item` at row `i`, with relaxed stores.
     fn put<const R: usize>(cells: &Self::Cells<R>, i: usize, item: &Self);
@@ -54,7 +54,7 @@ pub fn empty_cells<T: SeriesCells, const R: usize>() -> T::Cells<R> {
 /// An unsigned word kept in atomics (two or four `AtomicU32`s for 64 and 128 bits): the leaves of [SeriesCells].
 pub trait CellWord: Copy {
     /// `R` of them, all zero is valid.
-    type Cells<const R: usize>: Sync;
+    type Cells<const R: usize>: Send + Sync;
 
     fn put<const R: usize>(cells: &Self::Cells<R>, i: usize, value: Self);
 

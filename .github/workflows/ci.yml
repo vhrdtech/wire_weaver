@@ -95,6 +95,21 @@ jobs:
       # nextest does not run doctests
       - run: cargo test --workspace --doc
 
+  miri:
+    name: miri (observe cells)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          toolchain: nightly
+          components: miri, rust-src
+          cache: false
+      - run: cargo +nightly miri test -p shrink_wrap --lib cells_tests
+      - run: cargo +nightly miri test -p ww_stream --features std --lib cells_tests
+        env:
+          MIRIFLAGS: -Zmiri-many-seeds=0..16
+
   coverage:
     name: coverage
     runs-on: ubuntu-latest

@@ -1,9 +1,8 @@
 //! [Outbox]: encoded batches of one trait level's samples, waiting to be packed.
 
-use super::level::{Columns, LevelRow, MAX_COLUMNS};
-use super::{Consumer, Scratch};
+use super::Scratch;
+use super::level::{Columns, LevelRow, MAX_COLUMNS, RowsSource};
 use wire_weaver::shrink_wrap::Error;
-use wire_weaver::shrink_wrap::series::SeriesPolicy;
 
 /// Bytes of an [Outbox] entry's header: slot, items and length, `u16` each.
 pub const OUTBOX_ENTRY_HEADER: usize = 6;
@@ -250,20 +249,20 @@ impl<const BYTES: usize> Outbox<BYTES> {
     /// before (oldest first) where a batch doesn't fit; batches added by this call are never dropped by it. A batch
     /// that doesn't fit the room there is is split: the most rows that fit go now, the rest stays sealed in the
     /// batcher. A batch whose worst case fits is encoded right away, else it is counted first.
-    pub fn push_rows_from<R, const N: usize, P, const B: usize>(
+    pub fn push_rows_from<R, const N: usize, S, const B: usize>(
         &mut self,
-        batcher: &mut Consumer<'_, R, N, P>,
+        batcher: &mut S,
         columns: Columns,
         slots: &[u16],
         scratch: &mut Scratch<B>,
     ) -> Result<OutboxPush, Error>
     where
         R: LevelRow,
-        P: SeriesPolicy + Copy,
+        S: RowsSource<R, N>,
     {
         let columns = columns & Self::all_columns(R::COLUMNS.min(slots.len()));
         let entries = 1 + columns.count_ones() as usize;
-        let policy = batcher.policy();
+        let policy = batcher.rows_policy();
         let mut done = OutboxPush::default();
         let mut droppable = self.len();
         loop {
@@ -272,7 +271,7 @@ impl<const BYTES: usize> Outbox<BYTES> {
                 let total = rows.len();
                 // the bytes of the first `m` rows
                 let exact = |m: usize, scratch: &mut Scratch<B>| -> Result<usize, Error> {
-                    let mut bytes = R::encode_column::<P, N, B>(
+                    let mut bytes = R::encode_column::<S::Policy, N, B>(
                         store,
                         rows.start..rows.start + m,
                         None,
@@ -281,7 +280,7 @@ impl<const BYTES: usize> Outbox<BYTES> {
                         None,
                     )?;
                     for c in Self::columns_in(columns) {
-                        bytes += R::encode_column::<P, N, B>(
+                        bytes += R::encode_column::<S::Policy, N, B>(
                             store,
                             rows.start..rows.start + m,
                             Some(c),
@@ -324,7 +323,7 @@ impl<const BYTES: usize> Outbox<BYTES> {
                 for column in core::iter::once(None).chain(Self::columns_in(columns).map(Some)) {
                     let k = column.map_or(TIME, |c| slots[c]);
                     let start = self.used + OUTBOX_ENTRY_HEADER;
-                    let len = R::encode_column::<P, N, B>(
+                    let len = R::encode_column::<S::Policy, N, B>(
                         store,
                         rows.clone(),
                         column,

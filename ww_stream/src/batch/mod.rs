@@ -40,12 +40,14 @@
 //! back, the rest is the `Series` encode itself. No interrupts are masked on the way (`LDREX`/`STREX`).
 
 mod batcher;
+mod cells;
 mod level;
 mod outbox;
 mod stream;
 
 pub use batcher::{BatchSource, Batcher, Bound, Consumer, MAX_BATCH, Polled, Producer, Push};
-pub use level::{Columns, LevelRow, MAX_COLUMNS, RowsEncoded, column_bits};
+pub use cells::{CellsReader, CellsSource, LevelRowCells, Read, RowCells, RowWriter, Staged};
+pub use level::{Columns, LevelRow, MAX_COLUMNS, RowsEncoded, RowsSource, column_bits};
 pub use outbox::{LevelBatch, OUTBOX_ENTRY_HEADER, Outbox, OutboxEntry, OutboxPush};
 pub use stream::{
     Batched, BatchedError, BatchedPoll, DEFAULT_MAX_AGE_US, MAX_MAX_AGE_US, MIN_MAX_AGE_US, Plain,
@@ -235,6 +237,8 @@ impl<T> Drop for Filled<'_, T> {
     }
 }
 
+#[cfg(test)]
+mod cells_tests;
 /// Random pushes, polls, encodes and outbox pushes against a model, for the unit tests and the `batch-seal` fuzz
 /// target.
 #[cfg(any(test, all(feature = "std", fuzzing)))]

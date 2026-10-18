@@ -9,6 +9,12 @@ test:
     cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store
     cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store
 
+# Observe cells under miri: the SeriesCells round trips, and the ring's writer and reader on two threads over many
+# interleavings (about a minute)
+miri:
+    cargo +nightly miri test -p shrink_wrap --lib cells_tests
+    MIRIFLAGS="-Zmiri-many-seeds=0..16" cargo +nightly miri test -p ww_stream --features std --lib cells_tests
+
 # ww_settings power cuts at every step of every write and erase (release; `just test` samples them in debug)
 test-power-cut:
     cargo nextest run -p ww_settings --release --profile power-cut --test power_cut

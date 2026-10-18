@@ -127,3 +127,42 @@ impl<const BYTES: usize> Scratch<BYTES> {
         }
     }
 }
+
+/// Where an [Outbox](super::Outbox) takes a level's sealed rows from: a [Consumer](super::Consumer) of the
+/// default path's batcher, or the [Staged](super::Staged) batch of a cells level.
+pub trait RowsSource<R: LevelRow, const N: usize> {
+    /// The codec policy the columns are encoded with.
+    type Policy: SeriesPolicy + Copy;
+
+    fn rows_policy(&mut self) -> Self::Policy;
+
+    /// See [Consumer::encode_rows](super::Consumer::encode_rows).
+    fn encode_rows<O, E>(
+        &mut self,
+        encode: impl FnOnce(&R::Store<N>, Range<usize>) -> Result<Option<(usize, usize, O)>, E>,
+    ) -> Result<Option<RowsEncoded<O>>, E>;
+
+    /// Drops the sealed rows unsent: (rows, lost right before them).
+    fn discard_sealed(&mut self) -> (usize, u64);
+}
+
+impl<R: LevelRow, const N: usize, P: SeriesPolicy + Copy> RowsSource<R, N>
+    for super::Consumer<'_, R, N, P>
+{
+    type Policy = P;
+
+    fn rows_policy(&mut self) -> P {
+        self.policy()
+    }
+
+    fn encode_rows<O, E>(
+        &mut self,
+        encode: impl FnOnce(&R::Store<N>, Range<usize>) -> Result<Option<(usize, usize, O)>, E>,
+    ) -> Result<Option<RowsEncoded<O>>, E> {
+        super::Consumer::encode_rows(self, encode)
+    }
+
+    fn discard_sealed(&mut self) -> (usize, u64) {
+        super::Consumer::discard_sealed(self)
+    }
+}

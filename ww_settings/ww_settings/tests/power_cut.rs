@@ -30,7 +30,7 @@ const EVERY_STEP: bool = !cfg!(debug_assertions);
 
 /// Whether a cut at step `c` of `steps` is run: every one in release, the first and last 16 and every 11th in debug.
 fn sampled(c: u64, steps: u64) -> bool {
-    EVERY_STEP || c <= 16 || c + 16 > steps || c % 11 == 0
+    EVERY_STEP || c <= 16 || c + 16 > steps || c.is_multiple_of(11)
 }
 
 #[derive(Copy, Clone, Debug)]

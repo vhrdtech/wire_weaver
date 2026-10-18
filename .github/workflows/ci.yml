@@ -81,7 +81,10 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 so the frozen golden bytes guard (TEST-24) can find the merge base with origin/master
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libudev-dev
       - uses: actions-rust-lang/setup-rust-toolchain@v2
@@ -127,7 +130,10 @@ jobs:
     name: coverage
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 so the frozen golden bytes guard (TEST-24) can find the merge base with origin/master
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libudev-dev
       - uses: actions-rust-lang/setup-rust-toolchain@v2

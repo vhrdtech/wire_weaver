@@ -45,6 +45,12 @@ pub struct Case {
     /// What the case checks, when the name doesn't say it all.
     #[serde(default)]
     pub note: Option<String>,
+    /// A deliberate wire break (TEST-24, `docs/serdes/conformance.md`): `"EVO-n / reason"`. Without it, the frozen
+    /// bytes guard fails when this case's `bytes`, `direction` or `bytes_from` differ from what they were at the
+    /// merge base with main; with it, the change is accepted, but still needs the matching EVO item and a
+    /// `**Breaking:**` entry in the crate's CHANGELOG.
+    #[serde(default)]
+    pub wire_change: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]

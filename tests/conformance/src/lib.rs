@@ -9,8 +9,10 @@
 
 pub mod c;
 pub mod corpus;
+pub mod coverage;
 pub mod derive;
 pub mod dynamic;
+pub mod frozen;
 pub mod json;
 pub mod report;
 

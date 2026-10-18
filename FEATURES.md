@@ -255,6 +255,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   model. `docs/serdes/derive.md#enum-variants-from-a-newer-version`, `shrink_wrap/tests/evolution.rs`.
 - 📋 **SW-66 128-bit numbers in the C runtime** — `shrink_wrap/c` reads and writes up to 64-bit numbers;
   `u128` / `i128` (two `u64` halves in C) are missing. Conformance cases `int.u128.max`, `int.i128.min`.
+- 📋 **SW-67 `no_future_version` and `#[series(opaque)]` have no conformance case** — found by the coverage guard
+  (TEST-25): no case turns off the `Unknown(u32)` catch-all (SW-47) and then feeds an out-of-range discriminant
+  (needs hand-written reject bytes, no valid Rust value produces them), and no `Series<T>` (SW-60) case has a
+  field marked `#[series(opaque)]`, so its own column form is untested.
 - 📋 **SW-17 Const / magic type** · `v0.5` — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the `magic` field in
   `ww_self` (a plain `u32` today).
@@ -885,6 +889,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   u16` reads as 0. Convert the default expression (literals, `None`, `Some(..)`, unit variants) to a value and use
   it in the dynamic decoder; mind that `Field::default` is part of API signatures. Conformance case
   `evolution.new_reads_old`.
+- 📋 **INT-11 `Instance` and `Param` have no conformance case** — found by the coverage guard (TEST-25):
+  `ww_self::generics::prepare` (API-43) turns every `Type::Instance` into an `OutOfLine` reference to a
+  monomorphized struct/enum before any client sees a bundle (a device's own bundle is prepared too), and
+  `Type::Param` only remains inside the now-unreferenced generic definition, so neither is reachable from any
+  property's resolved type. Testing them needs a conformance mode over the introspection bundle's own wire
+  encoding, not over app-level property values as the corpus does now.
 - 💡 **INT-7 Compress `ww_self` strings with a pre-shared dictionary** — partly addressed by leaving snapshot-known
   traits and types out of introspection data.
 - 💡 **INT-8 Model enums that tolerate newer variants** — the `ww_self` enums (`Type`, `ApiItemKind`, `Fields`, ...)
@@ -1247,6 +1257,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   IR for the two layout engines (API-25 dropped). Found and fixed: `fixed_layout` types in APIs (the crate walker
   rejected them), unknown enum variants in Python; filed: INT-9, INT-10, TOOL-13, SW-66. See
   `docs/serdes/conformance.md`.
+- ✅ **TEST-24 Frozen golden bytes guard**: a case's `bytes`, `direction` and `bytes_from` don't change, and a case
+  doesn't disappear, once they are in the corpus at the merge base with main (`git merge-base HEAD
+  origin/master`, falling back to local `master`) — a hand edit or a reset to `"?"` re-sealed silently before this,
+  `CONFORMANCE=update` on its own only refuses to overwrite a filled-in case. `"wire_change": "EVO-n / reason"` on
+  a case is the escape for a deliberate wire break (needs the matching `EVO-n` item and a `**Breaking:**`
+  CHANGELOG entry), shown in the matrix report. Depends only on the repo's own git: without git, or without the
+  corpus at the merge base (a shallow clone, or the corpus being new), the guard says so and passes rather than
+  failing a check it can't run; CI's `test` and `coverage` jobs fetch full history so it actually runs there.
+  `tests/conformance/src/frozen.rs`, `tests/matrix.rs::frozen_bytes`. See `docs/serdes/conformance.md`.
+- ✅ **TEST-25 Coverage guard**: every `ww_self::Type` variant reachable from some case's type (an exhaustive
+  match, so a new variant fails to compile here until handled) and every wire-relevant `shrink_wrap_derive`
+  directive used by a type in `tests/conformance_api` is exercised by at least one case; a kind unlisted and
+  unused fails, a kind listed (`TYPE_GAPS` / `DIRECTIVE_GAPS`) but now used fails too. Found two variants a
+  prepared bundle never carries (filed INT-11) and two directives with no case yet (filed SW-67).
+  `tests/conformance/src/coverage.rs`, `tests/matrix.rs::coverage`. See `docs/serdes/conformance.md`.
 - ✅ **TEST-17 `shrink_wrap` code size bench**: `just size-bench` builds one bare firmware image per test case
   (plain struct, enum, list, bit fields, `Option`, decode or encode only, the request/reply codec of a small
   softcore firmware and the same by hand) for RV32I, RV32IC, Cortex-M0 and Cortex-M4F/M7 and prints `.text` +

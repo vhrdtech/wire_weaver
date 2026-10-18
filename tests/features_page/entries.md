@@ -313,7 +313,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 
 ## Nomicon
 
-- TEST-23 | Conformance matrix | One corpus of golden bytes every wire-format implementation must match: derive, dynamic client, Python, C. | serdes/conformance.md
+- TEST-23, TEST-24, TEST-25 | Conformance matrix | One corpus of golden bytes every wire-format implementation must match: derive, dynamic client, Python, C; guarded against a sealed case changing and against a wire kind going untested. | serdes/conformance.md
 - TEST-17 | Code size bench | Firmware images per case for RISC-V and Cortex-M, measured on every change. | serdes/code_size.md
 - TEST-10 | Binary size tracking | Flash and RAM per feature in CI. |
 - TEST-21 | Power cuts on STM32 | A flash store reset thousands of times mid-write on real hardware. | api/ecc_flash.md

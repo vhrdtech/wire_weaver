@@ -31,8 +31,9 @@ The [conformance matrix](conformance_matrix.md) lists every case and what each c
   aren't in the model (a `head_tail` type, `TailBytes`) are defined there but not listed in the trait.
 - `tests/conformance`: the runner. `src/derive.rs` has the derive's value of every case, `src/json.rs` turns a
   corpus value into a `ValueOwned`, `src/c.rs` writes and runs the C. One test per consumer in
-  `tests/matrix.rs`, plus `corpus` (the file is well formed and `derive.rs` has every case) and `report` (the
-  matrix page is up to date).
+  `tests/matrix.rs`, plus `corpus` (the file is well formed and `derive.rs` has every case), `report` (the
+  matrix page is up to date), `frozen_bytes` ([frozen golden bytes](#frozen-golden-bytes), TEST-24,
+  `src/frozen.rs`) and `coverage` ([coverage guard](#coverage-guard), TEST-25, `src/coverage.rs`).
 - `wire_weaver_py/tests/test_conformance.py`: the Python consumer, the same rules.
 
 `just test` runs all four. A failure names the case, the consumer and what differs, the first differing byte for
@@ -71,6 +72,59 @@ case 'fixed.numbers', consumer dynamic: encode: bytes differ at byte 0: got 1256
   *by design*, or *reader only* for a C reader without a writer). A consumer that can't run an unmarked case, or
   passes a marked one, fails the test: a gap is never skipped silently, and a fixed one is noticed.
 - `note`: what the case checks, when the name doesn't say it all.
+- `wire_change` (default none): `"EVO-n / reason"`, the escape the [frozen golden bytes guard](#frozen-golden-bytes)
+  accepts for a deliberate change to this case's `bytes`, `direction` or `bytes_from`.
+
+## Frozen golden bytes
+
+Once a case's `bytes` are in, they are the contract: nothing should change them, remove the case, or change its
+`direction` or `bytes_from` without everyone noticing. `CONFORMANCE=update` on its own only refuses to *overwrite*
+bytes already filled in (`corpus::fill_in_bytes` skips a case unless `to_fill()`); a plain text edit, or resetting
+`bytes` back to `"?"` and running the update again, bypasses that and re-seals silently.
+
+The `frozen_bytes` test (`tests/matrix.rs`, `conformance::frozen`, TEST-24) catches this independently: it reads
+`tests/conformance/corpus.json` as it was at the merge base of `HEAD` with main (`git merge-base HEAD
+origin/master`, falling back to local `master`) with `git show <sha>:tests/conformance/corpus.json`, and compares
+every case that existed there against the corpus on disk now. A case whose `bytes`, `direction` or `bytes_from`
+changed, or that disappeared, fails the test by name with the old and new values — so a session branch that
+touches sealed bytes fails `just test` and the landing gate, which runs on the branch rebased onto main.
+
+It depends only on the repository's own git history, never the network or anything outside the repo: without git,
+without `origin/master` or `master` resolving to a commit (a shallow clone with only the branch under test, say),
+or without the corpus existing yet at that commit (introducing TEST-24 itself, or the corpus as a whole), the test
+prints why and passes rather than failing a check it can't actually run. CI's `test` and `coverage` jobs fetch full
+history (`fetch-depth: 0`) so the check means something there; a shallower checkout elsewhere only loses the check,
+not correctness.
+
+A deliberate wire break is still possible: mark the changed case with `"wire_change": "EVO-n / reason"`, which the
+guard accepts. It must come with the matching `EVO-n` item in `FEATURES.md` and a `### ⚠️ Breaking` entry in the
+affected crate's `CHANGELOG.md` saying what changed and why — the mark on its own is not a justification, just an
+acknowledgment that the matrix report also shows (a "Wire changes" section, `just conformance-update` writes it).
+Once the branch carrying the change lands on main, the mark has done its job and the next guard run treats the new
+bytes as sealed again; remove it once that is true (it is harmless to leave, but a stale mark invites a second
+unreviewed change).
+
+## Coverage guard
+
+A corpus can go stale the other way too: a wire feature lands without ever being exercised by a case, or a case
+that used to be the only cover for a feature is deleted. The `coverage` test (`tests/matrix.rs`,
+`conformance::coverage`, TEST-25) checks two things every case collectively must cover:
+
+- Every variant of `ww_self::Type` (what a case's type resolves to in the API model: `Bool`, `Struct`, `Option`,
+  ...) reachable from some case's type, walking `Vec`/`Array`/`Option`/`Result`/`Box`/`MaxLen`/`Series`/`Tuple`
+  and following `OutOfLine`/`Instance` into the bundle's own `types` array (self-referential types are visited
+  once). The walk is an exhaustive match: a new `Type` variant fails to compile there instead of being silently
+  uncovered.
+- Every wire-relevant `shrink_wrap_derive` directive (`final_structure`, `self_describing`, `sized`, `fixed_layout`,
+  `head_tail`, `sparse`, `validate = ..`, `ww_repr = ..`, `series`, `#[series(opaque)]`, `no_future_version`,
+  `#[flag]`, `#[default = ..]`) used by some type in `tests/conformance_api`. Directives that don't change
+  serialized bytes (which Rust type is generated, derives, doc/display, naming) are left out rather than tracked.
+
+A kind not exercised by any case, and not listed, fails the test by name. A kind that *is* listed (`TYPE_GAPS` /
+`DIRECTIVE_GAPS` in `conformance::coverage`) needs a reason ending in a `FEATURES.md` id, same rules as a case's own
+`gaps`; a listed kind that a new case now exercises also fails, so the mark gets removed once it no longer applies.
+Add the missing case (`just conformance-update`, checked against [the wire format](wire_format.md)) to close a
+gap, or add the kind with its reason if a case isn't possible yet.
 
 ## Adding a case
 

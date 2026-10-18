@@ -4,6 +4,7 @@
     "type: a property of conformance_api's Conformance trait (or a Rust type outside the API model); value: in the wire_weaver_py form; bytes: the golden bytes in hex.",
     "direction: both (default), decode (bytes decode to value, value encodes otherwise), reject (bytes don't decode), reject_value (value doesn't encode).",
     "gaps: consumer -> why it can't run the case yet, with the FEATURES.md id that fixes it. A missing or stale mark fails the tests.",
+    "wire_change: \"EVO-n / reason\", the escape the frozen golden bytes guard (TEST-24) accepts for a deliberate change to bytes, direction or bytes_from, with a matching EVO item and CHANGELOG entry.",
     "New case: add it here with \"bytes\": \"?\" and to tests/conformance/src/derive.rs, then just conformance-update and review the bytes."
   ],
   "cases": [

@@ -103,5 +103,20 @@ pub fn render(corpus: &Corpus) -> String {
                 .join(", ")
         );
     }
+    let wire_changes: Vec<_> = corpus
+        .cases
+        .iter()
+        .filter_map(|c| c.wire_change.as_deref().map(|w| (c.name.as_str(), w)))
+        .collect();
+    if !wire_changes.is_empty() {
+        let _ = writeln!(
+            out,
+            "\n## Wire changes\n\nAccepted by the frozen golden bytes guard (TEST-24) as a deliberate break, each \
+             with its EVO item and a `**Breaking:**` CHANGELOG entry:\n"
+        );
+        for (name, reason) in wire_changes {
+            let _ = writeln!(out, "- `{name}`: {reason}.");
+        }
+    }
     out
 }

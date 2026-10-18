@@ -78,6 +78,39 @@ fn c() {
     conformance::run_all(&conformance::c::C);
 }
 
+/// TEST-24: a case's `bytes`, `direction` and `bytes_from` don't change or disappear once in, since the merge base
+/// with main (`conformance::frozen`); skips with a printed reason instead of failing when there's nothing to
+/// compare against (no git, a shallow clone, or the corpus being new).
+#[test]
+fn frozen_bytes() {
+    match conformance::frozen::baseline() {
+        conformance::frozen::Baseline::Unavailable(reason) => println!("{reason}"),
+        conformance::frozen::Baseline::At { sha, corpus: old } => {
+            let now = corpus::load();
+            let failures = conformance::frozen::check(&old, &now, &sha);
+            assert!(failures.is_empty(), "{}", failures.join("\n"));
+        }
+    }
+}
+
+/// TEST-25: every wire-relevant `ww_self::Type` variant and `shrink_wrap_derive` directive is exercised by some
+/// case, or carries a gap mark naming why not (`conformance::coverage`).
+#[test]
+fn coverage() {
+    use conformance::coverage::{self, ALL_TYPE_KINDS, DIRECTIVE_GAPS, TYPE_GAPS};
+    use std::collections::BTreeSet;
+
+    let corpus = corpus::load();
+    let all_types: BTreeSet<&str> = ALL_TYPE_KINDS.iter().copied().collect();
+    let mut failures = coverage::check(&all_types, &coverage::used_type_kinds(&corpus), TYPE_GAPS);
+    failures.extend(coverage::check(
+        &coverage::all_directive_kinds(),
+        &coverage::used_directive_kinds(),
+        DIRECTIVE_GAPS,
+    ));
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
 /// `docs/serdes/conformance_matrix.md` is what the corpus says.
 #[test]
 fn report() {

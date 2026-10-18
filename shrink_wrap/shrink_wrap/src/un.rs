@@ -138,45 +138,6 @@ unx!(41, 42, 43, 44, 45, 46, 47, 48 / 64);
 unx!(49, 50, 51, 52, 53, 54, 55, 56 / 64);
 unx!(57, 58, 59, 60, 61, 62, 63, 64 / 64);
 
-macro_rules! write_unx {
-    ($fn_name:ident, $base_ty:ty, $max_bit_count:literal) => {
-        paste::paste! {
-            #[doc = "Write up to " $max_bit_count " bits from " $base_ty " number without alignment."]
-            pub fn $fn_name(&mut self, bit_count: u8, value: $base_ty) -> Result<(), Error> {
-                if bit_count > $max_bit_count {
-                    return Err(Error::InvalidBitCount);
-                }
-
-                let mut bits_left = bit_count;
-                while bits_left > 0 {
-                    if (self.bytes_left() == 0) && self.bit_idx == 7 {
-                        return Err(Error::OutOfBoundsWriteUN);
-                    }
-
-                    let bits_to_write = bits_left.min(self.bit_idx + 1);
-                    let mask = ((1 as $base_ty) << bits_to_write) - 1;
-                    let bits = ((value >> (bits_left - bits_to_write)) & mask) as u8;
-
-                    self.buf[self.byte_idx] &= !(mask as u8) << (self.bit_idx + 1 - bits_to_write);
-                    self.buf[self.byte_idx] |= bits << (self.bit_idx + 1 - bits_to_write);
-
-                    self.bit_idx = self.bit_idx.wrapping_sub(bits_to_write);
-                    if self.bit_idx == 255 {
-                        // Wrapping around after saturating_sub(1) from 0 .. 8 from 7
-                        self.bit_idx = 7;
-                        self.byte_idx += 1;
-                    }
-
-                    bits_left -= bits_to_write;
-                }
-
-                Ok(())
-            }
-        }
-    };
-}
-pub(crate) use write_unx;
-
 macro_rules! read_unx {
     ($fn_name:ident, $base_ty:ty, $max_bit_count:literal) => {
         paste::paste! {

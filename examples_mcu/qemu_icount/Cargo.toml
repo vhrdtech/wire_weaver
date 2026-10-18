@@ -1,0 +1,9 @@
+[package]
+name = "qemu_icount"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Counts instructions between marker calls of a bare-metal ELF run under QEMU (TEST-23 benches)"
+
+[dependencies]
+rustc-demangle = "0.1"

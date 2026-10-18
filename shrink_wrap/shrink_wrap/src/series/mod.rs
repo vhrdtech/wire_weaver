@@ -47,7 +47,7 @@ pub use columns::{
 pub use group::{
     EnumTags, FieldItems, Level, OpaqueField, OpaqueReader, RootCtx, SeriesColumns, SeriesCtx,
     SiblingCtx, SiblingTags, Slot, StructExtent, TagRun, VariantCtx, changed_before, no_earlier,
-    skim_struct_head, write_enum_tags, write_struct_head,
+    skim_struct_head, tag_changed, write_enum_tags, write_struct_head,
 };
 pub use leaves::{ArrayReader, OptionReader};
 #[cfg(feature = "std")]

@@ -1,5 +1,4 @@
 use crate::nib32::UNib32;
-use crate::un::write_unx;
 use crate::vlq32::UVlq32;
 use crate::vlq64::UVlq64;
 use crate::{ElementSize, Error, Nibble, SerializeShrinkWrap};
@@ -155,8 +154,68 @@ impl<'i> BufWriter<'i> {
         self.write_un32(bit_count, value as u32)
     }
 
-    write_unx!(write_un32, u32, 32);
-    write_unx!(write_un64, u64, 64);
+    /// Write up to 32 bits from u32 number without alignment.
+    pub fn write_un32(&mut self, bit_count: u8, value: u32) -> Result<(), Error> {
+        if bit_count > 32 {
+            return Err(Error::InvalidBitCount);
+        }
+        self.check_room(bit_count)?;
+        self.put_low_bits(bit_count, value);
+        Ok(())
+    }
+
+    /// Write up to 64 bits from u64 number without alignment.
+    pub fn write_un64(&mut self, bit_count: u8, value: u64) -> Result<(), Error> {
+        if bit_count > 64 {
+            return Err(Error::InvalidBitCount);
+        }
+        self.check_room(bit_count)?;
+        // in 32-bit halves: 64-bit shifts are several instructions each on 32-bit MCUs
+        if bit_count > 32 {
+            self.put_low_bits(bit_count - 32, (value >> 32) as u32);
+            self.put_low_bits(32, value as u32);
+        } else {
+            self.put_low_bits(bit_count, value as u32);
+        }
+        Ok(())
+    }
+
+    /// `OutOfBoundsWriteUN` unless `bit_count` more bits fit before the lengths at the back: a write that doesn't
+    /// fit writes nothing.
+    #[inline]
+    fn check_room(&self, bit_count: u8) -> Result<(), Error> {
+        let partial = if self.bit_idx == 7 {
+            0
+        } else {
+            self.bit_idx as usize + 1
+        };
+        if bit_count as usize > self.bytes_left() * 8 + partial {
+            return Err(Error::OutOfBoundsWriteUN);
+        }
+        Ok(())
+    }
+
+    /// `bit_count` (at most 32) low bits of `value`, most significant first, a byte (or the rest of one) per step;
+    /// the room is checked by the caller.
+    fn put_low_bits(&mut self, bit_count: u8, value: u32) {
+        let mut left = bit_count;
+        while left > 0 {
+            let room = self.bit_idx + 1;
+            let n = left.min(room);
+            left -= n;
+            let mask = 0xFFu8 >> (8 - n);
+            let bits = (value >> left) as u8 & mask;
+            let at = room - n;
+            let byte = &mut self.buf[self.byte_idx];
+            *byte = *byte & !(mask << at) | bits << at;
+            if n == room {
+                self.bit_idx = 7;
+                self.byte_idx += 1;
+            } else {
+                self.bit_idx -= n;
+            }
+        }
+    }
 
     /// Align to byte and write the `len` (1 to 4) low bytes of `val` in Little Endian.
     // All the integer writes up to 32 bits go through here: one copy of the bounds checks, and no call into

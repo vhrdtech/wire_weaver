@@ -389,7 +389,10 @@ impl SeriesSeed<'_> {
             if f.tagged {
                 let ty = &f.ty;
                 let v = value(f);
-                quote! { <#ty as #trait_<'i>>::series_tag(#v) }
+                // a field that can't have a tag is a constant `None`, compared with nothing
+                quote! {
+                    if <#ty as #trait_<'i>>::TAGGED { <#ty as #trait_<'i>>::series_tag(#v) } else { None }
+                }
             } else {
                 quote! { None }
             }
@@ -397,13 +400,13 @@ impl SeriesSeed<'_> {
         quote! { [#(#tags),*] }
     }
 
-    /// Writes field `j`'s group: `items` the parent's items, `pick` the closure from an item to `Option<&field>`,
-    /// `tags` the closure from an item to the tags of its fields (when an enum field comes before `j`).
+    /// Writes a field's group: `items` the parent's items, `pick` the closure from an item to `Option<&field>`,
+    /// `earlier` the fields declared before it, `__tags` the closure from an item to the tags of its fields (when
+    /// one of them may have a tag).
     fn write_field(
         &self,
         f: &SeriesField,
-        j: usize,
-        earlier_tagged: bool,
+        earlier: &[&SeriesField],
         pick: TokenStream,
     ) -> TokenStream {
         let ty = &f.ty;
@@ -425,9 +428,21 @@ impl SeriesSeed<'_> {
                 }
             };
         }
-        let earlier = if earlier_tagged {
-            let changed_before = self.sc(quote! { changed_before });
-            quote! { move |p: &'a Self, c: &'a Self| #changed_before(&__tags(p), &__tags(c), #j) }
+        let tagged: Vec<syn::Index> = earlier
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| f.tagged)
+            .map(|(k, _)| syn::Index::from(k))
+            .collect();
+        let earlier = if !tagged.is_empty() {
+            // unrolled over the earlier fields that may have a tag: those whose type can't fold away
+            let tag_changed = self.sc(quote! { tag_changed });
+            quote! {
+                move |p: &'a Self, c: &'a Self| {
+                    let (__p, __c) = (__tags(p), __tags(c));
+                    false #(|| #tag_changed(__p[#tagged], __c[#tagged]))*
+                }
+            }
         } else {
             let no_earlier = self.sc(quote! { no_earlier });
             quote! { #no_earlier::<Self> }
@@ -546,8 +561,8 @@ impl SeriesSeed<'_> {
         });
         let writes = fields.iter().enumerate().map(|(j, f)| {
             let m = &f.member;
-            let earlier_tagged = fields[..j].iter().any(|f| f.tagged);
-            self.write_field(f, j, earlier_tagged, quote! { |s: &'a Self| Some(&s.#m) })
+            let earlier: Vec<&SeriesField> = fields[..j].iter().collect();
+            self.write_field(f, &earlier, quote! { |s: &'a Self| Some(&s.#m) })
         });
         let skims = fields.iter().enumerate().map(|(j, f)| {
             let skim = self.skim_field(f, j, quote! { ctx.clone() });
@@ -605,6 +620,7 @@ impl SeriesSeed<'_> {
                 type Reader = (#sibling_tags<#n>, (#(Option<#readers>,)*));
                 const MAX_ITEM_BITS: Option<usize> = #max_item;
                 const MAX_FIXED_BITS: Option<usize> = #max_fixed;
+                const TAGGED: bool = false;
 
                 fn write_group<'a, I, S>(
                     items: I,
@@ -772,7 +788,7 @@ impl SeriesSeed<'_> {
             });
             let field_writes = fields.iter().enumerate().map(|(j, f)| {
                 let b = bind(f);
-                let earlier_tagged = fields[..j].iter().any(|f| f.tagged);
+                let earlier: Vec<&SeriesField> = fields[..j].iter().collect();
                 let pick = quote! {
                     #[allow(unreachable_patterns, unused_variables)]
                     |e: &'a Self| match e {
@@ -780,11 +796,13 @@ impl SeriesSeed<'_> {
                         _ => None,
                     }
                 };
-                self.write_field(f, j, earlier_tagged, pick)
+                self.write_field(f, &earlier, pick)
             });
+            // discriminants from 63 up share the last bit: such a variant is written when any of them is seen
+            let seen_bit = v.discriminant.min(63);
             writes.push(quote! {
                 #on
-                {
+                if __seen & (1u64 << #seen_bit) != 0 {
                     #tags_fn
                     #(#field_writes)*
                 }
@@ -956,7 +974,16 @@ impl SeriesSeed<'_> {
                 {
                     let _ = (policy, level);
                     #future_check
-                    #write_enum_tags(sink, items.clone().map(|(e, _)| e.discriminant() as u32))?;
+                    // the variants seen while the tag run is written: a variant without items writes nothing, and
+                    // is not walked over all items to find that out
+                    #[allow(unused_mut)]
+                    let mut __seen = 0u64;
+                    #write_enum_tags(sink, items.clone().map(|(e, _)| {
+                        let __d = e.discriminant() as u32;
+                        __seen |= 1u64 << __d.min(63);
+                        __d
+                    }))?;
+                    let _ = __seen;
                     #(#writes)*
                     Ok(())
                 }

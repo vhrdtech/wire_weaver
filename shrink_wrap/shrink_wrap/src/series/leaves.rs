@@ -10,7 +10,7 @@ use super::columns::run::{Opaque, RunKind, RunReader, write_opaque_run, write_ru
 use super::group::write_enum_tags;
 use super::group::{
     CodecPolicy, EnumTags, FieldItems, Level, SeriesColumns, SeriesCtx, SiblingCtx, SiblingTags,
-    TagRun, VariantCtx, changed_before, no_earlier,
+    TagRun, VariantCtx, changed_before, no_earlier, tag_changed,
 };
 use super::{BitSink, XorBits, bound, sign_extend};
 use crate::un::{IN, U3, U4, U5, U6, UN};
@@ -72,6 +72,7 @@ macro_rules! numeric_leaf {
             type Reader = Option<NumericReader<'i>>;
             const MAX_ITEM_BITS: Option<usize> = Some(bound::numeric_item_bits($width));
             const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
+            const TAGGED: bool = false;
 
             fn write_group<'a, I, S>(
                 items: I,
@@ -158,6 +159,7 @@ macro_rules! numeric128 {
             type Reader = Option<Numeric128Reader<'i>>;
             const MAX_ITEM_BITS: Option<usize> = Some(bound::NUMERIC128_ITEM_BITS);
             const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
+            const TAGGED: bool = false;
 
             fn write_group<'a, I, S>(
                 items: I,
@@ -203,6 +205,7 @@ macro_rules! float_leaf {
                 <$ty as XorBits>::LEAD_BITS,
             ));
             const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
+            const TAGGED: bool = false;
 
             fn write_group<'a, I, S>(
                 items: I,
@@ -244,6 +247,7 @@ impl<'i> SeriesColumns<'i> for bool {
     type Reader = Option<RunReader<'i, RunKind>>;
     const MAX_ITEM_BITS: Option<usize> = Some(bound::BOOL_RUN_ITEM_BITS);
     const MAX_FIXED_BITS: Option<usize> = Some(bound::BOOL_RUN_FIXED_BITS);
+    const TAGGED: bool = false;
 
     fn write_group<'a, I, S>(
         items: I,
@@ -341,6 +345,7 @@ macro_rules! opaque_leaf {
     ($ty:ty) => {
         impl<'i> SeriesColumns<'i> for $ty {
             type Reader = Option<RunReader<'i, Opaque>>;
+            const TAGGED: bool = false;
 
             fn write_group<'a, I, S>(
                 items: I,
@@ -456,6 +461,7 @@ impl<'i, T: ?Sized> SeriesColumns<'i> for core::marker::PhantomData<T> {
     type Reader = ();
     const MAX_ITEM_BITS: Option<usize> = Some(0);
     const MAX_FIXED_BITS: Option<usize> = Some(0);
+    const TAGGED: bool = false;
 
     fn write_group<'a, I, S>(
         _items: I,
@@ -498,6 +504,7 @@ macro_rules! tuple {
                 $(let bits = bound::add(bits, $t::MAX_FIXED_BITS);)+
                 bits
             };
+            const TAGGED: bool = false;
 
             fn write_group<'a, I, S>(
                 items: I,
@@ -510,7 +517,7 @@ macro_rules! tuple {
                 S: BitSink,
                 Self: 'a,
             {
-                let tags = |t: &Self| [$(t.$idx.series_tag()),+];
+                let tags = |t: &Self| [$(if $t::TAGGED { t.$idx.series_tag() } else { None }),+];
                 $(
                     let field = FieldItems::new(
                         items.clone(),
@@ -684,6 +691,7 @@ impl<'i, X: SeriesColumns<'i> + Default, const N: usize> SeriesColumns<'i> for [
     type Reader = ArrayReader<X::Reader, N>;
     const MAX_ITEM_BITS: Option<usize> = bound::times(X::MAX_ITEM_BITS, N);
     const MAX_FIXED_BITS: Option<usize> = bound::times(X::MAX_FIXED_BITS, N);
+    const TAGGED: bool = false;
 
     fn write_group<'a, I, S>(
         items: I,
@@ -701,10 +709,7 @@ impl<'i, X: SeriesColumns<'i> + Default, const N: usize> SeriesColumns<'i> for [
                 items.clone(),
                 move |a: &'a Self| Some(&a[j]),
                 move |p: &'a Self, c: &'a Self| {
-                    (0..j).any(|k| {
-                        let (p, c) = (p[k].series_tag(), c[k].series_tag());
-                        p.is_some() && c.is_some() && p != c
-                    })
+                    X::TAGGED && (0..j).any(|k| tag_changed(p[k].series_tag(), c[k].series_tag()))
                 },
             );
             X::write_group(field, sink, policy, Level::Nested)?;

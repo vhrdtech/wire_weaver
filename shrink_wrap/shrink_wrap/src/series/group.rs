@@ -298,8 +298,16 @@ where
     }
 }
 
+/// Whether the [series_tag](SeriesColumns::series_tag) of a field changed from the previous item to the current
+/// one: both have one and they differ.
+#[inline]
+pub fn tag_changed(prev: Option<u32>, cur: Option<u32>) -> bool {
+    matches!((prev, cur), (Some(p), Some(c)) if p != c)
+}
+
 /// `earlier` of [FieldItems] for field `j`, from the [series_tag](SeriesColumns::series_tag)s of all fields of the
 /// previous and the current item: whether an enum-typed field before `j` changed.
+#[inline]
 pub fn changed_before(prev: &[Option<u32>], cur: &[Option<u32>], j: usize) -> bool {
     prev[..j]
         .iter()
@@ -584,6 +592,12 @@ pub trait SeriesColumns<'i>: Sized {
 
     /// The next item of the subsequence from the column cursors, `restart` as the context had it.
     fn next(reader: &mut Self::Reader, restart: bool) -> Result<Self, Error>;
+
+    /// Whether [series_tag](Self::series_tag) can be `Some` (an enum, an `Option`): `false` tells the writer of a
+    /// struct that a change of this field can't restart the fields after it, so it doesn't compare its tags at
+    /// every item. `true` by default, which is always correct; the primitives, tuples, arrays and derived structs
+    /// say `false`.
+    const TAGGED: bool = true;
 
     /// An enum's (or `Option`'s) discriminant, `None` for every other type: a change of it restarts the fields
     /// declared after it.

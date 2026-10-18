@@ -141,19 +141,18 @@ fn encode<I>(
     items: I,
 ) -> Result<(), Error>
 where
-    I: Iterator<Item = (u64, bool)> + Clone,
+    I: Iterator<Item = (u64, bool)>,
 {
     let w = kind.width;
-    sink.put_bits(2, codec.predictor as u64)?;
-    sink.put_bits(2, codec.coder as u64)?;
+    sink.put_bits(4, ((codec.predictor as u64) << 2) | codec.coder as u64)?;
     let mut steps = Steps::new(items, kind, codec.predictor);
+    if codec.coder == Coder::Packed {
+        return encode_packed(sink, w, steps);
+    }
     let mut constant_written = false;
-    let mut block_left = 0u8;
-    let mut block_width = 0u8;
-    while let Some(step) = steps.next() {
+    for step in steps.by_ref() {
         let z = match step {
             Step::Start(bits) => {
-                block_left = 0;
                 sink.put_bits(w, bits)?;
                 continue;
             }
@@ -168,24 +167,46 @@ where
                     constant_written = true;
                 }
             }
-            Coder::Packed => {
-                if block_left == 0 {
-                    // the block: up to 8 residuals before the next segment start or the column end
-                    let mut any_bits = z;
-                    block_left = 1;
-                    let mut ahead = steps.clone();
-                    while block_left < PACKED_BLOCK {
-                        match ahead.next() {
-                            Some(Step::Residual(z)) => any_bits |= z,
-                            _ => break,
-                        }
-                        block_left += 1;
-                    }
-                    block_width = (64 - any_bits.leading_zeros()) as u8;
-                    sink.put_bits(block_width_bits(w), block_width as u64)?;
+            Coder::Packed => unreachable!("written by encode_packed"),
+        }
+    }
+    Ok(())
+}
+
+/// The packed coder's values: segment starts at full width, residuals in blocks of up to [PACKED_BLOCK] (a block
+/// ends early at a segment start or the column end), each block its width and the residuals at that width. The
+/// residuals of a block are kept until its width is known, so the predictor runs once per item.
+fn encode_packed<I>(sink: &mut impl BitSink, w: u8, mut steps: Steps<I>) -> Result<(), Error>
+where
+    I: Iterator<Item = (u64, bool)>,
+{
+    let mut block = [0u64; PACKED_BLOCK as usize];
+    let mut next = steps.next();
+    while let Some(step) = next {
+        match step {
+            Step::Start(bits) => {
+                sink.put_bits(w, bits)?;
+                next = steps.next();
+            }
+            Step::Residual(z) => {
+                block[0] = z;
+                let mut len = 1;
+                let mut any_bits = z;
+                next = steps.next();
+                while len < PACKED_BLOCK as usize {
+                    let Some(Step::Residual(z)) = next else {
+                        break;
+                    };
+                    block[len] = z;
+                    any_bits |= z;
+                    len += 1;
+                    next = steps.next();
                 }
-                sink.put_bits(block_width, z)?;
-                block_left -= 1;
+                let block_width = (64 - any_bits.leading_zeros()) as u8;
+                sink.put_bits(block_width_bits(w), block_width as u64)?;
+                for &z in &block[..len] {
+                    sink.put_bits(block_width, z)?;
+                }
             }
         }
     }

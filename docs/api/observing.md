@@ -252,6 +252,64 @@ the batches in a `static`). `ww api scaffold` writes the `observe_batch` argumen
   without it any host can ask for more encoding than the CPU has. A property type that borrows (bytes, a string,
   a vector) can't be `+batched`.
 
+### Cells: sampling from an interrupt
+
+`sample(t, FocSamples { .. })` takes the row as one value: the interrupt builds the whole `<Trait>Samples` on its
+stack and the sampler copies it into the batch. For a level sampled in an interrupt, `ww_codegen!(..,
+observe_cells = "root_foc")` (the level's field name in `ObserveState`, several separated by commas) puts it on
+*observe cells* instead: a ring of atomics the interrupt writes in place, each value where it is computed, and
+`poll_properties` reads. The API and the wire don't change, so this is the device's choice per level, and a host
+can't tell which one a device uses.
+
+```rust
+// ww_codegen!(motor_demo_api::MotorDemo for Device, server = true, .., observe_cells = "root_foc")
+static FOC: api_impl::RootFocCells<32> = api_impl::RootFocCells::new(); // const fn, a ring of 32 rows
+
+let mut server = Server {
+    observe: api_impl::ObserveState::new(
+        ObserveLimits::DEFAULT,
+        api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY, FOC.reader().unwrap()),
+    ),
+    // ..
+};
+
+// the interrupt keeps the writer (taken once)
+let mut w = FOC.writer().unwrap();
+// .. every PWM period, where the values are computed
+w.i_a(Ampere::milli(ia));
+w.i_b(Ampere::milli(ib));
+// .. one setter per `+batched` property of the level
+w.commit(Second::micro(now_us));
+```
+
+- **Writer**: `<Level>Cells::writer()` hands out the one `<Level>Writer` (`Send`, not `Sync`, given back on drop).
+  Each setter is a few relaxed stores into the row being written; `commit(t)` publishes the row when a host
+  observes the level in `Samples` mode and `t` is on its grid (the gate `sample()` checks), between two release
+  fences: no lock, no read-modify-write, nothing on the stack but the values. A debug build panics at `commit` when
+  a setter of the row wasn't called; a release build pays nothing for that. With nobody observing, the setters
+  still store: put them (or the expensive values) under `if w.is_sampling() { .. }`.
+- **Reader**: `<Level>Cells::reader()` goes to `ObserveBatches::new` (one per cells level, in the order of the
+  levels), which then borrows the cells: `ObserveBatches<'static>` for a `static`, or
+  `ww_stream::batch::CellsReader::shared(arc)` for cells in an `Arc` on `std`. Each `poll_properties` copies the
+  rows committed since the last one into one staging batch, then encodes and sends it as the sampler's batches are:
+  the same columns, the same bytes.
+- **Ring size**: `R` rows (`<Level>Cells<R>`) hold what the interrupt commits between two `poll_properties` calls;
+  `R - 1` can wait. A row the writer writes over before it is read (the ring lapped) is dropped and counted in
+  `missed`, never sent with values of two rows. RAM is `R` rows plus one batch of `observe_batch` rows, about what
+  the sampler's two batches take (for the motor demo's 21 FOC values, `R` = `observe_batch` = 32: 8.6 KB).
+- **Under backpressure**: while a sealed batch waits for budget or room, the sampler fills its second batch and
+  loses the rows past it; the cells keep up to `R - 1` rows in the ring and send them later, so they lose fewer.
+  When nothing waits, both send the same bytes.
+- **Types**: the property types need `SeriesCells` (`#[derive_shrink_wrap(.., series(cells))]`, see
+  [`Series`](../serdes/series.md)); `ww_si` quantities, numbers and `bool` have it.
+- **Cost**: on an STM32H725 a row of the 21 FOC values takes 357 cycles at `opt-level = "z"` against 1 400 through
+  `sample()`, 342 against 423 at `opt-level = 3`, a row with cold caches about half the sampler's, and 44-52 B of stack
+  against 116-388 B; the copy into the staging batch moves to `poll_properties`. See
+  [Batching: observe cells, measured](batching.md#observe-cells-measured).
+
+`ww api scaffold --observe-cells root_foc` writes the `static`, the `ObserveState` type and the `ww_codegen!`
+argument.
+
 ### Host side
 
 `<Trait>Observe::samples(max_age)` puts every `+batched` property of the level into `Samples` mode

@@ -188,6 +188,28 @@ the full FOC rate above takes a fast M7, else it is for the simulator and the ho
 it accepts (`every_us`/sample-rate clamps), since every sample taken is encoded whether or not its batch later fits
 the budget.
 
+### Observe cells, measured
+
+A level on [observe cells](observing.md#cells-sampling-from-an-interrupt) moves the copy of a row out of the
+interrupt: the setters store each value into a ring where it is computed, `poll_properties` copies the waiting rows
+into a staging batch. Measured on the motor demo's 21 FOC properties (`examples_mcu`: `stm32h725ig-foc-observe-cycles`,
+DWT cycles at 540 MHz with caches on; `qemu-m4f-foc-observe`, instructions under QEMU), a host observing all of
+them in `Samples` mode, a poll every 16 rows, `observe_batch = 32`, a ring of 32 rows:
+
+| STM32H725, cycles | `opt-level = "z"`: `sample()` | z: cells | `opt-level = 3`: `sample()` | 3: cells |
+|---|---|---|---|---|
+| a row, observed: mean (first, worst) | 1 400 (1 725, 1 631) | 357 (412, 643) | 423 (976, 795) | 342 (486, 588) |
+| a row, nobody observes | 180 | 310 | 189 | 303 |
+| a poll that encodes a batch | 347-507 k | 357-519 k | 136-187 k | 139-192 k |
+| a poll with nothing to send (16 rows waiting) | 5.3 k | 15.2 k | 3.2 k | 9.3 k |
+| stack of a row | 388 B | 44 B | 116 B | 52 B |
+
+On the Cortex-M4F model a row takes 189 instructions on cells against 1 122 through `sample()` at `opt-level = "z"`,
+206 against 260 at 3. Both send the same 2 021 bytes for the 64 rows; the level's RAM is the same too (8 640 B
+against 8 656 B). The total CPU is about the same: what the interrupt saves, the event loop spends copying the ring
+(about 380 cycles a row on the H725). Without observers the cells' setters still store (the sampler returns before
+copying): skip them with `is_sampling()`.
+
 ### The motor demo, measured
 
 The [motor demo](../examples/motor_demo.md) (`motor_sim` repo) has every `Foc` property and `Control`'s 13

@@ -840,9 +840,26 @@ fn convert_item_struct(
 ) -> Result<TypeOwned> {
     let args = derive_shrink_wrap_args(&item_struct.attrs, current_crate)?;
     let fields = convert_fields(&item_struct.fields, current_crate, scratch, args.sparse)?;
+    let size = match args.size_assumption {
+        Some(size) => size,
+        // as shrink_wrap_derive's `struct_size_assumption`: `fixed_layout` implies `sized`, or `self_describing`
+        // with an `Option` or `Result` last
+        None if args.fixed_layout => {
+            let last_is_flagged = item_struct.fields.iter().next_back().is_some_and(|f| {
+                matches!(&f.ty, syn::Type::Path(p) if p.path.segments.last()
+                    .is_some_and(|s| s.ident == "Option" || s.ident == "Result"))
+            });
+            if last_is_flagged {
+                ElementSize::SelfDescribing
+            } else {
+                ElementSize::Sized { size_bits: 0 }
+            }
+        }
+        None => ElementSize::Unsized,
+    };
     let ty = TypeOwned::Struct(ItemStructOwned {
         instance_of: None,
-        size: args.size_assumption.unwrap_or(ElementSize::Unsized),
+        size,
         crate_idx: scratch.root_bundle.find_crate_or_create(current_crate),
         docs: collect_docs(&item_struct.attrs),
         ident: ty_name,

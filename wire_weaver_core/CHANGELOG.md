@@ -46,6 +46,11 @@
 
 ### 🐛 Fixes
 
+- `fixed_layout` types (SW-44) can be used in an API: the crate walker rejected the directive (`unsupported
+  directive 'fixed_layout'`), so `load` and `ww_codegen!` failed on any API using such a type. It now makes a struct
+  without a size assumption `sized` (`self_describing` with an `Option` / `Result` last), as the derive does, so a
+  nested one is written without a size. A `head_tail` type (SW-46) in an API is an error saying it has no
+  ShrinkWrap serdes. Found by the conformance matrix (TEST-23).
 - Generated `poll_properties` sends a pending `missed` count in an update with no properties when nothing else is
   due (API-39): before, samples lost after the last batch of a burst were never reported.
 

@@ -382,13 +382,15 @@ pub(crate) fn derive_shrink_wrap_args(
 }
 
 /// Trimmed down version of shrink_wrap_derive's `Args`, keeping only the directives relevant to
-/// wire_weaver_core: `size_assumption` (`final_structure`/`self_describing`/`sized`), `ww_repr` and `sparse`
-/// (TOOL-11: the API model needs to know a struct is sparse to decode it dynamically).
+/// wire_weaver_core: `size_assumption` (`final_structure`/`self_describing`/`sized`), `ww_repr`, `sparse`
+/// (TOOL-11: the API model needs to know a struct is sparse to decode it dynamically) and `fixed_layout` (same
+/// bytes as without it, but it makes a struct without a size assumption `sized`, as the derive does).
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Args {
     pub(crate) size_assumption: Option<ElementSize>,
     pub(crate) ww_repr: Option<Repr>,
     pub(crate) sparse: bool,
+    pub(crate) fixed_layout: bool,
 }
 
 impl Parse for Args {
@@ -396,6 +398,7 @@ impl Parse for Args {
         let mut size_assumption = None;
         let mut ww_repr = None;
         let mut sparse = false;
+        let mut fixed_layout = false;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -429,6 +432,14 @@ impl Parse for Args {
                         })?);
                 }
                 "sparse" => sparse = true,
+                "fixed_layout" => fixed_layout = true,
+                "head_tail" => {
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        "a head_tail type has a wire format of its own and no ShrinkWrap serdes, it can't be \
+                         used in an API",
+                    ));
+                }
                 "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
                 | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants"
                 | "crate_path" | "non_exhaustive" | "no_future_version" | "display" | "series" => {
@@ -467,11 +478,12 @@ impl Parse for Args {
             size_assumption,
             ww_repr,
             sparse,
+            fixed_layout,
         })
     }
 }
 
-const SUPPORTED_DIRECTIVES: &str = "final_structure, self_describing, sized, sparse, validate = <path>, ww_repr=<u1,u2,..,nib,unib32,u8,..>";
+const SUPPORTED_DIRECTIVES: &str = "final_structure, self_describing, sized, sparse, fixed_layout, validate = <path>, ww_repr=<u1,u2,..,nib,unib32,u8,..>";
 
 /// Sets `size_assumption`, erroring if it was already set by an earlier directive since
 /// `final_structure`, `self_describing` and `sized` are mutually exclusive.
@@ -528,6 +540,15 @@ mod derive_shrink_wrap_args_tests {
         let args: Args = parse2(ts).unwrap();
         assert!(args.ww_repr.is_some());
         assert!(args.size_assumption.is_some());
+    }
+
+    #[test]
+    fn fixed_layout_and_head_tail() {
+        let args: Args = parse2(quote! { borrowed, fixed_layout, ww_repr = u8 }).unwrap();
+        assert!(args.fixed_layout);
+        assert!(args.size_assumption.is_none());
+        let err = parse2::<Args>(quote! { head_tail }).unwrap_err().to_string();
+        assert!(err.contains("can't be used in an API"), "{err}");
     }
 }
 

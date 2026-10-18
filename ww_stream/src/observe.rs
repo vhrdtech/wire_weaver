@@ -75,11 +75,16 @@ pub struct ObserveLimits {
     /// Least and most `max_age_us` of `Samples` mode (API-39), µs: how long batches of samples may wait on the
     /// device. A batch is also sent when it is full, so the most only matters for slow samples.
     pub samples_max_age_us: (u32, u32),
+    /// Shortest `every_us` of `Samples` mode (API-39), µs: each property's sampler takes at most one sample this
+    /// often, whatever a host asks for. Every sample taken is encoded, also when the link can't carry it, so this
+    /// is what keeps the work a host can ask for within the device's CPU (about 2000 instructions per sample on a
+    /// Cortex-M3, see `docs/api/observing.md`). 0: every sample.
+    pub samples_min_every_us: u32,
 }
 
 impl ObserveLimits {
     /// 1 ms shortest period, 2 kB/s per level by default, 20 kB/s per level at most, 50 kB/s in total, no
-    /// timestamps, batches of samples 1 ms to 10 s old.
+    /// timestamps, batches of samples 1 ms to 10 s old, every sample (set `samples_min_every_us` on an MCU).
     pub const DEFAULT: ObserveLimits = ObserveLimits {
         min_period_us: 1_000,
         default_budget: 2_000,
@@ -87,6 +92,7 @@ impl ObserveLimits {
         total_budget: 50_000,
         timestamps: false,
         samples_max_age_us: (crate::batch::MIN_MAX_AGE_US, crate::batch::MAX_MAX_AGE_US),
+        samples_min_every_us: 0,
     };
 }
 
@@ -170,8 +176,9 @@ impl Mode {
                 let (lo, hi) = limits.samples_max_age_us;
                 let lo = lo.max(1);
                 Mode::Samples {
-                    // decimating never sends more than every sample: any grid is fine, 0 is every sample
-                    every: every_us.0,
+                    // 0 is every sample; decimating never sends more than that, so the device's floor is all
+                    // there is to check
+                    every: every_us.0.max(limits.samples_min_every_us),
                     max_age: max_age_us.0.clamp(lo, hi.max(lo)),
                 }
             }

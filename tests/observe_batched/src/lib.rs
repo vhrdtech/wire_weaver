@@ -42,6 +42,7 @@ mod tests {
         total_budget: 2_000_000,
         timestamps: true,
         samples_max_age_us: (1_000, 1_000_000),
+        samples_min_every_us: 10,
     };
 
     mod server {
@@ -723,7 +724,7 @@ mod tests {
         assert_eq!(temps, [0.0, 5.0, 10.0, 15.0, 20.0]);
     }
 
-    /// `Samples` is untrusted input: only `+batched` properties take it, the age is clamped; switching a
+    /// `Samples` is untrusted input: only `+batched` properties take it, the age and grid are clamped; switching a
     /// property to another mode drops its waiting batches and the sampler stops taking its samples.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn validated_and_switched_off() {
@@ -745,7 +746,8 @@ mod tests {
                 reason: ObserveRefusal::ModeNotSupported
             }]
         );
-        assert_eq!(granted, [entry(CURRENT, samples(0, 1_000))]);
+        // every sample asked for: the device's floor of one per 10 µs, the age raised to 1 ms
+        assert_eq!(granted, [entry(CURRENT, samples(10, 1_000))]);
         b.sample(5, 0, 10, 0).await;
         b.observe(&[], &[entry(READING, samples(0, 1_000))], None)
             .await;

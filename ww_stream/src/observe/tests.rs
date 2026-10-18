@@ -21,6 +21,7 @@ const LIMITS: ObserveLimits = ObserveLimits {
     total_budget: 15_000,
     timestamps: false,
     samples_max_age_us: (1_000, 1_000_000),
+    samples_min_every_us: 10,
 };
 
 fn entry(index: u32, mode: ObserveMode) -> ObserveEntry {
@@ -491,7 +492,7 @@ fn samples(every_us: u32, max_age_us: u32) -> ObserveMode {
 }
 
 /// `Samples` only for `+batched` properties (untrusted input: refused, nothing applied for it), its max age
-/// clamped to the limits both ways, the grid as asked.
+/// clamped to the limits both ways, the grid raised to the device's floor (`samples_min_every_us`).
 #[test]
 fn samples_mode_validated_and_clamped() {
     let mut t = ObserveTable::<3>::new();
@@ -520,8 +521,11 @@ fn samples_mode_validated_and_clamped() {
             }
         ]
     );
-    assert_eq!(granted(&t, &DESC_B), [entry(3, samples(0, 1_000))]);
-    assert_eq!(t.samples(1), Some((0, 1_000)));
+    // every sample asked for, one per 10 µs at most granted
+    assert_eq!(granted(&t, &DESC_B), [entry(3, samples(10, 1_000))]);
+    assert_eq!(t.samples(1), Some((10, 1_000)));
+    apply(&mut t, &DESC_B, &[entry(3, samples(25, 1_000))], false, None).unwrap();
+    assert_eq!(t.samples(1), Some((25, 1_000)));
     apply(
         &mut t,
         &DESC_B,

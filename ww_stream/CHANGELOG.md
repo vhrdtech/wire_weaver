@@ -13,8 +13,10 @@
   `Outbox::push_from` takes a `Consumer` of any policy.
 
 - Batched observe (API-39): `observe::LevelDesc` gets `batched: [bool; N]` and `ObserveLimits` gets
-  `samples_max_age_us` (struct literals need them; `ObserveLimits::DEFAULT` has 1 ms to 10 s). `ObserveTable`
-  takes `ObserveMode::Samples` for batched slots (`ModeNotSupported` for others, max age clamped), with
+  `samples_max_age_us` and `samples_min_every_us` (struct literals need them; `ObserveLimits::DEFAULT` has 1 ms
+  to 10 s and every sample). `ObserveTable` takes `ObserveMode::Samples` for batched slots (`ModeNotSupported` for
+  others, max age clamped, `every_us` raised to `samples_min_every_us`: every sample is encoded, so this bounds
+  the CPU a host can ask for), with
   `samples(k)`, `add_missed`, and `plan_with(now, limits, batch_waiting)`: a slot in `Samples` mode is due while
   its outbox holds a batch. New `observe::SampleGate` / `GateCursor` (which samples a sampler takes, one atomic
   load per sample, decimation on a wrapping µs grid), `batch_budget`, `batch_slot_len`, and

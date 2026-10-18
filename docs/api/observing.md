@@ -235,8 +235,11 @@ the batches in a `static`). `ww api scaffold` writes the `observe_batch` argumen
   values or plain properties has it as before.
 - **Limits**: `Samples` is refused for a property without `+batched` (`ModeNotSupported`); `max_age_us` is
   clamped to `ObserveLimits::samples_max_age_us` (1 ms to 10 s by default); `every_us` decimates on the device's
-  grid (the first sample in each `every_us`), 0 is every sample. A property type that borrows (bytes, a string, a
-  vector) can't be `+batched`.
+  grid (the first sample in each `every_us`), 0 is every sample, and is raised to
+  `ObserveLimits::samples_min_every_us` (0, every sample, by default). Every sample taken is encoded, also when
+  the budget then drops its batch, so on an MCU set that floor from the table [below](#which-rates-fit-an-mcu):
+  without it any host can ask for more encoding than the CPU has. A property type that borrows (bytes, a string,
+  a vector) can't be `+batched`.
 
 ### Host side
 

@@ -52,11 +52,12 @@ with m.observe({"current": {"samples": 5}}) as obs:  # every sample, in batches 
     u = obs.recv()
     u["samples"]["current"]                         # [(t, value), ...], oldest first; u["values"] has the newest
     b = obs.recv_batch()
-    b["batches"]["current"]                         # {"t": array of seconds, "value": array}
+    b["batches"]["current"]                         # {"t": array of seconds, "": array of the values}
 ```
 
-`{"samples": max_age_ms, "every": ms}` takes the first sample in each `every` (decimated on the device). A struct
-item gives a column per field in `recv_batch()` (`value.<field>`, as [`decode_columns`](python.md#values)).
+`{"samples": max_age_ms, "every": ms}` takes the first sample in each `every` (decimated on the device). The
+columns are keyed as in [`decode_columns`](python.md#values) and a batched stream's `recv_batch()`: `""` for a
+number, a key per field for a struct (`value`, `ok`, ..).
 
 `observe()` without `cfg` asks for every observable property on-change (what [`ww observe <path>`](cli_reference.md#ww-observe) does without
 `--rate`). `recv(timeout=...)` / `try_recv()` are also available. One device subscription is shared per level

@@ -66,7 +66,7 @@ impl LevelUpdate for DynUpdate {
         // an update that doesn't decode is reported by the observers, which decode it again
         if let Ok(slots) = schema.decode_slots(&self.data) {
             for (_, slot) in slots {
-                if let DynSlot::Series(items, _) = slot {
+                if let DynSlot::Series(items) = slot {
                     for (_, mut t) in items {
                         f(&mut t);
                     }
@@ -141,8 +141,8 @@ impl BatchedSlot {
 enum DynSlot {
     /// A property that isn't `+batched`, or `Batched::One`: one value, at the update's time.
     One(ValueOwned),
-    /// `Batched::Series`: samples with their device times, oldest first, and the series' bytes.
-    Series(Vec<(ValueOwned, Second)>, Vec<u8>),
+    /// `Batched::Series`: samples with their device times, oldest first.
+    Series(Vec<(ValueOwned, Second)>),
 }
 
 const BATCHED_ONE: u8 = 0;
@@ -165,12 +165,6 @@ impl LevelSchema {
     /// The level's observable properties, by resource index, as given to [LevelSchema::new].
     pub(crate) fn props(&self) -> &[(u32, String, TypeOwned)] {
         &self.props
-    }
-
-    /// See [DynObserver::series_ty].
-    fn series_ty(&self, name: &str) -> Option<&TypeOwned> {
-        let k = self.props.iter().position(|(_, n, _)| n == name)?;
-        self.batched[k].as_ref().map(|b| &b.series_ty)
     }
 
     /// Resource indices of the `+batched` properties.
@@ -233,7 +227,7 @@ impl LevelSchema {
                     .into_iter()
                     .map(|item| self.timed_parts(item, &batched.second_ty))
                     .collect::<anyhow::Result<_>>()?;
-                Ok(DynSlot::Series(samples, bytes.to_vec()))
+                Ok(DynSlot::Series(samples))
             }
             tag => anyhow::bail!("Batched tag {tag}: from a newer device or malformed"),
         }
@@ -283,19 +277,16 @@ impl LevelSchema {
         for (k, slot) in self.decode_slots(data)? {
             let name = &self.props[k].1;
             let batched = self.batched[k].is_some();
-            let (items, series) = match slot {
+            let items = match slot {
                 DynSlot::One(value) if !batched => {
                     values.push((name.clone(), value));
                     continue;
                 }
-                DynSlot::One(value) => (vec![(value, t)], None),
-                DynSlot::Series(items, bytes) => (
-                    items
-                        .into_iter()
-                        .map(|(value, sent)| (value, Some(times.next().copied().unwrap_or(sent))))
-                        .collect(),
-                    Some(bytes),
-                ),
+                DynSlot::One(value) => vec![(value, t)],
+                DynSlot::Series(items) => items
+                    .into_iter()
+                    .map(|(value, sent)| (value, Some(times.next().copied().unwrap_or(sent))))
+                    .collect(),
             };
             if let Some((last, _)) = items.last() {
                 values.push((name.clone(), last.clone()));
@@ -303,7 +294,6 @@ impl LevelSchema {
             samples.push(DynSamples {
                 name: name.clone(),
                 items,
-                series,
             });
         }
         Ok((values, samples))
@@ -321,9 +311,6 @@ pub struct DynSamples {
     /// The samples, oldest first, each with its device time (unwrapped as [DynObserved::t]); one value sent on
     /// its own has the update's time.
     pub items: Vec<(ValueOwned, Option<Second>)>,
-    /// The `Series<Timed<T>>` bytes they came in, `None` for one value sent on its own: for a column decoder
-    /// (Python's `recv_batch()`), its type from [DynObserver::series_ty]. Times in it are as the device sent them.
-    pub series: Option<Vec<u8>>,
 }
 
 /// One decoded update from a [DynObserver]: the level's present properties, by name, in schema order.
@@ -375,11 +362,6 @@ impl DynObserver {
             received: observed.received,
             data_len,
         })
-    }
-
-    /// The type of [DynSamples::series] of the `+batched` property `name`: `Series<Timed<T>>`.
-    pub fn series_ty(&self, name: &str) -> Option<&TypeOwned> {
-        self.schema.series_ty(name)
     }
 
     /// Next update, skipping link state events ([StreamError::Closed] once nothing more can come).

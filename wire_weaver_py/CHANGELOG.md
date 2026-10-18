@@ -20,7 +20,8 @@
 
 - Batched observe (API-39): `observe({"name": {"samples": max_age_ms, "every": ms}})` observes every sample of a
   `+batched` property; `recv()` dicts get `"samples": {name: [(t, value), ...]}` (device times unwrapped),
-  `Observer.recv_batch()` gives them as numpy columns per property (`"batches": {name: {"t": .., "value": ..}}`).
+  `Observer.recv_batch()` gives them as numpy columns per property (`"batches": {name: {"t": .., ...}}`, keyed as a
+  batched stream's `recv_batch()`).
 
 - `ww_si::AnyQuantity` values (STD-37) decode to `ww.Quantity`, the same as the typed quantity of their unit, and take
   any `ww.Quantity` whose unit has a dimension on write; `dim` and `to_si()` work for a unit a device sent with its

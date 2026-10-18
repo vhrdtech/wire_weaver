@@ -547,9 +547,9 @@ impl Observe {
             }
 
             impl ObserveBatches {
-                /// Batches encoded with `policy` (`ww_stream::batch::DEFAULT_POLICY` unless the device knows
-                /// better).
-                pub fn new(policy: wire_weaver::shrink_wrap::series::CodecPolicy) -> Self {
+                /// Batches encoded with `policy`: `ww_stream::batch::DEFAULT_POLICY` (every codec on `std`, delta
+                /// and packed on `no_std`, so a firmware links only those), or another value of its type.
+                pub fn new(policy: ww_stream::batch::DefaultPolicy) -> Self {
                     ObserveBatches {
                         #(
                             #names: ww_stream::batch::Batcher::new(policy),

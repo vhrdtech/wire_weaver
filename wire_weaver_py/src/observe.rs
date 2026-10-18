@@ -2,7 +2,7 @@
 //! an [Observer], iterate it for a dict per update. Every sample of `+batched` properties (API-39) comes item by
 //! item in `recv()`'s dicts, or as numpy columns per property from `recv_batch()`.
 
-use crate::columns::decode_columns;
+use crate::columns::batch_dict;
 use crate::convert::to_py;
 use crate::tree::timeout;
 use crate::{Conn, WireWeaverError, client_err, stream_err};
@@ -14,8 +14,8 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use wire_weaver_client::observe::ObserveMode;
-use wire_weaver_client::ww_self::TypeOwned;
-use wire_weaver_client::{DynObserved, DynObserver, DynResource, seconds};
+use wire_weaver_client::ww_self::{TypeOwned, ValueOwned};
+use wire_weaver_client::{BatchItem, DynObserved, DynObserver, DynResource, seconds};
 
 /// A level's `+observe` properties, by resource index.
 type Props = Vec<(u32, String, TypeOwned)>;
@@ -170,8 +170,8 @@ impl Observer {
         Ok(d.into_any().unbind())
     }
 
-    /// `{name: {"t": array of seconds, "value": array, ...}}`: a batch of each `+batched` property in the update as
-    /// numpy columns (`decode_columns` of its `Timed<T>` items, `t` unwrapped as in `recv()`).
+    /// `{name: {"t": array of seconds, <field>: array, ...}}`: the samples of each `+batched` property in the update
+    /// as numpy columns, the same dict as a batched stream's `recv_batch()` (without `pos`).
     fn batches_to_py<'py>(
         &self,
         py: Python<'py>,
@@ -179,31 +179,21 @@ impl Observer {
     ) -> PyResult<Bound<'py, PyDict>> {
         let batches = PyDict::new(py);
         for s in &observed.samples {
-            let Some(series) = &s.series else {
+            let Some(ty) = self.ty(&s.name) else {
                 continue;
             };
-            let ty = self.with_observer(|o| {
-                o.series_ty(&s.name).cloned().ok_or_else(|| {
-                    WireWeaverError::new_err(format!("'{}' is not a +batched property", s.name))
-                })
-            })?;
-            let raw = decode_columns(py, series, &ty, self.res.bundle())?;
-            let cols = PyDict::new(py);
-            let numpy = py.import("numpy")?;
-            let t: Vec<f64> = s
+            let items: Vec<BatchItem<ValueOwned>> = s
                 .items
                 .iter()
-                .map(|(_, t)| t.as_ref().map_or(f64::NAN, seconds))
+                .map(|(value, t)| BatchItem {
+                    t: *t,
+                    value: value.clone(),
+                })
                 .collect();
-            cols.set_item("t", numpy.call_method1("array", (t,))?)?;
-            // the device's own (wrapping) times are left out, `t` has them unwrapped
-            for (k, v) in raw.iter() {
-                let key = k.cast::<PyString>()?.to_str()?.to_string();
-                if key != "t" && !key.starts_with("t.") {
-                    cols.set_item(key, v)?;
-                }
-            }
-            batches.set_item(&s.name, cols)?;
+            batches.set_item(
+                &s.name,
+                batch_dict(py, None, &items, ty, self.res.bundle())?,
+            )?;
         }
         Ok(batches)
     }
@@ -260,8 +250,8 @@ impl Observer {
     }
 
     /// As `recv()`, with the samples of each `+batched` property (API-39) as numpy columns instead of a list:
-    /// `"batches": {name: {"t": array of seconds, "value": array, ...}}`, one array per leaf of the item
-    /// (`value.<field>` for a struct, as `decode_columns`). Only batches: a value sent on its own is in `values`.
+    /// `"batches": {name: {"t": array of seconds, <field>: array, ...}}`, one array per leaf of the item, keyed as
+    /// `decode_columns` and a batched stream's `recv_batch()`.
     #[pyo3(signature = (timeout=None))]
     fn recv_batch(&self, py: Python<'_>, timeout: Option<f64>) -> PyResult<Py<PyAny>> {
         match self.next_inner(py, timeout)? {

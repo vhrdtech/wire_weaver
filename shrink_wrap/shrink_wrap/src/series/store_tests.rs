@@ -22,6 +22,18 @@ fn check_with<T: SeriesStore + Clone + Debug>(
     for i in 1..N {
         assert!(eq(&T::get(&fresh, i), &empty), "fresh store at {i}");
     }
+    // in place, over garbage: `init_store` writes every byte it needs
+    let mut slot = core::mem::MaybeUninit::<T::Store<N>>::uninit();
+    // SAFETY: bytes of a `MaybeUninit`, any value is fine
+    unsafe {
+        slot.as_mut_ptr()
+            .cast::<u8>()
+            .write_bytes(0xA5, core::mem::size_of::<T::Store<N>>())
+    };
+    let in_place = super::init_store_in::<T, N>(&mut slot);
+    for i in 0..N {
+        assert!(eq(&T::get(in_place, i), &empty), "store built in place at {i}");
+    }
     let mut store = T::empty_store::<N>();
     let mut model: [Option<T>; N] = Default::default();
     for (k, item) in items.iter().enumerate() {
@@ -156,6 +168,38 @@ fn fresh_stores() {
         Quantity::get(&Quantity::empty_store::<4>(), 0),
         Quantity::new(Prefix::Unit, NumericValue::U8(0))
     );
+}
+
+/// A hand-written store whose `init_store` gives back another store than its slot.
+#[derive(Clone, Copy, Debug)]
+struct Liar;
+
+impl SeriesStore for Liar {
+    type Store<const N: usize> = [u8; N];
+
+    fn empty_store<const N: usize>() -> [u8; N] {
+        [0; N]
+    }
+
+    fn init_store<const N: usize>(_slot: &mut core::mem::MaybeUninit<[u8; N]>) -> &mut [u8; N] {
+        Box::leak(Box::new([0; N]))
+    }
+
+    fn set<const N: usize>(store: &mut [u8; N], i: usize, _item: &Self) {
+        store[i] = 1;
+    }
+
+    fn get<const N: usize>(_store: &[u8; N], _i: usize) -> Self {
+        Liar
+    }
+}
+
+/// Code building a bigger store in place relies on the slot being written, so a lying impl panics.
+#[test]
+#[should_panic(expected = "another store than its slot")]
+fn init_store_of_another_store_panics() {
+    let mut slot = core::mem::MaybeUninit::uninit();
+    super::init_store_in::<Liar, 4>(&mut slot);
 }
 
 /// Two data variants: the store keeps both fields (docs/serdes/series.md).

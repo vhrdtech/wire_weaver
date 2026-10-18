@@ -246,3 +246,19 @@ proptest! {
         }
     }
 }
+
+/// Built in place over garbage, the store reads as a fresh one: `U8(0)` at every index.
+#[test]
+fn init_store_in_place() {
+    let mut slot = core::mem::MaybeUninit::<NumericValueStore<8>>::uninit();
+    // SAFETY: bytes of a `MaybeUninit`, any value is fine
+    unsafe {
+        slot.as_mut_ptr()
+            .cast::<u8>()
+            .write_bytes(0xA5, size_of::<NumericValueStore<8>>())
+    };
+    let store = shrink_wrap::series::init_store_in::<NumericValue, 8>(&mut slot);
+    for i in 0..8 {
+        assert_eq!(NumericValue::get(store, i), NumericValue::U8(0), "at {i}");
+    }
+}

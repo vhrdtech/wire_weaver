@@ -135,17 +135,22 @@ doesn't fit the level's [`Outbox`](#the-store) is dropped, oldest first, and cou
 
 A `Batcher<T, N>`'s two stores are `T::Store<N>` ([`SeriesStore`](../serdes/series.md#collecting-items-on-a-device-seriesstore),
 SW-62): a struct of arrays, one per leaf field, with no padding between items - usually less RAM than `[T; N]`
-twice over (`SeriesStore`'s own page has the exact per-item sizes). Encoding reads a sealed batch's items back out
-of its store into the shared `Scratch<B>` (`scratch_bytes::<T>(N)` sizes it for one batcher; a server with several
-batchers shares one `Scratch` big enough for its biggest), then writes them with the ordinary `Series::with_policy`
-- no second writer path, so [`Series`](../serdes/series.md) itself needed no change for this. A `T` aligned to
-more than 16 bytes, or one whose `Store<N>` doesn't fit `B`, is a compile error, not a runtime one.
+twice over (`SeriesStore`'s own page has the exact per-item sizes). Encoding writes a sealed batch column by
+column straight from the store's arrays (`write_store_series`, SW-64), and counts its bytes the same way when it has
+to (`count_store_series`), the same bits as the item walk. Rows where an enum or `Option` tag changes are read
+back out of the store into the shared `Scratch<B>` (`scratch_bytes::<T>(N)` sizes it for one batcher; a server
+with several batchers shares one `Scratch` big enough for its biggest) and written with the ordinary
+`Series::with_policy`. A `T` aligned to more than 16 bytes, or one whose `Store<N>` doesn't fit `B`, is a compile
+error, not a runtime one.
 
 An observe level's `Outbox<BYTES>` (see [Every sample](observing.md#every-sample-batched)) sits after the `Batcher`:
 each level batch is its time column followed by the column of each property observed in `Samples` mode (each entry
-with a header: slot, items, length), encoded once, column by column (the scratch holds one column, not a row). They
-wait there, oldest first, for `poll_properties` to send each whole in one update as budget allows; when it's full,
-the oldest batches are dropped to make room, also counted as `missed`.
+with a header: slot, items, length), encoded once, column by column (the scratch holds one column, not a row). A
+batch whose worst case fits the free room is written right away; one whose worst case doesn't is written into the
+room there is all the same and measured only when it didn't fit (to drop older batches or split it), so a big
+outbox and a small one cost the same CPU while batches fit (API-52). They wait there, oldest first, for
+`poll_properties` to send each whole in one update as budget allows; when it's full, the oldest batches are dropped
+to make room, also counted as `missed`.
 A stream has no outbox - its encoded batch goes straight into the stream's own store (reliable) or the next event
 (plain/counted).
 
@@ -200,14 +205,16 @@ them in `Samples` mode, a poll every 16 rows, `observe_batch = 32`, a ring of 32
 |---|---|---|---|---|
 | a row, observed: mean (first, worst) | 412 (576, 641) | 354 (426, 545) | 419 (545, 858) | 328 (422, 598) |
 | a row, nobody observes | 204 | 300 | 153 | 284 |
-| a poll that encodes a batch | 349-509 k | 356-518 k | 133-185 k | 137-191 k |
-| a poll with nothing to send (16 rows waiting) | 5.4 k | 15.3 k | 3.0 k | 9.2 k |
+| a poll that encodes a batch | 131-169 k | 140-180 k | 78-100 k | 84-107 k |
+| a poll with nothing to send (16 rows waiting) | 5.1 k | 15.3 k | 3.1 k | 10.1-10.3 k |
 | stack of a row | 108 B | 44 B | 116 B | 52 B |
 
 On the Cortex-M3 and M4F models a row takes 189 instructions on cells against 250 through `sample()` at
 `opt-level = "z"`, 206 against 260 at 3. Both send the same 2 021 bytes for the 64 rows; the level's RAM is the same
-too (8 640 B against 8 656 B). The total CPU is about the same, the cells' a bit more: what the interrupt saves, the
-event loop spends copying the ring (about 380 cycles a row on the H725). Without observers the cells' setters still
+too (8 656 B either way). The total CPU is about the same, the cells' a bit more: what the interrupt saves, the
+event loop spends copying the ring (about 440 cycles a row at `opt-level = 3` on the H725 with all 21 observed; the
+poll copies only the observed columns, 4.4 k cycles for 16 rows of 3). The polls are those after API-52, which
+halved the one that encodes (it was 133-185 k at 3, 349-509 k at `"z"`). Without observers the cells' setters still
 store (the sampler returns before copying): skip them with `is_sampling()`. Both builds keep the batches in a
 `static` built in place (`ObserveBatches::init`, see [Observing](observing.md#device-side)).
 

@@ -313,8 +313,10 @@ w.commit(Second::micro(now_us));
 - **Reader**: `<Level>Cells::reader()` goes to `ObserveBatches::init` or `new` (one per cells level, in the order
   of the levels), which then borrow the cells: `ObserveBatches<'static>` for a `static`, or
   `ww_stream::batch::CellsReader::shared(arc)` for cells in an `Arc` on `std`. Each `poll_properties` copies the
-  rows committed since the last one into one staging batch, then encodes and sends it as the sampler's batches are:
-  the same columns, the same bytes.
+  rows committed since the last one into one staging batch, the time and the observed properties' columns only,
+  then encodes and sends it as the sampler's batches are: the same columns, the same bytes. A property observed
+  while rows are staged gets its column copied for them from the ring, so it has the batch's earlier samples as
+  with `sample()`; if the interrupt wrote over those rows meanwhile, they go without it and the next batch has it.
 - **Ring size**: `R` rows (`<Level>Cells<R>`) hold what the interrupt commits between two `poll_properties` calls;
   `R - 1` can wait. A row the writer writes over before it is read (the ring lapped) is dropped and counted in
   `missed`, never sent with values of two rows. RAM is `R` rows plus one batch of `observe_batch` rows, about what

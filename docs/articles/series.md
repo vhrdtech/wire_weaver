@@ -379,23 +379,26 @@ Observing only some properties of a level is supported, and it is the usual case
 `i_c` in `Samples` mode and leaves the other 18 values of the FOC level alone. Only properties in `Samples` mode get a
 column in the level's batch, are encoded and sent. The others still cost CPU where the row is captured: `sample()`
 takes the whole row (`FocSamples`, all 21 values) and copies it into the batch store, and with observe cells the
-interrupt writes every cell and the poll copies every column out of the ring. Measured on the STM32H725 at
-`opt-level = 3`, the FOC bench with the host observing all 21, then only `i_a`, `i_b`, `i_c`:
+interrupt writes every cell. The poll copies only the observed columns out of the cells' ring. Measured on the
+STM32H725 at `opt-level = 3`, the FOC bench with the host observing all 21, then only `i_a`, `i_b`, `i_c`:
 
-| FOC level (21 values), H725 cycles                  | all 21 observed | 3 observed     |
-|-----------------------------------------------------|-----------------|----------------|
-| a row, `sample()`                                   | 412             | 387            |
-| a row, observe cells                                | 336             | 318            |
-| a poll that drains 16 rows from the cells' ring     | 9 170 - 9 580   | 9 160 - 9 280  |
-| the poll that encodes a 32-row batch, `sample()`    | 189 700         | 25 700 - 26 200 |
-| the same with cells (it also drains 16 rows)        | 196 000         | 31 900 - 32 200 |
-| bytes sent for 64 rows                              | 2 021           | 419            |
+| FOC level (21 values), H725 cycles                  | all 21 observed   | 3 observed      |
+|-----------------------------------------------------|-------------------|-----------------|
+| a row, `sample()`                                   | 408               | 386             |
+| a row, observe cells                                | 333               | 316             |
+| a poll that drains 16 rows from the cells' ring     | 10 100 - 10 300   | 4 370 - 4 460   |
+| the poll that encodes a 32-row batch, `sample()`    | 100 200           | 24 500 - 24 900 |
+| the same with cells (it also drains 16 rows)        | 107 400           | 26 200 - 26 300 |
+| bytes sent for 64 rows                              | 2 021             | 419             |
 
-So the encode and the bytes follow what is observed (7x fewer cycles and 5x fewer bytes here), the capture doesn't: a row costs the
-same whether a host watches 3 values or 21, and the cells' ring drain too. At 25 kHz that makes 3 of the 21 FOC
-values about 6 % of the H725 through `sample()` and 7 % with cells (rows plus polls), against about 30 % for all
-21. To make the unobserved values free, put the ones that are rarely watched in a level of their own (a level is
-the unit a gate opens for), or skip computing them when nobody samples the level at all (`if w.is_sampling()`).
+So the encode, the cells' drain and the bytes follow what is observed (4x fewer cycles and 5x fewer bytes here),
+the capture doesn't: a row costs the same whether a host watches 3 values or 21. At 25 kHz that makes 3 of the 21
+FOC values about 6 % of the H725 (rows plus polls, `sample()` or cells alike), against 17 % for all 21 through
+`sample()` and 19 % with cells. A property a host starts to observe while a batch fills still gets that batch's
+earlier samples, as with `sample()`: the poll copies its column for the rows already staged from the ring (if the
+interrupt wrote over them meanwhile, the batch goes without it and the next one has it). To make the unobserved
+values free, put the ones that are rarely watched in a level of their own (a level is the unit a gate opens for), or
+skip computing them when nobody samples the level at all (`if w.is_sampling()`).
 
 ### Without generated code: CLI, dynamic clients, Python
 
@@ -455,10 +458,14 @@ doesn't help: the series code is generic and compiled in the firmware crate. The
 has where the cycles go.
 
 These tables count the encode, the `Series` writes of a batch. The whole `poll_properties` that sends it costs more:
-190 k cycles for a 32-row FOC batch on the H725 at `opt-level = 3` ([a few properties](#a-few-properties-of-a-level)),
-about 30 % of the core at 25 kHz with the rows. In its profile on the Cortex-M4F model the writes are 29 % of the
-poll's instructions; rebuilding each column of the staging store into a scratch takes 31 %, a sizing pass 13 %, the
-outbox 8 %. That is the next thing to make faster ([API-52](../features.md)), and what limits the high rates below.
+100 k cycles for a 32-row FOC batch on the H725 at `opt-level = 3` ([a few properties](#a-few-properties-of-a-level),
+a batch with a current ramp, so more than the quiet one above), 17 % of the core at 25 kHz with the rows; 169 k at
+`"z"`, 27 %. Until [API-52](../features.md) it was 191 k and 513 k (30 % and 77 %): whenever a batch's worst case
+didn't fit the outbox's free room, the poll measured it first by rebuilding each column of the batch into a scratch
+and walking it, and the outbox walked its entries for every lookup. Now a batch is written straight into the free
+room and measured only when it doesn't fit, a measure counts from the store's arrays, and the outbox keeps its
+offsets. In the profile of that poll on the Cortex-M4F model (105 k instructions, 207 k before) the codec's writes
+are more than half; the rest is the columns' framing, the update and the outbox.
 
 ### High rates: a few values at 400 kHz to 2 MHz
 
@@ -471,20 +478,20 @@ values are a synthetic buck stage (48 V to 12 V, 8 A, a load step to 12 A in the
 
 | H725 cycles                                 | 3 values, 400 kHz | 3 values, 1 MHz | 2 values, 2 MHz |
 |---------------------------------------------|-------------------|-----------------|-----------------|
-| capture: a cells row, warm (cold)           | 164 (430)         | 161 (176)       | 144 (302)       |
-| capture: a raw row                          | 49                | 49              | 42              |
-| a poll that drains 16 rows                  | 3 715             | 3 684           | 3 193           |
-| the poll that drains 16 rows, encodes 32    | 24 441            | 24 016          | 18 973          |
-| a raw copy of 32 rows                       | 357               | 358             | 286             |
+| capture: a cells row, warm (cold)           | 163 (456)         | 158 (178)       | 152 (313)       |
+| capture: a raw row                          | 57                | 58              | 52              |
+| a poll that drains 16 rows                  | 3 846             | 3 700           | 3 286           |
+| the poll that drains 16 rows, encodes 32    | 22 965            | 22 443          | 18 878          |
+| a raw copy of 32 rows                       | 369               | 382             | 295             |
 
 Per rate, with the capture of every row and both polls of every batch:
 
 | per rate                                  | 3 values, 400 kHz | 3 values, 1 MHz | 2 values, 2 MHz |
 |-------------------------------------------|-------------------|-----------------|-----------------|
 | one period                                | 1 350 cycles      | 540 cycles      | 270 cycles      |
-| capture, share of a period: cells / raw   | 12 % / 3.6 %      | 30 % / 9.1 %    | 53 % / 16 %     |
-| **CPU of the H725, `Series`**             | **77 %**          | **190 %**       | **310 %**       |
-| CPU of the H725, raw copy                 | 4.5 %             | 11 %            | 19 %            |
+| capture, share of a period: cells / raw   | 12 % / 4.2 %      | 29 % / 11 %     | 56 % / 19 %     |
+| **CPU of the H725, `Series`**             | **74 %**          | **181 %**       | **313 %**       |
+| CPU of the H725, raw copy                 | 5.1 %             | 13 %            | 23 %            |
 | bytes per row, `Series` / raw             | 5.5 / 16          | 5.3 / 16        | 3.9 / 12        |
 | on the wire, `Series`                     | 2.2 MB/s          | 5.3 MB/s        | 7.8 MB/s        |
 | on the wire, raw (no framing at all)      | 6.4 MB/s          | 16 MB/s         | 24 MB/s         |
@@ -497,17 +504,19 @@ What limits first:
 
 - **`Series`: the encode in the event loop.** The capture fits at every rate (a cells row is 12 to 53 % of a
   period; at 2 MHz half the period is a lot for an interrupt that also runs the control loop). The polls don't: 3
-  values at 400 kHz take 77 % of the core, which leaves little for the converter, and 1 MHz and 2 MHz need 1.9x and
+  values at 400 kHz take 74 % of the core, which leaves little for the converter, and 1 MHz and 2 MHz need 1.8x and
   3.1x the core. Per row the polls cost about 5 times the capture.
 - **Raw: the link.** 4.5 to 19 % of the CPU, but 6.4 to 24 MB/s: Ethernet up to 400 kHz, USB HS above.
 - **The `Series` bytes are 2.9x to 3.1x fewer** than raw, which is what moves 1 and 2 MHz from USB HS to Ethernet,
   if the CPU were there.
 
-Where a poll's cycles go, from its profile on the Cortex-M4F model (23 200 instructions for a 3-value batch): the
-codec itself (delta, packed blocks, bit writer, runs) about 9 000, rebuilding the columns 2 000, the ring copy 1 800,
-and the update's framing and the outbox the rest. So today a device observes a few values at every period up to a
-few hundred kHz, and above that decimates (`every_us`, a grid in whole µs) or sends raw over a fast link;
-[API-52](../features.md) is the work that moves the line.
+Where a poll's cycles go, from its profile on the Cortex-M4F model (22 900 instructions for a 3-value batch): the
+codec itself (delta, packed blocks, bit writer, runs) about 9 300, each column's own framing (count, tag runs,
+the check that no tag changes) 2 000, the ring copy 1 800, the update's framing, the outbox and the poll's own
+code the rest. [API-52](../features.md) took 3 to 6 % off these polls (the FOC poll lost half, see above): this
+bench's 4 KB outbox always had room for a batch's worst case, so its batches were never measured, and what is left
+is the codec and the framing around it; a faster bit writer and less framing per column would move it. So today a device observes a few values at every period up to a few
+hundred kHz, and above that decimates (`every_us`, a grid in whole µs) or sends raw over a fast link.
 
 
 Flash for the encoder is 15.0 KB on a Cortex-M3 with `DeltaPacked` (9.8 KB on an M4F), 25.4 KB (17.6 KB) with a
@@ -542,12 +551,12 @@ at `opt-level = 3`, with 781 batches a second at 25 kHz:
 |----------------------------------------|--------|-------|----------------------------|----------------|
 | raw copy of the 22 arrays (`memcpy`)   | 2 800  | 2 816 | 0.4 %                      | 2.2 MB/s       |
 | `Series`, column-wise `DeltaPacked`    | 59 900 | 1 251 | 8.7 %                      | 0.98 MB/s      |
-| the whole `poll_properties`, cells     | 196 000 | -    | about 30 % with the rows   | -              |
+| the whole `poll_properties`, cells     | 107 400 | -    | about 19 % with the rows   | -              |
 
 The link decides first. USB full speed carries about 1 MB/s in practice: the raw copy at full rate doesn't fit it,
 the `Series` just does. Over USB high speed or Ethernet both fit, and raw wins on CPU by about 20x for the encode,
-and by about 70x counting the whole poll that sends the batch (the third row, a 32-row batch of the FOC bench, which
-carries a current ramp; see [API-52](../features.md)).
+and by about 38x counting the whole poll that sends the batch (the third row, a 32-row batch of the FOC bench, which
+carries a current ramp).
 
 What that CPU buys:
 
@@ -570,7 +579,7 @@ What it costs besides CPU:
 The **capture** gap is closed by [observe cells](#observe-cells-capture-as-cheap-as-a-global): the interrupt writes
 each value into its cell with a plain store, as it would write a global, and commits the row: 342 cycles and 52 B of
 stack for the 21 FOC values at `opt-level = 3`. What stays is the event loop's side: the **encode**, 8.7 % above,
-and the poll around it, about 30 % in all.
+and the poll around it, about 19 % in all.
 There, a faster bit writer is next (see [Ahead](#ahead)), and **aligned plain** ([measured](#straight-from-the-store),
 kept on file) is 34 200 cycles per batch for 2 882 bytes, for links fast enough to carry it.
 
@@ -790,8 +799,9 @@ Three details from the measurement:
   `sample()`'s own copy into the store has the same problem at `"z"` (1 122 instructions against 260 at `3`).
 - **Nobody observing costs cells more.** `sample()` returns before copying when no host wants the row; the setters
   store anyway: 310 against 180 cycles at `"z"`, 303 against 189 at `3`. Wrap them, or the expensive values, in `if w.is_sampling() { .. }`.
-- **The work moves, it doesn't vanish.** A poll copies the waiting rows from the ring, about 380 cycles a row at `3`
-  (9.3 k against 3.2 k cycles for 16 rows), and the poll that encodes costs 2 to 9 % more.
+- **The work moves, it doesn't vanish.** A poll copies the waiting rows from the ring, about 440 cycles a row at `3`
+  with all 21 observed (10.1 k against 3.1 k cycles for 16 rows; only the observed columns are copied, 4.4 k for 3
+  of them), and the poll that encodes costs about 7 % more.
 
 And what 64-bit payloads cost before they were dropped from firmware: the same row took 445 against 435 cycles at
 `3` and the level's samples 14.3 KB of RAM either way, against 8.6 KB with 32-bit payloads.
@@ -816,9 +826,9 @@ pure cost, so a level is separate series per column.
   strings ([SW-28](../features.md)) would make text cheaper per item; frame splitters for byte streams
   ([STD-41](../features.md): newline, idle gap, length field, CRC frames, COBS, Modbus RTU) would cut a UART or CAN
   byte stream into bounded frames, which a batched stream can take.
-- **A cheaper poll.** The poll around the encode costs more than the encode (see [high rates](#high-rates-a-few-values-at-400-khz-to-2-mhz)):
-  writing the columns straight from the staging store, sizing from the bound when it fits, and copying only the
-  observed columns out of the cells' ring are next ([API-52](../features.md)).
+- **Less framing per column.** With the poll's own bookkeeping gone ([API-52](../features.md)), what is left
+  around the codec is each column's framing: its count, its tag runs and the check that no tag changes, about
+  500 instructions a column on a Cortex-M4F; one framing for a whole level would make the high rates cheaper.
 - **Room kept in the format.** The reserved predictor escape is for a common factor per column, the values divided
   by it before the predictor, as [ALP](#compared-with-alp) chooses its scale per block; the float codes have room for
   better float coders (Chimp, ALP). Diffs across batches would save the first values,

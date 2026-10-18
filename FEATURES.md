@@ -564,6 +564,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   419 at 3), 44-52 B of stack against 108-116 B, the same RAM. `ww api scaffold --observe-cells`. Writer and reader
   on two threads tested under miri (`just miri`). (`docs/api/observing.md#cells-sampling-from-an-interrupt`,
   `tests/observe_batched`, `examples_mcu` `foc_observe`.)
+- ✅ **API-52 A cheaper observe poll** — `poll_properties` of a level with `+batched` properties spends its cycles
+  on the codec, not on bookkeeping, with the same bytes: a batch whose worst case doesn't fit the outbox's free room
+  is written into it straight away and measured only when it didn't fit, a measure counts each column from the
+  store (`shrink_wrap::series::count_store_series`) instead of rebuilding it into the scratch, the outbox keeps its
+  batch count and offsets (`LevelBatch::column_after`), and a cells level copies only the time and the observed
+  columns out of its ring (a column observed mid-batch is copied for the staged rows afterwards, seqlock-checked).
+  On an STM32H725 the poll that encodes a 32-row batch of the 21 FOC properties takes 100 k cycles instead of
+  191 k at `opt-level = 3` and 169 k instead of 513 k at `"z"` (cells 107 k / 180 k), so all 21 at 25 kHz are 17 %
+  of the core with the rows instead of 30 % (27 % instead of 77 % at `"z"`); a cells drain of 3 of 21 observed
+  columns 4.4 k instead of 9.2 k. The high rates moved little (3 values at 400 kHz 74 % of the H725 instead of
+  78 %, 1 MHz 181 %, 2 values at 2 MHz 313 %): their polls are the codec and each column's framing now
+  (`docs/articles/series.md#high-rates-a-few-values-at-400-khz-to-2-mhz`, `examples_mcu` `foc_observe`,
+  `high_rate`, `ww_stream` `cells_tests`).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /
@@ -634,13 +647,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`#[stream(T, codec = auto)]`), in the introspection data so dynamic clients and Python decode it; keyframes on
   open, after a gap and every N items. It is how a string or a frame, which a `Series` batch can't take (no size
   bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.
-- 💡 **API-52 A cheaper observe poll for high rates** — measured on an STM32H725 (`examples_mcu`
-  `high_rate`, `foc_observe`), `poll_properties` costs about 3x the column-wise `Series` write it contains: it
-  rebuilds each column of the staging store into the scratch (31 % of a FOC batch's poll), runs a sizing pass with
-  `BitCounter` (13 %) and fills the outbox (8 %); observe cells also copy every column of the ring, observed or not
-  (9.2 k cycles per 16 FOC rows either way). The fix: write the columns straight from the staging store, size from
-  the bound when it fits, copy only observed columns. Today 3 values at 1 MHz take 190 % of a 540 MHz M7, 3 at
-  400 kHz 77 % (`docs/articles/series.md#high-rates-a-few-values-at-400-khz-to-2-mhz`).
 
 ## Server / device side (`SRV`)
 

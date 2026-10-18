@@ -53,6 +53,7 @@ nav = [
                     "api/optional_items.md",
                     "api/multi_requests.md",
                     "api/observing.md",
+                    "api/batching.md",
                     "api/versioning.md",
                     "api/settings.md",
                     { "ECC-safe flash" = "api/ecc_flash.md" }

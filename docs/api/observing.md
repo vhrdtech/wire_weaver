@@ -263,22 +263,12 @@ prints one line per sample, and Python gets them per update or as numpy columns
 
 ### Which rates fit an MCU
 
-Encoding is the cost: on a Cortex-M3 a `Series<Timed<Ampere>>` takes about **2000 instructions per sample** with a
-fixed codec (`fixed(delta, packed)`, the `no_std` default), about 1650 on a Cortex-M4F, and 3.3-3.9x that with
-`CodecPolicy::SMALLEST`, nearly the same at 8, 32 or 64 samples per batch (counted under QEMU on real motor-demo
-currents; cycles on hardware are roughly 1-1.5 per instruction from flash). `sample()` itself is a few loads and
-stores. Count samples per second as properties x sample rate:
-
-| Observed | Samples/s | Encoding, instructions/s | Fits |
-|---|---|---|---|
-| 2 currents at 1 kHz | 2 000 | ~4 M | any Cortex-M |
-| 4 properties at 4 kHz | 16 000 | ~32 M | a 100-200 MHz M4F, with room for the rest |
-| 5 properties at 25 kHz | 125 000 | ~250 M | only a fast M7 (480 MHz), and barely |
-| all 21 FOC properties at 25 kHz | 525 000 | ~1 000 M | no Cortex-M |
-
-So on an MCU observe a few properties at a few kHz, or decimate (`every_us`); full-rate observing of a whole
-control loop is for the simulator and the host ([motor demo](../examples/motor_demo.md)), where it costs about 0.9 MB/s of link with
-integer storage.
+`sample()` itself is a few loads and stores; the cost is encoding, and it scales with how many properties and how
+fast they're sampled - see [Batching: which rates fit an MCU](batching.md#which-rates-fit-an-mcu) for the measured
+instructions/cycles-per-sample table (Cortex-M3/M4F/M7) and what it means for a real device. So on an MCU observe
+a few properties at a few kHz, or decimate (`every_us`); full-rate observing of a whole control loop is for the
+simulator and the host ([motor demo](../examples/motor_demo.md)), where it costs about 1 MB/s of link with integer
+storage.
 
 ## Wire format
 

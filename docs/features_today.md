@@ -103,7 +103,8 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Error lists](api/methods.md#error-lists)**: Which errors each method can return, shown in docs and tools and checked in tests.
 - **[Stream functions](api/streams.md#stream-functions)**: Open a stream with typed arguments and a result, like a method call.
 - **[Observing properties](api/observing.md)**: Ask a device to send changes on change or periodically, within a byte budget.
-- **[Observing every sample](api/observing.md#every-sample-batched)**: A fast property's every sample, with its own time, in compressed batches; typed and dynamic clients, the CLI and Python. <span class="ww-status">in progress</span>
+- **[Observing every sample](api/observing.md#every-sample-batched)**: A fast property's every sample, with its own time, in compressed batches; typed and dynamic clients, the CLI and Python.
+- **[Batched streams](api/batching.md)**: A stream opts into sending samples many per event as a compressed `Series` instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python.
 - **[Size analysis](types.md#worst-case-size-at-compile-time)**: Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. <span class="ww-status">in progress</span>
 - **[API docs in rustdoc](api/traits.md#in-rustdoc)**: `#[ww_trait]` also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. <span class="ww-status">in progress</span>
 - **Code generation from `build.rs`**: `gen_server` / `gen_client` as an alternative to the macros.
@@ -114,7 +115,6 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **Builders for events and errors**: Written straight into the output buffer.
 - **[Dispatch on index slices](api/addressing.md)**: Requests are routed by `match` on their path, the base of multi requests.
 - **[Names and paths that don't collide](api/folder_structure.md)**: Generated names carry the whole trait chain; type paths come from Cargo.
-- **Batched streams**: Fast samples collected on the device and sent many per event as a compressed `Series`; `batched` streams work end to end with typed clients; dynamic clients, Python and batched observe are next. <span class="ww-status">in progress</span>
 - **[Counted and reliable streams](api/stream_reliability.md)**: Exact counts of lost items; acknowledgements, resends and resume after a reconnect. <span class="ww-status">in progress</span>
 - **[Credit sinks](api/credit_sinks.md)**: Flow control for data sent to a device, so its buffer never overflows, and lossy links resume where they stopped.
 - **[Resend and resume inside a batch](api/stream_protocol.md#positions-inside-an-event)**: A resend or a resume from the middle of a multi-unit item gets only the units you don't have.

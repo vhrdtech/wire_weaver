@@ -238,3 +238,5 @@ An `ro` or `rw` property sends its changes as stream data on its own path:
 - [Stream stores](stream_stores.md): where a reliable stream keeps its data (RAM, SD card, flash).
 - [Credit sinks and sideband](credit_sinks.md): flow control into the device, the sideband channel.
 - [Stream protocol](stream_protocol.md): the bytes on the wire, acknowledgements, the `ww_stream` crate.
+- [Batching](batching.md): a plain, counted or reliable stream of a `series` type can opt into sending samples in
+  `Series` batches instead of one item per event.

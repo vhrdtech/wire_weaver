@@ -10,9 +10,8 @@ field, each compressed on its own. For samples that change slowly (sensor readin
 
 A `Series` is a type you reach for explicitly today, in a property, method argument/return or stream item, the same
 way you'd use `Vec<T>` or [`Delta<T>`](special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences).
-Batching many samples into one `Series` automatically (streams and observe properties sending a `Series<Timed<T>>`
-batch instead of one item at a time) is planned as API-41, see the [feature tracker](../features.md); nothing
-below needs it.
+A stream or property can also opt into batching many samples into one `Series` automatically instead of sending one
+item at a time (API-41, see [Batching](../api/batching.md)); nothing below needs that.
 
 ## Which `T`
 
@@ -240,6 +239,6 @@ decode's budget (values and bytes of memory, a repeated value counted once per c
 `Series<T>` as a type you put in a property, method or stream today works end to end (phase 1 of SW-60). Picking the
 batch for you — a stream or property opting into batching (no size in the API itself: the device owns the batch
 size through its own config, default 32, and the host picks latency) sending `Series<Timed<T>>` batches instead of
-one item per event — is phase 2, tracked as API-41 in the [feature tracker](../features.md), and not implemented
-yet. The numbers above (default batch 32, integer storage, autoranging cost) come from a simulator built for that
-work and already hold for `Series` used by hand.
+one item per event — is phase 2, API-41, done: see [Batching](../api/batching.md) for the how-to, sealing, budgets
+and the measured numbers. The numbers above (default batch 32, integer storage, autoranging cost) come from the
+simulator built for that work and hold for `Series` used by hand too.

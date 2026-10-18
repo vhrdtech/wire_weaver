@@ -23,7 +23,8 @@
   dependency.
 
 - Batched observe (API-39): `observe({"name": {"samples": max_age_ms, "every": ms}})` observes every sample of a
-  `+batched` property; `recv()` dicts get `"samples": {name: [(t, value), ...]}` (device times unwrapped),
+  `+batched` property; `recv()` dicts get `"samples": {name: [(t, value), ...]}` (device times unwrapped, from the
+  update's shared `sample_times`, API-49),
   `Observer.recv_batch()` gives them as numpy columns per property (`"batches": {name: {"t": .., ...}}`, keyed as a
   batched stream's `recv_batch()`).
 

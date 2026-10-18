@@ -97,7 +97,8 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-32 | Error lists | Which errors each method can return, shown in docs and tools and checked in tests. | api/methods.md#error-lists
 - API-31, API-35 | Stream functions | Open a stream with typed arguments and a result, like a method call. | api/streams.md#stream-functions
 - API-38 | Observing properties | Ask a device to send changes on change or periodically, within a byte budget. | api/observing.md
-- API-39 | Observing every sample | A fast property's every sample, with its own time, in compressed batches; typed and dynamic clients, the CLI and Python. | api/observing.md#every-sample-batched
+- API-39 | Observing every sample | A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python. | api/observing.md#every-sample-batched
+- API-49 | One clock per observed level | The samples of a level's properties share one time column per update: about a third fewer bytes and half the encoding CPU. | api/observing.md#every-sample-batched
 - API-41 | Batched streams | A stream opts into sending samples many per event as a compressed `Series` instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python. | api/batching.md
 - API-18 | Size analysis | Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. | types.md#worst-case-size-at-compile-time
 - DOC-6 | API docs in rustdoc | `#[ww_trait]` also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. | api/traits.md#in-rustdoc

@@ -19,8 +19,19 @@
   the CPU a host can ask for), with
   `samples(k)`, `add_missed`, and `plan_with(now, limits, batch_waiting)`: a slot in `Samples` mode is due while
   its outbox holds a batch. New `observe::SampleGate` / `GateCursor` (which samples a sampler takes, one atomic
-  load per sample, decimation on a wrapping µs grid), `batch_budget`, `batch_slot_len`, and
-  `batch::Outbox::remove_all_of`.
+  load per sample, decimation on a wrapping µs grid), `batch_budget`, `batch_slot_len`.
+
+- One time column per observe level (API-49): a level's samples are rows (`batch::LevelRow`: the time and every
+  `+batched` value, generated per level) in one `Batcher::new_rows`, polled with `Consumer::poll_rows(now, age,
+  budget, columns)` (the worst case of the time and the observed columns, `batch::Columns`) and encoded column by
+  column (`Consumer::encode_rows`, `Scratch::encode_column`: the scratch holds the biggest column, not a row). The
+  `Outbox` holds level batches: `push_rows_from(consumer, columns, slots, scratch)` encodes the time column and the
+  observed columns as one unit, `oldest()` gives a `LevelBatch { rows, time, columns(), column(k) }`,
+  `remove_oldest()`, `retain_columns(keep)` (a property no longer in `Samples` mode), `clear()`; `push_from`,
+  `first_of`, `remove_first_of` and `remove_all_of` are gone, `Outbox::new` needs more than 12 bytes. Observe:
+  `ObserveTable::apply` gives a level's `Samples` entries the finest `every_us` and shortest `max_age_us` among them
+  (reported in the grant), `level_samples()`, `Selection::offer_batch` (a batch's slots all or none), `has_time()`,
+  `is_dropped(k)`; `batch_budget` takes the observed column count and the whole outbox size.
 
 - `batch::Batched<S, T, N, Src = Batcher<T, N>>` (API-41): the batcher may be a `Consumer` split off a batcher whose
   `Producer` runs elsewhere (`Batched::with_consumer`), so an interrupt can push while `poll_streams` encodes; it

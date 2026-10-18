@@ -7,10 +7,11 @@
   them (`Instance`, `Param`, `Series`) move down by three discriminants, so introspection data written before can't be
   read by this version and the other way round (devices and hosts are rebuilt together); snapshots of
   `ww_logic_analyzer` and `ww_signal_generator` saved again.
-* `PropertyAccess::ReadOnly` / `ReadWrite` get `batched: bool` (API-39, `ro+observe+batched`): a host may observe
-  every sample of the property, in batches, and its observe slot is a `Batched<T>`. API hashes of APIs with
-  readable properties change, the snapshots are saved again; patterns and literals of the two variants need the
-  field (`{ observe, .. }`).
+* `ApiItemKind::Property` gets `batched: Option<Batching>` (`#[default = None]`, API-39, `ro+observe+batched`): a
+  host may observe every sample of the property, in batches, and its observe slot is a `Batched<T>`. `Batching`
+  gets `SharedClock` (API-49), the form of properties: the samples of a level share the `sample_times` of its
+  update; a stream with it is malformed (`StreamFnRef::wire_item_ty` errors). Struct literals of
+  `ApiItemKindOwned::Property` need the new field.
 * `ApiItemKind::StreamFn` gets `batched: Option<Batching>` (`#[default = None]`, API-41), `enum Batching { Timed,
   Untimed }`: a batched stream's events carry one `Series<Timed<T>>` (`Series<T>` untimed) each. A plain batched
   `stream!` is a `StreamFn`. `StreamFnRef::batched`. API hashes of APIs with streams change; struct literals of
@@ -23,9 +24,6 @@
   / `StreamFnRef::wire_item_ty()` (what one event actually carries). `Timed`'s own definition is a known type from
   the `ww_si` snapshot, so a device only adds one `Instance` reference per batched timed stream (a handful of
   bytes), not `Timed`'s fields.
-* `ApiItemKind::Property` gets `batch_item_ty: Option<Type>` (`#[default = None]`, API-39), the same for a
-  `+batched` property: the `Timed<T>` instance whose `Series` a `Batched::Series` observe slot carries. `None` for a
-  property that isn't batched. Struct literals of `ApiItemKindOwned::Property` need the new field.
 
 * `ItemStruct::instance_of` / `ItemEnum::instance_of` (`#[default = None]`, `InstanceOf { type_idx, args }`, CLT-31):
   the generic definition and arguments a concrete definition was made from, set by `generics::instantiate` (and

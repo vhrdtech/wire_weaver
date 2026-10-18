@@ -20,13 +20,14 @@
 - Batched observe in the typed client (API-39): `observe_<name>(mode)` of a `+observe+batched` property gives one
   `Observed` per sample, each with its own device time (unwrapped by the level's device time, the same for every
   observer), whether the device sends one value or a batch; `Commander::prepare_observe_samples`,
-  `observe::Extract`, `observe::BatchedOwned` re-exported. `LevelUpdate::times_mut` (default: none) visits the
-  samples' times of an update; `level_times_mut` (with the level's `latest`) and `set_times` (default: through
-  `times_mut`) let an update that can't find its times alone take part.
+  `observe::Extract`, `observe::BatchedOwned` re-exported. The samples of an update share its `sample_times`
+  (API-49): a level unwraps them like `t`, a level observer gets them as `Observed::sample_times` (pairs with
+  `BatchedOwned::into_samples`), `LevelUpdate::update_latest` takes them; an update whose samples and times don't
+  match is malformed (a warning, its samples left out). Compat checks compare the property's `batched` form.
 
 - Batched observe in the dynamic client (API-39): `DynObserver` decodes `Batched` slots of `+batched` properties
-  from introspection alone, `DynObserved::samples` (`DynSamples`: name, every sample with its device time, unwrapped
-  by the level as for typed observers), the newest sample in `DynObserved::values`.
+  from introspection alone, `DynObserved::samples` (`DynSamples`: name, every sample with its device time from the
+  update's `sample_times`, unwrapped by the level as for typed observers; a count mismatch is an error), the newest sample in `DynObserved::values`.
   `DynResource::batched_properties()` lists the level's `+batched` properties.
 
 - `observe::samples(max_age)` / `samples_every(every, max_age)` (API-39): `ObserveMode::Samples` for

@@ -9,7 +9,7 @@
 ### 🚀 Features
 
 - `ww observe --samples MS` (API-39): every sample of the level's `+batched` properties, in batches at most `MS`
-  old, one line per sample with its device time.
+  old, one line per sample with its device time (the update's shared `sample_times`, API-49).
 
 - `ww introspect` and `ww observe` show `ww_si::AnyQuantity` values (STD-37) with their units like typed quantities
   (`3300 mV`, `1013 mbar` for a unit the device sent).

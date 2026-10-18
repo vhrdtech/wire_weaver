@@ -6,24 +6,28 @@
   from shrink_wrap): use `Series<'i, T>`, which codegen already maps to `ww_self::Type::Series`.
 - Generated std clients of APIs with `+observe+batched` properties (API-39): their slots in `<Trait>Update` are
   `BatchedOwned<T>`, `<Trait>Latest` keeps the last sample, `<Trait>Observe::samples(max_age)` observes every
-  sample of each batched property of the level, `observe_<name>` yields one value per sample.
+  sample of each batched property of the level, `observe_<name>` yields one value per sample, its time from the
+  update's `sample_times` (API-49). `LevelUpdate::update_latest` takes the update's `sample_times`.
 
 - Batched observe on the server (API-39): an API with `+observe+batched` properties gets `ObserveState<B =
   ObserveBatches>` (`new(limits, batches)`, one `Outbox` per level with such properties), `ObserveBatches`
   (`new(policy)`, `split()` into `ObserveSamplers` and `ObserveBatchConsumers` for samplers in an interrupt or
   another thread, `samplers()` to sample from the polling task), a `<Level>Sampler` per level
-  (`sample(t, <Trait>Samples { .. })`, O(1), `is_sampling()`), the `ObserveBatchSource` trait, and
+  (`sample(t, <Trait>Samples { .. })`, O(1), `is_sampling()`), a `<Trait>Row` per level (the time and the values
+  of one sample, kept in one batcher per level: one gate, one time column per update, API-49), the
+  `ObserveBatchSource` trait, and
   `OBSERVE_BATCH` / `OBSERVE_OUTBOX` (codegen arguments `observe_batch = N`, default 32, and `observe_outbox =
   N`, default 4096). `poll_properties` of such an API takes a `scratch: &mut ww_stream::batch::Scratch<SB>`: it
-  encodes sealed batches into the outboxes, then sends updates while batches wait (up to
-  `MAX_UPDATES_PER_POLL` per level), with no head `t` when an update carries only batches. Batched slots of the
+  encodes sealed batches into the outboxes (the scratch holds one column: the biggest of `Second` and the batched
+  property types, `OBSERVE_BATCH` of them), then sends updates while batches wait (up to `MAX_UPDATES_PER_POLL` per
+  level), each batch whole with its times as the event's `sample_times`, with no head `t` when an update carries
+  only batches. Batched slots of the
   `<Trait>Update` types are `Batched<'i, T>` (`BatchedOwned<T>`). The scaffold writes `observe_batch` and says how
   to build the state. APIs without `+batched` properties keep their code.
 
 - `property!(ro+observe+batched ..)` / `rw+observe+batched` (API-39): `+batched` after `+observe` (alone it is a
-  parse error saying so) sets ww_self's `PropertyAccess::{ReadOnly, ReadWrite}::batched`, so API hashes change.
-  The model item of such a property carries `batch_item_ty`, its `Timed<T>` instance resolved from `ww_si` (a
-  `+batched` property needs `ww_si` as a dependency), for dynamic clients to decode `Batched::Series` slots.
+  parse error saying so) sets ww_self's `ApiItemKind::Property::batched` to `Batching::SharedClock` (API-49), so
+  API hashes change.
 - Introspection data changes (API-46): each struct and enum carries its module path (ww_self `ItemStruct::path`),
   so API hashes change and devices and hosts are rebuilt together; snapshots (`ww api save`) take
   `#[derive_shrink_wrap]` types and unit marker structs (`pub struct Volt;`) from `pub mod`s too, and know each by

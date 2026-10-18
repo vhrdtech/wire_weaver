@@ -516,15 +516,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   API-39. Docs: `docs/api/batching.md` (how-to, sealing, budgets, the motor demo's numbers). Motor demo
   (`motor_sim` repo): every `Foc` property and `Control`'s 13 measured values are `+observe+batched`.
 - ✅ **API-39 Batched property samples (observe every sample)** — a `ro+observe+batched` property observed in
-  `ObserveMode::Samples { every_us, max_age_us }` sends every sample the device takes, each with its own time, as
-  a `Series<Timed<T>>` in its `Batched<T>` slot of the level's update (`docs/api/observing.md#every-sample-batched`,
-  `tests/observe_batched`). In: parsing and the model (`PropertyAccess::batched`, `batch_item_ty`), the mode
+  `ObserveMode::Samples { every_us, max_age_us }` sends every sample the device takes as a `Series<T>` in its
+  `Batched<T>` slot of the level's update, their times shared by the level (API-49)
+  (`docs/api/observing.md#every-sample-batched`, `tests/observe_batched`). In: parsing and the model
+  (`ApiItemKind::Property::batched`), the mode
   validated and clamped (`ObserveLimits::samples_max_age_us`), generated `<Level>Sampler::sample(t, ..)` (O(1),
   interrupt-safe after `ObserveBatches::split()`), double-buffered stores and a level outbox encoded in
   `poll_properties` with several updates per call, `missed` for lost samples and dropped batches, typed observers
   per sample, the dynamic client, `ww observe --samples` and Python (`recv()` samples, `recv_batch()` columns).
   Motor demo (`motor_sim` repo) on it, measured through the real generated code: `docs/api/batching.md`. Missing:
   DWT cycle counts of `<Level>Sampler::sample` on hardware (the encode-side counts are piece 4/SW-63's).
+- ✅ **API-49 One time column per observe level (shared clock)** — the samples a `sample(t, ..)` call takes for a
+  level's `+batched` properties share one time column per update: `EventKind::PropertyUpdate::sample_times`
+  (`Series<Second>`) next to `t`, the `Batched::Samples` slots untimed, `Batching::SharedClock` in introspection. A
+  level keeps one batcher of rows (time and every value), its `Samples` entries share the finest `every_us` and the
+  shortest `max_age_us`. Against a time column per property (21 FOC properties, n = 32, `DeltaPacked`): -36 % bytes,
+  -52 % encode cycles on an STM32H725, -46 % instructions on Cortex-M3/M4F
+  (`docs/api/observing.md#which-rates-fit-an-mcu`, `tests/observe_batched`).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

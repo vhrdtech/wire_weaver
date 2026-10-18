@@ -179,6 +179,18 @@ impl FixedCodecs for DeltaPacked {
     const FLOAT: FloatCodec = FloatCodec::Xor;
 }
 
+/// Every value at full width, numbers and floats, fixed at compile time: no prediction and no residual coding, the
+/// cheapest writer in CPU and flash and the biggest in bytes (see [SeriesPolicy]). Runs of prefixes and tags are
+/// still collapsed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct RawPlain;
+
+impl FixedCodecs for RawPlain {
+    const NUMERIC: NumericCodec = NumericCodec::new(Predictor::Raw, Coder::Plain);
+    const FLOAT: FloatCodec = FloatCodec::Plain;
+}
+
 impl<F: FixedCodecs> From<F> for CodecPolicy {
     /// The same codecs as a run-time value.
     fn from(_: F) -> Self {

@@ -462,6 +462,31 @@ fn restarts_from_earlier_enum_and_variant_entry() {
     assert_eq!(back.0, opts);
 }
 
+/// A compile-time policy type writes the same bytes as its codecs as a run-time `CodecPolicy`.
+#[test]
+fn fixed_codec_types_match_their_policy_values() {
+    let items: Vec<IvSample> = (0..40)
+        .map(|k| iv(mv(1000 + 3 * k), ua(-480 + 7 * k as i32 * k as i32)))
+        .collect();
+    fn same<P: super::FixedCodecs + super::SeriesPolicy + Copy>(
+        items: &[IvSample],
+        p: P,
+    ) -> Vec<u8> {
+        let typed = Series::with_policy(items, p).to_ww_bytes_owned().unwrap();
+        let value = Series::with_policy(items, CodecPolicy::from(p))
+            .to_ww_bytes_owned()
+            .unwrap();
+        assert_eq!(typed, value);
+        let back = SeriesOwned::<IvSample>::from_ww_bytes_owned(&typed).unwrap();
+        assert_eq!(back.0, items);
+        typed
+    }
+    let delta = same(&items, super::DeltaPacked);
+    let raw = same(&items, super::RawPlain);
+    // raw + plain writes every value at full width: a smooth signal is bigger than with delta + packed
+    assert!(raw.len() > delta.len(), "{} vs {}", raw.len(), delta.len());
+}
+
 #[test]
 fn kitchen_round_trips() {
     for seed in 0..64u64 {

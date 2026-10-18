@@ -20,6 +20,9 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   residuals, XOR floats). `CodecPolicy: From<F: FixedCodecs>`. A `Series<Timed<Ampere>>` encoder takes 15.0 KB of
   flash with `DeltaPacked` on a Cortex-M3 (9.8 KB on a Cortex-M4F), 25.4 KB with a `CodecPolicy` (17.6 KB), against
   90.8 KB (68.5 KB) before.
+- `series::RawPlain` (SW-63), a second predefined `FixedCodecs` type: every number and float at full width, no
+  prediction or residual coding, the cheapest writer and the biggest bytes, for comparing against `DeltaPacked` or
+  where CPU matters more than bytes.
 - Faster `Series` writing (SW-63), the same bytes. The packed coder keeps a block's residuals instead of running
   the predictor ahead to find the block's width. The predictor works on left-aligned values (no masking or sign
   extension per item), in a `u32` for leaves up to 32 bits. `CodecPolicy::SMALLEST` sizes all four coders of a

@@ -33,7 +33,7 @@ mod xor_float;
 
 pub use columns::{
     BitCounter, CodecPolicy, Coder, DeltaPacked, FixedCodecs, FloatCodec, NumericCodec,
-    PACKED_BLOCK, Predictor, SeriesPolicy,
+    PACKED_BLOCK, Predictor, RawPlain, SeriesPolicy,
 };
 pub use group::{
     EnumTags, FieldItems, Level, OpaqueField, OpaqueReader, RootCtx, SeriesColumns, SeriesCtx,

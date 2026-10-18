@@ -2,6 +2,14 @@
 
 ### ⚠️ Breaking
 
+- No `NumericValue::U64` on devices: `ww_si` is pulled in with `time` and `u32` only, no longer `u64`. Stream heads
+  and observe timestamps are `Second { Micro, U32 }` on a device; every `NumericValue` (and `NumericValueStore`
+  payload) used to be 64-bit on every firmware that depended on this crate. Hosts get `U64` through `std`
+  (`ww_si/host`, the device time unwrapper). The wire is the same: a device without `U64` reads one as
+  `EnumVariantDisabled` and answers with an error. A firmware that relied on getting `U64` through this crate
+  enables `ww_si/u64` itself. On the STM32H725 `shared_clock_cycles` bench: 7.7 KB less flash (94 672 to 86 948
+  bytes), `NumericValue` 16 to 8 bytes, the 32-sample FOC level store (21 properties) 6048 to 3360 bytes.
+
 - Batched observe (API-39): `observe::ObserveMode::Samples { every_us, max_age_us }` (every sample, or one per
   `every_us`, in batches at most `max_age_us` old; only for `+observe+batched` properties), and the observe slot
   type of such a property, `observe::Batched<'i, T> { One(T), Samples(Series<T>) }` / `BatchedOwned<T>`, with

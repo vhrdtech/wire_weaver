@@ -208,3 +208,17 @@ proptest! {
         store_vs_walk(&items, RawPlain);
     }
 }
+||||||| parent of a7bcb5fa (fix(client_server): no NumericValue::U64 on devices)
+
+
+/// A device without `u64` that is sent a `U64` answers with an error instead of reading garbage or panicking: the
+/// variant is compiled out and the bytes (the same as on a build that has it) read as `EnumVariantDisabled`.
+#[cfg(all(feature = "u32", not(feature = "u64")))]
+#[test]
+fn u64_from_a_host_is_refused() {
+    use shrink_wrap::{DeserializeShrinkWrap, Error};
+    // discriminant 5 (U64) in the first nibble, then the 8 bytes of the number
+    let bytes = [0x50, 0, 0, 0, 0, 0, 0, 0, 0x01, 0x20];
+    let r = NumericValue::from_ww_bytes(&bytes);
+    assert_eq!(r.err(), Some(Error::EnumVariantDisabled), "{r:?}");
+}

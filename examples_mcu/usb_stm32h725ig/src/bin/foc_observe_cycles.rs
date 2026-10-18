@@ -112,13 +112,14 @@ fn main() -> ! {
         }
         let r = &reports[v as usize];
         info!(
-            "{} updates={} bytes={} hash={=u32:08x} stack row={} poll={} ram={}",
+            "{} updates={} bytes={} hash={=u32:08x} stack row={} poll={} setup={} ram={}",
             v.label(),
             r.updates,
             r.bytes,
             r.hash,
             r.stack[Case::Row as usize],
             r.stack[Case::Poll as usize],
+            r.setup,
             r.ram
         );
     }

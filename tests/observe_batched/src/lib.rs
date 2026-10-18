@@ -620,12 +620,12 @@ mod tests {
 
         pub struct Server {
             pub mode: u8,
-            pub observe: State,
+            pub observe: &'static mut State,
         }
 
         impl Server {
             fn observe_state(&mut self) -> &mut State {
-                &mut self.observe
+                self.observe
             }
 
             fn get_current(
@@ -695,13 +695,23 @@ mod tests {
     #[test]
     fn sampler_in_another_thread() {
         use split_server::api_impl::{ObserveBatchedSamples, ObserveBatchedUpdate, ObserveBatches};
-        let batches: &'static mut ObserveBatches = Box::leak(Box::new(ObserveBatches::new(
-            ww_stream::batch::DEFAULT_POLICY,
-        )));
+        // as a firmware sets up: the batches and the state built in place in their statics (leaked boxes here),
+        // over garbage, so `init` has to write every field
+        fn garbage<T>() -> &'static mut core::mem::MaybeUninit<T> {
+            let slot = Box::leak(Box::new(core::mem::MaybeUninit::<T>::uninit()));
+            // SAFETY: bytes of a `MaybeUninit`, any value is fine
+            unsafe {
+                slot.as_mut_ptr()
+                    .cast::<u8>()
+                    .write_bytes(0xA5, size_of::<T>())
+            };
+            slot
+        }
+        let batches = ObserveBatches::init(garbage(), ww_stream::batch::DEFAULT_POLICY);
         let (samplers, consumers) = batches.split();
         let mut server = split_server::Server {
             mode: 0,
-            observe: split_server::State::new(LIMITS, consumers),
+            observe: split_server::State::init(garbage(), LIMITS, consumers),
         };
         let req = observe_request(&[entry(CURRENT, samples(0, 1_000))]);
         let mut scratch = [0u8; 256];

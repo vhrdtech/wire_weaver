@@ -115,6 +115,8 @@ pub struct Report {
     pub updates: usize,
     /// Most stack a row took ([stack_of] of the row call minus that of an empty call), per case.
     pub stack: [usize; 3],
+    /// Stack the setup took: `ObserveBatches::init` and `ObserveState::init` into their statics, the halves.
+    pub setup: usize,
     /// Bytes of what the level's samples live in: `ObserveBatches` (and the `RootCells` ring).
     pub ram: usize,
 }
@@ -164,16 +166,28 @@ pub mod default {
 
     pub type State = api_impl::ObserveState<api_impl::ObserveBatchConsumers<'static>>;
 
+    pub static STATE: StaticCell<State> = StaticCell::new();
+
     pub struct Server {
-        pub observe: State,
+        pub observe: &'static mut State,
     }
 
     impl Server {
         foc_getters!();
 
         fn observe_state(&mut self) -> &mut State {
-            &mut self.observe
+            self.observe
         }
+    }
+
+    /// The batches and the state built in place in their statics, as a firmware sets them up: the sampler for
+    /// the interrupt, the server with the consumers.
+    #[inline(never)]
+    pub fn setup() -> (api_impl::RootSampler<'static>, Server) {
+        let batches = api_impl::ObserveBatches::init(BATCHES.uninit(), DEFAULT_POLICY);
+        let (samplers, consumers) = batches.split();
+        let observe = State::init(STATE.uninit(), LIMITS, consumers);
+        (samplers.root, Server { observe })
     }
 
     pub mod api_impl {
@@ -198,16 +212,31 @@ pub mod cells {
 
     pub type State = api_impl::ObserveState<&'static mut api_impl::ObserveBatches<'static>>;
 
+    pub static STATE: StaticCell<State> = StaticCell::new();
+
     pub struct Server {
-        pub observe: State,
+        pub observe: &'static mut State,
     }
 
     impl Server {
         foc_getters!();
 
         fn observe_state(&mut self) -> &mut State {
-            &mut self.observe
+            self.observe
         }
+    }
+
+    /// The batches (the cells' reader in them) and the state built in place in their statics: the writer for the
+    /// interrupt, the server.
+    #[inline(never)]
+    pub fn setup() -> (api_impl::RootWriter<'static, RING>, Server) {
+        let batches = api_impl::ObserveBatches::init(
+            BATCHES.uninit(),
+            DEFAULT_POLICY,
+            ROOT.reader().unwrap(),
+        );
+        let observe = State::init(STATE.uninit(), LIMITS, batches);
+        (ROOT.writer().unwrap(), Server { observe })
     }
 
     pub mod api_impl {
@@ -366,6 +395,7 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
         hash: 0x811c_9dc5,
         updates: 0,
         stack: [0; 3],
+        setup: 0,
         ram: 0,
     });
 
@@ -373,15 +403,10 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
     {
         let v = Variant::Default;
         let report = &mut reports[0];
-        // built in place in its static: no store on the stack
-        let batches =
-            default::api_impl::ObserveBatches::init(default::BATCHES.uninit(), DEFAULT_POLICY);
         report.ram = core::mem::size_of::<default::api_impl::ObserveBatches>();
-        let (samplers, consumers) = batches.split();
-        let mut sampler = samplers.root;
-        let mut server = default::Server {
-            observe: default::State::new(LIMITS, consumers),
-        };
+        let mut setup = None;
+        report.setup = stack_of(&mut || setup = Some(default::setup())) - empty;
+        let (mut sampler, mut server) = setup.unwrap();
         for i in 0..CLOSED_ROWS {
             meter.measure(v, Case::Closed, i, &mut || {
                 black_box(sample_default(&mut sampler, i));
@@ -418,6 +443,7 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
             hash: 0,
             updates: 0,
             stack: [0; 3],
+            setup: 0,
             ram: 0,
         };
         let mut out = EventWriter::new(Wire(&mut sink), &mut event_scratch);
@@ -435,17 +461,9 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
         let report = &mut reports[1];
         report.ram = core::mem::size_of::<cells::api_impl::ObserveBatches<'static>>()
             + core::mem::size_of::<cells::api_impl::RootCells<RING>>();
-        let mut writer = cells::ROOT.writer().unwrap();
-        let mut server = cells::Server {
-            observe: cells::State::new(
-                LIMITS,
-                cells::api_impl::ObserveBatches::init(
-                    cells::BATCHES.uninit(),
-                    DEFAULT_POLICY,
-                    cells::ROOT.reader().unwrap(),
-                ),
-            ),
-        };
+        let mut setup = None;
+        report.setup = stack_of(&mut || setup = Some(cells::setup())) - empty;
+        let (mut writer, mut server) = setup.unwrap();
         for i in 0..CLOSED_ROWS {
             meter.measure(v, Case::Closed, i, &mut || {
                 black_box(sample_cells(&mut writer, i));
@@ -481,6 +499,7 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
             hash: 0,
             updates: 0,
             stack: [0; 3],
+            setup: 0,
             ram: 0,
         };
         let mut out = EventWriter::new(Wire(&mut sink), &mut event_scratch);

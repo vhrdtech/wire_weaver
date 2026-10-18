@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `observe::ObserveTable::init(slot)` and `batch::Outbox::init(slot)` build in place, for an `ObserveState` built in a `static`.
 - `batch::Batcher::init(slot, policy)` / `init_rows(slot, policy)` and `batch::Staged::init(slot, policy)` build in place, in a `static`'s `MaybeUninit` (a `StaticCell`'s `uninit()`): the stores are written where they stay, never on the stack. `new` / `new_rows` go through them and copy the result out once.
 - Observe cells (API-50): `batch::RowCells<Row, R>` (`const fn new`, for a `static`), a level's rows as a ring
   of atomics written in place by one `RowWriter` (a context with the values: a control loop, an interrupt) and read

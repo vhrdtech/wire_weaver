@@ -386,6 +386,14 @@ impl Observe {
                 l.trait_name
             )
         });
+        let (batches_pat, batches_write) = if batched {
+            (
+                quote! { batches: _ },
+                quote! { core::ptr::addr_of_mut!((*at).batches).write(batches); },
+            )
+        } else {
+            (quote! {}, quote! {})
+        };
         let batch_items = if batched {
             self.batch_items(api_bundle, &bases, observe_batch, observe_outbox)
         } else {
@@ -416,6 +424,39 @@ impl Observe {
                         #(#fields: ww_stream::observe::ObserveTable::new(),)*
                         #(#outboxes: ww_stream::batch::Outbox::new(),)*
                         #batches_init
+                    }
+                }
+
+                /// [new](Self::new) in place: builds the state in `slot` (a `static`'s, `StaticCell::uninit()`)
+                /// and returns it, the tables and outboxes written where they stay, never on the stack. With
+                /// `ObserveBatches::init` for the batches, a firmware sets up observe with a few hundred bytes of
+                /// stack at most.
+                pub fn init<'s>(
+                    slot: &'s mut core::mem::MaybeUninit<Self>,
+                    limits: ww_stream::observe::ObserveLimits #batches_arg
+                ) -> &'s mut Self {
+                    // every field is written below: a new one fails to compile here until it is
+                    let _ = |s: Self| {
+                        let ObserveState { limits: _, #(#fields: _,)* #(#outboxes: _,)* #batches_pat } = s;
+                    };
+                    let at = slot.as_mut_ptr();
+                    // SAFETY: every field written in place, each through its own pointer
+                    unsafe {
+                        core::ptr::addr_of_mut!((*at).limits).write(limits);
+                        #(
+                            ww_stream::observe::ObserveTable::init(
+                                &mut *core::ptr::addr_of_mut!((*at).#fields)
+                                    .cast::<core::mem::MaybeUninit<ww_stream::observe::ObserveTable<#ns>>>(),
+                            );
+                        )*
+                        #(
+                            ww_stream::batch::Outbox::init(
+                                &mut *core::ptr::addr_of_mut!((*at).#outboxes)
+                                    .cast::<core::mem::MaybeUninit<ww_stream::batch::Outbox<OBSERVE_OUTBOX>>>(),
+                            );
+                        )*
+                        #batches_write
+                        slot.assume_init_mut()
                     }
                 }
 

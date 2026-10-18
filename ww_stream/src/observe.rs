@@ -253,22 +253,53 @@ impl<const N: usize> Default for ObserveTable<N> {
 }
 
 impl<const N: usize> ObserveTable<N> {
+    const OFF: Slot = Slot {
+        mode: Mode::Off,
+        next_due: 0,
+        last_sent: None,
+        dirty: false,
+        slipped: false,
+        waiting: None,
+        start: false,
+    };
+
     /// Nothing observed.
     pub const fn new() -> Self {
         ObserveTable {
-            slots: [Slot {
-                mode: Mode::Off,
-                next_due: 0,
-                last_sent: None,
-                dirty: false,
-                slipped: false,
-                waiting: None,
-                start: false,
-            }; N],
+            slots: [Self::OFF; N],
             budget: 0,
             tokens: 0,
             last_refill: None,
             missed: 0,
+        }
+    }
+
+    /// [new](Self::new) in place, slot by slot: for an `ObserveState` built in a `static`
+    /// (`ObserveState::init`), nothing of the table on the stack on the way.
+    pub fn init(slot: &mut core::mem::MaybeUninit<Self>) -> &mut Self {
+        // every field is written below: a new one fails to compile here until it is
+        let _ = |t: Self| {
+            let ObserveTable {
+                slots: _,
+                budget: _,
+                tokens: _,
+                last_refill: _,
+                missed: _,
+            } = t;
+        };
+        let at = slot.as_mut_ptr();
+        // SAFETY: every field written in place, each through its own pointer; `[Slot; N]` is `N` slots one after
+        // the other
+        unsafe {
+            let slots = core::ptr::addr_of_mut!((*at).slots).cast::<Slot>();
+            for k in 0..N {
+                slots.add(k).write(Self::OFF);
+            }
+            core::ptr::addr_of_mut!((*at).budget).write(0);
+            core::ptr::addr_of_mut!((*at).tokens).write(0);
+            core::ptr::addr_of_mut!((*at).last_refill).write(None);
+            core::ptr::addr_of_mut!((*at).missed).write(0);
+            slot.assume_init_mut()
         }
     }
 

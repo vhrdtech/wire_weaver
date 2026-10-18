@@ -69,13 +69,14 @@ fn main() -> ! {
     for (v, r) in Variant::ALL.iter().zip(&reports) {
         writeln!(
             marks.stdout,
-            "{} updates={} bytes={} hash={:08x} stack row={} poll={} ram={}",
+            "{} updates={} bytes={} hash={:08x} stack row={} poll={} setup={} ram={}",
             v.label(),
             r.updates,
             r.bytes,
             r.hash,
             r.stack[Case::Row as usize],
             r.stack[Case::Poll as usize],
+            r.setup,
             r.ram
         )
         .unwrap();

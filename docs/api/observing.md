@@ -228,16 +228,20 @@ To sample from an interrupt or another thread, `ObserveBatches::split()` hands o
 the interrupt) and the consumers, which the `ObserveState` takes instead (`ObserveState::new(limits, consumers)`,
 the batches in a `static`). `ww api scaffold` writes the `observe_batch` argument and says how to build the state.
 
-On a firmware, build the batches where they stay: `ObserveBatches::init` writes them into a `static` in place,
-every store where it lives. `new` returns them by value, and building them that way takes a stack frame of a few
-times their size (31.6 KB for the motor demo's 21 FOC values on a Cortex-M4F, more than a small MCU has):
+On a firmware, build the batches and the state where they stay: `ObserveBatches::init` and `ObserveState::init`
+write them into `static`s in place, every store, table and outbox where it lives, with a few dozen bytes of stack
+(8 B at `opt-level = 3`, 72 B at `z` for the motor demo's 21 FOC values on a Cortex-M4F). `new` returns them by
+value, and building them that way takes a stack frame of a few times their size (31.6 KB for the same level, more
+than a small MCU has). The server then keeps a `&'static mut` to the state:
 
 ```rust
+type State = api_impl::ObserveState<api_impl::ObserveBatchConsumers<'static>>;
 static BATCHES: StaticCell<api_impl::ObserveBatches> = StaticCell::new();
+static STATE: StaticCell<State> = StaticCell::new();
 
 let batches = api_impl::ObserveBatches::init(BATCHES.uninit(), ww_stream::batch::DEFAULT_POLICY);
 let (samplers, consumers) = batches.split(); // samplers.root to the interrupt
-let observe = api_impl::ObserveState::new(ObserveLimits::DEFAULT, consumers);
+let observe: &'static mut State = State::init(STATE.uninit(), ObserveLimits::DEFAULT, consumers);
 ```
 
 - **Batches**: each level with `+batched` properties has two stores of `observe_batch = N` rows (codegen argument,
@@ -277,17 +281,17 @@ can't tell which one a device uses.
 // ww_codegen!(motor_demo_api::MotorDemo for Device, server = true, .., observe_cells = "root_foc")
 static FOC: api_impl::RootFocCells<32> = api_impl::RootFocCells::new(); // const fn, a ring of 32 rows
 static BATCHES: StaticCell<api_impl::ObserveBatches<'static>> = StaticCell::new();
+// the state borrows the batches in their static
+type State = api_impl::ObserveState<&'static mut api_impl::ObserveBatches<'static>>;
+static STATE: StaticCell<State> = StaticCell::new();
 
+let batches = api_impl::ObserveBatches::init(
+    BATCHES.uninit(),
+    ww_stream::batch::DEFAULT_POLICY,
+    FOC.reader().unwrap(),
+);
 let mut server = Server {
-    // an `ObserveState<&'static mut ObserveBatches<'static>>`: the batches stay in their static
-    observe: api_impl::ObserveState::new(
-        ObserveLimits::DEFAULT,
-        api_impl::ObserveBatches::init(
-            BATCHES.uninit(),
-            ww_stream::batch::DEFAULT_POLICY,
-            FOC.reader().unwrap(),
-        ),
-    ),
+    observe: State::init(STATE.uninit(), ObserveLimits::DEFAULT, batches), // a `&'static mut State`
     // ..
 };
 

@@ -108,6 +108,33 @@ impl<const BYTES: usize> Outbox<BYTES> {
         }
     }
 
+    /// [new](Self::new) in place: for an `ObserveState` built in a `static` (`ObserveState::init`), the buffer
+    /// zeroed where it stays, never on the stack.
+    pub fn init(slot: &mut core::mem::MaybeUninit<Self>) -> &mut Self {
+        const {
+            assert!(
+                BYTES > 2 * OUTBOX_ENTRY_HEADER && BYTES <= u16::MAX as usize,
+                "Outbox size out of 13..=65535"
+            )
+        };
+        // every field is written below: a new one fails to compile here until it is
+        let _ = |o: Self| {
+            let Outbox {
+                buf: _,
+                used: _,
+                entries: _,
+            } = o;
+        };
+        let at = slot.as_mut_ptr();
+        // SAFETY: every field written in place, each through its own pointer
+        unsafe {
+            core::ptr::addr_of_mut!((*at).buf).write_bytes(0, 1);
+            core::ptr::addr_of_mut!((*at).used).write(0);
+            core::ptr::addr_of_mut!((*at).entries).write(0);
+            slot.assume_init_mut()
+        }
+    }
+
     /// Level batches waiting.
     pub fn len(&self) -> usize {
         self.spans().count()

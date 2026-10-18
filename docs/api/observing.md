@@ -120,7 +120,8 @@ whether to send timestamps.
   once it was held back or left out for `min` or longer. Held back for less, it's only late - polling often
   doesn't inflate the count. The count travels in the next update's `missed`.
 - **Timestamps**: `t` is the device's microsecond clock as a wrapping `u32` (`Second { Micro, U32 }`, 5 bytes on
-  the wire), wrapping every ~71.6 minutes; the host unwraps it into a `u64`. Only sent when
+  the wire), wrapping every ~71.6 minutes; the host unwraps it into a `U64` per level, by the same rule as stream
+  times ([timestamps](stream_reliability.md#timestamps)). Only sent when
   `ObserveLimits::timestamps` is set.
 - **Limits**: a level inside a resource array can't be observed yet (`OperationNotSupported`, the bound of its
   indices isn't known yet, [API-29](arrays.md)); nor can a `+observe` property that is itself an array or

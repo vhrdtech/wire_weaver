@@ -13,6 +13,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- wire_weaver_client: one device-time rule (P2401#17oct-2214b): every time a device sends (stream heads, batch items,
+  observe updates) comes unwrapped into a `U64` in its prefix through `ww_si::Unwrapper` (now usable without an
+  anchor), whatever prefix and storage the device picks; heads of counted and reliable streams were not unwrapped
+  before. See the `wire_weaver_client` and `ww_si` changelogs.
 - ww_si: exact integer time arithmetic (P2401#17oct-2214): `checked_add`, `checked_sub`, `checked_mul_int`,
   `wrapping_add`, `wrapping_sub` and `steps` on quantities of the same unit in integer storage; batched streams'
   generated `<name>_push_many(to, t0, dt, values)` stamps a block with `t0 + i * dt` through them instead of taking

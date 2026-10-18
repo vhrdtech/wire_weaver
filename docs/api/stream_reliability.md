@@ -192,7 +192,17 @@ duplicates, late, out of order.
 
 `t` in the head is the device time of the event's first unit, a `ww_si::Second` in the storage the device's timer gives
 cheaply: `Second { Micro, U32 }` (5 bytes, wraps every 71.6 minutes, the host unwraps it) on most MCUs. A device uses
-one clock for every stream, so items of different streams line up. Three ways to timestamp, chosen per stream:
+one clock for every stream, so items of different streams line up.
+
+The client unwraps every device time it gives out by one rule, for event heads, the items of batched streams and
+observe updates alike: a time in wrapping storage (`U32` µs, `U16` ms, ..) comes as a `U64` in the same prefix that
+counts on across wraps, taking each time as the one closest to the previous with the same low bits (`ww_si::Unwrapper`
+without an anchor). That holds while consecutive times are less than half a wrap apart (35.8 minutes for `U32` µs,
+32.7 s for `U16` ms); the device may change prefix and storage on the way. Each stream handle (each half of a split)
+and each observe level counts on its own, and the count starts over after a disconnect (the device may have rebooted)
+and at a new clock epoch in a head's `ext`. `U64` and float times come as they are.
+
+Three ways to timestamp, chosen per stream:
 
 | Granularity | How | Cost | For |
 |---|---|---|---|

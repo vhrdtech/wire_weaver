@@ -465,7 +465,9 @@ mod tests {
         match stream.recv_event().await.unwrap() {
             StreamEvent::Item { pos, t, value, .. } => {
                 assert_eq!(pos, 0);
-                assert!(sec_eq(t.unwrap(), sample.t));
+                // the head's time comes unwrapped: the same ms, as a U64
+                let t_full = Second::from_parts(Prefix::Milli, NumericValue::U64(1));
+                assert!(sec_eq(t.unwrap(), t_full));
                 assert!(capture_value_eq(value, sample.value));
             }
             ev => panic!("{ev:?}"),

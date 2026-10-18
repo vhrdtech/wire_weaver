@@ -9,6 +9,8 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use wire_weaver_client::{Cause, Run, StreamEvent};
+    use ww_si::Second;
+    use ww_si::ww_numeric::NumericValue;
     use ww_stream::store::RamRing;
     use ww_stream::tx::{Counted, Reliable};
 
@@ -23,6 +25,8 @@ mod tests {
             pub stream_sessions: u32,
             pub next_value: u32,
             pub buf: [u8; 256],
+            /// Device clock of the rx events in ms, sent as a wrapping `u16`
+            pub rx_ms: u64,
         }
 
         impl Server {
@@ -34,6 +38,7 @@ mod tests {
                     stream_sessions: 0,
                     next_value: 0,
                     buf: [0; 256],
+                    rx_ms: RX_MS0,
                 }
             }
 
@@ -92,7 +97,9 @@ mod tests {
                 let ser = api_impl::stream_data_ser();
                 for i in 0..count {
                     let data = vec![i; len as usize];
-                    ser.rx_send(&mut self.rx_stream, &data, len as u64, None, cx)
+                    let t = Second::milli(self.rx_ms as u16);
+                    self.rx_ms += 20;
+                    ser.rx_send(&mut self.rx_stream, &data, len as u64, Some(t), cx)
                         .await
                         .unwrap();
                 }
@@ -191,6 +198,9 @@ mod tests {
 
     use client::Client;
 
+    /// Device clock of the first rx event, ms: the third one is past the `u16` wrap at 65 536
+    const RX_MS0: u64 = 65_500;
+
     fn start(path: &str) -> TestDevice {
         let _ = tracing_subscriber::fmt::try_init();
         tests_common::start_device_async(
@@ -230,10 +240,12 @@ mod tests {
                     units,
                     run,
                     value,
+                    t,
                     ..
                 } => {
                     assert_eq!((p, units, run), (pos, 3, Run::Live));
                     assert_eq!(value.0, vec![i; 3]);
+                    assert_eq!(t, Some(Second::milli(RX_MS0 + 20 * i as u64)));
                 }
                 ev => panic!("{ev:?}"),
             }
@@ -249,7 +261,13 @@ mod tests {
             ev => panic!("{ev:?}"),
         }
         match next(&mut rx).await {
-            StreamEvent::Item { pos, units, .. } => assert_eq!((pos, units), (106, 2)),
+            StreamEvent::Item { pos, units, t, .. } => {
+                assert_eq!((pos, units), (106, 2));
+                // the device's u16 of ms wrapped, the head's time counts on as a U64
+                let t = t.unwrap();
+                assert_eq!(t.value, NumericValue::U64(RX_MS0 + 40));
+                assert_eq!(t.prefix, ww_si::Prefix::Milli);
+            }
             ev => panic!("{ev:?}"),
         }
     }

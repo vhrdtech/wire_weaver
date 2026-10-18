@@ -534,7 +534,8 @@ mod tests {
         match stream.recv_event().await.unwrap() {
             StreamEvent::Item { pos, t, value, .. } => {
                 assert_eq!(pos, 0);
-                assert_eq!(t.unwrap().value, NumericValue::U32(100));
+                // the head's U32 time comes unwrapped, as a U64
+                assert_eq!(t.unwrap().value, NumericValue::U64(100));
                 assert_eq!(value.end.value, NumericValue::U32(140));
                 assert_eq!(value.mosi.into_inner(), vec![0x9F]);
                 assert_eq!(value.miso.into_inner(), vec![0x00, 0x00, 0x40]);

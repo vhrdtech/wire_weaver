@@ -15,7 +15,7 @@
 
 use crate::Error;
 use crate::StreamError;
-use crate::client::batch::unwrap_t;
+use crate::client::device_time::DeviceTime;
 use crate::event_loop::command::Command;
 use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::rx_dispatcher::ResponseReceiver;
@@ -171,8 +171,9 @@ pub struct Granted<C> {
 pub struct Observed<T> {
     /// The level's `<Trait>Update`, or one property's value.
     pub value: T,
-    /// When the device took the values, on its clock, if it sends timestamps. Microseconds the device sends as a
-    /// wrapping `u32` come unwrapped, as a `u64` counting on across wraps.
+    /// When the device took the values, on its clock, if it sends timestamps. Times in wrapping storage (`U32` µs,
+    /// `U16` ms, ..) come unwrapped, as a `U64` in the same prefix that counts on across wraps, one count per level
+    /// that starts over after a disconnect (as stream items, see [StreamEvent::Item](crate::StreamEvent::Item)).
     pub t: Option<Second>,
     /// Sends of this level that were due but did not fit the budget since the previous update.
     pub missed: u32,
@@ -386,8 +387,8 @@ struct LevelState<U: LevelUpdate> {
     routed: bool,
     /// The next answer is to a resume
     resuming: bool,
-    /// Device time of the last update, µs, unwrapped (see `batch::unwrap_t`)
-    last_t: Option<u64>,
+    /// Device time of the updates, unwrapped
+    time: DeviceTime,
 }
 
 impl<U: LevelUpdate> Level<U> {
@@ -399,7 +400,7 @@ impl<U: LevelUpdate> Level<U> {
 impl<U: LevelUpdate> LevelRoute for Level<U> {
     fn on_update(&self, received: Instant, t: Option<Second>, missed: u32, data: &[u8]) {
         let mut state = self.lock();
-        let t = t.map(|t| unwrap_t(&mut state.last_t, t));
+        let t = t.map(|t| state.time.unwrap(t));
         let raw = Arc::new(RawUpdate {
             data: data.to_vec(),
             t,
@@ -420,7 +421,7 @@ impl<U: LevelUpdate> LevelRoute for Level<U> {
         state.routed = false;
         state.sent = None;
         // the device may have restarted its clock
-        state.last_t = None;
+        state.time.restart();
         for (_, queue) in state.observers.values() {
             queue.push(QueueItem::Disconnected);
             if !keep {
@@ -618,7 +619,7 @@ fn level_of<U: LevelUpdate>(
             granted_gen: 0,
             routed: false,
             resuming: false,
-            last_t: None,
+            time: DeviceTime::default(),
         }),
     });
     levels.insert(path.to_vec(), level.clone());

@@ -156,10 +156,7 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     async fn recv_data(&mut self) -> Result<Vec<u8>, StreamError> {
         loop {
             let ev = self.rx.recv().await.ok_or(StreamError::Closed)?;
-            if matches!(
-                ev,
-                RawStreamEvent::Connected | RawStreamEvent::Dropped { .. }
-            ) {
+            if self.skip(&ev) {
                 continue;
             }
             let RawStreamEvent::Data(bytes) = ev else {
@@ -173,16 +170,26 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     fn recv_data_blocking(&mut self) -> Result<Vec<u8>, StreamError> {
         loop {
             let ev = self.rx.blocking_recv().ok_or(StreamError::Closed)?;
-            if matches!(
-                ev,
-                RawStreamEvent::Connected | RawStreamEvent::Dropped { .. }
-            ) {
+            if self.skip(&ev) {
                 continue;
             }
             let RawStreamEvent::Data(bytes) = ev else {
                 return Err(StreamError::UnexpectedEvent(ev));
             };
             return Ok(bytes);
+        }
+    }
+
+    /// [RawStreamEvent::Connected] and [RawStreamEvent::Dropped], which `recv` and friends skip; a new connection
+    /// restarts the device time (the device may have rebooted).
+    fn skip(&mut self, ev: &RawStreamEvent) -> bool {
+        match ev {
+            RawStreamEvent::Connected => {
+                self.unpacker.time.restart();
+                true
+            }
+            RawStreamEvent::Dropped { .. } => true,
+            _ => false,
         }
     }
 
@@ -237,10 +244,7 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
             }
             match self.rx.try_recv() {
                 Ok(ev) => {
-                    if matches!(
-                        ev,
-                        RawStreamEvent::Connected | RawStreamEvent::Dropped { .. }
-                    ) {
+                    if self.skip(&ev) {
                         continue;
                     }
                     let RawStreamEvent::Data(bytes) = ev else {
@@ -297,7 +301,10 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
                 None => return Ok(None),
             },
             RawStreamEvent::Sideband(s) => TypedStreamEvent::Sideband(s),
-            RawStreamEvent::Connected => TypedStreamEvent::Connected,
+            RawStreamEvent::Connected => {
+                self.unpacker.time.restart();
+                TypedStreamEvent::Connected
+            }
             RawStreamEvent::Disconnected => TypedStreamEvent::Disconnected,
             RawStreamEvent::Dropped { events, bytes } => {
                 TypedStreamEvent::Dropped { events, bytes }

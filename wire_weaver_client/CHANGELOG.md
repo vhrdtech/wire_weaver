@@ -1,5 +1,15 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- One rule for every device time the client gives out (P2401#17oct-2214b): `StreamEvent::Item::t` of every
+  positioned stream (heads too, not only batch items), `BatchItem::t` and `Observed::t` / `Sample::t` come unwrapped
+  whatever prefix and storage the device sends (`U32` µs, `U16` ms, ..; it may change them on the way): a `U64` in
+  the same prefix that counts on across wraps, through `ww_si::Unwrapper` without an anchor. Heads of plain counted
+  and reliable streams came as the device sent them before, and only `U32` µs was unwrapped elsewhere. Each stream
+  handle (each half of a split) and each observe level counts on its own; the count starts over after a disconnect
+  and at a new clock epoch in a head's `ext`. `U64` and float times stay as they are.
+
 ### 🚀 Features
 
 - Batched streams (API-41): `PositionedStream` and `Stream` of a batched stream give one item per entry of a batch

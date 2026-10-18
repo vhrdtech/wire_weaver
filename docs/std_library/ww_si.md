@@ -241,7 +241,11 @@ assert_eq!(full, Second::micro(5_000_000_123u64));
 
 That works while consecutive timestamps are less than half a wrap period apart; re-anchor with `anchor(now)` after
 a longer pause. Use one `Unwrapper` per stream. `U64` and signed values pass through unchanged. The anchor and the
-timestamps can be in different prefixes.
+timestamps can be in different prefixes, and the timestamps can change prefix and storage from one to the next.
+
+Without a full reading of the clock, `Unwrapper::default()` takes the first timestamp as is (the earliest time it can
+be) and counts on from there; `restart()` starts over, for a device whose clock restarted. This is what
+`wire_weaver_client` does for every time a device sends ([timestamps](../api/stream_reliability.md#timestamps)).
 
 ## Timed values
 

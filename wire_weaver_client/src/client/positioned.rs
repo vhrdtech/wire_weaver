@@ -39,8 +39,11 @@ pub enum StreamEvent<T> {
     /// whole item's.
     ///
     /// A batched stream (API-41) gives one `Item` per entry of a batch, one unit each, with the entry's own time;
-    /// the items of a batch the host already had are left out. Times the device sends as wrapping `u32`
-    /// microseconds come unwrapped, as a `u64` counting on across wraps.
+    /// the items of a batch the host already had are left out.
+    ///
+    /// Device times in wrapping storage (`U32` µs, `U16` ms, ..) come unwrapped, as a `U64` in the same prefix that
+    /// counts on across wraps, for heads and batch items alike; the count starts over after a disconnect and at a
+    /// new clock epoch (`ext`). Each handle (each half of a split) unwraps its own times.
     Item {
         pos: u64,
         units: u64,
@@ -646,15 +649,21 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
     /// (None: the host had every item of it).
     fn take_entry(&mut self, entry: Entry) -> Result<Option<StreamEvent<T>>, StreamError> {
         let Entry::Item {
-            head,
+            mut head,
             skip,
             run,
             bytes,
         } = entry
         else {
+            if matches!(entry, Entry::Disconnected) {
+                // the device may come back rebooted
+                self.unpacker.time.restart();
+            }
             return to_event(entry).map(Some);
         };
+        self.unpacker.time.on_head(head.ext.as_ref());
         if !self.unpacker.is_batched() {
+            head.t = head.t.map(|t| self.unpacker.time.unwrap(t));
             return to_event(Entry::Item {
                 head,
                 skip,

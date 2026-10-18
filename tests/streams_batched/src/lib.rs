@@ -390,7 +390,8 @@ mod tests {
         let device = start("streams_batched/plain");
         let mut client = connect(&device).await;
         let mut plain = client.plain().call().await.unwrap();
-        client.produce(3, 500).call().await.unwrap();
+        // the device's u32 µs clock wraps in the first batch, the host counts on into the second one
+        client.produce(3, u32::MAX - 50).call().await.unwrap();
         client.flush().call().await.unwrap();
         for k in 0..3 {
             let v = tokio::time::timeout(WAIT, plain.recv())
@@ -406,7 +407,8 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(batch.len(), 2);
-        assert_eq!(batch[1].t, t_of(900, 1));
+        assert_eq!(batch[0].t, Some(Second::micro((1u64 << 32) + 900)));
+        assert_eq!(batch[1].t, Some(Second::micro((1u64 << 32) + 940)));
         assert_eq!(batch[1].value, Sample { value: 4 });
     }
 

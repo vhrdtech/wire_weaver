@@ -943,6 +943,39 @@ mod tests {
         });
     }
 
+    /// The device's µs clock wraps its `u32` while a host observes: the observer's `t` counts on as a `U64`
+    /// (the shared device-time rule of every stream and observe path).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_unwraps_times_across_the_wrap() {
+        let b = Bench::start("observe/host_unwraps_times", limits()).await;
+        let mut motor = b
+            .client
+            .motor()
+            .observe(MotorObserve::default().speed(every(10 * MS)))
+            .budget(10_000)
+            .subscribe()
+            .await
+            .unwrap();
+        let wrap = 1u64 << 32;
+        b.run(wrap - 30_000, wrap + 30_000, 1_000).await;
+        let mut times = vec![];
+        while let Some(u) = motor.try_recv().unwrap() {
+            let t = match u.t.map(|t| (t.prefix, t.value)) {
+                Some((ww_si::Prefix::Micro, ww_si::ww_numeric::NumericValue::U64(t))) => t,
+                t => panic!("timestamp {t:?}"),
+            };
+            // the value was taken at the full time
+            assert_eq!(u.value.speed, Some((t / 1_000) as u32));
+            times.push(t);
+        }
+        assert!(times.len() >= 5, "{times:?}");
+        assert!(times.windows(2).all(|w| w[0] < w[1]), "{times:?}");
+        assert!(
+            times[0] < wrap && *times.last().unwrap() > wrap,
+            "{times:?}"
+        );
+    }
+
     /// Several observers of one level: one subscription on the device that covers them all, a property observer
     /// gets just its property, the level is turned off when the last one goes.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

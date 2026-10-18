@@ -7,13 +7,19 @@ use ww_numeric::NumericValue;
 /// Turns timestamps a device sends in fixed-width storage (a `U32` of µs wraps every 71.6 minutes) back into the full
 /// device time since its clock started, as a `U64` in the timestamp's own prefix.
 ///
-/// Anchored on a full-width reading of the same clock (`ww_timebase::Clock::now()`), then each timestamp is taken as
-/// the value closest to the previous one (or to the anchor) that has the same low bits. That is right as long as
-/// consecutive timestamps are less than half a wrap period apart (35.8 minutes for a `U32` of µs) and the anchor is at
-/// least that close to the first one. Re-anchor after a long pause with [anchor](Self::anchor).
+/// Each timestamp is taken as the value closest to the previous one that has the same low bits, so it is right as
+/// long as consecutive timestamps are less than half a wrap period apart (35.8 minutes for a `U32` of µs). The first
+/// one is taken as the closest to an anchor, a full-width reading of the same clock (`ww_timebase::Clock::now()`,
+/// [new](Self::new)), or without an anchor ([default](Self::default)) as is: the earliest time it can be, right when
+/// the clock started counting or less than one wrap period after. Re-anchor or [restart](Self::restart) after a long
+/// pause or when the device's clock restarted (a reboot).
 ///
-/// Use one per stream: timestamps of different streams can be interleaved out of order. Values that don't wrap
-/// (`U64`, `UVlq64`, signed integers) are passed through, floats are refused.
+/// The prefix and storage may change from one timestamp to the next (a device that autoranges, or sends `U16` ms
+/// here and `U32` µs there): the previous time is carried over into the new prefix. Values that don't wrap (`U64`,
+/// `UVlq64`, signed integers) are passed through, floats are refused.
+///
+/// Use one per stream, or per sequence of timestamps that come in order: timestamps of different streams can be
+/// interleaved out of order.
 ///
 /// ```
 /// use ww_si::{Second, Unwrapper};
@@ -25,12 +31,16 @@ use ww_numeric::NumericValue;
 /// let wrapped = Second::micro(705_032_827u32);
 /// let full = unwrapper.unwrap(wrapped).unwrap();
 /// assert_eq!(full, Second::micro(5_000_000_123u64));
+///
+/// // no anchor: counts from the first timestamp on, across wraps
+/// let mut unwrapper = Unwrapper::default();
+/// assert_eq!(unwrapper.unwrap(Second::micro(u32::MAX)).unwrap(), Second::micro(u32::MAX as u64));
+/// assert_eq!(unwrapper.unwrap(Second::micro(5u32)).unwrap(), Second::micro((1u64 << 32) + 5));
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Unwrapper {
-    /// Last full time, in units of `10^exp` seconds.
-    reference: i128,
-    exp: i8,
+    /// Last full time, in units of `10^exp` seconds, `(time, exp)`; `None` before the first timestamp without anchor.
+    reference: Option<(i128, i8)>,
 }
 
 /// Why a timestamp could not be unwrapped.
@@ -58,8 +68,7 @@ impl Unwrapper {
     pub fn new(now: Second) -> Result<Self, UnwrapError> {
         let reference = now.value.to_i128().ok_or(UnwrapError::NotAnInteger)?;
         Ok(Unwrapper {
-            reference,
-            exp: now.prefix.into(),
+            reference: Some((reference, now.prefix.into())),
         })
     }
 
@@ -69,27 +78,34 @@ impl Unwrapper {
         Ok(())
     }
 
-    /// The last full time, from the anchor or the last unwrapped timestamp, in its prefix.
-    pub fn last(&self) -> Second {
-        let prefix = Prefix::try_from(self.exp).unwrap_or(Prefix::Unit);
-        Second::new(prefix, NumericValue::U64(self.reference as u64))
+    /// Forget the times so far: the next timestamp is taken as if it were the first one without an anchor. For a
+    /// device whose clock restarted.
+    pub fn restart(&mut self) {
+        self.reference = None;
+    }
+
+    /// The last full time, from the anchor or the last unwrapped timestamp, in its prefix; `None` before the first
+    /// timestamp without an anchor.
+    pub fn last(&self) -> Option<Second> {
+        let (reference, exp) = self.reference?;
+        let prefix = Prefix::try_from(exp).unwrap_or(Prefix::Unit);
+        Some(Second::new(prefix, NumericValue::U64(reference as u64)))
     }
 
     /// The full device time of `timestamp`, as a `U64` in `timestamp`'s prefix.
     pub fn unwrap(&mut self, timestamp: Second) -> Result<Second, UnwrapError> {
         let value = timestamp.value.to_i128().ok_or(UnwrapError::NotAnInteger)?;
         let exp: i8 = timestamp.prefix.into();
-        let full = match timestamp.value.unsigned_bits() {
-            Some(bits) if bits < 64 => {
+        let full = match (timestamp.value.unsigned_bits(), self.reference) {
+            (Some(bits), Some((reference, ref_exp))) if bits < 64 => {
                 let reference =
-                    scale_i128(self.reference, self.exp - exp).ok_or(UnwrapError::Overflow)?;
+                    scale_i128(reference, ref_exp - exp).ok_or(UnwrapError::Overflow)?;
                 closest(reference, value, 1i128 << bits)
             }
             _ => value,
         };
         let full_u64 = u64::try_from(full).map_err(|_| UnwrapError::Overflow)?;
-        self.reference = full;
-        self.exp = exp;
+        self.reference = Some((full, exp));
         Ok(Second::new(timestamp.prefix, NumericValue::U64(full_u64)))
     }
 }
@@ -156,7 +172,7 @@ mod tests {
             .unwrap();
         assert_eq!(full.prefix, Prefix::Milli);
         assert_eq!(full.value, NumericValue::U64(t_ms));
-        assert_eq!(unwrapper.last(), Second::milli(t_ms));
+        assert_eq!(unwrapper.last(), Some(Second::milli(t_ms)));
     }
 
     #[test]
@@ -176,5 +192,82 @@ mod tests {
             unwrapper.unwrap(Second::from_f32(1.0)),
             Err(UnwrapError::NotAnInteger)
         );
+    }
+
+    #[test]
+    fn without_anchor_from_the_first_timestamp() {
+        let mut unwrapper = Unwrapper::default();
+        assert_eq!(unwrapper.last(), None);
+        let start = (1u64 << 32) - 1000;
+        // every 10 minutes for 5 hours, as U32 µs: several wraps
+        for i in 0..30u64 {
+            let t = start + i * 600_000_000;
+            assert_eq!(unwrapper.unwrap(us32(t)).unwrap(), Second::micro(t));
+        }
+        // a little back is not a wrap
+        let last = start + 29 * 600_000_000;
+        assert_eq!(
+            unwrapper.unwrap(us32(last - 100)).unwrap(),
+            Second::micro(last - 100)
+        );
+    }
+
+    #[test]
+    fn u16_ms_wraps() {
+        let mut unwrapper = Unwrapper::default();
+        // every 20 s for 10 minutes: U16 ms wraps every 65.5 s
+        for i in 0..30u64 {
+            let t = 1_000 + i * 20_000;
+            let full = unwrapper.unwrap(Second::milli((t % 65536) as u16)).unwrap();
+            assert_eq!(full, Second::milli(t));
+            assert_eq!(full.value, NumericValue::U64(t));
+        }
+    }
+
+    #[test]
+    fn prefix_and_storage_change_on_the_way() {
+        let mut unwrapper = Unwrapper::default();
+        // U16 ms past its first wrap, then U32 µs, then U64 ns, then U16 ms again
+        let t_ms = 70_000u64;
+        assert_eq!(
+            unwrapper.unwrap(Second::milli(65535u16)).unwrap(),
+            Second::milli(65535u64)
+        );
+        assert_eq!(
+            unwrapper
+                .unwrap(Second::milli((t_ms % 65536) as u16))
+                .unwrap(),
+            Second::milli(t_ms)
+        );
+        let t_us = t_ms * 1000 + 40;
+        assert_eq!(
+            unwrapper.unwrap(Second::micro(t_us as u32)).unwrap(),
+            Second::micro(t_us)
+        );
+        let t_ns = t_us * 1000 + 7;
+        assert_eq!(
+            unwrapper.unwrap(Second::nano(t_ns)).unwrap(),
+            Second::nano(t_ns)
+        );
+        let t_ms = t_ms + 3;
+        assert_eq!(
+            unwrapper
+                .unwrap(Second::milli((t_ms % 65536) as u16))
+                .unwrap(),
+            Second::milli(t_ms)
+        );
+    }
+
+    #[test]
+    fn restart_forgets() {
+        let mut unwrapper = Unwrapper::default();
+        unwrapper.unwrap(us32(u32::MAX as u64)).unwrap();
+        assert_eq!(
+            unwrapper.unwrap(us32(5)).unwrap(),
+            Second::micro((1u64 << 32) + 5)
+        );
+        // the device rebooted: its clock counts from 0 again
+        unwrapper.restart();
+        assert_eq!(unwrapper.unwrap(us32(5)).unwrap(), Second::micro(5u64));
     }
 }

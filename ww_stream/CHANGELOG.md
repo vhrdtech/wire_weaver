@@ -2,13 +2,6 @@
 
 ## Unreleased
 
-### 🐛 Fixes
-
-- A missed count always reaches the host (API-39): `observe::Plan::report_missed(desc, overhead)` says when an
-  update with no properties should carry `missed` alone (nothing due, budget has room), so samples a sampler lost
-  after its last batch are reported; periods a property fell behind, counted while planning, go with that same
-  update instead of the next one.
-
 ### ⚠️ Breaking
 
 - `batch::Batcher<T, N, P = DefaultPolicy>`, `Producer`, `Consumer` and `Batched::new` take the codec policy as a
@@ -45,6 +38,11 @@
   were lost after it, or a recovery cut records off). Stores fill it in; code building a `StoreState` sets it.
 
 ### 🐛 Fixes
+
+- A missed count always reaches the host (API-39): `observe::Plan::report_missed(desc, overhead)` says when an
+  update with no properties should carry `missed` alone (nothing due, budget has room), so samples a sampler lost
+  after its last batch are reported; periods a property fell behind, counted while planning, go with that same
+  update instead of the next one.
 
 - Partial overlap of multi-unit events (API-47): a `ResendFrom` or a resume from a position inside an event sends
   that event whole with its own position, without a `lost` (before, the units after the position in it were

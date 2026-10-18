@@ -1,10 +1,5 @@
 ## Unreleased
 
-### 🐛 Fixes
-
-- Generated `poll_properties` sends a pending `missed` count in an update with no properties when nothing else is
-  due (API-39): before, samples lost after the last batch of a burst were never reported.
-
 ### ⚠️ Breaking
 
 - Generated std clients of APIs with `+observe+batched` properties (API-39): their slots in `<Trait>Update` are
@@ -41,6 +36,9 @@
   (`<api crate>_<trait>`) are `pub`, so their observe types can be named.
 
 ### 🐛 Fixes
+
+- Generated `poll_properties` sends a pending `missed` count in an update with no properties when nothing else is
+  due (API-39): before, samples lost after the last batch of a burst were never reported.
 
 - Drop the unused `console` and `relative-path` dependencies (P2401, cargo-machete).
 - `load`, `load_dep` and the codegen macros parse each module file of a walked crate once instead of on every path

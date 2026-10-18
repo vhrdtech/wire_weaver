@@ -1,10 +1,5 @@
 ## Unreleased
 
-### 🐛 Fixes
-
-- A property observer keeps the `missed` of updates without its property (one that carries only the count, API-39)
-  and gives it with its next value, instead of dropping it.
-
 ### ⚠️ Breaking
 
 - One rule for every device time the client gives out (P2401#17oct-2214b): `StreamEvent::Item::t` of every
@@ -56,6 +51,9 @@
   `ww_si::tree`, the code of the typed `Display`, instead of a copy of it; `MAX_UNIT_DEPTH` is `ww_si`'s.
 
 ### 🐛 Fixes
+
+- A property observer keeps the `missed` of updates without its property (one that carries only the count, API-39)
+  and gives it with its next value, instead of dropping it.
 
 - Drop the unused `cfg-if` and `rand` dependencies (P2401, cargo-machete).
 - Positioned streams (API-47): an item the device sends again from inside it (a resend, or a resume from a cursor

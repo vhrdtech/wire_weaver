@@ -59,6 +59,8 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         args.trait_name.span(),
     );
     let mut codegen_ts = quote! {
+        // unused when the call comes from a `macro_rules!` whose module is not reachable from outside
+        #[allow(unused_imports)]
         pub use #dep_name :: #full_gid_const as _SOURCE_MARKER;
     };
 

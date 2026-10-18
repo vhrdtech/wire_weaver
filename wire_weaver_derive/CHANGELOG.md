@@ -45,6 +45,7 @@
 
 ### 🐛 Fixes
 
+- `ww_codegen!` called from a `macro_rules!` no longer warns `unused import` on its `_SOURCE_MARKER` re-export.
 - Drop the unused `relative-path` dependency (P2401, cargo-machete).
 - `ww_codegen!` names types the API uses by their module path (API-46): a type in a `pub mod` of the API crate works
   without a root re-export, a type re-exported under another name works, a marker `units::Volt` next to an alias

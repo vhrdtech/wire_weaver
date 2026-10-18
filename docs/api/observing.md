@@ -175,9 +175,10 @@ mode.configure(MotorObserve::default().mode(periodic(100 * ms))).await?;
 
 The modes above send a property's *current* value, at most once per update. A value that changes faster than
 updates can go - a motor current sampled in a 25 kHz control loop - loses everything in between. A `+batched`
-property (API-39) can also be observed in `Samples` mode: the device keeps every sample it takes, each with its own
-time, and sends them as a compressed [`Series<Timed<T>>`](../serdes/series.md) in the property's slot of the
-level's update.
+property (API-39) can also be observed in `Samples` mode: the device keeps every sample it takes and sends them as
+compressed [`Series`](../serdes/series.md) columns in the level's update: a `Series<T>` in each property's slot, and
+one `Series<Second>` of the sample times for the whole level (`sample_times`), since a level's samples are taken
+together.
 
 ```rust
 #[ww_trait]
@@ -188,17 +189,20 @@ trait Foc {
 }
 ```
 
-`+batched` comes after `+observe` (alone it is an error) and needs `ww_si` as a dependency of the API crate
-(`Timed<T>` lives there). The property's slot in `<Trait>Update` becomes a `Batched<T>`: `One(T)`, one value as in
-the other modes, or `Series(..)`, a batch of samples. A host that doesn't ask for `Samples` gets `One` values from
-the getter, as for any `+observe` property.
+`+batched` comes after `+observe` (alone it is an error) and needs `ww_si` as a dependency of the API crate (the
+sample times are `ww_si::Second`). The property's slot in `<Trait>Update` becomes a `Batched<T>`: `One(T)`, one value
+as in the other modes, or `Samples(..)`, a batch of samples; the level's `<Trait>Update` gets a `sample_times` slot
+past its last resource index (so no property of such a level may be named `sample_times`). A host that doesn't ask
+for `Samples` gets `One` values from the getter, as for any `+observe` property.
 
 ### Device side
 
 Next to the getter, the device feeds samples where it takes them. Codegen generates, per level with `+batched`
 properties, a `<Level>Sampler` with `sample(t, <Trait>Samples { .. })`: one value per `+batched` property of the
-level and their common time. It is O(1) and takes no lock: a gate per property (one atomic load) says whether a
-host wants this sample, the value goes into the batch being filled. Encoding happens later, in `poll_properties`.
+level and their common time. It is O(1) and takes no lock: a gate per level (one atomic load) says whether a host
+wants this sample (any property of the level in `Samples` mode, and the sample on the level's grid), and the row,
+the time and every value, goes into the level's batch being filled. Encoding happens later, in `poll_properties`,
+one column at a time: the time once, then each property a host observes in `Samples` mode.
 
 ```rust
 let mut server = Server {
@@ -215,7 +219,9 @@ server.observe.samplers().root.sample(
     api_impl::FocSamples { i_a, i_b },
 );
 
-// event loop: encodes sealed batches, then sends updates while batches wait
+// event loop: encodes sealed batches, then sends updates while batches wait; the scratch holds one column of a
+// batch: the biggest of `Second` and the `+batched` property types, `OBSERVE_BATCH` of them
+const SB: usize = ww_stream::batch::scratch_bytes::<Second>(api_impl::OBSERVE_BATCH);
 let mut scratch = Box::new(ww_stream::batch::Scratch::<SB>::new());
 server.poll_properties(&mut ww_server.sink(), medium, now_us, &mut buf, &mut scratch).await?;
 ```
@@ -224,19 +230,26 @@ To sample from an interrupt or another thread, `ObserveBatches::split()` hands o
 the interrupt) and the consumers, which the `ObserveState` takes instead (`ObserveState::new(limits, consumers)`,
 the batches in a `static`). `ww api scaffold` writes the `observe_batch` argument and says how to build the state.
 
-- **Batches**: each `+batched` property has two stores of `observe_batch = N` samples (codegen argument, default
-  32): the sampler fills one while the event loop encodes the other. A batch is sealed when it is full or as old as
-  the host's `max_age_us`. A burst of more than two batches between two `poll_properties` calls loses samples:
-  they are counted in the next update's `missed`.
-- **Outbox**: sealed batches are encoded into the level's outbox (`observe_outbox = N` bytes, default 4096), and
-  sent from there as budget allows, more than one update per call (at most `MAX_UPDATES_PER_POLL`). When the
-  outbox is full or the budget can't keep up, the oldest batches go and count as `missed`.
-- **Time**: each sample carries its own `t`; an update that carries only batches has no head `t`, one with `One`
-  values or plain properties has it as before.
+- **Batches**: each level with `+batched` properties has two stores of `observe_batch = N` rows (codegen argument,
+  default 32), a row being one `sample()` call's time and values, kept column by column: the sampler fills one
+  store while the event loop encodes the other. RAM is 2 x N x (the time and every value): for 21 FOC currents and
+  voltages at N = 32 about 8.4 KB. A batch is sealed when it is full, when its worst case reaches what fits one
+  update, or when it is as old as `max_age_us`. A burst of more than two batches between two `poll_properties`
+  calls loses rows: a sample of each observed property per row, counted in the next update's `missed`.
+- **Outbox**: a sealed batch is encoded into the level's outbox (`observe_outbox = N` bytes, default 4096) as one
+  unit, the time column and the column of each property in `Samples` mode, and sent from there whole, in one
+  update, as budget allows, more than one update per call (at most `MAX_UPDATES_PER_POLL`). When the outbox is full
+  or the budget can't keep up, the oldest batches go and count as `missed`.
+- **Time**: the samples of an update share its `sample_times`: every `Samples` slot has as many samples as it has
+  times, sample `i` taken at time `i`. An update that carries only batches has no head `t`, one with `One` values or
+  plain properties has it as before. Rows carry every value of the level, so a property switched into `Samples`
+  also gets the rows not sent yet, each at its time; one switched out leaves the waiting batches.
 - **Limits**: `Samples` is refused for a property without `+batched` (`ModeNotSupported`); `max_age_us` is
   clamped to `ObserveLimits::samples_max_age_us` (1 ms to 10 s by default); `every_us` decimates on the device's
   grid (the first sample in each `every_us`), 0 is every sample, and is raised to
-  `ObserveLimits::samples_min_every_us` (0, every sample, by default). Every sample taken is encoded, also when
+  `ObserveLimits::samples_min_every_us` (0, every sample, by default). The `Samples` entries of a level share one
+  grid and one age, so they get the finest `every_us` and the shortest `max_age_us` any of them asked for: the
+  grant says so, a host that asked for less gets more. Every sample taken is encoded, also when
   the budget then drops its batch, so on an MCU set that floor from the table [below](#which-rates-fit-an-mcu):
   without it any host can ask for more encoding than the CPU has. A property type that borrows (bytes, a string,
   a vector) can't be `+batched`.
@@ -246,8 +259,9 @@ the batches in a `static`). `ww api scaffold` writes the `observe_batch` argumen
 `<Trait>Observe::samples(max_age)` puts every `+batched` property of the level into `Samples` mode
 (`observe::samples(max_age)` / `samples_every(every, max_age)` for one property). A property observer gets one
 `Observed` per sample, each with its own device time, whether the device sent one value or a batch; a level
-observer gets `BatchedOwned<T>` slots with every sample's time unwrapped, and `<Trait>Latest` keeps the newest
-sample. Observers of one level merge into `Samples` if any of them asks for it.
+observer gets `BatchedOwned<T>` slots and the update's `sample_times` unwrapped (`BatchedOwned::into_samples` pairs
+them, a count that doesn't match is an error), and `<Trait>Latest` keeps the newest sample. An update whose
+`Samples` slots don't match its `sample_times` is malformed: a warning, its samples left out. Observers of one level merge into `Samples` if any of them asks for it.
 
 ```rust
 use wire_weaver_client::observe::samples;
@@ -277,6 +291,12 @@ storage.
 or an index list, picked by the writer - see [`OptionAnyVec`](../serdes/special_types.md#optionanyvec-sparse-slots-of-any-types)
 for the exact bit layout), then only the present properties' values in slot order, no padding between them. Slots
 are the level's resource indices, methods and streams included as gaps that are never present.
+
+A `+batched` property's slot is a `Batched<T>`: a nibble tag, then `T` for `One` (tag 0), or for `Samples` (tag 1)
+padding to the next byte and a `Series<T>` to the end of the slot. A level with `+batched` properties has one more
+slot past its last resource index, `sample_times`: a `Series<Second>` (from a byte), present whenever a `Samples`
+slot is, with one time per sample of each. In introspection such a property is `batched: Some(SharedClock)` with
+`sample_time_ty` the type of those times.
 
 Slot order matters for size: a `bool` property takes one bit, but a byte-or-wider type aligns itself to a byte as
 always, so a `bool` between two `f32`s still costs a byte of padding around it. [The `sparse` worked

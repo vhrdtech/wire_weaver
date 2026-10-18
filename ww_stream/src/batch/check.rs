@@ -395,6 +395,11 @@ pub fn threaded(count: u32, seed: u8) {
             if done && !any && consumer.filling() == 0 && !consumer.has_sealed() {
                 break;
             }
+            if !any {
+                // nothing to hand off yet: give the producer the time slice instead of spinning through it (on a
+                // loaded PC both threads may share one core)
+                std::thread::yield_now();
+            }
         }
         producer.join().expect("producer")
     });

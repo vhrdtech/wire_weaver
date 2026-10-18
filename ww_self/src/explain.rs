@@ -6,11 +6,12 @@
 //! is followed by its fields, an enum by its discriminant and its variant's fields, a `Vec` by its length and items.
 
 use crate::value::{Budget, des_field, type_name};
-use crate::{ApiBundleOwned, TypeOwned, ValueOwned};
+use crate::{ApiBundleOwned, Repr, TypeOwned, ValueOwned};
 use shrink_wrap::BufReader;
 use shrink_wrap::buf_reader::Cursors;
 use std::ops::Range;
 use std::rc::Rc;
+use ww_numeric::NumericBaseType;
 
 /// A buffer decoded with the place of every value in it.
 #[derive(Debug)]
@@ -53,6 +54,8 @@ pub enum PartKind {
     Discriminant,
     /// `Some` / `Ok` (1) or `None` / `Err` (0).
     Flag,
+    /// Bits skipped to align the next value to a nibble or a byte.
+    Padding,
 }
 
 /// Decode `bytes` as one top-level value of type `ty`, as
@@ -115,6 +118,8 @@ pub(crate) struct Trace {
 pub(crate) struct Open {
     idx: usize,
     before: Cursors,
+    /// The value is read at a multiple of this many bits (1, 4 or 8), see [alignment].
+    align: usize,
 }
 
 impl Trace {
@@ -174,6 +179,9 @@ impl Trace {
         Some(Open {
             idx: self.parts.len() - 1,
             before,
+            align: ty
+                .get_in_line(api_bundle)
+                .map_or(1, |ty| alignment(ty, api_bundle)),
         })
     }
 
@@ -183,14 +191,23 @@ impl Trace {
         rd: &BufReader,
         result: &anyhow::Result<ValueOwned>,
     ) {
-        let Some(Open { idx, before }) = open else {
+        let Some(Open { idx, before, align }) = open else {
             return;
         };
         self.depth -= 1;
         let after = self.cursors(rd).unwrap_or(before);
         let leaf = idx + 1 == self.parts.len();
+        let mut start = before.front_bit;
+        if leaf && result.is_ok() {
+            start = self.padding(start, align, after.front_bit, idx);
+        }
+        let idx = if start != before.front_bit {
+            idx + 1
+        } else {
+            idx
+        };
         let part = &mut self.parts[idx];
-        part.front = before.front_bit..after.front_bit.max(before.front_bit);
+        part.front = start..after.front_bit.max(start);
         part.back = after.back_nibble.min(before.back_nibble)..before.back_nibble;
         match result {
             Ok(ValueOwned::Enum { variant, .. }) => part.note = Some(variant.clone()),
@@ -208,10 +225,12 @@ impl Trace {
         kind: PartKind,
         label: &str,
         value: ValueOwned,
+        align: usize,
     ) {
         let (Some(before), Some(after)) = (before, self.cursors(rd)) else {
             return;
         };
+        let start = self.padding(before.front_bit, align, after.front_bit, self.parts.len());
         let ty = match &value {
             ValueOwned::Bool(_) => "bool".to_string(),
             ValueOwned::Numeric(n) => format!("{:?}", n.ty()).to_lowercase(),
@@ -222,14 +241,66 @@ impl Trace {
             label: label.to_string(),
             kind,
             ty,
-            front: before.front_bit..after.front_bit,
+            front: start..after.front_bit,
             back: after.back_nibble..before.back_nibble,
             value: Some(value),
             note: None,
         });
     }
 
+    /// A [Padding](PartKind::Padding) part at `idx` for the bits from `start` up to the next multiple of `align`,
+    /// when the value read up to `end` starts there; where the value starts.
+    fn padding(&mut self, start: usize, align: usize, end: usize, idx: usize) -> usize {
+        let aligned = start.next_multiple_of(align);
+        if aligned == start || aligned > end {
+            return start;
+        }
+        let padding = Part {
+            depth: self.depth,
+            label: "padding".to_string(),
+            kind: PartKind::Padding,
+            ty: String::new(),
+            front: start..aligned,
+            back: 0..0,
+            value: None,
+            note: None,
+        };
+        self.parts.insert(idx, padding);
+        aligned
+    }
+
     pub(crate) fn before(&self, rd: &BufReader) -> Option<Cursors> {
         self.cursors(rd)
+    }
+}
+
+/// Bits a value of `ty` (in line) is aligned to when read: 8 for byte-aligned numbers and strings, 4 for nibbles,
+/// 1 for bits and for values made of other values (their parts align themselves).
+fn alignment(ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> usize {
+    match ty {
+        TypeOwned::NumericAny(n) => base_alignment(crate::value::numeric_base(n)),
+        TypeOwned::Range(base) | TypeOwned::RangeInclusive(base) => base_alignment(base),
+        TypeOwned::String => 8,
+        TypeOwned::MaxLen { ty, .. } | TypeOwned::Box(ty) => ty
+            .get_in_line(api_bundle)
+            .map_or(1, |ty| alignment(ty, api_bundle)),
+        _ => 1,
+    }
+}
+
+fn base_alignment(base: &NumericBaseType) -> usize {
+    match base {
+        NumericBaseType::UB(_) | NumericBaseType::IB(_) => 1,
+        NumericBaseType::Nibble | NumericBaseType::UNib32 => 4,
+        _ => 8,
+    }
+}
+
+/// Bits an enum's discriminant is aligned to.
+pub(crate) fn repr_alignment(repr: &Repr) -> usize {
+    match repr {
+        Repr::BitAligned(_) => 1,
+        Repr::Nibble | Repr::UNib32 => 4,
+        Repr::ByteAlignedU8 | Repr::ByteAlignedU16 | Repr::ByteAlignedU32 => 8,
     }
 }

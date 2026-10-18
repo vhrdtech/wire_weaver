@@ -13,6 +13,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- `ww explain WHAT HEX` (TOOL-9): which bits of a buffer hold which value, as a tree of every field with its bit
+  range (front bits and back nibbles of lengths and sizes), raw bits, type and decoded value, padding included, and
+  a hex map coloured by field. WHAT is a type, a method's arguments (`--return`: its return value), a property's
+  value or a stream's item; the API comes from the device, `--crate` or `--bundle`. The library side is
+  `ww_self::explain` (`explain`, `explain_fields`: `Part`s with their ranges, for a GUI later), on top of
+  `shrink_wrap::BufReader::cursors_in`.
 - Wire-format conformance matrix (TEST-23): one corpus of cases (`tests/conformance/corpus.json`: type, value,
   golden bytes) run by `just test` and CI through every wire-format implementation: the Rust derive, the `ww_self`
   dynamic client, Python and C (the runtime, the generated `fixed_layout` and `head_tail` readers). Gaps are marked

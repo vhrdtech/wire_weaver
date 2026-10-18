@@ -1,5 +1,5 @@
 mod ast;
-mod check;
+pub(crate) mod check;
 mod diff;
 mod save;
 mod scaffold;

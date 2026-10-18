@@ -7,12 +7,12 @@
 //! property values, stream items) are written without it (`to_ww_bytes`), same as method arguments, which are the
 //! fields of an evolvable struct.
 
+use crate::explain::{PartKind, Trace};
 use crate::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, ItemEnumOwned, Repr, TypeOwned,
     ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
-use crate::explain::{PartKind, Trace};
 use shrink_wrap::buf_reader::Cursors;
 use shrink_wrap::buf_writer_owned::UnsizedBuilderOwned;
 use shrink_wrap::{
@@ -250,9 +250,10 @@ impl Budget {
         kind: PartKind,
         label: &str,
         value: impl FnOnce() -> ValueOwned,
+        align: usize,
     ) {
         if let Some(trace) = &mut self.trace {
-            trace.part(before, rd, kind, label, value());
+            trace.part(before, rd, kind, label, value(), align);
         }
     }
 
@@ -465,7 +466,7 @@ pub(crate) fn des_field(
     if ty.is_unsized(api_bundle)? {
         let before = b.before(rd);
         let len = rd.read_rev_len()?;
-        b.part(before, rd, PartKind::Size, "size", || unib32(len));
+        b.part(before, rd, PartKind::Size, "size", || unib32(len), 1);
         let mut rd = rd.split(len)?;
         des_inner(&mut rd, ty, api_bundle, b)
     } else {
@@ -524,7 +525,7 @@ fn des_ty(
         TypeOwned::Vec(inner_ty) => {
             let before = b.before(rd);
             let len = rd.read_rev_len()?;
-            b.part(before, rd, PartKind::Size, "len", || unib32(len));
+            b.part(before, rd, PartKind::Size, "len", || unib32(len), 1);
             Ok(ValueOwned::Vec(des_items(
                 rd,
                 len,
@@ -559,7 +560,14 @@ fn des_ty(
         TypeOwned::Option { .. } | TypeOwned::Result { .. } => {
             let before = b.before(rd);
             let flag = rd.read_bool()?;
-            b.part(before, rd, PartKind::Flag, "flag", || ValueOwned::Bool(flag));
+            b.part(
+                before,
+                rd,
+                PartKind::Flag,
+                "flag",
+                || ValueOwned::Bool(flag),
+                1,
+            );
             des_flagged(rd, flag, ty, api_bundle, b)
         }
         // Box<T> is Unsized itself (its size is handled by des_field), T is read directly inside it
@@ -605,9 +613,14 @@ fn des_enum(
                 Repr::ByteAlignedU16 => rd.read_u16()? as u32,
                 Repr::ByteAlignedU32 => rd.read_u32()?,
             };
-            b.part(before, rd, PartKind::Discriminant, "discriminant", || {
-                ValueOwned::Numeric(NumericValue::U32(discriminant))
-            });
+            b.part(
+                before,
+                rd,
+                PartKind::Discriminant,
+                "discriminant",
+                || ValueOwned::Numeric(NumericValue::U32(discriminant)),
+                crate::explain::repr_alignment(&enum_def.repr),
+            );
             let position = enum_def
                 .variants
                 .iter()
@@ -712,9 +725,14 @@ fn des_fields(
                         Err(e) => return Err(e.into()),
                     };
                     if let Some(flag) = value {
-                        b.part(before, rd, PartKind::Flag, &format!("{name} flag"), || {
-                            ValueOwned::Bool(flag)
-                        });
+                        b.part(
+                            before,
+                            rd,
+                            PartKind::Flag,
+                            &format!("{name} flag"),
+                            || ValueOwned::Bool(flag),
+                            1,
+                        );
                     }
                     flags.entry(name).or_insert(Flag { value, at_end });
                     continue;

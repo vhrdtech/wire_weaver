@@ -4,6 +4,7 @@ use crate::cmd::config::ConfigCommand;
 use crate::cmd::counters::CountersArgs;
 use crate::cmd::dfu::DfuCommand;
 use crate::cmd::elf::ElfCommand;
+use crate::cmd::explain::ExplainArgs;
 use crate::cmd::info::{InfoArgs, ReportArgs};
 use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
@@ -64,6 +65,16 @@ pub(crate) enum Commands {
 
     /// Print the resource tree of the selected device's API, using its introspection data
     Introspect(IntrospectArgs),
+
+    /// Which bits of a buffer hold which value: every field with its bits, raw and decoded (TOOL-9)
+    ///
+    /// The API comes from the device's introspection, or from --crate / --bundle without a device. Examples:
+    ///
+    ///   ww explain --crate api Config 0a1b2c
+    ///   ww explain motor.set_speed 4a00
+    ///   ww explain --bundle api.ron motor.status --return 01 80 3f
+    #[command(verbatim_doc_comment)]
+    Explain(ExplainArgs),
 
     /// Observe a trait level's `+observe` properties, from introspection alone (TOOL-11)
     ///
@@ -191,6 +202,7 @@ impl Cli {
             Commands::USBLoopback { .. } => true,
             Commands::Api(_) => false,
             Commands::Introspect(_) => true,
+            Commands::Explain(args) => args.need_device(),
             Commands::Observe(_) => true,
             Commands::Stream(_) => true,
             Commands::Config(_) => false,

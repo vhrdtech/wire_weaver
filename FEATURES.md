@@ -975,8 +975,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   apart when read. Needs a marker for a present `None` (e.g. `ww.Some(None)`). Conformance case
   `option.option.some_none`.
 - 📋 **TOOL-8 `ww` inspect / read / write all GPIOs on any device** · `v0.5.x`.
-- 📋 **TOOL-9 Buffer visualizer / "explain" encoding** · `v0.5.x` — record operations on buffers so that each bit can be
-  traced to an item, show it using the AST and dynamic values (`TODO` in `wire_weaver_core/src/eval.rs`).
+- 🚧 **TOOL-9 Buffer visualizer / "explain" encoding** · `v0.5.x` — each bit traced to the value it belongs to.
+  Done: `ww_self::explain` (the dynamic decoder records every value, length, discriminant, flag and padding with
+  its front bits and back nibbles) and `ww explain WHAT HEX` (a type, method arguments or return value, property
+  value, stream item; API from the device, `--crate` or `--bundle`). Open: encode from a typed value instead of
+  hex (needs a text value syntax, shared with a future `ww call`), the request/event envelope around a payload,
+  `Series` columns and sparse-struct slot headers shown in detail, shell completion of types and paths, a GUI
+  view (hex pane + tree, like Kaitai's Web IDE), a Python `explain()`.
 
 ## Standard library (`ww_stdlib`, `STD`)
 

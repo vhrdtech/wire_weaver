@@ -486,22 +486,36 @@ mod tests {
         assert_eq!(explained.result.unwrap(), vec![value]);
         // which leaf holds each bit: lengths are nibbles at the back of the buffer, or of the unsized value they are in
         let mut owner: Vec<Option<usize>> = vec![None; bytes.len() * 8];
-        for (idx, part) in explained.parts.iter().enumerate().filter(|(_, p)| p.value.is_some()) {
+        let leaves = explained.parts.iter().enumerate();
+        for (idx, part) in leaves.filter(|(_, p)| p.value.is_some() || p.kind == PartKind::Padding)
+        {
             let back = part.back.start * 4..part.back.end * 4;
             for bit in part.front.clone().chain(back) {
-                assert_eq!(owner[bit], None, "bit {bit} is in {part:?} and {:?}", owner[bit].map(|o| &explained.parts[o]));
+                assert_eq!(
+                    owner[bit],
+                    None,
+                    "bit {bit} is in {part:?} and {:?}",
+                    owner[bit].map(|o| &explained.parts[o])
+                );
                 owner[bit] = Some(idx);
             }
         }
         // what is left is padding: less than a byte at a time
         for run in owner.split(|o| o.is_some()) {
-            assert!(run.len() < 8, "{} bits in a row in no part: {owner:?}", run.len());
+            assert!(
+                run.len() < 8,
+                "{} bits in a row in no part: {owner:?}",
+                run.len()
+            );
         }
         explained.parts
     }
 
     fn part<'p>(parts: &'p [Part], label: &str) -> &'p Part {
-        parts.iter().find(|p| p.label == label).unwrap_or_else(|| panic!("no part {label}"))
+        parts
+            .iter()
+            .find(|p| p.label == label)
+            .unwrap_or_else(|| panic!("no part {label}"))
     }
 
     #[test]
@@ -515,14 +529,27 @@ mod tests {
         assert_eq!((flag.depth, flag.front.clone()), (1, 0..1));
         let small = part(&parts, "small");
         assert_eq!((small.front.clone(), small.ty.as_str()), (1..5, "ub4"));
+        // a nibble after 10 bits: 2 bits of padding first
+        let nib = parts.iter().position(|p| p.label == "nib").unwrap();
+        assert_eq!(parts[nib - 1].kind, PartKind::Padding);
+        assert_eq!(
+            (parts[nib - 1].front.clone(), parts[nib].front.clone()),
+            (10..12, 12..16)
+        );
         let a = part(&parts, "a");
         assert_eq!(a.front.len(), 8);
         assert_eq!(a.front.start % 8, 0);
         assert_eq!(a.value, Some(num(N::U8(0xAB))));
         let name = part(&parts, "name");
         assert_eq!(name.front.len(), 5 * 8);
-        assert!(!name.back.is_empty(), "the length of a string is at the back");
-        let rect = parts.iter().position(|p| p.note.as_deref() == Some("Rect")).unwrap();
+        assert!(
+            !name.back.is_empty(),
+            "the length of a string is at the back"
+        );
+        let rect = parts
+            .iter()
+            .position(|p| p.note.as_deref() == Some("Rect"))
+            .unwrap();
         assert_eq!(parts[rect + 1].kind, PartKind::Discriminant);
         assert_eq!(parts[rect + 1].front.len(), 4);
         assert_eq!(parts[rect + 1].value, Some(num(N::U32(2))));
@@ -551,8 +578,13 @@ mod tests {
         // a flag in place: the `Option` is a part with its flag and value inside
         let early = parts.iter().position(|p| p.label == "early").unwrap();
         assert_eq!(parts[early + 1].kind, PartKind::Flag);
-        assert_eq!(parts[early + 2].label, "some");
-        assert_eq!(parts[early + 2].value, Some(string("hi")));
+        assert_eq!(
+            parts[early + 2].kind,
+            PartKind::Padding,
+            "a string starts at a byte"
+        );
+        assert_eq!(parts[early + 3].label, "some");
+        assert_eq!(parts[early + 3].value, Some(string("hi")));
     }
 
     #[test]

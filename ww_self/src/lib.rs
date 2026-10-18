@@ -14,6 +14,8 @@ pub use common::COMMON_ERROR;
 pub mod definition_cache;
 #[cfg(feature = "std")]
 pub mod errors;
+#[cfg(feature = "std")]
+pub mod explain;
 #[cfg(all(feature = "std", any(test, fuzzing, feature = "fuzz")))]
 #[doc(hidden)]
 pub mod fuzz_bundle;
@@ -21,8 +23,6 @@ pub mod fuzz_bundle;
 #[cfg(all(feature = "std", any(test, fuzzing)))]
 #[doc(hidden)]
 pub mod fuzz_series;
-#[cfg(feature = "std")]
-pub mod explain;
 #[cfg(feature = "std")]
 pub mod generics;
 #[cfg(feature = "std")]

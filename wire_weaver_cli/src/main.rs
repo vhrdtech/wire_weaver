@@ -28,9 +28,10 @@ async fn run() -> Result<()> {
     let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     // keep connection progress logs out of the printed tree
     let max_level = match cli.command {
-        Commands::Introspect(_) | Commands::Observe(_) | Commands::Stream(_) => {
-            tracing::Level::WARN
-        }
+        Commands::Introspect(_)
+        | Commands::Explain(_)
+        | Commands::Observe(_)
+        | Commands::Stream(_) => tracing::Level::WARN,
         _ => tracing::Level::INFO,
     };
     tracing_subscriber::fmt().with_max_level(max_level).init();
@@ -79,6 +80,7 @@ async fn run() -> Result<()> {
         Commands::Introspect(args) => {
             cmd::introspect::introspect(args, device.as_mut().unwrap()).await?
         }
+        Commands::Explain(args) => cmd::explain::explain_cmd(args, device.as_ref())?,
         Commands::Observe(args) => cmd::observe::observe(args, device.as_ref().unwrap()).await?,
         Commands::Stream(args) => cmd::stream::stream(args, device.as_ref().unwrap()).await?,
         Commands::Dfu(dfu_cmd) => {

@@ -19,6 +19,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   value or a stream's item; the API comes from the device, `--crate` or `--bundle`. The library side is
   `ww_self::explain` (`explain`, `explain_fields`: `Part`s with their ranges, for a GUI later), on top of
   `shrink_wrap::BufReader::cursors_in`.
+- Values and calls as Rust expressions (TOOL-9): `ww explain Config --value 'Config { mode: Mode::Fast, gains: [1.0,
+  2.5] }'`, `ww explain 'motor.set_speed(1.5, Dir::Cw)'`, `ww explain 'motor.limit = 3'` encode first, then explain.
+  Literals take the field's type (`5` is a `u16`, a `ub3` or an `f32`), errors name the field (`argument a: 200 is
+  out of range for ub7`). Library: `ww_self::expr` (feature `expr`): `parse_value`, `value_from_expr`, `parse_call`.
+
 - Wire-format conformance matrix (TEST-23): one corpus of cases (`tests/conformance/corpus.json`: type, value,
   golden bytes) run by `just test` and CI through every wire-format implementation: the Rust derive, the `ww_self`
   dynamic client, Python and C (the runtime, the generated `fixed_layout` and `head_tail` readers). Gaps are marked
@@ -181,6 +186,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Changed
 
+- `ww` shows struct values with their name when the type is known (`Version { major: 0, .. }`), so a value printed
+  by `ww introspect` or `ww observe` reads back as a Rust expression (TOOL-9).
 - The motor controller demo (EX-11) moved out of `examples/` into the [motor_sim](https://github.com/vhrdtech/motor_sim)
   repo with its history (`cd motor_sim && cargo run -p motor_demo`, against a `../wire_weaver` checkout), so it
   can grow into a full simulator with a GUI without those dependencies in this workspace. Its docs page stays here

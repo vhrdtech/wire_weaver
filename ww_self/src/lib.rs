@@ -16,6 +16,8 @@ pub mod definition_cache;
 pub mod errors;
 #[cfg(feature = "std")]
 pub mod explain;
+#[cfg(feature = "expr")]
+pub mod expr;
 #[cfg(all(feature = "std", any(test, fuzzing, feature = "fuzz")))]
 #[doc(hidden)]
 pub mod fuzz_bundle;

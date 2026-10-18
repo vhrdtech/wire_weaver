@@ -17,14 +17,18 @@ std = [
     "dep:sha2",
 ]
 serde = ["dep:serde", "ww_version/serde", "ww_numeric/serde", "shrink_wrap/serde"]
+# values and calls written as Rust expressions (`expr` module), for tools
+expr = ["std", "dep:quote", "dep:syn"]
 # `fuzz_bundle` (bundle generator for fuzzing) for tests of other crates
 fuzz = ["std"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
+quote = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
 shrink_wrap.workspace = true
+syn = { workspace = true, optional = true }
 ww_numeric.workspace = true
 ww_version.workspace = true
 

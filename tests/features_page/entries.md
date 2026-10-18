@@ -236,6 +236,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 
 - TOOL-2 | API bundles | `ww api save`, `check` and `diff`. | cli_reference.md#ww-api
 - TOOL-11 | Watching properties | `ww observe` and Python print updates as they arrive, with rates. | cli_reference.md#ww-observe
+- TOOL-9 | Explaining bytes | `ww explain` shows every field of a buffer with its bits, from hex or a value written in Rust. | cli_reference.md#ww-explain
 - TOOL-10 | Link test | `ww usb-loopback` measures round trips, losses and speed both ways. | cli_reference.md#ww-usb-loopback
 - TOOL-12 | Settings from a flash dump | `ww settings dump` decodes a settings store without the device. | cli_reference.md#ww-settings
 - TOOL-5 | Values from text | Typed values written as text and turned into bytes at runtime. | python_advanced.md

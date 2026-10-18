@@ -977,14 +977,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **TOOL-8 `ww` inspect / read / write all GPIOs on any device** · `v0.5.x`.
 - 🚧 **TOOL-9 Buffer visualizer / "explain" encoding** · `v0.5.x` — each bit traced to the value it belongs to.
   Done: `ww_self::explain` (the dynamic decoder records every value, length, discriminant, flag and padding with
-  its front bits and back nibbles) and `ww explain WHAT HEX` (a type, method arguments or return value, property
-  value, stream item; API from the device, `--crate` or `--bundle`). Open: encode from a typed value instead of
-  hex (needs a text value syntax, shared with a future `ww call`), the request/event envelope around a payload,
-  `Series` columns and sparse-struct slot headers shown in detail, shell completion of types and paths, a GUI
-  view (hex pane + tree, like Kaitai's Web IDE), a Python `explain()`.
-
-## Standard library (`ww_stdlib`, `STD`)
-
+  its front bits and back nibbles); `ww_self::expr` (feature `expr`: values and calls written as Rust expressions,
+  `Config { mode: Mode::Fast, .. }`, `motor.set_speed(1.5, Dir::Cw)`, `motor.limit = 3`, read by the type with
+  errors naming the field); `ww explain WHAT HEX | --value EXPR | 'call(..)'` (a type, method arguments or return
+  value, property value, stream item; API from the device, `--crate` or `--bundle`). Open: the request/event
+  envelope around a payload, quantities as input (`3300 mV` has no Rust form yet), `Series` columns and
+  sparse-struct slot headers in detail, shell completion of types and paths, a `ww call` on the same expressions,
+  a GUI view (hex pane + tree, like Kaitai's Web IDE), Python `explain()` and expression input.
 - ✅ **STD-1 `ww_client_server`** — the request/event model, pruned of sideband/subscribe/rate, variable length seq
   numbers.
 - ✅ **STD-2 `ww_version`**.

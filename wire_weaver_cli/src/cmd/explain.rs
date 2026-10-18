@@ -1,5 +1,7 @@
 //! `ww explain <what> <hex>` (TOOL-9): which bits of a buffer hold which value, field by field, from the API's
-//! types alone. The decoding is `ww_self::explain`; this module finds the type and prints the parts.
+//! types alone. The decoding is `ww_self::explain`; this module finds the type and prints the parts. Instead of bytes
+//! a value can be given as a Rust expression (`--value`), or the whole call (`motor.set_speed(1.5)`), read by
+//! `ww_self::expr` and encoded first.
 
 use crate::util::{display_path, resolve};
 use crate::value_fmt::fmt_value;
@@ -11,20 +13,25 @@ use std::sync::Arc;
 use wire_weaver_client::ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
 use wire_weaver_client::ww_self::{ApiBundleOwned, TypeOwned, ValueOwned};
 use wire_weaver_client::{DynClient, DynResource, DynResourceKind};
+use ww_self::expr::{self, Call};
 
 #[derive(Args)]
 pub(crate) struct ExplainArgs {
     /// A type (`Config`), or a resource path: a method's arguments (`motor.set_speed`, `--return` for its return
-    /// value), a property's value, a stream's item
+    /// value), a property's value, a stream's item. Without bytes: a call (`'motor.set_speed(1.5, Dir::Cw)'`) or a
+    /// property write (`'motor.limit = 3'`) as a Rust expression
     what: String,
 
     /// The bytes, in hex: `0a1b2c`, `0a 1b 2c` or `0x0a,0x1b`
-    #[arg(required_unless_present = "file", num_args = 1..)]
     hex: Vec<String>,
 
     /// Read the bytes from a binary file instead
-    #[arg(long, conflicts_with = "hex")]
+    #[arg(long, conflicts_with_all = ["hex", "value"])]
     file: Option<PathBuf>,
+
+    /// The value as a Rust expression instead of bytes, e.g. `'Config { mode: Mode::Fast, gains: [1.0, 2.5] }'`
+    #[arg(long, short('e'), value_name = "EXPR", conflicts_with = "hex")]
+    value: Option<String>,
 
     /// Explain a method's return value instead of its arguments
     #[arg(long("return"))]
@@ -51,12 +58,30 @@ impl ExplainArgs {
 }
 
 pub(crate) fn explain_cmd(args: ExplainArgs, device: Option<&DynClient>) -> Result<()> {
-    let bundle = Arc::new(load_bundle(&args, device)?);
-    let bytes = match &args.file {
-        Some(path) => std::fs::read(path).with_context(|| format!("reading {}", path.display()))?,
-        None => parse_hex(&args.hex.join(" "))?,
+    let mut bundle = load_bundle(&args, device)?;
+    wire_weaver_client::ww_self::generics::prepare(&mut bundle)?;
+    let bundle = Arc::new(bundle);
+    let given = match &args.file {
+        Some(path) => {
+            Some(std::fs::read(path).with_context(|| format!("reading {}", path.display()))?)
+        }
+        None if !args.hex.is_empty() => Some(parse_hex(&args.hex.join(" "))?),
+        None => None,
     };
-    let (title, explained) = run(&args, &bundle, &bytes)?;
+    let (title, target, bytes) = match given {
+        Some(bytes) => {
+            let (title, target) = target(&args, &bundle)?;
+            (title, target, bytes)
+        }
+        // one line naming the field (`argument a: 200 is out of range for ub7`), not a chain
+        None => encode(&args, &bundle).map_err(|e| anyhow!("{e:#}"))?,
+    };
+    let explained = match &target {
+        Target::Value(ty) => explain(&bytes, ty, &bundle),
+        Target::Args(defs) => {
+            explain_fields(&bytes, defs.iter().map(|(n, t)| (n.as_str(), t)), &bundle)
+        }
+    };
     print!("{}", render(&title, &bytes, &explained, &bundle));
     if let Err(e) = explained.result {
         bail!("decoding stopped: {e:#}");
@@ -80,14 +105,16 @@ fn load_bundle(args: &ExplainArgs, device: Option<&DynClient>) -> Result<ApiBund
         .clone())
 }
 
-/// What `args.what` names, decoded from `bytes`, with a title for it.
-fn run(
-    args: &ExplainArgs,
-    bundle: &Arc<ApiBundleOwned>,
-    bytes: &[u8],
-) -> Result<(String, Explained)> {
+/// What the bytes are: one value, or the arguments of a method (the fields of an evolvable struct).
+enum Target {
+    Value(TypeOwned),
+    Args(Vec<(String, TypeOwned)>),
+}
+
+/// What `args.what` names, with a title for it.
+fn target(args: &ExplainArgs, bundle: &Arc<ApiBundleOwned>) -> Result<(String, Target)> {
     if let Some(ty) = find_type(bundle, &args.what) {
-        return Ok((args.what.clone(), explain(bytes, &ty, bundle)));
+        return Ok((args.what.clone(), Target::Value(ty)));
     }
     let resource = resolve(DynResource::root(bundle.clone()), &args.what).with_context(|| {
         format!(
@@ -95,26 +122,87 @@ fn run(
             display_path(&args.what)
         )
     })?;
-    let path = display_path(&args.what);
+    resource_target(&resource, &args.what, args.ret)
+}
+
+fn resource_target(resource: &DynResource, path: &str, ret: bool) -> Result<(String, Target)> {
+    let path = display_path(path);
     Ok(match resource.kind()? {
-        DynResourceKind::Method { return_ty, .. } if args.ret => {
+        DynResourceKind::Method { return_ty, .. } if ret => {
             let ty = return_ty.ok_or_else(|| anyhow!("'{path}' returns nothing"))?;
-            (format!("{path} return value"), explain(bytes, ty, bundle))
+            (format!("{path} return value"), Target::Value(ty.clone()))
         }
         DynResourceKind::Method { args: defs, .. } => (
             format!("{path} arguments"),
-            explain_fields(
-                bytes,
-                defs.iter().map(|a| (a.ident.as_str(), &a.ty)),
-                bundle,
+            Target::Args(
+                defs.iter()
+                    .map(|a| (a.ident.clone(), a.ty.clone()))
+                    .collect(),
             ),
         ),
         DynResourceKind::Property { ty, .. } => {
-            (format!("{path} value"), explain(bytes, ty, bundle))
+            (format!("{path} value"), Target::Value(ty.clone()))
         }
-        DynResourceKind::Stream { ty, .. } => (format!("{path} item"), explain(bytes, ty, bundle)),
+        DynResourceKind::Stream { ty, .. } => (format!("{path} item"), Target::Value(ty.clone())),
         _ => bail!("'{path}' is not a method, property or stream"),
     })
+}
+
+/// No bytes given: the value from `--value`, or the call written as WHAT, encoded.
+fn encode(args: &ExplainArgs, bundle: &Arc<ApiBundleOwned>) -> Result<(String, Target, Vec<u8>)> {
+    if let Some(text) = &args.value {
+        let (title, target) = target(args, bundle)?;
+        let Target::Value(ty) = &target else {
+            bail!(
+                "for a method's arguments write the call: ww explain '{}(..)'",
+                args.what
+            );
+        };
+        let value = expr::parse_value(text, ty, bundle)?;
+        let bytes = value.ser_shrink_wrap_dyn(ty, bundle)?;
+        return Ok((title, target, bytes));
+    }
+    let root = DynResource::root(bundle.clone());
+    match expr::parse_call(&args.what)? {
+        Call::Method { path, args: exprs } => {
+            let resource = resolve(root, &path).with_context(|| format!("'{path}'"))?;
+            let (title, target) = resource_target(&resource, &path, false)?;
+            let Target::Args(defs) = &target else {
+                bail!("'{path}' is not a method");
+            };
+            if exprs.len() != defs.len() {
+                bail!(
+                    "'{path}' takes {} arguments, got {}",
+                    defs.len(),
+                    exprs.len()
+                );
+            }
+            let values = exprs
+                .iter()
+                .zip(defs)
+                .map(|(e, (name, ty))| {
+                    expr::value_from_expr(e, ty, bundle).with_context(|| format!("argument {name}"))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let bytes =
+                ValueOwned::ser_shrink_wrap_vec_dyn(&values, defs.iter().map(|(_, t)| t), bundle)?;
+            Ok((title, target, bytes))
+        }
+        Call::Write { path, value } => {
+            let resource = resolve(root, &path).with_context(|| format!("'{path}'"))?;
+            let (title, target) = resource_target(&resource, &path, false)?;
+            let Target::Value(ty) = &target else {
+                bail!("'{path}' is not a property");
+            };
+            let value = expr::value_from_expr(&value, ty, bundle)?;
+            let bytes = value.ser_shrink_wrap_dyn(ty, bundle)?;
+            Ok((title, target, bytes))
+        }
+        Call::Path { path } => bail!(
+            "no bytes for '{}': give them in hex, with --file, or as --value 'EXPR'",
+            display_path(&path)
+        ),
+    }
 }
 
 /// A struct or enum of the bundle by its name.

@@ -1,5 +1,5 @@
 //! Short, Rust-like text of a dynamically decoded value, for const values in `ww introspect` and updates in
-//! `ww observe`.
+//! `ww observe`. With the type known it is a Rust expression `ww_self::expr` reads back (quantities aside).
 
 use wire_weaver_client::quantity::DynQuantity;
 use wire_weaver_client::ww_self::{
@@ -66,13 +66,17 @@ impl Fmt<'_> {
                     self.list(items, |idx| types.and_then(|t| t.get(idx)))
                 )
             }
-            ValueOwned::Struct { fields } => {
-                let defs = match ty {
-                    Some(TypeOwned::Struct(s)) => Some(&s.fields),
-                    _ => None,
-                };
-                self.fields(fields, defs)
-            }
+            // with its name when known, so the text reads back as a Rust expression (`ww explain --value`)
+            ValueOwned::Struct { fields } => match ty {
+                Some(TypeOwned::Struct(s)) => {
+                    let fields = self.fields(fields, Some(&s.fields));
+                    match fields.starts_with('{') {
+                        true => format!("{} {fields}", s.ident),
+                        false => format!("{}{fields}", s.ident),
+                    }
+                }
+                _ => self.fields(fields, None),
+            },
             ValueOwned::Enum { variant, fields } => match fields {
                 FieldsValueOwned::Unit => variant.clone(),
                 fields => {

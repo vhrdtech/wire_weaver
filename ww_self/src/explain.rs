@@ -1,4 +1,4 @@
-//! Which bits of a buffer hold which value (TOOL-9): the dynamic decoder of [value](crate::value) run with a trace,
+//! Which bits of a buffer hold which value (TOOL-9): the dynamic decoder ([ValueOwned::des_shrink_wrap_dyn]) run with a trace,
 //! every value it reads recorded with its place in the buffer, for `ww explain` and later a GUI.
 //!
 //! A value takes bits from the front of the buffer and, for lengths and sizes, nibbles from the back (the FIFO of
@@ -145,6 +145,10 @@ impl Trace {
             Some(waiting) => format!("{waiting}.{label}"),
             None => label,
         });
+    }
+
+    pub(crate) fn drop_label(&mut self) {
+        self.label = None;
     }
 
     /// A value of type `ty` starts: a part of its own, or for a wrapper only its type name for the next one.

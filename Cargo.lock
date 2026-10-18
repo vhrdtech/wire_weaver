@@ -1584,6 +1584,7 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "ww_client_server",
+ "ww_self",
 ]
 
 [[package]]
@@ -6006,6 +6007,7 @@ dependencies = [
  "ww_dfu",
  "ww_numeric",
  "ww_report",
+ "ww_self",
  "ww_settings",
  "ww_si",
 ]
@@ -6408,9 +6410,11 @@ name = "ww_self"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "quote",
  "serde",
  "sha2 0.11.0",
  "shrink_wrap",
+ "syn 3.0.3",
  "ww_numeric",
  "ww_version",
 ]

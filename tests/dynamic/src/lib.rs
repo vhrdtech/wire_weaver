@@ -478,6 +478,83 @@ mod tests {
         );
     }
 
+    /// [everything] written as a Rust expression, the way a person types it at `ww explain --value`.
+    const EVERYTHING_RS: &str = r#"Everything {
+        flag: true, small: 9, signed: -7, nib: 0xA, v: 1234,
+        a: 0xAB, b: 0xBEEF, c: 0xDEAD_BEEF, d: 18446744073709551614u64, e: -5, f: -300, g: -70_000,
+        h: -9223372036854775807, x: 1.5, y: -2.25,
+        name: "hello", bytes: vec![1, 2, 3], arr: [1, 2, 0xFFFF], pair: (7, 100_000),
+        opt: Some(Inner { id: 3, note: "note" }), res: Err(CheckError::Missing),
+        shapes: [Shape::Empty, Circle(5), Shape::Rect { w: 1, h: 2, label: "rect" }, Self::Far],
+        range: 3..10, fixed: Fixed { a: 9, b: true }, last: 5,
+    }"#;
+
+    #[test]
+    fn rust_expression_same_bytes_as_derived() {
+        let root = DynResource::root(bundle());
+        let ty = everything_ty(&root);
+        let value = ww_self::expr::parse_value(EVERYTHING_RS, &ty, root.bundle()).unwrap();
+        let bytes = value.ser_shrink_wrap_dyn(&ty, root.bundle()).unwrap();
+        assert_eq!(bytes, everything().to_ww_bytes_owned().unwrap());
+        // bytes as `ww` shows them
+        let text = EVERYTHING_RS.replace("vec![1, 2, 3]", "0x010203");
+        let value = ww_self::expr::parse_value(&text, &ty, root.bundle()).unwrap();
+        assert_eq!(
+            value.ser_shrink_wrap_dyn(&ty, root.bundle()).unwrap(),
+            bytes
+        );
+    }
+
+    #[test]
+    fn rust_expression_errors_name_the_field() {
+        let root = DynResource::root(bundle());
+        let ty = everything_ty(&root);
+        let err = |from: &str, to: &str| {
+            let text = EVERYTHING_RS.replacen(from, to, 1);
+            let e = ww_self::expr::parse_value(&text, &ty, root.bundle()).unwrap_err();
+            format!("{e:#}")
+        };
+        assert_eq!(
+            err("small: 9", "small: 16"),
+            "small: 16 is out of range for ub4"
+        );
+        assert_eq!(err("a: 0xAB", "a: \"x\""), "a: expected u8, got `\"x\"`");
+        assert_eq!(
+            err("Circle(5)", "Circle(5, 6)"),
+            "shapes: [1]: Shape::Circle has 1 fields, got 2"
+        );
+        assert_eq!(
+            err("CheckError::Missing", "CheckError::Gone"),
+            "res: Err: CheckError has no variant Gone, expected one of: TooBig, Missing"
+        );
+        assert_eq!(
+            err("Inner { id: 3,", "Inner { idd: 3,"),
+            "opt: Some: Inner has no field `idd`, it has: id, note"
+        );
+        assert!(err("Everything {", "Other {").starts_with("expected struct Everything"));
+    }
+
+    #[test]
+    fn rust_expression_calls() {
+        use ww_self::expr::{Call, parse_call};
+        let Call::Method { path, args } =
+            parse_call("bank[2].motor.set_speed(1.5, Dir::Cw)").unwrap()
+        else {
+            panic!("method expected");
+        };
+        assert_eq!((path.as_str(), args.len()), ("bank[2].motor.set_speed", 2));
+        assert!(
+            matches!(parse_call("add(1, 2)").unwrap(), Call::Method { path, .. } if path == "add")
+        );
+        assert!(
+            matches!(parse_call("motor.limit = 3").unwrap(), Call::Write { path, .. } if path == "motor.limit")
+        );
+        assert!(
+            matches!(parse_call("motor.limit").unwrap(), Call::Path { path } if path == "motor.limit")
+        );
+        assert!(parse_call("1 + 2").is_err());
+    }
+
     /// Every bit of the derived bytes is in exactly one part (TOOL-9): leaves never overlap, gaps in the front are
     /// only padding up to a byte boundary.
     fn check_explained(bytes: &[u8], ty: &TypeOwned, bundle: &ApiBundleOwned) -> Vec<Part> {
@@ -585,6 +662,21 @@ mod tests {
         );
         assert_eq!(parts[early + 3].label, "some");
         assert_eq!(parts[early + 3].value, Some(string("hi")));
+        // a relocated flag read as `None` leaves no label behind
+        let bytes = FlaggedOwned {
+            a: U3::new(5).unwrap(),
+            early: None,
+            res: Ok(7),
+            tagged: Tagged::Pair {
+                first: Some(1),
+                second: None,
+            },
+            late: Some(300),
+        }
+        .to_ww_bytes_owned()
+        .unwrap();
+        let parts = check_explained(&bytes, ty, root.bundle());
+        assert_eq!(part(&parts, "late.some").value, Some(num(N::U16(300))));
     }
 
     #[test]

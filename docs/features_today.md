@@ -253,6 +253,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 
 - **[API bundles](cli_reference.md#ww-api)**: `ww api save`, `check` and `diff`.
 - **[Watching properties](cli_reference.md#ww-observe)**: `ww observe` and Python print updates as they arrive, with rates.
+- **[Explaining bytes](cli_reference.md#ww-explain)**: `ww explain` shows every field of a buffer with its bits, from hex or a value written in Rust. <span class="ww-status">in progress</span>
 - **[Link test](cli_reference.md#ww-usb-loopback)**: `ww usb-loopback` measures round trips, losses and speed both ways.
 - **[Settings from a flash dump](cli_reference.md#ww-settings)**: `ww settings dump` decodes a settings store without the device.
 - **[Values from text](python_advanced.md)**: Typed values written as text and turned into bytes at runtime.
@@ -301,7 +302,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 - **[Request and event model](std_library/ww_client_server.md)**: `ww_client_server`, the messages every call is made of.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Standard library](features.md#standard-library-ww_stdlib-std) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Tooling: CLI, GUI, Python](features.md#tooling-cli-gui-python-tool) in the feature tracker.</p>
 
 ## Examples
 

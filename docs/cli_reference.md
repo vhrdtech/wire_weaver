@@ -223,6 +223,51 @@ $ ww observe foc --samples 5
   ..
 ```
 
+## `ww explain`
+
+Shows which bits of a buffer hold which value (TOOL-9): every field with its place in the buffer, its raw bits, its
+type and its decoded value, the lengths, enum discriminants, `Option` flags and padding in between, and a hex map
+coloured by field. Useful to check what a device really sends, to read a captured frame, or to learn the
+[wire format](serdes/derive.md) on your own types.
+
+```
+$ ww explain --crate api 'sub_byte(I2cAddress::Ten(0x2A5), 100, -300)'
+sub_byte arguments · 4 bytes
+
+0000  d4 b9 2d 40 
+
+bits             raw                  field                      type         value
+0‥10                                  addr                       I2cAddress   Ten
+0                1                      discriminant             u32          1
+1‥10             1010 1001 01           0                        ub10         677  0x2a5
+11‥17            1100 100             a                          ub7          100
+18‥27            1011 0101 00         b                          ib10         -300  0x2d4
+
+28 bits in values, 4 padding or unread
+```
+
+`<what>` is a type of the API (`Config`), or a resource path: a method's arguments (`motor.set_speed`, `--return` for
+its return value), a property's value, a stream's item. The bytes come in hex (`0a1b2c`, `0a 1b 2c`, `0x0a,0x1b`),
+from `--file`, or as a value written as a Rust expression, which is encoded first:
+
+```
+$ ww explain Config --value 'Config { mode: Mode::Fast, gains: [1.0, 2.5], name: "x", limit: None }'
+$ ww explain 'motor.set_speed(1.5, Dir::Cw)'     # a call: its arguments
+$ ww explain 'motor.limit = 3'                   # a property write
+```
+
+Literals take the type of their field: `5` is a `u16`, a `ub3` or an `f32` as the field says, and a value out of
+range is an error naming the field (`argument a: 200 is out of range for ub7`). Struct literals (`Name { a: 1 }`,
+`..Default::default()` for the rest), enum variants (`Mode::Fast` or `Fast`), `Some`/`None`, `Ok`/`Err`, tuples,
+arrays (`[0; 4]`, `vec![..]`, `b"bytes"`, `0xa102` for bytes), ranges and negative numbers work. The values `ww`
+prints (`ww introspect`, `ww observe`) are written the same way and can be pasted back, quantities (`3300 mV`) aside.
+
+Front bits are counted from bit 7 of byte 0. Lengths and sizes are nibbles read from the back of the buffer (or of
+the unsized value they are in), shown as `↩` with the byte and its half: `↩97h` is bits 7:4 of byte 97, `↩97l` bits
+3:0. The API comes from the device, or without one from the crate defining it (`--crate PATH`, `--trait NAME` when
+it has more than one) or a saved bundle (`--bundle FILE`, see [`ww api save`](#ww-api)). When the bytes don't decode,
+the tree shows how far it got and where it stopped.
+
 ## `ww usb-loopback`
 
 Checks the link to the selected device in three stages, each with a progress bar, then prints a summary table:

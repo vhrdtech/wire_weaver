@@ -237,6 +237,13 @@ impl Budget {
         }
     }
 
+    /// Forget a label no value took.
+    pub(crate) fn drop_label(&mut self) {
+        if let Some(trace) = &mut self.trace {
+            trace.drop_label();
+        }
+    }
+
     /// Where `rd` is, when tracing: the start of a [part](Self::part).
     pub(crate) fn before(&self, rd: &BufReader) -> Option<Cursors> {
         self.trace.as_ref()?.before(rd)
@@ -743,6 +750,8 @@ fn des_fields(
                     b.name(name)?,
                     des_struct_field(rd, def, flag, api_bundle, b)?,
                 ));
+                // a `None` read from a relocated flag reads nothing: its label is not for the next field
+                b.drop_label();
             }
             FieldsValueOwned::Named(values)
         }

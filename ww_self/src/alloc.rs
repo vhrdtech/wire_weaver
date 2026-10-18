@@ -4,7 +4,7 @@ use crate::{
     GenericArgOwned, GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length, Multiplicity, Repr,
     TypeLocationOwned, TypeOwned,
 };
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use shrink_wrap::ElementSize;
 use std::collections::HashSet;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
@@ -77,6 +77,7 @@ impl ApiItemKindOwned {
                 return_ty,
                 errors,
                 batched,
+                batch_item_ty,
             } => Some(StreamFnRef {
                 ty,
                 delivery: *delivery,
@@ -84,6 +85,7 @@ impl ApiItemKindOwned {
                 return_ty: return_ty.as_ref(),
                 errors: errors.as_deref(),
                 batched: *batched,
+                batch_item_ty: batch_item_ty.as_ref(),
             }),
             ApiItemKindOwned::Stream { ty, is_up: true } => Some(StreamFnRef {
                 ty,
@@ -92,6 +94,7 @@ impl ApiItemKindOwned {
                 return_ty: None,
                 errors: None,
                 batched: None,
+                batch_item_ty: None,
             }),
             _ => None,
         }
@@ -120,6 +123,29 @@ pub struct StreamFnRef<'a> {
     pub errors: Option<&'a [ErrorVariantOwned]>,
     /// Items sent in batches (API-41).
     pub batched: Option<Batching>,
+    /// [Batching::Timed] only: the `Timed<T>` instance, see
+    /// [ApiItemKind::StreamFn::batch_item_ty](crate::ApiItemKind::StreamFn).
+    pub batch_item_ty: Option<&'a TypeOwned>,
+}
+
+impl<'a> StreamFnRef<'a> {
+    /// What one event of this stream carries on the wire: `ty` directly when it isn't batched, `Series<T>`
+    /// (untimed) or `Series<Timed<T>>` (timed) otherwise (API-41), for a dynamic decoder. Errors on a form of
+    /// batching from a future `ww_self` this one doesn't know.
+    pub fn wire_item_ty(&self) -> Result<TypeOwned> {
+        Ok(match self.batched {
+            None => self.ty.clone(),
+            Some(Batching::Untimed) => TypeOwned::Series(Box::new(self.ty.clone())),
+            Some(Batching::Timed) => TypeOwned::Series(Box::new(
+                self.batch_item_ty
+                    .cloned()
+                    .ok_or_else(|| anyhow!("a batched timed stream without batch_item_ty"))?,
+            )),
+            Some(Batching::Unknown(_)) => {
+                bail!("a form of batching this ww_self doesn't know, update it")
+            }
+        })
+    }
 }
 
 impl ApiBundleOwned {

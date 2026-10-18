@@ -7,6 +7,14 @@
   `stream!` is a `StreamFn`. `StreamFnRef::batched`. API hashes of APIs with streams change; struct literals of
   `ApiItemKindOwned::StreamFn` need the new field.
 
+* `ApiItemKind::StreamFn` gets `batch_item_ty: Option<Type>` (`#[default = None]`, API-41): `Timed<T>` isn't named
+  anywhere `ty` alone would reach, so a dynamic decoder (the `ww` CLI, Python) couldn't otherwise find its
+  definition to decode a batched timed stream's `Series<Timed<T>>` events. `None` for `Batching::Untimed` (its wire
+  item is `Series<T>`, already `ty`, no extra bytes) and for a stream that isn't batched. `StreamFnRef::batch_item_ty`
+  / `StreamFnRef::wire_item_ty()` (what one event actually carries). `Timed`'s own definition is a known type from
+  the `ww_si` snapshot, so a device only adds one `Instance` reference per batched timed stream (a handful of
+  bytes), not `Timed`'s fields.
+
 * `ItemStruct::instance_of` / `ItemEnum::instance_of` (`#[default = None]`, `InstanceOf { type_idx, args }`, CLT-31):
   the generic definition and arguments a concrete definition was made from, set by `generics::instantiate` (and
   `substitute`), so a dynamic client can tell a value of `Quantity<units::Volt>` from its concrete `Quantity<Volt>`.

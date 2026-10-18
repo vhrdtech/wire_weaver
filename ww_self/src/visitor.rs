@@ -159,6 +159,7 @@ macro_rules! define_visitor {
                     ty,
                     args,
                     return_ty,
+                    batch_item_ty,
                     ..
                 } => {
                     v.visit_type(ty);
@@ -166,6 +167,9 @@ macro_rules! define_visitor {
                         v.visit_argument(arg);
                     }
                     if let Some(ty) = return_ty {
+                        v.visit_type(ty);
+                    }
+                    if let Some(ty) = batch_item_ty {
                         v.visit_type(ty);
                     }
                 }

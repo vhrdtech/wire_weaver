@@ -46,7 +46,9 @@
   device clock (`ww_si::Quantity::steps`), and returns `None`, pushing nothing, when `dt` is not a whole number of
   `t0`'s prefix (P2401#17oct-2214; it took `(t, value)` pairs before). The scaffold writes
   `Batched<.., 32>` states. Generated clients unpack batches into items. A batched item type that borrows is a
-  compile error.
+  compile error. A batched timed stream's model item gets `batch_item_ty` (the `Timed<T>` instance, for a dynamic
+  decoder): resolved from `ww_si` directly (not from anything the trait's own source names), so the item type's own
+  crate doesn't need a `use` of `Timed` — only `ww_si` as a dependency (needed anyway for `Timed<T>`'s `t: Second`).
 
 - Generated code names each user type by the path other crates see (API-46): the shortest one through `pub mod`s and
   `pub use` re-exports (by name, renamed, glob), recorded in the definition, instead of `<crate>::<Name>`. A type in

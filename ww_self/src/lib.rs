@@ -278,6 +278,12 @@ pub enum ApiItemKind<'i> {
         /// are the batch's items. None: one `T` per event.
         #[default = None]
         batched: Option<Batching>,
+        /// [Batching::Timed] only (API-41): the `Timed<T>` instance of the wire item (`Series` of it is the wire
+        /// form), computed once when the model is built. `Timed` isn't otherwise referred to from `ty` alone, so a
+        /// dynamic decoder (the `ww` CLI, Python) couldn't find its definition without this. `None` for
+        /// [Batching::Untimed] (its wire item is `Series<T>`, already `ty`) and for a stream that isn't batched.
+        #[default = None]
+        batch_item_ty: Option<Type<'i>>,
     },
     // Reserved, no useful info keeping reserved items after IDs are calculated
 }

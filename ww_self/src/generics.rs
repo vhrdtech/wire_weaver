@@ -166,10 +166,12 @@ impl<'a> Validator<'a> {
                     ty,
                     args,
                     return_ty,
+                    batch_item_ty,
                     ..
                 } => std::iter::once(ty)
                     .chain(args.iter().map(|a| &a.ty))
                     .chain(return_ty.as_ref())
+                    .chain(batch_item_ty.as_ref())
                     .collect(),
                 ApiItemKindOwned::Trait { .. } => vec![],
             };
@@ -886,6 +888,14 @@ impl Instantiator {
             if let ApiItemKindOwned::StreamFn { ty, .. }
             | ApiItemKindOwned::Stream { ty, .. }
             | ApiItemKindOwned::FlowSink { ty, .. } = &mut item.kind
+            {
+                self.ty(bundle, ty)?;
+            }
+            // the wire item of a batched timed stream (API-41): not reachable from `ty` alone
+            if let ApiItemKindOwned::StreamFn {
+                batch_item_ty: Some(ty),
+                ..
+            } = &mut item.kind
             {
                 self.ty(bundle, ty)?;
             }

@@ -287,7 +287,8 @@ fn staged_seals_full_budget_age_and_drains_bursts() {
         batches += 1;
     }
     assert_eq!(batches, 5);
-    // a small budget seals early
+    // a small budget seals early: its limit holds from the poll that set it on, as a batcher's does
+    assert_eq!(staged.poll_cells(src, 0, None, 20, 0b11).sealed, None);
     for k in 40..48 {
         write(&mut w, k);
     }

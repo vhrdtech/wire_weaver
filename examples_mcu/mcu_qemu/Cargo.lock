@@ -168,6 +168,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc"
+version = "3.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5eb8a2a1cd12ab0d987a5d5e825195d372001a4094a0376319d5a0ad71c1ba0d"
+dependencies = [
+ "crc-catalog",
+]
+
+[[package]]
+name = "crc-catalog"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "217698eaf96b4a3f0bc4f3662aaa55bdf913cd54d7204591faa790070c6d0853"
+
+[[package]]
 name = "critical-section"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -357,7 +372,9 @@ dependencies = [
  "static_cell",
  "wire_weaver",
  "ww_client_server",
+ "ww_framer",
  "ww_gpio",
+ "ww_link",
  "ww_si",
  "ww_stream",
 ]
@@ -926,6 +943,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_framer"
+version = "0.5.0"
+dependencies = [
+ "crc",
+ "shrink_wrap",
+]
+
+[[package]]
 name = "ww_global"
 version = "0.2.0"
 dependencies = [
@@ -942,6 +967,17 @@ version = "0.1.0"
 dependencies = [
  "wire_weaver",
  "ww_si",
+]
+
+[[package]]
+name = "ww_link"
+version = "0.5.0"
+dependencies = [
+ "shrink_wrap",
+ "wire_weaver",
+ "ww_framer",
+ "ww_global",
+ "ww_version",
 ]
 
 [[package]]

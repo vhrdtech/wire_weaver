@@ -3,6 +3,7 @@ use core::ops::Range;
 
 use shrink_wrap::BufReader;
 
+use crate::pieces::{Extent, ReadHead, read_head};
 use crate::traits::{Checksum, Head, MessageKind, RdError, Tail};
 
 pub struct FramedRx<'i, H: Head, C, T> {
@@ -260,20 +261,23 @@ where
     }
 
     fn process_next(&mut self) -> Step {
-        let mut rd = BufReader::new(&self.assembly_buf[self.staging_pos..self.staging_end]);
-        let (kind, user_kind, len) = match H::read(&mut rd) {
+        // the same head and extent reading as `pieces()`, so the two can't drift
+        let ReadHead {
+            kind,
+            user_kind,
+            len,
+            head_len,
+            left: frame_left,
+        } = match read_head::<H>(&self.assembly_buf[self.staging_pos..self.staging_end]) {
             Ok(h) => h,
             Err(RdError::NeedMoreData) => return Step::NeedMoreData,
             Err(_) => return Step::SkipFrame,
         };
-        rd.align_byte();
-        let payload_start = self.staging_pos + rd.pos().0;
-        let head_len = payload_start - self.staging_pos;
-        let frame_left = rd.bytes_left();
+        let payload_start = self.staging_pos + head_len;
 
         match (&self.state, kind) {
             (State::Gap, MessageKind::Full) => {
-                let rest = len + C::LEN_BYTES_FULL + T::LEN_BYTES;
+                let rest = Extent::of::<C, T>(MessageKind::Full, len).rest();
                 if rest > frame_left {
                     return if self.can_ever_fit(0, head_len, rest) {
                         Step::NeedMoreData
@@ -324,7 +328,7 @@ where
             }
             (State::Gap, MessageKind::End) => {
                 // lost Start; skip just this message and carry on with the rest of the frame
-                let rest = len + C::LEN_BYTES_SPLIT + T::LEN_BYTES;
+                let rest = Extent::of::<C, T>(MessageKind::End, len).rest();
                 if rest > frame_left {
                     // End must fit into one frame
                     return Step::SkipFrame;
@@ -376,7 +380,8 @@ where
                     self.state = State::Gap;
                     return Step::Next;
                 }
-                let rest = remaining + C::LEN_BYTES_SPLIT + T::LEN_BYTES;
+                // remaining == len, checked above
+                let rest = Extent::of::<C, T>(MessageKind::End, len).rest();
                 if rest > frame_left {
                     // End must fit into one frame together with checksum and tail
                     self.state = State::Gap;

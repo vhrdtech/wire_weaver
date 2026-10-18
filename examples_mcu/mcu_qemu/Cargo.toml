@@ -13,6 +13,8 @@ static_cell = "2.1"
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
 ww_stream = { path = "../../ww_stream", default-features = false }
+ww_framer = { path = "../../ww_framer" }
+ww_link = { path = "../../ww_link" }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
 ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "angle", "dimensionless", "f32", "time", "i32", "u32"] }
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
@@ -20,6 +22,13 @@ bounded_api = { path = "../../tests/bounded_api", default-features = false }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
 
 # to solve "can't find crate for test on IntelliJ"
+[[bin]]
+name = "qemu-framer-rx"
+path = "src/bin/framer_rx.rs"
+test = false
+doctest = false
+bench = false
+
 [[bin]]
 name = "qemu-ww-gpio"
 path = "src/bin/ww_gpio.rs"

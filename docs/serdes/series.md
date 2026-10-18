@@ -165,6 +165,41 @@ A Cortex-M4F takes about the same instructions; its flash is 17.6 KB with a `Cod
 60 800 with `SMALLEST`. A fixed codec is about 3x cheaper in CPU than `SMALLEST`, for 1.2x to 1.7x the bytes on this signal
 (a ramp after a step: delta of delta is the better fixed codec there, delta on flatter signals).
 
+`AlignedPlain` (SW-65) is the policy for CPU above all: every number byte-aligned and little-endian at its width
+(`NumericCodec::ALIGNED_PLAIN`, `FloatCodec::Aligned`), about as many bytes as raw + plain, and a column kept in an
+array of such numbers (a [SeriesStore](#collecting-items-on-a-device-seriesstore)) is written with a copy.
+
+### From the store, column by column
+
+SW-64. A batch kept in a `SeriesStore` can be written without rebuilding its items: `write_store_series` writes rows
+of a store column by column, straight from its arrays, the same bytes as `Series::with_policy(items, policy)`.
+`ww_stream`'s batchers do it on their own. It needs every enum and `Option` in the rows to keep one variant (a ww_si
+prefix, a `NumericValue` type), so that no column restarts; otherwise, and for strings, byte lists and `UN` / `IN`
+leaves, `write_store_series` writes nothing and says so, and the items are walked as before.
+
+```rust
+let mut wr = BufWriter::new(&mut buf);
+if !write_store_series::<Ampere, _, 32>(&mut wr, &store, 0..32, &DeltaPacked)? {
+    // a prefix changed in the batch: rebuild the items and write `Series::with_policy(&items, DeltaPacked)`
+}
+```
+
+One FOC level batch of the motor demo (21 quantities and the clock, n = 32: 21 x `Series<T>` + `Series<Second>`,
+`examples_mcu/mcu_qemu`'s `qemu-store-columns` and `usb_stm32h725ig`'s `shared_clock_cycles`):
+
+|                               | bytes | Cortex-M3 instructions | STM32H725 cycles, opt-level `z` / `3` |
+|-------------------------------|-------|------------------------|---------------------------------------|
+| `DeltaPacked`, item walk      | 1 251 | 143 463                | 312 600 / 125 300                     |
+| `DeltaPacked`, from the store | 1 251 | 74 898                 | 100 400 / 59 900                      |
+| `RawPlain`, from the store    | 2 882 | 115 063                | 160 300 / 103 300                     |
+| `AlignedPlain`, item walk     | 2 882 | 73 071                 | 323 500 / 44 400                      |
+| `AlignedPlain`, from the store | 2 882 | 40 987                | 128 700 / 34 200                      |
+
+At opt-level `z` the cycles move by up to 15 % between builds with the code layout. A firmware that writes series
+in a hot path gains more from `opt-level = 3` than from any codec: the series code is
+generic and compiled into the firmware's own crate, so a `[profile.release.package.shrink_wrap]` override doesn't
+reach it.
+
 ## Collecting items on a device: `SeriesStore`
 
 SW-62. A device that sends items in batches keeps them somewhere until the batch is written. `SeriesStore` is that

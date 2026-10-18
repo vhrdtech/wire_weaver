@@ -72,6 +72,8 @@ copying. Every message between host and device is made of it, and it works on it
 - **[Lists written in place](serdes/special_types.md#refvecbuilder-lists-written-in-place)**: `RefVecBuilder` writes a list into the buffer one element at a time, from a loop or an iterator, with no slice and the same bytes.
 - **[Series stores and size bounds](serdes/series.md#collecting-items-on-a-device-seriesstore)**: A batch of samples kept as one array per field until it is written as a `Series`, in half the RAM of the samples, and the most bytes the batch can take.
 - **[Fast, small `Series` encoding on MCUs](serdes/series.md#cpu-and-flash-on-an-mcu)**: About 340 instructions per sample on a Cortex-M3, and codecs fixed at compile time that link only themselves: 15 KB of flash instead of 91 KB.
+- **[`Series` straight from the store](serdes/series.md#from-the-store-column-by-column)**: A batch written column by column from the arrays it was collected in, the same bytes in half the instructions.
+- **[Aligned plain columns](serdes/series.md#cpu-and-flash-on-an-mcu)**: Numbers copied into the message as whole bytes: the cheapest series to write, for links where CPU matters more than bytes.
 - **[Sparse slots](serdes/special_types.md#optionanyvec-sparse-slots-of-any-types)**: `OptionAnyVec`, a list of optional values of any types where only the present ones take space.
 - **[Lists of either-or values](serdes/special_types.md#eitheranyvec)**: `EitherAnyVec` holds one of two types per element, the flags packed by eight, e.g. a list of results.
 

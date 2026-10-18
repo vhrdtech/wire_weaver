@@ -10,6 +10,21 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+* `Series` written straight from a `SeriesStore` (SW-64), column by column, the same bytes as the item walk:
+  `SeriesStore::columnar` (whether rows of a store can be, `false` by default) and `SeriesStore::write_store`, and
+  `series::write_store_series` for a whole `Series` (it writes nothing and returns `false` when a tag changes in the
+  rows). Numbers, floats, bools, `u128` / `i128`, `Option`, arrays, tuples and `PhantomData` have them, the derive
+  generates them for structs (an evolvable one's head included) and enums (one variant over the rows); strings,
+  byte lists and `UN` / `IN` don't. Delta packed is one pass over each column, aligned plain of integers whose
+  memory is their wire bytes is one copy. For hand-written stores: `series::StoreWord`, `write_numeric_column`,
+  `write_numeric128_column`, `write_float_column`. One FOC level batch of the motor demo (21 x `Series<T>` and the
+  clock, n = 32) takes 74.9 k instructions on a Cortex-M3 instead of 143.5 k with `DeltaPacked`, 100 k cycles on an
+  STM32H725 instead of 312 k (60 k against 125 k at `opt-level = 3`).
+* Aligned plain columns (SW-65): the numeric escape `11 11` writes each value little-endian in `ceil(W / 8)` bytes
+  after zero bits to a byte, float codec `0010` the same in 4 or 8 bytes; `NumericCodec::ALIGNED_PLAIN`,
+  `FloatCodec::Aligned` and the `series::AlignedPlain` policy. As many bytes as raw + plain (a little more for
+  widths that aren't whole bytes), the cheapest to write from a store. The readers, so also `ww_self`'s dynamic
+  decoder, read both.
 * `shrink_wrap::series::dynamic` writers (CLT-29), the write side of its readers for code that knows `T` only at
   run time: `write_count` / `write_count_owned`, `write_numeric`, `write_numeric128`, `write_float`, `write_run`,
   `write_opaque_run`, `write_opaque_field` and `write_struct_head` (a nested group length from a measuring closure).
@@ -249,6 +264,12 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### ⚠️ Breaking
 
+* `series::Predictor::Aligned` and `series::FloatCodec::Aligned` are new variants (SW-65): an exhaustive `match`
+  on either needs an arm. On the wire, `Series` readers from before SW-65 fail on an aligned plain column with
+  `MalformedSeries` (only a writer given `AlignedPlain` writes one). `Series::max_bytes` and
+  `SeriesColumns::MAX_FIXED_BITS` take 7 more bits per numeric and float column (the padding before aligned
+  values), and `bound::numeric_item_bits` at least the whole bytes of a value (8 for `W` up to 8): a batcher sized
+  by the bound fits slightly fewer items.
 * `Delta`, `DeltaOfDelta` and `XorFloat` (SW-31, SW-32) are removed, with `DeltaOwned`, `DeltaOfDeltaOwned`,
   `XorFloatOwned`, `DeltaIter`, `DeltaOfDeltaIter`, `XorFloatIter` and `DeltaInt`: `Series<T>` (SW-60) covers them
   with the same codes (its numeric columns' prefix coder is the SW-31 code with the delta or delta of delta

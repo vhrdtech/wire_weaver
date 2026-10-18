@@ -21,6 +21,9 @@ Wire-incompatible with 0.1.1.
 
 ### 🚀 Features
 
+* `NumericValueStore` writes rows with one variant column by column (SW-64, `SeriesStore::columnar` /
+  `write_store`): the tag run and the variant's column straight from the payload array, the same bytes as the item
+  walk. Not for `UN` / `IN`.
 * `NumericBaseType::from_i128_wrapping(x)`: `x` wrapped at an integer type's width, for `ww_si`'s wrapping time
   arithmetic.
 * `NumericValueStore<N>` (SW-62), the `shrink_wrap::series::SeriesStore` of `NumericValue`, written by hand: a byte

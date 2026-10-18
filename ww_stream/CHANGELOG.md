@@ -74,6 +74,11 @@
 
 ### 🚀 Features
 
+- Batches are written straight from the store when they can be (SW-64): `batch::Scratch::encode_column` (a level's
+  columns) and `Batcher::encode_into` call `series::write_store_series` first, and rebuild the items only when an
+  enum tag changes in the rows (a ww_si prefix, a `NumericValue` type) or the batch doesn't fit. The same bytes;
+  one FOC level batch of the motor demo takes half the instructions on a Cortex-M3 and a third of the cycles on an
+  STM32H725.
 - `batch` module (API-41), the device side of batched streams and observed properties, `no_std` and without an
   allocator:
     - `Batcher<T, N>`: two struct-of-arrays stores (`SeriesStore`) of `N` items (up to `MAX_BATCH`, 8191), shared

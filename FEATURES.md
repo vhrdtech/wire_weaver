@@ -60,6 +60,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   appended); a malformed header is an error. Writer takes the present set up front (`SetBits` over a bitset, any
   increasing iterator), `OptionAnyVecWriter` / in-place `OptionAnyVecBuilder`. For a trait level's properties in one
   update (API-38). See `docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types`, `docs/serdes/showcase.md`.
+- ✅ **SW-64 `Series` written straight from a `SeriesStore`**, column by column, the same bytes as the item walk:
+  `SeriesStore::columnar` / `write_store` (leaves, `Option`, arrays, tuples, derived structs and enums, by hand for
+  `NumericValue`) and `series::write_store_series`, used by `ww_stream`'s batchers on their own. Needs one variant
+  per enum and `Option` over the rows (a prefix change falls back to the walk). One FOC level batch (21 x
+  `Series<T>` + clock, n = 32, `DeltaPacked`): 74.9 k instructions on a Cortex-M3 instead of 143.5 k, 100 k cycles on
+  an STM32H725 instead of 312 k (60 k against 125 k at `opt-level = 3`). See
+  `docs/serdes/series.md#from-the-store-column-by-column`, `shrink_wrap/shrink_wrap/src/series/store_write_tests.rs`,
+  `examples_mcu/mcu_qemu` (`qemu-store-columns`).
+- ✅ **SW-65 Aligned plain columns**: the numeric escape `11 11` and float codec `0010`, values little-endian at
+  their byte width after zero bits to a byte, the `AlignedPlain` policy. The cheapest writer from a store (34 k
+  cycles per FOC level batch on an STM32H725 at `opt-level = 3`), at 2.3x the bytes of `DeltaPacked`. Readers from
+  before it reject the column. See `docs/serdes/wire_format.md#seriest`, `docs/serdes/series.md#cpu-and-flash-on-an-mcu`.
 - ✅ **SW-63 Fast and small `Series` encoding on MCUs**, the same bytes: about 6x fewer instructions per item on
   a Cortex-M3/M4F (`Series<Timed<Ampere>>`, n = 32: 341 with a fixed codec, 969 with `SMALLEST`; 25 200 cycles per
   batch of 32 on an STM32H725), and codec policies fixed at compile time (`SeriesPolicy`, `FixedCodecs`,

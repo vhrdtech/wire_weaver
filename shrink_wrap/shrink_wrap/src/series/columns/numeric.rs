@@ -458,7 +458,8 @@ where
     W: Word,
 {
     if codec.predictor == Predictor::Aligned {
-        return (codec.coder == Coder::Plain).then(|| 8 + items.count() * 8 * aligned_bytes(kind.width));
+        return (codec.coder == Coder::Plain)
+            .then(|| 8 + items.count() * 8 * aligned_bytes(kind.width));
     }
     coder_bits(kind, codec.predictor, items)[codec.coder as usize]
 }
@@ -516,6 +517,102 @@ where
     };
     encode(sink, kind, codec, items)?;
     Ok(codec)
+}
+
+/// Writes a numeric column of `values` without restarts, the bits [write_numeric] writes for
+/// `values.map(|v| (word(v), false))`, from an array as a [SeriesStore](crate::series::SeriesStore) keeps it:
+/// aligned plain of values whose memory is their aligned bytes (`native`: the low W bits, little-endian, in
+/// `ceil(W / 8)` bytes of their own) is one copy on a little-endian target, delta packed one pass with the block
+/// widths and bits packed in a word; every other codec goes through [write_numeric].
+#[inline(always)]
+pub(crate) fn write_numeric_slice<T, W>(
+    sink: &mut impl BitSink,
+    kind: NumericKind,
+    values: &[T],
+    word: impl Fn(&T) -> W + Copy,
+    native: bool,
+    codec: Option<NumericCodec>,
+) -> Result<NumericCodec, Error>
+where
+    W: Word,
+{
+    match codec {
+        Some(c)
+            if c.predictor == Predictor::Aligned && native && cfg!(target_endian = "little") =>
+        {
+            debug_assert_eq!(core::mem::size_of::<T>(), aligned_bytes(kind.width));
+            sink.put_bits(4, 0b1111)?;
+            sink.align_byte();
+            // SAFETY: `native` says a `T` is `size_of::<T>()` plain bytes (an integer), so the slice is
+            // `size_of_val(values)` initialized bytes, and `u8` has no alignment
+            let bytes = unsafe {
+                core::slice::from_raw_parts(
+                    values.as_ptr().cast::<u8>(),
+                    core::mem::size_of_val(values),
+                )
+            };
+            sink.put_bytes(bytes)?;
+            Ok(NumericCodec::ALIGNED_PLAIN)
+        }
+        Some(c) if c == NumericCodec::new(Predictor::Delta, Coder::Packed) => {
+            delta_packed_slice(sink, kind, values, word)?;
+            Ok(c)
+        }
+        _ => write_numeric(sink, kind, values.iter().map(|v| (word(v), false)), codec),
+    }
+}
+
+/// Delta packed without restarts, one pass: the first value at the width, then blocks of [PACKED_BLOCK]
+/// residuals, each its width field and the residuals packed into a 64-bit word before they go to the sink. The
+/// same bits as [PackedWriter].
+#[inline(never)]
+fn delta_packed_slice<T, W: Word>(
+    sink: &mut impl BitSink,
+    kind: NumericKind,
+    values: &[T],
+    word: impl Fn(&T) -> W,
+) -> Result<(), Error> {
+    sink.put_bits(4, ((Predictor::Delta as u64) << 2) | Coder::Packed as u64)?;
+    let Some((first, rest)) = values.split_first() else {
+        return Ok(());
+    };
+    let shift = W::BITS - kind.width as u32;
+    let mut prev = word(first).shl(shift);
+    sink.put_bits(kind.width, prev.shr(shift).to_u64())?;
+    let width_bits = block_width_bits(kind.width);
+    for block in rest.chunks(PACKED_BLOCK as usize) {
+        let mut z = [W::ZERO; PACKED_BLOCK as usize];
+        let mut any = W::ZERO;
+        for (z, v) in z.iter_mut().zip(block) {
+            let v = word(v).shl(shift);
+            *z = v.wrapping_sub(prev).zigzag().shr(shift);
+            any |= *z;
+            prev = v;
+        }
+        let width = any.needs();
+        sink.put_bits(width_bits, width as u64)?;
+        if width == 0 {
+            continue;
+        }
+        if width > 32 {
+            for z in &z[..block.len()] {
+                sink.put_bits(width, z.to_u64())?;
+            }
+            continue;
+        }
+        // up to two residuals of up to 32 bits per 64-bit word
+        let (mut acc, mut n) = (0u64, 0u8);
+        for z in &z[..block.len()] {
+            if n + width > 64 {
+                sink.put_bits(n, acc)?;
+                (acc, n) = (0, 0);
+            }
+            acc = acc << width | z.to_u64();
+            n += width;
+        }
+        sink.put_bits(n, acc)?;
+    }
+    Ok(())
 }
 
 /// Reader of a numeric column of 1- to 64-bit values, stepped one item at a time.

@@ -122,6 +122,7 @@ impl SeriesSeed<'_> {
 
     /// The store type's definition, named `#store_ident`, with `fields` (`name: type,` each, `#[cfg]`s included),
     /// and its `impl SeriesStore` with the bodies given.
+    #[allow(clippy::too_many_arguments)]
     fn store_impl(
         &self,
         store_ident: &Ident,
@@ -129,6 +130,8 @@ impl SeriesSeed<'_> {
         empty: TokenStream,
         set: TokenStream,
         get: TokenStream,
+        columnar: TokenStream,
+        write: TokenStream,
     ) -> TokenStream {
         let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
         let ident = self.ident;
@@ -140,6 +143,10 @@ impl SeriesSeed<'_> {
         let marker_lifetime = maybe_quote(self.has_lifetime, || quote! { &'i (), });
         let type_params: Vec<_> = self.generics.type_params().map(|p| &p.ident).collect();
         let args = self.store_args();
+        let bit_sink = self.sc(quote! { BitSink });
+        let series_policy = self.sc(quote! { SeriesPolicy });
+        let level = self.sc(quote! { Level });
+        let error = self.cp.error();
         let doc = format!("The `SeriesStore` of [{ident}]: an array per leaf field.");
         quote! {
             #cfg
@@ -168,12 +175,32 @@ impl SeriesSeed<'_> {
                 fn get<const __N: usize>(store: &Self::Store<__N>, i: usize) -> Self {
                     #get
                 }
+
+                #[allow(unused_variables)]
+                fn columnar<const __N: usize>(
+                    store: &Self::Store<__N>,
+                    rows: ::core::ops::Range<usize>,
+                ) -> bool {
+                    #columnar
+                }
+
+                #[allow(unused_variables)]
+                fn write_store<__S: #bit_sink, __P: #series_policy + ?Sized, const __N: usize>(
+                    store: &Self::Store<__N>,
+                    rows: ::core::ops::Range<usize>,
+                    sink: &mut __S,
+                    policy: &__P,
+                    level: #level,
+                ) -> Result<(), #error> {
+                    #write
+                }
             }
         }
     }
 
-    /// `impl SeriesStore` of a struct: a store per field.
-    fn series_store_struct(&self, fields: &[SeriesField]) -> TokenStream {
+    /// `impl SeriesStore` of a struct: a store per field; columnar when every field is (an earlier field then
+    /// restarts no later one), written field by field after the head of an evolvable struct.
+    fn series_store_struct(&self, fields: &[SeriesField], evolvable: bool) -> TokenStream {
         if !self.store || fields.iter().any(|f| f.opaque) {
             return quote! {};
         }
@@ -181,6 +208,18 @@ impl SeriesSeed<'_> {
         let store_ident = format_ident!("__{}SeriesStore", self.ident);
         let members: Vec<_> = fields.iter().map(|f| &f.member).collect();
         let tys: Vec<_> = fields.iter().map(|f| &f.ty).collect();
+        let level = self.sc(quote! { Level });
+        let n = fields.len() as u32;
+        let head = maybe_quote(evolvable, || {
+            let write_struct_head = self.sc(quote! { write_struct_head });
+            quote! {
+                #write_struct_head(sink, level, true, #n, |counter| {
+                    <Self as #store_trait>::write_store::<_, __P, __N>(
+                        store, rows.clone(), counter, policy, #level::Fields,
+                    )
+                })?;
+            }
+        });
         self.store_impl(
             &store_ident,
             quote! { #(#members: <#tys as #store_trait>::Store<__N>,)* },
@@ -192,6 +231,14 @@ impl SeriesSeed<'_> {
             },
             quote! { #(<#tys as #store_trait>::set::<__N>(&mut store.#members, i, &item.#members);)* },
             quote! { Self { #(#members: <#tys as #store_trait>::get::<__N>(&store.#members, i)),* } },
+            quote! { true #(&& <#tys as #store_trait>::columnar::<__N>(&store.#members, rows.clone()))* },
+            quote! {
+                #head
+                #(<#tys as #store_trait>::write_store::<__S, __P, __N>(
+                    &store.#members, rows.clone(), sink, policy, #level::Nested,
+                )?;)*
+                Ok(())
+            },
         )
     }
 
@@ -289,6 +336,62 @@ impl SeriesSeed<'_> {
             let dv = d(v);
             quote! { #on { if __d.is_none() { __d = Some(#dv); } } }
         });
+        // columnar: one variant over the rows (a future one isn't: the item walk rejects it), its fields columnar
+        let level = self.sc(quote! { Level });
+        let write_enum_tags = self.sc(quote! { write_enum_tags });
+        let known: Vec<&Variant> = variants
+            .iter()
+            .filter(|v| Some(&v.ident) != future_version)
+            .collect();
+        let columnar_arms = known.iter().map(|v| {
+            let on = v.cfg_attrs();
+            let dv = d(v);
+            let fields = data
+                .iter()
+                .find(|(dv, _)| dv.ident == v.ident)
+                .map(|(_, f)| f.as_slice())
+                .unwrap_or_default();
+            let slots = fields.iter().map(|f| slot(v, f));
+            let tys = fields.iter().map(|f| &f.ty);
+            quote! {
+                #on #dv => true #(&& <#tys as #store_trait>::columnar::<__N>(&store.#slots, rows.clone()))*,
+            }
+        });
+        let write_arms = data.iter().map(|(v, fields)| {
+            let on = v.cfg_attrs();
+            let dv = d(v);
+            let slots = fields.iter().map(|f| slot(v, f));
+            let tys = fields.iter().map(|f| &f.ty);
+            quote! {
+                #on #dv => {
+                    #(<#tys as #store_trait>::write_store::<__S, __P, __N>(
+                        &store.#slots, rows.clone(), sink, policy, #level::Nested,
+                    )?;)*
+                }
+            }
+        });
+        let columnar = quote! {
+            let __tags = &store.__tag[rows.clone()];
+            let __t = __tags[0];
+            if !__tags.iter().all(|t| *t == __t) {
+                return false;
+            }
+            #[allow(unreachable_patterns)]
+            match __t as u32 {
+                #(#columnar_arms)*
+                _ => false,
+            }
+        };
+        let write = quote! {
+            let __t = store.__tag[rows.start] as u32;
+            #write_enum_tags(sink, ::core::iter::repeat_n(__t, rows.len()))?;
+            #[allow(unreachable_patterns, clippy::match_single_binding)]
+            match __t {
+                #(#write_arms)*
+                _ => {}
+            }
+            Ok(())
+        };
         let (set_tag, other) = match future_version {
             Some(fv) => (
                 quote! {
@@ -341,6 +444,8 @@ impl SeriesSeed<'_> {
                     #other
                 }
             },
+            columnar,
+            write,
         )
     }
 
@@ -608,7 +713,7 @@ impl SeriesSeed<'_> {
                 quote! { Some(0) }
             },
         );
-        let store = self.series_store_struct(&fields);
+        let store = self.series_store_struct(&fields, evolvable);
         // only an evolvable struct has a head: the measuring pass behind it would instantiate every column writer
         // once more for the counter
         let head = maybe_quote(evolvable, || {

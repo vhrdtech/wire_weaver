@@ -20,6 +20,8 @@ mod series_type;
 mod store;
 #[cfg(all(test, feature = "std"))]
 mod store_tests;
+#[cfg(all(test, feature = "std"))]
+mod store_write_tests;
 #[cfg(all(feature = "std", any(test, fuzzing)))]
 #[doc(hidden)]
 pub mod type_check;
@@ -32,8 +34,8 @@ mod type_tests;
 mod xor_float;
 
 pub use columns::{
-    AlignedPlain, BitCounter, CodecPolicy, Coder, DeltaPacked, FixedCodecs, FloatCodec, NumericCodec,
-    PACKED_BLOCK, Predictor, RawPlain, SeriesPolicy,
+    AlignedPlain, BitCounter, CodecPolicy, Coder, DeltaPacked, FixedCodecs, FloatCodec,
+    NumericCodec, PACKED_BLOCK, Predictor, RawPlain, SeriesPolicy,
 };
 pub use group::{
     EnumTags, FieldItems, Level, OpaqueField, OpaqueReader, RootCtx, SeriesColumns, SeriesCtx,
@@ -44,7 +46,7 @@ pub use leaves::{ArrayReader, OptionReader};
 #[cfg(feature = "std")]
 pub use series_type::SeriesOwned;
 pub use series_type::{SERIES_MAX_ITEMS, Series, SeriesIter, SeriesTryIter};
-pub use store::SeriesStore;
+pub use store::{SeriesStore, write_store_series};
 
 pub use xor_float::XorBits;
 

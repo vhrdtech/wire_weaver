@@ -424,7 +424,12 @@ fn aligned_plain_bytes() {
     let mut buf = [0u8; 16];
     let mut wr = BufWriter::new(&mut buf);
     wr.write_un32(1, 1).unwrap();
-    write_float(&mut wr, [(1.0f32, false)].into_iter(), Some(FloatCodec::Aligned)).unwrap();
+    write_float(
+        &mut wr,
+        [(1.0f32, false)].into_iter(),
+        Some(FloatCodec::Aligned),
+    )
+    .unwrap();
     assert_eq!(wr.pos(), (5, 7));
     let bytes = wr.deinit()[..5].to_vec();
     assert_eq!(bytes, [0b1001_0000, 0x00, 0x00, 0x80, 0x3F]);

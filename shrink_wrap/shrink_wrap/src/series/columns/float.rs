@@ -81,6 +81,30 @@ where
     Ok(codec)
 }
 
+/// Writes a float column of `values` without restarts, the bits [write_float] writes for them: aligned plain is
+/// one copy on a little-endian target (a float's memory is its bits).
+#[inline(always)]
+pub(crate) fn write_float_slice<T: XorBits>(
+    sink: &mut impl BitSink,
+    values: &[T],
+    codec: Option<FloatCodec>,
+) -> Result<FloatCodec, Error> {
+    if codec == Some(FloatCodec::Aligned) && cfg!(target_endian = "little") {
+        sink.put_bits(4, FloatCodec::Aligned as u64)?;
+        sink.align_byte();
+        // SAFETY: `T` is `f32` or `f64` (`XorBits`), plain bytes, and `u8` has no alignment
+        let bytes = unsafe {
+            core::slice::from_raw_parts(
+                values.as_ptr().cast::<u8>(),
+                core::mem::size_of_val(values),
+            )
+        };
+        sink.put_bytes(bytes)?;
+        return Ok(FloatCodec::Aligned);
+    }
+    write_float(sink, values.iter().map(|v| (*v, false)), codec)
+}
+
 /// Reader of a float column, stepped one item at a time.
 pub struct FloatReader<'i, T> {
     rd: BufReader<'i>,

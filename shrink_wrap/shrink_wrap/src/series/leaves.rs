@@ -4,7 +4,7 @@
 
 use super::columns::float::{FloatReader, write_float};
 use super::columns::numeric::{
-    Numeric128Reader, NumericKind, NumericReader, write_numeric, write_numeric128,
+    Numeric128Reader, NumericKind, NumericReader, Word, write_numeric, write_numeric128,
 };
 use super::columns::run::{Opaque, RunKind, RunReader, write_opaque_run, write_run};
 use super::group::write_enum_tags;
@@ -66,9 +66,31 @@ fn column<R>(reader: &mut Option<R>) -> Result<&mut R, Error> {
     reader.as_mut().ok_or(Error::MalformedSeries)
 }
 
-/// `$word`: the [Word](super::columns::numeric::Word) the column is written in, `u32` up to 32 bits.
+/// A numeric leaf's column, for its [SeriesStore](super::SeriesStore) to write an array of it.
+pub(crate) trait NumericLeaf: Sized {
+    type Word: Word;
+    const KIND: NumericKind;
+    /// A value's memory is its aligned plain bytes: an integer type of exactly the width.
+    const NATIVE: bool;
+    fn word(&self) -> Self::Word;
+}
+
+/// `$word`: the [Word](super::columns::numeric::Word) the column is written in, `u32` up to 32 bits; `$native`:
+/// [NumericLeaf::NATIVE].
 macro_rules! numeric_leaf {
-    ($ty:ty, $word:ty, $width:expr, $signed:expr, |$v:ident| $to:expr, |$b:ident| $from:expr) => {
+    ($ty:ty, $word:ty, $width:expr, $signed:expr, $native:expr, |$v:ident| $to:expr, |$b:ident| $from:expr) => {
+        impl NumericLeaf for $ty {
+            type Word = $word;
+            const KIND: NumericKind = NumericKind::new($width, $signed);
+            const NATIVE: bool = $native;
+
+            #[inline(always)]
+            fn word(&self) -> $word {
+                let $v = self;
+                $to as $word
+            }
+        }
+
         impl<'i> SeriesColumns<'i> for $ty {
             type Reader = Option<NumericReader<'i>>;
             const MAX_ITEM_BITS: Option<usize> = Some(bound::numeric_item_bits($width));
@@ -119,7 +141,7 @@ macro_rules! numeric_leaf {
 
 macro_rules! numeric_prim {
     ($($ty:ty: $word:ty, $width:literal, $signed:literal);* $(;)?) => {
-        $(numeric_leaf!($ty, $word, $width, $signed, |v| *v as $word, |b| if $signed {
+        $(numeric_leaf!($ty, $word, $width, $signed, true, |v| *v as $word, |b| if $signed {
             sign_extend(b, $width) as $ty
         } else {
             b as $ty
@@ -132,17 +154,21 @@ numeric_prim!(
     i8: u32, 8, true; i16: u32, 16, true; i32: u32, 32, true; i64: u64, 64, true;
 );
 
-numeric_leaf!(Nibble, u32, 4, false, |v| v.value() as u64, |b| {
+numeric_leaf!(Nibble, u32, 4, false, false, |v| v.value() as u64, |b| {
     Nibble::new_masked(b as u8)
 });
-numeric_leaf!(UNib32, u32, 32, false, |v| v.0 as u64, |b| UNib32(b as u32));
-numeric_leaf!(UVlq32, u32, 32, false, |v| v.0 as u64, |b| UVlq32(b as u32));
-numeric_leaf!(UVlq64, u64, 64, false, |v| v.0, |b| UVlq64(b));
+numeric_leaf!(UNib32, u32, 32, false, false, |v| v.0 as u64, |b| UNib32(
+    b as u32
+));
+numeric_leaf!(UVlq32, u32, 32, false, false, |v| v.0 as u64, |b| UVlq32(
+    b as u32
+));
+numeric_leaf!(UVlq64, u64, 64, false, false, |v| v.0, |b| UVlq64(b));
 
 macro_rules! un_leaves {
     ($signed:literal, $word:ty, $prefix:ident: $($bits:literal),*) => {
         paste::paste! {
-            $(numeric_leaf!(crate::un::[<$prefix $bits>], $word, $bits, $signed, |v| v.__to_wire(), |b| {
+            $(numeric_leaf!(crate::un::[<$prefix $bits>], $word, $bits, $signed, false, |v| v.__to_wire(), |b| {
                 crate::un::[<$prefix $bits>]::__from_wire(b)
             });)*
         }

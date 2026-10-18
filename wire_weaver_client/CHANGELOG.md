@@ -73,6 +73,13 @@
   enum definitions it compared also when one side writes them out further than the other (a device can), and gives
   up past a depth bound; before, such a pair of types recursed until the stack overflowed.
 
+### 🗑️ Removed
+
+- The iceoryx2 USB packet tracer (`usb::tracing`, feature `usb-tracing`, built but not wired since 558256e1) and the
+  `iceoryx2` / `iceoryx2-bb-container` dependencies; the link tap (`ww_tap`) takes its place. The unused `ipc`
+  feature is gone too, a local-socket transport brings its own (P2401#14oct-1413). Builds that turned on
+  `usb-tracing` or `ipc` drop the feature.
+
 ### ⚠️ Breaking
 
 - `Series<T>` (SW-60, CLT-29): dynamic clients read it (`DynResource` values are a `Vec` of items), the

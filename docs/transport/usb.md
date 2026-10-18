@@ -83,8 +83,6 @@ spawner.spawn(unwrap!(ww_server_task(server, state))); // server.run(&mut state)
 - **Full duplex**: sending and receiving never block each other on the host, so a device that is busy answering
   cannot stall the host and vice versa (see [ww_link](ww_link.md#why-two-halves) for why this matters).
 - **Version and identity check** during link setup, before any application data flows.
-- **Tracing**: with the `usb-tracing` feature every packet in both directions is published over iceoryx2 for
-  external inspection.
 
 ## Supported MCUs
 

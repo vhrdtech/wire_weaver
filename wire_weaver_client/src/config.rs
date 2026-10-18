@@ -126,10 +126,10 @@ pub(crate) enum ConfigPiece {
     /// Negate previous UDP related filters or exclude UDP from the interfaces to try.
     NoUdp,
 
-    /// Connect to a device running in another process via IPC interface (iceoryx2).
+    /// Connect to a device running in another process via a local socket (not built yet, P2401#14oct-1413).
     /// Can be used for testing purposes or to create virtual devices.
     IpcPath { path: String },
-    /// Connect to a device running in another process via IPC interface (iceoryx2).
+    /// Connect to a device running in another process via a local socket (not built yet, P2401#14oct-1413).
     /// Find which one using USB filters.
     /// Used to split multiplex multiple clients to one USB device for example.
     /// Server claims USB interface, clients connect to it via ipc or network.

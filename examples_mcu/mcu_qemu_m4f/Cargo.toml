@@ -93,3 +93,10 @@ path = "src/bin/high_rate.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "qemu-m4f-bit-io"
+path = "src/bin/bit_io.rs"
+test = false
+doctest = false
+bench = false

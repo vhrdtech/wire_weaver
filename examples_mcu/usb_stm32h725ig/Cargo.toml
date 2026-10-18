@@ -154,3 +154,10 @@ path = "src/bin/high_rate_cycles.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "stm32h725ig-bit-io-cycles"
+path = "src/bin/bit_io_cycles.rs"
+test = false
+doctest = false
+bench = false

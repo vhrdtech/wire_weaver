@@ -110,3 +110,10 @@ path = "src/bin/foc_observe.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "qemu-bit-io"
+path = "src/bin/bit_io.rs"
+test = false
+doctest = false
+bench = false

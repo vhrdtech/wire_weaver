@@ -5142,7 +5142,7 @@
 field, each compressed on its own. For samples that change slowly (sensor readings, counters, timestamps) it is
 3 to 8 times smaller than a plain <code>Vec&lt;T&gt;</code>, without giving up evolution, zero-copy reading, or <code>no_std</code>/no-alloc.</p>
 <p>A <code>Series</code> is a type you reach for explicitly today, in a property, method argument/return or stream item, the same
-way you'd use <code>Vec&lt;T&gt;</code> or <a href="../special_types/#delta-deltaofdelta-and-xorfloat-compressed-sequences"><code>Delta&lt;T&gt;</code></a>.
+way you'd use <code>Vec&lt;T&gt;</code>; a <code>Series</code> of plain numbers is the <a href="../special_types/#compressed-sequences-of-numbers-seriest">compressed number sequence</a>.
 A stream or property can also opt into batching many samples into one <code>Series</code> automatically instead of sending one
 item at a time (API-41, see <a href="../../api/batching/">Batching</a>); nothing below needs that.</p>
 <h2 id="which-t">Which <code>T</code><a class="headerlink" href="#which-t" title="Permanent link">&para;</a></h2>
@@ -5171,8 +5171,7 @@ picks the cheapest representation per column:</p>
   smallest. A column restarts (a full value, fresh codec state) where an <strong>enum field declared earlier in the same
   struct changed</strong> — so a current reading that jumps from the µA range to the mA range gets a full value instead of
   a meaningless delta across the jump.</li>
-<li><strong>Floats</strong> get the same treatment as <a href="../special_types/#delta-deltaofdelta-and-xorfloat-compressed-sequences"><code>XorFloat</code></a>
-  (plain or XOR), but integers with a predictor compress markedly better than floats — see
+<li><strong>Floats</strong> are a <strong>float column</strong>, plain or the <a href="../wire_format/#the-delta-and-xor-codes">XOR code</a> (Gorilla), but integers with a predictor compress markedly better than floats — see
   <a href="#integer-storage-beats-floats">below</a>.</li>
 </ul>
 <p>A <code>Series</code> is self-contained: every batch carries its own first values and codec headers, so a lost batch never
@@ -5260,7 +5259,7 @@ is expected to use.</p>
 <p>The <a href="../showcase/#compressed-columns-seriest">showcase</a> has the exact bytes of a 4-item batch, checked against the
 running code.</p>
 <h2 id="integer-storage-beats-floats">Integer storage beats floats<a class="headerlink" href="#integer-storage-beats-floats" title="Permanent link">&para;</a></h2>
-<p>A steady <code>f32</code> voltage (100 values) is 136 B as <code>XorFloat</code>; the same signal stored as <code>U16</code> millivolts with a
+<p>A steady <code>f32</code> voltage (100 values) is about 136 B with the XOR code; the same signal stored as <code>U16</code> millivolts with a
 <code>ww_si</code> prefix is 45 B. Noisy: 277 B vs 82 B. The prefix sets the resolution, and noise below that resolution costs
 nothing — so a device sending <code>ww_si</code> quantities (which carry a prefix and an integer storage tag by construction)
 gets this for free, while a bare <code>f32</code> pays for every bit of mantissa the ADC's noise floor touches.</p>

@@ -5085,7 +5085,7 @@ checks it against the Rust one in <code>just test</code>: golden vectors for eve
 <code>finish()</code>, the errors and the latch (<code>tests/golden.rs</code>), and a proptest cross-check of random sequences of
 writes and reads, in both directions, on truncated and corrupted input too (<code>tests/cross.rs</code>). <code>just lint</code> builds
 the C on its own with <code>-std=c99 -Wall -Wextra -Werror -pedantic</code>.</p>
-<p>Not ported: <code>TailSize</code>, the series types (<code>Delta</code>, <code>DeltaOfDelta</code>, <code>XorFloat</code>), <code>fill_*</code>, and the code size
+<p>Not ported: <code>TailSize</code>, <code>Series</code>, <code>fill_*</code>, and the code size
 tricks of the Rust writer (<code>finish_no_lens</code>, <code>_latch</code> writes).</p>
 
 

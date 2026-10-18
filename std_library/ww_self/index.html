@@ -5095,7 +5095,7 @@ versioned and published the same way; add it with:</p>
 <li><code>Type&lt;'i&gt;</code> - every shape a value on the wire can have: <code>Bool</code>, <code>NumericAny</code> (any <code>ww_numeric</code> number type),
   <code>String</code>, <code>Vec</code>, <code>Array { len, ty }</code>, <code>Tuple</code>, <code>Struct(ItemStruct)</code>, <code>Enum(ItemEnum)</code>, <code>Option { some_ty }</code>,
   <code>Result { ok_ty, err_ty }</code>, <code>Box</code> (self-referential types), <code>Range</code>/<code>RangeInclusive</code>, <code>MaxLen { max_len, ty }</code>,
-  <code>Delta</code>/<code>DeltaOfDelta</code>/<code>XorFloat</code> (the compressed number sequences of <code>shrink_wrap</code>, SW-31/SW-32), <code>OutOfLine {
+  <code>Series</code> (a list written column by column, SW-60), <code>OutOfLine {
   type_idx }</code> (a reference into <code>ApiBundle::types</code>, how recursive and shared types stay out of the inline tree),
   and <code>Flag</code> (a relocated <code>Option</code>/<code>Result</code> presence bit, <a href="../../serdes/showcase/#relocating-presence-flags-with-flag"><code>#[flag]</code></a> -
   marks a named field, never appears in a value).</li>

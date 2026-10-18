@@ -5402,7 +5402,7 @@ and at a new clock epoch in a head's <code>ext</code>. <code>U64</code> and floa
 </tr>
 <tr>
 <td>Per item</td>
-<td><code>t</code> per event, and each item's offset from it inside the item, in the head's unit, as a <code>DeltaOfDelta</code></td>
+<td><code>t</code> per event, and each item's offset from it inside the item, in the head's unit, as a <code>Series</code> column (delta of delta)</td>
 <td>about 1.2 B per item for jittered ~100 µs gaps, 1.9 B for random 20-2020 µs gaps, 0.23 B for a regular rate</td>
 <td>monitors: I2C transactions, GPIO edges</td>
 </tr>

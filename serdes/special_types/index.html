@@ -1052,10 +1052,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#delta-deltaofdelta-and-xorfloat-compressed-sequences" class="md-nav__link">
+  <a href="#compressed-sequences-of-numbers-seriest" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code>: compressed sequences
+        Compressed sequences of numbers: <code>Series&lt;T&gt;</code>
       </span>
     </span>
   </a>
@@ -4910,10 +4910,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#delta-deltaofdelta-and-xorfloat-compressed-sequences" class="md-nav__link">
+  <a href="#compressed-sequences-of-numbers-seriest" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code>: compressed sequences
+        Compressed sequences of numbers: <code>Series&lt;T&gt;</code>
       </span>
     </span>
   </a>
@@ -5194,69 +5194,37 @@ move between the borrowed, owned and array-backed forms without changing a singl
 <li><code>ArrayVec&lt;T, N&gt;</code> drops its elements in place like a normal container; <code>T</code> does not need <code>Copy</code>.</li>
 </ul>
 <p>They are Rust-side types: an API (<code>#[ww_trait]</code>) describes such a field as a string or a list.</p>
-<h2 id="delta-deltaofdelta-and-xorfloat-compressed-sequences"><code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code>: compressed sequences<a class="headerlink" href="#delta-deltaofdelta-and-xorfloat-compressed-sequences" title="Permanent link">&para;</a></h2>
+<h2 id="compressed-sequences-of-numbers-seriest">Compressed sequences of numbers: <code>Series&lt;T&gt;</code><a class="headerlink" href="#compressed-sequences-of-numbers-seriest" title="Permanent link">&para;</a></h2>
 <p>A list of readings taken one after another is mostly redundancy: the next value is usually the previous one or
-close to it. These sequence types write each element bit by bit against the one before:</p>
-<table>
-<thead>
-<tr>
-<th>Type</th>
-<th>Elements</th>
-<th>Good for</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Delta&lt;'i, T&gt;</code></td>
-<td><code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code></td>
-<td>counters, fixed-point readings, slowly changing values</td>
-</tr>
-<tr>
-<td><code>DeltaOfDelta&lt;'i, T&gt;</code></td>
-<td><code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code></td>
-<td>timestamps with a near-constant step</td>
-</tr>
-<tr>
-<td><code>XorFloat&lt;'i, T&gt;</code></td>
-<td><code>f32</code>, <code>f64</code></td>
-<td>floats that repeat or change little</td>
-</tr>
-</tbody>
-</table>
-<p>They are used exactly like <code>RefVec&lt;'i, T&gt;</code>: a field holding a slice to serialize, a bounded reader after
-deserializing, decoded as you <code>.iter()</code>. The owned counterparts <code>DeltaOwned&lt;T&gt;</code>, <code>DeltaOfDeltaOwned&lt;T&gt;</code> and
-<code>XorFloatOwned&lt;T&gt;</code> wrap a <code>Vec&lt;T&gt;</code> (<code>std</code>), and the derive macro maps one to the other like it does <code>RefVec</code> and
-<code>Vec</code> (see <a href="../derive/#type-mapping">type mapping</a>).</p>
+close to it. <code>Series&lt;'i, T&gt;</code> (<code>SeriesOwned&lt;T&gt;</code> with <code>std</code>) writes such a list bit by bit against the value before,
+picking per list the code that comes out smallest: for integers the difference to the previous value or the change
+of that difference (timestamps with a near-constant step) in a prefix code, bit-packed blocks, a constant or the
+plain values; for <code>f32</code> / <code>f64</code> the XOR with the previous value (the Gorilla code) or the plain values. It is used
+like <code>RefVec&lt;'i, T&gt;</code>: a field holding a slice to serialize (<code>Series::new(&amp;values)</code>), decoded as you <code>.iter()</code> after
+deserializing.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq))]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Block</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="n">ts</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="n">size</span><span class="p">:</span><span class="w"> </span><span class="nc">TailSize</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="n">stamps</span><span class="p">:</span><span class="w"> </span><span class="nc">DeltaOfDelta</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// timestamps with a near-constant step</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="n">counts</span><span class="p">:</span><span class="w"> </span><span class="nc">Delta</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">,</span><span class="w">        </span><span class="c1">// a counter, fixed-point readings</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="n">temps</span><span class="p">:</span><span class="w"> </span><span class="nc">XorFloat</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">f32</span><span class="o">&gt;</span><span class="p">,</span><span class="w">      </span><span class="c1">// floats</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="n">stamps</span><span class="p">:</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// timestamps with a near-constant step</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="n">counts</span><span class="p">:</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// a counter, fixed-point readings</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="n">temps</span><span class="p">:</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">f32</span><span class="o">&gt;</span><span class="p">,</span><span class="w">  </span><span class="c1">// floats</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>They work in derived types and in every API position (arguments, returns, properties, stream items); the dynamic
-client and Python see them as lists of numbers.</p>
-<p><strong>What to expect.</strong> On an hour of 1 s telemetry from <code>tpm_mesh_dash</code> (34 series, mostly CPU percentages and byte
-counters):</p>
-<ul>
-<li><code>XorFloat&lt;f32&gt;</code> in blocks of 60 took 64% of the raw <code>f32</code>s (39% of the values repeat exactly, those cost one bit);</li>
-<li>the same values as tenths of a percent and whole bytes in <code>Delta&lt;i32&gt;</code> / <code>Delta&lt;i64&gt;</code> took 32%.</li>
-</ul>
-<p>Floats with full-precision noise (a CPU percentage computed from counters) XOR badly: every value changes most
-mantissa bits. Integers, fixed-point values, slowly changing or often repeated readings and timestamps compress
-well. Pick the integer type by the data, not by the deltas: the first element and the widest bucket use its width,
-the small buckets are the same for every type.</p>
-<p><code>cargo run --example time_series</code> (in <code>shrink_wrap/shrink_wrap</code>) prints the encoded sizes of synthetic timestamps,
-a counter, a sine wave and a constant, raw vs <code>Delta</code> / <code>DeltaOfDelta</code> / <code>XorFloat</code>.</p>
-<p><strong>Malformed input.</strong> The decoders never panic: every read is bounds-checked, a count larger than the bits left is
-rejected before anything is allocated (<code>Error::MalformedSeries</code>), and the owned decoders push element by element
-instead of trusting the count. The elements carry no length of their own, so a truncated <em>top-level</em> buffer may
-still decode (to other values) when the garbage happens to form valid codes. Inside a struct, the enclosing length
-slot or <code>TailSize</code> bounds the value and a truncation is caught there.</p>
-<p>The codes: <a href="../wire_format/#delta-deltaofdelta-and-xorfloat">wire format internals</a>; the bytes:
-<a href="../showcase/#compressed-sequences-delta-deltaofdelta-and-xorfloat">showcase</a>.</p>
+<p>It works in derived types and in every API position (arguments, returns, properties, stream items); the dynamic
+client and Python read and write it as a list. <code>Series&lt;T&gt;</code> also takes structs and enums, a column per field: see
+<a href="../series/">Series</a> for all of it, the codecs and a fixed codec for a small MCU (<code>Series::with_policy</code>).</p>
+<p><strong>What to expect.</strong> <code>cargo run --example time_series</code> (in <code>shrink_wrap/shrink_wrap</code>) prints the encoded sizes of a
+minute of 1 Hz synthetic data against the raw <code>Vec&lt;T&gt;</code>: timestamps with jitter 38 B instead of 481 B, a counter
+31 B instead of 241 B, a sine wave in <code>f32</code> 70 B instead of 241 B, a constant 13 B. Floats with full-precision noise
+(a CPU percentage computed from counters) XOR badly: every value changes most mantissa bits; the same values as
+fixed-point integers compress well. A <code>Series</code> has a count, a 4-bit header per column and pads to a byte, so a list
+of a handful of values gains little.</p>
+<p><strong>Malformed input.</strong> The decoder never panics: every read is bounds-checked, the item count is capped
+(<code>SERIES_MAX_ITEMS</code>) and the columns are validated in one pass before an item is decoded; inside a struct, the
+enclosing length slot or <code>TailSize</code> bounds the value and a truncation is caught there.</p>
+<p>The codes: <a href="../wire_format/#the-delta-and-xor-codes">wire format internals</a>; the bytes:
+<a href="../showcase/#compressed-sequences-of-numbers-series">showcase</a>.</p>
 <h2 id="refvecbuilder-lists-written-in-place"><code>RefVecBuilder</code>: lists written in place<a class="headerlink" href="#refvecbuilder-lists-written-in-place" title="Permanent link">&para;</a></h2>
 <p><code>RefVec::Slice</code> needs the elements in a slice first. <code>RefVecBuilder&lt;T&gt;</code> writes a list straight into a <code>BufWriter</code>
 instead, one element at a time, from an iterator or a loop reading a sensor, with no memory for the elements:</p>

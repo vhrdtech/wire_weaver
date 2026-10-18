@@ -2283,10 +2283,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#compressed-sequences-delta-deltaofdelta-xorfloat" class="md-nav__link">
+  <a href="#compressed-sequences-seriest" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code>, <code>XorFloat</code>
+        Compressed sequences: <code>Series&lt;T&gt;</code>
       </span>
     </span>
   </a>
@@ -5001,10 +5001,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#compressed-sequences-delta-deltaofdelta-xorfloat" class="md-nav__link">
+  <a href="#compressed-sequences-seriest" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code>, <code>XorFloat</code>
+        Compressed sequences: <code>Series&lt;T&gt;</code>
       </span>
     </span>
   </a>
@@ -5222,10 +5222,9 @@ overhead, giving all the nice backwards and forwards compatibility benefits.</p>
 <p>A <code>TailSize&lt;N&gt;</code> field (see <a href="../../serdes/special_types/#tailsizen-the-size-of-the-rest-of-a-value">wire format</a>) is part
 of the layout like a <code>Sized</code> field: adding, removing or moving it, or changing <code>N</code>, breaks compatibility; fields
 after it evolve as usual, and old readers skip what newer writers append.</p>
-<p>A <code>Delta&lt;T&gt;</code>, <code>DeltaOfDelta&lt;T&gt;</code> or <code>XorFloat&lt;T&gt;</code> field (see
-<a href="../../serdes/special_types/#delta-deltaofdelta-and-xorfloat-compressed-sequences">wire format</a>) is like a <code>Vec&lt;T&gt;</code>
-field: it can be appended with <code>#[default = Default::default()]</code> (old data reads as an empty sequence), but
-swapping it for a <code>Vec&lt;T&gt;</code> or another of the three, or changing <code>T</code>, changes the bits and breaks compatibility.</p>
+<p>A <a href="../../serdes/series/"><code>Series&lt;T&gt;</code></a> field is like a <code>Vec&lt;T&gt;</code> field: it can be appended with
+<code>#[default = Default::default()]</code> (old data reads as an empty series), but swapping it for a <code>Vec&lt;T&gt;</code>, or changing
+<code>T</code> other than as <code>T</code>'s own rules allow, changes the bits and breaks compatibility.</p>
 <h3 id="maximum-lengths-maxlent-n">Maximum lengths: <code>MaxLen&lt;T, N&gt;</code><a class="headerlink" href="#maximum-lengths-maxlent-n" title="Permanent link">&para;</a></h3>
 <p>A <a href="../../types/#bounded-lists-and-strings-maxlent-n"><code>MaxLen&lt;T, N&gt;</code></a> has the same bytes as <code>T</code>, so a bound never
 changes the wire, only which values the reader accepts (a longer one is an error, never truncated). Whether a change
@@ -5241,10 +5240,11 @@ is compatible depends on what the old version writes:</p>
 </ul>
 <p>At connect time the client does not refuse a device whose bounds differ from its own: a longer value is rejected when
 it is sent, by whichever side has the smaller bound.</p>
-<h3 id="compressed-sequences-delta-deltaofdelta-xorfloat">Compressed sequences: <code>Delta</code>, <code>DeltaOfDelta</code>, <code>XorFloat</code><a class="headerlink" href="#compressed-sequences-delta-deltaofdelta-xorfloat" title="Permanent link">&para;</a></h3>
-<p>Each has bytes of its own, so <code>Vec&lt;T&gt;</code> -&gt; <code>Delta&lt;T&gt;</code>, <code>Delta&lt;T&gt;</code> -&gt; <code>DeltaOfDelta&lt;T&gt;</code> or <code>Delta&lt;u32&gt;</code> -&gt;
-<code>Delta&lt;u64&gt;</code> is breaking (<code>ww api check</code> reports it), unlike the borrowed / owned form (<code>Delta&lt;'i, T&gt;</code> /
-<code>DeltaOwned&lt;T&gt;</code>), which is the same type.</p>
+<h3 id="compressed-sequences-seriest">Compressed sequences: <code>Series&lt;T&gt;</code><a class="headerlink" href="#compressed-sequences-seriest" title="Permanent link">&para;</a></h3>
+<p>A <code>Series</code> has bytes of its own, so <code>Vec&lt;T&gt;</code> -&gt; <code>Series&lt;T&gt;</code> or <code>Series&lt;u32&gt;</code> -&gt; <code>Series&lt;u64&gt;</code> is breaking (<code>ww api
+check</code> reports it), unlike the borrowed / owned form (<code>Series&lt;'i, T&gt;</code> / <code>SeriesOwned&lt;T&gt;</code>), which is the same type.
+The codecs of its columns are not part of the type: each writer picks its own (<code>CodecPolicy</code>), every reader reads
+them all. A struct or enum <code>T</code> evolves inside a <code>Series</code> as it does on its own (see <a href="../../serdes/series/">Series</a>).</p>
 <h3 id="sparse-structs">Sparse structs<a class="headerlink" href="#sparse-structs" title="Permanent link">&para;</a></h3>
 <p>A <a href="../../serdes/layouts/#sparse-a-struct-of-optional-fields"><code>sparse</code> struct</a> (DER-13) has a slot per field, all of
 them <code>Option&lt;T&gt;</code>:</p>

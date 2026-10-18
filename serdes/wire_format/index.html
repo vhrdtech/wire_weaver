@@ -1400,10 +1400,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#delta-deltaofdelta-and-xorfloat" class="md-nav__link">
+  <a href="#the-delta-and-xor-codes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code>
+        The delta and XOR codes
       </span>
     </span>
   </a>
@@ -5088,10 +5088,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#delta-deltaofdelta-and-xorfloat" class="md-nav__link">
+  <a href="#the-delta-and-xor-codes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code>
+        The delta and XOR codes
       </span>
     </span>
   </a>
@@ -5468,17 +5468,14 @@ hand with <code>BufWriter::reserve_tail_size()</code> and <code>backfill_tail_si
 </ol>
 <p>On read: read the slot, <code>split()</code> the reader to that many bytes, read the rest from the split. The
 <a href="../showcase/#bounding-a-value-from-the-inside-with-tailsize">showcase</a> has the bytes.</p>
-<h3 id="delta-deltaofdelta-and-xorfloat"><code>Delta</code>, <code>DeltaOfDelta</code> and <code>XorFloat</code><a class="headerlink" href="#delta-deltaofdelta-and-xorfloat" title="Permanent link">&para;</a></h3>
-<p>Around the elements the layout is that of <code>Vec&lt;T&gt;</code>: <code>UnsizedFinalStructure</code>, the element count as a reverse length
-at the back of the enclosing value, nothing else. Inside:</p>
+<h3 id="the-delta-and-xor-codes">The delta and XOR codes<a class="headerlink" href="#the-delta-and-xor-codes" title="Permanent link">&para;</a></h3>
+<p>Two bit-level codes that <a href="#seriest">Series</a> columns use (they were the standalone types <code>Delta</code>, <code>DeltaOfDelta</code> and
+<code>XorFloat</code> before <code>Series</code>, SW-31 and SW-32). Both go through the bit cursor, most significant bit first, with no
+alignment in between.</p>
 <ul>
-<li>The first element is written at the full width of <code>T</code> through the bit cursor (most significant bit first, so a
-  <code>u32</code> first element reads as big-endian in a hex dump, unlike a <code>u32</code> field). Every further element is a prefix
-  code against the previous one. There is no alignment in between or after: a <code>bool</code> written next shares the byte,
-  a <code>u8</code> aligns itself as always.</li>
 <li>
-<p><strong><code>Delta&lt;T&gt;</code></strong>: the difference to the previous element, wrapped at the width <code>W</code> of <code>T</code> (so <code>u8</code> 0 after 255 is
-  <code>+1</code>), zigzag-encoded to <code>z</code> and written as:</p>
+<p><strong>The delta code</strong> (SW-31), the prefix coder of a numeric column: a residual <code>z</code> (the zigzag of a difference,
+  wrapped at the width <code>W</code> of the column, so <code>u8</code> 0 after 255 is <code>+1</code>) is written as:</p>
 <table>
 <thead>
 <tr>
@@ -5522,14 +5519,13 @@ at the back of the enclosing value, nothing else. Inside:</p>
 </table>
 <p>Buckets at or above <code>W</code> are left out, and the last bucket is <code>W</code> bits after a <code>1</code> for every bucket and no <code>0</code>:
 <code>11</code> + 8 bits for <code>u8</code>/<code>i8</code>, <code>1111</code> + 16 bits for 16-bit types, <code>11111</code> + 32 bits for 32-bit, <code>111111</code> + 64
-bits for 64-bit types. A repeated value costs 1 bit, a step within <code>-64..=63</code> costs 9.</p>
+bits for 64-bit types. A repeated value costs 1 bit, a step within <code>-64..=63</code> costs 9. With the delta of delta
+predictor the residual is the change of the difference: a value that grows by the same step as the one before
+costs 1 bit (the Gorilla timestamp code).</p>
 </li>
 <li>
-<p><strong><code>DeltaOfDelta&lt;T&gt;</code></strong>: the same code applied to the change of the difference (the previous difference starts at
-  0). This is the Gorilla timestamp code: a value that grows by the same step as the one before costs 1 bit.</p>
-</li>
-<li>
-<p><strong><code>XorFloat&lt;T&gt;</code></strong>: the XOR of the bit patterns of the value and the previous one.</p>
+<p><strong>The XOR code</strong> (SW-32), the XOR codec of a float column: the XOR of the bit patterns of the value and the
+  previous one.</p>
 <ul>
 <li><code>0</code> when it is zero (a repeated value);</li>
 <li><code>10</code> and the bits inside the window of the previous explicitly coded XOR (its leading and trailing zero
@@ -5540,7 +5536,7 @@ bits for 64-bit types. A repeated value costs 1 bit, a step within <code>-64..=6
 <p>Pure bit operations: NaN payloads, <code>-0.0</code> and infinities round-trip exactly.</p>
 </li>
 </ul>
-<p>The <a href="../showcase/#compressed-sequences-delta-deltaofdelta-and-xorfloat">showcase</a> has the bytes.</p>
+<p>The <a href="../showcase/#compressed-sequences-of-numbers-series">showcase</a> has the bytes.</p>
 <h3 id="optionanyvec"><code>OptionAnyVec</code><a class="headerlink" href="#optionanyvec" title="Permanent link">&para;</a></h3>
 <p>Layout: <code>|presence header|present values in slot order|reverse lengths|</code>. The values are written exactly as
 <code>BufWriter::write</code> writes them anywhere else (an <code>Unsized</code> value with its size, lists and strings with their length
@@ -5691,11 +5687,11 @@ before its variants' columns - the order a reader needs to find every column's s
 <p>The values split into segments at restarts (below). With predictor delta or delta of delta, a segment's first value
 is written at the full width <code>W</code>; every other value is a <strong>residual</strong>: the zigzag of the difference to the
 previous value (delta) or of the change of that difference (delta of delta, the running difference starting at 0
-at each segment start), wrapped at <code>W</code> exactly as <a href="#delta-deltaofdelta-and-xorfloat"><code>Delta</code></a> does. With predictor
+at each segment start), wrapped at <code>W</code>. With predictor
 raw there are no segment starts; every value is a residual (its zigzag for signed types, itself for unsigned ones).</p>
 <p>Coders, for the residuals:</p>
 <ul>
-<li><strong>prefix</strong> - each residual in the <a href="#delta-deltaofdelta-and-xorfloat"><code>Delta</code></a> code at width <code>W</code>.</li>
+<li><strong>prefix</strong> - each residual in the <a href="#the-delta-and-xor-codes">delta code</a> at width <code>W</code>.</li>
 <li><strong>packed</strong> - the residuals of a segment in blocks of 8 (the last block of a segment shorter, its length known
   from <code>m</code> and the restarts): <code>width</code> in <code>bits(W)</code> bits (4 bits for <code>W = 8</code>, 5 for 16, 6 for 32, 7 for 64 - enough
   for <code>0..=W</code>), then each residual of the block at exactly <code>width</code> bits. A block of all zeros costs only its width
@@ -5710,9 +5706,9 @@ smallest encoding; the reader follows whatever the 4-bit header says. Predictor 
 extended column mode (an escape, so existing codes keep their meaning and cost); a v1 reader fails on it with
 <code>Error::MalformedSeries</code>.</p>
 <p><strong>Float column:</strong></p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the XorFloat code), others reserved
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the XOR code), others reserved
 </span></code></pre></div>
-<p>XOR: the first value of a segment at full width, then the <a href="#delta-deltaofdelta-and-xorfloat"><code>XorFloat</code></a> code
+<p>XOR: the first value of a segment at full width, then the <a href="#the-delta-and-xor-codes">XOR code</a>
 against the previous value; a segment start also resets the leading/trailing zero window.</p>
 <p><strong>Run</strong> (discrete leaves - enum tags, <code>bool</code>, <code>Option</code> presence, opaque bytes):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>first:      value of the first item

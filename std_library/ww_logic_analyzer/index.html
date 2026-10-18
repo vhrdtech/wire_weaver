@@ -5165,7 +5165,7 @@ conversion:</p>
   channel list; sub-byte words are packed starting at bit 0 of a byte, multi-byte words are little-endian — what a
   DMA from a GPIO port produces with no CPU work.</li>
 <li><strong><code>Encoding::Transitions</code></strong>, [<code>TransitionsChunk</code>] - per channel, its level at the start of the range and the
-  sample indices where it toggles, as a <code>DeltaOfDelta&lt;u32&gt;</code>. A steady clock costs about one bit per edge, a quiet
+  sample indices where it toggles, as a <code>Series&lt;u32&gt;</code>. A steady clock costs a few bytes per chunk, a quiet
   channel almost nothing (its start level and an empty list), so the edge rate limits a stream, not the sample
   rate: a busy signal sampled for clean edge timing costs the same at a high rate as at a low one.</li>
 </ul>
@@ -5213,7 +5213,7 @@ shared time base for anything less exact than a sample.</p>
 <li><code>RawLayout</code> - <code>width: u8</code>.</li>
 <li><code>RawChunk&lt;'i&gt;</code> - <code>first: u32</code>, <code>samples: u32</code>, <code>data: MaxLen&lt;RefVec&lt;'i, u8&gt;, MAX_READ_LEN&gt;</code>.</li>
 <li><code>TransitionsChunk&lt;'i&gt;</code> - <code>channel: u8</code>, <code>level: Level</code>, <code>from: u32</code>, <code>scanned_to: u32</code>, <code>edges:
-  DeltaOfDelta&lt;'i, u32&gt;</code> (ascending, at most <code>MAX_EDGES</code>).</li>
+  Series&lt;'i, u32&gt;</code> (ascending, at most <code>MAX_EDGES</code>, at most 610 bytes).</li>
 <li><code>StreamChunk&lt;'i&gt;</code> - <code>Raw(RawChunk&lt;'i&gt;)</code> or <code>Transitions(TransitionsChunk&lt;'i&gt;)</code>.</li>
 <li><code>StreamCapabilities&lt;'i&gt;</code> - <code>raw_rates: MaxLen&lt;RefVec&lt;'i, RateLimit&gt;, MAX_RATE_LIMITS&gt;</code>, <code>transitions_rate:
   Option&lt;Hertz&gt;</code>.</li>

@@ -349,6 +349,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   of an outer `sized` / `final_structure` type ("last in the first `Unsized` type on the way up") is not visible to
   the derive; needs a marker on the type, e.g. an associated const, and a compile-time assertion in the outer type.
 - 📋 **DER-7 Prefix enum discriminants** · `v0.5.x`.
+- 💡 **DER-16 Where clauses naming the borrowed lifetime, for owned types** — a generic type bounded on its
+  lifetime (`enum Batched<'i, T> where Timed<T>: SeriesColumns<'i>`) can't be derived with `owned`: the owned side
+  has no `'i` and would need the bound as `for<'i> SeriesColumns<'i>`. `ww_client_server::observe::Batched` /
+  `BatchedOwned` (API-39) are written by hand for that.
 - ✅ **DER-8 `#[cfg(..)]` on enum variants** — a variant keeps its discriminant in every configuration, a build without
   it reads `Error::EnumVariantDisabled` (`docs/serdes/derive_reference.md`). First user: `ww_numeric::NumericValue`, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: `#[cfg]` on fields (it would change

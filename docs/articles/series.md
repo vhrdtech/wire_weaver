@@ -360,17 +360,31 @@ rate). Two kinds of numbers below, in different units:
 
 With `DeltaPacked` at 32 samples per batch, a timed stream item is about 341 instructions on a Cortex-M3/M4F and
 about 790 cycles on the H725, **1.46 µs** per item. An observe level's sample costs about half, thanks to the shared
-clock: 213 instructions, or 380 cycles, **0.70 µs**. What that means:
+clock: 213 instructions on a Cortex-M3/M4F. How that scales:
 
-| observed (one level, shared clock)      | samples/s | Cortex-M3/M4F, instructions/s | STM32H725, cycles/s (of 540 MHz) | fits |
-|-----------------------------------------|-----------|-------------------------------|----------------------------------|------|
-| 2 currents at 1 kHz                     | 2 000     | ~0.4 M                        | ~0.8 M                           | any Cortex-M, trivially |
-| 4 properties at 4 kHz                   | 16 000    | ~3.4 M                        | ~6.1 M                           | any Cortex-M, room to spare |
-| 5 properties at 25 kHz                  | 125 000   | ~27 M                         | ~48 M (9 %)                      | a fast M4F, an M7 easily |
-| all 21 FOC values at 25 kHz             | 525 000   | ~112 M                        | ~199 M (37 %)                    | a fast M7 only |
+| observed (one level, shared clock)      | samples/s | Cortex-M3/M4F, instructions/s | fits                        |
+|-----------------------------------------|-----------|-------------------------------|-----------------------------|
+| 2 currents at 1 kHz                     | 2 000     | ~0.4 M                        | any Cortex-M, trivially     |
+| 4 properties at 4 kHz                   | 16 000    | ~3.4 M                        | any Cortex-M, room to spare |
+| 5 properties at 25 kHz                  | 125 000   | ~27 M                         | a fast M4F, an M7 easily    |
+| all 21 FOC values at 25 kHz             | 525 000   | ~112 M                        | a fast M7 only              |
 
-The H725 numbers are from a release build at `opt-level = "z"` (smallest code), the firmware example's profile. The
-same encoder built at `opt-level = 3` was measured 2.4x faster, so these cycle counts are on the cautious side.
+On the H725, the whole FOC level (21 values at 25 kHz, one batch of 32 samples every 1.28 ms) depends as much on the
+compiler settings as on the codec. The generic writer walks the items of a batch; a column-wise writer that reads
+straight from the batcher's store was measured next to it, with the same bytes (1 251 per batch):
+
+| FOC level on the STM32H725                  | cycles per batch | per sample | share of 540 MHz |
+|---------------------------------------------|------------------|------------|------------------|
+| generic item walk, `opt-level = "z"`        | 302 200          | 0.83 µs    | 43.7 %           |
+| generic item walk, `opt-level = 3`          | 125 300          | 0.35 µs    | 18.1 %           |
+| column-wise from the store, `opt-level = "z"` | 100 400        | 0.28 µs    | 14.5 %           |
+| column-wise from the store, `opt-level = 3`   | 59 900         | 0.17 µs    | 8.7 %            |
+
+`opt-level = "z"` (smallest code) is the firmware examples' release profile, and it alone makes the encoder 2.4x
+slower than `opt-level = 3`; at `"z"` the cycles also move by up to 15 % between builds as the code layout changes.
+Build firmware that encodes at 25 kHz at `opt-level = 3`. Setting it only for `shrink_wrap`, `ww_si` and `ww_numeric`
+doesn't help: the series code is generic and compiled in the firmware crate. The [Nomicon](#straight-from-the-store)
+has where the cycles go.
 
 Flash for the encoder is 15.0 KB on a Cortex-M3 with `DeltaPacked` (9.8 KB on an M4F), 25.4 KB (17.6 KB) with a
 run-time `CodecPolicy`. Every sample taken is encoded, also when its batch is later dropped for lack of budget, so an
@@ -536,10 +550,46 @@ per item, and sharing one time column across a level's properties removes nearly
 | 21 × `Series<T>` + one `Series<Second>` | 1 214 + 37 = 1 251 | 242 631 + 11 803 = 254 434 |
 | saved                                 | **36 %**       | **52 %**           |
 
-Per sample that is 786 → 379 cycles, and the full 25 kHz FOC rate went from about 77 % of the H725 to 37 %. The bytes
+Per sample that is 786 → 379 cycles, and the full 25 kHz FOC rate went from about 77 % of the H725 to 37 %. (Both
+measured in one build at `opt-level = "z"`; the same bench rebuilt later took 302 k cycles for the shared form with
+QEMU's instruction count unchanged: at `"z"` the M7's timing moves with the code layout, the work doesn't.) The bytes
 drop more than expected because `DeltaPacked` has no constant coder: each 40 µs step is a 7-bit residual, so each
 property's time column cost about 36 B per batch, 38 % of the update. One shared column is 37 B for the whole level.
 QEMU agrees: 46 % fewer instructions on both the M3 and the M4F.
+
+### Straight from the store
+
+Which part of that is the codec and which is walking items? Two experiments on the same FOC level batch answer it.
+
+The first is a **column-wise writer**: instead of rebuilding each item from the batcher's struct-of-arrays store and
+walking the items once per column, it reads each column's array straight from the store, one pass per column. It
+writes the same bytes as the item walk (a property test over every policy checks it) whenever no enum or `Option`
+tag changes inside the batch; a batch with such a change, strings, or the odd-width `UN`/`IN` numbers still takes the
+walk. The second is **aligned plain**: values copied byte-aligned in their own width, no prediction, no bit packing,
+behind the predictor escape. Below both, an upper bound: the 22 payload arrays of the batch copied with `memcpy`.
+
+| one FOC level batch                  | bytes | H725 cycles, `opt-level = 3` | H725 cycles, `"z"` | Cortex-M3 instructions |
+|--------------------------------------|-------|------------------------------|--------------------|------------------------|
+| `DeltaPacked`, item walk             | 1 251 | 125 300                      | 302 200            | 143 463                |
+| `DeltaPacked`, column-wise           | 1 251 | 59 900                       | 100 400            | 74 898                 |
+| aligned plain, item walk             | 2 882 | 44 400                       | 323 500            | 73 071                 |
+| aligned plain, from the store        | 2 882 | 34 200                       | 128 700            | 40 987                 |
+| `memcpy` of the arrays, with framing | 2 861 | 7 000                        | 8 800              | 10 609                 |
+| `memcpy` of the arrays, bare         | 2 816 | 2 800                        | 2 900              | 3 911                  |
+
+The surprise is the third row: walking items with aligned columns is already 44 k cycles at `opt-level = 3`. So the
+item walk was not the main cost; the **bit writer** and the codec are. Column-wise, a column still costs about 3.3 k
+instructions on a Cortex-M3: about 1.2 k for the delta and block code, 1.2 k for writing bits (24 bits per push,
+one byte per loop), and 0.8 k for the column's own `Series` framing (count, two tag runs, the checks).
+
+**Aligned plain was measured and is not recommended.** From the store it is 1.75x cheaper than column-wise
+`DeltaPacked` at `opt-level = 3` (34 k against 60 k cycles), but slower at `"z"` (129 k against 100 k), and it
+sends 2.3x the bytes: 2.25 MB/s for the FOC level at 25 kHz, more than a full-speed USB link carries. It isn't a
+plain copy either: the store keeps every `NumericValue` payload as a `u64` (firmware enables 64-bit numbers for the
+protocol's own types), so an `I32` column is narrowed value by value, and the framing of 22 separate series, their
+tag runs and checks, already costs 5x the `memcpy` bound. And a new wire form is one that every older reader
+rejects. It stays an option for a device on USB HS or Ethernet that needs the last bit of CPU. The column-wise
+writer, in contrast, changes no byte on the wire: it is purely a faster way to write the same `Series`.
 
 ### What a struct series costs: the restart check
 
@@ -558,8 +608,9 @@ pure cost, so a level is separate series per column.
   can't be cloned (no `static mut`, no `unsafe`); `poll_properties` encodes straight from the columns, which already
   are the layout the encoder wants. A row the writer overtook while it was read is detected and counted as missed.
   The wire doesn't change, so a host can't tell the two apart.
-- **A byte-aligned fast path.** A copy path for columns that need no bit packing is being measured; whether it beats
-  the packed coder enough on an M7 to be worth a policy of its own is open.
+- **A faster bit writer.** After the column-wise writer the bit writer is the biggest cost left: writing into a
+  64-bit accumulator, 4 bytes per store, is next, then a `u32` payload in the store of `NumericValue` when no 64-bit
+  number type is enabled, and word-wise checks of the columns.
 - **Room kept in the format.** The reserved predictor escape is for a common factor per column, the values divided
   by it before the predictor, as [ALP](#compared-with-alp) chooses its scale per block; the float codes have room for
   better float coders (Chimp, ALP). Diffs across batches would save the first values,

@@ -177,6 +177,25 @@ impl<'b> BlockWriter<'b> {
         }
     }
 
+    /// Release the buffer, keeping what is needed to go on with [Self::from_state] on the same buffer.
+    pub fn into_state(self) -> BlockState {
+        BlockState {
+            pos: self.pos,
+            records: self.records,
+            t_prev: self.t_prev,
+        }
+    }
+
+    /// Go on writing a block started in `buf` (the same bytes, unchanged since [Self::into_state]).
+    pub fn from_state(buf: &'b mut [u8], state: BlockState) -> Self {
+        BlockWriter {
+            buf,
+            pos: state.pos,
+            records: state.records,
+            t_prev: state.t_prev,
+        }
+    }
+
     /// Bytes of records written so far.
     pub fn used(&self) -> usize {
         self.pos - HEADER_LEN
@@ -254,6 +273,20 @@ impl<'b> BlockWriter<'b> {
         let crc = CRC.checksum(&self.buf[..self.pos]);
         self.buf[self.pos..len].copy_from_slice(&crc.to_le_bytes());
         len
+    }
+}
+
+/// A [BlockWriter] without its buffer, see [BlockWriter::into_state].
+#[derive(Copy, Clone, Debug)]
+pub struct BlockState {
+    pos: usize,
+    records: u32,
+    t_prev: u64,
+}
+
+impl BlockState {
+    pub fn records(&self) -> u32 {
+        self.records
     }
 }
 

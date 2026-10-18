@@ -6005,6 +6005,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_tap"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+ "wire_weaver",
+ "ww_logbook",
+]
+
+[[package]]
 name = "ww_timebase"
 version = "0.1.0"
 dependencies = [

@@ -24,6 +24,7 @@ members = [
     "ww_settings/*",
     "ww_stdlib/*",
     "ww_stream",
+    "ww_tap",
 ]
 
 exclude = ["examples/compare_wire_formats", "examples_mcu", "fuzz", "wire_weaver_tool"]
@@ -94,6 +95,7 @@ ww_stream = { version = "0.5.0", path = "./ww_stream", default-features = false 
 ww_global = { version = "0.2.0", path = "./ww_global" }
 ww_logbook = { version = "0.1.0", path = "./ww_logbook", default-features = false }
 ww_self = { version = "0.3.0", path = "./ww_self" }
+ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
 
 # ww_stdlib, each crate has its own version
 ww_adc = { version = "0.1.0", path = "./ww_stdlib/ww_adc", default-features = false }

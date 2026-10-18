@@ -1,0 +1,17 @@
+[package]
+name = "ww_tap"
+version = "0.1.0"
+authors.workspace = true
+description = "Link tap: frames, messages and link events of a WireWeaver link, batched into logbook blocks"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+std = ["wire_weaver/std", "dep:ww_logbook", "ww_logbook/std", "dep:tracing"]
+
+[dependencies]
+tracing = { version = "0.1", optional = true }
+wire_weaver.workspace = true
+ww_logbook = { workspace = true, optional = true }

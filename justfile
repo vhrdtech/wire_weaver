@@ -172,12 +172,12 @@ install-cli:
 save-snapshots *args:
     cargo build -q -p wire_weaver_cli
     # ww_client_server is the protocol itself, not used in APIs
-    for crate in ww_global ww_stdlib/*/; do \
+    for crate in ww_global ww_tap ww_stdlib/*/; do \
         [ "$(basename $crate)" = ww_client_server ] || target/debug/ww api save $crate {{ args }} || exit 1; \
     done
     rm -rf wire_weaver_snapshots/api_snapshots
     mkdir -p wire_weaver_snapshots/api_snapshots
-    cp ww_global/api_snapshots/*.ron ww_stdlib/*/api_snapshots/*.ron wire_weaver_snapshots/api_snapshots/
+    cp ww_global/api_snapshots/*.ron ww_tap/api_snapshots/*.ron ww_stdlib/*/api_snapshots/*.ron wire_weaver_snapshots/api_snapshots/
 
 pre-commit:
     cargo sort -w -g

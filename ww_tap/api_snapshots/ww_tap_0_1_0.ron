@@ -1,0 +1,181 @@
+// ww_tap 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
+    "captures (TR-14).",
+    "",
+    "A transport calls a [Tap] at the two layers it has: [Tap::frame] with the bytes as they cross the medium (a USB",
+    "packet, a datagram, an RTT chunk) and [Tap::message] with every `ww_link` message `(kind, bytes)` as it goes down",
+    "to the framer or comes back up; the event loop adds what never shows in bytes with [Tap::link_event]. The tap",
+    "only copies bytes and stamps time: linking frames to messages, statistics and decoding happen in the consumer",
+    "(`wire_weaver_client::tap`). [NoTap] is the default everywhere, its calls are empty and inline, so a build",
+    "without a tap compiles them away.",
+    "",
+    "The records are ordinary wire_weaver types, streams of the [LinkTap] trait, so a capture is described by its API",
+    "bundle like any device log: one track per link and stream ([Link]), Session sticky. With the `std` feature,",
+    "[Recorder] batches them into `ww_logbook` blocks.",
+], crate_idx: 0, trait_name: "ww_tap", items: [
+    (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LinkTap", docs: [], optional: None),
+    (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Link", docs: [], optional: None),
+]), types: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A tap that records nothing.",
+    ], ident: "NoTap", generics: [], fields: Unit, sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Side", generics: [], variants: [
+        (docs: [], ident: "Host", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Device", fields: Unit, discriminant: 1, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Medium", generics: [], variants: [
+        (docs: [], ident: "Usb", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Udp", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "WebSocket", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Rtt", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "In-process, messages moved as they are.",
+        ], ident: "InProcess", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "In-process with simulated USB packets.",
+        ], ident: "InProcessUsb", fields: Unit, discriminant: 5, since: None),
+        (docs: [], ident: "Other", fields: Unit, discriminant: 6, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "FramerChecksum", generics: [], variants: [
+        (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "`CrcChecksum<Crc16IbmSdlc, FULL>`: split messages always, Full ones when `full`.",
+        ], ident: "Crc16IbmSdlc", fields: Named([
+            (ident: Some("full"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "FramerTail", generics: [], variants: [
+        (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Byte", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "How frames are packed (`ww_framer`), see `ww_link` for each medium\'s configuration.",
+    ], ident: "Framer", generics: [], variants: [
+        (docs: [
+            "No framer: one message per medium message, the frame layer is empty.",
+        ], ident: "None", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "`U2Head`, then the checksum and tail.",
+        ], ident: "U2", fields: Named([
+            (ident: Some("checksum"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
+            (ident: Some("tail"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
+            (ident: Some("stream"), default: None, since: None, ty: Bool, docs: [
+                "Stream medium: frames are chunks of a byte stream, every message is Full and may span chunks.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The start of a link: everything a decoder needs to re-run the framer and find the API bundle.",
+    ], ident: "Session", generics: [], fields: Named([
+        (ident: Some("side"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+            "Which end of the link taps.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("medium"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+        (ident: Some("framer"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+            "What the medium\'s frames are packed with.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("frame_size"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
+            "Largest frame, 0 for media without frames (WebSocket, in-process messages).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("peer"), default: None, since: None, ty: String, docs: [
+            "Which device or peer: a USB serial, an address, an in-process path.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("device_info"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [
+            "The device\'s `ww_link` `DeviceInfo` in its ShrinkWrap encoding (with the `ApiHashPair` that finds the API",
+            "bundle), once the link is set up; empty before.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "What the bytes don\'t show.",
+    ], ident: "LinkEvent", generics: [], variants: [
+        (docs: [
+            "The medium is open.",
+        ], ident: "Connected", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Link setup is done, the device\'s `DeviceInfo` bytes are in the session.",
+        ], ident: "LinkReady", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Disconnected", fields: Named([
+            (ident: Some("reason"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
+            (ident: Some("keep_streams"), default: None, since: None, ty: Bool, docs: [
+                "The client keeps its stream subscriptions for a re-connect.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "A transport or protocol error.",
+        ], ident: "Error", fields: Named([
+            (ident: Some("what"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 3, since: None),
+        (docs: [
+            "Records the producer couldn\'t keep (no free block, every one held by consumers), counted since the last such",
+            "event; the gap is between this event and the record before it.",
+        ], ident: "Lost", fields: Named([
+            (ident: Some("records"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 4, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A frame as it crossed the medium.",
+    ], ident: "Frame", generics: [], fields: Named([
+        (ident: Some("no"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [
+            "Counts per link and direction from 0.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("bytes"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A `ww_link` message.",
+    ], ident: "Message", generics: [], fields: Named([
+        (ident: Some("no"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [
+            "Counts per link and direction from 0.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("kind"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "`ww_link::Kind`",
+        ], slot: None, series_opaque: false),
+        (ident: Some("bytes"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Server only: a client\'s request as the server sent it on to the device.",
+    ], ident: "ClientMap", generics: [], fields: Named([
+        (ident: Some("client"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("client_seq"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("device_seq"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "The streams of one link; tracks of a capture are `link[id].<stream>`.",
+    ], crate_idx: 0, trait_name: "Link", items: [
+        (id: 0, kind: Stream(ty: OutOfLine(type_idx: 6), is_up: true), multiplicity: Flat, since: None, ident: "session", docs: [
+            "The link\'s session, updated when it is set up (sticky: repeated in every describe block).",
+        ], optional: None),
+        (id: 1, kind: Stream(ty: OutOfLine(type_idx: 7), is_up: true), multiplicity: Flat, since: None, ident: "events", docs: [
+            "Connects, disconnects, errors, lost records.",
+        ], optional: None),
+        (id: 2, kind: Stream(ty: OutOfLine(type_idx: 8), is_up: true), multiplicity: Flat, since: None, ident: "tx_frames", docs: [
+            "Frames sent.",
+        ], optional: None),
+        (id: 3, kind: Stream(ty: OutOfLine(type_idx: 8), is_up: true), multiplicity: Flat, since: None, ident: "rx_frames", docs: [
+            "Frames received.",
+        ], optional: None),
+        (id: 4, kind: Stream(ty: OutOfLine(type_idx: 9), is_up: true), multiplicity: Flat, since: None, ident: "tx_messages", docs: [
+            "Messages sent.",
+        ], optional: None),
+        (id: 5, kind: Stream(ty: OutOfLine(type_idx: 9), is_up: true), multiplicity: Flat, since: None, ident: "rx_messages", docs: [
+            "Messages received.",
+        ], optional: None),
+        (id: 6, kind: Stream(ty: OutOfLine(type_idx: 10), is_up: true), multiplicity: Flat, since: None, ident: "client_map", docs: [
+            "Server only: which client\'s request a device-side request was.",
+        ], optional: None),
+    ]), crate_idx: 0),
+    InLine(level: (docs: [
+        "Records of a link tap, one stream per kind of record. Implemented by nobody: the trait is there for its API",
+        "bundle, which describes the tracks of a capture.",
+    ], crate_idx: 0, trait_name: "LinkTap", items: [
+        (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "link", docs: [
+            "One entry per link the producer saw, by link id.",
+        ], optional: None),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_tap", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None)

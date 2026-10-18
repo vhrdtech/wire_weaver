@@ -127,6 +127,22 @@ impl<const BYTES: usize> Outbox<BYTES> {
         false
     }
 
+    /// Removes every entry of property `k` (no longer observed), returns their items.
+    pub fn remove_all_of(&mut self, k: u16) -> u64 {
+        let mut items = 0;
+        let mut off = 0;
+        while off < self.used {
+            let (entry, next) = self.entry_at(off);
+            if entry.k == k {
+                items += entry.items as u64;
+                self.remove_at(off, next);
+            } else {
+                off = next;
+            }
+        }
+        items
+    }
+
     /// Removes the oldest entry, returns its items.
     pub fn pop_oldest(&mut self) -> Option<u16> {
         if self.entries == 0 {

@@ -37,6 +37,8 @@ struct Prop {
     prefixed: Ident,
     ty: TypeOwned,
     model: PropertyModelKind,
+    /// `+batched` (API-39)
+    batched: bool,
 }
 
 /// The observable levels and properties of an API.
@@ -92,8 +94,14 @@ impl Observe {
                 ApiItemKindOwned::Property {
                     ty,
                     access:
-                        PropertyAccess::ReadOnly { observe: true, .. }
-                        | PropertyAccess::ReadWrite { observe: true, .. },
+                        PropertyAccess::ReadOnly {
+                            observe: true,
+                            batched,
+                        }
+                        | PropertyAccess::ReadWrite {
+                            observe: true,
+                            batched,
+                        },
                     ..
                 } if flat => {
                     let ident = Ident::new(&item.ident, Span::call_site());
@@ -105,6 +113,7 @@ impl Observe {
                             .unwrap_or(PropertyModelKind::GetSet),
                         ident,
                         ty: ty.clone(),
+                        batched: *batched,
                     });
                 }
                 ApiItemKindOwned::Trait { .. } => {
@@ -277,10 +286,12 @@ impl Observe {
             let n = level.props.len();
             let item_count = level.item_count;
             let indices = level.props.iter().map(|p| p.index);
+            let batched = level.props.iter().map(|p| p.batched);
             let desc = quote! {
                 const DESC: ww_stream::observe::LevelDesc<#n> = ww_stream::observe::LevelDesc {
                     item_count: #item_count,
                     observable: [#(#indices),*],
+                    batched: [#(#batched),*],
                 };
             };
             let field = &level.field;
@@ -382,6 +393,7 @@ impl Observe {
             let n = level.props.len();
             let item_count = level.item_count;
             let indices: Vec<u32> = level.props.iter().map(|p| p.index).collect();
+            let batched: Vec<bool> = level.props.iter().map(|p| p.batched).collect();
             let ks: Vec<usize> = (0..n).collect();
             let measure = level.props.iter().map(|p| {
                 let ty = ty_def(api_bundle, &p.ty, false, TyPos::Annotation).unwrap();
@@ -443,6 +455,7 @@ impl Observe {
                     const DESC: ww_stream::observe::LevelDesc<#n> = ww_stream::observe::LevelDesc {
                         item_count: #item_count,
                         observable: [#(#indices),*],
+                        batched: [#(#batched),*],
                     };
                     let path = [#(UNib32(#path)),*];
                     let limits = self.observe_state().limits;

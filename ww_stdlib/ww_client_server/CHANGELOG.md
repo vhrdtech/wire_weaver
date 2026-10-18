@@ -2,6 +2,13 @@
 
 ### ⚠️ Breaking
 
+- Batched observe (API-39): `observe::ObserveMode::Samples { every_us, max_age_us }` (every sample, or one per
+  `every_us`, in batches at most `max_age_us` old; only for `+observe+batched` properties), and the observe slot
+  type of such a property, `observe::Batched<'i, T> { One(T), Series(Series<Timed<T>>) }` / `BatchedOwned<T>`
+  (`into_samples`, `times_mut`), with hand-written serdes: a `u4` tag, then the value, or the series from the next
+  byte. `BatchedOne` / `BatchedRaw` write the same bytes from a borrowed value or an encoded series (devices).
+  An old device reads `Samples` as an unknown mode and refuses that entry.
+
 - Batched streams (API-41): `RequestKind::StreamOpen` gets `max_age_us: Option<UNib32>` (how old a batch may get on
   the device before it is sent, the host's latency choice; before `args`) and `stream::StreamOpened` gets
   `max_age_us: Option<UNib32>` (what the device granted; before `result`), with `StreamOpened::with_max_age_us`.

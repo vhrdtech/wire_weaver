@@ -59,6 +59,24 @@ pub fn on_change_or_beat(min: Duration, max: Duration) -> ObserveMode {
     }
 }
 
+/// `ObserveMode::Samples` (API-39, `+observe+batched` properties): every sample the device takes, in batches at
+/// most `max_age` old.
+pub fn samples(max_age: Duration) -> ObserveMode {
+    ObserveMode::Samples {
+        every_us: UNib32(0),
+        max_age_us: micros(max_age),
+    }
+}
+
+/// `ObserveMode::Samples` decimated on the device: the first sample in each `every`, in batches at most `max_age`
+/// old.
+pub fn samples_every(every: Duration, max_age: Duration) -> ObserveMode {
+    ObserveMode::Samples {
+        every_us: micros(every),
+        max_age_us: micros(max_age),
+    }
+}
+
 fn micros(d: Duration) -> UNib32 {
     UNib32(d.as_micros().min(u32::MAX as u128) as u32)
 }
@@ -118,7 +136,19 @@ fn mode_parts(mode: ObserveMode) -> (Option<u32>, Option<u32>) {
         ObserveMode::OnChange { min_us } => (Some(min_us.0), None),
         ObserveMode::Periodic { every_us } => (None, Some(every_us.0)),
         ObserveMode::OnChangeOrBeat { min_us, max_us } => (Some(min_us.0), Some(max_us.0)),
-        ObserveMode::Off | ObserveMode::Unknown(_) => (None, None),
+        ObserveMode::Samples { .. } | ObserveMode::Off | ObserveMode::Unknown(_) => (None, None),
+    }
+}
+
+/// How long a value may wait on the device in a mode: what a `Samples` batch's age has to stay under for this
+/// observer to get its values in time.
+fn mode_latency(mode: ObserveMode) -> Option<u32> {
+    match mode {
+        ObserveMode::OnChange { min_us } => Some(min_us.0),
+        ObserveMode::Periodic { every_us } => Some(every_us.0),
+        ObserveMode::OnChangeOrBeat { min_us, .. } => Some(min_us.0),
+        ObserveMode::Samples { max_age_us, .. } => Some(max_age_us.0),
+        ObserveMode::Off | ObserveMode::Unknown(_) => None,
     }
 }
 
@@ -136,6 +166,38 @@ fn merge_modes(a: ObserveMode, b: ObserveMode) -> ObserveMode {
         (Some(x), Some(y)) => Some(x.min(y)),
         (x, y) => x.or(y),
     };
+    // every sample for one observer is every sample for all (API-39): the others get theirs from the batches, as
+    // soon as they asked for values
+    match (a, b) {
+        (
+            ObserveMode::Samples {
+                every_us: ea,
+                max_age_us: aa,
+            },
+            ObserveMode::Samples {
+                every_us: eb,
+                max_age_us: ab,
+            },
+        ) => {
+            return ObserveMode::Samples {
+                every_us: UNib32(ea.0.min(eb.0)),
+                max_age_us: UNib32(aa.0.min(ab.0)),
+            };
+        }
+        (ObserveMode::Samples { every_us, .. }, other)
+        | (other, ObserveMode::Samples { every_us, .. }) => {
+            let max_age = min(mode_latency(a), mode_latency(b)).unwrap_or(u32::MAX);
+            let every = match other {
+                ObserveMode::Periodic { every_us: p } => every_us.0.min(p.0),
+                _ => every_us.0,
+            };
+            return ObserveMode::Samples {
+                every_us: UNib32(every),
+                max_age_us: UNib32(max_age),
+            };
+        }
+        _ => {}
+    }
     let (ca, pa) = mode_parts(a);
     let (cb, pb) = mode_parts(b);
     match (min(ca, cb), min(pa, pb)) {
@@ -960,5 +1022,24 @@ mod tests {
             cfg(&[(0, periodic(MS))], None)
         );
         assert_eq!(ObserveConfig::merge([]), ObserveConfig::default());
+    }
+
+    /// Every sample for one observer is every sample for all, as fresh as the most impatient one wants.
+    #[test]
+    fn merge_samples() {
+        let a = cfg(&[(0, samples(20 * MS)), (1, samples_every(MS, 50 * MS))], None);
+        let b = cfg(&[(0, periodic(5 * MS)), (1, samples_every(2 * MS, 10 * MS))], None);
+        assert_eq!(
+            ObserveConfig::merge([&a, &b]),
+            cfg(
+                &[(0, samples(5 * MS)), (1, samples_every(MS, 10 * MS))],
+                None
+            )
+        );
+        let c = cfg(&[(0, on_change(30 * MS))], None);
+        assert_eq!(
+            ObserveConfig::merge([&c, &a]).entries[&0],
+            samples(20 * MS)
+        );
     }
 }

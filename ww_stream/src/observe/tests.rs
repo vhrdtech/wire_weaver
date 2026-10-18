@@ -4,6 +4,14 @@ use wire_weaver::shrink_wrap::RefVec;
 const DESC: LevelDesc<3> = LevelDesc {
     item_count: 6,
     observable: [1, 3, 4],
+    batched: [false; 3],
+};
+
+/// Like [DESC], index 3 `+batched` (API-39).
+const DESC_B: LevelDesc<3> = LevelDesc {
+    item_count: 6,
+    observable: [1, 3, 4],
+    batched: [false, true, false],
 };
 
 const LIMITS: ObserveLimits = ObserveLimits {
@@ -12,6 +20,7 @@ const LIMITS: ObserveLimits = ObserveLimits {
     max_level_budget: 10_000,
     total_budget: 15_000,
     timestamps: false,
+    samples_max_age_us: (1_000, 1_000_000),
 };
 
 fn entry(index: u32, mode: ObserveMode) -> ObserveEntry {
@@ -274,6 +283,7 @@ fn earliest_deadline_first_and_missed() {
     let desc = LevelDesc::<2> {
         item_count: 2,
         observable: [0, 1],
+        batched: [false; 2],
     };
     let mut t = ObserveTable::<2>::new();
     // 64 B bucket, refilled at 100 B/s: one 40 byte value per poll at most
@@ -306,6 +316,7 @@ fn short_budget_sends_full_updates() {
     let desc = LevelDesc::<4> {
         item_count: 4,
         observable: [0, 1, 2, 3],
+        batched: [false; 4],
     };
     let mut t = ObserveTable::<4>::new();
     // 4 values of 4 B every ms: 20 B per update, 20 kB/s; 10 kB/s granted
@@ -338,6 +349,7 @@ fn hold_is_not_a_miss() {
     let desc = LevelDesc::<2> {
         item_count: 2,
         observable: [0, 1],
+        batched: [false; 2],
     };
     let mut t = ObserveTable::<2>::new();
     // 64 B bucket at 100 B/s, 40 B values: one per 400 ms
@@ -469,4 +481,128 @@ fn malformed_entries_change_nothing() {
         Err(ObserveError::Malformed(_))
     ));
     assert_eq!(granted(&t, &DESC), [entry(4, on_change(500))]);
+}
+
+fn samples(every_us: u32, max_age_us: u32) -> ObserveMode {
+    ObserveMode::Samples {
+        every_us: UNib32(every_us),
+        max_age_us: UNib32(max_age_us),
+    }
+}
+
+/// `Samples` only for `+batched` properties (untrusted input: refused, nothing applied for it), its max age
+/// clamped to the limits both ways, the grid as asked.
+#[test]
+fn samples_mode_validated_and_clamped() {
+    let mut t = ObserveTable::<3>::new();
+    let refused = apply(
+        &mut t,
+        &DESC_B,
+        &[
+            entry(1, samples(0, 20_000)),
+            entry(3, samples(0, 10)),
+            entry(4, samples(u32::MAX, u32::MAX)),
+        ],
+        false,
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        refused,
+        [
+            ObserveRefused {
+                index: UNib32(1),
+                reason: ObserveRefusal::ModeNotSupported
+            },
+            ObserveRefused {
+                index: UNib32(4),
+                reason: ObserveRefusal::ModeNotSupported
+            }
+        ]
+    );
+    assert_eq!(granted(&t, &DESC_B), [entry(3, samples(0, 1_000))]);
+    assert_eq!(t.samples(1), Some((0, 1_000)));
+    apply(&mut t, &DESC_B, &[entry(3, samples(u32::MAX, u32::MAX))], false, None).unwrap();
+    assert_eq!(t.samples(1), Some((u32::MAX, 1_000_000)));
+    // the same mode on a level without batched properties
+    let mut t = ObserveTable::<3>::new();
+    let refused = apply(&mut t, &DESC, &[entry(3, samples(0, 20_000))], false, None).unwrap();
+    assert_eq!(refused[0].reason, ObserveRefusal::ModeNotSupported);
+    assert!(!t.is_active());
+}
+
+/// A slot in `Samples` mode is due while a batch of it waits, and keeps its place when left out; what the outbox
+/// dropped goes with the next update as missed, slipping alone counts nothing.
+#[test]
+fn samples_due_while_a_batch_waits() {
+    let mut t = ObserveTable::<3>::new();
+    apply(
+        &mut t,
+        &DESC_B,
+        &[entry(3, samples(0, 5_000)), entry(4, periodic(1_000))],
+        false,
+        Some(10_000),
+    )
+    .unwrap();
+    // nothing waiting: only the periodic one (sent at start)
+    let plan = t.plan_with(0, &LIMITS, |_| false);
+    assert_eq!(plan.edf(), [2]);
+    let mut sel = plan.selection(&DESC_B, 4, 1024);
+    assert!(sel.offer(2, Some(4)));
+    t.commit(&plan, &sel, 0, Some(12));
+    t.add_missed(5);
+    // a batch waits: due now; the outbox's drops go with this update
+    let plan = t.plan_with(100, &LIMITS, |k| k == 1);
+    assert_eq!(plan.edf(), [1]);
+    assert_eq!(plan.missed(), Some(UNib32(5)));
+    // left out (nothing sent): it keeps waiting from 100 µs and goes before the periodic one due at 1 ms
+    let sel = plan.selection(&DESC_B, 4, 1024);
+    t.commit(&plan, &sel, 100, None);
+    let plan = t.plan_with(1_500, &LIMITS, |k| k == 1);
+    assert_eq!(plan.edf(), [1, 2]);
+    assert_eq!(plan.missed(), Some(UNib32(5)), "not counted again");
+    let mut sel = plan.selection(&DESC_B, 4, 1024);
+    assert!(sel.offer(1, Some(40)) && sel.offer(2, Some(4)));
+    t.commit(&plan, &sel, 1_500, Some(52));
+    assert_eq!(t.plan_with(1_600, &LIMITS, |_| false).missed(), None);
+}
+
+#[test]
+fn gate_takes_all_none_or_a_grid() {
+    let gate = SampleGate::new();
+    let mut cursor = GateCursor::new();
+    let t = |us: u32| ww_si::Second::micro(us);
+    assert!(!cursor.take(&gate, &t(0)));
+    gate.set(Some(0));
+    assert!((0..10).all(|i| cursor.take(&gate, &t(i * 40))));
+    // one per 100 µs from 40 µs samples: 0, 120, 200, 320, 400, ..: the first one at or after each grid point
+    gate.set(Some(100));
+    let taken: Vec<u32> = (0..12)
+        .map(|i| i * 40)
+        .filter(|us| cursor.take(&gate, &t(*us)))
+        .collect();
+    assert_eq!(taken, [0, 120, 200, 320, 400]);
+    // across the wrap of the u32 µs clock
+    let mut cursor = GateCursor::new();
+    let start = u32::MAX - 150;
+    let taken: Vec<u32> = (0..8)
+        .map(|i| start.wrapping_add(i * 40))
+        .filter(|us| cursor.take(&gate, &t(*us)))
+        .collect();
+    assert_eq!(taken, [start, start.wrapping_add(120), start.wrapping_add(200)]);
+    // a sampler that fell far behind starts its grid over at the next sample
+    assert!(cursor.take(&gate, &t(1_000_000)));
+    assert!(!cursor.take(&gate, &t(1_000_050)));
+    gate.set(None);
+    assert!(!gate.is_open());
+    assert!(!cursor.take(&gate, &t(2_000_000)));
+}
+
+#[test]
+fn batch_budget_leaves_room_for_the_slot() {
+    let budget = batch_budget(&DESC_B, 10, 256, 4096);
+    assert!(budget < 256 && budget > 200, "{budget}");
+    assert_eq!(batch_budget(&DESC_B, 10, 256, 50), 50);
+    // a batch of the budget, in its slot, fits the update's estimate of the buffer
+    assert!(10 + EVENT_SLACK + DESC_B.header_bound() + batch_slot_len(budget) <= 256 + 10);
 }

@@ -15,6 +15,10 @@
 
 ### 🚀 Features
 
+- `observe::samples(max_age)` / `samples_every(every, max_age)` (API-39): `ObserveMode::Samples` for
+  `+observe+batched` properties. Observers of one level merge into `Samples` when any of them asks for it (the
+  finest grid, the shortest age any of them waits for).
+
 - Batched streams (API-41): `PositionedStream` and `Stream` of a batched stream give one item per entry of a batch
   (one unit each, its own device time, `u32` µs unwrapped), leaving out the items a resend repeats;
   `recv_batch` / `recv_batch_blocking` give whole batches (`Batch`, `BatchItem`). `PreparedStreamOpen::max_age`

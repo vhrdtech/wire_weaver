@@ -24,6 +24,12 @@
 //!   read or serialized counts too. The count goes to the host in the next update's `missed`.
 //! - **Time**: `t` of an update is the device's microseconds as a `u32` (`Second { Micro, U32 }`, 5 bytes), it
 //!   wraps every 71.6 minutes; the host unwraps it.
+//! - **Every sample (API-39)**: a `+batched` property observed in `Samples` mode is due whenever its level's
+//!   outbox (`ww_stream::batch::Outbox`) holds a batch of it; the generated `poll_properties` encodes sealed
+//!   batches into the outbox first, then sends updates while batches wait and the budget lasts, more than one per
+//!   call. Samples dropped on the way (the outbox full, the event loop behind the sampler) count as missed. The
+//!   sampler (generated `<Trait>Sampler`, in the producer's context, an interrupt maybe) asks a [SampleGate] per
+//!   property whether to take a sample: a load of an atomic, set by the event loop from the host's mode.
 //! - **Untrusted input**: [ObserveTable::apply] validates an `ObserveRequest` completely before it changes
 //!   anything (every entry decoded, index known, `+observe`, no duplicate, mode known), clamps periods and the
 //!   budget to [ObserveLimits], and does work linear in the request's length; a malformed request changes nothing.
@@ -34,6 +40,7 @@
 //! `poll_streams` in the event loop: properties can't starve streams beyond their share, and streams can't starve
 //! properties, whose deadlines are short.
 
+use portable_atomic::{AtomicU32, Ordering};
 use wire_weaver::shrink_wrap::{Error as ShrinkWrapError, SerializeShrinkWrap, UNib32};
 use ww_client_server::observe::{
     ObserveEntry, ObserveMode, ObserveRefusal, ObserveRefused, ObserveRequest,
@@ -65,17 +72,24 @@ pub struct ObserveLimits {
     pub total_budget: u32,
     /// Put the device time (`t`, microseconds of the `now_us` given to `poll_properties`) into every update.
     pub timestamps: bool,
+    /// Least and most `max_age_us` of `Samples` mode (API-39), µs: how long batches of samples may wait on the
+    /// device. A batch is also sent when it is full, so the most only matters for slow samples.
+    pub samples_max_age_us: (u32, u32),
 }
 
 impl ObserveLimits {
     /// 1 ms shortest period, 2 kB/s per level by default, 20 kB/s per level at most, 50 kB/s in total, no
-    /// timestamps.
+    /// timestamps, batches of samples 1 ms to 10 s old.
     pub const DEFAULT: ObserveLimits = ObserveLimits {
         min_period_us: 1_000,
         default_budget: 2_000,
         max_level_budget: 20_000,
         total_budget: 50_000,
         timestamps: false,
+        samples_max_age_us: (
+            crate::batch::MIN_MAX_AGE_US,
+            crate::batch::MAX_MAX_AGE_US,
+        ),
     };
 }
 
@@ -92,6 +106,8 @@ pub struct LevelDesc<const N: usize> {
     /// Number of resource indices of the level (largest one + 1), properties or not.
     pub item_count: u32,
     pub observable: [u32; N],
+    /// `+batched` (API-39): the slot takes `Samples` mode, its value is written as a `Batched`.
+    pub batched: [bool; N],
 }
 
 impl<const N: usize> LevelDesc<N> {
@@ -123,11 +139,16 @@ enum Mode {
         min: u32,
         max: u32,
     },
+    /// Every sample (`every` 0), or one per `every` µs, in batches at most `max_age` µs old.
+    Samples {
+        every: u32,
+        max_age: u32,
+    },
 }
 
 impl Mode {
-    /// None for a mode this device doesn't know.
-    fn clamped(mode: &ObserveMode, limits: &ObserveLimits) -> Option<Mode> {
+    /// None for a mode this device doesn't know, and for `Samples` of a slot that isn't `batched`.
+    fn clamped(mode: &ObserveMode, limits: &ObserveLimits, batched: bool) -> Option<Mode> {
         let floor = limits.min_period_us.max(1);
         Some(match mode {
             ObserveMode::Off => Mode::Off,
@@ -142,6 +163,19 @@ impl Mode {
                 Mode::OnChangeOrBeat {
                     min,
                     max: max_us.0.max(min),
+                }
+            }
+            ObserveMode::Samples { .. } if !batched => return None,
+            ObserveMode::Samples {
+                every_us,
+                max_age_us,
+            } => {
+                let (lo, hi) = limits.samples_max_age_us;
+                let lo = lo.max(1);
+                Mode::Samples {
+                    // decimating never sends more than every sample: any grid is fine, 0 is every sample
+                    every: every_us.0,
+                    max_age: max_age_us.0.clamp(lo, hi.max(lo)),
                 }
             }
             ObserveMode::Unknown(_) => return None,
@@ -160,6 +194,10 @@ impl Mode {
             Mode::OnChangeOrBeat { min, max } => ObserveMode::OnChangeOrBeat {
                 min_us: UNib32(min),
                 max_us: UNib32(max),
+            },
+            Mode::Samples { every, max_age } => ObserveMode::Samples {
+                every_us: UNib32(every),
+                max_age_us: UNib32(max_age),
             },
         }
     }
@@ -275,7 +313,7 @@ impl<const N: usize> ObserveTable<N> {
                 Some(k) if seen[k] => Some(ObserveRefusal::Duplicate),
                 Some(k) => {
                     seen[k] = true;
-                    Mode::clamped(&entry.mode, limits)
+                    Mode::clamped(&entry.mode, limits, desc.batched[k])
                         .is_none()
                         .then_some(ObserveRefusal::ModeNotSupported)
                 }
@@ -308,7 +346,7 @@ impl<const N: usize> ObserveTable<N> {
                 continue;
             }
             applied[k] = true;
-            if let Some(mode) = Mode::clamped(&entry.mode, limits) {
+            if let Some(mode) = Mode::clamped(&entry.mode, limits, desc.batched[k]) {
                 modes[k] = mode;
             }
         }
@@ -358,6 +396,21 @@ impl<const N: usize> ObserveTable<N> {
         len
     }
 
+    /// `Samples` mode of slot `k` (API-39): `(every_us, max_age_us)`, None in any other mode.
+    pub fn samples(&self, k: usize) -> Option<(u32, u32)> {
+        match self.slots.get(k)?.mode {
+            Mode::Samples { every, max_age } => Some((every, max_age)),
+            _ => None,
+        }
+    }
+
+    /// Samples lost on the device (dropped from a full outbox, or the event loop was behind the sampler): reported
+    /// as missed in the next update.
+    pub fn add_missed(&mut self, samples: u64) {
+        let samples = u32::try_from(samples).unwrap_or(u32::MAX);
+        self.missed = self.missed.saturating_add(samples);
+    }
+
     fn capacity(budget: u32) -> i64 {
         (budget / 10).max(MIN_BURST) as i64 * SCALE
     }
@@ -379,8 +432,21 @@ impl<const N: usize> ObserveTable<N> {
     }
 
     /// What is due at `now_us` (any microsecond clock), earliest deadline first. Refills the bucket and counts
-    /// the periods periodic properties fell behind.
+    /// the periods periodic properties fell behind. Without properties in `Samples` mode, see [plan_with].
+    ///
+    /// [plan_with]: Self::plan_with
     pub fn plan(&mut self, now_us: u64, limits: &ObserveLimits) -> Plan<N> {
+        self.plan_with(now_us, limits, |_| false)
+    }
+
+    /// [plan](Self::plan), where a slot in `Samples` mode is due when `batch_waiting(k)` (its outbox holds a batch
+    /// of it), from when it was first seen waiting.
+    pub fn plan_with(
+        &mut self,
+        now_us: u64,
+        limits: &ObserveLimits,
+        batch_waiting: impl Fn(usize) -> bool,
+    ) -> Plan<N> {
         let mut plan = Plan {
             order: [0; N],
             deadline: [0; N],
@@ -426,6 +492,7 @@ impl<const N: usize> ObserveTable<N> {
                         (now_us >= at).then_some(at)
                     }
                 },
+                Mode::Samples { .. } => batch_waiting(k).then_some(now_us),
                 Mode::OnChangeOrBeat { min, max } => match slot.last_sent {
                     None => Some(slot.next_due),
                     Some(last) => {
@@ -488,9 +555,10 @@ impl<const N: usize> ObserveTable<N> {
             } else {
                 slot.waiting.get_or_insert(deadline);
                 // late by its `min` or more: one missed send (a periodic one counts in `plan`, per whole period)
+                // samples left out wait in the outbox, which counts what it drops
                 let grace = match slot.mode {
                     Mode::OnChange { min } | Mode::OnChangeOrBeat { min, .. } => Some(min as u64),
-                    Mode::Periodic { .. } | Mode::Off => None,
+                    Mode::Periodic { .. } | Mode::Samples { .. } | Mode::Off => None,
                 };
                 let late = now_us.saturating_sub(slot.waiting.unwrap_or(deadline));
                 if !slot.slipped && grace.is_some_and(|g| late >= g) {
@@ -650,6 +718,128 @@ impl<const N: usize> Selection<N> {
             .zip(self.chosen.iter())
             .filter(|(_, chosen)| **chosen)
             .map(|(index, _)| *index)
+    }
+}
+
+/// Most bytes one encoded batch of samples may take in an update of a level (API-39), so that it fits `buf_len`
+/// bytes of data next to an `overhead` ([event_overhead]): the update's presence header and the slot's length and
+/// `Batched` tag left out. The batcher seals at it, the outbox can hold no more than `outbox_room`.
+pub fn batch_budget<const N: usize>(
+    desc: &LevelDesc<N>,
+    overhead: usize,
+    buf_len: usize,
+    outbox_room: usize,
+) -> usize {
+    let fixed = overhead + EVENT_SLACK + desc.header_bound() + LEN_SLOT + 1;
+    buf_len
+        .saturating_add(overhead)
+        .saturating_sub(fixed)
+        .min(outbox_room)
+}
+
+/// Bytes an encoded batch of `len` bytes takes as a slot of an update: the `Batched` tag and padding, the length.
+pub const fn batch_slot_len(len: usize) -> usize {
+    len + 1 + LEN_SLOT
+}
+
+/// Which samples of one `+batched` property its sampler takes (API-39): none, all, or the first one in each
+/// `every_us`, as the event loop sets it from the host's mode. The sampler reads it with one atomic load per
+/// sample; a [GateCursor] in the sampler keeps the grid.
+#[derive(Debug)]
+pub struct SampleGate {
+    /// µs between samples taken, [GATE_OFF]: none
+    every: AtomicU32,
+    /// Bumped by every [set](Self::set): the sampler starts its grid over
+    generation: AtomicU32,
+}
+
+const GATE_OFF: u32 = u32::MAX;
+
+impl SampleGate {
+    /// Takes no samples.
+    pub const fn new() -> Self {
+        SampleGate {
+            every: AtomicU32::new(GATE_OFF),
+            generation: AtomicU32::new(0),
+        }
+    }
+
+    /// From the property's mode: `Some(every_us)` in `Samples` mode (0: every sample), None otherwise. Changes
+    /// nothing when it is set already.
+    pub fn set(&self, every_us: Option<u32>) {
+        let every = every_us.map_or(GATE_OFF, |e| e.min(GATE_OFF - 1));
+        if self.every.load(Ordering::Relaxed) != every {
+            self.generation.fetch_add(1, Ordering::Relaxed);
+            self.every.store(every, Ordering::Release);
+        }
+    }
+
+    /// Whether samples are taken at all.
+    pub fn is_open(&self) -> bool {
+        self.every.load(Ordering::Relaxed) != GATE_OFF
+    }
+}
+
+impl Default for SampleGate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// The sampler's side of a [SampleGate]: where its grid is.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct GateCursor {
+    generation: u32,
+    /// µs (wrapping) of the next sample to take on the grid, None: the next one
+    next: Option<u32>,
+}
+
+impl GateCursor {
+    pub const fn new() -> Self {
+        GateCursor {
+            generation: 0,
+            next: None,
+        }
+    }
+
+    /// Whether to take the sample at `t` (device time), O(1): `t` is read as microseconds only when the gate
+    /// decimates. A time that can't be read as microseconds (a float, a huge value) is taken.
+    pub fn take(&mut self, gate: &SampleGate, t: &ww_si::Second) -> bool {
+        let every = gate.every.load(Ordering::Acquire);
+        if every == GATE_OFF {
+            return false;
+        }
+        let generation = gate.generation.load(Ordering::Relaxed);
+        if generation != self.generation {
+            self.generation = generation;
+            self.next = None;
+        }
+        if every == 0 {
+            return true;
+        }
+        let Some(us) = t.to_i128_in(ww_si::Prefix::Micro) else {
+            return true;
+        };
+        // wrapping microseconds: the device clock and the grid wrap together
+        let us = us as u32;
+        if let Some(next) = self.next {
+            // before the next point of the grid, by at most a period
+            let ahead = next.wrapping_sub(us);
+            if ahead != 0 && ahead <= every {
+                return false;
+            }
+            // at or past it: on to the following one, or, behind by a period or more (or the clock jumped), the
+            // grid starts over from this sample
+            let behind = us.wrapping_sub(next);
+            self.next = Some(if behind < every {
+                next.wrapping_add(every)
+            } else {
+                us.wrapping_add(every)
+            });
+        } else {
+            self.next = Some(us.wrapping_add(every));
+        }
+        true
     }
 }
 

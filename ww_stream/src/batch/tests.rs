@@ -321,6 +321,11 @@ fn outbox_drops_oldest_for_room() {
     assert!(outbox.remove_first_of(1));
     assert!(outbox.iter().all(|e| e.bytes != first_k1.as_slice()));
     assert!(!outbox.remove_first_of(7));
+    let of_2 = outbox.iter().filter(|e| e.k == 2).count() as u64;
+    let before = outbox.len() as u64;
+    assert_eq!(outbox.remove_all_of(2), of_2 * 8);
+    assert_eq!(outbox.len() as u64, before - of_2);
+    assert!(outbox.first_of(2).is_none() && outbox.first_of(0).is_some());
     let left = outbox.len() as u64;
     assert_eq!(outbox.clear(), left * 8);
     assert!(outbox.is_empty());

@@ -9,10 +9,24 @@
 //!
 //! Periods are in microseconds (`40` is 25 kHz, `1_000_000` once a second). The device clamps every setting to
 //! what it can do and to the level's byte budget, and tells the host the result.
+//!
+//! **Every sample (API-39).** A property declared `+observe+batched` can also be observed in
+//! [ObserveMode::Samples]: the device keeps every sample it takes of it (or one per `every_us`) and sends them in
+//! batches, at most `max_age_us` old. Its slot in the level's update is a [Batched]: [Batched::One] with the other
+//! modes (the update's `t` is its time, as for any property), [Batched::Series] with `Samples`, each item with its
+//! own time.
 
+use core::fmt::Debug;
 use wire_weaver::prelude::*;
-use wire_weaver::shrink_wrap::{BufWriter, Error, SerializeShrinkWrap};
-use ww_si::Second;
+use wire_weaver::shrink_wrap::series::{Series, SeriesColumns};
+#[cfg(feature = "std")]
+use wire_weaver::shrink_wrap::series::SeriesOwned;
+#[cfg(feature = "std")]
+use wire_weaver::shrink_wrap::{BufWriterOwned, DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
+use wire_weaver::shrink_wrap::{
+    BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, SerializeShrinkWrap,
+};
+use ww_si::{Second, Timed};
 
 /// How one property is observed.
 ///
@@ -34,6 +48,11 @@ pub enum ObserveMode {
     /// Sent when the value changes, at most once every `min_us`, and at least once every `max_us` even when it
     /// doesn't (a heartbeat, so the host knows the value is still current).
     OnChangeOrBeat { min_us: UNib32, max_us: UNib32 },
+    /// Every sample the device takes (`every_us = 0`), or the first one in each `every_us`, sent in batches that
+    /// are at most `max_age_us` old (API-39): the host's choice of latency against overhead. Only properties
+    /// declared `+observe+batched` take it ([ObserveRefusal::ModeNotSupported] otherwise); their samples come in
+    /// [Batched::Series] slots.
+    Samples { every_us: UNib32, max_age_us: UNib32 },
 }
 
 /// One property of a level and how it is (to be) observed.
@@ -108,10 +127,189 @@ pub enum ObserveRefusal {
     NoSuchIndex,
     /// The resource is not a property, or a property without `+observe`.
     NotObservable,
-    /// A mode this device doesn't know or doesn't support.
+    /// A mode this device doesn't know or doesn't support, or [ObserveMode::Samples] of a property that isn't
+    /// `+batched`.
     ModeNotSupported,
     /// The index was listed more than once; the first entry was applied.
     Duplicate,
+}
+
+/// The slot of a `+observe+batched` property in its level's update (API-39): one value, as for any property, or
+/// a batch of samples, each with its own device time.
+///
+/// ```text
+/// tag:    u4      0: One, 1: Series, others: a form this host doesn't know (an error)
+/// One:    T       as a field
+/// Series: zero bits to the next byte, then Series<Timed<T>>, to the end of the slot
+/// ```
+///
+/// The series starts at a byte, so a device copies a batch it encoded before as it is (`Series::Buf { raw }`). A
+/// `Batched` is `Unsized`: in an update it is one slot, its length in the update's lengths.
+pub enum Batched<'i, T>
+where
+    Timed<T>: SeriesColumns<'i>,
+{
+    /// Observed with [ObserveMode::OnChange], `Periodic` or `OnChangeOrBeat`: the value at the update's `t`.
+    One(T),
+    /// Observed with [ObserveMode::Samples]: the samples since the previous batch, oldest first.
+    Series(Series<'i, Timed<T>>),
+}
+
+const BATCHED_ONE: u8 = 0;
+const BATCHED_SERIES: u8 = 1;
+
+impl<'i, T: Debug> Debug for Batched<'i, T>
+where
+    Timed<T>: SeriesColumns<'i> + Clone + Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Batched::One(value) => f.debug_tuple("One").field(value).finish(),
+            Batched::Series(series) => f.debug_tuple("Series").field(series).finish(),
+        }
+    }
+}
+
+impl<'i, T: SerializeShrinkWrap> SerializeShrinkWrap for Batched<'i, T>
+where
+    Timed<T>: SeriesColumns<'i>,
+{
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        match self {
+            Batched::One(value) => {
+                wr.write_nib_masked(BATCHED_ONE)?;
+                wr.write(value)
+            }
+            Batched::Series(series) => {
+                wr.write_nib_masked(BATCHED_SERIES)?;
+                wr.align_byte();
+                series.ser_shrink_wrap(wr)
+            }
+        }
+    }
+}
+
+impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for Batched<'i, T>
+where
+    Timed<T>: SeriesColumns<'i>,
+{
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+    fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+        match rd.read_nib()?.value() {
+            BATCHED_ONE => Ok(Batched::One(rd.read()?)),
+            BATCHED_SERIES => {
+                rd.align_byte();
+                Ok(Batched::Series(Series::des_shrink_wrap(rd)?))
+            }
+            _ => Err(Error::EnumFutureVersionOrMalformedData),
+        }
+    }
+}
+
+/// Writes the bytes of [Batched::One] of a value it borrows: what a device writes for a `+batched` property
+/// observed with another mode than `Samples`.
+pub struct BatchedOne<'a, T>(pub &'a T);
+
+impl<T: SerializeShrinkWrap> SerializeShrinkWrap for BatchedOne<'_, T> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.write_nib_masked(BATCHED_ONE)?;
+        wr.write(self.0)
+    }
+}
+
+/// Writes the bytes of [Batched::Series] of a `Series<Timed<T>>` encoded before (from a byte, as `to_ww_bytes`
+/// writes it): a device copies the batches waiting in its outbox with it.
+pub struct BatchedRaw<'a>(pub &'a [u8]);
+
+impl SerializeShrinkWrap for BatchedRaw<'_> {
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+    const PUSHES_LEN: bool = false;
+
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.write_nib_masked(BATCHED_SERIES)?;
+        wr.align_byte();
+        wr.write_raw_slice(self.0)
+    }
+}
+
+/// Owned [Batched], same bytes.
+#[cfg(feature = "std")]
+#[derive(Debug, Clone, PartialEq)]
+pub enum BatchedOwned<T> {
+    One(T),
+    Series(SeriesOwned<Timed<T>>),
+}
+
+#[cfg(feature = "std")]
+impl<T> BatchedOwned<T> {
+    /// The samples with their device times: one with the update's `t` for [BatchedOwned::One], every item of a
+    /// series with its own.
+    pub fn into_samples(self, t: Option<Second>) -> Vec<(T, Option<Second>)> {
+        match self {
+            BatchedOwned::One(value) => vec![(value, t)],
+            BatchedOwned::Series(series) => series
+                .into_inner()
+                .into_iter()
+                .map(|item| (item.value, Some(item.t)))
+                .collect(),
+        }
+    }
+
+    /// Every device time it holds, for unwrapping them in order: the items' of a series, none of a `One` (it has
+    /// the update's).
+    pub fn times_mut(&mut self) -> impl Iterator<Item = &mut Second> {
+        let items: &mut [Timed<T>] = match self {
+            BatchedOwned::One(_) => &mut [],
+            BatchedOwned::Series(series) => series,
+        };
+        items.iter_mut().map(|item| &mut item.t)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for BatchedOwned<T>
+where
+    Timed<T>: for<'i> SeriesColumns<'i>,
+{
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+        match self {
+            BatchedOwned::One(value) => {
+                wr.write_nib_masked(BATCHED_ONE)?;
+                wr.write(value)
+            }
+            BatchedOwned::Series(series) => {
+                wr.write_nib_masked(BATCHED_SERIES)?;
+                wr.align_byte();
+                series.ser_shrink_wrap_owned(wr)
+            }
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for BatchedOwned<T>
+where
+    Timed<T>: for<'i> SeriesColumns<'i>,
+{
+    const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
+
+    fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
+        match rd.read_nib()?.value() {
+            BATCHED_ONE => Ok(BatchedOwned::One(rd.read_owned()?)),
+            BATCHED_SERIES => {
+                rd.align_byte();
+                Ok(BatchedOwned::Series(SeriesOwned::des_shrink_wrap_owned(rd)?))
+            }
+            _ => Err(Error::EnumFutureVersionOrMalformedData),
+        }
+    }
 }
 
 /// Serialize an [EventKind::PropertyUpdate](crate::EventKind::PropertyUpdate) event of the level at `path` into
@@ -281,6 +479,75 @@ mod tests {
         assert!(t.is_some());
         assert_eq!(missed, Some(UNib32(3)));
         assert_eq!(d.0, data);
+    }
+
+    #[test]
+    fn samples_mode_round_trip() {
+        let mode = ObserveMode::Samples {
+            every_us: UNib32(0),
+            max_age_us: UNib32(20_000),
+        };
+        let mut buf = [0u8; 16];
+        let b = mode.to_ww_bytes(&mut buf).unwrap().to_vec();
+        assert_eq!(ObserveMode::from_ww_bytes(&b).unwrap(), mode);
+    }
+
+    fn samples() -> Vec<Timed<u32>> {
+        (0..10u32)
+            .map(|i| Timed::new(Second::micro(1_000 + i * 40), 500 + i))
+            .collect()
+    }
+
+    /// Both forms, borrowed and owned, same bytes; a decoded series is copied as it is.
+    #[test]
+    fn batched_round_trip() {
+        let items = samples();
+        let mut buf = [0u8; 128];
+        for (borrowed, owned) in [
+            (Batched::One(7u32), BatchedOwned::One(7u32)),
+            (
+                Batched::Series(Series::new(&items)),
+                BatchedOwned::Series(items.clone().into()),
+            ),
+        ] {
+            let b = borrowed.to_ww_bytes(&mut buf).unwrap().to_vec();
+            assert_eq!(owned.to_ww_bytes_owned().unwrap(), b);
+            assert_eq!(BatchedOwned::<u32>::from_ww_bytes_owned(&b).unwrap(), owned);
+            let back = Batched::<u32>::from_ww_bytes(&b).unwrap();
+            let mut again = [0u8; 128];
+            assert_eq!(back.to_ww_bytes(&mut again).unwrap(), b);
+        }
+        // what a device writes: the same bytes
+        let raw = Batched::Series(Series::new(&items))
+            .to_ww_bytes(&mut buf)
+            .unwrap()
+            .to_vec();
+        let mut again = [0u8; 128];
+        assert_eq!(BatchedOne(&7u32).to_ww_bytes(&mut again).unwrap(), Batched::One(7u32).to_ww_bytes(&mut buf).unwrap());
+        let series = Series::new(&items).to_ww_bytes(&mut buf).unwrap().to_vec();
+        assert_eq!(BatchedRaw(&series).to_ww_bytes(&mut again).unwrap(), raw);
+        // the tag nibble and its padding: one byte before the series
+        let series = Series::new(&items).to_ww_bytes(&mut buf).unwrap().to_vec();
+        let b = Batched::Series(Series::new(&items))
+            .to_ww_bytes(&mut buf)
+            .unwrap()
+            .to_vec();
+        assert_eq!(b.len(), series.len() + 1);
+        assert_eq!(&b[1..], series);
+        assert!(BatchedOwned::<u32>::from_ww_bytes_owned(&[0x20]).is_err());
+    }
+
+    #[test]
+    fn batched_samples_and_times() {
+        let t = Second::micro(5u32);
+        assert_eq!(BatchedOwned::One(3u32).into_samples(Some(t)), vec![(3, Some(t))]);
+        let mut batch = BatchedOwned::Series(samples().into());
+        assert_eq!(batch.times_mut().count(), 10);
+        for t in batch.times_mut() {
+            *t = Second::micro(1u32);
+        }
+        let got = batch.into_samples(None);
+        assert_eq!(got[9], (509, Some(Second::micro(1u32))));
     }
 
     /// Without a timestamp and nothing missed, an update of a level one deep costs 4 bytes plus its data.

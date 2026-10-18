@@ -192,11 +192,6 @@ fuzz-framer:
 fuzz-shrink-wrap:
     cargo +nightly fuzz run shrink-wrap-tail-size -- -max_len=4096
 
-# Fuzz shrink_wrap Delta/DeltaOfDelta/XorFloat series types (SW-31, SW-32)
-[working-directory('fuzz')]
-fuzz-shrink-wrap-series:
-    cargo +nightly fuzz run shrink-wrap-series -- -max_len=4096
-
 # Fuzz shrink_wrap RefVec of plain numbers against its decode pass (SW-37)
 [working-directory('fuzz')]
 fuzz-shrink-wrap-ref-vec:

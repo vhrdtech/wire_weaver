@@ -25,8 +25,9 @@
 //!   channel of the configuration's channel list. Sub-byte words are packed starting at bit 0 of a byte (sample 0
 //!   in the lowest bits), multi-byte words are little-endian. What a DMA from a GPIO port produces.
 //! - [Encoding::Transitions], [TransitionsChunk]: per channel, its level at the start and the sample indices where
-//!   it toggles, as a `DeltaOfDelta<u32>` (SW-31). A steady clock costs about one bit per edge, a quiet channel
-//!   almost nothing, so the edge rate limits a stream, not the sample rate.
+//!   it toggles, as a `Series<u32>` (SW-60, its numeric column picks delta of delta for a clock). A steady clock
+//!   costs a few bytes per chunk, a quiet channel almost nothing, so the edge rate limits a stream, not the sample
+//!   rate.
 //!
 //! Sample indices are `u32` counted from a capture's first sample, or from the start of a stream (where they wrap
 //! and the host unwraps them).
@@ -57,8 +58,13 @@ pub const MAX_NAME_LEN: usize = 32;
 /// Largest raw data of one [RawChunk], in bytes; the worst case of a [TransitionsChunk] (128 edges) fits as well.
 pub const MAX_READ_LEN: usize = 768;
 
-/// Most edges of one [TransitionsChunk]: 128 indices take at most 592 bytes, so a chunk fits a reply.
+/// Most edges of one [TransitionsChunk]: 128 indices take at most 610 bytes (`Series::<u32>::max_bytes(128)`), so a
+/// chunk fits a reply.
 pub const MAX_EDGES: usize = 128;
+
+// the worst case of a chunk's edges fits a reply
+const _: () =
+    assert!(matches!(Series::<'static, u32>::max_bytes(MAX_EDGES), Some(n) if n <= MAX_READ_LEN));
 
 /// Most trigger stages of one [Trigger::Stages].
 pub const MAX_STAGES: usize = 8;
@@ -443,7 +449,7 @@ pub struct TransitionsChunk<'i> {
     /// No more edges before this sample; the next chunk of this channel starts here.
     pub scanned_to: u32,
     /// Samples where the channel toggles, ascending, in `from..scanned_to`; at most [MAX_EDGES].
-    pub edges: DeltaOfDelta<'i, u32>,
+    pub edges: Series<'i, u32>,
 }
 
 /// One item of the `LogicStream::data` stream.

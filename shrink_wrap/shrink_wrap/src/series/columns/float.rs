@@ -1,7 +1,7 @@
 //! Float column: `f32` / `f64`.
 //!
 //! ```text
-//! codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the SW-32 XorFloat code), others reserved
+//! codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the SW-32 Gorilla XOR code), others reserved
 //! ```
 //!
 //! XOR: the first value of each segment at full width, then the SW-32 code against the previous value; a segment

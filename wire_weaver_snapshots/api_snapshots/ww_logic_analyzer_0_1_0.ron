@@ -28,8 +28,9 @@
     "  channel of the configuration\'s channel list. Sub-byte words are packed starting at bit 0 of a byte (sample 0",
     "  in the lowest bits), multi-byte words are little-endian. What a DMA from a GPIO port produces.",
     "- [Encoding::Transitions], [TransitionsChunk]: per channel, its level at the start and the sample indices where",
-    "  it toggles, as a `DeltaOfDelta<u32>` (SW-31). A steady clock costs about one bit per edge, a quiet channel",
-    "  almost nothing, so the edge rate limits a stream, not the sample rate.",
+    "  it toggles, as a `Series<u32>` (SW-60, its numeric column picks delta of delta for a clock). A steady clock",
+    "  costs a few bytes per chunk, a quiet channel almost nothing, so the edge rate limits a stream, not the sample",
+    "  rate.",
     "",
     "Sample indices are `u32` counted from a capture\'s first sample, or from the start of a stream (where they wrap",
     "and the host unwraps them).",
@@ -410,7 +411,7 @@
         (ident: Some("scanned_to"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "No more edges before this sample; the next chunk of this channel starts here.",
         ], slot: None, series_opaque: false),
-        (ident: Some("edges"), default: None, since: None, ty: DeltaOfDelta(U32), docs: [
+        (ident: Some("edges"), default: None, since: None, ty: Series(NumericAny(Base(U32))), docs: [
             "Samples where the channel toggles, ascending, in `from..scanned_to`; at most [MAX_EDGES].",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
@@ -561,7 +562,7 @@
                 "InUse",
                 "NoPower",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "data", docs: [
+        ]), batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "data", docs: [
             "Captured data in `config`\'s encoding: raw chunks, or transition chunks of each channel as they fill. Opening",
             "returns what was actually set. Unit: chunk. `InvalidArgument` for a rate, channel count or threshold out of",
             "range, `Unsupported` for the encoding, `Busy` while a capture runs.",

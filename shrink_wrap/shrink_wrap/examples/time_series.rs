@@ -1,10 +1,11 @@
-//! Encoded sizes of synthetic time-series data: raw `Vec<T>` vs `Delta`/`DeltaOfDelta` (integers) and `XorFloat`
-//! (floats) (SW-31, SW-32). Referenced from `docs/serdes/shrink_wrap.md`.
+//! Encoded sizes of synthetic time-series data: raw `Vec<T>` vs `Series<T>` (SW-60), which picks the smallest of
+//! raw/delta/delta-of-delta (integers, SW-31) or plain/XOR (floats, SW-32) per column. Referenced from
+//! `docs/serdes/series.md`.
 //!
 //! Run with `cargo run --example time_series`.
 
 use shrink_wrap::prelude::*;
-use shrink_wrap::series::{DeltaInt, XorBits};
+use shrink_wrap::series::SeriesColumns;
 
 const N: usize = 60; // one minute at 1 Hz
 
@@ -25,29 +26,15 @@ fn xorshift(x: &mut u64) -> u64 {
     *x
 }
 
-fn report_int<T: DeltaInt + Clone + SerializeShrinkWrap + for<'i> DeserializeShrinkWrap<'i>>(
-    name: &str,
-    values: &[T],
-) {
+fn report<T>(name: &str, values: &[T])
+where
+    T: for<'i> SeriesColumns<'i> + Clone + SerializeShrinkWrap + for<'i> DeserializeShrinkWrap<'i>,
+{
     let raw = ser_len(&RefVec::Slice { slice: values });
-    let delta = ser_len(&Delta::new(values));
-    let dod = ser_len(&DeltaOfDelta::new(values));
+    let series = ser_len(&Series::new(values));
     println!(
-        "{name:<34} raw {raw:>5} B   Delta {delta:>5} B ({:>5.1}%)   DeltaOfDelta {dod:>5} B ({:>5.1}%)",
-        pct(delta, raw),
-        pct(dod, raw),
-    );
-}
-
-fn report_float<T: XorBits + Clone + SerializeShrinkWrap + for<'i> DeserializeShrinkWrap<'i>>(
-    name: &str,
-    values: &[T],
-) {
-    let raw = ser_len(&RefVec::Slice { slice: values });
-    let xor = ser_len(&XorFloat::new(values));
-    println!(
-        "{name:<34} raw {raw:>5} B   XorFloat {xor:>5} B ({:>5.1}%)",
-        pct(xor, raw),
+        "{name:<34} raw {raw:>5} B   Series {series:>5} B ({:>5.1}%)",
+        pct(series, raw),
     );
 }
 
@@ -80,8 +67,8 @@ fn main() {
     let rail: Vec<f32> = vec![3.3f32; N];
 
     println!("{N} samples each, one minute at 1 Hz\n");
-    report_int("stamps: u64, 1s step + 0/1s jitter", &stamps);
-    report_int("counts: i32, +1..=3 ticks", &counts);
-    report_float("temps: f32, sine, 0.1 precision", &temps);
-    report_float("rail: f32, constant", &rail);
+    report("stamps: u64, 1s step + 0/1s jitter", &stamps);
+    report("counts: i32, +1..=3 ticks", &counts);
+    report("temps: f32, sine, 0.1 precision", &temps);
+    report("rail: f32, constant", &rail);
 }

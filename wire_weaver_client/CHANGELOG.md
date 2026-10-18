@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+* The compatibility check no longer knows `Delta` / `DeltaOfDelta` / `XorFloat` (removed from ww_self); a
+  `Series<T>`'s codecs are picked per column when writing and are not part of its type, only `T` is compared.
 - One rule for every device time the client gives out (P2401#17oct-2214b): `StreamEvent::Item::t` of every
   positioned stream (heads too, not only batch items), `BatchItem::t` and `Observed::t` / `Sample::t` come unwrapped
   whatever prefix and storage the device sends (`U32` µs, `U16` ms, ..; it may change them on the way): a `U64` in

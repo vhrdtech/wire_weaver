@@ -1,16 +1,7 @@
-//! Compressed sequences (SW-31, SW-32): [Delta], [DeltaOfDelta] for integers and [XorFloat] for `f32` / `f64`,
-//! used as struct fields like `Vec<T>` but written bit by bit so that a sequence of similar values takes a fraction
-//! of the space. Borrowed variants decode lazily from the buffer with no allocation (`no_std`), `..Owned` variants
-//! hold a `Vec<T>`.
-//!
-//! All three share the layout of `Vec<T>` around the elements: `UnsizedFinalStructure`, the element count as a
-//! reverse length at the back of the enclosing value, the first element at the full width of `T`, every further
-//! element as a prefix code against the one before it, with no alignment in between or after (the bit cursor
-//! continues; a byte-aligned field written next aligns itself as usual). The codes are fixed once released, like
-//! any other part of the wire format; `docs/serdes/shrink_wrap.md` has them bit by bit.
-//!
-//! [Series] (SW-60) goes further for lists of structs and enums: one column per leaf field, each with its own
-//! predictor and coder, discrete leaves as runs of changes; see [SeriesColumns] for the types it takes.
+//! [Series] (SW-60): a list of `T` written column by column, one column per leaf field, each with its own
+//! predictor and coder, discrete leaves as runs of changes; see [SeriesColumns] for the types it takes. Numeric
+//! columns use the SW-31 prefix code (plus packed/constant/plain), float columns the SW-32 XOR code (Gorilla),
+//! both bit-level codes internal to this module and its `columns` submodule.
 
 use crate::{BufReader, BufWriter, Error, SerializeShrinkWrap};
 
@@ -20,7 +11,6 @@ mod columns;
 #[cfg(fuzzing)]
 #[doc(hidden)]
 pub use columns::check as fuzz_columns;
-mod delta;
 pub mod dynamic;
 #[cfg(test)]
 mod golden_signals;
@@ -56,12 +46,7 @@ pub use series_type::SeriesOwned;
 pub use series_type::{SERIES_MAX_ITEMS, Series, SeriesIter, SeriesTryIter};
 pub use store::SeriesStore;
 
-pub use delta::{Delta, DeltaInt, DeltaIter, DeltaOfDelta, DeltaOfDeltaIter};
-#[cfg(feature = "std")]
-pub use delta::{DeltaOfDeltaOwned, DeltaOwned};
-#[cfg(feature = "std")]
-pub use xor_float::XorFloatOwned;
-pub use xor_float::{XorBits, XorFloat, XorFloatIter};
+pub use xor_float::XorBits;
 
 /// Bit-level writes shared by [BufWriter], `BufWriterOwned` and [BitCounter], so a codec is written once. The
 /// writers of [SeriesColumns] groups are generic over it: the same code writes and counts.
@@ -237,287 +222,12 @@ pub(crate) trait Codec<T>: Default {
     fn decode(&mut self, rd: &mut BufReader<'_>) -> Result<T, Error>;
 }
 
-/// `count` elements claimed by a reverse length against what the reader has left: every element takes at least
-/// one bit, so more elements than bits is malformed data, and bounds what an owned decoder allocates.
-pub(crate) fn check_count(count: usize, rd: &BufReader<'_>) -> Result<(), Error> {
-    if count > rd.bits_left() {
-        return Err(Error::MalformedSeries);
-    }
-    Ok(())
-}
-
-/// The borrowed sequence, its iterator and the owned sequence of one codec, with the four serdes traits. Mirrors
-/// `RefVec<'i, T>` / `Vec<T>`: the borrowed one is either a slice (to serialize) or a bounded reader (after
-/// deserializing), decoded again on every iteration; the owned one wraps a `Vec<T>`.
-macro_rules! sequence_types {
-    (
-        $(#[$doc:meta])*
-        $name:ident, $iter:ident, $owned:ident, $bound:ident, $codec:ty
-    ) => {
-        $(#[$doc])*
-        #[derive(Clone, Copy)]
-        pub enum $name<'i, T> {
-            /// Values to serialize.
-            Slice(&'i [T]),
-            /// Encoded values, positioned at the first element (what deserializing produces).
-            Buf { buf: BufReader<'i>, count: usize },
-        }
-
-        impl<'i, T> $name<'i, T> {
-            pub const fn new(values: &'i [T]) -> Self {
-                $name::Slice(values)
-            }
-
-            pub fn len(&self) -> usize {
-                match self {
-                    $name::Slice(s) => s.len(),
-                    $name::Buf { count, .. } => *count,
-                }
-            }
-
-            pub fn is_empty(&self) -> bool {
-                self.len() == 0
-            }
-        }
-
-        impl<'i, T: $bound> $name<'i, T> {
-            pub fn iter(&self) -> $iter<'i, T> {
-                match self {
-                    $name::Slice(s) => $iter::Slice { slice: s, pos: 0 },
-                    $name::Buf { buf, count } => $iter::Buf {
-                        buf: *buf,
-                        count: *count,
-                        pos: 0,
-                        codec: Default::default(),
-                    },
-                }
-            }
-
-            /// `to_vec()` of the decoded values.
-            #[cfg(feature = "std")]
-            pub fn to_owned_seq(&self) -> $owned<T> {
-                $owned(self.iter().collect())
-            }
-        }
-
-        impl<T> Default for $name<'_, T> {
-            fn default() -> Self {
-                $name::Slice(&[])
-            }
-        }
-
-        impl<'i, T: $bound> IntoIterator for &$name<'i, T> {
-            type Item = T;
-            type IntoIter = $iter<'i, T>;
-
-            fn into_iter(self) -> Self::IntoIter {
-                self.iter()
-            }
-        }
-
-        impl<T: $bound + core::fmt::Debug> core::fmt::Debug for $name<'_, T> {
-            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.debug_list().entries(self.iter()).finish()
-            }
-        }
-
-        #[cfg(feature = "defmt")]
-        impl<T: $bound> defmt::Format for $name<'_, T> {
-            fn format(&self, fmt: defmt::Formatter) {
-                defmt::write!(fmt, "{}({} elements)", stringify!($name), self.len())
-            }
-        }
-
-        impl<T: $bound + PartialEq> PartialEq for $name<'_, T> {
-            fn eq(&self, other: &Self) -> bool {
-                self.len() == other.len() && self.iter().eq(other.iter())
-            }
-        }
-
-        /// Iterator of [`
-        #[doc = stringify!($name)]
-        /// `], decoding as it goes; stops early on malformed data, which deserialization already rejected.
-        pub enum $iter<'i, T> {
-            Slice { slice: &'i [T], pos: usize },
-            Buf { buf: BufReader<'i>, count: usize, pos: usize, codec: $codec },
-        }
-
-        impl<T: $bound> Iterator for $iter<'_, T> {
-            type Item = T;
-
-            fn next(&mut self) -> Option<T> {
-                match self {
-                    $iter::Slice { slice, pos } => {
-                        let v = *slice.get(*pos)?;
-                        *pos += 1;
-                        Some(v)
-                    }
-                    $iter::Buf { buf, count, pos, codec } => {
-                        if *pos >= *count {
-                            return None;
-                        }
-                        *pos += 1;
-                        match codec.decode(buf) {
-                            Ok(v) => Some(v),
-                            Err(_) => {
-                                *pos = *count;
-                                None
-                            }
-                        }
-                    }
-                }
-            }
-
-            fn size_hint(&self) -> (usize, Option<usize>) {
-                let left = match self {
-                    $iter::Slice { slice, pos } => slice.len() - *pos,
-                    $iter::Buf { count, pos, .. } => *count - *pos,
-                };
-                (0, Some(left))
-            }
-        }
-
-        impl<'i, T: $bound> crate::SerializeShrinkWrap for $name<'i, T> {
-            const ELEMENT_SIZE: crate::ElementSize = crate::ElementSize::UnsizedFinalStructure;
-
-            fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-                wr.write_rev_len(self.len())?;
-                let mut codec = <$codec>::default();
-                for v in self.iter() {
-                    codec.encode(v, wr)?;
-                }
-                Ok(())
-            }
-        }
-
-        #[cfg(feature = "std")]
-        impl<'i, T: $bound> crate::SerializeShrinkWrapOwned for $name<'i, T> {
-            const ELEMENT_SIZE: crate::ElementSize = crate::ElementSize::UnsizedFinalStructure;
-
-            fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
-                wr.write_rev_len(self.len())?;
-                let mut codec = <$codec>::default();
-                for v in self.iter() {
-                    codec.encode(v, wr)?;
-                }
-                Ok(())
-            }
-        }
-
-        impl<'i, T: $bound> crate::DeserializeShrinkWrap<'i> for $name<'i, T> {
-            const ELEMENT_SIZE: crate::ElementSize = crate::ElementSize::UnsizedFinalStructure;
-
-            fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-                let count = rd.read_rev_len()?;
-                $crate::series::check_count(count, rd)?;
-                let buf = *rd;
-                // decode once to validate and to advance the reader past the elements
-                let mut codec = <$codec>::default();
-                for _ in 0..count {
-                    codec.decode(rd)?;
-                }
-                Ok($name::Buf { buf, count })
-            }
-        }
-
-        /// Owned [`
-        #[doc = stringify!($name)]
-        /// `]: a `Vec<T>` encoded the same way.
-        #[cfg(feature = "std")]
-        #[derive(Clone, Debug, Default, PartialEq)]
-        pub struct $owned<T>(pub Vec<T>);
-
-        #[cfg(feature = "std")]
-        impl<T> $owned<T> {
-            pub const fn new() -> Self {
-                $owned(Vec::new())
-            }
-
-            pub fn into_inner(self) -> Vec<T> {
-                self.0
-            }
-        }
-
-        #[cfg(feature = "std")]
-        impl<T> From<Vec<T>> for $owned<T> {
-            fn from(values: Vec<T>) -> Self {
-                $owned(values)
-            }
-        }
-
-        #[cfg(feature = "std")]
-        impl<T> FromIterator<T> for $owned<T> {
-            fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-                $owned(iter.into_iter().collect())
-            }
-        }
-
-        #[cfg(feature = "std")]
-        impl<T> core::ops::Deref for $owned<T> {
-            type Target = Vec<T>;
-
-            fn deref(&self) -> &Vec<T> {
-                &self.0
-            }
-        }
-
-        #[cfg(feature = "std")]
-        impl<T> core::ops::DerefMut for $owned<T> {
-            fn deref_mut(&mut self) -> &mut Vec<T> {
-                &mut self.0
-            }
-        }
-
-        #[cfg(feature = "std")]
-        impl<T: $bound> $owned<T> {
-            /// Borrow as the zero-copy type, e.g. to serialize into a `BufWriter`.
-            pub fn as_borrowed(&self) -> $name<'_, T> {
-                $name::Slice(&self.0)
-            }
-        }
-
-        #[cfg(feature = "std")]
-        impl<T: $bound> crate::SerializeShrinkWrap for $owned<T> {
-            const ELEMENT_SIZE: crate::ElementSize = crate::ElementSize::UnsizedFinalStructure;
-
-            fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-                self.as_borrowed().ser_shrink_wrap(wr)
-            }
-        }
-
-        #[cfg(feature = "std")]
-        impl<T: $bound> crate::SerializeShrinkWrapOwned for $owned<T> {
-            const ELEMENT_SIZE: crate::ElementSize = crate::ElementSize::UnsizedFinalStructure;
-
-            fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
-                self.as_borrowed().ser_shrink_wrap_owned(wr)
-            }
-        }
-
-        #[cfg(feature = "std")]
-        impl<T: $bound> crate::DeserializeShrinkWrapOwned for $owned<T> {
-            const ELEMENT_SIZE: crate::ElementSize = crate::ElementSize::UnsizedFinalStructure;
-
-            fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
-                let count = rd.read_rev_len()?;
-                $crate::series::check_count(count, rd)?;
-                // pushed one by one: the count is data, not a reason to allocate up front
-                let mut values = Vec::with_capacity(count.min(1024));
-                let mut codec = <$codec>::default();
-                for _ in 0..count {
-                    values.push(codec.decode(rd)?);
-                }
-                Ok($owned(values))
-            }
-        }
-    };
-}
-
-pub(crate) use sequence_types;
-
-/// Zigzag: small negative and positive numbers become small unsigned ones.
+/// Zigzag: small negative and positive numbers become small unsigned ones. Only [unzigzag] is needed outside
+/// tests: every residual a column writes already starts as a zigzag value of the right width (the numeric
+/// column's own `Word::zigzag`).
+#[cfg(test)]
 #[inline]
-pub(crate) const fn zigzag(d: i64) -> u64 {
+const fn zigzag(d: i64) -> u64 {
     ((d << 1) ^ (d >> 63)) as u64
 }
 

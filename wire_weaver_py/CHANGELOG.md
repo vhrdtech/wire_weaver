@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- `Delta`, `DeltaOfDelta` and `XorFloat` values are gone with the types (shrink_wrap): their replacement `Series<T>` of
+  numbers takes and gives the same Python `list` (any iterable accepted for `encode`).
 - **Breaking:** the `rtt` feature is no longer in `default-features` (P2401): building the crate directly with
   plain `cargo build`/`cargo check` no longer pulls in `probe-rs` (and its `hidapi` dependency). The `pip`-installed
   wheel is unaffected — `pyproject.toml`'s `[tool.maturin] features = ["rtt"]` enables it for the actual build.

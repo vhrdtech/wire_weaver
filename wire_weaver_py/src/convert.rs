@@ -17,8 +17,7 @@
 //! | `Option<T>`                       | `None` or `T`                                                       |
 //! | `Result<T, E>`                    | `{"Ok": T}` or `{"Err": E}`                                         |
 //! | `Range`, `RangeInclusive`         | `(start, end)` (`range` with step 1 accepted)                       |
-//! | `Delta`, `DeltaOfDelta`, `XorFloat` | `list` of `int` / `float` (any iterable accepted)                 |
-//! | `Series<T>`                       | `list` of `T` (columns as numpy arrays: `decode_columns`)           |
+//! | `Series<T>`                       | `list` of `T`, any iterable accepted (columns as numpy arrays: `decode_columns`) |
 //! | `ww_si` quantity (`Volt`, ..)      | `Quantity` (a `Quantity` of the same unit, or a number in the unit itself accepted) |
 
 use crate::quantity::Quantity;
@@ -245,17 +244,6 @@ fn to_value_at(
         TypeOwned::RangeInclusive(base) => {
             let (start, end) = to_bounds(obj, base, false).ok_or_else(expected)??;
             ValueOwned::RangeInclusive(start..=end)
-        }
-        TypeOwned::Delta(base) | TypeOwned::DeltaOfDelta(base) | TypeOwned::XorFloat(base) => {
-            if obj.is_instance_of::<PyString>() || !is_iterable(obj) {
-                return Err(expected());
-            }
-            let element = TypeOwned::NumericAny(NumericAnyTypeOwned::Base(base.clone()));
-            ValueOwned::Vec(
-                obj.try_iter()?
-                    .map(|item| to_value_at(&item?, &element, bundle, depth + 1))
-                    .collect::<PyResult<_>>()?,
-            )
         }
         TypeOwned::Series(inner) => {
             ValueOwned::Vec(to_items(obj, inner, bundle, depth).map_err(|e| {
@@ -577,21 +565,6 @@ pub(crate) fn to_py<'py>(
             let items = items
                 .iter()
                 .map(|v| to_py(py, v, inner, bundle))
-                .collect::<PyResult<Vec<_>>>()?;
-            PyList::new(py, items)?.into_any()
-        }
-        (
-            ValueOwned::Vec(items),
-            TypeOwned::Delta(_) | TypeOwned::DeltaOfDelta(_) | TypeOwned::XorFloat(_),
-        ) => {
-            let items = items
-                .iter()
-                .map(|v| match v {
-                    ValueOwned::Numeric(n) => numeric_to_py(py, n),
-                    other => Err(PyTypeError::new_err(format!(
-                        "expected a number, got {other:?}"
-                    ))),
-                })
                 .collect::<PyResult<Vec<_>>>()?;
             PyList::new(py, items)?.into_any()
         }

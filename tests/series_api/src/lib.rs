@@ -1,5 +1,5 @@
-//! Compressed sequences (`Delta`, `DeltaOfDelta`, `XorFloat`, SW-31, SW-32) in every position of an API (SW-50), and
-//! `Series<T>` of structs, enums and a generic `ww_si::Timed<T>` (SW-60, CLT-29).
+//! `Series<T>` (SW-60) of numbers in every position of an API (arguments, return values, struct fields, properties,
+//! streams), and of structs, enums and a generic `ww_si::Timed<T>` (CLT-29).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -9,15 +9,15 @@ use ww_si::{Timed, Volt};
 #[ww_trait]
 trait Sequences {
     /// Sum of the timestamps
-    fn sum(timestamps: DeltaOfDelta<'i, u32>) -> u64;
+    fn sum(timestamps: Series<'i, u32>) -> u64;
     /// `count` values counting down from `start`
-    fn ramp(start: i16, count: u8) -> Delta<'i, i16>;
+    fn ramp(start: i16, count: u8) -> Series<'i, i16>;
     /// The values times `k`
-    fn scale(values: XorFloat<'i, f32>, k: f32) -> XorFloat<'i, f32>;
+    fn scale(values: Series<'i, f32>, k: f32) -> Series<'i, f32>;
     /// A struct with sequences as fields, returns the number of timestamps
     fn capture(capture: Capture<'i>) -> u32;
-    property!(rw stamps: DeltaOfDelta<'i, u64>);
-    stream!(samples: Delta<'i, u16>);
+    property!(rw stamps: Series<'i, u64>);
+    stream!(samples: Series<'i, u16>);
     /// The last `n` readings, column by column
     fn readings(n: u8) -> Series<'i, Reading<'i>>;
     /// Voltage history with device time
@@ -70,6 +70,6 @@ pub enum Status {
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Clone))]
 pub struct Capture<'i> {
     pub channel: u8,
-    pub timestamps: DeltaOfDelta<'i, u32>,
-    pub levels: XorFloat<'i, f64>,
+    pub timestamps: Series<'i, u32>,
+    pub levels: Series<'i, f64>,
 }

@@ -148,9 +148,9 @@ def test_max_len():
 
 
 def test_series():
-    # Delta / DeltaOfDelta / XorFloat (SW-50): lists of numbers, written with their codec
+    # Series<T> of numbers (SW-60): lists of numbers, each column with its smallest codec (CLT-29 writes them)
     api = ww.load_api(str(API_CRATE.parent / "series_api"), "Sequences")
-    assert api.stamps.signature == "rw stamps: DeltaOfDelta<u64>"
+    assert api.stamps.signature == "rw stamps: Series<u64>"
     stamps = [1_700_000_000_000, 1_700_000_000_250, 1_700_000_000_500]
     encoded = api.stamps.encode(stamps)
     assert len(encoded) < 8 * len(stamps)

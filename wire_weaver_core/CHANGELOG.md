@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+* `Delta<'i, T>`, `DeltaOfDelta<'i, T>`, `XorFloat<'i, T>` (and `..Owned`) are no longer built-in API types (removed
+  from shrink_wrap): use `Series<'i, T>`, which codegen already maps to `ww_self::Type::Series`.
 - Generated std clients of APIs with `+observe+batched` properties (API-39): their slots in `<Trait>Update` are
   `BatchedOwned<T>`, `<Trait>Latest` keeps the last sample, `<Trait>Observe::samples(max_age)` observes every
   sample of each batched property of the level, `observe_<name>` yields one value per sample.

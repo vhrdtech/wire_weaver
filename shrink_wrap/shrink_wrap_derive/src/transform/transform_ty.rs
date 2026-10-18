@@ -138,7 +138,7 @@ fn transform_path_segment(
                 }
             }
 
-            // a user type, with its generic arguments as written (`Foo<u8>`, `XorFloat<'i, f32>`)
+            // a user type, with its generic arguments as written (`Foo<u8>`, `Series<'i, f32>`)
             return Ok(Type::External(
                 Path::new(
                     vec![Ident::new(other_ty, path_segment.ident.span())],

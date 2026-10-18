@@ -30,13 +30,6 @@ doc = false
 bench = false
 
 [[bin]]
-name = "shrink-wrap-series"
-path = "src/shrink_wrap_series.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "shrink-wrap-ref-vec"
 path = "src/shrink_wrap_ref_vec.rs"
 test = false

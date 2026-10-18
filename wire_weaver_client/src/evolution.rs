@@ -750,7 +750,7 @@ mod tests {
     }
 
     #[test]
-    fn changed_series_codec_or_element_is_breaking() {
+    fn changed_series_element_is_breaking() {
         let api = |ty: &str| {
             format!(
                 r#"
@@ -761,21 +761,19 @@ mod tests {
             "#
             )
         };
-        let old = api("DeltaOfDelta<'i, u32>");
+        // the codecs are picked per column when writing, they are not part of the type
+        let old = api("Series<'i, u32>");
         assert_eq!(report(&old, &old).change, Change::None);
-        assert_eq!(
-            report(&old, &api("DeltaOfDeltaOwned<u32>")).change,
-            Change::None
-        );
+        assert_eq!(report(&old, &api("SeriesOwned<u32>")).change, Change::None);
         for (new, reason) in [
-            ("DeltaOfDelta<'i, u64>", "DeltaOfDelta<u64>"),
-            ("Delta<'i, u32>", "Delta<u32>"),
+            ("Series<'i, u64>", "u64"),
+            ("Series<'i, i32>", "i32"),
             ("RefVec<'i, u32>", "Vec"),
         ] {
             assert_breaking(&report(&old, &api(new)), reason);
         }
-        let old = api("XorFloat<'i, f32>");
-        assert_breaking(&report(&old, &api("XorFloat<'i, f64>")), "XorFloat<f64>");
+        let old = api("Series<'i, f32>");
+        assert_breaking(&report(&old, &api("Series<'i, f64>")), "f64");
     }
 
     #[test]

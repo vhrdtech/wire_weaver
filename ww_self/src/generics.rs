@@ -383,10 +383,7 @@ impl<'a> Validator<'a> {
             | TypeOwned::Flag
             | TypeOwned::String
             | TypeOwned::Range(_)
-            | TypeOwned::RangeInclusive(_)
-            | TypeOwned::Delta(_)
-            | TypeOwned::DeltaOfDelta(_)
-            | TypeOwned::XorFloat(_) => 1,
+            | TypeOwned::RangeInclusive(_) => 1,
             TypeOwned::OutOfLine { type_idx } => {
                 if let Some(TypeLocationOwned::InLine { ty, .. }) =
                     self.bundle.types.get(type_idx.0 as usize)
@@ -608,10 +605,7 @@ impl Direct<'_> {
             | TypeOwned::Flag
             | TypeOwned::String
             | TypeOwned::Range(_)
-            | TypeOwned::RangeInclusive(_)
-            | TypeOwned::Delta(_)
-            | TypeOwned::DeltaOfDelta(_)
-            | TypeOwned::XorFloat(_) => {}
+            | TypeOwned::RangeInclusive(_) => {}
         }
         Ok(())
     }
@@ -974,10 +968,7 @@ impl Instantiator {
             | TypeOwned::Flag
             | TypeOwned::String
             | TypeOwned::Range(_)
-            | TypeOwned::RangeInclusive(_)
-            | TypeOwned::Delta(_)
-            | TypeOwned::DeltaOfDelta(_)
-            | TypeOwned::XorFloat(_) => Ok(()),
+            | TypeOwned::RangeInclusive(_) => Ok(()),
         }
     }
 

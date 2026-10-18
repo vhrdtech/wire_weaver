@@ -230,9 +230,7 @@ macro_rules! define_visitor {
                 | TypeOwned::String
                 | TypeOwned::Range(_)
                 | TypeOwned::RangeInclusive(_)
-                | TypeOwned::Delta(_)
-                | TypeOwned::DeltaOfDelta(_)
-                | TypeOwned::XorFloat(_) => {}
+ => {}
             }
         }
 

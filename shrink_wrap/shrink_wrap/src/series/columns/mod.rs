@@ -75,7 +75,7 @@ impl NumericCodec {
 pub enum FloatCodec {
     /// Each value at full width.
     Plain = 0,
-    /// The SW-32 `XorFloat` code, the first value of each segment at full width.
+    /// The SW-32 XOR code (Gorilla), the first value of each segment at full width.
     Xor = 1,
 }
 

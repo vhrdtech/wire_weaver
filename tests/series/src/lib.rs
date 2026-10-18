@@ -1,4 +1,4 @@
-//! Compressed sequences (`Delta`, `DeltaOfDelta`, `XorFloat`, SW-31, SW-32) in an API (SW-50), through generated
+//! `Series<T>` of numbers (SW-60) in every position of an API, and of structs and enums, through generated
 //! server and client code: arguments, return values, struct fields, properties and streams; their types in
 //! introspection data and the dynamic client, which writes the same bytes as the derived types.
 
@@ -45,7 +45,7 @@ mod tests {
             fn sum(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                timestamps: DeltaOfDelta<'_, u32>,
+                timestamps: Series<'_, u32>,
             ) -> RpcResult<u64> {
                 Ready(timestamps.iter().map(u64::from).sum())
             }
@@ -55,19 +55,19 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 start: i16,
                 count: u8,
-            ) -> RpcResult<Delta<'_, i16>> {
+            ) -> RpcResult<Series<'_, i16>> {
                 self.ramp = (0..count as i16).map(|i| start - i).collect();
-                Ready(Delta::new(&self.ramp))
+                Ready(Series::new(&self.ramp))
             }
 
             fn scale(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                values: XorFloat<'_, f32>,
+                values: Series<'_, f32>,
                 k: f32,
-            ) -> RpcResult<XorFloat<'_, f32>> {
+            ) -> RpcResult<Series<'_, f32>> {
                 self.scaled = values.iter().map(|v| v * k).collect();
-                Ready(XorFloat::new(&self.scaled))
+                Ready(Series::new(&self.scaled))
             }
 
             fn capture(
@@ -82,7 +82,7 @@ mod tests {
             fn set_stamps(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                value: DeltaOfDelta<'_, u64>,
+                value: Series<'_, u64>,
             ) -> SetResult<()> {
                 self.data.lock().unwrap().stamps = value.iter().collect();
                 SetResult::Set
@@ -91,9 +91,9 @@ mod tests {
             fn get_stamps(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<DeltaOfDelta<'_, u64>, ()> {
+            ) -> GetResult<Series<'_, u64>, ()> {
                 self.stamps = self.data.lock().unwrap().stamps.clone();
-                GetResult::Value(DeltaOfDelta::new(&self.stamps))
+                GetResult::Value(Series::new(&self.stamps))
             }
 
             fn set_log<'i>(
@@ -297,8 +297,8 @@ mod tests {
     fn capture() -> series_api::CaptureOwned {
         series_api::CaptureOwned {
             channel: 3,
-            timestamps: DeltaOfDeltaOwned(TIMESTAMPS.to_vec()),
-            levels: XorFloatOwned(vec![1.5, 1.5, 1.25, -0.0, f64::NAN, 1e300]),
+            timestamps: SeriesOwned(TIMESTAMPS.to_vec()),
+            levels: SeriesOwned(vec![1.5, 1.5, 1.25, -0.0, f64::NAN, 1e300]),
         }
     }
 
@@ -308,22 +308,19 @@ mod tests {
         let mut client = connect(&device).await;
 
         let sum: u64 = TIMESTAMPS.iter().map(|&t| t as u64).sum();
-        let timestamps = DeltaOfDeltaOwned(TIMESTAMPS.to_vec());
+        let timestamps = SeriesOwned(TIMESTAMPS.to_vec());
         assert_eq!(client.sum(timestamps).call().await.unwrap(), sum);
-        assert_eq!(
-            client.sum(DeltaOfDeltaOwned::new()).call().await.unwrap(),
-            0
-        );
+        assert_eq!(client.sum(SeriesOwned::new()).call().await.unwrap(), 0);
 
         let ramp = client.ramp(-3, 4).call().await.unwrap();
-        assert_eq!(ramp, DeltaOwned(vec![-3, -4, -5, -6]));
+        assert_eq!(ramp, SeriesOwned(vec![-3, -4, -5, -6]));
 
         let scaled = client
-            .scale(XorFloatOwned(vec![1.0, 2.5, -4.0]), 2.0)
+            .scale(SeriesOwned(vec![1.0, 2.5, -4.0]), 2.0)
             .call()
             .await
             .unwrap();
-        assert_eq!(scaled, XorFloatOwned(vec![2.0, 5.0, -8.0]));
+        assert_eq!(scaled, SeriesOwned(vec![2.0, 5.0, -8.0]));
 
         assert_eq!(client.capture(capture()).call().await.unwrap(), 3006);
     }
@@ -334,7 +331,7 @@ mod tests {
         let client = connect(&device).await;
         let stamps = vec![1_700_000_000_000u64, 1_700_000_000_250, 1_700_000_000_500];
         client
-            .write_stamps(DeltaOfDeltaOwned(stamps.clone()))
+            .write_stamps(SeriesOwned(stamps.clone()))
             .write()
             .await
             .unwrap();
@@ -351,10 +348,10 @@ mod tests {
         let values = [512u16, 513, 515, 515, 0, u16::MAX];
         device.send(
             api_impl::stream_data_ser()
-                .samples(&Delta::new(&values), &mut scratch)
+                .samples(&Series::new(&values), &mut scratch)
                 .unwrap(),
         );
-        assert_eq!(samples.recv().await.unwrap(), DeltaOwned(values.to_vec()));
+        assert_eq!(samples.recv().await.unwrap(), SeriesOwned(values.to_vec()));
     }
 
     #[test]
@@ -367,22 +364,24 @@ mod tests {
             };
             args[arg].ty.clone()
         };
-        assert_eq!(
-            ty_of_arg(0, 0),
-            TypeOwned::DeltaOfDelta(NumericBaseType::U32)
-        );
-        assert_eq!(ty_of_arg(2, 0), TypeOwned::XorFloat(NumericBaseType::F32));
+        let series_of = |base| {
+            TypeOwned::Series(Box::new(TypeOwned::NumericAny(
+                wire_weaver_client::ww_numeric::NumericAnyTypeOwned::Base(base),
+            )))
+        };
+        assert_eq!(ty_of_arg(0, 0), series_of(NumericBaseType::U32));
+        assert_eq!(ty_of_arg(2, 0), series_of(NumericBaseType::F32));
         let ApiItemKindOwned::Method { return_ty, .. } = &bundle.get_item(&[1]).unwrap().kind
         else {
             panic!("method");
         };
         let return_ty = return_ty.as_ref().unwrap();
-        assert_eq!(*return_ty, TypeOwned::Delta(NumericBaseType::I16));
-        assert_eq!(return_ty.human_name(false, &bundle).unwrap(), "Delta<i16>");
+        assert_eq!(*return_ty, series_of(NumericBaseType::I16));
+        assert_eq!(return_ty.human_name(false, &bundle).unwrap(), "Series<i16>");
         let ApiItemKindOwned::Property { ty, .. } = &bundle.get_item(&[4]).unwrap().kind else {
             panic!("property");
         };
-        assert_eq!(ty.human_name(false, &bundle).unwrap(), "DeltaOfDelta<u64>");
+        assert_eq!(ty.human_name(false, &bundle).unwrap(), "Series<u64>");
     }
 
     #[test]
@@ -442,7 +441,12 @@ mod tests {
         // out of range for the element type
         let too_big = ValueOwned::Vec(vec![num(NumericValue::U64(1 << 40))]);
         let err = too_big
-            .ser_shrink_wrap_dyn(&TypeOwned::DeltaOfDelta(NumericBaseType::U32), &bundle)
+            .ser_shrink_wrap_dyn(
+                &TypeOwned::Series(Box::new(TypeOwned::NumericAny(
+                    wire_weaver_client::ww_numeric::NumericAnyTypeOwned::Base(NumericBaseType::U32),
+                ))),
+                &bundle,
+            )
             .unwrap_err()
             .to_string();
         assert!(err.contains("out of range"), "{err}");

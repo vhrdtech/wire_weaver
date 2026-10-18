@@ -876,10 +876,6 @@ impl<'a> TypeCheck<'a> {
             (NumericAny(_), NumericAny(_))
             | (Range(_), Range(_))
             | (RangeInclusive(_), RangeInclusive(_))
-            // another element type or codec is other bytes (also against a plain Vec)
-            | (Delta(_), Delta(_))
-            | (DeltaOfDelta(_), DeltaOfDelta(_))
-            | (XorFloat(_), XorFloat(_))
                 if w == r =>
             {
                 Ok(())
@@ -1186,9 +1182,6 @@ fn describe(ty: &TypeOwned) -> String {
         TypeOwned::Box(_) => "Box".into(),
         TypeOwned::Range(_) => "Range".into(),
         TypeOwned::RangeInclusive(_) => "RangeInclusive".into(),
-        TypeOwned::Delta(base) => format!("Delta<{}>", base.name()),
-        TypeOwned::DeltaOfDelta(base) => format!("DeltaOfDelta<{}>", base.name()),
-        TypeOwned::XorFloat(base) => format!("XorFloat<{}>", base.name()),
         TypeOwned::MaxLen { max_len, ty } => {
             format!("{} of at most {}", describe(ty), max_len.human_name(&[]))
         }

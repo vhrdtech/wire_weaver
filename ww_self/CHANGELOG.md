@@ -2,6 +2,11 @@
 
 ### ⚠️ Breaking
 
+* `Type::Delta`, `Type::DeltaOfDelta` and `Type::XorFloat` are removed (shrink_wrap dropped the types, SW-31/SW-32
+  are `Series` codecs now): an API with such a field describes it as `Type::Series` of the number. The variants after
+  them (`Instance`, `Param`, `Series`) move down by three discriminants, so introspection data written before can't be
+  read by this version and the other way round (devices and hosts are rebuilt together); snapshots of
+  `ww_logic_analyzer` and `ww_signal_generator` saved again.
 * `PropertyAccess::ReadOnly` / `ReadWrite` get `batched: bool` (API-39, `ro+observe+batched`): a host may observe
   every sample of the property, in batches, and its observe slot is a `Batched<T>`. API hashes of APIs with
   readable properties change, the snapshots are saved again; patterns and literals of the two variants need the

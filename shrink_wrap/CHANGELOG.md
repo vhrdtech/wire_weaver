@@ -246,6 +246,15 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### ⚠️ Breaking
 
+* `Delta`, `DeltaOfDelta` and `XorFloat` (SW-31, SW-32) are removed, with `DeltaOwned`, `DeltaOfDeltaOwned`,
+  `XorFloatOwned`, `DeltaIter`, `DeltaOfDeltaIter`, `XorFloatIter` and `DeltaInt`: `Series<T>` (SW-60) covers them
+  with the same codes (its numeric columns' prefix coder is the SW-31 code with the delta or delta of delta
+  predictor, its float columns' XOR codec is the SW-32 code) plus packed, constant and plain coders and the choice of
+  the smallest per column. Migrate a field `Delta<'i, T>` / `DeltaOfDelta<'i, T>` / `XorFloat<'i, T>` to
+  `Series<'i, T>` (`..Owned<T>` to `SeriesOwned<T>`, `::new(&values)` stays); a fixed codec where a small MCU wants
+  one pass is `Series::with_policy(&values, DeltaPacked)`. The bytes differ (a `Series` has a count, a 4-bit header
+  per column and pads to a byte): data written with the old types must be rewritten. `XorBits` stays (float
+  columns). The prelude exports `Series` / `SeriesOwned` in their place.
 - `SeriesColumns::write_group` takes the codec policy as a type parameter, `policy: &P` with
   `P: SeriesPolicy + ?Sized`, instead of `&CodecPolicy` (SW-63): a hand-written impl adds `P` to its generics and
   the bound to its where clause, and passes `policy` on as before (`policy.numeric()` / `policy.float()` where it

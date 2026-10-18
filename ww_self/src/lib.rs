@@ -432,15 +432,6 @@ pub enum Type<'i> {
         max_len: Length,
         ty: RefBox<'i, Type<'i>>,
     },
-    /// List of integers (`U8`..`U64`, `I8`..`I64`) written as differences to the previous one in a bit-level prefix
-    /// code, `Delta<'i, T>` / `DeltaOwned<T>` (SW-31). Same layout around the elements as [Vec](Type::Vec).
-    Delta(NumericBaseType),
-    /// Same as [Delta](Type::Delta), but differences of differences (the Gorilla timestamp code),
-    /// `DeltaOfDelta<'i, T>` / `DeltaOfDeltaOwned<T>`.
-    DeltaOfDelta(NumericBaseType),
-    /// List of `F32` or `F64` written as XOR with the previous value (Gorilla), `XorFloat<'i, T>` /
-    /// `XorFloatOwned<T>` (SW-32).
-    XorFloat(NumericBaseType),
     /// A use of a generic struct or enum from the ApiBundle types array with its arguments, `Timed<Ampere>`
     /// (API-43): like [OutOfLine](Type::OutOfLine), the definition's [generics](ItemStruct::generics) replaced
     /// with `args`, one per parameter, in the same order and of the same kind.

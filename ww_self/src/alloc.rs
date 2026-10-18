@@ -280,10 +280,7 @@ impl TypeOwned {
             TypeOwned::RangeInclusive(_) => Ok(false),
             TypeOwned::MaxLen { ty, .. } => ty.is_lifetime_in(api_bundle, seen),
             // a slice or a reader of the buffer, like RefVec
-            TypeOwned::Delta(_)
-            | TypeOwned::DeltaOfDelta(_)
-            | TypeOwned::XorFloat(_)
-            | TypeOwned::Series(_) => Ok(true),
+            TypeOwned::Series(_) => Ok(true),
         }
     }
 
@@ -317,10 +314,7 @@ impl TypeOwned {
             | TypeOwned::Result { .. }
             | TypeOwned::Range(_)
             | TypeOwned::RangeInclusive(_)
-            | TypeOwned::MaxLen { .. }
-            | TypeOwned::Delta(_)
-            | TypeOwned::DeltaOfDelta(_)
-            | TypeOwned::XorFloat(_) => Ok(false),
+            | TypeOwned::MaxLen { .. } => Ok(false),
         }
     }
 
@@ -554,9 +548,6 @@ impl NameCx<'_> {
             TypeOwned::RangeInclusive(base) => {
                 self.push(&format!("RangeInclusive<{}>", base.name()))
             }
-            TypeOwned::Delta(base) => self.push(&format!("Delta<{}>", base.name())),
-            TypeOwned::DeltaOfDelta(base) => self.push(&format!("DeltaOfDelta<{}>", base.name())),
-            TypeOwned::XorFloat(base) => self.push(&format!("XorFloat<{}>", base.name())),
             TypeOwned::MaxLen { max_len, ty } => {
                 self.push("MaxLen<")?;
                 self.ty(ty)?;
@@ -739,10 +730,7 @@ impl DefCx<'_> {
             | TypeOwned::Flag
             | TypeOwned::String
             | TypeOwned::Range(_)
-            | TypeOwned::RangeInclusive(_)
-            | TypeOwned::Delta(_)
-            | TypeOwned::DeltaOfDelta(_)
-            | TypeOwned::XorFloat(_) => ty.human_name_in(false, api_bundle, params),
+            | TypeOwned::RangeInclusive(_) => ty.human_name_in(false, api_bundle, params),
         }
     }
 

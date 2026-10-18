@@ -92,8 +92,8 @@ pub trait LevelUpdate: DeserializeShrinkWrapOwned + Debug + Send + 'static {
     /// Move the properties present in this update into `latest`.
     fn update_latest(self, latest: &mut Self::Latest, received: Instant, t: Option<Second>);
 
-    /// Every device time of the samples in `Batched::Series` slots (API-39), in slot order, oldest first in each:
-    /// the level unwraps them in order once, every observer gets the same.
+    /// Every device time of the samples in `Batched::Samples` slots (API-39), the level's `sample_times`, oldest
+    /// first: the level unwraps them in order once, every observer gets the same.
     fn times_mut(&mut self, _f: &mut dyn FnMut(&mut Second)) {}
 
     /// [Self::times_mut] as the level visits them, with its `latest` at hand: an update that can't find its times
@@ -881,9 +881,18 @@ impl<U: LevelUpdate, T> Observer<U, T> {
                             self.missed = raw_missed;
                             return Ok(());
                         };
+                        // the samples' times are the level's `sample_times`, unwrapped
+                        let samples = match batched.into_samples(raw.t, Some(&raw.times)) {
+                            Ok(samples) => samples,
+                            Err(e) => {
+                                warn!("malformed PropertyUpdate, samples left out: {e:?}");
+                                self.missed = raw_missed;
+                                return Ok(());
+                            }
+                        };
                         // what was missed goes with the first sample
                         let mut missed = raw_missed;
-                        for (value, t) in batched.into_samples(raw.t) {
+                        for (value, t) in samples {
                             self.pending
                                 .push_back(observed(value, t, std::mem::take(&mut missed)));
                         }

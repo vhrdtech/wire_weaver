@@ -8,11 +8,12 @@
 //! (`OptionAnyVecIter::read_slot_with`/`read_slot`), just from a runtime list of `(index, type)` instead of a
 //! compile-time one.
 //!
-//! A `+batched` property's slot is a `Batched<T>` (API-39): one value, or a `Series<Timed<T>>` of samples. Its
-//! layout is the framework's, not in the model, so it is decoded here by hand: a nibble tag, `T` (`One`), or a
-//! byte-aligned series of the property's `batch_item_ty` (`Series`). The level unwraps the samples' device times
-//! (it keeps the [LevelSchema] in its latest-value slot for that, [DynLatest]), so they count on the same way as
-//! a generated observer's.
+//! A `+batched` property's slot is a `Batched<T>` (API-39): one value, or a `Series<T>` of samples. Its layout is
+//! the framework's, not in the model, so it is decoded here by hand: a nibble tag, `T` (`One`), or a byte-aligned
+//! series (`Samples`). The samples' device times are the level's `sample_times` slot (a `Series` of the
+//! properties' `sample_time_ty`, past the level's last resource index), shared by every `Samples` slot of the
+//! update. The level unwraps them (it keeps the [LevelSchema] in its latest-value slot for that, [DynLatest]), so
+//! they count on the same way as a generated observer's.
 
 use crate::observe::{Granted, LevelConfig, LevelUpdate, ObserveMode, Observed, Observer, Second};
 use crate::{Error, StreamError};
@@ -23,7 +24,7 @@ use wire_weaver::shrink_wrap::option_any_vec::OptionAnyVec;
 use wire_weaver::shrink_wrap::{
     BufReader, DeserializeShrinkWrapOwned, ElementSize, Error as SWError,
 };
-use ww_self::{ApiBundleOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned};
+use ww_self::{ApiBundleOwned, TypeOwned, ValueOwned};
 
 /// Raw bytes of a level's `PropertyUpdate`, kept undecoded until [LevelSchema::decode] runs against the level's
 /// introspection (TOOL-11): what plugs into [crate::Commander::prepare_observe] in place of a generated
@@ -31,7 +32,8 @@ use ww_self::{ApiBundleOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwn
 #[derive(Debug, Clone, Default)]
 pub(crate) struct DynUpdate {
     data: Vec<u8>,
-    /// Device times of the samples in `Batched::Series` slots, unwrapped by the level (API-39)
+    /// Device times of the samples in `Batched::Samples` slots (the level's `sample_times`), unwrapped by the level
+    /// (API-39)
     times: Vec<Second>,
 }
 
@@ -64,13 +66,9 @@ impl LevelUpdate for DynUpdate {
             return;
         };
         // an update that doesn't decode is reported by the observers, which decode it again
-        if let Ok(slots) = schema.decode_slots(&self.data) {
-            for (_, slot) in slots {
-                if let DynSlot::Series(items) = slot {
-                    for (_, mut t) in items {
-                        f(&mut t);
-                    }
-                }
+        if let Ok((_, times)) = schema.decode_slots(&self.data) {
+            for mut t in times {
+                f(&mut t);
             }
         }
     }
@@ -104,61 +102,59 @@ pub(crate) struct LevelSchema {
     props: Vec<(u32, String, TypeOwned)>,
     /// Per entry of `props`: how its `Batched<T>` slot decodes, `None` when it isn't `+batched`.
     batched: Vec<Option<BatchedSlot>>,
+    /// The level's `sample_times` slot (API-39, shared clock), with `+batched` properties.
+    sample_times: Option<SampleTimes>,
 }
 
-/// The `Series<Timed<T>>` of a `+batched` property's `Batched::Series` slot (API-39).
+/// The `Series<T>` of a `+batched` property's `Batched::Samples` slot (API-39).
 #[derive(Clone, Debug)]
 pub(crate) struct BatchedSlot {
-    /// `Series<batch_item_ty>`
     series_ty: TypeOwned,
-    /// `Timed<T>`'s `t` field type, `ww_si::Second`
-    second_ty: TypeOwned,
 }
 
 impl BatchedSlot {
-    /// From a `+batched` property's `batch_item_ty` (`Timed<T>`), in a prepared `bundle`.
-    pub(crate) fn new(batch_item_ty: &TypeOwned, bundle: &ApiBundleOwned) -> anyhow::Result<Self> {
-        let timed = batch_item_ty.get_in_line(bundle)?;
-        let TypeOwned::Struct(timed) = timed else {
-            anyhow::bail!("expected Timed<T>, got {timed:?}");
-        };
-        let FieldsOwned::Named(fields) = &timed.fields else {
-            anyhow::bail!("Timed<T> has no named fields");
-        };
-        let second_ty = fields
-            .iter()
-            .find(|f| f.ident.as_deref() == Some("t"))
-            .map(|f| f.ty.clone())
-            .ok_or_else(|| anyhow::anyhow!("Timed<T> has no 't' field"))?;
-        Ok(BatchedSlot {
-            series_ty: TypeOwned::Series(Box::new(batch_item_ty.clone())),
-            second_ty,
-        })
+    /// From a `+batched` property's type.
+    pub(crate) fn new(ty: &TypeOwned) -> Self {
+        BatchedSlot {
+            series_ty: TypeOwned::Series(Box::new(ty.clone())),
+        }
     }
+}
+
+/// A level's `sample_times` slot (API-39): a `Series<Second>` past the level's last resource index, the device
+/// times of the samples in the update's `Batched::Samples` slots.
+#[derive(Clone, Debug)]
+pub(crate) struct SampleTimes {
+    /// Resource index of the slot: the level's largest + 1
+    pub(crate) index: u32,
+    /// `ww_si::Second`, from the properties' `sample_time_ty`
+    pub(crate) second_ty: TypeOwned,
 }
 
 /// One present slot of an update.
 enum DynSlot {
     /// A property that isn't `+batched`, or `Batched::One`: one value, at the update's time.
     One(ValueOwned),
-    /// `Batched::Series`: samples with their device times, oldest first.
-    Series(Vec<(ValueOwned, Second)>),
+    /// `Batched::Samples`: samples at the times of the update's `sample_times`, oldest first.
+    Samples(Vec<ValueOwned>),
 }
 
 const BATCHED_ONE: u8 = 0;
-const BATCHED_SERIES: u8 = 1;
+const BATCHED_SAMPLES: u8 = 1;
 
 impl LevelSchema {
     pub(crate) fn new(
         bundle: Arc<ApiBundleOwned>,
         props: Vec<(u32, String, TypeOwned)>,
         batched: Vec<Option<BatchedSlot>>,
+        sample_times: Option<SampleTimes>,
     ) -> Self {
         debug_assert_eq!(props.len(), batched.len());
         LevelSchema {
             bundle,
             props,
             batched,
+            sample_times,
         }
     }
 
@@ -176,10 +172,11 @@ impl LevelSchema {
             .map(|((index, ..), _)| *index)
     }
 
-    /// The present slots of one `PropertyUpdate`'s data, by position in `props`. A present slot past the ones in
-    /// the schema (a newer device) is left unread: the enclosing `Unsized` bound skips it, same as a generated
-    /// sparse struct with fewer fields than the data would. Device times come as sent (wrapping).
-    fn decode_slots(&self, data: &[u8]) -> anyhow::Result<Vec<(usize, DynSlot)>> {
+    /// The present slots of one `PropertyUpdate`'s data, by position in `props`, and the times in its
+    /// `sample_times` (as sent, wrapping). A present slot past the ones in the schema (a newer device) is left
+    /// unread: the enclosing `Unsized` bound skips it, same as a generated sparse struct with fewer fields than the
+    /// data would.
+    fn decode_slots(&self, data: &[u8]) -> anyhow::Result<(Vec<(usize, DynSlot)>, Vec<Second>)> {
         let vec = OptionAnyVec::new(data)?;
         let mut iter = vec.iter();
         let mut out = Vec::with_capacity(self.props.len());
@@ -197,7 +194,32 @@ impl LevelSchema {
                 out.push((k, slot));
             }
         }
-        Ok(out)
+        let mut times = vec![];
+        if let Some(sample_times) = &self.sample_times {
+            let series_ty = TypeOwned::Series(Box::new(sample_times.second_ty.clone()));
+            let values = iter.read_slot_with::<ValueOwned, anyhow::Error>(sample_times.index, |rd| {
+                Ok(ValueOwned::des_shrink_wrap_field_dyn(
+                    rd,
+                    &series_ty,
+                    &self.bundle,
+                )?)
+            })?;
+            if let Some(values) = values {
+                let ValueOwned::Vec(values) = values else {
+                    anyhow::bail!("sample_times: expected a Series value");
+                };
+                for t in values {
+                    let t = crate::quantity::DynQuantity::from_value(
+                        &t,
+                        &sample_times.second_ty,
+                        &self.bundle,
+                    )
+                    .ok_or_else(|| anyhow::anyhow!("sample_times: not a quantity"))?;
+                    times.push(Second::from_parts(t.prefix, t.value));
+                }
+            }
+        }
+        Ok((out, times))
     }
 
     /// A `Batched<T>` slot (API-39), `Unsized`: its length, a nibble tag, then `T` or a byte-aligned series.
@@ -215,7 +237,7 @@ impl LevelSchema {
                 ty,
                 &self.bundle,
             )?)),
-            BATCHED_SERIES => {
+            BATCHED_SAMPLES => {
                 rd.align_byte();
                 let bytes = rd.read_raw_slice(rd.bytes_left())?;
                 let ValueOwned::Vec(items) =
@@ -223,58 +245,33 @@ impl LevelSchema {
                 else {
                     anyhow::bail!("expected a Series value");
                 };
-                let samples = items
-                    .into_iter()
-                    .map(|item| self.timed_parts(item, &batched.second_ty))
-                    .collect::<anyhow::Result<_>>()?;
-                Ok(DynSlot::Series(samples))
+                Ok(DynSlot::Samples(items))
             }
             tag => anyhow::bail!("Batched tag {tag}: from a newer device or malformed"),
         }
     }
 
-    /// `value` and `t` of one decoded `Timed<T>`.
-    fn timed_parts(
-        &self,
-        item: ValueOwned,
-        second_ty: &TypeOwned,
-    ) -> anyhow::Result<(ValueOwned, Second)> {
-        let ValueOwned::Struct {
-            fields: FieldsValueOwned::Named(fields),
-        } = item
-        else {
-            anyhow::bail!("expected a Timed<T> value");
-        };
-        let mut t = None;
-        let mut value = None;
-        for (name, v) in fields {
-            match name.as_str() {
-                "t" => t = Some(v),
-                "value" => value = Some(v),
-                _ => {}
-            }
-        }
-        let (t, value) = t
-            .zip(value)
-            .ok_or_else(|| anyhow::anyhow!("Timed<T> value is missing 't' or 'value'"))?;
-        let t = crate::quantity::DynQuantity::from_value(&t, second_ty, &self.bundle)
-            .ok_or_else(|| anyhow::anyhow!("'t' of Timed<T> is not a quantity"))?;
-        Ok((value, Second::from_parts(t.prefix, t.value)))
-    }
-
     /// Decode one `PropertyUpdate`'s data into its present properties, by name, in schema (resource index) order:
     /// the latest value of each, and every sample of the `+batched` ones. `times` are the samples' device times
-    /// the level unwrapped, in order; `t` the update's.
+    /// the level unwrapped (its `sample_times`); `t` the update's. Every `Batched::Samples` slot has as many
+    /// samples as there are times, else the update is malformed.
     fn decode(
         &self,
         data: &[u8],
         times: &[Second],
         t: Option<Second>,
     ) -> anyhow::Result<(Values, Vec<DynSamples>)> {
-        let mut times = times.iter();
         let mut values = Vec::with_capacity(self.props.len());
         let mut samples = vec![];
-        for (k, slot) in self.decode_slots(data)? {
+        let (slots, sent_times) = self.decode_slots(data)?;
+        if times.len() != sent_times.len() {
+            anyhow::bail!(
+                "{} sample times unwrapped, {} sent",
+                times.len(),
+                sent_times.len()
+            );
+        }
+        for (k, slot) in slots {
             let name = &self.props[k].1;
             let batched = self.batched[k].is_some();
             let items = match slot {
@@ -283,10 +280,20 @@ impl LevelSchema {
                     continue;
                 }
                 DynSlot::One(value) => vec![(value, t)],
-                DynSlot::Series(items) => items
-                    .into_iter()
-                    .map(|(value, sent)| (value, Some(times.next().copied().unwrap_or(sent))))
-                    .collect(),
+                DynSlot::Samples(items) => {
+                    if items.len() != times.len() {
+                        anyhow::bail!(
+                            "{name}: {} samples, {} sample times",
+                            items.len(),
+                            times.len()
+                        );
+                    }
+                    items
+                        .into_iter()
+                        .zip(times)
+                        .map(|(value, t)| (value, Some(*t)))
+                        .collect()
+                }
             };
             if let Some((last, _)) = items.last() {
                 values.push((name.clone(), last.clone()));

@@ -18,7 +18,7 @@
 //! ```
 
 use crate::client::dyn_observe::{
-    BatchedSlot, DynConfig, DynLatest, DynObserver, DynUpdate, LevelSchema,
+    BatchedSlot, DynConfig, DynLatest, DynObserver, DynUpdate, LevelSchema, SampleTimes,
 };
 use crate::client::dyn_positioned::{DynPositionedStream, DynStreamOpen};
 use crate::client::prepared_stream_open::RawOpenResult;
@@ -40,7 +40,7 @@ use ww_client_server::{ErrorKindOwned, ErrorOwned, MultiIndexOwned, PathKind, Re
 use ww_numeric::NumericValue;
 use ww_self::errors::{error_list_contains, error_value_name, fmt_error_list};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Delivery,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Batching, Delivery,
     ErrorVariantOwned, FlowControl, Multiplicity, PropertyAccess, TypeOwned, ValueOwned,
 };
 
@@ -527,32 +527,33 @@ impl DynResource {
                 ApiItemKindOwned::Property {
                     ty,
                     access:
-                        PropertyAccess::ReadOnly {
-                            observe: true,
-                            batched,
-                        }
-                        | PropertyAccess::ReadWrite {
-                            observe: true,
-                            batched,
-                        },
-                    batch_item_ty,
+                        PropertyAccess::ReadOnly { observe: true }
+                        | PropertyAccess::ReadWrite { observe: true },
+                    batched,
+                    sample_time_ty,
                     ..
-                } => Some((item, ty, *batched, batch_item_ty)),
+                } => Some((item, ty, *batched, sample_time_ty)),
                 _ => None,
             });
         let mut props = vec![];
         let mut batched_slots = vec![];
-        for (item, ty, batched, batch_item_ty) in props_iter {
-            let slot = match (batched, batch_item_ty) {
-                (false, _) => None,
-                (true, Some(item_ty)) => {
-                    Some(BatchedSlot::new(item_ty, &self.bundle).map_err(|e| {
-                        Error::User(format!("+batched property {}: {e:#}", item.ident))
-                    })?)
+        let mut second_ty: Option<TypeOwned> = None;
+        for (item, ty, batched, sample_time_ty) in props_iter {
+            let slot = match batched {
+                None => None,
+                Some(Batching::SharedClock) => {
+                    let Some(sample_time_ty) = sample_time_ty else {
+                        return Err(Error::User(format!(
+                            "+batched property {} without sample_time_ty in the device's model",
+                            item.ident
+                        )));
+                    };
+                    second_ty.get_or_insert_with(|| sample_time_ty.clone());
+                    Some(BatchedSlot::new(ty))
                 }
-                (true, None) => {
+                Some(other) => {
                     return Err(Error::User(format!(
-                        "+batched property {} without batch_item_ty in the device's model",
+                        "+batched property {}: batching {other:?} this client doesn't know for properties",
                         item.ident
                     )));
                 }
@@ -560,7 +561,17 @@ impl DynResource {
             props.push((item.id.0, item.ident.clone(), ty.clone()));
             batched_slots.push(slot);
         }
-        Ok(LevelSchema::new(self.bundle.clone(), props, batched_slots))
+        // past the level's last resource index
+        let sample_times = second_ty.map(|second_ty| SampleTimes {
+            index: level.items.iter().map(|i| i.id.0 + 1).max().unwrap_or(0),
+            second_ty,
+        });
+        Ok(LevelSchema::new(
+            self.bundle.clone(),
+            props,
+            batched_slots,
+            sample_times,
+        ))
     }
 
     /// Observe this trait level's `+observe` properties without generated code (TOOL-11): one device subscription

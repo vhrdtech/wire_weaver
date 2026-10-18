@@ -334,12 +334,14 @@ fn compare_kinds<'a>(
                 ty,
                 access,
                 write_err_ty,
+                batched,
                 ..
             },
             Property {
                 ty: device_ty,
                 access: device_access,
                 write_err_ty: device_write_err_ty,
+                batched: device_batched,
                 ..
             },
         ) => {
@@ -348,11 +350,13 @@ fn compare_kinds<'a>(
             if (readable && !device_readable)
                 || (writable && !device_writable)
                 || (observable && !device_observable)
-                // a `+batched` property's observe slot is a `Batched<T>` (API-39): both sides must agree
-                || (observable && is_batched(access) != is_batched(device_access))
+                // a `+batched` property's observe slot is a `Batched<T>` (API-39): both sides must agree, on
+                // the form too
+                || (observable && batched != device_batched)
             {
                 return Err(format!(
-                    "{access:?} on the {client_name}, {device_access:?} on the {device_name}"
+                    "{access:?} {batched:?} on the {client_name}, {device_access:?} {device_batched:?} on the \
+                     {device_name}"
                 ));
             }
             if readable {
@@ -480,15 +484,6 @@ fn capabilities(access: &PropertyAccess) -> (bool, bool, bool) {
         PropertyAccess::ReadWrite { observe, .. } => (true, true, *observe),
         PropertyAccess::WriteOnly => (false, true, false),
     }
-}
-
-/// `+batched` (API-39)
-fn is_batched(access: &PropertyAccess) -> bool {
-    matches!(
-        access,
-        PropertyAccess::ReadOnly { batched: true, .. }
-            | PropertyAccess::ReadWrite { batched: true, .. }
-    )
 }
 
 fn kind_name(kind: &ApiItemKindOwned) -> &'static str {

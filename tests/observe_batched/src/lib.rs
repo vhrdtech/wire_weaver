@@ -1,6 +1,6 @@
 //! Batched observe end to end (API-39): `+observe+batched` properties observed in `Samples` mode, every sample the
-//! device takes (or one per `every_us`) sent in batches, `Batched::Series` slots next to `Batched::One` and plain
-//! ones. The device runs the generated async server polled with a fake clock, the host the real event loop
+//! device takes (or one per `every_us`) sent in batches, `Batched::Samples` slots next to `Batched::One` and plain
+//! ones, the samples of a level sharing one time column (`sample_times`). The device runs the generated async server polled with a fake clock, the host the real event loop
 //! (`tests_common`); the device side tests send requests raw through the `Commander` and read updates from a tracer.
 
 #[cfg(test)]
@@ -19,7 +19,7 @@ mod tests {
         ObserveRequest,
     };
     use ww_client_server::{Event, EventKind, PathKind, Request, RequestKind};
-    use ww_si::{Second, Timed};
+    use ww_si::Second;
     use ww_stream::batch::{Scratch, scratch_bytes};
     use ww_stream::observe::ObserveLimits;
 
@@ -32,8 +32,15 @@ mod tests {
 
     /// Samples per batch on the device (`observe_batch`)
     const N: usize = 8;
-    /// Where batches are rebuilt while they are encoded: the biggest item, `Timed<Reading>`
-    const SB: usize = scratch_bytes::<Timed<Reading>>(N);
+    /// Where batches are rebuilt while they are encoded, one column at a time: the biggest column type
+    const SB: usize = scratch_for(N);
+
+    /// Scratch bytes for batches of `n` rows: the biggest of the time column and the property types
+    const fn scratch_for(n: usize) -> usize {
+        let time = scratch_bytes::<Second>(n);
+        let reading = scratch_bytes::<Reading>(n);
+        if time > reading { time } else { reading }
+    }
 
     const LIMITS: ObserveLimits = ObserveLimits {
         min_period_us: 100,
@@ -209,13 +216,30 @@ mod tests {
         data: Vec<u8>,
     }
 
+    /// Samples of a `Batched::Samples` slot with their times from the update's `sample_times`, which has exactly as
+    /// many
+    fn with_times<T>(times: &Option<Vec<u64>>, values: Vec<T>) -> Vec<(u64, T)> {
+        let times = times.as_ref().expect("sample_times next to samples");
+        assert_eq!(times.len(), values.len(), "one time per sample");
+        times.iter().copied().zip(values).collect()
+    }
+
     impl Update {
+        /// The update's `sample_times` in µs as sent
+        fn times(&self) -> Option<Vec<u64>> {
+            let u = ObserveBatchedUpdate::from_ww_bytes(&self.data).unwrap();
+            u.sample_times.map(|s| s.iter().map(us).collect())
+        }
+
         /// Samples of `current` in it: (t µs, value) per item of a series, or the update's t for a single value
         fn current(&self) -> Vec<(Option<u64>, i32)> {
             let u = ObserveBatchedUpdate::from_ww_bytes(&self.data).unwrap();
             match u.current {
                 Some(Batched::One(v)) => vec![(self.t, v)],
-                Some(Batched::Series(s)) => s.iter().map(|i| (Some(us(i.t)), i.value)).collect(),
+                Some(Batched::Samples(s)) => with_times(&self.times(), s.iter().collect())
+                    .into_iter()
+                    .map(|(t, v)| (Some(t), v))
+                    .collect(),
                 None => vec![],
             }
         }
@@ -223,7 +247,7 @@ mod tests {
         fn readings(&self) -> Vec<(u64, Reading)> {
             let u = ObserveBatchedUpdate::from_ww_bytes(&self.data).unwrap();
             match u.reading {
-                Some(Batched::Series(s)) => s.iter().map(|i| (us(i.t), i.value)).collect(),
+                Some(Batched::Samples(s)) => with_times(&self.times(), s.iter().collect()),
                 Some(Batched::One(_)) => panic!("one reading"),
                 None => vec![],
             }
@@ -237,8 +261,12 @@ mod tests {
 
         fn temps(&self) -> Vec<f32> {
             let u = SlowUpdate::from_ww_bytes(&self.data).unwrap();
+            let times = u.sample_times.map(|s| s.iter().map(us).collect());
             match u.temp {
-                Some(Batched::Series(s)) => s.iter().map(|i| i.value).collect(),
+                Some(Batched::Samples(s)) => with_times(&times, s.iter().collect())
+                    .into_iter()
+                    .map(|(_, v)| v)
+                    .collect(),
                 Some(Batched::One(v)) => vec![v],
                 None => vec![],
             }
@@ -558,7 +586,7 @@ mod tests {
         let mut buf = [0u8; 512];
         // batches of the default size here
         let mut sb = Box::new(Scratch::<
-            { scratch_bytes::<Timed<Reading>>(split_server::api_impl::OBSERVE_BATCH) },
+            { scratch_for(split_server::api_impl::OBSERVE_BATCH) },
         >::new());
         let mut now = 0;
         let collect =
@@ -572,8 +600,10 @@ mod tests {
                     };
                     *missed += m.map_or(0, |m| m.0);
                     let u = ObserveBatchedUpdate::from_ww_bytes(data.0).unwrap();
-                    if let Some(Batched::Series(s)) = u.current {
-                        got.extend(s.iter().map(|i| i.value));
+                    if let Some(Batched::Samples(s)) = u.current {
+                        let times = u.sample_times.expect("sample_times");
+                        assert_eq!(times.iter().count(), s.iter().count());
+                        got.extend(s.iter());
                     }
                 }
                 queue.clear();
@@ -729,7 +759,8 @@ mod tests {
     }
 
     /// `Samples` is untrusted input: only `+batched` properties take it, the age and grid are clamped; switching a
-    /// property to another mode drops its waiting batches and the sampler stops taking its samples.
+    /// property to another mode drops its column from the waiting batches. The rows of a level carry every value,
+    /// so a property switched into `Samples` gets the rows not sent yet too, each at its time.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn validated_and_switched_off() {
         let mut b = Bench::start("observe_batched/validated", 512).await;
@@ -763,8 +794,122 @@ mod tests {
             "{updates:?}"
         );
         let readings: Vec<_> = updates.iter().flat_map(Update::readings).collect();
-        assert_eq!(readings.len(), 5);
-        assert_eq!(readings[0].1, reading(5));
+        let expected: Vec<(u64, Reading)> = (0..10).map(|i| (i * 10, reading(i as i32))).collect();
+        assert_eq!(readings, expected);
+    }
+
+    /// The `Samples` entries of a level share one grid and one age: the finest `every_us` and the shortest
+    /// `max_age_us` asked, reported in the grant; every update with samples has one time column for all of them.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn level_wide_samples_settings() {
+        let mut b = Bench::start("observe_batched/level_wide", 512).await;
+        let (granted, refused) = b
+            .observe(
+                &[],
+                &[
+                    entry(CURRENT, samples(400, 5_000)),
+                    entry(READING, samples(200, 2_000)),
+                ],
+                None,
+            )
+            .await;
+        assert!(refused.is_empty(), "{refused:?}");
+        assert_eq!(
+            granted,
+            [
+                entry(CURRENT, samples(200, 2_000)),
+                entry(READING, samples(200, 2_000))
+            ]
+        );
+        // 40 µs apart: one in five, for both
+        b.sample(40, 0, 40, 0).await;
+        b.run(1_000, 6_000, 1_000).await;
+        let updates = b.drain().await;
+        let current: Vec<(Option<u64>, i32)> = updates.iter().flat_map(Update::current).collect();
+        let expected: Vec<(Option<u64>, i32)> =
+            (0..8).map(|i| (Some(i as u64 * 200), i * 5)).collect();
+        assert_eq!(current, expected);
+        let readings: Vec<(u64, Reading)> = updates.iter().flat_map(Update::readings).collect();
+        assert_eq!(
+            readings,
+            (0..8)
+                .map(|i| (i as u64 * 200, reading(i * 5)))
+                .collect::<Vec<_>>()
+        );
+        for u in &updates {
+            // both columns in every update that has samples
+            assert_eq!(u.current().len(), u.readings().len(), "{u:?}");
+        }
+    }
+
+    /// A property turned off while its samples wait in the batcher: the batch goes out without its column, the
+    /// other property's samples keep their times.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn column_dropped_from_a_waiting_batch() {
+        let mut b = Bench::start("observe_batched/column_dropped", 512).await;
+        b.observe(
+            &[],
+            &[
+                entry(CURRENT, samples(0, 2_000)),
+                entry(READING, samples(0, 2_000)),
+            ],
+            None,
+        )
+        .await;
+        // fewer than a batch, and the clock stays: nothing is sealed yet
+        b.sample(5, 100, 10, 0).await;
+        b.observe(&[], &[entry(CURRENT, samples(0, 2_000))], None)
+            .await;
+        b.run(1_000, 5_000, 1_000).await;
+        let updates = b.drain().await;
+        assert!(
+            updates.iter().all(|u| u.readings().is_empty()),
+            "{updates:?}"
+        );
+        let current: Vec<(Option<u64>, i32)> = updates.iter().flat_map(Update::current).collect();
+        let expected: Vec<(Option<u64>, i32)> =
+            (0..5).map(|i| (Some(100 + i as u64 * 10), i)).collect();
+        assert_eq!(current, expected);
+    }
+
+    /// A buffer that holds less than a batch of 8 rows: the batcher seals smaller batches at what fits (at the
+    /// worst case of a row until it measured one batch), each sample arrives once with its time or is missed.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn small_buffer_seals_smaller_batches() {
+        let mut b = Bench::start("observe_batched/small_buffer", 96).await;
+        b.observe(
+            &[],
+            &[
+                entry(CURRENT, samples(0, 5_000)),
+                entry(READING, samples(0, 5_000)),
+            ],
+            None,
+        )
+        .await;
+        // two samples between polls
+        for k in 0..15u32 {
+            b.sample(2, 1_000 + k * 80, 40, k as i32 * 2).await;
+            b.at(1_000 + k as u64 * 1_000).await;
+        }
+        b.run(16_000, 22_000, 1_000).await;
+        let updates = b.drain().await;
+        let current: Vec<(Option<u64>, i32)> = updates.iter().flat_map(Update::current).collect();
+        assert!(
+            current
+                .iter()
+                .all(|(t, v)| *t == Some(1_000 + *v as u64 * 40)),
+            "{current:?}"
+        );
+        assert!(current.windows(2).all(|w| w[0].1 < w[1].1), "{current:?}");
+        let readings = updates.iter().flat_map(Update::readings).count();
+        assert_eq!(readings, current.len());
+        let missed: u32 = updates.iter().map(|u| u.missed).sum();
+        assert_eq!(current.len() as u32 * 2 + missed, 60, "{missed}");
+        assert!(current.len() >= 25, "{current:?}");
+        // batches of fewer than 8 rows, more than one in some
+        assert!(updates.len() > 30 / 8 + 1, "{}", updates.len());
+        assert!(updates.iter().any(|u| u.current().len() > 1), "{updates:?}");
+        assert!(updates.iter().all(|u| u.data.len() <= 96), "{updates:?}");
     }
 
     /// A small outbox and a short budget: batches the link can't take are dropped oldest first and counted as
@@ -883,8 +1028,16 @@ mod tests {
         while let Some(u) = level.try_recv().unwrap() {
             assert_eq!(u.t, None, "only batches");
             match u.value.reading {
-                Some(BatchedOwned::Series(s)) => {
-                    readings.extend(s.0.into_iter().map(|i| (full_us(Some(i.t)), i.value)))
+                Some(BatchedOwned::Samples(s)) => {
+                    // the level unwrapped the shared times
+                    let times = u.value.sample_times.expect("sample_times").0;
+                    assert_eq!(times.len(), s.0.len());
+                    readings.extend(
+                        times
+                            .into_iter()
+                            .zip(s.0)
+                            .map(|(t, v)| (full_us(Some(t)), v)),
+                    )
                 }
                 None => {}
                 other => panic!("{other:?}"),

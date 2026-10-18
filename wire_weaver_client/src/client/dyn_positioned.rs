@@ -66,6 +66,12 @@ impl DynBatching {
         let second_ty = match batched {
             Batching::Timed => Some(second_field_ty(&wire_item_ty, bundle)?),
             Batching::Untimed | Batching::Unknown(_) => None,
+            // levels of observed properties only, a stream has no level to share a clock with
+            Batching::SharedClock => {
+                return Err(Error::Other(
+                    "batched stream: SharedClock is for observed properties, malformed".into(),
+                ));
+            }
         };
         Ok(Some(DynBatching {
             wire_item_ty,

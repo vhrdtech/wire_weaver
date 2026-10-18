@@ -1792,6 +1792,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#every-sample-batched" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Every sample (<code>+batched</code>)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Every sample (+batched)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#device-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device side
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#host-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host side
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#which-rates-fit-an-mcu" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Which rates fit an MCU
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wire-format" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4897,6 +4947,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#every-sample-batched" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Every sample (<code>+batched</code>)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Every sample (+batched)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#device-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Device side
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#host-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host side
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#which-rates-fit-an-mcu" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Which rates fit an MCU
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wire-format" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5120,6 +5220,10 @@ observed value is read.</p>
 <td><code>OnChangeOrBeat { min_us, max_us }</code></td>
 <td>on a change (at most every <code>min_us</code>), and at least every <code>max_us</code> even without one</td>
 </tr>
+<tr>
+<td><code>Samples { every_us, max_age_us }</code></td>
+<td>every sample the device takes (or the first in each <code>every_us</code>), in batches at most <code>max_age_us</code> old; <code>+batched</code> properties only, see <a href="#every-sample-batched">Every sample</a></td>
+</tr>
 </tbody>
 </table>
 <p>A property that starts being observed is always sent once right away, so the host has a value to start from.
@@ -5239,6 +5343,127 @@ built further with <code>.budget(bytes_per_s)</code>, then <code>.subscribe()</c
 <li><strong>Limits</strong>: like the device side, a level inside a resource array has no <code>observe()</code> yet. Absolute paths only -
   a trait client (<code>client = "trait_client"</code>) observes once it has a base path (<code>attachment()</code>).</li>
 </ul>
+<h2 id="every-sample-batched">Every sample (<code>+batched</code>)<a class="headerlink" href="#every-sample-batched" title="Permanent link">&para;</a></h2>
+<p>The modes above send a property's <em>current</em> value, at most once per update. A value that changes faster than
+updates can go - a motor current sampled in a 25 kHz control loop - loses everything in between. A <code>+batched</code>
+property (API-39) can also be observed in <code>Samples</code> mode: the device keeps every sample it takes, each with its own
+time, and sends them as a compressed <a href="../../serdes/series/"><code>Series&lt;Timed&lt;T&gt;&gt;</code></a> in the property's slot of the
+level's update.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Foc</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="o">+</span><span class="n">batched</span><span class="w"> </span><span class="n">i_a</span><span class="p">:</span><span class="w"> </span><span class="nc">Ampere</span><span class="p">);</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="o">+</span><span class="n">batched</span><span class="w"> </span><span class="n">i_b</span><span class="p">:</span><span class="w"> </span><span class="nc">Ampere</span><span class="p">);</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">duty</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span><span class="w"> </span><span class="c1">// observed as before</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>+batched</code> comes after <code>+observe</code> (alone it is an error) and needs <code>ww_si</code> as a dependency of the API crate
+(<code>Timed&lt;T&gt;</code> lives there). The property's slot in <code>&lt;Trait&gt;Update</code> becomes a <code>Batched&lt;T&gt;</code>: <code>One(T)</code>, one value as in
+the other modes, or <code>Series(..)</code>, a batch of samples. A host that doesn't ask for <code>Samples</code> gets <code>One</code> values from
+the getter, as for any <code>+observe</code> property.</p>
+<h3 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h3>
+<p>Next to the getter, the device feeds samples where it takes them. Codegen generates, per level with <code>+batched</code>
+properties, a <code>&lt;Level&gt;Sampler</code> with <code>sample(t, &lt;Trait&gt;Samples { .. })</code>: one value per <code>+batched</code> property of the
+level and their common time. It is O(1) and takes no lock: a gate per property (one atomic load) says whether a
+host wants this sample, the value goes into the batch being filled. Encoding happens later, in <code>poll_properties</code>.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="n">observe</span><span class="p">:</span><span class="w"> </span><span class="nc">api_impl</span><span class="p">::</span><span class="n">ObserveState</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">        </span><span class="n">ObserveLimits</span><span class="p">::</span><span class="n">DEFAULT</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">        </span><span class="n">api_impl</span><span class="p">::</span><span class="n">ObserveBatches</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">ww_stream</span><span class="p">::</span><span class="n">batch</span><span class="p">::</span><span class="n">DEFAULT_POLICY</span><span class="p">),</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="p">),</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="c1">// ..</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">};</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="c1">// in the control loop, every tick</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">server</span><span class="p">.</span><span class="n">observe</span><span class="p">.</span><span class="n">samplers</span><span class="p">().</span><span class="n">root</span><span class="p">.</span><span class="n">sample</span><span class="p">(</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="n">now_us</span><span class="p">),</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="n">api_impl</span><span class="p">::</span><span class="n">FocSamples</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">i_a</span><span class="p">,</span><span class="w"> </span><span class="n">i_b</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="p">);</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="c1">// event loop: encodes sealed batches, then sends updates while batches wait</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">scratch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">ww_stream</span><span class="p">::</span><span class="n">batch</span><span class="p">::</span><span class="n">Scratch</span><span class="p">::</span><span class="o">&lt;</span><span class="n">SB</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">());</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="n">server</span><span class="p">.</span><span class="n">poll_properties</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">ww_server</span><span class="p">.</span><span class="n">sink</span><span class="p">(),</span><span class="w"> </span><span class="n">medium</span><span class="p">,</span><span class="w"> </span><span class="n">now_us</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">scratch</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p>To sample from an interrupt or another thread, <code>ObserveBatches::split()</code> hands out the samplers (<code>Send</code>, moved into
+the interrupt) and the consumers, which the <code>ObserveState</code> takes instead (<code>ObserveState::new(limits, consumers)</code>,
+the batches in a <code>static</code>). <code>ww api scaffold</code> writes the <code>observe_batch</code> argument and says how to build the state.</p>
+<ul>
+<li><strong>Batches</strong>: each <code>+batched</code> property has two stores of <code>observe_batch = N</code> samples (codegen argument, default
+  32): the sampler fills one while the event loop encodes the other. A batch is sealed when it is full or as old as
+  the host's <code>max_age_us</code>. A burst of more than two batches between two <code>poll_properties</code> calls loses samples:
+  they are counted in the next update's <code>missed</code>.</li>
+<li><strong>Outbox</strong>: sealed batches are encoded into the level's outbox (<code>observe_outbox = N</code> bytes, default 4096), and
+  sent from there as budget allows, more than one update per call (at most <code>MAX_UPDATES_PER_POLL</code>). When the
+  outbox is full or the budget can't keep up, the oldest batches go and count as <code>missed</code>.</li>
+<li><strong>Time</strong>: each sample carries its own <code>t</code>; an update that carries only batches has no head <code>t</code>, one with <code>One</code>
+  values or plain properties has it as before.</li>
+<li><strong>Limits</strong>: <code>Samples</code> is refused for a property without <code>+batched</code> (<code>ModeNotSupported</code>); <code>max_age_us</code> is
+  clamped to <code>ObserveLimits::samples_max_age_us</code> (1 ms to 10 s by default); <code>every_us</code> decimates on the device's
+  grid (the first sample in each <code>every_us</code>), 0 is every sample, and is raised to
+  <code>ObserveLimits::samples_min_every_us</code> (0, every sample, by default). Every sample taken is encoded, also when
+  the budget then drops its batch, so on an MCU set that floor from the table <a href="#which-rates-fit-an-mcu">below</a>:
+  without it any host can ask for more encoding than the CPU has. A property type that borrows (bytes, a string,
+  a vector) can't be <code>+batched</code>.</li>
+</ul>
+<h3 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h3>
+<p><code>&lt;Trait&gt;Observe::samples(max_age)</code> puts every <code>+batched</code> property of the level into <code>Samples</code> mode
+(<code>observe::samples(max_age)</code> / <code>samples_every(every, max_age)</code> for one property). A property observer gets one
+<code>Observed</code> per sample, each with its own device time, whether the device sent one value or a batch; a level
+observer gets <code>BatchedOwned&lt;T&gt;</code> slots with every sample's time unwrapped, and <code>&lt;Trait&gt;Latest</code> keeps the newest
+sample. Observers of one level merge into <code>Samples</code> if any of them asks for it.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">observe</span><span class="p">::</span><span class="n">samples</span><span class="p">;</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">i_a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">foc</span><span class="p">().</span><span class="n">observe_i_a</span><span class="p">(</span><span class="n">samples</span><span class="p">(</span><span class="n">Duration</span><span class="p">::</span><span class="n">from_millis</span><span class="p">(</span><span class="mi">5</span><span class="p">))).</span><span class="n">subscribe</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i_a</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;{:?} {:?}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">value</span><span class="p">);</span><span class="w"> </span><span class="c1">// every sample, oldest first</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The dynamic client decodes the same slots from introspection (<code>DynObserved::samples</code>), <code>ww observe --samples MS</code>
+prints one line per sample, and Python gets them per update or as numpy columns
+(<a href="../../python_advanced/#observing"><code>recv_batch()</code></a>).</p>
+<h3 id="which-rates-fit-an-mcu">Which rates fit an MCU<a class="headerlink" href="#which-rates-fit-an-mcu" title="Permanent link">&para;</a></h3>
+<p>Encoding is the cost: on a Cortex-M3 a <code>Series&lt;Timed&lt;Ampere&gt;&gt;</code> takes about <strong>2000 instructions per sample</strong> with a
+fixed codec (<code>fixed(delta, packed)</code>, the <code>no_std</code> default), about 1650 on a Cortex-M4F, and 3.3-3.9x that with
+<code>CodecPolicy::SMALLEST</code>, nearly the same at 8, 32 or 64 samples per batch (counted under QEMU on real motor-demo
+currents; cycles on hardware are roughly 1-1.5 per instruction from flash). <code>sample()</code> itself is a few loads and
+stores. Count samples per second as properties x sample rate:</p>
+<table>
+<thead>
+<tr>
+<th>Observed</th>
+<th>Samples/s</th>
+<th>Encoding, instructions/s</th>
+<th>Fits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2 currents at 1 kHz</td>
+<td>2 000</td>
+<td>~4 M</td>
+<td>any Cortex-M</td>
+</tr>
+<tr>
+<td>4 properties at 4 kHz</td>
+<td>16 000</td>
+<td>~32 M</td>
+<td>a 100-200 MHz M4F, with room for the rest</td>
+</tr>
+<tr>
+<td>5 properties at 25 kHz</td>
+<td>125 000</td>
+<td>~250 M</td>
+<td>only a fast M7 (480 MHz), and barely</td>
+</tr>
+<tr>
+<td>all 21 FOC properties at 25 kHz</td>
+<td>525 000</td>
+<td>~1 000 M</td>
+<td>no Cortex-M</td>
+</tr>
+</tbody>
+</table>
+<p>So on an MCU observe a few properties at a few kHz, or decimate (<code>every_us</code>); full-rate observing of a whole
+control loop is for the simulator and the host (<a href="../../examples/motor_demo/">motor demo</a>), where it costs about 0.9 MB/s of link with
+integer storage.</p>
 <h2 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h2>
 <p><code>EventKind::PropertyUpdate { path, t, missed, data }</code> is one level's update. <code>data</code> is the <code>&lt;Trait&gt;Update</code>
 <code>sparse</code> struct: an <code>OptionAnyVec</code> presence header (the smallest of four modes - all, dense bits, two-level bits,
@@ -5282,21 +5507,23 @@ unchanged: one device subscription per level, <code>t</code> unwrapped, reconnec
 <code>values</code> (present properties by name, in resource-index order), <code>t</code>, <code>missed</code>, <code>received</code>, and <code>data_len</code> (the
 update's raw byte length, e.g. for measuring link bytes/s).</p>
 <p><a href="../../cli_reference/#ww-observe"><code>ww observe &lt;path&gt; [--rate MS]</code></a> uses it directly:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$ ww observe motor --rate 10
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>observing motor (3 properties): speed, current, position
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>budget: 20.0 kB/s
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>Ctrl+C to stop
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>{speed: 1500, current: 3, position: 1024}  rate 98.2/s  link 982/s
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$ ww observe motor --rate 10
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>observing motor (3 properties): speed, current, position
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>budget: 20.0 kB/s
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>Ctrl+C to stop
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>{speed: 1500, current: 3, position: 1024}  rate 98.2/s  link 982/s
 </span></code></pre></div>
 <p>and <a href="../../python_advanced/#observing"><code>wire_weaver_py</code></a>'s <code>Node.observe(cfg)</code> iterates the same updates as dicts:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">m</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">motor</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">m</span><span class="o">.</span><span class="n">observable_properties</span><span class="p">()</span>                              <span class="c1"># {&quot;speed&quot;: &quot;u32&quot;, &quot;current&quot;: &quot;u32&quot;, &quot;position&quot;: &quot;u32&quot;}</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">with</span> <span class="n">m</span><span class="o">.</span><span class="n">observe</span><span class="p">({</span><span class="s2">&quot;speed&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span> <span class="k">as</span> <span class="n">obs</span><span class="p">:</span>  <span class="c1"># speed periodically every 10ms, current on change</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">obs</span><span class="p">:</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;t&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;missed&quot;</span><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">m</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">motor</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">m</span><span class="o">.</span><span class="n">observable_properties</span><span class="p">()</span>                              <span class="c1"># {&quot;speed&quot;: &quot;u32&quot;, &quot;current&quot;: &quot;u32&quot;, &quot;position&quot;: &quot;u32&quot;}</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">with</span> <span class="n">m</span><span class="o">.</span><span class="n">observe</span><span class="p">({</span><span class="s2">&quot;speed&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span> <span class="k">as</span> <span class="n">obs</span><span class="p">:</span>  <span class="c1"># speed periodically every 10ms, current on change</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">obs</span><span class="p">:</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;t&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;missed&quot;</span><span class="p">])</span>
 </span></code></pre></div>
 <p>Both ask for every observable property on-change without an explicit rate/<code>cfg</code>, and share one device subscription
-per level with any generated-client observers of the same level.</p>
+per level with any generated-client observers of the same level.
+<code>+batched</code> properties come sample by sample (<code>DynObserved::samples</code>, <code>ww observe --samples MS</code>, Python's
+<code>{"name": {"samples": max_age_ms}}</code>), see <a href="#every-sample-batched">Every sample</a>.</p>
 
 
 

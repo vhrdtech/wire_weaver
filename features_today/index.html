@@ -1308,6 +1308,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1394,6 +1398,60 @@
     
   
   Code size on small CPUs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serdes/conformance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Conformance corpus
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serdes/conformance_matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Conformance matrix
 
     
   </span>
@@ -5249,6 +5307,7 @@ layer checks on connect that both ends speak the same protocol.</p>
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
 <ul>
+<li><strong><a href="../std_library/ww_self/">Bit-sized numbers in the model</a></strong>: <code>U7</code>, <code>I12</code>, nibbles and the like, read and written by the dynamic client and Python.</li>
 <li><strong><a href="../std_library/ww_self/">Moved flag bits</a></strong>: Relocated <code>#[flag]</code> fields in the model and in dynamic values.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
@@ -5370,6 +5429,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 
 <ul>
+<li><strong><a href="../serdes/conformance/">Conformance matrix</a></strong>: One corpus of golden bytes every wire-format implementation must match: derive, dynamic client, Python, C.</li>
 <li><strong><a href="../serdes/code_size/">Code size bench</a></strong>: Firmware images per case for RISC-V and Cortex-M, measured on every change.</li>
 <li><strong>Binary size tracking</strong>: Flash and RAM per feature in CI. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/ecc_flash/">Power cuts on STM32</a></strong>: A flash store reset thousands of times mid-write on real hardware. <span class="ww-status">in progress</span></li>

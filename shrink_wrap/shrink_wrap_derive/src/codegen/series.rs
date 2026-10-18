@@ -195,6 +195,7 @@ impl SeriesSeed<'_> {
                 }
 
                 #[allow(unused_variables)]
+                #[inline(always)]
                 fn set<const __N: usize>(store: &mut Self::Store<__N>, i: usize, item: &Self) {
                     #set
                 }

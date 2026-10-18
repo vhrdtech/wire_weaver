@@ -542,6 +542,7 @@ impl Observe {
                             }
                         }
 
+                        #[inline(always)]
                         fn set<const N: usize>(store: &mut #samples_store<N>, i: usize, item: &Self) {
                             #(<#ptys as wire_weaver::shrink_wrap::series::SeriesStore>::set::<N>(&mut store.#idents, i, &item.#idents);)*
                         }
@@ -585,6 +586,7 @@ impl Observe {
                             }
                         }
 
+                        #[inline(always)]
                         fn set<const N: usize>(store: &mut #row_store<N>, i: usize, item: &Self) {
                             <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesStore>::set::<N>(&mut store.t, i, &item.t);
                             <#samples as wire_weaver::shrink_wrap::series::SeriesStore>::set::<N>(&mut store.values, i, &item.values);

@@ -356,6 +356,7 @@ macro_rules! copy_leaf {
                     fill_array(slot, $empty)
                 }
 
+                #[inline(always)]
                 fn set<const N: usize>(store: &mut [$ty; N], i: usize, item: &Self) {
                     store[i] = *item;
                 }
@@ -424,6 +425,7 @@ impl<'i> SeriesStore for &'i str {
         fill_array(slot, "")
     }
 
+    #[inline(always)]
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
         store[i] = item;
     }
@@ -444,6 +446,7 @@ impl<'i> SeriesStore for &'i [u8] {
         fill_array(slot, &[])
     }
 
+    #[inline(always)]
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
         store[i] = item;
     }
@@ -464,6 +467,7 @@ impl<'i> SeriesStore for RefVec<'i, u8> {
         fill_array(slot, RefVec::new_bytes(&[]))
     }
 
+    #[inline(always)]
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
         store[i] = *item;
     }
@@ -485,6 +489,7 @@ macro_rules! clone_leaf {
                     core::array::from_fn(|_| <$ty>::new())
                 }
 
+                #[inline(always)]
                 fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
                     store[i].clone_from(item);
                 }
@@ -506,6 +511,7 @@ impl<T: ?Sized> SeriesStore for PhantomData<T> {
 
     fn empty_store<const N: usize>() {}
 
+    #[inline(always)]
     fn set<const N: usize>(_store: &mut (), _i: usize, _item: &Self) {}
 
     fn get<const N: usize>(_store: &(), _i: usize) -> Self {
@@ -548,6 +554,7 @@ impl<X: SeriesStore> SeriesStore for Option<X> {
         }
     }
 
+    #[inline(always)]
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
         store.0[i] = item.is_some();
         if let Some(x) = item {
@@ -603,6 +610,7 @@ impl<X: SeriesStore, const M: usize> SeriesStore for [X; M] {
         unsafe { slot.assume_init_mut() }
     }
 
+    #[inline(always)]
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
         for (s, x) in store.iter_mut().zip(item) {
             X::set::<N>(s, i, x);
@@ -650,6 +658,7 @@ macro_rules! tuple {
                 }
             }
 
+            #[inline(always)]
             fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
                 $($t::set::<N>(&mut store.$idx, i, &item.$idx);)+
             }

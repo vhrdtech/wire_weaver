@@ -211,6 +211,7 @@ impl SeriesStore for NumericValue {
         }
     }
 
+    #[inline(always)]
     fn set<const N: usize>(store: &mut NumericValueStore<N>, i: usize, item: &Self) {
         let (variant, payload, _width) = parts(item);
         store.variant[i] = variant;

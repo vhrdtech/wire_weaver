@@ -89,29 +89,15 @@ pub trait LevelUpdate: DeserializeShrinkWrapOwned + Debug + Send + 'static {
     /// `<Trait>Observe`: how each property is observed.
     type Config: LevelConfig;
 
-    /// Move the properties present in this update into `latest`.
-    fn update_latest(self, latest: &mut Self::Latest, received: Instant, t: Option<Second>);
-
-    /// Every device time of the samples in `Batched::Samples` slots (API-39), the level's `sample_times`, oldest
-    /// first: the level unwraps them in order once, every observer gets the same.
-    fn times_mut(&mut self, _f: &mut dyn FnMut(&mut Second)) {}
-
-    /// [Self::times_mut] as the level visits them, with its `latest` at hand: an update that can't find its times
-    /// on its own (the dynamic client's, it needs the level's schema kept there) overrides this.
-    fn level_times_mut(&mut self, _latest: &Self::Latest, f: &mut dyn FnMut(&mut Second)) {
-        self.times_mut(f)
-    }
-
-    /// The times [Self::level_times_mut] visited, unwrapped by the level, put back before an observer takes the
-    /// update.
-    fn set_times(&mut self, times: &[Second]) {
-        let mut times = times.iter();
-        self.times_mut(&mut |t| {
-            if let Some(full) = times.next() {
-                *t = *full;
-            }
-        });
-    }
+    /// Move the properties present in this update into `latest`: `t` is the update's time, `sample_times` the
+    /// times of its samples (API-39), both unwrapped.
+    fn update_latest(
+        self,
+        latest: &mut Self::Latest,
+        received: Instant,
+        t: Option<Second>,
+        sample_times: Option<&[Second]>,
+    );
 }
 
 /// Settings of a level: the generated `<Trait>Observe`, one `Option<ObserveMode>` per property.
@@ -258,6 +244,10 @@ pub struct Observed<T> {
     /// `U16` ms, ..) come unwrapped, as a `U64` in the same prefix that counts on across wraps, one count per level
     /// that starts over after a disconnect (as stream items, see [StreamEvent::Item](crate::StreamEvent::Item)).
     pub t: Option<Second>,
+    /// The update's `sample_times`, unwrapped as `t` (API-39): with a level's `<Trait>Update`, the times of the
+    /// samples in its `Batched::Samples` slots, one per sample of each (`BatchedOwned::into_samples` pairs them).
+    /// None when the update has no samples, and for samples given out one by one (each has its `t`).
+    pub sample_times: Option<Vec<Second>>,
     /// Sends of this level that were due but did not fit the budget since the previous update.
     pub missed: u32,
     /// When the update arrived.
@@ -295,8 +285,8 @@ pub enum ObserveEvent<T> {
 struct RawUpdate {
     data: Vec<u8>,
     t: Option<Second>,
-    /// The samples' times unwrapped, as [LevelUpdate::times_mut] visits them
-    times: Vec<Second>,
+    /// The samples' times, unwrapped
+    sample_times: Option<Vec<Second>>,
     missed: u32,
     received: Instant,
 }
@@ -423,7 +413,15 @@ impl Queue {
 
 /// A level as the event loop sees it: where its updates go, type-erased.
 pub(crate) trait LevelRoute: Send + Sync + 'static {
-    fn on_update(&self, received: Instant, t: Option<Second>, missed: u32, data: &[u8]);
+    /// A `PropertyUpdate` of the level: `t` and `sample_times` as the device sent them (wrapping).
+    fn on_update(
+        &self,
+        received: Instant,
+        t: Option<Second>,
+        sample_times: Option<Vec<Second>>,
+        missed: u32,
+        data: &[u8],
+    );
     /// The link went down: `keep` after `disconnect().keep_streams()`, the observers wait for a resume.
     fn on_disconnected(&self, keep: bool);
     /// The event loop is gone.
@@ -483,29 +481,36 @@ impl<U: LevelUpdate> Level<U> {
 }
 
 impl<U: LevelUpdate> LevelRoute for Level<U> {
-    fn on_update(&self, received: Instant, t: Option<Second>, missed: u32, data: &[u8]) {
+    fn on_update(
+        &self,
+        received: Instant,
+        t: Option<Second>,
+        sample_times: Option<Vec<Second>>,
+        missed: u32,
+        data: &[u8],
+    ) {
         let mut guard = self.lock();
         let state = &mut *guard;
         let update = U::from_ww_bytes_owned(data);
         // samples first: they were taken before the values the head `t` is the time of
-        let mut times = vec![];
-        let update = update.map(|mut update| {
-            update.level_times_mut(&state.latest, &mut |t| {
-                *t = state.time.unwrap(*t);
-                times.push(*t);
-            });
-            update
+        let sample_times = sample_times.map(|times| {
+            times
+                .into_iter()
+                .map(|t| state.time.unwrap(t))
+                .collect::<Vec<_>>()
         });
         let t = t.map(|t| state.time.unwrap(t));
         let raw = Arc::new(RawUpdate {
             data: data.to_vec(),
             t,
-            times,
+            sample_times,
             missed,
             received,
         });
         match update {
-            Ok(update) => update.update_latest(&mut state.latest, received, t),
+            Ok(update) => {
+                update.update_latest(&mut state.latest, received, t, raw.sample_times.as_deref())
+            }
             Err(e) => warn!("property update of {:?} not decoded: {e:?}", self.path),
         }
         for (_, queue) in state.observers.values() {
@@ -765,12 +770,7 @@ pub struct PreparedObserve<U: LevelUpdate, T> {
     pub(crate) cfg: ObserveConfig,
     pub(crate) queue_bytes: usize,
     pub(crate) extract: Extract<U, T>,
-    /// Sets up the level's `latest` when an observer subscribes (the dynamic client keeps its schema there).
-    pub(crate) init_latest: Option<InitLatest<U>>,
 }
-
-/// See [PreparedObserve::init_latest].
-pub(crate) type InitLatest<U> = Arc<dyn Fn(&mut <U as LevelUpdate>::Latest) + Send + Sync>;
 
 impl<U: LevelUpdate, T> PreparedObserve<U, T> {
     /// Bytes per second the level's updates may take on the link, by default the device decides. Observers of a
@@ -800,9 +800,6 @@ impl<U: LevelUpdate, T> PreparedObserve<U, T> {
             .unwrap_or_else(|e| e.into_inner());
         let level = level_of::<U>(&mut levels, &self.path)?;
         let mut state = level.lock();
-        if let Some(init) = &self.init_latest {
-            init(&mut state.latest);
-        }
         let id = state.next_id;
         state.next_id += 1;
         let queue = Queue::new(self.queue_bytes);
@@ -856,12 +853,12 @@ impl<U: LevelUpdate, T> Observer<U, T> {
     fn decode(&mut self, item: QueueItem) -> Result<(), StreamError> {
         let ev = match item {
             QueueItem::Update(raw) => {
-                let mut update = U::from_ww_bytes_owned(&raw.data)?;
-                update.set_times(&raw.times);
-                let observed = |value, t, missed| {
+                let update = U::from_ww_bytes_owned(&raw.data)?;
+                let observed = |value, t, sample_times, missed| {
                     ObserveEvent::Update(Observed {
                         value,
                         t,
+                        sample_times,
                         missed,
                         received: raw.received,
                     })
@@ -870,7 +867,7 @@ impl<U: LevelUpdate, T> Observer<U, T> {
                 let raw_missed = raw.missed.saturating_add(carried);
                 match self.extract {
                     Extract::One(extract) => match extract(update) {
-                        Some(value) => observed(value, raw.t, raw_missed),
+                        Some(value) => observed(value, raw.t, raw.sample_times.clone(), raw_missed),
                         None => {
                             self.missed = raw_missed;
                             return Ok(());
@@ -881,8 +878,9 @@ impl<U: LevelUpdate, T> Observer<U, T> {
                             self.missed = raw_missed;
                             return Ok(());
                         };
-                        // the samples' times are the level's `sample_times`, unwrapped
-                        let samples = match batched.into_samples(raw.t, Some(&raw.times)) {
+                        // the samples' times are the update's `sample_times`
+                        let samples = match batched.into_samples(raw.t, raw.sample_times.as_deref())
+                        {
                             Ok(samples) => samples,
                             Err(e) => {
                                 warn!("malformed PropertyUpdate, samples left out: {e:?}");
@@ -893,8 +891,12 @@ impl<U: LevelUpdate, T> Observer<U, T> {
                         // what was missed goes with the first sample
                         let mut missed = raw_missed;
                         for (value, t) in samples {
-                            self.pending
-                                .push_back(observed(value, t, std::mem::take(&mut missed)));
+                            self.pending.push_back(observed(
+                                value,
+                                t,
+                                None,
+                                std::mem::take(&mut missed),
+                            ));
                         }
                         return Ok(());
                     }

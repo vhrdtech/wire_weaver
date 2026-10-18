@@ -340,40 +340,52 @@ where
 }
 
 /// Serialize an [EventKind::PropertyUpdate](crate::EventKind::PropertyUpdate) event of the level at `path` into
-/// `scratch`: `data` writes the level's properties (an `OptionAnyVec` by resource index) at the start of the buffer
-/// it is given and returns their length. Same bytes as serializing the event with the data in place.
+/// `scratch`: `sample_times` is the `Series<Second>` of the update's samples as encoded before (from a byte, as
+/// `to_ww_bytes` writes it; API-39), `data` writes the level's properties (an `OptionAnyVec` by resource index) at the
+/// start of the buffer it is given and returns their length. Same bytes as serializing the event with the data in
+/// place.
 pub fn ser_property_update_event<'a>(
     scratch: &'a mut [u8],
     path: &[UNib32],
     t: Option<Second>,
     missed: Option<UNib32>,
+    sample_times: Option<&[u8]>,
     data: impl FnOnce(&mut [u8]) -> Result<usize, Error>,
 ) -> Result<&'a [u8], Error> {
     use crate::EventKindDiscriminants;
     use crate::builder::{EventBuilder, EventKindBuilder};
-    let mut header_buf = [0u8; 64];
-    let mut wr = BufWriter::new(&mut header_buf);
-    let event_builder = EventBuilder::new(0, &mut wr)?;
-    let event_kind_builder = EventKindBuilder::new(&mut wr)?;
-    wr.write(&RefVec::Slice { slice: path })?;
-    t.ser_shrink_wrap(&mut wr)?;
-    missed.ser_shrink_wrap(&mut wr)?;
-    event_kind_builder.finish_with_kind(EventKindDiscriminants::PropertyUpdate, &mut wr);
-    event_builder.finish(true, &mut wr);
-    wr.align_byte();
-    let head_len = wr.pos().0;
-    let header = wr.finish_and_take()?;
-    if head_len > scratch.len() {
-        return Err(Error::OutOfBoundsWriteRawSlice);
-    }
-    let data_len = data(&mut scratch[head_len..])?;
-    let sizes = &header[head_len..];
-    let end = head_len + data_len + sizes.len();
-    if end > scratch.len() {
-        return Err(Error::OutOfBoundsWriteRawSlice);
-    }
-    scratch[..head_len].copy_from_slice(&header[..head_len]);
-    scratch[head_len + data_len..end].copy_from_slice(sizes);
+    // the lengths the head pushed, written after the data: a few bytes
+    let mut sizes = [0u8; 32];
+    let (head_len, sizes_len) = {
+        let mut wr = BufWriter::new(&mut *scratch);
+        let event_builder = EventBuilder::new(0, &mut wr)?;
+        let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+        wr.write(&RefVec::Slice { slice: path })?;
+        t.ser_shrink_wrap(&mut wr)?;
+        missed.ser_shrink_wrap(&mut wr)?;
+        sample_times.map(SeriesRaw).ser_shrink_wrap(&mut wr)?;
+        event_kind_builder.finish_with_kind(EventKindDiscriminants::PropertyUpdate, &mut wr);
+        event_builder.finish(true, &mut wr);
+        wr.align_byte();
+        let head_len = wr.pos().0;
+        let head = wr.finish_and_take()?;
+        let pushed = &head[head_len..];
+        sizes
+            .get_mut(..pushed.len())
+            .ok_or(Error::OutOfBoundsWriteRawSlice)?
+            .copy_from_slice(pushed);
+        (head_len, pushed.len())
+    };
+    let data_len = data(
+        scratch
+            .get_mut(head_len..)
+            .ok_or(Error::OutOfBoundsWriteRawSlice)?,
+    )?;
+    let end = head_len + data_len + sizes_len;
+    scratch
+        .get_mut(head_len + data_len..end)
+        .ok_or(Error::OutOfBoundsWriteRawSlice)?
+        .copy_from_slice(&sizes[..sizes_len]);
     Ok(&scratch[..end])
 }
 
@@ -472,40 +484,78 @@ mod tests {
     fn update_event_in_place() {
         let path = [UNib32(2)];
         let data = [0xaa, 0xbb, 0xcc];
-        let event = Event {
-            seq: UVlq32(0),
-            result: Ok(EventKind::PropertyUpdate {
-                path: RefVec::Slice { slice: &path },
-                t: Some(MICROS),
-                missed: Some(UNib32(3)),
-                data: TailBytes(&data),
-            }),
-        };
-        let mut buf = [0u8; 64];
-        let expected = event.to_ww_bytes(&mut buf).unwrap().to_vec();
+        let times = times();
+        let mut series_buf = [0u8; 64];
+        let series = Series::new(&times)
+            .to_ww_bytes(&mut series_buf)
+            .unwrap()
+            .to_vec();
+        for (t, sample_times) in [
+            (Some(MICROS), None),
+            (None, Some(Series::new(&times))),
+            (Some(MICROS), Some(Series::new(&times))),
+        ] {
+            let has_times = sample_times.is_some();
+            let event = Event {
+                seq: UVlq32(0),
+                result: Ok(EventKind::PropertyUpdate {
+                    path: RefVec::Slice { slice: &path },
+                    t,
+                    missed: Some(UNib32(3)),
+                    sample_times,
+                    data: TailBytes(&data),
+                }),
+            };
+            let mut buf = [0u8; 128];
+            let expected = event.to_ww_bytes(&mut buf).unwrap().to_vec();
 
-        let mut scratch = [0u8; 64];
-        let built =
-            ser_property_update_event(&mut scratch, &path, Some(MICROS), Some(UNib32(3)), |buf| {
-                buf[..3].copy_from_slice(&data);
-                Ok(3)
-            })
+            let mut scratch = [0u8; 128];
+            let built = ser_property_update_event(
+                &mut scratch,
+                &path,
+                t,
+                Some(UNib32(3)),
+                has_times.then_some(&series[..]),
+                |buf| {
+                    buf[..3].copy_from_slice(&data);
+                    Ok(3)
+                },
+            )
             .unwrap();
-        assert_eq!(built, expected);
-        let back = Event::from_ww_bytes(built).unwrap();
-        let Ok(EventKind::PropertyUpdate {
-            path: p,
-            t,
-            missed,
-            data: d,
-        }) = back.result
-        else {
-            panic!("{back:?}");
-        };
-        assert_eq!(p.iter().next().unwrap().unwrap(), UNib32(2));
-        assert!(t.is_some());
-        assert_eq!(missed, Some(UNib32(3)));
-        assert_eq!(d.0, data);
+            assert_eq!(built, expected);
+            let back = Event::from_ww_bytes(built).unwrap();
+            let Ok(EventKind::PropertyUpdate {
+                path: p,
+                t: back_t,
+                missed,
+                sample_times,
+                data: d,
+            }) = back.result
+            else {
+                panic!("{back:?}");
+            };
+            assert_eq!(p.iter().next().unwrap().unwrap(), UNib32(2));
+            assert_eq!(back_t.is_some(), t.is_some());
+            assert_eq!(missed, Some(UNib32(3)));
+            assert_eq!(
+                sample_times.map(|s| s.iter().collect::<Vec<_>>()),
+                has_times.then(|| times.clone())
+            );
+            assert_eq!(d.0, data);
+        }
+        // a buffer too small for the head or the data: an error, not a panic
+        for len in [2, 12] {
+            let mut scratch = vec![0u8; len];
+            assert!(
+                ser_property_update_event(&mut scratch, &path, None, None, Some(&series), |b| {
+                    b.get_mut(..3)
+                        .ok_or(Error::OutOfBoundsWriteRawSlice)?
+                        .copy_from_slice(&data);
+                    Ok(3)
+                })
+                .is_err()
+            );
+        }
     }
 
     #[test]
@@ -585,7 +635,7 @@ mod tests {
         assert!(batch.into_samples(None, Some(&times[..9])).is_err());
     }
 
-    /// The `sample_times` slot as a device copies it from its outbox: the series' own bytes, from a byte.
+    /// The `sample_times` of an update as a device copies them from its outbox: the series' own bytes, from a byte.
     #[test]
     fn series_raw_is_the_series() {
         let times = times();
@@ -600,7 +650,7 @@ mod tests {
     fn update_event_overhead() {
         let path = [UNib32(2)];
         let mut scratch = [0u8; 64];
-        let built = ser_property_update_event(&mut scratch, &path, None, None, |buf| {
+        let built = ser_property_update_event(&mut scratch, &path, None, None, None, |buf| {
             buf[0] = 0xaa;
             Ok(1)
         })

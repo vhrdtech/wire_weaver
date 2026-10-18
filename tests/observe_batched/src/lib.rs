@@ -212,11 +212,13 @@ mod tests {
     struct Update {
         path: Vec<u32>,
         t: Option<u64>,
+        /// The event's `sample_times`, µs as sent
+        sample_times: Option<Vec<u64>>,
         missed: u32,
         data: Vec<u8>,
     }
 
-    /// Samples of a `Batched::Samples` slot with their times from the update's `sample_times`, which has exactly as
+    /// Samples of a `Batched::Samples` slot with their times from the event's `sample_times`, which has exactly as
     /// many
     fn with_times<T>(times: &Option<Vec<u64>>, values: Vec<T>) -> Vec<(u64, T)> {
         let times = times.as_ref().expect("sample_times next to samples");
@@ -225,18 +227,12 @@ mod tests {
     }
 
     impl Update {
-        /// The update's `sample_times` in µs as sent
-        fn times(&self) -> Option<Vec<u64>> {
-            let u = ObserveBatchedUpdate::from_ww_bytes(&self.data).unwrap();
-            u.sample_times.map(|s| s.iter().map(us).collect())
-        }
-
         /// Samples of `current` in it: (t µs, value) per item of a series, or the update's t for a single value
         fn current(&self) -> Vec<(Option<u64>, i32)> {
             let u = ObserveBatchedUpdate::from_ww_bytes(&self.data).unwrap();
             match u.current {
                 Some(Batched::One(v)) => vec![(self.t, v)],
-                Some(Batched::Samples(s)) => with_times(&self.times(), s.iter().collect())
+                Some(Batched::Samples(s)) => with_times(&self.sample_times, s.iter().collect())
                     .into_iter()
                     .map(|(t, v)| (Some(t), v))
                     .collect(),
@@ -247,7 +243,7 @@ mod tests {
         fn readings(&self) -> Vec<(u64, Reading)> {
             let u = ObserveBatchedUpdate::from_ww_bytes(&self.data).unwrap();
             match u.reading {
-                Some(Batched::Samples(s)) => with_times(&self.times(), s.iter().collect()),
+                Some(Batched::Samples(s)) => with_times(&self.sample_times, s.iter().collect()),
                 Some(Batched::One(_)) => panic!("one reading"),
                 None => vec![],
             }
@@ -261,9 +257,8 @@ mod tests {
 
         fn temps(&self) -> Vec<f32> {
             let u = SlowUpdate::from_ww_bytes(&self.data).unwrap();
-            let times = u.sample_times.map(|s| s.iter().map(us).collect());
             match u.temp {
-                Some(Batched::Samples(s)) => with_times(&times, s.iter().collect())
+                Some(Batched::Samples(s)) => with_times(&self.sample_times, s.iter().collect())
                     .into_iter()
                     .map(|(_, v)| v)
                     .collect(),
@@ -337,12 +332,14 @@ mod tests {
                         path,
                         t,
                         missed,
+                        sample_times,
                         data,
                     }) = event.result
                     {
                         _ = updates_tx.send(Update {
                             path: path.iter().map(|p| p.unwrap().0).collect(),
                             t: t.map(us),
+                            sample_times: sample_times.map(|s| s.iter().map(us).collect()),
                             missed: missed.map_or(0, |m| m.0),
                             data: data.0.to_vec(),
                         });
@@ -593,7 +590,10 @@ mod tests {
             |queue: &mut wire_weaver::EventQueue, got: &mut Vec<i32>, missed: &mut u32| {
                 for e in queue.iter() {
                     let Ok(EventKind::PropertyUpdate {
-                        data, missed: m, ..
+                        data,
+                        missed: m,
+                        sample_times,
+                        ..
                     }) = Event::from_ww_bytes(e).unwrap().result
                     else {
                         continue;
@@ -601,7 +601,7 @@ mod tests {
                     *missed += m.map_or(0, |m| m.0);
                     let u = ObserveBatchedUpdate::from_ww_bytes(data.0).unwrap();
                     if let Some(Batched::Samples(s)) = u.current {
-                        let times = u.sample_times.expect("sample_times");
+                        let times = sample_times.expect("sample_times");
                         assert_eq!(times.iter().count(), s.iter().count());
                         got.extend(s.iter());
                     }
@@ -1030,14 +1030,20 @@ mod tests {
             match u.value.reading {
                 Some(BatchedOwned::Samples(s)) => {
                     // the level unwrapped the shared times
-                    let times = u.value.sample_times.expect("sample_times").0;
+                    let times = u.sample_times.clone().expect("sample_times");
                     assert_eq!(times.len(), s.0.len());
                     readings.extend(
                         times
                             .into_iter()
                             .zip(s.0)
                             .map(|(t, v)| (full_us(Some(t)), v)),
-                    )
+                    );
+                    // what the level observer pairs them with
+                    assert!(
+                        BatchedOwned::Samples(Vec::<i32>::new().into())
+                            .into_samples(None, u.sample_times.as_deref())
+                            .is_err()
+                    );
                 }
                 None => {}
                 other => panic!("{other:?}"),

@@ -285,6 +285,9 @@ pub enum EventKind<'i> {
         t: Option<ww_si::Second>,
         /// Sends of this level's properties that were due but did not fit the budget since the previous update.
         missed: Option<UNib32>,
+        /// When the samples in the update's `Batched::Samples` slots were taken (API-39, `+batched` properties):
+        /// one time per sample, every `Samples` slot has as many. `None` without samples.
+        sample_times: Option<wire_weaver::shrink_wrap::series::Series<'i, ww_si::Second>>,
         /// The level's properties: an `OptionAnyVec` with one slot per resource index, the properties sent this
         /// time present.
         data: TailBytes<'i>,

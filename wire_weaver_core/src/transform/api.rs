@@ -113,7 +113,6 @@ pub(crate) fn convert_api_items(
                         write_err_ty: None,
                         errors: None,
                         batched: None,
-                        sample_time_ty: None,
                     },
                     multiplicity: Multiplicity::Flat,
                     since,
@@ -358,20 +357,6 @@ pub(crate) fn timed_instance(
     })
 }
 
-/// `ww_si::Second`, the type of the samples' times of `+batched` properties (API-39), resolved from `ww_si` as
-/// [timed_instance] resolves `Timed`.
-fn ww_si_second(current_crate: &CrateContext, scratch: &mut Scratch) -> Result<TypeOwned> {
-    let ww_si = Ident::new("ww_si", proc_macro2::Span::call_site());
-    let ww_si_cx = current_crate
-        .resolve_path(std::iter::once(&ww_si), scratch)
-        .context(
-            "a +batched property needs ww_si as a dependency of its API crate (the times of its samples are \
-             ww_si::Second)",
-        )?;
-    let second: Type = syn::parse_quote!(Second);
-    convert_ty(&second, &ww_si_cx, scratch)
-}
-
 fn convert_api_item_property(
     current_crate: &CrateContext,
     scratch: &mut Scratch,
@@ -400,15 +385,8 @@ fn convert_api_item_property(
         scratch,
     )
     .context(current_crate.err_context())?;
-    // the samples of a level share one clock (API-39): its `sample_times` slot is a `Series<ww_si::Second>`
-    let (batched, sample_time_ty) = if args.batched {
-        (
-            Some(Batching::SharedClock),
-            Some(ww_si_second(current_crate, scratch)?),
-        )
-    } else {
-        (None, None)
-    };
+    // the samples of a level share one clock (API-39): the `sample_times` of its updates
+    let batched = args.batched.then_some(Batching::SharedClock);
 
     Ok(ApiItemOwned {
         id: UNib32(idx),
@@ -418,7 +396,6 @@ fn convert_api_item_property(
             write_err_ty,
             errors,
             batched,
-            sample_time_ty,
         },
         multiplicity,
         since,
@@ -750,15 +727,14 @@ mod tests {
     }
 
     /// A `+batched` property (API-39) is `Batching::SharedClock`: its samples are a `Series<T>` of its own type,
-    /// their times the level's `Series` of `sample_time_ty` (`ww_si::Second`), which survives a device leaving it
-    /// out of its introspection.
+    /// their times the `sample_times` of the level's update; it needs nothing else in the model.
     #[test]
     fn batched_property_shared_clock() {
         use ww_self::Batching;
 
         let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/observe_batched_api");
         let full = crate::load(&crate_path, Some("ObserveBatched".into()), false).unwrap();
-        let property = |bundle: &ww_self::ApiBundleOwned, name: &str| match &bundle
+        let batched = |name: &str| match &full
             .root
             .items
             .iter()
@@ -766,32 +742,11 @@ mod tests {
             .unwrap()
             .kind
         {
-            ApiItemKindOwned::Property {
-                batched,
-                sample_time_ty,
-                ..
-            } => (*batched, sample_time_ty.clone()),
+            ApiItemKindOwned::Property { batched, .. } => *batched,
             other => panic!("{other:?}"),
         };
-        assert_eq!(property(&full, "mode"), (None, None));
-        let (batched, second) = property(&full, "reading");
-        assert_eq!(batched, Some(Batching::SharedClock));
-        let second = second.expect("sample_time_ty");
-
-        let sent = crate::transform::snapshot::skip_known(&full).unwrap();
-        let mut received = sent;
-        let not_inlined = wire_weaver_snapshots::inline_skipped(&mut received);
-        assert!(not_inlined.is_empty(), "{not_inlined:?}");
-        ww_self::generics::prepare(&mut received).unwrap();
-        let (batched, received_second) = property(&received, "reading");
-        assert_eq!(batched, Some(Batching::SharedClock));
-        assert!(matches!(second, TypeOwned::Instance { .. }), "{second:?}");
-        // instantiated on the host, a concrete `Quantity<Second>`
-        let received_second = received_second.expect("sample_time_ty");
-        let TypeOwned::Struct(def) = received_second.get_in_line(&received).unwrap() else {
-            panic!("{received_second:?}");
-        };
-        assert_eq!(def.ident, "Quantity<Second>");
+        assert_eq!(batched("mode"), None);
+        assert_eq!(batched("reading"), Some(Batching::SharedClock));
     }
 
     /// `timed` has a `Timed<T>` batch item that survives a device leaving `Timed` out, `plain` has none.

@@ -111,9 +111,6 @@ pub struct LevelDesc<const N: usize> {
     pub observable: [u32; N],
     /// `+batched` (API-39): the slot takes `Samples` mode, its value is written as a `Batched`.
     pub batched: [bool; N],
-    /// Resource index of the level's `sample_times` slot (API-39, shared clock): the time column of the samples in
-    /// an update, past the level's last resource index. `None` for a level without `+batched` properties.
-    pub time_slot: Option<u32>,
 }
 
 impl<const N: usize> LevelDesc<N> {
@@ -124,8 +121,7 @@ impl<const N: usize> LevelDesc<N> {
     /// Upper bound of the presence header of an update: never longer than the dense mode's, a mode nibble,
     /// the `UNib32` slot count and a bit per slot.
     fn header_bound(&self) -> usize {
-        let last = self.observable.last().copied().max(self.time_slot);
-        let len = last.map_or(0, |last| last + 1);
+        let len = self.observable.last().map_or(0, |last| last + 1);
         let len_nibbles = (32 - len.leading_zeros()).div_ceil(3).max(1) as usize;
         (4 + 4 * len_nibbles + len as usize).div_ceil(8)
     }
@@ -691,7 +687,7 @@ pub struct Selection<const N: usize> {
     full: bool,
     held: bool,
     done: bool,
-    /// The level's `sample_times` slot goes into the update (a batch of samples does).
+    /// A batch of samples goes into the update: its time column is the event's `sample_times`.
     time: bool,
 }
 
@@ -706,8 +702,8 @@ impl<const N: usize> Selection<N> {
         self.offer_all(&[k], size, false)
     }
 
-    /// Offer a batch of samples (API-39): the slots `ks` of its columns and the level's `sample_times` slot, all or
-    /// none, `size` the upper bound of them all. Returns false once the update is full: offer nothing more.
+    /// Offer a batch of samples (API-39): the slots `ks` of its columns and its time column (the event's
+    /// `sample_times`), all or none, `size` the upper bound of them all. Returns false once the update is full: offer nothing more.
     pub fn offer_batch(&mut self, ks: &[usize], size: usize) -> bool {
         if ks.iter().any(|&k| k >= N) {
             self.done = true;
@@ -764,7 +760,7 @@ impl<const N: usize> Selection<N> {
         self.time |= time;
     }
 
-    /// Whether the level's `sample_times` slot goes into the update.
+    /// Whether a batch of samples goes into the update, its time column as the event's `sample_times`.
     pub fn has_time(&self) -> bool {
         self.time
     }
@@ -797,21 +793,19 @@ impl<const N: usize> Selection<N> {
         }
     }
 
-    /// Resource indices of the chosen properties, increasing, and the level's `sample_times` slot last when a batch
-    /// of samples goes: the present slots of the update's `OptionAnyVec`.
+    /// Resource indices of the chosen properties, increasing: the present slots of the update's `OptionAnyVec`.
     pub fn present<'a>(&'a self, desc: &'a LevelDesc<N>) -> impl Iterator<Item = u32> + Clone + 'a {
         desc.observable
             .iter()
             .zip(self.chosen.iter())
             .filter(|(_, chosen)| **chosen)
             .map(|(index, _)| *index)
-            .chain(desc.time_slot.filter(|_| self.time))
     }
 }
 
 /// Most bytes one level batch of samples (API-39) may take in an update of a level, its time column and `columns`
 /// value columns together, so that it fits `buf_len` bytes of data next to an `overhead` ([event_overhead]): the
-/// update's presence header and each slot's length and `Batched` tag left out. The batcher seals at it; an outbox of
+/// update's presence header, each slot's length and `Batched` tag and the `sample_times` flag and length left out. The batcher seals at it; an outbox of
 /// `outbox_bytes` can hold no more than what is left of it after the entries' headers.
 pub fn batch_budget<const N: usize>(
     desc: &LevelDesc<N>,
@@ -983,7 +977,7 @@ pub fn event_overhead(
     t: Option<ww_si::Second>,
     missed: Option<UNib32>,
 ) -> Result<usize, ShrinkWrapError> {
-    ww_client_server::observe::ser_property_update_event(buf, path, t, missed, |_| Ok(0))
+    ww_client_server::observe::ser_property_update_event(buf, path, t, missed, None, |_| Ok(0))
         .map(|event| event.len())
 }
 

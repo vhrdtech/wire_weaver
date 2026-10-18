@@ -72,7 +72,13 @@ impl LevelUpdate for LevelData {
     type Latest = Latest;
     type Config = Cfg;
 
-    fn update_latest(self, latest: &mut Latest, received: std::time::Instant, t: Option<Second>) {
+    fn update_latest(
+        self,
+        latest: &mut Latest,
+        received: std::time::Instant,
+        t: Option<Second>,
+        _sample_times: Option<&[Second]>,
+    ) {
         if let Some(value) = self.x {
             latest.x = Some(Sample { value, received, t });
         }
@@ -136,6 +142,7 @@ fn update_event(data: &LevelData) -> Vec<u8> {
             path: RefVec::Slice { slice: &path },
             t: None,
             missed: Some(UNib32(2)),
+            sample_times: None,
             data: TailBytes(&data),
         }),
     }

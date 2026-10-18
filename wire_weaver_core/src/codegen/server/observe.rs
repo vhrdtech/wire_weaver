@@ -57,16 +57,6 @@ impl Level {
             .collect()
     }
 
-    /// `time_slot` of the level's `LevelDesc`: `sample_times` past the last resource index (API-39).
-    fn time_slot(&self) -> TokenStream {
-        if self.has_batched() {
-            let slot = self.item_count;
-            quote! { Some(#slot) }
-        } else {
-            quote! { None }
-        }
-    }
-
     /// `<field>_outbox` of `ObserveState`
     fn outbox(&self) -> Ident {
         Ident::new(&format!("{}_outbox", self.field), Span::call_site())
@@ -768,13 +758,11 @@ impl Observe {
             let item_count = level.item_count;
             let indices = level.props.iter().map(|p| p.index);
             let batched = level.props.iter().map(|p| p.batched);
-            let time_slot = level.time_slot();
             let desc = quote! {
                 const DESC: ww_stream::observe::LevelDesc<#n> = ww_stream::observe::LevelDesc {
                     item_count: #item_count,
                     observable: [#(#indices),*],
                     batched: [#(#batched),*],
-                    time_slot: #time_slot,
                 };
             };
             let field = &level.field;
@@ -987,7 +975,6 @@ impl Observe {
                 }
             });
             let has_batched = level.has_batched();
-            let time_slot = level.time_slot();
             let batched_ks = level.batched_ks();
             let columns = batched_ks.len();
             let column_ids: Vec<usize> = (0..columns).collect();
@@ -1085,20 +1072,21 @@ impl Observe {
                     let mut batch_dropped = false;
                 },
             );
-            // the time column last: its slot is past every resource index
-            let write_time = maybe_quote_cl(has_batched, || {
+            // the time column of a batch goes into the event's head, `sample_times`
+            let sample_times = if has_batched {
                 quote! {
-                    if sel.has_time() {
-                        let state = self.observe_state();
-                        let Some(batch) = state.#outbox.oldest() else {
-                            break 'write None;
-                        };
-                        if wr.write(#item_count, &ww_client_server::observe::SeriesRaw(batch.time)).is_err() {
-                            break 'write None;
+                    let sample_times = if sel.has_time() {
+                        match self.observe_state().#outbox.oldest() {
+                            Some(batch) => Some(batch.time),
+                            None => None,
                         }
-                    }
+                    } else {
+                        None
+                    };
                 }
-            });
+            } else {
+                quote! { let sample_times = None; }
+            };
             // the update's `t` is the time of its values: none when it carries only a batch, whose samples have
             // their times in `sample_times`
             let t = if has_batched {
@@ -1140,8 +1128,7 @@ impl Observe {
                         item_count: #item_count,
                         observable: [#(#indices),*],
                         batched: [#(#batched),*],
-                        time_slot: #time_slot,
-                    };
+                        };
                     let path = [#(UNib32(#path)),*];
                     let limits = self.observe_state().limits;
                     #encode
@@ -1177,15 +1164,15 @@ impl Observe {
                                     break 'write None;
                                 };
                                 #(#write)*
-                                #write_time
                                 wr.finish_and_take().ok().map(|data| data.len())
                             };
                             if let Some(data_len) = data_len {
                                 let data = &buf[..data_len];
+                                #sample_times
                                 let mut event_len = 0;
                                 let result = #send_with(&mut cx, |scratch| {
                                     let event = ww_client_server::observe::ser_property_update_event(
-                                        scratch, &path, t, plan.missed(), |b: &mut [u8]| {
+                                        scratch, &path, t, plan.missed(), sample_times, |b: &mut [u8]| {
                                             let b = b.get_mut(..data.len()).ok_or(ShrinkWrapError::OutOfBoundsWriteRawSlice)?;
                                             b.copy_from_slice(data);
                                             Ok(data.len())
@@ -1264,39 +1251,6 @@ pub(crate) fn batched_slot_ty(batched: bool, ty: TokenStream, owned: bool) -> To
     }
 }
 
-/// The `sample_times` slot of a level with `+batched` properties (API-39, shared clock), past its last resource
-/// index: the time column of the samples in an update, `second` the path of `Second`. Returns the field and, to put
-/// next to the struct, a `compile_error!` when a property of the level is named so.
-pub(crate) fn sample_times_slot(
-    level_props: &[(&str, bool)],
-    item_count: u32,
-    second: TokenStream,
-    owned: bool,
-) -> (TokenStream, TokenStream) {
-    if !level_props.iter().any(|(_, batched)| *batched) {
-        return (quote! {}, quote! {});
-    }
-    let clash = maybe_quote_cl(
-        level_props.iter().any(|(name, _)| *name == "sample_times"),
-        || {
-            quote! { compile_error!("a property named `sample_times` clashes with the time column of the level's batched samples, rename it"); }
-        },
-    );
-    let ty = if owned {
-        quote! { wire_weaver::shrink_wrap::series::SeriesOwned<#second> }
-    } else {
-        quote! { wire_weaver::shrink_wrap::series::Series<'i, #second> }
-    };
-    let field = quote! {
-        ,
-        /// Device times of the samples in the update's `Batched::Samples` slots (API-39): one per sample, each slot
-        /// has as many.
-        #[slot = #item_count]
-        pub sample_times: Option<#ty>
-    };
-    (field, clash)
-}
-
 /// `<Trait>Update`: a sparse struct with one `Option` per observable property of a level, in the slot of its
 /// resource index, the data of the level's `PropertyUpdate`.
 fn update_struct(
@@ -1331,30 +1285,16 @@ fn update_struct(
             pub #ident: Option<#ty>
         }
     });
-    let props: Vec<(String, bool)> = level
-        .props
-        .iter()
-        .map(|p| (p.ident.to_string(), p.batched))
-        .collect();
-    let props: Vec<(&str, bool)> = props.iter().map(|(n, b)| (n.as_str(), *b)).collect();
-    let (sample_times, clash) = sample_times_slot(
-        &props,
-        level.item_count,
-        quote! { ww_stream::observe::Second },
-        !no_alloc,
-    );
     let doc = format!(
         " Data of a `PropertyUpdate` of `{}` (SRV-18): its observable properties by resource index, the ones sent \
         present.",
         level.trait_name
     );
     quote! {
-        #clash
         #[doc = #doc]
         #[wire_weaver::shrink_wrap::derive_shrink_wrap(sparse, #disambiguate derive(Debug))]
         pub struct #name #maybe_lifetime {
             #(#fields),*
-            #sample_times
         }
     }
 }

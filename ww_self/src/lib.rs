@@ -248,16 +248,10 @@ pub enum ApiItemKind<'i> {
         errors: Option<RefVec<'i, ErrorVariant<'i>>>,
         /// `+batched` (API-39, implies `observe`): a host may observe every sample the device takes, sent in batches
         /// (`ObserveMode::Samples`), the property's observe slot is a `Batched<T>`. [Batching::SharedClock], the
-        /// only form of properties: the samples of a level share one time column per update. `None` for a property
-        /// that isn't batched.
+        /// only form of properties: the samples of a level share one time column per update, the `sample_times` of
+        /// its `PropertyUpdate` event. `None` for a property that isn't batched.
         #[default = None]
         batched: Option<Batching>,
-        /// `+batched` properties only (API-39, [Batching::SharedClock]): the type of the times of their samples,
-        /// `ww_si::Second`, which an observe update carries once in its level's `sample_times` slot (a `Series` of
-        /// it, past the level's last resource index), computed once when the model is built. `Second` isn't
-        /// otherwise referred to from `ty` alone. `None` for a property that isn't batched.
-        #[default = None]
-        sample_time_ty: Option<Type<'i>>,
     },
     Stream {
         ty: Type<'i>,

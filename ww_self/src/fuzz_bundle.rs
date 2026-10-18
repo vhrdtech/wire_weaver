@@ -135,7 +135,6 @@ impl Gen<'_> {
                     write_err_ty: None,
                     errors: None,
                     batched: None,
-                    sample_time_ty: None,
                 },
                 multiplicity: Multiplicity::Flat,
                 since: None,

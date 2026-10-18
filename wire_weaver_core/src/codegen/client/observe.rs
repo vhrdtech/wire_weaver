@@ -87,14 +87,14 @@ pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
             crate::codegen::server::observe::batched_slot_ty(p.batched, ty.clone(), true)
         })
         .collect();
-    // a value into `latest`: the last sample of a batched slot, with its time from `sample_times` (a batch whose
-    // times don't match is malformed: left out)
+    // a value into `latest`: the last sample of a batched slot, with its time from the update's `sample_times` (a
+    // batch whose times don't match is malformed: left out)
     let to_latest = props.iter().zip(&idents).map(|(p, ident)| {
         if p.batched {
             quote! {
                 if let Some(batched) = self.#ident {
                     if let Some((value, t)) = batched
-                        .into_samples(t, sample_times.as_deref())
+                        .into_samples(t, sample_times)
                         .ok()
                         .and_then(|mut samples| samples.pop())
                     {
@@ -116,37 +116,6 @@ pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
         .filter(|(p, _)| p.batched)
         .map(|(_, i)| i)
         .collect();
-    let has_batched = !batched_idents.is_empty();
-    // the samples of every `+batched` slot share the level's time column (API-39)
-    let times_mut = maybe_quote(
-        has_batched,
-        quote! {
-            fn times_mut(&mut self, f: &mut dyn FnMut(&mut wire_weaver_client::observe::Second)) {
-                if let Some(times) = &mut self.sample_times {
-                    for t in &mut times.0 {
-                        f(t);
-                    }
-                }
-            }
-        },
-    );
-    let take_times = maybe_quote(
-        has_batched,
-        quote! { let sample_times = self.sample_times.map(|s| s.into_inner()); },
-    );
-    let item_count = api_level
-        .items
-        .iter()
-        .map(|i| i.id.0 + 1)
-        .max()
-        .unwrap_or(0);
-    let prop_names: Vec<(&str, bool)> = props.iter().map(|p| (p.name, p.batched)).collect();
-    let (sample_times, clash) = crate::codegen::server::observe::sample_times_slot(
-        &prop_names,
-        item_count,
-        quote! { wire_weaver_client::observe::Second },
-        true,
-    );
     let samples_fn = maybe_quote(
         !batched_idents.is_empty(),
         quote! {
@@ -174,15 +143,13 @@ pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
         .iter()
         .map(|i| format!(" Observe `{i}` with `mode`."));
     quote! {
-        #clash
         #[doc = #update_doc]
         #[wire_weaver::shrink_wrap::derive_shrink_wrap(sparse, owned, derive(Debug))]
         pub struct #update {
             #(
                 #[slot = #indices]
-                pub #idents: Option<#slot_tys>
-            ),*
-            #sample_times
+                pub #idents: Option<#slot_tys>,
+            )*
         }
 
         #[doc = #latest_doc]
@@ -236,12 +203,10 @@ pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
                 latest: &mut #latest,
                 received: std::time::Instant,
                 t: Option<wire_weaver_client::observe::Second>,
+                sample_times: Option<&[wire_weaver_client::observe::Second]>,
             ) {
-                #take_times
                 #(#to_latest)*
             }
-
-            #times_mut
         }
     }
 }

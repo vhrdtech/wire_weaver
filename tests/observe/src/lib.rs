@@ -364,6 +364,7 @@ mod tests {
                         t,
                         missed,
                         data,
+                        ..
                     }) = event.result
                     {
                         // microseconds as a wrapping u32 on the wire (the tests run far shorter than a wrap)

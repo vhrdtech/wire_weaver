@@ -17,9 +17,7 @@
 //! # }
 //! ```
 
-use crate::client::dyn_observe::{
-    BatchedSlot, DynConfig, DynLatest, DynObserver, DynUpdate, LevelSchema, SampleTimes,
-};
+use crate::client::dyn_observe::{BatchedSlot, DynConfig, DynObserver, DynUpdate, LevelSchema};
 use crate::client::dyn_positioned::{DynPositionedStream, DynStreamOpen};
 use crate::client::prepared_stream_open::RawOpenResult;
 use crate::error_list;
@@ -40,8 +38,8 @@ use ww_client_server::{ErrorKindOwned, ErrorOwned, MultiIndexOwned, PathKind, Re
 use ww_numeric::NumericValue;
 use ww_self::errors::{error_list_contains, error_value_name, fmt_error_list};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Batching, Delivery,
-    ErrorVariantOwned, FlowControl, Multiplicity, PropertyAccess, TypeOwned, ValueOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Batching,
+    Delivery, ErrorVariantOwned, FlowControl, Multiplicity, PropertyAccess, TypeOwned, ValueOwned,
 };
 
 /// API root, trait, method, property, stream or an array of them, found by walking an [ApiBundleOwned].
@@ -530,27 +528,16 @@ impl DynResource {
                         PropertyAccess::ReadOnly { observe: true }
                         | PropertyAccess::ReadWrite { observe: true },
                     batched,
-                    sample_time_ty,
                     ..
-                } => Some((item, ty, *batched, sample_time_ty)),
+                } => Some((item, ty, *batched)),
                 _ => None,
             });
         let mut props = vec![];
         let mut batched_slots = vec![];
-        let mut second_ty: Option<TypeOwned> = None;
-        for (item, ty, batched, sample_time_ty) in props_iter {
+        for (item, ty, batched) in props_iter {
             let slot = match batched {
                 None => None,
-                Some(Batching::SharedClock) => {
-                    let Some(sample_time_ty) = sample_time_ty else {
-                        return Err(Error::User(format!(
-                            "+batched property {} without sample_time_ty in the device's model",
-                            item.ident
-                        )));
-                    };
-                    second_ty.get_or_insert_with(|| sample_time_ty.clone());
-                    Some(BatchedSlot::new(ty))
-                }
+                Some(Batching::SharedClock) => Some(BatchedSlot::new(ty)),
                 Some(other) => {
                     return Err(Error::User(format!(
                         "+batched property {}: batching {other:?} this client doesn't know for properties",
@@ -561,17 +548,7 @@ impl DynResource {
             props.push((item.id.0, item.ident.clone(), ty.clone()));
             batched_slots.push(slot);
         }
-        // past the level's last resource index
-        let sample_times = second_ty.map(|second_ty| SampleTimes {
-            index: level.items.iter().map(|i| i.id.0 + 1).max().unwrap_or(0),
-            second_ty,
-        });
-        Ok(LevelSchema::new(
-            self.bundle.clone(),
-            props,
-            batched_slots,
-            sample_times,
-        ))
+        Ok(LevelSchema::new(self.bundle.clone(), props, batched_slots))
     }
 
     /// Observe this trait level's `+observe` properties without generated code (TOOL-11): one device subscription
@@ -583,7 +560,7 @@ impl DynResource {
         entries: BTreeMap<u32, ObserveMode>,
     ) -> Result<DynObserver, Error> {
         let schema = Arc::new(self.observe_schema()?);
-        let prepared = observe_prepared(cmd, self.path_kind()?, entries, &schema);
+        let prepared = observe_prepared(cmd, self.path_kind()?, entries);
         Ok(DynObserver::new(prepared.subscribe().await?, schema))
     }
 
@@ -594,7 +571,7 @@ impl DynResource {
         entries: BTreeMap<u32, ObserveMode>,
     ) -> Result<DynObserver, Error> {
         let schema = Arc::new(self.observe_schema()?);
-        let prepared = observe_prepared(cmd, self.path_kind()?, entries, &schema);
+        let prepared = observe_prepared(cmd, self.path_kind()?, entries);
         Ok(DynObserver::new(prepared.subscribe_blocking()?, schema))
     }
 
@@ -1388,17 +1365,11 @@ fn other(e: anyhow::Error) -> Error {
     Error::Other(format!("{e:#}"))
 }
 
-/// [DynResource::observe]'s subscription: the level gets `schema` to find the samples' times with (API-39).
+/// [DynResource::observe]'s subscription.
 fn observe_prepared(
     cmd: &Commander,
     path: PathKind<'_>,
     entries: BTreeMap<u32, ObserveMode>,
-    schema: &Arc<LevelSchema>,
 ) -> PreparedObserve<DynUpdate, DynUpdate> {
-    let mut prepared = cmd.prepare_observe::<DynUpdate, DynUpdate>(path, DynConfig(entries), Some);
-    let schema = schema.clone();
-    prepared.init_latest = Some(Arc::new(move |latest: &mut DynLatest| {
-        latest.schema = Some(schema.clone())
-    }));
-    prepared
+    cmd.prepare_observe::<DynUpdate, DynUpdate>(path, DynConfig(entries), Some)
 }

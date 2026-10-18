@@ -423,7 +423,6 @@ impl Commander {
             },
             queue_bytes: self.stream_queue_bytes,
             extract,
-            init_latest: None,
         }
     }
 

@@ -5,7 +5,6 @@ const DESC: LevelDesc<3> = LevelDesc {
     item_count: 6,
     observable: [1, 3, 4],
     batched: [false; 3],
-    time_slot: None,
 };
 
 /// Like [DESC], index 3 `+batched` (API-39).
@@ -13,7 +12,6 @@ const DESC_B: LevelDesc<3> = LevelDesc {
     item_count: 6,
     observable: [1, 3, 4],
     batched: [false, true, false],
-    time_slot: Some(6),
 };
 
 /// Like [DESC], indices 1 and 3 `+batched`.
@@ -21,7 +19,6 @@ const DESC_BB: LevelDesc<3> = LevelDesc {
     item_count: 6,
     observable: [1, 3, 4],
     batched: [true, true, false],
-    time_slot: Some(6),
 };
 
 const LIMITS: ObserveLimits = ObserveLimits {
@@ -295,7 +292,6 @@ fn earliest_deadline_first_and_missed() {
         item_count: 2,
         observable: [0, 1],
         batched: [false; 2],
-        time_slot: None,
     };
     let mut t = ObserveTable::<2>::new();
     // 64 B bucket, refilled at 100 B/s: one 40 byte value per poll at most
@@ -331,7 +327,6 @@ fn short_budget_sends_full_updates() {
         item_count: 4,
         observable: [0, 1, 2, 3],
         batched: [false; 4],
-        time_slot: None,
     };
     let mut t = ObserveTable::<4>::new();
     // 4 values of 4 B every ms: 20 B per update, 20 kB/s; 10 kB/s granted
@@ -365,7 +360,6 @@ fn hold_is_not_a_miss() {
         item_count: 2,
         observable: [0, 1],
         batched: [false; 2],
-        time_slot: None,
     };
     let mut t = ObserveTable::<2>::new();
     // 64 B bucket at 100 B/s, 40 B values: one per 400 ms
@@ -748,7 +742,7 @@ fn batch_of_samples_is_offered_whole() {
     let mut sel = plan.selection(&DESC_BB, 4, 1024);
     assert!(sel.offer_batch(&[0, 1], 20));
     assert!(sel.is_chosen(0) && sel.is_chosen(1) && sel.has_time());
-    assert_eq!(sel.present(&DESC_BB).collect::<Vec<_>>(), [1, 3, 6]);
+    assert_eq!(sel.present(&DESC_BB).collect::<Vec<_>>(), [1, 3]);
     // bigger than a message: neither column, no time slot
     let mut sel = plan.selection(&DESC_BB, 4, 64);
     sel.offer_batch(&[0, 1], 100);

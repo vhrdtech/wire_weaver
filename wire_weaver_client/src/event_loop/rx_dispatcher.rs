@@ -361,6 +361,7 @@ impl RxDispatcher {
                     path,
                     t,
                     missed,
+                    sample_times,
                     data,
                 } => {
                     let path = path.iter().map(|p| p.unwrap()).collect::<Vec<_>>();
@@ -368,6 +369,7 @@ impl RxDispatcher {
                         Some(route) => route.on_update(
                             crate::event_loop::core::now(),
                             t,
+                            sample_times.map(|times| times.iter().collect()),
                             missed.map_or(0, |m| m.0),
                             data.as_slice(),
                         ),

@@ -473,7 +473,8 @@ fn kitchen_round_trips() {
             .collect();
         let mut picks = Picks::new(&bytes);
         let items = kitchen_items(&mut picks, 60);
-        for pick in [0u8, 128, 129, 140, 200, 255] {
+        // the smallest, and two of the fixed picks (128..=255, each once over the seeds)
+        for pick in [0u8, 128 + seed as u8, 192 + seed as u8] {
             round_trip(&items, policy(pick));
         }
     }

@@ -1,32 +1,34 @@
-# HANDOFF: series-encode-perf (P2401#17oct-2054)
+# HANDOFF: series-encode-perf (P2401#17oct-2054, FEATURES SW-63)
 
-Paused on 17 Oct 2026, evening: Roman stopped for the night while this session was still reading code. No code has changed yet, so this commit only holds this note.
+Updated 18 Oct 2026. Branch `s/17oct2026-series-encode-perf`, rebased onto master 0e0d02a (master has moved on since, to 41fc92f: run `tpm work rebase` before ready).
 
-## Task
+## Done (committed)
 
-Make `Series<T>` encoding fast and small on MCUs without changing any bytes (goldens and fuzz round trips must stay byte-identical). Three parts: (1) profile and fix the hot paths, (2) choose the codec at compile time so a fixed-codec firmware links only its codec, (3) a before/after table (insns per item at n=8/32/64, H725 cycles, flash per codec set) in `~/git/tpm/prj/P2401-wireweaver/design/batched_streams.md` "Measured" and in the docs. Target: several times fewer instructions, and under half the flash for a fixed codec.
+- Fast paths, same bytes. n=32 `Series<Timed<Ampere>>` on the M3: fixed(delta,packed) 63 359 → 10 922 instructions, SMALLEST 213 233 → 31 014. The M4F is similar.
+  - packed blocks buffered;
+  - `SeriesColumns::TAGGED` with `tag_changed`;
+  - enum variants skipped when unseen;
+  - u32/u64 `Word` predictor on left-aligned values;
+  - one-pass `Sizes` for SMALLEST;
+  - `BitWriter` keeps the open byte in a register;
+  - `write_un32/64` rewritten;
+  - push-style column writers.
+- Flash. The derive emits a struct head only for evolvable structs. New `SeriesPolicy` trait, with `CodecPolicy` as the runtime policy and the `FixedCodecs` trait for compile-time ones, plus the `DeltaPacked` type. `Series<'i, T, P = CodecPolicy>`. `write_group` is generic over `P` (breaking, in the shrink_wrap 0.2.0 cycle). Encoder flash on the M3 went from 90.8 KB to 25.4 KB with a runtime policy and 15.0 KB with `DeltaPacked`; on the M4F from 68.5 KB to 17.6 / 9.8 KB.
+- ww_stream: `Batcher/Producer/Consumer<T, N, P = DefaultPolicy>`. `DefaultPolicy` is `DeltaPacked` on no_std and `CodecPolicy` on std. `BatchSource::Policy`.
+- `examples_mcu/qemu_icount`: an instruction counter with `--profile` and `--pcs=` options. `mcu_qemu(_m4f)` gained the `delta-packed` and `baseline` bins. The H725 bin `stm32h725ig-series-encode-cycles` was measured: n=32 DeltaPacked 25 241 cycles, before 104 027 (fixed). The board has been released.
+- Docs: `docs/serdes/series.md` has a "CPU and flash on an MCU" section. FEATURES SW-63 is ✅. The features page entry is added and regenerated. CHANGELOGs are updated: shrink_wrap, ww_stream and root `[Unreleased]`, no version bump. Full tables are in `~/git/tpm/prj/P2401-wireweaver/design/batched_streams.md` under "After SW-63".
+- `just test` (nextest, whole workspace) passed after the policy step, 1460 tests.
 
-## Done
+## Next (to finish)
 
-- Read the encoder: `shrink_wrap/shrink_wrap/src/series/{mod.rs, group.rs, leaves.rs, series_type.rs, columns/{mod,numeric,run,float}.rs}`, the qemu harness `examples_mcu/mcu_qemu/src/{bench.rs, bin/series_encode_cpu_*.rs, bin/batch_cpu.rs}`, and `ww_si` `Timed`/`Quantity` (`Quantity { prefix: Prefix (enum, run), value: NumericValue (enum, series(no_store)) }`).
-- Baseline numbers are already in the design note (TEST-23). M3 `fixed(delta,packed)`: 16 488 / 63 359 / 126 075 insns at n=8/32/64. Flash with ww_si+Series is ~98 KB against a 28.9 KB baseline.
+1. `tpm work rebase` onto the current master.
+2. `just lint` (clippy, `-D warnings`, also `--all-features`; the derive emits `false || tag_changed(..)`, so watch for clippy complaints in generated code), `just test`, `just check-mcu`, `just check-examples-mcu`. Also `cargo sort -w -g --check`, `typos` and rustdoc.
+3. Fuzz briefly to confirm the round trips are unchanged: `just fuzz-shrink-wrap-series-columns` / `-series-type` (cargo +nightly fuzz), a minute each.
+4. Ask the user before running `just build-docs` (it breaks a running `serve-docs`), then fix any new link warnings in `docs/serdes/series.md`.
+5. `git rm HANDOFF.md`, commit, then `tpm work ready --note "SW-63: Series encode ~6x fewer insns, compile-time DeltaPacked 15 KB vs 91 KB flash, H725 cycles in docs"`.
 
-## Suspects, from reading only (not measured yet)
+## Gotchas
 
-- `numeric::encode`, packed coder: each block clones the whole `Steps` iterator and runs the predictor over the 8 items ahead, so the predictor runs about twice per item, and the item iterator under it is the nested `FieldItems` chain.
-- `FieldItems` nesting (`Timed` → `Quantity` → `NumericValue` variant → leaf): every column walks all items through closures, and the `earlier` checks compute `series_tag`s of every field before it. Each leaf also calls `items.clone().next()` once to check for emptiness. With `NumericValue`'s variants, every variant's column walks all n items.
-- `put_bits` on `BufWriter` goes through `write_un64`, which may write bit by bit (check `buf_writer.rs`). A word-at-a-time path would help every codec.
-- `CodecPolicy` is a runtime value, so `smallest_numeric`, every trial and `float_bits` stay linked. Fix: a policy type parameter, e.g. a `SeriesPolicy` trait with a `SMALLEST` default type, with `Series::with_policy` kept as the runtime form; or cargo features. This changes the Rust API only, not the wire. Check `ww_stream::batch::DEFAULT_POLICY` and its callers.
-
-## Next
-
-1. Write a small Rust (or committed Python) instruction counter for the `-d exec,nochain` trace: the design note says the earlier counting script was thrown away. Also make a per-function histogram (address → symbol through `nm`) to see where the instructions go.
-2. Fix the suspects, measuring each change. Run the golden tests (`series/columns/golden.rs`, `golden_signals.rs`) and the fuzz checks after each one.
-3. Compile-time policy, then flash per codec set.
-4. H725 on omarchy-m1 (J-Link, probe-rs over ssh, DWT CYCCNT). The board was not claimed yet. Release it when done.
-5. Tables, CHANGELOG (`shrink_wrap`, root `[Unreleased]`, no version bump), `just test lint check-mcu check-examples-mcu`, then `git rm HANDOFF.md` and `tpm work ready`.
-
-## Constraints from Roman
-
-- Only proper fixes, and bytes stay the same.
-- Keep the nextest limits tight: a slow test is a bug, never a reason to raise a limit.
+- `cargo fmt` in examples_mcu crates also reformats unrelated bins (ww_gpio, blinky, uart...): this is harmless formatting churn and is already committed.
+- The kitchen_round_trips test took about 2 s in debug, near the 3 s limit. Check it under load. If it is slow, make the test cheaper; don't raise the limit.
+- The fixed-delta qemu bin uses `FloatCodec::Plain`, and `DeltaPacked` uses Xor. This doesn't matter here: the signal has no floats.

@@ -180,7 +180,7 @@ pub fn run(bytes: &[u8]) {
     let mut p = Picks::new(bytes);
     let policy = policy(p.byte());
     let mut budget = 1 + p.byte() as usize * 2;
-    let mut b = Batcher::<Item, N>::with_budget(policy, budget);
+    let mut b = Batcher::<Item, N, _>::with_budget(policy, budget);
     let mut scratch = Scratch::<{ scratch_bytes::<Item>(N) }>::new();
     let mut outbox = Outbox::<OUTBOX>::new();
     let mut m = Model::new();
@@ -340,7 +340,7 @@ pub fn threaded(count: u32, seed: u8) {
     let max_age = [20, 300, 3000][seed as usize % 3];
     let (mut value, mut flag, mut opt) = (0i32, false, None);
     let pushed = items(0, count as usize, seed, &mut value, &mut flag, &mut opt);
-    let mut b = Batcher::<Item, N>::with_budget(policy, budget);
+    let mut b = Batcher::<Item, N, _>::with_budget(policy, budget);
     let mut scratch = Scratch::<{ scratch_bytes::<Item>(N) }>::new();
     let mut m = Model::new();
     m.pushed = pushed.clone();

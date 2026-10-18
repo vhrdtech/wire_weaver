@@ -37,7 +37,7 @@ type Scr = Scratch<{ scratch_bytes::<Sample>(32) }>;
 
 #[test]
 fn seal_full() {
-    let mut b = Batcher::<u32, 8>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<u32, 8, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scratch::<{ scratch_bytes::<u32>(8) }>::new();
     for k in 0..7 {
         assert_eq!(b.push(&(k * 3)), Seal::No);
@@ -59,7 +59,7 @@ fn seal_full() {
 
 #[test]
 fn seal_age_from_first_poll() {
-    let mut b = Batcher::<Sample, 32>::new(DEFAULT_POLICY);
+    let mut b = Batcher::<Sample, 32, _>::new(DEFAULT_POLICY);
     let mut scratch = Scr::new();
     b.push(&sample(0));
     b.push(&sample(1));
@@ -80,7 +80,7 @@ fn seal_age_from_first_poll() {
 
 #[test]
 fn seal_age_waits_for_the_spare() {
-    let mut b = Batcher::<Sample, 32>::new(DEFAULT_POLICY);
+    let mut b = Batcher::<Sample, 32, _>::new(DEFAULT_POLICY);
     let mut scratch = Scr::new();
     b.push(&sample(0));
     b.flush();
@@ -98,7 +98,7 @@ fn seal_age_waits_for_the_spare() {
 #[test]
 fn seal_budget_worst_case() {
     let budget = 400;
-    let mut b = Batcher::<Sample, 32>::with_budget(CodecPolicy::SMALLEST, budget);
+    let mut b = Batcher::<Sample, 32, _>::with_budget(CodecPolicy::SMALLEST, budget);
     let mut scratch = Scr::new();
     let mut k = 0;
     let seal = loop {
@@ -124,7 +124,7 @@ fn seal_budget_worst_case() {
 fn seal_budget_from_the_last_batch() {
     // the worst case allows only a few items, the real ones (a regular clock, a slow signal) take far less
     let budget = 200;
-    let mut b = Batcher::<Sample, 32>::with_budget(CodecPolicy::SMALLEST, budget);
+    let mut b = Batcher::<Sample, 32, _>::with_budget(CodecPolicy::SMALLEST, budget);
     let mut scratch = Scr::new();
     let worst = (1..=32)
         .take_while(|&n| Series::<Sample>::max_bytes(n).unwrap() <= budget)
@@ -155,7 +155,7 @@ fn seal_budget_from_the_last_batch() {
 
 #[test]
 fn budget_shrinks_seals_at_poll() {
-    let mut b = Batcher::<Sample, 32>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<Sample, 32, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scr::new();
     for k in 0..20 {
         b.push(&noisy(k));
@@ -176,7 +176,7 @@ fn budget_shrinks_seals_at_poll() {
 
 #[test]
 fn spare_still_out_loses_the_next_batch() {
-    let mut b = Batcher::<u32, 4>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<u32, 4, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scratch::<{ scratch_bytes::<u32>(4) }>::new();
     for k in 0..4 {
         b.push(&k);
@@ -215,7 +215,7 @@ fn spare_still_out_loses_the_next_batch() {
 
 #[test]
 fn loss_without_a_batch_after_it_comes_from_poll() {
-    let mut b = Batcher::<u32, 4>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<u32, 4, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scratch::<{ scratch_bytes::<u32>(4) }>::new();
     b.push_many(0..8);
     let mut buf = [0u8; 32];
@@ -227,7 +227,7 @@ fn loss_without_a_batch_after_it_comes_from_poll() {
 
 #[test]
 fn split_keeps_every_item_once() {
-    let mut b = Batcher::<Sample, 32>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<Sample, 32, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scr::new();
     for k in 0..32 {
         b.push(&noisy(k));
@@ -246,7 +246,7 @@ fn split_keeps_every_item_once() {
 
 #[test]
 fn no_room_keeps_the_batch() {
-    let mut b = Batcher::<Sample, 32>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<Sample, 32, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scr::new();
     b.push(&sample(0));
     b.flush();
@@ -261,7 +261,7 @@ fn no_room_keeps_the_batch() {
 
 #[test]
 fn push_many_seals_and_loses() {
-    let mut b = Batcher::<u32, 4>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<u32, 4, _>::new(CodecPolicy::SMALLEST);
     let (seal, lost) = b.push_many(0..10);
     // 0..4 sealed, 4..8 lost, 8..10 filling
     assert_eq!(
@@ -279,7 +279,7 @@ fn push_many_seals_and_loses() {
 
 #[test]
 fn sealed_len_is_exact() {
-    let mut b = Batcher::<Sample, 32>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<Sample, 32, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scr::new();
     for k in 0..32 {
         b.push(&sample(k));
@@ -293,7 +293,7 @@ fn sealed_len_is_exact() {
 
 #[test]
 fn outbox_drops_oldest_for_room() {
-    let mut b = Batcher::<u32, 8>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<u32, 8, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scratch::<{ scratch_bytes::<u32>(8) }>::new();
     let mut outbox = Outbox::<64>::new();
     let mut entries = 0;
@@ -328,7 +328,7 @@ fn outbox_drops_oldest_for_room() {
 
 #[test]
 fn outbox_item_bigger_than_outbox_is_lost() {
-    let mut b = Batcher::<u128, 4>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<u128, 4, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scratch::<{ scratch_bytes::<u128>(4) }>::new();
     let mut outbox = Outbox::<12>::new();
     b.push(&u128::MAX);
@@ -342,7 +342,7 @@ fn outbox_item_bigger_than_outbox_is_lost() {
 
 #[test]
 fn outbox_split_batch_never_drops_its_own_entries() {
-    let mut b = Batcher::<u32, 32>::new(CodecPolicy::SMALLEST);
+    let mut b = Batcher::<u32, 32, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scratch::<{ scratch_bytes::<u32>(32) }>::new();
     let mut outbox = Outbox::<24>::new();
     let mut rng = Rng::new(1);
@@ -371,7 +371,7 @@ fn outbox_split_batch_never_drops_its_own_entries() {
 
 #[test]
 fn reliable_batches_into_the_store() {
-    let mut s = Batched::<_, Sample, 32>::new(
+    let mut s = Batched::<_, Sample, 32, _>::new(
         Reliable::<RamRing<4096>>::new(RamRing::new()),
         CodecPolicy::SMALLEST,
     );
@@ -423,7 +423,7 @@ fn reliable_batches_into_the_store() {
 #[test]
 fn reliable_budget_is_the_record_limit() {
     // a ring whose record limit is below `buf`
-    let mut s = Batched::<_, Sample, 32>::new(
+    let mut s = Batched::<_, Sample, 32, _>::new(
         Reliable::<RamRing<600>>::new(RamRing::new()),
         CodecPolicy::SMALLEST,
     );
@@ -444,7 +444,7 @@ fn reliable_budget_is_the_record_limit() {
 
 #[test]
 fn reliable_without_session_doesnt_encode() {
-    let mut s = Batched::<_, Sample, 32>::new(
+    let mut s = Batched::<_, Sample, 32, _>::new(
         Reliable::<RamRing<4096>>::new(RamRing::new()),
         CodecPolicy::SMALLEST,
     );
@@ -459,7 +459,7 @@ fn reliable_without_session_doesnt_encode() {
 
 #[test]
 fn counted_batches_with_heads() {
-    let mut s = Batched::<_, Sample, 32>::new(Counted::new(), CodecPolicy::SMALLEST);
+    let mut s = Batched::<_, Sample, 32, _>::new(Counted::new(), CodecPolicy::SMALLEST);
     let mut scratch = Scr::new();
     let mut buf = [0u8; 512];
     // no host: the batch is dropped unencoded, positions move on once there is a session
@@ -494,7 +494,7 @@ fn counted_batches_with_heads() {
 
 #[test]
 fn plain_batches_while_open() {
-    let mut s = Batched::<_, Sample, 32>::new(Plain::new(), CodecPolicy::SMALLEST);
+    let mut s = Batched::<_, Sample, 32, _>::new(Plain::new(), CodecPolicy::SMALLEST);
     let mut scratch = Scr::new();
     let mut buf = [0u8; 512];
     // no host: dropped unencoded
@@ -524,7 +524,7 @@ fn plain_batches_while_open() {
 
 #[test]
 fn max_age_within_bounds() {
-    let mut s = Batched::<_, Sample, 32>::new(Plain::new(), CodecPolicy::SMALLEST);
+    let mut s = Batched::<_, Sample, 32, _>::new(Plain::new(), CodecPolicy::SMALLEST);
     assert_eq!(s.max_age_us(), DEFAULT_MAX_AGE_US);
     assert_eq!(s.grant_max_age(Some(0)), MIN_MAX_AGE_US);
     assert_eq!(s.grant_max_age(Some(u32::MAX)), MAX_MAX_AGE_US);
@@ -539,7 +539,9 @@ fn max_age_within_bounds() {
 
 #[test]
 fn consumer_apart_from_its_producer() {
-    let batcher = Box::leak(Box::new(Batcher::<Sample, 32>::new(CodecPolicy::SMALLEST)));
+    let batcher = Box::leak(Box::new(Batcher::<Sample, 32, _>::new(
+        CodecPolicy::SMALLEST,
+    )));
     let (mut producer, consumer) = batcher.split();
     let mut s = Batched::with_consumer(Counted::new(), consumer);
     s.stream.start_session(1);
@@ -574,12 +576,14 @@ fn random_runs() {
 
 #[test]
 fn default_policy() {
-    let expected = if cfg!(feature = "std") {
-        CodecPolicy::SMALLEST
-    } else {
-        FIXED_DELTA_PACKED
-    };
-    assert_eq!(DEFAULT_POLICY, expected);
+    #[cfg(feature = "std")]
+    assert_eq!(DEFAULT_POLICY, CodecPolicy::SMALLEST);
+    #[cfg(not(feature = "std"))]
+    {
+        use wire_weaver::shrink_wrap::series::SeriesPolicy;
+        assert_eq!(DEFAULT_POLICY.numeric(), FIXED_DELTA_PACKED.numeric());
+        assert_eq!(DEFAULT_POLICY.float(), FIXED_DELTA_PACKED.float());
+    }
 }
 
 #[test]

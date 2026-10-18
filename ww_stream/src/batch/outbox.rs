@@ -2,7 +2,7 @@
 
 use super::{Consumer, EncodeError, Scratch};
 use wire_weaver::shrink_wrap::Error;
-use wire_weaver::shrink_wrap::series::{SeriesColumns, SeriesStore};
+use wire_weaver::shrink_wrap::series::{SeriesColumns, SeriesPolicy, SeriesStore};
 
 /// Bytes of an [Outbox] entry's header: property index, items and length, `u16` each.
 pub const OUTBOX_ENTRY_HEADER: usize = 6;
@@ -151,14 +151,15 @@ impl<const BYTES: usize> Outbox<BYTES> {
     /// before (oldest first) where it doesn't fit; entries added by this call are never dropped by it. What still
     /// doesn't fit stays sealed in the batcher. A batch whose worst case fits the free room is encoded right away,
     /// else it is counted first, so the room made is what it needs.
-    pub fn push_from<T, const N: usize, const B: usize>(
+    pub fn push_from<T, const N: usize, P, const B: usize>(
         &mut self,
         k: u16,
-        batcher: &mut Consumer<'_, T, N>,
+        batcher: &mut Consumer<'_, T, N, P>,
         scratch: &mut Scratch<B>,
     ) -> Result<OutboxPush, Error>
     where
         T: SeriesStore + for<'a> SeriesColumns<'a>,
+        P: SeriesPolicy + Copy,
     {
         let mut done = OutboxPush::default();
         let mut droppable = self.entries;

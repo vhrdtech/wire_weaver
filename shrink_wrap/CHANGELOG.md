@@ -25,7 +25,8 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   through `core::mem::zeroed()`). Impls for numbers, floats, `bool`, `Nibble`, `UNib32`, `UVlq32/64`, `U1`..`U64`,
   `I2`..`I64`, `UN`, `IN`, `Option`, arrays, tuples and `PhantomData`; `series::CellWord` for hand-written ones.
   `#[derive_shrink_wrap(.., series(cells))]` derives it for structs and enums (opt-in: a type with a hand-written
-  store inside would otherwise stop compiling).
+  store inside would otherwise stop compiling). `put` of structs, enums, `Option` and tuples is `#[inline(always)]`,
+  so an interrupt built at `opt-level = "z"` puts a value with a few stores instead of a call chain.
 * `shrink_wrap::series::dynamic` writers (CLT-29), the write side of its readers for code that knows `T` only at
   run time: `write_count` / `write_count_owned`, `write_numeric`, `write_numeric128`, `write_float`, `write_run`,
   `write_opaque_run`, `write_opaque_field` and `write_struct_head` (a nested group length from a measuring closure).

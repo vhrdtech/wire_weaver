@@ -744,7 +744,7 @@ impl Observe {
                     impl<const R: usize> #writer_ty<'_, R> {
                         #(
                             #[doc = #setter_docs]
-                            #[inline]
+                            #[inline(always)]
                             pub fn #idents(&mut self, value: #ptys) {
                                 <#ptys as wire_weaver::shrink_wrap::series::SeriesCells>::put::<R>(&self.w.rows().values.#idents, self.w.slot(), &value);
                                 self.w.mark(#column_ids);

@@ -352,7 +352,7 @@ unsafe impl<T: ?Sized> SeriesCells for PhantomData<T> {
 unsafe impl<X: SeriesCells> SeriesCells for Option<X> {
     type Cells<const R: usize> = ([AtomicBool; R], X::Cells<R>);
 
-    #[inline]
+    #[inline(always)]
     fn put<const R: usize>(cells: &Self::Cells<R>, i: usize, item: &Self) {
         cells.0[i].store(item.is_some(), Ordering::Relaxed);
         if let Some(x) = item {
@@ -409,7 +409,7 @@ macro_rules! tuple {
         unsafe impl<$($t: SeriesCells),+> SeriesCells for ($($t,)+) {
             type Cells<const R: usize> = ($($t::Cells<R>,)+);
 
-            #[inline]
+            #[inline(always)]
             fn put<const R: usize>(cells: &Self::Cells<R>, i: usize, item: &Self) {
                 $($t::put::<R>(&cells.$idx, i, &item.$idx);)+
             }

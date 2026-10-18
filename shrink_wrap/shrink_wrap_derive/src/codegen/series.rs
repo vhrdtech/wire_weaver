@@ -504,7 +504,7 @@ impl SeriesSeed<'_> {
             unsafe impl<#def_lifetime #params> #cells_trait for #ident #lifetime #where_clause {
                 type Cells<const __R: usize> = #cells_ident #args;
 
-                #[inline]
+                #[inline(always)]
                 #[allow(unused_variables)]
                 fn put<const __R: usize>(cells: &Self::Cells<__R>, i: usize, item: &Self) {
                     #put

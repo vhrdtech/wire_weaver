@@ -76,6 +76,9 @@
   and every `tests/observe_batched` scenario runs on both). Rows lapped by the writer count as `missed`. Other
   levels keep their samplers; a name that isn't a level with `+batched` properties is a compile error listing them.
   `ww api scaffold --observe-cells` (`ServerScaffoldConfig::observe_cells`) writes the statics and the wiring.
+  The setters are `#[inline(always)]`: a row of the motor demo's 21 FOC values takes 357 cycles on an STM32H725 at
+  `opt-level = "z"` against 1400 through the sampler (342 against 423 at `opt-level = 3`), see
+  `docs/api/batching.md`.
 
 - Batched streams (API-41): `#[stream(T, delivery, batched)]` / `batched(untimed)` and `#[batched]` /
   `#[batched(untimed)]` next to `stream!`, for plain, counted and reliable streams. Generated servers keep their

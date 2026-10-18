@@ -125,7 +125,7 @@ const fn width_byte(width: u8, bit_count: u8) -> u8 {
 
 /// Store variant, payload and (`UN` / `IN`) width byte of `item`.
 #[allow(clippy::unnecessary_cast, unused_mut)]
-#[inline]
+#[inline(always)]
 fn parts(item: &NumericValue) -> (u8, Payload, u8) {
     let mut w = 0u8;
     let (variant, payload) = match *item {
@@ -348,7 +348,7 @@ pub struct NumericValueCells<const R: usize> {
 unsafe impl SeriesCells for NumericValue {
     type Cells<const R: usize> = NumericValueCells<R>;
 
-    #[inline]
+    #[inline(always)]
     fn put<const R: usize>(cells: &NumericValueCells<R>, i: usize, item: &Self) {
         let (variant, payload, _width) = parts(item);
         cells.variant[i].store(variant, Ordering::Relaxed);

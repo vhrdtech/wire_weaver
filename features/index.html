@@ -1534,6 +1534,8 @@
       
         
       
+        
+      
     
     
     
@@ -1674,6 +1676,33 @@
     
   
   Observing properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Batching streams and properties
 
     
   </span>
@@ -5588,7 +5617,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>API-37 Const values in the introspection blob</strong> — a codegen option putting the values of <code>const</code> items into
   the device's introspection data, so <code>ww info</code> gets them with the link setup and no extra reads. Costs flash per
   device, so not a default.</li>
-<li>🚧 <strong>API-41 Batched streams and properties on <code>Series</code></strong> — a stream or property opts into batching
+<li>✅ <strong>API-41 Batched streams and properties on <code>Series</code></strong> — a stream or property opts into batching
   (<code>+batched</code>/<code>batched</code>, no size in the API: the device owns the batch size through its own config, default 32,
   the host picks latency) and sends <code>Series&lt;Timed&lt;T&gt;&gt;</code> (SW-60) batches instead of one item per event (device-side
   <code>Batcher</code>, reliable streams storing encoded batches so a resend costs no re-encoding); the same mechanism under
@@ -5603,8 +5632,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>tests/streams_batched</code>; the dynamic client giving the same (<code>DynPositionedStream</code>/<code>DynStream</code>, no generated
   code, <code>ApiItemKind::StreamFn::batch_item_ty</code>), <code>ww stream &lt;path&gt; [--batches]</code> and Python's
   <code>recv_batch()</code> (numpy columns, <code>ww_self::SeriesColumn::from_items</code>) (piece 6, no-arg streams only); batched observe is
-  API-39. Missing: the docs page and the motor demo on it.</li>
-<li>🚧 <strong>API-39 Batched property samples (observe every sample)</strong> — a <code>ro+observe+batched</code> property observed in
+  API-39. Docs: <code>docs/api/batching.md</code> (how-to, sealing, budgets, the motor demo's numbers). Motor demo
+  (<code>motor_sim</code> repo): every <code>Foc</code> property and <code>Control</code>'s 13 measured values are <code>+observe+batched</code>.</li>
+<li>✅ <strong>API-39 Batched property samples (observe every sample)</strong> — a <code>ro+observe+batched</code> property observed in
   <code>ObserveMode::Samples { every_us, max_age_us }</code> sends every sample the device takes, each with its own time, as
   a <code>Series&lt;Timed&lt;T&gt;&gt;</code> in its <code>Batched&lt;T&gt;</code> slot of the level's update (<code>docs/api/observing.md#every-sample-batched</code>,
   <code>tests/observe_batched</code>). In: parsing and the model (<code>PropertyAccess::batched</code>, <code>batch_item_ty</code>), the mode
@@ -5612,7 +5642,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   interrupt-safe after <code>ObserveBatches::split()</code>), double-buffered stores and a level outbox encoded in
   <code>poll_properties</code> with several updates per call, <code>missed</code> for lost samples and dropped batches, typed observers
   per sample, the dynamic client, <code>ww observe --samples</code> and Python (<code>recv()</code> samples, <code>recv_batch()</code> columns).
-  Missing: the motor demo on it and its measurement through the generated code, DWT cycle counts on hardware.</li>
+  Motor demo (<code>motor_sim</code> repo) on it, measured through the real generated code: <code>docs/api/batching.md</code>. Missing:
+  DWT cycle counts of <code>&lt;Level&gt;Sampler::sample</code> on hardware (the encode-side counts are piece 4/SW-63's).</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
 <li>🚧 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: <code>MAX_SIZE</code> of types (SW-19) and per-method <code>&lt;METHOD&gt;_REQUEST_MAX_LEN</code> /

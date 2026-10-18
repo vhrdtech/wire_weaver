@@ -1717,6 +1717,8 @@
       
         
       
+        
+      
     
     
     
@@ -1857,6 +1859,33 @@
     
   
   Observing properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Batching streams and properties
 
     
   </span>
@@ -5114,9 +5143,8 @@ field, each compressed on its own. For samples that change slowly (sensor readin
 3 to 8 times smaller than a plain <code>Vec&lt;T&gt;</code>, without giving up evolution, zero-copy reading, or <code>no_std</code>/no-alloc.</p>
 <p>A <code>Series</code> is a type you reach for explicitly today, in a property, method argument/return or stream item, the same
 way you'd use <code>Vec&lt;T&gt;</code> or <a href="../special_types/#delta-deltaofdelta-and-xorfloat-compressed-sequences"><code>Delta&lt;T&gt;</code></a>.
-Batching many samples into one <code>Series</code> automatically (streams and observe properties sending a <code>Series&lt;Timed&lt;T&gt;&gt;</code>
-batch instead of one item at a time) is planned as API-41, see the <a href="../../features/">feature tracker</a>; nothing
-below needs it.</p>
+A stream or property can also opt into batching many samples into one <code>Series</code> automatically instead of sending one
+item at a time (API-41, see <a href="../../api/batching/">Batching</a>); nothing below needs that.</p>
 <h2 id="which-t">Which <code>T</code><a class="headerlink" href="#which-t" title="Permanent link">&para;</a></h2>
 <p>Any <code>#[derive_shrink_wrap(.., series)]</code> struct or enum, nested to any depth, including generic ones
 (<code>Timed&lt;T&gt;</code>, <a href="../derive_reference/#generics">DER-14</a>): structs (named fields), unit-only enums and enums with
@@ -5411,9 +5439,9 @@ decode's budget (values and bytes of memory, a repeated value counted once per c
 <p><code>Series&lt;T&gt;</code> as a type you put in a property, method or stream today works end to end (phase 1 of SW-60). Picking the
 batch for you — a stream or property opting into batching (no size in the API itself: the device owns the batch
 size through its own config, default 32, and the host picks latency) sending <code>Series&lt;Timed&lt;T&gt;&gt;</code> batches instead of
-one item per event — is phase 2, tracked as API-41 in the <a href="../../features/">feature tracker</a>, and not implemented
-yet. The numbers above (default batch 32, integer storage, autoranging cost) come from a simulator built for that
-work and already hold for <code>Series</code> used by hand.</p>
+one item per event — is phase 2, API-41, done: see <a href="../../api/batching/">Batching</a> for the how-to, sealing, budgets
+and the measured numbers. The numbers above (default batch 32, integer storage, autoranging cost) come from the
+simulator built for that work and hold for <code>Series</code> used by hand too.</p>
 
 
 

@@ -19,7 +19,7 @@
         <link rel="prev" href="../multi_requests/">
       
       
-        <link rel="next" href="../versioning/">
+        <link rel="next" href="../batching/">
       
       
         
@@ -1543,6 +1543,8 @@
       
         
       
+        
+      
     
     
     
@@ -1889,6 +1891,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Batching streams and properties
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5122,6 +5151,8 @@
       
         
       
+        
+      
     
     
     
@@ -5420,50 +5451,12 @@ sample. Observers of one level merge into <code>Samples</code> if any of them as
 prints one line per sample, and Python gets them per update or as numpy columns
 (<a href="../../python_advanced/#observing"><code>recv_batch()</code></a>).</p>
 <h3 id="which-rates-fit-an-mcu">Which rates fit an MCU<a class="headerlink" href="#which-rates-fit-an-mcu" title="Permanent link">&para;</a></h3>
-<p>Encoding is the cost: on a Cortex-M3 a <code>Series&lt;Timed&lt;Ampere&gt;&gt;</code> takes about <strong>2000 instructions per sample</strong> with a
-fixed codec (<code>fixed(delta, packed)</code>, the <code>no_std</code> default), about 1650 on a Cortex-M4F, and 3.3-3.9x that with
-<code>CodecPolicy::SMALLEST</code>, nearly the same at 8, 32 or 64 samples per batch (counted under QEMU on real motor-demo
-currents; cycles on hardware are roughly 1-1.5 per instruction from flash). <code>sample()</code> itself is a few loads and
-stores. Count samples per second as properties x sample rate:</p>
-<table>
-<thead>
-<tr>
-<th>Observed</th>
-<th>Samples/s</th>
-<th>Encoding, instructions/s</th>
-<th>Fits</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2 currents at 1 kHz</td>
-<td>2 000</td>
-<td>~4 M</td>
-<td>any Cortex-M</td>
-</tr>
-<tr>
-<td>4 properties at 4 kHz</td>
-<td>16 000</td>
-<td>~32 M</td>
-<td>a 100-200 MHz M4F, with room for the rest</td>
-</tr>
-<tr>
-<td>5 properties at 25 kHz</td>
-<td>125 000</td>
-<td>~250 M</td>
-<td>only a fast M7 (480 MHz), and barely</td>
-</tr>
-<tr>
-<td>all 21 FOC properties at 25 kHz</td>
-<td>525 000</td>
-<td>~1 000 M</td>
-<td>no Cortex-M</td>
-</tr>
-</tbody>
-</table>
-<p>So on an MCU observe a few properties at a few kHz, or decimate (<code>every_us</code>); full-rate observing of a whole
-control loop is for the simulator and the host (<a href="../../examples/motor_demo/">motor demo</a>), where it costs about 0.9 MB/s of link with
-integer storage.</p>
+<p><code>sample()</code> itself is a few loads and stores; the cost is encoding, and it scales with how many properties and how
+fast they're sampled - see <a href="../batching/#which-rates-fit-an-mcu">Batching: which rates fit an MCU</a> for the measured
+instructions/cycles-per-sample table (Cortex-M3/M4F/M7) and what it means for a real device. So on an MCU observe
+a few properties at a few kHz, or decimate (<code>every_us</code>); full-rate observing of a whole control loop is for the
+simulator and the host (<a href="../../examples/motor_demo/">motor demo</a>), where it costs about 1 MB/s of link with integer
+storage.</p>
 <h2 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h2>
 <p><code>EventKind::PropertyUpdate { path, t, missed, data }</code> is one level's update. <code>data</code> is the <code>&lt;Trait&gt;Update</code>
 <code>sparse</code> struct: an <code>OptionAnyVec</code> presence header (the smallest of four modes - all, dense bits, two-level bits,
@@ -5584,13 +5577,13 @@ per level with any generated-client observers of the same level.
         
         
           
-          <a href="../versioning/" class="md-footer__link md-footer__link--next" aria-label="Next: Versioning">
+          <a href="../batching/" class="md-footer__link md-footer__link--next" aria-label="Next: Batching streams and properties">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Versioning
+                Batching streams and properties
               </div>
             </div>
             <div class="md-footer__button md-icon">

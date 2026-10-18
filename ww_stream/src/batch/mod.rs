@@ -63,7 +63,7 @@ use wire_weaver::shrink_wrap::series::{
 pub const DEFAULT_BATCH: usize = 32;
 
 /// How batches are encoded unless told otherwise, [DEFAULT_POLICY]'s type: on `std` (hosts, the simulator) the
-/// smallest encoding of every column, a run-time [CodecPolicy]; on `no_std` [DeltaPacked], delta and packed
+/// smallest encoding of every column, a run-time [CodecPolicy]; on `no_std` [DeltaPacked](wire_weaver::shrink_wrap::series::DeltaPacked), delta and packed
 /// residuals and XOR floats fixed at compile time, so that a firmware links only those codecs (about a third of the
 /// CPU of trying every codec and two thirds of the flash, for about 1.2x the bytes, see the batching docs page).
 #[cfg(feature = "std")]
@@ -78,7 +78,7 @@ pub const DEFAULT_POLICY: DefaultPolicy = CodecPolicy::SMALLEST;
 pub const DEFAULT_POLICY: DefaultPolicy = DeltaPacked;
 
 /// The codecs of [DEFAULT_POLICY] on `no_std` as a run-time value, for code that picks them on any target (or
-/// [DeltaPacked] as a type).
+/// [DeltaPacked](wire_weaver::shrink_wrap::series::DeltaPacked) as a type).
 pub const FIXED_DELTA_PACKED: CodecPolicy = CodecPolicy::fixed(
     NumericCodec::new(Predictor::Delta, Coder::Packed),
     FloatCodec::Xor,

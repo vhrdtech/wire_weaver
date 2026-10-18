@@ -649,7 +649,6 @@ mod tests {
                 }
             }
             assert_eq!(plain.pos(), wr.pos(), "round {round}");
-            drop((plain, wr));
             assert_eq!(a, b, "round {round}");
         }
     }

@@ -52,6 +52,7 @@
 
 ### 🐛 Fixes
 
+- `ww_codegen!` in test code finds an API crate that is only a dev-dependency (e.g. a test server in a binary crate's tests): the crate walker looked in `[dependencies]` alone and failed with `Dependency not found`.
 - `fixed_layout` types (SW-44) can be used in an API: the crate walker rejected the directive (`unsupported
   directive 'fixed_layout'`), so `load` and `ww_codegen!` failed on any API using such a type. It now makes a struct
   without a size assumption `sized` (`self_describing` with an `Option` / `Result` last), as the derive does, so a

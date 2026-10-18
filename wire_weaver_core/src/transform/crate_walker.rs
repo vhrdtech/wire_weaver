@@ -563,7 +563,15 @@ impl ManifestContext {
                 self.load_dependent_inner(&self.manifest.dependencies, "wire_weaver", scratch)?;
             return wire_weaver.load_dependent_manifest(crate_name, scratch);
         }
-        self.load_dependent_inner(&self.manifest.dependencies, crate_name, scratch)
+        // a `ww_codegen!` in test code (e.g. a test server) sees dev-dependencies too
+        let deps = if !self.manifest.dependencies.contains_key(crate_name)
+            && self.manifest.dev_dependencies.contains_key(crate_name)
+        {
+            &self.manifest.dev_dependencies
+        } else {
+            &self.manifest.dependencies
+        };
+        self.load_dependent_inner(deps, crate_name, scratch)
     }
 
     fn load_dependent_inner(

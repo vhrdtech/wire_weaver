@@ -177,8 +177,8 @@ The modes above send a property's *current* value, at most once per update. A va
 updates can go - a motor current sampled in a 25 kHz control loop - loses everything in between. A `+batched`
 property (API-39) can also be observed in `Samples` mode: the device keeps every sample it takes and sends them as
 compressed [`Series`](../serdes/series.md) columns in the level's update: a `Series<T>` in each property's slot, and
-one `Series<Second>` of the sample times for the whole level (`sample_times`), since a level's samples are taken
-together.
+one `Series<Second>` of the sample times for the whole update (`sample_times`, next to its `t`), since a level's
+samples are taken together.
 
 ```rust
 #[ww_trait]
@@ -189,11 +189,9 @@ trait Foc {
 }
 ```
 
-`+batched` comes after `+observe` (alone it is an error) and needs `ww_si` as a dependency of the API crate (the
-sample times are `ww_si::Second`). The property's slot in `<Trait>Update` becomes a `Batched<T>`: `One(T)`, one value
-as in the other modes, or `Samples(..)`, a batch of samples; the level's `<Trait>Update` gets a `sample_times` slot
-past its last resource index (so no property of such a level may be named `sample_times`). A host that doesn't ask
-for `Samples` gets `One` values from the getter, as for any `+observe` property.
+`+batched` comes after `+observe` (alone it is an error). The property's slot in `<Trait>Update` becomes a
+`Batched<T>`: `One(T)`, one value as in the other modes, or `Samples(..)`, a batch of samples. A host that doesn't
+ask for `Samples` gets `One` values from the getter, as for any `+observe` property.
 
 ### Device side
 
@@ -259,9 +257,10 @@ the batches in a `static`). `ww api scaffold` writes the `observe_batch` argumen
 `<Trait>Observe::samples(max_age)` puts every `+batched` property of the level into `Samples` mode
 (`observe::samples(max_age)` / `samples_every(every, max_age)` for one property). A property observer gets one
 `Observed` per sample, each with its own device time, whether the device sent one value or a batch; a level
-observer gets `BatchedOwned<T>` slots and the update's `sample_times` unwrapped (`BatchedOwned::into_samples` pairs
-them, a count that doesn't match is an error), and `<Trait>Latest` keeps the newest sample. An update whose
-`Samples` slots don't match its `sample_times` is malformed: a warning, its samples left out. Observers of one level merge into `Samples` if any of them asks for it.
+observer gets `BatchedOwned<T>` slots and `Observed::sample_times`, unwrapped like `t` (`BatchedOwned::into_samples`
+pairs them, a count that doesn't match is an error), and `<Trait>Latest` keeps the newest sample. An update whose
+`Samples` slots don't match its `sample_times` is malformed: a warning, its samples left out. Observers of one level
+merge into `Samples` if any of them asks for it.
 
 ```rust
 use wire_weaver_client::observe::samples;
@@ -293,10 +292,9 @@ for the exact bit layout), then only the present properties' values in slot orde
 are the level's resource indices, methods and streams included as gaps that are never present.
 
 A `+batched` property's slot is a `Batched<T>`: a nibble tag, then `T` for `One` (tag 0), or for `Samples` (tag 1)
-padding to the next byte and a `Series<T>` to the end of the slot. A level with `+batched` properties has one more
-slot past its last resource index, `sample_times`: a `Series<Second>` (from a byte), present whenever a `Samples`
-slot is, with one time per sample of each. In introspection such a property is `batched: Some(SharedClock)` with
-`sample_time_ty` the type of those times.
+padding to the next byte and a `Series<T>` to the end of the slot. The event's `sample_times` (after `missed`, an
+`Option<Series<Second>>`) is present whenever a `Samples` slot is, with one time per sample of each. In
+introspection such a property is `batched: Some(SharedClock)`.
 
 Slot order matters for size: a `bool` property takes one bit, but a byte-or-wider type aligns itself to a byte as
 always, so a `bool` between two `f32`s still costs a byte of padding around it. [The `sparse` worked

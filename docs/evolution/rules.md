@@ -195,10 +195,9 @@ un-batching it, or switching between timed and untimed, changes its item type on
 `Series<T>` per event instead of one `T`): a break of the API crate too. The batch size is the device's (it is not in
 the API), so changing it is not a break.
 
-Making a property `+batched` (API-39) or not changes its observe slot (a `Batched<T>` instead of a `T`), and a
-level's first `+batched` property adds the `sample_times` slot past its last resource index: a break of the API crate.
-Adding another `+batched` property to a level that has some, or a new resource after them, moves `sample_times` to
-the new last index + 1: a break too, so add resources to such a level only with a breaking bump.
+Making a property `+batched` (API-39) or not changes its observe slot (a `Batched<T>` instead of a `T`): a break of
+the API crate. The times of the samples travel in the `PropertyUpdate` event, not in a slot, so adding resources to a
+level with `+batched` properties follows the usual rules.
 
 ### API model
 

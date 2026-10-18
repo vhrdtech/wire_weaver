@@ -331,7 +331,7 @@ Framer and link statistics of the same records, every `--every S` seconds (1 by 
 print, until Ctrl+C or `--duration S`; `--file FILE` gives those of a whole capture instead:
 
 ```
-$ ww stats --file link.wwlb
+$ ww stats --file link.wwtape
 window 0.071 s, 5 blocks, 0 blocks lost, 0 records lost
 link 0 tx:
   frames 7 (98.4/s), 138 bytes, fill 30.8%, 1.86 messages/frame
@@ -357,12 +357,12 @@ messages dropped, frame gaps, framer mismatches) gets its own line when there is
 Saves what crosses the link into a file, until Ctrl+C or `--duration S`, with a spinner showing blocks and bytes:
 
 ```
-$ ww capture -o link.wwlb --duration 10
-captured 12 blocks, 48.2kB to link.wwlb
-$ ww explain link.wwlb --layer api
+$ ww capture -o link.wwtape --duration 10
+captured 12 blocks, 48.2kB to link.wwtape
+$ ww explain link.wwtape --layer api
 ```
 
-The file is [logbook blocks](transport/tap.md#capture-files) back to back, each written as it comes, so a capture is
+The file is [tape blocks](transport/tap.md#capture-files) back to back, each written as it comes, so a capture is
 readable while it grows and after `ww` was killed; an existing file is appended to. It carries the API bundles of the
 device and of the tap's own records. `--layer link` or `api` leaves the frames out (smaller files).
 

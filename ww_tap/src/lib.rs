@@ -10,7 +10,7 @@
 //!
 //! The records are ordinary wire_weaver types, streams of the [LinkTap] trait, so a capture is described by its API
 //! bundle like any device log: one track per link and stream ([Link]), Session sticky. With the `std` feature,
-//! [Recorder] batches them into `ww_logbook` blocks.
+//! [Recorder] batches them into `ww_tape` blocks.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;

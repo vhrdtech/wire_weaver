@@ -1,4 +1,6 @@
-//! Logbook blocks: the unit a producer of records hands over, a live consumer reads and a log file is made of.
+//! Tape blocks: the unit a producer of records hands over, a live consumer reads and a log file is made of.
+//!
+//! A tape is the recording unit whatever it is recorded on: blocks handed over live, appended to a file, replayed.
 //!
 //! A **record** is an item (any ShrinkWrap type, or plain bytes) on a **track**, with a time. Tracks are described
 //! once by a [TrackDef]: a small number used in records, a stable key, the track's resource path in the producer's
@@ -9,7 +11,7 @@
 //!
 //! ```text
 //! off size field
-//!   0   4  magic "WWLB"
+//!   0   4  magic "WWTP"
 //!   4  u8  version, 1
 //!   5  u8  kind: 1 data, 2 describe (BlockKind)
 //!   6 u16  flags, 0 (a reader ignores bits it doesn't know)
@@ -21,6 +23,12 @@
 //!          uvar item length, the item's bytes
 //! len-4 u32 crc over bytes 0..len-4
 //! ```
+//!
+//! The header and the CRC at the end are the same in every version, so any reader can check a block and skip it by its
+//! length. A later version bumps the version byte and changes only the body (per-track chunks, an index,
+//! compression, ..); new block kinds and flag bits are added the same way. A reader takes such a block as it is
+//! ([Block::body_known] false, no records) and goes on with the next, instead of taking it for damage. [Describe] is an
+//! evolvable enum, so a describe record of a variant a reader doesn't know reads as [Describe::Unknown] and is skipped.
 //!
 //! Numbers are little endian; `uvar` is LEB128 (7 bits per byte, low bits first, at most 10 bytes), `ivar` zigzag
 //! then `uvar`, as in the logring format. Blocks are as long as their records, never padded: a file is blocks
@@ -47,8 +55,8 @@ mod file;
 #[cfg(feature = "std")]
 pub use file::{BlockBuf, FileBlocks, FileError};
 
-/// `WWLB`
-pub const MAGIC: [u8; 4] = *b"WWLB";
+/// `WWTP`
+pub const MAGIC: [u8; 4] = *b"WWTP";
 pub const VERSION: u8 = 1;
 /// Bytes of the block header.
 pub const HEADER_LEN: usize = 32;
@@ -63,16 +71,26 @@ const CRC: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_ISCSI);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BlockKind {
-    Data = 1,
-    Describe = 2,
+    Data,
+    Describe,
+    /// A kind this reader doesn't know: its body isn't read.
+    Other(u8),
 }
 
 impl BlockKind {
-    fn from_u8(v: u8) -> Option<Self> {
+    pub fn from_u8(v: u8) -> Self {
         match v {
-            1 => Some(BlockKind::Data),
-            2 => Some(BlockKind::Describe),
-            _ => None,
+            1 => BlockKind::Data,
+            2 => BlockKind::Describe,
+            other => BlockKind::Other(other),
+        }
+    }
+
+    pub fn to_u8(self) -> u8 {
+        match self {
+            BlockKind::Data => 1,
+            BlockKind::Describe => 2,
+            BlockKind::Other(v) => v,
         }
     }
 }
@@ -168,7 +186,7 @@ impl<'b> BlockWriter<'b> {
         assert!(buf.len() >= HEADER_LEN + CRC_LEN);
         buf[0..4].copy_from_slice(&MAGIC);
         buf[4] = VERSION;
-        buf[5] = kind as u8;
+        buf[5] = kind.to_u8();
         buf[6..8].copy_from_slice(&0u16.to_le_bytes());
         buf[16..24].copy_from_slice(&seq.to_le_bytes());
         buf[24..32].copy_from_slice(&t_base.to_le_bytes());
@@ -301,9 +319,6 @@ pub enum BlockError {
         needed: usize,
     },
     BadMagic,
-    /// A version this reader doesn't know.
-    Version(u8),
-    BadKind(u8),
     BadLength(u32),
     BadCrc,
     /// The records don't parse up to the end, or there are more or fewer than the header says.
@@ -313,6 +328,8 @@ pub enum BlockError {
 /// A block read from bytes, CRC checked. Records are read in place, see [Block::records].
 #[derive(Copy, Clone, Debug)]
 pub struct Block<'b> {
+    /// The format version it was written with, [VERSION] or a later one.
+    pub version: u8,
     pub kind: BlockKind,
     pub seq: u64,
     pub t_base: u64,
@@ -352,21 +369,22 @@ impl<'b> Block<'b> {
         if bytes.len() < len {
             return Err(BlockError::Short { needed: len });
         }
-        if bytes[4] != VERSION {
-            return Err(BlockError::Version(bytes[4]));
-        }
-        let kind = BlockKind::from_u8(bytes[5]).ok_or(BlockError::BadKind(bytes[5]))?;
+        let kind = BlockKind::from_u8(bytes[5]);
         let crc = u32::from_le_bytes(bytes[len - CRC_LEN..len].try_into().unwrap());
         if CRC.checksum(&bytes[..len - CRC_LEN]) != crc {
             return Err(BlockError::BadCrc);
         }
         let block = Block {
+            version: bytes[4],
             kind,
             record_count: u32::from_le_bytes(bytes[12..16].try_into().unwrap()),
             seq: u64::from_le_bytes(bytes[16..24].try_into().unwrap()),
             t_base: u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
             bytes: &bytes[..len],
         };
+        if !block.body_known() {
+            return Ok(block);
+        }
         let mut n = 0u32;
         for r in block.records() {
             r?;
@@ -391,9 +409,21 @@ impl<'b> Block<'b> {
         self.record_count == 0
     }
 
+    /// Whether this reader knows the block's body: its version and kind. A block it doesn't know has no
+    /// [records](Self::records) for it and is skipped.
+    pub fn body_known(&self) -> bool {
+        self.version == VERSION && !matches!(self.kind, BlockKind::Other(_))
+    }
+
+    /// The records, none for a block whose body this reader doesn't know ([Self::body_known]).
     pub fn records(&self) -> Records<'b> {
+        let body = if self.body_known() {
+            &self.bytes[HEADER_LEN..self.bytes.len() - CRC_LEN]
+        } else {
+            &[]
+        };
         Records {
-            body: &self.bytes[HEADER_LEN..self.bytes.len() - CRC_LEN],
+            body,
             t: self.t_base,
             failed: false,
         }

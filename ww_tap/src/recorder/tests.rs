@@ -1,7 +1,7 @@
 use super::*;
 use crate::*;
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
-use ww_logbook::Record;
+use ww_tape::Record;
 
 fn session() -> Session<'static> {
     Session {

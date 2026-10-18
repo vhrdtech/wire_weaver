@@ -136,6 +136,66 @@ fn file_blocks_skip_bad_and_report_cut() {
     assert!(rd.next_block().is_none());
 }
 
+/// A later version's block and a kind this reader doesn't know are checked, skipped by their length and given out
+/// without records, not taken for damage; a describe variant it doesn't know reads as `Unknown`.
+#[test]
+fn unknown_versions_kinds_and_describe_variants_are_skipped() {
+    let mut file = Vec::new();
+    for (seq, version, kind) in [
+        (0u64, VERSION, 1u8),
+        (1, VERSION + 1, 1),
+        (2, VERSION, 9),
+        (3, VERSION, 1),
+    ] {
+        let mut buf = [0u8; 64];
+        let mut w = BlockWriter::new(&mut buf, BlockKind::Data, seq, 0);
+        w.push(1, seq, &[&[seq as u8; 5]]).unwrap();
+        let len = w.finish();
+        buf[4] = version;
+        buf[5] = kind;
+        // a later version's body: not records
+        if version != VERSION {
+            buf[HEADER_LEN] = 0xff;
+        }
+        let crc = CRC.checksum(&buf[..len - CRC_LEN]);
+        buf[len - CRC_LEN..len].copy_from_slice(&crc.to_le_bytes());
+        file.extend_from_slice(&buf[..len]);
+    }
+    let mut rd = FileBlocks::new(&file[..]);
+    let mut seen = vec![];
+    while let Some(b) = rd.next_block() {
+        let b = b.unwrap();
+        seen.push((b.seq, b.body_known(), b.records().count()));
+    }
+    assert_eq!(
+        seen,
+        [(0, true, 1), (1, false, 0), (2, false, 0), (3, true, 1)]
+    );
+    assert_eq!(BlockKind::from_u8(9), BlockKind::Other(9));
+
+    // a variant appended later, as a newer producer writes it
+    #[derive_shrink_wrap(derive(Debug), ww_repr = u4)]
+    enum NewerDescribe<'i> {
+        Producer(Producer<'i>),
+        Track(TrackDef<'i>),
+        Bundle {
+            hash: RefVec<'i, u8>,
+            bytes: RefVec<'i, u8>,
+        },
+        Index {
+            first_seq: u64,
+        },
+    }
+    let mut scratch = [0u8; 32];
+    let bytes = NewerDescribe::Index { first_seq: 7 }
+        .to_ww_bytes(&mut scratch)
+        .unwrap();
+    assert!(matches!(
+        Describe::from_ww_bytes(bytes),
+        Ok(Describe::Unknown(3))
+    ));
+}
+
 #[test]
 fn varints() {
     use varint::*;

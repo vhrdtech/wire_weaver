@@ -59,23 +59,25 @@ log is by its device's, and every frame and message has a number, so the decoder
 
 ## Capture files
 
-A capture is [logbook](#logbook-blocks) blocks appended back to back: `ww capture -o FILE` appends, and a file cut
+A capture is [tape](#tape-blocks) blocks appended back to back: `ww capture -o FILE` appends, and a file cut
 short or damaged in the middle still reads up to and after the damage. The describe blocks carry the device's API
 bundle, so `ww explain FILE` explains the requests and replies of a capture on any PC, without the device.
 
-### Logbook blocks
+### Tape blocks
 
-`ww_logbook` is the generic block format the tap writes; nothing in it knows the tap. A block is a 32 byte header
-(magic `WWLB`, version, kind, length, record count, the producer's block number, a time base), records (track,
+`ww_tape` is the generic block format the tap writes; nothing in it knows the tap. A block is a 32 byte header
+(magic `WWTP`, version, kind, length, record count, the producer's block number, a time base), records (track,
 time delta, length, item bytes as LEB128 varints) and a CRC-32C, as long as its records and never padded. A
 **describe** block carries the producer (wall clock at its time 0), a `TrackDef` per track (number, stable key, API,
 resource path, label, whether it is sticky) and the API bundles the items need, then the newest record of every
 sticky track. It is written at the start, when a track is added, when a consumer joins, after a loss and every
 second, so a consumer that joins late decodes from its first block.
 
+The header and the CRC at the end stay the same in every version: a later version changes only the body (per-track chunks, an index, compression), and a reader skips a block of a version or kind it doesn't know by its length, as it skips describe records of a kind it doesn't know.
+
 ## Decoding
 
-`wire_weaver_client::tap::Decoder` takes blocks, live or from a file (`ww_logbook::FileBlocks`), and gives out
+`wire_weaver_client::tap::Decoder` takes blocks, live or from a file (`ww_tape::FileBlocks`), and gives out
 `Decoded` frames, messages and link events:
 
 - **Linkage.** Every frame is walked into its pieces and reassembled with the framer's rules: a message knows the

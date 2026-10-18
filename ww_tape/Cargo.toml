@@ -1,8 +1,8 @@
 [package]
-name = "ww_logbook"
+name = "ww_tape"
 version = "0.1.0"
 authors.workspace = true
-description = "Logbook blocks: tracks of ShrinkWrap records in self-checking, variable-length blocks, for live feeds and log files"
+description = "Tape blocks: tracks of ShrinkWrap records in self-checking, variable-length blocks, for live feeds and log files"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

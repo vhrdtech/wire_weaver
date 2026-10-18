@@ -870,7 +870,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`ClientConfig::tap`, `tap::default_recorder()`; `TraceEvent` / `RegisterTracer` an adapter over it, the iceoryx2
   USB tracer removed) and by `ww_device`'s `FramedTx` / `FramedRx` (`with_tap`; with `NoTap` a G0 firmware is the
   same size). `ww_framer::pieces(frame)` shares `FramedRx`'s head code, no callbacks in the framer. `Recorder`
-  batches into pooled 64 KiB `ww_logbook` blocks (STD-42) flushed when full or after `flush_time` (10 ms), no
+  batches into pooled 64 KiB `ww_tape` blocks (STD-42) flushed when full or after `flush_time` (10 ms), no
   allocation in steady state, losses counted in `LinkEvent::Lost`. `wire_weaver_client::tap::Decoder`: frame ↔
   message linkage, cross-check against the message records, framer and link statistics, request/reply pairing by
   seq feeding the TOOL-9 explain code. E2E tests over simulated USB (`tap/e2e_tests.rs`, `wire_weaver_cli`
@@ -1130,8 +1130,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   parallel buses and strobes from the host, which multi-call can't make simultaneous. Pins by index, no masks on the
   wire (IO family D9). Bank indices 1 and 2 from its reserved range, capabilities appended with `#[default = false]`.
   Docs `docs/std_library/ww_gpio.md#port-access`, tests `tests/io_gpio`, STM32 boards in `examples_mcu` (IDR / BSRR).
-- ✅ **STD-42 `ww_logbook`** · `v0.5` — logbook blocks, the generic unit of track records for live feeds and log files
-  (`ww_logbook`, `docs/transport/tap.md#logbook-blocks`): a 32 B header, varint records (track, time delta, length,
+- ✅ **STD-42 `ww_tape`** · `v0.5` — tape blocks, the generic unit of track records for live feeds and log files
+  (`ww_tape`, `docs/transport/tap.md#tape-blocks`): a 32 B header, varint records (track, time delta, length,
   item), CRC-32C, never padded; describe blocks with the producer, `TrackDef`s (stable key, API, resource path,
   sticky) and API bundles; `FileBlocks` reads appended blocks and skips damage to the next magic. Nothing in it
   knows a producer: the link tap (TR-14) writes it, logring's PC profile is to take it over (eventfull CORE-19).

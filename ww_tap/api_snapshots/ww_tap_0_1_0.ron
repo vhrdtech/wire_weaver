@@ -13,7 +13,7 @@
     "",
     "The records are ordinary wire_weaver types, streams of the [LinkTap] trait, so a capture is described by its API",
     "bundle like any device log: one track per link and stream ([Link]), Session sticky. With the `std` feature,",
-    "[Recorder] batches them into `ww_logbook` blocks.",
+    "[Recorder] batches them into `ww_tape` blocks.",
 ], crate_idx: 0, trait_name: "ww_tap", items: [
     (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LinkTap", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Link", docs: [], optional: None),

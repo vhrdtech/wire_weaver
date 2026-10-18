@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::shrink_wrap::UVlq32Backfill;
-use ww_logbook::FileBlocks;
+use ww_tape::FileBlocks;
 use ww_version::{FullVersionOwned, VersionOwned};
 
 use super::*;
@@ -58,7 +58,7 @@ async fn send(
 }
 
 /// Everything decoded from `chunks`, as text to compare.
-fn decode_all<'a>(blocks: impl Iterator<Item = ww_logbook::Block<'a>>) -> (Vec<Decoded>, Stats) {
+fn decode_all<'a>(blocks: impl Iterator<Item = ww_tape::Block<'a>>) -> (Vec<Decoded>, Stats) {
     let mut d = Decoder::default();
     for b in blocks {
         d.feed(&b);
@@ -232,7 +232,7 @@ async fn linkage_split_shared_lost_and_replay() {
     let mut rd = FileBlocks::new(&file[..]);
     let mut blocks = vec![];
     while let Some(b) = rd.next_block() {
-        blocks.push(ww_logbook::BlockBuf::new(b.unwrap().bytes().to_vec()).unwrap());
+        blocks.push(ww_tape::BlockBuf::new(b.unwrap().bytes().to_vec()).unwrap());
     }
     let (replayed, replay_stats) = decode_all(blocks.iter().map(|b| b.block()));
     assert_eq!(format!("{replayed:?}"), format!("{live:?}"));

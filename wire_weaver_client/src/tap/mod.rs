@@ -1,7 +1,7 @@
 //! The link tap on the host (TR-14): every client event loop records what crosses its link into a
 //! [Recorder], the process-wide [default_recorder] unless the config names one
 //! ([ClientConfig::tap](crate::ClientConfig::tap)). Nothing is copied while nobody subscribes: a consumer
-//! subscribes to the recorder and gets `ww_logbook` blocks of sessions, link events, messages and (opt in) frames.
+//! subscribes to the recorder and gets `ww_tape` blocks of sessions, link events, messages and (opt in) frames.
 
 use std::sync::LazyLock;
 
@@ -43,7 +43,7 @@ pub(crate) fn trace_events(
             return false;
         }
         let block = chunk.block();
-        if block.kind != ww_logbook::BlockKind::Data {
+        if block.kind != ww_tape::BlockKind::Data {
             return true;
         }
         for r in block.records().flatten() {

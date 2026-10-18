@@ -1,4 +1,4 @@
-//! [Recorder]: the std [Tap] that batches records into `ww_logbook` blocks.
+//! [Recorder]: the std [Tap] that batches records into `ww_tape` blocks.
 //!
 //! Records go into a preallocated block (64 KiB by default) that is handed over when it is full or
 //! [RecorderConfig::flush_time] after its first record, so a live monitor still feels live. A block carries only
@@ -18,7 +18,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
-use ww_logbook::{
+use ww_tape::{
     Block, BlockKind, BlockState, BlockWriter, Describe, FullVersion, Producer, TrackDef, Version,
 };
 
@@ -607,7 +607,7 @@ impl Inner {
             add(&d);
         }
         let api = api();
-        let api_root = ww_logbook::api_root_id(api.crate_id, api.version.major.0);
+        let api_root = ww_tape::api_root_id(api.crate_id, api.version.major.0);
         for link in 0..st.links.len() as u32 {
             if st.links[link as usize].closed {
                 continue;
@@ -617,7 +617,7 @@ impl Inner {
                 let label = format!("link[{link}].{}", STREAM_NAMES[stream as usize]);
                 let d = Describe::Track(TrackDef {
                     number: UNib32(track_number(link, stream)),
-                    key: ww_logbook::track_key(api_root, &[ids::LINK, link, stream]),
+                    key: ww_tape::track_key(api_root, &[ids::LINK, link, stream]),
                     api,
                     bundle: RefVec::Slice { slice: &[] },
                     path: RefVec::Slice { slice: &path },
@@ -638,10 +638,10 @@ impl Inner {
         // as many blocks as needed, each sized to what it carries
         let mut i = 0;
         while i < records.len() {
-            let mut size = ww_logbook::HEADER_LEN + ww_logbook::CRC_LEN;
+            let mut size = ww_tape::HEADER_LEN + ww_tape::CRC_LEN;
             let mut j = i;
             while j < records.len() {
-                let r = records[j].1.len() + ww_logbook::MAX_RECORD_HEAD;
+                let r = records[j].1.len() + ww_tape::MAX_RECORD_HEAD;
                 if j > i && size + r > self.config.block_size {
                     break;
                 }

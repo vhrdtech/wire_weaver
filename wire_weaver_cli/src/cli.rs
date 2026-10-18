@@ -74,7 +74,7 @@ pub(crate) enum Commands {
     ///   ww explain --crate api Config 0a1b2c
     ///   ww explain motor.set_speed 4a00
     ///   ww explain --bundle api.ron motor.status --return 01 80 3f
-    ///   ww explain link.wwlb --layer api      a capture (ww capture), replies explained by their request
+    ///   ww explain link.wwtape --layer api      a capture (ww capture), replies explained by their request
     #[command(verbatim_doc_comment)]
     Explain(ExplainArgs),
 
@@ -105,7 +105,7 @@ pub(crate) enum Commands {
     /// Printed every --every seconds for the time since the last print, until Ctrl+C; or of a capture. Examples:
     ///
     ///   ww stats --every 5
-    ///   ww stats --file link.wwlb
+    ///   ww stats --file link.wwtape
     #[command(verbatim_doc_comment)]
     Stats(StatsArgs),
 
@@ -113,9 +113,9 @@ pub(crate) enum Commands {
     ///
     /// The file carries the device's API, so it is explained without the device. Until Ctrl+C. Examples:
     ///
-    ///   ww capture -o link.wwlb
-    ///   ww capture -o link.wwlb --duration 10 --layer link
-    ///   ww explain link.wwlb --layer api
+    ///   ww capture -o link.wwtape
+    ///   ww capture -o link.wwtape --duration 10 --layer link
+    ///   ww explain link.wwtape --layer api
     #[command(verbatim_doc_comment)]
     Capture(CaptureArgs),
 

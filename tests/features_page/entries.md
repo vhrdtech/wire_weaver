@@ -286,7 +286,7 @@ They are shared, so a tool that knows one of them works with every device that i
 ## Nomicon
 
 - STD-1 | Request and event model | `ww_client_server`, the messages every call is made of. | std_library/ww_client_server.md
-- STD-42 | Logbook blocks | `ww_logbook`: the generic blocks of track records that live feeds and log files (link captures) are made of. | transport/tap.md#logbook-blocks
+- STD-42 | Tape blocks | `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of. | transport/tap.md#tape-blocks
 
 # Examples
 

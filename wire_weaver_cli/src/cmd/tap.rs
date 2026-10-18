@@ -24,10 +24,10 @@ use wire_weaver_client::tap::{
     Check, Decoded, Decoder, DecoderConfig, Dir, FrameInfo, FrameOutcome, Layers, MessageInfo,
     PieceOutcome, Recorder, RecorderConfig, Subscription, What, decode::kind_name, stats::ns,
 };
-use wire_weaver_client::ww_logbook::{Block, FileBlocks, MAGIC};
 use wire_weaver_client::ww_self::ApiBundleOwned;
 use wire_weaver_client::ww_self::explain::PartKind;
 use wire_weaver_client::ww_tap::{LinkEventOwned, SessionOwned};
+use wire_weaver_client::ww_tape::{Block, FileBlocks, MAGIC};
 
 /// How deep to look.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, ValueEnum)]
@@ -238,7 +238,7 @@ impl<R: std::io::Read> Feed for FileFeed<R> {
     }
 }
 
-/// Whether a path is a capture: a file starting with a logbook block.
+/// Whether a path is a capture: a file starting with a tape block.
 pub(crate) fn is_capture(path: &str) -> bool {
     let mut magic = [0u8; MAGIC.len()];
     File::open(path)

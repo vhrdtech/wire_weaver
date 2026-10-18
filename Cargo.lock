@@ -5563,12 +5563,12 @@ dependencies = [
  "ww_device",
  "ww_framer",
  "ww_link",
- "ww_logbook",
  "ww_numeric",
  "ww_self",
  "ww_si",
  "ww_stream",
  "ww_tap",
+ "ww_tape",
  "ww_version",
 ]
 
@@ -5843,15 +5843,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_logbook"
-version = "0.1.0"
-dependencies = [
- "crc",
- "shrink_wrap",
- "ww_version",
-]
-
-[[package]]
 name = "ww_logic_analyzer"
 version = "0.1.0"
 dependencies = [
@@ -6024,7 +6015,16 @@ version = "0.1.0"
 dependencies = [
  "tracing",
  "wire_weaver",
- "ww_logbook",
+ "ww_tape",
+]
+
+[[package]]
+name = "ww_tape"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "shrink_wrap",
+ "ww_version",
 ]
 
 [[package]]

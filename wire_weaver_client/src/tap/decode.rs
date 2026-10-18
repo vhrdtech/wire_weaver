@@ -1,4 +1,4 @@
-//! The tap's decoder (TR-14): `ww_logbook` blocks from a [Recorder](ww_tap::Recorder) or a capture file in, one
+//! The tap's decoder (TR-14): `ww_tape` blocks from a [Recorder](ww_tap::Recorder) or a capture file in, one
 //! [Decoded] per frame, message and link event out, with
 //! - frame ↔ message linkage: frames are walked into their pieces ([ww_framer::pieces()]) and reassembled with the
 //!   framer's own rules, so every message knows the frame bytes it was built from or went out in, and every frame
@@ -20,9 +20,9 @@ use wire_weaver::shrink_wrap::{
 };
 use ww_client_server::{Event, PathKind, Request};
 use ww_link::DeviceInfoOwned;
-use ww_logbook::{Block, BlockKind, Describe};
 use ww_self::ApiBundleOwned;
 use ww_tap::{Dir, FrameOwned, LinkEventOwned, MessageOwned, SessionOwned, ids, track_of};
+use ww_tape::{Block, BlockKind, Describe};
 
 use super::reassembly::{FrameOutcome, FramePart, Reassembled, Reassembler, walker};
 use super::stats::Stats;
@@ -268,7 +268,7 @@ impl Decoder {
                 continue;
             };
             self.stats.at(r.t);
-            if r.track == ww_logbook::DESCRIBE_TRACK {
+            if r.track == ww_tape::DESCRIBE_TRACK {
                 if block.kind == BlockKind::Describe {
                     self.describe(r.item);
                 }

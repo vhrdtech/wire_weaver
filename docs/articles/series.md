@@ -33,7 +33,7 @@ in full.
 
 `Series<'i, T>` is a list of `T` that does know. It writes the list **column by column** instead of item by item:
 all the timestamps, then all the units, then all the values, each column compressed on its own with the code that
-fits it best. A timestamp ticking at a fixed rate costs nothing per item; a unit that doesn't change costs about
+fits it best. A timestamp ticking at a fixed rate can cost nothing per item; a unit that doesn't change costs about
 5 bits for the whole batch; a slowly moving reading costs a few bits per item instead of 4 bytes.
 
 It is still `shrink_wrap`: zero-copy reading, `no_std` and no allocation on the device, and it evolves the way `T`

@@ -92,8 +92,8 @@ impl Observe {
                 ApiItemKindOwned::Property {
                     ty,
                     access:
-                        PropertyAccess::ReadOnly { observe: true }
-                        | PropertyAccess::ReadWrite { observe: true },
+                        PropertyAccess::ReadOnly { observe: true, .. }
+                        | PropertyAccess::ReadWrite { observe: true, .. },
                     ..
                 } if flat => {
                     let ident = Ident::new(&item.ident, Span::call_site());

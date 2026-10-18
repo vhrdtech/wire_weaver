@@ -568,6 +568,7 @@ fn convert_multiplicity(
 /// valid access: const, ro, rw, wo
 /// ww_property!(rw+observe value: u8)
 /// observe valid with: ro, rw
+/// ww_property!(ro+observe+batched value: u8): every sample observable, in batches (API-39)
 /// ww_property!(rw value: u8, MyError)
 pub struct PropertyMacroArgs {
     pub access: PropertyAccess,
@@ -582,8 +583,14 @@ impl Parse for PropertyMacroArgs {
         let access: Ident = input.parse()?;
         let access = match access.to_string().as_str() {
             "const" => PropertyAccess::Const,
-            "ro" => PropertyAccess::ReadOnly { observe: false },
-            "rw" => PropertyAccess::ReadWrite { observe: false },
+            "ro" => PropertyAccess::ReadOnly {
+                observe: false,
+                batched: false,
+            },
+            "rw" => PropertyAccess::ReadWrite {
+                observe: false,
+                batched: false,
+            },
             "wo" => PropertyAccess::WriteOnly,
             u => {
                 return Err(syn::Error::new(
@@ -594,23 +601,33 @@ impl Parse for PropertyMacroArgs {
         };
         let access = match access {
             PropertyAccess::ReadOnly { .. } | PropertyAccess::ReadWrite { .. } => {
-                let lookahead = input.lookahead1();
-                if lookahead.peek(Token![+]) {
+                // `+observe`, then `+batched` (API-39), which needs it
+                let mut observe = false;
+                let mut batched = false;
+                while input.peek(Token![+]) {
                     let _: Token![+] = input.parse()?;
-                    let observe: Ident = input.parse()?;
-                    if observe.to_string().as_str() != "observe" {
-                        return Err(syn::Error::new(
-                            observe.span(),
-                            "expected +observe or nothing",
-                        ));
+                    let flag: Ident = input.parse()?;
+                    match flag.to_string().as_str() {
+                        "observe" if !observe => observe = true,
+                        "batched" if observe && !batched => batched = true,
+                        "batched" if !observe => {
+                            return Err(syn::Error::new(
+                                flag.span(),
+                                "+batched needs +observe first: `ro+observe+batched`",
+                            ));
+                        }
+                        _ => {
+                            return Err(syn::Error::new(
+                                flag.span(),
+                                "expected +observe, +observe+batched or nothing",
+                            ));
+                        }
                     }
-                    if matches!(access, PropertyAccess::ReadOnly { .. }) {
-                        PropertyAccess::ReadOnly { observe: true }
-                    } else {
-                        PropertyAccess::ReadWrite { observe: true }
-                    }
+                }
+                if matches!(access, PropertyAccess::ReadOnly { .. }) {
+                    PropertyAccess::ReadOnly { observe, batched }
                 } else {
-                    access
+                    PropertyAccess::ReadWrite { observe, batched }
                 }
             }
             a => a,
@@ -780,6 +797,37 @@ mod tests {
                 batch_item_ty.clone().expect("a batch_item_ty")
             }
             other => panic!("'{name}' is not a stream function: {other:?}"),
+        }
+    }
+
+    fn access_of(tokens: &str) -> Result<PropertyAccess, String> {
+        syn::parse_str::<PropertyMacroArgs>(tokens)
+            .map(|args| args.access)
+            .map_err(|e| e.to_string())
+    }
+
+    /// `+batched` after `+observe` (API-39), never alone or twice
+    #[test]
+    fn batched_property_access() {
+        assert!(matches!(
+            access_of("ro+observe+batched i_a: Ampere"),
+            Ok(PropertyAccess::ReadOnly {
+                observe: true,
+                batched: true
+            })
+        ));
+        assert!(matches!(
+            access_of("rw+observe value: u8"),
+            Ok(PropertyAccess::ReadWrite {
+                observe: true,
+                batched: false
+            })
+        ));
+        let err = access_of("ro+batched i_a: Ampere").unwrap_err();
+        assert!(err.contains("needs +observe first"), "{err}");
+        for twice in ["ro+observe+batched+batched x: u8", "ro+observe+observe x: u8"] {
+            let err = access_of(twice).unwrap_err();
+            assert!(err.contains("expected +observe"), "{err}");
         }
     }
 }

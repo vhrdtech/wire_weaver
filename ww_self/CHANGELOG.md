@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+* `PropertyAccess::ReadOnly` / `ReadWrite` get `batched: bool` (API-39, `ro+observe+batched`): a host may observe
+  every sample of the property, in batches, and its observe slot is a `Batched<T>`. API hashes of APIs with
+  readable properties change, the snapshots are saved again; patterns and literals of the two variants need the
+  field (`{ observe, .. }`).
 * `ApiItemKind::StreamFn` gets `batched: Option<Batching>` (`#[default = None]`, API-41), `enum Batching { Timed,
   Untimed }`: a batched stream's events carry one `Series<Timed<T>>` (`Series<T>` untimed) each. A plain batched
   `stream!` is a `StreamFn`. `StreamFnRef::batched`. API hashes of APIs with streams change; struct literals of

@@ -19,8 +19,8 @@ pub(crate) fn observable_props(api_level: &ApiLevelOwned) -> Vec<(u32, &str, &ww
             ApiItemKindOwned::Property {
                 ty,
                 access:
-                    PropertyAccess::ReadOnly { observe: true }
-                    | PropertyAccess::ReadWrite { observe: true },
+                    PropertyAccess::ReadOnly { observe: true, .. }
+                    | PropertyAccess::ReadWrite { observe: true, .. },
                 ..
             } if matches!(item.multiplicity, Multiplicity::Flat) => {
                 Some((item.id.0, item.ident.as_str(), ty))

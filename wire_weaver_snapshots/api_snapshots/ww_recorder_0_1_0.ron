@@ -519,7 +519,7 @@
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 1)), errors: None), multiplicity: Flat, since: None, ident: "info", docs: [
             "Where the track comes from and what it carries.",
         ], optional: None),
-        (id: 1, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 1, kind: Property(ty: Bool, access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
@@ -527,14 +527,14 @@
             "Whether the track is written. A disabled track keeps its place in the table and its position; its items are",
             "counted as dropped. Takes effect at once; the system track (0) can\'t be disabled (`Unsupported`).",
         ], optional: None),
-        (id: 2, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
         ])), multiplicity: Flat, since: None, ident: "durability", docs: [
             "When the track is flushed to the card, see [Durability]. Takes effect at once.",
         ], optional: Some((group: Some("track_settings")))),
-        (id: 3, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 3, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
@@ -655,7 +655,7 @@
             "Writes what is in RAM to the card now (all tracks), instead of waiting for `flush_bytes` or",
             "`flush_interval_ms`. Answers when it is on the card. Before a planned power-off, on a brown-out warning.",
         ], optional: None),
-        (id: 10, kind: Property(ty: OutOfLine(type_idx: 25), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 10, kind: Property(ty: OutOfLine(type_idx: 25), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "Unsupported",

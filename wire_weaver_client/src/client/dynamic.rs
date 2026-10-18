@@ -519,8 +519,8 @@ impl DynResource {
                 ApiItemKindOwned::Property {
                     ty,
                     access:
-                        PropertyAccess::ReadOnly { observe: true }
-                        | PropertyAccess::ReadWrite { observe: true },
+                        PropertyAccess::ReadOnly { observe: true, .. }
+                        | PropertyAccess::ReadWrite { observe: true, .. },
                     ..
                 } => Some((item.id.0, item.ident.clone(), ty.clone())),
                 _ => None,

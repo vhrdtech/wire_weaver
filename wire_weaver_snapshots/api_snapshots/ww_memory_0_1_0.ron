@@ -126,10 +126,10 @@
         (id: 7, kind: Property(ty: Tuple([
             NumericAny(Base(U8)),
             NumericAny(Base(U8)),
-        ]), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
+        ]), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
             "Valid addresses, first and last.",
         ], optional: None),
-        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "access", docs: [
+        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "access", docs: [
             "Access rights for this memory region.",
         ], optional: None),
     ]), crate_idx: 0),
@@ -203,10 +203,10 @@
         (id: 7, kind: Property(ty: Tuple([
             NumericAny(Base(U32)),
             NumericAny(Base(U32)),
-        ]), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
+        ]), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
             "Valid addresses, first and last.",
         ], optional: None),
-        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "access", docs: [
+        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "access", docs: [
             "Access rights for this memory region.",
         ], optional: None),
     ]), crate_idx: 0),

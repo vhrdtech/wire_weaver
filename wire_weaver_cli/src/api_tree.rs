@@ -238,11 +238,11 @@ impl TreePrinter<'_> {
                 write_err_ty,
                 ..
             } => {
-                let (access, observe) = match access {
-                    PropertyAccess::Const => ("const", false),
-                    PropertyAccess::ReadOnly { observe } => ("ro", *observe),
-                    PropertyAccess::ReadWrite { observe } => ("rw", *observe),
-                    PropertyAccess::WriteOnly => ("wo", false),
+                let (access, observe, batched) = match access {
+                    PropertyAccess::Const => ("const", false, false),
+                    PropertyAccess::ReadOnly { observe, batched } => ("ro", *observe, *batched),
+                    PropertyAccess::ReadWrite { observe, batched } => ("rw", *observe, *batched),
+                    PropertyAccess::WriteOnly => ("wo", false, false),
                 };
                 let kind = format!("{access} property");
                 _ = write!(self.out, "{} ", style(kind).true_color(0xC7, 0x7D, 0xBB));
@@ -253,6 +253,9 @@ impl TreePrinter<'_> {
                 }
                 if observe {
                     _ = write!(self.out, " {}", style("observable").dim());
+                }
+                if batched {
+                    _ = write!(self.out, " {}", style("batched").dim());
                 }
                 if let Some(value) = self.values.get(&self.path) {
                     _ = write!(self.out, " = {value}");

@@ -291,7 +291,7 @@
         (id: 9, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
             "Get current mode.",
         ], optional: None),
-        (id: 10, kind: Property(ty: OutOfLine(type_idx: 6), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 10, kind: Property(ty: OutOfLine(type_idx: 6), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
@@ -299,7 +299,7 @@
             "Pull resistors selection.",
             "`Unsupported` if the pin doesn\'t support the requested pull (`set` only).",
         ], optional: None),
-        (id: 11, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 11, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),

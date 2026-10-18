@@ -160,7 +160,7 @@
             "logged before the host connected. Unit: record. The head\'s `t` is the device time of the record. `Busy` while",
             "another host has the log open, `Unsupported` when the device logs elsewhere only.",
         ], optional: None),
-        (id: 1, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 1, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),

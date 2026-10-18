@@ -359,10 +359,18 @@ pub struct Argument<'i> {
 pub enum PropertyAccess {
     /// Property is not going to change, observe not available
     Const,
-    /// Property can only be read but can change on the server and be observed for changes
-    ReadOnly { observe: bool },
-    /// Property can be read, written and observed for changes
-    ReadWrite { observe: bool },
+    /// Property can only be read but can change on the server and be observed for changes. `batched` (API-39,
+    /// `+batched`, implies `observe`): a host may observe every sample the device takes, sent in batches
+    /// (`ObserveMode::Samples`), its observe slot is a `Batched<T>`.
+    ReadOnly {
+        observe: bool,
+        batched: bool,
+    },
+    /// Property can be read, written and observed for changes, `batched` as for `ReadOnly`
+    ReadWrite {
+        observe: bool,
+        batched: bool,
+    },
     /// Property can only be written
     WriteOnly,
 }

@@ -348,6 +348,8 @@ fn compare_kinds<'a>(
             if (readable && !device_readable)
                 || (writable && !device_writable)
                 || (observable && !device_observable)
+                // a `+batched` property's observe slot is a `Batched<T>` (API-39): both sides must agree
+                || (observable && is_batched(access) != is_batched(device_access))
             {
                 return Err(format!(
                     "{access:?} on the {client_name}, {device_access:?} on the {device_name}"
@@ -474,10 +476,19 @@ fn compare_kinds<'a>(
 fn capabilities(access: &PropertyAccess) -> (bool, bool, bool) {
     match access {
         PropertyAccess::Const => (true, false, false),
-        PropertyAccess::ReadOnly { observe } => (true, false, *observe),
-        PropertyAccess::ReadWrite { observe } => (true, true, *observe),
+        PropertyAccess::ReadOnly { observe, .. } => (true, false, *observe),
+        PropertyAccess::ReadWrite { observe, .. } => (true, true, *observe),
         PropertyAccess::WriteOnly => (false, true, false),
     }
+}
+
+/// `+batched` (API-39)
+fn is_batched(access: &PropertyAccess) -> bool {
+    matches!(
+        access,
+        PropertyAccess::ReadOnly { batched: true, .. }
+            | PropertyAccess::ReadWrite { batched: true, .. }
+    )
 }
 
 fn kind_name(kind: &ApiItemKindOwned) -> &'static str {

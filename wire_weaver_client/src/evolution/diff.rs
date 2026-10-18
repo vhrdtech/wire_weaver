@@ -349,11 +349,11 @@ fn item_signature(bundle: &ApiBundleOwned, item: &ApiItemOwned) -> String {
             write_err_ty,
             ..
         } => {
-            let (access, observe) = match access {
-                PropertyAccess::Const => ("const", false),
-                PropertyAccess::ReadOnly { observe } => ("ro", *observe),
-                PropertyAccess::ReadWrite { observe } => ("rw", *observe),
-                PropertyAccess::WriteOnly => ("wo", false),
+            let (access, observe, batched) = match access {
+                PropertyAccess::Const => ("const", false, false),
+                PropertyAccess::ReadOnly { observe, batched } => ("ro", *observe, *batched),
+                PropertyAccess::ReadWrite { observe, batched } => ("rw", *observe, *batched),
+                PropertyAccess::WriteOnly => ("wo", false, false),
             };
             let mut s = format!("{access} property {ident}: {}", type_name(bundle, ty));
             if let Some(err_ty) = write_err_ty {
@@ -361,6 +361,9 @@ fn item_signature(bundle: &ApiBundleOwned, item: &ApiItemOwned) -> String {
             }
             if observe {
                 s += " observable";
+            }
+            if batched {
+                s += " batched";
             }
             s
         }

@@ -1134,7 +1134,7 @@
             "The configuration in effect, as `configure` last answered it (with the mode now in effect): for a host",
             "attaching to a running node.",
         ], optional: None),
-        (id: 3, kind: Property(ty: OutOfLine(type_idx: 24), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
+        (id: 3, kind: Property(ty: OutOfLine(type_idx: 24), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "Error state and counters of the controller. The device sends it to observers when the error state changes",
             "(and may on counter changes), so a bus-off or a wake-up reaches the host without polling.",
         ], optional: None),
@@ -1189,7 +1189,7 @@
             "codes of both phases, flags of the last received FD frame, protocol exception, measured transceiver delay.",
             "Reading resets what the controller resets on a read (last error codes, error logging counter).",
         ], optional: Some((group: None))),
-        (id: 12, kind: Property(ty: OutOfLine(type_idx: 38), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "bus_load", docs: [
+        (id: 12, kind: Property(ty: OutOfLine(type_idx: 38), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "bus_load", docs: [
             "Bus load the device measures over [BusLoad::window], sent to observers once per window.",
         ], optional: Some((group: None))),
         (id: 13, kind: Method(args: [
@@ -1283,7 +1283,7 @@
             "Switches the transceiver (standby pin, silent pin, sleep) and answers the mode in effect. `Unsupported` for",
             "a mode it doesn\'t have ([Capabilities::transceiver_modes]).",
         ], optional: Some((group: Some("transceiver")))),
-        (id: 19, kind: Property(ty: OutOfLine(type_idx: 48), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "transceiver_state", docs: [
+        (id: 19, kind: Property(ty: OutOfLine(type_idx: 48), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "transceiver_state", docs: [
             "Transceiver mode and the bus wiring faults it detects; sent to observers when a fault appears or clears.",
         ], optional: Some((group: Some("transceiver")))),
         (id: 20, kind: Method(args: [
@@ -1297,7 +1297,7 @@
             "Switches the terminator and answers the one in effect. `Unsupported` for a value not in",
             "[Capabilities::termination].",
         ], optional: Some((group: Some("terminator")))),
-        (id: 21, kind: Property(ty: OutOfLine(type_idx: 49), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "termination", docs: [
+        (id: 21, kind: Property(ty: OutOfLine(type_idx: 49), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "termination", docs: [
             "The terminator in effect.",
         ], optional: Some((group: Some("terminator")))),
         (id: 22, kind: Method(args: [
@@ -1339,7 +1339,7 @@
             "Disables the group\'s clock, its lowest power state. Every controller must be in [Mode::Off] first",
             "(`WrongState` names the one that isn\'t).",
         ], optional: None),
-        (id: 4, kind: Property(ty: OutOfLine(type_idx: 55), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "group_state", docs: [
+        (id: 4, kind: Property(ty: OutOfLine(type_idx: 55), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "group_state", docs: [
             "Enabled (with the clock in effect) or disabled; sent to observers on every change.",
         ], optional: None),
         (id: 5, kind: Method(args: [
@@ -1388,7 +1388,7 @@
             "Replaces the trigger list (time marks of the matrix cycle). `OutOfMemory` when it doesn\'t fit the trigger",
             "memory, `InvalidArgument` for an unsorted list or a buffer the controller doesn\'t have.",
         ], optional: None),
-        (id: 2, kind: Property(ty: OutOfLine(type_idx: 62), access: ReadOnly(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "tt_status", docs: [
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 62), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "tt_status", docs: [
             "Synchronisation state, master role, cycle count and error level; sent to observers on every change of the",
             "state or the error level.",
         ], optional: None),

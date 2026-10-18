@@ -83,10 +83,10 @@
         "Device indication control: a global mode every indicator follows, with optional brightness, identify and",
         "names.",
     ], crate_idx: 0, trait_name: "Indication", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadWrite(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadWrite(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
             "Global operation mode every indicator follows.",
         ], optional: None),
-        (id: 1, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadWrite(observe: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "brightness", docs: [
+        (id: 1, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadWrite(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "brightness", docs: [
             "Brightness of all indicators; one setting covers every one of them. Left out by a device whose",
             "indicators have no adjustable brightness.",
         ], optional: Some((group: None))),

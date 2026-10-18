@@ -539,7 +539,7 @@ impl SeriesSeed<'_> {
         let ident = self.ident;
         let lifetime = self.lifetime();
         let trait_ = self.sc(quote! { SeriesColumns });
-        let codec_policy = self.sc(quote! { CodecPolicy });
+        let series_policy = self.sc(quote! { SeriesPolicy });
         let level = self.sc(quote! { Level });
         let bit_sink = self.sc(quote! { BitSink });
         let ctx_trait = self.sc(quote! { SeriesCtx });
@@ -609,6 +609,15 @@ impl SeriesSeed<'_> {
             },
         );
         let store = self.series_store_struct(&fields);
+        // only an evolvable struct has a head: the measuring pass behind it would instantiate every column writer
+        // once more for the counter
+        let head = maybe_quote(evolvable, || {
+            quote! {
+                #write_struct_head(sink, level, true, #n_u32, |counter| {
+                    <Self as #trait_<'i>>::write_group(items.clone(), counter, policy, #level::Fields)
+                })?;
+            }
+        });
 
         let params = self.impl_params();
         let where_clause = self.generics.where_clause(&[]);
@@ -622,23 +631,22 @@ impl SeriesSeed<'_> {
                 const MAX_FIXED_BITS: Option<usize> = #max_fixed;
                 const TAGGED: bool = false;
 
-                fn write_group<'a, I, S>(
+                fn write_group<'a, I, S, P>(
                     items: I,
                     sink: &mut S,
-                    policy: &#codec_policy,
+                    policy: &P,
                     level: #level,
                 ) -> Result<(), #error>
                 where
                     I: Iterator<Item = (&'a Self, bool)> + Clone,
                     S: #bit_sink,
+                    P: #series_policy + ?Sized,
                     Self: 'a,
                 {
                     if items.clone().next().is_none() {
                         return Ok(());
                     }
-                    #write_struct_head(sink, level, #evolvable, #n_u32, |counter| {
-                        <Self as #trait_<'i>>::write_group(items.clone(), counter, policy, #level::Fields)
-                    })?;
+                    #head
                     #tags_fn
                     #(#writes)*
                     Ok(())
@@ -680,7 +688,7 @@ impl SeriesSeed<'_> {
         let ident = self.ident;
         let lifetime = self.lifetime();
         let trait_ = self.sc(quote! { SeriesColumns });
-        let codec_policy = self.sc(quote! { CodecPolicy });
+        let series_policy = self.sc(quote! { SeriesPolicy });
         let level = self.sc(quote! { Level });
         let bit_sink = self.sc(quote! { BitSink });
         let ctx_trait = self.sc(quote! { SeriesCtx });
@@ -961,15 +969,16 @@ impl SeriesSeed<'_> {
                 #[allow(unused_mut)]
                 const MAX_FIXED_BITS: Option<usize> = #max_fixed;
 
-                fn write_group<'a, I, S>(
+                fn write_group<'a, I, S, P>(
                     items: I,
                     sink: &mut S,
-                    policy: &#codec_policy,
+                    policy: &P,
                     level: #level,
                 ) -> Result<(), #error>
                 where
                     I: Iterator<Item = (&'a Self, bool)> + Clone,
                     S: #bit_sink,
+                    P: #series_policy + ?Sized,
                     Self: 'a,
                 {
                     let _ = (policy, level);

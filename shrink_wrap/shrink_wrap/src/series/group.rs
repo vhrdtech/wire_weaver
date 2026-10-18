@@ -22,7 +22,7 @@ use super::{BitCounter, BitSink};
 use crate::{BufReader, DeserializeShrinkWrap, Error, SerializeShrinkWrap};
 use core::marker::PhantomData;
 
-pub use super::columns::CodecPolicy;
+pub use super::columns::{CodecPolicy, SeriesPolicy};
 
 /// Where a group sits, for what an evolvable struct writes before its fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -570,16 +570,17 @@ pub trait SeriesColumns<'i>: Sized {
     const MAX_FIXED_BITS: Option<usize> = None;
 
     /// Writes this type's group over `items` (the subsequence, with the restart flag of each), column by column,
-    /// walking `items` once or more per column.
-    fn write_group<'a, I, S>(
+    /// walking `items` once or more per column, the codecs picked by `policy`.
+    fn write_group<'a, I, S, P>(
         items: I,
         sink: &mut S,
-        policy: &CodecPolicy,
+        policy: &P,
         level: Level,
     ) -> Result<(), Error>
     where
         I: Iterator<Item = (&'a Self, bool)> + Clone,
         S: BitSink,
+        P: SeriesPolicy + ?Sized,
         Self: 'a;
 
     /// The validating pass: reads every column of the group over `ctx`'s items, leaves `rd` after the group and

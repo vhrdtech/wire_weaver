@@ -118,14 +118,13 @@ enum Step<W> {
     Residual(W),
 }
 
-/// The predictor over a column's items: segment starts and residuals.
+/// The predictor, one item at a time: what each value becomes, a segment start or a residual.
 ///
 /// Works on the values shifted to the top of the word (left-aligned): a difference of two of them is the
 /// difference wrapped at W and sign-extended, shifted up the same, and the zigzag of that shifted back down is the
 /// zigzag at W. So no masking or sign extension per item.
-#[derive(Clone)]
-struct Steps<I, W> {
-    items: I,
+#[derive(Clone, Copy)]
+struct Predict<W> {
     /// Word bits - W.
     shift: u32,
     signed: bool,
@@ -135,14 +134,13 @@ struct Steps<I, W> {
     prev_delta: W,
 }
 
-impl<I: Iterator<Item = (W, bool)>, W: Word> Steps<I, W> {
-    fn new(items: I, kind: NumericKind, predictor: Predictor) -> Self {
+impl<W: Word> Predict<W> {
+    fn new(kind: NumericKind, predictor: Predictor) -> Self {
         assert!(
             kind.width as u32 <= W::BITS,
             "numeric column wider than its word"
         );
-        Steps {
-            items,
+        Predict {
             shift: W::BITS - kind.width as u32,
             signed: kind.signed,
             predictor,
@@ -150,22 +148,17 @@ impl<I: Iterator<Item = (W, bool)>, W: Word> Steps<I, W> {
             prev_delta: W::ZERO,
         }
     }
-}
 
-impl<I: Iterator<Item = (W, bool)>, W: Word> Iterator for Steps<I, W> {
-    type Item = Step<W>;
-
-    #[inline]
-    fn next(&mut self) -> Option<Step<W>> {
-        let (value, restart) = self.items.next()?;
+    #[inline(always)]
+    fn step(&mut self, value: W, restart: bool) -> Step<W> {
         let s = self.shift;
         let v = value.shl(s);
         if self.predictor == Predictor::Raw {
-            return Some(Step::Residual(if self.signed {
+            return Step::Residual(if self.signed {
                 v.zigzag().shr(s)
             } else {
                 v.shr(s)
-            }));
+            });
         }
         let step = match self.prev {
             Some(prev) if !restart => {
@@ -184,31 +177,198 @@ impl<I: Iterator<Item = (W, bool)>, W: Word> Iterator for Steps<I, W> {
             }
         };
         self.prev = Some(v);
-        Some(step)
+        step
     }
 }
 
-/// Whether every residual of the column under `predictor` is the same (or there is none), so that the constant
-/// coder can write it.
-fn constant_fits<I, W>(kind: NumericKind, predictor: Predictor, items: I) -> bool
+/// Writes a column's values with the packed coder, one item at a time: segment starts at full width, residuals in
+/// blocks of up to [PACKED_BLOCK] (a block ends early at a segment start or the column end), each block its width
+/// and the residuals at that width. A block's residuals are kept until its width is known.
+///
+/// The column writers are structs stepped by a loop over the items, not functions over an iterator: the loop is
+/// the only code each column's item iterator (a type of its own) gets, the writer is linked once per word and sink.
+struct PackedWriter<W> {
+    predict: Predict<W>,
+    w: u8,
+    block: [W; PACKED_BLOCK as usize],
+    len: usize,
+    bits: W,
+}
+
+impl<W: Word> PackedWriter<W> {
+    fn new(kind: NumericKind, predictor: Predictor) -> Self {
+        PackedWriter {
+            predict: Predict::new(kind, predictor),
+            w: kind.width,
+            block: [W::ZERO; PACKED_BLOCK as usize],
+            len: 0,
+            bits: W::ZERO,
+        }
+    }
+
+    #[inline(never)]
+    fn push<S: BitSink>(&mut self, sink: &mut S, value: W, restart: bool) -> Result<(), Error> {
+        match self.predict.step(value, restart) {
+            Step::Start(bits) => {
+                self.finish(sink)?;
+                sink.put_bits(self.w, bits.to_u64())
+            }
+            Step::Residual(z) => {
+                self.block[self.len] = z;
+                self.bits |= z;
+                self.len += 1;
+                if self.len == PACKED_BLOCK as usize {
+                    self.finish(sink)?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Writes the open block, if any.
+    fn finish<S: BitSink>(&mut self, sink: &mut S) -> Result<(), Error> {
+        if self.len == 0 {
+            return Ok(());
+        }
+        let width = self.bits.needs();
+        sink.put_bits(block_width_bits(self.w), width as u64)?;
+        for &z in &self.block[..self.len] {
+            sink.put_bits(width, z.to_u64())?;
+        }
+        self.len = 0;
+        self.bits = W::ZERO;
+        Ok(())
+    }
+}
+
+/// Writes a column's values with the prefix, constant or plain coder, one item at a time (see [PackedWriter]).
+struct ResidualWriter<W> {
+    predict: Predict<W>,
+    w: u8,
+    coder: Coder,
+    constant_written: bool,
+}
+
+impl<W: Word> ResidualWriter<W> {
+    fn new(kind: NumericKind, codec: NumericCodec) -> Self {
+        ResidualWriter {
+            predict: Predict::new(kind, codec.predictor),
+            w: kind.width,
+            coder: codec.coder,
+            constant_written: false,
+        }
+    }
+
+    #[inline(never)]
+    fn push<S: BitSink>(&mut self, sink: &mut S, value: W, restart: bool) -> Result<(), Error> {
+        let z = match self.predict.step(value, restart) {
+            Step::Start(bits) => return sink.put_bits(self.w, bits.to_u64()),
+            Step::Residual(z) => z.to_u64(),
+        };
+        match self.coder {
+            Coder::Prefix => put_delta(sink, z, self.w),
+            Coder::Constant if self.constant_written => Ok(()),
+            Coder::Constant => {
+                self.constant_written = true;
+                put_delta(sink, z, self.w)
+            }
+            _ => sink.put_bits(self.w, z),
+        }
+    }
+}
+
+/// Bits a column takes under one predictor with each coder, in [CODERS] order (header included), counted one item
+/// at a time (see [PackedWriter]): what the writers write, `None` for constant when the residuals differ.
+struct Sizes<W> {
+    predict: Predict<W>,
+    w: u8,
+    starts: usize,
+    residuals: usize,
+    prefix: usize,
+    packed: usize,
+    first: Option<W>,
+    constant: bool,
+    block_len: usize,
+    block_bits: W,
+}
+
+impl<W: Word> Sizes<W> {
+    fn new(kind: NumericKind, predictor: Predictor) -> Self {
+        Sizes {
+            predict: Predict::new(kind, predictor),
+            w: kind.width,
+            starts: 0,
+            residuals: 0,
+            prefix: 0,
+            packed: 0,
+            first: None,
+            constant: true,
+            block_len: 0,
+            block_bits: W::ZERO,
+        }
+    }
+
+    #[inline(never)]
+    fn push(&mut self, value: W, restart: bool) {
+        match self.predict.step(value, restart) {
+            Step::Start(_) => {
+                self.starts += 1;
+                self.end_block();
+            }
+            Step::Residual(z) => {
+                self.residuals += 1;
+                self.prefix += delta_bits(z.needs(), self.w);
+                match self.first {
+                    None => self.first = Some(z),
+                    Some(f) => self.constant &= f == z,
+                }
+                self.block_bits |= z;
+                self.block_len += 1;
+                if self.block_len == PACKED_BLOCK as usize {
+                    self.end_block();
+                }
+            }
+        }
+    }
+
+    fn end_block(&mut self) {
+        if self.block_len > 0 {
+            self.packed += block_width_bits(self.w) as usize
+                + self.block_len * self.block_bits.needs() as usize;
+            self.block_len = 0;
+            self.block_bits = W::ZERO;
+        }
+    }
+
+    fn finish(mut self) -> [Option<usize>; 4] {
+        self.end_block();
+        let head = 4 + self.starts * self.w as usize;
+        let w = self.w;
+        [
+            Some(head + self.prefix),
+            Some(head + self.packed),
+            self.constant
+                .then(|| head + self.first.map_or(0, |z| delta_bits(z.needs(), w))),
+            Some(head + self.residuals * w as usize),
+        ]
+    }
+}
+
+/// [Sizes] of a column's items under `predictor`.
+fn coder_bits<I, W>(kind: NumericKind, predictor: Predictor, items: I) -> [Option<usize>; 4]
 where
     I: Iterator<Item = (W, bool)>,
     W: Word,
 {
-    let mut first = None;
-    for step in Steps::new(items, kind, predictor) {
-        if let Step::Residual(z) = step {
-            match first {
-                None => first = Some(z),
-                Some(f) if f != z => return false,
-                Some(_) => {}
-            }
-        }
+    let mut sizes = Sizes::new(kind, predictor);
+    for (value, restart) in items {
+        sizes.push(value, restart);
     }
-    true
+    sizes.finish()
 }
 
-/// Writes the column with `codec`, which the caller checked fits (constant).
+/// Writes the column with `codec`, header included, which the caller checked fits (constant).
+#[inline(always)]
 fn encode<I, W>(
     sink: &mut impl BitSink,
     kind: NumericKind,
@@ -219,139 +379,44 @@ where
     I: Iterator<Item = (W, bool)>,
     W: Word,
 {
-    let w = kind.width;
     sink.put_bits(4, ((codec.predictor as u64) << 2) | codec.coder as u64)?;
-    let mut steps = Steps::new(items, kind, codec.predictor);
     if codec.coder == Coder::Packed {
-        return encode_packed(sink, w, steps);
-    }
-    let mut constant_written = false;
-    for step in steps.by_ref() {
-        let z = match step {
-            Step::Start(bits) => {
-                sink.put_bits(w, bits.to_u64())?;
-                continue;
-            }
-            Step::Residual(z) => z.to_u64(),
-        };
-        match codec.coder {
-            Coder::Prefix => put_delta(sink, z, w)?,
-            Coder::Plain => sink.put_bits(w, z)?,
-            Coder::Constant => {
-                if !constant_written {
-                    put_delta(sink, z, w)?;
-                    constant_written = true;
-                }
-            }
-            Coder::Packed => unreachable!("written by encode_packed"),
+        let mut writer = PackedWriter::new(kind, codec.predictor);
+        for (value, restart) in items {
+            writer.push(sink, value, restart)?;
         }
-    }
-    Ok(())
-}
-
-/// The packed coder's values: segment starts at full width, residuals in blocks of up to [PACKED_BLOCK] (a block
-/// ends early at a segment start or the column end), each block its width and the residuals at that width. The
-/// residuals of a block are kept until its width is known, so the predictor runs once per item.
-fn encode_packed<I, W>(sink: &mut impl BitSink, w: u8, mut steps: Steps<I, W>) -> Result<(), Error>
-where
-    I: Iterator<Item = (W, bool)>,
-    W: Word,
-{
-    let mut block = [W::ZERO; PACKED_BLOCK as usize];
-    let mut next = steps.next();
-    while let Some(step) = next {
-        match step {
-            Step::Start(bits) => {
-                sink.put_bits(w, bits.to_u64())?;
-                next = steps.next();
-            }
-            Step::Residual(z) => {
-                block[0] = z;
-                let mut len = 1;
-                let mut any_bits = z;
-                next = steps.next();
-                while len < PACKED_BLOCK as usize {
-                    let Some(Step::Residual(z)) = next else {
-                        break;
-                    };
-                    block[len] = z;
-                    any_bits |= z;
-                    len += 1;
-                    next = steps.next();
-                }
-                let block_width = any_bits.needs();
-                sink.put_bits(block_width_bits(w), block_width as u64)?;
-                for &z in &block[..len] {
-                    sink.put_bits(block_width, z.to_u64())?;
-                }
-            }
+        writer.finish(sink)
+    } else {
+        let mut writer = ResidualWriter::new(kind, codec);
+        for (value, restart) in items {
+            writer.push(sink, value, restart)?;
         }
+        Ok(())
     }
-    Ok(())
-}
-
-/// Bits the column takes under `predictor` with each coder, in [CODERS] order (header included), from one pass of
-/// the predictor: what [encode] writes, `None` for constant when the residuals differ.
-fn coder_bits<I, W>(kind: NumericKind, predictor: Predictor, items: I) -> [Option<usize>; 4]
-where
-    I: Iterator<Item = (W, bool)>,
-    W: Word,
-{
-    let w = kind.width;
-    let block_head = block_width_bits(w) as usize;
-    let (mut starts, mut residuals, mut prefix, mut packed) = (0usize, 0usize, 0usize, 0usize);
-    let mut first = None;
-    let mut constant = true;
-    let (mut block_len, mut block_bits) = (0usize, W::ZERO);
-    let block_end = |packed: &mut usize, len: &mut usize, bits: &mut W| {
-        if *len > 0 {
-            *packed += block_head + *len * bits.needs() as usize;
-            (*len, *bits) = (0, W::ZERO);
-        }
-    };
-    for step in Steps::new(items, kind, predictor) {
-        match step {
-            Step::Start(_) => {
-                starts += 1;
-                block_end(&mut packed, &mut block_len, &mut block_bits);
-            }
-            Step::Residual(z) => {
-                residuals += 1;
-                prefix += delta_bits(z.needs(), w);
-                match first {
-                    None => first = Some(z),
-                    Some(f) => constant &= f == z,
-                }
-                block_bits |= z;
-                block_len += 1;
-                if block_len == PACKED_BLOCK as usize {
-                    block_end(&mut packed, &mut block_len, &mut block_bits);
-                }
-            }
-        }
-    }
-    block_end(&mut packed, &mut block_len, &mut block_bits);
-    let head = 4 + starts * w as usize;
-    [
-        Some(head + prefix),
-        Some(head + packed),
-        constant.then(|| head + first.map_or(0, |z| delta_bits(z.needs(), w))),
-        Some(head + residuals * w as usize),
-    ]
 }
 
 /// Bits the column takes with `codec` (header included), `None` if the codec can't encode it: counted by writing
-/// it into a [BitCounter](super::BitCounter), the reference [coder_bits] is checked against.
+/// it into a [BitCounter](super::BitCounter), what [coder_bits] is checked against.
 #[cfg(any(test, fuzzing))]
 pub(crate) fn numeric_bits<I, W>(kind: NumericKind, codec: NumericCodec, items: I) -> Option<usize>
 where
     I: Iterator<Item = (W, bool)> + Clone,
     W: Word,
 {
-    if codec.coder == Coder::Constant && !constant_fits(kind, codec.predictor, items.clone()) {
-        return None;
-    }
     let mut counter = super::BitCounter::new();
+    if codec.coder == Coder::Constant {
+        // the residuals must all be the same: what a writer puts in more than one value would read back wrong
+        let mut first = None;
+        let mut predict = Predict::new(kind, codec.predictor);
+        for (value, restart) in items.clone() {
+            if let Step::Residual(z) = predict.step(value, restart) {
+                if first.is_some_and(|f| f != z) {
+                    return None;
+                }
+                first = Some(z);
+            }
+        }
+    }
     encode(&mut counter, kind, codec, items).ok()?;
     Some(counter.bits())
 }
@@ -392,6 +457,10 @@ where
 /// column. `codec` `None` picks the smallest; a fixed constant that doesn't fit falls back to packed with the same
 /// predictor. Returns the codec written. Writes nothing but the header for no items: a `Series` doesn't write
 /// empty columns at all.
+///
+/// Inlined, so that a `codec` known at compile time ([SeriesPolicy](super::SeriesPolicy) types) leaves the
+/// trials and the other coders' writers out of the firmware.
+#[inline(always)]
 pub(crate) fn write_numeric<I, W>(
     sink: &mut impl BitSink,
     kind: NumericKind,
@@ -405,7 +474,8 @@ where
     let codec = match codec {
         None => smallest_numeric(kind, items.clone()),
         Some(c)
-            if c.coder == Coder::Constant && !constant_fits(kind, c.predictor, items.clone()) =>
+            if c.coder == Coder::Constant
+                && coder_bits(kind, c.predictor, items.clone())[2].is_none() =>
         {
             NumericCodec::new(c.predictor, Coder::Packed)
         }

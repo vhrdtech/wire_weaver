@@ -9,10 +9,10 @@ use super::columns::numeric::{
 use super::columns::run::{Opaque, RunKind, RunReader, write_opaque_run, write_run};
 use super::group::write_enum_tags;
 use super::group::{
-    CodecPolicy, EnumTags, FieldItems, Level, SeriesColumns, SeriesCtx, SiblingCtx, SiblingTags,
-    TagRun, VariantCtx, changed_before, no_earlier, tag_changed,
+    EnumTags, FieldItems, Level, SeriesColumns, SeriesCtx, SiblingCtx, SiblingTags, TagRun,
+    VariantCtx, changed_before, no_earlier, tag_changed,
 };
-use super::{BitSink, XorBits, bound, sign_extend};
+use super::{BitSink, SeriesPolicy, XorBits, bound, sign_extend};
 use crate::un::{IN, U3, U4, U5, U6, UN};
 use crate::{BufReader, Error, Nibble, RefVec, UNib32, UVlq32, UVlq64};
 
@@ -75,15 +75,16 @@ macro_rules! numeric_leaf {
             const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
             const TAGGED: bool = false;
 
-            fn write_group<'a, I, S>(
+            fn write_group<'a, I, S, P>(
                 items: I,
                 sink: &mut S,
-                policy: &CodecPolicy,
+                policy: &P,
                 _level: Level,
             ) -> Result<(), Error>
             where
                 I: Iterator<Item = (&'a Self, bool)> + Clone,
                 S: BitSink,
+                P: SeriesPolicy + ?Sized,
                 Self: 'a,
             {
                 if items.clone().next().is_none() {
@@ -95,7 +96,7 @@ macro_rules! numeric_leaf {
                     kind,
                     // the low bits are the value's: a narrower word cuts only bits above the width
                     items.map(|($v, restart): (&Self, bool)| ($to as $word, restart)),
-                    policy.numeric,
+                    policy.numeric(),
                 )?;
                 Ok(())
             }
@@ -165,15 +166,16 @@ macro_rules! numeric128 {
             const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
             const TAGGED: bool = false;
 
-            fn write_group<'a, I, S>(
+            fn write_group<'a, I, S, P>(
                 items: I,
                 sink: &mut S,
-                _policy: &CodecPolicy,
+                _policy: &P,
                 _level: Level,
             ) -> Result<(), Error>
             where
                 I: Iterator<Item = (&'a Self, bool)> + Clone,
                 S: BitSink,
+                P: SeriesPolicy + ?Sized,
                 Self: 'a,
             {
                 if items.clone().next().is_none() {
@@ -211,21 +213,22 @@ macro_rules! float_leaf {
             const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
             const TAGGED: bool = false;
 
-            fn write_group<'a, I, S>(
+            fn write_group<'a, I, S, P>(
                 items: I,
                 sink: &mut S,
-                policy: &CodecPolicy,
+                policy: &P,
                 _level: Level,
             ) -> Result<(), Error>
             where
                 I: Iterator<Item = (&'a Self, bool)> + Clone,
                 S: BitSink,
+                P: SeriesPolicy + ?Sized,
                 Self: 'a,
             {
                 if items.clone().next().is_none() {
                     return Ok(());
                 }
-                write_float(sink, items.map(|(v, r)| (*v, r)), policy.float)?;
+                write_float(sink, items.map(|(v, r)| (*v, r)), policy.float())?;
                 Ok(())
             }
 
@@ -253,15 +256,16 @@ impl<'i> SeriesColumns<'i> for bool {
     const MAX_FIXED_BITS: Option<usize> = Some(bound::BOOL_RUN_FIXED_BITS);
     const TAGGED: bool = false;
 
-    fn write_group<'a, I, S>(
+    fn write_group<'a, I, S, P>(
         items: I,
         sink: &mut S,
-        _policy: &CodecPolicy,
+        _policy: &P,
         _level: Level,
     ) -> Result<(), Error>
     where
         I: Iterator<Item = (&'a Self, bool)> + Clone,
         S: BitSink,
+        P: SeriesPolicy + ?Sized,
         Self: 'a,
     {
         write_run(sink, RunKind::Bool, items.map(|(b, _)| *b as u32))
@@ -351,15 +355,16 @@ macro_rules! opaque_leaf {
             type Reader = Option<RunReader<'i, Opaque>>;
             const TAGGED: bool = false;
 
-            fn write_group<'a, I, S>(
+            fn write_group<'a, I, S, P>(
                 items: I,
                 sink: &mut S,
-                _policy: &CodecPolicy,
+                _policy: &P,
                 _level: Level,
             ) -> Result<(), Error>
             where
                 I: Iterator<Item = (&'a Self, bool)> + Clone,
                 S: BitSink,
+                P: SeriesPolicy + ?Sized,
                 Self: 'a,
             {
                 write_opaque_run(sink, items.map(|(v, _)| OpaqueBytes::bytes(v)))
@@ -413,15 +418,16 @@ impl<'i, X: SeriesColumns<'i>> SeriesColumns<'i> for Option<X> {
     const MAX_FIXED_BITS: Option<usize> =
         bound::add(Some(bound::OPTION_TAG_FIXED_BITS), X::MAX_FIXED_BITS);
 
-    fn write_group<'a, I, S>(
+    fn write_group<'a, I, S, P>(
         items: I,
         sink: &mut S,
-        policy: &CodecPolicy,
+        policy: &P,
         _level: Level,
     ) -> Result<(), Error>
     where
         I: Iterator<Item = (&'a Self, bool)> + Clone,
         S: BitSink,
+        P: SeriesPolicy + ?Sized,
         Self: 'a,
     {
         write_run(
@@ -467,15 +473,16 @@ impl<'i, T: ?Sized> SeriesColumns<'i> for core::marker::PhantomData<T> {
     const MAX_FIXED_BITS: Option<usize> = Some(0);
     const TAGGED: bool = false;
 
-    fn write_group<'a, I, S>(
+    fn write_group<'a, I, S, P>(
         _items: I,
         _sink: &mut S,
-        _policy: &CodecPolicy,
+        _policy: &P,
         _level: Level,
     ) -> Result<(), Error>
     where
         I: Iterator<Item = (&'a Self, bool)> + Clone,
         S: BitSink,
+        P: SeriesPolicy + ?Sized,
         Self: 'a,
     {
         Ok(())
@@ -510,15 +517,16 @@ macro_rules! tuple {
             };
             const TAGGED: bool = false;
 
-            fn write_group<'a, I, S>(
+            fn write_group<'a, I, S, P>(
                 items: I,
                 sink: &mut S,
-                policy: &CodecPolicy,
+                policy: &P,
                 _level: Level,
             ) -> Result<(), Error>
             where
                 I: Iterator<Item = (&'a Self, bool)> + Clone,
                 S: BitSink,
+                P: SeriesPolicy + ?Sized,
                 Self: 'a,
             {
                 let tags = |t: &Self| [$(if $t::TAGGED { t.$idx.series_tag() } else { None }),+];
@@ -600,15 +608,16 @@ macro_rules! bit_count_enum {
                 bits
             };
 
-            fn write_group<'a, I, S>(
+            fn write_group<'a, I, S, P>(
                 items: I,
                 sink: &mut S,
-                policy: &CodecPolicy,
+                policy: &P,
                 _level: Level,
             ) -> Result<(), Error>
             where
                 I: Iterator<Item = (&'a Self, bool)> + Clone,
                 S: BitSink,
+                P: SeriesPolicy + ?Sized,
                 Self: 'a,
             {
                 write_enum_tags(sink, items.clone().map(|(e, _)| e.series_tag().unwrap_or(0)))?;
@@ -697,15 +706,16 @@ impl<'i, X: SeriesColumns<'i> + Default, const N: usize> SeriesColumns<'i> for [
     const MAX_FIXED_BITS: Option<usize> = bound::times(X::MAX_FIXED_BITS, N);
     const TAGGED: bool = false;
 
-    fn write_group<'a, I, S>(
+    fn write_group<'a, I, S, P>(
         items: I,
         sink: &mut S,
-        policy: &CodecPolicy,
+        policy: &P,
         _level: Level,
     ) -> Result<(), Error>
     where
         I: Iterator<Item = (&'a Self, bool)> + Clone,
         S: BitSink,
+        P: SeriesPolicy + ?Sized,
         Self: 'a,
     {
         for j in 0..N {

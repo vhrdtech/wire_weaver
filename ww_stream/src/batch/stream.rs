@@ -7,7 +7,7 @@ use crate::store::StreamStore;
 use crate::tx::{Counted, Pushed, Reliable};
 use core::marker::PhantomData;
 use wire_weaver::shrink_wrap::Error;
-use wire_weaver::shrink_wrap::series::{CodecPolicy, SeriesColumns, SeriesStore};
+use wire_weaver::shrink_wrap::series::{SeriesColumns, SeriesPolicy, SeriesStore};
 
 /// [Batched::max_age_us] when the host asks for none: 100 ms.
 pub const DEFAULT_MAX_AGE_US: u32 = 100_000;
@@ -94,11 +94,13 @@ const DEFAULT_BOUNDS: MaxAge = MaxAge {
     granted: DEFAULT_MAX_AGE_US,
 };
 
-impl<S, T, const N: usize> Batched<S, T, N>
+impl<S, T, const N: usize, P> Batched<S, T, N, Batcher<T, N, P>>
 where
     T: SeriesStore + for<'a> SeriesColumns<'a>,
+    P: SeriesPolicy + Copy,
 {
-    pub fn new(stream: S, policy: CodecPolicy) -> Self {
+    /// `policy` [DEFAULT_POLICY](super::DEFAULT_POLICY) usually, see [Batcher].
+    pub fn new(stream: S, policy: P) -> Self {
         Batched {
             stream,
             batcher: Batcher::new(policy),
@@ -119,19 +121,20 @@ where
     }
 
     /// The batcher's halves and the stream, which goes with the consumer.
-    pub fn split(&mut self) -> (Producer<'_, T, N>, Consumer<'_, T, N>, &mut S) {
+    pub fn split(&mut self) -> (Producer<'_, T, N, P>, Consumer<'_, T, N, P>, &mut S) {
         let (producer, consumer) = self.batcher.split();
         (producer, consumer, &mut self.stream)
     }
 }
 
-impl<'c, S, T, const N: usize> Batched<S, T, N, Consumer<'c, T, N>>
+impl<'c, S, T, const N: usize, P> Batched<S, T, N, Consumer<'c, T, N, P>>
 where
     T: SeriesStore + for<'a> SeriesColumns<'a>,
+    P: SeriesPolicy + Copy,
 {
     /// The consumer half of a batcher whose producer pushes from another context: both are
     /// [split](Batcher::split) off a batcher that outlives them (a `static`, a `StaticCell`).
-    pub fn with_consumer(stream: S, consumer: Consumer<'c, T, N>) -> Self {
+    pub fn with_consumer(stream: S, consumer: Consumer<'c, T, N, P>) -> Self {
         Batched {
             stream,
             batcher: consumer,
@@ -175,14 +178,15 @@ where
     }
 
     /// The consumer half.
-    pub fn consumer(&mut self) -> Consumer<'_, T, N> {
+    pub fn consumer(&mut self) -> Consumer<'_, T, N, Src::Policy> {
         self.batcher.consumer()
     }
 }
 
-impl<S, T, const N: usize> Push<T> for Batched<S, T, N>
+impl<S, T, const N: usize, P> Push<T> for Batched<S, T, N, Batcher<T, N, P>>
 where
     T: SeriesStore + for<'a> SeriesColumns<'a>,
+    P: SeriesPolicy + Copy,
 {
     #[inline]
     fn push(&mut self, item: &T) -> Seal {
@@ -249,9 +253,10 @@ where
     }
 }
 
-impl<T, const N: usize> Consumer<'_, T, N>
+impl<T, const N: usize, P> Consumer<'_, T, N, P>
 where
     T: SeriesStore + for<'a> SeriesColumns<'a>,
+    P: SeriesPolicy + Copy,
 {
     /// The event loop's turn for a batched reliable stream: seals on age and budget, encodes sealed batches into
     /// `buf` and puts each into the store as one event (once; resends copy it). The budget is `buf`'s length and the

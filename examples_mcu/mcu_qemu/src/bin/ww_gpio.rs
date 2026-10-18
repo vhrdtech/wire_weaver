@@ -7,13 +7,13 @@ use core::fmt::Write;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::{debug, hio};
 use wire_weaver::prelude::*;
-use ww_stream::tx::Counted;
 use ww_client_server::stream::StreamHead;
 use ww_gpio::IoPinEvent;
 use ww_gpio::{
-    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, MAX_PORT_PINS, Mode, PinCapabilities, PinLevel,
-    Pull, Speed,
+    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, MAX_PORT_PINS, Mode,
+    PinCapabilities, PinLevel, Pull, Speed,
 };
+use ww_stream::tx::Counted;
 
 #[entry]
 fn main() -> ! {
@@ -26,10 +26,11 @@ fn main() -> ! {
         stream_sessions: 0,
     };
 
-    let r = api_server::stream_data_ser()
-        .port(0)
-        .pin(7)
-        .event(&StreamHead::at(0), &IoPinEvent::RisingEdge, &mut scratch);
+    let r = api_server::stream_data_ser().port(0).pin(7).event(
+        &StreamHead::at(0),
+        &IoPinEvent::RisingEdge,
+        &mut scratch,
+    );
     writeln!(stdout, "{r:02x?}").unwrap();
 
     let event = [1u8, 2, 3];
@@ -179,7 +180,6 @@ impl ServerState {
         self.stream_sessions
     }
 
-
     fn port_pin_set_mode(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -198,22 +198,39 @@ impl ServerState {
         ww_unimplemented!()
     }
 
-    fn set_port_pin_pull(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2], _pull: Pull) -> SetResult<GpioError<'_>> {
+    fn set_port_pin_pull(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+        _index: [UNib32; 2],
+        _pull: Pull,
+    ) -> SetResult<GpioError<'_>> {
         ww_unimplemented!()
     }
 
-    fn get_port_pin_pull(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2]) -> GetResult<Pull, GpioError<'_>> {
+    fn get_port_pin_pull(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+        _index: [UNib32; 2],
+    ) -> GetResult<Pull, GpioError<'_>> {
         ww_unimplemented!()
     }
 
-    fn set_port_pin_speed(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2], _speed: Speed) -> SetResult<GpioError<'_>> {
+    fn set_port_pin_speed(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+        _index: [UNib32; 2],
+        _speed: Speed,
+    ) -> SetResult<GpioError<'_>> {
         ww_unimplemented!()
     }
 
-    fn get_port_pin_speed(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, _index: [UNib32; 2]) -> GetResult<Speed, GpioError<'_>> {
+    fn get_port_pin_speed(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+        _index: [UNib32; 2],
+    ) -> GetResult<Speed, GpioError<'_>> {
         ww_unimplemented!()
     }
-
 
     fn port_pin_capabilities(
         &mut self,

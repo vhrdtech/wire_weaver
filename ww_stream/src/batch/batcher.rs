@@ -1,10 +1,10 @@
 //! [Batcher]: the two stores, and the hand-off between its [Producer] and its [Consumer].
 
-use super::{BatchStats, Cause, EncodeError, Encoded, Scratch, Seal};
+use super::{BatchStats, Cause, DefaultPolicy, EncodeError, Encoded, Scratch, Seal};
 use core::cell::UnsafeCell;
 use portable_atomic::{AtomicU32, Ordering};
 use wire_weaver::shrink_wrap::series::{
-    CodecPolicy, SERIES_MAX_ITEMS, Series, SeriesColumns, SeriesStore, bound,
+    SERIES_MAX_ITEMS, Series, SeriesColumns, SeriesPolicy, SeriesStore, bound,
 };
 use wire_weaver::shrink_wrap::{Error, SerializeShrinkWrap};
 
@@ -75,7 +75,11 @@ impl State {
 /// Collects items of `T` into batches of up to `N`, see the [module docs](super). [split](Self::split) it into a
 /// [Producer] and a [Consumer] for a producer in another context (an interrupt, another core); used from one task,
 /// its own methods are those of both.
-pub struct Batcher<T: SeriesStore, const N: usize> {
+///
+/// `P` is how batches are encoded: [DefaultPolicy] (fixed codecs at compile time on `no_std`, the smallest of every
+/// column on `std`), a run-time [CodecPolicy](wire_weaver::shrink_wrap::series::CodecPolicy), or another
+/// [SeriesPolicy] type.
+pub struct Batcher<T: SeriesStore, const N: usize, P = DefaultPolicy> {
     stores: [UnsafeCell<T::Store<N>>; 2],
     state: AtomicU32,
     /// Items lost right before the next batch of each store: added by the producer while it fills the store, taken
@@ -83,16 +87,19 @@ pub struct Batcher<T: SeriesStore, const N: usize> {
     lost_before: [AtomicU32; 2],
     /// `n` at which the producer seals for the budget, worked out by the consumer: at most `N`, at least 1
     limit: AtomicU32,
-    consumer: UnsafeCell<ConsumerState>,
+    consumer: UnsafeCell<ConsumerState<P>>,
 }
 
 // SAFETY: the stores are handed between the producer and the consumer through `state` (see `Producer::push` and
 // `Consumer`): each store is written by one side at a time, and the consumer state only by the one `Consumer`.
-unsafe impl<T: SeriesStore, const N: usize> Sync for Batcher<T, N> where T::Store<N>: Send {}
+unsafe impl<T: SeriesStore, const N: usize, P: Send> Sync for Batcher<T, N, P> where
+    T::Store<N>: Send
+{
+}
 
 /// What only the consumer side keeps.
-struct ConsumerState {
-    policy: CodecPolicy,
+struct ConsumerState<P> {
+    policy: P,
     budget: usize,
     /// Limit of the worst case at the budget
     fresh_limit: usize,
@@ -117,10 +124,10 @@ struct Taken {
 }
 
 /// The pushing half of a [Batcher], see [Batcher::split]. One per batcher; `push` takes `&mut self`.
-pub struct Producer<'a, T: SeriesStore, const N: usize>(&'a Batcher<T, N>);
+pub struct Producer<'a, T: SeriesStore, const N: usize, P = DefaultPolicy>(&'a Batcher<T, N, P>);
 
 /// The encoding half of a [Batcher], see [Batcher::split]: the event loop's.
-pub struct Consumer<'a, T: SeriesStore, const N: usize>(&'a Batcher<T, N>);
+pub struct Consumer<'a, T: SeriesStore, const N: usize, P = DefaultPolicy>(&'a Batcher<T, N, P>);
 
 /// What [Consumer::poll] did.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -131,9 +138,10 @@ pub struct Polled {
     pub lost: u64,
 }
 
-impl<T, const N: usize> Batcher<T, N>
+impl<T, const N: usize, P> Batcher<T, N, P>
 where
     T: SeriesStore + for<'a> SeriesColumns<'a>,
+    P: SeriesPolicy + Copy,
 {
     const ITEM_BITS: usize = match T::MAX_ITEM_BITS {
         Some(bits) => bits,
@@ -146,7 +154,7 @@ where
 
     /// Empty, encoding with `policy` ([DEFAULT_POLICY](super::DEFAULT_POLICY) usually), no budget until the first
     /// [poll](Consumer::poll).
-    pub fn new(policy: CodecPolicy) -> Self {
+    pub fn new(policy: P) -> Self {
         const {
             assert!(
                 N >= 1 && N <= MAX_BATCH && N <= SERIES_MAX_ITEMS,
@@ -176,24 +184,24 @@ where
     }
 
     /// [new](Self::new) with an event budget set before the first poll.
-    pub fn with_budget(policy: CodecPolicy, budget: usize) -> Self {
+    pub fn with_budget(policy: P, budget: usize) -> Self {
         let mut batcher = Self::new(policy);
         batcher.consumer().set_budget(budget);
         batcher
     }
 
     /// The two halves, to push from one context and encode in another.
-    pub fn split(&mut self) -> (Producer<'_, T, N>, Consumer<'_, T, N>) {
+    pub fn split(&mut self) -> (Producer<'_, T, N, P>, Consumer<'_, T, N, P>) {
         (Producer(self), Consumer(self))
     }
 
     /// The pushing half alone.
-    pub fn producer(&mut self) -> Producer<'_, T, N> {
+    pub fn producer(&mut self) -> Producer<'_, T, N, P> {
         Producer(self)
     }
 
     /// The encoding half alone.
-    pub fn consumer(&mut self) -> Consumer<'_, T, N> {
+    pub fn consumer(&mut self) -> Consumer<'_, T, N, P> {
         Consumer(self)
     }
 
@@ -218,7 +226,7 @@ where
         State(self.state.load(Ordering::Relaxed)).n()
     }
 
-    pub fn policy(&mut self) -> CodecPolicy {
+    pub fn policy(&mut self) -> P {
         self.consumer().state().policy
     }
 
@@ -326,9 +334,10 @@ where
     }
 }
 
-impl<'a, T, const N: usize> Producer<'a, T, N>
+impl<'a, T, const N: usize, P> Producer<'a, T, N, P>
 where
     T: SeriesStore + for<'x> SeriesColumns<'x>,
+    P: SeriesPolicy + Copy,
 {
     /// Adds `item` to the filling batch: a copy of its fields and two atomic operations, never an encode or a
     /// wait. Seals the batch when it is full or at the budget, see [Seal].
@@ -357,20 +366,30 @@ where
 /// Where a [Batched](super::Batched) stream takes its consumer half from: a [Batcher] it owns, or a [Consumer]
 /// split off a batcher whose [Producer] runs elsewhere.
 pub trait BatchSource<T: SeriesStore, const N: usize> {
-    fn consumer(&mut self) -> Consumer<'_, T, N>;
+    /// The batcher's codec policy.
+    type Policy: SeriesPolicy + Copy;
+
+    fn consumer(&mut self) -> Consumer<'_, T, N, Self::Policy>;
 }
 
-impl<T, const N: usize> BatchSource<T, N> for Batcher<T, N>
+impl<T, const N: usize, P> BatchSource<T, N> for Batcher<T, N, P>
 where
     T: SeriesStore + for<'x> SeriesColumns<'x>,
+    P: SeriesPolicy + Copy,
 {
-    fn consumer(&mut self) -> Consumer<'_, T, N> {
+    type Policy = P;
+
+    fn consumer(&mut self) -> Consumer<'_, T, N, P> {
         Consumer(self)
     }
 }
 
-impl<T: SeriesStore, const N: usize> BatchSource<T, N> for Consumer<'_, T, N> {
-    fn consumer(&mut self) -> Consumer<'_, T, N> {
+impl<T: SeriesStore, const N: usize, P: SeriesPolicy + Copy> BatchSource<T, N>
+    for Consumer<'_, T, N, P>
+{
+    type Policy = P;
+
+    fn consumer(&mut self) -> Consumer<'_, T, N, P> {
         // the one consumer, borrowed: `&mut self` keeps it the only one meanwhile
         Consumer(self.0)
     }
@@ -405,9 +424,10 @@ pub trait Push<T> {
     }
 }
 
-impl<T, const N: usize> Push<T> for Producer<'_, T, N>
+impl<T, const N: usize, P> Push<T> for Producer<'_, T, N, P>
 where
     T: SeriesStore + for<'x> SeriesColumns<'x>,
+    P: SeriesPolicy + Copy,
 {
     #[inline]
     fn push(&mut self, item: &T) -> Seal {
@@ -415,9 +435,10 @@ where
     }
 }
 
-impl<T, const N: usize> Push<T> for Batcher<T, N>
+impl<T, const N: usize, P> Push<T> for Batcher<T, N, P>
 where
     T: SeriesStore + for<'x> SeriesColumns<'x>,
+    P: SeriesPolicy + Copy,
 {
     #[inline]
     fn push(&mut self, item: &T) -> Seal {
@@ -425,11 +446,12 @@ where
     }
 }
 
-impl<'a, T, const N: usize> Consumer<'a, T, N>
+impl<'a, T, const N: usize, P> Consumer<'a, T, N, P>
 where
     T: SeriesStore + for<'x> SeriesColumns<'x>,
+    P: SeriesPolicy + Copy,
 {
-    fn state(&mut self) -> &mut ConsumerState {
+    fn state(&mut self) -> &mut ConsumerState<P> {
         // SAFETY: only the one `Consumer` (or `&mut Batcher`, which can't coexist with it) touches it
         unsafe { &mut *self.0.consumer.get() }
     }
@@ -682,13 +704,14 @@ where
 }
 
 /// `items` encoded at the start of `buf`, or the largest prefix that fits: (items, bytes, split).
-fn encode_fitting<T>(
+fn encode_fitting<T, P>(
     items: &[T],
-    policy: CodecPolicy,
+    policy: P,
     buf: &mut [u8],
 ) -> Result<(usize, usize, bool), EncodeError>
 where
     T: for<'x> SeriesColumns<'x>,
+    P: SeriesPolicy + Copy,
 {
     let m = items.len();
     match Series::with_policy(items, policy).to_ww_bytes(buf) {

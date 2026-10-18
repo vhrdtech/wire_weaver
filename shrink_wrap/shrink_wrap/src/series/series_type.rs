@@ -1,5 +1,6 @@
 //! [Series]: a list of `T` written column by column (SW-60).
 
+use super::SeriesPolicy;
 use super::group::{CodecPolicy, Level, RootCtx, SeriesColumns};
 use crate::{BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, SerializeShrinkWrap};
 
@@ -23,9 +24,13 @@ pub const SERIES_MAX_ITEMS: usize = u16::MAX as usize;
 /// every column in one pass ([SeriesColumns::skim]), keeping a cursor per column; [iter](Self::iter) then decodes
 /// the items one by one, all columns in parallel, zero-copy for `&str` / `&[u8]` leaves. Malformed data is an
 /// `Error`, never a panic, and the work is bounded by `n` times the columns.
-pub enum Series<'i, T: SeriesColumns<'i>> {
+///
+/// `P` is how the codecs of the columns are picked: [CodecPolicy] at run time, or a [SeriesPolicy] type fixed at
+/// compile time ([DeltaPacked](super::DeltaPacked)), which links only its own codecs. Both write the same bytes for
+/// the same codecs.
+pub enum Series<'i, T: SeriesColumns<'i>, P: SeriesPolicy = CodecPolicy> {
     /// Items to serialize, and how to pick the codecs of their columns.
-    Slice { items: &'i [T], policy: CodecPolicy },
+    Slice { items: &'i [T], policy: P },
     /// Decoded from a buffer: the column cursors at their starts.
     Buf {
         n: usize,
@@ -42,11 +47,6 @@ impl<'i, T: SeriesColumns<'i>> Series<'i, T> {
             items,
             policy: CodecPolicy::SMALLEST,
         }
-    }
-
-    /// Items to serialize with a fixed [CodecPolicy] (a small MCU can skip trying every codec).
-    pub const fn with_policy(items: &'i [T], policy: CodecPolicy) -> Self {
-        Series::Slice { items, policy }
     }
 
     /// The most bytes a `Series` of `n` items of `T` takes, written from a byte boundary (as a field it always is)
@@ -70,6 +70,14 @@ impl<'i, T: SeriesColumns<'i>> Series<'i, T> {
             Some(bits) => Some(bits.div_ceil(8)),
             None => None,
         }
+    }
+}
+
+impl<'i, T: SeriesColumns<'i>, P: SeriesPolicy> Series<'i, T, P> {
+    /// Items to serialize with `policy`: a fixed [CodecPolicy] (a small MCU can skip trying every codec), or a
+    /// [SeriesPolicy] type that also leaves the other codecs out of the firmware.
+    pub const fn with_policy(items: &'i [T], policy: P) -> Self {
+        Series::Slice { items, policy }
     }
 
     /// The bytes this `Series` takes, written from a byte boundary: counted with a [BitCounter](super::BitCounter)
@@ -131,12 +139,12 @@ impl<'i, T: SeriesColumns<'i>> Series<'i, T> {
     }
 }
 
-impl<'i, T: SeriesColumns<'i>> Clone for Series<'i, T> {
+impl<'i, T: SeriesColumns<'i>, P: SeriesPolicy + Clone> Clone for Series<'i, T, P> {
     fn clone(&self) -> Self {
         match self {
             Series::Slice { items, policy } => Series::Slice {
                 items,
-                policy: *policy,
+                policy: policy.clone(),
             },
             Series::Buf { n, reader, raw } => Series::Buf {
                 n: *n,
@@ -153,26 +161,28 @@ impl<'i, T: SeriesColumns<'i>> Default for Series<'i, T> {
     }
 }
 
-impl<'i, T: SeriesColumns<'i> + Clone + core::fmt::Debug> core::fmt::Debug for Series<'i, T> {
+impl<'i, T: SeriesColumns<'i> + Clone + core::fmt::Debug, P: SeriesPolicy> core::fmt::Debug
+    for Series<'i, T, P>
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
 }
 
 #[cfg(feature = "defmt")]
-impl<'i, T: SeriesColumns<'i>> defmt::Format for Series<'i, T> {
+impl<'i, T: SeriesColumns<'i>, P: SeriesPolicy> defmt::Format for Series<'i, T, P> {
     fn format(&self, fmt: defmt::Formatter) {
         defmt::write!(fmt, "Series({} items)", self.len())
     }
 }
 
-impl<'i, T: SeriesColumns<'i> + Clone + PartialEq> PartialEq for Series<'i, T> {
+impl<'i, T: SeriesColumns<'i> + Clone + PartialEq, P: SeriesPolicy> PartialEq for Series<'i, T, P> {
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.iter().eq(other.iter())
     }
 }
 
-impl<'s, 'i, T: SeriesColumns<'i> + Clone> IntoIterator for &'s Series<'i, T> {
+impl<'s, 'i, T: SeriesColumns<'i> + Clone, P: SeriesPolicy> IntoIterator for &'s Series<'i, T, P> {
     type Item = T;
     type IntoIter = SeriesIter<'s, 'i, T>;
 
@@ -248,14 +258,11 @@ impl<'i, T: SeriesColumns<'i> + Clone> Iterator for SeriesTryIter<'_, 'i, T> {
 }
 
 /// Writes `n` and the group of `items` into `sink`: the whole `Series` but for the final byte alignment.
-fn write_series<'a, 'i, T, S>(
-    sink: &mut S,
-    items: &'a [T],
-    policy: &CodecPolicy,
-) -> Result<(), Error>
+fn write_series<'a, 'i, T, S, P>(sink: &mut S, items: &'a [T], policy: &P) -> Result<(), Error>
 where
     T: SeriesColumns<'i> + 'a,
     S: super::BitSink,
+    P: SeriesPolicy,
 {
     if items.len() > SERIES_MAX_ITEMS {
         return Err(Error::LenTooLong);
@@ -271,7 +278,7 @@ where
     )
 }
 
-impl<'i, T: SeriesColumns<'i>> SerializeShrinkWrap for Series<'i, T> {
+impl<'i, T: SeriesColumns<'i>, P: SeriesPolicy> SerializeShrinkWrap for Series<'i, T, P> {
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
     const PUSHES_LEN: bool = false;
 
@@ -292,7 +299,9 @@ impl<'i, T: SeriesColumns<'i>> SerializeShrinkWrap for Series<'i, T> {
 }
 
 #[cfg(feature = "std")]
-impl<'i, T: SeriesColumns<'i>> crate::SerializeShrinkWrapOwned for Series<'i, T> {
+impl<'i, T: SeriesColumns<'i>, P: SeriesPolicy> crate::SerializeShrinkWrapOwned
+    for Series<'i, T, P>
+{
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
 
     fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
@@ -326,7 +335,7 @@ fn read_series<'i, T: SeriesColumns<'i>>(
     Ok((n, reader))
 }
 
-impl<'i, T: SeriesColumns<'i>> DeserializeShrinkWrap<'i> for Series<'i, T> {
+impl<'i, T: SeriesColumns<'i>, P: SeriesPolicy> DeserializeShrinkWrap<'i> for Series<'i, T, P> {
     const ELEMENT_SIZE: ElementSize = ElementSize::Unsized;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
@@ -394,8 +403,8 @@ impl<T: for<'i> SeriesColumns<'i>> SeriesOwned<T> {
         Series::new(&self.0)
     }
 
-    /// [as_borrowed](Self::as_borrowed) with a fixed [CodecPolicy].
-    pub fn as_borrowed_with(&self, policy: CodecPolicy) -> Series<'_, T> {
+    /// [as_borrowed](Self::as_borrowed) with a fixed [CodecPolicy] or a [SeriesPolicy] type.
+    pub fn as_borrowed_with<P: SeriesPolicy>(&self, policy: P) -> Series<'_, T, P> {
         Series::with_policy(&self.0, policy)
     }
 }

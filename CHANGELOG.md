@@ -131,9 +131,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   budget, and the event loop encodes it once as a `Series` while the producer fills the other store; an `Outbox` for observed
   properties; batched reliable and counted streams. The `batched` API attribute, codegen and the host side are
   next; see `ww_stream/CHANGELOG.md`.
-- Faster `Series<T>` writing on MCUs (SW-63), byte for byte the same output: about 3x fewer instructions per item
-  for a fixed codec on a Cortex-M3 (see `shrink_wrap/CHANGELOG.md`), and `examples_mcu/qemu_icount`, which counts
-  the instructions between the marker calls of the `mcu_qemu` benches and shows where they go (`--profile`).
+- Faster and smaller `Series<T>` writing on MCUs (SW-63), byte for byte the same output: about 6x fewer
+  instructions per item on a Cortex-M3 (fixed codecs and `SMALLEST` alike), and compile-time codec policies
+  (`series::DeltaPacked`, the `no_std` default of `ww_stream`'s batcher) that link only their own codecs: 15 KB of
+  flash instead of 91 KB for a `Series<Timed<Ampere>>` encoder. `examples_mcu/qemu_icount` counts the instructions
+  between the marker calls of the `mcu_qemu` benches and shows where they go (`--profile`, `--pcs`).
 
 ### Changed
 

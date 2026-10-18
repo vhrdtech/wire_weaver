@@ -4,6 +4,12 @@
 
 ### ⚠️ Breaking
 
+- `batch::Batcher<T, N, P = DefaultPolicy>`, `Producer`, `Consumer` and `Batched::new` take the codec policy as a
+  type (SW-63): `batch::DefaultPolicy` is `CodecPolicy` on `std` and `series::DeltaPacked` on `no_std`, so a
+  firmware links only the delta and packed codecs (`DEFAULT_POLICY` is a `DeltaPacked` there). `new(policy)` takes
+  any `SeriesPolicy` (a `CodecPolicy` value still works, the type is then `Batcher<T, N, CodecPolicy>`);
+  `BatchSource` has an associated `Policy`. Code naming `Batcher<T, N>` / `Batched<S, T, N>` with a `CodecPolicy`
+  on `no_std` names the policy: `Batcher<T, N, CodecPolicy>`.
 - `batch::Batched<S, T, N, Src = Batcher<T, N>>` (API-41): the batcher may be a `Consumer` split off a batcher whose
   `Producer` runs elsewhere (`Batched::with_consumer`), so an interrupt can push while `poll_streams` encodes; it
   keeps the host's max age within bounds (`grant_max_age`, `max_age_us`, `with_max_age`, `DEFAULT_MAX_AGE_US`,

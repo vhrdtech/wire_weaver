@@ -89,7 +89,11 @@ fn main() -> ! {
     let due = consumer.poll(20_000, Some(10_000), 1024);
     mark_end();
 
-    writeln!(stdout, "push {first:?}, 32nd {last:?}, idle poll {idle:?}, due poll {due:?}").unwrap();
+    writeln!(
+        stdout,
+        "push {first:?}, 32nd {last:?}, idle poll {idle:?}, due poll {due:?}"
+    )
+    .unwrap();
     writeln!(stdout, "encode_into {enc:?}, bare {bare:?}").unwrap();
     writeln!(
         stdout,

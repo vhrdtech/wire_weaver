@@ -114,6 +114,78 @@ impl Default for CodecPolicy {
     }
 }
 
+/// How a writer picks the codecs of a `Series`' columns: at run time ([CodecPolicy]), or fixed at compile time (a
+/// type with [FixedCodecs], such as [DeltaPacked]). The bytes are the same for the same codecs; a type leaves the
+/// trials of [CodecPolicy::SMALLEST] and every codec it doesn't use out of the firmware, where a [CodecPolicy] value
+/// links them all.
+pub trait SeriesPolicy {
+    /// The codec of every numeric column, `None` for the smallest of each.
+    fn numeric(&self) -> Option<NumericCodec>;
+    /// The codec of every float column, `None` for the smaller of plain and XOR.
+    fn float(&self) -> Option<FloatCodec>;
+}
+
+impl SeriesPolicy for CodecPolicy {
+    #[inline]
+    fn numeric(&self) -> Option<NumericCodec> {
+        self.numeric
+    }
+
+    #[inline]
+    fn float(&self) -> Option<FloatCodec> {
+        self.float
+    }
+}
+
+/// A [SeriesPolicy] fixed at compile time: the same codecs for every column, except where they can't encode one (as
+/// [CodecPolicy::fixed]). Implemented for a unit struct:
+///
+/// ```
+/// use shrink_wrap::series::{Coder, FixedCodecs, FloatCodec, NumericCodec, Predictor};
+///
+/// #[derive(Clone, Copy)]
+/// struct DeltaOfDeltaPacked;
+///
+/// impl FixedCodecs for DeltaOfDeltaPacked {
+///     const NUMERIC: NumericCodec = NumericCodec::new(Predictor::DeltaOfDelta, Coder::Packed);
+///     const FLOAT: FloatCodec = FloatCodec::Xor;
+/// }
+/// ```
+pub trait FixedCodecs {
+    const NUMERIC: NumericCodec;
+    const FLOAT: FloatCodec;
+}
+
+impl<F: FixedCodecs> SeriesPolicy for F {
+    #[inline(always)]
+    fn numeric(&self) -> Option<NumericCodec> {
+        Some(F::NUMERIC)
+    }
+
+    #[inline(always)]
+    fn float(&self) -> Option<FloatCodec> {
+        Some(F::FLOAT)
+    }
+}
+
+/// Delta and packed residuals for numbers, XOR for floats, fixed at compile time: one pass per column, for a small
+/// MCU (see [SeriesPolicy]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct DeltaPacked;
+
+impl FixedCodecs for DeltaPacked {
+    const NUMERIC: NumericCodec = NumericCodec::new(Predictor::Delta, Coder::Packed);
+    const FLOAT: FloatCodec = FloatCodec::Xor;
+}
+
+impl<F: FixedCodecs> From<F> for CodecPolicy {
+    /// The same codecs as a run-time value.
+    fn from(_: F) -> Self {
+        CodecPolicy::fixed(F::NUMERIC, F::FLOAT)
+    }
+}
+
 /// Residuals per block of the packed coder.
 pub const PACKED_BLOCK: u8 = 8;
 

@@ -10,17 +10,25 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+- Compile-time codec policies (SW-63): `series::SeriesPolicy` is how a writer picks the codecs, implemented by
+  `CodecPolicy` (at run time, links every codec and the trials) and by every type with `series::FixedCodecs`
+  (`const NUMERIC`, `const FLOAT`), which links only its own codecs; `series::DeltaPacked` is one (delta and packed
+  residuals, XOR floats). `CodecPolicy: From<F: FixedCodecs>`. A `Series<Timed<Ampere>>` encoder takes 15.0 KB of
+  flash with `DeltaPacked` on a Cortex-M3 (9.8 KB on a Cortex-M4F), 25.4 KB with a `CodecPolicy` (17.6 KB), against
+  90.8 KB (68.5 KB) before.
 - Faster `Series` writing (SW-63), the same bytes. The packed coder keeps a block's residuals instead of running
   the predictor ahead to find the block's width. The predictor works on left-aligned values (no masking or sign
   extension per item), in a `u32` for leaves up to 32 bits. `CodecPolicy::SMALLEST` sizes all four coders of a
-  predictor in one pass instead of writing each into a `BitCounter`. A struct's field restarts compare the tags of
-  only the fields that can have one (new `SeriesColumns::TAGGED`, `true` by default, `false` for numbers, `bool`,
-  strings, tuples, arrays and derived structs; new `series::tag_changed`). An enum writes only the variants its tag
-  run saw, instead of walking every item once per variant to find the empty ones. A `Series` writes its columns
+  predictor in one pass instead of writing each into a `BitCounter`. Column writers are structs stepped by a loop
+  over the items, linked once per word and sink instead of once per field. A struct's field restarts compare the
+  tags of only the fields that can have one (new `SeriesColumns::TAGGED`, `true` by default, `false` for numbers,
+  `bool`, strings, tuples, arrays and derived structs; new `series::tag_changed`). An enum writes only the
+  variants its tag run saw, instead of walking every item once per variant to find the empty ones. A
+  non-evolvable struct no longer instantiates its group writer for a `BitCounter`. A `Series` writes its columns
   with the open byte in a register, whole bytes straight into the buffer. `BufWriter::write_un32` / `write_un64`
   write a byte (or the rest of one) per step instead of masking 64-bit values, and a write that doesn't fit writes
-  nothing. `Series<Timed<Ampere>>` of 32 items on a Cortex-M3: 63 359 → 11 490 instructions with
-  `fixed(delta, packed)`, 213 233 → 31 700 with `SMALLEST`.
+  nothing. `Series<Timed<Ampere>>` of 32 items on a Cortex-M3: 63 359 → 10 922 instructions with
+  `fixed(delta, packed)`, 213 233 → 31 014 with `SMALLEST`.
 - `SeriesStore` (SW-62): room for `N` items as a struct of arrays (`type Store<const N: usize>`, `empty_store`,
   `set`, `get`), what a device keeps a batch in before writing it as one `Series`. Implemented for numbers, `bool`,
   `Nibble`, `UNib32`, `UVlq32/64`, `U1..U64`, `I2..I64`, `UN`, `IN`, floats, strings and byte lists, `Option`
@@ -234,6 +242,12 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### ⚠️ Breaking
 
+- `SeriesColumns::write_group` takes the codec policy as a type parameter, `policy: &P` with
+  `P: SeriesPolicy + ?Sized`, instead of `&CodecPolicy` (SW-63): a hand-written impl adds `P` to its generics and
+  the bound to its where clause, and passes `policy` on as before (`policy.numeric()` / `policy.float()` where it
+  read the fields). Derived impls follow by themselves.
+- `Series<'i, T, P = CodecPolicy>` has the policy as a type parameter (SW-63); `Series<'i, T>` is the same type as
+  before. `Series::with_policy` and `SeriesOwned::as_borrowed_with` take any `SeriesPolicy`.
 - `#[derive_shrink_wrap(.., series)]` also implements `SeriesStore` (SW-62), which needs every field's type to have
   one: a `series` type with a field of a type that has none (a type with a `#[series(opaque)]` field, a hand-written
   `SeriesColumns` impl) fails to compile until it says `series(no_store)`.

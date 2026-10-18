@@ -59,3 +59,17 @@ path = "src/bin/batch_cpu.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "qemu-series-encode-cpu-delta-packed"
+path = "src/bin/series_encode_cpu_delta_packed.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-series-encode-baseline"
+path = "src/bin/series_encode_baseline.rs"
+test = false
+doctest = false
+bench = false

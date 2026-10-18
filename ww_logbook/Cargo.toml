@@ -1,0 +1,17 @@
+[package]
+name = "ww_logbook"
+version = "0.1.0"
+authors.workspace = true
+description = "Logbook blocks: tracks of ShrinkWrap records in self-checking, variable-length blocks, for live feeds and log files"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["std"]
+std = ["shrink_wrap/std", "ww_version/std"]
+
+[dependencies]
+crc.workspace = true
+shrink_wrap.workspace = true
+ww_version.workspace = true

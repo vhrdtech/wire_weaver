@@ -5829,6 +5829,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_logbook"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "shrink_wrap",
+ "ww_version",
+]
+
+[[package]]
 name = "ww_logic_analyzer"
 version = "0.1.0"
 dependencies = [

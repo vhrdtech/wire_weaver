@@ -18,6 +18,7 @@ members = [
     "ww_framer",
     "ww_global",
     "ww_link",
+    "ww_logbook",
     "ww_report",
     "ww_self",
     "ww_settings/*",
@@ -91,6 +92,7 @@ ww_stream = { version = "0.5.0", path = "./ww_stream", default-features = false 
 
 # framework-level base types, each crate has its own version
 ww_global = { version = "0.2.0", path = "./ww_global" }
+ww_logbook = { version = "0.1.0", path = "./ww_logbook", default-features = false }
 ww_self = { version = "0.3.0", path = "./ww_self" }
 
 # ww_stdlib, each crate has its own version

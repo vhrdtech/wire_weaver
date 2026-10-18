@@ -5192,7 +5192,8 @@ whether to send timestamps.</p>
   once it was held back or left out for <code>min</code> or longer. Held back for less, it's only late - polling often
   doesn't inflate the count. The count travels in the next update's <code>missed</code>.</li>
 <li><strong>Timestamps</strong>: <code>t</code> is the device's microsecond clock as a wrapping <code>u32</code> (<code>Second { Micro, U32 }</code>, 5 bytes on
-  the wire), wrapping every ~71.6 minutes; the host unwraps it into a <code>u64</code>. Only sent when
+  the wire), wrapping every ~71.6 minutes; the host unwraps it into a <code>U64</code> per level, by the same rule as stream
+  times (<a href="../stream_reliability/#timestamps">timestamps</a>). Only sent when
   <code>ObserveLimits::timestamps</code> is set.</li>
 <li><strong>Limits</strong>: a level inside a resource array can't be observed yet (<code>OperationNotSupported</code>, the bound of its
   indices isn't known yet, <a href="../arrays/">API-29</a>); nor can a <code>+observe</code> property that is itself an array or

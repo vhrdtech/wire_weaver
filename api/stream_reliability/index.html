@@ -5340,7 +5340,15 @@ duplicates, late, out of order.</p>
 <h2 id="timestamps">Timestamps<a class="headerlink" href="#timestamps" title="Permanent link">&para;</a></h2>
 <p><code>t</code> in the head is the device time of the event's first unit, a <code>ww_si::Second</code> in the storage the device's timer gives
 cheaply: <code>Second { Micro, U32 }</code> (5 bytes, wraps every 71.6 minutes, the host unwraps it) on most MCUs. A device uses
-one clock for every stream, so items of different streams line up. Three ways to timestamp, chosen per stream:</p>
+one clock for every stream, so items of different streams line up.</p>
+<p>The client unwraps every device time it gives out by one rule, for event heads, the items of batched streams and
+observe updates alike: a time in wrapping storage (<code>U32</code> µs, <code>U16</code> ms, ..) comes as a <code>U64</code> in the same prefix that
+counts on across wraps, taking each time as the one closest to the previous with the same low bits (<code>ww_si::Unwrapper</code>
+without an anchor). That holds while consecutive times are less than half a wrap apart (35.8 minutes for <code>U32</code> µs,
+32.7 s for <code>U16</code> ms); the device may change prefix and storage on the way. Each stream handle (each half of a split)
+and each observe level counts on its own, and the count starts over after a disconnect (the device may have rebooted)
+and at a new clock epoch in a head's <code>ext</code>. <code>U64</code> and float times come as they are.</p>
+<p>Three ways to timestamp, chosen per stream:</p>
 <table>
 <thead>
 <tr>

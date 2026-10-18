@@ -106,7 +106,7 @@ async fn run() -> Result<()> {
             cmd::tap::monitor(args, device, tap).await?
         }
         Commands::Stats(args) => match &args.file {
-            Some(path) => cmd::tap::stats_file(path)?,
+            Some(_) => cmd::tap::stats_file(&args)?,
             None => {
                 let (device, tap) = (device.take().unwrap(), tap.unwrap());
                 cmd::tap::stats(args, device, tap).await?

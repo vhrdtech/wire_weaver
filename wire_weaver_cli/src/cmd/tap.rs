@@ -7,8 +7,9 @@
 
 use crate::cmd::explain;
 use crate::value_fmt::fmt_value;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::{Args, ValueEnum, ValueHint};
+use clap_complete::{ArgValueCandidates, CompletionCandidate};
 use console::style;
 use human_repr::HumanCount;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -27,7 +28,9 @@ use wire_weaver_client::tap::{
 use wire_weaver_client::ww_self::ApiBundleOwned;
 use wire_weaver_client::ww_self::explain::PartKind;
 use wire_weaver_client::ww_tap::{LinkEventOwned, SessionOwned};
-use wire_weaver_client::ww_tape::{Block, FileBlocks, MAGIC};
+use wire_weaver_client::ww_tape::{
+    Block, FileBlocks, MAGIC, Recovery, SyncPolicy, TapeWriter, WriteError,
+};
 
 /// How deep to look.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, ValueEnum)]
@@ -102,6 +105,61 @@ pub(crate) struct StatsArgs {
     /// Statistics of a capture (`ww capture -o FILE`) instead of the device, over the whole file
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub file: Option<PathBuf>,
+
+    /// With --file: read on past damaged blocks (to the next block start) instead of stopping at the first one
+    #[arg(long, requires = "file")]
+    resync: bool,
+}
+
+/// `--sync` of `ww capture`.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Sync(SyncPolicy);
+
+impl std::str::FromStr for Sync {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, String> {
+        let bad = || format!("'{s}': none, blocks:N or an interval like 1s or 250ms");
+        if s == "none" {
+            return Ok(Sync(SyncPolicy::None));
+        }
+        if let Some(n) = s.strip_prefix("blocks:") {
+            let n: u32 = n.parse().map_err(|_| bad())?;
+            return Ok(Sync(SyncPolicy::EveryBlocks(n.max(1))));
+        }
+        let (num, scale) = if let Some(ms) = s.strip_suffix("ms") {
+            (ms, 1e-3)
+        } else if let Some(sec) = s.strip_suffix('s') {
+            (sec, 1.0)
+        } else {
+            return Err(bad());
+        };
+        let v: f64 = num.parse().map_err(|_| bad())?;
+        if !(v.is_finite() && v > 0.0) {
+            return Err(bad());
+        }
+        Ok(Sync(SyncPolicy::Interval(Duration::from_secs_f64(
+            v * scale,
+        ))))
+    }
+}
+
+fn sync_candidates() -> Vec<CompletionCandidate> {
+    [
+        (
+            "1s",
+            "at most 1 s apart (default): a crash loses at most the last second",
+        ),
+        ("100ms", "at most 100 ms apart"),
+        ("blocks:1", "after every block, the safest and slowest"),
+        (
+            "none",
+            "only at the end: a crash may lose everything not yet written by the OS",
+        ),
+    ]
+    .into_iter()
+    .map(|(v, help)| CompletionCandidate::new(v).help(Some(help.into())))
+    .collect()
 }
 
 #[derive(Args)]
@@ -113,6 +171,16 @@ pub(crate) struct CaptureArgs {
     /// What to record: frame records frames as well, link and api only messages and link events
     #[arg(long, value_enum, default_value_t = Layer::Frame)]
     layer: Layer,
+
+    /// Add to an existing capture instead of refusing to overwrite it (a new one is written as FILE.partial and
+    /// renamed when done)
+    #[arg(long)]
+    append: bool,
+
+    /// When the data is synced to the disk, bounding what a crash can lose: `none` (only at the end), `blocks:N`
+    /// (every N blocks) or an interval (`1s`, `250ms`)
+    #[arg(long, value_name = "POLICY", default_value = "1s", add = ArgValueCandidates::new(sync_candidates))]
+    sync: Sync,
 
     /// Stop after this many seconds (default: until Ctrl+C)
     #[arg(long, value_name = "S")]
@@ -211,26 +279,23 @@ pub(crate) struct FileFeed<R> {
 }
 
 impl FileFeed<BufReader<File>> {
-    pub(crate) fn open(path: &Path) -> Result<Self> {
+    /// `resync`: read on past damage instead of stopping at it ([Recovery]).
+    pub(crate) fn open(path: &Path, resync: bool) -> Result<Self> {
         let file = File::open(path).with_context(|| format!("opening {}", path.display()))?;
+        let recovery = if resync {
+            Recovery::Resync
+        } else {
+            Recovery::Prefix
+        };
         Ok(FileFeed {
-            blocks: FileBlocks::new(BufReader::new(file)),
+            blocks: FileBlocks::with_recovery(BufReader::new(file), recovery),
         })
-    }
-}
-
-impl<R: std::io::Read> FileFeed<R> {
-    #[cfg(test)]
-    pub(crate) fn new(rd: R) -> Self {
-        FileFeed {
-            blocks: FileBlocks::new(rd),
-        }
     }
 }
 
 impl<R: std::io::Read> Feed for FileFeed<R> {
     fn next(&mut self, _wait: Duration) -> Result<Next<'_>> {
-        // a damaged block is skipped (the blocks after it read on), said once each
+        // where the walk was cut (or, with --resync, what was skipped) is said on stderr
         let block = self
             .blocks
             .next_good(|e| eprintln!("{} {e}", style("capture:").yellow()));
@@ -603,11 +668,23 @@ fn consume(
     stop: &AtomicBool,
     mut on_block: impl FnMut(&Block<'_>) -> Result<()>,
 ) -> Result<()> {
+    consume_idle(feed, stop, |b| match b {
+        Some(b) => on_block(b),
+        None => Ok(()),
+    })
+}
+
+/// [consume], with `on(None)` when the feed was idle for a while.
+fn consume_idle(
+    feed: &mut dyn Feed,
+    stop: &AtomicBool,
+    mut on: impl FnMut(Option<&Block<'_>>) -> Result<()>,
+) -> Result<()> {
     loop {
         match feed.next(Duration::from_millis(100))? {
-            Next::Block(b) => on_block(&b)?,
+            Next::Block(b) => on(Some(&b))?,
             Next::Idle if stop.load(Ordering::Relaxed) => return Ok(()),
-            Next::Idle => {}
+            Next::Idle => on(None)?,
             Next::End => return Ok(()),
         }
     }
@@ -686,14 +763,15 @@ pub(crate) async fn stats(args: StatsArgs, device: DynClient, tap: LiveTap) -> R
 }
 
 /// `ww stats --file FILE`: the statistics of a whole capture.
-pub(crate) fn stats_file(path: &Path) -> Result<()> {
+pub(crate) fn stats_file(args: &StatsArgs) -> Result<()> {
+    let path = args.file.as_deref().expect("--file");
     let view = ViewArgs {
         layer: Layer::Frame,
         bytes: false,
         bits: false,
     };
     let mut monitor = Monitor::new(view, true);
-    let mut feed = FileFeed::open(path)?;
+    let mut feed = FileFeed::open(path, args.resync)?;
     let mut sink = std::io::sink();
     let stop = AtomicBool::new(true);
     consume(&mut feed, &stop, |b| monitor.block(b, &mut sink))?;
@@ -704,26 +782,35 @@ pub(crate) fn stats_file(path: &Path) -> Result<()> {
 
 pub(crate) async fn capture(args: CaptureArgs, device: DynClient, tap: LiveTap) -> Result<()> {
     tap.add_bundles(&device);
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&args.output)
-        .with_context(|| format!("opening {}", args.output.display()))?;
+    let policy = args.sync.0;
+    let writer = if args.append {
+        TapeWriter::append(&args.output, policy)
+    } else {
+        TapeWriter::create(&args.output, policy)
+    }
+    .map_err(|e| match e {
+        WriteError::Exists(p) => anyhow!(
+            "{} exists: --append to add to it, or another name",
+            p.display()
+        ),
+        e => anyhow!("{}: {e}", args.output.display()),
+    })?;
     let (mut feed, recorder) = LiveFeed::new(tap);
-    let output = args.output.clone();
-    let (blocks, bytes, lost) = run_live(device, recorder, args.duration, move |stop| {
-        // one write per block (they are large): what is captured is in the file, also when ww is killed
-        let mut out = file;
+    let (path, blocks, bytes, lost) = run_live(device, recorder, args.duration, move |stop| {
+        let mut writer = writer;
+        let shown = writer.current_path().display().to_string();
         let bar = ProgressBar::new_spinner().with_style(
             ProgressStyle::with_template("{spinner} {msg} ({elapsed})").expect("template"),
         );
         bar.enable_steady_tick(Duration::from_millis(200));
-        let (mut blocks, mut bytes, mut lost) = (0u64, 0u64, 0u64);
+        let mut lost = 0u64;
         let mut next_seq = None;
-        consume(&mut feed, &stop, |b| {
-            out.write_all(b.bytes())?;
-            blocks += 1;
-            bytes += b.bytes().len() as u64;
+        // a failed write or sync ends the capture: the file stays as it is (its valid prefix reads), never retried
+        let result = consume_idle(&mut feed, &stop, |b| {
+            let Some(b) = b else {
+                return Ok(writer.tick()?);
+            };
+            writer.write_block(b.bytes())?;
             if let Some(n) = next_seq
                 && b.seq > n
             {
@@ -731,23 +818,25 @@ pub(crate) async fn capture(args: CaptureArgs, device: DynClient, tap: LiveTap) 
             }
             next_seq = Some(b.seq + 1);
             bar.set_message(format!(
-                "capturing to {}: {} blocks, {}",
-                output.display(),
-                blocks,
-                bytes.human_count_bytes()
+                "capturing to {shown}: {} blocks, {}",
+                writer.blocks(),
+                writer.bytes().human_count_bytes()
             ));
             Ok(())
-        })?;
-        out.flush()?;
+        });
         bar.finish_and_clear();
-        Ok((blocks, bytes, lost))
+        let (blocks, bytes) = (writer.blocks(), writer.bytes());
+        let current = writer.current_path().to_path_buf();
+        result.with_context(|| format!("capture stopped, {} kept as it is", current.display()))?;
+        let path = writer.finish()?;
+        Ok((path, blocks, bytes, lost))
     })
     .await?;
     println!(
         "{} {blocks} blocks, {} to {}{}",
         style("captured").green(),
         bytes.human_count_bytes(),
-        args.output.display(),
+        path.display(),
         if lost > 0 {
             style(format!(", {lost} blocks lost (the writer fell behind)"))
                 .red()
@@ -760,8 +849,8 @@ pub(crate) async fn capture(args: CaptureArgs, device: DynClient, tap: LiveTap) 
 }
 
 /// `ww explain FILE`: a capture printed as `ww monitor` printed it live.
-pub(crate) fn explain_file(path: &Path, view: ViewArgs) -> Result<()> {
-    let mut feed = FileFeed::open(path)?;
+pub(crate) fn explain_file(path: &Path, view: ViewArgs, resync: bool) -> Result<()> {
+    let mut feed = FileFeed::open(path, resync)?;
     let mut out = std::io::stdout().lock();
     replay(&mut feed, view, true, &mut out)
 }

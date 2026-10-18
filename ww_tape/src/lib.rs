@@ -53,13 +53,20 @@ pub use varint::{ivar_len, uvar_len};
 #[cfg(feature = "std")]
 mod file;
 #[cfg(feature = "std")]
-pub use file::{BlockBuf, FileBlocks, FileError};
+pub use file::{BlockBuf, Cut, FileBlocks, FileError, Recovery};
+#[cfg(feature = "std")]
+pub mod writer;
+#[cfg(feature = "std")]
+pub use writer::{SyncPolicy, TapeWriter, WriteError};
 
 /// `WWTP`
 pub const MAGIC: [u8; 4] = *b"WWTP";
 pub const VERSION: u8 = 1;
 /// Bytes of the block header.
 pub const HEADER_LEN: usize = 32;
+/// Longest block a reader takes (64 MiB): a longer length is damage. Blocks are small (a producer hands over 64 KiB
+/// ones); the largest are describe blocks with big API bundles.
+pub const MAX_BLOCK_LEN: usize = 64 << 20;
 /// Bytes of the CRC at the end of a block.
 pub const CRC_LEN: usize = 4;
 /// Track 0: the producer's own, describe records.
@@ -181,9 +188,12 @@ pub struct BlockWriter<'b> {
 }
 
 impl<'b> BlockWriter<'b> {
-    /// Start a block in `buf`, which must hold at least the header and the CRC.
+    /// Start a block in `buf`, which must hold at least the header and the CRC; at most [MAX_BLOCK_LEN] of it is
+    /// used.
     pub fn new(buf: &'b mut [u8], kind: BlockKind, seq: u64, t_base: u64) -> Self {
         assert!(buf.len() >= HEADER_LEN + CRC_LEN);
+        let usable = buf.len().min(MAX_BLOCK_LEN);
+        let buf = &mut buf[..usable];
         buf[0..4].copy_from_slice(&MAGIC);
         buf[4] = VERSION;
         buf[5] = kind.to_u8();
@@ -209,8 +219,9 @@ impl<'b> BlockWriter<'b> {
 
     /// Go on writing a block started in `buf` (the same bytes, unchanged since [Self::into_state]).
     pub fn from_state(buf: &'b mut [u8], state: BlockState) -> Self {
+        let usable = buf.len().min(MAX_BLOCK_LEN);
         BlockWriter {
-            buf,
+            buf: &mut buf[..usable],
             pos: state.pos,
             records: state.records,
             t_prev: state.t_prev,
@@ -356,7 +367,7 @@ pub fn block_len(bytes: &[u8]) -> Result<usize, BlockError> {
         return Err(BlockError::BadMagic);
     }
     let len = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
-    if (len as usize) < HEADER_LEN + CRC_LEN {
+    if (len as usize) < HEADER_LEN + CRC_LEN || len as usize > MAX_BLOCK_LEN {
         return Err(BlockError::BadLength(len));
     }
     Ok(len as usize)

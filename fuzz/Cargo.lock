@@ -205,6 +205,7 @@ dependencies = [
  "ww_framer",
  "ww_self",
  "ww_stream",
+ "ww_tape",
 ]
 
 [[package]]
@@ -853,6 +854,15 @@ dependencies = [
  "wire_weaver",
  "ww_client_server",
  "ww_si",
+]
+
+[[package]]
+name = "ww_tape"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "shrink_wrap",
+ "ww_version",
 ]
 
 [[package]]

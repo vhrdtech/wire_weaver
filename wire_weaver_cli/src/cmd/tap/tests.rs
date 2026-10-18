@@ -154,9 +154,15 @@ async fn monitor_capture_and_explain_file_agree() {
     let mut monitors = views().map(|v| Monitor::new(v, false));
     let mut live = [vec![], vec![], vec![]];
     let mut file = vec![];
+    let dir = std::env::temp_dir().join(format!("ww_cli_tap_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("cap.wwtape");
+    let _ = std::fs::remove_file(&path);
+    let mut writer = TapeWriter::create(&path, SyncPolicy::default()).unwrap();
     let stop = AtomicBool::new(true);
     consume(&mut feed, &stop, |b| {
         file.extend_from_slice(b.bytes());
+        writer.write_block(b.bytes())?;
         for (m, out) in monitors.iter_mut().zip(&mut live) {
             m.block(b, out)?;
         }
@@ -172,12 +178,21 @@ async fn monitor_capture_and_explain_file_agree() {
     assert!(report.contains("add: 8"), "{report}");
     let live = live.map(|b| String::from_utf8(b).unwrap());
 
-    // `ww explain FILE`: the same text
+    // `ww capture` wrote the same bytes, `ww explain FILE` prints the same text
+    assert_eq!(writer.finish().unwrap(), path);
+    assert_eq!(std::fs::read(&path).unwrap(), file);
     for (view, live) in views().into_iter().zip(&live) {
         let mut replayed = vec![];
-        replay(&mut FileFeed::new(&file[..]), view, false, &mut replayed).unwrap();
+        replay(
+            &mut FileFeed::open(&path, false).unwrap(),
+            view,
+            false,
+            &mut replayed,
+        )
+        .unwrap();
         assert_eq!(&String::from_utf8(replayed).unwrap(), live);
     }
+    std::fs::remove_dir_all(&dir).unwrap();
 
     let [frames, link, api] = &live;
     assert!(frames.contains("session Host InProcessUsb"), "{frames}");
@@ -204,6 +219,19 @@ async fn monitor_capture_and_explain_file_agree() {
     );
     assert!(api.contains("bits in values"), "the --bits table: {api}");
     assert!(!api.contains("LinkSetup"), "{api}");
+}
+
+#[test]
+fn sync_policies() {
+    let p = |s: &str| s.parse::<Sync>().map(|s| s.0);
+    assert_eq!(p("none"), Ok(SyncPolicy::None));
+    assert_eq!(p("blocks:16"), Ok(SyncPolicy::EveryBlocks(16)));
+    assert_eq!(p("1s"), Ok(SyncPolicy::Interval(Duration::from_secs(1))));
+    assert_eq!(
+        p("250ms"),
+        Ok(SyncPolicy::Interval(Duration::from_millis(250)))
+    );
+    assert!(p("0s").is_err() && p("fast").is_err() && p("blocks:x").is_err());
 }
 
 /// clap's own checks of the command tree (unique argument ids, ..), which a release build skips.

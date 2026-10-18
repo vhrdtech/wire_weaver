@@ -362,9 +362,16 @@ captured 12 blocks, 48.2kB to link.wwtape
 $ ww explain link.wwtape --layer api
 ```
 
-The file is [tape blocks](transport/tap.md#capture-files) back to back, each written as it comes, so a capture is
-readable while it grows and after `ww` was killed; an existing file is appended to. It carries the API bundles of the
-device and of the tap's own records. `--layer link` or `api` leaves the frames out (smaller files).
+The file is [tape blocks](transport/tap.md#capture-files) back to back, each written as it comes. A new capture is
+written as `FILE.partial` and renamed to `FILE` when it ends; an existing `FILE` is refused unless `--append` adds to
+it. `--sync` says when the data is synced to the disk, which bounds what a crash or a power cut can lose: an interval
+(`1s`, the default, or `250ms`), `blocks:N` (every N blocks) or `none` (only at the end). A failed write or sync ends
+the capture with the file as it is, never retried. The file carries the API bundles of the device and of the tap's own
+records. `--layer link` or `api` leaves the frames out (smaller files).
+
+A capture is read up to its first damaged block (a crash's cut last block, a flipped byte, a block out of order), and
+where it was cut is said; zeros at the end (preallocated space) are the end. `--resync` on `ww explain FILE` and
+`ww stats --file` reads on past damage to the next block instead. A `FILE.partial` left by a crash reads the same way.
 
 ## `ww usb-loopback`
 

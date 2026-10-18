@@ -1133,8 +1133,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-42 `ww_tape`** · `v0.5` — tape blocks, the generic unit of track records for live feeds and log files
   (`ww_tape`, `docs/transport/tap.md#tape-blocks`): a 32 B header, varint records (track, time delta, length,
   item), CRC-32C, never padded; describe blocks with the producer, `TrackDef`s (stable key, API, resource path,
-  sticky) and API bundles; `FileBlocks` reads appended blocks and skips damage to the next magic. Nothing in it
-  knows a producer: the link tap (TR-14) writes it, logring's PC profile is to take it over (eventfull CORE-19).
+  sticky) and API bundles; `TapeWriter` writes them with database-style durability (`.partial` then rename, file and directory synced, a `SyncPolicy`, a failed write or sync fatal, never retried), `FileBlocks` reads the longest valid prefix (or skips damage, `Recovery::Resync`); tests cut and flip every byte, fuzz target `tape-reader`. Blocks of a later version or an unknown kind are skipped by length, `Describe` is evolvable. Open: splitting into several files by size or time, preallocation (zeros at the end already read as the end). Nothing in it
+  knows a producer: the link tap (TR-14) writes it; it is also eventfull's own file format (CORE-19).
 - 🧪 **STD-32 `ww_settings` settings store** · `v0.5` — a device's settings in its own NOR flash: `#[derive(Settings)]`
   on a plain struct (`#[setting(slot = N, default = ..)]`, `#[settings(retired(..))]`), stored as a record of the
   fields not at their default, each a byte blob in an `OptionAnyVec`, so firmware versions skip and keep each other's

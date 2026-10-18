@@ -64,6 +64,10 @@ pub(crate) struct ExplainArgs {
     /// How a capture file is shown
     #[command(flatten)]
     view: ViewArgs,
+
+    /// A capture file: read on past damaged blocks (to the next block start) instead of stopping at the first one
+    #[arg(long)]
+    resync: bool,
 }
 
 impl ExplainArgs {
@@ -83,7 +87,11 @@ impl ExplainArgs {
 
 pub(crate) fn explain_cmd(args: ExplainArgs, device: Option<&DynClient>) -> Result<()> {
     if args.is_capture() {
-        return crate::cmd::tap::explain_file(std::path::Path::new(&args.what), args.view);
+        return crate::cmd::tap::explain_file(
+            std::path::Path::new(&args.what),
+            args.view,
+            args.resync,
+        );
     }
     let mut bundle = load_bundle(&args, device)?;
     wire_weaver_client::ww_self::generics::prepare(&mut bundle)?;

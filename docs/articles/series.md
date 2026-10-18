@@ -721,4 +721,5 @@ pure cost, so a level is separate series per column.
   about 8 B per batch, but only on reliable streams and with resync rules after a gap; not worth it at 32 items.
 
 The feature tracker has the state of all of this: [SW-60](../features.md), SW-62, SW-63, SW-64 for the type, the
-store, the fast encoder and the column-wise writer, API-41, API-39 and API-49 for batched streams, batched observe and the shared clock.
+store, the fast encoder and the column-wise writer, API-41, API-39, API-49 and API-50 for batched streams, batched observe, the shared clock and
+observe cells.

@@ -208,7 +208,7 @@ Three ways to timestamp, chosen per stream:
 |---|---|---|---|
 | Per anchor | `t` in every N-th event (e.g. every 50 ms); the host interpolates by position and the configured rate | ~5 B per anchor | fixed-rate streams: ADC, logic analyzer |
 | Per event | `t` in every event | 5 B per event | UART chunks (a chunk ends when the line goes idle, so `t` is its first byte), sensor readings |
-| Per item | `t` per event, and each item's offset from it inside the item, in the head's unit, as a `DeltaOfDelta` | about 1.2 B per item for jittered ~100 µs gaps, 1.9 B for random 20-2020 µs gaps, 0.23 B for a regular rate | monitors: I2C transactions, GPIO edges |
+| Per item | `t` per event, and each item's offset from it inside the item, in the head's unit, as a `Series` column (delta of delta) | about 1.2 B per item for jittered ~100 µs gaps, 1.9 B for random 20-2020 µs gaps, 0.23 B for a regular rate | monitors: I2C transactions, GPIO edges |
 
 Two examples:
 

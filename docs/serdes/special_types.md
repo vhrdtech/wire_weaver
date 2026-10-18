@@ -83,58 +83,44 @@ assert_eq!(bytes, "abc".to_ww_bytes(&mut [0u8; 16]).unwrap());
 
 They are Rust-side types: an API (`#[ww_trait]`) describes such a field as a string or a list.
 
-## `Delta`, `DeltaOfDelta` and `XorFloat`: compressed sequences
+## Compressed sequences of numbers: `Series<T>`
 
 A list of readings taken one after another is mostly redundancy: the next value is usually the previous one or
-close to it. These sequence types write each element bit by bit against the one before:
-
-| Type                  | Elements                | Good for                                                  |
-|-----------------------|-------------------------|-----------------------------------------------------------|
-| `Delta<'i, T>`        | `u8`..`u64`, `i8`..`i64` | counters, fixed-point readings, slowly changing values    |
-| `DeltaOfDelta<'i, T>` | `u8`..`u64`, `i8`..`i64` | timestamps with a near-constant step                      |
-| `XorFloat<'i, T>`     | `f32`, `f64`            | floats that repeat or change little                        |
-
-They are used exactly like `RefVec<'i, T>`: a field holding a slice to serialize, a bounded reader after
-deserializing, decoded as you `.iter()`. The owned counterparts `DeltaOwned<T>`, `DeltaOfDeltaOwned<T>` and
-`XorFloatOwned<T>` wrap a `Vec<T>` (`std`), and the derive macro maps one to the other like it does `RefVec` and
-`Vec` (see [type mapping](derive.md#type-mapping)).
+close to it. `Series<'i, T>` (`SeriesOwned<T>` with `std`) writes such a list bit by bit against the value before,
+picking per list the code that comes out smallest: for integers the difference to the previous value or the change
+of that difference (timestamps with a near-constant step) in a prefix code, bit-packed blocks, a constant or the
+plain values; for `f32` / `f64` the XOR with the previous value (the Gorilla code) or the plain values. It is used
+like `RefVec<'i, T>`: a field holding a slice to serialize (`Series::new(&values)`), decoded as you `.iter()` after
+deserializing.
 
 ```rust
 #[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq))]
 struct Block<'i> {
     ts: u32,
     size: TailSize<2>,
-    stamps: DeltaOfDelta<'i, u64>, // timestamps with a near-constant step
-    counts: Delta<'i, i16>,        // a counter, fixed-point readings
-    temps: XorFloat<'i, f32>,      // floats
+    stamps: Series<'i, u64>, // timestamps with a near-constant step
+    counts: Series<'i, i16>, // a counter, fixed-point readings
+    temps: Series<'i, f32>,  // floats
 }
 ```
 
-They work in derived types and in every API position (arguments, returns, properties, stream items); the dynamic
-client and Python see them as lists of numbers.
+It works in derived types and in every API position (arguments, returns, properties, stream items); the dynamic
+client and Python read and write it as a list. `Series<T>` also takes structs and enums, a column per field: see
+[Series](series.md) for all of it, the codecs and a fixed codec for a small MCU (`Series::with_policy`).
 
-**What to expect.** On an hour of 1 s telemetry from `tpm_mesh_dash` (34 series, mostly CPU percentages and byte
-counters):
+**What to expect.** `cargo run --example time_series` (in `shrink_wrap/shrink_wrap`) prints the encoded sizes of a
+minute of 1 Hz synthetic data against the raw `Vec<T>`: timestamps with jitter 38 B instead of 481 B, a counter
+31 B instead of 241 B, a sine wave in `f32` 70 B instead of 241 B, a constant 13 B. Floats with full-precision noise
+(a CPU percentage computed from counters) XOR badly: every value changes most mantissa bits; the same values as
+fixed-point integers compress well. A `Series` has a count, a 4-bit header per column and pads to a byte, so a list
+of a handful of values gains little.
 
-- `XorFloat<f32>` in blocks of 60 took 64% of the raw `f32`s (39% of the values repeat exactly, those cost one bit);
-- the same values as tenths of a percent and whole bytes in `Delta<i32>` / `Delta<i64>` took 32%.
+**Malformed input.** The decoder never panics: every read is bounds-checked, the item count is capped
+(`SERIES_MAX_ITEMS`) and the columns are validated in one pass before an item is decoded; inside a struct, the
+enclosing length slot or `TailSize` bounds the value and a truncation is caught there.
 
-Floats with full-precision noise (a CPU percentage computed from counters) XOR badly: every value changes most
-mantissa bits. Integers, fixed-point values, slowly changing or often repeated readings and timestamps compress
-well. Pick the integer type by the data, not by the deltas: the first element and the widest bucket use its width,
-the small buckets are the same for every type.
-
-`cargo run --example time_series` (in `shrink_wrap/shrink_wrap`) prints the encoded sizes of synthetic timestamps,
-a counter, a sine wave and a constant, raw vs `Delta` / `DeltaOfDelta` / `XorFloat`.
-
-**Malformed input.** The decoders never panic: every read is bounds-checked, a count larger than the bits left is
-rejected before anything is allocated (`Error::MalformedSeries`), and the owned decoders push element by element
-instead of trusting the count. The elements carry no length of their own, so a truncated _top-level_ buffer may
-still decode (to other values) when the garbage happens to form valid codes. Inside a struct, the enclosing length
-slot or `TailSize` bounds the value and a truncation is caught there.
-
-The codes: [wire format internals](wire_format.md#delta-deltaofdelta-and-xorfloat); the bytes:
-[showcase](showcase.md#compressed-sequences-delta-deltaofdelta-and-xorfloat).
+The codes: [wire format internals](wire_format.md#the-delta-and-xor-codes); the bytes:
+[showcase](showcase.md#compressed-sequences-of-numbers-series).
 
 ## `RefVecBuilder`: lists written in place
 

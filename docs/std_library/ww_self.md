@@ -44,7 +44,7 @@ ww_self = "0.2"
 * `Type<'i>` - every shape a value on the wire can have: `Bool`, `NumericAny` (any `ww_numeric` number type),
   `String`, `Vec`, `Array { len, ty }`, `Tuple`, `Struct(ItemStruct)`, `Enum(ItemEnum)`, `Option { some_ty }`,
   `Result { ok_ty, err_ty }`, `Box` (self-referential types), `Range`/`RangeInclusive`, `MaxLen { max_len, ty }`,
-  `Delta`/`DeltaOfDelta`/`XorFloat` (the compressed number sequences of `shrink_wrap`, SW-31/SW-32), `OutOfLine {
+  `Series` (a list written column by column, SW-60), `OutOfLine {
   type_idx }` (a reference into `ApiBundle::types`, how recursive and shared types stay out of the inline tree),
   and `Flag` (a relocated `Option`/`Result` presence bit, [`#[flag]`](../serdes/showcase.md#relocating-presence-flags-with-flag) -
   marks a named field, never appears in a value).

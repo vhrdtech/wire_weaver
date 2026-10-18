@@ -108,10 +108,9 @@ A `TailSize<N>` field (see [wire format](../serdes/special_types.md#tailsizen-th
 of the layout like a `Sized` field: adding, removing or moving it, or changing `N`, breaks compatibility; fields
 after it evolve as usual, and old readers skip what newer writers append.
 
-A `Delta<T>`, `DeltaOfDelta<T>` or `XorFloat<T>` field (see
-[wire format](../serdes/special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences)) is like a `Vec<T>`
-field: it can be appended with `#[default = Default::default()]` (old data reads as an empty sequence), but
-swapping it for a `Vec<T>` or another of the three, or changing `T`, changes the bits and breaks compatibility.
+A [`Series<T>`](../serdes/series.md) field is like a `Vec<T>` field: it can be appended with
+`#[default = Default::default()]` (old data reads as an empty series), but swapping it for a `Vec<T>`, or changing
+`T` other than as `T`'s own rules allow, changes the bits and breaks compatibility.
 
 ### Maximum lengths: `MaxLen<T, N>`
 
@@ -130,11 +129,12 @@ is compatible depends on what the old version writes:
 At connect time the client does not refuse a device whose bounds differ from its own: a longer value is rejected when
 it is sent, by whichever side has the smaller bound.
 
-### Compressed sequences: `Delta`, `DeltaOfDelta`, `XorFloat`
+### Compressed sequences: `Series<T>`
 
-Each has bytes of its own, so `Vec<T>` -> `Delta<T>`, `Delta<T>` -> `DeltaOfDelta<T>` or `Delta<u32>` ->
-`Delta<u64>` is breaking (`ww api check` reports it), unlike the borrowed / owned form (`Delta<'i, T>` /
-`DeltaOwned<T>`), which is the same type.
+A `Series` has bytes of its own, so `Vec<T>` -> `Series<T>` or `Series<u32>` -> `Series<u64>` is breaking (`ww api
+check` reports it), unlike the borrowed / owned form (`Series<'i, T>` / `SeriesOwned<T>`), which is the same type.
+The codecs of its columns are not part of the type: each writer picks its own (`CodecPolicy`), every reader reads
+them all. A struct or enum `T` evolves inside a `Series` as it does on its own (see [Series](../serdes/series.md)).
 
 ### Sparse structs
 

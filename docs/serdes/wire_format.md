@@ -266,17 +266,14 @@ hand with `BufWriter::reserve_tail_size()` and `backfill_tail_size()`:
 On read: read the slot, `split()` the reader to that many bytes, read the rest from the split. The
 [showcase](showcase.md#bounding-a-value-from-the-inside-with-tailsize) has the bytes.
 
-### `Delta`, `DeltaOfDelta` and `XorFloat`
+### The delta and XOR codes
 
-Around the elements the layout is that of `Vec<T>`: `UnsizedFinalStructure`, the element count as a reverse length
-at the back of the enclosing value, nothing else. Inside:
+Two bit-level codes that [Series](#seriest) columns use (they were the standalone types `Delta`, `DeltaOfDelta` and
+`XorFloat` before `Series`, SW-31 and SW-32). Both go through the bit cursor, most significant bit first, with no
+alignment in between.
 
-- The first element is written at the full width of `T` through the bit cursor (most significant bit first, so a
-  `u32` first element reads as big-endian in a hex dump, unlike a `u32` field). Every further element is a prefix
-  code against the previous one. There is no alignment in between or after: a `bool` written next shares the byte,
-  a `u8` aligns itself as always.
-- **`Delta<T>`**: the difference to the previous element, wrapped at the width `W` of `T` (so `u8` 0 after 255 is
-  `+1`), zigzag-encoded to `z` and written as:
+- **The delta code** (SW-31), the prefix coder of a numeric column: a residual `z` (the zigzag of a difference,
+  wrapped at the width `W` of the column, so `u8` 0 after 255 is `+1`) is written as:
 
     | Prefix   | Then    | For            |
     |----------|---------|----------------|
@@ -289,11 +286,12 @@ at the back of the enclosing value, nothing else. Inside:
 
     Buckets at or above `W` are left out, and the last bucket is `W` bits after a `1` for every bucket and no `0`:
     `11` + 8 bits for `u8`/`i8`, `1111` + 16 bits for 16-bit types, `11111` + 32 bits for 32-bit, `111111` + 64
-    bits for 64-bit types. A repeated value costs 1 bit, a step within `-64..=63` costs 9.
+    bits for 64-bit types. A repeated value costs 1 bit, a step within `-64..=63` costs 9. With the delta of delta
+    predictor the residual is the change of the difference: a value that grows by the same step as the one before
+    costs 1 bit (the Gorilla timestamp code).
 
-- **`DeltaOfDelta<T>`**: the same code applied to the change of the difference (the previous difference starts at
-  0). This is the Gorilla timestamp code: a value that grows by the same step as the one before costs 1 bit.
-- **`XorFloat<T>`**: the XOR of the bit patterns of the value and the previous one.
+- **The XOR code** (SW-32), the XOR codec of a float column: the XOR of the bit patterns of the value and the
+  previous one.
     - `0` when it is zero (a repeated value);
     - `10` and the bits inside the window of the previous explicitly coded XOR (its leading and trailing zero
       counts) when the new XOR fits in it;
@@ -302,7 +300,7 @@ at the back of the enclosing value, nothing else. Inside:
 
     Pure bit operations: NaN payloads, `-0.0` and infinities round-trip exactly.
 
-The [showcase](showcase.md#compressed-sequences-delta-deltaofdelta-and-xorfloat) has the bytes.
+The [showcase](showcase.md#compressed-sequences-of-numbers-series) has the bytes.
 
 ### `OptionAnyVec`
 
@@ -386,12 +384,12 @@ values:     m values of width W
 The values split into segments at restarts (below). With predictor delta or delta of delta, a segment's first value
 is written at the full width `W`; every other value is a **residual**: the zigzag of the difference to the
 previous value (delta) or of the change of that difference (delta of delta, the running difference starting at 0
-at each segment start), wrapped at `W` exactly as [`Delta`](#delta-deltaofdelta-and-xorfloat) does. With predictor
+at each segment start), wrapped at `W`. With predictor
 raw there are no segment starts; every value is a residual (its zigzag for signed types, itself for unsigned ones).
 
 Coders, for the residuals:
 
-- **prefix** - each residual in the [`Delta`](#delta-deltaofdelta-and-xorfloat) code at width `W`.
+- **prefix** - each residual in the [delta code](#the-delta-and-xor-codes) at width `W`.
 - **packed** - the residuals of a segment in blocks of 8 (the last block of a segment shorter, its length known
   from `m` and the restarts): `width` in `bits(W)` bits (4 bits for `W = 8`, 5 for 16, 6 for 32, 7 for 64 - enough
   for `0..=W`), then each residual of the block at exactly `width` bits. A block of all zeros costs only its width
@@ -409,10 +407,10 @@ extended column mode (an escape, so existing codes keep their meaning and cost);
 **Float column:**
 
 ```text
-codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the XorFloat code), others reserved
+codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the XOR code), others reserved
 ```
 
-XOR: the first value of a segment at full width, then the [`XorFloat`](#delta-deltaofdelta-and-xorfloat) code
+XOR: the first value of a segment at full width, then the [XOR code](#the-delta-and-xor-codes)
 against the previous value; a segment start also resets the leading/trailing zero window.
 
 **Run** (discrete leaves - enum tags, `bool`, `Option` presence, opaque bytes):

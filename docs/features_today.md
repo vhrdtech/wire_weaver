@@ -44,8 +44,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[Owned values without an allocator](serdes/special_types.md#arraystring-arrayvec-owned-values-without-an-allocator)**: `ArrayString<N>` and `ArrayVec<T, N>` on fixed arrays, same bytes as `String` and `Vec`.
 - **[Bit-sized fields and payloads](serdes/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address)**: `U7`, `U10`, `I2` and friends in structs, enum variants and method arguments, e.g. a 7- or 10-bit I2C address in 8 or 11 bits.
 - **[64-bit variable-length numbers](types.md)**: `UVlq64`, 1 to 10 bytes.
-- **[Compressed number sequences](serdes/special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences)**: `Delta` and `DeltaOfDelta` for timestamps and counters, `XorFloat` for slowly changing floats, anywhere in an API.
-- **[Columnar series](serdes/series.md)**: `Series<T>`: a list of any struct written field by field, with deltas and bit packing per field, several times smaller than a `Vec<T>` of samples.
+- **[Columnar series](serdes/series.md)**: `Series<T>`: a list of numbers, timestamps, floats or any struct written field by field, with deltas and bit packing per field, several times smaller than a `Vec<T>` of samples.
 - **[Sparse structs](serdes/layouts.md#sparse-a-struct-of-optional-fields)**: A struct of optional fields stored as an `OptionAnyVec`, for "only what changed" updates.
 - **[Checks on read](serdes/derive_reference.md#validate-path)**: `validate = path` rejects out-of-range values as they are read.
 - **[`Display` from doc comments](serdes/derive_reference.md#display)**: Error enums print their doc lines, no hand-written `Display`.
@@ -168,7 +167,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - **[Cached API descriptions](std_library/ww_self.md)**: A device's description is downloaded once, then found by its hash.
 - **[Multi requests](api/multi_requests.md)**: Read many properties or call a method on many array elements in one request.
 - **[Observing properties](api/observing.md#the-host-side)**: Typed subscriptions and a cache of the latest values, shared by everyone watching.
-- **[`Series` without generated code](serdes/series.md#introspection-and-dynamic-clients)**: `ww`, Python and any dynamic client read a `Series<T>` from introspection alone, Python as numpy columns.
+- **[`Series` without generated code](serdes/series.md#introspection-and-dynamic-clients)**: `ww`, Python and any dynamic client read and write a `Series<T>` from introspection alone, Python reads it as numpy columns.
 - **[Quantities without generated code](std_library/ww_si.md#in-ww-python-and-dynamic-clients)**: `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`.
 - **[Link setup timeout](cli.md)**: Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time.
 - **[Calls that work on any device](std_library/device_contract.md)**: Shared traits called whatever a device's own API version. <span class="ww-status">in progress</span>

@@ -41,8 +41,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-57 | Owned values without an allocator | `ArrayString<N>` and `ArrayVec<T, N>` on fixed arrays, same bytes as `String` and `Vec`. | serdes/special_types.md#arraystring-arrayvec-owned-values-without-an-allocator
 - SW-48 | Bit-sized fields and payloads | `U7`, `U10`, `I2` and friends in structs, enum variants and method arguments, e.g. a 7- or 10-bit I2C address in 8 or 11 bits. | serdes/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address
 - SW-33 | 64-bit variable-length numbers | `UVlq64`, 1 to 10 bytes. | types.md
-- SW-31, SW-32, SW-50 | Compressed number sequences | `Delta` and `DeltaOfDelta` for timestamps and counters, `XorFloat` for slowly changing floats, anywhere in an API. | serdes/special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences
-- SW-60 | Columnar series | `Series<T>`: a list of any struct written field by field, with deltas and bit packing per field, several times smaller than a `Vec<T>` of samples. | serdes/series.md
+- SW-60 | Columnar series | `Series<T>`: a list of numbers, timestamps, floats or any struct written field by field, with deltas and bit packing per field, several times smaller than a `Vec<T>` of samples. | serdes/series.md
 - DER-13 | Sparse structs | A struct of optional fields stored as an `OptionAnyVec`, for "only what changed" updates. | serdes/layouts.md#sparse-a-struct-of-optional-fields
 - SW-58 | Checks on read | `validate = path` rejects out-of-range values as they are read. | serdes/derive_reference.md#validate-path
 - DER-12 | `Display` from doc comments | Error enums print their doc lines, no hand-written `Display`. | serdes/derive_reference.md#display
@@ -159,7 +158,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-7 | Cached API descriptions | A device's description is downloaded once, then found by its hash. | std_library/ww_self.md
 - CLT-15 | Multi requests | Read many properties or call a method on many array elements in one request. | api/multi_requests.md
 - CLT-28 | Observing properties | Typed subscriptions and a cache of the latest values, shared by everyone watching. | api/observing.md#the-host-side
-- CLT-29 | `Series` without generated code | `ww`, Python and any dynamic client read a `Series<T>` from introspection alone, Python as numpy columns. | serdes/series.md#introspection-and-dynamic-clients
+- CLT-29 | `Series` without generated code | `ww`, Python and any dynamic client read and write a `Series<T>` from introspection alone, Python reads it as numpy columns. | serdes/series.md#introspection-and-dynamic-clients
 - CLT-31 | Quantities without generated code | `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`. | std_library/ww_si.md#in-ww-python-and-dynamic-clients
 - CLT-30 | Link setup timeout | Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time. | cli.md
 - CLT-10 | Calls that work on any device | Shared traits called whatever a device's own API version. | std_library/device_contract.md

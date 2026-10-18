@@ -105,5 +105,5 @@ checks it against the Rust one in `just test`: golden vectors for every primitiv
 writes and reads, in both directions, on truncated and corrupted input too (`tests/cross.rs`). `just lint` builds
 the C on its own with `-std=c99 -Wall -Wextra -Werror -pedantic`.
 
-Not ported: `TailSize`, the series types (`Delta`, `DeltaOfDelta`, `XorFloat`), `fill_*`, and the code size
+Not ported: `TailSize`, `Series`, `fill_*`, and the code size
 tricks of the Rust writer (`finish_no_lens`, `_latch` writes).

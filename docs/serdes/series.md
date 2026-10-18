@@ -9,7 +9,7 @@ field, each compressed on its own. For samples that change slowly (sensor readin
 3 to 8 times smaller than a plain `Vec<T>`, without giving up evolution, zero-copy reading, or `no_std`/no-alloc.
 
 A `Series` is a type you reach for explicitly today, in a property, method argument/return or stream item, the same
-way you'd use `Vec<T>` or [`Delta<T>`](special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences).
+way you'd use `Vec<T>`; a `Series` of plain numbers is the [compressed number sequence](special_types.md#compressed-sequences-of-numbers-seriest).
 A stream or property can also opt into batching many samples into one `Series` automatically instead of sending one
 item at a time (API-41, see [Batching](../api/batching.md)); nothing below needs that.
 
@@ -44,8 +44,7 @@ picks the cheapest representation per column:
   smallest. A column restarts (a full value, fresh codec state) where an **enum field declared earlier in the same
   struct changed** — so a current reading that jumps from the µA range to the mA range gets a full value instead of
   a meaningless delta across the jump.
-- **Floats** get the same treatment as [`XorFloat`](special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences)
-  (plain or XOR), but integers with a predictor compress markedly better than floats — see
+- **Floats** are a **float column**, plain or the [XOR code](wire_format.md#the-delta-and-xor-codes) (Gorilla), but integers with a predictor compress markedly better than floats — see
   [below](#integer-storage-beats-floats).
 
 A `Series` is self-contained: every batch carries its own first values and codec headers, so a lost batch never
@@ -87,7 +86,7 @@ running code.
 
 ## Integer storage beats floats
 
-A steady `f32` voltage (100 values) is 136 B as `XorFloat`; the same signal stored as `U16` millivolts with a
+A steady `f32` voltage (100 values) is about 136 B with the XOR code; the same signal stored as `U16` millivolts with a
 `ww_si` prefix is 45 B. Noisy: 277 B vs 82 B. The prefix sets the resolution, and noise below that resolution costs
 nothing — so a device sending `ww_si` quantities (which carry a prefix and an integer storage tag by construction)
 gets this for free, while a bare `f32` pays for every bit of mantissa the ADC's noise floor touches.

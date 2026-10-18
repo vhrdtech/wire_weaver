@@ -124,7 +124,7 @@ fn round_trip() {
 | `RefBox<'i, T>`            | `Box<T>`            |
 | `MaxLen<RefVec<'i, T>, N>` | `MaxLen<Vec<T>, N>` |
 | `MaxLen<&'i str, N>`       | `MaxLen<String, N>` |
-| `Delta<'i, T>` (and `DeltaOfDelta`, `XorFloat`) | `DeltaOwned<T>` (...) |
+| `Series<'i, T>`            | `SeriesOwned<T>`    |
 | `UserType<'i>`             | `UserTypeOwned`     |
 | `UserType<'i, T>`          | `UserTypeOwned<T>`  |
 

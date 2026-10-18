@@ -314,7 +314,7 @@ For particular jobs, on their own page:
 |-----------------------------------------------|--------------------------------------------------------------------------|
 | [`TailSize<N>`](serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value) | a value that bounds itself inside a longer buffer (file headers, records) |
 | [`ArrayString<N>`, `ArrayVec<T, N>`](serdes/special_types.md#arraystring-arrayvec-owned-values-without-an-allocator) | owned strings and lists without an allocator              |
-| [`Delta`, `DeltaOfDelta`, `XorFloat`](serdes/special_types.md#delta-deltaofdelta-and-xorfloat-compressed-sequences) | compressed time series of integers, timestamps and floats |
+| [`Series<T>` of numbers](serdes/special_types.md#compressed-sequences-of-numbers-seriest) | compressed time series of integers, timestamps and floats |
 | [`OptionAnyVec`, `EitherAnyVec`](serdes/special_types.md#optionanyvec-sparse-slots-of-any-types) | sparse sets of values of any types; a `sparse` struct is built on it |
 | `TailBytes`                                   | bytes that take up the rest of the buffer, no length; generated API code uses it for byte slices |
 

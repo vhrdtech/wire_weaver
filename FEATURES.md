@@ -101,16 +101,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **SW-13 Binary format documented** in `docs/serdes/wire_format.md`, worked tricks in `docs/serdes/showcase.md`.
 - ✅ **SW-14 Usable standalone** as a dense data storage format (`examples/minimal_shrink_wrap`,
   `examples/compare_wire_formats`).
-- ✅ **SW-31 `Delta` / `DeltaOfDelta`**: integer sequences as (differences of) differences in a bit-level prefix code,
-  zero-copy `Delta<'i, T>` and `DeltaOwned<T>`, `u8`..`u64` / `i8`..`i64`; the Gorilla timestamp code
-  (`docs/serdes/special_types.md`, `shrink_wrap/src/series/`, `shrink_wrap/tests/series.rs`).
-- ✅ **SW-32 `XorFloat`**: `f32` / `f64` sequences as XOR with the previous value (Gorilla), bit-exact,
-  `XorFloat<'i, T>` / `XorFloatOwned<T>` (same places as SW-31).
-- ✅ **SW-50 Compressed sequences in APIs**: `Delta`, `DeltaOfDelta` and `XorFloat` (borrowed or owned) in every API
-  position (arguments, returns, properties, stream and sink items, fields of API types), visible in introspection
-  (`ww_self::Type::Delta` / `DeltaOfDelta` / `XorFloat`, appended), read and written by the dynamic client and Python
-  (lists of numbers); another codec or element type, or a plain `Vec` instead, is breaking (`ww api check`).
-  `tests/series`, `docs/types.md`, `docs/evolution/rules.md`.
 - ✅ **SW-34 Smaller code on small CPUs**: `BufReader` / `BufWriter` reads and writes that keep an error instead of
   returning it (`read_u8_latch`, `write_u32_latch`, .., `latched()`), used by `#[derive_shrink_wrap]` for plain
   fields with one check per type; `Error` without payloads; one shared integer read and write; no division in
@@ -288,8 +278,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`docs/types.md`, "Subtypes").
 - 📋 **SW-21 Multi-dimensional arrays** (2D, 3D).
 - 🚧 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` has one `shrink_wrap` target, `shrink-wrap-tail-size` (`TailSize` types
-  round-tripped, random bytes into their readers); `shrink-wrap-series` (SW-31, SW-32) and `shrink-wrap-ref-vec`
-  (SW-37) came with their features, `shrink-wrap-option-any-vec` with SW-55 and DER-13 (sparse structs), `shrink-wrap-series-columns` and `shrink-wrap-series-type` with SW-60, `shrink-wrap-nesting` with the nesting depth limit (recursive types at random limits). Round-trip every built-in type and the derive's features.
+  round-tripped, random bytes into their readers); `shrink-wrap-ref-vec`
+  (SW-37) came with its feature, `shrink-wrap-option-any-vec` with SW-55 and DER-13 (sparse structs), `shrink-wrap-series-columns` and `shrink-wrap-series-type` with SW-60, `shrink-wrap-nesting` with the nesting depth limit (recursive types at random limits). Round-trip every built-in type and the derive's features.
 - 🔍 **SW-23 Tuple enum variants evolution** — check that tuple variants evolve as `docs/evolution/rules.md` says
   (fields can be appended) and add a test.
 - 💡 **SW-24 ZigZag encoding for signed variable length numbers** — consider ZigZag (as in protobuf) so that small
@@ -299,8 +289,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   into the buffer. It might not work out.
 - 💡 **SW-26 Map support** — `HashMap`/`BTreeMap`, probably as a `Vec` of `(K, V)`.
 - 💡 **SW-27 In-place editing** of serialized data.
-- 💡 **SW-28 Compression wrappers** — the time-series part is done as SW-31 (`Delta`, `DeltaOfDelta`)
-  and SW-32 (`XorFloat`); in-place dictionary compression as `Compression<T>` (strings?) stays an idea.
+- 💡 **SW-28 Compression wrappers** — the time-series part is done as `Series<T>` (SW-60, with the SW-31 delta and
+  SW-32 XOR codes); in-place dictionary compression as `Compression<T>` (strings?) stays an idea.
 - 💡 **SW-29 Flatten support** — apply a type's layout across struct/enum boundaries.
 - 💡 **SW-30 `derive_shrink_wrap` on a whole module at once**. For definitions in separate files with own syntax, see
   [standalone definition files](#api-model-and-codegen-api).
@@ -1072,8 +1062,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `CallError`), `Unsized` enums read newer variants as `Unknown(u32)` (SW-47). Review round 1 (15 Oct 2026) done.
   Open: `*_hl` crates are STD-14.
 - 🚧 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
-  `Raw` and per-channel `Transitions` encodings (SW-31 `DeltaOfDelta`), staged pattern triggers and protocol
-  stages (UART byte, I2C address, SPI first byte). Skeleton written, transitions as `DeltaOfDelta` (SW-50), docs
+  `Raw` and per-channel `Transitions` encodings (edges as a `Series<u32>`), staged pattern triggers and protocol
+  stages (UART byte, I2C address, SPI first byte). Skeleton written, docs
   page `docs/std_library/ww_logic_analyzer.md`; mock-server test pair still open (STD-13).
 - 🚧 **STD-22 `ww_signal_generator`** · `v0.5.x` — `PatternGenerator` (digital, replays analyzer captures through
   a credit sink), `WaveformGenerator` (DAC channels). Skeleton written, docs page
@@ -1235,6 +1225,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
 ## Dropped and superseded
 
+- **SW-31 `Delta` / `DeltaOfDelta`**, **SW-32 `XorFloat`**, **SW-50 compressed sequences in APIs** — superseded by
+  `Series<T>` (SW-60): its numeric columns use the SW-31 prefix code with the delta or delta of delta predictor, its
+  float columns the SW-32 XOR code, plus packed, constant and plain and the smallest picked per column, in every API
+  position and in dynamic clients and Python (CLT-29); the types were removed (18 Oct 2026).
 - **API-15 Return streams from functions** — superseded by API-31 stream functions: `#[stream(T)] fn name(args)`
   opens a stream with typed arguments and result.
 - **Document things** (old notes) — superseded by `docs/serdes/shrink_wrap.md` and `docs/evolution/rules.md`;

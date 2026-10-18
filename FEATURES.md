@@ -60,6 +60,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   appended); a malformed header is an error. Writer takes the present set up front (`SetBits` over a bitset, any
   increasing iterator), `OptionAnyVecWriter` / in-place `OptionAnyVecBuilder`. For a trait level's properties in one
   update (API-38). See `docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types`, `docs/serdes/showcase.md`.
+- ✅ **SW-68 Word-wide bit writer and reader**, the same bytes: `BitWriter` with a 32-bit accumulator flushed a word
+  at a time, `BitSink::put_block` for packed blocks, `write_un*` / `write_bool` / `UNib32` and the reader's
+  `read_un*` / `UNib32` through one 4-byte window and one bounds check per call. The FOC observe poll on an STM32H725
+  75.5 k cycles instead of 99.9 k at `opt-level = 3` (121.5 k against 172.2 k at `"z"`), a FOC level batch from the
+  store 36.8 k instead of 58.9 k; reads of UN numbers and `UNib32` take 0.4-0.6x the instructions on a Cortex-M4F;
+  about 1.5 KB more flash at `"z"`. See `docs/articles/series.md#the-bit-writer-and-reader-a-word-at-a-time`,
+  `examples_mcu/mcu_qemu/src/bit_io.rs` (`qemu-bit-io`, `qemu-m4f-bit-io`, `stm32h725ig-bit-io-cycles`).
 - ✅ **SW-64 `Series` written straight from a `SeriesStore`**, column by column, the same bytes as the item walk:
   `SeriesStore::columnar` / `write_store` (leaves, `Option`, arrays, tuples, derived structs and enums, by hand for
   `NumericValue`) and `series::write_store_series`, used by `ww_stream`'s batchers on their own. Needs one variant

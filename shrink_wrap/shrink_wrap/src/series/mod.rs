@@ -66,6 +66,17 @@ pub trait BitSink {
     fn put_bit(&mut self, bit: bool) -> Result<(), Error>;
     /// `count` low bits of `value`, 0 to 64.
     fn put_bits(&mut self, count: u8, value: u64) -> Result<(), Error>;
+    /// A block of the packed coder: its width field (`width` in `width_bits` bits, at most 32), then the low
+    /// `width` (0 to 32) bits of each of `residuals`, the same bits as a [put_bits](Self::put_bits) each. The writers
+    /// of this crate check the room once for the block (a block that doesn't fit writes nothing) and don't make a
+    /// call per value.
+    fn put_block(&mut self, width_bits: u8, width: u8, residuals: &[u32]) -> Result<(), Error> {
+        self.put_bits(width_bits, width as u64)?;
+        for &value in residuals {
+            self.put_bits(width, value as u64)?;
+        }
+        Ok(())
+    }
     /// Zero bits up to the next byte boundary of the buffer.
     fn align_byte(&mut self);
     /// Whole bytes, after aligning to a byte.
@@ -139,6 +150,10 @@ impl BitSink for BufWriter<'_> {
         self.write_un64(count, value)
     }
 
+    fn put_block(&mut self, width_bits: u8, width: u8, residuals: &[u32]) -> Result<(), Error> {
+        self.write_block(width_bits, width, residuals)
+    }
+
     fn align_byte(&mut self) {
         self.align_byte()
     }
@@ -175,6 +190,11 @@ impl BitSink for crate::buf_writer::BitWriter<'_, '_> {
     #[inline]
     fn put_bits(&mut self, count: u8, value: u64) -> Result<(), Error> {
         self.put_bits(count, value)
+    }
+
+    #[inline]
+    fn put_block(&mut self, width_bits: u8, width: u8, residuals: &[u32]) -> Result<(), Error> {
+        self.put_block(width_bits, width, residuals)
     }
 
     fn align_byte(&mut self) {
@@ -316,7 +336,9 @@ mod tests {
     use super::*;
 
     /// The same writes through a `BufWriter` and through a `BitWriter` on it give the same bytes (the buffer's
-    /// old contents included), positions and errors, from any start in a byte, up to a full buffer.
+    /// old contents included), positions and errors, from any start in a byte, up to a full buffer, with or
+    /// without lengths at the back, with the scratch written to on the way (as a `BitCounter` measuring a group
+    /// does).
     #[test]
     fn bit_writer_matches_buf_writer() {
         let mut seed = 0x9e37_79b9_7f4a_7c15u64;
@@ -326,21 +348,52 @@ mod tests {
             seed ^= seed << 17;
             seed
         };
-        for round in 0..300 {
-            let len = 1 + (rand() % 24) as usize;
-            let mut fill = [0u8; 24];
+        for round in 0..3000 {
+            let len = 1 + (rand() % 40) as usize;
+            let mut fill = [0u8; 40];
             fill.iter_mut().for_each(|b| *b = rand() as u8);
             let (mut a, mut b) = (fill, fill);
             let mut plain = BufWriter::new(&mut a[..len]);
             let mut wr = BufWriter::new(&mut b[..len]);
+            if rand() % 3 == 0 {
+                let rev = rand() as usize % 300;
+                assert_eq!(
+                    plain.write_rev_len(rev).is_ok(),
+                    wr.write_rev_len(rev).is_ok()
+                );
+            }
             let lead = (rand() % 8) as u8;
-            plain.write_un8(lead, 0x5A).unwrap();
-            wr.write_un8(lead, 0x5A).unwrap();
+            if plain.write_un8(lead, 0x5A).is_err() || wr.write_un8(lead, 0x5A).is_err() {
+                continue;
+            }
             {
                 let mut bits = crate::buf_writer::BitWriter::new(&mut wr);
-                for _ in 0..12 {
+                for _ in 0..40 {
                     let value = rand();
-                    let (x, y) = match rand() % 6 {
+                    let (x, y) = match rand() % 10 {
+                        9 => {
+                            let (width_bits, width) = ((rand() % 8) as u8, (rand() % 33) as u8);
+                            let block: [u32; 8] = core::array::from_fn(|_| rand() as u32);
+                            let n = (value % 9) as usize;
+                            (
+                                plain.put_block(width_bits, width, &block[..n]),
+                                bits.put_block(width_bits, width, &block[..n]),
+                            )
+                        }
+                        6 | 7 => {
+                            let count = (rand() % 13) as u8;
+                            (plain.put_bits(count, value), bits.put_bits(count, value))
+                        }
+                        8 => {
+                            let junk = rand() as u8;
+                            BitSink::scratch(&mut plain)
+                                .iter_mut()
+                                .for_each(|b| *b = junk);
+                            BitSink::scratch(&mut bits)
+                                .iter_mut()
+                                .for_each(|b| *b = junk);
+                            (Ok(()), Ok(()))
+                        }
                         0 => (plain.put_bit(value & 1 == 1), bits.put_bit(value & 1 == 1)),
                         1 => {
                             BitSink::align_byte(&mut plain);

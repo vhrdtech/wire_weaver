@@ -70,6 +70,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-62 | Series stores and size bounds | A batch of samples kept as one array per field until it is written as a `Series`, in half the RAM of the samples, and the most bytes the batch can take. | serdes/series.md#collecting-items-on-a-device-seriesstore
 - SW-63 | Fast, small `Series` encoding on MCUs | About 340 instructions per sample on a Cortex-M3, and codecs fixed at compile time that link only themselves: 15 KB of flash instead of 91 KB. | serdes/series.md#cpu-and-flash-on-an-mcu
 - SW-64 | `Series` straight from the store | A batch written column by column from the arrays it was collected in, the same bytes in half the instructions. | serdes/series.md#from-the-store-column-by-column
+- SW-68 | Word-wide bit writer and reader | Bits written and read a word at a time, the same bytes: the observe poll of a 21-value FOC level in three quarters of the cycles on an STM32H725. | articles/series.md#the-bit-writer-and-reader-a-word-at-a-time
 - SW-55 | Sparse slots | `OptionAnyVec`, a list of optional values of any types where only the present ones take space. | serdes/special_types.md#optionanyvec-sparse-slots-of-any-types
 - SW-10 | Lists of either-or values | `EitherAnyVec` holds one of two types per element, the flags packed by eight, e.g. a list of results. | serdes/special_types.md#eitheranyvec
 

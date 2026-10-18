@@ -2,7 +2,7 @@ use core::fmt::{Debug, Display, Formatter};
 
 use crate::{
     BufReader, BufWriter, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error,
-    SerializeShrinkWrap,
+    Nibble, SerializeShrinkWrap,
 };
 
 /// Variable length encoded u32 based on nibbles.
@@ -29,56 +29,62 @@ impl UNib32 {
     }
 
     pub(crate) fn write_forward(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        // the nibbles in runs of up to 7, a write each (1 for a value up to 2^21): the first nibble in the highest
+        // bits, a "one more nibble" flag on all but the last of the value
         let mut val = self.0;
-        let mut nibbles_left = self.len_nibbles();
-        while nibbles_left > 0 {
-            let nib = (val & 0b111) as u8;
-            let nib = if nibbles_left > 1 {
-                nib | ONE_MORE_NIBBLE
-            } else {
-                nib
-            };
-            wr.write_nib_masked(nib)?;
-            val >>= 3;
-            nibbles_left -= 1;
+        if val < 8 {
+            // one nibble, most values: the plain nibble write is cheaper than a run
+            return wr.write_nib(Nibble::new_masked(val as u8));
         }
-        Ok(())
+        loop {
+            let (mut bits, mut count) = (0, 0);
+            let more = loop {
+                let more = val >> 3 != 0;
+                bits = bits << 4 | val & 0b111 | (more as u32) << 3;
+                val >>= 3;
+                count += 1;
+                if !more || count == 7 {
+                    break more;
+                }
+            };
+            wr.write_nibbles(count, bits)?;
+            if !more {
+                return Ok(());
+            }
+        }
     }
 
     pub(crate) fn write_reversed(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        let mut val = self.0;
         // reversed unib is written left to right, but read from right to left: the nibble written first is the last
         // one read, so it is the one without the "one more nibble" flag
-        let mut more = 0;
+        let mut val = self.0;
+        if val < 8 {
+            return wr
+                .write_nib(Nibble::new_masked(val as u8))
+                .map_err(|_| Error::OutOfBoundsRevCompact);
+        }
+        let mut flag = 0;
         loop {
-            wr.write_nib_masked(val as u8 & 0b111 | more)
+            let (mut bits, mut count) = (0, 0);
+            loop {
+                bits = bits << 4 | val & 0b111 | flag;
+                flag = ONE_MORE_NIBBLE as u32;
+                val >>= 3;
+                count += 1;
+                if val == 0 || count == 7 {
+                    break;
+                }
+            }
+            wr.write_nibbles(count, bits)
                 .map_err(|_| Error::OutOfBoundsRevCompact)?;
-            val >>= 3;
             if val == 0 {
                 return Ok(());
             }
-            more = ONE_MORE_NIBBLE;
         }
     }
 
     pub(crate) fn read_forward(rd: &mut BufReader) -> Result<Self, Error> {
-        let mut num = 0;
-        let mut offset = 0;
-        for i in 0..=10 {
-            let nib = rd.read_nib_value()?;
-            if i == 10 {
-                // 11th nibble should be the last for u32
-                if nib & ONE_MORE_NIBBLE != 0 {
-                    return Err(Error::MalformedUNib32);
-                }
-            }
-            num |= (nib as u32 & 0b111) << offset;
-            if nib & ONE_MORE_NIBBLE == 0 {
-                break;
-            }
-            offset += 3;
-        }
-        Ok(UNib32(num))
+        rd.take_unib32().map(UNib32)
     }
 
     pub(crate) fn read_reversed(rd: &mut BufReader) -> Result<Self, Error> {

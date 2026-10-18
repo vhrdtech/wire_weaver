@@ -64,6 +64,8 @@ pub(crate) trait Word:
     /// Bits the value needs: 0 for 0.
     fn needs(self) -> u8;
     fn to_u64(self) -> u64;
+    /// The low 32 bits.
+    fn to_u32(self) -> u32;
 }
 
 macro_rules! word {
@@ -101,6 +103,11 @@ macro_rules! word {
             #[inline(always)]
             fn to_u64(self) -> u64 {
                 self as u64
+            }
+
+            #[inline(always)]
+            fn to_u32(self) -> u32 {
+                self as u32
             }
         }
     };
@@ -231,9 +238,18 @@ impl<W: Word> PackedWriter<W> {
             return Ok(());
         }
         let width = self.bits.needs();
-        sink.put_bits(block_width_bits(self.w), width as u64)?;
-        for &z in &self.block[..self.len] {
-            sink.put_bits(width, z.to_u64())?;
+        if width > 32 {
+            sink.put_bits(block_width_bits(self.w), width as u64)?;
+            for &z in &self.block[..self.len] {
+                sink.put_bits(width, z.to_u64())?;
+            }
+        } else {
+            // a loop, not `map`: at opt-level z that is an out-of-line `try_map` and copies
+            let mut block = [0u32; PACKED_BLOCK as usize];
+            for (b, z) in block.iter_mut().zip(&self.block[..self.len]) {
+                *b = z.to_u32();
+            }
+            sink.put_block(block_width_bits(self.w), width, &block[..self.len])?;
         }
         self.len = 0;
         self.bits = W::ZERO;
@@ -510,8 +526,8 @@ where
 }
 
 /// Delta packed without restarts, one pass: the first value at the width, then blocks of [PACKED_BLOCK]
-/// residuals, each its width field and the residuals packed into a 64-bit word before they go to the sink. The
-/// same bits as [PackedWriter].
+/// residuals, each its width field and the residuals in one [put_block](BitSink::put_block). The same bits as
+/// [PackedWriter].
 #[inline(never)]
 fn delta_packed_slice<T, W: Word>(
     sink: &mut impl BitSink,
@@ -527,37 +543,31 @@ fn delta_packed_slice<T, W: Word>(
     let mut prev = word(first).shl(shift);
     sink.put_bits(kind.width, prev.shr(shift).to_u64())?;
     let width_bits = block_width_bits(kind.width);
+    // the residuals' low and (64-bit words) high halves, so the usual block of up to 32 bits goes to the sink as it
+    // is; filled anew for each block
+    let mut low = [0u32; PACKED_BLOCK as usize];
+    let mut high = [0u32; PACKED_BLOCK as usize];
     for block in rest.chunks(PACKED_BLOCK as usize) {
-        let mut z = [W::ZERO; PACKED_BLOCK as usize];
         let mut any = W::ZERO;
-        for (z, v) in z.iter_mut().zip(block) {
+        for ((low, high), v) in low.iter_mut().zip(&mut high).zip(block) {
             let v = word(v).shl(shift);
-            *z = v.wrapping_sub(prev).zigzag().shr(shift);
-            any |= *z;
+            let z = v.wrapping_sub(prev).zigzag().shr(shift);
+            *low = z.to_u32();
+            if W::BITS > 32 {
+                *high = z.shr(32).to_u32();
+            }
+            any |= z;
             prev = v;
         }
         let width = any.needs();
-        sink.put_bits(width_bits, width as u64)?;
-        if width == 0 {
-            continue;
-        }
         if width > 32 {
-            for z in &z[..block.len()] {
-                sink.put_bits(width, z.to_u64())?;
+            sink.put_bits(width_bits, width as u64)?;
+            for (&low, &high) in low.iter().zip(&high).take(block.len()) {
+                sink.put_bits(width, (high as u64) << 32 | low as u64)?;
             }
             continue;
         }
-        // up to two residuals of up to 32 bits per 64-bit word
-        let (mut acc, mut n) = (0u64, 0u8);
-        for z in &z[..block.len()] {
-            if n + width > 64 {
-                sink.put_bits(n, acc)?;
-                (acc, n) = (0, 0);
-            }
-            acc = acc << width | z.to_u64();
-            n += width;
-        }
-        sink.put_bits(n, acc)?;
+        sink.put_block(width_bits, width, &low[..block.len()])?;
     }
     Ok(())
 }

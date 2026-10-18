@@ -36,21 +36,29 @@ pub struct BufWriterState {
     len_bytes: usize,
 }
 
-/// A [BufWriter] borrowed for a run of bit writes (the columns of a `Series`): the written bits of the open byte
-/// are kept in a register and whole bytes go straight into the buffer, instead of a read-modify-write of the open
-/// byte and a room check of the writer per write. Writes that are not bits go through the `BufWriter`; dropping it
-/// puts the open byte back, so the `BufWriter` is as if it wrote the bits itself (same bytes, same errors).
+/// A [BufWriter] borrowed for a run of bit writes (the columns of a `Series`): the written bits are kept in a
+/// 32-bit register and go into the buffer a word at a time, instead of a read-modify-write of the open byte and a
+/// room check of the writer per write. Writes that are not bits go through the `BufWriter`; dropping it puts the
+/// bits back, so the `BufWriter` is as if it wrote them itself (same bytes, same errors).
 pub(crate) struct BitWriter<'w, 'i> {
     wr: &'w mut BufWriter<'i>,
-    /// The open byte's written bits, in the low `n` bits (bits above them are left over and ignored).
+    /// The written bits from the `BufWriter`'s `byte_idx` on, in the low `n` bits (bits above them are left over
+    /// and ignored).
     acc: u32,
-    /// 0 to 7 between writes.
+    /// 0 to 31 between writes; whole bytes of them are put into the buffer when the word is full.
     n: u32,
+    /// Bits that still fit after the `n` in `acc`, before the lengths at the back.
+    room: usize,
 }
 
 impl<'w, 'i> BitWriter<'w, 'i> {
     pub(crate) fn new(wr: &'w mut BufWriter<'i>) -> Self {
-        let mut bits = BitWriter { wr, acc: 0, n: 0 };
+        let mut bits = BitWriter {
+            wr,
+            acc: 0,
+            n: 0,
+            room: 0,
+        };
         bits.load();
         bits
     }
@@ -61,10 +69,17 @@ impl<'w, 'i> BitWriter<'w, 'i> {
         if self.n > 0 {
             self.acc = (self.wr.buf[self.wr.byte_idx] >> (8 - self.n)) as u32;
         }
+        self.room = (self.wr.len_bytes * 8).saturating_sub(self.wr.byte_idx * 8 + self.n as usize);
     }
 
-    /// Puts the open byte back into the `BufWriter`, keeping the bits after the written ones as they are.
+    /// Puts the written bits into the `BufWriter`: the whole bytes, then the open byte, keeping its bits after the
+    /// written ones as they are. Leaves the open byte's bits in `acc`.
     fn store(&mut self) {
+        while self.n >= 8 {
+            self.n -= 8;
+            self.wr.buf[self.wr.byte_idx] = (self.acc >> self.n) as u8;
+            self.wr.byte_idx += 1;
+        }
         if self.n > 0 {
             let byte = &mut self.wr.buf[self.wr.byte_idx];
             *byte = *byte & (0xFF >> self.n) | (self.acc as u8) << (8 - self.n);
@@ -72,7 +87,7 @@ impl<'w, 'i> BitWriter<'w, 'i> {
         self.wr.bit_idx = 7 - self.n as u8;
     }
 
-    /// The `BufWriter` with the open byte put back, for a write that is not bits; takes the open byte again after.
+    /// The `BufWriter` with the bits put back, for a write that is not bits; takes the open byte again after.
     pub(crate) fn with_writer<R>(&mut self, f: impl FnOnce(&mut BufWriter<'i>) -> R) -> R {
         self.store();
         let r = f(self.wr);
@@ -86,27 +101,33 @@ impl<'w, 'i> BitWriter<'w, 'i> {
     }
 
     /// Whether `count` more bits fit before the lengths at the back.
-    #[inline]
+    #[inline(always)]
     fn fits(&self, count: u32) -> bool {
-        count as usize + self.n as usize <= self.wr.len_bytes.saturating_sub(self.wr.byte_idx) * 8
+        count as usize <= self.room
     }
 
-    /// `count` (0 to 24) bits, all set bits of `bits` among them.
+    /// `count` (0 to 32) bits that fit, no set bits of `bits` above them: into the register, and the register into
+    /// the buffer once it has a word.
     #[inline(always)]
     fn push(&mut self, count: u32, bits: u32) {
-        self.acc = self.acc << count | bits;
-        self.n += count;
-        while self.n >= 8 {
-            self.n -= 8;
-            self.wr.buf[self.wr.byte_idx] = (self.acc >> self.n) as u8;
-            self.wr.byte_idx += 1;
-        }
+        self.room -= count as usize;
+        let mut at = self.wr.byte_idx;
+        push_bits(
+            self.wr.buf,
+            &mut at,
+            &mut self.acc,
+            &mut self.n,
+            count,
+            bits,
+        );
+        self.wr.byte_idx = at;
     }
 
     /// Zero bits to the next byte, as [BufWriter::align_byte].
     pub(crate) fn align_byte(&mut self) {
-        if self.n > 0 {
-            self.push(8 - self.n, 0);
+        let pad = self.n.wrapping_neg() & 7;
+        if pad > 0 {
+            self.push(pad, 0);
         }
     }
 
@@ -134,14 +155,118 @@ impl<'w, 'i> BitWriter<'w, 'i> {
         if !self.fits(count as u32) {
             return Err(Error::OutOfBoundsWriteUN);
         }
-        let mut left = count as u32;
-        while left > 24 {
-            left -= 24;
-            self.push(24, (value >> left) as u32 & 0xFF_FFFF);
+        let count = count as u32;
+        if count == 0 {
+            return Ok(());
         }
-        self.push(left, value as u32 & ((1 << left) - 1));
+        if count > 32 {
+            self.push(count - 32, (value >> 32) as u32 & low_mask(count - 32));
+            self.push(32, value as u32);
+        } else {
+            self.push(count, value as u32 & low_mask(count));
+        }
         Ok(())
     }
+
+    /// A packed block, see [BitSink::put_block](crate::series::BitSink::put_block): one room check for all of it
+    /// (a block that doesn't fit writes nothing), then a push each, with the register in locals.
+    #[inline]
+    pub(crate) fn put_block(
+        &mut self,
+        width_bits: u8,
+        width: u8,
+        residuals: &[u32],
+    ) -> Result<(), Error> {
+        if width_bits > 32 || width > 32 {
+            return Err(Error::InvalidBitCount);
+        }
+        let total = width_bits as usize + width as usize * residuals.len();
+        if total > self.room {
+            return Err(Error::OutOfBoundsWriteUN);
+        }
+        self.room -= total;
+        let (mut acc, mut n, mut at) = (self.acc, self.n, self.wr.byte_idx);
+        let buf = &mut *self.wr.buf;
+        push_bits(
+            buf,
+            &mut at,
+            &mut acc,
+            &mut n,
+            width_bits as u32,
+            width as u32 & low_mask_or_zero(width_bits),
+        );
+        if width > 0 {
+            let mask = low_mask(width as u32);
+            for &value in residuals {
+                push_bits(buf, &mut at, &mut acc, &mut n, width as u32, value & mask);
+            }
+        }
+        (self.acc, self.n, self.wr.byte_idx) = (acc, n, at);
+        Ok(())
+    }
+}
+
+/// [BitWriter::push] on the register `acc` with `n` bits in it, the next word of `buf` at `at`: `count` (0 to 32)
+/// bits that fit, no set bits of `bits` above them.
+#[inline(always)]
+fn push_bits(buf: &mut [u8], at: &mut usize, acc: &mut u32, n: &mut u32, count: u32, bits: u32) {
+    let free = 32 - *n;
+    if count < free {
+        *acc = *acc << count | bits;
+        *n += count;
+        return;
+    }
+    // the word is full: its high bits from the register (`free` is 32 when it holds none), the rest from `bits`
+    let rest = count - free;
+    let word = *acc << 1 << (free - 1) | bits >> rest;
+    store_be32(buf, *at, word);
+    *at += 4;
+    *acc = bits;
+    *n = rest;
+}
+
+/// The four bytes of `buf` from `at` as a big endian word, `None` if they are not all there. One bounds check and
+/// byte loads that LLVM merges into a word load (an unaligned `ldr` and a `rev` on a Cortex-M3 and up), also at
+/// `opt-level = "z"`, where a `u32::from_be_bytes` of a sub-slice is a call into the slice indexing.
+#[inline(always)]
+pub(crate) fn load_be32(buf: &[u8], at: usize) -> Option<u32> {
+    if buf.len() < 4 || at > buf.len() - 4 {
+        return None;
+    }
+    Some(u32::from_be_bytes([
+        buf[at],
+        buf[at + 1],
+        buf[at + 2],
+        buf[at + 3],
+    ]))
+}
+
+/// `word` into the four bytes of `buf` from `at`, big endian, which must be there (else a panic, before anything
+/// is written), see [load_be32].
+#[inline(always)]
+fn store_be32(buf: &mut [u8], at: usize, word: u32) {
+    assert!(buf.len() >= 4 && at <= buf.len() - 4);
+    let [a, b, c, d] = word.to_be_bytes();
+    buf[at] = a;
+    buf[at + 1] = b;
+    buf[at + 2] = c;
+    buf[at + 3] = d;
+}
+
+/// `count` (0 to 32) low bits set.
+#[inline(always)]
+fn low_mask_or_zero(count: u8) -> u32 {
+    if count == 0 {
+        0
+    } else {
+        low_mask(count as u32)
+    }
+}
+
+/// `count` (1 to 32) low bits set.
+#[inline(always)]
+fn low_mask(count: u32) -> u32 {
+    u32::MAX >> (32 - count)
 }
 
 impl Drop for BitWriter<'_, '_> {
@@ -200,11 +325,11 @@ impl<'i> BufWriter<'i> {
     /// Write on bit to the buffer. One can write 8 bits with this function, and only one byte will be used in the buffer.
     /// Nibble writes will align the buffer to nibble boundary and byte writes to byte boundary.
     pub fn write_bool(&mut self, val: bool) -> Result<(), Error> {
-        if (self.bytes_left() == 0) && self.bit_idx == 7 {
+        // a byte written in part is always before the lengths at the back
+        let Some(byte) = self.buf[..self.len_bytes].get_mut(self.byte_idx) else {
             return Err(Error::OutOfBoundsWriteBool);
-        }
-        self.buf[self.byte_idx] &= !(1 << self.bit_idx);
-        self.buf[self.byte_idx] |= (val as u8) << self.bit_idx;
+        };
+        *byte = *byte & !(1 << self.bit_idx) | (val as u8) << self.bit_idx;
         if self.bit_idx == 0 {
             self.bit_idx = 7;
             self.byte_idx += 1;
@@ -234,6 +359,43 @@ impl<'i> BufWriter<'i> {
             self.bit_idx = 7;
             self.byte_idx += 1;
         }
+        Ok(())
+    }
+
+    /// A packed block of a `Series`, see [BitSink::put_block](crate::series::BitSink::put_block): as a
+    /// [write_un32](Self::write_un32) each, with one room check for all of it (a block that doesn't fit writes
+    /// nothing).
+    pub(crate) fn write_block(
+        &mut self,
+        width_bits: u8,
+        width: u8,
+        residuals: &[u32],
+    ) -> Result<(), Error> {
+        if width_bits > 32 || width > 32 {
+            return Err(Error::InvalidBitCount);
+        }
+        let total = width_bits as usize + width as usize * residuals.len();
+        if total + self.bit_pos() > self.len_bytes * 8 {
+            return Err(Error::OutOfBoundsWriteUN);
+        }
+        self.put_low_bits(width_bits, width as u32);
+        for &value in residuals {
+            self.put_low_bits(width, value);
+        }
+        Ok(())
+    }
+
+    /// Align to nibble and write `count` (1 to 7) nibbles, the low `4 * count` bits of `bits` (the first nibble in
+    /// the highest), as `count` [write_nib](Self::write_nib)s would; a run that doesn't fit writes nothing.
+    #[inline]
+    pub(crate) fn write_nibbles(&mut self, count: u32, bits: u32) -> Result<(), Error> {
+        // the zero bits to the next nibble go first, as the high bits of the write (at most 3 + 28)
+        let pad = (self.bit_idx as u32 + 1) & 0b11;
+        let total = pad + 4 * count;
+        if total as usize + self.bit_pos() > self.len_bytes * 8 {
+            return Err(Error::OutOfBoundsWriteU4);
+        }
+        self.put_low_bits(total as u8, bits);
         Ok(())
     }
 
@@ -298,51 +460,78 @@ impl<'i> BufWriter<'i> {
     /// fit writes nothing.
     #[inline]
     fn check_room(&self, bit_count: u8) -> Result<(), Error> {
-        let partial = if self.bit_idx == 7 {
-            0
-        } else {
-            self.bit_idx as usize + 1
-        };
-        if bit_count as usize > self.bytes_left() * 8 + partial {
+        if bit_count as usize + self.bit_pos() > self.len_bytes * 8 {
             return Err(Error::OutOfBoundsWriteUN);
         }
         Ok(())
     }
 
-    /// `bit_count` (1 to 32) low bits of `value`, most significant first: the rest of the open byte, whole bytes,
-    /// then the start of the next one; the room is checked by the caller. Bits of the open and the last byte that
-    /// are not written keep their value.
+    /// Bits written so far, from the start of the buffer.
+    #[inline(always)]
+    fn bit_pos(&self) -> usize {
+        self.byte_idx * 8 + 7 - self.bit_idx as usize
+    }
+
+    /// `bit_count` (1 to 32) low bits of `value`, most significant first; the room is checked by the caller. Bits
+    /// of the open and the last byte that are not written keep their value.
     #[inline]
     fn put_low_bits(&mut self, bit_count: u8, value: u32) {
         if bit_count == 0 {
             return;
         }
-        let value = value & (u32::MAX >> (32 - bit_count as u32));
-        let room = self.bit_idx + 1;
-        if bit_count < room {
-            let at = room - bit_count;
-            let mask = (0xFFu8 >> (8 - bit_count)) << at;
-            let byte = &mut self.buf[self.byte_idx];
-            *byte = *byte & !mask | (value as u8) << at;
-            self.bit_idx -= bit_count;
-            return;
+        if 7 - self.bit_idx + bit_count > 32 {
+            return self.put_low_bits_split(bit_count, value);
         }
-        let mut left = (bit_count - room) as u32;
-        let byte = &mut self.buf[self.byte_idx];
-        *byte = *byte & !(0xFFu8 >> (8 - room)) | (value >> left) as u8;
-        self.byte_idx += 1;
-        while left >= 8 {
-            left -= 8;
-            self.buf[self.byte_idx] = (value >> left) as u8;
-            self.byte_idx += 1;
+        self.put_in_word(bit_count, value)
+    }
+
+    /// [put_low_bits](Self::put_low_bits) of 26 or more bits from the middle of a byte: two writes that each end in
+    /// a word.
+    #[inline(never)]
+    fn put_low_bits_split(&mut self, bit_count: u8, value: u32) {
+        self.put_in_word(bit_count - 16, value >> 16);
+        self.put_in_word(16, value);
+    }
+
+    /// [put_low_bits](Self::put_low_bits) of bits that end in the word starting at the open byte.
+    #[inline(always)]
+    fn put_in_word(&mut self, bit_count: u8, value: u32) {
+        // the open byte's written bits and these, from the open byte's first bit: 1 to 32
+        let end = 7 - self.bit_idx as u32 + bit_count as u32;
+        let at = self.byte_idx;
+        let Some(old) = load_be32(self.buf, at) else {
+            return self.put_low_bits_bytewise(end, value);
+        };
+        // a read-modify-write of the four bytes from the open byte on, in one load and one store
+        let shift = 32 - end;
+        let mask = u32::MAX >> (32 - bit_count as u32) << shift;
+        store_be32(self.buf, at, old & !mask | value << shift & mask);
+        self.byte_idx = at + (end / 8) as usize;
+        self.bit_idx = 7 - (end % 8) as u8;
+    }
+
+    /// [put_in_word](Self::put_in_word) in the last three bytes of the buffer, where a word doesn't fit: the bits
+    /// up to `end` (counted from the open byte's first bit, at most 32), byte by byte.
+    #[inline(never)]
+    #[cold]
+    fn put_low_bits_bytewise(&mut self, end: u32, value: u32) {
+        let first = 7 - self.bit_idx as u32;
+        let bits = end - first;
+        // the written bits left-aligned in a word that starts at the open byte, and which bits of it are written
+        let shift = 32 - end;
+        let mask = u32::MAX >> (32 - bits) << shift;
+        let value = value << shift & mask;
+        for (i, byte) in self.buf[self.byte_idx..]
+            .iter_mut()
+            .take(end.div_ceil(8) as usize)
+            .enumerate()
+        {
+            let at = 24 - 8 * i as u32;
+            let m = (mask >> at) as u8;
+            *byte = *byte & !m | (value >> at) as u8;
         }
-        if left == 0 {
-            self.bit_idx = 7;
-        } else {
-            let byte = &mut self.buf[self.byte_idx];
-            *byte = *byte & (0xFFu8 >> left) | (value << (8 - left)) as u8;
-            self.bit_idx = 7 - left as u8;
-        }
+        self.byte_idx += (end / 8) as usize;
+        self.bit_idx = 7 - (end % 8) as u8;
     }
 
     /// Align to byte and write the `len` (1 to 4) low bytes of `val` in Little Endian.
@@ -1195,6 +1384,123 @@ mod tests {
             for (i, &b) in model.iter().enumerate() {
                 assert_eq!(bytes[i / 8] >> (7 - i % 8) & 1 == 1, b, "bit {i}");
             }
+        }
+    }
+
+    /// `write_un32` / `write_un64` give the bytes of the same bits written one by one with `write_bool`: from any
+    /// position, over old contents (the bits not written keep them), up to the lengths at the back and the end
+    /// of the buffer (where a word doesn't fit), and a write that doesn't fit writes nothing.
+    #[test]
+    fn write_un_matches_write_bool() {
+        let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+        let mut rand = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        for _ in 0..2000 {
+            let len = 1 + (rand() % 12) as usize;
+            let mut fill = [0u8; 12];
+            fill.iter_mut().for_each(|b| *b = rand() as u8);
+            let (mut a, mut b) = (fill, fill);
+            let mut wr = BufWriter::new(&mut a[..len]);
+            let mut model = BufWriter::new(&mut b[..len]);
+            if rand() % 3 == 0 && len >= 2 {
+                wr.write_rev_len(1).unwrap();
+                model.write_rev_len(1).unwrap();
+            }
+            loop {
+                let count = (rand() % 65) as u8;
+                let value = rand();
+                let r = if count <= 32 && rand() & 1 == 0 {
+                    wr.write_un32(count, value as u32)
+                } else {
+                    wr.write_un64(count, value)
+                };
+                let (byte, bit) = model.pos();
+                let room = model.len_bytes * 8 - (byte * 8 + 7 - bit as usize);
+                if count as usize > room {
+                    assert_eq!(r, Err(Error::OutOfBoundsWriteUN));
+                    break;
+                }
+                r.unwrap();
+                for i in (0..count).rev() {
+                    model.write_bool(value >> i & 1 == 1).unwrap();
+                }
+                assert_eq!(wr.pos(), model.pos());
+            }
+            assert_eq!(a, b);
+        }
+    }
+
+    /// `write_unib32` and the reverse lengths `finish` writes give the bytes of the same nibbles written one by
+    /// one with `write_nib` (a "one more nibble" flag on all but the last read): from any position, over old
+    /// contents, up to the end of the buffer; a value that doesn't fit is an error.
+    #[test]
+    fn unib32_matches_write_nib() {
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let mut rand = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        let nibbles = |mut val: u32, reversed: bool| {
+            let mut out = Vec::new();
+            loop {
+                let more = val >> 3 != 0;
+                out.push(val as u8 & 0b111 | if more { 0b1000 } else { 0 });
+                val >>= 3;
+                if !more {
+                    break;
+                }
+            }
+            if reversed {
+                // the first written is the last read: the flags move one nibble on
+                for i in (1..out.len()).rev() {
+                    out[i] |= 0b1000;
+                }
+                out[0] &= 0b111;
+            }
+            out
+        };
+        for round in 0..3000 {
+            let len = 1 + (rand() % 10) as usize;
+            let mut fill = [0u8; 10];
+            fill.iter_mut().for_each(|b| *b = rand() as u8);
+            let (mut a, mut b) = (fill, fill);
+            let mut wr = BufWriter::new(&mut a[..len]);
+            let mut model = BufWriter::new(&mut b[..len]);
+            let lead = (rand() % 13) as u8;
+            if wr.write_un8(lead.min(8), 0x55).is_err() {
+                continue;
+            }
+            model.write_un8(lead.min(8), 0x55).unwrap();
+            let val = (rand() as u32) >> (rand() % 33).min(31);
+            let reversed = rand() & 1 == 0;
+            let r = if reversed {
+                crate::UNib32(val).write_reversed(&mut wr)
+            } else {
+                wr.write_unib32(val)
+            };
+            let at = model.bit_pos().next_multiple_of(4);
+            let fits = at + 4 * crate::UNib32(val).len_nibbles() <= model.len_bytes * 8;
+            if !fits {
+                let err = if reversed {
+                    Error::OutOfBoundsRevCompact
+                } else {
+                    Error::OutOfBoundsWriteU4
+                };
+                assert_eq!(r, Err(err), "round {round}");
+                continue;
+            }
+            r.unwrap();
+            for nib in nibbles(val, reversed) {
+                model.write_nib(Nibble::new_masked(nib)).unwrap();
+            }
+            assert_eq!(wr.pos(), model.pos(), "round {round}");
+            assert_eq!(a, b, "round {round}");
         }
     }
 

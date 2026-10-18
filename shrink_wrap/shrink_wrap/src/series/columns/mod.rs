@@ -260,6 +260,11 @@ impl BitSink for BitCounter<'_> {
         Ok(())
     }
 
+    fn put_block(&mut self, width_bits: u8, width: u8, residuals: &[u32]) -> Result<(), Error> {
+        self.pos += width_bits as usize + width as usize * residuals.len();
+        Ok(())
+    }
+
     fn align_byte(&mut self) {
         self.pos = self.pos.next_multiple_of(8);
     }

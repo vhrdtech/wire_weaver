@@ -1,6 +1,5 @@
 use crate::Error::OutOfBoundsRev;
 use crate::nib32::UNib32;
-use crate::un::read_unx;
 use crate::vlq32::UVlq32;
 use crate::vlq64::UVlq64;
 use crate::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error, Nibble};
@@ -107,7 +106,7 @@ impl<'i> BufReader<'i> {
     #[inline(never)]
     fn read_bit(&mut self) -> Result<u32, Error> {
         self.kept()?;
-        if self.bits_in_byte_left() == 0 {
+        if !self.in_front(1) {
             return Err(Error::OutOfBoundsReadBool);
         }
         let val = (self.buf[self.byte_idx] >> self.bit_idx) & 1;
@@ -188,8 +187,129 @@ impl<'i> BufReader<'i> {
         Ok(self.read_un32(bit_count)? as u16)
     }
 
-    read_unx!(read_un32, u32, 32);
-    read_unx!(read_un64, u64, 64);
+    /// Align to nibble and read a UNib32 from the front: nibbles until one without the "one more nibble" flag, the
+    /// first one the lowest 3 bits, at most 11. One loop over the bytes, not a [read_nib](Self::read_nib) per
+    /// nibble (whose `Result<Nibble, _>` goes through memory on 32-bit CPUs); a nibble that isn't there, or an 11th
+    /// with the flag, fails with the nibbles before it read, as those reads would.
+    #[inline(never)]
+    pub(crate) fn take_unib32(&mut self) -> Result<u32, Error> {
+        self.kept()?;
+        self.align_nibble();
+        if !self.in_front(4) {
+            return Err(Error::OutOfBoundsReadU4);
+        }
+        // the first nibble as read_nib reads it: most values are one nibble
+        let byte = self.buf[self.byte_idx];
+        let first = if self.bit_idx == 7 {
+            self.bit_idx = 3;
+            byte >> 4
+        } else {
+            self.bit_idx = 7;
+            self.byte_idx += 1;
+            byte & 0b1111
+        } as u32;
+        if first & 0b1000 == 0 {
+            return Ok(first);
+        }
+        let end = self.front_end();
+        let mut pos = self.bit_pos();
+        let mut num = first & 0b111;
+        let mut shift = 3;
+        let result = loop {
+            if pos + 4 > end {
+                break Err(Error::OutOfBoundsReadU4);
+            }
+            // at a nibble: the byte's high nibble at an even one, its low nibble at an odd one
+            let nib = (self.buf[pos / 8] >> (!pos & 4)) as u32 & 0b1111;
+            pos += 4;
+            if shift == 30 && nib & 0b1000 != 0 {
+                // 11th nibble should be the last for u32
+                break Err(Error::MalformedUNib32);
+            }
+            num |= (nib & 0b111) << shift;
+            if nib & 0b1000 == 0 {
+                break Ok(num);
+            }
+            shift += 3;
+        };
+        self.byte_idx = pos / 8;
+        self.bit_idx = 7 - (pos % 8) as u8;
+        result
+    }
+
+    /// Read up to 32 bits (without alignment) into u32 number.
+    pub fn read_un32(&mut self, bit_count: u8) -> Result<u32, Error> {
+        self.kept()?;
+        if bit_count > 32 {
+            return Err(Error::InvalidBitCount);
+        }
+        self.take_bits(bit_count)
+    }
+
+    /// Read up to 64 bits (without alignment) into u64 number.
+    pub fn read_un64(&mut self, bit_count: u8) -> Result<u64, Error> {
+        self.kept()?;
+        if bit_count > 64 {
+            return Err(Error::InvalidBitCount);
+        }
+        if bit_count <= 32 {
+            return Ok(self.take_bits(bit_count)? as u64);
+        }
+        // in 32-bit halves: 64-bit shifts are several instructions each on 32-bit MCUs; both or neither are there
+        if bit_count as usize > self.bits_left() {
+            return Err(Error::OutOfBoundsReadUN);
+        }
+        let high = self.take_bits(bit_count - 32)?;
+        let low = self.take_bits(32)?;
+        Ok((high as u64) << 32 | low as u64)
+    }
+
+    /// `bit_count` (0 to 32) bits, most significant first, if they are all before the lengths read from the back
+    /// (SW-40); a read that fails moves nothing.
+    #[inline]
+    fn take_bits(&mut self, bit_count: u8) -> Result<u32, Error> {
+        if bit_count as usize > self.bits_left() {
+            return Err(Error::OutOfBoundsReadUN);
+        }
+        if bit_count == 0 {
+            return Ok(0);
+        }
+        if 7 - self.bit_idx + bit_count > 32 {
+            // 26 or more bits from the middle of a byte: two reads that each end in a word
+            let high = self.take_in_word(bit_count - 16);
+            return Ok(high << 16 | self.take_in_word(16));
+        }
+        Ok(self.take_in_word(bit_count))
+    }
+
+    /// [take_bits](Self::take_bits) of 1 to 32 bits that are there and end in the word starting at the current
+    /// byte.
+    #[inline(always)]
+    fn take_in_word(&mut self, bit_count: u8) -> u32 {
+        let at = self.byte_idx;
+        // the bytes after the forward side's end (the lengths, or past the buffer as zeros) only fill the word,
+        // none of their bits is taken
+        let word = match crate::buf_writer::load_be32(self.buf, at) {
+            Some(word) => word,
+            None => self.word_at_end(at),
+        };
+        let first = 7 - self.bit_idx as u32;
+        let end = first + bit_count as u32;
+        self.byte_idx = at + (end / 8) as usize;
+        self.bit_idx = 7 - (end % 8) as u8;
+        word << first >> (32 - bit_count as u32)
+    }
+
+    /// The bytes from `at` on as a big endian word, zeros past the end of the buffer.
+    #[cold]
+    #[inline(never)]
+    fn word_at_end(&self, at: usize) -> u32 {
+        let mut word = 0;
+        for i in 0..4 {
+            word = word << 8 | self.buf.get(at + i).copied().unwrap_or(0) as u32;
+        }
+        word
+    }
 
     /// Read bool like [read_bool](Self::read_bool), but an error is kept in the reader instead of returned
     /// (the value is then `false`): see [latched](Self::latched).
@@ -589,6 +709,7 @@ impl<'i> BufReader<'i> {
         }
     }
 
+    #[inline(always)]
     fn align_nibble(&mut self) {
         if self.bit_idx == 7 || self.bit_idx == 3 {
             return;
@@ -635,7 +756,16 @@ impl<'i> BufReader<'i> {
     /// Returns the number of nibbles left, taking into account that buffer is read from both sides: what nibble
     /// reads can take from here (they align to a nibble first).
     pub fn nibbles_left(&self) -> usize {
-        self.front_end().saturating_sub(self.bit_pos().next_multiple_of(4)) / 4
+        self.front_end()
+            .saturating_sub(self.bit_pos().next_multiple_of(4))
+            / 4
+    }
+
+    /// Whether the next `bits` (1 to 8, not past the current byte) are before the lengths read from the back.
+    #[inline(always)]
+    fn in_front(&self, bits: usize) -> bool {
+        // before the last byte they are; in it, it depends on the lengths' nibble
+        self.byte_idx + 1 < self.len_bytes || self.bit_pos() + bits <= self.front_end()
     }
 
     /// The bit where the forward side ends: the lengths read from the back begin there (the last byte's low
@@ -645,6 +775,9 @@ impl<'i> BufReader<'i> {
         self.len_bytes * 8 - if self.is_at_bit7_rev { 4 } else { 0 }
     }
 
+    /// Nibbles of the current byte left (its part before the lengths). [read_nib](Self::read_nib)'s check: on a
+    /// Cortex-M7 its branches cost fewer cycles than [in_front](Self::in_front) (11 against 12 per nibble at
+    /// opt-level 3, 45 against 55 at `z`), though they are a few more instructions.
     fn nibbles_in_byte_left(&self) -> u8 {
         if self.byte_idx >= self.len_bytes {
             0
@@ -667,6 +800,8 @@ impl<'i> BufReader<'i> {
         self.front_end().saturating_sub(self.bit_pos())
     }
 
+    /// Bits of the current byte left (its part before the lengths), the tests' model of a byte.
+    #[cfg(test)]
     fn bits_in_byte_left(&self) -> u8 {
         if self.byte_idx >= self.len_bytes {
             return 0;
@@ -701,6 +836,7 @@ impl<'i> BufReader<'i> {
     }
 
     /// Bits read from the front so far.
+    #[inline(always)]
     pub(crate) fn bit_pos(&self) -> usize {
         self.byte_idx * 8 + 7 - self.bit_idx as usize
     }
@@ -1370,7 +1506,11 @@ mod tests {
                             }
                         }
                         let what = format!("{buf:02x?} at {fwd}, lengths from {bound}");
-                        assert_eq!(rd.bits_left(), bound.saturating_sub(fwd), "bits left, {what}");
+                        assert_eq!(
+                            rd.bits_left(),
+                            bound.saturating_sub(fwd),
+                            "bits left, {what}"
+                        );
                         assert_eq!(
                             rd.nibbles_left(),
                             bound.saturating_sub(fwd.next_multiple_of(4)) / 4,

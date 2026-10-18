@@ -138,51 +138,6 @@ unx!(41, 42, 43, 44, 45, 46, 47, 48 / 64);
 unx!(49, 50, 51, 52, 53, 54, 55, 56 / 64);
 unx!(57, 58, 59, 60, 61, 62, 63, 64 / 64);
 
-macro_rules! read_unx {
-    ($fn_name:ident, $base_ty:ty, $max_bit_count:literal) => {
-        paste::paste! {
-            #[doc = "Read up to " $max_bit_count " bits (without alignment) into " $base_ty " number."]
-            pub fn $fn_name(&mut self, bit_count: u8) -> Result<$base_ty, Error> {
-                self.kept()?;
-                if bit_count > $max_bit_count {
-                    return Err(Error::InvalidBitCount);
-                }
-
-                let mut result: $base_ty = 0;
-                let mut bits_left = bit_count;
-
-                while bits_left > 0 {
-                    // the bits of this byte that are not a length read from the back (SW-40): `bit_idx + 1`
-                    // would run into one in the last byte
-                    let in_byte = self.bits_in_byte_left();
-                    if in_byte == 0 {
-                        return Err(Error::OutOfBoundsReadUN);
-                    }
-
-                    let bits_to_read = bits_left.min(in_byte);
-                    let mask = ((1u16 << bits_to_read) - 1) as u8;
-                    let shift = self.bit_idx + 1 - bits_to_read;
-                    let bits = (self.buf[self.byte_idx] >> shift) & mask;
-
-                    result = (result << bits_to_read) | (bits as $base_ty);
-
-                    self.bit_idx = self.bit_idx.wrapping_sub(bits_to_read);
-                    if self.bit_idx == 255 {
-                        // Wrapping around after saturating_sub(1) from 0 .. 8 from 7
-                        self.bit_idx = 7;
-                        self.byte_idx += 1;
-                    }
-
-                    bits_left -= bits_to_read;
-                }
-
-                Ok(result)
-            }
-        }
-    };
-}
-pub(crate) use read_unx;
-
 macro_rules! signed_un {
     ($bits:literal, $base_bits:literal) => {
         paste! {

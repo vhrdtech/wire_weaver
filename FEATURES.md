@@ -553,11 +553,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   "root_foc")` puts a level with `+batched` properties on a ring of atomics instead of `<Level>Sampler::sample`: a
   `const fn` `<Level>Cells<R>` (a `static`, or an `Arc`), one `<Level>Writer` with a setter per property (relaxed
   stores where the value is computed) and `commit(t)` (the level's gate and grid, release fences, no lock), its reader
-  in `ObserveBatches::new`; `poll_properties` copies the rows into one staging batch and sends them as the sampler's
+  in `ObserveBatches::new` / `init`; `poll_properties` copies the rows into one staging batch and sends them as the sampler's
   (same wire; a row the writer laps is `missed`, never sent mixed). Opt-in per level, the default stays. Built on
   `shrink_wrap::series::SeriesCells` (`series(cells)` derive, `ww_si` and numbers have it). On an STM32H725 a row of
-  the motor demo's 21 FOC values takes 357 cycles at `opt-level = "z"` against 1 400 through `sample()` (342 against
-  423 at 3), 44-52 B of stack against 116-388 B, the same RAM. `ww api scaffold --observe-cells`. Writer and reader
+  the motor demo's 21 FOC values takes 354 cycles at `opt-level = "z"` against 412 through `sample()` (328 against
+  419 at 3), 44-52 B of stack against 108-116 B, the same RAM. `ww api scaffold --observe-cells`. Writer and reader
   on two threads tested under miri (`just miri`). (`docs/api/observing.md#cells-sampling-from-an-interrupt`,
   `tests/observe_batched`, `examples_mcu` `foc_observe`.)
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.

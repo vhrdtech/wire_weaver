@@ -17,9 +17,7 @@ use embassy_time::Timer;
 use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
-use wire_weaver_usb_embassy::{
-    LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
-};
+use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
@@ -54,8 +52,7 @@ impl WireWeaverAsyncApiBackend for ServerState {
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, out, medium)
-            .await
+        self.process_request_bytes(data, scratch, out, medium).await
     }
 
     fn version(&self) -> FullVersion<'_> {

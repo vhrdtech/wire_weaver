@@ -112,8 +112,8 @@ use shrink_wrap::series::{Series, SeriesOwned};
 
 let items: Vec<IvSample> = /* ... */;
 let bytes = Series::new(&items).to_ww_bytes_owned()?;       // picks the smallest codec per column
-// or, on a small MCU that wants to skip trying every codec:
-// Series::with_policy(&items, CodecPolicy::fixed(..)).to_ww_bytes(&mut buf)?;
+// or, on a small MCU: fixed codecs, chosen at compile time, only they are linked
+// Series::with_policy(&items, DeltaPacked).to_ww_bytes(&mut buf)?;
 
 let back: Vec<IvSample> = Series::<IvSample>::from_ww_bytes(&bytes)?.iter().collect();
 let owned = SeriesOwned::<IvSample>::from_ww_bytes_owned(&bytes)?; // std, into a Vec<T>
@@ -129,6 +129,43 @@ bounded instead).
 field gets its own column at the end of the group, which an older reader skips and a newer reader reading older
 data fills from the default; a new enum variant an older reader doesn't know fails the same way a plain decode of
 that item would.
+
+## CPU and flash on an MCU
+
+SW-63. How the codecs of the columns are picked is a `SeriesPolicy`: `CodecPolicy::SMALLEST` tries every codec per
+column and keeps the smallest, `CodecPolicy::fixed(numeric, float)` uses one for every column, both values chosen at
+run time, so both link every codec and the trials. A type with `FixedCodecs` fixes the codecs at compile time and
+links only them: `DeltaPacked` (delta and packed residuals, XOR floats) is one, and the `no_std` default of a
+`ww_stream` batcher. All of them write the same bytes for the same codecs.
+
+```rust
+#[derive(Clone, Copy)]
+struct DeltaOfDeltaPacked;
+
+impl FixedCodecs for DeltaOfDeltaPacked {
+    const NUMERIC: NumericCodec = NumericCodec::new(Predictor::DeltaOfDelta, Coder::Packed);
+    const FLOAT: FloatCodec = FloatCodec::Xor;
+}
+
+Series::with_policy(&items, DeltaOfDeltaPacked).to_ww_bytes(&mut buf)?;
+```
+
+What a `Series<Timed<Ampere>>` costs (64 samples of a motor's phase current, `examples_mcu/mcu_qemu` and
+`mcu_qemu_m4f`, instructions counted in QEMU with `examples_mcu/qemu_icount`; flash is the bin's `.text` minus the
+same bin without a `Series`):
+
+| Cortex-M3                       | instructions per item, n = 8 / 32 / 64 | bytes, n = 8 / 32 / 64 | flash   |
+|---------------------------------|----------------------------------------|------------------------|---------|
+| `SMALLEST`                      | 1112 / 969 / 950                       | 21 / 50 / 89           | 25.4 KB |
+| `fixed(delta, packed)`          | 409 / 341 / 332                        | 27 / 79 / 153          | 25.4 KB |
+| `fixed(delta-of-delta, packed)` | 411 / 334 / 321                        | 28 / 61 / 100          | 25.4 KB |
+| `DeltaPacked`                   | 406 / 341 / 333                        | 27 / 79 / 153          | 15.0 KB |
+
+A Cortex-M4F takes about the same instructions; its flash is 17.6 KB with a `CodecPolicy` and 9.8 KB with
+`DeltaPacked`. On an STM32H725 (Cortex-M7 at 540 MHz, caches on, `examples_mcu/usb_stm32h725ig`'s
+`series_encode_cycles`) a batch of 32 takes 25 200 cycles with `DeltaPacked` (47 µs, 790 cycles per item) and
+60 800 with `SMALLEST`. A fixed codec is about 3x cheaper in CPU than `SMALLEST`, for 1.2x to 1.7x the bytes on this signal
+(a ramp after a step: delta of delta is the better fixed codec there, delta on flatter signals).
 
 ## Collecting items on a device: `SeriesStore`
 

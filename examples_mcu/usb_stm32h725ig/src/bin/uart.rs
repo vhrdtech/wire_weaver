@@ -11,6 +11,7 @@ use bbqueue::{
 use cortex_m_rt::exception;
 use defmt::*;
 use defmt_rtt as _;
+use embassy_futures::select::{Either3, select3};
 use embassy_stm32::{
     Config, bind_interrupts, dma,
     gpio::{Level, Output, Speed},
@@ -23,17 +24,14 @@ use embassy_stm32::{
     usb,
     usb::Driver,
 };
-use embassy_futures::select::{Either3, select3};
 use embassy_time::{Instant, Timer};
 use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
-use wire_weaver_usb_embassy::{
-    LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
-};
+use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
 use ww_client_server::StreamSideband;
-use ww_stream::tx::Counted;
 use ww_client_server::credit::SinkCredit;
+use ww_stream::tx::Counted;
 use ww_uart::{Baud, Capabilities, RxChunk, UartConfig};
 
 bind_interrupts!(struct Irqs {
@@ -158,8 +156,7 @@ impl WireWeaverAsyncApiBackend for ServerState {
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, out, medium)
-            .await
+        self.process_request_bytes(data, scratch, out, medium).await
     }
 
     fn version(&self) -> FullVersion<'_> {
@@ -308,10 +305,7 @@ async fn uart_tx_task(tx_consumer: TxConsumer, mut tx: UartTx<'static, Async>) {
 }
 
 #[embassy_executor::task(pool_size = 2)]
-async fn uart_rx_task(
-    mut rx: UartRx<'static, Async>,
-    rx_producer: RxProducer,
-) {
+async fn uart_rx_task(mut rx: UartRx<'static, Async>, rx_producer: RxProducer) {
     loop {
         let mut wg = rx_producer.wait_grant((RX_BUF_SIZE / 2) as u16).await;
         // a frame is the device time of the last byte (4 bytes, µs, wraps every 71.6 minutes), then the bytes
@@ -410,7 +404,10 @@ async fn main(spawner: embassy_executor::Spawner) {
 
     let state = ServerState {
         tx_producer: [tx_bb_uart7.framed_producer(), tx_bb_uart8.framed_producer()],
-        tx_credit: [SinkCredit::new(TX_BUF_SIZE as u32), SinkCredit::new(TX_BUF_SIZE as u32)],
+        tx_credit: [
+            SinkCredit::new(TX_BUF_SIZE as u32),
+            SinkCredit::new(TX_BUF_SIZE as u32),
+        ],
         rx: [Counted::new(), Counted::new()],
         stream_sessions: 0,
     };

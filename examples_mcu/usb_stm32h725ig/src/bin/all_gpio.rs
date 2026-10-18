@@ -14,14 +14,12 @@ use panic_probe as _;
 use static_cell::StaticCell;
 use stm32_metapac::gpio::vals::{Idr, Moder, Odr, Ospeedr, Ot, Pupdr};
 use wire_weaver::prelude::*;
-use wire_weaver_usb_embassy::{
-    LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
+use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
+use ww_gpio::{
+    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, MAX_PORT_PINS, Mode,
+    PinCapabilities, PinLevel, Pull, Speed,
 };
 use ww_stream::tx::Counted;
-use ww_gpio::{
-    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, MAX_PORT_PINS, Mode, PinCapabilities, PinLevel,
-    Pull, Speed,
-};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
@@ -56,8 +54,7 @@ impl WireWeaverAsyncApiBackend for ServerState {
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, out, medium)
-            .await
+        self.process_request_bytes(data, scratch, out, medium).await
     }
 
     fn version(&self) -> FullVersion<'_> {
@@ -418,7 +415,6 @@ impl ServerState {
         self.stream_sessions
     }
 
-
     async fn port_pin_set_mode(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
@@ -427,8 +423,7 @@ impl ServerState {
         initial: Option<Level>,
     ) -> RpcResult<Result<(), GpioError<'_>>> {
         if let Some(initial) = initial {
-            self.port_pin_set_output_level(_cx, index, initial)
-                .await;
+            self.port_pin_set_output_level(_cx, index, initial).await;
         }
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
@@ -479,7 +474,12 @@ impl ServerState {
         Ready(mode)
     }
 
-    async fn set_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2], pull: Pull) -> SetResult<GpioError<'_>> {
+    async fn set_port_pin_pull(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        index: [UNib32; 2],
+        pull: Pull,
+    ) -> SetResult<GpioError<'_>> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let pull = match pull {
@@ -494,7 +494,11 @@ impl ServerState {
         Set
     }
 
-    async fn get_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2]) -> GetResult<Pull, GpioError<'_>> {
+    async fn get_port_pin_pull(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        index: [UNib32; 2],
+    ) -> GetResult<Pull, GpioError<'_>> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let pull = self.bank[bank_idx].pupdr().read().pupdr(pin_idx);
@@ -507,7 +511,12 @@ impl ServerState {
         Value(pull)
     }
 
-    async fn set_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2], speed: Speed) -> SetResult<GpioError<'_>> {
+    async fn set_port_pin_speed(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        index: [UNib32; 2],
+        speed: Speed,
+    ) -> SetResult<GpioError<'_>> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let speed = match speed {
@@ -523,7 +532,11 @@ impl ServerState {
         Set
     }
 
-    async fn get_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2]) -> GetResult<Speed, GpioError<'_>> {
+    async fn get_port_pin_speed(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        index: [UNib32; 2],
+    ) -> GetResult<Speed, GpioError<'_>> {
         let bank_idx = index[0].0 as usize;
         let pin_idx = index[1].0 as usize;
         let speed = self.bank[bank_idx].ospeedr().read().ospeedr(pin_idx);
@@ -535,7 +548,6 @@ impl ServerState {
         };
         Value(speed)
     }
-
 
     async fn port_pin_capabilities(
         &mut self,
@@ -553,7 +565,13 @@ impl ServerState {
         };
         Ready(PinCapabilities {
             modes: MaxLen::new_unchecked(RefVec::Slice {
-                slice: &[Mode::PushPullOutput, Mode::OpenDrainOutput, Mode::Input, Mode::HighZ, Mode::Analog],
+                slice: &[
+                    Mode::PushPullOutput,
+                    Mode::OpenDrainOutput,
+                    Mode::Input,
+                    Mode::HighZ,
+                    Mode::Analog,
+                ],
             }),
             pulls: MaxLen::new_unchecked(RefVec::Slice {
                 slice: &[Pull::None, Pull::Up, Pull::Down],

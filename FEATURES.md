@@ -60,6 +60,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   appended); a malformed header is an error. Writer takes the present set up front (`SetBits` over a bitset, any
   increasing iterator), `OptionAnyVecWriter` / in-place `OptionAnyVecBuilder`. For a trait level's properties in one
   update (API-38). See `docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types`, `docs/serdes/showcase.md`.
+- ✅ **SW-63 Fast and small `Series` encoding on MCUs**, the same bytes: about 6x fewer instructions per item on
+  a Cortex-M3/M4F (`Series<Timed<Ampere>>`, n = 32: 341 with a fixed codec, 969 with `SMALLEST`; 25 200 cycles per
+  batch of 32 on an STM32H725), and codec policies fixed at compile time (`SeriesPolicy`, `FixedCodecs`,
+  `DeltaPacked`, the `no_std` default of `ww_stream`'s batcher) that link only their own codecs: 15 KB of encoder
+  flash on a Cortex-M3 instead of 91 KB (25 KB with a run-time `CodecPolicy`). See
+  `docs/serdes/series.md#cpu-and-flash-on-an-mcu`, `examples_mcu/mcu_qemu`, `examples_mcu/qemu_icount`.
 - ✅ **SW-62 `SeriesStore` and series size bounds**: room for `N` items of a `series` type as a struct of arrays
   (`empty_store`, `set`, `get`), derived for structs (field stores) and enums (discriminants and every data
   variant's fields), by hand for `ww_numeric::NumericValue` (a variant byte and one payload as wide as the widest

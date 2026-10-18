@@ -277,7 +277,7 @@ stores. Count samples per second as properties x sample rate:
 | all 21 FOC properties at 25 kHz | 525 000 | ~1 000 M | no Cortex-M |
 
 So on an MCU observe a few properties at a few kHz, or decimate (`every_us`); full-rate observing of a whole
-control loop is for the simulator and the host (`examples/motor_demo`), where it costs about 0.9 MB/s of link with
+control loop is for the simulator and the host ([motor demo](../examples/motor_demo.md)), where it costs about 0.9 MB/s of link with
 integer storage.
 
 ## Wire format

@@ -30,6 +30,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   (the request a call, write or read is on the wire) show the `ww_client_server` envelope field by field and the
   payload inside it by its type. Library: `wire_weaver_client::envelope`, `DynResource::descend` (a resource from a
   request's absolute path).
+- `explain` in the wire-format conformance matrix (TEST-23, TOOL-9): every corpus case's value written as a Rust
+  expression and read back before it is encoded, and the golden bytes explained with every bit in exactly one part.
+  For it `ww_self::explain` now shows padding at the end of values and before nested ones, a sparse struct's slot
+  header and bytes skipped from a newer version as parts of their own, and `ww_self::expr::to_expr` writes a value
+  as a Rust expression. Found and fixed on the way: `i128::MIN` didn't read back, generic structs printed with their
+  arguments (`Timed<u16> { .. }`).
 
 - Wire-format conformance matrix (TEST-23): one corpus of cases (`tests/conformance/corpus.json`: type, value,
   golden bytes) run by `just test` and CI through every wire-format implementation: the Rust derive, the `ww_self`

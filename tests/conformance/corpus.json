@@ -309,7 +309,7 @@
       "type": "option_option",
       "value": null,
       "bytes": "80",
-      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13)", "python": "null is None and Some(None) alike in the Python value form (TOOL-13)"}
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13)", "explain": "null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13)", "python": "null is None and Some(None) alike in the Python value form (TOOL-13)"}
     },
     {
       "name": "result.ok",
@@ -460,7 +460,7 @@
       "value": null,
       "bytes": "0302",
       "direction": "reject",
-      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
       "note": "lo > hi: the validate function (SW-58) rejects it"
     },
     {
@@ -468,7 +468,7 @@
       "type": "Framed",
       "value": {"magic": 43981, "size": 7, "name": "ab", "count": 7},
       "bytes": "cdab800761620700000002",
-      "gaps": {"dynamic": "TailSize has no form in the API model yet (INT-9)", "python": "TailSize has no form in the API model yet (INT-9)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "gaps": {"dynamic": "TailSize has no form in the API model yet (INT-9)", "explain": "TailSize has no form in the API model yet (INT-9)", "python": "TailSize has no form in the API model yet (INT-9)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "the size of the rest of the value (SW-18), filled in when written"
     },
     {
@@ -622,7 +622,7 @@
       "value": null,
       "bytes": "10 34 12",
       "direction": "reject",
-      "gaps": {"dynamic": "by design: the API model has the variants of every build, a host reads it (DER-8)", "python": "by design: the API model has the variants of every build (DER-8)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "gaps": {"dynamic": "by design: the API model has the variants of every build, a host reads it (DER-8)", "explain": "by design: the API model has the variants of every build, a host reads it (DER-8)", "python": "by design: the API model has the variants of every build (DER-8)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "discriminant 1 is B, compiled out: EnumVariantDisabled"
     },
     {
@@ -646,7 +646,7 @@
       "bytes": "e80361626303",
       "bytes_from": "evolution.v1",
       "direction": "decode",
-      "gaps": {"dynamic": "the API model has no #[default] values, an old field reads as its type's default (INT-10)", "python": "the API model has no #[default] values (INT-10)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "gaps": {"dynamic": "the API model has no #[default] values, an old field reads as its type's default (INT-10)", "explain": "the API model has no #[default] values, an old field reads as its type's default (INT-10)", "python": "the API model has no #[default] values (INT-10)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "fields appended with #[default] read as their defaults"
     },
     {
@@ -727,14 +727,14 @@
       "type": "HtRecord",
       "value": {"ch": 7, "maybe": 772, "list": [2571, 2], "name": "ab", "on": true},
       "bytes": "0780020002008004030b0a02006162",
-      "gaps": {"dynamic": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "python": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "c": "reader only: the generated C has no writer yet (API-26)"}
+      "gaps": {"dynamic": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "explain": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "python": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "c": "reader only: the generated C has no writer yet (API-26)"}
     },
     {
       "name": "tail_bytes",
       "type": "WithTail",
       "value": {"kind": 3, "rest": [1, 2, 3]},
       "bytes": "03010203",
-      "gaps": {"dynamic": "TailBytes has no form in the API model yet (INT-9)", "python": "TailBytes has no form in the API model yet (INT-9)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+      "gaps": {"dynamic": "TailBytes has no form in the API model yet (INT-9)", "explain": "TailBytes has no form in the API model yet (INT-9)", "python": "TailBytes has no form in the API model yet (INT-9)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"}
     }
   ]
 }

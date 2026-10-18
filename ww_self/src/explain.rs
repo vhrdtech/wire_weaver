@@ -54,8 +54,13 @@ pub enum PartKind {
     Discriminant,
     /// `Some` / `Ok` (1) or `None` / `Err` (0).
     Flag,
-    /// Bits skipped to align the next value to a nibble or a byte.
+    /// Bits skipped to align the next value to a nibble or a byte, or left over at the end of a value (less than a
+    /// byte).
     Padding,
+    /// A byte or more at the end of a value that was not read: fields, variants or slots of a newer version.
+    Skipped,
+    /// The presence header of a sparse struct's slots.
+    Header,
 }
 
 /// Decode `bytes` as one top-level value of type `ty`, as
@@ -93,6 +98,15 @@ fn run(
     b.trace = Some(Box::new(Trace::new(base.clone())));
     let mut rd = BufReader::new(&base);
     let result = decode(&mut rd, &mut b);
+    if result.is_ok()
+        && let Some(trace) = &mut b.trace
+    {
+        // what is left after the value: padding, or a newer version's fields
+        // inside the value when it has parts, beside it when it is one number or string itself
+        let roots = trace.parts.iter().filter(|p| p.depth == 0).count();
+        trace.depth = usize::from(roots == 1 && trace.parts.len() > 1);
+        trace.rest(&rd);
+    }
     let trace = b.trace.take().expect("trace is set above");
     Explained {
         parts: trace.parts,
@@ -275,6 +289,63 @@ impl Trace {
 
     pub(crate) fn before(&self, rd: &BufReader) -> Option<Cursors> {
         self.cursors(rd)
+    }
+
+    /// The padding a byte-aligned read from `rd` (a split, a raw slice) skips first.
+    pub(crate) fn align(&mut self, rd: &BufReader) {
+        if let Some(at) = self.cursors(rd) {
+            let end = at.front_bit.next_multiple_of(8);
+            self.push_unread(at.front_bit..end, PartKind::Padding);
+        }
+    }
+
+    /// What `rd` (a value's own reader) has not read, between its two cursors: padding, or a byte or more skipped.
+    pub(crate) fn rest(&mut self, rd: &BufReader) {
+        if let Some(at) = self.cursors(rd) {
+            let end = at.back_nibble * 4;
+            let kind = match end.saturating_sub(at.front_bit) {
+                0..8 => PartKind::Padding,
+                _ => PartKind::Skipped,
+            };
+            self.push_unread(at.front_bit..end, kind);
+        }
+    }
+
+    /// The presence header of a sparse struct's slots: the first `bits` of `bytes` (a part of the buffer).
+    pub(crate) fn header(&mut self, bytes: &[u8], bits: usize) {
+        let Some(at) = BufReader::new(bytes).cursors_in(&self.base) else {
+            return;
+        };
+        self.parts.push(Part {
+            depth: self.depth,
+            label: "slots".to_string(),
+            kind: PartKind::Header,
+            ty: "presence header".to_string(),
+            front: at.front_bit..at.front_bit + bits,
+            back: 0..0,
+            value: None,
+            note: None,
+        });
+    }
+
+    fn push_unread(&mut self, front: Range<usize>, kind: PartKind) {
+        if front.is_empty() {
+            return;
+        }
+        self.parts.push(Part {
+            depth: self.depth,
+            label: match kind {
+                PartKind::Skipped => "skipped (newer version)",
+                _ => "padding",
+            }
+            .to_string(),
+            kind,
+            ty: String::new(),
+            front,
+            back: 0..0,
+            value: None,
+            note: None,
+        });
     }
 }
 

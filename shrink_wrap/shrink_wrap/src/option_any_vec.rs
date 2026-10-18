@@ -156,6 +156,11 @@ impl<'i> OptionAnyVec<'i> {
     }
 
     /// Read the slots in order, starting at slot 0.
+    /// Bits the presence header takes at the start of [as_bytes](Self::as_bytes): tools show it apart from the values.
+    pub fn header_bits(&self) -> usize {
+        self.values.bit_pos()
+    }
+
     pub fn iter(&self) -> OptionAnyVecIter<'i> {
         let mut present = self.present();
         let upcoming = present.next();
@@ -386,6 +391,12 @@ impl<'i> OptionAnyVecIter<'i> {
     ) -> Result<Option<T>, Error> {
         self.skip_absent_to(slot)?;
         self.next_owned()
+    }
+
+    /// Where the next value is read: what is left of the values after the last slot read (padding, or the slots of a
+    /// newer version), for tools that show every bit.
+    pub fn values_reader(&self) -> &BufReader<'i> {
+        &self.rd
     }
 
     /// [read_slot](Self::read_slot) with a closure given the reader (bounded the way [BufReader::read] bounds an

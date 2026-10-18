@@ -237,6 +237,13 @@ impl Budget {
         }
     }
 
+    /// `f` on the trace, when tracing.
+    pub(crate) fn trace(&mut self, f: impl FnOnce(&mut Trace)) {
+        if let Some(trace) = &mut self.trace {
+            f(trace);
+        }
+    }
+
     /// Forget a label no value took.
     pub(crate) fn drop_label(&mut self) {
         if let Some(trace) = &mut self.trace {
@@ -474,8 +481,12 @@ pub(crate) fn des_field(
         let before = b.before(rd);
         let len = rd.read_rev_len()?;
         b.part(before, rd, PartKind::Size, "size", || unib32(len), 1);
+        b.trace(|t| t.align(rd));
         let mut rd = rd.split(len)?;
-        des_inner(&mut rd, ty, api_bundle, b)
+        let value = des_inner(&mut rd, ty, api_bundle, b)?;
+        // padding at its end, or what a newer version added
+        b.trace(|t| t.rest(&rd));
+        Ok(value)
     } else {
         des_inner(rd, ty, api_bundle, b)
     }
@@ -822,7 +833,9 @@ fn des_sparse_fields(
     let FieldsOwned::Named(defs) = fields else {
         bail!("a sparse struct must have named fields");
     };
+    b.trace(|t| t.align(rd));
     let vec = OptionAnyVec::des_shrink_wrap(rd)?;
+    b.trace(|t| t.header(vec.as_bytes(), vec.header_bits()));
     let mut iter = vec.iter();
     let mut values = vec![];
     for def in defs {
@@ -839,6 +852,7 @@ fn des_sparse_fields(
         })?;
         values.push((name, ValueOwned::Option(value.map(Box::new))));
     }
+    b.trace(|t| t.rest(iter.values_reader()));
     Ok(FieldsValueOwned::Named(values))
 }
 

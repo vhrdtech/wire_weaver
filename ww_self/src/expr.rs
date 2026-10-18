@@ -70,6 +70,13 @@ pub fn value_from_expr_with(
     .value(expr, ty)
 }
 
+/// `value` of type `ty` written as a Rust expression [parse_value] reads back to the same value: struct and enum names
+/// from the type, `Name { a: 1 }`, `Mode::Fast`, `Some(..)`, `[..]`, `3..10`. Fails for what a literal can't write (a
+/// NaN or an infinite float, an enum variant the type doesn't have) and where the value doesn't match the type.
+pub fn to_expr(value: &ValueOwned, ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> Result<String> {
+    Print { api_bundle }.value(value, ty)
+}
+
 /// A call written as a Rust expression, see [parse_call].
 #[derive(Debug)]
 pub enum Call {
@@ -298,7 +305,7 @@ impl Conv<'_> {
         let (path, shape) = shape(expr)
             .ok_or_else(|| anyhow!("expected struct {}, got `{}`", def.ident, text(expr)))?;
         let name = path.last().map(String::as_str).unwrap_or_default();
-        if name != def.ident && name != "Self" {
+        if name != plain_name(&def.ident) && name != "Self" {
             bail!("expected struct {}, got `{}`", def.ident, text(expr));
         }
         Ok(ValueOwned::Struct {
@@ -322,7 +329,7 @@ impl Conv<'_> {
             [] => bail!("expected a variant of {}", def.ident),
         };
         if let Some(prefix) = prefix
-            && prefix != def.ident
+            && prefix != plain_name(&def.ident)
             && prefix != "Self"
         {
             bail!("expected a variant of {}, got `{}`", def.ident, text(expr));
@@ -515,7 +522,16 @@ fn int_lit(expr: &Expr) -> Option<i128> {
         Expr::Lit(syn::ExprLit {
             lit: Lit::Byte(b), ..
         }) => Some(b.value() as i128),
-        Expr::Unary(u) if matches!(u.op, UnOp::Neg(_)) => int_lit(&u.expr).map(|i| -i),
+        // the magnitude as u128: `-170141183460469231731687303715884105728` is i128::MIN
+        Expr::Unary(u) if matches!(u.op, UnOp::Neg(_)) => match unwrap(&u.expr) {
+            Expr::Lit(syn::ExprLit {
+                lit: Lit::Int(i), ..
+            }) => {
+                let magnitude: u128 = i.base10_parse().ok()?;
+                0i128.checked_sub_unsigned(magnitude)
+            }
+            other => int_lit(other).and_then(i128::checked_neg),
+        },
         _ => None,
     }
 }
@@ -613,4 +629,145 @@ fn hex_bytes(digits: &str) -> Result<Vec<u8>> {
             u8::from_str_radix(&digits[i..i + 2], 16).map_err(|_| anyhow!("0x{digits} is not hex"))
         })
         .collect()
+}
+
+struct Print<'a> {
+    api_bundle: &'a ApiBundleOwned,
+}
+
+impl Print<'_> {
+    fn value(&self, value: &ValueOwned, ty: &TypeOwned) -> Result<String> {
+        let mismatch = || {
+            anyhow!(
+                "{value:?} is not a {}",
+                crate::value::type_name(ty, self.api_bundle)
+            )
+        };
+        Ok(match (ty, value) {
+            (TypeOwned::Instance { .. } | TypeOwned::Param(_), _) => {
+                return Err(crate::value::not_instantiated(ty));
+            }
+            (TypeOwned::OutOfLine { type_idx }, _) => {
+                return self.value(value, self.api_bundle.get_ty(type_idx.0)?.0);
+            }
+            (TypeOwned::MaxLen { ty, .. } | TypeOwned::Box(ty), _) => return self.value(value, ty),
+            (TypeOwned::Bool, ValueOwned::Bool(b)) => b.to_string(),
+            (TypeOwned::NumericAny(_), ValueOwned::Numeric(n)) => number(n)?,
+            (TypeOwned::String, ValueOwned::String(s)) => format!("{s:?}"),
+            (
+                TypeOwned::Vec(item) | TypeOwned::Series(item) | TypeOwned::Array { ty: item, .. },
+                ValueOwned::Vec(items) | ValueOwned::Array(items),
+            ) => format!("[{}]", self.list(items, |_| Some(item))?),
+            (TypeOwned::Tuple(types), ValueOwned::Tuple(items)) => match items.len() {
+                1 => format!("({},)", self.list(items, |i| types.get(i))?),
+                _ => format!("({})", self.list(items, |i| types.get(i))?),
+            },
+            (TypeOwned::Struct(def), ValueOwned::Struct { fields }) => {
+                format!(
+                    "{}{}",
+                    plain_name(&def.ident),
+                    self.fields(fields, &def.fields)?
+                )
+            }
+            (TypeOwned::Enum(def), ValueOwned::Enum { variant, fields }) => {
+                let v = def
+                    .variants
+                    .iter()
+                    .find(|v| v.ident == *variant)
+                    .ok_or_else(|| anyhow!("{} has no variant {variant}", def.ident))?;
+                format!(
+                    "{}::{}{}",
+                    plain_name(&def.ident),
+                    v.ident,
+                    self.fields(fields, &v.fields)?
+                )
+            }
+            (TypeOwned::Option { .. }, ValueOwned::Option(None)) => "None".into(),
+            (TypeOwned::Option { some_ty }, ValueOwned::Option(Some(v))) => {
+                format!("Some({})", self.value(v, some_ty)?)
+            }
+            (TypeOwned::Result { ok_ty, .. }, ValueOwned::Result(Ok(v))) => {
+                format!("Ok({})", self.value(v, ok_ty)?)
+            }
+            (TypeOwned::Result { err_ty, .. }, ValueOwned::Result(Err(v))) => {
+                format!("Err({})", self.value(v, err_ty)?)
+            }
+            (TypeOwned::Range(_), ValueOwned::Range(r)) => {
+                format!("{}..{}", number(&r.start)?, number(&r.end)?)
+            }
+            (TypeOwned::RangeInclusive(_), ValueOwned::RangeInclusive(r)) => {
+                format!("{}..={}", number(r.start())?, number(r.end())?)
+            }
+            _ => return Err(mismatch()),
+        })
+    }
+
+    fn list<'t>(
+        &self,
+        items: &[ValueOwned],
+        ty: impl Fn(usize) -> Option<&'t TypeOwned>,
+    ) -> Result<String> {
+        let items = items
+            .iter()
+            .enumerate()
+            .map(|(i, v)| {
+                let ty = ty(i).ok_or_else(|| anyhow!("more values than types"))?;
+                self.value(v, ty).with_context(|| format!("[{i}]"))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(items.join(", "))
+    }
+
+    /// The fields after a struct's or variant's name: ` { a: 1 }`, `(1, 2)`, nothing.
+    fn fields(&self, fields: &FieldsValueOwned, defs: &FieldsOwned) -> Result<String> {
+        Ok(match (fields, defs) {
+            (FieldsValueOwned::Unit, _) => String::new(),
+            (FieldsValueOwned::Named(values), FieldsOwned::Named(defs)) => {
+                let values = values
+                    .iter()
+                    .map(|(name, v)| {
+                        let def = defs
+                            .iter()
+                            .find(|d| !d.is_flag() && d.ident.as_deref() == Some(name.as_str()))
+                            .ok_or_else(|| anyhow!("no field `{name}`"))?;
+                        Ok(format!(
+                            "{name}: {}",
+                            self.value(v, &def.ty).context(name.clone())?
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                format!(" {{ {} }}", values.join(", "))
+            }
+            (FieldsValueOwned::Unnamed(values), FieldsOwned::Unnamed(defs)) => {
+                format!("({})", self.list(values, |i| defs.get(i).map(|d| &d.ty))?)
+            }
+            _ => bail!("fields don't match their definition"),
+        })
+    }
+}
+
+/// A number as a Rust literal: floats always with a point or an exponent, so they read back as floats.
+fn number(n: &NumericValue) -> Result<String> {
+    if n.is_float() {
+        let f = n.to_f64();
+        if !f.is_finite() {
+            bail!("{f} has no literal");
+        }
+        let text = match n {
+            NumericValue::F32(v) => format!("{v:?}"),
+            _ => format!("{f:?}"),
+        };
+        return Ok(text);
+    }
+    if let NumericValue::U128(v) = n {
+        return Ok(v.to_string());
+    }
+    n.to_i128()
+        .map(|i| i.to_string())
+        .ok_or_else(|| anyhow!("{n:?} is not a number a literal writes"))
+}
+
+/// `Timed` of a generic definition made concrete, `Timed<u16>`: the name a Rust literal writes.
+fn plain_name(ident: &str) -> &str {
+    ident.split('<').next().unwrap_or(ident)
 }

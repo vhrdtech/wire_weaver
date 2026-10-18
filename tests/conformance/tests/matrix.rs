@@ -74,6 +74,11 @@ fn dynamic() {
 }
 
 #[test]
+fn explain() {
+    conformance::run_all(&conformance::explain::Explain);
+}
+
+#[test]
 fn c() {
     conformance::run_all(&conformance::c::C);
 }

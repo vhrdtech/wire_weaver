@@ -642,36 +642,38 @@ mod tests {
         assert_eq!(part(&e.explained.parts, "data").front.len(), 64);
     }
 
-    /// Every bit of the derived bytes is in exactly one part (TOOL-9): leaves never overlap, gaps in the front are
-    /// only padding up to a byte boundary.
+    /// Every bit of the derived bytes is in exactly one part with no parts inside it (TOOL-9).
     fn check_explained(bytes: &[u8], ty: &TypeOwned, bundle: &ApiBundleOwned) -> Vec<Part> {
         let explained = explain(bytes, ty, bundle);
         let value = ValueOwned::des_shrink_wrap_dyn(bytes, ty, bundle).unwrap();
         assert_eq!(explained.result.unwrap(), vec![value]);
-        // which leaf holds each bit: lengths are nibbles at the back of the buffer, or of the unsized value they are in
+        // which part holds each bit: lengths are nibbles at the back of the buffer, or of the unsized value they
+        // are in; padding and bytes skipped from a newer version are parts too, so every bit is in exactly one
+        let parts = &explained.parts;
         let mut owner: Vec<Option<usize>> = vec![None; bytes.len() * 8];
-        let leaves = explained.parts.iter().enumerate();
-        for (idx, part) in leaves.filter(|(_, p)| p.value.is_some() || p.kind == PartKind::Padding)
-        {
+        for (idx, part) in parts.iter().enumerate() {
+            if parts
+                .get(idx + 1)
+                .is_some_and(|next| next.depth > part.depth)
+            {
+                continue;
+            }
             let back = part.back.start * 4..part.back.end * 4;
             for bit in part.front.clone().chain(back) {
                 assert_eq!(
                     owner[bit],
                     None,
                     "bit {bit} is in {part:?} and {:?}",
-                    owner[bit].map(|o| &explained.parts[o])
+                    owner[bit].map(|o| &parts[o])
                 );
                 owner[bit] = Some(idx);
             }
         }
-        // what is left is padding: less than a byte at a time
-        for run in owner.split(|o| o.is_some()) {
-            assert!(
-                run.len() < 8,
-                "{} bits in a row in no part: {owner:?}",
-                run.len()
-            );
-        }
+        assert_eq!(
+            owner.iter().position(Option::is_none),
+            None,
+            "a bit in no part"
+        );
         explained.parts
     }
 

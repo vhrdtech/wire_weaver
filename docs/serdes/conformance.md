@@ -18,6 +18,7 @@ the value to exactly those bytes and decode them back to the value:
 |---|---|
 | `derive` | The value as the Rust type `#[derive_shrink_wrap]` generates (owned), encoded and decoded; where the borrowed type differs, the golden bytes go through it and back too. The reference: it runs every case. |
 | `dynamic` | `ww_self::ValueOwned::ser_shrink_wrap_dyn` / `des_shrink_wrap_dyn` with the type from the API model of `tests/conformance_api`, loaded from source as for a device's crate. |
+| `explain` | What [`ww explain`](../cli_reference.md#ww-explain) is made of: the value written as a Rust expression (`ww_self::expr::to_expr`) and read back (`parse_value`) before it is encoded; the golden bytes decoded by `ww_self::explain`, whose map of the bits must hold: every bit in exactly one part (a value, a length, a discriminant, a flag, padding, a header, bytes skipped from a newer version). |
 | `python` | `wire_weaver_py`'s `load_api(..).<type>.encode` / `.decode`, with the value as Python gives it. |
 | `c` | The C runtime (`shrink_wrap/c`) for a single number, bool, string or byte list; the generated C readers of `fixed_layout` and `head_tail` types, compiled with `cc` and run on the golden bytes. Other types wait for C generated from the model (API-26). |
 
@@ -30,13 +31,13 @@ The [conformance matrix](conformance_matrix.md) lists every case and what each c
   (`property!(rw shape: Shape<'i>)`), which is how the dynamic consumers find it in the API model. Types that
   aren't in the model (a `head_tail` type, `TailBytes`) are defined there but not listed in the trait.
 - `tests/conformance`: the runner. `src/derive.rs` has the derive's value of every case, `src/json.rs` turns a
-  corpus value into a `ValueOwned`, `src/c.rs` writes and runs the C. One test per consumer in
+  corpus value into a `ValueOwned`, `src/c.rs` writes and runs the C, `src/explain.rs` checks the bit map. One test per consumer in
   `tests/matrix.rs`, plus `corpus` (the file is well formed and `derive.rs` has every case), `report` (the
   matrix page is up to date), `frozen_bytes` ([frozen golden bytes](#frozen-golden-bytes), TEST-24,
   `src/frozen.rs`) and `coverage` ([coverage guard](#coverage-guard), TEST-25, `src/coverage.rs`).
 - `wire_weaver_py/tests/test_conformance.py`: the Python consumer, the same rules.
 
-`just test` runs all four. A failure names the case, the consumer and what differs, the first differing byte for
+`just test` runs all five. A failure names the case, the consumer and what differs, the first differing byte for
 an encode:
 
 ```text

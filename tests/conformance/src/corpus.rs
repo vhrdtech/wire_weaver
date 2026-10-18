@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// The consumers, in report order.
-pub const CONSUMERS: [&str; 4] = ["derive", "dynamic", "python", "c"];
+pub const CONSUMERS: [&str; 5] = ["derive", "dynamic", "explain", "python", "c"];
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]

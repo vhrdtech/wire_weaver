@@ -342,10 +342,19 @@ fn render(title: &str, bytes: &[u8], explained: &Explained, bundle: &ApiBundleOw
         out += &row(part, *leaf, bytes, top, &paint, bundle);
     }
     let padding = colour.iter().filter(|c| c.is_none()).count();
+    let skipped: usize = parts
+        .iter()
+        .filter(|p| p.kind == PartKind::Skipped)
+        .map(|p| p.front.len())
+        .sum();
     out += &format!(
-        "\n{} bits in values, {padding} padding or unread\n",
-        colour.len() - padding
+        "\n{} bits in values, {padding} padding or unread",
+        colour.len() - padding - skipped
     );
+    if skipped > 0 {
+        out += &format!(", {skipped} skipped (a newer version's)");
+    }
+    out += "\n";
     out
 }
 

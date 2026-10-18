@@ -40,6 +40,5 @@ ww_counters = { workspace = true, features = ["std", "host"] }
 ww_dfu = { workspace = true, features = ["std"] }
 ww_numeric.workspace = true
 ww_report.workspace = true
-ww_self = { workspace = true, features = ["expr"] }
 ww_settings = { workspace = true, features = ["dump"] }
 ww_si = { workspace = true, features = ["std"] }

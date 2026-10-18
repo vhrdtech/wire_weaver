@@ -12,6 +12,7 @@ default = ["std"]
 std = []
 
 [dependencies]
+anyhow.workspace = true
 quantities_api.workspace = true
 tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "test-util"] }

@@ -19,6 +19,8 @@ use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
 use syn::punctuated::Punctuated;
 use syn::{Expr, Lit, Member, Token, UnOp};
 use ww_numeric::{NumericBaseType, NumericValue};
+/// The `syn` and `quote` the expressions are parsed with, for a [Hook] to match on.
+pub use {quote, syn};
 
 /// Parse `text`, a Rust expression, as a value of type `ty`.
 pub fn parse_value(text: &str, ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> Result<ValueOwned> {
@@ -32,7 +34,40 @@ pub fn value_from_expr(
     ty: &TypeOwned,
     api_bundle: &ApiBundleOwned,
 ) -> Result<ValueOwned> {
-    Conv { api_bundle }.value(expr, ty)
+    Conv {
+        api_bundle,
+        hook: None,
+    }
+    .value(expr, ty)
+}
+
+/// Values a tool reads its own way, asked first for every value inside the expression: `None` leaves it to the usual
+/// reading. `wire_weaver_client::expr` reads `ww_si` quantities with it (`q!(3300 mV)`).
+pub type Hook<'h> = &'h dyn Fn(&Expr, &TypeOwned, &ApiBundleOwned) -> Option<Result<ValueOwned>>;
+
+/// [parse_value] with a [Hook].
+pub fn parse_value_with(
+    text: &str,
+    ty: &TypeOwned,
+    api_bundle: &ApiBundleOwned,
+    hook: Hook,
+) -> Result<ValueOwned> {
+    let expr: Expr = syn::parse_str(text).map_err(|e| anyhow!("not a Rust expression: {e}"))?;
+    value_from_expr_with(&expr, ty, api_bundle, hook)
+}
+
+/// [value_from_expr] with a [Hook].
+pub fn value_from_expr_with(
+    expr: &Expr,
+    ty: &TypeOwned,
+    api_bundle: &ApiBundleOwned,
+    hook: Hook,
+) -> Result<ValueOwned> {
+    Conv {
+        api_bundle,
+        hook: Some(hook),
+    }
+    .value(expr, ty)
 }
 
 /// A call written as a Rust expression, see [parse_call].
@@ -94,11 +129,17 @@ fn resource_path(expr: &Expr) -> Result<String> {
 
 struct Conv<'a> {
     api_bundle: &'a ApiBundleOwned,
+    hook: Option<Hook<'a>>,
 }
 
 impl Conv<'_> {
     fn value(&self, expr: &Expr, ty: &TypeOwned) -> Result<ValueOwned> {
         let expr = unwrap(expr);
+        if let Some(hook) = self.hook
+            && let Some(value) = hook(expr, ty, self.api_bundle)
+        {
+            return value;
+        }
         let mismatch = || {
             anyhow!(
                 "expected {}, got `{}`",

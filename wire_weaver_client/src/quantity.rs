@@ -317,6 +317,104 @@ impl DynQuantity {
     }
 }
 
+/// A quantity written as text, `3300 mV`, `3.3 V`, `-5 V`, `1.2e-4 N·m/(rad/s)`: a number, then the unit's symbol with
+/// a prefix in front of it or none. Spaces don't matter, `*` stands for `·` and `u` for `µ`. `unit` is the unit the
+/// value must be in (a `Quantity<U>`), the number alone is in the unit itself; `None` (an `AnyQuantity`) takes any
+/// named unit of `ww_si` by its symbol. Integers are stored as `i32` (`i64` when larger), other numbers as `f32` when
+/// that keeps the number as written, else `f64`.
+pub fn parse_quantity(text: &str, unit: Option<&DynUnit>) -> Result<DynQuantity, String> {
+    let squeezed: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+    let (number, symbol) = squeezed.split_at(number_len(&squeezed));
+    let symbol = symbol.replace('*', "·");
+    let value = number_value(number).ok_or_else(|| format!("`{text}`: expected a number first"))?;
+    let (prefix, unit) = match unit {
+        Some(unit) => {
+            let prefix = prefix_before(&symbol, &unit.symbol()).ok_or_else(|| {
+                format!(
+                    "`{text}`: expected a quantity in {} ({}), e.g. `1 {}` or with a prefix",
+                    unit.name(),
+                    unit.symbol(),
+                    unit.symbol()
+                )
+            })?;
+            (prefix, unit.clone())
+        }
+        None => ww_si::units::ALL
+            .iter()
+            .filter_map(|expr| match expr {
+                UnitExpr::Named { symbol: s, .. } if !s.is_empty() => {
+                    prefix_before(&symbol, s).map(|p| (p, DynUnit::Known(expr)))
+                }
+                _ => None,
+            })
+            // `mV` is milli volt, not a unit called `mV`: the unit without a prefix wins, then the longest symbol
+            .max_by_key(|(p, u)| (*p == Prefix::Unit, u.symbol().len()))
+            .ok_or_else(|| format!("`{text}`: no unit of ww_si has the symbol `{symbol}`"))?,
+    };
+    Ok(DynQuantity {
+        prefix,
+        value,
+        unit,
+    })
+}
+
+/// The prefix `symbol` has in front of `unit`'s symbol: `Unit` when it is that symbol (or empty).
+fn prefix_before(symbol: &str, unit: &str) -> Option<Prefix> {
+    let unit = unit.replace(' ', "");
+    if symbol == unit || symbol.is_empty() {
+        return Some(Prefix::Unit);
+    }
+    let head = symbol.strip_suffix(unit.as_str())?;
+    if head == "u" {
+        return Some(Prefix::Micro);
+    }
+    Prefix::ALL
+        .into_iter()
+        .find(|p| *p != Prefix::Unit && p.symbol() == head)
+}
+
+/// Length of the number at the start of `text`: sign, digits, `_`, a point, an exponent when digits follow it (`5eV` is
+/// 5 electron volt).
+fn number_len(text: &str) -> usize {
+    let b = text.as_bytes();
+    let mut i = 0;
+    if matches!(b.first(), Some(b'-' | b'+')) {
+        i += 1;
+    }
+    while i < b.len() && (b[i].is_ascii_digit() || b[i] == b'_' || b[i] == b'.') {
+        i += 1;
+    }
+    if i < b.len() && matches!(b[i], b'e' | b'E') {
+        let mut j = i + 1;
+        if j < b.len() && matches!(b[j], b'-' | b'+') {
+            j += 1;
+        }
+        if j < b.len() && b[j].is_ascii_digit() {
+            while j < b.len() && b[j].is_ascii_digit() {
+                j += 1;
+            }
+            i = j;
+        }
+    }
+    i
+}
+
+fn number_value(text: &str) -> Option<NumericValue> {
+    let text = text.replace('_', "");
+    if let Ok(i) = text.parse::<i64>() {
+        return Some(match i32::try_from(i) {
+            Ok(i) => NumericValue::I32(i),
+            Err(_) => NumericValue::I64(i),
+        });
+    }
+    let f: f64 = text.parse().ok()?;
+    // f32, the storage every device has, when its shortest text is the same number
+    Some(match (f as f32).to_string().parse::<f64>() == Ok(f) {
+        true => NumericValue::F32(f as f32),
+        false => NumericValue::F64(f),
+    })
+}
+
 /// `3300 mV`, the number as stored with its prefix; `{:#}` writes it in the unit itself: `3.3 V`. The same text as
 /// `ww_si::Quantity`'s `Display`, written by the same code.
 impl fmt::Display for DynQuantity {
@@ -447,6 +545,41 @@ mod tests {
     use ww_si::units::{
         AngularVelocity, Degree, DegreeCelsius, Meter, Per, Ratio, Second, Speed, Times, Torque,
     };
+
+    #[test]
+    fn quantities_from_text() {
+        let any = |text: &str| {
+            let q = parse_quantity(text, None).unwrap();
+            (q.prefix, q.value, q.unit.symbol())
+        };
+        assert_eq!(
+            any("20 °C"),
+            (Prefix::Unit, NumericValue::I32(20), "°C".into())
+        );
+        // an exponent only with digits after it: 5 electron volt
+        assert_eq!(
+            any("5eV"),
+            (Prefix::Unit, NumericValue::I32(5), "eV".into())
+        );
+        assert_eq!(
+            any("1e3 eV"),
+            (Prefix::Unit, NumericValue::F32(1000.0), "eV".into())
+        );
+        assert_eq!(
+            any("4.7 kΩ"),
+            (Prefix::Kilo, NumericValue::F32(4.7), "Ω".into())
+        );
+        assert_eq!(any("10 µs").0, Prefix::Micro);
+        assert_eq!(any("10 us").0, Prefix::Micro);
+        // a number f32 can't keep as written stays f64
+        assert_eq!(
+            any("3.141592653589793 m").1,
+            NumericValue::F64(std::f64::consts::PI)
+        );
+        assert_eq!(any("3_000_000_000 m").1, NumericValue::I64(3_000_000_000));
+        assert!(parse_quantity("20 furlongs", None).is_err());
+        assert!(parse_quantity("V", None).is_err());
+    }
     use ww_si::{Quantity, Unit};
 
     /// `Display` (both forms), `to_f64`, `to_si_f64` and the dimension of a typed quantity and of the dynamic one

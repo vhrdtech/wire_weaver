@@ -8,6 +8,7 @@ mod error;
 mod error_list;
 pub(crate) mod event_loop;
 pub mod evolution;
+pub mod expr;
 pub mod follow;
 /// Observing properties (CLT-28), see [client::observe](crate::observe)
 pub use client::observe;

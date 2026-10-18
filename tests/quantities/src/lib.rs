@@ -354,6 +354,46 @@ mod tests {
         );
     }
 
+    /// `q!(..)` and plain numbers (TOOL-9), written to the device and read back.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn quantities_as_rust_expressions() {
+        use wire_weaver_client::expr::parse_value;
+        let (device, values) = start("quantities/expr");
+        let (client, root) = connect(&device).await;
+        let write = async |name: &str, text: &str| {
+            let (_, ty) = read(&client, &root, name).await;
+            let value = parse_value(text, &ty, root.bundle())?;
+            root.child(name)
+                .unwrap()
+                .write(client.cmd(), &value)
+                .await
+                .unwrap();
+            anyhow::Ok(read_quantity(&client, &root, name).await)
+        };
+
+        write("voltage", "q!(-1500 uV)").await.unwrap();
+        assert!(
+            values
+                .lock()
+                .unwrap()
+                .voltage
+                .same_repr(&Volt::micro(-1500i32))
+        );
+        let v = write("voltage", "q!(3.3 kV)").await.unwrap();
+        assert_eq!((v.prefix, v.value), (Prefix::Kilo, NumericValue::F32(3.3)));
+        let v = write("voltage", "5").await.unwrap();
+        assert_eq!((v.prefix, v.value), (Prefix::Unit, NumericValue::I32(5)));
+        let b = write("damping", "q!(1.2e-4 N*m/(rad/s))").await.unwrap();
+        assert_eq!(b.to_string(), "0.00012 N·m/(rad/s)");
+        let s = write("sensor", r#"q!("20 mA")"#).await.unwrap();
+        assert_eq!((s.prefix, s.unit.symbol().as_str()), (Prefix::Milli, "A"));
+
+        assert_eq!(
+            write("voltage", "q!(3 A)").await.unwrap_err().to_string(),
+            "`3 A`: expected a quantity in Volt (V), e.g. `1 V` or with a prefix"
+        );
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn any_quantity_property() {
         let (device, _values) = start("quantities/any");

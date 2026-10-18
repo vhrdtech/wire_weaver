@@ -260,7 +260,7 @@ Literals take the type of their field: `5` is a `u16`, a `ub3` or an `f32` as th
 range is an error naming the field (`argument a: 200 is out of range for ub7`). Struct literals (`Name { a: 1 }`,
 `..Default::default()` for the rest), enum variants (`Mode::Fast` or `Fast`), `Some`/`None`, `Ok`/`Err`, tuples,
 arrays (`[0; 4]`, `vec![..]`, `b"bytes"`, `0xa102` for bytes), ranges and negative numbers work. The values `ww`
-prints (`ww introspect`, `ww observe`) are written the same way and can be pasted back, quantities (`3300 mV`) aside.
+prints (`ww introspect`, `ww observe`) are written the same way and can be pasted back; quantities go in `q!(..)`: `q!(3300 mV)`, `q!(1.2e-4 N*m/(rad/s))` (`*` for `·`, `u` for `µ`, a string for other symbols: `q!("20 °C")`), and a plain number is in the unit itself.
 
 Front bits are counted from bit 7 of byte 0. Lengths and sizes are nibbles read from the back of the buffer (or of
 the unsized value they are in), shown as `↩` with the byte and its half: `↩97h` is bits 7:4 of byte 97, `↩97l` bits

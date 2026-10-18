@@ -10,10 +10,10 @@ use clap::Args;
 use console::{Style, style};
 use std::path::PathBuf;
 use std::sync::Arc;
+use wire_weaver_client::expr::{self, Call};
 use wire_weaver_client::ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
 use wire_weaver_client::ww_self::{ApiBundleOwned, TypeOwned, ValueOwned};
 use wire_weaver_client::{DynClient, DynResource, DynResourceKind};
-use ww_self::expr::{self, Call};
 
 #[derive(Args)]
 pub(crate) struct ExplainArgs {

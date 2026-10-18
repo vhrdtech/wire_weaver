@@ -3992,6 +3992,7 @@ dependencies = [
 name = "quantities"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "quantities_api",
  "tests_common",
  "tokio",
@@ -6007,7 +6008,6 @@ dependencies = [
  "ww_dfu",
  "ww_numeric",
  "ww_report",
- "ww_self",
  "ww_settings",
  "ww_si",
 ]

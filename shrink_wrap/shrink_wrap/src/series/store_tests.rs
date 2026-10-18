@@ -32,7 +32,10 @@ fn check_with<T: SeriesStore + Clone + Debug>(
     };
     let in_place = super::init_store_in::<T, N>(&mut slot);
     for i in 0..N {
-        assert!(eq(&T::get(in_place, i), &empty), "store built in place at {i}");
+        assert!(
+            eq(&T::get(in_place, i), &empty),
+            "store built in place at {i}"
+        );
     }
     let mut store = T::empty_store::<N>();
     let mut model: [Option<T>; N] = Default::default();
@@ -168,6 +171,30 @@ fn fresh_stores() {
         Quantity::get(&Quantity::empty_store::<4>(), 0),
         Quantity::new(Prefix::Unit, NumericValue::U8(0))
     );
+}
+
+/// Every kind of store built in place (and set, read back) without proptest, small enough for miri (`just miri`).
+#[test]
+fn in_place_stores() {
+    check(&[7u32, 9], &[0, 5]);
+    check(&[-3i8], &[2]);
+    check(&[true], &[1]);
+    check(&["ab", ""], &[3, 4]);
+    check(&[Some(4u8), None], &[0, 1]);
+    check(&[[1u16, 2, 3]], &[6]);
+    check(&[(1u8, Some(true), [-1i32; 2])], &[7]);
+    check(&[Mode::On(-2)], &[3]);
+    check(&[shape(2, 300), shape(1, 5)], &[2, 4]);
+    check(
+        &[Window::<u8, u32, 2> {
+            samples: [1, 2],
+            tag: Some(3),
+            _unit: PhantomData,
+        }],
+        &[5],
+    );
+    check(&[Either::Left(5u16), Either::Right { n: 1 }], &[0, 1]);
+    check(&[Quantity::new(Prefix::Milli, NumericValue::U8(3))], &[1]);
 }
 
 /// A hand-written store whose `init_store` gives back another store than its slot.

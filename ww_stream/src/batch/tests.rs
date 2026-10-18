@@ -65,9 +65,10 @@ fn init_in_place_is_new() {
     let mut slot = core::mem::MaybeUninit::<Batcher<Sample, 32, CodecPolicy>>::uninit();
     // SAFETY: bytes of a `MaybeUninit`, any value is fine
     unsafe {
-        slot.as_mut_ptr()
-            .cast::<u8>()
-            .write_bytes(0xA5, core::mem::size_of::<Batcher<Sample, 32, CodecPolicy>>())
+        slot.as_mut_ptr().cast::<u8>().write_bytes(
+            0xA5,
+            core::mem::size_of::<Batcher<Sample, 32, CodecPolicy>>(),
+        )
     };
     let a = Batcher::init(&mut slot, CodecPolicy::SMALLEST);
     let mut b = Batcher::<Sample, 32, _>::new(CodecPolicy::SMALLEST);
@@ -75,7 +76,10 @@ fn init_in_place_is_new() {
     let (mut buf_a, mut buf_b) = ([0u8; 512], [0u8; 512]);
     for round in 0..2u32 {
         for k in 0..32 {
-            assert_eq!(a.push(&noisy(round * 32 + k)), b.push(&noisy(round * 32 + k)));
+            assert_eq!(
+                a.push(&noisy(round * 32 + k)),
+                b.push(&noisy(round * 32 + k))
+            );
         }
         let ea = a.encode_into(&mut sa, &mut buf_a).unwrap().unwrap();
         let eb = b.encode_into(&mut sb, &mut buf_b).unwrap().unwrap();

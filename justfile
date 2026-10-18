@@ -25,6 +25,8 @@ test-conformance-py:
 # interleavings (about a minute)
 miri:
     cargo +nightly miri test -p shrink_wrap --lib cells_tests
+    cargo +nightly miri test -p shrink_wrap --lib in_place
+    cargo +nightly miri test -p ww_stream --features std --lib in_place
     MIRIFLAGS="-Zmiri-many-seeds=0..16" cargo +nightly miri test -p ww_stream --features std --lib cells_tests
 
 # ww_settings power cuts at every step of every write and erase (release; `just test` samples them in debug)

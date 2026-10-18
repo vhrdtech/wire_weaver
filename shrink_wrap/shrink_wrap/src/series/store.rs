@@ -96,14 +96,13 @@ pub trait SeriesStore: Sized {
 pub fn init_store_in<T: SeriesStore, const N: usize>(
     slot: &mut MaybeUninit<T::Store<N>>,
 ) -> &mut T::Store<N> {
-    let at = slot.as_mut_ptr();
-    let init: *mut T::Store<N> = T::init_store::<N>(slot);
+    let at = slot.as_ptr();
+    let init = T::init_store::<N>(slot);
     assert!(
         core::ptr::eq(init, at),
         "SeriesStore::init_store gave back another store than its slot"
     );
-    // SAFETY: `init` is a `&mut` to a valid store, and it is `slot`
-    unsafe { &mut *at }
+    init
 }
 
 /// [init_store_in] of the store at `at`, a part of a bigger store or struct being built in place: what derived and

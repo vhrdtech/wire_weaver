@@ -30,7 +30,7 @@ fn mark_end() {
 }
 
 /// Bytes per batch and group.
-struct Marks([[usize; 3]; BATCHES]);
+struct Marks([[usize; 4]; BATCHES]);
 
 impl shared_clock::Meter for Marks {
     fn measure(&mut self, group: Group, batch: usize, work: &mut dyn FnMut() -> usize) {
@@ -53,7 +53,7 @@ fn main() -> ! {
     writeln!(stdout, "policy=RawPlain").unwrap();
     mark_start();
     mark_end();
-    let mut marks = Marks([[0; 3]; BATCHES]);
+    let mut marks = Marks([[0; 4]; BATCHES]);
     shared_clock::run(RawPlain, &mut marks);
     for (batch, bytes) in marks.0.iter().enumerate() {
         for group in Group::ALL {

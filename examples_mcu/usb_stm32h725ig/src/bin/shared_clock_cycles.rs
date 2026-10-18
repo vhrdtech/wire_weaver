@@ -25,9 +25,9 @@ mod shared_clock;
 /// Warm cycles (the best of four runs after the first) and cold ones (the first run) summed per batch and group,
 /// and the bytes.
 struct Cycles {
-    warm: [[u32; 3]; BATCHES],
-    cold: [[u32; 3]; BATCHES],
-    bytes: [[usize; 3]; BATCHES],
+    warm: [[u32; 4]; BATCHES],
+    cold: [[u32; 4]; BATCHES],
+    bytes: [[usize; 4]; BATCHES],
 }
 
 impl shared_clock::Meter for Cycles {
@@ -52,9 +52,9 @@ impl shared_clock::Meter for Cycles {
 
 fn measure<P: SeriesPolicy + Copy>(name: &str, policy: P) {
     let mut c = Cycles {
-        warm: [[0; 3]; BATCHES],
-        cold: [[0; 3]; BATCHES],
-        bytes: [[0; 3]; BATCHES],
+        warm: [[0; 4]; BATCHES],
+        cold: [[0; 4]; BATCHES],
+        bytes: [[0; 4]; BATCHES],
     };
     shared_clock::run(policy, &mut c);
     for batch in 0..BATCHES {

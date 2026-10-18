@@ -1,7 +1,9 @@
 //! Shared body of the shared clock benches (idea I-2): one batch of `N` samples of all 21 FOC properties of the
 //! motor demo ([super::foc_signals]) encoded the way batched observe sends them today, 21 x `Series<Timed<T>>`
 //! (each property its own time column), and the way a shared clock would, 21 x `Series<T>` plus one
-//! `Series<Second>` for the level. Used by the `qemu-shared-clock-*` bins (instructions, counted from outside with
+//! `Series<Second>` for the level, and as one `Series<Timed<FocRow>>` with an `Option` column per property (the
+//! shape the shared clock didn't take: a struct series restarts every column after a changed tag, quadratic over
+//! 21 tagged fields, 7x the cycles). Used by the `qemu-shared-clock-*` bins (instructions, counted from outside with
 //! `qemu_icount`) and by the H725 bin `stm32h725ig-shared-clock-cycles` (DWT cycles), through [Meter].
 //!
 //! Each property is built and measured on its own (one [Meter::measure] per `Series`): a whole level of items at
@@ -28,16 +30,20 @@ pub enum Group {
     Untimed,
     /// The level's one `Series<Second>`.
     Clock,
+    /// One `Series<Timed<FocRow>>`, every property an `Option` column next to one time column: a shared clock as
+    /// one series per level batch.
+    Row,
 }
 
 impl Group {
-    pub const ALL: [Group; 3] = [Group::Timed, Group::Untimed, Group::Clock];
+    pub const ALL: [Group; 4] = [Group::Timed, Group::Untimed, Group::Clock, Group::Row];
 
     pub fn label(self) -> &'static str {
         match self {
             Group::Timed => "21 x Series<Timed<T>>",
             Group::Untimed => "21 x Series<T>",
             Group::Clock => "1 x Series<Second>",
+            Group::Row => "1 x Series<Timed<Row of 21 Option<T>>>",
         }
     }
 }
@@ -64,7 +70,7 @@ fn one<T, P: SeriesPolicy + Copy>(
     T: for<'i> wire_weaver::shrink_wrap::series::SeriesColumns<'i>,
 {
     let items: [T; N] = core::array::from_fn(item);
-    let mut buf = [0u8; 512];
+    let mut buf = [0u8; 8192];
     meter.measure(group, batch, &mut || {
         Series::with_policy(&items[..], policy)
             .to_ww_bytes(&mut buf)
@@ -73,8 +79,35 @@ fn one<T, P: SeriesPolicy + Copy>(
     });
 }
 
+/// One sample of the level, every property optional (observed or not, on its grid or not).
+#[derive_shrink_wrap(borrowed, derive(Copy, Clone), final_structure, series)]
+pub struct FocRow {
+    pub i_a: Option<Ampere>,
+    pub i_b: Option<Ampere>,
+    pub i_c: Option<Ampere>,
+    pub i_alpha: Option<Ampere>,
+    pub i_beta: Option<Ampere>,
+    pub i_d: Option<Ampere>,
+    pub i_q: Option<Ampere>,
+    pub v_d: Option<Volt>,
+    pub v_q: Option<Volt>,
+    pub v_alpha: Option<Volt>,
+    pub v_beta: Option<Volt>,
+    pub duty_a: Option<Ratio>,
+    pub duty_b: Option<Ratio>,
+    pub duty_c: Option<Ratio>,
+    pub phase: Option<Radian>,
+    pub phase_observer: Option<Radian>,
+    pub phase_encoder: Option<Radian>,
+    pub observer_x1: Option<Weber>,
+    pub observer_x2: Option<Weber>,
+    pub v_bus: Option<Volt>,
+    pub phase_true: Option<Radian>,
+}
+
 macro_rules! level {
-    ($($ty:ident = $prefix:ident($signal:ident),)*) => {
+    ($($name:ident: $ty:ident = $prefix:ident($signal:ident),)*) => {
+
         /// Per batch: the 21 timed series, the 21 untimed ones, the clock.
         pub fn run<P: SeriesPolicy + Copy>(policy: P, meter: &mut impl Meter) {
             for batch in 0..BATCHES {
@@ -87,31 +120,36 @@ macro_rules! level {
                     one(Group::Untimed, batch, |i| $ty::$prefix(sig::$signal[batch * N + i]), policy, meter);
                 )*
                 one(Group::Clock, batch, |i| t(batch, i), policy, meter);
+                one(Group::Row, batch, |i| {
+                    Timed::new(t(batch, i), FocRow {
+                        $($name: Some($ty::$prefix(sig::$signal[batch * N + i])),)*
+                    })
+                }, policy, meter);
             }
         }
     };
 }
 
 level! {
-    Ampere = milli(I_A),
-    Ampere = milli(I_B),
-    Ampere = milli(I_C),
-    Ampere = milli(I_ALPHA),
-    Ampere = milli(I_BETA),
-    Ampere = milli(I_D),
-    Ampere = milli(I_Q),
-    Volt = milli(V_D),
-    Volt = milli(V_Q),
-    Volt = milli(V_ALPHA),
-    Volt = milli(V_BETA),
-    Ratio = micro(DUTY_A),
-    Ratio = micro(DUTY_B),
-    Ratio = micro(DUTY_C),
-    Radian = micro(PHASE),
-    Radian = micro(PHASE_OBSERVER),
-    Radian = micro(PHASE_ENCODER),
-    Weber = nano(OBSERVER_X1),
-    Weber = nano(OBSERVER_X2),
-    Volt = milli(V_BUS),
-    Radian = micro(PHASE_TRUE),
+    i_a: Ampere = milli(I_A),
+    i_b: Ampere = milli(I_B),
+    i_c: Ampere = milli(I_C),
+    i_alpha: Ampere = milli(I_ALPHA),
+    i_beta: Ampere = milli(I_BETA),
+    i_d: Ampere = milli(I_D),
+    i_q: Ampere = milli(I_Q),
+    v_d: Volt = milli(V_D),
+    v_q: Volt = milli(V_Q),
+    v_alpha: Volt = milli(V_ALPHA),
+    v_beta: Volt = milli(V_BETA),
+    duty_a: Ratio = micro(DUTY_A),
+    duty_b: Ratio = micro(DUTY_B),
+    duty_c: Ratio = micro(DUTY_C),
+    phase: Radian = micro(PHASE),
+    phase_observer: Radian = micro(PHASE_OBSERVER),
+    phase_encoder: Radian = micro(PHASE_ENCODER),
+    observer_x1: Weber = nano(OBSERVER_X1),
+    observer_x2: Weber = nano(OBSERVER_X2),
+    v_bus: Volt = milli(V_BUS),
+    phase_true: Radian = micro(PHASE_TRUE),
 }

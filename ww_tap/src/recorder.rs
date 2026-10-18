@@ -769,8 +769,7 @@ impl Tap for RecorderLink {
             let mut st = self.recorder.inner.state.lock().unwrap();
             st.links[self.link as usize].session = Some(bytes);
         }
-        self.recorder
-            .record(self.link, ids::SESSION, session);
+        self.recorder.record(self.link, ids::SESSION, session);
     }
 
     fn frame(&mut self, dir: Dir, bytes: &[u8]) {
@@ -787,8 +786,7 @@ impl Tap for RecorderLink {
             Dir::Tx => ids::TX_FRAMES,
             Dir::Rx => ids::RX_FRAMES,
         };
-        self.recorder
-            .record(self.link, stream, &f);
+        self.recorder.record(self.link, stream, &f);
     }
 
     fn message(&mut self, dir: Dir, kind: u8, bytes: &[u8]) {
@@ -805,13 +803,11 @@ impl Tap for RecorderLink {
             Dir::Tx => ids::TX_MESSAGES,
             Dir::Rx => ids::RX_MESSAGES,
         };
-        self.recorder
-            .record(self.link, stream, &m);
+        self.recorder.record(self.link, stream, &m);
     }
 
     fn link_event(&mut self, event: &LinkEvent<'_>) {
-        self.recorder
-            .record(self.link, ids::EVENTS, event);
+        self.recorder.record(self.link, ids::EVENTS, event);
     }
 }
 

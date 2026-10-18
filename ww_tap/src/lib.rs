@@ -245,7 +245,9 @@ pub enum Framer {
 pub enum FramerChecksum {
     None,
     /// `CrcChecksum<Crc16IbmSdlc, FULL>`: split messages always, Full ones when `full`.
-    Crc16IbmSdlc { full: bool },
+    Crc16IbmSdlc {
+        full: bool,
+    },
 }
 
 #[derive_shrink_wrap(

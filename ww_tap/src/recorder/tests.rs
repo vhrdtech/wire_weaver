@@ -144,12 +144,7 @@ fn held_blocks_lose_records_counted_in_a_link_event() {
     }
     // 20 - 12 = 8 were lost
     assert_eq!(frames, 1);
-    assert_eq!(
-        events,
-        [LinkEventOwned::Lost {
-            records: UVlq64(8)
-        }]
-    );
+    assert_eq!(events, [LinkEventOwned::Lost { records: UVlq64(8) }]);
 }
 
 #[test]
@@ -173,7 +168,10 @@ fn describe_carries_tracks_bundles_and_the_newest_session() {
                 Describe::Track(t) => tracks.push(t.label.to_string()),
                 Describe::Bundle { bytes, .. } => {
                     bundles += 1;
-                    assert_eq!(bytes.iter().map(|b| b.unwrap()).collect::<Vec<_>>(), b"bundle bytes");
+                    assert_eq!(
+                        bytes.iter().map(|b| b.unwrap()).collect::<Vec<_>>(),
+                        b"bundle bytes"
+                    );
                 }
                 _ => {}
             }

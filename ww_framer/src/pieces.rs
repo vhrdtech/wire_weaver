@@ -321,7 +321,10 @@ mod tests {
         for frame_size in [4usize, 5, 8, 13, 64] {
             let mut messages: std::vec::Vec<(u8, std::vec::Vec<u8>)> = std::vec::Vec::new();
             for len in 0..(3 * frame_size) {
-                messages.push(((len % 3) as u8, (0..len).map(|i| (i * 7 + len) as u8).collect()));
+                messages.push((
+                    (len % 3) as u8,
+                    (0..len).map(|i| (i * 7 + len) as u8).collect(),
+                ));
             }
             // write
             let mut frames: std::vec::Vec<std::vec::Vec<u8>> = std::vec::Vec::new();
@@ -381,5 +384,4 @@ mod tests {
             assert_eq!(by_pieces, messages, "frame size {frame_size}");
         }
     }
-
 }

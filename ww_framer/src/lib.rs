@@ -8,17 +8,17 @@ extern crate alloc;
 pub mod crc;
 pub mod framed;
 pub mod framed_rx;
-pub mod pieces;
 #[cfg(feature = "std")]
 pub mod owned;
+pub mod pieces;
 mod tests;
 pub mod traits;
 pub mod tx;
 
 pub use framed_rx::FramedRx;
-pub use pieces::{Piece, Pieces, pieces};
 #[cfg(feature = "std")]
 pub use owned::{FramedRxOwned, TxOwned};
+pub use pieces::{Piece, Pieces, pieces};
 pub use tx::Tx;
 
 #[cfg(all(feature = "very_large", not(feature = "large")))]

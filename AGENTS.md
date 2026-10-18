@@ -101,6 +101,33 @@ recipes above.
   missing, how large it is, what it blocks). Don't take the shortcut and flag it afterwards.
 - Flaky and slow tests follow the same rule (see the test time limits above): find the cause, never raise a limit.
 
+## Firmware: stack, cycles and flash
+
+The device side runs on small MCUs, often inside interrupts, so every change to server codegen, `ww_stream`,
+`shrink_wrap`'s writers or `ww_stdlib` types that firmware uses is checked for stack, cycles and flash, not only for
+correctness. Today's lessons:
+
+- **Stack.** Big state (stores, outboxes, `ObserveState`, buffers) lives in a `static` and is set up in place: a
+  `const fn new`, or an `init` into `&'static mut MaybeUninit<_>` (`ObserveState::init`). Never build it by value and
+  move or return it: that once cost a 31-35 KB frame, more than an M3's RAM. Check frames when touching such code
+  (`-Z emit-stack-sizes` / `cargo call-stack`, or run the bin on QEMU's M3 model with its 64 KB RAM), and keep the hot
+  path's frame small (an observe cells row is ~50 B).
+- **Optimization level.** Measure at the profile firmware ships with, and say which one: `opt-level = "z"` was 2.4x
+  slower than `3` on the Series writers, and a per-package `opt-level` for the library crates doesn't help, since
+  generic code is instantiated in the firmware crate. Small hot functions on per-item paths (store `set`/`put`, column
+  writers) get `#[inline(always)]` so `z` doesn't leave them out of line.
+- **Measure, don't guess.** Instruction counts with `examples_mcu/qemu_icount` (bounded: `--max-insns`, `--timeout`,
+  the trace read from QEMU's stderr, never a trace file in `/tmp`); cycles with DWT `CYCCNT` on real silicon (the
+  STM32H725 on omarchy-m1). Instructions are not cycles: report both units as what they are, with the clock to give
+  time. Benchmark bins exit QEMU on a HardFault, so a crash doesn't become an endless trace.
+- **Flash.** A choice fixed at build time is a type or const parameter, not a runtime value, so the linker drops what
+  isn't used (`DeltaPacked` as a type: 15 KB of encoder instead of 91 KB). Shared crates don't turn on wide types or
+  optional features for everyone (`ww_client_server` once enabled `u64` on every firmware: `NumericValue` 16 instead
+  of 8 B, +7.7 KB flash); hosts get them through `std` / `host`.
+- **Data layout.** Per-item generic walks are slow on MCUs: loops over struct-of-arrays columns (SW-64's column-wise
+  writer, observe cells) were 2-4x faster with the same bytes. Interrupt-side capture is a few stores and a counter
+  (observe cells), with encoding in task context.
+
 ## Workspace layout and crate roles
 
 The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that order to understand macro expansion):

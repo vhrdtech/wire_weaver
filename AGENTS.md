@@ -75,6 +75,18 @@ under `examples/` and `tests/` are `publish = false`, keep it that way for new o
 (different targets/toolchains — embedded, egui GUI) and must be built from their own directory or via the `just`
 recipes above.
 
+## Proper fixes, never a lost capability
+
+- A bug or limit found on the way (in codegen, the wire format, a test) is fixed where it lives, as its own commit,
+  or as its own piece when it is big. Never sidestep it with renames, special cases or workarounds in the code that
+  found it.
+- A removal, replacement or refactor keeps everything that worked before. If dropping a type or a code path would
+  take a capability away (an encode path, a client, a target, a test), build what replaces it first. Never narrow
+  tests, docs or `FEATURES.md` to fit a loss: scope limits what a change adds, not what it may break.
+- When such a prerequisite is too big for the change at hand, stop and say so with an estimate and a plan (what is
+  missing, how large it is, what it blocks). Don't take the shortcut and flag it afterwards.
+- Flaky and slow tests follow the same rule (see the test time limits above): find the cause, never raise a limit.
+
 ## Workspace layout and crate roles
 
 The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that order to understand macro expansion):

@@ -14,6 +14,7 @@
 //! | unit struct                       | `None`                                                              |
 //! | enum unit variant                 | `"Variant"`                                                         |
 //! | enum variant with fields          | `{"Variant": fields}`, fields as for a struct                       |
+//! | enum variant from a newer version | `"<unknown N>"` (decoded only, `N` its discriminant)                |
 //! | `Option<T>`                       | `None` or `T`                                                       |
 //! | `Result<T, E>`                    | `{"Ok": T}` or `{"Err": E}`                                         |
 //! | `Range`, `RangeInclusive`         | `(start, end)` (`range` with step 1 accepted)                       |
@@ -578,6 +579,14 @@ pub(crate) fn to_py<'py>(
         }
         (ValueOwned::Struct { fields }, TypeOwned::Struct(item_struct)) => {
             fields_to_py(py, fields, &item_struct.fields, bundle)?
+        }
+        // a variant from a newer version, its fields skipped (SW-16): its name, as the dynamic decoder gives it
+        (ValueOwned::Enum { variant, fields }, TypeOwned::Enum(item_enum))
+            if matches!(fields, FieldsValueOwned::Unit)
+                && variant.starts_with("<unknown ")
+                && !item_enum.variants.iter().any(|v| &v.ident == variant) =>
+        {
+            PyString::new(py, variant).into_any()
         }
         (ValueOwned::Enum { variant, fields }, TypeOwned::Enum(item_enum)) => {
             let def = item_enum

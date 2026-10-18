@@ -93,6 +93,9 @@
 
 ### 🐛 Fixes
 
+- Decoding an enum value with a variant from a newer version (an `Unsized` enum, SW-16) gave `ValueError: unknown
+  variant <unknown N>`; it now gives the string `"<unknown N>"`, as the dynamic decoder names it. Found by the
+  conformance matrix (TEST-23).
 - `connect()` decodes values of a type the device left out under a signature its snapshot doesn't have (a build from
   another revision of an unpublished crate, e.g. `ww_si::Volt`) without `load_api`, by taking the definition from the
   definition cache `~/.wire_weaver/definitions/` (EVO-9).

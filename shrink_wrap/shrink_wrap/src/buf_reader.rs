@@ -632,9 +632,17 @@ impl<'i> BufReader<'i> {
         }
     }
 
-    /// Returns the number of nibbles left, taking into account that buffer is read from both sides.
+    /// Returns the number of nibbles left, taking into account that buffer is read from both sides: what nibble
+    /// reads can take from here (they align to a nibble first).
     pub fn nibbles_left(&self) -> usize {
-        self.bytes_left() * 2 + self.nibbles_in_byte_left() as usize
+        self.front_end().saturating_sub(self.bit_pos().next_multiple_of(4)) / 4
+    }
+
+    /// The bit where the forward side ends: the lengths read from the back begin there (the last byte's low
+    /// nibble when one of its nibbles is read already).
+    #[inline(always)]
+    fn front_end(&self) -> usize {
+        self.len_bytes * 8 - if self.is_at_bit7_rev { 4 } else { 0 }
     }
 
     fn nibbles_in_byte_left(&self) -> u8 {
@@ -656,7 +664,7 @@ impl<'i> BufReader<'i> {
 
     /// Returns the number of bits left, taking into account that buffer is read from both sides.
     pub fn bits_left(&self) -> usize {
-        self.bytes_left() * 8 + self.bits_in_byte_left() as usize
+        self.front_end().saturating_sub(self.bit_pos())
     }
 
     fn bits_in_byte_left(&self) -> u8 {
@@ -1361,6 +1369,13 @@ mod tests {
                                 assert_eq!(sides(&rd), (fwd_after, bound_after), "{what}");
                             }
                         }
+                        let what = format!("{buf:02x?} at {fwd}, lengths from {bound}");
+                        assert_eq!(rd.bits_left(), bound.saturating_sub(fwd), "bits left, {what}");
+                        assert_eq!(
+                            rd.nibbles_left(),
+                            bound.saturating_sub(fwd.next_multiple_of(4)) / 4,
+                            "nibbles left, {what}"
+                        );
                     }
                 }
             }

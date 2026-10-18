@@ -124,12 +124,26 @@ static unsigned rd_bits_in_byte_left(const sw_reader *rd) {
     return rd->bit_idx + 1;
 }
 
+/* the bit where the forward side ends: the lengths read from the back begin there */
+static size_t rd_front_end(const sw_reader *rd) {
+    return rd->len_bytes * 8 - (rd->is_at_bit7_rev ? 4 : 0);
+}
+
+static size_t rd_bit_pos(const sw_reader *rd) {
+    return rd->byte_idx * 8 + 7 - rd->bit_idx;
+}
+
 size_t sw_reader_nibbles_left(const sw_reader *rd) {
-    return sw_reader_bytes_left(rd) * 2 + rd_nibbles_in_byte_left(rd);
+    /* nibble reads align to a nibble first */
+    size_t at = (rd_bit_pos(rd) + 3) / 4 * 4;
+    size_t end = rd_front_end(rd);
+    return at < end ? (end - at) / 4 : 0;
 }
 
 size_t sw_reader_bits_left(const sw_reader *rd) {
-    return sw_reader_bytes_left(rd) * 8 + rd_bits_in_byte_left(rd);
+    size_t at = rd_bit_pos(rd);
+    size_t end = rd_front_end(rd);
+    return at < end ? end - at : 0;
 }
 
 void sw_reader_pos(const sw_reader *rd, size_t *byte_idx, unsigned *bit_idx) {

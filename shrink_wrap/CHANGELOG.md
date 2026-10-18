@@ -441,6 +441,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
+- `BufReader::bits_left()` and `nibbles_left()` counted the current byte twice when the reader was at a byte boundary (3 fresh bytes: 32 bits, 8 nibbles; 24 and 6 are there), so the bounds checks that use them (`OptionAnyVec`, `Series`) let a too large count through to fail later, and a `Series` skipping the rest of its bits from a byte boundary went 8 bits past the end. Both count from where the lengths at the back begin now, checked for every reader state of 1- to 3-byte buffers; the C reader (`sw_reader_bits_left`, `sw_reader_nibbles_left`) the same.
 - Decoding a recursive type (`Box<T>`, `RefBox<T>`, `Vec<T>` or `RefVec<T>` of a type that contains itself, like
   `ww_self`'s `TypeOwned` and `ValueOwned`) had no nesting limit: 38 KB of untrusted data with 10 000 nested lists
   overflowed the stack and aborted the reading process (P2401). `BufReader` now counts the levels: `read()` /

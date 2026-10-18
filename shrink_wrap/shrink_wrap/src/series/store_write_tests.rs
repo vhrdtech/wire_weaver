@@ -2,9 +2,7 @@
 //! as a `Series` by the item walk, under every policy; rows where a tag changes are left to the walk.
 
 use super::columns::check::{FloatCodec, numeric_codecs};
-use super::{
-    AlignedPlain, CodecPolicy, DeltaPacked, RawPlain, Series, SeriesStore, write_store_series,
-};
+use super::{CodecPolicy, DeltaPacked, RawPlain, Series, SeriesStore, write_store_series};
 use crate::un::I12;
 use crate::{BufWriter, Nibble, SerializeShrinkWrap, derive_shrink_wrap};
 use proptest::prelude::*;
@@ -73,7 +71,7 @@ fn row(i: usize, some: bool, k: u8, vary: Option<usize>, x: u64, step: i64) -> R
 
 fn policies() -> impl Iterator<Item = CodecPolicy> {
     let fixed = numeric_codecs().flat_map(|n| {
-        [FloatCodec::Plain, FloatCodec::Xor, FloatCodec::Aligned]
+        [FloatCodec::Plain, FloatCodec::Xor]
             .into_iter()
             .map(move |f| CodecPolicy::fixed(n, f))
     });
@@ -136,6 +134,5 @@ proptest! {
         }
         same_as_walk(&items, start, DeltaPacked, offset, vary.is_some());
         same_as_walk(&items, start, RawPlain, offset, vary.is_some());
-        same_as_walk(&items, start, AlignedPlain, offset, vary.is_some());
     }
 }

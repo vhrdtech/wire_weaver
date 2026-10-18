@@ -1,14 +1,10 @@
 //! Numeric column: integers of 1 to 64 bits, and 128-bit ones raw + plain.
 //!
 //! ```text
-//! predictor:  2 bits   00 raw, 01 delta, 10 delta of delta, 11 escape
+//! predictor:  2 bits   00 raw, 01 delta, 10 delta of delta, 11 escape (reserved in v1: malformed)
 //! coder:      2 bits   00 prefix, 01 packed, 10 constant, 11 plain
 //! values:     one per item
 //! ```
-//!
-//! The escape `11` names a form of its own in the coder field: `11 11` is aligned plain, zero bits to the next
-//! byte and every value (its low W bits, zero above) little-endian in `ceil(W / 8)` bytes, no segments; `11 00`
-//! to `11 10` are reserved (malformed).
 //!
 //! Values split into segments at restarts. With delta or delta of delta, the first value of a segment is written
 //! at the full width W and every other one as a residual: the zigzag of the difference to the previous value, or
@@ -371,56 +367,6 @@ where
     sizes.finish()
 }
 
-/// Bytes of a value in an aligned plain column: `ceil(W / 8)`.
-pub(crate) const fn aligned_bytes(width: u8) -> usize {
-    width.div_ceil(8) as usize
-}
-
-/// Writes the values of an aligned plain column after its header: zero bits to a byte, each value's low W bits
-/// little-endian in [aligned_bytes].
-#[inline(always)]
-fn put_aligned<W: Word>(
-    sink: &mut impl BitSink,
-    kind: NumericKind,
-    values: impl Iterator<Item = W>,
-) -> Result<(), Error> {
-    sink.align_byte();
-    let mask = mask(kind.width);
-    let values = values.map(|v| v.to_u64() & mask);
-    // a copy of a known size per value, not a call
-    match aligned_bytes(kind.width) {
-        1 => put_aligned_chunks::<1>(sink, values),
-        2 => put_aligned_chunks::<2>(sink, values),
-        3 => put_aligned_chunks::<3>(sink, values),
-        4 => put_aligned_chunks::<4>(sink, values),
-        5 => put_aligned_chunks::<5>(sink, values),
-        6 => put_aligned_chunks::<6>(sink, values),
-        7 => put_aligned_chunks::<7>(sink, values),
-        _ => put_aligned_chunks::<8>(sink, values),
-    }
-}
-
-/// `B` low bytes of each value, little-endian, gathered in a chunk on the stack: one copy into the sink per chunk,
-/// not per value.
-#[inline(always)]
-fn put_aligned_chunks<const B: usize>(
-    sink: &mut impl BitSink,
-    values: impl Iterator<Item = u64>,
-) -> Result<(), Error> {
-    let mut chunk = [0u8; 64];
-    let mut at = 0;
-    for value in values {
-        if at + B > chunk.len() {
-            sink.put_bytes(&chunk[..at])?;
-            at = 0;
-        }
-        let le = value.to_le_bytes();
-        chunk[at..at + B].copy_from_slice(&le[..B]);
-        at += B;
-    }
-    sink.put_bytes(&chunk[..at])
-}
-
 /// Writes the column with `codec`, header included, which the caller checked fits (constant).
 #[inline(always)]
 fn encode<I, W>(
@@ -434,9 +380,7 @@ where
     W: Word,
 {
     sink.put_bits(4, ((codec.predictor as u64) << 2) | codec.coder as u64)?;
-    if codec.predictor == Predictor::Aligned {
-        put_aligned(sink, kind, items.map(|(value, _)| value))
-    } else if codec.coder == Coder::Packed {
+    if codec.coder == Coder::Packed {
         let mut writer = PackedWriter::new(kind, codec.predictor);
         for (value, restart) in items {
             writer.push(sink, value, restart)?;
@@ -477,18 +421,13 @@ where
     Some(counter.bits())
 }
 
-/// [coder_bits] of `codec`, for the checks against [numeric_bits]; aligned plain counted as written from the start
-/// of a byte (as [numeric_bits] counts).
+/// [coder_bits] of `codec`, for the checks against [numeric_bits].
 #[cfg(any(test, fuzzing))]
 pub(crate) fn counted_bits<I, W>(kind: NumericKind, codec: NumericCodec, items: I) -> Option<usize>
 where
     I: Iterator<Item = (W, bool)>,
     W: Word,
 {
-    if codec.predictor == Predictor::Aligned {
-        return (codec.coder == Coder::Plain)
-            .then(|| 8 + items.count() * 8 * aligned_bytes(kind.width));
-    }
     coder_bits(kind, codec.predictor, items)[codec.coder as usize]
 }
 
@@ -534,7 +473,6 @@ where
 {
     let codec = match codec {
         None => smallest_numeric(kind, items.clone()),
-        Some(c) if c.predictor == Predictor::Aligned => NumericCodec::ALIGNED_PLAIN,
         Some(c)
             if c.coder == Coder::Constant
                 && coder_bits(kind, c.predictor, items.clone())[2].is_none() =>
@@ -549,39 +487,20 @@ where
 
 /// Writes a numeric column of `values` without restarts, the bits [write_numeric] writes for
 /// `values.map(|v| (word(v), false))`, from an array as a [SeriesStore](crate::series::SeriesStore) keeps it:
-/// aligned plain of values whose memory is their aligned bytes (`native`: the low W bits, little-endian, in
-/// `ceil(W / 8)` bytes of their own) is one copy on a little-endian target, delta packed one pass with the block
-/// widths and bits packed in a word; every other codec goes through [write_numeric].
+/// delta packed is one pass with the block widths and bits packed in a word; every other codec goes through
+/// [write_numeric].
 #[inline(always)]
 pub(crate) fn write_numeric_slice<T, W>(
     sink: &mut impl BitSink,
     kind: NumericKind,
     values: &[T],
     word: impl Fn(&T) -> W + Copy,
-    native: bool,
     codec: Option<NumericCodec>,
 ) -> Result<NumericCodec, Error>
 where
     W: Word,
 {
     match codec {
-        Some(c)
-            if c.predictor == Predictor::Aligned && native && cfg!(target_endian = "little") =>
-        {
-            debug_assert_eq!(core::mem::size_of::<T>(), aligned_bytes(kind.width));
-            sink.put_bits(4, 0b1111)?;
-            sink.align_byte();
-            // SAFETY: `native` says a `T` is `size_of::<T>()` plain bytes (an integer), so the slice is
-            // `size_of_val(values)` initialized bytes, and `u8` has no alignment
-            let bytes = unsafe {
-                core::slice::from_raw_parts(
-                    values.as_ptr().cast::<u8>(),
-                    core::mem::size_of_val(values),
-                )
-            };
-            sink.put_bytes(bytes)?;
-            Ok(NumericCodec::ALIGNED_PLAIN)
-        }
         Some(c) if c == NumericCodec::new(Predictor::Delta, Coder::Packed) => {
             delta_packed_slice(sink, kind, values, word)?;
             Ok(c)
@@ -659,14 +578,13 @@ pub struct NumericReader<'i> {
 }
 
 impl<'i> NumericReader<'i> {
-    /// Reads the header at `rd`'s position (and the padding of an aligned plain column): an escape other than
-    /// `11 11` is `MalformedSeries`.
+    /// Reads the header at `rd`'s position: the escape predictor `11` is `MalformedSeries`.
     pub(crate) fn new(mut rd: BufReader<'i>, kind: NumericKind) -> Result<Self, Error> {
         let predictor = match rd.read_un32(2)? {
             0 => Predictor::Raw,
             1 => Predictor::Delta,
             2 => Predictor::DeltaOfDelta,
-            _ => Predictor::Aligned,
+            _ => return Err(Error::MalformedSeries),
         };
         let coder = match rd.read_un32(2)? {
             0 => Coder::Prefix,
@@ -674,12 +592,6 @@ impl<'i> NumericReader<'i> {
             2 => Coder::Constant,
             _ => Coder::Plain,
         };
-        if predictor == Predictor::Aligned {
-            if coder != Coder::Plain {
-                return Err(Error::MalformedSeries);
-            }
-            rd.align_byte();
-        }
         Ok(NumericReader {
             rd,
             kind,
@@ -702,17 +614,6 @@ impl<'i> NumericReader<'i> {
     pub(crate) fn next(&mut self, restart: bool) -> Result<u64, Error> {
         let w = self.kind.width;
         let predictor = self.codec.predictor;
-        if predictor == Predictor::Aligned {
-            let mut le = [0u8; 8];
-            let bytes = aligned_bytes(w);
-            le[..bytes].copy_from_slice(self.rd.read_raw_slice(bytes)?);
-            let bits = u64::from_le_bytes(le);
-            // the bits above the width are zero: one encoding per value
-            if bits & !mask(w) != 0 {
-                return Err(Error::MalformedSeries);
-            }
-            return Ok(bits);
-        }
         if predictor != Predictor::Raw && (restart || self.prev.is_none()) {
             let bits = self.rd.read_un64(w)?;
             self.prev = Some(bits);

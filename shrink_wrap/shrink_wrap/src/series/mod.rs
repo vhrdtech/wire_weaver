@@ -34,8 +34,8 @@ mod type_tests;
 mod xor_float;
 
 pub use columns::{
-    AlignedPlain, BitCounter, CodecPolicy, Coder, DeltaPacked, FixedCodecs, FloatCodec,
-    NumericCodec, PACKED_BLOCK, Predictor, RawPlain, SeriesPolicy,
+    BitCounter, CodecPolicy, Coder, DeltaPacked, FixedCodecs, FloatCodec, NumericCodec,
+    PACKED_BLOCK, Predictor, RawPlain, SeriesPolicy,
 };
 pub use group::{
     EnumTags, FieldItems, Level, OpaqueField, OpaqueReader, RootCtx, SeriesColumns, SeriesCtx,

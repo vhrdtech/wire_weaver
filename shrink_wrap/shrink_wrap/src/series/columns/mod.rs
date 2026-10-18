@@ -39,12 +39,6 @@ pub enum Predictor {
     Delta = 1,
     /// The first value of a segment at full width, then the zigzag of the change of the difference.
     DeltaOfDelta = 2,
-    /// The escape `11`, only with [Coder::Plain] (`11 11`): aligned plain, zero bits to the next byte and every
-    /// value little-endian in the bytes of its width (`ceil(W / 8)`), no segments. The most bits of all, but a
-    /// column kept as an array of such values is written with one copy (see
-    /// [SeriesStore::write_store](super::SeriesStore::write_store)). A writer given it with another coder writes
-    /// aligned plain.
-    Aligned = 3,
 }
 
 /// What the 2-bit coder field of a numeric column names: how residuals are written.
@@ -73,9 +67,6 @@ impl NumericCodec {
     pub const fn new(predictor: Predictor, coder: Coder) -> Self {
         NumericCodec { predictor, coder }
     }
-
-    /// Byte-aligned little-endian values: `11 11`, see [Predictor::Aligned].
-    pub const ALIGNED_PLAIN: NumericCodec = NumericCodec::new(Predictor::Aligned, Coder::Plain);
 }
 
 /// The 4-bit codec field of a float column.
@@ -86,9 +77,6 @@ pub enum FloatCodec {
     Plain = 0,
     /// The SW-32 XOR code (Gorilla), the first value of each segment at full width.
     Xor = 1,
-    /// Zero bits to the next byte, then every value little-endian in 4 or 8 bytes, no segments (see
-    /// [Predictor::Aligned]).
-    Aligned = 2,
 }
 
 /// How a writer picks the codec of each column.
@@ -201,20 +189,6 @@ pub struct RawPlain;
 impl FixedCodecs for RawPlain {
     const NUMERIC: NumericCodec = NumericCodec::new(Predictor::Raw, Coder::Plain);
     const FLOAT: FloatCodec = FloatCodec::Plain;
-}
-
-/// Every value byte-aligned and little-endian at its byte width, numbers and floats, fixed at compile time
-/// ([NumericCodec::ALIGNED_PLAIN], [FloatCodec::Aligned]): a column kept as an array of such values (a
-/// [SeriesStore](super::SeriesStore)) is written with one copy, the cheapest writer of all in CPU and as big as
-/// [RawPlain] in bytes, a little bigger for widths that aren't whole bytes. Runs of prefixes and tags are still
-/// collapsed.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct AlignedPlain;
-
-impl FixedCodecs for AlignedPlain {
-    const NUMERIC: NumericCodec = NumericCodec::ALIGNED_PLAIN;
-    const FLOAT: FloatCodec = FloatCodec::Aligned;
 }
 
 impl<F: FixedCodecs> From<F> for CodecPolicy {

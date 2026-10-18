@@ -1,11 +1,11 @@
 //! [SeriesStore]: items kept as a struct of arrays until they are written as a [Series](super::Series) (SW-62).
 
-use super::columns::float::{write_float, write_float_slice};
+use super::columns::float::write_float;
 use super::columns::numeric::{NumericKind, write_numeric_slice, write_numeric128};
 use super::columns::run::{RunKind, write_run};
 use super::group::Level;
 use super::leaves::NumericLeaf;
-use super::{BitSink, FloatCodec, SeriesPolicy, XorBits};
+use super::{BitSink, SeriesPolicy, XorBits};
 use crate::un::{IN, U3, UN};
 use crate::{BufWriter, Error, Nibble, RefVec, UNib32, UVlq32, UVlq64};
 use core::marker::PhantomData;
@@ -141,8 +141,7 @@ store_word!(u8, u16, u32, u64, u128);
 
 /// The numeric column of a `width`-bit (1 to 64) number kept in `values` (its bits in the low `width` bits, zero
 /// or sign-extended above), as the number's own [SeriesColumns](super::SeriesColumns) writes it for these rows
-/// without restarts: what a hand-written [SeriesStore::write_store] writes for a numeric field. Aligned plain is
-/// one copy when `W` is exactly `width` bits wide.
+/// without restarts: what a hand-written [SeriesStore::write_store] writes for a numeric field.
 pub fn write_numeric_column<W: StoreWord, S: BitSink, P: SeriesPolicy + ?Sized>(
     sink: &mut S,
     width: u8,
@@ -151,18 +150,10 @@ pub fn write_numeric_column<W: StoreWord, S: BitSink, P: SeriesPolicy + ?Sized>(
     policy: &P,
 ) -> Result<(), Error> {
     let kind = NumericKind::new(width, signed);
-    let native = width as usize == 8 * core::mem::size_of::<W>();
     if width <= 32 {
-        write_numeric_slice(
-            sink,
-            kind,
-            values,
-            |v| v.bits64() as u32,
-            native,
-            policy.numeric(),
-        )?;
+        write_numeric_slice(sink, kind, values, |v| v.bits64() as u32, policy.numeric())?;
     } else {
-        write_numeric_slice(sink, kind, values, |v| v.bits64(), native, policy.numeric())?;
+        write_numeric_slice(sink, kind, values, |v| v.bits64(), policy.numeric())?;
     }
     Ok(())
 }
@@ -176,33 +167,16 @@ pub fn write_numeric128_column<W: StoreWord, S: BitSink>(
     write_numeric128(sink, signed, values.iter().map(|v| v.bits128()))
 }
 
-/// The float column of a `T` (`f32`, `f64`) kept as its bits in `values`, as [write_numeric_column]: aligned plain
-/// is one copy when `W` is exactly as wide as `T`.
+/// The float column of a `T` (`f32`, `f64`) kept as its bits in `values`, as [write_numeric_column].
 pub fn write_float_column<T: XorBits, W: StoreWord, S: BitSink, P: SeriesPolicy + ?Sized>(
     sink: &mut S,
     values: &[W],
     policy: &P,
 ) -> Result<(), Error> {
-    let codec = policy.float();
-    if codec == Some(FloatCodec::Aligned)
-        && cfg!(target_endian = "little")
-        && 8 * core::mem::size_of::<W>() == T::BITS as usize
-    {
-        sink.put_bits(4, FloatCodec::Aligned as u64)?;
-        sink.align_byte();
-        // SAFETY: `W` is an unsigned integer (sealed), plain bytes, and `u8` has no alignment
-        let bytes = unsafe {
-            core::slice::from_raw_parts(
-                values.as_ptr().cast::<u8>(),
-                core::mem::size_of_val(values),
-            )
-        };
-        return sink.put_bytes(bytes);
-    }
     write_float(
         sink,
         values.iter().map(|v| (T::from_bits(v.bits64()), false)),
-        codec,
+        policy.float(),
     )?;
     Ok(())
 }
@@ -233,7 +207,6 @@ macro_rules! numeric_store {
                 <Self as NumericLeaf>::KIND,
                 &store[rows],
                 <Self as NumericLeaf>::word,
-                <Self as NumericLeaf>::NATIVE,
                 policy.numeric(),
             )?;
             Ok(())
@@ -254,7 +227,11 @@ macro_rules! float_store {
             policy: &P,
             _level: Level,
         ) -> Result<(), Error> {
-            write_float_slice(sink, &store[rows], policy.float())?;
+            write_float(
+                sink,
+                store[rows].iter().map(|v| (*v, false)),
+                policy.float(),
+            )?;
             Ok(())
         }
     };

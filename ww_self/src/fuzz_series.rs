@@ -607,15 +607,14 @@ pub fn policy(pick: u8) -> CodecPolicy {
     if pick < 128 {
         return CodecPolicy::SMALLEST;
     }
-    let predictor = [
-        Predictor::Raw,
-        Predictor::Delta,
-        Predictor::DeltaOfDelta,
-        Predictor::Aligned,
-    ][pick as usize % 4];
+    let predictor = [Predictor::Raw, Predictor::Delta, Predictor::DeltaOfDelta][pick as usize % 3];
     let coder =
-        [Coder::Prefix, Coder::Packed, Coder::Constant, Coder::Plain][(pick as usize / 4) % 4];
-    let float = [FloatCodec::Plain, FloatCodec::Xor, FloatCodec::Aligned][pick as usize % 3];
+        [Coder::Prefix, Coder::Packed, Coder::Constant, Coder::Plain][(pick as usize / 3) % 4];
+    let float = if pick & 1 == 0 {
+        FloatCodec::Plain
+    } else {
+        FloatCodec::Xor
+    };
     CodecPolicy::fixed(NumericCodec::new(predictor, coder), float)
 }
 
@@ -1058,20 +1057,15 @@ mod tests {
 
     // ---- the dynamic encoder (CLT-29) against the typed writer ---------------------------------------------------
 
-    /// Every policy a writer can have: the smallest, every fixed numeric codec with every float codec.
+    /// Every policy a writer can have: the smallest, every fixed numeric codec with either float codec.
     fn all_policies() -> Vec<CodecPolicy> {
         let mut out = vec![
             CodecPolicy::SMALLEST,
             shrink_wrap::series::DeltaPacked.into(),
         ];
-        for predictor in [
-            Predictor::Raw,
-            Predictor::Delta,
-            Predictor::DeltaOfDelta,
-            Predictor::Aligned,
-        ] {
+        for predictor in [Predictor::Raw, Predictor::Delta, Predictor::DeltaOfDelta] {
             for coder in [Coder::Prefix, Coder::Packed, Coder::Constant, Coder::Plain] {
-                for float in [FloatCodec::Plain, FloatCodec::Xor, FloatCodec::Aligned] {
+                for float in [FloatCodec::Plain, FloatCodec::Xor] {
                     out.push(CodecPolicy::fixed(
                         NumericCodec::new(predictor, coder),
                         float,

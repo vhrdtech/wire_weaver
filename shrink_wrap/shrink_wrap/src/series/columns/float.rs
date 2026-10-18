@@ -1,9 +1,7 @@
 //! Float column: `f32` / `f64`.
 //!
 //! ```text
-//! codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the SW-32 Gorilla XOR code),
-//!                      0010 aligned plain (zero bits to a byte, each value little-endian in 4 or 8 bytes),
-//!                      others reserved
+//! codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the SW-32 Gorilla XOR code), others reserved
 //! ```
 //!
 //! XOR: the first value of each segment at full width, then the SW-32 code against the previous value; a segment
@@ -20,14 +18,6 @@ where
     I: Iterator<Item = (T, bool)>,
 {
     sink.put_bits(4, codec as u64)?;
-    if codec == FloatCodec::Aligned {
-        sink.align_byte();
-        let bytes = T::BITS as usize / 8;
-        for (value, _) in items {
-            sink.put_bytes(&value.to_bits().to_le_bytes()[..bytes])?;
-        }
-        return Ok(());
-    }
     let mut xor = XorCodec::<T>::default();
     for (value, restart) in items {
         match codec {
@@ -38,7 +28,6 @@ where
                 }
                 xor.encode(value, sink)?;
             }
-            FloatCodec::Aligned => unreachable!("written above"),
         }
     }
     Ok(())
@@ -81,30 +70,6 @@ where
     Ok(codec)
 }
 
-/// Writes a float column of `values` without restarts, the bits [write_float] writes for them: aligned plain is
-/// one copy on a little-endian target (a float's memory is its bits).
-#[inline(always)]
-pub(crate) fn write_float_slice<T: XorBits>(
-    sink: &mut impl BitSink,
-    values: &[T],
-    codec: Option<FloatCodec>,
-) -> Result<FloatCodec, Error> {
-    if codec == Some(FloatCodec::Aligned) && cfg!(target_endian = "little") {
-        sink.put_bits(4, FloatCodec::Aligned as u64)?;
-        sink.align_byte();
-        // SAFETY: `T` is `f32` or `f64` (`XorBits`), plain bytes, and `u8` has no alignment
-        let bytes = unsafe {
-            core::slice::from_raw_parts(
-                values.as_ptr().cast::<u8>(),
-                core::mem::size_of_val(values),
-            )
-        };
-        sink.put_bytes(bytes)?;
-        return Ok(FloatCodec::Aligned);
-    }
-    write_float(sink, values.iter().map(|v| (*v, false)), codec)
-}
-
 /// Reader of a float column, stepped one item at a time.
 pub struct FloatReader<'i, T> {
     rd: BufReader<'i>,
@@ -128,10 +93,6 @@ impl<'i, T: XorBits> FloatReader<'i, T> {
         let codec = match rd.read_un32(4)? {
             0 => FloatCodec::Plain,
             1 => FloatCodec::Xor,
-            2 => {
-                rd.align_byte();
-                FloatCodec::Aligned
-            }
             _ => return Err(Error::MalformedSeries),
         };
         Ok(FloatReader {
@@ -150,12 +111,6 @@ impl<'i, T: XorBits> FloatReader<'i, T> {
     pub(crate) fn next(&mut self, restart: bool) -> Result<T, Error> {
         match self.codec {
             FloatCodec::Plain => Ok(T::from_bits(self.rd.read_un64(T::BITS)?)),
-            FloatCodec::Aligned => {
-                let mut le = [0u8; 8];
-                let bytes = T::BITS as usize / 8;
-                le[..bytes].copy_from_slice(self.rd.read_raw_slice(bytes)?);
-                Ok(T::from_bits(u64::from_le_bytes(le)))
-            }
             FloatCodec::Xor => {
                 if restart {
                     self.xor = XorCodec::default();

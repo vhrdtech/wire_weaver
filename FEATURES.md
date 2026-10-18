@@ -68,10 +68,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   an STM32H725 instead of 312 k (60 k against 125 k at `opt-level = 3`). See
   `docs/serdes/series.md#from-the-store-column-by-column`, `shrink_wrap/shrink_wrap/src/series/store_write_tests.rs`,
   `examples_mcu/mcu_qemu` (`qemu-store-columns`).
-- ✅ **SW-65 Aligned plain columns**: the numeric escape `11 11` and float codec `0010`, values little-endian at
-  their byte width after zero bits to a byte, the `AlignedPlain` policy. The cheapest writer from a store (34 k
-  cycles per FOC level batch on an STM32H725 at `opt-level = 3`), at 2.3x the bytes of `DeltaPacked`. Readers from
-  before it reject the column. See `docs/serdes/wire_format.md#seriest`, `docs/serdes/series.md#cpu-and-flash-on-an-mcu`.
 - ✅ **SW-63 Fast and small `Series` encoding on MCUs**, the same bytes: about 6x fewer instructions per item on
   a Cortex-M3/M4F (`Series<Timed<Ampere>>`, n = 32: 341 with a fixed codec, 969 with `SMALLEST`; 25 200 cycles per
   batch of 32 on an STM32H725), and codec policies fixed at compile time (`SeriesPolicy`, `FixedCodecs`,

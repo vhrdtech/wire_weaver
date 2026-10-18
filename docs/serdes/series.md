@@ -165,10 +165,6 @@ A Cortex-M4F takes about the same instructions; its flash is 17.6 KB with a `Cod
 60 800 with `SMALLEST`. A fixed codec is about 3x cheaper in CPU than `SMALLEST`, for 1.2x to 1.7x the bytes on this signal
 (a ramp after a step: delta of delta is the better fixed codec there, delta on flatter signals).
 
-`AlignedPlain` (SW-65) is the policy for CPU above all: every number byte-aligned and little-endian at its width
-(`NumericCodec::ALIGNED_PLAIN`, `FloatCodec::Aligned`), about as many bytes as raw + plain, and a column kept in an
-array of such numbers (a [SeriesStore](#collecting-items-on-a-device-seriesstore)) is written with a copy.
-
 ### From the store, column by column
 
 SW-64. A batch kept in a `SeriesStore` can be written without rebuilding its items: `write_store_series` writes rows
@@ -192,8 +188,6 @@ One FOC level batch of the motor demo (21 quantities and the clock, n = 32: 21 x
 | `DeltaPacked`, item walk      | 1 251 | 143 463                | 312 600 / 125 300                     |
 | `DeltaPacked`, from the store | 1 251 | 74 898                 | 100 400 / 59 900                      |
 | `RawPlain`, from the store    | 2 882 | 115 063                | 160 300 / 103 300                     |
-| `AlignedPlain`, item walk     | 2 882 | 73 071                 | 323 500 / 44 400                      |
-| `AlignedPlain`, from the store | 2 882 | 40 987                | 128 700 / 34 200                      |
 
 At opt-level `z` the cycles move by up to 15 % between builds with the code layout. A firmware that writes series
 in a hot path gains more from `opt-level = 3` than from any codec: the series code is

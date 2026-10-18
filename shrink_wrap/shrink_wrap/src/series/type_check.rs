@@ -317,15 +317,14 @@ pub fn policy(pick: u8) -> CodecPolicy {
     if pick < 128 {
         return CodecPolicy::SMALLEST;
     }
-    let predictor = [
-        Predictor::Raw,
-        Predictor::Delta,
-        Predictor::DeltaOfDelta,
-        Predictor::Aligned,
-    ][pick as usize % 4];
+    let predictor = [Predictor::Raw, Predictor::Delta, Predictor::DeltaOfDelta][pick as usize % 3];
     let coder =
-        [Coder::Prefix, Coder::Packed, Coder::Constant, Coder::Plain][(pick as usize / 4) % 4];
-    let float = [FloatCodec::Plain, FloatCodec::Xor, FloatCodec::Aligned][pick as usize % 3];
+        [Coder::Prefix, Coder::Packed, Coder::Constant, Coder::Plain][(pick as usize / 3) % 4];
+    let float = if pick & 1 == 0 {
+        FloatCodec::Plain
+    } else {
+        FloatCodec::Xor
+    };
     CodecPolicy::fixed(NumericCodec::new(predictor, coder), float)
 }
 

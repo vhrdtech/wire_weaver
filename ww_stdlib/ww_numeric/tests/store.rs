@@ -198,7 +198,7 @@ proptest! {
         values in prop::collection::vec(any::<(u128, u8)>(), 0..40),
         other in prop::option::of((any::<u8>(), 0..40usize)),
     ) {
-        use shrink_wrap::series::{AlignedPlain, CodecPolicy, DeltaPacked, RawPlain};
+        use shrink_wrap::series::{CodecPolicy, DeltaPacked, RawPlain};
         let mut items: Vec<NumericValue> = values.iter().map(|&(v, b)| value(pick, v, b)).collect();
         if let Some((p, at)) = other && at < items.len() {
             items[at] = value(p, 1, 3);
@@ -206,6 +206,5 @@ proptest! {
         store_vs_walk(&items, CodecPolicy::SMALLEST);
         store_vs_walk(&items, DeltaPacked);
         store_vs_walk(&items, RawPlain);
-        store_vs_walk(&items, AlignedPlain);
     }
 }

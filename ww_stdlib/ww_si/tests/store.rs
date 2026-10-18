@@ -60,7 +60,7 @@ fn size_up_to_32_bits() {
 #[test]
 fn quantities_written_column_by_column() {
     use shrink_wrap::series::{
-        AlignedPlain, CodecPolicy, DeltaPacked, RawPlain, Series, SeriesPolicy, write_store_series,
+        CodecPolicy, DeltaPacked, RawPlain, Series, SeriesPolicy, write_store_series,
     };
     use shrink_wrap::{BufWriter, SerializeShrinkWrap};
     fn check<P: SeriesPolicy + Copy>(items: &[Ampere], policy: P, columnar: bool) {
@@ -89,7 +89,6 @@ fn quantities_written_column_by_column() {
     check(&items, CodecPolicy::SMALLEST, true);
     check(&items, DeltaPacked, true);
     check(&items, RawPlain, true);
-    check(&items, AlignedPlain, true);
     items[7] = Ampere::new(Prefix::Micro, 5);
     check(&items, DeltaPacked, false);
 }

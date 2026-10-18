@@ -376,7 +376,7 @@ before its variants' columns - the order a reader needs to find every column's s
 **Numeric column:**
 
 ```text
-predictor:  2 bits   00 raw, 01 delta, 10 delta of delta, 11 escape
+predictor:  2 bits   00 raw, 01 delta, 10 delta of delta, 11 escape (reserved in v1: malformed)
 coder:      2 bits   00 prefix, 01 packed, 10 constant, 11 plain
 values:     m values of width W
 ```
@@ -400,20 +400,14 @@ Coders, for the residuals:
 - **plain** - each residual at the full width `W`.
 
 The writer may try any subset of predictor x coder combinations (or a fixed one via `CodecPolicy`) and keeps the
-smallest encoding; the reader follows whatever the 4-bit header says.
-
-The escape predictor `11` names a column form of its own in the coder field (SW-65): `11 11` is **aligned plain**,
-zero bits to the next byte, then each value's low `W` bits (zero above) little-endian in `ceil(W / 8)` bytes, no
-segments (restarts change nothing). It is never smaller than raw + plain, and never picked by `SMALLEST`; it exists
-for a writer that copies values straight from an array (`AlignedPlain`, see
-[CPU and flash on an MCU](series.md#cpu-and-flash-on-an-mcu)). `11 00` to `11 10` are reserved, `MalformedSeries`;
-so is an aligned value with bits set above `W`. Readers before SW-65 fail on `11 11` with `MalformedSeries`.
+smallest encoding; the reader follows whatever the 4-bit header says. Predictor `11` is reserved for a later,
+extended column mode (an escape, so existing codes keep their meaning and cost); a v1 reader fails on it with
+`Error::MalformedSeries`.
 
 **Float column:**
 
 ```text
-codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the XOR code),
-                     0010 aligned plain (zero bits to a byte, each value little-endian in 4 or 8 bytes), others reserved
+codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the XOR code), others reserved
 ```
 
 XOR: the first value of a segment at full width, then the [XOR code](#the-delta-and-xor-codes)

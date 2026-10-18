@@ -1,6 +1,6 @@
 //! The shared clock's columns of one FOC level batch (21 x `Series<T>` + one `Series<Second>`, n = 32, two
 //! batches) by the item walk and written straight from a `SeriesStore` (experiment series-memcpy-fast),
-//! Cortex-M4F, under `DeltaPacked`, `RawPlain` and `AlignedPlain` in that order. Run under `qemu_icount`: the first
+//! Cortex-M4F, under `DeltaPacked` and `RawPlain` in that order. Run under `qemu_icount`: the first
 //! `mark_start`/`mark_end` pair is calibration, then per policy and batch, per property and then the clock, one
 //! pair for the walk and one for the store; the bin prints the bytes per policy, batch and group. A fault exits
 //! QEMU with an error instead of looping.
@@ -18,7 +18,7 @@ use core::fmt::Write;
 use cortex_m_rt::{ExceptionFrame, entry, exception};
 use cortex_m_semihosting::{debug, hio};
 use shared_clock::{BATCHES, Group};
-use wire_weaver::shrink_wrap::series::{AlignedPlain, DeltaPacked, RawPlain, SeriesPolicy};
+use wire_weaver::shrink_wrap::series::{DeltaPacked, RawPlain, SeriesPolicy};
 
 #[inline(never)]
 fn mark_start() {
@@ -71,7 +71,6 @@ fn main() -> ! {
     mark_end();
     policy(&mut stdout, "DeltaPacked", DeltaPacked);
     policy(&mut stdout, "RawPlain", RawPlain);
-    policy(&mut stdout, "AlignedPlain", AlignedPlain);
     debug::exit(debug::EXIT_SUCCESS);
     loop {}
 }

@@ -1,7 +1,7 @@
 //! Core clock cycles of the shared clock measurement (idea I-2) on the STM32H725IG (Cortex-M7, 540 MHz, I- and
 //! D-cache on), counted with the DWT cycle counter: one FOC level batch of 32 samples of all 21 motor demo
 //! properties as 21 x `Series<Timed<T>>` against 21 x `Series<T>` + one `Series<Second>` (the `mcu_qemu`
-//! `shared_clock` bench), two batches, under `DeltaPacked`, `RawPlain` and `AlignedPlain`, and the shared clock's
+//! `shared_clock` bench), two batches, under `DeltaPacked` and `RawPlain`, and the shared clock's
 //! columns written straight from a `SeriesStore` (experiment series-memcpy-fast). Each encode runs five times: the first
 //! is with cold caches, the best of the rest is the warm number. `cargo run --release --bin
 //! stm32h725ig-shared-clock-cycles` prints them over defmt.
@@ -16,7 +16,7 @@ use embassy_stm32::Config;
 use embassy_stm32::time::mhz;
 use panic_probe as _;
 use shared_clock::{BATCHES, Group};
-use wire_weaver::shrink_wrap::series::{AlignedPlain, DeltaPacked, RawPlain, SeriesPolicy};
+use wire_weaver::shrink_wrap::series::{DeltaPacked, RawPlain, SeriesPolicy};
 
 #[path = "../../../mcu_qemu/src/foc_signals.rs"]
 mod foc_signals;
@@ -128,7 +128,6 @@ fn main() -> ! {
 
     measure("DeltaPacked", DeltaPacked);
     measure("RawPlain", RawPlain);
-    measure("AlignedPlain", AlignedPlain);
     info!("done");
     loop {
         cortex_m::asm::wfi();

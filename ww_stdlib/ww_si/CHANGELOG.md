@@ -29,6 +29,11 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
 
 ### 🚀 Features
 
+* Exact integer arithmetic on quantities of the same unit (P2401#17oct-2214), next to the float operators:
+  `checked_add` / `checked_sub` (in the finer prefix of the two and `self`'s number type, `Second::milli(5u32)` plus
+  `Second::micro(40u16)` is `Second::micro(5040u32)`), `checked_mul_int(n)`, `wrapping_add` / `wrapping_sub` (in
+  `self`'s prefix and number type, wrapping like a device clock) and `steps(&dt)`, the iterator `t0`, `t0 + dt`, ..
+  (`Steps<U>`). `None` on overflow, for floats, and where a step is not a whole number of the prefix.
 * `Prefix::ALL`, `Prefix::name()` (`"Milli"`) `Prefix::from_name()` (the variant names a dynamic client sees in a
   decoded value) and `Prefix::scale_f64` / `scale_f32` (a number in units of the prefix to the unit itself), for
   dynamic clients (CLT-31).

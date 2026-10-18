@@ -111,12 +111,20 @@ mod tests {
                 t0_us: u32,
             ) -> RpcResult<()> {
                 let ser = api_impl::stream_data_ser();
+                // plain and counted as one block of regularly sampled values (t0 + k * dt, wrapping at 2^32 µs),
+                // reliable and frames item by item
+                let t0 = Second::micro(t0_us);
+                let dt = Second::micro(40u8);
+                let first = self.next_value;
+                let block = (first..first + count as i32).map(|value| Sample { value });
+                ser.plain_push_many(&mut self.plain_stream, t0, dt, block.clone())
+                    .expect("40 µs is a whole number of µs");
+                ser.counted_push_many(&mut self.counted_stream, t0, dt, block)
+                    .expect("40 µs is a whole number of µs");
                 for k in 0..count {
                     let t = Second::micro(t0_us.wrapping_add(k * 40));
                     let value = self.next_value;
                     self.next_value += 1;
-                    ser.plain_push(&mut self.plain_stream, Sample { value }, t);
-                    ser.counted_push(&mut self.counted_stream, Sample { value }, t);
                     let sample = Sample {
                         value: value * self.gain,
                     };
@@ -236,6 +244,35 @@ mod tests {
     /// Device time of the `k`-th sample from `t0_us`, as the host unwraps it.
     fn t_of(t0_us: u32, k: u64) -> Option<Second> {
         Some(Second::micro(t0_us as u64 + k * 40))
+    }
+
+    /// `<name>_push_many` stamps a block `t0 + k * dt` exactly, wrapping like the device clock, and pushes nothing
+    /// when `dt` is not a whole number of `t0`'s prefix.
+    #[test]
+    fn push_many_stamps_a_block() {
+        let ser = server::api_impl::stream_data_ser();
+        let mut stream =
+            Batched::<Plain, Timed<Sample>, N>::new(Plain::new(), ww_stream::batch::DEFAULT_POLICY);
+        let block = (0..3).map(|value| Sample { value });
+        assert_eq!(
+            ser.plain_push_many(
+                &mut stream,
+                Second::milli(5u32),
+                Second::micro(40u8),
+                block.clone()
+            ),
+            None
+        );
+        assert_eq!(stream.batcher.filling(), 0);
+        let (_, lost) = ser
+            .plain_push_many(
+                &mut stream,
+                Second::milli(u32::MAX),
+                Second::milli(2u8),
+                block,
+            )
+            .unwrap();
+        assert_eq!((lost, stream.batcher.filling()), (0, 3));
     }
 
     /// Items one by one with their positions and own times, across batches sealed full, by a flush and by age; the

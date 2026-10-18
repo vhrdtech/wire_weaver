@@ -472,7 +472,11 @@ fn batched_ser_methods(
                  batches. Returns whether the batch was sealed, or lost because the event loop didn't keep up."
             );
             let push_many_doc = format!(
-                "`{ident}_push` of every `(t, value)`: returns the last seal and the items lost on the way."
+                "`{ident}_push` of every value of a regularly sampled block (an ADC DMA half-transfer), the first \
+                 taken at `t0`, the next ones `dt` apart: item `i` gets `t0 + i * dt`, computed exactly in `t0`'s \
+                 prefix and number type and wrapping like the device clock (`ww_si::Quantity::steps`). Returns the \
+                 last seal and the items lost on the way; `None`, with nothing pushed, when `dt` is not a whole \
+                 number of `t0`'s prefix (40 µs to a `t0` in ms) or either is a float."
             );
             quote! {
                 #[doc = #push_doc]
@@ -490,9 +494,17 @@ fn batched_ser_methods(
                 pub fn #push_many(
                     &self,
                     to: &mut impl ww_stream::batch::Push<ww_stream::batch::Timed<#value_ty>>,
-                    items: impl IntoIterator<Item = (ww_stream::Second, #value_ty)>,
-                ) -> (ww_stream::batch::Seal, usize) {
-                    to.push_many(items.into_iter().map(|(t, value)| ww_stream::batch::Timed::new(t, value)))
+                    t0: ww_stream::Second,
+                    dt: ww_stream::Second,
+                    values: impl IntoIterator<Item = #value_ty>,
+                ) -> Option<(ww_stream::batch::Seal, usize)> {
+                    let times = t0.steps(&dt)?;
+                    Some(to.push_many(
+                        values
+                            .into_iter()
+                            .zip(times)
+                            .map(|(value, t)| ww_stream::batch::Timed::new(t, value)),
+                    ))
                 }
             }
         }

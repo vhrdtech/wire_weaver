@@ -158,6 +158,37 @@ The numbers are computed in `f32` (in `f64` when an operand is stored as `F64`) 
 operators are for host and FPU math, the representation on the wire stays the device's choice through `quantize`.
 They need the `f32` feature.
 
+### Exact integer arithmetic
+
+For values of the same unit in integer storage, timestamps and durations above all, there are exact methods that
+keep integer storage and never round:
+
+| Method                    | Result                                                                                |
+|---------------------------|---------------------------------------------------------------------------------------|
+| `a.checked_add(&b)`       | `a + b` in the finer prefix of the two and `a`'s number type                          |
+| `a.checked_sub(&b)`       | `a - b`, the same way                                                                 |
+| `a.checked_mul_int(n)`    | `a * n` (an `i64`) in `a`'s prefix and number type                                    |
+| `a.wrapping_add(&b)`      | `a + b` in `a`'s prefix and number type, wrapping at its width like a device clock    |
+| `a.wrapping_sub(&b)`      | `a - b`, the same way                                                                 |
+| `t0.steps(&dt)`           | `t0`, `t0 + dt`, `t0 + 2·dt`, .. without end, each as `wrapping_add` computes it      |
+
+The `checked_*` ones give `None` when the result doesn't fit the number type; all of them give `None` for floats
+(their operators are `+`, `-`, `*`) and the `wrapping_*` ones and `steps` when `b` is not a whole number of `a`'s
+prefix (40 µs added to a time in ms).
+
+```rust
+use ww_si::Second;
+
+assert_eq!(Second::milli(5u32).checked_add(&Second::micro(40u16)), Some(Second::micro(5040u32)));
+assert_eq!(Second::micro(u32::MAX).checked_add(&Second::micro(1u8)), None);
+assert_eq!(Second::micro(u32::MAX).wrapping_add(&Second::micro(2u8)), Some(Second::micro(1u32)));
+// the times of 32 samples at 40 µs, the first one taken at t0
+let t0 = Second::micro(4_294_967_000u32);
+let times: Vec<Second> = t0.steps(&Second::micro(40u8)).unwrap().take(32).collect();
+```
+
+A batched stream's generated `<name>_push_many(state, t0, dt, values)` stamps a block of samples this way.
+
 ## Compound units and your own
 
 A unit outside the list is written with `Per<A, B>` and `Times<A, B>` of markers. They are not normalized:

@@ -21,6 +21,8 @@ Wire-incompatible with 0.1.1.
 
 ### 🚀 Features
 
+* `NumericBaseType::from_i128_wrapping(x)`: `x` wrapped at an integer type's width, for `ww_si`'s wrapping time
+  arithmetic.
 * `NumericValueStore<N>` (SW-62), the `shrink_wrap::series::SeriesStore` of `NumericValue`, written by hand: a byte
   for the variant and one payload array as wide as the widest variant enabled (`U8`, `U32`, `I32`, `F32`: 5 bytes
   per value where `NumericValue` takes 8), plus a byte for `UN` / `IN` widths. `NumericValue` is `series(no_store)`.

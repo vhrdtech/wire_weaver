@@ -13,6 +13,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- ww_si: exact integer time arithmetic (P2401#17oct-2214): `checked_add`, `checked_sub`, `checked_mul_int`,
+  `wrapping_add`, `wrapping_sub` and `steps` on quantities of the same unit in integer storage; batched streams'
+  generated `<name>_push_many(to, t0, dt, values)` stamps a block with `t0 + i * dt` through them instead of taking
+  `(t, value)` pairs. See the `ww_si` and `wire_weaver_core` changelogs.
 - `examples_mcu/mcu_qemu` (Cortex-M3, `lm3s6965evb`) and a new `examples_mcu/mcu_qemu_m4f` (Cortex-M4F,
   `mps2-an386`) gain a `Series<Timed<Ampere>>` encode benchmark (TEST-23, piece 4 of the batched-streams design):
   the motor demo's real recorded `i_a` signal, at n = 8/32/64 under `CodecPolicy::SMALLEST`,

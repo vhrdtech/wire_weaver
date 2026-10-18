@@ -40,7 +40,10 @@
   resume, and `poll_streams` (now also for blocking servers with batched counted or plain streams) seals batches by
   age, encodes each once and sends counted and plain ones right away, reliable ones through the store; it takes a
   `ww_stream::batch::Scratch` when the API has batched streams. `stream_data_ser().<name>_push(to, value, t)` and
-  `<name>_push_many` are O(1) per item and never encode (an interrupt may call them). The scaffold writes
+  `<name>_push_many(to, t0, dt, values)` are O(1) per item and never encode (an interrupt may call them);
+  `_push_many` stamps item `i` with `t0 + i * dt`, exact in `t0`'s prefix and number type and wrapping like the
+  device clock (`ww_si::Quantity::steps`), and returns `None`, pushing nothing, when `dt` is not a whole number of
+  `t0`'s prefix (P2401#17oct-2214; it took `(t, value)` pairs before). The scaffold writes
   `Batched<.., 32>` states. Generated clients unpack batches into items. A batched item type that borrows is a
   compile error.
 

@@ -654,6 +654,42 @@ impl NumericBaseType {
         }
     }
 
+    /// `x` in this integer type, wrapped around at its width like a counter (`U32` keeps `x mod 2^32`, `I8` the low
+    /// 8 bits as two's complement, `UVlq32` and `UNib32` wrap at `2^32`): `None` for floats, a type that is not
+    /// enabled, and `F16`, `UB`, `IB`, `UN`, `IN`.
+    pub fn from_i128_wrapping(&self, x: i128) -> Option<NumericValue> {
+        Some(match self {
+            #[cfg(feature = "nibble")]
+            NumericBaseType::Nibble => NumericValue::Nibble(Nibble::new((x & 0xf) as u8)?),
+            NumericBaseType::U8 => NumericValue::U8(x as u8),
+            #[cfg(feature = "u16")]
+            NumericBaseType::U16 => NumericValue::U16(x as u16),
+            #[cfg(feature = "u32")]
+            NumericBaseType::U32 => NumericValue::U32(x as u32),
+            #[cfg(feature = "unib32")]
+            NumericBaseType::UNib32 => NumericValue::UNib32(UNib32(x as u32)),
+            #[cfg(feature = "u64")]
+            NumericBaseType::U64 => NumericValue::U64(x as u64),
+            #[cfg(feature = "i32")]
+            NumericBaseType::I32 => NumericValue::I32(x as i32),
+            #[cfg(feature = "u128")]
+            NumericBaseType::U128 => NumericValue::U128(x as u128),
+            #[cfg(feature = "i8")]
+            NumericBaseType::I8 => NumericValue::I8(x as i8),
+            #[cfg(feature = "i16")]
+            NumericBaseType::I16 => NumericValue::I16(x as i16),
+            #[cfg(feature = "i64")]
+            NumericBaseType::I64 => NumericValue::I64(x as i64),
+            #[cfg(feature = "i128")]
+            NumericBaseType::I128 => NumericValue::I128(x),
+            #[cfg(feature = "uvlq32")]
+            NumericBaseType::UVlq32 => NumericValue::UVlq32(UVlq32(x as u32)),
+            #[cfg(feature = "uvlq64")]
+            NumericBaseType::UVlq64 => NumericValue::UVlq64(UVlq64(x as u64)),
+            _ => return None,
+        })
+    }
+
     /// `x` in this number type, exactly: `None` when it doesn't fit, for a type that is not enabled, and for
     /// `F16`, `UB`, `IB`, `UN`, `IN`. Floats take `x` rounded to their precision.
     pub fn from_i128(&self, x: i128) -> Option<NumericValue> {

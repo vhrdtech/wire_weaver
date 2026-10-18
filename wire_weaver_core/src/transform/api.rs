@@ -749,16 +749,49 @@ mod tests {
         );
     }
 
-    /// The same for a `+batched` property (API-39): a `Batched::Series` slot carries `Series<Timed<T>>`.
+    /// A `+batched` property (API-39) is `Batching::SharedClock`: its samples are a `Series<T>` of its own type,
+    /// their times the level's `Series` of `sample_time_ty` (`ww_si::Second`), which survives a device leaving it
+    /// out of its introspection.
     #[test]
-    fn batched_property_wire_item_round_trips() {
-        wire_item_round_trips(
-            "observe_batched_api",
-            Some("ObserveBatched"),
-            "reading",
-            "mode",
-            "Timed<Reading>",
-        );
+    fn batched_property_shared_clock() {
+        use ww_self::Batching;
+
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/observe_batched_api");
+        let full = crate::load(&crate_path, Some("ObserveBatched".into()), false).unwrap();
+        let property = |bundle: &ww_self::ApiBundleOwned, name: &str| match &bundle
+            .root
+            .items
+            .iter()
+            .find(|i| i.ident == name)
+            .unwrap()
+            .kind
+        {
+            ApiItemKindOwned::Property {
+                batched,
+                sample_time_ty,
+                ..
+            } => (*batched, sample_time_ty.clone()),
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(property(&full, "mode"), (None, None));
+        let (batched, second) = property(&full, "reading");
+        assert_eq!(batched, Some(Batching::SharedClock));
+        let second = second.expect("sample_time_ty");
+
+        let sent = crate::transform::snapshot::skip_known(&full).unwrap();
+        let mut received = sent;
+        let not_inlined = wire_weaver_snapshots::inline_skipped(&mut received);
+        assert!(not_inlined.is_empty(), "{not_inlined:?}");
+        ww_self::generics::prepare(&mut received).unwrap();
+        let (batched, received_second) = property(&received, "reading");
+        assert_eq!(batched, Some(Batching::SharedClock));
+        assert!(matches!(second, TypeOwned::Instance { .. }), "{second:?}");
+        // instantiated on the host, a concrete `Quantity<Second>`
+        let received_second = received_second.expect("sample_time_ty");
+        let TypeOwned::Struct(def) = received_second.get_in_line(&received).unwrap() else {
+            panic!("{received_second:?}");
+        };
+        assert_eq!(def.ident, "Quantity<Second>");
     }
 
     /// `timed` has a `Timed<T>` batch item that survives a device leaving `Timed` out, `plain` has none.
@@ -839,15 +872,14 @@ mod tests {
             .unwrap_or_else(|| panic!("no item named {name}"))
             .kind
         {
-            ApiItemKindOwned::StreamFn { batch_item_ty, .. }
-            | ApiItemKindOwned::Property { batch_item_ty, .. } => batch_item_ty.clone(),
-            other => panic!("'{name}' is neither a stream function nor a property: {other:?}"),
+            ApiItemKindOwned::StreamFn { batch_item_ty, .. } => batch_item_ty.clone(),
+            other => panic!("'{name}' is not a stream function: {other:?}"),
         }
     }
 
-    fn access_of(tokens: &str) -> Result<PropertyAccess, String> {
+    fn access_of(tokens: &str) -> Result<(PropertyAccess, bool), String> {
         syn::parse_str::<PropertyMacroArgs>(tokens)
-            .map(|args| args.access)
+            .map(|args| (args.access, args.batched))
             .map_err(|e| e.to_string())
     }
 
@@ -856,17 +888,11 @@ mod tests {
     fn batched_property_access() {
         assert!(matches!(
             access_of("ro+observe+batched i_a: Ampere"),
-            Ok(PropertyAccess::ReadOnly {
-                observe: true,
-                batched: true
-            })
+            Ok((PropertyAccess::ReadOnly { observe: true }, true))
         ));
         assert!(matches!(
             access_of("rw+observe value: u8"),
-            Ok(PropertyAccess::ReadWrite {
-                observe: true,
-                batched: false
-            })
+            Ok((PropertyAccess::ReadWrite { observe: true }, false))
         ));
         let err = access_of("ro+batched i_a: Ampere").unwrap_err();
         assert!(err.contains("needs +observe first"), "{err}");

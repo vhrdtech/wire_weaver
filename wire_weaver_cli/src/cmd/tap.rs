@@ -70,7 +70,7 @@ pub(crate) struct ViewArgs {
 
     /// Also print the bytes of every frame and message, in hex
     #[arg(long)]
-    pub hex: bool,
+    pub bytes: bool,
 
     /// API layer: every message with its bit map and field table, as `ww explain request|event HEX` shows one
     #[arg(long)]
@@ -330,7 +330,7 @@ impl Monitor {
                     return None;
                 }
                 _ = writeln!(s, "{head} {}", frame_line(f));
-                if self.view.hex {
+                if self.view.bytes {
                     hex_lines(&mut s, &f.bytes);
                 }
             }
@@ -349,7 +349,7 @@ impl Monitor {
                 } else {
                     _ = writeln!(s, "{head} {}", message_line(m));
                 }
-                if self.view.hex {
+                if self.view.bytes {
                     hex_lines(&mut s, &m.bytes);
                 }
             }
@@ -661,7 +661,7 @@ pub(crate) async fn stats(args: StatsArgs, device: DynClient, tap: LiveTap) -> R
     run_live(device, recorder, args.duration, move |stop| {
         let view = ViewArgs {
             layer: Layer::Frame,
-            hex: false,
+            bytes: false,
             bits: false,
         };
         let mut monitor = Monitor::new(view, false);
@@ -689,7 +689,7 @@ pub(crate) async fn stats(args: StatsArgs, device: DynClient, tap: LiveTap) -> R
 pub(crate) fn stats_file(path: &Path) -> Result<()> {
     let view = ViewArgs {
         layer: Layer::Frame,
-        hex: false,
+        bytes: false,
         bits: false,
     };
     let mut monitor = Monitor::new(view, true);

@@ -225,6 +225,9 @@ impl Stats {
                     _ = writeln!(s, "  link messages: {}", kinds.join(", "));
                 }
             }
+            if !l.requests.is_empty() || !l.events.is_empty() {
+                _ = writeln!(s, "link {link} api:");
+            }
             for (what, p) in &l.requests {
                 let reply = match p.reply_sum_ns.checked_div(p.replies) {
                     Some(mean) => format!(", reply mean {} max {}", ns(mean), ns(p.reply_max_ns)),

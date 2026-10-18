@@ -84,17 +84,17 @@ fn views() -> [ViewArgs; 3] {
     [
         ViewArgs {
             layer: Layer::Frame,
-            hex: true,
+            bytes: true,
             bits: false,
         },
         ViewArgs {
             layer: Layer::Link,
-            hex: false,
+            bytes: false,
             bits: false,
         },
         ViewArgs {
             layer: Layer::Api,
-            hex: false,
+            bytes: false,
             bits: true,
         },
     ]
@@ -204,4 +204,10 @@ async fn monitor_capture_and_explain_file_agree() {
     );
     assert!(api.contains("bits in values"), "the --bits table: {api}");
     assert!(!api.contains("LinkSetup"), "{api}");
+}
+
+/// clap's own checks of the command tree (unique argument ids, ..), which a release build skips.
+#[test]
+fn cli_is_consistent() {
+    <crate::cli::Cli as clap::CommandFactory>::command().debug_assert();
 }

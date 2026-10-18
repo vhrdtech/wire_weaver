@@ -597,40 +597,41 @@ fn bounds_of_types() {
     // three variants (discriminants up to 2): first value 4 bits, a change 1 + 4 + 4
     assert_eq!(<Prefix as super::SeriesColumns>::MAX_ITEM_BITS, Some(9));
     assert_eq!(<Prefix as super::SeriesColumns>::MAX_FIXED_BITS, Some(5));
-    // NumericValue: the tag (up to 7), the widest variant (32 bits, numeric beats float), a header per variant
+    // NumericValue: the tag (up to 7), the widest variant (32 bits, numeric beats float), a header and the
+    // aligned plain padding per variant
     assert_eq!(
         <NumericValue as super::SeriesColumns>::MAX_ITEM_BITS,
         Some(9 + float_item_bits(32, 5))
     );
     assert_eq!(
         <NumericValue as super::SeriesColumns>::MAX_FIXED_BITS,
-        Some(5 + 5 * 4)
+        Some(5 + 5 * COLUMN_FIXED_BITS)
     );
     // an evolvable struct: its head
     assert_eq!(
         <IvSample as super::SeriesColumns>::MAX_FIXED_BITS,
-        Some(STRUCT_HEAD_BITS + 2 * (5 + 25))
+        Some(STRUCT_HEAD_BITS + 2 * (5 + 60))
     );
     assert_eq!(Ser::<&str>::max_bytes(1), None);
     assert_eq!(Ser::<u8>::max_bytes(0), Some(1));
     assert_eq!(Ser::<u8>::max_bytes(super::SERIES_MAX_ITEMS + 1), None);
-    // 32 items: n in 8 bits, 4 + 32 x 12 bits, padding
+    // 32 items: n in 8 bits, 4 + 7 + 32 x 12 bits, padding
     assert_eq!(
         Ser::<u8>::max_bytes(32),
-        Some((8 + 4 + 32 * 12usize).div_ceil(8))
+        Some((8 + 11 + 32 * 12usize).div_ceil(8))
     );
-    // Quantity: Prefix 9 + NumericValue 53 per item, 5 + 25 fixed; IvSample evolvable (+44); Timed of the three
+    // Quantity: Prefix 9 + NumericValue 53 per item, 5 + 60 fixed; IvSample evolvable (+44); Timed of the three
     assert_eq!(
         <TimedIv as super::SeriesColumns>::MAX_ITEM_BITS,
         Some(3 * 62)
     );
     assert_eq!(
         <TimedIv as super::SeriesColumns>::MAX_FIXED_BITS,
-        Some(3 * 30 + 44)
+        Some(3 * 65 + 44)
     );
     assert_eq!(
         Ser::<TimedIv>::max_bytes(32),
-        Some((8 + 134 + 32 * 186usize).div_ceil(8))
+        Some((8 + 239 + 32 * 186usize).div_ceil(8))
     );
 }
 

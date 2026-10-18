@@ -1,7 +1,9 @@
 //! Float column: `f32` / `f64`.
 //!
 //! ```text
-//! codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the SW-32 Gorilla XOR code), others reserved
+//! codec:      4 bits   0000 plain (each value at full width), 0001 XOR (the SW-32 Gorilla XOR code),
+//!                      0010 aligned plain (zero bits to a byte, each value little-endian in 4 or 8 bytes),
+//!                      others reserved
 //! ```
 //!
 //! XOR: the first value of each segment at full width, then the SW-32 code against the previous value; a segment
@@ -18,6 +20,14 @@ where
     I: Iterator<Item = (T, bool)>,
 {
     sink.put_bits(4, codec as u64)?;
+    if codec == FloatCodec::Aligned {
+        sink.align_byte();
+        let bytes = T::BITS as usize / 8;
+        for (value, _) in items {
+            sink.put_bytes(&value.to_bits().to_le_bytes()[..bytes])?;
+        }
+        return Ok(());
+    }
     let mut xor = XorCodec::<T>::default();
     for (value, restart) in items {
         match codec {
@@ -28,6 +38,7 @@ where
                 }
                 xor.encode(value, sink)?;
             }
+            FloatCodec::Aligned => unreachable!("written above"),
         }
     }
     Ok(())
@@ -93,6 +104,10 @@ impl<'i, T: XorBits> FloatReader<'i, T> {
         let codec = match rd.read_un32(4)? {
             0 => FloatCodec::Plain,
             1 => FloatCodec::Xor,
+            2 => {
+                rd.align_byte();
+                FloatCodec::Aligned
+            }
             _ => return Err(Error::MalformedSeries),
         };
         Ok(FloatReader {
@@ -111,6 +126,12 @@ impl<'i, T: XorBits> FloatReader<'i, T> {
     pub(crate) fn next(&mut self, restart: bool) -> Result<T, Error> {
         match self.codec {
             FloatCodec::Plain => Ok(T::from_bits(self.rd.read_un64(T::BITS)?)),
+            FloatCodec::Aligned => {
+                let mut le = [0u8; 8];
+                let bytes = T::BITS as usize / 8;
+                le[..bytes].copy_from_slice(self.rd.read_raw_slice(bytes)?);
+                Ok(T::from_bits(u64::from_le_bytes(le)))
+            }
             FloatCodec::Xor => {
                 if restart {
                     self.xor = XorCodec::default();

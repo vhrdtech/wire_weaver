@@ -25,7 +25,8 @@ fn read(rd: &BufReader<'_>) -> usize {
     byte * 8 + 7 - bit as usize
 }
 
-/// Every numeric codec, in the writer's trial order.
+/// Every numeric codec: the writer's trials in their order, then aligned plain (never smaller than raw plain, not
+/// tried).
 pub fn numeric_codecs() -> impl Iterator<Item = NumericCodec> {
     [Predictor::Raw, Predictor::Delta, Predictor::DeltaOfDelta]
         .into_iter()
@@ -34,6 +35,7 @@ pub fn numeric_codecs() -> impl Iterator<Item = NumericCodec> {
                 .into_iter()
                 .map(move |c| NumericCodec::new(p, c))
         })
+        .chain([NumericCodec::ALIGNED_PLAIN])
 }
 
 /// A numeric column of `width` (1..=64) bits: written with `codec` (`None`: the smallest), it reads back the same
@@ -126,6 +128,7 @@ pub fn float<T: XorBits>(
     if codec.is_none() {
         assert!(bits <= float_bits(FloatCodec::Plain, iter.clone()));
         assert!(bits <= float_bits(FloatCodec::Xor, iter.clone()));
+        assert!(bits <= float_bits(FloatCodec::Aligned, iter.clone()));
     }
     let mut rd = FloatReader::<T>::new(BufReader::new(&buf[..bits.div_ceil(8)])).expect("header");
     assert_eq!(rd.codec(), written_codec);

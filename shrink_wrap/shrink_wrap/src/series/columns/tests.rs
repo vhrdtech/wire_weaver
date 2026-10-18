@@ -359,8 +359,8 @@ fn numeric128() {
 #[test]
 fn malformed_numeric() {
     let kind8 = NumericKind::new(8, false);
-    // the escape predictor
-    for header in [0b1100u8, 0b1101, 0b1110, 0b1111] {
+    // the escape predictor with a reserved form (`11 11` is aligned plain)
+    for header in [0b1100u8, 0b1101, 0b1110] {
         let bytes = [header << 4, 0];
         assert_eq!(
             NumericReader::new(BufReader::new(&bytes), kind8).err(),
@@ -382,11 +382,61 @@ fn malformed_numeric() {
     assert!(rd.next(false).is_err());
     // header cut off
     assert!(NumericReader::new(BufReader::new(&[]), kind8).is_err());
+    // aligned plain, W = 12: bits above the width set
+    let bytes = [0b1111_0000, 0x34, 0x12];
+    let mut rd = NumericReader::new(BufReader::new(&bytes), NumericKind::new(12, false)).unwrap();
+    assert_eq!(rd.next(false), Err(Error::MalformedSeries));
+    // aligned plain, a value cut off
+    let bytes = [0b1111_0000, 0x34];
+    let mut rd = NumericReader::new(BufReader::new(&bytes), NumericKind::new(12, false)).unwrap();
+    assert!(rd.next(false).is_err());
+}
+
+/// Aligned plain after 3 bits: the header, one zero bit to the byte, the values little-endian in whole bytes,
+/// restarts changing nothing.
+#[test]
+fn aligned_plain_bytes() {
+    let kind = NumericKind::new(12, true);
+    let mut buf = [0u8; 16];
+    let mut wr = BufWriter::new(&mut buf);
+    wr.write_un32(3, 0b111).unwrap();
+    let items = [(0x123u32, false), ((-2i32) as u32, true), (0x7FF, false)];
+    let codec = write_numeric(
+        &mut wr,
+        kind,
+        items.iter().copied(),
+        Some(NumericCodec::new(Predictor::Aligned, Coder::Packed)),
+    )
+    .unwrap();
+    assert_eq!(codec, NumericCodec::ALIGNED_PLAIN);
+    let (byte, bit) = wr.pos();
+    assert_eq!((byte, bit), (7, 7));
+    let bytes = wr.deinit()[..7].to_vec();
+    assert_eq!(bytes, [0b1111_1110, 0x23, 0x01, 0xFE, 0x0F, 0xFF, 0x07]);
+    let mut rd = BufReader::new(&bytes);
+    rd.read_un32(3).unwrap();
+    let mut rd = NumericReader::new(rd, kind).unwrap();
+    assert_eq!(rd.next(false), Ok(0x123));
+    assert_eq!(rd.next(true), Ok(0xFFE));
+    assert_eq!(rd.next(false), Ok(0x7FF));
+    assert_eq!(rd.rest().pos(), (7, 7));
+
+    let mut buf = [0u8; 16];
+    let mut wr = BufWriter::new(&mut buf);
+    wr.write_un32(1, 1).unwrap();
+    write_float(&mut wr, [(1.0f32, false)].into_iter(), Some(FloatCodec::Aligned)).unwrap();
+    assert_eq!(wr.pos(), (5, 7));
+    let bytes = wr.deinit()[..5].to_vec();
+    assert_eq!(bytes, [0b1001_0000, 0x00, 0x00, 0x80, 0x3F]);
+    let mut rd = BufReader::new(&bytes);
+    rd.read_un32(1).unwrap();
+    let mut rd = FloatReader::<f32>::new(rd).unwrap();
+    assert_eq!(rd.next(false), Ok(1.0));
 }
 
 #[test]
 fn malformed_floats() {
-    for codec in 2..16u8 {
+    for codec in 3..16u8 {
         let bytes = [codec << 4, 0, 0, 0, 0];
         assert_eq!(
             FloatReader::<f32>::new(BufReader::new(&bytes)).err(),
@@ -501,7 +551,7 @@ proptest! {
     }
 
     #[test]
-    fn float_round_trip(items in numeric_items(), codec in prop_oneof![Just(None), Just(Some(FloatCodec::Plain)), Just(Some(FloatCodec::Xor))]) {
+    fn float_round_trip(items in numeric_items(), codec in prop_oneof![Just(None), Just(Some(FloatCodec::Plain)), Just(Some(FloatCodec::Xor)), Just(Some(FloatCodec::Aligned))]) {
         check::float::<f32>(&mut [0; 2048], &items, codec);
         check::float::<f64>(&mut [0; 2048], &items, codec);
     }

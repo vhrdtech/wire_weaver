@@ -32,7 +32,7 @@ mod type_tests;
 mod xor_float;
 
 pub use columns::{
-    BitCounter, CodecPolicy, Coder, DeltaPacked, FixedCodecs, FloatCodec, NumericCodec,
+    AlignedPlain, BitCounter, CodecPolicy, Coder, DeltaPacked, FixedCodecs, FloatCodec, NumericCodec,
     PACKED_BLOCK, Predictor, RawPlain, SeriesPolicy,
 };
 pub use group::{

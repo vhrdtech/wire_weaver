@@ -47,13 +47,17 @@ pub const fn nib_bits(value: u32) -> usize {
 /// The 4-bit header of a numeric or float column.
 pub const COLUMN_HEADER_BITS: usize = 4;
 
+/// What a numeric or float column takes besides its items: the header and up to 7 zero bits to a byte (aligned
+/// plain).
+pub const COLUMN_FIXED_BITS: usize = COLUMN_HEADER_BITS + 7;
+
 /// What an evolvable struct writes before its fields: its field count (outermost) or group length (nested), a
 /// `nib` of at most 11 groups.
 pub const STRUCT_HEAD_BITS: usize = 44;
 
 /// An item of a numeric column of `width` bits (1 to 64): a segment start at the width, a residual in the prefix
-/// code (a `1` per bucket below the width, the width), or a packed block of one residual (the block width field
-/// and the residual), whichever is the longest.
+/// code (a `1` per bucket below the width, the width), a packed block of one residual (the block width field
+/// and the residual), or the whole bytes of an aligned plain value, whichever is the longest.
 pub const fn numeric_item_bits(width: u8) -> usize {
     // the prefix code: a 1, then a 1 for each bucket of 7, 9, 12, 20, 32 bits below the width
     let buckets = [7u8, 9, 12, 20, 32];
@@ -66,7 +70,9 @@ pub const fn numeric_item_bits(width: u8) -> usize {
         k += 1;
     }
     let packed = width as usize + (8 - width.leading_zeros() as usize);
-    if prefix > packed { prefix } else { packed }
+    let aligned = 8 * width.div_ceil(8) as usize;
+    let longest = if prefix > packed { prefix } else { packed };
+    if longest > aligned { longest } else { aligned }
 }
 
 /// An item of a 128-bit numeric column: always raw + plain.
@@ -107,7 +113,7 @@ mod tests {
     #[test]
     fn numeric_widths() {
         // packed: width + bits of the block width field; prefix: 1 + buckets below + width
-        assert_eq!(numeric_item_bits(1), 2);
+        assert_eq!(numeric_item_bits(1), 8);
         assert_eq!(numeric_item_bits(8), 12);
         assert_eq!(numeric_item_bits(16), 21);
         assert_eq!(numeric_item_bits(32), 38);

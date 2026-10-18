@@ -72,7 +72,7 @@ macro_rules! numeric_leaf {
         impl<'i> SeriesColumns<'i> for $ty {
             type Reader = Option<NumericReader<'i>>;
             const MAX_ITEM_BITS: Option<usize> = Some(bound::numeric_item_bits($width));
-            const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
+            const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_FIXED_BITS);
             const TAGGED: bool = false;
 
             fn write_group<'a, I, S, P>(
@@ -210,7 +210,7 @@ macro_rules! float_leaf {
                 <$ty as XorBits>::BITS,
                 <$ty as XorBits>::LEAD_BITS,
             ));
-            const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_HEADER_BITS);
+            const MAX_FIXED_BITS: Option<usize> = Some(bound::COLUMN_FIXED_BITS);
             const TAGGED: bool = false;
 
             fn write_group<'a, I, S, P>(

@@ -627,6 +627,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `MaxLen<&'i str, N>` property is `&'static str` today, which a write can't fill; generate an
   `shrink_wrap::ArrayString<N>` field (SW-57) instead, and `ArrayVec<T, N>` for lists, so settings like a device label
   can be `value_on_changed` too (STD-32).
+- 💡 **API-51 Stream codecs across items** — any stream or observed property could send each item as a diff against
+  the one before, generic over `T`, from the derive per leaf: integers as delta or delta of delta, floats XOR coded,
+  enums, units, strings and `bool` as one "same" bit or the new value, a whole item "unchanged" bit; byte items
+  (UART or CAN frames) XOR'd with the previous one or through a small no_std LZ window. Declared in the API
+  (`#[stream(T, codec = auto)]`), in the introspection data so dynamic clients and Python decode it; keyframes on
+  open, after a gap and every N items. It is how a string or a frame, which a `Series` batch can't take (no size
+  bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.
+- 💡 **API-52 A cheaper observe poll for high rates** — measured on an STM32H725 (`examples_mcu`
+  `high_rate`, `foc_observe`), `poll_properties` costs about 3x the column-wise `Series` write it contains: it
+  rebuilds each column of the staging store into the scratch (31 % of a FOC batch's poll), runs a sizing pass with
+  `BitCounter` (13 %) and fills the outbox (8 %); observe cells also copy every column of the ring, observed or not
+  (9.2 k cycles per 16 FOC rows either way). The fix: write the columns straight from the staging store, size from
+  the bound when it fits, copy only observed columns. Today 3 values at 1 MHz take 190 % of a 540 MHz M7, 3 at
+  400 kHz 77 % (`docs/articles/series.md#high-rates-a-few-values-at-400-khz-to-2-mhz`).
 
 ## Server / device side (`SRV`)
 
@@ -1161,6 +1175,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   128 KiB sector, see `docs/api/settings.md#parts-with-big-sectors`). Only if a device needs it.
 - 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
+- 💡 **STD-41 Frame splitters for byte streams** — a no_std, sans-IO splitter (bytes in, frames out with their
+  time and status: CRC good or bad, truncated, overrun), the same code on the device and the host. Kernels: idle
+  gap (today's `RxChunk`), delimiter (`\n`, `\r\n`, any byte), fixed length, length field, sync byte + length +
+  checksum, COBS, SLIP, Modbus RTU, NMEA; picked by the host when it opens the stream (`Uart::frames(cfg)`), no new
+  firmware. Frames of a bounded length are what a batched stream can take, where a raw byte stream can't (no size
+  bound); with API-51, each frame XOR'd with the last one of the same key (Modbus address, NMEA sentence, CAN ID).
 - 📋 **STD-35 Slave data paths in `ww_i2c` and `ww_spi`**: `I2cMode::Slave { addr, monitor }` and `SpiRole::Slave`
   exist and capabilities say `slave_supported`, but nothing carries the data yet. Needed: what the device answers
   (a register map or buffer the host fills, or a request the host answers in time), what it received (a stream of

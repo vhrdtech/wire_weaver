@@ -212,6 +212,17 @@ is asked for on-change; with it, all of them periodically at that rate (millisec
 values, the measured update rate and the link bytes/s it costs, until Ctrl+C. See
 [Observing properties](api/observing.md#the-host-side) for the host-side model this reuses.
 
+`--samples MS` observes every sample of the level's `+batched` properties, in batches at most `MS` old
+([Every sample](api/observing.md#every-sample-batched)): one line per sample with its device time in seconds, the
+other properties as before.
+
+```
+$ ww observe foc --samples 5
+  4294.966696 i_a: 1250 mA
+  4294.966736 i_a: 1262 mA
+  ..
+```
+
 ## `ww usb-loopback`
 
 Checks the link to the selected device in three stages, each with a progress bar, then prints a summary table:

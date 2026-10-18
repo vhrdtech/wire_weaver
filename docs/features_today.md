@@ -103,6 +103,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Error lists](api/methods.md#error-lists)**: Which errors each method can return, shown in docs and tools and checked in tests.
 - **[Stream functions](api/streams.md#stream-functions)**: Open a stream with typed arguments and a result, like a method call.
 - **[Observing properties](api/observing.md)**: Ask a device to send changes on change or periodically, within a byte budget.
+- **[Observing every sample](api/observing.md#every-sample-batched)**: A fast property's every sample, with its own time, in compressed batches; typed and dynamic clients, the CLI and Python. <span class="ww-status">in progress</span>
 - **[Size analysis](types.md#worst-case-size-at-compile-time)**: Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. <span class="ww-status">in progress</span>
 - **[API docs in rustdoc](api/traits.md#in-rustdoc)**: `#[ww_trait]` also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. <span class="ww-status">in progress</span>
 - **Code generation from `build.rs`**: `gen_server` / `gen_client` as an alternative to the macros.

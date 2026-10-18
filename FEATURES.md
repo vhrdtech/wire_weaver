@@ -504,8 +504,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **API-37 Const values in the introspection blob** — a codegen option putting the values of `const` items into
   the device's introspection data, so `ww info` gets them with the link setup and no extra reads. Costs flash per
   device, so not a default.
-- 💡 **API-39 Batched property samples** — K samples of one fast property in one update, compressed with `Delta` /
-  `XorFloat` (SW-50), for values sampled faster than the link can carry one update each.
 - 🚧 **API-41 Batched streams and properties on `Series`** — a stream or property opts into batching
   (`+batched`/`batched`, no size in the API: the device owns the batch size through its own config, default 32,
   the host picks latency) and sends `Series<Timed<T>>` (SW-60) batches instead of one item per event (device-side
@@ -520,8 +518,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   batches, typed clients giving items one by one with their own time or whole batches (`recv_batch`),
   `tests/streams_batched`; the dynamic client giving the same (`DynPositionedStream`/`DynStream`, no generated
   code, `ApiItemKind::StreamFn::batch_item_ty`), `ww stream <path> [--batches]` and Python's
-  `recv_batch()` (numpy columns, `ww_self::SeriesColumn::from_items`) (piece 6, no-arg streams only). Missing:
-  batched observe (`+batched`, API-39 shape B), the docs page and the motor demo on it.
+  `recv_batch()` (numpy columns, `ww_self::SeriesColumn::from_items`) (piece 6, no-arg streams only); batched observe is
+  API-39. Missing: the docs page and the motor demo on it.
+- 🚧 **API-39 Batched property samples (observe every sample)** — a `ro+observe+batched` property observed in
+  `ObserveMode::Samples { every_us, max_age_us }` sends every sample the device takes, each with its own time, as
+  a `Series<Timed<T>>` in its `Batched<T>` slot of the level's update (`docs/api/observing.md#every-sample-batched`,
+  `tests/observe_batched`). In: parsing and the model (`PropertyAccess::batched`, `batch_item_ty`), the mode
+  validated and clamped (`ObserveLimits::samples_max_age_us`), generated `<Level>Sampler::sample(t, ..)` (O(1),
+  interrupt-safe after `ObserveBatches::split()`), double-buffered stores and a level outbox encoded in
+  `poll_properties` with several updates per call, `missed` for lost samples and dropped batches, typed observers
+  per sample, the dynamic client, `ww observe --samples` and Python (`recv()` samples, `recv_batch()` columns).
+  Missing: the motor demo on it and its measurement through the generated code, DWT cycle counts on hardware.
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

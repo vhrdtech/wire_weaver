@@ -146,6 +146,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   (`series::DeltaPacked`, the `no_std` default of `ww_stream`'s batcher) that link only their own codecs: 15 KB of
   flash instead of 91 KB for a `Series<Timed<Ampere>>` encoder. `examples_mcu/qemu_icount` counts the instructions
   between the marker calls of the `mcu_qemu` benches and shows where they go (`--profile`, `--pcs`).
+- Observing every sample (API-39): a `ro+observe+batched` property observed in `ObserveMode::Samples` sends every
+  sample the device takes, each with its own time, as a compressed `Series<Timed<T>>` in its `Batched<T>` slot;
+  generated O(1) `<Level>Sampler::sample(t, ..)` (also from an interrupt), batches encoded in `poll_properties`,
+  typed and dynamic observers per sample, `ww observe --samples`, Python `recv_batch()`. Wire: API hashes of APIs
+  with readable properties change. See the `wire_weaver_core`, `ww_client_server`, `ww_stream`,
+  `wire_weaver_client`, `ww_self` changelogs and `docs/api/observing.md`.
 
 ### Changed
 

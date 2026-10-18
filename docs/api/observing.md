@@ -43,6 +43,7 @@ Per property, one of:
 | `OnChange { min_us }` | on a change, at most once every `min_us` |
 | `Periodic { every_us }` | every `every_us`, on a fixed grid, changed or not |
 | `OnChangeOrBeat { min_us, max_us }` | on a change (at most every `min_us`), and at least every `max_us` even without one |
+| `Samples { every_us, max_age_us }` | every sample the device takes (or the first in each `every_us`), in batches at most `max_age_us` old; `+batched` properties only, see [Every sample](#every-sample-batched) |
 
 A property that starts being observed is always sent once right away, so the host has a value to start from.
 Periods and `min`/`max` are in microseconds (`UNib32`), evolvable: a mode a device doesn't know (sent by a newer
@@ -170,6 +171,112 @@ mode.configure(MotorObserve::default().mode(periodic(100 * ms))).await?;
 - **Limits**: like the device side, a level inside a resource array has no `observe()` yet. Absolute paths only -
   a trait client (`client = "trait_client"`) observes once it has a base path (`attachment()`).
 
+## Every sample (`+batched`)
+
+The modes above send a property's *current* value, at most once per update. A value that changes faster than
+updates can go - a motor current sampled in a 25 kHz control loop - loses everything in between. A `+batched`
+property (API-39) can also be observed in `Samples` mode: the device keeps every sample it takes, each with its own
+time, and sends them as a compressed [`Series<Timed<T>>`](../serdes/series.md) in the property's slot of the
+level's update.
+
+```rust
+#[ww_trait]
+trait Foc {
+    property!(ro+observe+batched i_a: Ampere);
+    property!(ro+observe+batched i_b: Ampere);
+    property!(ro+observe duty: f32); // observed as before
+}
+```
+
+`+batched` comes after `+observe` (alone it is an error) and needs `ww_si` as a dependency of the API crate
+(`Timed<T>` lives there). The property's slot in `<Trait>Update` becomes a `Batched<T>`: `One(T)`, one value as in
+the other modes, or `Series(..)`, a batch of samples. A host that doesn't ask for `Samples` gets `One` values from
+the getter, as for any `+observe` property.
+
+### Device side
+
+Next to the getter, the device feeds samples where it takes them. Codegen generates, per level with `+batched`
+properties, a `<Level>Sampler` with `sample(t, <Trait>Samples { .. })`: one value per `+batched` property of the
+level and their common time. It is O(1) and takes no lock: a gate per property (one atomic load) says whether a
+host wants this sample, the value goes into the batch being filled. Encoding happens later, in `poll_properties`.
+
+```rust
+let mut server = Server {
+    observe: api_impl::ObserveState::new(
+        ObserveLimits::DEFAULT,
+        api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY),
+    ),
+    // ..
+};
+
+// in the control loop, every tick
+server.observe.samplers().root.sample(
+    Second::micro(now_us),
+    api_impl::FocSamples { i_a, i_b },
+);
+
+// event loop: encodes sealed batches, then sends updates while batches wait
+let mut scratch = Box::new(ww_stream::batch::Scratch::<SB>::new());
+server.poll_properties(&mut ww_server.sink(), medium, now_us, &mut buf, &mut scratch).await?;
+```
+
+To sample from an interrupt or another thread, `ObserveBatches::split()` hands out the samplers (`Send`, moved into
+the interrupt) and the consumers, which the `ObserveState` takes instead (`ObserveState::new(limits, consumers)`,
+the batches in a `static`). `ww api scaffold` writes the `observe_batch` argument and says how to build the state.
+
+- **Batches**: each `+batched` property has two stores of `observe_batch = N` samples (codegen argument, default
+  32): the sampler fills one while the event loop encodes the other. A batch is sealed when it is full or as old as
+  the host's `max_age_us`. A burst of more than two batches between two `poll_properties` calls loses samples:
+  they are counted in the next update's `missed`.
+- **Outbox**: sealed batches are encoded into the level's outbox (`observe_outbox = N` bytes, default 4096), and
+  sent from there as budget allows, more than one update per call (at most `MAX_UPDATES_PER_POLL`). When the
+  outbox is full or the budget can't keep up, the oldest batches go and count as `missed`.
+- **Time**: each sample carries its own `t`; an update that carries only batches has no head `t`, one with `One`
+  values or plain properties has it as before.
+- **Limits**: `Samples` is refused for a property without `+batched` (`ModeNotSupported`); `max_age_us` is
+  clamped to `ObserveLimits::samples_max_age_us` (1 ms to 10 s by default); `every_us` decimates on the device's
+  grid (the first sample in each `every_us`), 0 is every sample. A property type that borrows (bytes, a string, a
+  vector) can't be `+batched`.
+
+### Host side
+
+`<Trait>Observe::samples(max_age)` puts every `+batched` property of the level into `Samples` mode
+(`observe::samples(max_age)` / `samples_every(every, max_age)` for one property). A property observer gets one
+`Observed` per sample, each with its own device time, whether the device sent one value or a batch; a level
+observer gets `BatchedOwned<T>` slots with every sample's time unwrapped, and `<Trait>Latest` keeps the newest
+sample. Observers of one level merge into `Samples` if any of them asks for it.
+
+```rust
+use wire_weaver_client::observe::samples;
+let mut i_a = device.foc().observe_i_a(samples(Duration::from_millis(5))).subscribe().await?;
+while let Ok(s) = i_a.recv().await {
+    println!("{:?} {:?}", s.t, s.value); // every sample, oldest first
+}
+```
+
+The dynamic client decodes the same slots from introspection (`DynObserved::samples`), `ww observe --samples MS`
+prints one line per sample, and Python gets them per update or as numpy columns
+([`recv_batch()`](../python_advanced.md#observing)).
+
+### Which rates fit an MCU
+
+Encoding is the cost: on a Cortex-M3 a `Series<Timed<Ampere>>` takes about **2000 instructions per sample** with a
+fixed codec (`fixed(delta, packed)`, the `no_std` default), about 1650 on a Cortex-M4F, and 3.3-3.9x that with
+`CodecPolicy::SMALLEST`, nearly the same at 8, 32 or 64 samples per batch (counted under QEMU on real motor-demo
+currents; cycles on hardware are roughly 1-1.5 per instruction from flash). `sample()` itself is a few loads and
+stores. Count samples per second as properties x sample rate:
+
+| Observed | Samples/s | Encoding, instructions/s | Fits |
+|---|---|---|---|
+| 2 currents at 1 kHz | 2 000 | ~4 M | any Cortex-M |
+| 4 properties at 4 kHz | 16 000 | ~32 M | a 100-200 MHz M4F, with room for the rest |
+| 5 properties at 25 kHz | 125 000 | ~250 M | only a fast M7 (480 MHz), and barely |
+| all 21 FOC properties at 25 kHz | 525 000 | ~1 000 M | no Cortex-M |
+
+So on an MCU observe a few properties at a few kHz, or decimate (`every_us`); full-rate observing of a whole
+control loop is for the simulator and the host (`examples/motor_demo`), where it costs about 0.9 MB/s of link with
+integer storage.
+
 ## Wire format
 
 `EventKind::PropertyUpdate { path, t, missed, data }` is one level's update. `data` is the `<Trait>Update`
@@ -244,3 +351,5 @@ with m.observe({"speed": 10, "current": None}) as obs:  # speed periodically eve
 
 Both ask for every observable property on-change without an explicit rate/`cfg`, and share one device subscription
 per level with any generated-client observers of the same level.
+`+batched` properties come sample by sample (`DynObserved::samples`, `ww observe --samples MS`, Python's
+`{"name": {"samples": max_age_ms}}`), see [Every sample](#every-sample-batched).

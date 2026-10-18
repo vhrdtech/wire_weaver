@@ -1,6 +1,6 @@
 //! The tap's decoder (TR-14): `ww_logbook` blocks from a [Recorder](ww_tap::Recorder) or a capture file in, one
 //! [Decoded] per frame, message and link event out, with
-//! - frame ↔ message linkage: frames are walked into their pieces ([ww_framer::pieces]) and reassembled with the
+//! - frame ↔ message linkage: frames are walked into their pieces ([ww_framer::pieces()]) and reassembled with the
 //!   framer's own rules, so every message knows the frame bytes it was built from or went out in, and every frame
 //!   the messages in it;
 //! - a cross-check of every reassembled message against the message the transport recorded: a difference is a framer

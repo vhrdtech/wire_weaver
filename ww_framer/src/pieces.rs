@@ -1,7 +1,7 @@
 //! Walk one frame into its pieces, without reassembling anything: what a tap consumer needs to tell which messages
 //! a frame carries and which frames a message was built from (`ww_tap`), offline and in both directions.
 //!
-//! [Pieces] reads heads with the same [read_head] and the same piece extents ([Extent]) that [FramedRx](crate::FramedRx)
+//! [Pieces] reads heads with the same `read_head` and the same piece extents (`Extent`) that [FramedRx](crate::FramedRx)
 //! uses, so the two can't drift. A consumer runs its own reassembly over the pieces (Start, Continue..., End) and
 //! checks a split message's checksum on the whole message with [verify_split].
 

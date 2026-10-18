@@ -1,5 +1,5 @@
 //! The link tap on the host (TR-14): every client event loop records what crosses its link into a
-//! [Recorder](ww_tap::Recorder), the process-wide [default_recorder] unless the config names one
+//! [Recorder], the process-wide [default_recorder] unless the config names one
 //! ([ClientConfig::tap](crate::ClientConfig::tap)). Nothing is copied while nobody subscribes: a consumer
 //! subscribes to the recorder and gets `ww_logbook` blocks of sessions, link events, messages and (opt in) frames.
 

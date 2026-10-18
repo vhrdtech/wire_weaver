@@ -5005,19 +5005,25 @@
 <p>A VESC-like field oriented controller drives a simulated motor, and its ~50 variables are
 <a href="../../api/observing/">observed</a> by a host, each at the rate it asks for, within a byte budget per trait level. It shows what observing many fast-changing properties costs on the link, and what it would cost as one
 <code>StreamData</code> event per value.</p>
+<p>The demo lives in its own repo, <a href="https://github.com/vhrdtech/motor_sim">motor_sim</a>, next to the motor simulator it drives (it will grow into a
+full simulator with a GUI there, and those dependencies stay out of WireWeaver's workspace):</p>
 <ul>
-<li><code>examples/motor_demo_api</code>: the API, 52 <code>+observe</code> properties in three trait levels, one per rate tier, their
+<li><a href="https://github.com/vhrdtech/motor_sim/tree/main/motor_demo_api"><code>motor_demo_api</code></a>: the API, 52 <code>+observe</code> properties in three trait levels, one per rate tier, their
   values <code>ww_si</code> quantities.</li>
-<li><code>examples/motor_demo</code>: the controller, the device (in this process or on a UDP socket), the host side counting
+<li><a href="https://github.com/vhrdtech/motor_sim/tree/main/motor_demo"><code>motor_demo</code></a>: the controller, the device (in this process or on a UDP socket), the host side counting
   and the <code>motor_demo</code> CLI.</li>
-<li>The motor, inverter, mechanics and sensors are simulated by <a href="https://github.com/vhrdtech/motor_sim">motor_sim</a> (a
+<li><a href="https://github.com/vhrdtech/motor_sim/tree/main/motor_sim"><code>motor_sim</code></a>: the motor, inverter, mechanics and sensors (a
   PMSM in dq, solved exactly per PWM period, with ADC noise, offsets and quantisation, an encoder and seeded faults).</li>
 </ul>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>observe<span class="w"> </span>--compare<span class="w">        </span><span class="c1"># a device in this process, 3 tiers, 1 s reports</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>device<span class="w"> </span>--listen<span class="w"> </span><span class="m">127</span>.0.0.1:9000
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>observe<span class="w"> </span>--udp<span class="w"> </span><span class="m">127</span>.0.0.1:9000<span class="w"> </span>--prop<span class="w"> </span><span class="nv">i_q</span><span class="o">=</span>every:1ms,speed_electrical,fault
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>list<span class="w">                     </span><span class="c1"># every property with the unit it is shown in</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">source</span><span class="w"> </span>&lt;<span class="o">(</span><span class="nv">COMPLETE</span><span class="o">=</span>bash<span class="w"> </span>motor_demo<span class="o">)</span><span class="w">                             </span><span class="c1"># completion of commands and property names</span>
+<p>It builds against a WireWeaver checkout next to it (<code>../wire_weaver</code>):</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/vhrdtech/wire_weaver
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/vhrdtech/motor_sim
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">cd</span><span class="w"> </span>motor_sim
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>observe<span class="w"> </span>--compare<span class="w">        </span><span class="c1"># a device in this process, 3 tiers, 1 s reports</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>device<span class="w"> </span>--listen<span class="w"> </span><span class="m">127</span>.0.0.1:9000
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>observe<span class="w"> </span>--udp<span class="w"> </span><span class="m">127</span>.0.0.1:9000<span class="w"> </span>--prop<span class="w"> </span><span class="nv">i_q</span><span class="o">=</span>every:1ms,speed_electrical,fault
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>motor_demo<span class="w"> </span>--<span class="w"> </span>list<span class="w">                     </span><span class="c1"># every property with the unit it is shown in</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">source</span><span class="w"> </span>&lt;<span class="o">(</span><span class="nv">COMPLETE</span><span class="o">=</span>bash<span class="w"> </span>motor_demo<span class="o">)</span><span class="w">                             </span><span class="c1"># completion of commands and property names</span>
 </span></code></pre></div>
 <h2 id="the-api-one-trait-level-per-rate-tier">The API: one trait level per rate tier<a class="headerlink" href="#the-api-one-trait-level-per-rate-tier" title="Permanent link">&para;</a></h2>
 <p>The VESC firmware (vedderb/bldc) computes its variables in three tiers, and so does this controller:</p>
@@ -5248,7 +5254,7 @@ sent. A property held back counts as missed only once it really falls a period b
 inflate the count. Both rows were measured with the <code>f32</code> API; with quantities (a byte more per value) the same case
 gives 565 updates/s of 8 values, 31.0 kB/s, 41.8 kB/s as <code>StreamData</code> and 3472 missed/s.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
-<p><code>cargo nextest run -p motor_demo</code>:</p>
+<p><code>cargo nextest run -p motor_demo</code> in motor_sim:</p>
 <ul>
 <li><code>tests/controller.rs</code>: the controller against the simulator without WireWeaver: current, speed (both
   directions) and duty control, the observer tracking the angle and running sensorless, hybrid start from

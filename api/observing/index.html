@@ -5267,7 +5267,7 @@ short of its budget that holds for fuller updates (see <a href="#the-device-side
 <a href="../../examples/motor_demo/#a-level-short-of-budget">same page</a> measures 2.7x more values per byte once updates
 stop being sent one value at a time.</p>
 <h2 id="walk-through-the-motor-demo">Walk-through: the motor demo<a class="headerlink" href="#walk-through-the-motor-demo" title="Permanent link">&para;</a></h2>
-<p><a href="../../examples/motor_demo/"><code>examples/motor_demo</code></a> observes a simulated FOC motor controller's ~50 properties
+<p>The <a href="../../examples/motor_demo/">motor demo</a> (code in <a href="https://github.com/vhrdtech/motor_sim">motor_sim</a>) observes a simulated FOC motor controller's ~50 properties
 across three trait levels (one per rate tier: 25 kHz, 1 kHz, 50 Hz), each tier as one observe subscription at
 whatever rate a host asks for, within a budget. It's the reference for everything on this page in a real API:
 declaring <code>+observe</code> properties by tier, wiring <code>ObserveState</code>/<code>poll_properties</code>/<code>mark_changed_&lt;name&gt;</code> on the

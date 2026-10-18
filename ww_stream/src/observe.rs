@@ -526,6 +526,8 @@ impl<const N: usize> ObserveTable<N> {
                 plan.len += 1;
             }
         }
+        // periods counted behind just now go with this update
+        plan.missed = self.missed;
         plan
     }
 
@@ -596,6 +598,16 @@ impl<const N: usize> Plan<N> {
     /// Slots of the due properties, earliest deadline first.
     pub fn edf(&self) -> &[usize] {
         &self.order[..self.len]
+    }
+
+    /// Nothing is due, but sends or samples were missed: an update with no properties carries the count alone
+    /// (`overhead` as for [selection](Self::selection)) when the budget has room for it. A count that waited for
+    /// the next update would never reach the host when nothing else comes, as after the last samples of a burst
+    /// the sampler lost.
+    pub fn report_missed(&self, desc: &LevelDesc<N>, overhead: usize) -> bool {
+        self.len == 0
+            && self.missed > 0
+            && self.tokens >= overhead + EVENT_SLACK + desc.header_bound()
     }
 
     /// `missed` of the update: sends missed before this poll, None when there were none.

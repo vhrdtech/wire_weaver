@@ -733,6 +733,9 @@ pub struct Observer<U: LevelUpdate, T = U> {
     extract: Extract<U, T>,
     /// Samples of an update not given out yet
     pending: VecDeque<ObserveEvent<T>>,
+    /// `missed` of updates without this observer's property (one that carries only the count, API-39): given
+    /// with its next value
+    missed: u32,
     _phantom: PhantomData<fn() -> T>,
 }
 
@@ -815,6 +818,7 @@ impl<U: LevelUpdate, T> PreparedObserve<U, T> {
             transport: self.transport.clone(),
             extract: self.extract,
             pending: VecDeque::new(),
+            missed: 0,
             _phantom: PhantomData,
         };
         Ok((observer, send_pending(permits, pending?)))
@@ -862,17 +866,23 @@ impl<U: LevelUpdate, T> Observer<U, T> {
                         received: raw.received,
                     })
                 };
+                let carried = std::mem::take(&mut self.missed);
+                let raw_missed = raw.missed.saturating_add(carried);
                 match self.extract {
                     Extract::One(extract) => match extract(update) {
-                        Some(value) => observed(value, raw.t, raw.missed),
-                        None => return Ok(()),
+                        Some(value) => observed(value, raw.t, raw_missed),
+                        None => {
+                            self.missed = raw_missed;
+                            return Ok(());
+                        }
                     },
                     Extract::Samples(extract) => {
                         let Some(batched) = extract(update) else {
+                            self.missed = raw_missed;
                             return Ok(());
                         };
                         // what was missed goes with the first sample
-                        let mut missed = raw.missed;
+                        let mut missed = raw_missed;
                         for (value, t) in batched.into_samples(raw.t) {
                             self.pending
                                 .push_back(observed(value, t, std::mem::take(&mut missed)));

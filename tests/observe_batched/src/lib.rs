@@ -578,18 +578,22 @@ mod tests {
                 }
                 queue.clear();
             };
+        // the event loop keeps polling for a second of device time after the producer is done, so what it
+        // sealed or lost last gets out (the fake clock may be far ahead of the producer on a busy PC)
+        let mut finished_at = None;
         loop {
-            let finished = done.load(Ordering::Acquire);
+            if finished_at.is_none() && done.load(Ordering::Acquire) {
+                finished_at = Some(now);
+            }
             now += 500;
             server
                 .poll_properties(&mut queue, (), now, &mut buf, &mut sb)
                 .unwrap();
             collect(&mut queue, &mut got, &mut missed);
-            if finished && now > 1_000_000 {
-                break;
-            }
-            if finished {
-                now += 100_000;
+            match finished_at {
+                Some(at) if now > at + 1_000_000 => break,
+                Some(_) => now += 100_000,
+                None => {}
             }
         }
         let lost = producer.join().unwrap();

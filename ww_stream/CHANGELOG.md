@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### 🐛 Fixes
+
+- A missed count always reaches the host (API-39): `observe::Plan::report_missed(desc, overhead)` says when an
+  update with no properties should carry `missed` alone (nothing due, budget has room), so samples a sampler lost
+  after its last batch are reported; periods a property fell behind, counted while planning, go with that same
+  update instead of the next one.
+
 ### ⚠️ Breaking
 
 - `batch::Batcher<T, N, P = DefaultPolicy>`, `Producer`, `Consumer` and `Batched::new` take the codec policy as a

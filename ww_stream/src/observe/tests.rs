@@ -302,11 +302,13 @@ fn earliest_deadline_first_and_missed() {
     assert_eq!(plan.missed(), None);
     // 400 ms later the bucket is full again; slot 0 fell 3 whole periods behind (100, 200, 300 ms: 3 missed) and
     // is due at 400 ms, slot 1's occurrence at 0 is lost (1 missed) and the one at 300 ms is due first
+    // counted when the update is planned, they go with it
+    assert_eq!(t.plan(400_000, &LIMITS).missed(), Some(UNib32(4)));
     let (chosen, _) = poll(&mut t, &desc, 400_000, |_| 36);
     assert_eq!(chosen, [1]);
-    // counted at this poll, they go with the next update; slot 0, late by less than a period, isn't missed
+    // slot 0, late by less than a period, isn't missed
     let plan = t.plan(400_000, &LIMITS);
-    assert_eq!(plan.missed(), Some(UNib32(4)));
+    assert_eq!(plan.missed(), None);
     assert_eq!(plan.edf(), [0]);
 }
 
@@ -583,6 +585,36 @@ fn samples_due_while_a_batch_waits() {
     assert!(sel.offer(1, Some(40)) && sel.offer(2, Some(4)));
     t.commit(&plan, &sel, 1_500, Some(52));
     assert_eq!(t.plan_with(1_600, &LIMITS, |_| false).missed(), None);
+}
+
+/// Samples lost with nothing left to send (the last of a burst): the count goes in an update of its own, once the
+/// budget has room, and only once.
+#[test]
+fn missed_goes_alone_when_nothing_is_due() {
+    let mut t = ObserveTable::<3>::new();
+    apply(
+        &mut t,
+        &DESC_B,
+        &[entry(3, samples(0, 5_000))],
+        false,
+        Some(10_000),
+    )
+    .unwrap();
+    let plan = t.plan_with(0, &LIMITS, |_| false);
+    assert!(plan.is_empty());
+    assert!(!plan.report_missed(&DESC_B, 4), "nothing missed");
+    t.add_missed(32);
+    let plan = t.plan_with(100, &LIMITS, |_| false);
+    assert!(plan.is_empty());
+    assert!(plan.report_missed(&DESC_B, 4));
+    assert_eq!(plan.missed(), Some(UNib32(32)));
+    // more than the bucket holds: waits
+    assert!(!plan.report_missed(&DESC_B, 100_000));
+    let sel = plan.selection(&DESC_B, 4, 1024);
+    t.commit(&plan, &sel, 100, Some(8));
+    let plan = t.plan_with(200, &LIMITS, |_| false);
+    assert_eq!(plan.missed(), None);
+    assert!(!plan.report_missed(&DESC_B, 4));
 }
 
 #[test]

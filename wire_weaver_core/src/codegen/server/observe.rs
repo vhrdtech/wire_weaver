@@ -1025,10 +1025,15 @@ impl Observe {
                     #rounds
                     loop {
                         let plan = #plan;
-                        if plan.is_empty() {
+                        if plan.is_empty() && plan.missed().is_none() {
                             break;
                         }
                         let overhead = ww_stream::observe::event_overhead(&mut *buf, &path, plan.t(), plan.missed())?;
+                        // nothing due: the missed count goes alone, or waits for budget
+                        let missed_only = plan.report_missed(&DESC, overhead);
+                        if plan.is_empty() && !missed_only {
+                            break;
+                        }
                         let mut sel = plan.selection(&DESC, overhead, buf.len());
                         for &k in plan.edf() {
                             let size = match k {
@@ -1041,7 +1046,7 @@ impl Observe {
                         }
                         let mut sent = None;
                         #t
-                        if !sel.is_empty() {
+                        if !sel.is_empty() || missed_only {
                             let data_len = 'write: {
                                 let Ok(mut wr) = wire_weaver::shrink_wrap::option_any_vec::OptionAnyVecWriter::new(&mut *buf, sel.present(&DESC)) else {
                                     break 'write None;

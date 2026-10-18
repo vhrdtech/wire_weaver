@@ -12,9 +12,10 @@ nothing is rounded, the reader gets back exactly what the device measured: the b
 
 This article is the whole story of `Series<T>` in WireWeaver, in three parts. **Basic** is what it is, the one line
 that uses it and what it saves, including batched streams and observing every sample. **Advanced** is every knob:
-codec policies, sealing, budgets, the shared clock, Python, and what it costs on a microcontroller. **Nomicon** is
-how the bits are laid out and how the encoder got six times faster. Read until you have what you need; every number
-below was measured on the running code, and each part links to the reference pages for the details.
+codec policies, quantities and autoranging, how it compares with ALP, sealing, budgets, the shared clock, Python,
+and what it costs on a microcontroller. **Nomicon** is how the bits are laid out and how the encoder got six times
+faster. Read until you have what you need; the numbers below were measured on the running code (the one worked out
+from the layout says so), and each part links to the reference pages for the details.
 
 <div class="ww-level-part" markdown>
 <span class="ww-level ww-level--basic"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6" class="ww-level__off"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Basic</span></span>
@@ -100,11 +101,23 @@ On recorded test signals (`IvSample` above, a voltage and a current, 100 items):
 byte more than plain (the column headers are paid once), two items are already smaller, and most of the gain is
 there by 32 items per batch, which is why 32 is the default batch size everywhere below.
 
+### Quantities: integers with a prefix
+
 One piece of advice comes out of every measurement: **store integers with a prefix, not floats**. A steady `f32`
 voltage (100 values) is 136 B; the same signal as millivolts in a `U16` is 45 B (noisy: 277 B against 82 B). The
 prefix sets the resolution, and noise below the resolution costs nothing; an `f32` pays for every mantissa bit the
-ADC's noise touches. [`ww_si`](../std_library/ww_si.md) quantities are integers with a prefix by construction, so a
-device sending them gets this for free.
+ADC's noise touches.
+
+That is exactly what a [`ww_si`](../std_library/ww_si.md) quantity is: an SI prefix and a number, usually an
+integer (a firmware typically enables `I32`, `U32` and `F32` storage). `Ampere::milli(4980)` is 4 980 mA, and the
+unit itself takes no bits. In a `Series` the prefix and the storage type are runs that cost a few bits per batch when
+they don't change, and the integer column carries only the changes.
+
+A device may also **change the prefix on the fly**: µA while a current is small, mA once it grows. This is
+autoranging, and it costs almost nothing: at a prefix change the column starts over with a full value instead of a
+meaningless delta across the jump, and goes on compressing in the new range. On the motor demo's currents, ranging
+between µA and mA switched 528 times a second and still came out a little smaller than staying in µA (details in
+the [Advanced part](#quantities-autoranging-and-restarts)).
 
 ### Batched streams: one word
 
@@ -227,18 +240,54 @@ Where the fixed codecs lose most is a regular clock. `SMALLEST` writes it as del
 34 B with `SMALLEST` and 65 B with `DeltaPacked`; without their times, 27 B and 30 B. That gap is what the shared
 clock of observe levels (below) takes away.
 
-### Runs and restarts
+### Quantities, autoranging and restarts
 
-Discrete leaves, enum tags (a `ww_si` prefix, a `NumericValue` storage type), `bool`, `Option` presence and strings,
-are written as **runs**: the first value, then one entry per change. A value that never changes in a batch costs
-about 5 bits in all. Measured on the motor demo, the prefix and storage runs of a quantity and its timestamp cost
-3 B per series per update, 5 % of the bytes at 32 items: not worth a fixed-prefix wire form.
+A `ww_si` quantity is a `final_structure` struct `{ prefix: Prefix, value: NumericValue }`, so a `Series` of
+quantities has three columns per quantity: the prefix, the storage type of the number (`I32`, `U32`, `F32`, ..),
+and the number itself, in one column per storage type that occurs.
+
+Discrete leaves, enum tags like the prefix and the storage type, `bool`, `Option` presence and strings, are written
+as **runs**: the first value, then one entry per change. A value that never changes in a batch costs about 5 bits in
+all. Measured on the motor demo, the prefix and storage runs of a quantity and its timestamp cost 3 B per series per
+update, 5 % of the bytes at 32 items: not worth a fixed-prefix wire form that would give up autoranging.
 
 A numeric column **restarts** (a full value, fresh codec state) where an enum field declared earlier in the same
 struct changed. `Ampere { prefix, value }` restarts `value` when the prefix changes, so 480 µA followed by 120 mA is
-a full value, not a meaningless delta of -360. That keeps **autoranging** cheap: currents switching between mA and
-cA at 5 A, 174 prefix switches per second on the motor demo, came out 1.1 kB/s *smaller* than a fixed mA range.
-Resolution decides the bytes, not switching.
+a full value, not a meaningless delta of -360 across two units. A switch costs a run entry, one full value instead of
+a residual and a packed block cut short: about 6 B, worked out from the layout.
+
+What that means in practice was measured on the motor demo's simulated FOC level (21 values at 25 kHz, 7 of them
+currents, every sample, 32 per batch, an early prototype of batched observe with a time column per property and
+`SMALLEST`), with the 7 currents stored three ways:
+
+| currents                                   | bytes/s of the level | prefix switches/s |
+|--------------------------------------------|----------------------|-------------------|
+| fixed mA                                   | 913.1 kB/s           | 0                 |
+| fixed µA                                   | 1 126.7 kB/s         | 0                 |
+| µA below 1 A, mA above (autoranging)       | 1 114.4 kB/s         | 528               |
+
+Autoranging between µA and mA switched 528 times a second and came out 12.3 kB/s below a fixed µA range: the
+switches pay for themselves through the coarser range above 1 A. It still costs about what fixed µA costs, because 91
+to 100 % of the current samples were below 1 A and were sent at µA resolution. **Resolution decides the bytes, not
+switching**: pick the prefix for the resolution you need, and let the device range freely where its measurement
+range does.
+
+### Compared with ALP
+
+ALP (Afroozeh, Kuffó, Boncz: [*ALP: Adaptive Lossless floating-Point Compression*](https://doi.org/10.1145/3626717),
+SIGMOD 2024) is the state of the art for compressing doubles in analytical databases. It turns doubles that started
+out as decimals into integers: for each vector of 1 024 values it finds an exponent `e` and a factor `f` (by sampling,
+first per row group, then per vector) so that `round(n × 10^e × 10^-f)` decodes back to exactly `n`. Values that
+don't round-trip are stored as exceptions (64 bits plus a 16-bit position each), the integers are bit packed with a
+frame of reference, and doubles that aren't decimals go to a second scheme, ALP<sub>rd</sub>, which compresses
+their front bits.
+
+A `ww_si` quantity does ALP's first step at the producer. The device already holds an integer (an ADC count scaled
+to mA, a time in µs), and the SI prefix is the decimal exponent, in steps of 10³ (with deci, centi, deca and hecto
+around the unit). So there is no search, no exceptions, it is lossless by construction, and the exponent may change
+per sample, where ALP keeps one per vector. What ALP has beyond that, a scale chosen from the data per block and at
+any power of ten, is what the planned **common factor** column mode would add: the predictor code `11` is kept free
+as an escape for it (see [Ahead](#ahead)).
 
 ### The store and the batcher
 
@@ -302,16 +351,26 @@ with m.observe({"current": {"samples": 5}}) as obs:  # every sample, batches at 
 ### CPU and flash on a microcontroller
 
 Pushing is cheap and flat; **encoding** is where the CPU goes, and it scales with samples per second (properties ×
-rate). With `DeltaPacked` at 32 samples per batch, a timed stream item costs about 341 instructions on a
-Cortex-M3/M4F and about 790 cycles on an STM32H725 (Cortex-M7, 540 MHz). An observe level's sample costs about half,
-thanks to the shared clock (213 instructions, 380 cycles). What that means:
+rate). Two kinds of numbers below, in different units:
 
-| observed (one level, shared clock)      | samples/s | Cortex-M3/M4F       | STM32H725       | fits                        |
-|-----------------------------------------|-----------|---------------------|-----------------|-----------------------------|
-| 2 currents at 1 kHz                     | 2 000     | ~0.4 M instr/s      | ~0.8 M cycles/s | any Cortex-M, trivially     |
-| 4 properties at 4 kHz                   | 16 000    | ~3.4 M instr/s      | ~6.1 M cycles/s | any Cortex-M, room to spare |
-| 5 properties at 25 kHz                  | 125 000   | ~27 M instr/s       | ~48 M cycles/s (9 %)  | a fast M4F, an M7 easily |
-| all 21 FOC values at 25 kHz             | 525 000   | ~112 M instr/s      | ~199 M cycles/s (37 %) | a fast M7 only      |
+- **Cortex-M3/M4F: instructions**, counted under QEMU (`examples_mcu/qemu_icount`). QEMU has no timing model, so
+  these are not cycles and give no time on their own.
+- **STM32H725 (Cortex-M7 at 540 MHz, caches on): cycles**, read from the core's DWT cycle counter on the real chip.
+  Here one QEMU instruction took about 2 to 2.5 cycles, so a bigger number for the M7 doesn't mean more work.
+
+With `DeltaPacked` at 32 samples per batch, a timed stream item is about 341 instructions on a Cortex-M3/M4F and
+about 790 cycles on the H725, **1.46 µs** per item. An observe level's sample costs about half, thanks to the shared
+clock: 213 instructions, or 380 cycles, **0.70 µs**. What that means:
+
+| observed (one level, shared clock)      | samples/s | Cortex-M3/M4F, instructions/s | STM32H725, cycles/s (of 540 MHz) | fits |
+|-----------------------------------------|-----------|-------------------------------|----------------------------------|------|
+| 2 currents at 1 kHz                     | 2 000     | ~0.4 M                        | ~0.8 M                           | any Cortex-M, trivially |
+| 4 properties at 4 kHz                   | 16 000    | ~3.4 M                        | ~6.1 M                           | any Cortex-M, room to spare |
+| 5 properties at 25 kHz                  | 125 000   | ~27 M                         | ~48 M (9 %)                      | a fast M4F, an M7 easily |
+| all 21 FOC values at 25 kHz             | 525 000   | ~112 M                        | ~199 M (37 %)                    | a fast M7 only |
+
+The H725 numbers are from a release build at `opt-level = "z"` (smallest code), the firmware example's profile. The
+same encoder built at `opt-level = 3` was measured 2.4x faster, so these cycle counts are on the cautious side.
 
 Flash for the encoder is 15.0 KB on a Cortex-M3 with `DeltaPacked` (9.8 KB on an M4F), 25.4 KB (17.6 KB) with a
 run-time `CodecPolicy`. Every sample taken is encoded, also when its batch is later dropped for lack of budget, so an
@@ -460,6 +519,7 @@ QEMU counts instructions; an STM32H725 (Cortex-M7 at 540 MHz, caches on) counts 
 | `DeltaPacked` (compile time)       | -                           | 8 293 / 25 241 / 47 929  |
 
 A batch of 32 with `DeltaPacked` is 25 241 cycles, 47 µs. A cold first run is within 1 to 10 % of these warm numbers.
+All of these were built at `opt-level = "z"`; at `opt-level = 3` the encoder was measured 2.4x faster.
 The M7 spends about 2 to 2.5 cycles per QEMU instruction on this code (three flash wait states, a call per value
 written, branchy code), more than the 1 to 1.5 first guessed, which is why the MCU table above quotes both.
 
@@ -500,8 +560,9 @@ pure cost, so a level is separate series per column.
   The wire doesn't change, so a host can't tell the two apart.
 - **A byte-aligned fast path.** A copy path for columns that need no bit packing is being measured; whether it beats
   the packed coder enough on an M7 to be worth a policy of its own is open.
-- **Room kept in the format.** The reserved predictor escape is for an ALP-style common factor per column, and the
-  float codes have room for better float coders (Chimp, ALP). Diffs across batches would save the first values,
+- **Room kept in the format.** The reserved predictor escape is for a common factor per column, the values divided
+  by it before the predictor, as [ALP](#compared-with-alp) chooses its scale per block; the float codes have room for
+  better float coders (Chimp, ALP). Diffs across batches would save the first values,
   about 8 B per batch, but only on reliable streams and with resync rules after a gap; not worth it at 32 items.
 
 The feature tracker has the state of all of this: [SW-60](../features.md), SW-62, SW-63 for the type, the store

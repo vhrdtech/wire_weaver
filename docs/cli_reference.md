@@ -262,6 +262,33 @@ range is an error naming the field (`argument a: 200 is out of range for ub7`). 
 arrays (`[0; 4]`, `vec![..]`, `b"bytes"`, `0xa102` for bytes), ranges and negative numbers work. The values `ww`
 prints (`ww introspect`, `ww observe`) are written the same way and can be pasted back; quantities go in `q!(..)`: `q!(3300 mV)`, `q!(1.2e-4 N*m/(rad/s))` (`*` for `·`, `u` for `µ`, a string for other symbols: `q!("20 °C")`), and a plain number is in the unit itself.
 
+A whole message as it goes over the link, envelope and payload: `ww explain request HEX` for a request,
+`ww explain event HEX` for an event (`--for PATH` names the method or property it answers; a stream's data names its
+stream itself), and `--request` to see the request a call, a property write or a read is on the wire:
+
+```
+$ ww explain --crate api 'add(7, -2)' --request
+Request Call add · 10 bytes
+
+0000  01 01 00 07 00 00 00 fe  ff 01 
+
+bits             raw                  field                      type         value
+0‥79                                  ·                          Request      
+0‥7              0000 0001              seq                      uvlq32       1
+8‥15 ↩9l         0000 0001 ↩0001        path                     PathKind::Absolute [1]  (add)
+16‥71                                   kind                     RequestKind  Call
+16‥19            0000                     discriminant           nib          0
+24‥71                                     args                   TailBytes    
+24‥55            07000000                   a                    u32          7
+56‥71            1111 1110 1111 1111        b                    i16          -2  0xfffe
+
+72 bits in values, 8 padding or unread
+```
+
+The envelope (sequence number, path, request or event kind) is read with the `ww_client_server` types, the payload
+inside it by the resource the path names. A path through a global trait id is shown but its payload is not
+explained yet, nor are the multi requests and a level's property updates.
+
 Front bits are counted from bit 7 of byte 0. Lengths and sizes are nibbles read from the back of the buffer (or of
 the unsized value they are in), shown as `↩` with the byte and its half: `↩97h` is bits 7:4 of byte 97, `↩97l` bits
 3:0. The API comes from the device, or without one from the crate defining it (`--crate PATH`, `--trait NAME` when

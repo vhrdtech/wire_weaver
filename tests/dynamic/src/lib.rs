@@ -555,6 +555,93 @@ mod tests {
         assert!(parse_call("1 + 2").is_err());
     }
 
+    /// No bit in two leaves of an envelope (TOOL-9).
+    fn no_bit_twice(explained: &ww_self::explain::Explained) {
+        let mut owner = vec![false; explained.len * 8];
+        let parts = &explained.parts;
+        for (i, part) in parts.iter().enumerate() {
+            let leaf = parts.get(i + 1).is_none_or(|n| n.depth <= part.depth);
+            if !leaf {
+                continue;
+            }
+            for bit in part
+                .front
+                .clone()
+                .chain(part.back.start * 4..part.back.end * 4)
+            {
+                assert!(!owner[bit], "bit {bit} twice, in {part:?}");
+                owner[bit] = true;
+            }
+        }
+    }
+
+    #[test]
+    fn explain_request_envelope() {
+        use wire_weaver_client::envelope::{explain_request, request_bytes};
+        let root = DynResource::root(bundle());
+        let add = root.child("add").unwrap();
+        let DynResourceKind::Method { args: defs, .. } = add.kind().unwrap() else {
+            panic!("method expected");
+        };
+        let args = ValueOwned::ser_shrink_wrap_vec_dyn(
+            &[num(N::U32(7)), num(N::I16(-2))],
+            defs.iter().map(|a| &a.ty),
+            root.bundle(),
+        )
+        .unwrap();
+        let bytes = request_bytes(&add, Some(args.clone())).unwrap();
+        // the derived type reads the same request
+        let req = ww_client_server::Request::from_ww_bytes(&bytes).unwrap();
+        assert_eq!(u32::from(req.seq), 1);
+        assert!(
+            matches!(req.kind, ww_client_server::RequestKind::Call { args: a } if a.as_slice() == args)
+        );
+
+        let e = explain_request(&bytes, &root);
+        assert_eq!(e.title, "Request Call add");
+        assert_eq!(
+            e.explained.result.as_ref().unwrap(),
+            &vec![num(N::U32(7)), num(N::I16(-2))]
+        );
+        let parts = &e.explained.parts;
+        assert_eq!(part(parts, "path").note.as_deref(), Some("add"));
+        assert_eq!(
+            part(parts, "a").front,
+            24..56,
+            "args start after seq, path and kind"
+        );
+        no_bit_twice(&e.explained);
+    }
+
+    #[test]
+    fn explain_event_envelope() {
+        use wire_weaver_client::envelope::explain_event;
+        use ww_client_server::{EventKindOwned, EventOwned};
+        let root = DynResource::root(bundle());
+        let bytes = EventOwned {
+            seq: wire_weaver::shrink_wrap::UVlq32(1),
+            result: Ok(EventKindOwned::Value {
+                data: wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned(
+                    5i64.to_le_bytes().to_vec(),
+                ),
+            }),
+        }
+        .to_ww_bytes_owned()
+        .unwrap();
+        let add = root.child("add").unwrap();
+        let e = explain_event(&bytes, &root, Some(&add));
+        assert_eq!(e.title, "Event Value add");
+        assert_eq!(e.explained.result.as_ref().unwrap(), &vec![num(N::I64(5))]);
+        no_bit_twice(&e.explained);
+        // without knowing what it answers: the data as bytes
+        let e = explain_event(&bytes, &root, None);
+        assert_eq!(
+            e.explained.result.as_ref().unwrap(),
+            &Vec::<ValueOwned>::new()
+        );
+        assert_eq!(part(&e.explained.parts, "data").front.len(), 64);
+    }
+
     /// Every bit of the derived bytes is in exactly one part (TOOL-9): leaves never overlap, gaps in the front are
     /// only padding up to a byte boundary.
     fn check_explained(bytes: &[u8], ty: &TypeOwned, bundle: &ApiBundleOwned) -> Vec<Part> {

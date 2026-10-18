@@ -4,6 +4,7 @@ mod client;
 mod compat;
 mod config;
 mod device_info;
+pub mod envelope;
 mod error;
 mod error_list;
 pub(crate) mod event_loop;

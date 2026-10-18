@@ -229,6 +229,28 @@ impl DynResource {
         })
     }
 
+    /// The resource `chain` leads to from this one: item ids, and indices in arrays of resources, as a request's
+    /// absolute path ([index_chain](Self::index_chain)) has them.
+    pub fn descend(&self, chain: &[u32]) -> Result<DynResource, Error> {
+        let mut res = self.clone();
+        for &id in chain {
+            res = if matches!(res.node, Node::Array) {
+                res.index(id)?
+            } else {
+                let level = res.level()?;
+                let Some(item) = level.items.iter().find(|i| i.id.0 == id) else {
+                    return Err(Error::Other(format!(
+                        "'{}' has no resource with id {id}",
+                        res.display_path()
+                    )));
+                };
+                let name = item.ident.clone();
+                res.child(&name)?
+            };
+        }
+        Ok(res)
+    }
+
     /// Element of an array of resources.
     pub fn index(&self, index: u32) -> Result<DynResource, Error> {
         let (Node::Array, Some(item)) = (&self.node, &self.item) else {

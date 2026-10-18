@@ -979,11 +979,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Done: `ww_self::explain` (the dynamic decoder records every value, length, discriminant, flag and padding with
   its front bits and back nibbles); `ww_self::expr` (feature `expr`: values and calls written as Rust expressions,
   `Config { mode: Mode::Fast, .. }`, `motor.set_speed(1.5, Dir::Cw)`, `motor.limit = 3`, read by the type with
-  errors naming the field); `ww explain WHAT HEX | --value EXPR | 'call(..)'` (a type, method arguments or return
-  value, property value, stream item; API from the device, `--crate` or `--bundle`). Open: the request/event
-  envelope around a payload, quantities as input (`3300 mV` has no Rust form yet), `Series` columns and
-  sparse-struct slot headers in detail, shell completion of types and paths, a `ww call` on the same expressions,
-  a GUI view (hex pane + tree, like Kaitai's Web IDE), Python `explain()` and expression input.
+  errors naming the field) and `wire_weaver_client::expr` (the same with `ww_si` quantities, `q!(3300 mV)`);
+  `wire_weaver_client::envelope` (a whole request or event: the `ww_client_server` envelope field by field, the
+  payload by its resource); `ww explain WHAT HEX | --value EXPR | 'call(..)' [--request]`, `ww explain request|event
+  HEX`. Open: payloads under a global trait path, multi requests and property updates; link framing around a
+  message; `Series` columns and sparse-struct slot headers in detail; shell completion of types and paths; a
+  `ww call` on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python `explain()` and
+  expression input.
 - ✅ **STD-1 `ww_client_server`** — the request/event model, pruned of sideband/subscribe/rate, variable length seq
   numbers.
 - ✅ **STD-2 `ww_version`**.

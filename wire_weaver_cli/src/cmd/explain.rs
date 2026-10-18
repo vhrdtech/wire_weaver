@@ -10,6 +10,7 @@ use clap::Args;
 use console::{Style, style};
 use std::path::PathBuf;
 use std::sync::Arc;
+use wire_weaver_client::envelope;
 use wire_weaver_client::expr::{self, Call};
 use wire_weaver_client::ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
 use wire_weaver_client::ww_self::{ApiBundleOwned, TypeOwned, ValueOwned};
@@ -19,7 +20,7 @@ use wire_weaver_client::{DynClient, DynResource, DynResourceKind};
 pub(crate) struct ExplainArgs {
     /// A type (`Config`), or a resource path: a method's arguments (`motor.set_speed`, `--return` for its return
     /// value), a property's value, a stream's item. Without bytes: a call (`'motor.set_speed(1.5, Dir::Cw)'`) or a
-    /// property write (`'motor.limit = 3'`) as a Rust expression
+    /// property write (`'motor.limit = 3'`) as a Rust expression. `request` or `event`: a whole message as sent
     what: String,
 
     /// The bytes, in hex: `0a1b2c`, `0a 1b 2c` or `0x0a,0x1b`
@@ -36,6 +37,14 @@ pub(crate) struct ExplainArgs {
     /// Explain a method's return value instead of its arguments
     #[arg(long("return"))]
     ret: bool,
+
+    /// Explain the whole request a call, write or read (WHAT) is on the wire: envelope and payload
+    #[arg(long, conflicts_with_all = ["hex", "file", "value"])]
+    request: bool,
+
+    /// With `ww explain event HEX`: the method or property the event answers (a stream's data names its stream)
+    #[arg(long("for"), value_name = "PATH")]
+    for_path: Option<String>,
 
     /// Take the API from the crate that defines the ww_trait instead of a device
     #[arg(long("crate"), value_name = "PATH", conflicts_with = "bundle")]
@@ -68,18 +77,43 @@ pub(crate) fn explain_cmd(args: ExplainArgs, device: Option<&DynClient>) -> Resu
         None if !args.hex.is_empty() => Some(parse_hex(&args.hex.join(" "))?),
         None => None,
     };
-    let (title, target, bytes) = match given {
-        Some(bytes) => {
+    let root = DynResource::root(bundle.clone());
+    let (title, bytes, explained) = match (args.what.as_str(), given) {
+        ("request", Some(bytes)) => {
+            let e = envelope::explain_request(&bytes, &root);
+            (e.title, bytes, e.explained)
+        }
+        ("event", Some(bytes)) => {
+            let for_resource = match &args.for_path {
+                Some(path) => {
+                    Some(resolve(root.clone(), path).with_context(|| format!("'{path}'"))?)
+                }
+                None => None,
+            };
+            let e = envelope::explain_event(&bytes, &root, for_resource.as_ref());
+            (e.title, bytes, e.explained)
+        }
+        (_, Some(bytes)) => {
             let (title, target) = target(&args, &bundle)?;
-            (title, target, bytes)
+            let explained = explain_target(&bytes, &target, &bundle);
+            (title, bytes, explained)
         }
         // one line naming the field (`argument a: 200 is out of range for ub7`), not a chain
-        None => encode(&args, &bundle).map_err(|e| anyhow!("{e:#}"))?,
-    };
-    let explained = match &target {
-        Target::Value(ty) => explain(&bytes, ty, &bundle),
-        Target::Args(defs) => {
-            explain_fields(&bytes, defs.iter().map(|(n, t)| (n.as_str(), t)), &bundle)
+        (_, None) => {
+            let (title, target, bytes, resource) =
+                encode(&args, &bundle).map_err(|e| anyhow!("{e:#}"))?;
+            if args.request {
+                let resource = resource.ok_or_else(|| {
+                    anyhow!("--request: WHAT must be a call, a property write or a property")
+                })?;
+                let payload = (!matches!(target, Target::None)).then_some(bytes);
+                let bytes = envelope::request_bytes(&resource, payload)?;
+                let e = envelope::explain_request(&bytes, &root);
+                (e.title, bytes, e.explained)
+            } else {
+                let explained = explain_target(&bytes, &target, &bundle);
+                (title, bytes, explained)
+            }
         }
     };
     print!("{}", render(&title, &bytes, &explained, &bundle));
@@ -105,10 +139,22 @@ fn load_bundle(args: &ExplainArgs, device: Option<&DynClient>) -> Result<ApiBund
         .clone())
 }
 
-/// What the bytes are: one value, or the arguments of a method (the fields of an evolvable struct).
+/// What the bytes are: one value, or the arguments of a method (the fields of an evolvable struct); `None`: no bytes
+/// (a property read, with `--request`).
 enum Target {
     Value(TypeOwned),
     Args(Vec<(String, TypeOwned)>),
+    None,
+}
+
+fn explain_target(bytes: &[u8], target: &Target, bundle: &ApiBundleOwned) -> Explained {
+    match target {
+        Target::Value(ty) => explain(bytes, ty, bundle),
+        Target::Args(defs) => {
+            explain_fields(bytes, defs.iter().map(|(n, t)| (n.as_str(), t)), bundle)
+        }
+        Target::None => explain_fields(bytes, std::iter::empty(), bundle),
+    }
 }
 
 /// What `args.what` names, with a title for it.
@@ -148,8 +194,11 @@ fn resource_target(resource: &DynResource, path: &str, ret: bool) -> Result<(Str
     })
 }
 
-/// No bytes given: the value from `--value`, or the call written as WHAT, encoded.
-fn encode(args: &ExplainArgs, bundle: &Arc<ApiBundleOwned>) -> Result<(String, Target, Vec<u8>)> {
+/// No bytes given: the value from `--value`, or the call written as WHAT, encoded; with the resource it is for.
+fn encode(
+    args: &ExplainArgs,
+    bundle: &Arc<ApiBundleOwned>,
+) -> Result<(String, Target, Vec<u8>, Option<DynResource>)> {
     if let Some(text) = &args.value {
         let (title, target) = target(args, bundle)?;
         let Target::Value(ty) = &target else {
@@ -160,7 +209,7 @@ fn encode(args: &ExplainArgs, bundle: &Arc<ApiBundleOwned>) -> Result<(String, T
         };
         let value = expr::parse_value(text, ty, bundle)?;
         let bytes = value.ser_shrink_wrap_dyn(ty, bundle)?;
-        return Ok((title, target, bytes));
+        return Ok((title, target, bytes, None));
     }
     let root = DynResource::root(bundle.clone());
     match expr::parse_call(&args.what)? {
@@ -186,7 +235,7 @@ fn encode(args: &ExplainArgs, bundle: &Arc<ApiBundleOwned>) -> Result<(String, T
                 .collect::<Result<Vec<_>>>()?;
             let bytes =
                 ValueOwned::ser_shrink_wrap_vec_dyn(&values, defs.iter().map(|(_, t)| t), bundle)?;
-            Ok((title, target, bytes))
+            Ok((title, target, bytes, Some(resource)))
         }
         Call::Write { path, value } => {
             let resource = resolve(root, &path).with_context(|| format!("'{path}'"))?;
@@ -196,7 +245,12 @@ fn encode(args: &ExplainArgs, bundle: &Arc<ApiBundleOwned>) -> Result<(String, T
             };
             let value = expr::value_from_expr(&value, ty, bundle)?;
             let bytes = value.ser_shrink_wrap_dyn(ty, bundle)?;
-            Ok((title, target, bytes))
+            Ok((title, target, bytes, Some(resource)))
+        }
+        // a property read: no payload, only the request
+        Call::Path { path } if args.request => {
+            let resource = resolve(root, &path).with_context(|| format!("'{path}'"))?;
+            Ok((path, Target::None, vec![], Some(resource)))
         }
         Call::Path { path } => bail!(
             "no bytes for '{}': give them in hex, with --file, or as --value 'EXPR'",
@@ -248,15 +302,27 @@ fn render(title: &str, bytes: &[u8], explained: &Explained, bundle: &ApiBundleOw
     } else {
         top
     };
+    // a part with no parts inside it holds its bits itself
+    let leaf: Vec<bool> = (0..parts.len())
+        .map(|i| {
+            parts
+                .get(i + 1)
+                .is_none_or(|next| next.depth <= parts[i].depth)
+        })
+        .collect();
     let mut colour = vec![None; bytes.len() * 8];
+    let mut fields = Vec::with_capacity(parts.len());
     let mut field = 0usize;
-    for part in parts {
+    for (part, leaf) in parts.iter().zip(&leaf) {
         if part.depth == field_depth {
             field += 1;
         }
-        if part.value.is_some() {
-            for bit in bits_of(part) {
-                colour[bit] = Some(PALETTE[field.saturating_sub(1) % PALETTE.len()]);
+        let c = PALETTE[field.saturating_sub(1) % PALETTE.len()];
+        fields.push(c);
+        if *leaf && part.kind != PartKind::Padding {
+            let bits = colour.len();
+            for bit in bits_of(part).filter(|b| *b < bits) {
+                colour[bit] = Some(c);
             }
         }
     }
@@ -271,13 +337,9 @@ fn render(title: &str, bytes: &[u8], explained: &Explained, bundle: &ApiBundleOw
         ))
         .dim()
     );
-    let mut field = 0usize;
-    for part in parts {
-        if part.depth == field_depth {
-            field += 1;
-        }
-        let paint = Style::new().color256(PALETTE[field.saturating_sub(1) % PALETTE.len()]);
-        out += &row(part, bytes, top, &paint, bundle);
+    for ((part, leaf), c) in parts.iter().zip(&leaf).zip(&fields) {
+        let paint = Style::new().color256(*c);
+        out += &row(part, *leaf, bytes, top, &paint, bundle);
     }
     let padding = colour.iter().filter(|c| c.is_none()).count();
     out += &format!(
@@ -314,7 +376,14 @@ fn byte_map(bytes: &[u8], colour: &[Option<u8>]) -> String {
     out
 }
 
-fn row(part: &Part, bytes: &[u8], top: usize, paint: &Style, bundle: &ApiBundleOwned) -> String {
+fn row(
+    part: &Part,
+    leaf: bool,
+    bytes: &[u8],
+    top: usize,
+    paint: &Style,
+    bundle: &ApiBundleOwned,
+) -> String {
     let indent = "  ".repeat(part.depth - top);
     let label = match (part.label.as_str(), part.kind) {
         ("", _) => "·".to_string(),
@@ -346,10 +415,8 @@ fn row(part: &Part, bytes: &[u8], top: usize, paint: &Style, bundle: &ApiBundleO
                     .dim()
                     .to_string();
             }
-            if part.kind == PartKind::Discriminant
-                && let Some(note) = &part.note
-            {
-                text += &format!(" ({note})");
+            if let Some(note) = &part.note {
+                text += &style(format!("  ({note})")).italic().to_string();
             }
             text
         }
@@ -357,7 +424,6 @@ fn row(part: &Part, bytes: &[u8], top: usize, paint: &Style, bundle: &ApiBundleO
         (None, None) => String::new(),
     };
     let field = format!("{indent}{label}");
-    let leaf = part.value.is_some();
     format!(
         "{:<16} {:<20} {} {:<12} {}\n",
         location(part),

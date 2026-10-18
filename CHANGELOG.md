@@ -23,6 +23,13 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   2.5] }'`, `ww explain 'motor.set_speed(1.5, Dir::Cw)'`, `ww explain 'motor.limit = 3'` encode first, then explain.
   Literals take the field's type (`5` is a `u16`, a `ub3` or an `f32`), errors name the field (`argument a: 200 is
   out of range for ub7`). Library: `ww_self::expr` (feature `expr`): `parse_value`, `value_from_expr`, `parse_call`.
+- `ww_si` quantities in those expressions (TOOL-9): `q!(3300 mV)`, `q!(1.2e-4 N*m/(rad/s))`, `q!("20 °C")`, or a
+  plain number in the unit itself. Library: `wire_weaver_client::expr` (the `ww_self::expr` reader with quantities,
+  through its new `Hook`), `quantity::parse_quantity`.
+- Whole messages explained (TOOL-9): `ww explain request HEX`, `ww explain event HEX [--for PATH]` and `--request`
+  (the request a call, write or read is on the wire) show the `ww_client_server` envelope field by field and the
+  payload inside it by its type. Library: `wire_weaver_client::envelope`, `DynResource::descend` (a resource from a
+  request's absolute path).
 
 - Wire-format conformance matrix (TEST-23): one corpus of cases (`tests/conformance/corpus.json`: type, value,
   golden bytes) run by `just test` and CI through every wire-format implementation: the Rust derive, the `ww_self`

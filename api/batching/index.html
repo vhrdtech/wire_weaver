@@ -5276,10 +5276,12 @@ from the CLI instead of one line per item.</p>
 <p>A <code>ro+observe+batched</code> property sends every sample it takes, not just its latest value, when a host observes it
 in <code>Samples</code> mode - this is API-39, documented in full at
 <a href="../observing/#every-sample-batched">Observing properties: every sample</a> (the device's <code>&lt;Level&gt;Sampler</code>, the host's
-<code>samples(max_age)</code>, Python). It uses the same <code>Batcher</code> as a stream's, one per <code>+batched</code> property's trait level
-(all of a level's <code>+batched</code> properties share one call, <code>sample(t, &lt;Level&gt;Samples { .. })</code>) feeding a level-wide
-<a href="#the-store"><code>Outbox</code></a> instead of a stream's own store - the rest of this page (sealing, budget, cost) applies to
-it unchanged.</p>
+<code>samples(max_age)</code>, Python). It uses the same <code>Batcher</code> as a stream's, one per trait level with <code>+batched</code>
+properties: all of a level's <code>+batched</code> properties share one call, <code>sample(t, &lt;Level&gt;Samples { .. })</code>, so the
+batcher keeps rows (the time and every value) and a level batch is sent as one <code>Series&lt;T&gt;</code> per observed property plus
+<strong>one</strong> <code>Series&lt;Second&gt;</code> of times for all of them, the update's <code>sample_times</code> (API-49, a shared clock). The batches
+feed a level-wide <a href="#the-store"><code>Outbox</code></a> instead of a stream's own store - the rest of this page (sealing, budget,
+cost) applies to it the same way.</p>
 <h2 id="advanced">Advanced<a class="headerlink" href="#advanced" title="Permanent link">&para;</a></h2>
 <h3 id="sealing">Sealing<a class="headerlink" href="#sealing" title="Permanent link">&para;</a></h3>
 <p>A batch is sealed - handed from the filling side to the side that encodes it - for one of four reasons
@@ -5315,9 +5317,11 @@ of its store into the shared <code>Scratch&lt;B&gt;</code> (<code>scratch_bytes:
 batchers shares one <code>Scratch</code> big enough for its biggest), then writes them with the ordinary <code>Series::with_policy</code>
 - no second writer path, so <a href="../../serdes/series/"><code>Series</code></a> itself needed no change for this. A <code>T</code> aligned to
 more than 16 bytes, or one whose <code>Store&lt;N&gt;</code> doesn't fit <code>B</code>, is a compile error, not a runtime one.</p>
-<p>An observe level's <code>Outbox&lt;BYTES&gt;</code> (see <a href="../observing/#every-sample-batched">Every sample</a>) sits after the <code>Batcher</code>: encoded
-batches (header: property index, items, length) wait there, oldest first, for <code>poll_properties</code> to pack into
-updates as budget allows; when it's full, the oldest batches are dropped to make room, also counted as <code>missed</code>.
+<p>An observe level's <code>Outbox&lt;BYTES&gt;</code> (see <a href="../observing/#every-sample-batched">Every sample</a>) sits after the <code>Batcher</code>:
+each level batch is its time column followed by the column of each property observed in <code>Samples</code> mode (each entry
+with a header: slot, items, length), encoded once, column by column (the scratch holds one column, not a row). They
+wait there, oldest first, for <code>poll_properties</code> to send each whole in one update as budget allows; when it's full,
+the oldest batches are dropped to make room, also counted as <code>missed</code>.
 A stream has no outbox - its encoded batch goes straight into the stream's own store (reliable) or the next event
 (plain/counted).</p>
 <h3 id="cost-cpu-and-flash">Cost: CPU and flash<a class="headerlink" href="#cost-cpu-and-flash" title="Permanent link">&para;</a></h3>
@@ -5335,12 +5339,16 @@ an M3 against 25 KB for a runtime <code>CodecPolicy</code>). The <code>Batcher</
 the store back) is a small fraction of that: about 2 270 of the roughly 65 000 instructions a 32-item encode takes
 on a Cortex-M3 with the pre-SW-63 numbers, the rest being the <code>Series</code> encode proper.</p>
 <h4 id="which-rates-fit-an-mcu">Which rates fit an MCU<a class="headerlink" href="#which-rates-fit-an-mcu" title="Permanent link">&para;</a></h4>
-<p>Count samples per second as properties (or a stream's items) x rate, instructions per second as that x the
-per-item encode cost above (about 341 on a Cortex-M3/M4F with <code>DeltaPacked</code>, n = 32):</p>
+<p>Count samples per second as properties (or a stream's items) x rate. A timed stream encodes each item with its own
+time: about 341 instructions per item on a Cortex-M3/M4F with <code>DeltaPacked</code>, n = 32, about 790 cycles on an
+STM32H725. Observed properties share their level's time column (API-49), which halves that: measured on the motor
+demo's 21 FOC properties (<code>I32</code> storage, n = 32, <code>DeltaPacked</code>), a level batch of 672 samples takes about 213
+instructions per sample on a Cortex-M3/M4F (QEMU) and about 380 cycles per sample on the H725, against 395 and 786
+with a time column per property, and 36 % fewer bytes (1 251 B against 1 965 B):</p>
 <table>
 <thead>
 <tr>
-<th>Observed</th>
+<th>Observed (one level, shared clock)</th>
 <th>Samples/s</th>
 <th>Cortex-M3/M4F, instructions/s</th>
 <th>STM32H725 (M7, 540 MHz), cycles/s</th>
@@ -5351,41 +5359,38 @@ per-item encode cost above (about 341 on a Cortex-M3/M4F with <code>DeltaPacked<
 <tr>
 <td>2 currents at 1 kHz</td>
 <td>2 000</td>
-<td>~0.7 M</td>
-<td>~1.6 M</td>
+<td>~0.4 M</td>
+<td>~0.8 M</td>
 <td>any Cortex-M, trivially</td>
 </tr>
 <tr>
 <td>4 properties at 4 kHz</td>
 <td>16 000</td>
-<td>~5.5 M</td>
-<td>~12.6 M</td>
+<td>~3.4 M</td>
+<td>~6.1 M</td>
 <td>any Cortex-M, with room to spare</td>
 </tr>
 <tr>
 <td>5 properties at 25 kHz ("FOC subset 5")</td>
 <td>125 000</td>
-<td>~43 M</td>
-<td>~99 M (18% of the core)</td>
+<td>~27 M</td>
+<td>~48 M (9% of the core)</td>
 <td>a fast M4F, comfortably an M7</td>
 </tr>
 <tr>
 <td>all 21 FOC properties at 25 kHz</td>
 <td>525 000</td>
-<td>~179 M</td>
-<td>~414 M (77% of the core)</td>
-<td>not realistic next to the control loop on any Cortex-M part measured so far</td>
+<td>~112 M</td>
+<td>~199 M (37% of the core)</td>
+<td>a fast M7 next to the control loop; no smaller part</td>
 </tr>
 </tbody>
 </table>
-<p>So on an MCU, observe or stream a handful of properties at a few kHz, or decimate (<code>every_us</code> for observe); the
-full FOC rate above is for the simulator and the host (<a href="#the-motor-demo-measured">motor demo</a>), not firmware. A
-device sampling faster than its CPU can encode needs a floor on the rate it accepts (<code>every_us</code>/sample-rate
-clamps), since every sample taken is encoded whether or not its batch later fits the budget.</p>
-<p>A further cut is possible when every <code>+batched</code> property of a level is sampled through the same <code>sample(t, ..)</code>
-call and so shares one time column instead of paying for it per property - rather than each carrying its own. This
-is under active design as this page is written, not shipped yet; a later revision of this page covers it once it
-lands.</p>
+<p>So on a small MCU, observe or stream a handful of properties at a few kHz, or decimate (<code>every_us</code> for observe);
+the full FOC rate above takes a fast M7, else it is for the simulator and the host
+(<a href="#the-motor-demo-measured">motor demo</a>). A device sampling faster than its CPU can encode needs a floor on the rate
+it accepts (<code>every_us</code>/sample-rate clamps), since every sample taken is encoded whether or not its batch later fits
+the budget.</p>
 <h3 id="the-motor-demo-measured">The motor demo, measured<a class="headerlink" href="#the-motor-demo-measured" title="Permanent link">&para;</a></h3>
 <p>The <a href="../../examples/motor_demo/">motor demo</a> (<code>motor_sim</code> repo) has every <code>Foc</code> property and <code>Control</code>'s 13
 measured values <code>+observe+batched</code>. Measured through the real generated code (one level observed per session, at
@@ -5405,29 +5410,43 @@ its own level budget so budget never throttles what's measured, <code>CodecPolic
 <td>99.0 kB/s</td>
 </tr>
 <tr>
-<td>batched, <code>Samples</code> mode, n = 32</td>
-<td>995 kB/s</td>
-<td>26.2 kB/s</td>
+<td>batched, <code>Samples</code> mode, n = 32, a time column per property (before API-49)</td>
+<td>983 kB/s</td>
+<td>25.8 kB/s</td>
 </tr>
 <tr>
-<td>gain</td>
-<td><strong>3.7x</strong></td>
-<td><strong>3.8x</strong></td>
+<td>batched, <code>Samples</code> mode, n = 32, one time column per level (API-49)</td>
+<td>812 kB/s</td>
+<td>19.0 kB/s</td>
+</tr>
+<tr>
+<td>gain over unbatched</td>
+<td><strong>4.6x</strong></td>
+<td><strong>5.2x</strong></td>
 </tr>
 </tbody>
 </table>
+<p>(<code>motor_demo observe --foc samples:20ms --control off --telemetry off --budget 100000000</code>, and the same per level,
+8 s each; the "before" row from the same tool built on the commit before API-49.) The shared clock saves 17 % on
+<code>foc</code> and 26 % on <code>control</code> here, less than the 36 % of the <code>DeltaPacked</code> bench in
+<a href="#which-rates-fit-an-mcu">which rates fit</a>: <code>SMALLEST</code> already wrote each property's regular clock as a nearly
+constant run, so what goes is mostly the per-column overhead and one <code>Series</code> head per property. On <code>no_std</code>, with
+<code>DeltaPacked</code>, a time column costs about as much as a value column, and sharing it is worth more. One batcher per
+level also seals the level's properties together: <code>control</code> sends 48 updates/s, one batch per 20 ms max age (its
+1 kHz fills 20 rows in that time), where a batcher per property sealed out of step and sent 238.</p>
 <p>The flip side: an unbatched <code>ww_si</code> quantity (prefix + storage tag + the integer) is bigger on the wire than a bare
 <code>f32</code>, and with no series to amortize it across, every value pays that cost alone - a single update of one
 quantity already costs more than the same <code>f32</code> would. Quantities only pay off once they're batched into a
 <code>Series</code>; see <a href="../../serdes/series/#integer-storage-beats-floats"><code>Series</code>: integer storage</a> for the general case,
-and the gain above for what it looks like once they are. <code>control</code>'s 13 properties also don't yet seal in lockstep
-(238 updates measured in a window where <code>foc</code>'s sealed almost exactly on the idealized count) - aligning a level's
-batches to seal together is a further gain not yet implemented.</p>
+and the gain above for what it looks like once they are.</p>
 <h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
 <p>Adding or removing <code>batched</code>/<code>batched(untimed)</code> on a stream, or switching between timed and untimed, changes its
 item type on the wire (one <code>Series&lt;Timed&lt;T&gt;&gt;</code> or <code>Series&lt;T&gt;</code> per event instead of one <code>T</code>) - a break of the API
-crate, same as any other item-type change; see <a href="../../evolution/rules/#api">evolution rules: API</a>. The batch size
-(<code>N</code>) is the device's own and isn't in the API at all, so changing it is never a break.</p>
+crate, same as any other item-type change; see <a href="../../evolution/rules/#api">evolution rules: API</a>. Making a property
+<code>+batched</code> or not changes its observe slot (a <code>Batched&lt;T&gt;</code> instead of a <code>T</code>): a break too. The times of a level's
+samples travel in the <code>PropertyUpdate</code> event (<code>sample_times</code>), not in a slot, so adding resources to such a level
+follows the usual rules. The batch size (<code>N</code>) is the device's own and isn't in the API at all, so changing it is
+never a break.</p>
 
 
 

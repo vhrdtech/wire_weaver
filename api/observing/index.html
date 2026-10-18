@@ -5377,9 +5377,10 @@ built further with <code>.budget(bytes_per_s)</code>, then <code>.subscribe()</c
 <h2 id="every-sample-batched">Every sample (<code>+batched</code>)<a class="headerlink" href="#every-sample-batched" title="Permanent link">&para;</a></h2>
 <p>The modes above send a property's <em>current</em> value, at most once per update. A value that changes faster than
 updates can go - a motor current sampled in a 25 kHz control loop - loses everything in between. A <code>+batched</code>
-property (API-39) can also be observed in <code>Samples</code> mode: the device keeps every sample it takes, each with its own
-time, and sends them as a compressed <a href="../../serdes/series/"><code>Series&lt;Timed&lt;T&gt;&gt;</code></a> in the property's slot of the
-level's update.</p>
+property (API-39) can also be observed in <code>Samples</code> mode: the device keeps every sample it takes and sends them as
+compressed <a href="../../serdes/series/"><code>Series</code></a> columns in the level's update: a <code>Series&lt;T&gt;</code> in each property's slot, and
+one <code>Series&lt;Second&gt;</code> of the sample times for the whole update (<code>sample_times</code>, next to its <code>t</code>), since a level's
+samples are taken together.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Foc</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="o">+</span><span class="n">batched</span><span class="w"> </span><span class="n">i_a</span><span class="p">:</span><span class="w"> </span><span class="nc">Ampere</span><span class="p">);</span>
@@ -5387,15 +5388,16 @@ level's update.</p>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">duty</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span><span class="w"> </span><span class="c1">// observed as before</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>+batched</code> comes after <code>+observe</code> (alone it is an error) and needs <code>ww_si</code> as a dependency of the API crate
-(<code>Timed&lt;T&gt;</code> lives there). The property's slot in <code>&lt;Trait&gt;Update</code> becomes a <code>Batched&lt;T&gt;</code>: <code>One(T)</code>, one value as in
-the other modes, or <code>Series(..)</code>, a batch of samples. A host that doesn't ask for <code>Samples</code> gets <code>One</code> values from
-the getter, as for any <code>+observe</code> property.</p>
+<p><code>+batched</code> comes after <code>+observe</code> (alone it is an error). The property's slot in <code>&lt;Trait&gt;Update</code> becomes a
+<code>Batched&lt;T&gt;</code>: <code>One(T)</code>, one value as in the other modes, or <code>Samples(..)</code>, a batch of samples. A host that doesn't
+ask for <code>Samples</code> gets <code>One</code> values from the getter, as for any <code>+observe</code> property.</p>
 <h3 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h3>
 <p>Next to the getter, the device feeds samples where it takes them. Codegen generates, per level with <code>+batched</code>
 properties, a <code>&lt;Level&gt;Sampler</code> with <code>sample(t, &lt;Trait&gt;Samples { .. })</code>: one value per <code>+batched</code> property of the
-level and their common time. It is O(1) and takes no lock: a gate per property (one atomic load) says whether a
-host wants this sample, the value goes into the batch being filled. Encoding happens later, in <code>poll_properties</code>.</p>
+level and their common time. It is O(1) and takes no lock: a gate per level (one atomic load) says whether a host
+wants this sample (any property of the level in <code>Samples</code> mode, and the sample on the level's grid), and the row,
+the time and every value, goes into the level's batch being filled. Encoding happens later, in <code>poll_properties</code>,
+one column at a time: the time once, then each property a host observes in <code>Samples</code> mode.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="n">observe</span><span class="p">:</span><span class="w"> </span><span class="nc">api_impl</span><span class="p">::</span><span class="n">ObserveState</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">        </span><span class="n">ObserveLimits</span><span class="p">::</span><span class="n">DEFAULT</span><span class="p">,</span>
@@ -5410,27 +5412,36 @@ host wants this sample, the value goes into the batch being filled. Encoding hap
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="n">api_impl</span><span class="p">::</span><span class="n">FocSamples</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">i_a</span><span class="p">,</span><span class="w"> </span><span class="n">i_b</span><span class="w"> </span><span class="p">},</span>
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="p">);</span>
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="c1">// event loop: encodes sealed batches, then sends updates while batches wait</span>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">scratch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">ww_stream</span><span class="p">::</span><span class="n">batch</span><span class="p">::</span><span class="n">Scratch</span><span class="p">::</span><span class="o">&lt;</span><span class="n">SB</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">());</span>
-</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="n">server</span><span class="p">.</span><span class="n">poll_properties</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">ww_server</span><span class="p">.</span><span class="n">sink</span><span class="p">(),</span><span class="w"> </span><span class="n">medium</span><span class="p">,</span><span class="w"> </span><span class="n">now_us</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">scratch</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="c1">// event loop: encodes sealed batches, then sends updates while batches wait; the scratch holds one column of a</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="c1">// batch: the biggest of `Second` and the `+batched` property types, `OBSERVE_BATCH` of them</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="k">const</span><span class="w"> </span><span class="n">SB</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">batch</span><span class="p">::</span><span class="n">scratch_bytes</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Second</span><span class="o">&gt;</span><span class="p">(</span><span class="n">api_impl</span><span class="p">::</span><span class="n">OBSERVE_BATCH</span><span class="p">);</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">scratch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">ww_stream</span><span class="p">::</span><span class="n">batch</span><span class="p">::</span><span class="n">Scratch</span><span class="p">::</span><span class="o">&lt;</span><span class="n">SB</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">());</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="n">server</span><span class="p">.</span><span class="n">poll_properties</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">ww_server</span><span class="p">.</span><span class="n">sink</span><span class="p">(),</span><span class="w"> </span><span class="n">medium</span><span class="p">,</span><span class="w"> </span><span class="n">now_us</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">scratch</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
 <p>To sample from an interrupt or another thread, <code>ObserveBatches::split()</code> hands out the samplers (<code>Send</code>, moved into
 the interrupt) and the consumers, which the <code>ObserveState</code> takes instead (<code>ObserveState::new(limits, consumers)</code>,
 the batches in a <code>static</code>). <code>ww api scaffold</code> writes the <code>observe_batch</code> argument and says how to build the state.</p>
 <ul>
-<li><strong>Batches</strong>: each <code>+batched</code> property has two stores of <code>observe_batch = N</code> samples (codegen argument, default
-  32): the sampler fills one while the event loop encodes the other. A batch is sealed when it is full or as old as
-  the host's <code>max_age_us</code>. A burst of more than two batches between two <code>poll_properties</code> calls loses samples:
-  they are counted in the next update's <code>missed</code>.</li>
-<li><strong>Outbox</strong>: sealed batches are encoded into the level's outbox (<code>observe_outbox = N</code> bytes, default 4096), and
-  sent from there as budget allows, more than one update per call (at most <code>MAX_UPDATES_PER_POLL</code>). When the
-  outbox is full or the budget can't keep up, the oldest batches go and count as <code>missed</code>.</li>
-<li><strong>Time</strong>: each sample carries its own <code>t</code>; an update that carries only batches has no head <code>t</code>, one with <code>One</code>
-  values or plain properties has it as before.</li>
+<li><strong>Batches</strong>: each level with <code>+batched</code> properties has two stores of <code>observe_batch = N</code> rows (codegen argument,
+  default 32), a row being one <code>sample()</code> call's time and values, kept column by column: the sampler fills one
+  store while the event loop encodes the other. RAM is 2 x N x (the time and every value): for 21 FOC currents and
+  voltages at N = 32 about 8.4 KB. A batch is sealed when it is full, when its worst case reaches what fits one
+  update, or when it is as old as <code>max_age_us</code>. A burst of more than two batches between two <code>poll_properties</code>
+  calls loses rows: a sample of each observed property per row, counted in the next update's <code>missed</code>.</li>
+<li><strong>Outbox</strong>: a sealed batch is encoded into the level's outbox (<code>observe_outbox = N</code> bytes, default 4096) as one
+  unit, the time column and the column of each property in <code>Samples</code> mode, and sent from there whole, in one
+  update, as budget allows, more than one update per call (at most <code>MAX_UPDATES_PER_POLL</code>). When the outbox is full
+  or the budget can't keep up, the oldest batches go and count as <code>missed</code>.</li>
+<li><strong>Time</strong>: the samples of an update share its <code>sample_times</code>: every <code>Samples</code> slot has as many samples as it has
+  times, sample <code>i</code> taken at time <code>i</code>. An update that carries only batches has no head <code>t</code>, one with <code>One</code> values or
+  plain properties has it as before. Rows carry every value of the level, so a property switched into <code>Samples</code>
+  also gets the rows not sent yet, each at its time; one switched out leaves the waiting batches.</li>
 <li><strong>Limits</strong>: <code>Samples</code> is refused for a property without <code>+batched</code> (<code>ModeNotSupported</code>); <code>max_age_us</code> is
   clamped to <code>ObserveLimits::samples_max_age_us</code> (1 ms to 10 s by default); <code>every_us</code> decimates on the device's
   grid (the first sample in each <code>every_us</code>), 0 is every sample, and is raised to
-  <code>ObserveLimits::samples_min_every_us</code> (0, every sample, by default). Every sample taken is encoded, also when
+  <code>ObserveLimits::samples_min_every_us</code> (0, every sample, by default). The <code>Samples</code> entries of a level share one
+  grid and one age, so they get the finest <code>every_us</code> and the shortest <code>max_age_us</code> any of them asked for: the
+  grant says so, a host that asked for less gets more. Every sample taken is encoded, also when
   the budget then drops its batch, so on an MCU set that floor from the table <a href="#which-rates-fit-an-mcu">below</a>:
   without it any host can ask for more encoding than the CPU has. A property type that borrows (bytes, a string,
   a vector) can't be <code>+batched</code>.</li>
@@ -5439,8 +5450,10 @@ the batches in a <code>static</code>). <code>ww api scaffold</code> writes the <
 <p><code>&lt;Trait&gt;Observe::samples(max_age)</code> puts every <code>+batched</code> property of the level into <code>Samples</code> mode
 (<code>observe::samples(max_age)</code> / <code>samples_every(every, max_age)</code> for one property). A property observer gets one
 <code>Observed</code> per sample, each with its own device time, whether the device sent one value or a batch; a level
-observer gets <code>BatchedOwned&lt;T&gt;</code> slots with every sample's time unwrapped, and <code>&lt;Trait&gt;Latest</code> keeps the newest
-sample. Observers of one level merge into <code>Samples</code> if any of them asks for it.</p>
+observer gets <code>BatchedOwned&lt;T&gt;</code> slots and <code>Observed::sample_times</code>, unwrapped like <code>t</code> (<code>BatchedOwned::into_samples</code>
+pairs them, a count that doesn't match is an error), and <code>&lt;Trait&gt;Latest</code> keeps the newest sample. An update whose
+<code>Samples</code> slots don't match its <code>sample_times</code> is malformed: a warning, its samples left out. Observers of one level
+merge into <code>Samples</code> if any of them asks for it.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">observe</span><span class="p">::</span><span class="n">samples</span><span class="p">;</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">i_a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">foc</span><span class="p">().</span><span class="n">observe_i_a</span><span class="p">(</span><span class="n">samples</span><span class="p">(</span><span class="n">Duration</span><span class="p">::</span><span class="n">from_millis</span><span class="p">(</span><span class="mi">5</span><span class="p">))).</span><span class="n">subscribe</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i_a</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
@@ -5463,6 +5476,10 @@ storage.</p>
 or an index list, picked by the writer - see <a href="../../serdes/special_types/#optionanyvec-sparse-slots-of-any-types"><code>OptionAnyVec</code></a>
 for the exact bit layout), then only the present properties' values in slot order, no padding between them. Slots
 are the level's resource indices, methods and streams included as gaps that are never present.</p>
+<p>A <code>+batched</code> property's slot is a <code>Batched&lt;T&gt;</code>: a nibble tag, then <code>T</code> for <code>One</code> (tag 0), or for <code>Samples</code> (tag 1)
+padding to the next byte and a <code>Series&lt;T&gt;</code> to the end of the slot. The event's <code>sample_times</code> (after <code>missed</code>, an
+<code>Option&lt;Series&lt;Second&gt;&gt;</code>) is present whenever a <code>Samples</code> slot is, with one time per sample of each. In
+introspection such a property is <code>batched: Some(SharedClock)</code>.</p>
 <p>Slot order matters for size: a <code>bool</code> property takes one bit, but a byte-or-wider type aligns itself to a byte as
 always, so a <code>bool</code> between two <code>f32</code>s still costs a byte of padding around it. <a href="../../serdes/layouts/#sparse-a-struct-of-optional-fields">The <code>sparse</code> worked
 example</a> shows this byte-for-byte (<code>speed: Option&lt;u16&gt;</code> and

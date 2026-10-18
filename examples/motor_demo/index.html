@@ -5148,8 +5148,8 @@ storage the host sends: the CLI writes <code>F32</code> in the base unit. A firm
 <code>i32</code>, <code>u32</code> and <code>f32</code> number types. The host shows values in the old units (erpm, rpm, Ah, Wh, degrees), as VESC
 Tool does.</p>
 <p>Next to <code>f32</code>, an <code>I32</code> quantity is one byte more per value (the prefix and storage nibbles): the <code>foc</code> level at
-1 kHz takes 117 kB/s instead of 96. Batched observe (<code>Series</code> of <code>Timed</code> values, API-39) is where the fixed prefix
-pays off: there the cost of a value is its change from the previous one, not its storage width.</p>
+1 kHz takes 117 kB/s instead of 96. Batched observe (a <code>Series</code> per property and the level's times once, API-39)
+is where the fixed prefix pays off: there the cost of a value is its change from the previous one, not its storage width.</p>
 <h2 id="the-device">The device<a class="headerlink" href="#the-device" title="Permanent link">&para;</a></h2>
 <p>The device's clock is simulated time, one PWM period (40 µs) per step; simulated time follows real time times
 <code>sim.time_scale</code>. Every step:</p>

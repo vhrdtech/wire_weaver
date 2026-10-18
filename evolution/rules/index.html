@@ -5299,6 +5299,9 @@ same bytes in introspection.</p>
 un-batching it, or switching between timed and untimed, changes its item type on the wire (one <code>Series&lt;Timed&lt;T&gt;&gt;</code> or
 <code>Series&lt;T&gt;</code> per event instead of one <code>T</code>): a break of the API crate too. The batch size is the device's (it is not in
 the API), so changing it is not a break.</p>
+<p>Making a property <code>+batched</code> (API-39) or not changes its observe slot (a <code>Batched&lt;T&gt;</code> instead of a <code>T</code>): a break of
+the API crate. The times of the samples travel in the <code>PropertyUpdate</code> event, not in a slot, so adding resources to a
+level with <code>+batched</code> properties follows the usual rules.</p>
 <h3 id="api-model">API model<a class="headerlink" href="#api-model" title="Permanent link">&para;</a></h3>
 <p>API model (like <code>ww_client_server</code>) is part of the compatibility equation, it is not allowed to update the model
 version without breaking compatibility.</p>

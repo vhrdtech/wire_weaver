@@ -519,9 +519,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `StreamOpen { max_age_us }`, generated `<name>_push` (O(1), interrupt-safe) and `poll_streams` encoding sealed
   batches, typed clients giving items one by one with their own time or whole batches (`recv_batch`),
   `tests/streams_batched`; the dynamic client giving the same (`DynPositionedStream`/`DynStream`, no generated
-  code, `ApiItemKind::StreamFn::batch_item_ty`) and `ww stream <path> [--batches]` (piece 6, no-arg streams only).
-  Missing: Python (`recv_batch()` numpy columns, piece 6), batched observe (`+batched`, API-39 shape B), the docs
-  page and the motor demo on it.
+  code, `ApiItemKind::StreamFn::batch_item_ty`), `ww stream <path> [--batches]` and Python's
+  `recv_batch()` (numpy columns, `ww_self::SeriesColumn::from_items`) (piece 6, no-arg streams only). Missing:
+  batched observe (`+batched`, API-39 shape B), the docs page and the motor demo on it.
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

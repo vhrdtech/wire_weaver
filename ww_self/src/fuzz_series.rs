@@ -471,6 +471,17 @@ pub fn check_items<T>(
     assert!(same(&dynamic, &expected), "{dynamic:?}\n!=\n{expected:?}");
     let columns = ValueOwned::des_series_columns_dyn(&bytes, series_ty, bundle).expect("columns");
     assert_eq!(columns.len, items.len());
+    // what SeriesColumn::from_items makes of the same items (no Series bytes, API-41's batched streams) must be
+    // the same tree the byte decoder gave
+    let ValueOwned::Vec(expected_items) = &expected else {
+        unreachable!("plain() always gives a Vec")
+    };
+    let TypeOwned::Series(item_ty) = series_ty else {
+        unreachable!("check_items takes a Series type")
+    };
+    let from_items =
+        crate::SeriesColumn::from_items(expected_items, item_ty, bundle).expect("from_items");
+    assert_eq!(from_items, columns.root, "from_items != columns.root");
     assert!(same(&ValueOwned::Vec(columns.into_items()), &expected));
 }
 

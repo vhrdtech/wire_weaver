@@ -708,6 +708,39 @@ impl Stream {
             }
         }
     }
+
+    /// Wait for the rest of the next batch, or the next one whole (API-41), checking for Ctrl+C every 100ms,
+    /// None on timeout.
+    fn recv_batch_inner(
+        &self,
+        py: Python<'_>,
+        timeout: Option<f64>,
+    ) -> PyResult<Option<Vec<wire_weaver_client::BatchItem<ValueOwned>>>> {
+        let conn = conn(&self.res, &self.conn)?;
+        let deadline = self::timeout(timeout).map(|t| std::time::Instant::now() + t);
+        loop {
+            let slice = match deadline {
+                Some(d) => {
+                    let left = d.saturating_duration_since(std::time::Instant::now());
+                    if left.is_zero() {
+                        return Ok(None);
+                    }
+                    left.min(Duration::from_millis(100))
+                }
+                None => Duration::from_millis(100),
+            };
+            let got = self.with_stream(|stream| {
+                Ok(py.detach(|| {
+                    conn.runtime
+                        .block_on(async { tokio::time::timeout(slice, stream.recv_batch()).await })
+                }))
+            })?;
+            match got {
+                Ok(batch) => return batch.map(Some).map_err(stream_err),
+                Err(_elapsed) => py.check_signals()?,
+            }
+        }
+    }
 }
 
 #[pymethods]
@@ -751,6 +784,29 @@ impl Stream {
     fn try_recv(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         let item = self.with_stream(|s| s.try_recv().map_err(stream_err))?;
         item.map(|v| self.item_to_py(py, v)).transpose()
+    }
+
+    /// Wait for the rest of the next batch, or the next one whole (API-41): a `dict` with `t` (seconds of device
+    /// time, an array, `None` for an untimed stream) and the item type's own fields, each a numpy array over the
+    /// batch's items. An item of a stream that isn't batched is a batch of one. `timeout` in seconds, raises
+    /// TimeoutError.
+    #[pyo3(signature = (timeout=None))]
+    fn recv_batch<'py>(
+        &self,
+        py: Python<'py>,
+        timeout: Option<f64>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let items = self.recv_batch_inner(py, timeout)?.ok_or_else(|| {
+            pyo3::exceptions::PyTimeoutError::new_err(format!(
+                "no batch from '{}'",
+                self.res.path()
+            ))
+        })?;
+        let ty = match self.res.kind() {
+            Ok(DynResourceKind::Stream { ty, .. }) => ty.clone(),
+            _ => unreachable!(),
+        };
+        crate::columns::batch_dict(py, None, &items, &ty, self.res.bundle())
     }
 
     fn __iter__(slf: Py<Self>) -> Py<Self> {

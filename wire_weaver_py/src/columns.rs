@@ -18,6 +18,7 @@ use pyo3::types::{PyDict, PyList, PyString};
 use wire_weaver_client::ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use wire_weaver_client::ww_self::{ApiBundleOwned, FieldsOwned, TypeOwned, ValueOwned};
 use wire_weaver_client::ww_self::{DecodedSeries, FieldsKind, SeriesColumn};
+use wire_weaver_client::{BatchItem, seconds};
 
 /// `dict` of path -> numpy array of a `Series` of `ty` in `data`.
 pub(crate) fn decode_columns<'py>(
@@ -33,6 +34,68 @@ pub(crate) fn decode_columns<'py>(
     };
     let decoded = ValueOwned::des_series_columns_dyn(data, ty, bundle)
         .map_err(|e| crate::WireWeaverError::new_err(format!("{e:#}")))?;
+    columns_of(py, decoded, item_ty, bundle)
+}
+
+/// `dict` of path -> numpy array of already-decoded `items` of type `item_ty` (API-41: a batched stream's items,
+/// already unwrapped one by one, not `Series` bytes to read). [SeriesColumn::from_items] builds the same tree
+/// [ValueOwned::des_series_columns_dyn] would from bytes, so this shares [columns_of] with [decode_columns].
+pub(crate) fn columns_of_items<'py>(
+    py: Python<'py>,
+    items: &[ValueOwned],
+    item_ty: &TypeOwned,
+    bundle: &ApiBundleOwned,
+) -> PyResult<Bound<'py, PyDict>> {
+    let root = SeriesColumn::from_items(items, item_ty, bundle)
+        .map_err(|e| crate::WireWeaverError::new_err(format!("{e:#}")))?;
+    columns_of(
+        py,
+        DecodedSeries {
+            len: items.len(),
+            root,
+        },
+        item_ty,
+        bundle,
+    )
+}
+
+/// `dict` of a whole batch (API-41: `PositionedStream.recv_batch()` / `Stream.recv_batch()`): `pos` (positioned
+/// streams only), `t` (seconds of device time, `None` for an untimed stream: every item of one stream is timed or
+/// none are) and the item type's own fields, each a numpy array over the batch's items.
+pub(crate) fn batch_dict<'py>(
+    py: Python<'py>,
+    pos: Option<u64>,
+    items: &[BatchItem<ValueOwned>],
+    item_ty: &TypeOwned,
+    bundle: &ApiBundleOwned,
+) -> PyResult<Bound<'py, PyDict>> {
+    let values: Vec<ValueOwned> = items.iter().map(|item| item.value.clone()).collect();
+    let dict = columns_of_items(py, &values, item_ty, bundle)?;
+    if let Some(pos) = pos {
+        dict.set_item("pos", pos)?;
+    }
+    if items.iter().any(|item| item.t.is_some()) {
+        let secs: Vec<f64> = items
+            .iter()
+            .map(|item| item.t.as_ref().map(seconds).unwrap_or(f64::NAN))
+            .collect();
+        let array = py
+            .import("numpy")?
+            .call_method1("array", (PyList::new(py, &secs)?, "float64"))?;
+        dict.set_item("t", array)?;
+    } else {
+        dict.set_item("t", py.None())?;
+    }
+    Ok(dict)
+}
+
+/// `dict` of path -> numpy array, pivoting `decoded`'s columns.
+fn columns_of<'py>(
+    py: Python<'py>,
+    decoded: DecodedSeries,
+    item_ty: &TypeOwned,
+    bundle: &ApiBundleOwned,
+) -> PyResult<Bound<'py, PyDict>> {
     let DecodedSeries { len, root } = decoded;
     let rows: Vec<usize> = (0..len).collect();
     let mut cols = Columns {

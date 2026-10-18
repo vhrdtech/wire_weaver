@@ -303,6 +303,18 @@ def test_series_columns():
         api.sum.decode_columns(b"")
 
 
+def test_batched_streams():
+    # API-41: a batched stream's model item carries batch_item_ty (the Timed<T> instance its wire item needs);
+    # `load_api` already runs generics::prepare, so the tree sees it resolved, same as any other generic use
+    # (test_generic_types). `recv_batch()`'s numpy columns need an open stream (a device), covered by
+    # tests/streams_batched's dyn_client tests instead, same split as the rest of this file.
+    api = ww.load_api(str(Path(__file__).parents[2] / "tests" / "streams_batched_api"), "StreamsBatched")
+    assert repr(api.plain).startswith("<stream plain stream plain: Sample>")
+    assert repr(api.counted).startswith("<stream counted stream counted: Sample>")
+    assert repr(api.reliable).startswith("<stream reliable stream reliable: Sample>")
+    assert repr(api.frames).startswith("<stream counted stream frames: Frame>")
+
+
 def test_recursive_types():
     # self-referential types: an expression tree through RefBox, a tree through a list of itself
     api = ww.load_api(str(API_CRATE.parent / "recursive_api"), "Recursive")

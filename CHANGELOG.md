@@ -13,13 +13,15 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
-- wire_weaver_client / wire_weaver_cli: batched streams in the dynamic client (API-41, piece 6 of
-  `prj/P2401-wireweaver/design/batched_streams.md`): `DynPositionedStream` and `DynStream` decode a batched
-  stream's events into items with their own device time, no generated code involved (`ApiItemKind::StreamFn`
-  gains `batch_item_ty`, the `Timed<T>` instance the device's wire item needs); `recv_batch` /
-  `recv_batch_blocking` give whole batches on both. `ww stream <path> [--batches]` prints a plain, counted or
-  reliable stream the same way `ww observe` prints property updates. See the `wire_weaver_client` and
-  `wire_weaver_cli` changelogs.
+- wire_weaver_client / wire_weaver_cli / wire_weaver_py / ww_self: batched streams in the dynamic client and
+  Python (API-41, piece 6 of `prj/P2401-wireweaver/design/batched_streams.md`): `DynPositionedStream` and
+  `DynStream` decode a batched stream's events into items with their own device time, no generated code involved
+  (`ApiItemKind::StreamFn` gains `batch_item_ty`, the `Timed<T>` instance the device's wire item needs);
+  `recv_batch` / `recv_batch_blocking` give whole batches on both. `ww stream <path> [--batches]` prints a plain,
+  counted or reliable stream the same way `ww observe` prints property updates. Python's
+  `PositionedStream.recv_batch()` / `Stream.recv_batch()` give a whole batch as numpy columns
+  (`ww_self::SeriesColumn::from_items`, built from the items, not a re-read of the batch's bytes). See the
+  `wire_weaver_client`, `wire_weaver_cli`, `wire_weaver_py` and `ww_self` changelogs.
 - wire_weaver_client: one device-time rule (P2401#17oct-2214b): every time a device sends (stream heads, batch items,
   observe updates) comes unwrapped into a `U64` in its prefix through `ww_si::Unwrapper` (now usable without an
   anchor), whatever prefix and storage the device picks; heads of counted and reliable streams were not unwrapped

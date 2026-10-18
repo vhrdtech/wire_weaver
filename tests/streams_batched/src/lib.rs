@@ -448,8 +448,12 @@ mod tests {
         use std::path::Path;
         use std::sync::Arc;
         use wire_weaver_client::ww_numeric::NumericValue as N;
-        use wire_weaver_client::ww_self::{ApiBundleOwned, FieldsValueOwned, ValueOwned};
-        use wire_weaver_client::{AckMode, ClientConfig, DynClient, DynResource, DynStreamOpen};
+        use wire_weaver_client::ww_self::{
+            ApiBundleOwned, FieldsKind, FieldsValueOwned, SeriesColumn, ValueOwned,
+        };
+        use wire_weaver_client::{
+            AckMode, ClientConfig, DynClient, DynResource, DynResourceKind, DynStreamOpen,
+        };
 
         /// A loaded API bundle keeps generics as an uninstantiated `Instance` (`Timed<Sample>` for the timed
         /// streams below): `ww_self::generics::prepare` is what a device-introspected bundle already went
@@ -748,6 +752,62 @@ mod tests {
                     ev => panic!("{ev:?}"),
                 }
             }
+        }
+
+        /// A batch's items pivoted into numpy-style columns (API-41): `SeriesColumn::from_items`, the function
+        /// `wire_weaver_py`'s `recv_batch()` uses to give whole batches without a per-item Python conversion, over
+        /// real items decoded off the wire (`ww_self::fuzz_series`'s `check_items` already covers the pivot itself
+        /// against random items; this is the one piece of it that goes through a real batched stream).
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn counted_batch_as_columns() {
+            let device = start("streams_batched/dyn_counted_columns");
+            let client = connect(&device).await;
+            let cmd = client.cmd();
+            let root = DynResource::root(bundle());
+            let counted_res = root.child("counted").unwrap();
+            let ty = match counted_res.kind().unwrap() {
+                DynResourceKind::Stream { ty, .. } => ty.clone(),
+                other => panic!("{other:?}"),
+            };
+            let DynStreamOpen::Open { stream, .. } = counted_res
+                .positioned_stream(cmd, &[], AckMode::OnReceive, None)
+                .await
+                .unwrap()
+            else {
+                panic!("rejected")
+            };
+            let mut counted = *stream;
+
+            root.child("produce")
+                .unwrap()
+                .call(cmd, &[num(N::U32(8)), num(N::U32(0))])
+                .await
+                .unwrap();
+            let batch = tokio::time::timeout(WAIT, counted.recv_batch())
+                .await
+                .unwrap()
+                .unwrap();
+            let values: Vec<ValueOwned> = batch.items.iter().map(|i| i.value.clone()).collect();
+            let columns = SeriesColumn::from_items(&values, &ty, root.bundle()).unwrap();
+            let SeriesColumn::Fields { kind, len, fields } = columns else {
+                panic!("{columns:?}")
+            };
+            assert_eq!(kind, FieldsKind::Named);
+            assert_eq!(len, 8);
+            assert_eq!(fields.len(), 1);
+            let (name, column) = &fields[0];
+            assert_eq!(name, "value");
+            let SeriesColumn::Leaf(leaf_values) = column else {
+                panic!("{column:?}")
+            };
+            let got: Vec<i32> = leaf_values
+                .iter()
+                .map(|v| match v {
+                    ValueOwned::Numeric(N::I32(x)) => *x,
+                    other => panic!("{other:?}"),
+                })
+                .collect();
+            assert_eq!(got, (0..8).collect::<Vec<i32>>());
         }
     }
 }

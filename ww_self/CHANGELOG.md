@@ -121,6 +121,12 @@
 
 ### 🚀 Features
 
+* `SeriesColumn::from_items` (API-41): the same tree `ValueOwned::des_series_columns_dyn` reads from `Series`
+  bytes, built instead from already-decoded items (no `Budget`: nothing untrusted to bound, every item already
+  decoded under its type). For code with items, not bytes to read, e.g. a batched stream's items
+  (`DynBatching::decode`'s `Vec<BatchItem<ValueOwned>>`), which `wire_weaver_py`'s `recv_batch()` pivots into numpy
+  columns this way instead of a per-item Python conversion. `fuzz_series::check_items` now also checks it against
+  the byte decoder's own tree, for every existing and fuzzed case.
 * `generics` module (API-43): `validate` bounds what walks over a bundle's types rely on (indices, argument count
   and kinds, parameters only where they are defined, no definition referring to itself, nesting at most `MAX_DEPTH`),
   `instantiate` adds at most `MAX_INSTANCES` concrete definitions of at most `MAX_NODES` type nodes, `substitute`

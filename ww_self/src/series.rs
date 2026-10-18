@@ -195,6 +195,195 @@ impl SeriesColumn {
             }
         }
     }
+
+    /// The columns [DecodedSeries::read] would give for `items` (all of type `item_ty`), built straight from
+    /// already-decoded values instead of `Series` bytes: for code that has items, not a `Series` to read (a
+    /// batched stream's items, API-41, already unwrapped one by one by [crate::ValueOwned::des_shrink_wrap_dyn]
+    /// through `DynBatching::decode`). No [Budget]: there is no untrusted data to bound, and every item already
+    /// decoded successfully under `item_ty`, so every field a non-flag [FieldOwned] names is there (an older
+    /// writer's missing trailing field was already filled with its default by that decode).
+    pub fn from_items(
+        items: &[ValueOwned],
+        item_ty: &TypeOwned,
+        api_bundle: &ApiBundleOwned,
+    ) -> Result<SeriesColumn> {
+        let m = items.len();
+        if m == 0 {
+            return Ok(SeriesColumn::Empty);
+        }
+        let ty = item_ty.get_in_line(api_bundle)?;
+        match ty {
+            TypeOwned::Struct(item_struct) => {
+                let (kind, defs) = fields_of(&item_struct.fields);
+                let fields_list: Vec<&FieldsValueOwned> = items
+                    .iter()
+                    .map(|v| match v {
+                        ValueOwned::Struct { fields } => Ok(fields),
+                        _ => Err(items_mismatch(item_ty)),
+                    })
+                    .collect::<Result<_>>()?;
+                let fields = fields_from_items(&fields_list, defs, api_bundle)?;
+                Ok(SeriesColumn::Fields {
+                    kind,
+                    len: m,
+                    fields,
+                })
+            }
+            TypeOwned::Tuple(types) => {
+                let fields = types
+                    .iter()
+                    .enumerate()
+                    .map(|(j, ty)| {
+                        let column_items = elements_at(items, j, item_ty)?;
+                        Ok((
+                            j.to_string(),
+                            SeriesColumn::from_items(&column_items, ty, api_bundle)?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(SeriesColumn::Fields {
+                    kind: FieldsKind::Tuple,
+                    len: m,
+                    fields,
+                })
+            }
+            TypeOwned::Array { len, ty } => {
+                let len = len.fixed()? as usize;
+                let fields = (0..len)
+                    .map(|j| {
+                        let column_items = elements_at(items, j, item_ty)?;
+                        Ok((
+                            j.to_string(),
+                            SeriesColumn::from_items(&column_items, ty, api_bundle)?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(SeriesColumn::Fields {
+                    kind: FieldsKind::Array,
+                    len: m,
+                    fields,
+                })
+            }
+            TypeOwned::Enum(item_enum) => {
+                let mut slot_of: HashMap<&str, u32> = HashMap::new();
+                let mut variant_of: Vec<u32> = Vec::with_capacity(m);
+                let mut groups: Vec<(&str, Vec<&FieldsValueOwned>)> = vec![];
+                for v in items {
+                    let ValueOwned::Enum { variant, fields } = v else {
+                        return Err(items_mismatch(item_ty));
+                    };
+                    let slot = *slot_of.entry(variant.as_str()).or_insert_with(|| {
+                        groups.push((variant.as_str(), vec![]));
+                        (groups.len() - 1) as u32
+                    });
+                    groups[slot as usize].1.push(fields);
+                    variant_of.push(slot);
+                }
+                let variants = groups
+                    .into_iter()
+                    .map(|(ident, fields_list)| {
+                        let (variant_idx, def) = item_enum
+                            .variants
+                            .iter()
+                            .enumerate()
+                            .find(|(_, d)| d.ident == ident)
+                            .ok_or_else(|| items_mismatch(item_ty))?;
+                        let (kind, defs) = fields_of(&def.fields);
+                        let len = fields_list.len();
+                        let fields = fields_from_items(&fields_list, defs, api_bundle)?;
+                        Ok(VariantColumns {
+                            ident: ident.to_string(),
+                            variant_idx: variant_idx as u32,
+                            fields: SeriesColumn::Fields { kind, len, fields },
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(SeriesColumn::Enum {
+                    variant_of,
+                    variants,
+                })
+            }
+            TypeOwned::Option { some_ty } => {
+                let mut some = Vec::with_capacity(m);
+                let mut inner_items = Vec::with_capacity(m);
+                for v in items {
+                    let ValueOwned::Option(opt) = v else {
+                        return Err(items_mismatch(item_ty));
+                    };
+                    match opt {
+                        Some(value) => {
+                            some.push(true);
+                            inner_items.push((**value).clone());
+                        }
+                        None => some.push(false),
+                    }
+                }
+                let inner = SeriesColumn::from_items(&inner_items, some_ty, api_bundle)?;
+                Ok(SeriesColumn::Option {
+                    some,
+                    inner: Box::new(inner),
+                })
+            }
+            // numbers, floats, bools, strings, byte lists and #[series(opaque)] fields: one value per item, as
+            // the plain decoder already gave them
+            _ => Ok(SeriesColumn::Leaf(items.to_vec())),
+        }
+    }
+}
+
+/// The `j`-th element of every item's `Tuple` or `Array` value.
+fn elements_at(items: &[ValueOwned], j: usize, item_ty: &TypeOwned) -> Result<Vec<ValueOwned>> {
+    items
+        .iter()
+        .map(|v| match v {
+            ValueOwned::Tuple(values) | ValueOwned::Array(values) => values
+                .get(j)
+                .cloned()
+                .ok_or_else(|| items_mismatch(item_ty)),
+            _ => Err(items_mismatch(item_ty)),
+        })
+        .collect()
+}
+
+/// Pivots the same-shaped `fields_list` (one [FieldsValueOwned] per item of a struct, variant, or [Self::Empty]
+/// context) into one [SeriesColumn] per non-flag field of `defs`, by position (as [FieldsValueOwned] already
+/// leaves flags out, same as `defs` once filtered).
+fn fields_from_items(
+    fields_list: &[&FieldsValueOwned],
+    defs: &[FieldOwned],
+    api_bundle: &ApiBundleOwned,
+) -> Result<Vec<(String, SeriesColumn)>> {
+    defs.iter()
+        .enumerate()
+        .map(|(j, def)| {
+            let name = def.ident.clone().unwrap_or_else(|| j.to_string());
+            let column_items: Vec<ValueOwned> = fields_list
+                .iter()
+                .map(|fields| field_at(fields, j))
+                .collect::<Result<_>>()?;
+            let column = SeriesColumn::from_items(&column_items, &def.ty, api_bundle)?;
+            Ok((name, column))
+        })
+        .collect()
+}
+
+/// The `j`-th non-flag field's value of a struct or variant's fields.
+fn field_at(fields: &FieldsValueOwned, j: usize) -> Result<ValueOwned> {
+    match fields {
+        FieldsValueOwned::Named(values) => values
+            .get(j)
+            .map(|(_, v)| v.clone())
+            .ok_or(shrink_wrap::Error::MalformedSeries.into()),
+        FieldsValueOwned::Unnamed(values) => values
+            .get(j)
+            .cloned()
+            .ok_or(shrink_wrap::Error::MalformedSeries.into()),
+        FieldsValueOwned::Unit => Err(shrink_wrap::Error::MalformedSeries.into()),
+    }
+}
+
+fn items_mismatch(item_ty: &TypeOwned) -> anyhow::Error {
+    anyhow!("an item doesn't match its type ({item_ty:?})")
 }
 
 /// The fields of `len` items from the columns of each field.

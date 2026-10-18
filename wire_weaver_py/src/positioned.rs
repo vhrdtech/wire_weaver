@@ -16,6 +16,13 @@ use wire_weaver_client::{
     StreamCursor, StreamError, StreamEvent, seconds,
 };
 
+fn item_ty(res: &DynResource) -> TypeOwned {
+    match res.kind() {
+        Ok(DynResourceKind::Stream { ty, .. }) => ty.clone(),
+        _ => unreachable!("PositionedStream wraps a stream"),
+    }
+}
+
 /// Counted or reliable stream from a device: every item has a position, losses are reported as gaps, a cursor
 /// resumes it after a restart. `open()` (or `open(cursor=saved)`), then `recv()` / iterate for values, or
 /// `recv_event()` for items with their positions and gaps; `cursor` to save with the data; `close()`. Also a context
@@ -84,6 +91,40 @@ impl PositionedStream {
                 }
                 Some(_) => continue,
                 None => return Ok(None),
+            }
+        }
+    }
+
+    /// Wait for the next whole batch (API-41), checking for Ctrl+C every 100ms, None on timeout. No blocking
+    /// variant of `recv_batch` exists on `DynPositionedStream` yet, so this drives the async one through the
+    /// connection's runtime, the same way `Stream::recv_inner` (tree.rs) drives `DynStream::recv`.
+    fn next_batch(
+        &self,
+        py: Python<'_>,
+        timeout: Option<f64>,
+    ) -> PyResult<Option<wire_weaver_client::Batch<ValueOwned>>> {
+        let conn = conn(&self.res, &self.conn)?;
+        let deadline = self::timeout(timeout).map(|t| Instant::now() + t);
+        loop {
+            let slice = match deadline {
+                Some(d) => {
+                    let left = d.saturating_duration_since(Instant::now());
+                    if left.is_zero() {
+                        return Ok(None);
+                    }
+                    left.min(Duration::from_millis(100))
+                }
+                None => Duration::from_millis(100),
+            };
+            let got = self.with_stream(|s| {
+                Ok(py.detach(|| {
+                    conn.runtime
+                        .block_on(async { tokio::time::timeout(slice, s.recv_batch()).await })
+                }))
+            })?;
+            match got {
+                Ok(batch) => return batch.map(Some).map_err(stream_err),
+                Err(_elapsed) => py.check_signals()?,
             }
         }
     }
@@ -244,6 +285,27 @@ impl PositionedStream {
                 self.res.path()
             ))),
         }
+    }
+
+    /// Wait for the rest of the next batch, or the next one whole (API-41): a `dict` with `pos`, `t` (seconds of
+    /// device time, an array, `None` for an untimed stream) and the item type's own fields, each a numpy array
+    /// over the batch's items. An item of a stream that isn't batched is a batch of one. Raises TimeoutError.
+    #[pyo3(signature = (timeout=None))]
+    fn recv_batch<'py>(
+        &self,
+        py: Python<'py>,
+        timeout: Option<f64>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let batch = self.next_batch(py, timeout)?.ok_or_else(|| {
+            PyTimeoutError::new_err(format!("no batch from '{}'", self.res.path()))
+        })?;
+        crate::columns::batch_dict(
+            py,
+            Some(batch.pos),
+            &batch.items,
+            &item_ty(&self.res),
+            self.res.bundle(),
+        )
     }
 
     /// Where to resume from after a restart, `(session, pos)`; save it with the data. None before opening.

@@ -1,21 +1,4 @@
-//! Observe cells (API-39, design D8): a trait level's rows written in place by one context (a control loop, an
-//! interrupt) into a ring of atomics, [RowCells], and read by the event loop into one staging store, [Staged],
-//! that is encoded and sent as the default path's batches are: same columns, same encoder, same outbox, same wire.
-//!
-//! **Writer.** [RowCells::writer] hands out the one [RowWriter] (a claim, given back on drop). The generated
-//! `<Level>Writer` puts each value into the current row with relaxed stores where it is computed (on a Cortex-M a
-//! plain `str` per word), then [commit](RowWriter::commit)s the row with its time: the level's grid decides whether
-//! it is taken (as `<Level>Sampler::sample` does), then the row count goes up between two release fences. No
-//! read-modify-write, no lock, nothing on the stack but the values in registers.
-//!
-//! **Reader.** [RowCells::reader] hands out the one [CellsReader]. The rows `[sent, head)` are copied column by
-//! column into the staging store with relaxed loads, then the count is read again: rows the writer may have
-//! written over meanwhile (it writes row `head` into the slot of row `head - R`) are dropped and counted as
-//! lapped, never sent mixed (a seqlock over a ring). The staging store is sealed at `N` rows, at the budget or at
-//! the host's age, as a [Batcher](super::Batcher) is, and the [Outbox](super::Outbox) encodes it from there.
-//!
-//! **Ring size.** `R` rows hold what the writer commits between two `poll_properties` calls (the reader drains the
-//! ring into the staging store every call): `R - 1` of them can wait, more are lapped. `R` may be smaller than `N`.
+//! Observe cells (API-39, design D8): see [RowCells].
 
 use super::batcher::{Bound, Polled};
 use super::level::{Columns, LevelRow, RowsEncoded};
@@ -36,6 +19,25 @@ pub trait LevelRowCells: LevelRow + SeriesCells {
 
 /// The ring of a cells level: `R` rows of `Row` as atomics, the row count and the level's gate, the writer's and
 /// the reader's state. `const fn` [new](Self::new), so it can be a `static`; one writer and one reader at a time.
+///
+/// Observe cells (API-39, design D8): a trait level's rows written in place by one context (a control loop, an
+/// interrupt) into a ring of atomics, [RowCells], and read by the event loop into one staging store, [Staged],
+/// that is encoded and sent as the default path's batches are: same columns, same encoder, same outbox, same wire.
+///
+/// **Writer.** [RowCells::writer] hands out the one [RowWriter] (a claim, given back on drop). The generated
+/// `<Level>Writer` puts each value into the current row with relaxed stores where it is computed (on a Cortex-M a
+/// plain `str` per word), then [commit](RowWriter::commit)s the row with its time: the level's grid decides whether
+/// it is taken (as `<Level>Sampler::sample` does), then the row count goes up between two release fences. No
+/// read-modify-write, no lock, nothing on the stack but the values in registers.
+///
+/// **Reader.** [RowCells::reader] hands out the one [CellsReader]. The rows `[sent, head)` are copied column by
+/// column into the staging store with relaxed loads, then the count is read again: rows the writer may have
+/// written over meanwhile (it writes row `head` into the slot of row `head - R`) are dropped and counted as
+/// lapped, never sent mixed (a seqlock over a ring). The staging store is sealed at `N` rows, at the budget or at
+/// the host's age, as a [Batcher](super::Batcher) is, and the [Outbox](super::Outbox) encodes it from there.
+///
+/// **Ring size.** `R` rows hold what the writer commits between two `poll_properties` calls (the reader drains the
+/// ring into the staging store every call): `R - 1` of them can wait, more are lapped. `R` may be smaller than `N`.
 pub struct RowCells<Row: LevelRowCells, const R: usize> {
     rows: Row::Cells<R>,
     /// Rows committed (wrapping): the writer writes row `head` into slot `w_slot`
@@ -98,20 +100,6 @@ impl<Row: LevelRowCells, const R: usize> RowCells<Row, R> {
             return None;
         }
         Some(CellsReader::Ref(self))
-    }
-
-    /// The reader of cells shared by an `Arc` (a simulator owning them, no `static`).
-    #[cfg(feature = "std")]
-    pub fn reader_shared<const N: usize>(
-        self: &std::sync::Arc<Self>,
-    ) -> Option<CellsReader<'static, Row, N>>
-    where
-        Row: 'static,
-    {
-        if self.reader_claimed.swap(true, Ordering::Acquire) {
-            return None;
-        }
-        Some(CellsReader::Shared(self.clone()))
     }
 
     /// The rows' cells, for the generated setters.
@@ -329,14 +317,15 @@ impl<Row: LevelRowCells, const R: usize, const N: usize> CellsSource<Row, N> for
 /// The one reader of a cells level, `R` erased: what `ObserveBatches` keeps. Dropping it gives it back.
 pub enum CellsReader<'a, Row: LevelRowCells, const N: usize> {
     /// Cells in a `static` or owned by the caller.
-    Ref(&'a dyn CellsSource<Row, N>),
+    Ref(&'a (dyn CellsSource<Row, N> + Sync)),
     /// Cells shared through an `Arc`.
     #[cfg(feature = "std")]
     Shared(std::sync::Arc<dyn CellsSource<Row, N> + Send + Sync>),
 }
 
 impl<Row: LevelRowCells, const N: usize> CellsReader<'_, Row, N> {
-    fn source(&self) -> &dyn CellsSource<Row, N> {
+    /// The cells to read, for [Staged]'s calls.
+    pub fn source(&self) -> &(dyn CellsSource<Row, N> + Sync) {
         match self {
             CellsReader::Ref(s) => *s,
             #[cfg(feature = "std")]
@@ -350,6 +339,64 @@ impl<Row: LevelRowCells, const N: usize> CellsReader<'_, Row, N> {
     }
 }
 
+#[cfg(feature = "std")]
+impl<Row: LevelRowCells + 'static, const N: usize> CellsReader<'static, Row, N> {
+    /// The reader of cells shared through an `Arc` (a simulator that owns them, no `static`): the generated
+    /// `<Level>Cells` or a [RowCells]. `None` when the reader is taken.
+    pub fn shared<T, const R: usize>(cells: std::sync::Arc<T>) -> Option<Self>
+    where
+        T: AsRef<RowCells<Row, R>> + Send + Sync + 'static,
+    {
+        if (*cells)
+            .as_ref()
+            .reader_claimed
+            .swap(true, Ordering::Acquire)
+        {
+            return None;
+        }
+        Some(CellsReader::Shared(std::sync::Arc::new(
+            SharedCells::<T, R>(cells),
+        )))
+    }
+}
+
+/// [CellsReader::shared]'s adapter.
+#[cfg(feature = "std")]
+struct SharedCells<T, const R: usize>(std::sync::Arc<T>);
+
+#[cfg(feature = "std")]
+impl<Row, T, const R: usize, const N: usize> CellsSource<Row, N> for SharedCells<T, R>
+where
+    Row: LevelRowCells + 'static,
+    T: AsRef<RowCells<Row, R>>,
+{
+    fn gate(&self) -> &SampleGate {
+        &(*self.0).as_ref().gate
+    }
+
+    fn waiting(&self) -> u32 {
+        CellsSource::<Row, N>::waiting((*self.0).as_ref())
+    }
+
+    fn read_into(&self, store: &mut Row::Store<N>, at: usize, max: usize) -> Read {
+        (*self.0).as_ref().read_into(store, at, max)
+    }
+
+    fn skip_all(&self) -> u32 {
+        CellsSource::<Row, N>::skip_all((*self.0).as_ref())
+    }
+
+    fn release(&self) {
+        CellsSource::<Row, N>::release((*self.0).as_ref())
+    }
+}
+
+impl<Row: LevelRowCells, const R: usize> AsRef<RowCells<Row, R>> for RowCells<Row, R> {
+    fn as_ref(&self) -> &RowCells<Row, R> {
+        self
+    }
+}
+
 impl<Row: LevelRowCells, const N: usize> Drop for CellsReader<'_, Row, N> {
     fn drop(&mut self) {
         self.source().release();
@@ -357,10 +404,9 @@ impl<Row: LevelRowCells, const N: usize> Drop for CellsReader<'_, Row, N> {
 }
 
 /// The batch of a cells level being filled from its ring or encoded: one store of `N` rows, see the
-/// [module docs](self). Sealed at `N` rows, at the budget (as a [Batcher](super::Batcher), from the worst case or
+/// docs of [RowCells]. Sealed at `N` rows, at the budget (as a [Batcher](super::Batcher), from the worst case or
 /// the last batch's bytes per row) or at the host's age.
-pub struct Staged<'a, Row: LevelRowCells, const N: usize, P = DefaultPolicy> {
-    reader: CellsReader<'a, Row, N>,
+pub struct Staged<Row: LevelRowCells, const N: usize, P = DefaultPolicy> {
     store: Row::Store<N>,
     /// Rows in the store
     n: usize,
@@ -379,9 +425,9 @@ pub struct Staged<'a, Row: LevelRowCells, const N: usize, P = DefaultPolicy> {
     stats: BatchStats,
 }
 
-impl<'a, Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<'a, Row, N, P> {
-    /// Encoding with `policy` what `reader` reads.
-    pub fn new(reader: CellsReader<'a, Row, N>, policy: P) -> Self {
+impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, P> {
+    /// Empty, encoding with `policy` what its [CellsReader]'s [source](CellsReader::source) gives the calls.
+    pub fn new(policy: P) -> Self {
         const {
             assert!(
                 N >= 1 && N <= super::MAX_BATCH,
@@ -390,7 +436,6 @@ impl<'a, Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<'a, 
         }
         let bound = Row::bound(Columns::MAX);
         Staged {
-            reader,
             store: Row::empty_store::<N>(),
             n: 0,
             sealed: None,
@@ -405,11 +450,6 @@ impl<'a, Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<'a, 
         }
     }
 
-    /// The level's gate, which the server sets from what hosts observe.
-    pub fn gate(&self) -> &SampleGate {
-        self.reader.gate()
-    }
-
     pub fn stats(&self) -> BatchStats {
         self.stats
     }
@@ -422,11 +462,6 @@ impl<'a, Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<'a, 
     /// Rows in the store (filling or sealed).
     pub fn rows(&self) -> usize {
         self.n
-    }
-
-    /// Rows committed in the ring and not read yet.
-    pub fn waiting(&self) -> u32 {
-        self.reader.source().waiting()
     }
 
     fn set_budget_bound(&mut self, budget: usize, bound: Bound) {
@@ -463,6 +498,7 @@ impl<'a, Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<'a, 
     /// writer lapped come back as `lost`.
     pub fn poll_cells(
         &mut self,
+        src: &dyn CellsSource<Row, N>,
         now_us: u64,
         max_age_us: Option<u64>,
         budget: usize,
@@ -474,10 +510,7 @@ impl<'a, Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<'a, 
             return polled;
         }
         if self.n < self.limit {
-            let read = self
-                .reader
-                .source()
-                .read_into(&mut self.store, self.n, self.limit - self.n);
+            let read = src.read_into(&mut self.store, self.n, self.limit - self.n);
             self.n += read.rows;
             polled.lost = read.lapped;
             self.stats.lost += read.lapped;
@@ -509,15 +542,12 @@ impl<'a, Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<'a, 
 
     /// Takes the rows waiting in the ring (as many as fit) and seals the store now, if it has rows and none are
     /// sealed. Rows the writer lapped come back as `lost`.
-    pub fn flush(&mut self) -> Polled {
+    pub fn flush(&mut self, src: &dyn CellsSource<Row, N>) -> Polled {
         let mut polled = Polled::default();
         if self.sealed.is_some() {
             return polled;
         }
-        let read = self
-            .reader
-            .source()
-            .read_into(&mut self.store, self.n, N - self.n);
+        let read = src.read_into(&mut self.store, self.n, N - self.n);
         self.n += read.rows;
         polled.lost = read.lapped;
         self.stats.lost += read.lapped;
@@ -529,14 +559,14 @@ impl<'a, Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<'a, 
     }
 
     /// Nobody observes the level: drops the rows in the store and skips those in the ring. Returns the rows.
-    pub fn discard_all(&mut self) -> u64 {
+    pub fn discard_all(&mut self, src: &dyn CellsSource<Row, N>) -> u64 {
         let rows = self.n as u64 - self.sealed.map_or(0, |(start, _)| start as u64);
         self.stats.discarded += rows;
         self.n = 0;
         self.sealed = None;
         self.first_us = None;
         self.bytes = 0;
-        rows + self.reader.source().skip_all() as u64
+        rows + src.skip_all() as u64
     }
 
     /// Drops the sealed rows unsent (no room ever): returns them, and 0 (lapped rows are reported by
@@ -595,7 +625,7 @@ impl<'a, Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<'a, 
     }
 }
 
-impl<Row, const N: usize, P> super::RowsSource<Row, N> for Staged<'_, Row, N, P>
+impl<Row, const N: usize, P> super::RowsSource<Row, N> for Staged<Row, N, P>
 where
     Row: LevelRowCells,
     P: SeriesPolicy + Copy,

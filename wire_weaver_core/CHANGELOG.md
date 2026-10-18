@@ -2,6 +2,9 @@
 
 ### ⚠️ Breaking
 
+- `ServerScaffoldConfig` has an `observe_cells` field (API-39): code building it literally adds
+  `observe_cells: vec![]`.
+
 * `Delta<'i, T>`, `DeltaOfDelta<'i, T>`, `XorFloat<'i, T>` (and `..Owned`) are no longer built-in API types (removed
   from shrink_wrap): use `Series<'i, T>`, which codegen already maps to `ww_self::Type::Series`.
 - Generated std clients of APIs with `+observe+batched` properties (API-39): their slots in `<Trait>Update` are
@@ -63,6 +66,16 @@
   (`plug_vbus_cycle_send_return`); `method_model` patterns and the scaffold's deferred hint match the prefixed name.
 
 ### 🚀 Features
+
+- Observe cells (API-39, D8): `ww_codegen!(.., observe_cells = "root_foc, ..")` puts the named levels on a ring of
+  atomics instead of `<Level>Sampler::sample`. Per level `<Level>Cells<R>` (`const fn new`, for a `static`, or an
+  `Arc` with `CellsReader::shared`), `writer()` handing out the one `<Level>Writer` with a setter per `+batched`
+  property (relaxed stores into the row, where the value is computed) and `commit(t)`, and `reader()` for
+  `ObserveBatches::new(policy, ..)`, which then is `ObserveBatches<'c>`. `poll_properties` drains the ring into one
+  staging batch and sends it through the same outbox: the wire is the same as the sampler's (tested byte for byte,
+  and every `tests/observe_batched` scenario runs on both). Rows lapped by the writer count as `missed`. Other
+  levels keep their samplers; a name that isn't a level with `+batched` properties is a compile error listing them.
+  `ww api scaffold --observe-cells` (`ServerScaffoldConfig::observe_cells`) writes the statics and the wiring.
 
 - Batched streams (API-41): `#[stream(T, delivery, batched)]` / `batched(untimed)` and `#[batched]` /
   `#[batched(untimed)]` next to `stream!`, for plain, counted and reliable streams. Generated servers keep their

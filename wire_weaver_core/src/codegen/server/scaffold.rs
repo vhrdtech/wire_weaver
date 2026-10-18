@@ -33,6 +33,9 @@ pub struct ServerScaffoldConfig {
     /// `#[optional]` items or groups to leave out, `"i2c.pullups"` (API-16): no stubs for them, passed on to
     /// `ww_codegen!(.., omit = [..])`.
     pub omit: Vec<String>,
+    /// Levels sampled through observe cells (API-39), by their `ObserveState` field (`root_foc`): passed on to
+    /// `ww_codegen!(.., observe_cells = "..")`, with a `static` `<Level>Cells` each.
+    pub observe_cells: Vec<String>,
 }
 
 /// Generates Rust source of a server struct, an impl block with a stub for every handler, each returning
@@ -63,7 +66,20 @@ pub fn gen_server_scaffold(
 
     let omit: Vec<Omit> = config.omit.iter().map(Omit::always).collect();
     let omissions = Omissions::resolve(api_bundle, &omit).map_err(|e| anyhow!(e))?;
-    let observed = super::observe::Observe::collect(api_bundle, &omissions, &property_model);
+    let mut observed = super::observe::Observe::collect(api_bundle, &omissions, &property_model);
+    if !observed.use_cells(&config.observe_cells).is_empty() {
+        return Err(anyhow!(
+            "--observe-cells: {:?} names a level without +batched properties; levels: {}",
+            config.observe_cells,
+            observed.batched_levels().join(", ")
+        ));
+    }
+    let cells = !config.observe_cells.is_empty();
+    let observe_state = if cells {
+        "api_impl::ObserveState<api_impl::ObserveBatches<'static>>"
+    } else {
+        "api_impl::ObserveState"
+    };
     let observe = observed.is_enabled();
     let observe_batched = observed.has_batched();
 
@@ -111,7 +127,22 @@ pub fn gen_server_scaffold(
         )?;
     }
 
-    if observe_batched {
+    if cells {
+        let readers: Vec<String> = config
+            .observe_cells
+            .iter()
+            .map(|l| format!("{}.reader().unwrap()", l.to_uppercase()))
+            .collect();
+        writeln!(
+            s.fields,
+            "/// Observed properties (SRV-18): what hosts observe and when it is due, see `poll_properties`;
+             /// `ObserveState::new(limits, api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY, {}))`;
+             /// the levels on observe cells take samples in place through their cells' writer, the others with
+             /// `observe.samplers().<level>.sample(t, ..)` (API-39)
+             pub observe: {observe_state},",
+            readers.join(", ")
+        )?;
+    } else if observe_batched {
         writeln!(
             s.fields,
             "/// Observed properties (SRV-18): what hosts observe and when it is due, see `poll_properties`;
@@ -131,7 +162,7 @@ pub fn gen_server_scaffold(
         writeln!(
             s.handlers,
             "/// Settings and send state of observed properties, for `Observe` requests and `poll_properties`.\n\
-             fn observe_state(&mut self) -> &mut api_impl::ObserveState {{\n\
+             fn observe_state(&mut self) -> &mut {observe_state} {{\n\
              &mut self.observe\n\
              }}\n"
         )?;
@@ -158,6 +189,24 @@ pub fn gen_server_scaffold(
     } else {
         String::new()
     };
+    let observe_cells = if cells {
+        format!("observe_cells = {:?},\n", config.observe_cells.join(", "))
+    } else {
+        String::new()
+    };
+    // a static ring per cells level: the control loop or interrupt keeps its writer
+    let mut statics = String::new();
+    for level in &config.observe_cells {
+        let ty = format!("{}Cells", level.to_case(Case::Pascal));
+        writeln!(
+            statics,
+            "/// Observe cells of `{level}` (API-39): rows the control loop or interrupt writes in place with\n\
+             /// `{name}.writer()` (once, kept), `poll_properties` reads through `{name}.reader()`. 32 rows wait\n\
+             /// between two polls.\n\
+             pub static {name}: api_impl::{ty}<32> = api_impl::{ty}::new();\n",
+            name = level.to_uppercase()
+        )?;
+    }
     let trait_name = &root.trait_name;
     let mut out = String::new();
     writeln!(
@@ -166,6 +215,7 @@ pub fn gen_server_scaffold(
          // Every handler is a stub returning Unimplemented, replace them with real implementations.\n\
          use wire_weaver::prelude::*;\n"
     )?;
+    out.push_str(&statics);
     writeln!(out, "pub struct {server} {{\n{}}}\n", s.fields)?;
     writeln!(out, "impl {server} {{\n{}}}\n", s.handlers)?;
     if !s.consts.is_empty() {
@@ -184,7 +234,7 @@ pub fn gen_server_scaffold(
          server = true, no_alloc = {}, use_async = {},\n\
          method_model = {method_model_str:?},\n\
          property_model = {property_model_str:?},\n\
-         {const_model}{omit}{medium}{observe_batch});\n\
+         {const_model}{omit}{medium}{observe_batch}{observe_cells});\n\
          }}",
         config.no_alloc, config.use_async
     )?;
@@ -737,3 +787,44 @@ fn doc_line(line: &str) -> String {
 /// Items per batch the scaffold writes into a batched stream's state, `ww_stream::batch::DEFAULT_BATCH` (this crate
 /// doesn't depend on `ww_stream`).
 pub(crate) const DEFAULT_BATCH: usize = 32;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn config(observe_cells: &[&str]) -> ServerScaffoldConfig {
+        ServerScaffoldConfig {
+            server_struct: "Server".into(),
+            no_alloc: true,
+            use_async: true,
+            method_model: String::new(),
+            property_model: String::new(),
+            const_model: String::new(),
+            medium: None,
+            omit: vec![],
+            observe_cells: observe_cells.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    /// `observe_cells` (API-39): a static ring per level, its reader in `ObserveBatches::new`, the argument in
+    /// `ww_codegen!`; a level without `+batched` properties is an error naming the ones there are.
+    #[test]
+    fn observe_cells() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/observe_batched_api");
+        let bundle = crate::load(&crate_path, Some("ObserveBatched".into()), false).unwrap();
+        let code = gen_server_scaffold(&bundle, &config(&["root"])).unwrap();
+        for expected in [
+            "pub static ROOT: api_impl::RootCells<32> = api_impl::RootCells::new();",
+            "ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY, ROOT.reader().unwrap())",
+            "pub observe: api_impl::ObserveState<api_impl::ObserveBatches<'static>>,",
+            "observe_cells = \"root\",",
+        ] {
+            assert!(code.contains(expected), "{expected}\n{code}");
+        }
+        let plain = gen_server_scaffold(&bundle, &config(&[])).unwrap();
+        assert!(!plain.contains("observe_cells") && !plain.contains("Cells<"));
+        let e = gen_server_scaffold(&bundle, &config(&["root_nope"])).unwrap_err();
+        assert!(e.to_string().contains("levels: root_slow, root"), "{e}");
+    }
+}

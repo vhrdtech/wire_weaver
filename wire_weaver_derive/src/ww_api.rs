@@ -98,6 +98,13 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 omit: args.ext.omit.clone(),
                 observe_batch: (args.ext.observe_batch != 0).then_some(args.ext.observe_batch),
                 observe_outbox: (args.ext.observe_outbox != 0).then_some(args.ext.observe_outbox),
+                observe_cells: args
+                    .ext
+                    .observe_cells
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect(),
             },
         );
         codegen_ts.append_all(ts);

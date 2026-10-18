@@ -196,7 +196,9 @@ fn the_same_bytes_as_the_batcher() {
     let cells = RowCells::<Row, 16>::new();
     cells.gate().set(Some(0));
     let mut w = cells.writer().unwrap();
-    let mut staged = Staged::<Row, N, _>::new(cells.reader().unwrap(), policy);
+    let reader = cells.reader::<N>().unwrap();
+    let src = reader.source();
+    let mut staged = Staged::<Row, N, _>::new(policy);
     let mut batcher = Batcher::<Row, N, _>::new_rows(policy);
     let mut scratch = Scr::new();
     let (mut a, mut b) = (Outbox::<4096>::new(), Outbox::<4096>::new());
@@ -210,7 +212,7 @@ fn the_same_bytes_as_the_batcher() {
             now += 1000;
             let columns = [0b11, 0b01, 0b10][k as usize / N % 3];
             batcher.consumer().poll_rows(now, Some(3000), 4096, columns);
-            staged.poll_cells(now, Some(3000), 4096, columns);
+            staged.poll_cells(src, now, Some(3000), 4096, columns);
             a.push_rows_from(&mut batcher.consumer(), columns, &SLOTS, &mut scratch)
                 .unwrap();
             b.push_rows_from(&mut staged, columns, &SLOTS, &mut scratch)
@@ -218,7 +220,7 @@ fn the_same_bytes_as_the_batcher() {
         }
     }
     batcher.consumer().flush();
-    staged.flush();
+    staged.flush(src);
     a.push_rows_from(&mut batcher.consumer(), 0b11, &SLOTS, &mut scratch)
         .unwrap();
     b.push_rows_from(&mut staged, 0b11, &SLOTS, &mut scratch)
@@ -251,7 +253,9 @@ fn staged_seals_full_budget_age_and_drains_bursts() {
     let cells = RowCells::<Row, 64>::new();
     cells.gate().set(Some(0));
     let mut w = cells.writer().unwrap();
-    let mut staged = Staged::<Row, N, _>::new(cells.reader().unwrap(), CodecPolicy::SMALLEST);
+    let reader = cells.reader::<N>().unwrap();
+    let src = reader.source();
+    let mut staged = Staged::<Row, N, _>::new(CodecPolicy::SMALLEST);
     let mut scratch = Scr::new();
     let mut outbox = Outbox::<8192>::new();
     // a burst of 40 rows: 5 full batches, drained call by call
@@ -259,8 +263,8 @@ fn staged_seals_full_budget_age_and_drains_bursts() {
         write(&mut w, k);
     }
     let mut batches = 0;
-    while staged.waiting() > 0 || staged.rows() > 0 {
-        let polled = staged.poll_cells(0, None, 4096, 0b01);
+    while src.waiting() > 0 || staged.rows() > 0 {
+        let polled = staged.poll_cells(src, 0, None, 4096, 0b01);
         assert_eq!(polled.sealed, Some(Cause::Full));
         let done = outbox
             .push_rows_from(&mut staged, 0b01, &SLOTS, &mut scratch)
@@ -273,18 +277,24 @@ fn staged_seals_full_budget_age_and_drains_bursts() {
     for k in 40..48 {
         write(&mut w, k);
     }
-    let polled = staged.poll_cells(0, None, 20, 0b11);
+    let polled = staged.poll_cells(src, 0, None, 20, 0b11);
     assert_eq!(polled.sealed, Some(Cause::Budget));
     assert!(staged.rows() < N);
-    staged.discard_all();
-    assert_eq!((staged.rows(), staged.waiting()), (0, 0));
+    staged.discard_all(src);
+    assert_eq!((staged.rows(), src.waiting()), (0, 0));
     // the age, from the first poll that saw the first row
     write(&mut w, 50);
-    assert_eq!(staged.poll_cells(100, Some(500), 4096, 0b11).sealed, None);
-    write(&mut w, 51);
-    assert_eq!(staged.poll_cells(599, Some(500), 4096, 0b11).sealed, None);
     assert_eq!(
-        staged.poll_cells(600, Some(500), 4096, 0b11).sealed,
+        staged.poll_cells(src, 100, Some(500), 4096, 0b11).sealed,
+        None
+    );
+    write(&mut w, 51);
+    assert_eq!(
+        staged.poll_cells(src, 599, Some(500), 4096, 0b11).sealed,
+        None
+    );
+    assert_eq!(
+        staged.poll_cells(src, 600, Some(500), 4096, 0b11).sealed,
         Some(Cause::Age)
     );
     assert_eq!(staged.rows(), 2);
@@ -348,4 +358,19 @@ fn threaded_writer_and_reader() {
     let (read, lapped) = reader.join().unwrap();
     assert_eq!(read + lapped, rows as u64, "read {read}, lapped {lapped}");
     assert!(read > 0);
+}
+
+#[test]
+fn a_shared_reader() {
+    use std::sync::Arc;
+    let cells = Arc::new(RowCells::<Row, 8>::new());
+    let reader = CellsReader::<Row, 4>::shared(cells.clone()).unwrap();
+    assert!(CellsReader::<Row, 4>::shared(cells.clone()).is_none());
+    cells.gate().set(Some(0));
+    write(&mut cells.writer().unwrap(), 3);
+    let mut store = Row::empty_store::<4>();
+    let read = reader.source().read_into(&mut store, 0, 4);
+    assert_eq!(check_rows::<4>(&store, read.rows), vec![3]);
+    drop(reader);
+    assert!(cells.reader::<4>().is_some());
 }

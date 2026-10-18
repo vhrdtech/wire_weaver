@@ -57,6 +57,11 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) observe_outbox: usize,
 
+    /// Levels with `+batched` properties sampled through observe cells instead of `<Level>Sampler::sample`
+    /// (API-39), by their `ObserveState` field: `observe_cells = "root_foc, root_control"`.
+    #[darling(default)]
+    pub(crate) observe_cells: String,
+
     /// `omit = ["a.b", ..]` and `omit_if(<cfg>) = [..]`, parsed before darling (`omit_if(..) = ..` is not a `Meta`).
     #[darling(skip)]
     pub(crate) omit: Vec<Omit>,

@@ -243,7 +243,7 @@ impl<const BYTES: usize> Outbox<BYTES> {
         BYTES.saturating_sub(self.used + entries * OUTBOX_ENTRY_HEADER)
     }
 
-    /// Encodes the sealed batches of `batcher` (a level's rows, [Consumer] of a
+    /// Encodes the sealed batches of `batcher` (a level's rows: a [Consumer](super::Consumer) of a
     /// [Batcher::new_rows](super::Batcher::new_rows)) as level batches: the time column and the value columns in
     /// `columns`, column `c` as the entries of slot `slots[c]`. Room is made by dropping batches that were here
     /// before (oldest first) where a batch doesn't fit; batches added by this call are never dropped by it. A batch

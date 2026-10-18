@@ -32,6 +32,15 @@ mod tests {
 
     /// Samples per batch on the device (`observe_batch`)
     const N: usize = 8;
+    /// Rows of the cells server's ring: what the default path's two stores hold
+    const CELLS_ROWS: usize = 2 * N;
+
+    /// Which server a test runs against: the root level on `<Level>Sampler::sample` or on observe cells
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    enum Variant {
+        Sampler,
+        Cells,
+    }
     /// Where batches are rebuilt while they are encoded, one column at a time: the biggest column type
     const SB: usize = scratch_for(N);
 
@@ -136,6 +145,125 @@ mod tests {
                 observe_batch = 8,
                 observe_outbox = 512,
                 // debug_to_file = "../../target/tests_observe_batched_server.rs"
+            );
+        }
+
+        impl TestProcessEventsAsync for Server {
+            type Medium = ();
+
+            async fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                out: &mut impl EventOut,
+                medium: (),
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, out, medium)
+                    .await
+            }
+
+            async fn poll(&mut self, out: &mut impl EventOut, _now_ms: u64) {
+                let now = self.clock.load(Ordering::Relaxed);
+                let mut buf = core::mem::take(&mut self.buf);
+                let mut scratch = core::mem::replace(&mut self.scratch, Box::new(Scratch::new()));
+                _ = self
+                    .poll_properties(out, (), now, &mut buf, &mut scratch)
+                    .await;
+                self.buf = buf;
+                self.scratch = scratch;
+                self.polled.store(now, Ordering::Relaxed);
+            }
+        }
+    }
+
+    /// The same server with the root level on observe cells (`observe_cells = "root"`, API-39 D8): the values go
+    /// into the cells' ring in place, `slow` stays on its sampler, so one device runs both paths.
+    mod cells_server {
+        use super::*;
+        use tests_common::TestProcessEventsAsync;
+
+        pub struct Server {
+            pub mode: u8,
+            /// Last sample taken
+            pub current: i32,
+            pub observe: api_impl::ObserveState<api_impl::ObserveBatches<'static>>,
+            /// The root level's cells, shared with `ObserveBatches` through an `Arc`
+            pub root_cells: Arc<api_impl::RootCells<CELLS_ROWS>>,
+            /// Fake microsecond clock, set by the test
+            pub clock: Arc<AtomicU64>,
+            /// Last fake time `poll_properties` ran at
+            pub polled: Arc<AtomicU64>,
+            pub buf: Vec<u8>,
+            pub scratch: Box<Scratch<SB>>,
+        }
+
+        impl Server {
+            fn observe_state(
+                &mut self,
+            ) -> &mut api_impl::ObserveState<api_impl::ObserveBatches<'static>> {
+                &mut self.observe
+            }
+
+            async fn get_current(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+            ) -> GetResult<i32, ()> {
+                GetResult::Value(self.current)
+            }
+
+            async fn get_reading(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+            ) -> GetResult<Reading, ()> {
+                GetResult::Value(reading(self.current))
+            }
+
+            async fn changed_mode(&mut self, _cx: &mut Context<'_, impl EventOut>) {}
+
+            async fn get_slow_temp(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+            ) -> GetResult<f32, ()> {
+                GetResult::Value(temp(self.current))
+            }
+
+            async fn sample(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+                count: u32,
+                t0_us: u32,
+                dt_us: u32,
+                first: i32,
+            ) -> RpcResult<()> {
+                let mut w = self.root_cells.writer().unwrap();
+                let mut samplers = self.observe.samplers();
+                for i in 0..count {
+                    let t = Second::micro(t0_us.wrapping_add(i * dt_us));
+                    let v = first + i as i32;
+                    w.current(v);
+                    w.reading(reading(v));
+                    w.commit(t);
+                    if i % 10 == 0 {
+                        samplers
+                            .root_slow
+                            .sample(t, api_impl::SlowSamples { temp: temp(v) });
+                    }
+                }
+                self.current = first + count as i32 - 1;
+                RpcResult::Ready(())
+            }
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                observe_batched_api :: ObserveBatched for super::Server,
+                server = true, no_alloc = true, use_async = true,
+                method_model = "_=immediate",
+                property_model = "mode=value_on_changed, _=get_set",
+                observe_batch = 8,
+                observe_outbox = 512,
+                observe_cells = "root",
+                // debug_to_file = "../../target/tests_observe_batched_cells_server.rs"
             );
         }
 
@@ -285,28 +413,58 @@ mod tests {
     }
 
     impl Bench {
-        async fn start(path: &str, buf_len: usize) -> Bench {
+        async fn start(variant: Variant, path: &str, buf_len: usize) -> Bench {
             let _ = tracing_subscriber::fmt::try_init();
             let clock = Arc::new(AtomicU64::new(0));
             let polled = Arc::new(AtomicU64::new(0));
-            let server = server::Server {
-                mode: 0,
-                current: 0,
-                observe: server::api_impl::ObserveState::new(
-                    LIMITS,
-                    server::api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY),
-                ),
-                clock: clock.clone(),
-                polled: polled.clone(),
-                buf: vec![0; buf_len],
-                scratch: Box::new(Scratch::new()),
+            let device = match variant {
+                Variant::Sampler => {
+                    let server = server::Server {
+                        mode: 0,
+                        current: 0,
+                        observe: server::api_impl::ObserveState::new(
+                            LIMITS,
+                            server::api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY),
+                        ),
+                        clock: clock.clone(),
+                        polled: polled.clone(),
+                        buf: vec![0; buf_len],
+                        scratch: Box::new(Scratch::new()),
+                    };
+                    tests_common::start_device_async(
+                        path,
+                        server,
+                        observe_batched_api::OBSERVE_BATCHED_FULL_GID,
+                        server::api_impl::api_hash(),
+                    )
+                }
+                Variant::Cells => {
+                    let root_cells = Arc::new(cells_server::api_impl::RootCells::new());
+                    let reader = ww_stream::batch::CellsReader::shared(root_cells.clone()).unwrap();
+                    let server = cells_server::Server {
+                        mode: 0,
+                        current: 0,
+                        observe: cells_server::api_impl::ObserveState::new(
+                            LIMITS,
+                            cells_server::api_impl::ObserveBatches::new(
+                                ww_stream::batch::DEFAULT_POLICY,
+                                reader,
+                            ),
+                        ),
+                        root_cells,
+                        clock: clock.clone(),
+                        polled: polled.clone(),
+                        buf: vec![0; buf_len],
+                        scratch: Box::new(Scratch::new()),
+                    };
+                    tests_common::start_device_async(
+                        &format!("{path}/cells"),
+                        server,
+                        observe_batched_api::OBSERVE_BATCHED_FULL_GID,
+                        cells_server::api_impl::api_hash(),
+                    )
+                }
             };
-            let device = tests_common::start_device_async(
-                path,
-                server,
-                observe_batched_api::OBSERVE_BATCHED_FULL_GID,
-                server::api_impl::api_hash(),
-            );
             let client = Client::config(|c| c.in_process_path(device.path()))
                 .connect()
                 .await
@@ -634,9 +792,8 @@ mod tests {
 
     /// Every sample arrives once, in order, each with its own time, in batches of at most 8 sealed full or by
     /// age; updates that carry only batches have no head `t`.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn every_sample_once_in_order() {
-        let mut b = Bench::start("observe_batched/every", 512).await;
+    async fn every_sample_once_in_order(variant: Variant) {
+        let mut b = Bench::start(variant, "observe_batched/every", 512).await;
         let (granted, refused) = b
             .observe(
                 &[],
@@ -686,9 +843,8 @@ mod tests {
 
     /// A batched property observed with another mode is one value at the update's `t`, from its getter; a plain
     /// property next to batches brings the head `t` back.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn one_values_and_head_t() {
-        let mut b = Bench::start("observe_batched/one", 512).await;
+    async fn one_values_and_head_t(variant: Variant) {
+        let mut b = Bench::start(variant, "observe_batched/one", 512).await;
         b.observe(
             &[],
             &[
@@ -732,9 +888,8 @@ mod tests {
     }
 
     /// `every_us` decimates on the device's grid; the nested level has a sampler of its own.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn decimated_and_nested() {
-        let mut b = Bench::start("observe_batched/decimated", 512).await;
+    async fn decimated_and_nested(variant: Variant) {
+        let mut b = Bench::start(variant, "observe_batched/decimated", 512).await;
         b.observe(&[], &[entry(CURRENT, samples(200, 2_000))], None)
             .await;
         b.observe(&[SLOW], &[entry(TEMP, samples(0, 2_000))], None)
@@ -761,9 +916,8 @@ mod tests {
     /// `Samples` is untrusted input: only `+batched` properties take it, the age and grid are clamped; switching a
     /// property to another mode drops its column from the waiting batches. The rows of a level carry every value,
     /// so a property switched into `Samples` gets the rows not sent yet too, each at its time.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn validated_and_switched_off() {
-        let mut b = Bench::start("observe_batched/validated", 512).await;
+    async fn validated_and_switched_off(variant: Variant) {
+        let mut b = Bench::start(variant, "observe_batched/validated", 512).await;
         let (granted, refused) = b
             .observe(
                 &[],
@@ -800,9 +954,8 @@ mod tests {
 
     /// The `Samples` entries of a level share one grid and one age: the finest `every_us` and the shortest
     /// `max_age_us` asked, reported in the grant; every update with samples has one time column for all of them.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn level_wide_samples_settings() {
-        let mut b = Bench::start("observe_batched/level_wide", 512).await;
+    async fn level_wide_samples_settings(variant: Variant) {
+        let mut b = Bench::start(variant, "observe_batched/level_wide", 512).await;
         let (granted, refused) = b
             .observe(
                 &[],
@@ -844,9 +997,8 @@ mod tests {
 
     /// A property turned off while its samples wait in the batcher: the batch goes out without its column, the
     /// other property's samples keep their times.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn column_dropped_from_a_waiting_batch() {
-        let mut b = Bench::start("observe_batched/column_dropped", 512).await;
+    async fn column_dropped_from_a_waiting_batch(variant: Variant) {
+        let mut b = Bench::start(variant, "observe_batched/column_dropped", 512).await;
         b.observe(
             &[],
             &[
@@ -874,9 +1026,8 @@ mod tests {
 
     /// A buffer that holds less than a batch of 8 rows: the batcher seals smaller batches at what fits (at the
     /// worst case of a row until it measured one batch), each sample arrives once with its time or is missed.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn small_buffer_seals_smaller_batches() {
-        let mut b = Bench::start("observe_batched/small_buffer", 96).await;
+    async fn small_buffer_seals_smaller_batches(variant: Variant) {
+        let mut b = Bench::start(variant, "observe_batched/small_buffer", 96).await;
         b.observe(
             &[],
             &[
@@ -914,9 +1065,8 @@ mod tests {
 
     /// A small outbox and a short budget: batches the link can't take are dropped oldest first and counted as
     /// missed, so what arrives and what is missed add up to what was sampled.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn dropped_batches_are_missed() {
-        let mut b = Bench::start("observe_batched/missed", 512).await;
+    async fn dropped_batches_are_missed(variant: Variant) {
+        let mut b = Bench::start(variant, "observe_batched/missed", 512).await;
         b.observe(
             &[],
             &[
@@ -984,10 +1134,9 @@ mod tests {
 
     /// A property observer of a batched property gets one `Observed` per sample with its own device time,
     /// unwrapped across the wrap of the device's `u32` µs clock.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn host_gets_every_sample_with_its_time() {
+    async fn host_gets_every_sample_with_its_time(variant: Variant) {
         use wire_weaver_client::observe::samples;
-        let mut b = Bench::start("observe_batched/host_samples", 512).await;
+        let mut b = Bench::start(variant, "observe_batched/host_samples", 512).await;
         let mut current = b
             .client
             .observe_current(samples(Duration::from_millis(5)))
@@ -1013,11 +1162,10 @@ mod tests {
 
     /// A level observer: `samples(max_age)` puts every batched property into `Samples` mode; the update's batched
     /// slots carry the samples with unwrapped times, the latest-value cache has the last one.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn host_observes_a_level_in_samples_mode() {
+    async fn host_observes_a_level_in_samples_mode(variant: Variant) {
         use client::api_client::observe_batched_api_observe_batched::ObserveBatchedObserve;
         use wire_weaver_client::observe::{BatchedOwned, samples};
-        let mut b = Bench::start("observe_batched/host_level", 512).await;
+        let mut b = Bench::start(variant, "observe_batched/host_level", 512).await;
         let cfg = ObserveBatchedObserve::default().samples(Duration::from_millis(5));
         assert_eq!(cfg.current, Some(samples(Duration::from_millis(5))));
         assert_eq!(cfg.mode, None);
@@ -1060,14 +1208,13 @@ mod tests {
 
     /// The dynamic client (TOOL-11) decodes `Batched` slots from introspection alone: every sample of each
     /// property with its time unwrapped by the level across the `u32` µs wrap, the newest in `values`.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn dynamic_observer_gets_every_sample() {
+    async fn dynamic_observer_gets_every_sample(variant: Variant) {
         use std::collections::BTreeMap;
         use wire_weaver_client::DynResource;
         use wire_weaver_client::observe::samples;
         use wire_weaver_client::ww_numeric::NumericValue;
         use wire_weaver_client::ww_self::{FieldsValueOwned, ValueOwned};
-        let mut b = Bench::start("observe_batched/dynamic", 512).await;
+        let mut b = Bench::start(variant, "observe_batched/dynamic", 512).await;
         let bundle = b
             .client
             .cmd
@@ -1122,5 +1269,151 @@ mod tests {
                 ValueOwned::Numeric(NumericValue::I32(2 * 129))
             )
         );
+    }
+
+    /// The host can't tell the two apart: the same samples, sealed at the same rows (a full batch per poll), give
+    /// byte for byte the same updates from a sampler level and a cells level.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cells_send_the_samplers_bytes() {
+        let mut got = vec![];
+        for variant in [Variant::Sampler, Variant::Cells] {
+            let mut b = Bench::start(variant, "observe_batched/same_bytes", 512).await;
+            b.observe(
+                &[],
+                &[
+                    entry(CURRENT, samples(0, 1_000_000)),
+                    entry(READING, samples(0, 1_000_000)),
+                ],
+                None,
+            )
+            .await;
+            let mut t = 0u64;
+            for k in 0..6 {
+                b.sample(N as u32, (k * 400) as u32, 50, k * 100).await;
+                t += 1_000;
+                b.at(t).await;
+            }
+            let updates: Vec<_> = b
+                .drain()
+                .await
+                .into_iter()
+                .map(|u| (u.path, u.sample_times, u.missed, u.data))
+                .collect();
+            assert_eq!(updates.len(), 6, "{variant:?}");
+            got.push(updates);
+        }
+        assert_eq!(got[0], got[1]);
+    }
+
+    // Each test against both servers: `<name>_sampler` on the sampler, `<name>_cells` on observe cells.
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn every_sample_once_in_order_sampler() {
+        every_sample_once_in_order(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn every_sample_once_in_order_cells() {
+        every_sample_once_in_order(Variant::Cells).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn one_values_and_head_t_sampler() {
+        one_values_and_head_t(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn one_values_and_head_t_cells() {
+        one_values_and_head_t(Variant::Cells).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn decimated_and_nested_sampler() {
+        decimated_and_nested(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn decimated_and_nested_cells() {
+        decimated_and_nested(Variant::Cells).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn validated_and_switched_off_sampler() {
+        validated_and_switched_off(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn validated_and_switched_off_cells() {
+        validated_and_switched_off(Variant::Cells).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn level_wide_samples_settings_sampler() {
+        level_wide_samples_settings(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn level_wide_samples_settings_cells() {
+        level_wide_samples_settings(Variant::Cells).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn column_dropped_from_a_waiting_batch_sampler() {
+        column_dropped_from_a_waiting_batch(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn column_dropped_from_a_waiting_batch_cells() {
+        column_dropped_from_a_waiting_batch(Variant::Cells).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn small_buffer_seals_smaller_batches_sampler() {
+        small_buffer_seals_smaller_batches(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn small_buffer_seals_smaller_batches_cells() {
+        small_buffer_seals_smaller_batches(Variant::Cells).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dropped_batches_are_missed_sampler() {
+        dropped_batches_are_missed(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dropped_batches_are_missed_cells() {
+        dropped_batches_are_missed(Variant::Cells).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_gets_every_sample_with_its_time_sampler() {
+        host_gets_every_sample_with_its_time(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_gets_every_sample_with_its_time_cells() {
+        host_gets_every_sample_with_its_time(Variant::Cells).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_observes_a_level_in_samples_mode_sampler() {
+        host_observes_a_level_in_samples_mode(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_observes_a_level_in_samples_mode_cells() {
+        host_observes_a_level_in_samples_mode(Variant::Cells).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dynamic_observer_gets_every_sample_sampler() {
+        dynamic_observer_gets_every_sample(Variant::Sampler).await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dynamic_observer_gets_every_sample_cells() {
+        dynamic_observer_gets_every_sample(Variant::Cells).await
     }
 }

@@ -29,6 +29,8 @@ struct Level {
     /// Largest resource index + 1
     item_count: u32,
     props: Vec<Prop>,
+    /// Sampled through observe cells (`observe_cells = ".."`, API-39 D8) instead of `<Level>Sampler::sample`
+    cells: bool,
 }
 
 struct Prop {
@@ -69,10 +71,25 @@ impl Level {
 
     /// `<Field>Sampler`
     fn sampler(&self) -> Ident {
+        self.pascal("Sampler")
+    }
+
+    /// `<Field><suffix>`
+    fn pascal(&self, suffix: &str) -> Ident {
         Ident::new(
-            &format!("{}Sampler", self.field.to_string().to_case(Case::Pascal)),
+            &format!("{}{suffix}", self.field.to_string().to_case(Case::Pascal)),
             Span::call_site(),
         )
+    }
+
+    /// `<field>_cells` of `ObserveBatches`: the reader of a cells level
+    fn reader(&self) -> Ident {
+        Ident::new(&format!("{}_cells", self.field), Span::call_site())
+    }
+
+    /// `<field>_src` of `ObserveBatchConsumers`: what a cells level reads its rows from
+    fn src(&self) -> Ident {
+        Ident::new(&format!("{}_src", self.field), Span::call_site())
     }
 }
 
@@ -191,7 +208,49 @@ impl Observe {
             path: path.clone(),
             item_count: level.items.iter().map(|i| i.id.0 + 1).max().unwrap_or(0),
             props,
+            cells: false,
         });
+    }
+
+    /// Marks the levels named in `observe_cells` (their `ObserveState` field) as cells levels (API-39 D8): a
+    /// compile error for a name that isn't a level with `+batched` properties.
+    pub(crate) fn use_cells(&mut self, names: &[String]) -> TokenStream {
+        let mut errors = TokenStream::new();
+        for name in names {
+            match self
+                .levels
+                .iter_mut()
+                .find(|l| l.field == name && l.has_batched())
+            {
+                Some(level) => level.cells = true,
+                None => {
+                    let known = self.batched_levels();
+                    let msg = format!(
+                        "observe_cells: `{name}` is not a level with +batched properties; levels: {}",
+                        if known.is_empty() {
+                            "none".to_string()
+                        } else {
+                            known.join(", ")
+                        }
+                    );
+                    errors.extend(quote! { compile_error!(#msg); });
+                }
+            }
+        }
+        errors
+    }
+
+    /// `ObserveState` fields of the levels with `+batched` properties: what `observe_cells` can name.
+    pub(crate) fn batched_levels(&self) -> Vec<String> {
+        self.tables()
+            .filter(|l| l.has_batched())
+            .map(|l| l.field.to_string())
+            .collect()
+    }
+
+    /// Whether some level is sampled through observe cells: `ObserveBatches` then has a lifetime.
+    fn has_cells(&self) -> bool {
+        self.tables().any(|l| l.cells)
     }
 
     /// Whether the API has anything to observe: the rest is generated only then.
@@ -288,7 +347,11 @@ impl Observe {
             reset_gates,
         ) = if batched {
             (
-                quote! { <B: ObserveBatchSource = ObserveBatches> },
+                if self.has_cells() {
+                    quote! { <B: ObserveBatchSource = ObserveBatches<'static>> }
+                } else {
+                    quote! { <B: ObserveBatchSource = ObserveBatches> }
+                },
                 quote! { <B: ObserveBatchSource> },
                 quote! { <B> },
                 quote! { , batches: B },
@@ -410,6 +473,21 @@ impl Observe {
         let mut cursors = vec![];
         let mut rows = vec![];
         let mut docs = vec![];
+        // per cells level (API-39 D8): staged batch, reader, gate, source, row type, doc
+        let mut cell_names = vec![];
+        let mut cell_readers = vec![];
+        let mut cell_gates = vec![];
+        let mut cell_srcs = vec![];
+        let mut cell_rows = vec![];
+        let mut cell_docs = vec![];
+        let mut cells_items = TokenStream::new();
+        // trait types that need cells: a level of the trait is a cells level
+        let cells_bases: Vec<&String> = self
+            .tables()
+            .zip(bases)
+            .filter(|(l, _)| l.cells)
+            .map(|(_, (base, _))| base)
+            .collect();
         for (level, (base, first)) in self.tables().zip(bases) {
             if !level.has_batched() {
                 continue;
@@ -526,11 +604,179 @@ impl Observe {
                     }
                 });
             }
+            if *first && cells_bases.contains(&base) {
+                let samples_cells = Ident::new(&format!("{base}SamplesCells"), Span::call_site());
+                let row_cells = Ident::new(&format!("{base}RowCells"), Span::call_site());
+                row_items.extend(quote! {
+                    #[doc(hidden)]
+                    pub struct #samples_cells<const R: usize> {
+                        #(pub #idents: <#ptys as wire_weaver::shrink_wrap::series::SeriesCells>::Cells<R>,)*
+                    }
+
+                    // SAFETY: the fields' cells, all valid all zero
+                    unsafe impl wire_weaver::shrink_wrap::series::SeriesCells for #samples {
+                        type Cells<const R: usize> = #samples_cells<R>;
+
+                        #[inline]
+                        fn put<const R: usize>(cells: &#samples_cells<R>, i: usize, item: &Self) {
+                            #(<#ptys as wire_weaver::shrink_wrap::series::SeriesCells>::put::<R>(&cells.#idents, i, &item.#idents);)*
+                        }
+
+                        fn copy_rows<const R: usize, const N: usize>(
+                            cells: &#samples_cells<R>,
+                            from: usize,
+                            store: &mut #samples_store<N>,
+                            to: usize,
+                            n: usize,
+                        ) {
+                            #(<#ptys as wire_weaver::shrink_wrap::series::SeriesCells>::copy_rows::<R, N>(&cells.#idents, from, &mut store.#idents, to, n);)*
+                        }
+                    }
+
+                    #[doc(hidden)]
+                    pub struct #row_cells<const R: usize> {
+                        pub t: <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesCells>::Cells<R>,
+                        pub values: #samples_cells<R>,
+                    }
+
+                    // SAFETY: the fields' cells, all valid all zero
+                    unsafe impl wire_weaver::shrink_wrap::series::SeriesCells for #row {
+                        type Cells<const R: usize> = #row_cells<R>;
+
+                        #[inline]
+                        fn put<const R: usize>(cells: &#row_cells<R>, i: usize, item: &Self) {
+                            <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesCells>::put::<R>(&cells.t, i, &item.t);
+                            <#samples as wire_weaver::shrink_wrap::series::SeriesCells>::put::<R>(&cells.values, i, &item.values);
+                        }
+
+                        fn copy_rows<const R: usize, const N: usize>(
+                            cells: &#row_cells<R>,
+                            from: usize,
+                            store: &mut #row_store<N>,
+                            to: usize,
+                            n: usize,
+                        ) {
+                            <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesCells>::copy_rows::<R, N>(&cells.t, from, &mut store.t, to, n);
+                            <#samples as wire_weaver::shrink_wrap::series::SeriesCells>::copy_rows::<R, N>(&cells.values, from, &mut store.values, to, n);
+                        }
+                    }
+
+                    impl ww_stream::batch::LevelRowCells for #row {
+                        #[inline]
+                        fn put_time<const R: usize>(cells: &#row_cells<R>, i: usize, t: &ww_stream::observe::Second) {
+                            <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesCells>::put::<R>(&cells.t, i, t);
+                        }
+                    }
+                });
+            }
             let name = level.batches();
             let gate = gate_ident(&name);
             let cursor = cursor_ident(&name);
             let sampler = level.sampler();
             let field = &level.field;
+            if level.cells {
+                let cells_ty = level.pascal("Cells");
+                let writer_ty = level.pascal("Writer");
+                let path = level
+                    .path
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<_>>()
+                    .join("/");
+                let cells_doc = format!(
+                    " The observe cells of `{}` at `/{path}` (API-39, `observe_cells`): a ring of `R` rows of its \
+                     `+batched` properties as atomics, written in place by the one `{writer_ty}` (a control loop, an \
+                     interrupt), read by `poll_properties` through `ObserveBatches`. Put it in a `static` (`new` is \
+                     `const`) or share it (an `Arc` on `std`, `CellsReader::shared`). `R` rows wait between two \
+                     `poll_properties` calls, more are lost (counted as `missed`).",
+                    level.trait_name
+                );
+                let writer_doc = format!(
+                    " Writes the samples of `{}` at `/{path}` into its cells: one setter per `+batched` property \
+                     (relaxed stores into the row), then `commit(t)`. Every value of a row has to be set before \
+                     `commit` (debug builds check). `Send`, not `Sync`; dropping it gives it back.",
+                    level.trait_name
+                );
+                let setter_docs = props.iter().map(|p| format!(" `{}` of this row.", p.ident));
+                cells_items.extend(quote! {
+                    #[doc = #cells_doc]
+                    pub struct #cells_ty<const R: usize>(ww_stream::batch::RowCells<#row, R>);
+
+                    impl<const R: usize> #cells_ty<R> {
+                        /// Empty, sampling nothing until a host observes the level in `Samples` mode.
+                        pub const fn new() -> Self {
+                            #cells_ty(ww_stream::batch::RowCells::new())
+                        }
+
+                        /// The writer, if no one holds it.
+                        pub fn writer(&self) -> Option<#writer_ty<'_, R>> {
+                            self.0.writer().map(|w| #writer_ty { w })
+                        }
+
+                        /// The reader for `ObserveBatches::new`, if no one holds it.
+                        pub fn reader(&self) -> Option<ww_stream::batch::CellsReader<'_, #row, OBSERVE_BATCH>> {
+                            self.0.reader()
+                        }
+
+                        /// Rows committed so far (wrapping).
+                        pub fn committed(&self) -> u32 {
+                            self.0.committed()
+                        }
+                    }
+
+                    impl<const R: usize> Default for #cells_ty<R> {
+                        fn default() -> Self {
+                            Self::new()
+                        }
+                    }
+
+                    impl<const R: usize> AsRef<ww_stream::batch::RowCells<#row, R>> for #cells_ty<R> {
+                        fn as_ref(&self) -> &ww_stream::batch::RowCells<#row, R> {
+                            &self.0
+                        }
+                    }
+
+                    #[doc = #writer_doc]
+                    pub struct #writer_ty<'a, const R: usize> {
+                        w: ww_stream::batch::RowWriter<'a, #row, R>,
+                    }
+
+                    impl<const R: usize> #writer_ty<'_, R> {
+                        #(
+                            #[doc = #setter_docs]
+                            #[inline]
+                            pub fn #idents(&mut self, value: #ptys) {
+                                <#ptys as wire_weaver::shrink_wrap::series::SeriesCells>::put::<R>(&self.w.rows().values.#idents, self.w.slot(), &value);
+                                self.w.mark(#column_ids);
+                            }
+                        )*
+
+                        /// Publishes the row with its device time `t` when the level's gate takes it (a host
+                        /// observes the level in `Samples` mode and `t` is on its grid). Returns whether it did.
+                        #[inline]
+                        pub fn commit(&mut self, t: ww_stream::observe::Second) -> bool {
+                            self.w.commit(t)
+                        }
+
+                        /// Whether a host observes the level in `Samples` mode: skip working out the values
+                        /// otherwise.
+                        #[inline]
+                        pub fn is_sampling(&self) -> bool {
+                            self.w.is_sampling()
+                        }
+                    }
+                });
+                cell_docs.push(format!(
+                    " Samples of `{}` (observe cells)",
+                    level.trait_name
+                ));
+                cell_names.push(name);
+                cell_readers.push(level.reader());
+                cell_gates.push(gate);
+                cell_srcs.push(level.src());
+                cell_rows.push(row);
+                continue;
+            }
             let doc = format!(
                 " Takes the samples of `{}` at `/{}` (API-39): the producer half of its batches, for the context \
                  that has the values (a control loop, an interrupt).",
@@ -595,6 +841,25 @@ impl Observe {
             cursors.push(cursor);
             rows.push(row);
         }
+        let has_cells = !cell_names.is_empty();
+        // `ObserveBatches<'c>` borrows the cells it reads when a level is a cells level
+        let (lt_def, lt_use, lt_any) = if has_cells {
+            (quote! { <'c> }, quote! { <'c> }, quote! { <'_> })
+        } else {
+            (quote! {}, quote! {}, quote! {})
+        };
+        let samplers_where = if has_cells {
+            quote! { pub fn samplers<'s, 'c: 's>(&'s mut self) -> ObserveSamplers<'s> where B: core::borrow::BorrowMut<ObserveBatches<'c>> }
+        } else {
+            quote! { pub fn samplers(&mut self) -> ObserveSamplers<'_> where B: core::borrow::BorrowMut<ObserveBatches> }
+        };
+        let cells_doc = maybe_quote(
+            has_cells,
+            quote! {
+                /// Levels on observe cells (`observe_cells`) keep one staging batch here and read their rows from
+                /// the `<Level>Cells` whose reader `new` takes.
+            },
+        );
         quote! {
             #errors
             /// Samples per batch of each level with `+batched` properties (`observe_batch = N` of `ww_codegen!`).
@@ -603,29 +868,44 @@ impl Observe {
             pub const OBSERVE_OUTBOX: usize = #outbox;
 
             #row_items
+            #cells_items
 
             /// The batches of every level with `+batched` properties (API-39): two stores of `OBSERVE_BATCH` rows
             /// each (a time and every value), filled by the samplers, encoded by `poll_properties`.
             /// [split](Self::split) it to sample in another context (an interrupt, another core), or put it into
             /// `ObserveState` as it is and sample through [samplers](Self::samplers).
-            pub struct ObserveBatches {
+            #cells_doc
+            pub struct ObserveBatches #lt_def {
                 #(
                     #[doc = #docs]
                     #names: ww_stream::batch::Batcher<#rows, OBSERVE_BATCH>,
                     #gates: ww_stream::observe::SampleGate,
                     #cursors: ww_stream::observe::GateCursor,
                 )*
+                #(
+                    #[doc = #cell_docs]
+                    #cell_names: ww_stream::batch::Staged<#cell_rows, OBSERVE_BATCH>,
+                    #cell_readers: ww_stream::batch::CellsReader<'c, #cell_rows, OBSERVE_BATCH>,
+                )*
             }
 
-            impl ObserveBatches {
+            impl #lt_def ObserveBatches #lt_use {
                 /// Batches encoded with `policy`: `ww_stream::batch::DEFAULT_POLICY` (every codec on `std`, delta
-                /// and packed on `no_std`, so a firmware links only those), or another value of its type.
-                pub fn new(policy: ww_stream::batch::DefaultPolicy) -> Self {
+                /// and packed on `no_std`, so a firmware links only those), or another value of its type; a cells
+                /// level reads its rows through the reader of its `<Level>Cells`.
+                pub fn new(
+                    policy: ww_stream::batch::DefaultPolicy,
+                    #(#cell_readers: ww_stream::batch::CellsReader<'c, #cell_rows, OBSERVE_BATCH>,)*
+                ) -> Self {
                     ObserveBatches {
                         #(
                             #names: ww_stream::batch::Batcher::new_rows(policy),
                             #gates: ww_stream::observe::SampleGate::new(),
                             #cursors: ww_stream::observe::GateCursor::new(),
+                        )*
+                        #(
+                            #cell_names: ww_stream::batch::Staged::new(policy),
+                            #cell_readers,
                         )*
                     }
                 }
@@ -635,25 +915,32 @@ impl Observe {
                 pub fn split(&mut self) -> (ObserveSamplers<'_>, ObserveBatchConsumers<'_>) {
                     #(let #names = ww_stream::batch::Batcher::split(&mut self.#names);)*
                     (
-                        ObserveSamplers { #(#split_inits)* },
+                        ObserveSamplers { #(#split_inits)* _p: core::marker::PhantomData },
                         ObserveBatchConsumers {
                             #(
                                 #names: #names.1,
                                 #gates: &self.#gates,
                             )*
+                            #(
+                                #cell_names: &mut self.#cell_names,
+                                #cell_gates: self.#cell_readers.gate(),
+                                #cell_srcs: self.#cell_readers.source(),
+                            )*
+                            _p: core::marker::PhantomData,
                         },
                     )
                 }
 
                 /// The samplers, for a device that samples from the task that polls.
                 pub fn samplers(&mut self) -> ObserveSamplers<'_> {
-                    ObserveSamplers { #(#sampler_inits)* }
+                    ObserveSamplers { #(#sampler_inits)* _p: core::marker::PhantomData }
                 }
             }
 
             /// The sampler of each level with `+batched` properties, see `ObserveBatches::split`.
             pub struct ObserveSamplers<'a> {
                 #(#sampler_fields)*
+                _p: core::marker::PhantomData<&'a ()>,
             }
 
             #samplers
@@ -664,6 +951,12 @@ impl Observe {
                     #names: ww_stream::batch::Consumer<'a, #rows, OBSERVE_BATCH>,
                     #gates: &'a ww_stream::observe::SampleGate,
                 )*
+                #(
+                    #cell_names: &'a mut ww_stream::batch::Staged<#cell_rows, OBSERVE_BATCH>,
+                    #cell_gates: &'a ww_stream::observe::SampleGate,
+                    #cell_srcs: &'a (dyn ww_stream::batch::CellsSource<#cell_rows, OBSERVE_BATCH> + Sync),
+                )*
+                _p: core::marker::PhantomData<&'a ()>,
             }
 
             /// Where `ObserveState` takes the consumer half of the batches from: `ObserveBatches` itself, or the
@@ -672,13 +965,19 @@ impl Observe {
                 fn consumers(&mut self) -> ObserveBatchConsumers<'_>;
             }
 
-            impl ObserveBatchSource for ObserveBatches {
+            impl ObserveBatchSource for ObserveBatches #lt_any {
                 fn consumers(&mut self) -> ObserveBatchConsumers<'_> {
                     ObserveBatchConsumers {
                         #(
                             #names: ww_stream::batch::Batcher::consumer(&mut self.#names),
                             #gates: &self.#gates,
                         )*
+                        #(
+                            #cell_names: &mut self.#cell_names,
+                            #cell_gates: self.#cell_readers.gate(),
+                            #cell_srcs: self.#cell_readers.source(),
+                        )*
+                        _p: core::marker::PhantomData,
                     }
                 }
             }
@@ -690,15 +989,19 @@ impl Observe {
                             #names: ww_stream::batch::BatchSource::consumer(&mut self.#names),
                             #gates: self.#gates,
                         )*
+                        #(
+                            #cell_names: &mut *self.#cell_names,
+                            #cell_gates: self.#cell_gates,
+                            #cell_srcs: self.#cell_srcs,
+                        )*
+                        _p: core::marker::PhantomData,
                     }
                 }
             }
 
             impl<B: ObserveBatchSource> ObserveState<B> {
                 /// The samplers of the batches the state owns (API-39).
-                pub fn samplers(&mut self) -> ObserveSamplers<'_>
-                where
-                    B: core::borrow::BorrowMut<ObserveBatches>,
+                #samplers_where
                 {
                     self.batches.borrow_mut().samplers()
                 }
@@ -981,6 +1284,56 @@ impl Observe {
             let batches = level.batches();
             // the level's sealed rows into its outbox, encoded once: the time column and the columns of the
             // properties in `Samples` mode; without any, the rows go
+            let src = level.src();
+            // the sealed rows of a cells level come from its cells, a batch at a time while they make progress
+            let tail = if level.cells {
+                quote! {
+                    let mut missed = 0u64;
+                    loop {
+                        let polled = c.#batches.poll_cells(c.#src, now_us, Some(max_age as u64), budget, columns);
+                        // lapped rows miss a sample of every observed property
+                        missed += polled.lost * observed;
+                        match state.#outbox.push_rows_from(&mut *c.#batches, columns, &SLOTS, &mut *scratch) {
+                            Ok(pushed) => {
+                                missed += pushed.dropped + pushed.lost * observed;
+                                if pushed.batches == 0 || c.#src.waiting() == 0 {
+                                    break;
+                                }
+                            }
+                            // a value that doesn't serialize: its batch goes
+                            Err(_) => {
+                                let (rows, lost) = c.#batches.discard_sealed();
+                                missed += (rows as u64 + lost) * observed;
+                                break;
+                            }
+                        }
+                    }
+                    state.#field.add_missed(missed);
+                }
+            } else {
+                quote! {
+                    let polled = c.#batches.poll_rows(now_us, Some(max_age as u64), budget, columns);
+                    // lost rows miss a sample of every observed property
+                    let missed = match state.#outbox.push_rows_from(&mut c.#batches, columns, &SLOTS, &mut *scratch) {
+                        Ok(pushed) => pushed.dropped + pushed.lost * observed,
+                        // a value that doesn't serialize: its batch goes
+                        Err(_) => {
+                            let (rows, lost) = c.#batches.discard_sealed();
+                            (rows as u64 + lost) * observed
+                        }
+                    };
+                    state.#field.add_missed(polled.lost * observed + missed);
+                }
+            };
+            // nobody observes the level in `Samples` mode: its rows go
+            let drop_rows = if level.cells {
+                quote! { c.#batches.discard_all(c.#src); }
+            } else {
+                quote! {
+                    c.#batches.flush();
+                    c.#batches.discard_sealed();
+                }
+            };
             let encode = maybe_quote_cl(has_batched, || {
                 quote! {
                     let overhead = ww_stream::observe::batch_overhead(&mut *buf, &path)?;
@@ -1004,21 +1357,10 @@ impl Observe {
                                 OBSERVE_OUTBOX,
                                 observed as usize,
                             );
-                            let polled = c.#batches.poll_rows(now_us, Some(max_age as u64), budget, columns);
-                            // lost rows miss a sample of every observed property
-                            let missed = match state.#outbox.push_rows_from(&mut c.#batches, columns, &SLOTS, &mut *scratch) {
-                                Ok(pushed) => pushed.dropped + pushed.lost * observed,
-                                // a value that doesn't serialize: its batch goes
-                                Err(_) => {
-                                    let (rows, lost) = c.#batches.discard_sealed();
-                                    (rows as u64 + lost) * observed
-                                }
-                            };
-                            state.#field.add_missed(polled.lost * observed + missed);
+                            #tail
                         }
                         None => {
-                            c.#batches.flush();
-                            c.#batches.discard_sealed();
+                            #drop_rows
                         }
                     }
                 }

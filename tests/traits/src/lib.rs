@@ -488,6 +488,7 @@ mod tests {
             const_model: String::new(),
             medium: None,
             omit: vec!["reset".into(), "i2c.pullups".into()],
+            observe_cells: vec![],
         };
         let code = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap();
         for expected in [
@@ -504,6 +505,7 @@ mod tests {
 
         let config = wire_weaver_core::ServerScaffoldConfig {
             omit: vec!["i2c.i2c_write".into()],
+            observe_cells: vec![],
             ..config
         };
         let e = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap_err();

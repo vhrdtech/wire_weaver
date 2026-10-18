@@ -14,6 +14,9 @@
 
 ### 🚀 Features
 
+- `ww_codegen!(.., observe_cells = "root_foc, ..")` (API-39, observe cells): levels with `+batched` properties
+  sampled in place through a ring of atomics, see wire_weaver_core.
+
 - The rustdoc trait of `#[ww_trait]` notes batched streams (`batched`, `#[batched]`, API-41).
 
 - `ww_codegen!(.., const_model = "SERIAL|BOARD=fn")` (API-36): which `const` items the server provides as a `fn` of

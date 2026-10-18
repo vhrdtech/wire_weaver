@@ -52,6 +52,9 @@ pub struct GenServerConfig {
     pub observe_batch: Option<usize>,
     /// Bytes of the outbox of each trait level with `+batched` properties, `observe_outbox = N`; None: 4096.
     pub observe_outbox: Option<usize>,
+    /// Levels sampled through observe cells (API-39), by their `ObserveState` field (`root_foc`):
+    /// `observe_cells = "root_foc, .."`. The others keep `<Level>Sampler::sample`.
+    pub observe_cells: Vec<String>,
 }
 
 pub enum IntrospectMode {
@@ -92,6 +95,9 @@ pub struct GenServerConfigRaw {
     pub observe_batch: Option<usize>,
     /// Bytes of the outbox of each trait level with `+batched` properties, `observe_outbox = N`; None: 4096.
     pub observe_outbox: Option<usize>,
+    /// Levels sampled through observe cells (API-39), by their `ObserveState` field (`root_foc`):
+    /// `observe_cells = "root_foc, .."`. The others keep `<Level>Sampler::sample`.
+    pub observe_cells: Vec<String>,
 }
 
 impl From<GenServerConfig> for GenServerConfigRaw {
@@ -109,6 +115,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             omit: config.omit,
             observe_batch: config.observe_batch,
             observe_outbox: config.observe_outbox,
+            observe_cells: config.observe_cells,
         }
     }
 }
@@ -153,7 +160,8 @@ pub fn gen_server(
         Some(path) => quote! { #path },
         None => quote! { () },
     };
-    let observe = Observe::collect(api_bundle, &omissions, &config.property_model);
+    let mut observe = Observe::collect(api_bundle, &omissions, &config.property_model);
+    let cells_errors = observe.use_cells(&config.observe_cells);
     let cx = ApiServerCGContext {
         observable: observe.observable(),
         ident_prefix: None,
@@ -413,6 +421,7 @@ pub fn gen_server(
         }
 
         #observe_items
+        #cells_errors
 
         #stream_send_methods
 

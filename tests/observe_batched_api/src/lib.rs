@@ -26,7 +26,7 @@ trait Slow {
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
-    series,
+    series(cells),
     final_structure,
     derive(Debug, PartialEq, Clone, Copy)
 )]

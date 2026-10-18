@@ -25,7 +25,6 @@ wire_weaver_client.workspace = true
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"] }
 console.workspace = true
-reedline = "0.38"
 shlex = "1.3"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"

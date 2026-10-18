@@ -2,7 +2,7 @@ use anyhow::Result;
 use blinky::Blinky;
 use clap::Parser;
 use console::style;
-use reedline::{DefaultPrompt, DefaultPromptSegment, FileBackedHistory, Reedline, Signal};
+use std::io::Write;
 use std::time::Duration;
 use tracing::{error, info};
 
@@ -55,10 +55,9 @@ async fn connect_to_device() -> Result<Blinky> {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let mut device = None;
-    let (mut rl, prompt) = setup_repl();
 
     loop {
-        let should_exit = handle_user_command(&mut device, &mut rl, &prompt).await?;
+        let should_exit = handle_user_command(&mut device).await?;
         if should_exit {
             break;
         }
@@ -70,16 +69,15 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn handle_user_command(
-    device: &mut Option<Blinky>,
-    rl: &mut Reedline,
-    prompt: &DefaultPrompt,
-) -> Result<bool> {
-    let line = match rl.read_line(prompt)? {
-        Signal::Success(line) => line,
-        Signal::CtrlC => return Ok(true),
-        Signal::CtrlD => return Ok(false),
-    };
+async fn handle_user_command(device: &mut Option<Blinky>) -> Result<bool> {
+    print!("ww_template> ");
+    std::io::stdout().flush()?;
+    let mut line = String::new();
+    let bytes_read = std::io::stdin().read_line(&mut line)?;
+    if bytes_read == 0 {
+        // EOF (Ctrl+D)
+        return Ok(true);
+    }
     let Some(words) = shlex::split(&line) else {
         println!(
             "{} input was not valid and could not be processed",
@@ -131,16 +129,4 @@ async fn handle_user_command(
         }
     }
     Ok(false)
-}
-
-fn setup_repl() -> (Reedline, DefaultPrompt) {
-    let prompt = DefaultPrompt {
-        left_prompt: DefaultPromptSegment::Basic("ww_template".to_owned()),
-        ..DefaultPrompt::default()
-    };
-    // Do custom things with `Reedline` instance here
-    let rl = Reedline::create().with_history(Box::new(
-        FileBackedHistory::with_file(10000, "repl_history.txt".into()).unwrap(),
-    ));
-    (rl, prompt)
 }

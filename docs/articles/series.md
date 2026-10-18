@@ -303,6 +303,42 @@ producer. RAM for the motor demo's whole `foc` level at 32 samples: 8.4 KB.
 [SeriesStore](../serdes/series.md#collecting-items-on-a-device-seriesstore) and
 [the store](../api/batching.md#the-store) have the per-type layouts.
 
+When the batch is encoded, each column is written straight from its array in the store, one pass per column, with
+the same bytes as walking the items. A batch in which a prefix or another tag changes falls back to the item walk,
+so autoranging still works, at the walk's speed for that batch.
+
+### Observe cells: capture as cheap as a global
+
+`sample(t, FocSamples { .. })` takes a level's row as one value: the interrupt builds all 21 values on its stack, and
+the sampler copies them into the batch. For a level sampled in a hot interrupt, a device can opt into **observe
+cells** instead, per level, in `ww_codegen!`: a ring of atomic cells the interrupt writes in place, each value where
+it is computed.
+
+```rust
+// ww_codegen!(motor_demo_api::MotorDemo for Device, server = true, .., observe_cells = "root_foc")
+static FOC: api_impl::RootFocCells<32> = api_impl::RootFocCells::new(); // const fn, a ring of 32 rows
+
+// the interrupt keeps the writer, handed out once
+let mut w = FOC.writer().unwrap();
+// .. every PWM period, where the values are computed
+w.i_a(Ampere::milli(ia));
+w.i_b(Ampere::milli(ib));
+w.commit(Second::micro(now_us)); // publishes the row if a host wants it
+```
+
+Each setter is a few relaxed stores, typed by the API; `commit` publishes the row between two release fences. No
+lock, no read-modify-write, no `unsafe` in user code, and the writer can't be cloned, so there is one producer by
+construction. `poll_properties` copies the committed rows into one staging batch and encodes it as before. A row the
+interrupt overwrote before it was read is dropped and counted in `missed`, never sent half old, half new.
+
+The API and the wire don't change: same columns, same bytes, a host can't tell which one a device uses. On the
+STM32H725 a row of the 21 FOC values takes 342 cycles at `opt-level = 3` against 423 through `sample()`, and 357
+against 1 400 at `opt-level = "z"`; its stack drops from 116-388 B to 44-52 B. RAM is the same, 8.6 KB for the FOC
+level with a ring of 32 rows. The copy moves to the event loop, so total CPU stays about the same; what changes is
+that the interrupt is short and predictable. Under backpressure cells even lose fewer samples: rows wait in the ring
+while a sealed batch waits for budget. [Observing: cells](../api/observing.md#cells-sampling-from-an-interrupt) has
+the setup, the Nomicon [the numbers](#observe-cells-the-interrupt-side).
+
 ### Sealing and budgets
 
 A batch is sealed for one of four reasons: it is **full** (`N` items), one more item could pass the event's **byte
@@ -370,13 +406,13 @@ clock: 213 instructions on a Cortex-M3/M4F. How that scales:
 | all 21 FOC values at 25 kHz             | 525 000   | ~112 M                        | a fast M7 only              |
 
 On the H725, the whole FOC level (21 values at 25 kHz, one batch of 32 samples every 1.28 ms) depends as much on the
-compiler settings as on the codec. The generic writer walks the items of a batch; a column-wise writer that reads
-straight from the batcher's store was measured next to it, with the same bytes (1 251 per batch):
+compiler settings as on the codec. The batcher writes each column straight from its store; walking the items of
+the batch, as it did before, writes the same 1 251 bytes and is what a batch with a prefix change still does:
 
 | FOC level on the STM32H725                  | cycles per batch | per sample | share of 540 MHz |
 |---------------------------------------------|------------------|------------|------------------|
-| generic item walk, `opt-level = "z"`        | 302 200          | 0.83 µs    | 43.7 %           |
-| generic item walk, `opt-level = 3`          | 125 300          | 0.35 µs    | 18.1 %           |
+| item walk, `opt-level = "z"`                | 302 200          | 0.83 µs    | 43.7 %           |
+| item walk, `opt-level = 3`                  | 125 300          | 0.35 µs    | 18.1 %           |
 | column-wise from the store, `opt-level = "z"` | 100 400        | 0.28 µs    | 14.5 %           |
 | column-wise from the store, `opt-level = 3`   | 59 900         | 0.17 µs    | 8.7 %            |
 
@@ -387,7 +423,8 @@ doesn't help: the series code is generic and compiled in the firmware crate. The
 has where the cycles go.
 
 Flash for the encoder is 15.0 KB on a Cortex-M3 with `DeltaPacked` (9.8 KB on an M4F), 25.4 KB (17.6 KB) with a
-run-time `CodecPolicy`. Every sample taken is encoded, also when its batch is later dropped for lack of budget, so an
+run-time `CodecPolicy`. A firmware no longer carries 64-bit numbers for the protocol's own types: a `NumericValue`
+takes 8 bytes instead of 16, and the H725 firmware got 7.7 KB smaller in flash. Every sample taken is encoded, also when its batch is later dropped for lack of budget, so an
 MCU sets a floor on the rate it accepts (`ObserveLimits::samples_min_every_us`): otherwise any host can ask for more
 encoding than the CPU has.
 
@@ -431,15 +468,16 @@ What the ~9 % buys:
 
 What it costs besides CPU:
 
-- **RAM**: the level's two batch stores, 8.4 KB for the FOC level at 32 samples, and its outbox (`observe_outbox`,
-  4 KB by default): about 12.5 KB.
+- **RAM**: the level's two batch stores (or a ring and one staging batch with cells), 8.4 to 8.6 KB for the FOC
+  level at 32 samples, and its outbox (`observe_outbox`, 4 KB by default): about 12.5 KB.
 - **Flash**: the encoder itself is 15.0 KB on a Cortex-M3 with `DeltaPacked` and 9.8 KB on a Cortex-M4F (the
   observe and batcher code around it is not counted there, and the H725 build wasn't measured for flash).
 
-Where the gap may shrink: **observe cells** would make capture as cheap as writing a global; a store of
-`NumericValue` payloads without `u64` would spare narrowing every value of an `I32` column; and **aligned plain**
-([measured](#straight-from-the-store), kept on file) is 34 200 cycles per batch for 2 882 bytes, for links fast enough
-to carry it.
+The **capture** gap is closed by [observe cells](#observe-cells-capture-as-cheap-as-a-global): the interrupt writes
+each value into its cell with a plain store, as it would write a global, and commits the row: 342 cycles and 52 B of
+stack for the 21 FOC values at `opt-level = 3`. What stays is the **encode** in the event loop, the 8.7 % above.
+There, a faster bit writer is next (see [Ahead](#ahead)), and **aligned plain** ([measured](#straight-from-the-store),
+kept on file) is 34 200 cycles per batch for 2 882 bytes, for links fast enough to carry it.
 
 <div class="ww-level-part" markdown>
 <span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span>
@@ -622,12 +660,45 @@ one byte per loop), and 0.8 k for the column's own `Series` framing (count, two 
 
 **Aligned plain was measured and is not recommended.** From the store it is 1.75x cheaper than column-wise
 `DeltaPacked` at `opt-level = 3` (34 k against 60 k cycles), but slower at `"z"` (129 k against 100 k), and it
-sends 2.3x the bytes: 2.25 MB/s for the FOC level at 25 kHz, more than a full-speed USB link carries. It isn't a
-plain copy either: the store keeps every `NumericValue` payload as a `u64` (firmware enables 64-bit numbers for the
-protocol's own types), so an `I32` column is narrowed value by value, and the framing of 22 separate series, their
+sends 2.3x the bytes: 2.25 MB/s for the FOC level at 25 kHz, more than a full-speed USB link carries. It wasn't a
+plain copy either: when it was measured, the store kept every `NumericValue` payload as a `u64` (firmware carried
+64-bit numbers for the protocol's own types, since dropped), so an `I32` column was narrowed value by value, and the
+framing of 22 separate series, their
 tag runs and checks, already costs 5x the `memcpy` bound. And a new wire form is one that every older reader
 rejects. It stays an option for a device on USB HS or Ethernet that needs the last bit of CPU. The column-wise
-writer, in contrast, changes no byte on the wire: it is purely a faster way to write the same `Series`.
+writer, in contrast, changes no byte on the wire: it is purely a faster way to write the same `Series`, and it is
+what the batcher uses.
+
+### Observe cells: the interrupt side
+
+The cells were measured against `sample()` on a no_std copy of the motor demo's 21 FOC properties: 64 real FOC ticks,
+a host observing all 21 in `Samples` mode, `poll_properties` every 16 rows. Both servers send the same 2 021 bytes in
+2 updates for the 64 rows, with the same hash. Per row on the STM32H725, in cycles:
+
+| one FOC row (21 values)                | `sample()`, `"z"` | cells, `"z"` | `sample()`, `3` | cells, `3` |
+|----------------------------------------|-------------------|--------------|-----------------|------------|
+| warm mean                              | 1 400             | **357**      | 423             | **342**    |
+| cold (the first row)                   | 1 725             | 412          | 976             | 486        |
+| worst                                  | 1 631             | 643          | 795             | 588        |
+| nobody observes                        | 180               | 310          | 189             | 303        |
+| stack of a row                         | 388 B             | **44 B**     | 116 B           | **52 B**   |
+
+The Cortex-M4F model agrees in instructions: 189 against 1 122 at `"z"`, 206 against 260 at `3`. The cold row matters
+most, since a real 25 kHz interrupt mostly runs with cold caches: there cells take half the cycles at `3` and a
+quarter at `"z"`.
+
+Three details from the measurement:
+
+- **Inlining decides `"z"`.** With plain `#[inline]` the setters called the cell writes out of line, and cells were
+  no faster than `sample()` (2 055 against 2 022 cycles). The setters and the writes are `#[inline(always)]` now.
+  `sample()`'s own copy into the store has the same problem at `"z"` (1 122 instructions against 260 at `3`).
+- **Nobody observing costs cells more.** `sample()` returns before copying when no host wants the row; the setters
+  store anyway: 310 against 180 cycles at `"z"`, 303 against 189 at `3`. Wrap them, or the expensive values, in `if w.is_sampling() { .. }`.
+- **The work moves, it doesn't vanish.** A poll copies the waiting rows from the ring, about 380 cycles a row at `3`
+  (9.3 k against 3.2 k cycles for 16 rows), and the poll that encodes costs 2 to 9 % more.
+
+And what 64-bit payloads cost before they were dropped from firmware: the same row took 445 against 435 cycles at
+`3` and the level's samples 14.3 KB of RAM either way, against 8.6 KB with 32-bit payloads.
 
 ### What a struct series costs: the restart check
 
@@ -640,19 +711,14 @@ pure cost, so a level is separate series per column.
 
 ### Ahead
 
-- **Observe cells.** Proposed for a hot interrupt level, like the motor demo's `foc`: an opt-in alternative to
-  `sample()` with double stores, per level a ring of rows of atomic 32-bit cells. The interrupt writes each value
-  where it computes it, a plain store through a setter typed by the API, on a writer that is handed out once and
-  can't be cloned (no `static mut`, no `unsafe`); `poll_properties` encodes straight from the columns, which already
-  are the layout the encoder wants. A row the writer overtook while it was read is detected and counted as missed.
-  The wire doesn't change, so a host can't tell the two apart.
+- **More from cells.** The snapshot modes (periodic, on change) could read a cells level's latest row instead of
+  calling getters, and batched streams fed from an interrupt (ADC samples) could get the same cells.
 - **A faster bit writer.** After the column-wise writer the bit writer is the biggest cost left: writing into a
-  64-bit accumulator, 4 bytes per store, is next, then a `u32` payload in the store of `NumericValue` when no 64-bit
-  number type is enabled, and word-wise checks of the columns.
+  64-bit accumulator, 4 bytes per store, is next, then word-wise checks of the columns.
 - **Room kept in the format.** The reserved predictor escape is for a common factor per column, the values divided
   by it before the predictor, as [ALP](#compared-with-alp) chooses its scale per block; the float codes have room for
   better float coders (Chimp, ALP). Diffs across batches would save the first values,
   about 8 B per batch, but only on reliable streams and with resync rules after a gap; not worth it at 32 items.
 
-The feature tracker has the state of all of this: [SW-60](../features.md), SW-62, SW-63 for the type, the store
-and the fast encoder, API-41, API-39 and API-49 for batched streams, batched observe and the shared clock.
+The feature tracker has the state of all of this: [SW-60](../features.md), SW-62, SW-63, SW-64 for the type, the
+store, the fast encoder and the column-wise writer, API-41, API-39 and API-49 for batched streams, batched observe and the shared clock.

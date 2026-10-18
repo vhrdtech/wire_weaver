@@ -1243,6 +1243,7 @@ dependencies = [
  "ww_client_server",
  "ww_framer",
  "ww_link",
+ "ww_tap",
 ]
 
 [[package]]
@@ -1320,6 +1321,13 @@ version = "0.2.0"
 dependencies = [
  "shrink_wrap",
  "ww_numeric",
+]
+
+[[package]]
+name = "ww_tap"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
 ]
 
 [[package]]

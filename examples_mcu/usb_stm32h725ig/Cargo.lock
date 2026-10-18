@@ -1991,6 +1991,7 @@ dependencies = [
  "ww_client_server",
  "ww_framer",
  "ww_link",
+ "ww_tap",
 ]
 
 [[package]]
@@ -2076,6 +2077,13 @@ dependencies = [
  "wire_weaver",
  "ww_client_server",
  "ww_si",
+]
+
+[[package]]
+name = "ww_tap"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
 ]
 
 [[package]]

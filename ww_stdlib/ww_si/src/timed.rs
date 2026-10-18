@@ -18,7 +18,7 @@ use shrink_wrap::prelude::*;
     cfg_attr(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, PartialEq),
     final_structure,
-    series
+    series(cells)
 )]
 pub struct Timed<T> {
     /// When `value` was taken, device time.

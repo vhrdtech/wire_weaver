@@ -19,6 +19,13 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `series::StoreWord`, `write_numeric_column`, `write_numeric128_column`, `write_float_column`. One FOC level batch of the motor demo (21 x `Series<T>` and the
   clock, n = 32) takes 74.9 k instructions on a Cortex-M3 instead of 143.5 k with `DeltaPacked`, 100 k cycles on an
   STM32H725 instead of 312 k (60 k against 125 k at `opt-level = 3`).
+* `series::SeriesCells` (API-39, observe cells): the `SeriesStore` struct of arrays as atomics, `put` with relaxed
+  stores from one context (an interrupt), `copy_rows` into a `SeriesStore` from another, no lock and no
+  `static mut`; `unsafe` to implement because all-zero bytes must be valid (`empty_cells()`, `const` constructors
+  through `core::mem::zeroed()`). Impls for numbers, floats, `bool`, `Nibble`, `UNib32`, `UVlq32/64`, `U1`..`U64`,
+  `I2`..`I64`, `UN`, `IN`, `Option`, arrays, tuples and `PhantomData`; `series::CellWord` for hand-written ones.
+  `#[derive_shrink_wrap(.., series(cells))]` derives it for structs and enums (opt-in: a type with a hand-written
+  store inside would otherwise stop compiling).
 * `shrink_wrap::series::dynamic` writers (CLT-29), the write side of its readers for code that knows `T` only at
   run time: `write_count` / `write_count_owned`, `write_numeric`, `write_numeric128`, `write_float`, `write_run`,
   `write_opaque_run`, `write_opaque_field` and `write_struct_head` (a nested group length from a measuring closure).

@@ -228,6 +228,19 @@ data variants it can be bigger than the enum itself (`enum { A(u32), B(u32) }`: 
 (`ww_numeric/src/store.rs`): one payload array for all its variants. A type with a `#[series(opaque)]` field gets no
 store, and a type with a field of such a type needs `series(no_store)` too.
 
+### Cells: a store shared with an interrupt (`SeriesCells`)
+
+`series(cells)` also implements `shrink_wrap::series::SeriesCells`, the same struct of arrays made of atomics
+(`AtomicU8` / `AtomicU16` / `AtomicU32`, two or four `AtomicU32`s for 64 and 128 bits): one context `put`s items into
+rows with relaxed stores (on a Cortex-M a plain `str`, as for a global variable), another copies rows into a
+`SeriesStore` with relaxed loads (`copy_rows`), without a lock and without `static mut`. A value of two words can
+mix two items only in a row copied while it is written; the code sharing the cells has to find and drop such rows
+(observe cells count rows, see [observing.md](../api/observing.md#cells-sampling-from-an-interrupt)). All-zero bytes
+are an empty, valid set of cells (`empty_cells()`, or `core::mem::zeroed()` in a `const fn`), which is why the trait
+is `unsafe` to implement. `ww_numeric::NumericValue` has its cells by hand, `ww_si`'s quantities and `Timed` derive
+them. Opt-in, because a type with a hand-written store inside would need cells of its own; strings, byte lists and
+opaque fields have none.
+
 ## Size bounds
 
 The batch has to fit into the message it goes out in, so a device needs to know how big a `Series` of `n` items can

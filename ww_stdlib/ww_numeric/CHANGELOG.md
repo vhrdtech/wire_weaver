@@ -1,5 +1,10 @@
 ## Unreleased
 
+### 🚀 Features
+
+* `NumericValueCells`, the `shrink_wrap::series::SeriesCells` of `NumericValue` (API-39, observe cells): the
+  variant byte and the payload word of `NumericValueStore` as atomics, copied out column by column.
+
 ### ⚠️ Breaking
 
 Wire-incompatible with 0.1.1.

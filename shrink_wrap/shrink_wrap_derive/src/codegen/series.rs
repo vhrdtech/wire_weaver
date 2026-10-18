@@ -26,6 +26,8 @@ pub(crate) struct SeriesSeed<'a> {
     pub(crate) cp: &'a CratePath,
     /// Also implement `SeriesStore` (SW-62), unless a field is opaque: off with `series(no_store)`.
     pub(crate) store: bool,
+    /// Also implement `SeriesCells` (API-39) next to the store: `series(cells)`.
+    pub(crate) cells: bool,
 }
 
 /// A field as a `Series` sees it: flags left out, they are part of their `Option`.
@@ -36,7 +38,19 @@ struct SeriesField<'a> {
     opaque: bool,
     /// Can have a `series_tag`: a user type or an `Option`, which an earlier-enum restart looks at.
     tagged: bool,
+    /// Has `SeriesCells`: not opaque, no string or byte list in it.
+    cells: bool,
     default: Option<&'a syn::Expr>,
+}
+
+/// Whether a field type can have `SeriesCells`: strings and byte lists can't be kept in atomics.
+fn has_cells(ty: &Type) -> bool {
+    match ty {
+        Type::String | Type::Vec(_) | Type::MaxLen(_, _) => false,
+        Type::Array(_, ty) | Type::Option(_, ty) => has_cells(ty),
+        Type::Tuple(types) => types.iter().all(has_cells),
+        _ => true,
+    }
 }
 
 /// Fields of the v1 subset (design `series.md`, "Which `T` in v1"): a compile error names the field otherwise.
@@ -449,6 +463,195 @@ impl SeriesSeed<'_> {
         )
     }
 
+    /// The cells type's definition, named `#cells_ident`, with `fields`, and its `impl SeriesCells` with the
+    /// bodies given (API-39, observe cells).
+    fn cells_impl(
+        &self,
+        cells_ident: &Ident,
+        fields: TokenStream,
+        put: TokenStream,
+        copy: TokenStream,
+    ) -> TokenStream {
+        let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
+        let ident = self.ident;
+        let lifetime = self.lifetime();
+        let cells_trait = self.sc(quote! { SeriesCells });
+        let params = self.generics.impl_params(Some(cells_trait.clone()));
+        let where_clause = self.generics.where_clause(&[]);
+        let def_lifetime = maybe_quote(self.has_lifetime, || quote! { 'i, });
+        let marker_lifetime = maybe_quote(self.has_lifetime, || quote! { &'i (), });
+        let type_params: Vec<_> = self.generics.type_params().map(|p| &p.ident).collect();
+        let lifetime_arg = maybe_quote(self.has_lifetime, || quote! { 'i, });
+        let idents = self.generics.params.iter().map(|p| match p {
+            syn::GenericParam::Type(ty) => &ty.ident,
+            syn::GenericParam::Const(c) => &c.ident,
+            syn::GenericParam::Lifetime(_) => unreachable!("lifetimes are not kept"),
+        });
+        let args = quote! { <#lifetime_arg #(#idents,)* __R> };
+        let doc = format!("The `SeriesCells` of [{ident}]: an array of atomics per leaf field.");
+        quote! {
+            #cfg
+            #[doc = #doc]
+            #[doc(hidden)]
+            #[allow(non_camel_case_types)]
+            pub struct #cells_ident<#def_lifetime #params const __R: usize> #where_clause {
+                #fields
+                __params: ::core::marker::PhantomData<fn() -> (#marker_lifetime #(#type_params,)*)>,
+            }
+
+            #cfg
+            // SAFETY: the cells are the fields' cells and a `PhantomData`, all valid all zero
+            unsafe impl<#def_lifetime #params> #cells_trait for #ident #lifetime #where_clause {
+                type Cells<const __R: usize> = #cells_ident #args;
+
+                #[inline]
+                #[allow(unused_variables)]
+                fn put<const __R: usize>(cells: &Self::Cells<__R>, i: usize, item: &Self) {
+                    #put
+                }
+
+                #[allow(unused_variables)]
+                fn copy_rows<const __R: usize, const __N: usize>(
+                    cells: &Self::Cells<__R>,
+                    from: usize,
+                    store: &mut Self::Store<__N>,
+                    to: usize,
+                    n: usize,
+                ) {
+                    #copy
+                }
+            }
+        }
+    }
+
+    /// `impl SeriesCells` of a struct: cells per field, copied column by column.
+    fn series_cells_struct(&self, fields: &[SeriesField]) -> TokenStream {
+        if !self.store || !self.cells || fields.iter().any(|f| !f.cells) {
+            return quote! {};
+        }
+        let cells_trait = self.sc(quote! { SeriesCells });
+        let cells_ident = format_ident!("__{}SeriesCells", self.ident);
+        let members: Vec<_> = fields.iter().map(|f| &f.member).collect();
+        let tys: Vec<_> = fields.iter().map(|f| &f.ty).collect();
+        self.cells_impl(
+            &cells_ident,
+            quote! { #(#members: <#tys as #cells_trait>::Cells<__R>,)* },
+            quote! { #(<#tys as #cells_trait>::put::<__R>(&cells.#members, i, &item.#members);)* },
+            quote! {
+                #(<#tys as #cells_trait>::copy_rows::<__R, __N>(&cells.#members, from, &mut store.#members, to, n);)*
+            },
+        )
+    }
+
+    /// `impl SeriesCells` of an enum: the discriminants, and cells per field of each data variant, written and
+    /// copied out only for the items in that variant (as `SeriesStore::set` does).
+    fn series_cells_enum(
+        &self,
+        data: &[(&Variant, Vec<SeriesField>)],
+        future_version: Option<&Ident>,
+        max_tag: u32,
+    ) -> TokenStream {
+        if !self.store
+            || !self.cells
+            || data
+                .iter()
+                .any(|(_, fields)| fields.iter().any(|f| !f.cells))
+        {
+            return quote! {};
+        }
+        let cells_trait = self.sc(quote! { SeriesCells });
+        let word = self.sc(quote! { CellWord });
+        let cells_ident = format_ident!("__{}SeriesCells", self.ident);
+        let tag_ty = match (future_version, max_tag) {
+            (Some(_), _) => quote! { u32 },
+            (None, 0..=0xFF) => quote! { u8 },
+            (None, 0x100..=0xFFFF) => quote! { u16 },
+            (None, _) => quote! { u32 },
+        };
+        let d = |v: &Variant| proc_macro2::Literal::u32_unsuffixed(v.discriminant);
+        let slot = |v: &Variant, f: &SeriesField| {
+            format_ident!("__v{}_{}", v.discriminant, f.member.to_string())
+        };
+        let bind = |f: &SeriesField| format_ident!("__x_{}", f.member.to_string());
+        let pattern = |v: &Variant, fields: &[SeriesField]| -> TokenStream {
+            let vi = &v.ident;
+            let binds = fields.iter().map(bind);
+            match &v.fields {
+                Fields::Named(_) => {
+                    let members = fields.iter().map(|f| &f.member);
+                    quote! { Self::#vi { #(#members: #binds),* } }
+                }
+                _ => quote! { Self::#vi(#(#binds),*) },
+            }
+        };
+        let mut cells_fields = vec![];
+        let mut put_arms = vec![];
+        let mut copy_arms = vec![];
+        for (v, fields) in data {
+            let on = v.cfg_attrs();
+            let dv = d(v);
+            let slots: Vec<_> = fields.iter().map(|f| slot(v, f)).collect();
+            let tys: Vec<_> = fields.iter().map(|f| &f.ty).collect();
+            let binds: Vec<_> = fields.iter().map(bind).collect();
+            for (s, ty) in slots.iter().zip(&tys) {
+                cells_fields.push(quote! { #on #s: <#ty as #cells_trait>::Cells<__R>, });
+            }
+            let pat = pattern(v, fields);
+            put_arms.push(quote! {
+                #on
+                #pat => { #(<#tys as #cells_trait>::put::<__R>(&cells.#slots, i, #binds);)* }
+            });
+            copy_arms.push(quote! {
+                #on
+                #dv => { #(<#tys as #cells_trait>::copy_rows::<__R, __N>(&cells.#slots, from + k, &mut store.#slots, to + k, 1);)* }
+            });
+        }
+        let tag = match future_version {
+            Some(fv) => quote! {
+                match item {
+                    Self::#fv(__d) => *__d,
+                    _ => item.discriminant() as #tag_ty,
+                }
+            },
+            None => quote! { item.discriminant() as #tag_ty },
+        };
+        let copy = if data.is_empty() {
+            quote! {
+                for k in 0..n {
+                    store.__tag[to + k] = <#tag_ty as #word>::load::<__R>(&cells.__tag, from + k);
+                }
+            }
+        } else {
+            quote! {
+                for k in 0..n {
+                    let __t = <#tag_ty as #word>::load::<__R>(&cells.__tag, from + k);
+                    store.__tag[to + k] = __t;
+                    #[allow(unreachable_patterns, clippy::match_single_binding)]
+                    match __t {
+                        #(#copy_arms)*
+                        _ => {}
+                    }
+                }
+            }
+        };
+        self.cells_impl(
+            &cells_ident,
+            quote! {
+                __tag: <#tag_ty as #word>::Cells<__R>,
+                #(#cells_fields)*
+            },
+            quote! {
+                <#tag_ty as #word>::put::<__R>(&cells.__tag, i, #tag);
+                #[allow(unreachable_patterns)]
+                match item {
+                    #(#put_arms)*
+                    _ => {}
+                }
+            },
+            copy,
+        )
+    }
+
     fn fields<'f>(
         &self,
         fields: impl Iterator<Item = (TokenStream, &'f Type, bool, Option<&'f syn::Expr>)>,
@@ -467,6 +670,7 @@ impl SeriesSeed<'_> {
                 ty: ty.def(self.is_ref, self.cp),
                 opaque,
                 tagged: !opaque && matches!(ty, Type::External(_, _) | Type::Option(_, _)),
+                cells: !opaque && has_cells(ty),
                 default,
             });
         }
@@ -714,6 +918,7 @@ impl SeriesSeed<'_> {
             },
         );
         let store = self.series_store_struct(&fields, evolvable);
+        let cells = self.series_cells_struct(&fields);
         // only an evolvable struct has a head: the measuring pass behind it would instantiate every column writer
         // once more for the counter
         let head = maybe_quote(evolvable, || {
@@ -728,6 +933,7 @@ impl SeriesSeed<'_> {
         let where_clause = self.generics.where_clause(&[]);
         Ok(quote! {
             #store
+            #cells
 
             #cfg
             impl<'i, #params> #trait_<'i> for #ident #lifetime #where_clause {
@@ -1014,6 +1220,8 @@ impl SeriesSeed<'_> {
             }
         };
         let store = self.series_store_enum(variants, &data, future_version, max_tag);
+        let cells = self.series_cells_enum(&data, future_version, max_tag);
+        let store = quote! { #store #cells };
 
         let params = self.impl_params();
         let where_clause = self.generics.where_clause(&[]);
@@ -1267,7 +1475,10 @@ mod tests {
             quote! { struct S { a: u8 } },
         )
         .unwrap();
-        assert!(err.contains("expected series or series(no_store)"), "{err}");
+        assert!(
+            err.contains("expected series, series(no_store) or series(cells)"),
+            "{err}"
+        );
     }
 
     #[test]

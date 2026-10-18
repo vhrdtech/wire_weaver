@@ -220,3 +220,29 @@ fn u64_from_a_host_is_refused() {
     let r = NumericValue::from_ww_bytes(&bytes);
     assert_eq!(r.err(), Some(Error::EnumVariantDisabled), "{r:?}");
 }
+
+proptest! {
+    /// `NumericValueCells` (API-39): put into zeroed cells, copied out column by column, read back from the store.
+    #[test]
+    fn cells_put_copy(items in prop::collection::vec(any::<(u8, u128, u8, usize)>(), 0..40), from in 0usize..8, n in 0usize..9) {
+        use shrink_wrap::series::{SeriesCells, empty_cells};
+        const R: usize = 8;
+        let cells = empty_cells::<NumericValue, R>();
+        let mut model: [Option<NumericValue>; R] = [None; R];
+        for &(pick, v, bits, at) in &items {
+            let x = value(pick, v, bits);
+            NumericValue::put::<R>(&cells, at % R, &x);
+            model[at % R] = Some(x);
+        }
+        let n = n.min(R - from);
+        if model[from..from + n].iter().all(Option::is_some) {
+            let mut store = NumericValue::empty_store::<R>();
+            NumericValue::copy_rows::<R, R>(&cells, from, &mut store, 0, n);
+            for k in 0..n {
+                let got = NumericValue::get(&store, k);
+                let want = model[from + k].unwrap();
+                prop_assert!(same(&got, &want), "row {}: {:?} != {:?}", from + k, got, want);
+            }
+        }
+    }
+}

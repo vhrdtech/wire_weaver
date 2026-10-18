@@ -84,7 +84,7 @@ use ww_numeric::NumericValue;
     owned(feature = "std"),
     derive(Copy, Clone),
     final_structure,
-    series
+    series(cells)
 )]
 pub struct Quantity<U: Unit> {
     pub prefix: Prefix,
@@ -98,7 +98,7 @@ pub struct Quantity<U: Unit> {
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, PartialEq, Eq),
     self_describing,
-    series,
+    series(cells),
     ww_repr = unib32
 )]
 pub enum Prefix {
@@ -520,7 +520,7 @@ impl Ratio {
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
     final_structure,
-    series
+    series(cells)
 )]
 pub struct DeciBel {
     pub value: NumericValue,
@@ -534,7 +534,7 @@ pub struct DeciBel {
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug),
     final_structure,
-    series
+    series(cells)
 )]
 pub struct DeciBelmW {
     pub value: NumericValue,

@@ -1,5 +1,10 @@
 ## Unreleased
 
+### 🚀 Features
+
+* `Quantity`, `Prefix`, `Timed` and the other `series` types derive `shrink_wrap::series::SeriesCells` (API-39,
+  observe cells), so quantities can be properties of an observe cells level.
+
 ### ⚠️ Breaking
 
 ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire are the same as in 0.1 (values,

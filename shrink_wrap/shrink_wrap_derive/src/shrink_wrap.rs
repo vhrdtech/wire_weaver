@@ -253,7 +253,12 @@ fn generate_inner(
                 if args.series {
                     ts.append_all(
                         borrowed
-                            .series_seed(true, &ww_item_enum.generics, args.series_store)
+                            .series_seed(
+                                true,
+                                &ww_item_enum.generics,
+                                args.series_store,
+                                args.series_cells,
+                            )
                             .series_enum(
                                 &ww_item_enum.variants,
                                 future_version_ident(&ww_item_enum),
@@ -280,7 +285,12 @@ fn generate_inner(
                     if args.series {
                         ts.append_all(
                             owned
-                                .series_seed(false, &ww_item_enum.generics, args.series_store)
+                                .series_seed(
+                                    false,
+                                    &ww_item_enum.generics,
+                                    args.series_store,
+                                    args.series_cells,
+                                )
                                 .series_enum(
                                     &ww_item_enum.variants,
                                     future_version_ident(&ww_item_enum),
@@ -341,7 +351,12 @@ fn generate_inner(
                 if args.series {
                     ts.append_all(
                         borrowed
-                            .series_seed(true, &ww_item_struct.generics, args.series_store)
+                            .series_seed(
+                                true,
+                                &ww_item_struct.generics,
+                                args.series_store,
+                                args.series_cells,
+                            )
                             .series_struct(
                                 &ww_item_struct.fields,
                                 series_evolvable(&args.size_assumption),
@@ -366,7 +381,12 @@ fn generate_inner(
                 if args.series && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
                     ts.append_all(
                         owned
-                            .series_seed(false, &ww_item_struct.generics, args.series_store)
+                            .series_seed(
+                                false,
+                                &ww_item_struct.generics,
+                                args.series_store,
+                                args.series_cells,
+                            )
                             .series_struct(
                                 &ww_item_struct.fields,
                                 series_evolvable(&args.size_assumption),
@@ -700,6 +720,7 @@ impl<'a> CGSeed<'a> {
         is_ref: bool,
         generics: &'p Generics,
         store: bool,
+        cells: bool,
     ) -> SeriesSeed<'p> {
         SeriesSeed {
             ident: &self.ident,
@@ -709,6 +730,7 @@ impl<'a> CGSeed<'a> {
             cfg: self.cfg.as_ref(),
             cp: self.crate_path,
             store,
+            cells,
         }
     }
 

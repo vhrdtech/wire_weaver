@@ -2,10 +2,11 @@
 
 use crate::NumericValue;
 use core::ops::Range;
+use core::sync::atomic::{AtomicU8, Ordering};
 use shrink_wrap::Error;
 use shrink_wrap::series::{
-    BitSink, Level, SeriesPolicy, SeriesStore, write_enum_tags, write_float_column,
-    write_numeric_column, write_numeric128_column,
+    BitSink, CellWord, Level, SeriesCells, SeriesPolicy, SeriesStore, write_enum_tags,
+    write_float_column, write_numeric_column, write_numeric128_column,
 };
 
 /// The payload of every variant enabled, at the width of the widest one.
@@ -122,6 +123,71 @@ const fn width_byte(width: u8, bit_count: u8) -> u8 {
     width << 6 | bit_count
 }
 
+/// Store variant, payload and (`UN` / `IN`) width byte of `item`.
+#[allow(clippy::unnecessary_cast, unused_mut)]
+#[inline]
+fn parts(item: &NumericValue) -> (u8, Payload, u8) {
+    let mut w = 0u8;
+    let (variant, payload) = match *item {
+        #[cfg(feature = "nibble")]
+        NumericValue::Nibble(x) => (NIBBLE, x.value() as Payload),
+        NumericValue::U8(x) => (U8, x as Payload),
+        #[cfg(feature = "u16")]
+        NumericValue::U16(x) => (U16, x as Payload),
+        #[cfg(feature = "u32")]
+        NumericValue::U32(x) => (U32, x as Payload),
+        #[cfg(feature = "unib32")]
+        NumericValue::UNib32(x) => (UNIB32, x.0 as Payload),
+        #[cfg(feature = "u64")]
+        NumericValue::U64(x) => (U64, x as Payload),
+        #[cfg(feature = "i32")]
+        NumericValue::I32(x) => (I32, x as u32 as Payload),
+        #[cfg(feature = "f32")]
+        NumericValue::F32(x) => (F32, x.to_bits() as Payload),
+        #[cfg(feature = "un")]
+        NumericValue::UN(x) => {
+            use shrink_wrap::un::UN::*;
+            let (width, bits, value) = match x {
+                UN8 { bit_count, value } => (0, bit_count.value(), value as u64),
+                UN16 { bit_count, value } => (1, bit_count.value(), value as u64),
+                UN32 { bit_count, value } => (2, bit_count.value(), value as u64),
+                UN64 { bit_count, value } => (3, bit_count.value(), value),
+            };
+            w = width_byte(width, bits);
+            (UN, value as Payload)
+        }
+        #[cfg(feature = "in")]
+        NumericValue::IN(x) => {
+            use shrink_wrap::un::IN::*;
+            let (width, bits, value) = match x {
+                IN8 { bit_count, value } => (0, bit_count.value(), value as u8 as u64),
+                IN16 { bit_count, value } => (1, bit_count.value(), value as u16 as u64),
+                IN32 { bit_count, value } => (2, bit_count.value(), value as u32 as u64),
+                IN64 { bit_count, value } => (3, bit_count.value(), value as u64),
+            };
+            w = width_byte(width, bits);
+            (IN, value as Payload)
+        }
+        #[cfg(feature = "u128")]
+        NumericValue::U128(x) => (U128, x as Payload),
+        #[cfg(feature = "i8")]
+        NumericValue::I8(x) => (I8, x as u8 as Payload),
+        #[cfg(feature = "i16")]
+        NumericValue::I16(x) => (I16, x as u16 as Payload),
+        #[cfg(feature = "i64")]
+        NumericValue::I64(x) => (I64, x as u64 as Payload),
+        #[cfg(feature = "i128")]
+        NumericValue::I128(x) => (I128, x as u128 as Payload),
+        #[cfg(feature = "f64")]
+        NumericValue::F64(x) => (F64, x.to_bits() as Payload),
+        #[cfg(feature = "uvlq32")]
+        NumericValue::UVlq32(x) => (UVLQ32, x.0 as Payload),
+        #[cfg(feature = "uvlq64")]
+        NumericValue::UVlq64(x) => (UVLQ64, x.0 as Payload),
+    };
+    (variant, payload, w)
+}
+
 impl SeriesStore for NumericValue {
     type Store<const N: usize> = NumericValueStore<N>;
 
@@ -134,67 +200,14 @@ impl SeriesStore for NumericValue {
         }
     }
 
-    #[allow(clippy::unnecessary_cast)]
     fn set<const N: usize>(store: &mut NumericValueStore<N>, i: usize, item: &Self) {
-        let (variant, payload) = match *item {
-            #[cfg(feature = "nibble")]
-            NumericValue::Nibble(x) => (NIBBLE, x.value() as Payload),
-            NumericValue::U8(x) => (U8, x as Payload),
-            #[cfg(feature = "u16")]
-            NumericValue::U16(x) => (U16, x as Payload),
-            #[cfg(feature = "u32")]
-            NumericValue::U32(x) => (U32, x as Payload),
-            #[cfg(feature = "unib32")]
-            NumericValue::UNib32(x) => (UNIB32, x.0 as Payload),
-            #[cfg(feature = "u64")]
-            NumericValue::U64(x) => (U64, x as Payload),
-            #[cfg(feature = "i32")]
-            NumericValue::I32(x) => (I32, x as u32 as Payload),
-            #[cfg(feature = "f32")]
-            NumericValue::F32(x) => (F32, x.to_bits() as Payload),
-            #[cfg(feature = "un")]
-            NumericValue::UN(x) => {
-                use shrink_wrap::un::UN::*;
-                let (width, bits, value) = match x {
-                    UN8 { bit_count, value } => (0, bit_count.value(), value as u64),
-                    UN16 { bit_count, value } => (1, bit_count.value(), value as u64),
-                    UN32 { bit_count, value } => (2, bit_count.value(), value as u64),
-                    UN64 { bit_count, value } => (3, bit_count.value(), value),
-                };
-                store.width[i] = width_byte(width, bits);
-                (UN, value as Payload)
-            }
-            #[cfg(feature = "in")]
-            NumericValue::IN(x) => {
-                use shrink_wrap::un::IN::*;
-                let (width, bits, value) = match x {
-                    IN8 { bit_count, value } => (0, bit_count.value(), value as u8 as u64),
-                    IN16 { bit_count, value } => (1, bit_count.value(), value as u16 as u64),
-                    IN32 { bit_count, value } => (2, bit_count.value(), value as u32 as u64),
-                    IN64 { bit_count, value } => (3, bit_count.value(), value as u64),
-                };
-                store.width[i] = width_byte(width, bits);
-                (IN, value as Payload)
-            }
-            #[cfg(feature = "u128")]
-            NumericValue::U128(x) => (U128, x as Payload),
-            #[cfg(feature = "i8")]
-            NumericValue::I8(x) => (I8, x as u8 as Payload),
-            #[cfg(feature = "i16")]
-            NumericValue::I16(x) => (I16, x as u16 as Payload),
-            #[cfg(feature = "i64")]
-            NumericValue::I64(x) => (I64, x as u64 as Payload),
-            #[cfg(feature = "i128")]
-            NumericValue::I128(x) => (I128, x as u128 as Payload),
-            #[cfg(feature = "f64")]
-            NumericValue::F64(x) => (F64, x.to_bits() as Payload),
-            #[cfg(feature = "uvlq32")]
-            NumericValue::UVlq32(x) => (UVLQ32, x.0 as Payload),
-            #[cfg(feature = "uvlq64")]
-            NumericValue::UVlq64(x) => (UVLQ64, x.0 as Payload),
-        };
+        let (variant, payload, _width) = parts(item);
         store.variant[i] = variant;
         store.payload[i] = payload;
+        #[cfg(any(feature = "un", feature = "in"))]
+        {
+            store.width[i] = _width;
+        }
     }
 
     #[allow(clippy::unnecessary_cast)]
@@ -318,6 +331,49 @@ impl SeriesStore for NumericValue {
             I128 => write_numeric128_column(sink, true, p),
             // `columnar` said no
             _ => Err(Error::MalformedSeries),
+        }
+    }
+}
+
+/// `R` [NumericValue]s as atomics (API-39, observe cells): the variant byte, the payload as one word as wide as
+/// [NumericValueStore]'s (two or four `AtomicU32`s for 64 and 128 bits) and, with `UN` / `IN`, the width byte.
+pub struct NumericValueCells<const R: usize> {
+    variant: [AtomicU8; R],
+    payload: <Payload as CellWord>::Cells<R>,
+    #[cfg(any(feature = "un", feature = "in"))]
+    width: [AtomicU8; R],
+}
+
+// SAFETY: atomics only, all zero is valid
+unsafe impl SeriesCells for NumericValue {
+    type Cells<const R: usize> = NumericValueCells<R>;
+
+    #[inline]
+    fn put<const R: usize>(cells: &NumericValueCells<R>, i: usize, item: &Self) {
+        let (variant, payload, _width) = parts(item);
+        cells.variant[i].store(variant, Ordering::Relaxed);
+        <Payload as CellWord>::put::<R>(&cells.payload, i, payload);
+        #[cfg(any(feature = "un", feature = "in"))]
+        cells.width[i].store(_width, Ordering::Relaxed);
+    }
+
+    /// Column by column: the store keeps the same bytes and words.
+    fn copy_rows<const R: usize, const N: usize>(
+        cells: &NumericValueCells<R>,
+        from: usize,
+        store: &mut NumericValueStore<N>,
+        to: usize,
+        n: usize,
+    ) {
+        for (k, v) in store.variant[to..to + n].iter_mut().enumerate() {
+            *v = cells.variant[from + k].load(Ordering::Relaxed);
+        }
+        for (k, p) in store.payload[to..to + n].iter_mut().enumerate() {
+            *p = <Payload as CellWord>::load::<R>(&cells.payload, from + k);
+        }
+        #[cfg(any(feature = "un", feature = "in"))]
+        for (k, w) in store.width[to..to + n].iter_mut().enumerate() {
+            *w = cells.width[from + k].load(Ordering::Relaxed);
         }
     }
 }

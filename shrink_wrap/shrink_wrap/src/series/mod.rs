@@ -6,6 +6,9 @@
 use crate::{BufReader, BufWriter, Error, SerializeShrinkWrap};
 
 pub mod bound;
+mod cells;
+#[cfg(all(test, feature = "std"))]
+mod cells_tests;
 mod columns;
 /// Round trips of the column codecs for the `series-columns` fuzz target.
 #[cfg(fuzzing)]
@@ -33,6 +36,7 @@ pub use type_check as fuzz_type;
 mod type_tests;
 mod xor_float;
 
+pub use cells::{CellWord, SeriesCells, UnCells, empty_cells};
 pub use columns::{
     BitCounter, CodecPolicy, Coder, DeltaPacked, FixedCodecs, FloatCodec, NumericCodec,
     PACKED_BLOCK, Predictor, RawPlain, SeriesPolicy,

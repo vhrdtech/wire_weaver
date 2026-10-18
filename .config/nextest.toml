@@ -17,13 +17,6 @@ slow-timeout = { period = "15s", terminate-after = 1 }
 filter = 'package(wire_weaver_core) & test(snapshots_are_up_to_date)'
 slow-timeout = { period = "15s", terminate-after = 1 }
 
-# loads five crates on their own (uart_api, then ww_uart, ww_si, ww_numeric and ww_error as the snapshots it resolves
-# through), each walking its dependencies once: 0.3 s alone and at load 2 per core, 3 s in a gate with the PC
-# oversubscribed (its sibling snapshot tests took 1.5 s there)
-[[profile.default.overrides]]
-filter = 'package(wire_weaver_core) & test(trait_signature_resolves_through_several_snapshots)'
-slow-timeout = { period = "15s", terminate-after = 1 }
-
 # the kitchen-sink round trip encodes and decodes every type of the series, 1.2 s alone: over 3 s on a loaded PC
 [[profile.default.overrides]]
 filter = 'package(shrink_wrap) & test(series::type_tests::kitchen_round_trips)'

@@ -5722,6 +5722,7 @@ dependencies = [
  "ww_client_server",
  "ww_framer",
  "ww_link",
+ "ww_tap",
  "ww_version",
 ]
 

@@ -8,6 +8,7 @@ use core::future::Future;
 
 use ww_framer::traits::{Checksum, Head, Tail};
 use ww_link::{UsbChecksum, UsbHead, UsbTail};
+use ww_tap::{Dir, NoTap, Tap};
 
 use crate::fmt::warn;
 
@@ -99,23 +100,37 @@ pub enum FramedError<E> {
     Framing,
 }
 
-/// [MessageTx] over a [PacketSink], packing messages into frames with [ww_framer].
-pub struct FramedTx<'a, P> {
+/// [MessageTx] over a [PacketSink], packing messages into frames with [ww_framer]. Messages and frames go to the
+/// [Tap] `T` as they are sent ([NoTap] by default, which compiles away).
+pub struct FramedTx<'a, P, T = NoTap> {
     framer: TxFramer<'a>,
     sink: P,
+    tap: T,
 }
 
 impl<'a, P: PacketSink> FramedTx<'a, P> {
     /// `frame_buf` must be exactly the maximum packet size.
     pub fn new(sink: P, frame_buf: &'a mut [u8]) -> Self {
+        Self::with_tap(sink, frame_buf, NoTap)
+    }
+}
+
+impl<'a, P: PacketSink, T: Tap> FramedTx<'a, P, T> {
+    /// Same as [FramedTx::new], with a link tap.
+    pub fn with_tap(sink: P, frame_buf: &'a mut [u8], tap: T) -> Self {
         FramedTx {
             framer: TxFramer::new(frame_buf),
             sink,
+            tap,
         }
     }
 
     pub fn sink_mut(&mut self) -> &mut P {
         &mut self.sink
+    }
+
+    pub fn tap_mut(&mut self) -> &mut T {
+        &mut self.tap
     }
 
     /// Returns false if there was nothing to send.
@@ -125,6 +140,10 @@ impl<'a, P: PacketSink> FramedTx<'a, P> {
             return Ok(false);
         }
         let frame = &self.framer.buf()[..len];
+        // at submit time; nothing of the tap is used after the await, which would grow the future also with NoTap
+        if self.tap.wants_frames() {
+            self.tap.frame(Dir::Tx, frame);
+        }
         self.sink
             .write_packet(frame)
             .await
@@ -133,10 +152,13 @@ impl<'a, P: PacketSink> FramedTx<'a, P> {
     }
 }
 
-impl<P: PacketSink> MessageTx for FramedTx<'_, P> {
+impl<P: PacketSink, T: Tap> MessageTx for FramedTx<'_, P, T> {
     type Error = FramedError<P::Error>;
 
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), Self::Error> {
+        if self.tap.wants_messages() {
+            self.tap.message(Dir::Tx, kind, message);
+        }
         loop {
             match self.framer.write(kind, message) {
                 Ok(true) => return Ok(()),
@@ -161,13 +183,15 @@ impl<P: PacketSink> MessageTx for FramedTx<'_, P> {
 }
 
 /// [MessageRx] over a [PacketSource], reassembling messages with [ww_framer].
-/// Packets are received directly into the framer's buffer, without an extra copy.
-pub struct FramedRx<'a, P> {
+/// Packets are received directly into the framer's buffer, without an extra copy. Frames and messages go to the
+/// [Tap] `T` as they are received ([NoTap] by default, which compiles away).
+pub struct FramedRx<'a, P, T = NoTap> {
     framer: RxFramer<'a>,
     source: P,
     max_message_len: usize,
     /// A message is ready and not consumed yet
     ready: bool,
+    tap: T,
 }
 
 impl<'a, P: PacketSource> FramedRx<'a, P> {
@@ -175,6 +199,13 @@ impl<'a, P: PacketSource> FramedRx<'a, P> {
     /// to the host as the maximum message length. Use [RxBuffer::assembly_buf](crate::RxBuffer::assembly_buf)
     /// to get exactly the desired maximum message length.
     pub fn new(source: P, assembly_buf: &'a mut [u8]) -> Self {
+        Self::with_tap(source, assembly_buf, NoTap)
+    }
+}
+
+impl<'a, P: PacketSource, T: Tap> FramedRx<'a, P, T> {
+    /// Same as [FramedRx::new], with a link tap.
+    pub fn with_tap(source: P, assembly_buf: &'a mut [u8], tap: T) -> Self {
         let max_packet_len = source.max_packet_len();
         debug_assert!(assembly_buf.len() > max_packet_len);
         let max_message_len = assembly_buf.len().saturating_sub(max_packet_len);
@@ -183,11 +214,16 @@ impl<'a, P: PacketSource> FramedRx<'a, P> {
             source,
             max_message_len,
             ready: false,
+            tap,
         }
     }
 
     pub fn source_mut(&mut self) -> &mut P {
         &mut self.source
+    }
+
+    pub fn tap_mut(&mut self) -> &mut T {
+        &mut self.tap
     }
 }
 
@@ -197,7 +233,7 @@ pub enum RxError<E> {
     Transport(E),
 }
 
-impl<P: PacketSource> MessageRx for FramedRx<'_, P> {
+impl<P: PacketSource, T: Tap> MessageRx for FramedRx<'_, P, T> {
     type Error = RxError<P::Error>;
 
     async fn wait_message(&mut self) -> Result<(), Self::Error> {
@@ -209,6 +245,11 @@ impl<P: PacketSource> MessageRx for FramedRx<'_, P> {
             // is already staged, before reading more.
             self.framer.reassemble();
             if self.framer.message().is_some() {
+                if self.tap.wants_messages()
+                    && let Some((kind, message)) = self.framer.message()
+                {
+                    self.tap.message(Dir::Rx, kind, message);
+                }
                 self.ready = true;
                 return Ok(());
             }
@@ -224,6 +265,9 @@ impl<P: PacketSource> MessageRx for FramedRx<'_, P> {
                 .read_packet(buf)
                 .await
                 .map_err(RxError::Transport)?;
+            if self.tap.wants_frames() {
+                self.tap.frame(Dir::Rx, &self.framer.staging_buf()[..len]);
+            }
             // cannot fail, buf was taken from the free area
             _ = self.framer.commit_staged(len);
         }

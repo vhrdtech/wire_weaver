@@ -44,6 +44,7 @@ wire_weaver.workspace = true
 ww_client_server.workspace = true
 ww_framer.workspace = true
 ww_link.workspace = true
+ww_tap.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros", "time", "sync"] }

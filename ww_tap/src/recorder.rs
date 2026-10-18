@@ -12,7 +12,7 @@
 //! subscribes, after records were lost and every [RecorderConfig::describe_every], so a consumer joining late
 //! decodes from its first block on.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, Weak, mpsc};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -204,9 +204,9 @@ struct Current {
 struct LinkState {
     /// Newest session record bytes
     session: Option<Vec<u8>>,
-    frame_no: [u64; 2],
-    msg_no: [u64; 2],
     lost: u64,
+    /// Every [RecorderLink] of it is gone: left out of describe blocks
+    closed: bool,
 }
 
 struct State {
@@ -341,14 +341,18 @@ impl Recorder {
         let id = st.links.len() as u32;
         st.links.push(LinkState {
             session: None,
-            frame_no: [0; 2],
-            msg_no: [0; 2],
             lost: 0,
+            closed: false,
         });
         st.describe_due = true;
         RecorderLink {
             recorder: self.clone(),
             link: id,
+            shared: Arc::new(LinkShared {
+                no: Default::default(),
+                recorder: Arc::downgrade(&self.inner),
+                link: id,
+            }),
         }
     }
 
@@ -605,6 +609,9 @@ impl Inner {
         let api = api();
         let api_root = ww_logbook::api_root_id(api.crate_id, api.version.major.0);
         for link in 0..st.links.len() as u32 {
+            if st.links[link as usize].closed {
+                continue;
+            }
             for stream in 0..7u32 {
                 let path = [UNib32(ids::LINK), UNib32(link), UNib32(stream)];
                 let label = format!("link[{link}].{}", STREAM_NAMES[stream as usize]);
@@ -621,7 +628,9 @@ impl Inner {
             }
         }
         for (link, l) in st.links.iter().enumerate() {
-            if let Some(s) = &l.session {
+            if let Some(s) = &l.session
+                && !l.closed
+            {
                 records.push((track_number(link as u32, ids::SESSION), s.clone()));
             }
         }
@@ -687,11 +696,46 @@ fn encode<'s, T: SerializeShrinkWrap>(
     Ok(&scratch[..len])
 }
 
-/// The [Tap] of one link of a [Recorder].
+/// The [Tap] of one link of a [Recorder]; clones share the link (e.g. a transport's tx and rx halves).
 #[derive(Clone)]
 pub struct RecorderLink {
     recorder: Recorder,
     link: u32,
+    shared: Arc<LinkShared>,
+}
+
+/// Frame and message numbers per direction, shared by the clones of a [RecorderLink].
+struct LinkShared {
+    /// frames tx, rx, messages tx, rx
+    no: [AtomicU64; 4],
+    recorder: Weak<Inner>,
+    link: u32,
+}
+
+impl Drop for LinkShared {
+    fn drop(&mut self) {
+        if let Some(inner) = self.recorder.upgrade() {
+            let mut st = inner.state.lock().unwrap();
+            if let Some(l) = st.links.get_mut(self.link as usize) {
+                l.closed = true;
+                l.session = None;
+            }
+        }
+    }
+}
+
+impl core::fmt::Debug for Recorder {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Recorder")
+            .field("config", &self.inner.config)
+            .finish_non_exhaustive()
+    }
+}
+
+impl core::fmt::Debug for RecorderLink {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "RecorderLink({})", self.link)
+    }
 }
 
 impl RecorderLink {
@@ -704,13 +748,8 @@ impl RecorderLink {
     }
 
     fn next_no(&self, dir: Dir, frame: bool) -> u64 {
-        let mut st = self.recorder.inner.state.lock().unwrap();
-        let l = &mut st.links[self.link as usize];
-        let c = if frame { &mut l.frame_no } else { &mut l.msg_no };
-        let i = dir as usize;
-        let no = c[i];
-        c[i] += 1;
-        no
+        let i = if frame { 0 } else { 2 } + dir as usize;
+        self.shared.no[i].fetch_add(1, Ordering::Relaxed)
     }
 }
 

@@ -290,6 +290,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (SW-37) came with its feature, `shrink-wrap-option-any-vec` with SW-55 and DER-13 (sparse structs), `shrink-wrap-series-columns` and `shrink-wrap-series-type` with SW-60, `shrink-wrap-nesting` with the nesting depth limit (recursive types at random limits). Round-trip every built-in type and the derive's features.
 - 🔍 **SW-23 Tuple enum variants evolution** — check that tuple variants evolve as `docs/evolution/rules.md` says
   (fields can be appended) and add a test.
+- 💡 **SW-65 Aligned plain `Series` columns** — numbers byte-aligned and little-endian at their width (numeric
+  escape `11 11`, float codec `0010`, an `AlignedPlain` policy), copied from a `SeriesStore`: 34 k cycles per FOC
+  level batch on an STM32H725 at `opt-level = 3` against 60 k for column-wise `DeltaPacked` (SW-64), for 2.3x the
+  bytes. Built and measured on branch `s/18oct2026-memcpy-fast-sw65`, not landed; may come back after observe cells
+  and a `u32` payload in `NumericValueStore`.
 - 💡 **SW-24 ZigZag encoding for signed variable length numbers** — consider ZigZag (as in protobuf) so that small
   negative values stay short, e.g. signed counterparts of `UNib32`/`UVlq32`.
 - 💡 **SW-25 In-place builder for server handlers** · `v0.5.x` — a new step-by-step / partial builder (e.g. for a

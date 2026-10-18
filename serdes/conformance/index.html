@@ -5197,6 +5197,10 @@ the value to exactly those bytes and decode them back to the value:</p>
 <td><code>ww_self::ValueOwned::ser_shrink_wrap_dyn</code> / <code>des_shrink_wrap_dyn</code> with the type from the API model of <code>tests/conformance_api</code>, loaded from source as for a device's crate.</td>
 </tr>
 <tr>
+<td><code>explain</code></td>
+<td>What <a href="../../cli_reference/#ww-explain"><code>ww explain</code></a> is made of: the value written as a Rust expression (<code>ww_self::expr::to_expr</code>) and read back (<code>parse_value</code>) before it is encoded; the golden bytes decoded by <code>ww_self::explain</code>, whose map of the bits must hold: every bit in exactly one part (a value, a length, a discriminant, a flag, padding, a header, bytes skipped from a newer version).</td>
+</tr>
+<tr>
 <td><code>python</code></td>
 <td><code>wire_weaver_py</code>'s <code>load_api(..).&lt;type&gt;.encode</code> / <code>.decode</code>, with the value as Python gives it.</td>
 </tr>
@@ -5214,13 +5218,13 @@ the value to exactly those bytes and decode them back to the value:</p>
   (<code>property!(rw shape: Shape&lt;'i&gt;)</code>), which is how the dynamic consumers find it in the API model. Types that
   aren't in the model (a <code>head_tail</code> type, <code>TailBytes</code>) are defined there but not listed in the trait.</li>
 <li><code>tests/conformance</code>: the runner. <code>src/derive.rs</code> has the derive's value of every case, <code>src/json.rs</code> turns a
-  corpus value into a <code>ValueOwned</code>, <code>src/c.rs</code> writes and runs the C. One test per consumer in
+  corpus value into a <code>ValueOwned</code>, <code>src/c.rs</code> writes and runs the C, <code>src/explain.rs</code> checks the bit map. One test per consumer in
   <code>tests/matrix.rs</code>, plus <code>corpus</code> (the file is well formed and <code>derive.rs</code> has every case), <code>report</code> (the
   matrix page is up to date), <code>frozen_bytes</code> (<a href="#frozen-golden-bytes">frozen golden bytes</a>, TEST-24,
   <code>src/frozen.rs</code>) and <code>coverage</code> (<a href="#coverage-guard">coverage guard</a>, TEST-25, <code>src/coverage.rs</code>).</li>
 <li><code>wire_weaver_py/tests/test_conformance.py</code>: the Python consumer, the same rules.</li>
 </ul>
-<p><code>just test</code> runs all four. A failure names the case, the consumer and what differs, the first differing byte for
+<p><code>just test</code> runs all five. A failure names the case, the consumer and what differs, the first differing byte for
 an encode:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>case &#39;fixed.numbers&#39;, consumer c: (the part that runs) decode: C check failed: t_fixed_numbers_a(p) == 18u
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>case &#39;fixed.numbers&#39;, consumer dynamic: encode: bytes differ at byte 0: got 125634debc9a7808... (46 bytes), golden 135634debc9a7808... (46 bytes)

@@ -4984,17 +4984,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#standard-library-ww_stdlib-std" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Standard library (<code>ww_stdlib</code>, <code>STD</code>)
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#examples-ex" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5179,17 +5168,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Tooling: CLI, GUI, Python (<code>TOOL</code>)
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#standard-library-ww_stdlib-std" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Standard library (<code>ww_stdlib</code>, <code>STD</code>)
       </span>
     </span>
   </a>
@@ -6257,11 +6235,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   apart when read. Needs a marker for a present <code>None</code> (e.g. <code>ww.Some(None)</code>). Conformance case
   <code>option.option.some_none</code>.</li>
 <li>📋 <strong>TOOL-8 <code>ww</code> inspect / read / write all GPIOs on any device</strong> · <code>v0.5.x</code>.</li>
-<li>📋 <strong>TOOL-9 Buffer visualizer / "explain" encoding</strong> · <code>v0.5.x</code> — record operations on buffers so that each bit can be
-  traced to an item, show it using the AST and dynamic values (<code>TODO</code> in <code>wire_weaver_core/src/eval.rs</code>).</li>
-</ul>
-<h2 id="standard-library-ww_stdlib-std">Standard library (<code>ww_stdlib</code>, <code>STD</code>)<a class="headerlink" href="#standard-library-ww_stdlib-std" title="Permanent link">&para;</a></h2>
-<ul>
+<li>🚧 <strong>TOOL-9 Buffer visualizer / "explain" encoding</strong> · <code>v0.5.x</code> — each bit traced to the value it belongs to.
+  Done: <code>ww_self::explain</code> (the dynamic decoder records every value, length, discriminant, flag and padding with
+  its front bits and back nibbles); <code>ww_self::expr</code> (feature <code>expr</code>: values and calls written as Rust expressions,
+  <code>Config { mode: Mode::Fast, .. }</code>, <code>motor.set_speed(1.5, Dir::Cw)</code>, <code>motor.limit = 3</code>, read by the type with
+  errors naming the field) and <code>wire_weaver_client::expr</code> (the same with <code>ww_si</code> quantities, <code>q!(3300 mV)</code>);
+  <code>wire_weaver_client::envelope</code> (a whole request or event: the <code>ww_client_server</code> envelope field by field, the
+  payload by its resource); <code>ww explain WHAT HEX | --value EXPR | 'call(..)' [--request]</code>, <code>ww explain request|event
+  HEX</code>. Open: payloads under a global trait path, multi requests and property updates; link framing around a
+  message; <code>Series</code> columns and sparse-struct slot headers in detail; shell completion of types and paths; a
+  <code>ww call</code> on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python <code>explain()</code> and
+  expression input.</li>
 <li>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq
   numbers.</li>
 <li>✅ <strong>STD-2 <code>ww_version</code></strong>.</li>

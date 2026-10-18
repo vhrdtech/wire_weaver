@@ -4749,6 +4749,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ww-explain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww explain</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ww-usb-loopback" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5134,6 +5145,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code>ww observe</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww-explain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww explain</code>
       </span>
     </span>
   </a>
@@ -5620,6 +5642,65 @@ other properties as before.</p>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>  4294.966736 i_a: 1262 mA
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>  ..
 </span></code></pre></div>
+<h2 id="ww-explain"><code>ww explain</code><a class="headerlink" href="#ww-explain" title="Permanent link">&para;</a></h2>
+<p>Shows which bits of a buffer hold which value (TOOL-9): every field with its place in the buffer, its raw bits, its
+type and its decoded value, the lengths, enum discriminants, <code>Option</code> flags and padding in between, and a hex map
+coloured by field. Useful to check what a device really sends, to read a captured frame, or to learn the
+<a href="../serdes/derive/">wire format</a> on your own types.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>$ ww explain --crate api &#39;sub_byte(I2cAddress::Ten(0x2A5), 100, -300)&#39;
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>sub_byte arguments · 4 bytes
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>0000  d4 b9 2d 40 
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>bits             raw                  field                      type         value
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>0‥10                                  addr                       I2cAddress   Ten
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>0                1                      discriminant             u32          1
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>1‥10             1010 1001 01           0                        ub10         677  0x2a5
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>11‥17            1100 100             a                          ub7          100
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>18‥27            1011 0101 00         b                          ib10         -300  0x2d4
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>28 bits in values, 4 padding or unread
+</span></code></pre></div>
+<p><code>&lt;what&gt;</code> is a type of the API (<code>Config</code>), or a resource path: a method's arguments (<code>motor.set_speed</code>, <code>--return</code> for
+its return value), a property's value, a stream's item. The bytes come in hex (<code>0a1b2c</code>, <code>0a 1b 2c</code>, <code>0x0a,0x1b</code>),
+from <code>--file</code>, or as a value written as a Rust expression, which is encoded first:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>$ ww explain Config --value &#39;Config { mode: Mode::Fast, gains: [1.0, 2.5], name: &quot;x&quot;, limit: None }&#39;
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>$ ww explain &#39;motor.set_speed(1.5, Dir::Cw)&#39;     # a call: its arguments
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>$ ww explain &#39;motor.limit = 3&#39;                   # a property write
+</span></code></pre></div>
+<p>Literals take the type of their field: <code>5</code> is a <code>u16</code>, a <code>ub3</code> or an <code>f32</code> as the field says, and a value out of
+range is an error naming the field (<code>argument a: 200 is out of range for ub7</code>). Struct literals (<code>Name { a: 1 }</code>,
+<code>..Default::default()</code> for the rest), enum variants (<code>Mode::Fast</code> or <code>Fast</code>), <code>Some</code>/<code>None</code>, <code>Ok</code>/<code>Err</code>, tuples,
+arrays (<code>[0; 4]</code>, <code>vec![..]</code>, <code>b"bytes"</code>, <code>0xa102</code> for bytes), ranges and negative numbers work. The values <code>ww</code>
+prints (<code>ww introspect</code>, <code>ww observe</code>) are written the same way and can be pasted back; quantities go in <code>q!(..)</code>: <code>q!(3300 mV)</code>, <code>q!(1.2e-4 N*m/(rad/s))</code> (<code>*</code> for <code>·</code>, <code>u</code> for <code>µ</code>, a string for other symbols: <code>q!("20 °C")</code>), and a plain number is in the unit itself.</p>
+<p>A whole message as it goes over the link, envelope and payload: <code>ww explain request HEX</code> for a request,
+<code>ww explain event HEX</code> for an event (<code>--for PATH</code> names the method or property it answers; a stream's data names its
+stream itself), and <code>--request</code> to see the request a call, a property write or a read is on the wire:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>$ ww explain --crate api &#39;add(7, -2)&#39; --request
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>Request Call add · 10 bytes
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>0000  01 01 00 07 00 00 00 fe  ff 01 
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>bits             raw                  field                      type         value
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>0‥79                                  ·                          Request      
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>0‥7              0000 0001              seq                      uvlq32       1
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>8‥15 ↩9l         0000 0001 ↩0001        path                     PathKind::Absolute [1]  (add)
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>16‥71                                   kind                     RequestKind  Call
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>16‥19            0000                     discriminant           nib          0
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>24‥71                                     args                   TailBytes    
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>24‥55            07000000                   a                    u32          7
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>56‥71            1111 1110 1111 1111        b                    i16          -2  0xfffe
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>72 bits in values, 8 padding or unread
+</span></code></pre></div>
+<p>The envelope (sequence number, path, request or event kind) is read with the <code>ww_client_server</code> types, the payload
+inside it by the resource the path names. A path through a global trait id is shown but its payload is not
+explained yet, nor are the multi requests and a level's property updates.</p>
+<p>Front bits are counted from bit 7 of byte 0. Lengths and sizes are nibbles read from the back of the buffer (or of
+the unsized value they are in), shown as <code>↩</code> with the byte and its half: <code>↩97h</code> is bits 7:4 of byte 97, <code>↩97l</code> bits
+3:0. The API comes from the device, or without one from the crate defining it (<code>--crate PATH</code>, <code>--trait NAME</code> when
+it has more than one) or a saved bundle (<code>--bundle FILE</code>, see <a href="#ww-api"><code>ww api save</code></a>). When the bytes don't decode,
+the tree shows how far it got and where it stopped.</p>
 <h2 id="ww-usb-loopback"><code>ww usb-loopback</code><a class="headerlink" href="#ww-usb-loopback" title="Permanent link">&para;</a></h2>
 <p>Checks the link to the selected device in three stages, each with a progress bar, then prints a summary table:</p>
 <ol>
@@ -5693,8 +5774,8 @@ hub, a powered hub used without power, or power problems on an externally powere
 implements the trait somewhere in its API, whatever the API and its version: <code>ww dfu</code> connects without the user API
 check and calls the trait through a <a href="../api/addressing/">global trait path</a>, which the device resolves itself. So a
 <code>ww</code> built today can still reboot a device whose firmware is years older.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>$ ww dfu reboot --serial 4B333720
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>blinky_api@0.1.0 reboots into the updater
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>$ ww dfu reboot --serial 4B333720
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>blinky_api@0.1.0 reboots into the updater
 </span></code></pre></div>
 <table>
 <thead>
@@ -5725,11 +5806,11 @@ updater is not done yet (CLT-21).</p>
 <p>The <code>cnt</code> counters of any device implementing <a href="../std_library/ww_counters/"><code>ww_counters::Counters</code></a> anywhere in its
 API (a global trait, like <code>ww dfu</code>), decoded with the firmware's ELF found by the build id the device reports, and
 shown with the same views as <code>cnt</code> over a debug probe.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>$ ww counters --serial 4B333720
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>Using ELF target/thumbv8m.main-none-eabihf/release/usb_io_fw
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>📍 RAM counters at 0x20000000, 64 B
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>INFO  boots         3
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>...
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>$ ww counters --serial 4B333720
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>Using ELF target/thumbv8m.main-none-eabihf/release/usb_io_fw
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>📍 RAM counters at 0x20000000, 64 B
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>INFO  boots         3
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>...
 </span></code></pre></div>
 <table>
 <thead>
@@ -5788,14 +5869,14 @@ or <code>target/</code> of the cargo project in the current directory. See <a hr
 <p>Firmware, board, ids, user label and last reset of any device, through the <a href="../std_library/device_contract/">device
 contract</a> traits (global trait paths, like <code>ww dfu</code>: whatever the device's API and
 version, no ELF needed).</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>$ ww info --serial 4B333720
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>API        usb_io_api@0.5.0
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>Board      rePort rev B (strap 2), BOM std, serial RP-0042
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>Ids        chip e6613871235b1c2d (internal, primary)
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>Label      &quot;bench 2&quot; (kept over power cycles)
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>Last reset Panic, crash data 2 boots old, boot 3 since cleared, ran 2.5 s
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>$ ww info --serial 4B333720
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>API        usb_io_api@0.5.0
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>Board      rePort rev B (strap 2), BOM std, serial RP-0042
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>Ids        chip e6613871235b1c2d (internal, primary)
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>Label      &quot;bench 2&quot; (kept over power cycles)
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>Last reset Panic, crash data 2 boots old, boot 3 since cleared, ran 2.5 s
 </span></code></pre></div>
 <table>
 <thead>
@@ -5819,7 +5900,7 @@ version, no ELF needed).</p>
 with the ELF, as one text a tester sends with a bug report. The ELF is found by the build id the device reports
 (<a href="../std_library/device_contract/#where-ww-looks-for-the-elf">where</a>); a part whose ELF isn't found says so and
 names the places searched.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>ww<span class="w"> </span>report<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w"> </span>-o<span class="w"> </span>report.md
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>ww<span class="w"> </span>report<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w"> </span>-o<span class="w"> </span>report.md
 </span></code></pre></div>
 <table>
 <thead>
@@ -5856,9 +5937,9 @@ names the places searched.</p>
 <h2 id="ww-elf"><code>ww elf</code><a class="headerlink" href="#ww-elf" title="Permanent link">&para;</a></h2>
 <p>The ELF directory (<code>~/.cache/ww/elf</code>, or the ones in <code>WW_ELF_PATH</code>), where firmware ELFs are found by build id for
 <code>ww counters</code>, <code>ww report</code> and <code>cnt</code>.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>usb_io_fw-0.5.0-elf.tar.zst<span class="w">   </span><span class="c1"># every ELF of a release, stored as &lt;build id&gt;.elf</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>target/release/usb_io_fw<span class="w">      </span><span class="c1"># one ELF</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>ww<span class="w"> </span>elf<span class="w"> </span>id<span class="w"> </span>target/release/usb_io_fw<span class="w">       </span><span class="c1"># its build id, and whether it is in the directory</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>usb_io_fw-0.5.0-elf.tar.zst<span class="w">   </span><span class="c1"># every ELF of a release, stored as &lt;build id&gt;.elf</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>target/release/usb_io_fw<span class="w">      </span><span class="c1"># one ELF</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>ww<span class="w"> </span>elf<span class="w"> </span>id<span class="w"> </span>target/release/usb_io_fw<span class="w">       </span><span class="c1"># its build id, and whether it is in the directory</span>
 </span></code></pre></div>
 <p><code>--dir DIR</code> adds to another directory. A file without a build id is listed as skipped. See the <a href="../std_library/device_contract/#the-release-archive">release
 archive</a>.</p>
@@ -5867,22 +5948,22 @@ archive</a>.</p>
 flash range (read off the chip, from a <code>.bin</code> or a debug probe dump). The word and page size aren't in the dump
 itself, so they are given on the command line (completion suggests the sizes <code>Store</code> supports, with a chip example
 each):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>$ ww settings dump settings.bin --word-size 8 --page-size 2048 --base 0x08078000
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>2 pages, word 8 bytes, page 2048 bytes, base 0x08078000
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>page 0 @ 0x08078000: page_seq 1
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>  0x08078010 +48     valid, stale key 0 seq 1 len 30
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>  ...
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>  0x080787f0 +16     erased
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>page 1 @ 0x08078800: page_seq 2 (current)
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>  0x08078810 +24     valid, stale key 1 seq 28 len 10
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>  ...
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>  0x08078b40 +48     valid, current key 0 seq 40 len 30
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>  0x08078b70 +24     valid, current key 1 seq 40 len 10
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>  0x08078b88 +1144   erased
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>
-</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>current record per key:
-</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>  key 0 @ 0x08078b40 (page 1), seq 40, 30 bytes: 27272727...
-</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>  key 1 @ 0x08078b70 (page 1), seq 40, 10 bytes: d8d8d8d8...
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>$ ww settings dump settings.bin --word-size 8 --page-size 2048 --base 0x08078000
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>2 pages, word 8 bytes, page 2048 bytes, base 0x08078000
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>page 0 @ 0x08078000: page_seq 1
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  0x08078010 +48     valid, stale key 0 seq 1 len 30
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>  ...
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>  0x080787f0 +16     erased
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>page 1 @ 0x08078800: page_seq 2 (current)
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>  0x08078810 +24     valid, stale key 1 seq 28 len 10
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>  ...
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>  0x08078b40 +48     valid, current key 0 seq 40 len 30
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>  0x08078b70 +24     valid, current key 1 seq 40 len 10
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>  0x08078b88 +1144   erased
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>
+</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>current record per key:
+</span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>  key 0 @ 0x08078b40 (page 1), seq 40, 30 bytes: 27272727...
+</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>  key 1 @ 0x08078b70 (page 1), seq 40, 10 bytes: d8d8d8d8...
 </span></code></pre></div>
 <p>Every item slot is shown, valid or not (<code>cut</code>: a write a power loss interrupted; <code>garbage</code>: neither a valid item
 nor erased), including on a page whose header is itself invalid, which a device's own <code>Store</code> never looks at. The
@@ -5893,11 +5974,11 @@ error. <code>--format json</code> gives the same information as JSON instead.</p
 <p>RP2040 and RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT: no WireWeaver on the device, no picotool or libusb on
 the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<code>ww_dfu::BootControl::reboot</code>, see
 <a href="#ww-dfu"><code>ww dfu</code></a>), and to follow it back into the new firmware.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>list<span class="w">                                   </span><span class="c1"># boot ROMs in BOOTSEL mode with their serial numbers</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>info<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                           </span><span class="c1"># chip id (RP2350)</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                  </span><span class="c1"># erase, write, verify, reboot into the new image</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span><span class="o">[</span>--bootsel<span class="o">]</span><span class="w">             </span><span class="c1"># reboot (RP2350), into BOOTSEL again with --bootsel</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>list<span class="w">                                   </span><span class="c1"># boot ROMs in BOOTSEL mode with their serial numbers</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>info<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                           </span><span class="c1"># chip id (RP2350)</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                  </span><span class="c1"># erase, write, verify, reboot into the new image</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span><span class="o">[</span>--bootsel<span class="o">]</span><span class="w">             </span><span class="c1"># reboot (RP2350), into BOOTSEL again with --bootsel</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -5943,9 +6024,9 @@ the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<
 <code>todo!()</code> panic. Until then write the rule by hand, see <a href="../transport/usb/">USB</a>.</p>
 <h2 id="ww-config"><code>ww config</code><a class="headerlink" href="#ww-config" title="Permanent link">&para;</a></h2>
 <p>Manages the <a href="../cli/#project-config-wwtoml">project config file</a>:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
 </span></code></pre></div>
 <p><code>ww config save</code> writes into the <code>--config</code> file if given, otherwise into the <code>ww.toml</code> found in the current
 directory or its closest parent, otherwise creates <code>ww.toml</code> in the current directory. Only flags from the command

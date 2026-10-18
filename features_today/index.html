@@ -5464,6 +5464,7 @@ round, and tell you before a release when a change would break that.</p>
 <ul>
 <li><strong><a href="../cli_reference/#ww-api">API bundles</a></strong>: <code>ww api save</code>, <code>check</code> and <code>diff</code>.</li>
 <li><strong><a href="../cli_reference/#ww-observe">Watching properties</a></strong>: <code>ww observe</code> and Python print updates as they arrive, with rates.</li>
+<li><strong><a href="../cli_reference/#ww-explain">Explaining bytes</a></strong>: <code>ww explain</code> shows every field of a buffer with its bits, from hex or a value written in Rust. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../cli_reference/#ww-usb-loopback">Link test</a></strong>: <code>ww usb-loopback</code> measures round trips, losses and speed both ways.</li>
 <li><strong><a href="../cli_reference/#ww-settings">Settings from a flash dump</a></strong>: <code>ww settings dump</code> decodes a settings store without the device.</li>
 <li><strong><a href="../python_advanced/">Values from text</a></strong>: Typed values written as text and turned into bytes at runtime.</li>
@@ -5512,7 +5513,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <ul>
 <li><strong><a href="../std_library/ww_client_server/">Request and event model</a></strong>: <code>ww_client_server</code>, the messages every call is made of.</li>
 </ul>
-<p class="ww-features__more">Details and what is planned: <a href="../features/#standard-library-ww_stdlib-std">Standard library</a> in the feature tracker.</p>
+<p class="ww-features__more">Details and what is planned: <a href="../features/#tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python</a> in the feature tracker.</p>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
 <p>Working projects to start from: host programs, firmware for a few boards, and the crate layout to copy.</p>
 <p class="ww-features__level"><span class="ww-level ww-level--basic"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6" class="ww-level__off"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Basic</span></span></p>

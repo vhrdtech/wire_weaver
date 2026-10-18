@@ -9,6 +9,7 @@ use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
 use crate::cmd::observe::ObserveArgs;
 use crate::cmd::settings::SettingsCommand;
+use crate::cmd::stream::StreamArgs;
 use crate::complete;
 use crate::device::DeviceArgs;
 use clap::{Args, Parser, Subcommand};
@@ -68,6 +69,12 @@ pub(crate) enum Commands {
     ///
     /// Prints each update's present values, the update rate and the link bytes/s it costs, until Ctrl+C.
     Observe(ObserveArgs),
+
+    /// Stream a plain, counted or reliable stream, from introspection alone (API-41)
+    ///
+    /// Prints one item per line (`--batches`: whole batches of a batched stream instead), until Ctrl+C. A stream
+    /// function with arguments isn't supported yet.
+    Stream(StreamArgs),
 
     /// Firmware update steps (ww_dfu), on any device whatever its API version
     #[command(subcommand)]
@@ -185,6 +192,7 @@ impl Cli {
             Commands::Api(_) => false,
             Commands::Introspect(_) => true,
             Commands::Observe(_) => true,
+            Commands::Stream(_) => true,
             Commands::Config(_) => false,
             Commands::Bootsel(_) => false,
             Commands::Dfu(_) => true,

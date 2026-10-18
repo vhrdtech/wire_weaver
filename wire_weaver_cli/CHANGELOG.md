@@ -24,6 +24,10 @@
   code (`DynResource::observe`), printing each update's present values, the update rate and the link bytes/s it
   costs, until Ctrl+C. `<path>` is a dotted/indexed resource path (`motor`, `bank[0]`), empty for the API root;
   without `--rate` every property is observed on change, `--rate` asks for all of them periodically instead.
+- `ww stream <path> [--batches]` (API-41): prints items of a plain, counted or reliable stream without generated
+  code (`DynResource::stream` / `positioned_stream`), one per line, until Ctrl+C. `--batches` prints whole batches
+  of a batched stream instead, each item with its own device time. A stream function with arguments isn't
+  supported yet (no value-parsing convention in the CLI for method/stream arguments).
 - `ww settings dump FILE --word-size --page-size [--base] [--format text|json]` (TOOL-12): decodes a
   `ww_settings::Store` flash dump, no device needed. Pages (header, sequence number, whether it's current), every
   item slot (valid, cut, garbage or erased, with offset, key, seq, length) and the current record of every key,

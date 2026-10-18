@@ -15,6 +15,16 @@ use ww_tap::{Message, ids};
 
 use crate::tracing::TraceEvent;
 
+pub mod decode;
+#[cfg(all(test, feature = "in_process"))]
+mod e2e_tests;
+mod reassembly;
+pub mod stats;
+
+pub use decode::{ApiInfo, Check, Decoded, Decoder, DecoderConfig, FrameInfo, MessageInfo, What};
+pub use reassembly::{FrameOutcome, FramePart, PieceInfo, PieceOutcome, Reassembled};
+pub use stats::{DirStats, LinkStats, PathStats, Stats};
+
 static DEFAULT: LazyLock<Recorder> = LazyLock::new(Recorder::default);
 
 /// The recorder of every client that doesn't name one.

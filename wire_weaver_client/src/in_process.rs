@@ -339,6 +339,29 @@ impl ww_device::Clock for TokioClock {
 
 // Host side
 
+/// The in-process transport bound to `path`, for event loop tests that take a transport.
+#[cfg(test)]
+pub(crate) fn test_transport(path: &str) -> impl Transport + 'static {
+    struct Bound(String);
+    impl Transport for Bound {
+        type Tx = HostTx;
+        type Rx = HostRx;
+        fn link_setup_timeout(&self) -> Duration {
+            crate::event_loop::transport::link_setup_timeout::IN_PROCESS
+        }
+        async fn connect(
+            &mut self,
+            _: DeviceHandle,
+            tap: ww_tap::RecorderLink,
+        ) -> Result<Opened<HostTx, HostRx>, String> {
+            InProcessTransport
+                .connect(Box::new(self.0.clone()), tap)
+                .await
+        }
+    }
+    Bound(path.to_string())
+}
+
 pub(crate) fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,

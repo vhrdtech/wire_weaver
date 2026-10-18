@@ -298,7 +298,7 @@ impl SeriesStore for NumericValue {
         policy: &P,
         _level: Level,
     ) -> Result<(), Error> {
-        let tag = Self::get(store, rows.start).discriminant() as u32;
+        let tag = Self::get(store, rows.start).discriminant();
         write_enum_tags(sink, core::iter::repeat_n(tag, rows.len()))?;
         let variant = store.variant[rows.start];
         let p = &store.payload[rows];

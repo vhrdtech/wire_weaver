@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- A cheaper observe poll (API-52), the same bytes on the wire. `Outbox::push_rows_from` writes a level batch whose worst case doesn't fit the free room straight into it and measures it only when it didn't fit, and the measuring counts each column from the store (`Scratch::encode_column` through `series::count_store_series`) instead of rebuilding its items into the scratch: the poll that encodes a 32-row batch of the 21-property FOC level takes 105 k instead of 207 k instructions on a Cortex-M4F at `opt-level = 3` (158 k instead of 435 k at `z`). `Outbox::len` is a count kept and `Outbox::oldest` an offset kept (they walked every entry), `Outbox::remove_oldest` walks its batch only, and `LevelBatch::column_after(k, &mut at)` looks columns up in the order they were encoded, going on from the last one. A cells level's `Staged::poll_cells` copies only the time and the observed columns from the ring (`LevelRowCells::copy_columns`, generated per level; the default copies every column): the poll of a level with 3 of 21 properties observed drains 16 rows in 4.4 k instead of 12.3 k instructions. A column observed while rows are staged is copied for them from the ring afterwards (`CellsSource::reread_columns`, under the same seqlock check), so it is in their batch as on the default path; when the writer wrote over them meanwhile, they are sealed early without it (`Cause::Flush`) and the next batch has it. `Staged::held_columns`, `RowsSource::held_columns`.
 - `observe::ObserveTable::init(slot)` and `batch::Outbox::init(slot)` build in place, for an `ObserveState` built in a `static`.
 - `batch::Batcher::init(slot, policy)` / `init_rows(slot, policy)` and `batch::Staged::init(slot, policy)` build in place, in a `static`'s `MaybeUninit` (a `StaticCell`'s `uninit()`): the stores are written where they stay, never on the stack. `new` / `new_rows` go through them and copy the result out once.
 - Observe cells (API-50): `batch::RowCells<Row, R>` (`const fn new`, for a `static`), a level's rows as a ring
@@ -19,6 +20,8 @@
   threads under miri (`just miri`, a CI job).
 
 ### ⚠️ Breaking
+
+- `batch::CellsSource::read_into` takes the value columns to copy (`columns: Columns`), the trait has `reread_columns`, and `batch::Read` has a `first` field (the row count of the first row copied) (API-52). Generated code is updated with it; a hand-written `CellsSource` adds the method, a caller passes the columns it encodes (`Columns::MAX` for all).
 
 - `Outbox::push_rows_from` takes any `batch::RowsSource` (a `Consumer` as before, or a `Staged`): the policy is
   its associated type, so a caller naming `push_rows_from::<R, N, P, B>` names the source instead.

@@ -727,6 +727,26 @@ impl Observe {
                         fn put_time<const R: usize>(cells: &#row_cells<R>, i: usize, t: &ww_stream::observe::Second) {
                             <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesCells>::put::<R>(&cells.t, i, t);
                         }
+
+                        // the time (or not) and the observed columns only
+                        fn copy_columns<const R: usize, const N: usize>(
+                            cells: &#row_cells<R>,
+                            from: usize,
+                            store: &mut #row_store<N>,
+                            to: usize,
+                            n: usize,
+                            time: bool,
+                            columns: ww_stream::batch::Columns,
+                        ) {
+                            if time {
+                                <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesCells>::copy_rows::<R, N>(&cells.t, from, &mut store.t, to, n);
+                            }
+                            #(
+                                if columns & (1 << #column_ids) != 0 {
+                                    <#ptys as wire_weaver::shrink_wrap::series::SeriesCells>::copy_rows::<R, N>(&cells.values.#idents, from, &mut store.values.#idents, to, n);
+                                }
+                            )*
+                        }
                     }
                 });
             }
@@ -1350,7 +1370,7 @@ impl Observe {
                         if sel.is_chosen(#k) {
                             if self.observe_state().#field.samples(#k).is_some() {
                                 let state = self.observe_state();
-                                let Some(column) = state.#outbox.oldest().and_then(|b| b.column(#k as u16)) else {
+                                let Some(column) = state.#outbox.oldest().and_then(|b| b.column_after(#k as u16, &mut column_at)) else {
                                     break 'write None;
                                 };
                                 if wr.write(#index, &ww_client_server::observe::BatchedRaw(column.bytes)).is_err() {
@@ -1467,8 +1487,15 @@ impl Observe {
                 quote! {{
                     let state = self.observe_state();
                     let oldest = state.#outbox.oldest();
+                    // slots come in order: each lookup goes on from the last one
+                    let at = core::cell::Cell::new(0usize);
                     state.#field.plan_with(now_us, &limits, |k| {
-                        oldest.is_some_and(|b| b.column(k as u16).is_some())
+                        oldest.is_some_and(|b| {
+                            let mut a = at.get();
+                            let found = b.column_after(k as u16, &mut a).is_some();
+                            at.set(a);
+                            found
+                        })
                     })
                 }}
             } else {
@@ -1562,6 +1589,8 @@ impl Observe {
                 quote! { break; }
             };
             let rounds = maybe_quote(has_batched, quote! { let mut rounds = 0usize; });
+            // the batch's columns are written in slot order: each lookup goes on from the last one
+            let column_cursor = maybe_quote(has_batched, quote! { let mut column_at = 0usize; });
             quote! {
                 {
                     const DESC: ww_stream::observe::LevelDesc<#n> = ww_stream::observe::LevelDesc {
@@ -1603,6 +1632,7 @@ impl Observe {
                                 let Ok(mut wr) = wire_weaver::shrink_wrap::option_any_vec::OptionAnyVecWriter::new(&mut *buf, sel.present(&DESC)) else {
                                     break 'write None;
                                 };
+                                #column_cursor
                                 #(#write)*
                                 wr.finish_and_take().ok().map(|data| data.len())
                             };

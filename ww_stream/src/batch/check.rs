@@ -324,6 +324,7 @@ pub fn run(bytes: &[u8]) {
                     m.inexact = true;
                 }
                 assert!(outbox.used_bytes() <= OUTBOX);
+                outbox.assert_index();
             }
             8 => {
                 // the event loop sends some batches, every column decodes to the batch's rows
@@ -332,6 +333,13 @@ pub fn run(bytes: &[u8]) {
                     assert_eq!(t.len(), b.rows as usize);
                     for e in b.columns() {
                         assert_eq!(e.items, b.rows);
+                    }
+                    // looked up in order, backwards, or for a slot not there: what `column` finds
+                    for ks in [[0, 1, 2, 3], [3, 2, 1, 0]] {
+                        let mut at = 0;
+                        for k in ks {
+                            assert_eq!(b.column_after(k, &mut at), b.column(k));
+                        }
                     }
                 }
                 match p.byte() % 3 {
@@ -344,6 +352,7 @@ pub fn run(bytes: &[u8]) {
                     }
                     _ => {}
                 }
+                outbox.assert_index();
             }
             9 => {
                 if p.byte().is_multiple_of(2) {

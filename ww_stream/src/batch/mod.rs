@@ -97,7 +97,8 @@ pub enum Cause {
     Budget,
     /// It got as old as the host allows.
     Age,
-    /// [Producer::flush] or [Consumer::flush].
+    /// [Producer::flush] or [Consumer::flush]; or a cells level's [Staged] batch sealed early because a column
+    /// started to be observed.
     Flush,
 }
 

@@ -51,8 +51,9 @@ pub use leaves::{ArrayReader, OptionReader};
 pub use series_type::SeriesOwned;
 pub use series_type::{SERIES_MAX_ITEMS, Series, SeriesIter, SeriesTryIter};
 pub use store::{
-    SeriesStore, StoreWord, empty_store_from_init, fill_array, init_store_at, init_store_in,
-    write_float_column, write_numeric_column, write_numeric128_column, write_store_series,
+    SeriesStore, StoreWord, count_store_series, empty_store_from_init, fill_array, init_store_at,
+    init_store_in, write_float_column, write_numeric_column, write_numeric128_column,
+    write_store_series,
 };
 
 pub use xor_float::XorBits;

@@ -17,6 +17,24 @@ use ww_si::Second;
 pub trait LevelRowCells: LevelRow + SeriesCells {
     /// Puts the time of row `i`.
     fn put_time<const R: usize>(cells: &Self::Cells<R>, i: usize, t: &Second);
+
+    /// [copy_rows](SeriesCells::copy_rows) of the time column (with `time`) and of the value columns in `columns`
+    /// only (bit `c` for column `c`): the event loop copies what it will encode, the other columns of those rows
+    /// in `store` are left as they were. Generated per level; this default copies every column, so it is only
+    /// right for `time` and every column.
+    #[inline]
+    fn copy_columns<const R: usize, const N: usize>(
+        cells: &Self::Cells<R>,
+        from: usize,
+        store: &mut Self::Store<N>,
+        to: usize,
+        n: usize,
+        time: bool,
+        columns: Columns,
+    ) {
+        let _ = (time, columns);
+        Self::copy_rows::<R, N>(cells, from, store, to, n);
+    }
 }
 
 /// The ring of a cells level: `R` rows of `Row` as atomics, the row count and the level's gate, the writer's and
@@ -225,6 +243,8 @@ pub struct Read {
     pub rows: usize,
     /// Rows lost: written over by the writer before or while they were copied.
     pub lapped: u64,
+    /// The row count (wrapping) of the first row copied: rows are numbered as they are committed.
+    pub first: u32,
 }
 
 /// The reader's side of a [RowCells] of any ring size, for a server that doesn't name `R`.
@@ -235,8 +255,22 @@ pub trait CellsSource<Row: LevelRowCells, const N: usize> {
     /// Rows committed and not read yet (some may be lapped).
     fn waiting(&self) -> u32;
 
-    /// Copies up to `max` committed rows not read yet into `store` from index `at`, oldest first.
-    fn read_into(&self, store: &mut Row::Store<N>, at: usize, max: usize) -> Read;
+    /// Copies up to `max` committed rows not read yet into `store` from index `at`, oldest first: the time and the
+    /// value columns in `columns` ([LevelRowCells::copy_columns]).
+    fn read_into(&self, store: &mut Row::Store<N>, at: usize, max: usize, columns: Columns)
+    -> Read;
+
+    /// Copies the value columns `columns` of the `n` rows read before from row `first` on into `store` from index
+    /// `at` (the time and the other columns stay), if the writer hasn't written over them yet: `false` when it may
+    /// have, and the columns in `store` are then not those rows'.
+    fn reread_columns(
+        &self,
+        store: &mut Row::Store<N>,
+        at: usize,
+        first: u32,
+        n: usize,
+        columns: Columns,
+    ) -> bool;
 
     /// Skips every committed row not read yet, returns how many.
     fn skip_all(&self) -> u32;
@@ -256,7 +290,13 @@ impl<Row: LevelRowCells, const R: usize, const N: usize> CellsSource<Row, N> for
             .wrapping_sub(self.sent.load(Ordering::Relaxed))
     }
 
-    fn read_into(&self, store: &mut Row::Store<N>, at: usize, max: usize) -> Read {
+    fn read_into(
+        &self,
+        store: &mut Row::Store<N>,
+        at: usize,
+        max: usize,
+        columns: Columns,
+    ) -> Read {
         // rows `[head + 1 - R, head)` can be read: the writer writes row `head` over row `head - R`
         let safe = (R - 1) as u32;
         let head = self.head.load(Ordering::Acquire);
@@ -273,8 +313,8 @@ impl<Row: LevelRowCells, const R: usize, const N: usize> CellsSource<Row, N> for
         let n = (waiting as usize).min(max);
         // two runs where the ring wraps
         let first = n.min(R - slot);
-        Row::copy_rows::<R, N>(&self.rows, slot, store, at, first);
-        Row::copy_rows::<R, N>(&self.rows, 0, store, at + first, n - first);
+        Row::copy_columns::<R, N>(&self.rows, slot, store, at, first, true, columns);
+        Row::copy_columns::<R, N>(&self.rows, 0, store, at + first, n - first, true, columns);
         // the copies before the count read again: a value the writer wrote after a later count shows here
         fence(Ordering::Acquire);
         let head2 = self.head.load(Ordering::Relaxed);
@@ -295,7 +335,42 @@ impl<Row: LevelRowCells, const R: usize, const N: usize> CellsSource<Row, N> for
         Read {
             rows: n - bad,
             lapped: lapped as u64,
+            first: start.wrapping_add(bad as u32),
         }
+    }
+
+    fn reread_columns(
+        &self,
+        store: &mut Row::Store<N>,
+        at: usize,
+        first: u32,
+        n: usize,
+        columns: Columns,
+    ) -> bool {
+        // rows `[head + 1 - R, head)` can be read, as in `read_into`
+        let safe = (R - 1) as u32;
+        let sent = self.sent.load(Ordering::Relaxed);
+        let back = sent.wrapping_sub(first);
+        if n > back as usize || self.head.load(Ordering::Acquire).wrapping_sub(first) > safe {
+            return false;
+        }
+        let back = back as usize;
+        let r_slot = self.r_slot.load(Ordering::Relaxed) as usize;
+        let slot = (r_slot + R - back % R) % R;
+        let first_run = n.min(R - slot);
+        Row::copy_columns::<R, N>(&self.rows, slot, store, at, first_run, false, columns);
+        Row::copy_columns::<R, N>(
+            &self.rows,
+            0,
+            store,
+            at + first_run,
+            n - first_run,
+            false,
+            columns,
+        );
+        // the copies before the count read again, as in `read_into`
+        fence(Ordering::Acquire);
+        self.head.load(Ordering::Relaxed).wrapping_sub(first) <= safe
     }
 
     fn skip_all(&self) -> u32 {
@@ -380,8 +455,25 @@ where
         CellsSource::<Row, N>::waiting((*self.0).as_ref())
     }
 
-    fn read_into(&self, store: &mut Row::Store<N>, at: usize, max: usize) -> Read {
-        (*self.0).as_ref().read_into(store, at, max)
+    fn read_into(
+        &self,
+        store: &mut Row::Store<N>,
+        at: usize,
+        max: usize,
+        columns: Columns,
+    ) -> Read {
+        (*self.0).as_ref().read_into(store, at, max, columns)
+    }
+
+    fn reread_columns(
+        &self,
+        store: &mut Row::Store<N>,
+        at: usize,
+        first: u32,
+        n: usize,
+        columns: Columns,
+    ) -> bool {
+        CellsSource::<Row, N>::reread_columns((*self.0).as_ref(), store, at, first, n, columns)
     }
 
     fn skip_all(&self) -> u32 {
@@ -412,6 +504,13 @@ pub struct Staged<Row: LevelRowCells, const N: usize, P = DefaultPolicy> {
     store: Row::Store<N>,
     /// Rows in the store
     n: usize,
+    /// The value columns every row in the store has: those observed when its first row was copied (and still
+    /// since), or copied for its rows since; the others weren't copied from the ring
+    held: Columns,
+    /// The row count of the store's first row, and whether the rows are the ones after it in the ring (no row
+    /// lapped in between): then a column observed later can still be copied for them
+    first_row: u32,
+    consecutive: bool,
     /// Rows `[start, n)` are sealed and still to encode
     sealed: Option<(usize, Cause)>,
     /// When the first row of the filling batch was first seen
@@ -450,6 +549,9 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
             let Staged {
                 store: _,
                 n: _,
+                held: _,
+                first_row: _,
+                consecutive: _,
                 sealed: _,
                 first_us: _,
                 policy: _,
@@ -466,6 +568,9 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
         unsafe {
             init_store_at::<Row, N>(addr_of_mut!((*at).store));
             addr_of_mut!((*at).n).write(0);
+            addr_of_mut!((*at).held).write(Columns::MAX);
+            addr_of_mut!((*at).first_row).write(0);
+            addr_of_mut!((*at).consecutive).write(false);
             addr_of_mut!((*at).sealed).write(None);
             addr_of_mut!((*at).first_us).write(None);
             addr_of_mut!((*at).policy).write(policy);
@@ -491,6 +596,17 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
     /// Rows in the store (filling or sealed).
     pub fn rows(&self) -> usize {
         self.n
+    }
+
+    /// The store, for the tests.
+    #[cfg(test)]
+    pub(super) fn store(&self) -> &Row::Store<N> {
+        &self.store
+    }
+
+    /// The value columns every row in the store has (bit `c` for column `c`): what its batch can send.
+    pub fn held_columns(&self) -> Columns {
+        self.held
     }
 
     fn set_budget_bound(&mut self, budget: usize, bound: Bound) {
@@ -526,6 +642,11 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
     /// batch up to the limit it had; then sets the `budget` against the worst case of the time and the `columns`
     /// observed, and seals the store at `N` rows, at the budget or when its first row is `max_age_us` old. Rows the
     /// writer lapped come back as `lost`.
+    ///
+    /// Only the time and the observed `columns` are copied. A column observed after the store's first row was
+    /// copied is copied for the rows there from the ring, while the writer hasn't written over them; else they
+    /// are sealed as they are (`Flush`), without it, and the rows waiting in the ring start the next batch with
+    /// every observed column (rows without any observed column go).
     pub fn poll_cells(
         &mut self,
         src: &dyn CellsSource<Row, N>,
@@ -535,10 +656,35 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
         columns: Columns,
     ) -> Polled {
         let mut polled = Polled::default();
+        let new = columns & !self.held;
+        if self.n > 0 && new != 0 {
+            if self.consecutive
+                && src.reread_columns(&mut self.store, 0, self.first_row, self.n, new)
+            {
+                self.held |= new;
+            } else if self.sealed.is_some() {
+                // the batch waiting goes without them
+            } else if columns & self.held == 0 {
+                self.stats.discarded += self.n as u64;
+                self.n = 0;
+                self.first_us = None;
+            } else {
+                self.set_budget_bound(budget, Row::bound(columns));
+                self.seal(Cause::Flush);
+                polled.sealed = Some(Cause::Flush);
+                return polled;
+            }
+        }
         // the rows a sampler would have taken since the last poll: up to the limit published then (it seals its
         // batch at that limit as it pushes), so the cells' batches are cut where the sampler's are
         if self.sealed.is_none() && self.n < self.limit {
-            let read = src.read_into(&mut self.store, self.n, self.limit - self.n);
+            if self.n == 0 {
+                self.held = columns;
+            } else {
+                self.held &= columns;
+            }
+            let read = src.read_into(&mut self.store, self.n, self.limit - self.n, self.held);
+            self.note_read(read);
             self.n += read.rows;
             polled.lost = read.lapped;
             self.stats.lost += read.lapped;
@@ -566,20 +712,34 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
         polled
     }
 
+    /// Where the rows of `read`, copied after the `n` in the store, are in the ring.
+    fn note_read(&mut self, read: Read) {
+        if read.rows == 0 {
+            return;
+        }
+        if self.n == 0 {
+            self.first_row = read.first;
+            self.consecutive = true;
+        } else {
+            self.consecutive &= read.first == self.first_row.wrapping_add(self.n as u32);
+        }
+    }
+
     fn seal(&mut self, cause: Cause) {
         self.sealed = Some((0, cause));
         self.first_us = None;
         self.stats.sealed[cause as usize] += 1;
     }
 
-    /// Takes the rows waiting in the ring (as many as fit) and seals the store now, if it has rows and none are
-    /// sealed. Rows the writer lapped come back as `lost`.
+    /// Takes the rows waiting in the ring (as many as fit, the columns the store holds) and seals the store now, if
+    /// it has rows and none are sealed. Rows the writer lapped come back as `lost`.
     pub fn flush(&mut self, src: &dyn CellsSource<Row, N>) -> Polled {
         let mut polled = Polled::default();
         if self.sealed.is_some() {
             return polled;
         }
-        let read = src.read_into(&mut self.store, self.n, N - self.n);
+        let read = src.read_into(&mut self.store, self.n, N - self.n, self.held);
+        self.note_read(read);
         self.n += read.rows;
         polled.lost = read.lapped;
         self.stats.lost += read.lapped;
@@ -666,6 +826,10 @@ where
 
     fn rows_policy(&mut self) -> P {
         self.policy
+    }
+
+    fn held_columns(&self) -> Columns {
+        self.held
     }
 
     fn encode_rows<O, E>(

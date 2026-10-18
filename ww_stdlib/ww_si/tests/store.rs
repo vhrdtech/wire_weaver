@@ -56,11 +56,12 @@ fn size_up_to_32_bits() {
 }
 
 /// A quantity column with one prefix and one number type over the rows is written column by column, the bytes
-/// of the item walk; a prefix change leaves it to the walk.
+/// of the item walk and counted as the walk counts them; a prefix change leaves it to the walk.
 #[test]
 fn quantities_written_column_by_column() {
     use shrink_wrap::series::{
-        CodecPolicy, DeltaPacked, RawPlain, Series, SeriesPolicy, write_store_series,
+        CodecPolicy, DeltaPacked, RawPlain, Series, SeriesPolicy, count_store_series,
+        write_store_series,
     };
     use shrink_wrap::{BufWriter, SerializeShrinkWrap};
     fn check<P: SeriesPolicy + Copy>(items: &[Ampere], policy: P, columnar: bool) {
@@ -73,8 +74,15 @@ fn quantities_written_column_by_column() {
         let written =
             write_store_series::<Ampere, P, 32>(&mut wr, &store, 0..items.len(), &policy).unwrap();
         assert_eq!(written, columnar);
+        let counted = count_store_series::<Ampere, P, 32>(&store, 0..items.len(), &policy).unwrap();
+        assert_eq!(counted.is_some(), columnar);
         if written {
             let a = wr.finish_and_take().unwrap().to_vec();
+            assert_eq!(counted, Some(a.len()));
+            assert_eq!(
+                counted,
+                Some(Series::with_policy(items, policy).encoded_len().unwrap())
+            );
             let mut b = [0u8; 1024];
             let mut wr = BufWriter::new(&mut b);
             Series::with_policy(items, policy)

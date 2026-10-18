@@ -173,6 +173,29 @@ pub fn write_store_series<T: SeriesStore, P: SeriesPolicy + ?Sized, const N: usi
     Ok(true)
 }
 
+/// The bytes [write_store_series] writes for rows `rows` of `store` from a byte boundary, counted with a
+/// [BitCounter](super::BitCounter) column by column from the arrays, the same count as
+/// `Series::with_policy(items, policy).encoded_len()` without rebuilding the items: `Ok(None)` when `T` can't write
+/// these rows that way ([SeriesStore::columnar]), for the caller to count the items instead.
+pub fn count_store_series<T: SeriesStore, P: SeriesPolicy + ?Sized, const N: usize>(
+    store: &T::Store<N>,
+    rows: Range<usize>,
+    policy: &P,
+) -> Result<Option<usize>, Error> {
+    if rows.len() > super::SERIES_MAX_ITEMS {
+        return Err(Error::LenTooLong);
+    }
+    if !rows.is_empty() && !T::columnar(store, rows.clone()) {
+        return Ok(None);
+    }
+    let mut counter = super::BitCounter::new();
+    super::columns::put_nib(&mut counter, rows.len() as u32)?;
+    if !rows.is_empty() {
+        T::write_store(store, rows, &mut counter, policy, Level::Outermost)?;
+    }
+    Ok(Some(counter.bits().div_ceil(8)))
+}
+
 /// An unsigned integer a hand-written [SeriesStore] keeps values of another type in (`NumericValue` keeps every
 /// variant in one array of the widest), for [write_numeric_column] and its siblings.
 pub trait StoreWord: Copy + sealed::Sealed {

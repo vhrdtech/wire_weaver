@@ -155,9 +155,10 @@ fn size_up_to_32_bits() {
 }
 
 /// Rows written column by column ([write_store_series]) against the item walk: the same bytes under each policy,
-/// and declined where the variant changes or for `UN` / `IN`.
+/// and declined where the variant changes or for `UN` / `IN`; counted from the store ([count_store_series]), the
+/// walk's count.
 fn store_vs_walk<P: shrink_wrap::series::SeriesPolicy + Copy>(items: &[NumericValue], policy: P) {
-    use shrink_wrap::series::{Series, write_store_series};
+    use shrink_wrap::series::{Series, count_store_series, write_store_series};
     use shrink_wrap::{BufWriter, SerializeShrinkWrap};
     let mut store = NumericValue::empty_store::<40>();
     for (i, item) in items.iter().enumerate() {
@@ -179,10 +180,18 @@ fn store_vs_walk<P: shrink_wrap::series::SeriesPolicy + Copy>(items: &[NumericVa
         items.is_empty() || one_variant && !bit_counts,
         "{items:?}"
     );
+    let counted =
+        count_store_series::<NumericValue, P, 40>(&store, 0..items.len(), &policy).unwrap();
+    assert_eq!(counted.is_some(), written);
     if !written {
         return;
     }
     let a = wr.finish_and_take().unwrap().to_vec();
+    assert_eq!(counted, Some(a.len()));
+    assert_eq!(
+        counted,
+        Some(Series::with_policy(items, policy).encoded_len().unwrap())
+    );
     let mut b = [0u8; 2048];
     let mut wr = BufWriter::new(&mut b);
     Series::with_policy(items, policy)

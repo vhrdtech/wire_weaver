@@ -40,7 +40,7 @@ pub trait LevelRow: SeriesStore {
     const COLUMN_BITS: &'static [(usize, usize)];
 
     /// Encodes column `column` (`None`: the time) of `rows` of `store` as a `Series` at the start of `buf`, or only
-    /// counts its bytes without `buf`, rebuilding the column's values in `scratch` (see
+    /// counts its bytes without `buf`, from the store's arrays or rebuilding the column's values in `scratch` (see
     /// [Scratch::encode_column]). Returns the bytes.
     fn encode_column<P: SeriesPolicy + Copy, const N: usize, const B: usize>(
         store: &Self::Store<N>,
@@ -89,9 +89,9 @@ pub struct RowsEncoded<O> {
 impl<const BYTES: usize> Scratch<BYTES> {
     /// Rows `rows` of one column of a [LevelRow] store, `store` (a column's own store, as [SeriesStore] makes it),
     /// encoded with `policy` as a `Series<C>` at the start of `buf`, or only counted without `buf`. Returns the
-    /// bytes. Written straight from the store's arrays when it can ([SeriesStore::columnar]: no tag changes in the
-    /// rows), else rebuilt item by item into the scratch memory first. What generated [LevelRow::encode_column]s
-    /// call.
+    /// bytes. Written or counted straight from the store's arrays when it can ([SeriesStore::columnar]: no tag
+    /// changes in the rows), else rebuilt item by item into the scratch memory first. What generated
+    /// [LevelRow::encode_column]s call.
     pub fn encode_column<C, P, const N: usize>(
         &mut self,
         store: &C::Store<N>,
@@ -116,7 +116,16 @@ impl<const BYTES: usize> Scratch<BYTES> {
                 }
                 Some(wr.deinit())
             }
-            None => None,
+            None => {
+                if let Some(bytes) = wire_weaver::shrink_wrap::series::count_store_series::<C, P, N>(
+                    store,
+                    rows.clone(),
+                    &policy,
+                )? {
+                    return Ok(bytes);
+                }
+                None
+            }
         };
         let filled = self.fill::<C, N>(store, rows);
         let series = wire_weaver::shrink_wrap::series::Series::with_policy(filled.items(), policy);
@@ -135,6 +144,12 @@ pub trait RowsSource<R: LevelRow, const N: usize> {
     type Policy: SeriesPolicy + Copy;
 
     fn rows_policy(&mut self) -> Self::Policy;
+
+    /// The value columns the rows have (bit `c` for column `c`); a column observed but not here isn't encoded.
+    /// Every column for a [Consumer](super::Consumer), whose rows have them all.
+    fn held_columns(&self) -> Columns {
+        Columns::MAX
+    }
 
     /// See [Consumer::encode_rows](super::Consumer::encode_rows).
     fn encode_rows<O, E>(

@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- A cheaper observe poll (API-52): a cells level's `<Trait>Row` implements `LevelRowCells::copy_columns`, so `poll_properties` copies only the time and the observed columns out of the ring; the generated plan and update writing look a batch's columns up with `LevelBatch::column_after`, one walk over them per update instead of one per property. With ww_stream's outbox changes the FOC poll that encodes a batch takes half the instructions (Cortex-M4F, opt 3), the same bytes.
+
 - `ObserveBatches::init(slot, policy, ..)` (API-39) builds the batches in place, in a `static` (`ObserveBatches::init(CELL.uninit(), DEFAULT_POLICY)` with a `static_cell::StaticCell`): the stores of every level and a cells level's staging store are written where they stay, never on the stack. `ObserveBatches::new` went through by-value stores, a 31.6 KB stack frame for the 21-property FOC level of the motor demo on a Cortex-M4F at `opt-level = 3` (35 KB at `z`, which also has an 8.3 KB frame for the row store alone); `new` goes through `init`. `ObserveState::init(slot, limits, batches)` does the same for the state (its tables and outboxes, an outbox being `observe_outbox` bytes per level), so a firmware sets observe up in its statics with 8 B of stack at `opt-level = 3`, 72 B at `z`; the bench's frame left (7.4 KB) is its own message buffers. `ObserveBatchSource` for `&mut B`, so an `ObserveState` can borrow batches kept in a `static`. The generated `<Trait>Samples` / `<Trait>Row` stores have `init_store`, and their `set` is `#[inline(always)]`: `<Level>Sampler::sample` at `opt-level = "z"` takes 412 cycles on an STM32H725 instead of 1398 (FOC level, 21 properties).
 
 ### ⚠️ Breaking

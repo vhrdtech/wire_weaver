@@ -1,8 +1,11 @@
 //! [SeriesStore::write_store]: rows of a store written column by column are the bytes of the same items written
-//! as a `Series` by the item walk, under every policy; rows where a tag changes are left to the walk.
+//! as a `Series` by the item walk, under every policy; rows where a tag changes are left to the walk. Counted from
+//! the store ([count_store_series]), they are the bytes the walk counts.
 
 use super::columns::check::{FloatCodec, numeric_codecs};
-use super::{CodecPolicy, DeltaPacked, RawPlain, Series, SeriesStore, write_store_series};
+use super::{
+    CodecPolicy, DeltaPacked, RawPlain, Series, SeriesStore, count_store_series, write_store_series,
+};
 use crate::un::I12;
 use crate::{BufWriter, Nibble, SerializeShrinkWrap, derive_shrink_wrap};
 use proptest::prelude::*;
@@ -92,6 +95,14 @@ fn same_as_walk<P: super::SeriesPolicy + Copy>(
         Row::set(&mut store, start + i, item);
     }
     let rows = start..start + items.len();
+    let counted = count_store_series::<Row, P, N>(&store, rows.clone(), &policy).unwrap();
+    assert_eq!(counted.is_some(), !tags_change || items.len() < 2);
+    if let Some(counted) = counted {
+        assert_eq!(
+            counted,
+            Series::with_policy(items, policy).encoded_len().unwrap()
+        );
+    }
     let mut a = [0u8; 4096];
     let mut wr = BufWriter::new(&mut a);
     wr.write_un32(offset, 0).unwrap();

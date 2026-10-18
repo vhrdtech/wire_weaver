@@ -9,8 +9,10 @@
   by one `CellsReader` (`R` erased, `&dyn CellsSource`, or an `Arc` on `std`); `RowWriter::commit(t)` takes the row
   on the level's grid as `<Level>Sampler::sample` does and publishes it between two release fences, no
   read-modify-write; the reader copies rows and drops those the writer lapped meanwhile (seqlock), counted as lost,
-  never sent mixed. `batch::Staged`, one staging store fed from the ring and sealed at `N` rows, the budget or the
-  age, encoded by the same `Outbox::push_rows_from`, so a cells level sends the default path's bytes.
+  never sent mixed. `batch::Staged`, one staging store fed from the ring (up to the limit the last poll set, as a
+  sampler fills its batch) and sealed at `N` rows, the budget or the age, encoded by the same
+  `Outbox::push_rows_from`, so a cells level sends the default path's bytes, also under a budget whose worst case
+  allows fewer rows than a poll finds.
   `batch::LevelRowCells` (the time column's cells) for generated rows. Tests include a writer and a reader on two
   threads under miri (`just miri`, a CI job).
 

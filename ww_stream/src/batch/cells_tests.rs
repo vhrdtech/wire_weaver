@@ -191,6 +191,19 @@ fn the_row_count_wraps() {
 /// give the same outbox bytes.
 #[test]
 fn the_same_bytes_as_the_batcher() {
+    // the batcher seals at `N` rows by itself, the cells when polled: poll at every `N`
+    same_bytes_as_the_batcher(8, 4096);
+}
+
+/// A budget whose worst case allows fewer rows than a poll finds (the measured bytes per row allow them all): the
+/// cells take the rows the batcher took under the limit it had then and seal them together, as the batcher does.
+#[test]
+fn the_same_bytes_as_the_batcher_under_a_small_budget() {
+    same_bytes_as_the_batcher(4, 40);
+}
+
+/// 37 rows into a batcher and into cells, polled every `every` rows with `budget`: the same batches.
+fn same_bytes_as_the_batcher(every: usize, budget: usize) {
     const N: usize = 8;
     let policy = CodecPolicy::SMALLEST;
     let cells = RowCells::<Row, 16>::new();
@@ -207,12 +220,13 @@ fn the_same_bytes_as_the_batcher() {
         write(&mut w, k);
         let (x, y) = values(k);
         batcher.push(&(time(k), x, y));
-        // the batcher seals at `N` rows by itself, the cells when polled: poll at every `N`
-        if k as usize % N == N - 1 {
+        if k as usize % every == every - 1 {
             now += 1000;
             let columns = [0b11, 0b01, 0b10][k as usize / N % 3];
-            batcher.consumer().poll_rows(now, Some(3000), 4096, columns);
-            staged.poll_cells(src, now, Some(3000), 4096, columns);
+            batcher
+                .consumer()
+                .poll_rows(now, Some(3000), budget, columns);
+            staged.poll_cells(src, now, Some(3000), budget, columns);
             a.push_rows_from(&mut batcher.consumer(), columns, &SLOTS, &mut scratch)
                 .unwrap();
             b.push_rows_from(&mut staged, columns, &SLOTS, &mut scratch)

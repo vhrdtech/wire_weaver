@@ -492,9 +492,10 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
         self.limit = limit.clamp(1, N);
     }
 
-    /// The event loop's turn for a level in `Samples` mode: sets the `budget` against the worst case of the time
-    /// and the `columns` observed, copies the rows waiting in the ring into the store (unless a sealed batch still
-    /// waits for room), and seals it at `N` rows, at the budget or when its first row is `max_age_us` old. Rows the
+    /// The event loop's turn for a level in `Samples` mode: copies the rows waiting in the ring into the store
+    /// (unless a sealed batch still waits for room), up to the limit the last poll set, as a sampler fills its
+    /// batch up to the limit it had; then sets the `budget` against the worst case of the time and the `columns`
+    /// observed, and seals the store at `N` rows, at the budget or when its first row is `max_age_us` old. Rows the
     /// writer lapped come back as `lost`.
     pub fn poll_cells(
         &mut self,
@@ -504,16 +505,18 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
         budget: usize,
         columns: Columns,
     ) -> Polled {
-        self.set_budget_bound(budget, Row::bound(columns));
         let mut polled = Polled::default();
-        if self.sealed.is_some() {
-            return polled;
-        }
-        if self.n < self.limit {
+        // the rows a sampler would have taken since the last poll: up to the limit published then (it seals its
+        // batch at that limit as it pushes), so the cells' batches are cut where the sampler's are
+        if self.sealed.is_none() && self.n < self.limit {
             let read = src.read_into(&mut self.store, self.n, self.limit - self.n);
             self.n += read.rows;
             polled.lost = read.lapped;
             self.stats.lost += read.lapped;
+        }
+        self.set_budget_bound(budget, Row::bound(columns));
+        if self.sealed.is_some() {
+            return polled;
         }
         if self.n == 0 {
             self.first_us = None;

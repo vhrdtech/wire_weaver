@@ -5157,7 +5157,11 @@ is where the fixed prefix pays off: there the cost of a value is its change from
 <li>the controller runs on the sensor readings (current offsets measured during the first 0.1 s, Clarke and Park,
    the Ortega flux observer and a PLL, d/q current PI loops with decoupling, space vector PWM; the speed loop and the
    filters every 25<sup>th</sup> step, the counters every 500<sup>th</sup>), the simulator steps with the duties it gives;</li>
-<li>every value of a tier that ran and changed is marked, <code>mark_changed_&lt;name&gt;()</code>, so <code>change:</code> observers get it;</li>
+<li>every value of a tier that ran and changed is marked, <code>mark_changed_&lt;name&gt;()</code>, so <code>change:</code> observers get it,
+   and every sample goes to the batches a <code>samples:</code> observer gets: <code>foc</code> writes its 21 values into its observe cells
+   and commits the row, as a FOC interrupt would (<a href="../../api/observing/#cells-sampling-from-an-interrupt">observe cells</a>,
+   <code>observe_cells = "root_foc"</code>), <code>control</code> hands its row to <code>sample(t, ControlSamples { .. })</code>: both paths in one
+   device, the same wire;</li>
 <li><code>poll_properties(out, (), now_us, buf)</code> sends what is due, with <code>now_us</code> the simulated microseconds.</li>
 </ol>
 <p>Messages are up to 4 KiB (<code>MAX_MESSAGE_LEN</code>) each way, the in-process and UDP buffers sized from it: room for the

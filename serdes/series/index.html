@@ -1159,6 +1159,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Collecting items on a device: SeriesStore">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cells-a-store-shared-with-an-interrupt-seriescells" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cells: a store shared with an interrupt (<code>SeriesCells</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5012,6 +5029,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Collecting items on a device: SeriesStore">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cells-a-store-shared-with-an-interrupt-seriescells" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cells: a store shared with an interrupt (<code>SeriesCells</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5489,6 +5523,17 @@ data variants it can be bigger than the enum itself (<code>enum { A(u32), B(u32)
 <code>series(no_store)</code> leaves the derived store out, to write a better one by hand as <code>NumericValue</code> does
 (<code>ww_numeric/src/store.rs</code>): one payload array for all its variants. A type with a <code>#[series(opaque)]</code> field gets no
 store, and a type with a field of such a type needs <code>series(no_store)</code> too.</p>
+<h3 id="cells-a-store-shared-with-an-interrupt-seriescells">Cells: a store shared with an interrupt (<code>SeriesCells</code>)<a class="headerlink" href="#cells-a-store-shared-with-an-interrupt-seriescells" title="Permanent link">&para;</a></h3>
+<p><code>series(cells)</code> also implements <code>shrink_wrap::series::SeriesCells</code>, the same struct of arrays made of atomics
+(<code>AtomicU8</code> / <code>AtomicU16</code> / <code>AtomicU32</code>, two or four <code>AtomicU32</code>s for 64 and 128 bits): one context <code>put</code>s items into
+rows with relaxed stores (on a Cortex-M a plain <code>str</code>, as for a global variable), another copies rows into a
+<code>SeriesStore</code> with relaxed loads (<code>copy_rows</code>), without a lock and without <code>static mut</code>. A value of two words can
+mix two items only in a row copied while it is written; the code sharing the cells has to find and drop such rows
+(observe cells count rows, see <a href="../../api/observing/#cells-sampling-from-an-interrupt">observing.md</a>). All-zero bytes
+are an empty, valid set of cells (<code>empty_cells()</code>, or <code>core::mem::zeroed()</code> in a <code>const fn</code>), which is why the trait
+is <code>unsafe</code> to implement. <code>ww_numeric::NumericValue</code> has its cells by hand, <code>ww_si</code>'s quantities and <code>Timed</code> derive
+them. Opt-in, because a type with a hand-written store inside would need cells of its own; strings, byte lists and
+opaque fields have none.</p>
 <h2 id="size-bounds">Size bounds<a class="headerlink" href="#size-bounds" title="Permanent link">&para;</a></h2>
 <p>The batch has to fit into the message it goes out in, so a device needs to know how big a <code>Series</code> of <code>n</code> items can
 get without writing it. <code>SeriesColumns::MAX_ITEM_BITS</code> and <code>MAX_FIXED_BITS</code> are the worst case of a type's group,

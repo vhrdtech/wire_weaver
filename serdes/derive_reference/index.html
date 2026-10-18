@@ -5367,7 +5367,7 @@
 <p>The order of directives doesn't matter to the parser, but the codebase consistently writes them in this order (and
 so do the examples):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse, ww_repr,
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>discriminants, display, validate, series|series(no_store), no_future_version|future_version
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>discriminants, display, validate, series|series(no_store)|series(cells), no_future_version|future_version
 </span></code></pre></div>
 <table>
 <thead>
@@ -5402,7 +5402,7 @@ so do the examples):</p>
 <td><a href="#messages-and-checks">Messages and checks</a></td>
 </tr>
 <tr>
-<td><code>series</code>, <code>series(no_store)</code></td>
+<td><code>series</code>, <code>series(no_store)</code>, <code>series(cells)</code></td>
 <td><a href="#series"><code>series</code></a></td>
 </tr>
 <tr>
@@ -5732,7 +5732,9 @@ needs <code>PartialEq</code>: a value is written again where it changed).</p>
 <p><code>series</code> also implements <code>shrink_wrap::series::SeriesStore</code> (SW-62), room for <code>N</code> items as an array per leaf field
 (<a href="../series/#collecting-items-on-a-device-seriesstore">series.md</a>), and the size bounds <code>MAX_ITEM_BITS</code> /
 <code>MAX_FIXED_BITS</code> (<a href="../series/#size-bounds">series.md</a>). <code>series(no_store)</code> leaves the store out, for a type with a
-store written by hand or with a field whose type has none; a type with a <code>#[series(opaque)]</code> field gets none anyway.</p>
+store written by hand or with a field whose type has none; a type with a <code>#[series(opaque)]</code> field gets none anyway.
+<code>series(cells)</code> also implements <code>SeriesCells</code>, the store as atomics for a writer in an interrupt
+(<a href="../series/#cells-a-store-shared-with-an-interrupt-seriescells">series.md</a>); every field type needs it too.</p>
 <h2 id="generics">Generics<a class="headerlink" href="#generics" title="Permanent link">&para;</a></h2>
 <p>DER-14. Structs and enums can have type and const parameters, defaults and a where clause, next to their lifetime:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, series, final_structure)]</span>

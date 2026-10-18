@@ -332,8 +332,8 @@ fn outbox_drops_oldest_level_batches_for_room() {
         for k in 0..8 {
             b.push(&(round * 1000 + k, (k * k * 31) as i32 - 900, round));
         }
-        let columns = [0b11, 0b01, 0b10][round as usize % 3];
-        samples += 8 * (columns as u64).count_ones() as u64;
+        let columns: Columns = [0b11, 0b01, 0b10][round as usize % 3];
+        samples += 8 * columns.count_ones() as u64;
         b.consumer().flush();
         let done = outbox
             .push_rows_from(&mut b.consumer(), columns, &ROW_SLOTS, &mut scratch)

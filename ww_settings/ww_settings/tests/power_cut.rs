@@ -28,6 +28,11 @@ pub struct Factory {
 /// Every step in release builds, a sample in debug ones.
 const EVERY_STEP: bool = !cfg!(debug_assertions);
 
+/// Whether a cut at step `c` of `steps` is run: every one in release, the first and last 16 and every 11th in debug.
+fn sampled(c: u64, steps: u64) -> bool {
+    EVERY_STEP || c <= 16 || c + 16 > steps || c % 11 == 0
+}
+
 #[derive(Copy, Clone, Debug)]
 enum Op {
     User(u32, bool),
@@ -193,9 +198,7 @@ impl<const W: usize, const P: usize> Rig<W, P> {
                 let steps = steps_of[j];
 
                 for c in 1..=steps {
-                    if !cut_at(c, steps)
-                        || !(EVERY_STEP || c <= 16 || c + 16 > steps || c % 11 == 0)
-                    {
+                    if !cut_at(c, steps) || !sampled(c, steps) {
                         continue;
                     }
                     report.cuts += 1;
@@ -221,17 +224,23 @@ impl<const W: usize, const P: usize> Rig<W, P> {
                     if second_every > 0 && nth_cut.is_multiple_of(second_every) {
                         // a second cut while booting and writing again after the first one
                         let next = Op::User(1_000_000 + j as u32, c % 2 == 0);
-                        for c2 in 1.. {
+                        // the steps of booting (and repairing) and writing again, uncut: sampled as the first cut
+                        let mut s2 = self.store(f.clone());
+                        let s0 = s2.flash().stats().steps;
+                        self.boot_and_apply(&mut s2, next)
+                            .await
+                            .unwrap_or_else(|e| panic!("{ctx}, then {next:?}: {e}"));
+                        let steps2 = s2.flash().stats().steps - s0;
+                        for c2 in (1..=steps2).filter(|&c2| sampled(c2, steps2)) {
                             let mut f2 = f.clone();
                             f2.seed(c2 * 104729 + c);
                             f2.cut_after(c2);
                             let mut s2 = self.store(f2);
                             let r = self.boot_and_apply(&mut s2, next).await;
-                            let done = !s2.flash().is_off();
-                            if done {
-                                r.unwrap_or_else(|e| panic!("{ctx}, then {next:?}: {e}"));
-                                break;
-                            }
+                            assert!(
+                                r.is_err() && s2.flash().is_off(),
+                                "{ctx}, then {next:?} cut {c2}/{steps2}: {r:?}"
+                            );
                             report.second_cuts += 1;
                             let mut f2 = s2.into_flash();
                             f2.power_on();
@@ -239,9 +248,7 @@ impl<const W: usize, const P: usize> Rig<W, P> {
                             let ctx2 = format!("{ctx}, second cut {c2}");
                             let got = self.state(&mut s2, &ctx2).await;
                             // the first write may or may not have landed, the second as well
-                            let after2 = Self::state_after(&got, next);
-                            Self::check(&got, before, &after, &format!("{ctx}, second cut {c2}"));
-                            let _ = after2;
+                            Self::check(&got, before, &after, &ctx2);
                         }
                     }
 

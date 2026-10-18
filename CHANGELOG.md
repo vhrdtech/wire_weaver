@@ -36,7 +36,6 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   header and bytes skipped from a newer version as parts of their own, and `ww_self::expr::to_expr` writes a value
   as a Rust expression. Found and fixed on the way: `i128::MIN` didn't read back, generic structs printed with their
   arguments (`Timed<u16> { .. }`).
-
 - Wire-format conformance matrix (TEST-23): one corpus of cases (`tests/conformance/corpus.json`: type, value,
   golden bytes) run by `just test` and CI through every wire-format implementation: the Rust derive, the `ww_self`
   dynamic client, Python and C (the runtime, the generated `fixed_layout` and `head_tail` readers). Gaps are marked

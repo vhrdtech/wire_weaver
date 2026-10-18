@@ -90,10 +90,12 @@ from the CLI instead of one line per item.
 A `ro+observe+batched` property sends every sample it takes, not just its latest value, when a host observes it
 in `Samples` mode - this is API-39, documented in full at
 [Observing properties: every sample](observing.md#every-sample-batched) (the device's `<Level>Sampler`, the host's
-`samples(max_age)`, Python). It uses the same `Batcher` as a stream's, one per `+batched` property's trait level
-(all of a level's `+batched` properties share one call, `sample(t, <Level>Samples { .. })`) feeding a level-wide
-[`Outbox`](#the-store) instead of a stream's own store - the rest of this page (sealing, budget, cost) applies to
-it unchanged.
+`samples(max_age)`, Python). It uses the same `Batcher` as a stream's, one per trait level with `+batched`
+properties: all of a level's `+batched` properties share one call, `sample(t, <Level>Samples { .. })`, so the
+batcher keeps rows (the time and every value) and a level batch is sent as one `Series<T>` per observed property plus
+**one** `Series<Second>` of times for all of them, the update's `sample_times` (API-49, a shared clock). The batches
+feed a level-wide [`Outbox`](#the-store) instead of a stream's own store - the rest of this page (sealing, budget,
+cost) applies to it the same way.
 
 ## Advanced
 
@@ -139,9 +141,11 @@ batchers shares one `Scratch` big enough for its biggest), then writes them with
 - no second writer path, so [`Series`](../serdes/series.md) itself needed no change for this. A `T` aligned to
 more than 16 bytes, or one whose `Store<N>` doesn't fit `B`, is a compile error, not a runtime one.
 
-An observe level's `Outbox<BYTES>` (see [Every sample](observing.md#every-sample-batched)) sits after the `Batcher`: encoded
-batches (header: property index, items, length) wait there, oldest first, for `poll_properties` to pack into
-updates as budget allows; when it's full, the oldest batches are dropped to make room, also counted as `missed`.
+An observe level's `Outbox<BYTES>` (see [Every sample](observing.md#every-sample-batched)) sits after the `Batcher`:
+each level batch is its time column followed by the column of each property observed in `Samples` mode (each entry
+with a header: slot, items, length), encoded once, column by column (the scratch holds one column, not a row). They
+wait there, oldest first, for `poll_properties` to send each whole in one update as budget allows; when it's full,
+the oldest batches are dropped to make room, also counted as `missed`.
 A stream has no outbox - its encoded batch goes straight into the stream's own store (reliable) or the next event
 (plain/counted).
 
@@ -164,25 +168,25 @@ on a Cortex-M3 with the pre-SW-63 numbers, the rest being the `Series` encode pr
 
 #### Which rates fit an MCU
 
-Count samples per second as properties (or a stream's items) x rate, instructions per second as that x the
-per-item encode cost above (about 341 on a Cortex-M3/M4F with `DeltaPacked`, n = 32):
+Count samples per second as properties (or a stream's items) x rate. A timed stream encodes each item with its own
+time: about 341 instructions per item on a Cortex-M3/M4F with `DeltaPacked`, n = 32, about 790 cycles on an
+STM32H725. Observed properties share their level's time column (API-49), which halves that: measured on the motor
+demo's 21 FOC properties (`I32` storage, n = 32, `DeltaPacked`), a level batch of 672 samples takes about 213
+instructions per sample on a Cortex-M3/M4F (QEMU) and about 380 cycles per sample on the H725, against 395 and 786
+with a time column per property, and 36 % fewer bytes (1 251 B against 1 965 B):
 
-| Observed | Samples/s | Cortex-M3/M4F, instructions/s | STM32H725 (M7, 540 MHz), cycles/s | Fits |
+| Observed (one level, shared clock) | Samples/s | Cortex-M3/M4F, instructions/s | STM32H725 (M7, 540 MHz), cycles/s | Fits |
 |---|---|---|---|---|
-| 2 currents at 1 kHz | 2 000 | ~0.7 M | ~1.6 M | any Cortex-M, trivially |
-| 4 properties at 4 kHz | 16 000 | ~5.5 M | ~12.6 M | any Cortex-M, with room to spare |
-| 5 properties at 25 kHz ("FOC subset 5") | 125 000 | ~43 M | ~99 M (18% of the core) | a fast M4F, comfortably an M7 |
-| all 21 FOC properties at 25 kHz | 525 000 | ~179 M | ~414 M (77% of the core) | not realistic next to the control loop on any Cortex-M part measured so far |
+| 2 currents at 1 kHz | 2 000 | ~0.4 M | ~0.8 M | any Cortex-M, trivially |
+| 4 properties at 4 kHz | 16 000 | ~3.4 M | ~6.1 M | any Cortex-M, with room to spare |
+| 5 properties at 25 kHz ("FOC subset 5") | 125 000 | ~27 M | ~48 M (9% of the core) | a fast M4F, comfortably an M7 |
+| all 21 FOC properties at 25 kHz | 525 000 | ~112 M | ~199 M (37% of the core) | a fast M7 next to the control loop; no smaller part |
 
-So on an MCU, observe or stream a handful of properties at a few kHz, or decimate (`every_us` for observe); the
-full FOC rate above is for the simulator and the host ([motor demo](#the-motor-demo-measured)), not firmware. A
-device sampling faster than its CPU can encode needs a floor on the rate it accepts (`every_us`/sample-rate
-clamps), since every sample taken is encoded whether or not its batch later fits the budget.
-
-A further cut is possible when every `+batched` property of a level is sampled through the same `sample(t, ..)`
-call and so shares one time column instead of paying for it per property - rather than each carrying its own. This
-is under active design as this page is written, not shipped yet; a later revision of this page covers it once it
-lands.
+So on a small MCU, observe or stream a handful of properties at a few kHz, or decimate (`every_us` for observe);
+the full FOC rate above takes a fast M7, else it is for the simulator and the host
+([motor demo](#the-motor-demo-measured)). A device sampling faster than its CPU can encode needs a floor on the rate
+it accepts (`every_us`/sample-rate clamps), since every sample taken is encoded whether or not its batch later fits
+the budget.
 
 ### The motor demo, measured
 
@@ -208,5 +212,8 @@ batches to seal together is a further gain not yet implemented.
 
 Adding or removing `batched`/`batched(untimed)` on a stream, or switching between timed and untimed, changes its
 item type on the wire (one `Series<Timed<T>>` or `Series<T>` per event instead of one `T`) - a break of the API
-crate, same as any other item-type change; see [evolution rules: API](../evolution/rules.md#api). The batch size
-(`N`) is the device's own and isn't in the API at all, so changing it is never a break.
+crate, same as any other item-type change; see [evolution rules: API](../evolution/rules.md#api). Making a property
+`+batched` or not changes its observe slot (a `Batched<T>` instead of a `T`): a break too. The times of a level's
+samples travel in the `PropertyUpdate` event (`sample_times`), not in a slot, so adding resources to such a level
+follows the usual rules. The batch size (`N`) is the device's own and isn't in the API at all, so changing it is
+never a break.

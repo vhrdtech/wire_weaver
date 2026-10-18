@@ -84,8 +84,8 @@ storage the host sends: the CLI writes `F32` in the base unit. A firmware of thi
 Tool does.
 
 Next to `f32`, an `I32` quantity is one byte more per value (the prefix and storage nibbles): the `foc` level at
-1 kHz takes 117 kB/s instead of 96. Batched observe (`Series` of `Timed` values, API-39) is where the fixed prefix
-pays off: there the cost of a value is its change from the previous one, not its storage width.
+1 kHz takes 117 kB/s instead of 96. Batched observe (a `Series` per property and the level's times once, API-39)
+is where the fixed prefix pays off: there the cost of a value is its change from the previous one, not its storage width.
 
 ## The device
 

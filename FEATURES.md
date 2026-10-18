@@ -537,8 +537,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   interrupt-safe after `ObserveBatches::split()`), double-buffered stores and a level outbox encoded in
   `poll_properties` with several updates per call, `missed` for lost samples and dropped batches, typed observers
   per sample, the dynamic client, `ww observe --samples` and Python (`recv()` samples, `recv_batch()` columns).
-  Motor demo (`motor_sim` repo) on it, measured through the real generated code: `docs/api/batching.md`. Missing:
-  DWT cycle counts of `<Level>Sampler::sample` on hardware (the encode-side counts are piece 4/SW-63's).
+  Motor demo (`motor_sim` repo) on it, measured through the real generated code: `docs/api/batching.md`, and
+  `sample()` itself in an interrupt on an STM32H725 next to observe cells (API-50,
+  `docs/api/batching.md#observe-cells-measured`).
 - ✅ **API-49 One time column per observe level (shared clock)** — the samples a `sample(t, ..)` call takes for a
   level's `+batched` properties share one time column per update: `EventKind::PropertyUpdate::sample_times`
   (`Series<Second>`) next to `t`, the `Batched::Samples` slots untimed, `Batching::SharedClock` in introspection. A
@@ -546,6 +547,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   shortest `max_age_us`. Against a time column per property (21 FOC properties, n = 32, `DeltaPacked`): -36 % bytes,
   -52 % encode cycles on an STM32H725, -46 % instructions on Cortex-M3/M4F
   (`docs/api/observing.md#which-rates-fit-an-mcu`, `tests/observe_batched`).
+- ✅ **API-50 Observe cells: sampling a level from an interrupt in place** — `ww_codegen!(.., observe_cells =
+  "root_foc")` puts a level with `+batched` properties on a ring of atomics instead of `<Level>Sampler::sample`: a
+  `const fn` `<Level>Cells<R>` (a `static`, or an `Arc`), one `<Level>Writer` with a setter per property (relaxed
+  stores where the value is computed) and `commit(t)` (the level's gate and grid, release fences, no lock), its reader
+  in `ObserveBatches::new`; `poll_properties` copies the rows into one staging batch and sends them as the sampler's
+  (same wire; a row the writer laps is `missed`, never sent mixed). Opt-in per level, the default stays. Built on
+  `shrink_wrap::series::SeriesCells` (`series(cells)` derive, `ww_si` and numbers have it). On an STM32H725 a row of
+  the motor demo's 21 FOC values takes 357 cycles at `opt-level = "z"` against 1 400 through `sample()` (342 against
+  423 at 3), 44-52 B of stack against 116-388 B, the same RAM. `ww api scaffold --observe-cells`. Writer and reader
+  on two threads tested under miri (`just miri`). (`docs/api/observing.md#cells-sampling-from-an-interrupt`,
+  `tests/observe_batched`, `examples_mcu` `foc_observe`.)
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /

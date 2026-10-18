@@ -8,7 +8,7 @@
 
 ### 🚀 Features
 
-- `ww api scaffold --observe-cells LEVEL` (API-39): a static `<Level>Cells` per level, its reader in
+- `ww api scaffold --observe-cells LEVEL` (API-50): a static `<Level>Cells` per level, its reader in
   `ObserveBatches::new` and `observe_cells = ".."` in the `ww_codegen!` call.
 
 - `ww observe --samples MS` (API-39): every sample of the level's `+batched` properties, in batches at most `MS`

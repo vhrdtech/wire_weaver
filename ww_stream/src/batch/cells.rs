@@ -1,4 +1,4 @@
-//! Observe cells (API-39, design D8): see [RowCells].
+//! Observe cells (API-50): see [RowCells].
 
 use super::batcher::{Bound, Polled};
 use super::level::{Columns, LevelRow, RowsEncoded};
@@ -20,7 +20,7 @@ pub trait LevelRowCells: LevelRow + SeriesCells {
 /// The ring of a cells level: `R` rows of `Row` as atomics, the row count and the level's gate, the writer's and
 /// the reader's state. `const fn` [new](Self::new), so it can be a `static`; one writer and one reader at a time.
 ///
-/// Observe cells (API-39, design D8): a trait level's rows written in place by one context (a control loop, an
+/// Observe cells (API-50): a trait level's rows written in place by one context (a control loop, an
 /// interrupt) into a ring of atomics, [RowCells], and read by the event loop into one staging store, [Staged],
 /// that is encoded and sent as the default path's batches are: same columns, same encoder, same outbox, same wire.
 ///

@@ -49,7 +49,7 @@ pub(crate) struct Args {
     pub(crate) series: bool,
     /// `series` also implements `SeriesStore` (SW-62), unless `series(no_store)`.
     pub(crate) series_store: bool,
-    /// `series(cells)` also implements `SeriesCells` (API-39, observe cells).
+    /// `series(cells)` also implements `SeriesCells` (API-50, observe cells).
     pub(crate) series_cells: bool,
 }
 

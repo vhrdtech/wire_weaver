@@ -33,7 +33,7 @@ pub struct ServerScaffoldConfig {
     /// `#[optional]` items or groups to leave out, `"i2c.pullups"` (API-16): no stubs for them, passed on to
     /// `ww_codegen!(.., omit = [..])`.
     pub omit: Vec<String>,
-    /// Levels sampled through observe cells (API-39), by their `ObserveState` field (`root_foc`): passed on to
+    /// Levels sampled through observe cells (API-50), by their `ObserveState` field (`root_foc`): passed on to
     /// `ww_codegen!(.., observe_cells = "..")`, with a `static` `<Level>Cells` each.
     pub observe_cells: Vec<String>,
 }
@@ -138,7 +138,7 @@ pub fn gen_server_scaffold(
             "/// Observed properties (SRV-18): what hosts observe and when it is due, see `poll_properties`;
              /// `ObserveState::new(limits, api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY, {}))`;
              /// the levels on observe cells take samples in place through their cells' writer, the others with
-             /// `observe.samplers().<level>.sample(t, ..)` (API-39)
+             /// `observe.samplers().<level>.sample(t, ..)` (API-39, API-50)
              pub observe: {observe_state},",
             readers.join(", ")
         )?;
@@ -200,7 +200,7 @@ pub fn gen_server_scaffold(
         let ty = format!("{}Cells", level.to_case(Case::Pascal));
         writeln!(
             statics,
-            "/// Observe cells of `{level}` (API-39): rows the control loop or interrupt writes in place with\n\
+            "/// Observe cells of `{level}` (API-50): rows the control loop or interrupt writes in place with\n\
              /// `{name}.writer()` (once, kept), `poll_properties` reads through `{name}.reader()`. 32 rows wait\n\
              /// between two polls.\n\
              pub static {name}: api_impl::{ty}<32> = api_impl::{ty}::new();\n",
@@ -807,7 +807,7 @@ mod tests {
         }
     }
 
-    /// `observe_cells` (API-39): a static ring per level, its reader in `ObserveBatches::new`, the argument in
+    /// `observe_cells` (API-50): a static ring per level, its reader in `ObserveBatches::new`, the argument in
     /// `ww_codegen!`; a level without `+batched` properties is an error naming the ones there are.
     #[test]
     fn observe_cells() {

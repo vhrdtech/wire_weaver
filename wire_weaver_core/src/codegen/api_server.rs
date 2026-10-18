@@ -52,7 +52,7 @@ pub struct GenServerConfig {
     pub observe_batch: Option<usize>,
     /// Bytes of the outbox of each trait level with `+batched` properties, `observe_outbox = N`; None: 4096.
     pub observe_outbox: Option<usize>,
-    /// Levels sampled through observe cells (API-39), by their `ObserveState` field (`root_foc`):
+    /// Levels sampled through observe cells (API-50), by their `ObserveState` field (`root_foc`):
     /// `observe_cells = "root_foc, .."`. The others keep `<Level>Sampler::sample`.
     pub observe_cells: Vec<String>,
 }
@@ -95,7 +95,7 @@ pub struct GenServerConfigRaw {
     pub observe_batch: Option<usize>,
     /// Bytes of the outbox of each trait level with `+batched` properties, `observe_outbox = N`; None: 4096.
     pub observe_outbox: Option<usize>,
-    /// Levels sampled through observe cells (API-39), by their `ObserveState` field (`root_foc`):
+    /// Levels sampled through observe cells (API-50), by their `ObserveState` field (`root_foc`):
     /// `observe_cells = "root_foc, .."`. The others keep `<Level>Sampler::sample`.
     pub observe_cells: Vec<String>,
 }

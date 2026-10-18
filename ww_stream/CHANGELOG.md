@@ -4,7 +4,7 @@
 
 ### 🚀 Features
 
-- Observe cells (API-39, D8): `batch::RowCells<Row, R>` (`const fn new`, for a `static`), a level's rows as a ring
+- Observe cells (API-50): `batch::RowCells<Row, R>` (`const fn new`, for a `static`), a level's rows as a ring
   of atomics written in place by one `RowWriter` (a context with the values: a control loop, an interrupt) and read
   by one `CellsReader` (`R` erased, `&dyn CellsSource`, or an `Arc` on `std`); `RowWriter::commit(t)` takes the row
   on the level's grid as `<Level>Sampler::sample` does and publishes it between two release fences, no

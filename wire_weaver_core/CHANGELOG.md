@@ -2,7 +2,7 @@
 
 ### ⚠️ Breaking
 
-- `ServerScaffoldConfig` has an `observe_cells` field (API-39): code building it literally adds
+- `ServerScaffoldConfig` has an `observe_cells` field (API-50): code building it literally adds
   `observe_cells: vec![]`.
 
 * `Delta<'i, T>`, `DeltaOfDelta<'i, T>`, `XorFloat<'i, T>` (and `..Owned`) are no longer built-in API types (removed
@@ -67,7 +67,7 @@
 
 ### 🚀 Features
 
-- Observe cells (API-39, D8): `ww_codegen!(.., observe_cells = "root_foc, ..")` puts the named levels on a ring of
+- Observe cells (API-50): `ww_codegen!(.., observe_cells = "root_foc, ..")` puts the named levels on a ring of
   atomics instead of `<Level>Sampler::sample`. Per level `<Level>Cells<R>` (`const fn new`, for a `static`, or an
   `Arc` with `CellsReader::shared`), `writer()` handing out the one `<Level>Writer` with a setter per `+batched`
   property (relaxed stores into the row, where the value is computed) and `commit(t)`, and `reader()` for

@@ -26,7 +26,7 @@ pub(crate) struct SeriesSeed<'a> {
     pub(crate) cp: &'a CratePath,
     /// Also implement `SeriesStore` (SW-62), unless a field is opaque: off with `series(no_store)`.
     pub(crate) store: bool,
-    /// Also implement `SeriesCells` (API-39) next to the store: `series(cells)`.
+    /// Also implement `SeriesCells` (API-50) next to the store: `series(cells)`.
     pub(crate) cells: bool,
 }
 
@@ -464,7 +464,7 @@ impl SeriesSeed<'_> {
     }
 
     /// The cells type's definition, named `#cells_ident`, with `fields`, and its `impl SeriesCells` with the
-    /// bodies given (API-39, observe cells).
+    /// bodies given (API-50, observe cells).
     fn cells_impl(
         &self,
         cells_ident: &Ident,

@@ -105,6 +105,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Observing properties](api/observing.md)**: Ask a device to send changes on change or periodically, within a byte budget.
 - **[Observing every sample](api/observing.md#every-sample-batched)**: A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python.
 - **[One clock per observed level](api/observing.md#every-sample-batched)**: The samples of a level's properties share one time column per update: about a third fewer bytes and half the encoding CPU.
+- **[Observe cells](api/observing.md#cells-sampling-from-an-interrupt)**: Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of `sample()` at opt-level z, the same wire.
 - **[Batched streams](api/batching.md)**: A stream opts into sending samples many per event as a compressed `Series` instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python.
 - **[Size analysis](types.md#worst-case-size-at-compile-time)**: Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. <span class="ww-status">in progress</span>
 - **[API docs in rustdoc](api/traits.md#in-rustdoc)**: `#[ww_trait]` also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. <span class="ww-status">in progress</span>

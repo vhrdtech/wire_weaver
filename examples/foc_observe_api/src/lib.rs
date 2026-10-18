@@ -1,6 +1,6 @@
 //! The 25 kHz FOC level of the motor demo (motor_sim's `motor_demo_api::Foc`) as an API root of its own: the
 //! 21 `ro+observe+batched` properties, same names and types, for the `examples_mcu` benches of observe cells
-//! (API-39 D8) against `<Level>Sampler::sample`. No methods: the benches sample and poll from the firmware.
+//! (API-50) against `<Level>Sampler::sample`. No methods: the benches sample and poll from the firmware.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;

@@ -58,7 +58,7 @@ pub(crate) struct ImplExtArgs {
     pub(crate) observe_outbox: usize,
 
     /// Levels with `+batched` properties sampled through observe cells instead of `<Level>Sampler::sample`
-    /// (API-39), by their `ObserveState` field: `observe_cells = "root_foc, root_control"`.
+    /// (API-50), by their `ObserveState` field: `observe_cells = "root_foc, root_control"`.
     #[darling(default)]
     pub(crate) observe_cells: String,
 

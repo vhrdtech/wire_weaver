@@ -335,7 +335,7 @@ impl SeriesStore for NumericValue {
     }
 }
 
-/// `R` [NumericValue]s as atomics (API-39, observe cells): the variant byte, the payload as one word as wide as
+/// `R` [NumericValue]s as atomics (API-50, observe cells): the variant byte, the payload as one word as wide as
 /// [NumericValueStore]'s (two or four `AtomicU32`s for 64 and 128 bits) and, with `UN` / `IN`, the width byte.
 pub struct NumericValueCells<const R: usize> {
     variant: [AtomicU8; R],

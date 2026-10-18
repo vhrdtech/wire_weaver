@@ -2,7 +2,7 @@
 
 ### 🚀 Features
 
-* `Quantity`, `Prefix`, `Timed` and the other `series` types derive `shrink_wrap::series::SeriesCells` (API-39,
+* `Quantity`, `Prefix`, `Timed` and the other `series` types derive `shrink_wrap::series::SeriesCells` (API-50,
   observe cells), so quantities can be properties of an observe cells level.
 
 ### ⚠️ Breaking

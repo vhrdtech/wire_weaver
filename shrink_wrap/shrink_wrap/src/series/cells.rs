@@ -1,5 +1,5 @@
 //! [SeriesCells]: a ring of items as a struct of arrays of atomics, written by one context (an interrupt) and
-//! copied out by another into a [SeriesStore] (API-39, observe cells).
+//! copied out by another into a [SeriesStore] (API-50, observe cells).
 
 use super::SeriesStore;
 use crate::un::{IN, U3, U4, U5, U6, UN};

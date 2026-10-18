@@ -1,4 +1,4 @@
-//! [SeriesCells] round trips (API-39): items put into zeroed cells come out of `copy_rows` as `SeriesStore::set`
+//! [SeriesCells] round trips (API-50): items put into zeroed cells come out of `copy_rows` as `SeriesStore::set`
 //! would have put them, for every impl here and the derive's. Also run under miri (`just miri`).
 
 use super::{SeriesCells, SeriesStore, empty_cells};

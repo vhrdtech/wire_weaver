@@ -1,4 +1,4 @@
-//! Core clock cycles of observe cells against `<Level>Sampler::sample` (API-39 D8) on the STM32H725IG (Cortex-M7,
+//! Core clock cycles of observe cells against `<Level>Sampler::sample` (API-50) on the STM32H725IG (Cortex-M7,
 //! 540 MHz, I- and D-cache on), counted with the DWT cycle counter: one row of the motor demo's 21 FOC properties
 //! per call, the gate closed and open, and every `poll_properties` (the `mcu_qemu` `foc_observe` bench). A row
 //! changes the state, so each call runs once: the first call of a case is the cold one, the smallest of the rest

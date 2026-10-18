@@ -222,7 +222,7 @@ fn u64_from_a_host_is_refused() {
 }
 
 proptest! {
-    /// `NumericValueCells` (API-39): put into zeroed cells, copied out column by column, read back from the store.
+    /// `NumericValueCells` (API-50): put into zeroed cells, copied out column by column, read back from the store.
     #[test]
     fn cells_put_copy(items in prop::collection::vec(any::<(u8, u128, u8, usize)>(), 0..40), from in 0usize..8, n in 0usize..9) {
         use shrink_wrap::series::{SeriesCells, empty_cells};

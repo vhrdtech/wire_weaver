@@ -79,7 +79,7 @@ pub enum ApiCommand {
         #[arg(long, value_delimiter = ',', value_name = "TRAIT_ITEM.ITEM")]
         omit: Vec<String>,
 
-        /// Levels with `+batched` properties to sample through observe cells (API-39), by their `ObserveState`
+        /// Levels with `+batched` properties to sample through observe cells (API-50), by their `ObserveState`
         /// field (`root_foc`): a static `<Level>Cells` per level and `observe_cells = ".."` in ww_codegen!.
         /// Repeat or separate with commas
         #[arg(long, value_delimiter = ',', value_name = "LEVEL")]

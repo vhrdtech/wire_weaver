@@ -29,7 +29,7 @@ struct Level {
     /// Largest resource index + 1
     item_count: u32,
     props: Vec<Prop>,
-    /// Sampled through observe cells (`observe_cells = ".."`, API-39 D8) instead of `<Level>Sampler::sample`
+    /// Sampled through observe cells (`observe_cells = ".."`, API-50) instead of `<Level>Sampler::sample`
     cells: bool,
 }
 
@@ -212,7 +212,7 @@ impl Observe {
         });
     }
 
-    /// Marks the levels named in `observe_cells` (their `ObserveState` field) as cells levels (API-39 D8): a
+    /// Marks the levels named in `observe_cells` (their `ObserveState` field) as cells levels (API-50): a
     /// compile error for a name that isn't a level with `+batched` properties.
     pub(crate) fn use_cells(&mut self, names: &[String]) -> TokenStream {
         let mut errors = TokenStream::new();
@@ -473,7 +473,7 @@ impl Observe {
         let mut cursors = vec![];
         let mut rows = vec![];
         let mut docs = vec![];
-        // per cells level (API-39 D8): staged batch, reader, gate, source, row type, doc
+        // per cells level (API-50): staged batch, reader, gate, source, row type, doc
         let mut cell_names = vec![];
         let mut cell_readers = vec![];
         let mut cell_gates = vec![];
@@ -684,7 +684,7 @@ impl Observe {
                     .collect::<Vec<_>>()
                     .join("/");
                 let cells_doc = format!(
-                    " The observe cells of `{}` at `/{path}` (API-39, `observe_cells`): a ring of `R` rows of its \
+                    " The observe cells of `{}` at `/{path}` (API-50, `observe_cells`): a ring of `R` rows of its \
                      `+batched` properties as atomics, written in place by the one `{writer_ty}` (a control loop, an \
                      interrupt), read by `poll_properties` through `ObserveBatches`. Put it in a `static` (`new` is \
                      `const`) or share it (an `Arc` on `std`, `CellsReader::shared`). `R` rows wait between two \

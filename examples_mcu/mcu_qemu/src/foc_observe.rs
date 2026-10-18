@@ -1,4 +1,4 @@
-//! Shared body of the observe cells benches (API-39 D8): the 21 `+observe+batched` properties of the motor demo's
+//! Shared body of the observe cells benches (API-50): the 21 `+observe+batched` properties of the motor demo's
 //! FOC level ([foc_observe_api::Foc], values from [super::foc_signals]) sampled the default way,
 //! `RootSampler::sample(t, FocSamples { .. })` into the two stores of `ObserveBatches`, and on observe cells,
 //! `RootWriter::<prop>(..)` x 21 and `commit(t)` into a ring of atomics, by two blocking servers of the same API.

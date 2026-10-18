@@ -176,7 +176,7 @@ mod tests {
         }
     }
 
-    /// The same server with the root level on observe cells (`observe_cells = "root"`, API-39 D8): the values go
+    /// The same server with the root level on observe cells (`observe_cells = "root"`, API-50): the values go
     /// into the cells' ring in place, `slow` stays on its sampler, so one device runs both paths.
     mod cells_server {
         use super::*;

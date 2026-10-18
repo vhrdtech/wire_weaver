@@ -19,7 +19,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `series::StoreWord`, `write_numeric_column`, `write_numeric128_column`, `write_float_column`. One FOC level batch of the motor demo (21 x `Series<T>` and the
   clock, n = 32) takes 74.9 k instructions on a Cortex-M3 instead of 143.5 k with `DeltaPacked`, 100 k cycles on an
   STM32H725 instead of 312 k (60 k against 125 k at `opt-level = 3`).
-* `series::SeriesCells` (API-39, observe cells): the `SeriesStore` struct of arrays as atomics, `put` with relaxed
+* `series::SeriesCells` (API-50, observe cells): the `SeriesStore` struct of arrays as atomics, `put` with relaxed
   stores from one context (an interrupt), `copy_rows` into a `SeriesStore` from another, no lock and no
   `static mut`; `unsafe` to implement because all-zero bytes must be valid (`empty_cells()`, `const` constructors
   through `core::mem::zeroed()`). Impls for numbers, floats, `bool`, `Nibble`, `UNib32`, `UVlq32/64`, `U1`..`U64`,

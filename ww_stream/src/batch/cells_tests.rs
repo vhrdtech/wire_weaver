@@ -375,6 +375,7 @@ fn threaded_writer_and_reader() {
     assert!(read > 0);
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn a_shared_reader() {
     use std::sync::Arc;

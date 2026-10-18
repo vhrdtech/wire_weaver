@@ -5545,7 +5545,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 
 <ul>
-<li><strong><a href="../serdes/conformance/">Conformance matrix</a></strong>: One corpus of golden bytes every wire-format implementation must match: derive, dynamic client, Python, C.</li>
+<li><strong><a href="../serdes/conformance/">Conformance matrix</a></strong>: One corpus of golden bytes every wire-format implementation must match: derive, dynamic client, Python, C; guarded against a sealed case changing and against a wire kind going untested.</li>
 <li><strong><a href="../serdes/code_size/">Code size bench</a></strong>: Firmware images per case for RISC-V and Cortex-M, measured on every change.</li>
 <li><strong>Binary size tracking</strong>: Flash and RAM per feature in CI. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/ecc_flash/">Power cuts on STM32</a></strong>: A flash store reset thousands of times mid-write on real hardware. <span class="ww-status">in progress</span></li>

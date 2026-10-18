@@ -1367,6 +1367,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#frozen-golden-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Frozen golden bytes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coverage-guard" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Coverage guard
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adding-a-case" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5001,6 +5023,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#frozen-golden-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Frozen golden bytes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coverage-guard" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Coverage guard
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adding-a-case" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5171,8 +5215,9 @@ the value to exactly those bytes and decode them back to the value:</p>
   aren't in the model (a <code>head_tail</code> type, <code>TailBytes</code>) are defined there but not listed in the trait.</li>
 <li><code>tests/conformance</code>: the runner. <code>src/derive.rs</code> has the derive's value of every case, <code>src/json.rs</code> turns a
   corpus value into a <code>ValueOwned</code>, <code>src/c.rs</code> writes and runs the C. One test per consumer in
-  <code>tests/matrix.rs</code>, plus <code>corpus</code> (the file is well formed and <code>derive.rs</code> has every case) and <code>report</code> (the
-  matrix page is up to date).</li>
+  <code>tests/matrix.rs</code>, plus <code>corpus</code> (the file is well formed and <code>derive.rs</code> has every case), <code>report</code> (the
+  matrix page is up to date), <code>frozen_bytes</code> (<a href="#frozen-golden-bytes">frozen golden bytes</a>, TEST-24,
+  <code>src/frozen.rs</code>) and <code>coverage</code> (<a href="#coverage-guard">coverage guard</a>, TEST-25, <code>src/coverage.rs</code>).</li>
 <li><code>wire_weaver_py/tests/test_conformance.py</code>: the Python consumer, the same rules.</li>
 </ul>
 <p><code>just test</code> runs all four. A failure names the case, the consumer and what differs, the first differing byte for
@@ -5206,7 +5251,71 @@ an encode:</p>
   <em>by design</em>, or <em>reader only</em> for a C reader without a writer). A consumer that can't run an unmarked case, or
   passes a marked one, fails the test: a gap is never skipped silently, and a fixed one is noticed.</li>
 <li><code>note</code>: what the case checks, when the name doesn't say it all.</li>
+<li><code>wire_change</code> (default none): <code>"EVO-n / reason"</code>, the escape the <a href="#frozen-golden-bytes">frozen golden bytes guard</a>
+  accepts for a deliberate change to this case's <code>bytes</code>, <code>direction</code> or <code>bytes_from</code>.</li>
 </ul>
+<h2 id="frozen-golden-bytes">Frozen golden bytes<a class="headerlink" href="#frozen-golden-bytes" title="Permanent link">&para;</a></h2>
+<p>Once a case's <code>bytes</code> are in, they are the contract: nothing should change them, remove the case, or change its
+<code>direction</code> or <code>bytes_from</code> without everyone noticing. <code>CONFORMANCE=update</code> on its own only refuses to <em>overwrite</em>
+bytes already filled in (<code>corpus::fill_in_bytes</code> skips a case unless <code>to_fill()</code>); a plain text edit, or resetting
+<code>bytes</code> back to <code>"?"</code> and running the update again, bypasses that and re-seals silently.</p>
+<p>The <code>frozen_bytes</code> test (<code>tests/matrix.rs</code>, <code>conformance::frozen</code>, TEST-24) catches this independently: it reads
+<code>tests/conformance/corpus.json</code> as it was at a baseline commit with <code>git show &lt;sha&gt;:tests/conformance/corpus.json</code>,
+and compares every case that existed there against the corpus on disk now. A case whose <code>bytes</code>, <code>direction</code> or
+<code>bytes_from</code> changed, or that disappeared, fails the test by name with the old and new values — so a session
+branch that touches sealed bytes fails <code>just test</code> and the landing gate, which runs on the branch rebased onto
+main.</p>
+<p>The baseline is <code>CONFORMANCE_BASE=&lt;sha&gt;</code> when it names a real commit, otherwise <code>git merge-base HEAD
+origin/master</code>, falling back to local <code>master</code>. The default is right for a pull request or a local run (where
+<code>origin/master</code> still differs from <code>HEAD</code>), but not for CI running on a push to master: there, <code>origin/master</code> is
+already <code>HEAD</code> right after the push, so the merge base would be <code>HEAD</code> itself and the guard would compare the
+corpus with itself, never actually checking the pushed commits. CI's <code>test</code> and <code>coverage</code> jobs set
+<code>CONFORMANCE_BASE</code> to the pushed range's prior commit (<code>github.event.before</code>) on a push, empty otherwise (which
+falls through to the default lookup); <code>github.event.before</code> is an all-zero sentinel when a branch has no prior
+commit (its first push), which the guard treats as nothing to compare against, same as not finding a merge base.</p>
+<p>The baseline corpus is parsed with its own minimal, forward-compatible schema (<code>frozen::LenientCase</code>: <code>name</code>,
+<code>bytes</code>, <code>direction</code>, <code>bytes_from</code>, <code>wire_change</code>, everything else ignored), not the current <code>Case</code> struct used
+for the corpus on disk: a field added, renamed or made required since the baseline commit would otherwise make
+the whole file fail to parse against today's stricter schema, turning this guard off silently right when the
+corpus is being reshaped — exactly when a bytes change could hide in the same commit. A baseline JSON that still
+fails this lenient parse (not JSON at all, or no <code>cases</code> array) isn't a schema difference, it's not a corpus at
+all, so that fails the test loudly instead of being treated as nothing to check.</p>
+<p>It depends only on the repository's own git history, never the network or anything outside the repo: without git,
+without a baseline commit to resolve (a shallow clone with only the branch under test, say, or a <code>CONFORMANCE_BASE</code>
+that doesn't resolve), or without the corpus existing yet at that commit (introducing TEST-24 itself, or the corpus
+as a whole), the test prints why and passes rather than failing a check it can't actually run. CI's <code>test</code> and
+<code>coverage</code> jobs fetch full history (<code>fetch-depth: 0</code>) so the check means something there; a shallower checkout
+elsewhere only loses the check, not correctness.</p>
+<p>A deliberate wire break is still possible: mark the changed case with <code>"wire_change": "EVO-n / reason"</code>, which the
+guard accepts once — only when the mark is new or its text changed since the baseline. A case whose mark is
+unchanged from the baseline is sealed again at its current bytes: reusing the same mark across unrelated later
+edits would otherwise exempt that case from this guard forever instead of for one change, so a second deliberate
+change needs its own new or reworded mark (a fresh <code>EVO-n</code>, or at least different wording). The mark must come
+with the matching <code>EVO-n</code> item in <code>FEATURES.md</code> and a <code>### ⚠️ Breaking</code> entry in the affected crate's
+<code>CHANGELOG.md</code> saying what changed and why — the mark on its own is not a justification, just an acknowledgment
+that the matrix report also shows (a "Wire changes" section, <code>just conformance-update</code> writes it). Once the branch
+carrying the change lands on main, the mark has done its job and the next guard run treats the new bytes as sealed
+again; remove it once that is true (it is harmless to leave, but do not reuse it for a later, unrelated change).</p>
+<h2 id="coverage-guard">Coverage guard<a class="headerlink" href="#coverage-guard" title="Permanent link">&para;</a></h2>
+<p>A corpus can go stale the other way too: a wire feature lands without ever being exercised by a case, or a case
+that used to be the only cover for a feature is deleted. The <code>coverage</code> test (<code>tests/matrix.rs</code>,
+<code>conformance::coverage</code>, TEST-25) checks two things every case collectively must cover:</p>
+<ul>
+<li>Every variant of <code>ww_self::Type</code> (what a case's type resolves to in the API model: <code>Bool</code>, <code>Struct</code>, <code>Option</code>,
+  ...) reachable from some case's type, walking <code>Vec</code>/<code>Array</code>/<code>Option</code>/<code>Result</code>/<code>Box</code>/<code>MaxLen</code>/<code>Series</code>/<code>Tuple</code>
+  and following <code>OutOfLine</code>/<code>Instance</code> into the bundle's own <code>types</code> array (self-referential types are visited
+  once). The walk is an exhaustive match: a new <code>Type</code> variant fails to compile there instead of being silently
+  uncovered.</li>
+<li>Every wire-relevant <code>shrink_wrap_derive</code> directive (<code>final_structure</code>, <code>self_describing</code>, <code>sized</code>, <code>fixed_layout</code>,
+  <code>head_tail</code>, <code>sparse</code>, <code>validate = ..</code>, <code>ww_repr = ..</code>, <code>series</code>, <code>#[series(opaque)]</code>, <code>no_future_version</code>,
+  <code>#[flag]</code>, <code>#[default = ..]</code>) used by some type in <code>tests/conformance_api</code>. Directives that don't change
+  serialized bytes (which Rust type is generated, derives, doc/display, naming) are left out rather than tracked.</li>
+</ul>
+<p>A kind not exercised by any case, and not listed, fails the test by name. A kind that <em>is</em> listed (<code>TYPE_GAPS</code> /
+<code>DIRECTIVE_GAPS</code> in <code>conformance::coverage</code>) needs a reason ending in a <code>FEATURES.md</code> id, same rules as a case's own
+<code>gaps</code>; a listed kind that a new case now exercises also fails, so the mark gets removed once it no longer applies.
+Add the missing case (<code>just conformance-update</code>, checked against <a href="../wire_format/">the wire format</a>) to close a
+gap, or add the kind with its reason if a case isn't possible yet.</p>
 <h2 id="adding-a-case">Adding a case<a class="headerlink" href="#adding-a-case" title="Permanent link">&para;</a></h2>
 <ol>
 <li>If the type is new, add it to <code>tests/conformance_api/src/lib.rs</code> and a property of that type to <code>Conformance</code>.</li>

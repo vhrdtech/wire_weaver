@@ -708,7 +708,8 @@ fn handle_property(
 
     let observe_fns = if let (
         Some(level_chain),
-        PropertyAccess::ReadWrite { observe: true, .. } | PropertyAccess::ReadOnly { observe: true, .. },
+        PropertyAccess::ReadWrite { observe: true, .. }
+        | PropertyAccess::ReadOnly { observe: true, .. },
     ) = (level_chain, access)
     {
         client_observe::property_observe_fn(

@@ -18,13 +18,15 @@
 
 use core::fmt::Debug;
 use wire_weaver::prelude::*;
-use wire_weaver::shrink_wrap::series::{Series, SeriesColumns};
 #[cfg(feature = "std")]
 use wire_weaver::shrink_wrap::series::SeriesOwned;
-#[cfg(feature = "std")]
-use wire_weaver::shrink_wrap::{BufWriterOwned, DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
+use wire_weaver::shrink_wrap::series::{Series, SeriesColumns};
 use wire_weaver::shrink_wrap::{
     BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error, SerializeShrinkWrap,
+};
+#[cfg(feature = "std")]
+use wire_weaver::shrink_wrap::{
+    BufWriterOwned, DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned,
 };
 use ww_si::{Second, Timed};
 
@@ -52,7 +54,10 @@ pub enum ObserveMode {
     /// are at most `max_age_us` old (API-39): the host's choice of latency against overhead. Only properties
     /// declared `+observe+batched` take it ([ObserveRefusal::ModeNotSupported] otherwise); their samples come in
     /// [Batched::Series] slots.
-    Samples { every_us: UNib32, max_age_us: UNib32 },
+    Samples {
+        every_us: UNib32,
+        max_age_us: UNib32,
+    },
 }
 
 /// One property of a level and how it is (to be) observed.
@@ -305,7 +310,9 @@ where
             BATCHED_ONE => Ok(BatchedOwned::One(rd.read_owned()?)),
             BATCHED_SERIES => {
                 rd.align_byte();
-                Ok(BatchedOwned::Series(SeriesOwned::des_shrink_wrap_owned(rd)?))
+                Ok(BatchedOwned::Series(SeriesOwned::des_shrink_wrap_owned(
+                    rd,
+                )?))
             }
             _ => Err(Error::EnumFutureVersionOrMalformedData),
         }
@@ -523,7 +530,10 @@ mod tests {
             .unwrap()
             .to_vec();
         let mut again = [0u8; 128];
-        assert_eq!(BatchedOne(&7u32).to_ww_bytes(&mut again).unwrap(), Batched::One(7u32).to_ww_bytes(&mut buf).unwrap());
+        assert_eq!(
+            BatchedOne(&7u32).to_ww_bytes(&mut again).unwrap(),
+            Batched::One(7u32).to_ww_bytes(&mut buf).unwrap()
+        );
         let series = Series::new(&items).to_ww_bytes(&mut buf).unwrap().to_vec();
         assert_eq!(BatchedRaw(&series).to_ww_bytes(&mut again).unwrap(), raw);
         // the tag nibble and its padding: one byte before the series
@@ -540,7 +550,10 @@ mod tests {
     #[test]
     fn batched_samples_and_times() {
         let t = Second::micro(5u32);
-        assert_eq!(BatchedOwned::One(3u32).into_samples(Some(t)), vec![(3, Some(t))]);
+        assert_eq!(
+            BatchedOwned::One(3u32).into_samples(Some(t)),
+            vec![(3, Some(t))]
+        );
         let mut batch = BatchedOwned::Series(samples().into());
         assert_eq!(batch.times_mut().count(), 10);
         for t in batch.times_mut() {

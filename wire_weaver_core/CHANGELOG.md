@@ -2,6 +2,18 @@
 
 ### ⚠️ Breaking
 
+- Batched observe on the server (API-39): an API with `+observe+batched` properties gets `ObserveState<B =
+  ObserveBatches>` (`new(limits, batches)`, one `Outbox` per level with such properties), `ObserveBatches`
+  (`new(policy)`, `split()` into `ObserveSamplers` and `ObserveBatchConsumers` for samplers in an interrupt or
+  another thread, `samplers()` to sample from the polling task), a `<Level>Sampler` per level
+  (`sample(t, <Trait>Samples { .. })`, O(1), `is_sampling()`), the `ObserveBatchSource` trait, and
+  `OBSERVE_BATCH` / `OBSERVE_OUTBOX` (codegen arguments `observe_batch = N`, default 32, and `observe_outbox =
+  N`, default 4096). `poll_properties` of such an API takes a `scratch: &mut ww_stream::batch::Scratch<SB>`: it
+  encodes sealed batches into the outboxes, then sends updates while batches wait (up to
+  `MAX_UPDATES_PER_POLL` per level), with no head `t` when an update carries only batches. Batched slots of the
+  `<Trait>Update` types are `Batched<'i, T>` (`BatchedOwned<T>`). The scaffold writes `observe_batch` and says how
+  to build the state. APIs without `+batched` properties keep their code.
+
 - `property!(ro+observe+batched ..)` / `rw+observe+batched` (API-39): `+batched` after `+observe` (alone it is a
   parse error saying so) sets ww_self's `PropertyAccess::{ReadOnly, ReadWrite}::batched`, so API hashes change.
 - Introspection data changes (API-46): each struct and enum carries its module path (ww_self `ItemStruct::path`),

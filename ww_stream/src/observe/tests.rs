@@ -522,7 +522,14 @@ fn samples_mode_validated_and_clamped() {
     );
     assert_eq!(granted(&t, &DESC_B), [entry(3, samples(0, 1_000))]);
     assert_eq!(t.samples(1), Some((0, 1_000)));
-    apply(&mut t, &DESC_B, &[entry(3, samples(u32::MAX, u32::MAX))], false, None).unwrap();
+    apply(
+        &mut t,
+        &DESC_B,
+        &[entry(3, samples(u32::MAX, u32::MAX))],
+        false,
+        None,
+    )
+    .unwrap();
     assert_eq!(t.samples(1), Some((u32::MAX, 1_000_000)));
     // the same mode on a level without batched properties
     let mut t = ObserveTable::<3>::new();
@@ -589,7 +596,10 @@ fn gate_takes_all_none_or_a_grid() {
         .map(|i| start.wrapping_add(i * 40))
         .filter(|us| cursor.take(&gate, &t(*us)))
         .collect();
-    assert_eq!(taken, [start, start.wrapping_add(120), start.wrapping_add(200)]);
+    assert_eq!(
+        taken,
+        [start, start.wrapping_add(120), start.wrapping_add(200)]
+    );
     // a sampler that fell far behind starts its grid over at the next sample
     assert!(cursor.take(&gate, &t(1_000_000)));
     assert!(!cursor.take(&gate, &t(1_000_050)));

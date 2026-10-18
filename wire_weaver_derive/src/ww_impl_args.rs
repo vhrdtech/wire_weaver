@@ -49,6 +49,14 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) medium: String,
 
+    /// Samples per batch of a `+batched` property observed in `Samples` mode (API-39), 0: the default.
+    #[darling(default)]
+    pub(crate) observe_batch: usize,
+
+    /// Bytes of the outbox of each trait level with `+batched` properties (API-39), 0: the default.
+    #[darling(default)]
+    pub(crate) observe_outbox: usize,
+
     /// `omit = ["a.b", ..]` and `omit_if(<cfg>) = [..]`, parsed before darling (`omit_if(..) = ..` is not a `Meta`).
     #[darling(skip)]
     pub(crate) omit: Vec<Omit>,

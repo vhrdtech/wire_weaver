@@ -63,8 +63,9 @@ pub fn gen_server_scaffold(
 
     let omit: Vec<Omit> = config.omit.iter().map(Omit::always).collect();
     let omissions = Omissions::resolve(api_bundle, &omit).map_err(|e| anyhow!(e))?;
-    let observe =
-        super::observe::Observe::collect(api_bundle, &omissions, &property_model).is_enabled();
+    let observed = super::observe::Observe::collect(api_bundle, &omissions, &property_model);
+    let observe = observed.is_enabled();
+    let observe_batched = observed.has_batched();
 
     let root = &api_bundle.root;
     let crate_name = root.crate_name(api_bundle)?.replace('-', "_");
@@ -110,12 +111,23 @@ pub fn gen_server_scaffold(
         )?;
     }
 
-    if observe {
+    if observe_batched {
+        writeln!(
+            s.fields,
+            "/// Observed properties (SRV-18): what hosts observe and when it is due, see `poll_properties`;
+             /// `ObserveState::new(limits, api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY))`, take
+             /// samples of `+batched` properties with `observe.samplers().<level>.sample(t, ..)` (or `split()` the
+             /// batches for an interrupt) (API-39)
+             pub observe: api_impl::ObserveState,"
+        )?;
+    } else if observe {
         writeln!(
             s.fields,
             "/// Observed properties (SRV-18): what hosts observe and when it is due, see `poll_properties`
              pub observe: api_impl::ObserveState,"
         )?;
+    }
+    if observe {
         writeln!(
             s.handlers,
             "/// Settings and send state of observed properties, for `Observe` requests and `poll_properties`.\n\
@@ -139,6 +151,12 @@ pub fn gen_server_scaffold(
         String::new()
     } else {
         format!("const_model = {:?},\n", config.const_model)
+    };
+    // samples per batch of `+batched` properties: the device's choice
+    let observe_batch = if observe_batched {
+        format!("observe_batch = {DEFAULT_BATCH},\n")
+    } else {
+        String::new()
     };
     let trait_name = &root.trait_name;
     let mut out = String::new();
@@ -166,7 +184,7 @@ pub fn gen_server_scaffold(
          server = true, no_alloc = {}, use_async = {},\n\
          method_model = {method_model_str:?},\n\
          property_model = {property_model_str:?},\n\
-         {const_model}{omit}{medium});\n\
+         {const_model}{omit}{medium}{observe_batch});\n\
          }}",
         config.no_alloc, config.use_async
     )?;
@@ -718,4 +736,4 @@ fn doc_line(line: &str) -> String {
 
 /// Items per batch the scaffold writes into a batched stream's state, `ww_stream::batch::DEFAULT_BATCH` (this crate
 /// doesn't depend on `ww_stream`).
-const DEFAULT_BATCH: usize = 32;
+pub(crate) const DEFAULT_BATCH: usize = 32;

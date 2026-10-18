@@ -47,6 +47,11 @@ pub struct GenServerConfig {
     pub medium: Option<String>,
     /// `#[optional]` items to leave out (API-16): no dispatch arm, no handler, a call answers `Unimplemented`.
     pub omit: Vec<Omit>,
+    /// Samples per batch of each `+batched` property (API-39), `observe_batch = N`; None:
+    /// `ww_stream::batch::DEFAULT_BATCH` (32).
+    pub observe_batch: Option<usize>,
+    /// Bytes of the outbox of each trait level with `+batched` properties, `observe_outbox = N`; None: 4096.
+    pub observe_outbox: Option<usize>,
 }
 
 pub enum IntrospectMode {
@@ -82,6 +87,11 @@ pub struct GenServerConfigRaw {
     pub medium: Option<Path>,
     /// `#[optional]` items to leave out (API-16): no dispatch arm, no handler, a call answers `Unimplemented`.
     pub omit: Vec<Omit>,
+    /// Samples per batch of each `+batched` property (API-39), `observe_batch = N`; None:
+    /// `ww_stream::batch::DEFAULT_BATCH` (32).
+    pub observe_batch: Option<usize>,
+    /// Bytes of the outbox of each trait level with `+batched` properties, `observe_outbox = N`; None: 4096.
+    pub observe_outbox: Option<usize>,
 }
 
 impl From<GenServerConfig> for GenServerConfigRaw {
@@ -97,6 +107,8 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             multi_req: config.multi_req,
             medium: config.medium.as_deref().map(super::util::str_to_path),
             omit: config.omit,
+            observe_batch: config.observe_batch,
+            observe_outbox: config.observe_outbox,
         }
     }
 }
@@ -208,7 +220,12 @@ pub fn gen_server(
         );
     }
     let poll_streams = poll_streams(api_bundle, cx.use_async);
-    let observe_items = observe.items(api_bundle, config.no_alloc);
+    let observe_items = observe.items(
+        api_bundle,
+        config.no_alloc,
+        config.observe_batch,
+        config.observe_outbox,
+    );
     let observe_methods = observe.methods(api_bundle, cx.use_async, &medium_ty, &mut error_seq);
     let observe_arm = maybe_quote_cl(observe.is_enabled(), || {
         quote! {

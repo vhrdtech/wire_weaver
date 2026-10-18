@@ -86,10 +86,7 @@ impl ObserveLimits {
         max_level_budget: 20_000,
         total_budget: 50_000,
         timestamps: false,
-        samples_max_age_us: (
-            crate::batch::MIN_MAX_AGE_US,
-            crate::batch::MAX_MAX_AGE_US,
-        ),
+        samples_max_age_us: (crate::batch::MIN_MAX_AGE_US, crate::batch::MAX_MAX_AGE_US),
     };
 }
 
@@ -735,6 +732,32 @@ pub fn batch_budget<const N: usize>(
         .saturating_add(overhead)
         .saturating_sub(fixed)
         .min(outbox_room)
+}
+
+/// Most updates of one level a call of `poll_properties` sends while batches of samples wait (API-39); the rest
+/// waits for the next call.
+pub const MAX_UPDATES_PER_POLL: usize = 32;
+
+/// The device time of samples, re-exported for generated code.
+pub use ww_si::Second;
+
+/// [event_overhead] of the level at `path` with the longest `t` and `missed` an update can have: what
+/// [batch_budget] is worked out from, before the update's own head is known.
+pub fn batch_overhead(buf: &mut [u8], path: &[UNib32]) -> Result<usize, ShrinkWrapError> {
+    let t = ww_si::Second::from_parts(
+        ww_si::Prefix::Micro,
+        ww_si::ww_numeric::NumericValue::U32(u32::MAX),
+    );
+    event_overhead(buf, path, Some(t), Some(UNib32(u32::MAX)))
+}
+
+/// Upper bound of the bytes a `Batched::One` of a `T` takes in an update, when `T` has one: the tag, the value,
+/// the slot's length.
+pub const fn max_batched_one_len<T: SerializeShrinkWrap>() -> Option<usize> {
+    match max_write_len::<T>() {
+        Some(len) => Some(len + 1 + LEN_SLOT),
+        None => None,
+    }
 }
 
 /// Bytes an encoded batch of `len` bytes takes as a slot of an update: the `Batched` tag and padding, the length.

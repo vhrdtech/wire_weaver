@@ -825,7 +825,10 @@ mod tests {
         ));
         let err = access_of("ro+batched i_a: Ampere").unwrap_err();
         assert!(err.contains("needs +observe first"), "{err}");
-        for twice in ["ro+observe+batched+batched x: u8", "ro+observe+observe x: u8"] {
+        for twice in [
+            "ro+observe+batched+batched x: u8",
+            "ro+observe+observe x: u8",
+        ] {
             let err = access_of(twice).unwrap_err();
             assert!(err.contains("expected +observe"), "{err}");
         }

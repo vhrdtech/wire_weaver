@@ -11,6 +11,7 @@ use crate::cmd::list::ListArgs;
 use crate::cmd::observe::ObserveArgs;
 use crate::cmd::settings::SettingsCommand;
 use crate::cmd::stream::StreamArgs;
+use crate::cmd::tap::{CaptureArgs, MonitorArgs, StatsArgs};
 use crate::complete;
 use crate::device::DeviceArgs;
 use clap::{Args, Parser, Subcommand};
@@ -73,6 +74,7 @@ pub(crate) enum Commands {
     ///   ww explain --crate api Config 0a1b2c
     ///   ww explain motor.set_speed 4a00
     ///   ww explain --bundle api.ron motor.status --return 01 80 3f
+    ///   ww explain link.wwlb --layer api      a capture (ww capture), replies explained by their request
     #[command(verbatim_doc_comment)]
     Explain(ExplainArgs),
 
@@ -86,6 +88,36 @@ pub(crate) enum Commands {
     /// Prints one item per line (`--batches`: whole batches of a batched stream instead), until Ctrl+C. A stream
     /// function with arguments isn't supported yet.
     Stream(StreamArgs),
+
+    /// What crosses the link, as it happens: frames, link messages or API calls, decoded (TOOL-14)
+    ///
+    /// Shows this command's own connection to the device, from the link setup on, until Ctrl+C. Examples:
+    ///
+    ///   ww monitor                    every link message and link event
+    ///   ww monitor --layer frame      every USB packet with its pieces, and the messages built from them
+    ///   ww monitor --layer api        requests with their arguments, replies paired with their request
+    ///   ww monitor --layer api --bits each message with its bit map, as `ww explain` shows one
+    #[command(verbatim_doc_comment)]
+    Monitor(MonitorArgs),
+
+    /// Framer and link statistics: frame fill, overhead, split messages, losses, reply times per method (TOOL-14)
+    ///
+    /// Printed every --every seconds for the time since the last print, until Ctrl+C; or of a capture. Examples:
+    ///
+    ///   ww stats --every 5
+    ///   ww stats --file link.wwlb
+    #[command(verbatim_doc_comment)]
+    Stats(StatsArgs),
+
+    /// Save what crosses the link into a file, to read later with `ww explain FILE` (TOOL-14)
+    ///
+    /// The file carries the device's API, so it is explained without the device. Until Ctrl+C. Examples:
+    ///
+    ///   ww capture -o link.wwlb
+    ///   ww capture -o link.wwlb --duration 10 --layer link
+    ///   ww explain link.wwlb --layer api
+    #[command(verbatim_doc_comment)]
+    Capture(CaptureArgs),
 
     /// Firmware update steps (ww_dfu), on any device whatever its API version
     #[command(subcommand)]
@@ -205,6 +237,8 @@ impl Cli {
             Commands::Explain(args) => args.need_device(),
             Commands::Observe(_) => true,
             Commands::Stream(_) => true,
+            Commands::Monitor(_) | Commands::Capture(_) => true,
+            Commands::Stats(args) => args.file.is_none(),
             Commands::Config(_) => false,
             Commands::Bootsel(_) => false,
             Commands::Dfu(_) => true,

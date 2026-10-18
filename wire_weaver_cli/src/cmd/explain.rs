@@ -3,6 +3,7 @@
 //! a value can be given as a Rust expression (`--value`), or the whole call (`motor.set_speed(1.5)`), read by
 //! `ww_self::expr` and encoded first.
 
+use crate::cmd::tap::ViewArgs;
 use crate::util::{display_path, resolve};
 use crate::value_fmt::fmt_value;
 use anyhow::{Context, Result, anyhow, bail};
@@ -20,7 +21,9 @@ use wire_weaver_client::{DynClient, DynResource, DynResourceKind};
 pub(crate) struct ExplainArgs {
     /// A type (`Config`), or a resource path: a method's arguments (`motor.set_speed`, `--return` for its return
     /// value), a property's value, a stream's item. Without bytes: a call (`'motor.set_speed(1.5, Dir::Cw)'`) or a
-    /// property write (`'motor.limit = 3'`) as a Rust expression. `request` or `event`: a whole message as sent
+    /// property write (`'motor.limit = 3'`) as a Rust expression. `request` or `event`: a whole message as sent. A
+    /// capture file (`ww capture -o FILE`): everything in it, as `ww monitor` showed it
+    #[arg(value_hint = clap::ValueHint::AnyPath)]
     what: String,
 
     /// The bytes, in hex: `0a1b2c`, `0a 1b 2c` or `0x0a,0x1b`
@@ -57,16 +60,31 @@ pub(crate) struct ExplainArgs {
     /// Take the API from a saved bundle (`.ron`, see `ww api save`) instead of a device
     #[arg(long)]
     bundle: Option<PathBuf>,
+
+    /// How a capture file is shown
+    #[command(flatten)]
+    view: ViewArgs,
 }
 
 impl ExplainArgs {
     /// Without `--crate` or `--bundle` the API comes from the device's introspection.
     pub(crate) fn need_device(&self) -> bool {
-        self.crate_path.is_none() && self.bundle.is_none()
+        self.crate_path.is_none() && self.bundle.is_none() && !self.is_capture()
+    }
+
+    /// WHAT is a capture file, and nothing else is given: it carries its APIs.
+    fn is_capture(&self) -> bool {
+        self.hex.is_empty()
+            && self.file.is_none()
+            && self.value.is_none()
+            && crate::cmd::tap::is_capture(&self.what)
     }
 }
 
 pub(crate) fn explain_cmd(args: ExplainArgs, device: Option<&DynClient>) -> Result<()> {
+    if args.is_capture() {
+        return crate::cmd::tap::explain_file(std::path::Path::new(&args.what), args.view);
+    }
     let mut bundle = load_bundle(&args, device)?;
     wire_weaver_client::ww_self::generics::prepare(&mut bundle)?;
     let bundle = Arc::new(bundle);
@@ -293,7 +311,12 @@ fn parse_hex(text: &str) -> Result<Vec<u8>> {
 /// Colours the top-level parts take in turn, in the byte map and the table.
 const PALETTE: [u8; 6] = [33, 172, 35, 170, 38, 167];
 
-fn render(title: &str, bytes: &[u8], explained: &Explained, bundle: &ApiBundleOwned) -> String {
+pub(crate) fn render(
+    title: &str,
+    bytes: &[u8],
+    explained: &Explained,
+    bundle: &ApiBundleOwned,
+) -> String {
     let parts = &explained.parts;
     // the field each bit belongs to (the part at the lowest depth below the top), for the colours
     let top = parts.iter().map(|p| p.depth).min().unwrap_or(0);

@@ -43,7 +43,10 @@ pub enum FileError {
         skipped: u64,
     },
     /// The file ends inside a block (a writer stopped mid-way): `len` bytes from `offset` on are left out.
-    Truncated { offset: u64, len: u64 },
+    Truncated {
+        offset: u64,
+        len: u64,
+    },
 }
 
 impl core::fmt::Display for FileError {
@@ -153,6 +156,17 @@ impl<R: Read> FileBlocks<R> {
             Err(e) => e,
         };
         Some(Err(self.resync(error)))
+    }
+
+    /// The next good block, None at the end; a damaged block is handed to `on_error` and skipped.
+    pub fn next_good(&mut self, mut on_error: impl FnMut(FileError)) -> Option<Block<'_>> {
+        loop {
+            match self.next_block()? {
+                Ok(_) => break,
+                Err(e) => on_error(e),
+            }
+        }
+        Some(Block::read(&self.buf[..self.current]).expect("just read"))
     }
 
     fn truncated(&mut self) -> FileError {

@@ -180,8 +180,50 @@ impl<S: TestProcessEventsAsync> Process for AsyncServer<S> {
     }
 }
 
+/// Same as [start_device], over simulated USB (`in_process::usb_device`): messages are packed into packets of at most
+/// `packet_size` bytes by the real framers on both ends, as over a USB bulk endpoint, so a link tap sees frames.
+pub fn start_device_usb<S: TestProcessEvents<Medium = ()> + Send + 'static>(
+    path: &str,
+    packet_size: usize,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+) -> TestDevice {
+    start_on(
+        path,
+        Media::Usb(packet_size),
+        SyncServer(server),
+        version,
+        api_hash,
+        (),
+    )
+}
+
+/// How the device is connected to the host.
+#[derive(Copy, Clone)]
+enum Media {
+    /// Whole messages.
+    Messages,
+    /// Simulated USB packets of at most this many bytes.
+    Usb(usize),
+}
+
+/// Largest simulated USB packet [start_device_usb] supports.
+const MAX_USB_PACKET: usize = 512;
+
 fn start<S: Process + Send + 'static>(
     path: &str,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+    medium: S::Medium,
+) -> TestDevice {
+    start_on(path, Media::Messages, server, version, api_hash, medium)
+}
+
+fn start_on<S: Process + Send + 'static>(
+    path: &str,
+    media: Media,
     server: S,
     version: FullVersion<'static>,
     api_hash: ApiHashPair<'static>,
@@ -191,59 +233,89 @@ fn start<S: Process + Send + 'static>(
     wire_weaver_client::set_strict_error_lists(true);
     let drop_requests = Arc::new(AtomicBool::new(false));
     let filter = Arc::new(Mutex::new(None));
-    let (to_device, mut from_test) = mpsc::unbounded_channel::<Vec<u8>>();
-    let (tx, rx) = in_process::device(path, MAX_MESSAGE_LEN);
-    let mut backend = TestBackend {
+    let (to_device, from_test) = mpsc::unbounded_channel::<Vec<u8>>();
+    let backend = TestBackend {
         server,
         drop_requests: drop_requests.clone(),
         filter: filter.clone(),
         version,
     };
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        rt.block_on(async move {
-            let mut scratch = [0u8; MAX_MESSAGE_LEN];
-            let mut event_scratch = [0u8; MAX_MESSAGE_LEN];
-            let config =
-                ww_device::LinkConfig::new(version, api_hash, ww_client_server::COMPACT_VERSION);
-            let mut server = ww_device::Server::new(
-                config,
-                tx,
-                rx,
-                TokioClock::new(),
-                &mut scratch,
-                &mut event_scratch,
-            )
-            .with_medium(medium);
-            let started = std::time::Instant::now();
-            let mut tick = tokio::time::interval(std::time::Duration::from_millis(1));
-            loop {
-                tokio::select! {
-                    ready = server.wait() => {
-                        _ = server.handle(ready, &mut backend).await;
-                    }
-                    _ = tick.tick() => {
-                        if server.is_up() {
-                            let now_ms = started.elapsed().as_millis() as u64;
-                            backend.server.poll(&mut server.sink(), now_ms).await;
-                        }
-                    }
-                    event = from_test.recv() => match event {
-                        Some(event) => server.send(&event).await.expect("send event to host"),
-                        None => break, // TestDevice dropped
-                    }
-                }
-            }
-        });
-    });
+    let config = ww_device::LinkConfig::new(version, api_hash, ww_client_server::COMPACT_VERSION);
+    match media {
+        Media::Messages => {
+            let (tx, rx) = in_process::device(path, MAX_MESSAGE_LEN);
+            std::thread::spawn(move || {
+                block_on(serve(config, tx, rx, backend, medium, from_test));
+            });
+        }
+        Media::Usb(packet) => {
+            assert!(packet <= MAX_USB_PACKET, "packets up to {MAX_USB_PACKET} B");
+            let (sink, source) = in_process::usb_device(path, packet);
+            std::thread::spawn(move || {
+                block_on(async move {
+                    let mut tx_frame = [0u8; MAX_USB_PACKET];
+                    let mut rx_buf = ww_device::RxBuffer::<MAX_USB_PACKET, MAX_MESSAGE_LEN>::new();
+                    let tx = ww_device::FramedTx::new(sink, &mut tx_frame[..packet]);
+                    let rx = ww_device::FramedRx::new(source, rx_buf.assembly_buf(packet));
+                    serve(config, tx, rx, backend, medium, from_test).await
+                })
+            });
+        }
+    }
     TestDevice {
         path: path.to_string(),
         drop_requests,
         filter,
         to_device,
+    }
+}
+
+fn block_on(f: impl Future<Output = ()>) {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(f)
+}
+
+/// The device's event loop, until the [TestDevice] is dropped.
+async fn serve<S: Process>(
+    config: ww_device::LinkConfig<'static>,
+    tx: impl ww_device::MessageTx,
+    rx: impl ww_device::MessageRx,
+    mut backend: TestBackend<S>,
+    medium: S::Medium,
+    mut from_test: mpsc::UnboundedReceiver<Vec<u8>>,
+) {
+    let mut scratch = [0u8; MAX_MESSAGE_LEN];
+    let mut event_scratch = [0u8; MAX_MESSAGE_LEN];
+    let mut server = ww_device::Server::new(
+        config,
+        tx,
+        rx,
+        TokioClock::new(),
+        &mut scratch,
+        &mut event_scratch,
+    )
+    .with_medium(medium);
+    let started = std::time::Instant::now();
+    let mut tick = tokio::time::interval(std::time::Duration::from_millis(1));
+    loop {
+        tokio::select! {
+            ready = server.wait() => {
+                _ = server.handle(ready, &mut backend).await;
+            }
+            _ = tick.tick() => {
+                if server.is_up() {
+                    let now_ms = started.elapsed().as_millis() as u64;
+                    backend.server.poll(&mut server.sink(), now_ms).await;
+                }
+            }
+            event = from_test.recv() => match event {
+                Some(event) => server.send(&event).await.expect("send event to host"),
+                None => break, // TestDevice dropped
+            }
+        }
     }
 }
 

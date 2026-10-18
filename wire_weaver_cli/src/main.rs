@@ -1,5 +1,6 @@
 use crate::cli::{Cli, Commands};
 use crate::cmd::config::ConfigCommand;
+use crate::cmd::tap::{Layer, LiveTap};
 use crate::device::Selection;
 use anyhow::{Context, Result};
 use clap::{CommandFactory, FromArgMatches};
@@ -31,7 +32,10 @@ async fn run() -> Result<()> {
         Commands::Introspect(_)
         | Commands::Explain(_)
         | Commands::Observe(_)
-        | Commands::Stream(_) => tracing::Level::WARN,
+        | Commands::Stream(_)
+        | Commands::Monitor(_)
+        | Commands::Stats(_)
+        | Commands::Capture(_) => tracing::Level::WARN,
         _ => tracing::Level::INFO,
     };
     tracing_subscriber::fmt().with_max_level(max_level).init();
@@ -43,12 +47,25 @@ async fn run() -> Result<()> {
         _ if cli.need_device() => Some(Selection::resolve(&matches, false)?),
         _ => None,
     };
+    // the tap commands record the connection from its start: the recorder is subscribed to before connecting
+    let tap = match &cli.command {
+        Commands::Monitor(args) => Some(LiveTap::new(args.layer())),
+        Commands::Stats(args) if args.file.is_none() => Some(LiveTap::new(Layer::Frame)),
+        Commands::Capture(args) => Some(LiveTap::new(args.layer())),
+        _ => None,
+    };
     let mut device = match &selection {
         Some(selection) if cli.need_device() => Some(
-            DynClient::from_config(if cli.traits_only() {
-                selection.client_config().traits_only()
-            } else {
-                selection.client_config()
+            DynClient::from_config({
+                let config = if cli.traits_only() {
+                    selection.client_config().traits_only()
+                } else {
+                    selection.client_config()
+                };
+                match &tap {
+                    Some(tap) => config.tap(tap.recorder.clone()),
+                    None => config,
+                }
             })
             .connect()
             .await
@@ -83,6 +100,22 @@ async fn run() -> Result<()> {
         Commands::Explain(args) => cmd::explain::explain_cmd(args, device.as_ref())?,
         Commands::Observe(args) => cmd::observe::observe(args, device.as_ref().unwrap()).await?,
         Commands::Stream(args) => cmd::stream::stream(args, device.as_ref().unwrap()).await?,
+        // these disconnect themselves, so the recording ends with the disconnect
+        Commands::Monitor(args) => {
+            let (device, tap) = (device.take().unwrap(), tap.unwrap());
+            cmd::tap::monitor(args, device, tap).await?
+        }
+        Commands::Stats(args) => match &args.file {
+            Some(path) => cmd::tap::stats_file(path)?,
+            None => {
+                let (device, tap) = (device.take().unwrap(), tap.unwrap());
+                cmd::tap::stats(args, device, tap).await?
+            }
+        },
+        Commands::Capture(args) => {
+            let (device, tap) = (device.take().unwrap(), tap.unwrap());
+            cmd::tap::capture(args, device, tap).await?
+        }
         Commands::Dfu(dfu_cmd) => {
             let resets_device = dfu_cmd.resets_device();
             cmd::dfu::dfu(dfu_cmd, device.as_ref().unwrap()).await?;

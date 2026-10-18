@@ -27,7 +27,7 @@ semver.workspace = true
 serde_json.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
 syn.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync"] }
 toml = "1"
 toml_edit = "0.25"
 tracing = "0.1"
@@ -42,3 +42,9 @@ ww_numeric.workspace = true
 ww_report.workspace = true
 ww_settings = { workspace = true, features = ["dump"] }
 ww_si = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tap_api.workspace = true
+tests_common.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process"] }
+ww_client_server.workspace = true

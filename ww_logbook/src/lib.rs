@@ -35,9 +35,9 @@
 
 use shrink_wrap::prelude::*;
 
-pub use ww_version::{FullVersion, Version};
 #[cfg(feature = "std")]
 pub use ww_version::FullVersionOwned;
+pub use ww_version::{FullVersion, Version};
 
 mod varint;
 pub use varint::{ivar_len, uvar_len};
@@ -135,7 +135,10 @@ pub const FNV_OFFSET: u64 = 0xcbf29ce484222325;
 /// Names an API across its minor versions: FNV-1a of the crate name and the major version (u32 LE), as logring's
 /// `api_root_id`.
 pub const fn api_root_id(crate_name: &str, major: u32) -> u64 {
-    fnv1a(fnv1a(FNV_OFFSET, crate_name.as_bytes()), &major.to_le_bytes())
+    fnv1a(
+        fnv1a(FNV_OFFSET, crate_name.as_bytes()),
+        &major.to_le_bytes(),
+    )
 }
 
 /// Stable key of a track: FNV-1a of `api_root` (u64 LE), then of every path id (u32 LE), as logring's track key.
@@ -294,7 +297,9 @@ impl BlockState {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BlockError {
     /// Fewer bytes than the header or its length says.
-    Short { needed: usize },
+    Short {
+        needed: usize,
+    },
     BadMagic,
     /// A version this reader doesn't know.
     Version(u8),

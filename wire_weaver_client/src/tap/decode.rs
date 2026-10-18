@@ -173,6 +173,8 @@ struct LinkState {
     device: Option<DeviceInfoOwned>,
     root: Option<DynResource>,
     root_tried: bool,
+    /// The session came from a describe block, its record may still follow
+    described: bool,
     tx: DirState,
     rx: DirState,
     requests: HashMap<u32, RequestSent>,
@@ -241,6 +243,11 @@ impl Decoder {
         self.bundles.iter().map(|(h, b)| (h.as_slice(), b))
     }
 
+    /// The device API of a link, once its bundle was found (by its first data message after the bundle came).
+    pub fn link_api(&self, link: u32) -> Option<&DynResource> {
+        self.links.get(&link)?.root.as_ref()
+    }
+
     /// Decode a block; what it gives is taken with [Decoder::next].
     pub fn feed(&mut self, block: &Block<'_>) {
         self.stats.blocks += 1;
@@ -276,6 +283,7 @@ impl Decoder {
                     && self.links.get(&link).and_then(|l| l.session.as_ref()) != Some(&s)
                 {
                     self.session(link, r.t, s);
+                    self.links.entry(link).or_default().described = true;
                 }
                 continue;
             }
@@ -313,6 +321,7 @@ impl Decoder {
                     && ww_self::generics::prepare(&mut b).is_ok()
                 {
                     self.bundles.insert(hash, Arc::new(b));
+                    self.retry_roots();
                 }
             }
             _ => {}
@@ -323,6 +332,16 @@ impl Decoder {
     pub fn add_bundle(&mut self, hash: &[u8], mut bundle: ApiBundleOwned) {
         if ww_self::generics::prepare(&mut bundle).is_ok() {
             self.bundles.insert(hash.to_vec(), Arc::new(bundle));
+            self.retry_roots();
+        }
+    }
+
+    /// A new bundle may be the one a link didn't find before: look again at its next data message.
+    fn retry_roots(&mut self) {
+        for l in self.links.values_mut() {
+            if l.root.is_none() {
+                l.root_tried = false;
+            }
         }
     }
 
@@ -359,6 +378,11 @@ impl Decoder {
         match stream {
             ids::SESSION => {
                 if let Ok(s) = SessionOwned::from_ww_bytes_owned(item) {
+                    let l = self.links.entry(link).or_default();
+                    // a new link's describe block already gave its first session
+                    if std::mem::take(&mut l.described) && l.session.as_ref() == Some(&s) {
+                        return;
+                    }
                     self.session(link, t, s);
                 }
             }

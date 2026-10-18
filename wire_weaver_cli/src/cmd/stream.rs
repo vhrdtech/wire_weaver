@@ -16,7 +16,7 @@ use wire_weaver_client::{
 
 #[derive(Args)]
 pub(crate) struct StreamArgs {
-    /// Path to a stream, e.g. "motor.position" or "bank[0].samples"
+    /// Path to a stream, e.g. "motor.position" or "bank\[0\].samples"
     path: String,
 
     /// Print whole batches (API-41's batched streams) instead of one item per line

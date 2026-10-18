@@ -196,10 +196,10 @@ impl SeriesColumn {
         }
     }
 
-    /// The columns [DecodedSeries::read] would give for `items` (all of type `item_ty`), built straight from
+    /// The columns `DecodedSeries::read` would give for `items` (all of type `item_ty`), built straight from
     /// already-decoded values instead of `Series` bytes: for code that has items, not a `Series` to read (a
     /// batched stream's items, API-41, already unwrapped one by one by [crate::ValueOwned::des_shrink_wrap_dyn]
-    /// through `DynBatching::decode`). No [Budget]: there is no untrusted data to bound, and every item already
+    /// through `DynBatching::decode`). No `Budget`: there is no untrusted data to bound, and every item already
     /// decoded successfully under `item_ty`, so every field a non-flag [FieldOwned] names is there (an older
     /// writer's missing trailing field was already filled with its default by that decode).
     pub fn from_items(

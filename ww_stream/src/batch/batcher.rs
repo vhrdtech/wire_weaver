@@ -1,7 +1,9 @@
 //! [Batcher]: the two stores, and the hand-off between its [Producer] and its [Consumer].
 
+use super::level::{Columns, LevelRow, RowsEncoded};
 use super::{BatchStats, Cause, DefaultPolicy, EncodeError, Encoded, Scratch, Seal};
 use core::cell::UnsafeCell;
+use core::ops::Range;
 use portable_atomic::{AtomicU32, Ordering};
 use wire_weaver::shrink_wrap::series::{
     SERIES_MAX_ITEMS, Series, SeriesColumns, SeriesPolicy, SeriesStore, bound,
@@ -101,6 +103,8 @@ unsafe impl<T: SeriesStore, const N: usize, P: Send> Sync for Batcher<T, N, P> w
 struct ConsumerState<P> {
     policy: P,
     budget: usize,
+    /// Worst case of a batch the limit is worked out from
+    bound: Bound,
     /// Limit of the worst case at the budget
     fresh_limit: usize,
     /// (items, bytes) of the last batch encoded whole
@@ -123,6 +127,15 @@ struct Taken {
     bytes: usize,
 }
 
+/// Worst case of an encoded batch (see [LevelRow]), in bits: `fixed` per batch plus `item` per item, and the item
+/// count of each of `series` separate `Series` (one for a `Series<T>`, one per column of a [LevelRow]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Bound {
+    pub fixed: usize,
+    pub item: usize,
+    pub series: usize,
+}
+
 /// The pushing half of a [Batcher], see [Batcher::split]. One per batcher; `push` takes `&mut self`.
 pub struct Producer<'a, T: SeriesStore, const N: usize, P = DefaultPolicy>(&'a Batcher<T, N, P>);
 
@@ -140,28 +153,15 @@ pub struct Polled {
 
 impl<T, const N: usize, P> Batcher<T, N, P>
 where
-    T: SeriesStore + for<'a> SeriesColumns<'a>,
+    T: SeriesStore,
     P: SeriesPolicy + Copy,
 {
-    const ITEM_BITS: usize = match T::MAX_ITEM_BITS {
-        Some(bits) => bits,
-        None => panic!("a batched type needs a series size bound (no strings or opaque fields)"),
-    };
-    const FIXED_BITS: usize = match T::MAX_FIXED_BITS {
-        Some(bits) => bits,
-        None => panic!("a batched type needs a series size bound (no strings or opaque fields)"),
-    };
-
-    /// Empty, encoding with `policy` ([DEFAULT_POLICY](super::DEFAULT_POLICY) usually), no budget until the first
-    /// [poll](Consumer::poll).
-    pub fn new(policy: P) -> Self {
+    fn build(policy: P, bound: Bound) -> Self {
         const {
             assert!(
                 N >= 1 && N <= MAX_BATCH && N <= SERIES_MAX_ITEMS,
                 "batch size out of 1..=8191"
             );
-            // evaluated here, so that an unbounded `T` is a compile error at the first use
-            let _ = Self::ITEM_BITS + Self::FIXED_BITS;
         }
         Batcher {
             stores: [
@@ -174,6 +174,7 @@ where
             consumer: UnsafeCell::new(ConsumerState {
                 policy,
                 budget: usize::MAX,
+                bound,
                 fresh_limit: N,
                 last: None,
                 seen: None,
@@ -181,13 +182,6 @@ where
                 stats: BatchStats::default(),
             }),
         }
-    }
-
-    /// [new](Self::new) with an event budget set before the first poll.
-    pub fn with_budget(policy: P, budget: usize) -> Self {
-        let mut batcher = Self::new(policy);
-        batcher.consumer().set_budget(budget);
-        batcher
     }
 
     /// The two halves, to push from one context and encode in another.
@@ -234,20 +228,6 @@ where
         self.consumer().stats()
     }
 
-    /// [Consumer::poll].
-    pub fn poll(&mut self, now_us: u64, max_age_us: Option<u64>, budget: usize) -> Polled {
-        self.consumer().poll(now_us, max_age_us, budget)
-    }
-
-    /// [Consumer::encode_into].
-    pub fn encode_into<const B: usize>(
-        &mut self,
-        scratch: &mut Scratch<B>,
-        buf: &mut [u8],
-    ) -> Result<Option<Encoded>, EncodeError> {
-        self.consumer().encode_into(scratch, buf)
-    }
-
     /// [Consumer::has_sealed].
     pub fn has_sealed(&mut self) -> bool {
         self.consumer().has_sealed()
@@ -256,19 +236,6 @@ where
     /// [Consumer::sealed_items].
     pub fn sealed_items(&mut self) -> usize {
         self.consumer().sealed_items()
-    }
-
-    /// [Consumer::sealed_bound].
-    pub fn sealed_bound(&mut self) -> Option<usize> {
-        self.consumer().sealed_bound()
-    }
-
-    /// [Consumer::sealed_len].
-    pub fn sealed_len<const B: usize>(
-        &mut self,
-        scratch: &mut Scratch<B>,
-    ) -> Result<Option<usize>, Error> {
-        self.consumer().sealed_len(scratch)
     }
 
     /// [Consumer::discard_sealed].
@@ -326,17 +293,92 @@ where
         }
     }
 
-    /// Most items the worst case allows in `budget` bytes, clamped to `1..=N`.
-    fn worst_case_limit(budget: usize) -> usize {
-        let used = Self::FIXED_BITS + bound::nib_bits(N as u32);
+    /// Most items the worst case `bound` allows in `budget` bytes, clamped to `1..=N`.
+    fn worst_case_limit(budget: usize, bound: Bound) -> usize {
+        let used = bound.fixed + bound.series * bound::nib_bits(N as u32);
         let room = budget.saturating_mul(8).saturating_sub(used);
-        room.checked_div(Self::ITEM_BITS).unwrap_or(N).clamp(1, N)
+        room.checked_div(bound.item).unwrap_or(N).clamp(1, N)
+    }
+}
+
+impl<T, const N: usize, P> Batcher<T, N, P>
+where
+    T: SeriesStore + for<'a> SeriesColumns<'a>,
+    P: SeriesPolicy + Copy,
+{
+    const ITEM_BITS: usize = match T::MAX_ITEM_BITS {
+        Some(bits) => bits,
+        None => panic!("a batched type needs a series size bound (no strings or opaque fields)"),
+    };
+    const FIXED_BITS: usize = match T::MAX_FIXED_BITS {
+        Some(bits) => bits,
+        None => panic!("a batched type needs a series size bound (no strings or opaque fields)"),
+    };
+    /// One `Series<T>`.
+    const SERIES_BOUND: Bound = Bound {
+        fixed: Self::FIXED_BITS,
+        item: Self::ITEM_BITS,
+        series: 1,
+    };
+
+    /// Empty, encoding with `policy` ([DEFAULT_POLICY](super::DEFAULT_POLICY) usually), no budget until the first
+    /// [poll](Consumer::poll).
+    pub fn new(policy: P) -> Self {
+        // evaluated here, so that an unbounded `T` is a compile error at the first use
+        const { assert!(Self::SERIES_BOUND.series == 1) };
+        Self::build(policy, Self::SERIES_BOUND)
+    }
+
+    /// [new](Self::new) with an event budget set before the first poll.
+    pub fn with_budget(policy: P, budget: usize) -> Self {
+        let mut batcher = Self::new(policy);
+        batcher.consumer().set_budget(budget);
+        batcher
+    }
+
+    /// [Consumer::poll].
+    pub fn poll(&mut self, now_us: u64, max_age_us: Option<u64>, budget: usize) -> Polled {
+        self.consumer().poll(now_us, max_age_us, budget)
+    }
+
+    /// [Consumer::encode_into].
+    pub fn encode_into<const B: usize>(
+        &mut self,
+        scratch: &mut Scratch<B>,
+        buf: &mut [u8],
+    ) -> Result<Option<Encoded>, EncodeError> {
+        self.consumer().encode_into(scratch, buf)
+    }
+
+    /// [Consumer::sealed_bound].
+    pub fn sealed_bound(&mut self) -> Option<usize> {
+        self.consumer().sealed_bound()
+    }
+
+    /// [Consumer::sealed_len].
+    pub fn sealed_len<const B: usize>(
+        &mut self,
+        scratch: &mut Scratch<B>,
+    ) -> Result<Option<usize>, Error> {
+        self.consumer().sealed_len(scratch)
+    }
+}
+
+impl<R, const N: usize, P> Batcher<R, N, P>
+where
+    R: LevelRow,
+    P: SeriesPolicy + Copy,
+{
+    /// Empty rows of a trait level (API-39, shared clock), encoding each column with `policy`; the budget and the
+    /// observed columns come with the first [poll_rows](Consumer::poll_rows).
+    pub fn new_rows(policy: P) -> Self {
+        Self::build(policy, R::bound(Columns::MAX))
     }
 }
 
 impl<'a, T, const N: usize, P> Producer<'a, T, N, P>
 where
-    T: SeriesStore + for<'x> SeriesColumns<'x>,
+    T: SeriesStore,
     P: SeriesPolicy + Copy,
 {
     /// Adds `item` to the filling batch: a copy of its fields and two atomic operations, never an encode or a
@@ -374,7 +416,7 @@ pub trait BatchSource<T: SeriesStore, const N: usize> {
 
 impl<T, const N: usize, P> BatchSource<T, N> for Batcher<T, N, P>
 where
-    T: SeriesStore + for<'x> SeriesColumns<'x>,
+    T: SeriesStore,
     P: SeriesPolicy + Copy,
 {
     type Policy = P;
@@ -426,7 +468,7 @@ pub trait Push<T> {
 
 impl<T, const N: usize, P> Push<T> for Producer<'_, T, N, P>
 where
-    T: SeriesStore + for<'x> SeriesColumns<'x>,
+    T: SeriesStore,
     P: SeriesPolicy + Copy,
 {
     #[inline]
@@ -437,7 +479,7 @@ where
 
 impl<T, const N: usize, P> Push<T> for Batcher<T, N, P>
 where
-    T: SeriesStore + for<'x> SeriesColumns<'x>,
+    T: SeriesStore,
     P: SeriesPolicy + Copy,
 {
     #[inline]
@@ -448,7 +490,7 @@ where
 
 impl<'a, T, const N: usize, P> Consumer<'a, T, N, P>
 where
-    T: SeriesStore + for<'x> SeriesColumns<'x>,
+    T: SeriesStore,
     P: SeriesPolicy + Copy,
 {
     fn state(&mut self) -> &mut ConsumerState<P> {
@@ -465,14 +507,20 @@ where
         State(self.0.state.load(Ordering::Relaxed)).n()
     }
 
-    /// The bytes a batch may take: the producer seals at the most items the estimate allows.
-    pub fn set_budget(&mut self, budget: usize) {
+    /// The bytes a batch may take, against the worst case `bound`: the producer seals at the most items the
+    /// estimate allows.
+    fn set_budget_bound(&mut self, budget: usize, bound: Bound) {
         let st = self.state();
-        if budget == st.budget {
+        if budget == st.budget && bound == st.bound {
             return;
         }
+        if bound != st.bound {
+            // bytes per item measured with other columns say nothing about these
+            st.last = None;
+        }
         st.budget = budget;
-        st.fresh_limit = Batcher::<T, N>::worst_case_limit(budget);
+        st.bound = bound;
+        st.fresh_limit = Batcher::<T, N, P>::worst_case_limit(budget, bound);
         self.publish_limit();
     }
 
@@ -495,12 +543,15 @@ where
         self.0.limit.store(limit as u32, Ordering::Relaxed);
     }
 
-    /// The event loop's turn, before [encode_into](Self::encode_into): sets the `budget`, seals the filling batch
-    /// when it is `max_age_us` old (counted from the first poll that saw it) or past a smaller budget (unless the
-    /// spare isn't back yet, or the producer is writing just now: then at the next poll), and reports losses that
-    /// no batch carries.
-    pub fn poll(&mut self, now_us: u64, max_age_us: Option<u64>, budget: usize) -> Polled {
-        self.set_budget(budget);
+    /// [poll](Self::poll) against the worst case `bound`.
+    fn poll_bound(
+        &mut self,
+        now_us: u64,
+        max_age_us: Option<u64>,
+        budget: usize,
+        bound: Bound,
+    ) -> Polled {
+        self.set_budget_bound(budget, bound);
         let mut polled = Polled::default();
         self.take();
         let s = State(self.0.state.load(Ordering::Acquire));
@@ -600,7 +651,7 @@ where
         self.0.state.fetch_and(!SPARE_MASK, Ordering::Release);
     }
 
-    /// A sealed batch waits for [encode_into](Self::encode_into).
+    /// A sealed batch waits to be encoded.
     pub fn has_sealed(&mut self) -> bool {
         self.take();
         self.state().taken.is_some()
@@ -612,6 +663,76 @@ where
         self.state().taken.map_or(0, |t| t.end - t.start)
     }
 
+    /// The taken store, to read.
+    fn taken_store(&self, taken: &Taken) -> &T::Store<N> {
+        // SAFETY: a sealed store is the consumer's until `release`; the producer writes only the filling one
+        unsafe { &*self.0.stores[taken.store].get() }
+    }
+
+    /// Books `items` of the sealed batch, `len` bytes, as encoded: the store goes back to the producer once the
+    /// whole batch is.
+    fn encoded(&mut self, taken: Taken, items: usize, len: usize, split: bool) -> Encoded {
+        let st = self.state();
+        st.stats.encoded += 1;
+        st.stats.encoded_items += items as u64;
+        st.stats.encoded_bytes += len as u64;
+        st.stats.split += split as u64;
+        let start = taken.start + items;
+        let encoded = Encoded {
+            items,
+            len,
+            lost_before: taken.lost_before,
+            cause: taken.cause,
+        };
+        if start == taken.end {
+            st.last = Some((taken.end, taken.bytes + len));
+            self.release();
+            self.publish_limit();
+        } else {
+            st.taken = Some(Taken {
+                start,
+                lost_before: 0,
+                bytes: taken.bytes + len,
+                ..taken
+            });
+        }
+        encoded
+    }
+
+    /// Drops the sealed batch unsent (no host, no room ever): returns its items and those lost right before it,
+    /// `(0, 0)` without one. The store goes back to the producer.
+    pub fn discard_sealed(&mut self) -> (usize, u64) {
+        self.take();
+        let Some(taken) = self.state().taken else {
+            return (0, 0);
+        };
+        let items = taken.end - taken.start;
+        let st = self.state();
+        st.stats.lost += items as u64;
+        st.stats.discarded += items as u64;
+        self.release();
+        (items, taken.lost_before)
+    }
+}
+
+impl<'a, T, const N: usize, P> Consumer<'a, T, N, P>
+where
+    T: SeriesStore + for<'x> SeriesColumns<'x>,
+    P: SeriesPolicy + Copy,
+{
+    /// The bytes a batch may take: the producer seals at the most items the estimate allows.
+    pub fn set_budget(&mut self, budget: usize) {
+        self.set_budget_bound(budget, Batcher::<T, N, P>::SERIES_BOUND);
+    }
+
+    /// The event loop's turn, before [encode_into](Self::encode_into): sets the `budget`, seals the filling batch
+    /// when it is `max_age_us` old (counted from the first poll that saw it) or past a smaller budget (unless the
+    /// spare isn't back yet, or the producer is writing just now: then at the next poll), and reports losses that
+    /// no batch carries.
+    pub fn poll(&mut self, now_us: u64, max_age_us: Option<u64>, budget: usize) -> Polled {
+        self.poll_bound(now_us, max_age_us, budget, Batcher::<T, N, P>::SERIES_BOUND)
+    }
+
     /// The most bytes the sealed batch takes ([Series::max_bytes]), `None` without one.
     pub fn sealed_bound(&mut self) -> Option<usize> {
         self.take();
@@ -620,14 +741,7 @@ where
             .and_then(|t| Series::<T>::max_bytes(t.end - t.start))
     }
 
-    /// The taken store, to read.
-    fn taken_store(&self, taken: &Taken) -> &T::Store<N> {
-        // SAFETY: a sealed store is the consumer's until `release`; the producer writes only the filling one
-        unsafe { &*self.0.stores[taken.store].get() }
-    }
-
-    /// The exact bytes of the sealed batch (a counting pass), `None` without one. For an
-    /// [Outbox](super::Outbox) that has to make room first.
+    /// The exact bytes of the sealed batch (a counting pass), `None` without one.
     pub fn sealed_len<const B: usize>(
         &mut self,
         scratch: &mut Scratch<B>,
@@ -660,46 +774,52 @@ where
             let filled = scratch.fill::<T, N>(self.taken_store(&taken), taken.start..taken.end);
             encode_fitting(filled.items(), policy, buf)?
         };
-        let st = self.state();
-        st.stats.encoded += 1;
-        st.stats.encoded_items += items as u64;
-        st.stats.encoded_bytes += len as u64;
-        st.stats.split += split as u64;
-        let start = taken.start + items;
-        let encoded = Encoded {
-            items,
-            len,
-            lost_before: taken.lost_before,
-            cause: taken.cause,
-        };
-        if start == taken.end {
-            st.last = Some((taken.end, taken.bytes + len));
-            self.release();
-            self.publish_limit();
-        } else {
-            st.taken = Some(Taken {
-                start,
-                lost_before: 0,
-                bytes: taken.bytes + len,
-                ..taken
-            });
-        }
-        Ok(Some(encoded))
+        Ok(Some(self.encoded(taken, items, len, split)))
+    }
+}
+
+impl<'a, R, const N: usize, P> Consumer<'a, R, N, P>
+where
+    R: LevelRow,
+    P: SeriesPolicy + Copy,
+{
+    /// [poll](Self::poll) of a trait level's rows (API-39, shared clock): the worst case of a batch is that of the
+    /// time column and the `columns` observed now.
+    pub fn poll_rows(
+        &mut self,
+        now_us: u64,
+        max_age_us: Option<u64>,
+        budget: usize,
+        columns: Columns,
+    ) -> Polled {
+        self.poll_bound(now_us, max_age_us, budget, R::bound(columns))
     }
 
-    /// Drops the sealed batch unsent (no host, no room ever): returns its items and those lost right before it,
-    /// `(0, 0)` without one. The store goes back to the producer.
-    pub fn discard_sealed(&mut self) -> (usize, u64) {
+    /// The codec policy the columns are encoded with.
+    pub fn policy(&mut self) -> P {
+        self.state().policy
+    }
+
+    /// Encodes rows of the sealed batch with `encode`, given the store and the rows still to encode: it returns
+    /// how many of them (from the first) it encoded, in how many bytes, and what else it made, or `None` when it
+    /// encoded none (no room: the batch stays). `None` without a sealed batch. The store goes back to the producer
+    /// once every row is encoded.
+    pub fn encode_rows<O, E>(
+        &mut self,
+        encode: impl FnOnce(&R::Store<N>, Range<usize>) -> Result<Option<(usize, usize, O)>, E>,
+    ) -> Result<Option<RowsEncoded<O>>, E> {
         self.take();
         let Some(taken) = self.state().taken else {
-            return (0, 0);
+            return Ok(None);
         };
-        let items = taken.end - taken.start;
-        let st = self.state();
-        st.stats.lost += items as u64;
-        st.stats.discarded += items as u64;
-        self.release();
-        (items, taken.lost_before)
+        let rows = taken.start..taken.end;
+        let Some((items, len, out)) = encode(self.taken_store(&taken), rows.clone())? else {
+            return Ok(None);
+        };
+        let items = items.min(rows.len());
+        let split = items < rows.len();
+        let encoded = self.encoded(taken, items, len, split);
+        Ok(Some(RowsEncoded { encoded, out }))
     }
 }
 

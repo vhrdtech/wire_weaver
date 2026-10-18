@@ -111,6 +111,9 @@ pub struct LevelDesc<const N: usize> {
     pub observable: [u32; N],
     /// `+batched` (API-39): the slot takes `Samples` mode, its value is written as a `Batched`.
     pub batched: [bool; N],
+    /// Resource index of the level's `sample_times` slot (API-39, shared clock): the time column of the samples in
+    /// an update, past the level's last resource index. `None` for a level without `+batched` properties.
+    pub time_slot: Option<u32>,
 }
 
 impl<const N: usize> LevelDesc<N> {
@@ -121,7 +124,8 @@ impl<const N: usize> LevelDesc<N> {
     /// Upper bound of the presence header of an update: never longer than the dense mode's, a mode nibble,
     /// the `UNib32` slot count and a bit per slot.
     fn header_bound(&self) -> usize {
-        let len = self.observable.last().map_or(0, |last| last + 1);
+        let last = self.observable.last().copied().max(self.time_slot);
+        let len = last.map_or(0, |last| last + 1);
         let len_nibbles = (32 - len.leading_zeros()).div_ceil(3).max(1) as usize;
         (4 + 4 * len_nibbles + len as usize).div_ceil(8)
     }
@@ -354,6 +358,24 @@ impl<const N: usize> ObserveTable<N> {
                 modes[k] = mode;
             }
         }
+        // one row per sample of the level, one time column per update: its `Samples` slots share the finest
+        // `every` and the shortest `max_age` asked for
+        let shared = modes
+            .iter()
+            .fold(None, |shared, mode| match (*mode, shared) {
+                (Mode::Samples { every, max_age }, None) => Some((every, max_age)),
+                (Mode::Samples { every, max_age }, Some((e, a))) => {
+                    Some((every.min(e), max_age.min(a)))
+                }
+                (_, shared) => shared,
+            });
+        if let Some((every, max_age)) = shared {
+            for mode in modes.iter_mut() {
+                if let Mode::Samples { .. } = mode {
+                    *mode = Mode::Samples { every, max_age };
+                }
+            }
+        }
         let was_active = self.is_active();
         for ((slot, mode), listed) in self.slots.iter_mut().zip(modes).zip(applied) {
             // a listed property starts over: sent once right away, so a host asking again gets fresh values
@@ -406,6 +428,12 @@ impl<const N: usize> ObserveTable<N> {
             Mode::Samples { every, max_age } => Some((every, max_age)),
             _ => None,
         }
+    }
+
+    /// `Samples` mode of the level (API-39): `(every_us, max_age_us)`, the same for every slot in that mode, None
+    /// when no slot is in it.
+    pub fn level_samples(&self) -> Option<(u32, u32)> {
+        (0..N).find_map(|k| self.samples(k))
     }
 
     /// Samples lost on the device (dropped from a full outbox, or the event loop was behind the sampler): reported
@@ -641,6 +669,7 @@ impl<const N: usize> Plan<N> {
             full: self.full,
             held: false,
             done: false,
+            time: false,
         }
     }
 }
@@ -662,40 +691,61 @@ pub struct Selection<const N: usize> {
     full: bool,
     held: bool,
     done: bool,
+    /// The level's `sample_times` slot goes into the update (a batch of samples does).
+    time: bool,
 }
 
 impl<const N: usize> Selection<N> {
     /// Offer slot `k` with the upper bound of its value's size, None when the value can't be had. Returns false
     /// once the update is full: offer nothing more.
     pub fn offer(&mut self, k: usize, size: Option<usize>) -> bool {
-        if self.done || k >= N {
+        if k >= N {
+            self.done = true;
+            return false;
+        }
+        self.offer_all(&[k], size, false)
+    }
+
+    /// Offer a batch of samples (API-39): the slots `ks` of its columns and the level's `sample_times` slot, all or
+    /// none, `size` the upper bound of them all. Returns false once the update is full: offer nothing more.
+    pub fn offer_batch(&mut self, ks: &[usize], size: usize) -> bool {
+        if ks.iter().any(|&k| k >= N) {
+            self.done = true;
+            return false;
+        }
+        self.offer_all(ks, Some(size), true)
+    }
+
+    fn offer_all(&mut self, ks: &[usize], size: Option<usize>, time: bool) -> bool {
+        if self.done {
             return false;
         }
         let Some(size) = size else {
-            self.dropped[k] = true;
+            for &k in ks {
+                self.dropped[k] = true;
+            }
             return true;
         };
         let est = self.est.saturating_add(size);
         if est <= self.limit && est <= self.max_len {
-            self.chosen[k] = true;
-            self.count += 1;
-            self.est = est;
+            self.choose(ks, est, time);
             true
         } else if self.fixed.saturating_add(size) > self.max_len {
             // never fits a message
-            self.dropped[k] = true;
+            for &k in ks {
+                self.dropped[k] = true;
+            }
             true
         } else if self.count == 0 && self.full {
             // bigger than the bucket: alone, when the bucket is full
-            self.chosen[k] = true;
-            self.count += 1;
-            self.est = est;
+            self.choose(ks, est, time);
             self.done = true;
             false
         } else if !self.full && est <= self.max_len {
             // the bucket is what limits and it isn't full: hold, send nothing, rather than part of what is due
             self.chosen = [false; N];
             self.count = 0;
+            self.time = false;
             self.held = true;
             self.done = true;
             false
@@ -703,6 +753,20 @@ impl<const N: usize> Selection<N> {
             self.done = true;
             false
         }
+    }
+
+    fn choose(&mut self, ks: &[usize], est: usize, time: bool) {
+        for &k in ks {
+            self.chosen[k] = true;
+        }
+        self.count += ks.len();
+        self.est = est;
+        self.time |= time;
+    }
+
+    /// Whether the level's `sample_times` slot goes into the update.
+    pub fn has_time(&self) -> bool {
+        self.time
     }
 
     pub fn is_empty(&self) -> bool {
@@ -727,26 +791,32 @@ impl<const N: usize> Selection<N> {
         }
     }
 
-    /// Resource indices of the chosen properties, increasing: the present slots of the update's `OptionAnyVec`.
+    /// Resource indices of the chosen properties, increasing, and the level's `sample_times` slot last when a batch
+    /// of samples goes: the present slots of the update's `OptionAnyVec`.
     pub fn present<'a>(&'a self, desc: &'a LevelDesc<N>) -> impl Iterator<Item = u32> + Clone + 'a {
         desc.observable
             .iter()
             .zip(self.chosen.iter())
             .filter(|(_, chosen)| **chosen)
             .map(|(index, _)| *index)
+            .chain(desc.time_slot.filter(|_| self.time))
     }
 }
 
-/// Most bytes one encoded batch of samples may take in an update of a level (API-39), so that it fits `buf_len`
-/// bytes of data next to an `overhead` ([event_overhead]): the update's presence header and the slot's length and
-/// `Batched` tag left out. The batcher seals at it, the outbox can hold no more than `outbox_room`.
+/// Most bytes one level batch of samples (API-39) may take in an update of a level, its time column and `columns`
+/// value columns together, so that it fits `buf_len` bytes of data next to an `overhead` ([event_overhead]): the
+/// update's presence header and each slot's length and `Batched` tag left out. The batcher seals at it; an outbox of
+/// `outbox_bytes` can hold no more than what is left of it after the entries' headers.
 pub fn batch_budget<const N: usize>(
     desc: &LevelDesc<N>,
     overhead: usize,
     buf_len: usize,
-    outbox_room: usize,
+    outbox_bytes: usize,
+    columns: usize,
 ) -> usize {
-    let fixed = overhead + EVENT_SLACK + desc.header_bound() + LEN_SLOT + 1;
+    let slots = columns + 1;
+    let fixed = overhead + EVENT_SLACK + desc.header_bound() + slots * (LEN_SLOT + 1);
+    let outbox_room = outbox_bytes.saturating_sub(slots * crate::batch::OUTBOX_ENTRY_HEADER);
     buf_len
         .saturating_add(overhead)
         .saturating_sub(fixed)

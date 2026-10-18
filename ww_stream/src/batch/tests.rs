@@ -3,7 +3,9 @@ use crate::store::{RamRing, StreamStore};
 use crate::tests::{Rng, block_on};
 use crate::tx::{Counted, Reliable};
 use crate::{Run, StreamCursor};
-use wire_weaver::shrink_wrap::series::{Series, SeriesColumns, SeriesOwned};
+use wire_weaver::shrink_wrap::series::{
+    Series, SeriesColumns, SeriesOwned, SeriesPolicy, SeriesStore,
+};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, UVlq32, UVlq64};
 use ww_si::{Ampere, Prefix, Second, Timed};
 
@@ -291,87 +293,192 @@ fn sealed_len_is_exact() {
     assert_eq!(enc.len, len);
 }
 
+/// A level's rows for the outbox tests: a time column and two value columns.
+type Row = (u32, i32, u32);
+
+impl LevelRow for Row {
+    const COLUMNS: usize = 2;
+    const TIME_BITS: (usize, usize) = column_bits::<u32>();
+    const COLUMN_BITS: &'static [(usize, usize)] = &[column_bits::<i32>(), column_bits::<u32>()];
+
+    fn encode_column<P: SeriesPolicy + Copy, const N: usize, const B: usize>(
+        store: &<Row as SeriesStore>::Store<N>,
+        rows: core::ops::Range<usize>,
+        column: Option<usize>,
+        policy: P,
+        scratch: &mut Scratch<B>,
+        buf: Option<&mut [u8]>,
+    ) -> Result<usize, wire_weaver::shrink_wrap::Error> {
+        match column {
+            None => scratch.encode_column::<u32, P, N>(&store.0, rows, policy, buf),
+            Some(0) => scratch.encode_column::<i32, P, N>(&store.1, rows, policy, buf),
+            Some(1) => scratch.encode_column::<u32, P, N>(&store.2, rows, policy, buf),
+            Some(_) => Err(wire_weaver::shrink_wrap::Error::OutOfBoundsWriteU8),
+        }
+    }
+}
+
+/// Slots of [Row]'s columns in their level.
+const ROW_SLOTS: [u16; 2] = [5, 9];
+
 #[test]
-fn outbox_drops_oldest_for_room() {
-    let mut b = Batcher::<u32, 8, _>::new(CodecPolicy::SMALLEST);
+fn outbox_drops_oldest_level_batches_for_room() {
+    let mut b = Batcher::<Row, 8, _>::new_rows(CodecPolicy::SMALLEST);
     let mut scratch = Scratch::<{ scratch_bytes::<u32>(8) }>::new();
-    let mut outbox = Outbox::<64>::new();
-    let mut entries = 0;
+    let mut outbox = Outbox::<160>::new();
+    let mut samples = 0u64;
     let mut dropped = 0;
     for round in 0..20u32 {
         for k in 0..8 {
-            b.push(&(round * 1000 + k * k * 31));
+            b.push(&(round * 1000 + k, (k * k * 31) as i32 - 900, round));
         }
+        let columns = [0b11, 0b01, 0b10][round as usize % 3];
+        samples += 8 * (columns as u64).count_ones() as u64;
+        b.consumer().flush();
         let done = outbox
-            .push_from((round % 3) as u16, &mut b.consumer(), &mut scratch)
+            .push_rows_from(&mut b.consumer(), columns, &ROW_SLOTS, &mut scratch)
             .unwrap();
-        assert_eq!(done.lost, 0);
-        entries += done.batches;
+        assert_eq!((done.lost, done.batches, done.rows), (0, 1, 8));
         dropped += done.dropped;
         assert!(!b.has_sealed(), "fits after dropping");
     }
     assert!(dropped > 0);
-    assert_eq!(outbox.len() as u64 * 8 + dropped, 20 * 8);
-    assert!(entries >= 20);
-    // the newest stay, every entry decodes
-    let last = outbox.iter().last().unwrap();
-    assert_eq!(last.k, 19 % 3);
-    assert_eq!(decode::<u32>(last.bytes)[0], 19_000);
-    let first_k1 = outbox.first_of(1).unwrap().bytes.to_vec();
-    assert!(outbox.remove_first_of(1));
-    assert!(outbox.iter().all(|e| e.bytes != first_k1.as_slice()));
-    assert!(!outbox.remove_first_of(7));
-    let of_2 = outbox.iter().filter(|e| e.k == 2).count() as u64;
-    let before = outbox.len() as u64;
-    assert_eq!(outbox.remove_all_of(2), of_2 * 8);
-    assert_eq!(outbox.len() as u64, before - of_2);
-    assert!(outbox.first_of(2).is_none() && outbox.first_of(0).is_some());
-    let left = outbox.len() as u64;
-    assert_eq!(outbox.clear(), left * 8);
-    assert!(outbox.is_empty());
+    let waiting: u64 = outbox
+        .batches()
+        .map(|b| b.columns().map(|e| e.items as u64).sum::<u64>())
+        .sum();
+    assert_eq!(
+        waiting + dropped,
+        samples,
+        "every sample waits or was dropped"
+    );
+    // the newest stay, each column decodes to the batch's rows
+    let last = outbox.batches().last().unwrap();
+    assert_eq!(
+        decode::<u32>(last.time),
+        (19_000..19_008).collect::<Vec<_>>()
+    );
+    assert_eq!(
+        last.column(5).map(|e| decode::<i32>(e.bytes)[1]),
+        Some(31 - 900)
+    );
+    // round 19 observes column 0 only (slot 5)
+    assert_eq!(last.columns().count(), 1);
+    assert!(last.column(9).is_none());
+    let earlier = outbox.batches().nth(outbox.len() - 2).unwrap();
+    assert_eq!(
+        earlier.column(9).map(|e| decode::<u32>(e.bytes)),
+        Some(vec![18; 8])
+    );
+    // a column no longer observed goes, so does a batch left without columns
+    let before = outbox.len();
+    let only_9 = outbox
+        .batches()
+        .filter(|b| b.columns().all(|e| e.k == 9))
+        .count();
+    outbox.retain_columns(|k| k != 9);
+    assert_eq!(outbox.len(), before - only_9);
+    assert!(
+        outbox
+            .batches()
+            .all(|b| b.column(9).is_none() && b.column(5).is_some())
+    );
+    let oldest = outbox.oldest().unwrap().rows as u64;
+    assert_eq!(outbox.remove_oldest(), Some(oldest));
+    let left: u64 = outbox.batches().map(|b| b.rows as u64).sum();
+    assert_eq!(outbox.clear(), left);
+    assert!(outbox.is_empty() && outbox.remove_oldest().is_none());
 }
 
 #[test]
-fn outbox_item_bigger_than_outbox_is_lost() {
-    let mut b = Batcher::<u128, 4, _>::new(CodecPolicy::SMALLEST);
+fn outbox_row_bigger_than_outbox_is_lost() {
+    let mut b = Batcher::<(u32, u128, u128), 4, _>::new_rows(CodecPolicy::SMALLEST);
     let mut scratch = Scratch::<{ scratch_bytes::<u128>(4) }>::new();
-    let mut outbox = Outbox::<12>::new();
-    b.push(&u128::MAX);
+    let mut outbox = Outbox::<24>::new();
+    b.push(&(1, u128::MAX, u128::MAX));
     b.flush();
     let done = outbox
-        .push_from(0, &mut b.consumer(), &mut scratch)
+        .push_rows_from(&mut b.consumer(), 0b11, &ROW_SLOTS, &mut scratch)
         .unwrap();
     assert_eq!((done.batches, done.lost), (0, 1));
     assert!(!b.has_sealed());
 }
 
+impl LevelRow for (u32, u128, u128) {
+    const COLUMNS: usize = 2;
+    const TIME_BITS: (usize, usize) = column_bits::<u32>();
+    const COLUMN_BITS: &'static [(usize, usize)] = &[column_bits::<u128>(), column_bits::<u128>()];
+
+    fn encode_column<P: SeriesPolicy + Copy, const N: usize, const B: usize>(
+        store: &<(u32, u128, u128) as SeriesStore>::Store<N>,
+        rows: core::ops::Range<usize>,
+        column: Option<usize>,
+        policy: P,
+        scratch: &mut Scratch<B>,
+        buf: Option<&mut [u8]>,
+    ) -> Result<usize, wire_weaver::shrink_wrap::Error> {
+        match column {
+            None => scratch.encode_column::<u32, P, N>(&store.0, rows, policy, buf),
+            Some(0) => scratch.encode_column::<u128, P, N>(&store.1, rows, policy, buf),
+            Some(_) => scratch.encode_column::<u128, P, N>(&store.2, rows, policy, buf),
+        }
+    }
+}
+
 #[test]
-fn outbox_split_batch_never_drops_its_own_entries() {
-    let mut b = Batcher::<u32, 32, _>::new(CodecPolicy::SMALLEST);
+fn outbox_split_level_batch_never_drops_its_own_rows() {
+    let mut b = Batcher::<Row, 32, _>::new_rows(CodecPolicy::SMALLEST);
     let mut scratch = Scratch::<{ scratch_bytes::<u32>(32) }>::new();
-    let mut outbox = Outbox::<24>::new();
+    let mut outbox = Outbox::<64>::new();
     let mut rng = Rng::new(1);
-    for _ in 0..32 {
-        b.push(&(rng.next() as u32));
+    for k in 0..32 {
+        b.push(&(k * 40, rng.next() as i32, rng.next() as u32));
     }
     let done = outbox
-        .push_from(0, &mut b.consumer(), &mut scratch)
+        .push_rows_from(&mut b.consumer(), 0b11, &ROW_SLOTS, &mut scratch)
         .unwrap();
     assert_eq!(done.dropped, 0);
-    assert!(
-        done.items > 0 && done.items < 32,
-        "{done:?} {:?}",
-        b.stats()
-    );
+    assert!(done.rows > 0 && done.rows < 32, "{done:?} {:?}", b.stats());
     assert!(b.has_sealed(), "the rest waits for room");
-    let first = outbox.iter().next().unwrap().items;
-    // the consumer sends it, the rest goes in
-    outbox.pop_oldest();
+    let first = outbox.oldest().unwrap();
+    assert_eq!(decode::<u32>(first.time).len(), done.rows);
+    assert_eq!(first.columns().count(), 2);
+    // the event loop sends it, the rest goes in, right after it
+    let sent = done.rows as u32;
+    outbox.remove_oldest();
     let done = outbox
-        .push_from(0, &mut b.consumer(), &mut scratch)
+        .push_rows_from(&mut b.consumer(), 0b11, &ROW_SLOTS, &mut scratch)
         .unwrap();
-    assert!(done.items > 0);
-    assert!(first > 0);
+    assert!(done.rows > 0);
+    assert_eq!(decode::<u32>(outbox.oldest().unwrap().time)[0], sent * 40);
+}
+
+#[test]
+fn rows_seal_at_the_budget_of_the_observed_columns() {
+    // one column fits more rows into the same budget than two
+    let sealed_at = |columns| {
+        let mut b = Batcher::<Row, 32, _>::new_rows(CodecPolicy::SMALLEST);
+        b.consumer().poll_rows(0, None, 40, columns);
+        let mut n = 0;
+        while !b.has_sealed() {
+            b.push(&(n, n as i32, n));
+            n += 1;
+        }
+        let rows = b.sealed_items();
+        let mut scratch = Scratch::<{ scratch_bytes::<u32>(32) }>::new();
+        let mut outbox = Outbox::<512>::new();
+        outbox
+            .push_rows_from(&mut b.consumer(), columns, &ROW_SLOTS, &mut scratch)
+            .unwrap();
+        let batch = outbox.oldest().unwrap();
+        let bytes = batch.time.len() + batch.columns().map(|e| e.bytes.len()).sum::<usize>();
+        assert!(
+            bytes <= 40,
+            "the worst case keeps a batch in the budget: {bytes}"
+        );
+        rows
+    };
+    assert!(sealed_at(0b01) > sealed_at(0b11));
 }
 
 #[test]

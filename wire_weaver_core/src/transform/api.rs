@@ -112,7 +112,8 @@ pub(crate) fn convert_api_items(
                         access: PropertyAccess::Const,
                         write_err_ty: None,
                         errors: None,
-                        batch_item_ty: None,
+                        batched: None,
+                        sample_time_ty: None,
                     },
                     multiplicity: Multiplicity::Flat,
                     since,
@@ -327,7 +328,10 @@ fn batch_item_ty(
     match batched {
         Some(Batching::Timed) => Ok(Some(timed_instance(ty, current_crate, scratch)?)),
         // parsed from this same `ww_self` version's attributes, never the `Unknown` catch-all of an older one
-        Some(Batching::Untimed) | Some(Batching::Unknown(_)) | None => Ok(None),
+        Some(Batching::Untimed)
+        | Some(Batching::SharedClock)
+        | Some(Batching::Unknown(_))
+        | None => Ok(None),
     }
 }
 
@@ -352,6 +356,20 @@ pub(crate) fn timed_instance(
         type_idx,
         args: vec![GenericArgOwned::Type(item_ty.clone())],
     })
+}
+
+/// `ww_si::Second`, the type of the samples' times of `+batched` properties (API-39), resolved from `ww_si` as
+/// [timed_instance] resolves `Timed`.
+fn ww_si_second(current_crate: &CrateContext, scratch: &mut Scratch) -> Result<TypeOwned> {
+    let ww_si = Ident::new("ww_si", proc_macro2::Span::call_site());
+    let ww_si_cx = current_crate
+        .resolve_path(std::iter::once(&ww_si), scratch)
+        .context(
+            "a +batched property needs ww_si as a dependency of its API crate (the times of its samples are \
+             ww_si::Second)",
+        )?;
+    let second: Type = syn::parse_quote!(Second);
+    convert_ty(&second, &ww_si_cx, scratch)
 }
 
 fn convert_api_item_property(
@@ -382,16 +400,14 @@ fn convert_api_item_property(
         scratch,
     )
     .context(current_crate.err_context())?;
-    let batched = matches!(
-        args.access,
-        PropertyAccess::ReadOnly { batched: true, .. }
-            | PropertyAccess::ReadWrite { batched: true, .. }
-    );
-    // a `Batched::Series` slot of an observe update carries `Series<Timed<T>>` (API-39)
-    let batch_item_ty = if batched {
-        Some(timed_instance(&ty, current_crate, scratch)?)
+    // the samples of a level share one clock (API-39): its `sample_times` slot is a `Series<ww_si::Second>`
+    let (batched, sample_time_ty) = if args.batched {
+        (
+            Some(Batching::SharedClock),
+            Some(ww_si_second(current_crate, scratch)?),
+        )
     } else {
-        None
+        (None, None)
     };
 
     Ok(ApiItemOwned {
@@ -401,7 +417,8 @@ fn convert_api_item_property(
             access: args.access,
             write_err_ty,
             errors,
-            batch_item_ty,
+            batched,
+            sample_time_ty,
         },
         multiplicity,
         since,
@@ -585,6 +602,8 @@ fn convert_multiplicity(
 /// ww_property!(rw value: u8, MyError)
 pub struct PropertyMacroArgs {
     pub access: PropertyAccess,
+    /// `+batched` (API-39), after `+observe`.
+    pub batched: bool,
     pub resource_name: Ident,
     pub multiplicity: Option<Option<PathSegment>>,
     pub ty: Type,
@@ -596,14 +615,8 @@ impl Parse for PropertyMacroArgs {
         let access: Ident = input.parse()?;
         let access = match access.to_string().as_str() {
             "const" => PropertyAccess::Const,
-            "ro" => PropertyAccess::ReadOnly {
-                observe: false,
-                batched: false,
-            },
-            "rw" => PropertyAccess::ReadWrite {
-                observe: false,
-                batched: false,
-            },
+            "ro" => PropertyAccess::ReadOnly { observe: false },
+            "rw" => PropertyAccess::ReadWrite { observe: false },
             "wo" => PropertyAccess::WriteOnly,
             u => {
                 return Err(syn::Error::new(
@@ -612,11 +625,11 @@ impl Parse for PropertyMacroArgs {
                 ));
             }
         };
+        let mut batched = false;
         let access = match access {
             PropertyAccess::ReadOnly { .. } | PropertyAccess::ReadWrite { .. } => {
                 // `+observe`, then `+batched` (API-39), which needs it
                 let mut observe = false;
-                let mut batched = false;
                 while input.peek(Token![+]) {
                     let _: Token![+] = input.parse()?;
                     let flag: Ident = input.parse()?;
@@ -638,9 +651,9 @@ impl Parse for PropertyMacroArgs {
                     }
                 }
                 if matches!(access, PropertyAccess::ReadOnly { .. }) {
-                    PropertyAccess::ReadOnly { observe, batched }
+                    PropertyAccess::ReadOnly { observe }
                 } else {
-                    PropertyAccess::ReadWrite { observe, batched }
+                    PropertyAccess::ReadWrite { observe }
                 }
             }
             a => a,
@@ -657,6 +670,7 @@ impl Parse for PropertyMacroArgs {
         };
         Ok(Self {
             access,
+            batched,
             resource_name,
             multiplicity,
             ty,

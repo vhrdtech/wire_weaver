@@ -408,6 +408,7 @@ fn level_method(
             ty,
             write_err_ty,
             errors,
+            batched,
             ..
         } => handle_property(
             api_bundle,
@@ -419,6 +420,7 @@ fn level_method(
             gid_paths,
             index_chain_push,
             access,
+            batched.is_some(),
             &ident,
             ty,
             write_err_ty,
@@ -619,6 +621,7 @@ fn handle_property(
     gid_paths: &GidPaths,
     index_chain_push: TokenStream,
     access: &PropertyAccess,
+    batched: bool,
     prop_name: &Ident,
     ty: &TypeOwned,
     user_result_ty: &Option<TypeOwned>,
@@ -709,14 +712,7 @@ fn handle_property(
 
     let observe_fns = if let (
         Some(level_chain),
-        PropertyAccess::ReadWrite {
-            observe: true,
-            batched,
-        }
-        | PropertyAccess::ReadOnly {
-            observe: true,
-            batched,
-        },
+        PropertyAccess::ReadWrite { observe: true } | PropertyAccess::ReadOnly { observe: true },
     ) = (level_chain, access)
     {
         client_observe::property_observe_fn(
@@ -724,7 +720,7 @@ fn handle_property(
             api_level,
             prop_name,
             &def_ty,
-            *batched,
+            batched,
             level_chain.clone(),
             &path_kind,
         )
@@ -827,6 +823,10 @@ fn handle_stream_fn(
         }
         Some(Batching::Untimed) => {
             quote! { .batched(wire_weaver_client::unpack_untimed::<#item_ty>) }
+        }
+        Some(Batching::SharedClock) => {
+            let e = format!("batched stream {ident}: SharedClock is the batching of properties");
+            quote! { compile_error!(#e) }
         }
         Some(Batching::Unknown(_)) => {
             let e = format!(

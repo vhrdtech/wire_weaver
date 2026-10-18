@@ -149,14 +149,14 @@ macro_rules! define_visitor {
                 ApiItemKindOwned::Property {
                     ty,
                     write_err_ty,
-                    batch_item_ty,
+                    sample_time_ty,
                     ..
                 } => {
                     v.visit_type(ty);
                     if let Some(ty) = write_err_ty {
                         v.visit_type(ty);
                     }
-                    if let Some(ty) = batch_item_ty {
+                    if let Some(ty) = sample_time_ty {
                         v.visit_type(ty);
                     }
                 }

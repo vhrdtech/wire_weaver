@@ -141,6 +141,9 @@ impl<'a> StreamFnRef<'a> {
                     .cloned()
                     .ok_or_else(|| anyhow!("a batched timed stream without batch_item_ty"))?,
             )),
+            Some(Batching::SharedClock) => {
+                bail!("a stream with the batching of properties (SharedClock)")
+            }
             Some(Batching::Unknown(_)) => {
                 bail!("a form of batching this ww_self doesn't know, update it")
             }

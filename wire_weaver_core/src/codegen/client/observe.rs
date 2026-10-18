@@ -29,20 +29,15 @@ pub(crate) fn observable_props(api_level: &ApiLevelOwned) -> Vec<ObservableProp<
             ApiItemKindOwned::Property {
                 ty,
                 access:
-                    PropertyAccess::ReadOnly {
-                        observe: true,
-                        batched,
-                    }
-                    | PropertyAccess::ReadWrite {
-                        observe: true,
-                        batched,
-                    },
+                    PropertyAccess::ReadOnly { observe: true }
+                    | PropertyAccess::ReadWrite { observe: true },
+                batched,
                 ..
             } if matches!(item.multiplicity, Multiplicity::Flat) => Some(ObservableProp {
                 index: item.id.0,
                 name: item.ident.as_str(),
                 ty,
-                batched: *batched,
+                batched: batched.is_some(),
             }),
             _ => None,
         })

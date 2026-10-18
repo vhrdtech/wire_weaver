@@ -246,11 +246,18 @@ pub enum ApiItemKind<'i> {
         /// as for [Method](ApiItemKind::Method).
         #[default = None]
         errors: Option<RefVec<'i, ErrorVariant<'i>>>,
-        /// `+batched` properties only (API-39): the `Timed<T>` instance whose `Series` an observe update carries in
-        /// a `Batched::Series` slot, computed once when the model is built, as
-        /// [StreamFn::batch_item_ty](ApiItemKind::StreamFn). `None` for a property that isn't batched.
+        /// `+batched` (API-39, implies `observe`): a host may observe every sample the device takes, sent in batches
+        /// (`ObserveMode::Samples`), the property's observe slot is a `Batched<T>`. [Batching::SharedClock], the
+        /// only form of properties: the samples of a level share one time column per update. `None` for a property
+        /// that isn't batched.
         #[default = None]
-        batch_item_ty: Option<Type<'i>>,
+        batched: Option<Batching>,
+        /// `+batched` properties only (API-39, [Batching::SharedClock]): the type of the times of their samples,
+        /// `ww_si::Second`, which an observe update carries once in its level's `sample_times` slot (a `Series` of
+        /// it, past the level's last resource index), computed once when the model is built. `Second` isn't
+        /// otherwise referred to from `ty` alone. `None` for a property that isn't batched.
+        #[default = None]
+        sample_time_ty: Option<Type<'i>>,
     },
     Stream {
         ty: Type<'i>,
@@ -316,7 +323,8 @@ pub enum Delivery {
     Reliable,
 }
 
-/// How the items of a batched [ApiItemKind::StreamFn] are sent (API-41).
+/// How the items of a batched [ApiItemKind::StreamFn] (API-41) or the samples of a `+batched` property (API-39)
+/// are sent.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -329,6 +337,10 @@ pub enum Batching {
     Timed,
     /// `Series<T>`, `batched(untimed)`: `T` has its own time, or needs none.
     Untimed,
+    /// Properties only (`+batched`, API-39): `Series<T>` in the property's `Batched::Samples` slot, one item per
+    /// sample of its level, their times once per update for the whole level, a `Series<Second>` in the level's
+    /// `sample_times` slot.
+    SharedClock,
 }
 
 /// Flow control of a [ApiItemKind::FlowSink].
@@ -368,12 +380,11 @@ pub struct Argument<'i> {
 pub enum PropertyAccess {
     /// Property is not going to change, observe not available
     Const,
-    /// Property can only be read but can change on the server and be observed for changes. `batched` (API-39,
-    /// `+batched`, implies `observe`): a host may observe every sample the device takes, sent in batches
-    /// (`ObserveMode::Samples`), its observe slot is a `Batched<T>`.
-    ReadOnly { observe: bool, batched: bool },
-    /// Property can be read, written and observed for changes, `batched` as for `ReadOnly`
-    ReadWrite { observe: bool, batched: bool },
+    /// Property can only be read but can change on the server and be observed for changes (`+observe`; with
+    /// `+batched` also every sample, see [ApiItemKind::Property::batched])
+    ReadOnly { observe: bool },
+    /// Property can be read, written and observed for changes
+    ReadWrite { observe: bool },
     /// Property can only be written
     WriteOnly,
 }

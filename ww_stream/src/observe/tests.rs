@@ -5,6 +5,7 @@ const DESC: LevelDesc<3> = LevelDesc {
     item_count: 6,
     observable: [1, 3, 4],
     batched: [false; 3],
+    time_slot: None,
 };
 
 /// Like [DESC], index 3 `+batched` (API-39).
@@ -12,6 +13,15 @@ const DESC_B: LevelDesc<3> = LevelDesc {
     item_count: 6,
     observable: [1, 3, 4],
     batched: [false, true, false],
+    time_slot: Some(6),
+};
+
+/// Like [DESC], indices 1 and 3 `+batched`.
+const DESC_BB: LevelDesc<3> = LevelDesc {
+    item_count: 6,
+    observable: [1, 3, 4],
+    batched: [true, true, false],
+    time_slot: Some(6),
 };
 
 const LIMITS: ObserveLimits = ObserveLimits {
@@ -285,6 +295,7 @@ fn earliest_deadline_first_and_missed() {
         item_count: 2,
         observable: [0, 1],
         batched: [false; 2],
+        time_slot: None,
     };
     let mut t = ObserveTable::<2>::new();
     // 64 B bucket, refilled at 100 B/s: one 40 byte value per poll at most
@@ -320,6 +331,7 @@ fn short_budget_sends_full_updates() {
         item_count: 4,
         observable: [0, 1, 2, 3],
         batched: [false; 4],
+        time_slot: None,
     };
     let mut t = ObserveTable::<4>::new();
     // 4 values of 4 B every ms: 20 B per update, 20 kB/s; 10 kB/s granted
@@ -353,6 +365,7 @@ fn hold_is_not_a_miss() {
         item_count: 2,
         observable: [0, 1],
         batched: [false; 2],
+        time_slot: None,
     };
     let mut t = ObserveTable::<2>::new();
     // 64 B bucket at 100 B/s, 40 B values: one per 400 ms
@@ -652,10 +665,93 @@ fn gate_takes_all_none_or_a_grid() {
 }
 
 #[test]
-fn batch_budget_leaves_room_for_the_slot() {
-    let budget = batch_budget(&DESC_B, 10, 256, 4096);
+fn batch_budget_leaves_room_for_the_slots() {
+    let budget = batch_budget(&DESC_B, 10, 256, 4096, 1);
     assert!(budget < 256 && budget > 200, "{budget}");
-    assert_eq!(batch_budget(&DESC_B, 10, 256, 50), 50);
-    // a batch of the budget, in its slot, fits the update's estimate of the buffer
-    assert!(10 + EVENT_SLACK + DESC_B.header_bound() + batch_slot_len(budget) <= 256 + 10);
+    assert_eq!(batch_budget(&DESC_B, 10, 256, 62, 1), 50);
+    // a batch of the budget, in its slots (the time column and one value column), fits the update's estimate of
+    // the buffer, however its bytes are split between them
+    assert!(
+        10 + EVENT_SLACK + DESC_B.header_bound() + batch_slot_len(budget) + batch_slot_len(0)
+            <= 256 + 10
+    );
+    // more columns, more slots
+    assert!(batch_budget(&DESC_BB, 10, 256, 4096, 2) < batch_budget(&DESC_BB, 10, 256, 4096, 1));
+}
+
+/// One row per sample of a level and one time column per update (API-39, shared clock): the level's `Samples`
+/// slots share the finest `every_us` and the shortest `max_age_us` asked, and the grant says so.
+#[test]
+fn samples_settings_are_shared_by_the_level() {
+    let mut t = ObserveTable::<3>::new();
+    apply(
+        &mut t,
+        &DESC_BB,
+        &[
+            entry(1, samples(100, 5_000)),
+            entry(3, samples(0, 2_000)),
+            entry(
+                4,
+                ObserveMode::Periodic {
+                    every_us: UNib32(1_000),
+                },
+            ),
+        ],
+        false,
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        granted(&t, &DESC_BB),
+        [
+            entry(1, samples(10, 2_000)),
+            entry(3, samples(10, 2_000)),
+            entry(
+                4,
+                ObserveMode::Periodic {
+                    every_us: UNib32(1_000)
+                }
+            ),
+        ]
+    );
+    // `every_us` 0 raised to the limits' floor of 10
+    assert_eq!(t.level_samples(), Some((10, 2_000)));
+    assert_eq!(t.samples(2), None);
+    // one property alone keeps what it asked for
+    apply(
+        &mut t,
+        &DESC_BB,
+        &[entry(1, samples(100, 5_000))],
+        false,
+        None,
+    )
+    .unwrap();
+    assert_eq!(granted(&t, &DESC_BB), [entry(1, samples(100, 5_000))]);
+    apply(&mut t, &DESC_BB, &[], false, None).unwrap();
+    assert_eq!(t.level_samples(), None);
+}
+
+/// A batch of samples goes into an update whole, with the level's `sample_times` slot, or not at all.
+#[test]
+fn batch_of_samples_is_offered_whole() {
+    let mut t = ObserveTable::<3>::new();
+    apply(
+        &mut t,
+        &DESC_BB,
+        &[entry(1, samples(0, 2_000)), entry(3, samples(0, 2_000))],
+        false,
+        None,
+    )
+    .unwrap();
+    let plan = t.plan_with(0, &LIMITS, |k| k < 2);
+    assert_eq!(plan.edf().len(), 2);
+    let mut sel = plan.selection(&DESC_BB, 4, 1024);
+    assert!(sel.offer_batch(&[0, 1], 20));
+    assert!(sel.is_chosen(0) && sel.is_chosen(1) && sel.has_time());
+    assert_eq!(sel.present(&DESC_BB).collect::<Vec<_>>(), [1, 3, 6]);
+    // bigger than a message: neither column, no time slot
+    let mut sel = plan.selection(&DESC_BB, 4, 64);
+    sel.offer_batch(&[0, 1], 100);
+    assert!(!sel.is_chosen(0) && !sel.is_chosen(1) && !sel.has_time());
+    assert_eq!(sel.present(&DESC_BB).count(), 0);
 }

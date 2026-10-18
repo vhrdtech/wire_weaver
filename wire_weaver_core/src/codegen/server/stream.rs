@@ -539,6 +539,10 @@ fn batched_ser_methods(
                 }
             }
         }
+        Batching::SharedClock => {
+            let e = format!("batched stream {ident}: SharedClock is the batching of properties");
+            quote! { compile_error!(#e); }
+        }
         Batching::Unknown(_) => {
             let e = format!(
                 "batched stream {ident}: a form of batching this wire_weaver doesn't know, update it"

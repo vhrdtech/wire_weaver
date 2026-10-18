@@ -175,27 +175,27 @@ fn doc_trait(
                         });
                         let lifetimes = generic_lifetimes(lifetimes);
                         let (index, array) = index_arg(&args.multiplicity);
-                        let access = match args.access {
-                            PropertyAccess::Const => "Constant property, never changes.",
-                            PropertyAccess::ReadOnly { observe: false, .. } => {
+                        let access = match (args.access, args.batched) {
+                            (PropertyAccess::Const, _) => "Constant property, never changes.",
+                            (PropertyAccess::ReadOnly { observe: false }, _) => {
                                 "Read-only property."
                             }
-                            PropertyAccess::ReadOnly { batched: true, .. } => {
+                            (PropertyAccess::ReadOnly { observe: true }, true) => {
                                 "Read-only property, changes and every sample can be observed."
                             }
-                            PropertyAccess::ReadOnly { observe: true, .. } => {
+                            (PropertyAccess::ReadOnly { observe: true }, false) => {
                                 "Read-only property, changes can be observed."
                             }
-                            PropertyAccess::ReadWrite { observe: false, .. } => {
+                            (PropertyAccess::ReadWrite { observe: false }, _) => {
                                 "Read-write property."
                             }
-                            PropertyAccess::ReadWrite { batched: true, .. } => {
+                            (PropertyAccess::ReadWrite { observe: true }, true) => {
                                 "Read-write property, changes and every sample can be observed."
                             }
-                            PropertyAccess::ReadWrite { observe: true, .. } => {
+                            (PropertyAccess::ReadWrite { observe: true }, false) => {
                                 "Read-write property, changes can be observed."
                             }
-                            PropertyAccess::WriteOnly => "Write-only property.",
+                            (PropertyAccess::WriteOnly, _) => "Write-only property.",
                         };
                         let notes = notes([Some(access.to_string()), array, since]);
                         let errors = errors_of(ident);

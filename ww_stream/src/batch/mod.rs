@@ -40,11 +40,13 @@
 //! back, the rest is the `Series` encode itself. No interrupts are masked on the way (`LDREX`/`STREX`).
 
 mod batcher;
+mod level;
 mod outbox;
 mod stream;
 
-pub use batcher::{BatchSource, Batcher, Consumer, MAX_BATCH, Polled, Producer, Push};
-pub use outbox::{OUTBOX_ENTRY_HEADER, Outbox, OutboxEntry, OutboxPush};
+pub use batcher::{BatchSource, Batcher, Bound, Consumer, MAX_BATCH, Polled, Producer, Push};
+pub use level::{Columns, LevelRow, MAX_COLUMNS, RowsEncoded, column_bits};
+pub use outbox::{LevelBatch, OUTBOX_ENTRY_HEADER, Outbox, OutboxEntry, OutboxPush};
 pub use stream::{
     Batched, BatchedError, BatchedPoll, DEFAULT_MAX_AGE_US, MAX_MAX_AGE_US, MIN_MAX_AGE_US, Plain,
 };

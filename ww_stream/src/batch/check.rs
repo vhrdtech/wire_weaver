@@ -3,15 +3,59 @@
 //! [Outbox] entries always decode. Shared by the unit tests and the `batch-seal` fuzz target.
 
 use super::{
-    BatchStats, Batcher, Cause, EncodeError, Encoded, Outbox, Scratch, Seal, scratch_bytes,
+    BatchStats, Batcher, Cause, EncodeError, Encoded, LevelBatch, LevelRow, Outbox, Scratch, Seal,
+    column_bits, scratch_bytes,
 };
+use core::ops::Range;
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
+use wire_weaver::shrink_wrap::Error;
 use wire_weaver::shrink_wrap::series::{
-    CodecPolicy, Coder, FloatCodec, NumericCodec, Predictor, SeriesOwned,
+    CodecPolicy, Coder, FloatCodec, NumericCodec, Predictor, SeriesOwned, SeriesPolicy, SeriesStore,
 };
 
 /// A sequence number (to check order and loss), a signal and two discrete leaves.
 pub type Item = (u32, i32, bool, Option<u16>);
+
+/// [Item] as the rows of a level, its sequence number as the time column: the outbox's level batches are checked
+/// against the same model as `Series<Item>` batches.
+impl LevelRow for Item {
+    const COLUMNS: usize = 3;
+    const TIME_BITS: (usize, usize) = column_bits::<u32>();
+    const COLUMN_BITS: &'static [(usize, usize)] = &[
+        column_bits::<i32>(),
+        column_bits::<bool>(),
+        column_bits::<Option<u16>>(),
+    ];
+
+    fn encode_column<P: SeriesPolicy + Copy, const N: usize, const B: usize>(
+        store: &<Item as SeriesStore>::Store<N>,
+        rows: Range<usize>,
+        column: Option<usize>,
+        policy: P,
+        scratch: &mut Scratch<B>,
+        buf: Option<&mut [u8]>,
+    ) -> Result<usize, Error> {
+        match column {
+            None => scratch.encode_column::<u32, P, N>(&store.0, rows, policy, buf),
+            Some(0) => scratch.encode_column::<i32, P, N>(&store.1, rows, policy, buf),
+            Some(1) => scratch.encode_column::<bool, P, N>(&store.2, rows, policy, buf),
+            Some(2) => scratch.encode_column::<Option<u16>, P, N>(&store.3, rows, policy, buf),
+            Some(_) => Err(Error::OutOfBoundsWriteU8),
+        }
+    }
+}
+
+/// The items of a level batch of [Item] rows with all three columns.
+pub fn level_items(batch: &LevelBatch<'_>) -> Vec<Item> {
+    let seq = SeriesOwned::<u32>::from_ww_bytes_owned(batch.time).expect("time column");
+    let col = |k| batch.column(k).expect("column").bytes;
+    let a = SeriesOwned::<i32>::from_ww_bytes_owned(col(0)).expect("column 0");
+    let b = SeriesOwned::<bool>::from_ww_bytes_owned(col(1)).expect("column 1");
+    let c = SeriesOwned::<Option<u16>>::from_ww_bytes_owned(col(2)).expect("column 2");
+    assert!(seq.len() == batch.rows as usize && a.len() == seq.len() && b.len() == seq.len());
+    assert_eq!(c.len(), seq.len());
+    (0..seq.len()).map(|i| (seq[i], a[i], b[i], c[i])).collect()
+}
 
 const N: usize = 16;
 const OUTBOX: usize = 192;
@@ -98,6 +142,11 @@ impl Model {
     fn receive(&mut self, items: usize, bytes: &[u8], exact_gap: bool) {
         let got = SeriesOwned::<Item>::from_ww_bytes_owned(bytes).expect("encoded batch decodes");
         assert_eq!(got.len(), items, "item count");
+        self.receive_items(&got, exact_gap);
+    }
+
+    fn receive_items(&mut self, got: &[Item], exact_gap: bool) {
+        let items = got.len();
         let first = got[0].0;
         if exact_gap && !self.inexact {
             assert_eq!(
@@ -258,20 +307,18 @@ pub fn run(bytes: &[u8]) {
                 }
             }
             7 => {
-                let k = p.byte() as u16 % 3;
                 let done = outbox
-                    .push_from(k, &mut consumer, &mut scratch)
+                    .push_rows_from(&mut consumer, 0b111, &[0, 1, 2], &mut scratch)
                     .expect("outbox");
-                let new: Vec<_> = outbox
-                    .iter()
+                let new: Vec<Vec<Item>> = outbox
+                    .batches()
                     .skip(outbox.len() - done.batches)
-                    .map(|e| (e.k, e.items as usize, e.bytes.to_vec()))
+                    .map(|b| level_items(&b))
                     .collect();
-                assert_eq!(new.iter().map(|e| e.1).sum::<usize>(), done.items);
+                assert_eq!(new.iter().map(|b| b.len()).sum::<usize>(), done.rows);
                 m.consumer_lost += done.lost;
-                for (ek, items, bytes) in new {
-                    assert_eq!(ek, k);
-                    m.receive(items, &bytes, false);
+                for items in new {
+                    m.receive_items(&items, false);
                 }
                 if done.lost > 0 {
                     m.inexact = true;
@@ -279,17 +326,21 @@ pub fn run(bytes: &[u8]) {
                 assert!(outbox.used_bytes() <= OUTBOX);
             }
             8 => {
-                // the consumer takes some entries out, every entry decodes
-                for e in outbox.iter() {
-                    let got = SeriesOwned::<Item>::from_ww_bytes_owned(e.bytes).expect("entry");
-                    assert_eq!(got.len(), e.items as usize);
+                // the event loop sends some batches, every column decodes to the batch's rows
+                for b in outbox.batches() {
+                    let t = SeriesOwned::<u32>::from_ww_bytes_owned(b.time).expect("time");
+                    assert_eq!(t.len(), b.rows as usize);
+                    for e in b.columns() {
+                        assert_eq!(e.items, b.rows);
+                    }
                 }
                 match p.byte() % 3 {
                     0 => {
-                        outbox.pop_oldest();
+                        outbox.remove_oldest();
                     }
                     1 => {
-                        outbox.remove_first_of(p.byte() as u16 % 3);
+                        let gone = p.byte() as u16 % 4;
+                        outbox.retain_columns(|k| k != gone);
                     }
                     _ => {}
                 }

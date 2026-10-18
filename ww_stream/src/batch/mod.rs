@@ -165,7 +165,8 @@ pub const fn scratch_bytes<T>(n: usize) -> usize {
 }
 
 /// Memory to rebuild one batch's items in while it is encoded or counted, shared by every [Batcher] of a server:
-/// as big as the biggest batch, `Scratch<{ scratch_bytes::<Timed<Ampere>>(32) }>`. A batcher of `N` items of `T`
+/// as big as the biggest batch, `Scratch<{ scratch_bytes::<Timed<Ampere>>(32) }>`. Rows of a [LevelRow] are
+/// rebuilt one column at a time, so for them it is the biggest column: the time (`Second`) or a value. A batcher of `N` items of `T`
 /// that doesn't fit is a compile error, so is a `T` aligned to more than 16 bytes.
 #[repr(C, align(16))]
 pub struct Scratch<const BYTES: usize>(MaybeUninit<[u8; BYTES]>);

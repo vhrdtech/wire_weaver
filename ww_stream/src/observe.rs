@@ -783,6 +783,12 @@ impl<const N: usize> Selection<N> {
         self.chosen.get(k).copied().unwrap_or(false)
     }
 
+    /// Whether slot `k` can't be sent this time (its value can't be had, or it never fits a message): moved on as
+    /// missed.
+    pub fn is_dropped(&self, k: usize) -> bool {
+        self.dropped.get(k).copied().unwrap_or(false)
+    }
+
     /// Slot `k` could not be written after all: moved on as missed.
     pub fn drop_slot(&mut self, k: usize) {
         if k < N {

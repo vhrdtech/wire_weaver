@@ -55,7 +55,13 @@ fn main() -> ! {
     memcpy_columns::run(&mut marks);
     for (batch, bytes) in marks.0.iter().enumerate() {
         for shape in Shape::ALL {
-            writeln!(stdout, "batch={batch} {} bytes={}", shape.label(), bytes[shape as usize]).unwrap();
+            writeln!(
+                stdout,
+                "batch={batch} {} bytes={}",
+                shape.label(),
+                bytes[shape as usize]
+            )
+            .unwrap();
         }
     }
     debug::exit(debug::EXIT_SUCCESS);

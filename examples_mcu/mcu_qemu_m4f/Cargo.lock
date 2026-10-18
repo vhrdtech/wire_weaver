@@ -288,6 +288,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aedcfb3409746eddb02b9e19ebda1c3394f759a152e48ee875a0844d1b955484"
 
 [[package]]
+name = "foc_observe_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -343,9 +351,12 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
+ "foc_observe_api",
  "panic-semihosting",
  "wire_weaver",
+ "ww_client_server",
  "ww_si",
+ "ww_stream",
 ]
 
 [[package]]
@@ -444,6 +455,12 @@ checksum = "b57f92f32b3dbce6598fd8f5cdf1f06a6072570b8103fa21728fa9036923e710"
 dependencies = [
  "pest",
 ]
+
+[[package]]
+name = "portable-atomic"
+version = "1.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05c8b63e8d9609db387f0324918f81d68fe27748f084ef092fb35954d0539a85"
 
 [[package]]
 name = "proc-macro-crate"
@@ -925,6 +942,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_client_server"
+version = "0.2.0"
+dependencies = [
+ "wire_weaver",
+ "ww_global",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_error"
 version = "0.1.0"
 dependencies = [
@@ -969,6 +995,16 @@ version = "0.2.0"
 dependencies = [
  "shrink_wrap",
  "ww_numeric",
+]
+
+[[package]]
+name = "ww_stream"
+version = "0.5.0"
+dependencies = [
+ "portable-atomic",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_si",
 ]
 
 [[package]]

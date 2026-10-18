@@ -4,13 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-cortex-m = "0.7"
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7"
 cortex-m-semihosting = "0.6"
 panic-semihosting = { version = "0.7", features = ["exit"] }
 
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "angle", "dimensionless", "time", "i32", "u32"] }
+ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
+ww_stream = { path = "../../ww_stream", default-features = false }
+foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
 
 [[bin]]
 name = "qemu-m4f-series-encode-cpu-smallest"
@@ -71,6 +74,13 @@ bench = false
 [[bin]]
 name = "qemu-store-columns"
 path = "src/bin/store_columns.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-m4f-foc-observe"
+path = "src/bin/foc_observe.rs"
 test = false
 doctest = false
 bench = false

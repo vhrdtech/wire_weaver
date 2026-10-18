@@ -145,7 +145,8 @@ nav = [
                     { "USB inside" = "transport/usb_internals.md" },
                     "transport/ww_link.md",
                     "transport/ww_framer.md",
-                    { "Following a reboot" = "transport/follow_reboot.md" }
+                    { "Following a reboot" = "transport/follow_reboot.md" },
+                    "transport/tap.md"
                 ]
             },
             { "Nomicon" = [

@@ -295,6 +295,77 @@ the unsized value they are in), shown as `↩` with the byte and its half: `↩9
 it has more than one) or a saved bundle (`--bundle FILE`, see [`ww api save`](#ww-api)). When the bytes don't decode,
 the tree shows how far it got and where it stopped.
 
+`ww explain FILE` with a capture file ([`ww capture`](#ww-capture)) prints the capture as [`ww monitor`](#ww-monitor)
+printed it live, with the same `--layer`, `--bytes` and `--bits`; the capture carries the device's API, so no device
+is needed. Replies are explained by the request their `seq` pairs them with.
+
+## `ww monitor`
+
+Prints what crosses the link as it happens, decoded ([The link tap](transport/tap.md), TOOL-14), from the link
+setup on, until Ctrl+C or `--duration S`. `--layer` says how deep to look:
+
+- `link` (default): every `ww_link` message (data, link setup, pings) with the frames it came in, and the link
+  events; data messages with their request or event title, replies with the request they answer and its time.
+- `frame`: every frame (USB packet, UDP datagram, RTT chunk) with its pieces as well.
+- `api`: only requests, replies and events, with their values; `--bits` adds each message's bit map and field
+  table, as [`ww explain`](#ww-explain) shows one.
+
+```
+$ ww monitor --layer api
+   0.000000 L0 session Host Usb '3-1.2', U2 { checksum: Crc16IbmSdlc { full: false }, tail: None, stream: false }, frames up to 64 B
+   0.000055 L0 connected
+   0.000280 L0 link ready
+   0.065600 L0 → Request Call add  a: 5, b: 100 #3
+   0.065955 L0 ← Event Value add  105 (reply to #3 in 355.0 µs)
+```
+
+The time is seconds since the first record, `L0` the link, `→` sent by the host and `←` received. `--bytes` adds the
+bytes of every frame and message in hex. A frame line lists its pieces (`Full Data0 12 B`, `Start Data0 6/12 B`: 6 of
+a 12 byte message's bytes), a message line the frames it is in (`in #3@58+6, #4@1+6`: 6 bytes at offset 58 of frame 3,
+6 at offset 1 of frame 4). Without a ww server, this is the command's own connection to the device: the link setup,
+the reads it makes to connect, its pings.
+
+## `ww stats`
+
+Framer and link statistics of the same records, every `--every S` seconds (1 by default) for the time since the last
+print, until Ctrl+C or `--duration S`; `--file FILE` gives those of a whole capture instead:
+
+```
+$ ww stats --file link.wwlb
+window 0.071 s, 5 blocks, 0 blocks lost, 0 records lost
+link 0 tx:
+  frames 7 (98.4/s), 138 bytes, fill 30.8%, 1.86 messages/frame
+  overhead: heads 26 B, checksums and tails 2 B, unused 310 B
+  messages 13, 1 split over 2 frames
+  message to frame: mean 926.0 µs, max 2.44 ms
+  link messages: Data0 9, Disconnect 1, GetDeviceInfo 1, LinkSetup 1, Nop 1
+link 0 rx:
+  frames 10 (140.6/s), 420 bytes, fill 65.6%, 1.20 messages/frame
+  overhead: heads 25 B, checksums and tails 2 B, unused 220 B
+  messages 12, 1 split over 5 frames
+  link messages: Data0 9, DeviceInfo 1, LinkReady 1, Nop 1
+link 0 api:
+  Call add: 8 (112.5/s), reply mean 1.36 ms max 2.50 ms
+  Call blob: 1 (14.1/s), reply mean 2.25 ms max 2.25 ms
+```
+
+Fill is the frame bytes used of what the frames could carry; trouble (dropped pieces, checksum failures, partial
+messages dropped, frame gaps, framer mismatches) gets its own line when there is any.
+
+## `ww capture`
+
+Saves what crosses the link into a file, until Ctrl+C or `--duration S`, with a spinner showing blocks and bytes:
+
+```
+$ ww capture -o link.wwlb --duration 10
+captured 12 blocks, 48.2kB to link.wwlb
+$ ww explain link.wwlb --layer api
+```
+
+The file is [logbook blocks](transport/tap.md#capture-files) back to back, each written as it comes, so a capture is
+readable while it grows and after `ww` was killed; an existing file is appended to. It carries the API bundles of the
+device and of the tap's own records. `--layer link` or `api` leaves the frames out (smaller files).
+
 ## `ww usb-loopback`
 
 Checks the link to the selected device in three stages, each with a progress bar, then prints a summary table:

@@ -199,6 +199,7 @@ layer checks on connect that both ends speak the same protocol.
 
 - **[Framer](transport/ww_framer.md)**: Packs messages into packets with 1 byte of overhead, CRC and recovery from lost frames.
 - **[Link layer](transport/ww_link.md)**: Link setup, device info and protocol version exchange.
+- **[Link tap](transport/tap.md)**: Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it.
 - **[USB throughput on small MCUs](transport/usb_internals.md)**: Measured and tuned on an STM32G0 so far. <span class="ww-status">in progress</span>
 
 <p class="ww-features__more" markdown>Details and what is planned: [Transports and protocols](features.md#transports-and-protocols-tr) in the feature tracker.</p>
@@ -257,6 +258,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - **[Watching properties](cli_reference.md#ww-observe)**: `ww observe` and Python print updates as they arrive, with rates.
 - **[Explaining bytes](cli_reference.md#ww-explain)**: `ww explain` shows every field of a buffer with its bits, from hex or a value written in Rust. <span class="ww-status">in progress</span>
 - **[Link test](cli_reference.md#ww-usb-loopback)**: `ww usb-loopback` measures round trips, losses and speed both ways.
+- **[Watching the link](cli_reference.md#ww-monitor)**: `ww monitor`, `ww stats`, `ww capture` and `ww explain FILE`: the link decoded live, counted, saved and read back.
 - **[Settings from a flash dump](cli_reference.md#ww-settings)**: `ww settings dump` decodes a settings store without the device.
 - **[Values from text](python_advanced.md)**: Typed values written as text and turned into bytes at runtime.
 - **[Dev GUI](dev_tool.md)**: Shows the parsed API and the generated code side by side; a UI for any device is prototyped. <span class="ww-status">in progress</span>
@@ -303,6 +305,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 
 - **[Request and event model](std_library/ww_client_server.md)**: `ww_client_server`, the messages every call is made of.
+- **[Logbook blocks](transport/tap.md#logbook-blocks)**: `ww_logbook`: the generic blocks of track records that live feeds and log files (link captures) are made of.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Tooling: CLI, GUI, Python](features.md#tooling-cli-gui-python-tool) in the feature tracker.</p>
 

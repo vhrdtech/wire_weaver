@@ -188,6 +188,7 @@ layer checks on connect that both ends speak the same protocol.
 
 - TR-1 | Framer | Packs messages into packets with 1 byte of overhead, CRC and recovery from lost frames. | transport/ww_framer.md
 - TR-2 | Link layer | Link setup, device info and protocol version exchange. | transport/ww_link.md
+- TR-14 | Link tap | Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it. | transport/tap.md
 - TR-12 | USB throughput on small MCUs | Measured and tuned on an STM32G0 so far. | transport/usb_internals.md
 
 # Introspection
@@ -240,6 +241,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - TOOL-11 | Watching properties | `ww observe` and Python print updates as they arrive, with rates. | cli_reference.md#ww-observe
 - TOOL-9 | Explaining bytes | `ww explain` shows every field of a buffer with its bits, from hex or a value written in Rust. | cli_reference.md#ww-explain
 - TOOL-10 | Link test | `ww usb-loopback` measures round trips, losses and speed both ways. | cli_reference.md#ww-usb-loopback
+- TOOL-14 | Watching the link | `ww monitor`, `ww stats`, `ww capture` and `ww explain FILE`: the link decoded live, counted, saved and read back. | cli_reference.md#ww-monitor
 - TOOL-12 | Settings from a flash dump | `ww settings dump` decodes a settings store without the device. | cli_reference.md#ww-settings
 - TOOL-5 | Values from text | Typed values written as text and turned into bytes at runtime. | python_advanced.md
 - TOOL-6 | Dev GUI | Shows the parsed API and the generated code side by side; a UI for any device is prototyped. | dev_tool.md
@@ -284,6 +286,7 @@ They are shared, so a tool that knows one of them works with every device that i
 ## Nomicon
 
 - STD-1 | Request and event model | `ww_client_server`, the messages every call is made of. | std_library/ww_client_server.md
+- STD-42 | Logbook blocks | `ww_logbook`: the generic blocks of track records that live feeds and log files (link captures) are made of. | transport/tap.md#logbook-blocks
 
 # Examples
 

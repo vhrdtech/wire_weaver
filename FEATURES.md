@@ -864,6 +864,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   and packet sizes, `in_process::usb_device`).
 - ✅ **TR-4 USB CDC-NCM**: WebSocket over a USB network adapter, with a DHCP server so the host gets an address by
   itself, ping and a hello page over HTTP (`examples_mcu/rp2`, `ww_ws_ncm`); UDP the same way (`ww_udp_ncm`).
+- ✅ **TR-14 Link tap** · `v0.5` — what crosses a link, recorded at the transport edge (`docs/transport/tap.md`):
+  `ww_tap` (`no_std` `Tap` / `NoTap`; records are streams of the `LinkTap` trait: session, link events, frames and
+  messages each way, client map), taken by every `wire_weaver_client` transport and event loop
+  (`ClientConfig::tap`, `tap::default_recorder()`; `TraceEvent` / `RegisterTracer` an adapter over it, the iceoryx2
+  USB tracer removed) and by `ww_device`'s `FramedTx` / `FramedRx` (`with_tap`; with `NoTap` a G0 firmware is the
+  same size). `ww_framer::pieces(frame)` shares `FramedRx`'s head code, no callbacks in the framer. `Recorder`
+  batches into pooled 64 KiB `ww_logbook` blocks (STD-42) flushed when full or after `flush_time` (10 ms), no
+  allocation in steady state, losses counted in `LinkEvent::Lost`. `wire_weaver_client::tap::Decoder`: frame ↔
+  message linkage, cross-check against the message records, framer and link statistics, request/reply pairing by
+  seq feeding the TOOL-9 explain code. E2E tests over simulated USB (`tap/e2e_tests.rs`, `wire_weaver_cli`
+  `cmd/tap/tests.rs`): shared packets, split replies, a lost packet, stats, captures replayed identically. Open:
+  the tap of a ww server's clients (`ClientMap` records are defined, nothing writes them yet).
 - 💡 **TR-5 USB CDC-NCM extras** — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.
 - 📋 **TR-6 CAN** · `v0.5.x` — server and client, using CANopen (`docs/transport/overview.md`).
@@ -976,6 +988,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   cross-checked against a real `Store` over the same bytes through `fake_flash::FakeFlash`) and `decode_group` for
   a caller that knows the concrete `SettingsGroup` type; `ww settings dump FILE --word-size --page-size [--base]
   [--format text|json]` in `wire_weaver_cli` (`docs/cli_reference.md#ww-settings`).
+- ✅ **TOOL-14 `ww monitor`, `ww stats`, `ww capture`, `ww explain FILE`** · `v0.5` — the link tap (TR-14) in the
+  CLI (`docs/cli_reference.md#ww-monitor`): live decoded print at the frame, link or API layer (`--bytes`,
+  `--bits` for the TOOL-9 bit map of every message), framer and link statistics every few seconds or of a capture,
+  captures with the device's API bundle in them, read back by `ww explain FILE` exactly as monitored live.
+  Blocks come from a `Feed` (`wire_weaver_cli/src/cmd/tap.rs`): the CLI's own connection today, a ww server's tap
+  of all its clients later.
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`.
@@ -995,8 +1013,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   errors naming the field) and `wire_weaver_client::expr` (the same with `ww_si` quantities, `q!(3300 mV)`);
   `wire_weaver_client::envelope` (a whole request or event: the `ww_client_server` envelope field by field, the
   payload by its resource); `ww explain WHAT HEX | --value EXPR | 'call(..)' [--request]`, `ww explain request|event
-  HEX`. Open: payloads under a global trait path, multi requests and property updates; link framing around a
-  message; `Series` columns and sparse-struct slot headers in detail; shell completion of types and paths; a
+  HEX`. Captures and the live link: `ww explain FILE` / `ww monitor --layer api --bits` (TOOL-14), replies explained by
+  their request's seq. Open: payloads under a global trait path, multi requests and property updates; `Series` columns and sparse-struct slot headers in detail; shell completion of types and paths; a
   `ww call` on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python `explain()` and
   expression input.
 - ✅ **STD-1 `ww_client_server`** — the request/event model, pruned of sideband/subscribe/rate, variable length seq
@@ -1112,6 +1130,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   parallel buses and strobes from the host, which multi-call can't make simultaneous. Pins by index, no masks on the
   wire (IO family D9). Bank indices 1 and 2 from its reserved range, capabilities appended with `#[default = false]`.
   Docs `docs/std_library/ww_gpio.md#port-access`, tests `tests/io_gpio`, STM32 boards in `examples_mcu` (IDR / BSRR).
+- ✅ **STD-42 `ww_logbook`** · `v0.5` — logbook blocks, the generic unit of track records for live feeds and log files
+  (`ww_logbook`, `docs/transport/tap.md#logbook-blocks`): a 32 B header, varint records (track, time delta, length,
+  item), CRC-32C, never padded; describe blocks with the producer, `TrackDef`s (stable key, API, resource path,
+  sticky) and API bundles; `FileBlocks` reads appended blocks and skips damage to the next magic. Nothing in it
+  knows a producer: the link tap (TR-14) writes it, logring's PC profile is to take it over (eventfull CORE-19).
 - 🧪 **STD-32 `ww_settings` settings store** · `v0.5` — a device's settings in its own NOR flash: `#[derive(Settings)]`
   on a plain struct (`#[setting(slot = N, default = ..)]`, `#[settings(retired(..))]`), stored as a record of the
   fields not at their default, each a byte blob in an `OptionAnyVec`, so firmware versions skip and keep each other's

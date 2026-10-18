@@ -197,16 +197,24 @@ its own level budget so budget never throttles what's measured, `CodecPolicy::SM
 | | `foc` (21 properties) | `control` (13 measured) |
 |---|---|---|
 | today, periodic every sample, `ww_si` quantities, unbatched | 3.73 MB/s | 99.0 kB/s |
-| batched, `Samples` mode, n = 32 | 995 kB/s | 26.2 kB/s |
-| gain | **3.7x** | **3.8x** |
+| batched, `Samples` mode, n = 32, a time column per property (before API-49) | 983 kB/s | 25.8 kB/s |
+| batched, `Samples` mode, n = 32, one time column per level (API-49) | 812 kB/s | 19.0 kB/s |
+| gain over unbatched | **4.6x** | **5.2x** |
+
+(`motor_demo observe --foc samples:20ms --control off --telemetry off --budget 100000000`, and the same per level,
+8 s each; the "before" row from the same tool built on the commit before API-49.) The shared clock saves 17 % on
+`foc` and 26 % on `control` here, less than the 36 % of the `DeltaPacked` bench in
+[which rates fit](#which-rates-fit-an-mcu): `SMALLEST` already wrote each property's regular clock as a nearly
+constant run, so what goes is mostly the per-column overhead and one `Series` head per property. On `no_std`, with
+`DeltaPacked`, a time column costs about as much as a value column, and sharing it is worth more. One batcher per
+level also seals the level's properties together: `control` sends 48 updates/s, one batch per 20 ms max age (its
+1 kHz fills 20 rows in that time), where a batcher per property sealed out of step and sent 238.
 
 The flip side: an unbatched `ww_si` quantity (prefix + storage tag + the integer) is bigger on the wire than a bare
 `f32`, and with no series to amortize it across, every value pays that cost alone - a single update of one
 quantity already costs more than the same `f32` would. Quantities only pay off once they're batched into a
 `Series`; see [`Series`: integer storage](../serdes/series.md#integer-storage-beats-floats) for the general case,
-and the gain above for what it looks like once they are. `control`'s 13 properties also don't yet seal in lockstep
-(238 updates measured in a window where `foc`'s sealed almost exactly on the idealized count) - aligning a level's
-batches to seal together is a further gain not yet implemented.
+and the gain above for what it looks like once they are.
 
 ## Compatibility
 

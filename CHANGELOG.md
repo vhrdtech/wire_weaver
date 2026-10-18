@@ -13,6 +13,9 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- shrink_wrap / ww_self: a dynamic `Series` writer (CLT-29): `ValueOwned::ser_shrink_wrap_dyn` / `ser_series_dyn`
+  write a `Series` from its items with the bytes the typed writer gives for the same `CodecPolicy`, so a dynamic
+  client and Python can send `Series` arguments and properties. See the `shrink_wrap` and `ww_self` changelogs.
 - wire_weaver_client / wire_weaver_cli / wire_weaver_py / ww_self: batched streams in the dynamic client and
   Python (API-41, piece 6 of `prj/P2401-wireweaver/design/batched_streams.md`): `DynPositionedStream` and
   `DynStream` decode a batched stream's events into items with their own device time, no generated code involved

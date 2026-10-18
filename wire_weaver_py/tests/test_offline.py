@@ -297,6 +297,10 @@ def test_series_columns():
     # every item has a value: a plain array, not a masked one
     assert not isinstance(cols["value"], np.ma.MaskedArray)
 
+    # CLT-29: written back from the items, the bytes the generated server wrote
+    assert api.log.encode(items) == data
+    assert api.log.decode(api.log.encode(items[:2])) == items[:2]
+
     with pytest.raises(ww.WireWeaverError):
         api.readings.decode_columns(data[:10])
     with pytest.raises(ValueError):

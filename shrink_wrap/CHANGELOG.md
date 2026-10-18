@@ -10,6 +10,10 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+* `shrink_wrap::series::dynamic` writers (CLT-29), the write side of its readers for code that knows `T` only at
+  run time: `write_count` / `write_count_owned`, `write_numeric`, `write_numeric128`, `write_float`, `write_run`,
+  `write_opaque_run`, `write_opaque_field` and `write_struct_head` (a nested group length from a measuring closure).
+  The same bits the generated `SeriesColumns` impls write for the same items and codecs.
 - Compile-time codec policies (SW-63): `series::SeriesPolicy` is how a writer picks the codecs, implemented by
   `CodecPolicy` (at run time, links every codec and the trials) and by every type with `series::FixedCodecs`
   (`const NUMERIC`, `const FLOAT`), which links only its own codecs; `series::DeltaPacked` is one (delta and packed

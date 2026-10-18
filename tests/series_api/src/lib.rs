@@ -23,6 +23,8 @@ trait Sequences {
     /// Voltage history with device time
     fn history() -> Series<'i, Timed<Volt>>;
     stream!(batches: Series<'i, Reading<'i>>);
+    /// Readings a host writes (a dynamic client encodes the `Series`, CLT-29)
+    property!(rw log: Series<'i, Reading<'i>>);
 }
 
 #[derive_shrink_wrap(

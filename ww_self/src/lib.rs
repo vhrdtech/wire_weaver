@@ -30,6 +30,10 @@ mod series;
 #[cfg(feature = "std")]
 pub use series::{DecodedSeries, FieldsKind, SeriesColumn, VariantColumns};
 #[cfg(feature = "std")]
+mod series_write;
+#[cfg(feature = "std")]
+pub use series_write::ENCODE_MAX_VALUES;
+#[cfg(feature = "std")]
 pub mod signature;
 #[cfg(feature = "std")]
 mod value;

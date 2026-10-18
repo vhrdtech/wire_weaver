@@ -460,20 +460,30 @@ pub fn write_struct_head<S: BitSink>(
     match level {
         Level::Fields => Ok(()),
         Level::Outermost => put_nib(sink, fields),
-        Level::Nested => {
-            let start = sink.bit_pos();
-            for groups in 1..=11u8 {
-                let mut counter =
-                    BitCounter::with_scratch(start + 4 * groups as usize, sink.scratch());
-                body(&mut counter)?;
-                let bits = u32::try_from(counter.bits()).map_err(|_| Error::LenTooLong)?;
-                if nib_groups(bits) <= groups {
-                    return put_nib_groups(sink, bits, groups);
-                }
-            }
-            Err(Error::LenTooLong)
+        Level::Nested => put_group_len(sink, |sink, at| {
+            let mut counter = BitCounter::with_scratch(at, sink.scratch());
+            body(&mut counter)?;
+            Ok(counter.bits())
+        }),
+    }
+}
+
+/// The group length of a nested evolvable struct, `bits_at(sink, at)` the bits of its fields written from bit
+/// position `at` (right after the length): the shortest `nib` that fits, one group more when the fields' size
+/// depends on where they start (byte-aligned values).
+pub(crate) fn put_group_len<S: BitSink>(
+    sink: &mut S,
+    mut bits_at: impl FnMut(&mut S, usize) -> Result<usize, Error>,
+) -> Result<(), Error> {
+    let start = sink.bit_pos();
+    for groups in 1..=11u8 {
+        let bits = bits_at(sink, start + 4 * groups as usize)?;
+        let bits = u32::try_from(bits).map_err(|_| Error::LenTooLong)?;
+        if nib_groups(bits) <= groups {
+            return put_nib_groups(sink, bits, groups);
         }
     }
+    Err(Error::LenTooLong)
 }
 
 /// Groups of 4 bits [put_nib] takes for `value`.

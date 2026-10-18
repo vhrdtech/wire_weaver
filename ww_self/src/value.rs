@@ -390,7 +390,7 @@ fn default_fields_in(
 
 /// A generic definition's parameter, or an instance that [instantiate](crate::generics::instantiate) didn't replace
 /// (its definition is not known): dynamic code needs concrete types.
-fn not_instantiated(ty: &TypeOwned) -> anyhow::Error {
+pub(crate) fn not_instantiated(ty: &TypeOwned) -> anyhow::Error {
     match ty {
         TypeOwned::Param(idx) => anyhow!(
             "type parameter {} of a generic definition, not an instance of it",
@@ -695,6 +695,49 @@ fn des_fields(
     })
 }
 
+/// Every named field value is one of `defs`.
+pub(crate) fn check_field_names(
+    values: &[(String, ValueOwned)],
+    defs: &[FieldOwned],
+    path: &str,
+) -> Result<()> {
+    for (name, _) in values {
+        if !defs.iter().any(|d| d.ident.as_deref() == Some(name)) {
+            bail!(
+                "{path} does not have field '{name}', expected: {}",
+                field_names(defs)
+            );
+        }
+    }
+    Ok(())
+}
+
+/// The value of the named field `def`, if given.
+pub(crate) fn find_field<'v>(
+    values: &'v [(String, ValueOwned)],
+    def: &FieldOwned,
+) -> Option<&'v ValueOwned> {
+    let name = def.ident.as_deref().unwrap_or_default();
+    values.iter().find(|(n, _)| n == name).map(|(_, v)| v)
+}
+
+/// What a missing named field is written as: a field with a default its type's default, an `Option` `None`, else
+/// an error.
+pub(crate) fn missing_field(
+    def: &FieldOwned,
+    path: &str,
+    api_bundle: &ApiBundleOwned,
+) -> Result<ValueOwned> {
+    Ok(match (&def.default, def.ty.get_in_line(api_bundle)?) {
+        (Some(_), _) => ValueOwned::default(&def.ty, api_bundle)?,
+        (None, TypeOwned::Option { .. }) => ValueOwned::Option(None),
+        _ => bail!(
+            "{path}: missing field '{}'",
+            def.ident.as_deref().unwrap_or_default()
+        ),
+    })
+}
+
 /// Fields of a `sparse` struct (DER-13): every field is `Option<T>`, one slot of an `OptionAnyVec`, read in slot
 /// order with [OptionAnyVecIter::read_slot_with](shrink_wrap::option_any_vec::OptionAnyVecIter::read_slot_with) —
 /// the same dynamic decode the observe host client uses for a level's `PropertyUpdate` (TOOL-11).
@@ -996,8 +1039,13 @@ fn ser_inner(
             };
             ser_series(wr, items, series, base)?;
         }
-        // TODO(CLT-29): a dynamic Series writer (codec choice, struct heads), for a host sending one
-        TypeOwned::Series(_) => bail!("writing a Series from a dynamic value is not supported yet"),
+        TypeOwned::Series(item_ty) => crate::series_write::ser_series(
+            wr,
+            value,
+            item_ty,
+            api_bundle,
+            shrink_wrap::series::CodecPolicy::SMALLEST,
+        )?,
     }
     Ok(())
 }
@@ -1041,12 +1089,12 @@ fn flag_target(defs: &[FieldOwned], flag_idx: usize) -> Option<&FieldOwned> {
         .find(|d| &d.ident == ident && !d.is_flag())
 }
 
-fn type_name(ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> String {
+pub(crate) fn type_name(ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> String {
     ty.human_name(false, api_bundle)
         .unwrap_or_else(|_| format!("{ty:?}"))
 }
 
-fn variant_names(item_enum: &ItemEnumOwned) -> String {
+pub(crate) fn variant_names(item_enum: &ItemEnumOwned) -> String {
     item_enum
         .variants
         .iter()
@@ -1096,26 +1144,12 @@ fn ser_fields(
 ) -> Result<()> {
     match (fields_def, fields) {
         (FieldsOwned::Named(defs), FieldsValueOwned::Named(values)) => {
-            for (name, _) in values {
-                if !defs.iter().any(|d| d.ident.as_deref() == Some(name)) {
-                    bail!(
-                        "{path} does not have field '{name}', expected: {}",
-                        field_names(defs)
-                    );
-                }
-            }
+            check_field_names(values, defs, path)?;
             let field_value = |def: &FieldOwned| -> Result<Cow<ValueOwned>> {
-                let name = def.ident.as_deref().unwrap_or_default();
-                if let Some((_, value)) = values.iter().find(|(n, _)| n == name) {
-                    return Ok(Cow::Borrowed(value));
+                match find_field(values, def) {
+                    Some(value) => Ok(Cow::Borrowed(value)),
+                    None => Ok(Cow::Owned(missing_field(def, path, api_bundle)?)),
                 }
-                Ok(Cow::Owned(
-                    match (&def.default, def.ty.get_in_line(api_bundle)?) {
-                        (Some(_), _) => ValueOwned::default(&def.ty, api_bundle)?,
-                        (None, TypeOwned::Option { .. }) => ValueOwned::Option(None),
-                        _ => bail!("{path}: missing field '{name}'"),
-                    },
-                ))
             };
             for (idx, def) in defs.iter().enumerate() {
                 if def.is_flag() {
@@ -1292,7 +1326,7 @@ fn ser_numeric(
 }
 
 /// Integer value of any integer variant, so that e.g. `U8(1)` can be written as `u32`. Range is checked by the caller.
-fn int_value(value: &NumericValue) -> Result<i128> {
+pub(crate) fn int_value(value: &NumericValue) -> Result<i128> {
     Ok(match value {
         NumericValue::Nibble(v) => v.value() as i128,
         NumericValue::U8(v) => *v as i128,
@@ -1312,7 +1346,7 @@ fn int_value(value: &NumericValue) -> Result<i128> {
     })
 }
 
-fn float_value(value: &NumericValue) -> Result<f64> {
+pub(crate) fn float_value(value: &NumericValue) -> Result<f64> {
     Ok(match value {
         NumericValue::F32(v) => *v as f64,
         NumericValue::F64(v) => *v,

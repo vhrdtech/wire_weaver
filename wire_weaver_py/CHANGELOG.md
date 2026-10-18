@@ -11,6 +11,8 @@
 
 ### 🚀 Features
 
+- `encode` / `encode_args` of a `Series<T>` (CLT-29): a list of items is written with the bytes the generated
+  code gives (`ww_self`'s dynamic `Series` writer); it was an error before.
 - `PositionedStream.recv_batch()` / `Stream.recv_batch()` (API-41): the rest of the next batch, or the next one
   whole, of a batched stream, as a `dict` instead of one item at a time: `pos` (`PositionedStream` only), `t`
   (seconds of device time, a numpy array, `None` for an untimed stream) and the item type's own fields, each a

@@ -823,7 +823,7 @@ impl Decoder<'_, '_> {
 
 /// Adds to the restarts of the fields after an enum or `Option` field where its `tags` (one per item) changed from
 /// the item before.
-fn add_tag_restarts(restarts: &mut [bool], tags: &[u32]) {
+pub(crate) fn add_tag_restarts(restarts: &mut [bool], tags: &[u32]) {
     for i in 1..restarts.len().min(tags.len()) {
         if tags[i] != tags[i - 1] {
             restarts[i] = true;
@@ -831,7 +831,7 @@ fn add_tag_restarts(restarts: &mut [bool], tags: &[u32]) {
     }
 }
 
-fn fields_of(fields: &FieldsOwned) -> (FieldsKind, &[FieldOwned]) {
+pub(crate) fn fields_of(fields: &FieldsOwned) -> (FieldsKind, &[FieldOwned]) {
     match fields {
         FieldsOwned::Named(defs) => (FieldsKind::Named, defs),
         FieldsOwned::Unnamed(defs) => (FieldsKind::Unnamed, defs),
@@ -839,7 +839,7 @@ fn fields_of(fields: &FieldsOwned) -> (FieldsKind, &[FieldOwned]) {
     }
 }
 
-fn is_u8(ty: &TypeOwned) -> bool {
+pub(crate) fn is_u8(ty: &TypeOwned) -> bool {
     matches!(ty, TypeOwned::NumericAny(any) if *numeric_base(any) == NumericBaseType::U8)
 }
 

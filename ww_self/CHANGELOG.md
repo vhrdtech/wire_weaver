@@ -128,6 +128,12 @@
 
 ### 🚀 Features
 
+* Dynamic `Series` writer (CLT-29): `ValueOwned::ser_shrink_wrap_dyn` writes a `Series` (top level or inside
+  another value) from a `ValueOwned::Vec` of its items with `CodecPolicy::SMALLEST`, and `ValueOwned::ser_series_dyn`
+  with a given policy: the bytes of `Series::with_policy(items, policy)` (codec choice, restarts, evolvable struct
+  heads, opaque fields compared as the typed writer compares them, generics). Limits as for decoding: at most
+  `SERIES_MAX_ITEMS` items, `MAX_DECODE_DEPTH` levels, `ENCODE_MAX_VALUES` column values. Writing a `Series` was an
+  error before.
 * `SeriesColumn::from_items` (API-41): the same tree `ValueOwned::des_series_columns_dyn` reads from `Series`
   bytes, built instead from already-decoded items (no `Budget`: nothing untrusted to bound, every item already
   decoded under its type). For code with items, not bytes to read, e.g. a batched stream's items

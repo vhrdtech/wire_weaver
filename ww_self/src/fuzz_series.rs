@@ -450,7 +450,8 @@ fn same(a: &ValueOwned, b: &ValueOwned) -> bool {
     format!("{a:?}") == format!("{b:?}")
 }
 
-/// `series` written by the typed `Series` read back by the dynamic decoder, equal to the plain form.
+/// `series` written by the typed `Series` read back by the dynamic decoder, equal to the plain form, and the plain
+/// form written by the dynamic encoder with the same policy, equal to the typed bytes.
 pub fn check_items<T>(
     items: &[T],
     policy: CodecPolicy,
@@ -461,11 +462,7 @@ pub fn check_items<T>(
     T: for<'i> shrink_wrap::series::SeriesColumns<'i> + SerializeShrinkWrapOwned + Clone,
     Vec<T>: SerializeShrinkWrapOwned,
 {
-    let owned = SeriesOwned(items.to_vec());
-    let bytes = owned
-        .as_borrowed_with(policy)
-        .to_ww_bytes_owned()
-        .expect("series bytes");
+    let bytes = check_encode(items, policy, series_ty, vec_ty, bundle);
     let dynamic =
         ValueOwned::des_shrink_wrap_dyn(&bytes, series_ty, bundle).expect("dynamic series decode");
     let expected = plain(items, vec_ty, bundle);
@@ -484,6 +481,40 @@ pub fn check_items<T>(
         crate::SeriesColumn::from_items(expected_items, item_ty, bundle).expect("from_items");
     assert_eq!(from_items, columns.root, "from_items != columns.root");
     assert!(same(&ValueOwned::Vec(columns.into_items()), &expected));
+}
+
+/// `items` written by the typed `Series` with `policy`, and their plain values (as the dynamic decoder reads them
+/// from a `Vec<T>`) written by the dynamic encoder with the same policy: the same bytes. Returns them.
+pub fn check_encode<T>(
+    items: &[T],
+    policy: CodecPolicy,
+    series_ty: &TypeOwned,
+    vec_ty: &TypeOwned,
+    bundle: &ApiBundleOwned,
+) -> Vec<u8>
+where
+    T: for<'i> shrink_wrap::series::SeriesColumns<'i> + SerializeShrinkWrapOwned + Clone,
+    Vec<T>: SerializeShrinkWrapOwned,
+{
+    let bytes = SeriesOwned(items.to_vec())
+        .as_borrowed_with(policy)
+        .to_ww_bytes_owned()
+        .expect("series bytes");
+    let values = plain(items, vec_ty, bundle);
+    let written = values
+        .ser_series_dyn(series_ty, bundle, policy)
+        .expect("dynamic series encode");
+    assert_eq!(
+        written, bytes,
+        "dynamic encode != typed encode ({policy:?})"
+    );
+    if policy == CodecPolicy::SMALLEST {
+        let written = values
+            .ser_shrink_wrap_dyn(series_ty, bundle)
+            .expect("dynamic encode");
+        assert_eq!(written, bytes, "ser_shrink_wrap_dyn != typed encode");
+    }
+    bytes
 }
 
 /// Random bytes into the typed and the dynamic decoder: the same items, or both an error (the dynamic one may also
@@ -1022,5 +1053,456 @@ mod tests {
                 .len(),
             shrink_wrap::series::SERIES_MAX_ITEMS
         );
+    }
+
+    // ---- the dynamic encoder (CLT-29) against the typed writer ---------------------------------------------------
+
+    /// Every policy a writer can have: the smallest, every fixed numeric codec with either float codec.
+    fn all_policies() -> Vec<CodecPolicy> {
+        let mut out = vec![
+            CodecPolicy::SMALLEST,
+            shrink_wrap::series::DeltaPacked.into(),
+        ];
+        for predictor in [Predictor::Raw, Predictor::Delta, Predictor::DeltaOfDelta] {
+            for coder in [Coder::Prefix, Coder::Packed, Coder::Constant, Coder::Plain] {
+                for float in [FloatCodec::Plain, FloatCodec::Xor] {
+                    out.push(CodecPolicy::fixed(
+                        NumericCodec::new(predictor, coder),
+                        float,
+                    ));
+                }
+            }
+        }
+        out
+    }
+
+    /// Mostly small steps, sometimes a jump, sometimes the same: what puts every predictor and coder to work.
+    fn walk(n: usize, seed: u64) -> Vec<i64> {
+        let mut s = seed | 1;
+        let mut x = 0i64;
+        (0..n)
+            .map(|_| {
+                s ^= s << 13;
+                s ^= s >> 7;
+                s ^= s << 17;
+                x = match s % 8 {
+                    0 => s as i64,
+                    1 | 2 => x,
+                    _ => x.wrapping_add((s >> 8) as i8 as i64 / 8),
+                };
+                x
+            })
+            .collect()
+    }
+
+    fn check_plain<T>(items: &[T], item_ty: TypeOwned)
+    where
+        T: for<'i> shrink_wrap::series::SeriesColumns<'i> + SerializeShrinkWrapOwned + Clone,
+        Vec<T>: SerializeShrinkWrapOwned,
+    {
+        let bundle = bundle_of(vec![], vec![]);
+        let series_ty = TypeOwned::Series(Box::new(item_ty.clone()));
+        let vec_ty = TypeOwned::Vec(Box::new(item_ty));
+        for policy in all_policies() {
+            check_items(items, policy, &series_ty, &vec_ty, &bundle);
+        }
+    }
+
+    /// Series of plain numbers, floats, bools and strings: the same bytes as the typed writer with every policy.
+    #[test]
+    fn encodes_plain_numbers_as_the_typed_writer() {
+        use NumericBaseType as B;
+        for (n, seed) in [(0, 1), (1, 2), (2, 3), (9, 4), (17, 5), (300, 6)] {
+            let w = walk(n, seed);
+            check_plain(&w.iter().map(|&x| x as u8).collect::<Vec<_>>(), num(B::U8));
+            check_plain(
+                &w.iter().map(|&x| x as i16).collect::<Vec<_>>(),
+                num(B::I16),
+            );
+            check_plain(
+                &w.iter().map(|&x| x as u32).collect::<Vec<_>>(),
+                num(B::U32),
+            );
+            check_plain(
+                &w.iter().map(|&x| x as i32).collect::<Vec<_>>(),
+                num(B::I32),
+            );
+            check_plain(&w.to_vec(), num(B::I64));
+            check_plain(
+                &w.iter().map(|&x| x as u64).collect::<Vec<_>>(),
+                num(B::U64),
+            );
+            check_plain(
+                &w.iter().map(|&x| UNib32(x as u32)).collect::<Vec<_>>(),
+                num(B::UNib32),
+            );
+            check_plain(
+                &w.iter()
+                    .map(|&x| Nibble::new_masked(x as u8))
+                    .collect::<Vec<_>>(),
+                num(B::Nibble),
+            );
+            check_plain(
+                &w.iter().map(|&x| (x as u128) << 70 | 5).collect::<Vec<_>>(),
+                num(B::U128),
+            );
+            check_plain(
+                &w.iter().map(|&x| x as i128 * -3).collect::<Vec<_>>(),
+                num(B::I128),
+            );
+            check_plain(
+                &w.iter().map(|&x| x as f32 / 8.0).collect::<Vec<_>>(),
+                num(B::F32),
+            );
+            check_plain(
+                &w.iter()
+                    .map(|&x| (x % 1000) as f64 * 0.5)
+                    .collect::<Vec<_>>(),
+                num(B::F64),
+            );
+            check_plain(
+                &w.iter().map(|&x| x % 3 == 0).collect::<Vec<_>>(),
+                TypeOwned::Bool,
+            );
+            check_plain(
+                &w.iter()
+                    .map(|&x| ["", "a", "bc"][x.rem_euclid(3) as usize].to_string())
+                    .collect::<Vec<_>>(),
+                TypeOwned::String,
+            );
+            check_plain(
+                &w.iter()
+                    .map(|&x| (x as u8, (x % 4 != 0).then_some(x as i16), [x as u16; 2]))
+                    .collect::<Vec<_>>(),
+                TypeOwned::Tuple(vec![
+                    num(B::U8),
+                    TypeOwned::Option {
+                        some_ty: Box::new(num(B::I16)),
+                    },
+                    TypeOwned::Array {
+                        len: Length::Fixed(UNib32(2)),
+                        ty: Box::new(num(B::U16)),
+                    },
+                ]),
+            );
+        }
+    }
+
+    /// Structs, enums, `Option`s, opaque fields, nesting and generics (the generated items of the fuzz target):
+    /// the same bytes as the typed writer with every policy.
+    #[test]
+    fn encodes_structs_and_enums_as_the_typed_writer() {
+        let bundle = bundle();
+        let (series_timed, vec_timed) = timed_iv(&bundle);
+        let mut seed = 0x0bad_cafe_dead_beefu64;
+        for round in 0..12 {
+            let bytes: Vec<u8> = (0..600)
+                .map(|_| {
+                    seed ^= seed << 13;
+                    seed ^= seed >> 7;
+                    seed ^= seed << 17;
+                    seed as u8
+                })
+                .collect();
+            let mut picks = Picks::new(&bytes);
+            let kitchen = kitchen_items(&mut picks, 30);
+            let iv = iv_items(&mut picks, 40);
+            let shapes: Vec<ShapeOwned> = kitchen.iter().map(|k| k.shape.clone()).collect();
+            let timed: Vec<Timed<IvSampleV2>> = iv
+                .iter()
+                .enumerate()
+                .map(|(k, s)| Timed {
+                    t: q(Prefix::Micro, Storage::I32(k as i32)),
+                    value: *s,
+                })
+                .collect();
+            let old: Vec<Timed<IvSample>> = timed
+                .iter()
+                .map(|t| Timed {
+                    t: t.t,
+                    value: IvSample {
+                        v: t.value.v,
+                        i: t.value.i,
+                    },
+                })
+                .collect();
+            for policy in all_policies() {
+                let _ = round;
+                check_encode(
+                    &kitchen,
+                    policy,
+                    &series_of(idx::KITCHEN),
+                    &vec_of(idx::KITCHEN),
+                    &bundle,
+                );
+                check_encode(
+                    &iv,
+                    policy,
+                    &series_of(idx::IV_SAMPLE_V2),
+                    &vec_of(idx::IV_SAMPLE_V2),
+                    &bundle,
+                );
+                check_encode(
+                    &shapes,
+                    policy,
+                    &series_of(idx::SHAPE),
+                    &vec_of(idx::SHAPE),
+                    &bundle,
+                );
+                check_encode(&old, policy, &series_timed, &vec_timed, &bundle);
+            }
+        }
+    }
+
+    #[derive_shrink_wrap(owned, series, derive(Clone, Debug, PartialEq))]
+    struct LabelOwned {
+        x: u16,
+        label: String,
+    }
+
+    #[derive_shrink_wrap(owned, series, derive(Clone, Debug, PartialEq))]
+    struct OuterOwned {
+        a: u32,
+        inner: LabelOwned,
+        more: Option<LabelOwned>,
+        b: bool,
+    }
+
+    /// A nested evolvable struct's group length, when its byte-aligned strings make it depend on where the group
+    /// starts and it takes several `nib` groups: what the typed writer measures.
+    #[test]
+    fn nested_group_lengths_as_the_typed_writer() {
+        use NumericBaseType as B;
+        let label = st(
+            "Label",
+            ElementSize::Unsized,
+            named(vec![
+                field(Some("x"), num(B::U16)),
+                field(Some("label"), TypeOwned::String),
+            ]),
+        );
+        let outer = st(
+            "Outer",
+            ElementSize::Unsized,
+            named(vec![
+                field(Some("a"), num(B::U32)),
+                field(Some("inner"), def(0)),
+                field(
+                    Some("more"),
+                    TypeOwned::Option {
+                        some_ty: Box::new(def(0)),
+                    },
+                ),
+                field(Some("b"), TypeOwned::Bool),
+            ]),
+        );
+        let bundle = bundle_of(vec![label, outer], vec![]);
+        for (n, seed) in [(1, 7), (3, 8), (20, 9), (70, 10)] {
+            let w = walk(n, seed);
+            let items: Vec<OuterOwned> = w
+                .iter()
+                .enumerate()
+                .map(|(k, &x)| OuterOwned {
+                    a: x as u32,
+                    inner: LabelOwned {
+                        x: k as u16,
+                        label: "é".repeat((x.rem_euclid(90)) as usize),
+                    },
+                    more: (x % 3 != 0).then(|| LabelOwned {
+                        x: x as u16,
+                        label: format!("{x}"),
+                    }),
+                    b: x % 2 == 0,
+                })
+                .collect();
+            for policy in all_policies() {
+                check_items(&items, policy, &series_of(1), &vec_of(1), &bundle);
+            }
+        }
+    }
+
+    #[derive_shrink_wrap(owned, series, derive(Clone, Debug, PartialEq))]
+    struct OpaqueFloatsOwned {
+        #[series(opaque)]
+        vals: Vec<f32>,
+        n: u8,
+    }
+
+    /// An opaque field changes where its value is not `==` the one before, as the typed writer compares: `-0.0`
+    /// after `0.0` is no change (the series reads `0.0` twice), a NaN always is, a value given as another integer
+    /// variant is the same value.
+    #[test]
+    fn opaque_fields_compare_values_as_the_typed_writer() {
+        use NumericBaseType as B;
+        let ty = st(
+            "OpaqueFloats",
+            ElementSize::Unsized,
+            named(vec![
+                FieldOwned {
+                    series_opaque: true,
+                    ..field(Some("vals"), TypeOwned::Vec(Box::new(num(B::F32))))
+                },
+                field(Some("n"), num(B::U8)),
+            ]),
+        );
+        let bundle = bundle_of(vec![ty], vec![]);
+        let items: Vec<OpaqueFloatsOwned> = [
+            vec![0.0],
+            vec![-0.0],
+            vec![f32::NAN],
+            vec![f32::NAN],
+            vec![],
+            vec![],
+            vec![1.5, -0.0],
+            vec![1.5, 0.0],
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(n, vals)| OpaqueFloatsOwned { vals, n: n as u8 })
+        .collect();
+        for policy in all_policies() {
+            check_encode(&items, policy, &series_of(0), &vec_of(0), &bundle);
+        }
+        // `n` given as a wider integer than its type: the same bytes
+        let ValueOwned::Vec(mut values) = plain(&items, &vec_of(0), &bundle) else {
+            unreachable!()
+        };
+        for v in &mut values {
+            let ValueOwned::Struct {
+                fields: crate::FieldsValueOwned::Named(fields),
+            } = v
+            else {
+                unreachable!()
+            };
+            let ValueOwned::Numeric(ww_numeric::NumericValue::U8(n)) = fields[1].1 else {
+                unreachable!()
+            };
+            fields[1].1 = ValueOwned::Numeric(ww_numeric::NumericValue::I64(n as i64));
+        }
+        let typed = SeriesOwned(items).to_ww_bytes_owned().unwrap();
+        let dynamic = ValueOwned::Vec(values)
+            .ser_shrink_wrap_dyn(&series_of(0), &bundle)
+            .unwrap();
+        assert_eq!(dynamic, typed);
+    }
+
+    /// A named field left out is written as plain serialization writes it: an `Option` as `None`, a field with a
+    /// default as its type's default.
+    #[test]
+    fn missing_named_fields_as_plain_serialization() {
+        let bundle = bundle();
+        let mut picks = Picks::new(&[
+            3, 9, 27, 81, 243, 7, 49, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+        ]);
+        let items: Vec<IvSampleV2> = iv_items(&mut picks, 64)
+            .into_iter()
+            .map(|s| IvSampleV2 {
+                range_ok: None,
+                ..s
+            })
+            .collect();
+        let typed = SeriesOwned(items.clone()).to_ww_bytes_owned().unwrap();
+        let ValueOwned::Vec(mut values) = plain(&items, &vec_of(idx::IV_SAMPLE_V2), &bundle) else {
+            unreachable!()
+        };
+        for v in &mut values {
+            let ValueOwned::Struct {
+                fields: crate::FieldsValueOwned::Named(fields),
+            } = v
+            else {
+                unreachable!()
+            };
+            fields.retain(|(name, _)| name != "range_ok");
+        }
+        let dynamic = ValueOwned::Vec(values)
+            .ser_shrink_wrap_dyn(&series_of(idx::IV_SAMPLE_V2), &bundle)
+            .unwrap();
+        assert_eq!(dynamic, typed);
+    }
+
+    /// Values that don't fit the type, and more items than a `Series` holds, are errors.
+    #[test]
+    fn encode_errors() {
+        use NumericBaseType as B;
+        use ww_numeric::NumericValue as N;
+        let bundle = bundle();
+        let err = |value: ValueOwned, ty: TypeOwned| {
+            format!("{:#}", value.ser_shrink_wrap_dyn(&ty, &bundle).unwrap_err())
+        };
+        let series = |ty| TypeOwned::Series(Box::new(ty));
+        let e = err(
+            ValueOwned::Vec(vec![ValueOwned::Numeric(N::U16(300))]),
+            series(num(B::U8)),
+        );
+        assert!(e.contains("out of range"), "{e}");
+        let e = err(
+            ValueOwned::Vec(vec![ValueOwned::String("x".into())]),
+            series(num(B::U8)),
+        );
+        assert!(e.contains("expected"), "{e}");
+        let e = err(
+            ValueOwned::Vec(vec![prefix_value("Nano")]),
+            series_of(idx::PREFIX),
+        );
+        assert!(e.contains("does not have variant Nano"), "{e}");
+        let e = err(ValueOwned::Bool(true), series(TypeOwned::Bool));
+        assert!(e.contains("list of items"), "{e}");
+        let many = ValueOwned::Vec(vec![
+            ValueOwned::Bool(true);
+            shrink_wrap::series::SERIES_MAX_ITEMS + 1
+        ]);
+        let e = err(many, series(TypeOwned::Bool));
+        assert!(e.contains("at most"), "{e}");
+        let e = err(
+            ValueOwned::Vec(vec![ValueOwned::Vec(vec![])]),
+            series(TypeOwned::Vec(Box::new(num(B::U16)))),
+        );
+        assert!(e.contains("not in Series v1"), "{e}");
+    }
+
+    /// Evolvable structs nested in each other: each group length is measured once per start bit, not once per
+    /// measuring pass of every enclosing struct (which would be exponential in the depth).
+    #[test]
+    fn nested_group_lengths_are_linear_in_the_depth() {
+        use NumericBaseType as B;
+        const DEPTH: u32 = 40;
+        let types = (0..DEPTH)
+            .map(|d| {
+                let mut fields = vec![field(Some("label"), TypeOwned::String)];
+                if d + 1 < DEPTH {
+                    fields.push(field(Some("next"), def(d + 1)));
+                }
+                fields.push(field(Some("x"), num(B::U8)));
+                st(&format!("S{d}"), ElementSize::Unsized, named(fields))
+            })
+            .collect();
+        let bundle = bundle_of(types, vec![]);
+        let item = |k: usize| {
+            let mut value: Option<ValueOwned> = None;
+            for d in (0..DEPTH).rev() {
+                let mut fields = vec![(
+                    "label".to_string(),
+                    ValueOwned::String("ab".repeat(k + d as usize)),
+                )];
+                if let Some(next) = value.take() {
+                    fields.push(("next".into(), next));
+                }
+                fields.push((
+                    "x".into(),
+                    ValueOwned::Numeric(ww_numeric::NumericValue::U8(k as u8)),
+                ));
+                value = Some(ValueOwned::Struct {
+                    fields: crate::FieldsValueOwned::Named(fields),
+                });
+            }
+            value.unwrap()
+        };
+        let items = ValueOwned::Vec((0..5).map(item).collect());
+        let start = std::time::Instant::now();
+        let bytes = items.ser_shrink_wrap_dyn(&series_of(0), &bundle).unwrap();
+        let took = start.elapsed();
+        assert!(took < std::time::Duration::from_secs(1), "took {took:?}");
+        let back = ValueOwned::des_shrink_wrap_dyn(&bytes, &series_of(0), &bundle).unwrap();
+        assert_eq!(back, items);
     }
 }

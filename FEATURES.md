@@ -708,8 +708,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   costs no bytes); `ww` shows the items, Python decodes the items or numpy columns (`decode_columns`, masked where an
   item is in another variant or `None`). Dyn equals typed on the design's examples, on generated and on fuzzed series
   (fuzz target `series-dynamic`, `tests/series`, `wire_weaver_py/tests/test_offline.py`,
-  `docs/serdes/series.md#introspection-and-dynamic-clients`). Not yet: writing a `Series` dynamically (Python
-  `encode` of a `Series` fails).
+  `docs/serdes/series.md#introspection-and-dynamic-clients`). Writing too: `ValueOwned::ser_shrink_wrap_dyn` (and
+  `ser_series_dyn` with a `CodecPolicy`) writes a `Series` from its items, the typed writer's bytes for the same
+  policy (codec choice, restarts, struct heads, generics), so a dynamic client and Python write `Series` arguments
+  and properties.
 - ✅ **CLT-31 Quantities in dynamic clients, `ww` and Python** · `v0.5.x` — a `ww_si::Quantity<U>` (ww_si 0.2 and
   later) is recognized from introspection data alone: a concrete definition records the generic one and arguments it
   was made from (`ww_self::ItemStruct::instance_of`, host-derived, rejected from devices, left out of signatures), the

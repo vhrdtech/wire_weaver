@@ -19,6 +19,7 @@ mod tests {
     #[derive(Default)]
     struct SharedTestData {
         stamps: Vec<u64>,
+        log: Vec<series_api::ReadingOwned>,
     }
 
     mod server {
@@ -36,6 +37,8 @@ mod tests {
             pub stamps: Vec<u64>,
             pub readings: Vec<series_api::Reading<'static>>,
             pub history: Vec<ww_si::Timed<ww_si::Volt>>,
+            /// The `Series` bytes of the last `log` written
+            pub log: Vec<u8>,
         }
 
         impl Server {
@@ -91,6 +94,26 @@ mod tests {
             ) -> GetResult<DeltaOfDelta<'_, u64>, ()> {
                 self.stamps = self.data.lock().unwrap().stamps.clone();
                 GetResult::Value(DeltaOfDelta::new(&self.stamps))
+            }
+
+            fn set_log<'i>(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Series<'i, series_api::Reading<'i>>,
+            ) -> SetResult<()> {
+                self.log = value.to_ww_bytes_owned().unwrap();
+                self.data.lock().unwrap().log =
+                    SeriesOwned::<series_api::ReadingOwned>::from_ww_bytes_owned(&self.log)
+                        .unwrap()
+                        .0;
+                SetResult::Set
+            }
+
+            fn get_log(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Series<'_, series_api::Reading<'_>>, ()> {
+                GetResult::Value(Series::from_ww_bytes(&self.log).unwrap())
             }
 
             fn samples(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
@@ -243,6 +266,9 @@ mod tests {
             stamps: vec![],
             readings: vec![],
             history: vec![],
+            log: Series::<series_api::Reading>::new(&[])
+                .to_ww_bytes_owned()
+                .unwrap(),
         };
         let device = tests_common::start_device(
             path,
@@ -606,7 +632,7 @@ mod tests {
         drop(batches);
         drop(client);
 
-        let (device, _data) = start("series/series-dynamic");
+        let (device, data) = start("series/series-dynamic");
         let dynamic = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
             .connect()
             .await
@@ -624,6 +650,53 @@ mod tests {
             panic!("series");
         };
         assert_eq!(r, plain_dyn(&owned_readings(9), &item_ty, &bundle));
+
+        // a dynamic client writes a Series (CLT-29), the generated server reads the items it sent
+        let log = root.child("log").unwrap();
+        let values = plain_dyn(&owned_readings(30), &item_ty, &bundle);
+        log.write(dynamic.cmd(), &values).await.unwrap();
+        assert_eq!(data.lock().unwrap().log, owned_readings(30));
+        assert_eq!(log.read(dynamic.cmd()).await.unwrap(), values);
+    }
+
+    /// The dynamic encoder writes the bytes the generated code writes for the same items and policy (CLT-29).
+    #[test]
+    fn dynamic_encode_equals_typed() {
+        use wire_weaver::shrink_wrap::series::{CodecPolicy, DeltaPacked};
+        let bundle = bundle();
+        let ty = return_ty(&bundle, 6);
+        let TypeOwned::Series(item_ty) = &ty else {
+            panic!("series");
+        };
+        for n in [0, 1, 2, 9, 100] {
+            let items = owned_readings(n);
+            let values = plain_dyn(&items, item_ty, &bundle);
+            for policy in [CodecPolicy::SMALLEST, DeltaPacked.into()] {
+                let typed = SeriesOwned(items.clone())
+                    .as_borrowed_with(policy)
+                    .to_ww_bytes_owned()
+                    .unwrap();
+                let dynamic = values.ser_series_dyn(&ty, &bundle, policy).unwrap();
+                assert_eq!(dynamic, typed, "{n} items, {policy:?}");
+            }
+            assert_eq!(
+                values.ser_shrink_wrap_dyn(&ty, &bundle).unwrap(),
+                Series::new(&readings(n)).to_ww_bytes_owned().unwrap()
+            );
+        }
+
+        let ty = return_ty(&bundle, 7);
+        let TypeOwned::Series(item_ty) = &ty else {
+            panic!("series");
+        };
+        let items = history();
+        let values = plain_dyn(&items, item_ty, &bundle);
+        for policy in [CodecPolicy::SMALLEST, DeltaPacked.into()] {
+            let typed = Series::with_policy(&items, policy)
+                .to_ww_bytes_owned()
+                .unwrap();
+            assert_eq!(values.ser_series_dyn(&ty, &bundle, policy).unwrap(), typed);
+        }
     }
 
     fn history_items() -> Vec<ww_si::Timed<ww_si::Volt>> {

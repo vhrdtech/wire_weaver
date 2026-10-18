@@ -110,6 +110,19 @@ jobs:
         env:
           MIRIFLAGS: -Zmiri-many-seeds=0..16
 
+  # the conformance matrix's Python consumer (TEST-23); the derive, dynamic and C consumers run in `test`
+  conformance-py:
+    name: conformance (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv run --group dev pytest -q tests/test_conformance.py
+        working-directory: wire_weaver_py
+
   coverage:
     name: coverage
     runs-on: ubuntu-latest

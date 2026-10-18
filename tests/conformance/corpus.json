@@ -4,7 +4,7 @@
     "type: a property of conformance_api's Conformance trait (or a Rust type outside the API model); value: in the wire_weaver_py form; bytes: the golden bytes in hex.",
     "direction: both (default), decode (bytes decode to value, value encodes otherwise), reject (bytes don't decode), reject_value (value doesn't encode).",
     "gaps: consumer -> why it can't run the case yet, with the FEATURES.md id that fixes it. A missing or stale mark fails the tests.",
-    "New case: add it here with \"bytes\": \"?\" and to tests/conformance/src/derive.rs, then CONFORMANCE=update cargo nextest run -p conformance and review the bytes."
+    "New case: add it here with \"bytes\": \"?\" and to tests/conformance/src/derive.rs, then just conformance-update and review the bytes."
   ],
   "cases": [
     {
@@ -186,6 +186,13 @@
       "bytes": "6772c3b6c39f6507"
     },
     {
+      "name": "str.array_string",
+      "type": "string",
+      "value": "hello",
+      "bytes": "68656c6c6f05",
+      "note": "the derive's value is an ArrayString<8> (SW-57): the bytes of a string"
+    },
+    {
       "name": "bytes.empty",
       "type": "bytes",
       "value": [],
@@ -203,6 +210,14 @@
       "value": [1, 65535],
       "bytes": "0100ffff02",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "vec.array_vec",
+      "type": "vec_u16",
+      "value": [1, 65535],
+      "bytes": "0100ffff02",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "the derive's value is an ArrayVec<u16, 4> (SW-57): the bytes of a list"
     },
     {
       "name": "vec.string",
@@ -424,6 +439,38 @@
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
     },
     {
+      "name": "struct.phantom",
+      "type": "phantom",
+      "value": {"value": -5},
+      "bytes": "fbffffff",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a PhantomData field takes no bits (DER-15)"
+    },
+    {
+      "name": "struct.validate.ok",
+      "type": "validated",
+      "value": {"lo": 1, "hi": 2},
+      "bytes": "0102",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.validate.rejected",
+      "type": "validated",
+      "value": null,
+      "bytes": "0302",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
+      "note": "lo > hi: the validate function (SW-58) rejects it"
+    },
+    {
+      "name": "struct.tail_size",
+      "type": "Framed",
+      "value": {"magic": 43981, "size": 7, "name": "ab", "count": 7},
+      "bytes": "cdab800761620700000002",
+      "gaps": {"dynamic": "TailSize has no form in the API model yet (INT-9)", "python": "TailSize has no form in the API model yet (INT-9)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "the size of the rest of the value (SW-18), filled in when written"
+    },
+    {
       "name": "struct.generic_const",
       "type": "generic_const",
       "value": {"samples": [1, 2, 3]},
@@ -537,6 +584,20 @@
       "type": "error",
       "value": "TooBig",
       "bytes": "00",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.nibble.unit",
+      "type": "nib_enum",
+      "value": "Low",
+      "bytes": "00",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.nibble.payload",
+      "type": "nib_enum",
+      "value": {"High": 7},
+      "bytes": "c007",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
     },
     {

@@ -4,8 +4,8 @@
 //! fixed-layout readers). A case a consumer can't express yet carries a gap mark with the reason; the tests fail
 //! when a mark is missing or no longer needed, so nothing is skipped silently.
 //!
-//! `CONFORMANCE=update cargo nextest run -p conformance` fills in the golden bytes of new cases (from the derive)
-//! and writes the report, `docs/serdes/conformance_matrix.md`.
+//! `just conformance-update` (`CONFORMANCE=update` for the `corpus` and `report` tests) fills in the golden bytes of
+//! new cases (from the derive) and writes the report, `docs/serdes/conformance_matrix.md`.
 
 pub mod c;
 pub mod corpus;

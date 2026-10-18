@@ -64,6 +64,14 @@ comment saying why and how long they take alone; never raise the default. Tests 
 behind on a busy PC). Check timing changes with `cargo nextest run --stress-count N` while CPU burners
 load the PC.
 
+The wire format has more than one implementation on purpose (the derive's own layout, and everything built on the
+`ww_self` model: dynamic client, Python, C), kept byte-identical by the conformance matrix (TEST-23,
+`docs/serdes/conformance.md`): one corpus, `tests/conformance/corpus.json`, run through every consumer by `just test`
+and CI. A new wire feature (or a change to one) lands only with its cases in the corpus and green across the
+consumers; a consumer that can't express a case yet gets a gap mark naming a `FEATURES.md` item for it, never a
+silent skip. Golden bytes don't change once in: changed bytes are a wire break. New case: `"bytes": "?"` plus the
+Rust value in `tests/conformance/src/derive.rs`, then `just conformance-update`.
+
 CI (`.github/workflows/ci.yml`) fails on any warning: `cargo fmt --check`, `cargo sort -w -g --check` (plain
 `cargo sort` flattens the grouped `[workspace.dependencies]`, always pass `-g`), `typos` (project words go into
 `typos.toml`), clippy and rustdoc with `-D warnings` (also `--all-features`), nextest + doctests (default features
@@ -152,6 +160,8 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
   streams); `TestDevice::drop_requests` simulates a stuck device, `TestDevice::send` pushes stream events.
   The device side is tested end-to-end against the real host event loop in
   `wire_weaver_client/src/event_loop/device_e2e_tests.rs` (in-memory packets, real framers on both ends).
+- **`tests/conformance`** (with `tests/conformance_api`) — the wire-format conformance matrix (TEST-23): one corpus of
+  type, value and golden bytes, run through the derive, the `ww_self` dynamic client, Python and C.
 - **`fuzz/`** — fuzzes `ww_framer` tx/rx round-tripping (`cargo fuzz run framer-tx-rx`).
 
 ## The core pattern to recognize

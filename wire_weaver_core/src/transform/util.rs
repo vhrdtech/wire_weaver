@@ -547,7 +547,9 @@ mod derive_shrink_wrap_args_tests {
         let args: Args = parse2(quote! { borrowed, fixed_layout, ww_repr = u8 }).unwrap();
         assert!(args.fixed_layout);
         assert!(args.size_assumption.is_none());
-        let err = parse2::<Args>(quote! { head_tail }).unwrap_err().to_string();
+        let err = parse2::<Args>(quote! { head_tail })
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("can't be used in an API"), "{err}");
     }
 }

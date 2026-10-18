@@ -253,6 +253,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `MultiIndex`), `future_version = Name` renames it, `final_structure` / `self_describing` / `sized` enums only get it
   when written. A Rust API change of every such enum (exhaustive matches need the arm), not of the wire or the API
   model. `docs/serdes/derive.md#enum-variants-from-a-newer-version`, `shrink_wrap/tests/evolution.rs`.
+- 📋 **SW-66 128-bit numbers in the C runtime** — `shrink_wrap/c` reads and writes up to 64-bit numbers;
+  `u128` / `i128` (two `u64` halves in C) are missing. Conformance cases `int.u128.max`, `int.i128.min`.
 - 📋 **SW-17 Const / magic type** · `v0.5` — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the `magic` field in
   `ww_self` (a plain `u32` today).
@@ -602,9 +604,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   or switching high power, a request that happens to match predefined bytes must not be enough. Add an extra
   check, e.g. a CRC over the resource identity and arguments (a "strict mode" per resource), or a
   request/response challenge before the call is executed.
-- 💡 **API-25 Refactor codegen to use an IR** · `v0.5.x`.
-- 🚧 **API-26 Generate C** · `v0.5.x`, and an **FFI example**. The C runtime is there (SW-43 c-runtime); generated
-  `.h` / `.c` for an API's types, a device-side dispatcher, introspection as a const blob and `ww_framer` are not.
+- 🚧 **API-26 Generate C** · `v0.5.x`, and an **FFI example**. Generated C comes from the `ww_self` model, not from
+  the derive's AST: a generator run after the build, from an introspection bundle (e.g. `ww gen c`), writes `.h` /
+  `.c` for an API's types on top of the C runtime (SW-43 c-runtime), later a device-side dispatcher, introspection
+  as a const blob and `ww_framer`. None of that is there yet. The C header text `fixed_layout` (SW-44, SW-45) and
+  `head_tail` (SW-46) print from the derive today moves to that generator over time. Other languages are generated
+  the same way, from the model. The conformance matrix (TEST-23) is what keeps the generated code byte-equal to the
+  derive.
 - 💡 **API-27 Standalone definition files with custom syntax** — APIs and types in their own files, with a friendlier
   syntax: nested levels, no macro calls, SI units. Tried twice already, approach with care:
   - at the very beginning of this repo, a YAML based language;
@@ -863,12 +869,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **INT-1 API model AST** with syn-style `Visit`/`VisitMut`, sent by devices as introspection data.
 - ✅ **INT-2 Bundles** recording crate versions, signatures of skipped traits and types.
 - ✅ **INT-3 Relocated `#[flag]` fields** in introspection data and dynamic serialization.
-- 📋 **INT-4 Bit-aligned integers in `ww_self`** · `v0.5` — `un`/`in` types (`u1`..`u32`, nibbles) are not supported in
-  the introspection model yet, so the dynamic client and Python can't handle them. Add them, with tests
-  through dynamic serdes.
+- ✅ **INT-4 Bit-aligned integers in `ww_self`**: `U1`..`U64`, `I2`..`I64` and nibbles are in the model (`UB` / `IB`,
+  `Nibble`) and the dynamic client and Python read and write them, also as struct fields and enum payloads (done
+  with SW-48); checked byte for byte by the conformance matrix (TEST-23, `bits.*`, `struct.bits`, `enum.sub_byte.*`).
 - 📋 **INT-5 Documentation pass on `ww_self`** · `v0.5` — doc comments are missing (`TODO` in `ww_self/src/lib.rs`).
 - 📋 **INT-6 `sized` / `final_structure` on `ww_self` types** · `v0.5` — where a type is unlikely to evolve, to make
   introspection data smaller. Can't be undone later, so decide per type.
+- 📋 **INT-9 `TailBytes` and `TailSize` in the API model** — a user type with a `TailBytes` (SW-9) or `TailSize<N>`
+  (SW-18) field can't be in an API: the crate walker doesn't find the types (`Type TailSize not found`, `Module
+  shrink_wrap not found` for `shrink_wrap::tail_bytes::TailBytes`), and `ww_self::Type` has no form for them, so
+  the dynamic client and Python can't read or write them. Conformance cases `tail_bytes`, `struct.tail_size`.
+- 📋 **INT-10 `#[default]` values in the API model** — the crate walker records only that a field has a default
+  (`Field::default` is a placeholder `Bool(false)`, a `TODO` in `wire_weaver_core`'s `get_default_attr`), so the
+  dynamic client and Python read a field missing from older data as its type's default: `#[default = 7] timeout:
+  u16` reads as 0. Convert the default expression (literals, `None`, `Some(..)`, unit variants) to a value and use
+  it in the dynamic decoder; mind that `Field::default` is part of API signatures. Conformance case
+  `evolution.new_reads_old`.
 - 💡 **INT-7 Compress `ww_self` strings with a pre-shared dictionary** — partly addressed by leaving snapshot-known
   traits and types out of introspection data.
 - 💡 **INT-8 Model enums that tolerate newer variants** — the `ww_self` enums (`Type`, `ApiItemKind`, `Fields`, ...)
@@ -930,6 +946,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `examples/blinky_py` is a hand-written pyo3 wrapper around the Rust client, and `wire_weaver_py` is dynamic.
   Generating typed pyo3 bindings from an API crate might be useful (see the `TODO` in
   `docs/api/folder_structure.md`).
+- 📋 **TOOL-13 `Some(None)` in Python values** — Python (and the conformance corpus, which uses its form) writes
+  `None` for both `None` and `Some(None)` of an `Option<Option<T>>`, so the inner `None` can't be written or told
+  apart when read. Needs a marker for a present `None` (e.g. `ww.Some(None)`). Conformance case
+  `option.option.some_none`.
 - 📋 **TOOL-8 `ww` inspect / read / write all GPIOs on any device** · `v0.5.x`.
 - 📋 **TOOL-9 Buffer visualizer / "explain" encoding** · `v0.5.x` — record operations on buffers so that each bit can be
   traced to an item, show it using the AST and dynamic values (`TODO` in `wire_weaver_core/src/eval.rs`).
@@ -1214,6 +1234,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **TEST-7 Stream tests**: byte buffers, basic and user types, open/close, sideband both ways, sinks, arrays of
   streams.
 - ✅ **TEST-8 Framer fuzzing** (`fuzz/`).
+- ✅ **TEST-23 Wire-format conformance matrix**: one corpus of cases (`tests/conformance/corpus.json`: a type, a
+  value in the form Python uses, the golden bytes), run through every consumer of the wire format: the Rust derive
+  (owned types, borrowed round trips), the `ww_self` dynamic client and Python (from the API model of
+  `tests/conformance_api`), and C (the runtime for single values, the generated `fixed_layout` and `head_tail`
+  readers compiled and run). 105 cases: numbers and varints, bit-sized fields and nibbles, relocated flags,
+  `Option` / `Result`, enums with sub-byte, nibble and explicit discriminants, unknown and compiled-out variants,
+  lists, strings, `ArrayString` / `ArrayVec`, `MaxLen` bounds both ways, nested, recursive, generic, sparse,
+  sized and final structs, `PhantomData`, `validate`, `TailBytes` / `TailSize`, fixed layout, `head_tail`, `Series`,
+  evolution both ways. A case a consumer can't express carries a gap mark naming the item that fixes it (shown in
+  `docs/serdes/conformance_matrix.md`); a missing or stale mark fails. Part of `just test` and CI. It replaces an
+  IR for the two layout engines (API-25 dropped). Found and fixed: `fixed_layout` types in APIs (the crate walker
+  rejected them), unknown enum variants in Python; filed: INT-9, INT-10, TOOL-13, SW-66. See
+  `docs/serdes/conformance.md`.
 - ✅ **TEST-17 `shrink_wrap` code size bench**: `just size-bench` builds one bare firmware image per test case
   (plain struct, enum, list, bit fields, `Option`, decode or encode only, the request/reply codec of a small
   softcore firmware and the same by hand) for RV32I, RV32IC, Cortex-M0 and Cortex-M4F/M7 and prints `.text` +
@@ -1258,6 +1291,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
 ## Dropped and superseded
 
+- **API-25 Refactor codegen to use an IR** — decided against (18 Oct 2026). There are two wire-layout engines by
+  design: `shrink_wrap_derive` keeps its own AST, as `ww_self`'s own types are encoded with `#[derive_shrink_wrap]`
+  and the derive can't depend on `ww_self` (a bootstrapping cycle); the dynamic path (`ww_self` to the dynamic
+  client, Python, the CLI and GUI) computes the layout again from the introspection model, and generated C (API-26)
+  is one more consumer of that model. Instead of an IR, the conformance matrix (TEST-23), one corpus of cases run
+  through every consumer, is the contract that keeps them byte-identical; `ww_self` is the shared model for
+  everything outside the derive. Fallback if drift ever bites: a dependency-free crate holding only the layout rules
+  (bit offsets, flags, nibble alignment), called by both `shrink_wrap_derive` and `ww_self`, breaks no cycle.
 - **SW-31 `Delta` / `DeltaOfDelta`**, **SW-32 `XorFloat`**, **SW-50 compressed sequences in APIs** — superseded by
   `Series<T>` (SW-60): its numeric columns use the SW-31 prefix code with the delta or delta of delta predictor, its
   float columns the SW-32 XOR code, plus packed, constant and plain and the smallest picked per column, in every API

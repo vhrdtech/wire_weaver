@@ -8,6 +8,18 @@ test:
     # a firmware's SeriesStore sizes, with the number types up to 32 bits only
     cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store
     cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store
+    # the conformance matrix's Python consumer (TEST-23), the Rust ones run above
+    just test-conformance-py
+
+# Fill in the golden bytes of new conformance cases ("bytes": "?") from the derive and write docs/serdes/conformance_matrix.md (TEST-23)
+conformance-update:
+    CONFORMANCE=update cargo nextest run -p conformance corpus
+    CONFORMANCE=update cargo nextest run -p conformance report
+
+# The conformance corpus through the Python module (wire_weaver_py), in its own venv (TEST-23)
+[working-directory('wire_weaver_py')]
+test-conformance-py:
+    uv run --group dev pytest -q tests/test_conformance.py
 
 # Observe cells under miri: the SeriesCells round trips, and the ring's writer and reader on two threads over many
 # interleavings (about a minute)

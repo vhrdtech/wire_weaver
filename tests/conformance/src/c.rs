@@ -345,7 +345,16 @@ fn compile_and_run(program: &str) -> String {
     std::fs::write(&src, program).unwrap();
     let cc = std::env::var("CC").unwrap_or_else(|_| "cc".into());
     let out = Command::new(&cc)
-        .args(["-std=c99", "-Wall", "-Wextra", "-Werror", "-pedantic", "-o"])
+        .args([
+            "-std=c99",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-pedantic",
+            "-Wconversion",
+            "-Wsign-conversion",
+            "-o",
+        ])
         .arg(&exe)
         .arg(&src)
         .output()

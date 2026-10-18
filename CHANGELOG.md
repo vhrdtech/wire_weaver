@@ -13,6 +13,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Wire-format conformance matrix (TEST-23): one corpus of cases (`tests/conformance/corpus.json`: type, value,
+  golden bytes) run by `just test` and CI through every wire-format implementation: the Rust derive, the `ww_self`
+  dynamic client, Python and C (the runtime, the generated `fixed_layout` and `head_tail` readers). Gaps are marked
+  per case and listed in `docs/serdes/conformance_matrix.md`; it replaces the planned codegen IR (API-25 dropped).
+  It found `fixed_layout` types rejected in APIs (fixed in `wire_weaver_core`) and unknown enum variants failing in
+  Python (fixed in `wire_weaver_py`). See `docs/serdes/conformance.md`.
 - shrink_wrap / ww_self: a dynamic `Series` writer (CLT-29): `ValueOwned::ser_shrink_wrap_dyn` / `ser_series_dyn`
   write a `Series` from its items with the bytes the typed writer gives for the same `CodecPolicy`, so a dynamic
   client and Python can send `Series` arguments and properties. See the `shrink_wrap` and `ww_self` changelogs.

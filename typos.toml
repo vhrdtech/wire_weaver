@@ -21,4 +21,6 @@ ot = "ot"
 ake = "ake"
 
 [default]
+# golden bytes of the conformance corpus (tests/conformance/corpus.json) are hex
+extend-ignore-re = ["\"bytes\": \"[0-9a-f ]*\""]
 extend-ignore-identifiers-re = []

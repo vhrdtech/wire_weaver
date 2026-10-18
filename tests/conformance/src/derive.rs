@@ -10,7 +10,8 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::series::{Series, SeriesOwned};
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use wire_weaver::shrink_wrap::{
-    DeserializeShrinkWrapOwned, Error as SwError, SerializeShrinkWrapOwned, UVlq32, UVlq64,
+    ArrayString, ArrayVec, DeserializeShrinkWrapOwned, Error as SwError, SerializeShrinkWrapOwned,
+    UVlq32, UVlq64,
 };
 
 type Enc = Box<dyn Fn() -> Result<Vec<u8>, String>>;
@@ -205,9 +206,19 @@ pub fn table() -> Vec<Typed> {
         case("str.empty", s("")),
         case("str.ascii", s("hello")),
         case("str.utf8", s("größe")),
+        case(
+            "str.array_string",
+            ArrayString::<8>::try_from("hello").unwrap(),
+        ),
         case("bytes.empty", Vec::<u8>::new()),
         case("bytes.three", vec![1u8, 2, 3]),
         case("vec.u16", vec![1u16, 0xFFFF]),
+        case("vec.array_vec", {
+            let mut v = ArrayVec::<u16, 4>::default();
+            v.push(1).unwrap();
+            v.push(0xFFFF).unwrap();
+            v
+        }),
         case("vec.string", vec![s("a"), s("bc")]),
         case("vec.bool", vec![true, false, true]),
         case("vec.option", vec![Some(1u8), None, Some(3)]),
@@ -319,6 +330,24 @@ pub fn table() -> Vec<Typed> {
             },
         ),
         case("struct.generic_const", Window { samples: [1, 2, 3] }),
+        case(
+            "struct.phantom",
+            Quantity::<Marker> {
+                value: -5,
+                _unit: core::marker::PhantomData,
+            },
+        ),
+        case("struct.validate.ok", Ordered { lo: 1, hi: 2 }),
+        case("struct.validate.rejected", Ordered { lo: 1, hi: 2 }),
+        case(
+            "struct.tail_size",
+            FramedOwned {
+                magic: 0xABCD,
+                size: TailSize(7),
+                name: s("ab"),
+                count: 7,
+            },
+        ),
         case("struct.sparse.empty", SparseOwned::default()),
         case(
             "struct.sparse.slots",
@@ -357,6 +386,8 @@ pub fn table() -> Vec<Typed> {
         case("enum.sized", Command::Go(513)),
         case("enum.sized.wide_discriminant", Command::Hold(1)),
         case("enum.u2", Error::TooBig),
+        case("enum.nibble.unit", Level::Low),
+        case("enum.nibble.payload", Level::High(7)),
         case("enum.cfg.kept", CfgSubset::A(5)),
         case("enum.cfg.kept_after_gap", CfgSubset::C),
         case("enum.cfg.compiled_out", CfgSubset::C),

@@ -1,6 +1,6 @@
 //! Types of the wire-format conformance matrix (TEST-23, `docs/serdes/conformance.md`).
 //!
-//! Every case of `tests/conformance/corpus.json` names a type by the property of [Conformance] that has it
+//! Every case of `tests/conformance/corpus.json` names a type by the property of `Conformance` that has it
 //! (`"type": "u8"` is `property!(rw u8: u8)`), so each consumer finds it: the Rust derive through the case table of
 //! `tests/conformance`, the dynamic client and Python through this trait's API model, loaded from source. Types
 //! without a sw serdes (`head_tail`) or not in the API model yet are defined here but not listed in the trait; the
@@ -70,6 +70,8 @@ trait Conformance {
     property!(rw generic_const: Window<3>);
     property!(rw sparse: Sparse<'i>);
     property!(rw tree: Tree<'i>);
+    property!(rw phantom: Quantity<Marker>);
+    property!(rw validated: Ordered);
     property!(rw expr: Expr<'i>);
     // enums
     property!(rw shape: Shape<'i>);
@@ -77,6 +79,7 @@ trait Conformance {
     property!(rw address: I2cAddress);
     property!(rw command: Command);
     property!(rw error: Error);
+    property!(rw nib_enum: Level);
     property!(rw cfg_subset: CfgSubset);
     // evolution
     property!(rw config_v1: ConfigV1<'i>);
@@ -197,6 +200,39 @@ pub struct Sparse<'i> {
     pub on: Option<bool>,
 }
 
+/// A `PhantomData` field takes no bits (DER-15).
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Quantity<U> {
+    pub value: i32,
+    pub _unit: core::marker::PhantomData<U>,
+}
+
+/// `validate`: a value just read is checked (SW-58).
+#[derive_shrink_wrap(borrowed, owned, validate = Ordered::check, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Ordered {
+    pub lo: u8,
+    pub hi: u8,
+}
+
+impl Ordered {
+    fn check(&self) -> Result<(), ShrinkWrapError> {
+        if self.lo <= self.hi {
+            Ok(())
+        } else {
+            Err(ShrinkWrapError::SubtypeOutOfRange)
+        }
+    }
+}
+
+/// `TailSize` (SW-18): the size of the rest of the value, filled in when written.
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
+pub struct Framed<'i> {
+    pub magic: u16,
+    pub size: TailSize<2>,
+    pub name: &'i str,
+    pub count: u32,
+}
+
 /// Self-reference through a list.
 #[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
 pub struct Tree<'i> {
@@ -265,6 +301,13 @@ pub enum Command {
 pub enum Error {
     TooBig,
     Missing,
+}
+
+/// A nibble discriminant.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy), ww_repr = nib)]
+pub enum Level {
+    Low,
+    High(u8) = 12,
 }
 
 /// A variant compiled out keeps its discriminant (DER-8): its bytes read as `EnumVariantDisabled`.

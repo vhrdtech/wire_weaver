@@ -198,6 +198,7 @@ A device can send a description of its own API, so tools and scripts work with i
 
 ## Advanced
 
+- INT-4 | Bit-sized numbers in the model | `U7`, `I12`, nibbles and the like, read and written by the dynamic client and Python. | std_library/ww_self.md
 - INT-3 | Moved flag bits | Relocated `#[flag]` fields in the model and in dynamic values. | std_library/ww_self.md
 
 ## Nomicon
@@ -312,6 +313,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 
 ## Nomicon
 
+- TEST-23 | Conformance matrix | One corpus of golden bytes every wire-format implementation must match: derive, dynamic client, Python, C. | serdes/conformance.md
 - TEST-17 | Code size bench | Firmware images per case for RISC-V and Cortex-M, measured on every change. | serdes/code_size.md
 - TEST-10 | Binary size tracking | Flash and RAM per feature in CI. |
 - TEST-21 | Power cuts on STM32 | A flash store reset thousands of times mid-write on real hardware. | api/ecc_flash.md

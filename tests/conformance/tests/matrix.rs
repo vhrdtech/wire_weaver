@@ -77,3 +77,18 @@ fn dynamic() {
 fn c() {
     conformance::run_all(&conformance::c::C);
 }
+
+/// `docs/serdes/conformance_matrix.md` is what the corpus says.
+#[test]
+fn report() {
+    let report = conformance::report::render(&corpus::load());
+    let path = conformance::report::path();
+    if updating() {
+        std::fs::write(&path, &report).unwrap();
+    }
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap_or_default(),
+        report,
+        "docs/serdes/conformance_matrix.md is not what the corpus says: just conformance-update"
+    );
+}

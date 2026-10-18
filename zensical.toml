@@ -35,7 +35,9 @@ nav = [
             },
             { "Nomicon" = [
                     "serdes/wire_format.md",
-                    "serdes/code_size.md"
+                    "serdes/code_size.md",
+                    "serdes/conformance.md",
+                    "serdes/conformance_matrix.md"
                 ]
             }
         ]

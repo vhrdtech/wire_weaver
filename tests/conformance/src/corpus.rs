@@ -74,7 +74,7 @@ impl Case {
     pub fn golden(&self) -> Vec<u8> {
         assert!(
             !self.to_fill(),
-            "case '{}' has no golden bytes yet: CONFORMANCE=update cargo nextest run -p conformance",
+            "case '{}' has no golden bytes yet: just conformance-update",
             self.name
         );
         let hex: String = self.bytes.split_whitespace().collect();

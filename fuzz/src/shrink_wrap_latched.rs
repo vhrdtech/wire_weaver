@@ -65,7 +65,7 @@ fn ev_with_checks<'i>(rd: &mut BufReader<'i>) -> Result<Ev<'i>, Error> {
             list: rd.read()?,
             w: rd.read()?,
         },
-        _ => return Err(Error::EnumFutureVersionOrMalformedData),
+        discriminant => Ev::Unknown(discriminant as u32),
     })
 }
 

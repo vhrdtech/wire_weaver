@@ -7,12 +7,12 @@ use libfuzzer_sys::fuzz_target;
 use shrink_wrap::prelude::*;
 use shrink_wrap::{BufReader, Error};
 
-/// The decode pass, as `RefVec<T>` does it for every other `T`.
+/// The decode pass, as `RefVec<T>` does it for every other `T`, one nesting level down as `read` reads it there.
 fn pass<'i, T: DeserializeShrinkWrap<'i>>(
     rd: &mut BufReader<'i>,
 ) -> Result<(BufReader<'i>, usize), Error> {
     let count = rd.read_rev_len()?;
-    let start = *rd;
+    let start = rd.with_max_depth(rd.depth_left() - 1);
     for _ in 0..count {
         let _item: T = rd.read()?;
     }

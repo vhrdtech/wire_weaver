@@ -32,6 +32,7 @@ blinky_api = { path = "../../examples/blinky_api", default-features = false }
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
 uart_api = { path = "../../examples/uart_api", default-features = false }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
+power_stage_api = { path = "../../examples/power_stage_api", default-features = false }
 wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy" }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
@@ -143,6 +144,13 @@ bench = false
 [[bin]]
 name = "stm32h725ig-foc-observe-cycles"
 path = "src/bin/foc_observe_cycles.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "stm32h725ig-high-rate-cycles"
+path = "src/bin/high_rate_cycles.rs"
 test = false
 doctest = false
 bench = false

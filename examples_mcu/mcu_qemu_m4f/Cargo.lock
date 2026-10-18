@@ -353,6 +353,7 @@ dependencies = [
  "cortex-m-semihosting",
  "foc_observe_api",
  "panic-semihosting",
+ "power_stage_api",
  "static_cell",
  "wire_weaver",
  "ww_client_server",
@@ -462,6 +463,14 @@ name = "portable-atomic"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05c8b63e8d9609db387f0324918f81d68fe27748f084ef092fb35954d0539a85"
+
+[[package]]
+name = "power_stage_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
 
 [[package]]
 name = "proc-macro-crate"

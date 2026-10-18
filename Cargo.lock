@@ -3800,6 +3800,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "power_stage_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
 name = "powerfmt"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

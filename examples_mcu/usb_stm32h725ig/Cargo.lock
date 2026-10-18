@@ -1192,6 +1192,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05c8b63e8d9609db387f0324918f81d68fe27748f084ef092fb35954d0539a85"
 
 [[package]]
+name = "power_stage_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
 name = "proc-macro-crate"
 version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1764,6 +1772,7 @@ dependencies = [
  "embassy-usb",
  "foc_observe_api",
  "panic-probe",
+ "power_stage_api",
  "static_cell",
  "stm32-metapac",
  "uart_api",

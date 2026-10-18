@@ -170,6 +170,7 @@ module_paths_api = { version = "0.1.0", path = "./tests/module_paths_api" }
 multi_req_api = { version = "0.1.0", path = "./tests/multi_req_api" }
 observe_api = { version = "0.1.0", path = "./tests/observe_api" }
 observe_batched_api = { version = "0.1.0", path = "./tests/observe_batched_api" }
+power_stage_api = { version = "0.1.0", path = "./examples/power_stage_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }
 quantities_api = { version = "0.1.0", path = "./tests/quantities_api" }
 recorder_groups_api = { version = "0.1.0", path = "./tests/recorder_groups_api" }

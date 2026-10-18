@@ -15,6 +15,7 @@ ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = [
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
 ww_stream = { path = "../../ww_stream", default-features = false }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
+power_stage_api = { path = "../../examples/power_stage_api", default-features = false }
 
 [[bin]]
 name = "qemu-m4f-series-encode-cpu-smallest"
@@ -82,6 +83,13 @@ bench = false
 [[bin]]
 name = "qemu-m4f-foc-observe"
 path = "src/bin/foc_observe.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-m4f-high-rate"
+path = "src/bin/high_rate.rs"
 test = false
 doctest = false
 bench = false

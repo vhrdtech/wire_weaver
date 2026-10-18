@@ -21,9 +21,11 @@ mod foc_observe;
 #[path = "../../../mcu_qemu/src/foc_signals.rs"]
 mod foc_signals;
 
-/// Cycles per variant and case: calls, the first, the smallest and largest of the others, their sum.
+/// Cycles per variant and case: calls, the first, the smallest and largest of the others, their sum, and the
+/// first four calls one by one (the polls: which of them encode depends on where the batches are cut).
 #[derive(Clone, Copy)]
 struct Stat {
+    calls: [u32; 4],
     n: u32,
     first: u32,
     min: u32,
@@ -31,7 +33,7 @@ struct Stat {
     sum: u32,
 }
 
-struct Cycles([[Stat; 3]; 2]);
+struct Cycles([[Stat; 5]; 2]);
 
 impl foc_observe::Meter for Cycles {
     fn measure(&mut self, variant: Variant, case: Case, _k: usize, work: &mut dyn FnMut()) {
@@ -39,6 +41,9 @@ impl foc_observe::Meter for Cycles {
         work();
         let cycles = DWT::cycle_count().wrapping_sub(start);
         let s = &mut self.0[variant as usize][case as usize];
+        if let Some(c) = s.calls.get_mut(s.n as usize) {
+            *c = cycles;
+        }
         if s.n == 0 {
             s.first = cycles;
         } else {
@@ -88,34 +93,38 @@ fn main() -> ! {
     cp.DWT.enable_cycle_counter();
 
     let empty = Stat {
+        calls: [0; 4],
         n: 0,
         first: 0,
         min: u32::MAX,
         max: 0,
         sum: 0,
     };
-    let mut cycles = Cycles([[empty; 3]; 2]);
+    let mut cycles = Cycles([[empty; 5]; 2]);
     let reports = foc_observe::run(&mut cycles);
     for v in Variant::ALL {
         for c in Case::ALL {
             let s = cycles.0[v as usize][c as usize];
             info!(
-                "{} {} calls={} cycles cold={} warm min={} max={} mean={}",
+                "{} {} calls={} cycles cold={} warm min={} max={} mean={} first four={}",
                 v.label(),
                 c.label(),
                 s.n,
                 s.first,
                 s.min,
                 s.max,
-                s.sum / (s.n - 1).max(1)
+                s.sum / (s.n - 1).max(1),
+                s.calls
             );
         }
         let r = &reports[v as usize];
         info!(
-            "{} updates={} bytes={} hash={=u32:08x} stack row={} poll={} setup={} ram={}",
+            "{} updates={} bytes={} few updates={} bytes={} hash={=u32:08x} stack row={} poll={} setup={} ram={}",
             v.label(),
             r.updates,
             r.bytes,
+            r.few_updates,
+            r.few_bytes,
             r.hash,
             r.stack[Case::Row as usize],
             r.stack[Case::Poll as usize],

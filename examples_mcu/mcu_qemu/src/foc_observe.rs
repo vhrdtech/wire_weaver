@@ -8,7 +8,9 @@
 //!
 //! Per variant: [CLOSED_ROWS] rows with the gate closed (nobody observes), then [ROWS] rows with it open, each one
 //! measured on its own (a row changes the state, so it can't be repeated), and every poll. Then the stack: the
-//! same calls once more with the stack painted below the stack pointer ([stack_of]).
+//! same calls once more with the stack painted below the stack pointer ([stack_of]). In between, the host observes
+//! only [FEW] of the 21 properties and [ROWS] more rows and their polls are measured: the interrupt still sets
+//! (cells) or hands over (`sample()`) all 21 values, only the observed ones are encoded and sent.
 
 // each bin uses a part
 #![allow(dead_code)]
@@ -31,6 +33,8 @@ pub const CLOSED_ROWS: usize = 8;
 pub const POLL_EVERY: usize = 16;
 /// Rows of the cells ring: `RING - 1` can wait between two polls.
 pub const RING: usize = 32;
+/// Properties observed in the second part: `i_a`, `i_b`, `i_c`.
+pub const FEW: usize = 3;
 /// Rows and polls run again for the stack.
 pub const STACK_ROWS: usize = 4;
 /// Bytes painted below the stack pointer.
@@ -85,16 +89,28 @@ pub enum Case {
     /// One `poll_properties`: the cells' ring read into the staging store (cells), the sealed batch encoded and
     /// sent (both).
     Poll,
+    /// One row (all 21 values set or taken), the host observes only [FEW] of them.
+    FewRow,
+    /// One `poll_properties`, the host observes only [FEW] properties.
+    FewPoll,
 }
 
 impl Case {
-    pub const ALL: [Case; 3] = [Case::Closed, Case::Row, Case::Poll];
+    pub const ALL: [Case; 5] = [
+        Case::Closed,
+        Case::Row,
+        Case::Poll,
+        Case::FewRow,
+        Case::FewPoll,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
             Case::Closed => "closed",
             Case::Row => "row",
             Case::Poll => "poll",
+            Case::FewRow => "row, 3 observed",
+            Case::FewPoll => "poll, 3 observed",
         }
     }
 }
@@ -113,6 +129,9 @@ pub struct Report {
     pub hash: u32,
     /// Updates sent.
     pub updates: usize,
+    /// Bytes and updates sent while only [FEW] properties are observed.
+    pub few_bytes: usize,
+    pub few_updates: usize,
     /// Most stack a row took ([stack_of] of the row call minus that of an empty call), per case.
     pub stack: [usize; 3],
     /// Stack the setup took: `ObserveBatches::init` and `ObserveState::init` into their statics, the halves.
@@ -323,8 +342,8 @@ fn sample_cells(w: &mut cells::api_impl::RootWriter<'_, RING>, i: usize) -> bool
     w.commit(t(i))
 }
 
-/// The `Observe` request of a host asking for every sample of every property of the level.
-fn observe_request(buf: &mut [u8]) -> &[u8] {
+/// The `Observe` request of a host asking for every sample of the level's first `n` properties.
+fn observe_request(buf: &mut [u8], n: usize) -> &[u8] {
     let entries: [ObserveEntry; 21] = core::array::from_fn(|k| ObserveEntry {
         index: UNib32(k as u32),
         mode: ObserveMode::Samples {
@@ -339,7 +358,9 @@ fn observe_request(buf: &mut [u8]) -> &[u8] {
         },
         kind: RequestKind::Observe {
             cfg: ObserveRequest {
-                entries: RefVec::Slice { slice: &entries },
+                entries: RefVec::Slice {
+                    slice: &entries[..n],
+                },
                 patch: false,
                 budget: None,
             },
@@ -381,11 +402,81 @@ pub fn stack_of(work: &mut dyn FnMut()) -> usize {
     top - low
 }
 
+/// The second part of a variant: the host observes only [FEW] properties, [POLL_EVERY] rows and a poll to warm up,
+/// then [ROWS] rows and their polls, right after the [ROWS] rows of the first part (all sent by its last poll).
+#[allow(clippy::too_many_arguments)]
+fn few<S: ProcessRequest>(
+    meter: &mut dyn Meter,
+    v: Variant,
+    report: &mut Report,
+    server: &mut S,
+    req: &[u8],
+    scratch: &mut [u8],
+    event_scratch: &mut [u8],
+    row: &mut dyn FnMut(usize),
+    poll: &mut dyn FnMut(&mut S, &mut EventWriter<'_, Wire<'_>>, u64),
+) {
+    let mut out = EventWriter::new(Drop, event_scratch);
+    server.process(req, scratch, &mut out);
+    let mut sink = Report {
+        bytes: 0,
+        hash: 0x811c_9dc5,
+        updates: 0,
+        few_bytes: 0,
+        few_updates: 0,
+        stack: [0; 3],
+        setup: 0,
+        ram: 0,
+    };
+    // warm-up: the first batch after the new request is cut at the worst case's limit (about 16 rows of three
+    // quantities in the 2 KB outbox), the next ones at the measured bytes per row
+    for i in ROWS..ROWS + POLL_EVERY {
+        row(i);
+    }
+    let mut out = EventWriter::new(Wire(&mut sink), event_scratch);
+    poll(server, &mut out, now_us(ROWS + POLL_EVERY - 1));
+    sink.bytes = 0;
+    sink.updates = 0;
+    let first = ROWS + POLL_EVERY;
+    let mut polls = 0;
+    for i in first..first + ROWS {
+        meter.measure(v, Case::FewRow, i - first, &mut || row(i));
+        if (i + 1 - first) % POLL_EVERY == 0 {
+            let mut out = EventWriter::new(Wire(&mut sink), event_scratch);
+            meter.measure(v, Case::FewPoll, polls, &mut || {
+                poll(server, &mut out, now_us(i))
+            });
+            polls += 1;
+        }
+    }
+    report.few_bytes = sink.bytes;
+    report.few_updates = sink.updates;
+}
+
+/// `process_request_bytes` of either server.
+trait ProcessRequest {
+    fn process(&mut self, req: &[u8], scratch: &mut [u8], out: &mut EventWriter<'_, Drop>);
+}
+
+impl ProcessRequest for default::Server {
+    fn process(&mut self, req: &[u8], scratch: &mut [u8], out: &mut EventWriter<'_, Drop>) {
+        self.process_request_bytes(req, scratch, out, ()).unwrap();
+    }
+}
+
+impl ProcessRequest for cells::Server {
+    fn process(&mut self, req: &[u8], scratch: &mut [u8], out: &mut EventWriter<'_, Drop>) {
+        self.process_request_bytes(req, scratch, out, ()).unwrap();
+    }
+}
+
 /// Runs both variants, measures every call with `meter`, returns what each sent and needs.
 pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
     let empty = stack_of(&mut || {});
     let mut req = [0u8; 256];
-    let req = observe_request(&mut req);
+    let mut few_req = [0u8; 64];
+    let few_req = observe_request(&mut few_req, FEW);
+    let req = observe_request(&mut req, 21);
     let mut scratch = [0u8; 256];
     let mut event_scratch = [0u8; BUF + 64];
     let mut buf = [0u8; BUF];
@@ -394,6 +485,8 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
         bytes: 0,
         hash: 0x811c_9dc5,
         updates: 0,
+        few_bytes: 0,
+        few_updates: 0,
         stack: [0; 3],
         setup: 0,
         ram: 0,
@@ -431,8 +524,25 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
                 polls += 1;
             }
         }
+        few(
+            meter,
+            v,
+            report,
+            &mut server,
+            few_req,
+            &mut scratch,
+            &mut event_scratch,
+            &mut |i| {
+                black_box(sample_default(&mut sampler, i));
+            },
+            &mut |server, out, now| {
+                server
+                    .poll_properties(out, (), now, &mut buf, &mut sb)
+                    .unwrap();
+            },
+        );
         // the stack: rows on, polls with nothing to send
-        for i in ROWS..ROWS + STACK_ROWS {
+        for i in 2 * ROWS + POLL_EVERY..2 * ROWS + POLL_EVERY + STACK_ROWS {
             let s = stack_of(&mut || {
                 black_box(sample_default(&mut sampler, i));
             });
@@ -442,6 +552,8 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
             bytes: 0,
             hash: 0,
             updates: 0,
+            few_bytes: 0,
+            few_updates: 0,
             stack: [0; 3],
             setup: 0,
             ram: 0,
@@ -449,7 +561,13 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
         let mut out = EventWriter::new(Wire(&mut sink), &mut event_scratch);
         let s = stack_of(&mut || {
             server
-                .poll_properties(&mut out, (), now_us(ROWS + STACK_ROWS), &mut buf, &mut sb)
+                .poll_properties(
+                    &mut out,
+                    (),
+                    now_us(2 * ROWS + POLL_EVERY + STACK_ROWS),
+                    &mut buf,
+                    &mut sb,
+                )
                 .unwrap();
         });
         report.stack[Case::Poll as usize] = s - empty;
@@ -488,7 +606,24 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
                 polls += 1;
             }
         }
-        for i in ROWS..ROWS + STACK_ROWS {
+        few(
+            meter,
+            v,
+            report,
+            &mut server,
+            few_req,
+            &mut scratch,
+            &mut event_scratch,
+            &mut |i| {
+                black_box(sample_cells(&mut writer, i));
+            },
+            &mut |server, out, now| {
+                server
+                    .poll_properties(out, (), now, &mut buf, &mut sb)
+                    .unwrap();
+            },
+        );
+        for i in 2 * ROWS + POLL_EVERY..2 * ROWS + POLL_EVERY + STACK_ROWS {
             let s = stack_of(&mut || {
                 black_box(sample_cells(&mut writer, i));
             });
@@ -498,6 +633,8 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
             bytes: 0,
             hash: 0,
             updates: 0,
+            few_bytes: 0,
+            few_updates: 0,
             stack: [0; 3],
             setup: 0,
             ram: 0,
@@ -505,7 +642,13 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
         let mut out = EventWriter::new(Wire(&mut sink), &mut event_scratch);
         let s = stack_of(&mut || {
             server
-                .poll_properties(&mut out, (), now_us(ROWS + STACK_ROWS), &mut buf, &mut sb)
+                .poll_properties(
+                    &mut out,
+                    (),
+                    now_us(2 * ROWS + POLL_EVERY + STACK_ROWS),
+                    &mut buf,
+                    &mut sb,
+                )
                 .unwrap();
         });
         report.stack[Case::Poll as usize] = s - empty;

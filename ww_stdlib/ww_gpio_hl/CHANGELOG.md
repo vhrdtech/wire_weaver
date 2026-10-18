@@ -12,5 +12,6 @@
   `&Promise<(), CallError<ww_gpio::Error>>`.
 ### 🐛 Fixes
 
+- Drop the unused `tokio` and `ww_si` dependencies (P2401, cargo-machete).
 - Follows `ww_gpio`'s counted `Pin::event` stream function (API-31): `enable_interrupts` opens the pin's event
   stream with the edges to report, `disable_interrupts` closes it (STD-13).

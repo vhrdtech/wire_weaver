@@ -14,7 +14,6 @@ defmt-decoder.workspace = true
 object = { version = "0.40", default-features = false, features = ["read_core", "elf", "std"] }
 rustc-demangle = "0.1"
 serde = { workspace = true, features = ["std"] }
-serde_json.workspace = true
 tokio = { workspace = true, features = ["time", "rt", "sync"] }
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
@@ -22,6 +21,6 @@ ww_board_info = { workspace = true, features = ["std"] }
 ww_counters = { workspace = true, features = ["std", "host"] }
 ww_firmware_info = { workspace = true, features = ["std"] }
 ww_log = { workspace = true, features = ["std"] }
-ww_si = { workspace = true, features = ["std", "time"] }
+ww_si = { workspace = true, features = ["std", "time"] } # used by codegen in generated code (ww_codegen! macro), not by name in source
 ww_uid = { workspace = true, features = ["std"] }
 ww_user_info = { workspace = true, features = ["std"] }

@@ -17,7 +17,6 @@ darling = "0.24"
 pathsearch = "0.2"
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-relative-path.workspace = true
 subprocess = "1.2"
 syn = { workspace = true }
 wire_weaver_core.workspace = true

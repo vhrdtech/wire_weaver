@@ -42,6 +42,7 @@
 
 ### 🐛 Fixes
 
+- Drop the unused `relative-path` dependency (P2401, cargo-machete).
 - `ww_codegen!` names types the API uses by their module path (API-46): a type in a `pub mod` of the API crate works
   without a root re-export, a type re-exported under another name works, a marker `units::Volt` next to an alias
   `Volt` is no longer taken for the alias, and `use .. as ..` imports in API crates are followed.

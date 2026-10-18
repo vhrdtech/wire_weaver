@@ -4316,15 +4316,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
-name = "relative-path"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bca40a312222d8ba74837cb474edef44b37f561da5f773981007a10bbaa992b0"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "ron"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6119,7 +6110,6 @@ name = "wire_weaver_client"
 version = "0.5.0"
 dependencies = [
  "anyhow",
- "cfg-if",
  "either",
  "futures-lite",
  "futures-util",
@@ -6129,7 +6119,6 @@ dependencies = [
  "nusb",
  "picoboot_host",
  "probe-rs",
- "rand 0.10.2",
  "ron",
  "semver",
  "strum 0.28.0",
@@ -6158,7 +6147,6 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "cargo_toml",
- "console",
  "convert_case 0.11.0",
  "hex",
  "pest",
@@ -6166,7 +6154,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "relative-path",
  "ron",
  "semver",
  "shrink_wrap",
@@ -6186,7 +6173,6 @@ dependencies = [
  "pathsearch",
  "proc-macro2",
  "quote",
- "relative-path",
  "subprocess",
  "syn 3.0.3",
  "wire_weaver_core",
@@ -6381,11 +6367,9 @@ name = "ww_gpio_hl"
 version = "0.1.0"
 dependencies = [
  "thiserror 2.0.20",
- "tokio",
  "wire_weaver",
  "wire_weaver_client",
  "ww_gpio",
- "ww_si",
 ]
 
 [[package]]
@@ -6493,7 +6477,6 @@ dependencies = [
  "object 0.40.0",
  "rustc-demangle",
  "serde",
- "serde_json",
  "tokio",
  "wire_weaver",
  "wire_weaver_client",

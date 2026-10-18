@@ -33,7 +33,6 @@ usb-tracing = [
 
 [dependencies]
 anyhow.workspace = true
-cfg-if = "1"
 either = "1"
 futures-lite = "2.6"
 futures-util = { version = "0.3", default-features = false, features = ["sink"], optional = true }
@@ -42,10 +41,9 @@ iceoryx2 = { version = "0.8", optional = true }
 iceoryx2-bb-container = { version = "0.8", optional = true }
 nusb.workspace = true # TODO: try to use without tokio?
 probe-rs = { version = "0.32", default-features = false, features = ["builtin-targets", "builtin-formats"], optional = true }
-rand = "0.10"
 ron.workspace = true
 semver.workspace = true
-strum.workspace = true
+strum.workspace = true # EnumDiscriminants-generated code refers to it, even though only strum_macros is imported
 strum_macros.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }

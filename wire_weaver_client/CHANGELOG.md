@@ -30,6 +30,7 @@
 
 ### 🐛 Fixes
 
+- Drop the unused `cfg-if` and `rand` dependencies (P2401, cargo-machete).
 - Positioned streams (API-47): an item the device sends again from inside it (a resend, or a resume from a cursor
   confirmed in the middle of a multi-unit item) is no longer dropped as a duplicate or reported as lost:
   `StreamEvent::Item` gives it with `pos` and `units` of the units new to the host, the value is the whole item.

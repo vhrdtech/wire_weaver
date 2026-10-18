@@ -15,7 +15,6 @@ std = ["shrink_wrap/std"]
 [dependencies]
 anyhow.workspace = true
 cargo_toml = "1.0"
-console.workspace = true
 convert_case.workspace = true
 hex = { workspace = true, features = ["std"] }
 pest = "2.8"
@@ -23,7 +22,6 @@ pest_derive = { version = "2.8", features = ["grammar-extras"] }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 regex = "1.12"
-relative-path.workspace = true
 ron.workspace = true
 semver.workspace = true
 shrink_wrap.workspace = true

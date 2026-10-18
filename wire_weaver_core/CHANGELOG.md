@@ -17,6 +17,7 @@
 
 ### 🐛 Fixes
 
+- Drop the unused `console` and `relative-path` dependencies (P2401, cargo-machete).
 - `load`, `load_dep` and the codegen macros parse each module file of a walked crate once instead of on every path
   through it (`ww_si`'s `unit.rs` was parsed over a hundred times per API): loading an API with `ww_si` quantities
   takes ~50 ms instead of ~700 ms in debug, `ww_codegen!` and the snapshot checks get faster too.

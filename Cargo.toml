@@ -58,7 +58,6 @@ proc-macro2 = "1.0"
 proptest = "1.11"
 pyo3 = "0.29"
 quote = "1.0"
-relative-path = "2.0"
 ron = "0.12"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }

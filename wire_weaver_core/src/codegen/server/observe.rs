@@ -54,6 +54,11 @@ impl Level {
         Ident::new(&format!("{}_outbox", self.field), Span::call_site())
     }
 
+    /// `<field>`'s batcher in `ObserveBatches`
+    fn batches(&self) -> Ident {
+        self.field.clone()
+    }
+
     /// `<Field>Sampler`
     fn sampler(&self) -> Ident {
         Ident::new(
@@ -127,14 +132,9 @@ impl Observe {
                 ApiItemKindOwned::Property {
                     ty,
                     access:
-                        PropertyAccess::ReadOnly {
-                            observe: true,
-                            batched,
-                        }
-                        | PropertyAccess::ReadWrite {
-                            observe: true,
-                            batched,
-                        },
+                        PropertyAccess::ReadOnly { observe: true }
+                        | PropertyAccess::ReadWrite { observe: true },
+                    batched,
                     ..
                 } if flat => {
                     let ident = Ident::new(&item.ident, Span::call_site());
@@ -147,7 +147,7 @@ impl Observe {
                         batch: Ident::new(&format!("{chain}_{}", item.ident), Span::call_site()),
                         ident,
                         ty: ty.clone(),
-                        batched: *batched,
+                        batched: batched.is_some(),
                     });
                 }
                 ApiItemKindOwned::Trait { .. } => {
@@ -292,7 +292,10 @@ impl Observe {
                     pub batches: B,
                 },
                 {
-                    let gates = self.batched_props().map(|(_, _, p)| gate_ident(&p.batch));
+                    let gates = self
+                        .tables()
+                        .filter(|l| l.has_batched())
+                        .map(|l| gate_ident(&l.batches()));
                     quote! {
                         let c = self.batches.consumers();
                         #(c.#gates.set(None);)*
@@ -376,7 +379,8 @@ impl Observe {
     }
 
     /// `ObserveBatches`, `ObserveBatchConsumers`, `ObserveBatchSource`, `ObserveSamplers`, a `<Level>Sampler` per
-    /// level and a `<Trait>Samples` per trait with `+batched` properties (API-39).
+    /// level, and per trait with `+batched` properties a `<Trait>Samples` and a `<Trait>Row` (API-39): the rows of a
+    /// level share one clock, one batcher per level.
     fn batch_items(
         &self,
         api_bundle: &ApiBundleOwned,
@@ -398,50 +402,139 @@ impl Observe {
             }
             ty_def(api_bundle, &p.ty, false, TyPos::Annotation).unwrap()
         };
-        let names: Vec<Ident> = self
-            .batched_props()
-            .map(|(_, _, p)| p.batch.clone())
-            .collect();
-        let gates: Vec<Ident> = names.iter().map(gate_ident).collect();
-        let cursors: Vec<Ident> = names.iter().map(cursor_ident).collect();
-        let tys: Vec<TokenStream> = self.batched_props().map(|(_, _, p)| item_ty(p)).collect();
-        let docs = self
-            .batched_props()
-            .map(|(l, _, p)| format!(" Samples of `{}` of `{}`", p.ident, l.trait_name));
-        let item = |ty: &TokenStream| quote! { ww_stream::batch::Timed<#ty> };
-        let items: Vec<TokenStream> = tys.iter().map(item).collect();
 
-        let mut samples_structs = TokenStream::new();
+        let mut row_items = TokenStream::new();
         let mut samplers = TokenStream::new();
         let mut sampler_fields = vec![];
         let mut sampler_inits = vec![];
+        let mut split_inits = vec![];
+        // per level: batcher, gate, cursor, row type, doc
+        let mut names = vec![];
+        let mut gates = vec![];
+        let mut cursors = vec![];
+        let mut rows = vec![];
+        let mut docs = vec![];
         for (level, (base, first)) in self.tables().zip(bases) {
             if !level.has_batched() {
                 continue;
             }
             let samples = Ident::new(&format!("{base}Samples"), Span::call_site());
+            let samples_store = Ident::new(&format!("{base}SamplesStore"), Span::call_site());
+            let row = Ident::new(&format!("{base}Row"), Span::call_site());
+            let row_store = Ident::new(&format!("{base}RowStore"), Span::call_site());
             let props: Vec<&Prop> = level.props.iter().filter(|p| p.batched).collect();
             let idents: Vec<&Ident> = props.iter().map(|p| &p.ident).collect();
             let ptys: Vec<TokenStream> = props.iter().map(|p| item_ty(p)).collect();
+            let columns = props.len();
+            let column_ids: Vec<usize> = (0..columns).collect();
             if *first {
                 let doc = format!(
                     " One sample of the `+batched` properties of `{}` (API-39), for `<Level>Sampler::sample`.",
                     level.trait_name
                 );
-                samples_structs.extend(quote! {
+                let row_doc = format!(
+                    " A row of `{}`'s samples (API-39): the device time of one `sample()` and its values. A level's \
+                     batches keep rows as a struct of arrays and send each column as a `Series` of its own, the \
+                     times once for all properties.",
+                    level.trait_name
+                );
+                row_items.extend(quote! {
                     #[doc = #doc]
                     #[derive(Debug, Clone)]
                     pub struct #samples {
                         #(pub #idents: #ptys,)*
                     }
+
+                    #[doc(hidden)]
+                    pub struct #samples_store<const N: usize> {
+                        #(#idents: <#ptys as wire_weaver::shrink_wrap::series::SeriesStore>::Store<N>,)*
+                    }
+
+                    impl wire_weaver::shrink_wrap::series::SeriesStore for #samples {
+                        type Store<const N: usize> = #samples_store<N>;
+
+                        fn empty_store<const N: usize>() -> #samples_store<N> {
+                            #samples_store {
+                                #(#idents: <#ptys as wire_weaver::shrink_wrap::series::SeriesStore>::empty_store::<N>(),)*
+                            }
+                        }
+
+                        fn set<const N: usize>(store: &mut #samples_store<N>, i: usize, item: &Self) {
+                            #(<#ptys as wire_weaver::shrink_wrap::series::SeriesStore>::set::<N>(&mut store.#idents, i, &item.#idents);)*
+                        }
+
+                        fn get<const N: usize>(store: &#samples_store<N>, i: usize) -> Self {
+                            #samples {
+                                #(#idents: <#ptys as wire_weaver::shrink_wrap::series::SeriesStore>::get::<N>(&store.#idents, i),)*
+                            }
+                        }
+                    }
+
+                    #[doc = #row_doc]
+                    #[derive(Debug, Clone)]
+                    pub struct #row {
+                        pub t: ww_stream::observe::Second,
+                        pub values: #samples,
+                    }
+
+                    #[doc(hidden)]
+                    pub struct #row_store<const N: usize> {
+                        t: <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesStore>::Store<N>,
+                        values: #samples_store<N>,
+                    }
+
+                    impl wire_weaver::shrink_wrap::series::SeriesStore for #row {
+                        type Store<const N: usize> = #row_store<N>;
+
+                        fn empty_store<const N: usize>() -> #row_store<N> {
+                            #row_store {
+                                t: <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesStore>::empty_store::<N>(),
+                                values: <#samples as wire_weaver::shrink_wrap::series::SeriesStore>::empty_store::<N>(),
+                            }
+                        }
+
+                        fn set<const N: usize>(store: &mut #row_store<N>, i: usize, item: &Self) {
+                            <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesStore>::set::<N>(&mut store.t, i, &item.t);
+                            <#samples as wire_weaver::shrink_wrap::series::SeriesStore>::set::<N>(&mut store.values, i, &item.values);
+                        }
+
+                        fn get<const N: usize>(store: &#row_store<N>, i: usize) -> Self {
+                            #row {
+                                t: <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesStore>::get::<N>(&store.t, i),
+                                values: <#samples as wire_weaver::shrink_wrap::series::SeriesStore>::get::<N>(&store.values, i),
+                            }
+                        }
+                    }
+
+                    impl ww_stream::batch::LevelRow for #row {
+                        const COLUMNS: usize = #columns;
+                        const TIME_BITS: (usize, usize) = ww_stream::batch::column_bits::<ww_stream::observe::Second>();
+                        const COLUMN_BITS: &'static [(usize, usize)] = &[
+                            #(ww_stream::batch::column_bits::<#ptys>(),)*
+                        ];
+
+                        fn encode_column<P: wire_weaver::shrink_wrap::series::SeriesPolicy + Copy, const N: usize, const B: usize>(
+                            store: &#row_store<N>,
+                            rows: core::ops::Range<usize>,
+                            column: Option<usize>,
+                            policy: P,
+                            scratch: &mut ww_stream::batch::Scratch<B>,
+                            buf: Option<&mut [u8]>,
+                        ) -> Result<usize, wire_weaver::shrink_wrap::Error> {
+                            match column {
+                                None => scratch.encode_column::<ww_stream::observe::Second, P, N>(&store.t, rows, policy, buf),
+                                #(Some(#column_ids) => scratch.encode_column::<#ptys, P, N>(&store.values.#idents, rows, policy, buf),)*
+                                Some(_) => Err(wire_weaver::shrink_wrap::Error::OutOfBoundsWriteU8),
+                            }
+                        }
+                    }
                 });
             }
+            let name = level.batches();
+            let gate = gate_ident(&name);
+            let cursor = cursor_ident(&name);
             let sampler = level.sampler();
             let field = &level.field;
-            let pnames: Vec<&Ident> = props.iter().map(|p| &p.batch).collect();
-            let pgates: Vec<Ident> = pnames.iter().map(|n| gate_ident(n)).collect();
-            let pcursors: Vec<Ident> = pnames.iter().map(|n| cursor_ident(n)).collect();
-            let pitems: Vec<TokenStream> = ptys.iter().map(item).collect();
             let doc = format!(
                 " Takes the samples of `{}` at `/{}` (API-39): the producer half of its batches, for the context \
                  that has the values (a control loop, an interrupt).",
@@ -456,91 +549,73 @@ impl Observe {
             samplers.extend(quote! {
                 #[doc = #doc]
                 pub struct #sampler<'a> {
-                    #(
-                        #pnames: ww_stream::batch::Producer<'a, #pitems, OBSERVE_BATCH>,
-                        #pgates: &'a ww_stream::observe::SampleGate,
-                        #pcursors: &'a mut ww_stream::observe::GateCursor,
-                    )*
+                    rows: ww_stream::batch::Producer<'a, #row, OBSERVE_BATCH>,
+                    gate: &'a ww_stream::observe::SampleGate,
+                    cursor: &'a mut ww_stream::observe::GateCursor,
                 }
 
                 impl #sampler<'_> {
-                    /// One sample of the level, taken at device time `t`: each value a host observes in
-                    /// `Samples` mode goes into its batches (a copy and a few atomic operations, never an encode
-                    /// or a wait: fine in a control loop or an interrupt), the others are dropped.
-                    /// `poll_properties` sends the batches. Returns the samples lost because the event loop
-                    /// didn't keep up.
+                    /// One sample of the level, taken at device time `t`: when a host observes any of its
+                    /// properties in `Samples` mode (and the sample is on the level's grid), the time and the
+                    /// values go into the level's batch as one row (a copy and a few atomic operations, never an
+                    /// encode or a wait: fine in a control loop or an interrupt), else they are dropped.
+                    /// `poll_properties` sends the batches. Returns the rows lost because the event loop didn't
+                    /// keep up.
                     pub fn sample(&mut self, t: ww_stream::observe::Second, values: #samples) -> usize {
-                        let #samples { #(#idents),* } = values;
-                        let mut lost = 0;
-                        #(
-                            if self.#pcursors.take(self.#pgates, &t) {
-                                let item = ww_stream::batch::Timed::new(t, #idents);
-                                if let ww_stream::batch::Seal::Lost { items, .. } =
-                                    ww_stream::batch::Push::push(&mut self.#pnames, &item)
-                                {
-                                    lost += items;
-                                }
-                            }
-                        )*
-                        lost
+                        if !self.cursor.take(self.gate, &t) {
+                            return 0;
+                        }
+                        match ww_stream::batch::Push::push(&mut self.rows, &#row { t, values }) {
+                            ww_stream::batch::Seal::Lost { items, .. } => items,
+                            _ => 0,
+                        }
                     }
 
                     /// Whether a host observes any property of the level in `Samples` mode: skip working out
                     /// the values otherwise.
                     pub fn is_sampling(&self) -> bool {
-                        false #(|| self.#pgates.is_open())*
+                        self.gate.is_open()
                     }
                 }
             });
             sampler_fields.push(quote! { pub #field: #sampler<'a>, });
             sampler_inits.push(quote! {
                 #field: #sampler {
-                    #(
-                        #pnames: ww_stream::batch::Batcher::producer(&mut self.#pnames),
-                        #pgates: &self.#pgates,
-                        #pcursors: &mut self.#pcursors,
-                    )*
+                    rows: ww_stream::batch::Batcher::producer(&mut self.#name),
+                    gate: &self.#gate,
+                    cursor: &mut self.#cursor,
                 },
             });
-        }
-        let split_inits = self.tables().filter(|l| l.has_batched()).map(|level| {
-            let sampler = level.sampler();
-            let field = &level.field;
-            let pnames: Vec<&Ident> = level
-                .props
-                .iter()
-                .filter(|p| p.batched)
-                .map(|p| &p.batch)
-                .collect();
-            let pgates: Vec<Ident> = pnames.iter().map(|n| gate_ident(n)).collect();
-            let pcursors: Vec<Ident> = pnames.iter().map(|n| cursor_ident(n)).collect();
-            quote! {
+            split_inits.push(quote! {
                 #field: #sampler {
-                    #(
-                        #pnames: #pnames.0,
-                        #pgates: &self.#pgates,
-                        #pcursors: &mut self.#pcursors,
-                    )*
+                    rows: #name.0,
+                    gate: &self.#gate,
+                    cursor: &mut self.#cursor,
                 },
-            }
-        });
+            });
+            docs.push(format!(" Samples of `{}`", level.trait_name));
+            names.push(name);
+            gates.push(gate);
+            cursors.push(cursor);
+            rows.push(row);
+        }
         quote! {
             #errors
-            /// Samples per batch of each `+batched` property (`observe_batch = N` of `ww_codegen!`).
+            /// Samples per batch of each level with `+batched` properties (`observe_batch = N` of `ww_codegen!`).
             pub const OBSERVE_BATCH: usize = #batch;
             /// Bytes of the outbox of each level with `+batched` properties (`observe_outbox = N`).
             pub const OBSERVE_OUTBOX: usize = #outbox;
 
-            #samples_structs
+            #row_items
 
-            /// The batches of every `+batched` property (API-39): two stores of `OBSERVE_BATCH` samples each,
-            /// filled by the samplers, encoded by `poll_properties`. [split](Self::split) it to sample in another
-            /// context (an interrupt, another core), or put it into `ObserveState` as it is and sample through
-            /// [samplers](Self::samplers).
+            /// The batches of every level with `+batched` properties (API-39): two stores of `OBSERVE_BATCH` rows
+            /// each (a time and every value), filled by the samplers, encoded by `poll_properties`.
+            /// [split](Self::split) it to sample in another context (an interrupt, another core), or put it into
+            /// `ObserveState` as it is and sample through [samplers](Self::samplers).
             pub struct ObserveBatches {
                 #(
                     #[doc = #docs]
-                    #names: ww_stream::batch::Batcher<#items, OBSERVE_BATCH>,
+                    #names: ww_stream::batch::Batcher<#rows, OBSERVE_BATCH>,
                     #gates: ww_stream::observe::SampleGate,
                     #cursors: ww_stream::observe::GateCursor,
                 )*
@@ -552,7 +627,7 @@ impl Observe {
                 pub fn new(policy: ww_stream::batch::DefaultPolicy) -> Self {
                     ObserveBatches {
                         #(
-                            #names: ww_stream::batch::Batcher::new(policy),
+                            #names: ww_stream::batch::Batcher::new_rows(policy),
                             #gates: ww_stream::observe::SampleGate::new(),
                             #cursors: ww_stream::observe::GateCursor::new(),
                         )*
@@ -590,7 +665,7 @@ impl Observe {
             /// The consumer half of `ObserveBatches`, what `poll_properties` encodes from.
             pub struct ObserveBatchConsumers<'a> {
                 #(
-                    #names: ww_stream::batch::Consumer<'a, #items, OBSERVE_BATCH>,
+                    #names: ww_stream::batch::Consumer<'a, #rows, OBSERVE_BATCH>,
                     #gates: &'a ww_stream::observe::SampleGate,
                 )*
             }

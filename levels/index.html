@@ -4965,6 +4965,29 @@ bootloader that has to fit in 2 KB.</p>
 drawn by <code>overrides/partials/level.html</code>. A page without it has no badge. In the navigation, a section lists its
 Basic pages first and groups the Advanced and Nomicon pages after them.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">For writers: bit layouts</p>
+<p>A Nomicon or Advanced page that shows how bits are laid out uses a <code>bits</code> fence: one field per line, its kind,
+its bits (groups of <code>0</code> and <code>1</code>), then its label. The site draws every bit in its byte, coloured by kind, with
+each byte's hex below and a table of the fields with their bit offsets. A <code>bytes</code> line checks the fields: the
+build fails when they don't make those bytes (MSB first, as <code>shrink_wrap</code> writes them). Take the bytes from a
+real run (a test or a scratch example, see <code>AGENTS.md</code>), never from the bits by hand.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>```bits
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>head  0100              n = 4
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>run   0001 0            `v.prefix` run: `Milli`, end
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>value 0000110011100100  3300
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>width 00010             block width 2
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>delta 10 00 11          +1 0 -2 (zigzag 2 0 3)
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>pad   00                padding
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>bytes 42 11 ..
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>```
+</span></code></pre></div>
+<p>Kinds: <code>head</code> (counts, field counts, codec headers), <code>run</code> (tag runs), <code>value</code> (full values), <code>delta</code> (residuals
+and other coded data), <code>width</code> (block widths), <code>pad</code> (padding). The label starts at the first word that isn't
+only <code>0</code> and <code>1</code> and may have <code>code</code>. <a href="../articles/series/#the-column-layout">The column layout</a> is a worked one.
+The fence is <code>docs_ext/ww_docs_ext/bits.py</code> (tests next to it, in <code>just test</code>), its colours <code>.ww-bits</code> in
+<code>docs/stylesheets/vhrd.css</code>.</p>
+</div>
 
 
 

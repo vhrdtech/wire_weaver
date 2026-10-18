@@ -5036,6 +5036,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-few-properties-of-a-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A few properties of a level
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#without-generated-code-cli-dynamic-clients-python" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5051,6 +5062,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         CPU and flash on a microcontroller
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-rates-a-few-values-at-400-khz-to-2-mhz" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        High rates: a few values at 400 kHz to 2 MHz
       </span>
     </span>
   </a>
@@ -5491,6 +5513,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-few-properties-of-a-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A few properties of a level
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#without-generated-code-cli-dynamic-clients-python" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5506,6 +5539,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         CPU and flash on a microcontroller
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-rates-a-few-values-at-400-khz-to-2-mhz" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        High rates: a few values at 400 kHz to 2 MHz
       </span>
     </span>
   </a>
@@ -5728,7 +5772,7 @@ nothing is rounded, the reader gets back exactly what the device measured: the b
 <p>This article is the whole story of <code>Series&lt;T&gt;</code> in WireWeaver, in three parts. <strong>Basic</strong> is what it is, the one line
 that uses it and what it saves, including batched streams and observing every sample. <strong>Advanced</strong> is every knob:
 codec policies, quantities and autoranging, how it compares with ALP and with raw globals, sealing, budgets, the shared clock, Python,
-and what it costs on a microcontroller. <strong>Nomicon</strong> is how the bits are laid out and how the encoder got six times
+what it costs on a microcontroller, and how far it goes at a power converter's 400 kHz to 2 MHz. <strong>Nomicon</strong> is how the bits are laid out and how the encoder got six times
 faster. Read until you have what you need; the numbers below were measured on the running code (the one worked out
 from the layout says so), and each part links to the reference pages for the details.</p>
 <div class="ww-level-part">
@@ -5772,8 +5816,11 @@ another struct.</p>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">stamps</span><span class="p">:</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">);</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>Structs, enums with or without data, <code>Option</code>, all integers, floats, <code>bool</code>, tuples, arrays and strings are in, nested
-to any depth; <a href="../../serdes/series/#which-t">which <code>T</code></a> has the exact list and the few types that aren't yet.</p>
+<p>Structs, enums with or without data, <code>Option</code>, all integers, floats, <code>bool</code>, tuples and arrays are in, nested to any
+depth, and so are strings and byte lists, written as runs; <a href="../../serdes/series/#which-t">which <code>T</code></a> has the exact
+list and the few types that aren't yet. One limit for strings: a <code>Series</code> carries them anywhere a <code>Vec</code> would, but a
+batched stream or observed property needs a size bound per item, and observe cells a fixed-size cell per value,
+which a string doesn't have (see <a href="#when-not-to-batch">strings and byte lists</a> below).</p>
 <h3 id="what-it-saves">What it saves<a class="headerlink" href="#what-it-saves" title="Permanent link">&para;</a></h3>
 <p>The 32 currents from the top of the page: a motor phase current in mA as <code>I32</code>, around 5 A on a slow sine with a
 few mA of noise, one sample every 40 µs:</p>
@@ -5889,6 +5936,10 @@ and a host can ask for every sample:</p>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;{:?} {:?}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">value</span><span class="p">);</span><span class="w"> </span><span class="c1">// every sample, oldest first, each with its device time</span>
 </span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">}</span>
 </span></code></pre></div>
+<p>A host may observe just a part of a level: here <code>i_a</code> alone, or 3 of the 21 values of the motor demo's FOC level.
+Only the properties in <code>Samples</code> mode get a column in the level's batch, are encoded and go on the wire. What doesn't
+shrink is the capture: the interrupt still hands over (or, with observe cells, writes) every value of the row. How
+much that is: <a href="#a-few-properties-of-a-level">a few properties of a level</a>.</p>
 <h3 id="the-motor-demo-in-numbers">The motor demo, in numbers<a class="headerlink" href="#the-motor-demo-in-numbers" title="Permanent link">&para;</a></h3>
 <p>The <a href="../../examples/motor_demo/">motor demo</a> is a simulated FOC motor controller with about 50 observable properties
 in three rate tiers. Its <code>foc</code> level has 21 values computed every 40 µs (25 kHz), <code>control</code> has 13 measured values at
@@ -6000,7 +6051,7 @@ quantities has three columns per quantity: the prefix, the storage type of the n
 and the number itself, in one column per storage type that occurs.</p>
 <p>Discrete leaves, enum tags like the prefix and the storage type, <code>bool</code>, <code>Option</code> presence and strings, are written
 as <strong>runs</strong>: the first value, then one entry per change. A value that never changes in a batch costs about 5 bits in
-all. Measured on the motor demo, the prefix and storage runs of a quantity and its timestamp cost 3 B per series per
+all; a string costs its bytes once per change, which suits a status text, less a log line that changes every item. Measured on the motor demo, the prefix and storage runs of a quantity and its timestamp cost 3 B per series per
 update, 5 % of the bytes at 32 items: not worth a fixed-prefix wire form that would give up autoranging.</p>
 <p>A numeric column <strong>restarts</strong> (a full value, fresh codec state) where an enum field declared earlier in the same
 struct changed. <code>Ampere { prefix, value }</code> restarts <code>value</code> when the prefix changes, so 480 µA followed by 120 mA is
@@ -6114,6 +6165,59 @@ with <code>SMALLEST</code>, which already wrote each regular clock almost for fr
 sealed out of step property by property, to 48. And a level's <code>Samples</code> entries share one grid and one age: they get
 the finest <code>every_us</code> and the shortest <code>max_age_us</code> any of them asked for, and the grant says so. A property that
 needs its own sample times belongs in its own trait level; levels are the rate tiers.</p>
+<h3 id="a-few-properties-of-a-level">A few properties of a level<a class="headerlink" href="#a-few-properties-of-a-level" title="Permanent link">&para;</a></h3>
+<p>Observing only some properties of a level is supported, and it is the usual case: a host asks for <code>i_a</code>, <code>i_b</code> and
+<code>i_c</code> in <code>Samples</code> mode and leaves the other 18 values of the FOC level alone. Only properties in <code>Samples</code> mode get a
+column in the level's batch, are encoded and sent. The others still cost CPU where the row is captured: <code>sample()</code>
+takes the whole row (<code>FocSamples</code>, all 21 values) and copies it into the batch store, and with observe cells the
+interrupt writes every cell and the poll copies every column out of the ring. Measured on the STM32H725 at
+<code>opt-level = 3</code>, the FOC bench with the host observing all 21, then only <code>i_a</code>, <code>i_b</code>, <code>i_c</code>:</p>
+<table>
+<thead>
+<tr>
+<th>FOC level (21 values), H725 cycles</th>
+<th>all 21 observed</th>
+<th>3 observed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a row, <code>sample()</code></td>
+<td>412</td>
+<td>387</td>
+</tr>
+<tr>
+<td>a row, observe cells</td>
+<td>336</td>
+<td>318</td>
+</tr>
+<tr>
+<td>a poll that drains 16 rows from the cells' ring</td>
+<td>9 170 - 9 580</td>
+<td>9 160 - 9 280</td>
+</tr>
+<tr>
+<td>the poll that encodes a 32-row batch, <code>sample()</code></td>
+<td>189 700</td>
+<td>25 700 - 26 200</td>
+</tr>
+<tr>
+<td>the same with cells (it also drains 16 rows)</td>
+<td>196 000</td>
+<td>31 900 - 32 200</td>
+</tr>
+<tr>
+<td>bytes sent for 64 rows</td>
+<td>2 021</td>
+<td>419</td>
+</tr>
+</tbody>
+</table>
+<p>So the encode and the bytes follow what is observed (7x fewer cycles and 5x fewer bytes here), the capture doesn't: a row costs the
+same whether a host watches 3 values or 21, and the cells' ring drain too. At 25 kHz that makes 3 of the 21 FOC
+values about 6 % of the H725 through <code>sample()</code> and 7 % with cells (rows plus polls), against about 30 % for all
+21. To make the unobserved values free, put the ones that are rarely watched in a level of their own (a level is
+the unit a gate opens for), or skip computing them when nobody samples the level at all (<code>if w.is_sampling()</code>).</p>
 <h3 id="without-generated-code-cli-dynamic-clients-python">Without generated code: CLI, dynamic clients, Python<a class="headerlink" href="#without-generated-code-cli-dynamic-clients-python" title="Permanent link">&para;</a></h3>
 <p>A <code>Series</code> in an API is in its introspection data, so tools that only have that read and write it too. <code>ww stream
 &lt;path&gt; --batches</code> prints whole batches, <code>ww observe --samples MS</code> one line per sample. The dynamic client decodes
@@ -6146,7 +6250,7 @@ clock: 213 instructions on a Cortex-M3/M4F. How that scales:</p>
 <th>observed (one level, shared clock)</th>
 <th>samples/s</th>
 <th>Cortex-M3/M4F, instructions/s</th>
-<th>fits</th>
+<th>fits, for the encode</th>
 </tr>
 </thead>
 <tbody>
@@ -6220,6 +6324,133 @@ slower than <code>opt-level = 3</code>; at <code>"z"</code> the cycles also move
 Build firmware that encodes at 25 kHz at <code>opt-level = 3</code>. Setting it only for <code>shrink_wrap</code>, <code>ww_si</code> and <code>ww_numeric</code>
 doesn't help: the series code is generic and compiled in the firmware crate. The <a href="#straight-from-the-store">Nomicon</a>
 has where the cycles go.</p>
+<p>These tables count the encode, the <code>Series</code> writes of a batch. The whole <code>poll_properties</code> that sends it costs more:
+190 k cycles for a 32-row FOC batch on the H725 at <code>opt-level = 3</code> (<a href="#a-few-properties-of-a-level">a few properties</a>),
+about 30 % of the core at 25 kHz with the rows. In its profile on the Cortex-M4F model the writes are 29 % of the
+poll's instructions; rebuilding each column of the staging store into a scratch takes 31 %, a sizing pass 13 %, the
+outbox 8 %. That is the next thing to make faster (<a href="../../features/">API-52</a>), and what limits the high rates below.</p>
+<h3 id="high-rates-a-few-values-at-400-khz-to-2-mhz">High rates: a few values at 400 kHz to 2 MHz<a class="headerlink" href="#high-rates-a-few-values-at-400-khz-to-2-mhz" title="Permanent link">&para;</a></h3>
+<p>A power converter switches at 400 kHz to 2 MHz and samples a few values once per period: inductor current, output
+and input voltage. Can those be observed at every period? Measured on the STM32H725 (540 MHz, caches on,
+<code>opt-level = 3</code>, DWT cycles), one observe level with its shared clock, observe cells as the capture, the column-wise
+<code>DeltaPacked</code> writer as the encode, 32 rows per batch, <code>poll_properties</code> every 16 rows; next to it a raw copy, the
+interrupt storing the time and the values into a ring of words and the event loop copying 32 rows out of it. The
+values are a synthetic buck stage (48 V to 12 V, 8 A, a load step to 12 A in the second batch, a few LSB of noise):</p>
+<table>
+<thead>
+<tr>
+<th>H725 cycles</th>
+<th>3 values, 400 kHz</th>
+<th>3 values, 1 MHz</th>
+<th>2 values, 2 MHz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>capture: a cells row, warm (cold)</td>
+<td>164 (430)</td>
+<td>161 (176)</td>
+<td>144 (302)</td>
+</tr>
+<tr>
+<td>capture: a raw row</td>
+<td>49</td>
+<td>49</td>
+<td>42</td>
+</tr>
+<tr>
+<td>a poll that drains 16 rows</td>
+<td>3 715</td>
+<td>3 684</td>
+<td>3 193</td>
+</tr>
+<tr>
+<td>the poll that drains 16 rows, encodes 32</td>
+<td>24 441</td>
+<td>24 016</td>
+<td>18 973</td>
+</tr>
+<tr>
+<td>a raw copy of 32 rows</td>
+<td>357</td>
+<td>358</td>
+<td>286</td>
+</tr>
+</tbody>
+</table>
+<p>Per rate, with the capture of every row and both polls of every batch:</p>
+<table>
+<thead>
+<tr>
+<th>per rate</th>
+<th>3 values, 400 kHz</th>
+<th>3 values, 1 MHz</th>
+<th>2 values, 2 MHz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>one period</td>
+<td>1 350 cycles</td>
+<td>540 cycles</td>
+<td>270 cycles</td>
+</tr>
+<tr>
+<td>capture, share of a period: cells / raw</td>
+<td>12 % / 3.6 %</td>
+<td>30 % / 9.1 %</td>
+<td>53 % / 16 %</td>
+</tr>
+<tr>
+<td><strong>CPU of the H725, <code>Series</code></strong></td>
+<td><strong>77 %</strong></td>
+<td><strong>190 %</strong></td>
+<td><strong>310 %</strong></td>
+</tr>
+<tr>
+<td>CPU of the H725, raw copy</td>
+<td>4.5 %</td>
+<td>11 %</td>
+<td>19 %</td>
+</tr>
+<tr>
+<td>bytes per row, <code>Series</code> / raw</td>
+<td>5.5 / 16</td>
+<td>5.3 / 16</td>
+<td>3.9 / 12</td>
+</tr>
+<tr>
+<td>on the wire, <code>Series</code></td>
+<td>2.2 MB/s</td>
+<td>5.3 MB/s</td>
+<td>7.8 MB/s</td>
+</tr>
+<tr>
+<td>on the wire, raw (no framing at all)</td>
+<td>6.4 MB/s</td>
+<td>16 MB/s</td>
+<td>24 MB/s</td>
+</tr>
+</tbody>
+</table>
+<p>What carries it: USB full speed (about 1 MB/s in practice) carries none of them. Ethernet (the H725 has a 10/100
+MAC, 12.5 MB/s line rate) carries every <code>Series</code> row of the table and the raw copy at 400 kHz. USB high speed
+(480 Mbit/s, 60 MB/s line rate; on the H725 it needs an external ULPI PHY) carries all of them, raw included.</p>
+<p>What limits first:</p>
+<ul>
+<li><strong><code>Series</code>: the encode in the event loop.</strong> The capture fits at every rate (a cells row is 12 to 53 % of a
+  period; at 2 MHz half the period is a lot for an interrupt that also runs the control loop). The polls don't: 3
+  values at 400 kHz take 77 % of the core, which leaves little for the converter, and 1 MHz and 2 MHz need 1.9x and
+  3.1x the core. Per row the polls cost about 5 times the capture.</li>
+<li><strong>Raw: the link.</strong> 4.5 to 19 % of the CPU, but 6.4 to 24 MB/s: Ethernet up to 400 kHz, USB HS above.</li>
+<li><strong>The <code>Series</code> bytes are 2.9x to 3.1x fewer</strong> than raw, which is what moves 1 and 2 MHz from USB HS to Ethernet,
+  if the CPU were there.</li>
+</ul>
+<p>Where a poll's cycles go, from its profile on the Cortex-M4F model (23 200 instructions for a 3-value batch): the
+codec itself (delta, packed blocks, bit writer, runs) about 9 000, rebuilding the columns 2 000, the ring copy 1 800,
+and the update's framing and the outbox the rest. So today a device observes a few values at every period up to a
+few hundred kHz, and above that decimates (<code>every_us</code>, a grid in whole µs) or sends raw over a fast link;
+<a href="../../features/">API-52</a> is the work that moves the line.</p>
 <p>Flash for the encoder is 15.0 KB on a Cortex-M3 with <code>DeltaPacked</code> (9.8 KB on an M4F), 25.4 KB (17.6 KB) with a
 run-time <code>CodecPolicy</code>. A firmware no longer carries 64-bit numbers for the protocol's own types: a <code>NumericValue</code>
 takes 8 bytes instead of 16, and the H725 firmware got 7.7 KB smaller in flash. Every sample taken is encoded, also when its batch is later dropped for lack of budget, so an
@@ -6233,8 +6464,11 @@ encoding than the CPU has.</p>
   <code>f32</code>. Batching pays from two items on and most of it by 16 to 32.</li>
 <li><strong>Latency matters more than bytes.</strong> A batch waits up to its max age before it goes; an event that must arrive
   now is a plain stream item or a method's answer.</li>
-<li><strong>Unbounded items.</strong> A type without a size bound (a string, a byte list, an opaque field) can't be batched, it's a
-  compile error: the batcher couldn't keep a batch inside its budget.</li>
+<li><strong>Strings, byte lists, opaque fields.</strong> A <code>Series&lt;T&gt;</code> carries them, as runs, in a method's answer or a property.
+  A batched stream or an observed <code>+batched</code> property doesn't: the batcher needs the worst case of an item to keep a
+  batch inside its byte budget, and a string has no bound, so <code>batched</code> on such a type is a compile error. Observe
+  cells need a fixed-size cell per value, which a string doesn't have either. A fixed-size array (<code>[u8; 16]</code>) has
+  both, at a column per byte. Planned for text and frames: see <a href="#ahead">Ahead</a>.</li>
 <li><strong>The CPU can't keep up.</strong> Check the table above; decimate (<code>every_us</code>) or observe fewer properties.</li>
 </ul>
 <h3 id="compared-with-raw-globals">Compared with raw globals<a class="headerlink" href="#compared-with-raw-globals" title="Permanent link">&para;</a></h3>
@@ -6267,11 +6501,20 @@ at <code>opt-level = 3</code>, with 781 batches a second at 25 kHz:</p>
 <td>8.7 %</td>
 <td>0.98 MB/s</td>
 </tr>
+<tr>
+<td>the whole <code>poll_properties</code>, cells</td>
+<td>196 000</td>
+<td>-</td>
+<td>about 30 % with the rows</td>
+<td>-</td>
+</tr>
 </tbody>
 </table>
 <p>The link decides first. USB full speed carries about 1 MB/s in practice: the raw copy at full rate doesn't fit it,
-the <code>Series</code> just does. Over USB high speed or Ethernet both fit, and raw wins on CPU by about 20x.</p>
-<p>What the ~9 % buys:</p>
+the <code>Series</code> just does. Over USB high speed or Ethernet both fit, and raw wins on CPU by about 20x for the encode,
+and by about 70x counting the whole poll that sends the batch (the third row, a 32-row batch of the FOC bench, which
+carries a current ramp; see <a href="../../features/">API-52</a>).</p>
+<p>What that CPU buys:</p>
 <ul>
 <li><strong>Meaning on the wire.</strong> Types, names, units and prefixes come with the device's introspection data, so <code>ww</code>,
   Python and a dynamic client show <code>4980 mA</code> without a hand-kept list of offsets and scale factors.</li>
@@ -6291,7 +6534,8 @@ the <code>Series</code> just does. Over USB high speed or Ethernet both fit, and
 </ul>
 <p>The <strong>capture</strong> gap is closed by <a href="#observe-cells-capture-as-cheap-as-a-global">observe cells</a>: the interrupt writes
 each value into its cell with a plain store, as it would write a global, and commits the row: 342 cycles and 52 B of
-stack for the 21 FOC values at <code>opt-level = 3</code>. What stays is the <strong>encode</strong> in the event loop, the 8.7 % above.
+stack for the 21 FOC values at <code>opt-level = 3</code>. What stays is the event loop's side: the <strong>encode</strong>, 8.7 % above,
+and the poll around it, about 30 % in all.
 There, a faster bit writer is next (see <a href="#ahead">Ahead</a>), and <strong>aligned plain</strong> (<a href="#straight-from-the-store">measured</a>,
 kept on file) is 34 200 cycles per batch for 2 882 bytes, for links fast enough to carry it.</p>
 <div class="ww-level-part">
@@ -6313,22 +6557,7 @@ pass</strong> without a directory of offsets: the skim validates every code, rec
 steps all columns in parallel, zero-copy, without allocating.</p>
 <p>Four <code>IvSample</code>s, <code>v</code> = 3300, 3301, 3301, 3299 mV as <code>U16</code> and <code>i</code> = 152 000, 152 002, 151 999, 152 001 µA as <code>I32</code>,
 are 14 bytes against 33 for the smallest plain form:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>bit  column                         bits
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>  0  n = 4                          0100
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>  4  IvSample field count = 2       0010
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>  8  v.prefix run: Milli, end       0001 0
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a> 13  v.value tag run: U16, end      0010 0
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a> 18  v.value U16 column             01 01                     delta, packed
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>                                    0000110011100100          3300
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>                                    00010 10 00 11            block width 2: +1 0 -2 (zigzag 2 0 3)
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a> 49  i.prefix run: Micro, end       0010 0
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a> 54  i.value tag run: I32, end      0110 0
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a> 59  i.value I32 column             01 01                     delta, packed
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>                                    00000000000000100101000111000000   152000
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>                                    000011 100 101 100        block width 3: +2 -3 +2 (zigzag 4 5 4)
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>110  padding                        00
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>bytes: 42 11 14 33 90 51 91 8a 00 04 a3 80 1c b0
-</span></code></pre></div>
+<div class="ww-bits"><div class="ww-bits__strip" role="img" aria-label="112 bits in 14 bytes: 42 11 14 33 90 51 91 8a 00 04 a3 80 1c b0"><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--head ww-bit--start" title="bit 0: n = 4">0</span><span class="ww-bit ww-bit--head" title="bit 1: n = 4">1</span><span class="ww-bit ww-bit--head" title="bit 2: n = 4">0</span><span class="ww-bit ww-bit--head" title="bit 3: n = 4">0</span><span class="ww-bit ww-bit--head ww-bit--start" title="bit 4: IvSample field count = 2">0</span><span class="ww-bit ww-bit--head" title="bit 5: IvSample field count = 2">0</span><span class="ww-bit ww-bit--head" title="bit 6: IvSample field count = 2">1</span><span class="ww-bit ww-bit--head" title="bit 7: IvSample field count = 2">0</span></span><span class="ww-bits__hex">42</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--run ww-bit--start" title="bit 8: v.prefix run: Milli, end">0</span><span class="ww-bit ww-bit--run" title="bit 9: v.prefix run: Milli, end">0</span><span class="ww-bit ww-bit--run" title="bit 10: v.prefix run: Milli, end">0</span><span class="ww-bit ww-bit--run" title="bit 11: v.prefix run: Milli, end">1</span><span class="ww-bit ww-bit--run" title="bit 12: v.prefix run: Milli, end">0</span><span class="ww-bit ww-bit--run ww-bit--start" title="bit 13: v.value tag run: U16, end">0</span><span class="ww-bit ww-bit--run" title="bit 14: v.value tag run: U16, end">0</span><span class="ww-bit ww-bit--run" title="bit 15: v.value tag run: U16, end">1</span></span><span class="ww-bits__hex">11</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--run" title="bit 16: v.value tag run: U16, end">0</span><span class="ww-bit ww-bit--run" title="bit 17: v.value tag run: U16, end">0</span><span class="ww-bit ww-bit--head ww-bit--start" title="bit 18: v.value U16 column: delta, packed">0</span><span class="ww-bit ww-bit--head" title="bit 19: v.value U16 column: delta, packed">1</span><span class="ww-bit ww-bit--head" title="bit 20: v.value U16 column: delta, packed">0</span><span class="ww-bit ww-bit--head" title="bit 21: v.value U16 column: delta, packed">1</span><span class="ww-bit ww-bit--value ww-bit--start" title="bit 22: 3300">0</span><span class="ww-bit ww-bit--value" title="bit 23: 3300">0</span></span><span class="ww-bits__hex">14</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--value" title="bit 24: 3300">0</span><span class="ww-bit ww-bit--value" title="bit 25: 3300">0</span><span class="ww-bit ww-bit--value" title="bit 26: 3300">1</span><span class="ww-bit ww-bit--value" title="bit 27: 3300">1</span><span class="ww-bit ww-bit--value" title="bit 28: 3300">0</span><span class="ww-bit ww-bit--value" title="bit 29: 3300">0</span><span class="ww-bit ww-bit--value" title="bit 30: 3300">1</span><span class="ww-bit ww-bit--value" title="bit 31: 3300">1</span></span><span class="ww-bits__hex">33</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--value" title="bit 32: 3300">1</span><span class="ww-bit ww-bit--value" title="bit 33: 3300">0</span><span class="ww-bit ww-bit--value" title="bit 34: 3300">0</span><span class="ww-bit ww-bit--value" title="bit 35: 3300">1</span><span class="ww-bit ww-bit--value" title="bit 36: 3300">0</span><span class="ww-bit ww-bit--value" title="bit 37: 3300">0</span><span class="ww-bit ww-bit--width ww-bit--start" title="bit 38: block width 2">0</span><span class="ww-bit ww-bit--width" title="bit 39: block width 2">0</span></span><span class="ww-bits__hex">90</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--width" title="bit 40: block width 2">0</span><span class="ww-bit ww-bit--width" title="bit 41: block width 2">1</span><span class="ww-bit ww-bit--width" title="bit 42: block width 2">0</span><span class="ww-bit ww-bit--delta ww-bit--start" title="bit 43: +1 0 -2 (zigzag 2 0 3)">1</span><span class="ww-bit ww-bit--delta" title="bit 44: +1 0 -2 (zigzag 2 0 3)">0</span><span class="ww-bit ww-bit--delta" title="bit 45: +1 0 -2 (zigzag 2 0 3)">0</span><span class="ww-bit ww-bit--delta" title="bit 46: +1 0 -2 (zigzag 2 0 3)">0</span><span class="ww-bit ww-bit--delta" title="bit 47: +1 0 -2 (zigzag 2 0 3)">1</span></span><span class="ww-bits__hex">51</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--delta" title="bit 48: +1 0 -2 (zigzag 2 0 3)">1</span><span class="ww-bit ww-bit--run ww-bit--start" title="bit 49: i.prefix run: Micro, end">0</span><span class="ww-bit ww-bit--run" title="bit 50: i.prefix run: Micro, end">0</span><span class="ww-bit ww-bit--run" title="bit 51: i.prefix run: Micro, end">1</span><span class="ww-bit ww-bit--run" title="bit 52: i.prefix run: Micro, end">0</span><span class="ww-bit ww-bit--run" title="bit 53: i.prefix run: Micro, end">0</span><span class="ww-bit ww-bit--run ww-bit--start" title="bit 54: i.value tag run: I32, end">0</span><span class="ww-bit ww-bit--run" title="bit 55: i.value tag run: I32, end">1</span></span><span class="ww-bits__hex">91</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--run" title="bit 56: i.value tag run: I32, end">1</span><span class="ww-bit ww-bit--run" title="bit 57: i.value tag run: I32, end">0</span><span class="ww-bit ww-bit--run" title="bit 58: i.value tag run: I32, end">0</span><span class="ww-bit ww-bit--head ww-bit--start" title="bit 59: i.value I32 column: delta, packed">0</span><span class="ww-bit ww-bit--head" title="bit 60: i.value I32 column: delta, packed">1</span><span class="ww-bit ww-bit--head" title="bit 61: i.value I32 column: delta, packed">0</span><span class="ww-bit ww-bit--head" title="bit 62: i.value I32 column: delta, packed">1</span><span class="ww-bit ww-bit--value ww-bit--start" title="bit 63: 152000">0</span></span><span class="ww-bits__hex">8a</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--value" title="bit 64: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 65: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 66: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 67: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 68: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 69: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 70: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 71: 152000">0</span></span><span class="ww-bits__hex">00</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--value" title="bit 72: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 73: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 74: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 75: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 76: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 77: 152000">1</span><span class="ww-bit ww-bit--value" title="bit 78: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 79: 152000">0</span></span><span class="ww-bits__hex">04</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--value" title="bit 80: 152000">1</span><span class="ww-bit ww-bit--value" title="bit 81: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 82: 152000">1</span><span class="ww-bit ww-bit--value" title="bit 83: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 84: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 85: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 86: 152000">1</span><span class="ww-bit ww-bit--value" title="bit 87: 152000">1</span></span><span class="ww-bits__hex">a3</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--value" title="bit 88: 152000">1</span><span class="ww-bit ww-bit--value" title="bit 89: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 90: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 91: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 92: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 93: 152000">0</span><span class="ww-bit ww-bit--value" title="bit 94: 152000">0</span><span class="ww-bit ww-bit--width ww-bit--start" title="bit 95: block width 3">0</span></span><span class="ww-bits__hex">80</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--width" title="bit 96: block width 3">0</span><span class="ww-bit ww-bit--width" title="bit 97: block width 3">0</span><span class="ww-bit ww-bit--width" title="bit 98: block width 3">0</span><span class="ww-bit ww-bit--width" title="bit 99: block width 3">1</span><span class="ww-bit ww-bit--width" title="bit 100: block width 3">1</span><span class="ww-bit ww-bit--delta ww-bit--start" title="bit 101: +2 -3 +2 (zigzag 4 5 4)">1</span><span class="ww-bit ww-bit--delta" title="bit 102: +2 -3 +2 (zigzag 4 5 4)">0</span><span class="ww-bit ww-bit--delta" title="bit 103: +2 -3 +2 (zigzag 4 5 4)">0</span></span><span class="ww-bits__hex">1c</span></span><span class="ww-bits__byte"><span class="ww-bits__cells"><span class="ww-bit ww-bit--delta" title="bit 104: +2 -3 +2 (zigzag 4 5 4)">1</span><span class="ww-bit ww-bit--delta" title="bit 105: +2 -3 +2 (zigzag 4 5 4)">0</span><span class="ww-bit ww-bit--delta" title="bit 106: +2 -3 +2 (zigzag 4 5 4)">1</span><span class="ww-bit ww-bit--delta" title="bit 107: +2 -3 +2 (zigzag 4 5 4)">1</span><span class="ww-bit ww-bit--delta" title="bit 108: +2 -3 +2 (zigzag 4 5 4)">0</span><span class="ww-bit ww-bit--delta" title="bit 109: +2 -3 +2 (zigzag 4 5 4)">0</span><span class="ww-bit ww-bit--pad ww-bit--start" title="bit 110: padding">0</span><span class="ww-bit ww-bit--pad" title="bit 111: padding">0</span></span><span class="ww-bits__hex">b0</span></span></div><div class="ww-bits__legend"><span class="ww-bits__key"><span class="ww-bit ww-bit--head"></span>header</span><span class="ww-bits__key"><span class="ww-bit ww-bit--run"></span>run</span><span class="ww-bits__key"><span class="ww-bit ww-bit--value"></span>value</span><span class="ww-bits__key"><span class="ww-bit ww-bit--delta"></span>residuals</span><span class="ww-bits__key"><span class="ww-bit ww-bit--width"></span>block width</span><span class="ww-bits__key"><span class="ww-bit ww-bit--pad"></span>padding</span></div><table class="ww-bits__fields"><thead><tr><th>bit</th><th>bits</th><th>field</th></tr></thead><tbody><tr><td class="ww-bits__at">0</td><td><span class="ww-bits__chip ww-bit--head">0100</span></td><td>n = 4</td></tr><tr><td class="ww-bits__at">4</td><td><span class="ww-bits__chip ww-bit--head">0010</span></td><td><code>IvSample</code> field count = 2</td></tr><tr><td class="ww-bits__at">8</td><td><span class="ww-bits__chip ww-bit--run">0001 0</span></td><td><code>v.prefix</code> run: <code>Milli</code>, end</td></tr><tr><td class="ww-bits__at">13</td><td><span class="ww-bits__chip ww-bit--run">0010 0</span></td><td><code>v.value</code> tag run: <code>U16</code>, end</td></tr><tr><td class="ww-bits__at">18</td><td><span class="ww-bits__chip ww-bit--head">01 01</span></td><td><code>v.value</code> <code>U16</code> column: delta, packed</td></tr><tr><td class="ww-bits__at">22</td><td><span class="ww-bits__chip ww-bit--value">0000110011100100</span></td><td>3300</td></tr><tr><td class="ww-bits__at">38</td><td><span class="ww-bits__chip ww-bit--width">00010</span></td><td>block width 2</td></tr><tr><td class="ww-bits__at">43</td><td><span class="ww-bits__chip ww-bit--delta">10 00 11</span></td><td>+1 0 -2 (zigzag 2 0 3)</td></tr><tr><td class="ww-bits__at">49</td><td><span class="ww-bits__chip ww-bit--run">0010 0</span></td><td><code>i.prefix</code> run: <code>Micro</code>, end</td></tr><tr><td class="ww-bits__at">54</td><td><span class="ww-bits__chip ww-bit--run">0110 0</span></td><td><code>i.value</code> tag run: <code>I32</code>, end</td></tr><tr><td class="ww-bits__at">59</td><td><span class="ww-bits__chip ww-bit--head">01 01</span></td><td><code>i.value</code> <code>I32</code> column: delta, packed</td></tr><tr><td class="ww-bits__at">63</td><td><span class="ww-bits__chip ww-bit--value">00000000000000100101000111000000</span></td><td>152000</td></tr><tr><td class="ww-bits__at">95</td><td><span class="ww-bits__chip ww-bit--width">000011</span></td><td>block width 3</td></tr><tr><td class="ww-bits__at">101</td><td><span class="ww-bits__chip ww-bit--delta">100 101 100</span></td><td>+2 -3 +2 (zigzag 4 5 4)</td></tr><tr><td class="ww-bits__at">110</td><td><span class="ww-bits__chip ww-bit--pad">00</span></td><td>padding</td></tr></tbody></table></div>
 <p>The first values and the 4.5 bytes of count, runs and headers are paid once per batch: that is why 4 items are 2.4x
 smaller and 100 items 7.7x. The full reference is <a href="../../serdes/wire_format/#seriest"><code>Series&lt;T&gt;</code> in the wire format</a>.</p>
 <h3 id="predictors">Predictors<a class="headerlink" href="#predictors" title="Permanent link">&para;</a></h3>
@@ -6662,6 +6891,14 @@ pure cost, so a level is separate series per column.</p>
   calling getters, and batched streams fed from an interrupt (ADC samples) could get the same cells.</li>
 <li><strong>A faster bit writer.</strong> After the column-wise writer the bit writer is the biggest cost left: writing into a
   64-bit accumulator, 4 bytes per store, is next, then word-wise checks of the columns.</li>
+<li><strong>Strings and frames in batches.</strong> Codecs across items
+  (<a href="../../features/">API-51</a>, a "same" bit per string, a frame XOR'd with the last one) and dictionary compression for
+  strings (<a href="../../features/">SW-28</a>) would make text cheaper per item; frame splitters for byte streams
+  (<a href="../../features/">STD-41</a>: newline, idle gap, length field, CRC frames, COBS, Modbus RTU) would cut a UART or CAN
+  byte stream into bounded frames, which a batched stream can take.</li>
+<li><strong>A cheaper poll.</strong> The poll around the encode costs more than the encode (see <a href="#high-rates-a-few-values-at-400-khz-to-2-mhz">high rates</a>):
+  writing the columns straight from the staging store, sizing from the bound when it fits, and copying only the
+  observed columns out of the cells' ring are next (<a href="../../features/">API-52</a>).</li>
 <li><strong>Room kept in the format.</strong> The reserved predictor escape is for a common factor per column, the values divided
   by it before the predictor, as <a href="#compared-with-alp">ALP</a> chooses its scale per block; the float codes have room for
   better float coders (Chimp, ALP). Diffs across batches would save the first values,

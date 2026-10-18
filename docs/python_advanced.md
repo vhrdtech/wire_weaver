@@ -44,6 +44,20 @@ with m.observe({"speed": 10, "current": None}) as obs:  # speed periodically eve
 obs.budget                                          # bytes/s the device applies to the whole level
 ```
 
+Every sample of `+batched` properties ([Every sample](api/observing.md#every-sample-batched)) comes item by item,
+each with its own device time, or per batch as numpy columns:
+
+```python
+with m.observe({"current": {"samples": 5}}) as obs:  # every sample, in batches at most 5 ms old
+    u = obs.recv()
+    u["samples"]["current"]                         # [(t, value), ...], oldest first; u["values"] has the newest
+    b = obs.recv_batch()
+    b["batches"]["current"]                         # {"t": array of seconds, "value": array}
+```
+
+`{"samples": max_age_ms, "every": ms}` takes the first sample in each `every` (decimated on the device). A struct
+item gives a column per field in `recv_batch()` (`value.<field>`, as [`decode_columns`](python.md#values)).
+
 `observe()` without `cfg` asks for every observable property on-change (what [`ww observe <path>`](cli_reference.md#ww-observe) does without
 `--rate`). `recv(timeout=...)` / `try_recv()` are also available. One device subscription is shared per level
 ([One subscription per level](api/observing.md#the-host-side)); dropping the last observer (garbage collection)

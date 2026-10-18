@@ -12,8 +12,7 @@ publish = false # distributed as a Python wheel, see pyproject.toml
 crate-type = ["cdylib"]
 
 [features]
-default = ["rtt"]
-# RTT over a debug probe (probe-rs), no system libraries needed
+# RTT over a debug probe (probe-rs), no system libraries needed; enabled for the wheel, see pyproject.toml
 rtt = ["wire_weaver_client/rtt"]
 
 [dependencies]

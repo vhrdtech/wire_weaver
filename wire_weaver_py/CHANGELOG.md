@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+- **Breaking:** the `rtt` feature is no longer in `default-features` (P2401): building the crate directly with
+  plain `cargo build`/`cargo check` no longer pulls in `probe-rs` (and its `hidapi` dependency). The `pip`-installed
+  wheel is unaffected — `pyproject.toml`'s `[tool.maturin] features = ["rtt"]` enables it for the actual build.
+
 - **Breaking:** credit sinks have no 4 GiB session limit any more (API-42), positions wrap on the wire at 2^28; a
   session over 256 MiB needs a device with the same change. `Sink.progress` is unchanged for Python.
 

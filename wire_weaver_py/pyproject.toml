@@ -21,6 +21,7 @@ dev = [
 
 [tool.maturin]
 module-name = "wire_weaver"
+features = ["rtt"]
 
 [tool.uv]
 # Rebuild the package when any rust files change

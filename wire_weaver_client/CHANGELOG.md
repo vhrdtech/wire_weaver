@@ -9,6 +9,9 @@
   and reliable streams came as the device sent them before, and only `U32` µs was unwrapped elsewhere. Each stream
   handle (each half of a split) and each observe level counts on its own; the count starts over after a disconnect
   and at a new clock epoch in a head's `ext`. `U64` and float times stay as they are.
+- **Breaking:** the `rtt` feature's `probe-rs` dependency no longer enables `cmsisdap_v1` (P2401): CMSIS-DAP v1
+  (HID-based) debug probes are no longer supported over RTT, only v2 (bulk, no `hidapi`/libusb HID binding pulled
+  in). CMSIS-DAP v2 and other probe-rs-supported probes (ST-Link, J-Link, ...) are unaffected.
 
 ### 🚀 Features
 

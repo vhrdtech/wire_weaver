@@ -41,7 +41,7 @@ hex = { workspace = true, features = ["std"] }
 iceoryx2 = { version = "0.8", optional = true }
 iceoryx2-bb-container = { version = "0.8", optional = true }
 nusb.workspace = true # TODO: try to use without tokio?
-probe-rs = { version = "0.32", default-features = false, features = ["builtin-targets", "cmsisdap_v1", "builtin-formats"], optional = true }
+probe-rs = { version = "0.32", default-features = false, features = ["builtin-targets", "builtin-formats"], optional = true }
 rand = "0.10"
 ron.workspace = true
 semver.workspace = true

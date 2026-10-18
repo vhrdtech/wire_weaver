@@ -36,6 +36,120 @@ pub struct BufWriterState {
     len_bytes: usize,
 }
 
+/// A [BufWriter] borrowed for a run of bit writes (the columns of a `Series`): the written bits of the open byte
+/// are kept in a register and whole bytes go straight into the buffer, instead of a read-modify-write of the open
+/// byte and a room check of the writer per write. Writes that are not bits go through the `BufWriter`; dropping it
+/// puts the open byte back, so the `BufWriter` is as if it wrote the bits itself (same bytes, same errors).
+pub(crate) struct BitWriter<'w, 'i> {
+    wr: &'w mut BufWriter<'i>,
+    /// The open byte's written bits, in the low `n` bits (bits above them are left over and ignored).
+    acc: u32,
+    /// 0 to 7 between writes.
+    n: u32,
+}
+
+impl<'w, 'i> BitWriter<'w, 'i> {
+    pub(crate) fn new(wr: &'w mut BufWriter<'i>) -> Self {
+        let mut bits = BitWriter { wr, acc: 0, n: 0 };
+        bits.load();
+        bits
+    }
+
+    /// Takes the open byte's written bits from the `BufWriter`.
+    fn load(&mut self) {
+        self.n = 7 - self.wr.bit_idx as u32;
+        if self.n > 0 {
+            self.acc = (self.wr.buf[self.wr.byte_idx] >> (8 - self.n)) as u32;
+        }
+    }
+
+    /// Puts the open byte back into the `BufWriter`, keeping the bits after the written ones as they are.
+    fn store(&mut self) {
+        if self.n > 0 {
+            let byte = &mut self.wr.buf[self.wr.byte_idx];
+            *byte = *byte & (0xFF >> self.n) | (self.acc as u8) << (8 - self.n);
+        }
+        self.wr.bit_idx = 7 - self.n as u8;
+    }
+
+    /// The `BufWriter` with the open byte put back, for a write that is not bits; takes the open byte again after.
+    pub(crate) fn with_writer<R>(&mut self, f: impl FnOnce(&mut BufWriter<'i>) -> R) -> R {
+        self.store();
+        let r = f(self.wr);
+        self.load();
+        r
+    }
+
+    /// Bits written so far, from the start of the buffer.
+    pub(crate) fn bit_pos(&self) -> usize {
+        self.wr.byte_idx * 8 + self.n as usize
+    }
+
+    /// Whether `count` more bits fit before the lengths at the back.
+    #[inline]
+    fn fits(&self, count: u32) -> bool {
+        count as usize + self.n as usize <= self.wr.len_bytes.saturating_sub(self.wr.byte_idx) * 8
+    }
+
+    /// `count` (0 to 24) bits, all set bits of `bits` among them.
+    #[inline(always)]
+    fn push(&mut self, count: u32, bits: u32) {
+        self.acc = self.acc << count | bits;
+        self.n += count;
+        while self.n >= 8 {
+            self.n -= 8;
+            self.wr.buf[self.wr.byte_idx] = (self.acc >> self.n) as u8;
+            self.wr.byte_idx += 1;
+        }
+    }
+
+    /// Zero bits to the next byte, as [BufWriter::align_byte].
+    pub(crate) fn align_byte(&mut self) {
+        if self.n > 0 {
+            self.push(8 - self.n, 0);
+        }
+    }
+
+    /// The `BufWriter`'s free memory after the open byte (its [scratch](crate::series::BitSink::scratch)), which
+    /// writing bits doesn't touch.
+    pub(crate) fn writer_after_open_byte(&mut self) -> &mut BufWriter<'i> {
+        self.store();
+        self.wr
+    }
+
+    pub(crate) fn put_bit(&mut self, bit: bool) -> Result<(), Error> {
+        if !self.fits(1) {
+            return Err(Error::OutOfBoundsWriteBool);
+        }
+        self.push(1, bit as u32);
+        Ok(())
+    }
+
+    /// `count` (0 to 64) low bits of `value`, most significant first.
+    #[inline]
+    pub(crate) fn put_bits(&mut self, count: u8, value: u64) -> Result<(), Error> {
+        if count > 64 {
+            return Err(Error::InvalidBitCount);
+        }
+        if !self.fits(count as u32) {
+            return Err(Error::OutOfBoundsWriteUN);
+        }
+        let mut left = count as u32;
+        while left > 24 {
+            left -= 24;
+            self.push(24, (value >> left) as u32 & 0xFF_FFFF);
+        }
+        self.push(left, value as u32 & ((1 << left) - 1));
+        Ok(())
+    }
+}
+
+impl Drop for BitWriter<'_, '_> {
+    fn drop(&mut self) {
+        self.store();
+    }
+}
+
 impl BufWriterState {
     /// Position (byte index, bit index) at the time of [BufWriter::save_state].
     pub fn pos(&self) -> (usize, u8) {
@@ -195,25 +309,39 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
-    /// `bit_count` (at most 32) low bits of `value`, most significant first, a byte (or the rest of one) per step;
-    /// the room is checked by the caller.
+    /// `bit_count` (1 to 32) low bits of `value`, most significant first: the rest of the open byte, whole bytes,
+    /// then the start of the next one; the room is checked by the caller. Bits of the open and the last byte that
+    /// are not written keep their value.
+    #[inline]
     fn put_low_bits(&mut self, bit_count: u8, value: u32) {
-        let mut left = bit_count;
-        while left > 0 {
-            let room = self.bit_idx + 1;
-            let n = left.min(room);
-            left -= n;
-            let mask = 0xFFu8 >> (8 - n);
-            let bits = (value >> left) as u8 & mask;
-            let at = room - n;
+        if bit_count == 0 {
+            return;
+        }
+        let value = value & (u32::MAX >> (32 - bit_count as u32));
+        let room = self.bit_idx + 1;
+        if bit_count < room {
+            let at = room - bit_count;
+            let mask = (0xFFu8 >> (8 - bit_count)) << at;
             let byte = &mut self.buf[self.byte_idx];
-            *byte = *byte & !(mask << at) | bits << at;
-            if n == room {
-                self.bit_idx = 7;
-                self.byte_idx += 1;
-            } else {
-                self.bit_idx -= n;
-            }
+            *byte = *byte & !mask | (value as u8) << at;
+            self.bit_idx -= bit_count;
+            return;
+        }
+        let mut left = (bit_count - room) as u32;
+        let byte = &mut self.buf[self.byte_idx];
+        *byte = *byte & !(0xFFu8 >> (8 - room)) | (value >> left) as u8;
+        self.byte_idx += 1;
+        while left >= 8 {
+            left -= 8;
+            self.buf[self.byte_idx] = (value >> left) as u8;
+            self.byte_idx += 1;
+        }
+        if left == 0 {
+            self.bit_idx = 7;
+        } else {
+            let byte = &mut self.buf[self.byte_idx];
+            *byte = *byte & (0xFFu8 >> left) | (value << (8 - left)) as u8;
+            self.bit_idx = 7 - left as u8;
         }
     }
 
@@ -1026,6 +1154,48 @@ mod tests {
         let buf = wr.finish().unwrap();
         assert_eq!(&buf[0..4], &1.5f32.to_bits().to_le_bytes());
         assert_eq!(&buf[4..12], &(-2.5f64).to_bits().to_le_bytes());
+    }
+
+    /// `write_un32` / `write_un64` of every width at every bit position against a bit-by-bit model, and a write that
+    /// doesn't fit writes nothing.
+    #[test]
+    fn write_un_matches_bits() {
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let mut rand = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        for _ in 0..200 {
+            let mut buf = [0u8; 64];
+            let mut wr = BufWriter::new(&mut buf);
+            let mut model: Vec<bool> = Vec::new();
+            loop {
+                let count = (rand() % 65) as u8;
+                let value = rand();
+                let fits = model.len() + count as usize <= 64 * 8;
+                let r = if count <= 32 && rand() & 1 == 0 {
+                    wr.write_un32(count, value as u32)
+                } else {
+                    wr.write_un64(count, value)
+                };
+                if !fits {
+                    assert_eq!(r, Err(Error::OutOfBoundsWriteUN));
+                    break;
+                }
+                r.unwrap();
+                for i in (0..count).rev() {
+                    model.push(value >> i & 1 == 1);
+                }
+                let (byte, bit) = wr.pos();
+                assert_eq!(byte * 8 + 7 - bit as usize, model.len());
+            }
+            let bytes = wr.finish().unwrap();
+            for (i, &b) in model.iter().enumerate() {
+                assert_eq!(bytes[i / 8] >> (7 - i % 8) & 1 == 1, b, "bit {i}");
+            }
+        }
     }
 
     #[test]

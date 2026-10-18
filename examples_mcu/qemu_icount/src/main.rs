@@ -11,6 +11,8 @@
 //! Prints one line per `mark_start` .. `mark_end` bracket: the instructions between the two calls, minus those of
 //! the first bracket (the bench's calibration pair with nothing in between). `--profile` adds, per bracket, the
 //! instructions spent in each function (its own instructions only, not its callees'), most first.
+//! `--pcs=<part of a function name>` adds, per bracket, how often each instruction of the functions whose name has
+//! that part ran, by address: next to `llvm-objdump -d` of the ELF, where the time goes inside a function.
 
 use std::collections::HashMap;
 use std::process::{Command, ExitCode};
@@ -18,9 +20,10 @@ use std::process::{Command, ExitCode};
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let profile = args.iter().any(|a| a == "--profile");
+    let pcs = args.iter().find_map(|a| a.strip_prefix("--pcs="));
     let pos: Vec<&String> = args.iter().filter(|a| !a.starts_with("--")).collect();
     let [cpu, machine, elf] = pos[..] else {
-        eprintln!("usage: qemu_icount <cpu> <machine> <elf> [--profile]");
+        eprintln!("usage: qemu_icount <cpu> <machine> <elf> [--profile] [--pcs=<function name part>]");
         return ExitCode::FAILURE;
     };
     let trace = std::env::temp_dir().join(format!("qemu_icount_{}.log", std::process::id()));
@@ -58,7 +61,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let brackets = brackets(&text);
+    let brackets = brackets(&text, pcs);
     let Some(calibration) = brackets.first().map(|b| b.count) else {
         eprintln!("no mark_start .. mark_end bracket in the trace");
         return ExitCode::FAILURE;
@@ -72,19 +75,35 @@ fn main() -> ExitCode {
                 println!("  {n:>8}  {name}");
             }
         }
+        if pcs.is_some() {
+            let mut at: Vec<_> = b.per_pc.iter().collect();
+            at.sort();
+            for (pc, n) in at {
+                println!("  {pc:>8x}  {n}");
+            }
+        }
     }
     ExitCode::SUCCESS
 }
 
+#[derive(Default)]
 struct Bracket {
     count: usize,
     per_fn: HashMap<String, usize>,
+    per_pc: HashMap<u64, usize>,
 }
 
 /// The symbol of a trace line, `Trace 0: 0x.. [../pc/../..] symbol`, demangled without its hash.
 fn symbol(line: &str) -> Option<&str> {
     let (_, sym) = line.split_once("] ")?;
     Some(sym.trim())
+}
+
+/// The address of a trace line's instruction, the second field in the brackets.
+fn pc(line: &str) -> Option<u64> {
+    let (_, rest) = line.split_once('[')?;
+    let field = rest.split('/').nth(1)?;
+    u64::from_str_radix(field, 16).ok()
 }
 
 /// `name` with generic arguments nested two deep or more left out (`<..>`), so a profile line stays readable.
@@ -114,7 +133,7 @@ fn short(name: &str) -> String {
     out
 }
 
-fn brackets(text: &str) -> Vec<Bracket> {
+fn brackets(text: &str, pcs: Option<&str>) -> Vec<Bracket> {
     let mut out = Vec::new();
     let mut open: Option<Bracket> = None;
     let mut prev = "";
@@ -127,10 +146,7 @@ fn brackets(text: &str) -> Vec<Bracket> {
         let entered = sym != prev;
         prev = sym;
         if entered && name.ends_with("::mark_start") {
-            open = Some(Bracket {
-                count: 0,
-                per_fn: HashMap::new(),
-            });
+            open = Some(Bracket::default());
             continue;
         }
         if entered && name.ends_with("::mark_end") {
@@ -141,6 +157,11 @@ fn brackets(text: &str) -> Vec<Bracket> {
             // the rest of mark_start after its first instruction, and the call of mark_end, count as overhead
             b.count += 1;
             *b.per_fn.entry(name.clone()).or_default() += 1;
+            if let (Some(part), Some(pc)) = (pcs, pc(line))
+                && name.contains(part)
+            {
+                *b.per_pc.entry(pc).or_default() += 1;
+            }
         }
     }
     out

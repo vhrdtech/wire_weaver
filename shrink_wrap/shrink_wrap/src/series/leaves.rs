@@ -66,8 +66,9 @@ fn column<R>(reader: &mut Option<R>) -> Result<&mut R, Error> {
     reader.as_mut().ok_or(Error::MalformedSeries)
 }
 
+/// `$word`: the [Word](super::columns::numeric::Word) the column is written in, `u32` up to 32 bits.
 macro_rules! numeric_leaf {
-    ($ty:ty, $width:expr, $signed:expr, |$v:ident| $to:expr, |$b:ident| $from:expr) => {
+    ($ty:ty, $word:ty, $width:expr, $signed:expr, |$v:ident| $to:expr, |$b:ident| $from:expr) => {
         impl<'i> SeriesColumns<'i> for $ty {
             type Reader = Option<NumericReader<'i>>;
             const MAX_ITEM_BITS: Option<usize> = Some(bound::numeric_item_bits($width));
@@ -92,7 +93,8 @@ macro_rules! numeric_leaf {
                 write_numeric(
                     sink,
                     kind,
-                    items.map(|($v, restart): (&Self, bool)| ($to, restart)),
+                    // the low bits are the value's: a narrower word cuts only bits above the width
+                    items.map(|($v, restart): (&Self, bool)| ($to as $word, restart)),
                     policy.numeric,
                 )?;
                 Ok(())
@@ -115,8 +117,8 @@ macro_rules! numeric_leaf {
 }
 
 macro_rules! numeric_prim {
-    ($($ty:ty: $width:literal, $signed:literal);* $(;)?) => {
-        $(numeric_leaf!($ty, $width, $signed, |v| *v as u64, |b| if $signed {
+    ($($ty:ty: $word:ty, $width:literal, $signed:literal);* $(;)?) => {
+        $(numeric_leaf!($ty, $word, $width, $signed, |v| *v as $word, |b| if $signed {
             sign_extend(b, $width) as $ty
         } else {
             b as $ty
@@ -125,33 +127,35 @@ macro_rules! numeric_prim {
 }
 
 numeric_prim!(
-    u8: 8, false; u16: 16, false; u32: 32, false; u64: 64, false;
-    i8: 8, true; i16: 16, true; i32: 32, true; i64: 64, true;
+    u8: u32, 8, false; u16: u32, 16, false; u32: u32, 32, false; u64: u64, 64, false;
+    i8: u32, 8, true; i16: u32, 16, true; i32: u32, 32, true; i64: u64, 64, true;
 );
 
-numeric_leaf!(Nibble, 4, false, |v| v.value() as u64, |b| {
+numeric_leaf!(Nibble, u32, 4, false, |v| v.value() as u64, |b| {
     Nibble::new_masked(b as u8)
 });
-numeric_leaf!(UNib32, 32, false, |v| v.0 as u64, |b| UNib32(b as u32));
-numeric_leaf!(UVlq32, 32, false, |v| v.0 as u64, |b| UVlq32(b as u32));
-numeric_leaf!(UVlq64, 64, false, |v| v.0, |b| UVlq64(b));
+numeric_leaf!(UNib32, u32, 32, false, |v| v.0 as u64, |b| UNib32(b as u32));
+numeric_leaf!(UVlq32, u32, 32, false, |v| v.0 as u64, |b| UVlq32(b as u32));
+numeric_leaf!(UVlq64, u64, 64, false, |v| v.0, |b| UVlq64(b));
 
 macro_rules! un_leaves {
-    ($signed:literal, $prefix:ident: $($bits:literal),*) => {
+    ($signed:literal, $word:ty, $prefix:ident: $($bits:literal),*) => {
         paste::paste! {
-            $(numeric_leaf!(crate::un::[<$prefix $bits>], $bits, $signed, |v| v.__to_wire(), |b| {
+            $(numeric_leaf!(crate::un::[<$prefix $bits>], $word, $bits, $signed, |v| v.__to_wire(), |b| {
                 crate::un::[<$prefix $bits>]::__from_wire(b)
             });)*
         }
     };
 }
 
-un_leaves!(false, U: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
-    27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54,
-    55, 56, 57, 58, 59, 60, 61, 62, 63, 64);
-un_leaves!(true, I: 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
-    27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54,
-    55, 56, 57, 58, 59, 60, 61, 62, 63, 64);
+un_leaves!(false, u32, U: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+    26, 27, 28, 29, 30, 31, 32);
+un_leaves!(false, u64, U: 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55,
+    56, 57, 58, 59, 60, 61, 62, 63, 64);
+un_leaves!(true, u32, I: 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+    27, 28, 29, 30, 31, 32);
+un_leaves!(true, u64, I: 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55,
+    56, 57, 58, 59, 60, 61, 62, 63, 64);
 
 macro_rules! numeric128 {
     ($ty:ty, $signed:literal) => {

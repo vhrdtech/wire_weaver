@@ -5,7 +5,8 @@
 
 use super::float::{FloatReader, float_bits, write_float};
 use super::numeric::{
-    Numeric128Reader, NumericKind, NumericReader, numeric_bits, write_numeric, write_numeric128,
+    Numeric128Reader, NumericKind, NumericReader, counted_bits, numeric_bits, write_numeric,
+    write_numeric128,
 };
 use super::run::{Opaque, RunKind, RunReader, write_opaque_run, write_run};
 pub use super::{Coder, FloatCodec, NumericCodec, Predictor};
@@ -51,17 +52,33 @@ pub fn numeric(
     let written_codec = write_numeric(&mut wr, kind, iter.clone(), codec).expect("write");
     let bits = written(&wr);
     let buf = wr.deinit();
+    if width <= 32 {
+        // the 32-bit word the leaves up to 32 bits use writes the same bits
+        let mut buf32 = [0u8; 2048];
+        let mut wr = BufWriter::new(&mut buf32);
+        let items32 = items.iter().map(|&(v, r)| (v as u32, r));
+        assert_eq!(
+            write_numeric(&mut wr, kind, items32, codec).expect("write u32"),
+            written_codec
+        );
+        assert_eq!(written(&wr), bits);
+        let n = bits.div_ceil(8);
+        assert_eq!(wr.deinit()[..n], buf[..n]);
+    }
     if let Some(c) = codec
         && c.coder != Coder::Constant
     {
         assert_eq!(written_codec, c);
     }
     assert_eq!(numeric_bits(kind, written_codec, iter.clone()), Some(bits));
-    if codec.is_none() {
-        for c in numeric_codecs() {
-            if let Some(b) = numeric_bits(kind, c, iter.clone()) {
-                assert!(bits <= b, "{written_codec:?} {bits} bits, {c:?} {b}");
-            }
+    for c in numeric_codecs() {
+        let b = numeric_bits(kind, c, iter.clone());
+        // the one-pass sizes the smallest is picked by are the bits each codec writes
+        assert_eq!(counted_bits(kind, c, iter.clone()), b, "{c:?}");
+        if codec.is_none()
+            && let Some(b) = b
+        {
+            assert!(bits <= b, "{written_codec:?} {bits} bits, {c:?} {b}");
         }
     }
     let mut rd =

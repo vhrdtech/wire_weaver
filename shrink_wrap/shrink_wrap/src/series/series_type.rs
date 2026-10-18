@@ -279,7 +279,8 @@ impl<'i, T: SeriesColumns<'i>> SerializeShrinkWrap for Series<'i, T> {
         match self {
             Series::Slice { items, policy } => {
                 wr.write_unib32(items.len().min(u32::MAX as usize) as u32)?;
-                write_series(wr, items, policy)?;
+                // the columns are bits through and through: written with the open byte in a register
+                write_series(&mut crate::buf_writer::BitWriter::new(wr), items, policy)?;
                 wr.align_byte();
                 Ok(())
             }

@@ -10,13 +10,17 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
-- Faster `Series` writing (SW-63), the same bytes: the packed coder keeps a block's residuals instead of running
-  the predictor ahead to find the block's width; a struct's field restarts compare the tags of only the fields that
-  can have one (new `SeriesColumns::TAGGED`, `true` by default, `false` for numbers, `bool`, strings, tuples, arrays
-  and derived structs; new `series::tag_changed`); an enum writes only the variants its tag run saw, instead of
-  walking every item once per variant to find the empty ones. `BufWriter::write_un32` / `write_un64` write a byte
-  (or the rest of one) per step instead of masking 64-bit values, and a write that doesn't fit writes nothing.
-  `Series<Timed<Ampere>>` of 32 items with `fixed(delta, packed)` on a Cortex-M3: 63 359 → 21 366 instructions.
+- Faster `Series` writing (SW-63), the same bytes. The packed coder keeps a block's residuals instead of running
+  the predictor ahead to find the block's width. The predictor works on left-aligned values (no masking or sign
+  extension per item), in a `u32` for leaves up to 32 bits. `CodecPolicy::SMALLEST` sizes all four coders of a
+  predictor in one pass instead of writing each into a `BitCounter`. A struct's field restarts compare the tags of
+  only the fields that can have one (new `SeriesColumns::TAGGED`, `true` by default, `false` for numbers, `bool`,
+  strings, tuples, arrays and derived structs; new `series::tag_changed`). An enum writes only the variants its tag
+  run saw, instead of walking every item once per variant to find the empty ones. A `Series` writes its columns
+  with the open byte in a register, whole bytes straight into the buffer. `BufWriter::write_un32` / `write_un64`
+  write a byte (or the rest of one) per step instead of masking 64-bit values, and a write that doesn't fit writes
+  nothing. `Series<Timed<Ampere>>` of 32 items on a Cortex-M3: 63 359 → 11 490 instructions with
+  `fixed(delta, packed)`, 213 233 → 31 700 with `SMALLEST`.
 - `SeriesStore` (SW-62): room for `N` items as a struct of arrays (`type Store<const N: usize>`, `empty_store`,
   `set`, `get`), what a device keeps a batch in before writing it as one `Series`. Implemented for numbers, `bool`,
   `Nibble`, `UNib32`, `UVlq32/64`, `U1..U64`, `I2..I64`, `UN`, `IN`, floats, strings and byte lists, `Option`

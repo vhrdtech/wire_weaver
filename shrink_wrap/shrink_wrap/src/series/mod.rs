@@ -166,6 +166,38 @@ impl BitSink for BufWriter<'_> {
     }
 }
 
+impl BitSink for crate::buf_writer::BitWriter<'_, '_> {
+    fn bit_pos(&self) -> usize {
+        self.bit_pos()
+    }
+
+    #[inline]
+    fn put_bit(&mut self, bit: bool) -> Result<(), Error> {
+        self.put_bit(bit)
+    }
+
+    #[inline]
+    fn put_bits(&mut self, count: u8, value: u64) -> Result<(), Error> {
+        self.put_bits(count, value)
+    }
+
+    fn align_byte(&mut self) {
+        self.align_byte()
+    }
+
+    fn put_bytes(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.with_writer(|wr| wr.write_raw_slice(bytes))
+    }
+
+    fn put_serialized<V: SerializeShrinkWrap + ?Sized>(&mut self, value: &V) -> Result<(), Error> {
+        self.with_writer(|wr| BitSink::put_serialized(wr, value))
+    }
+
+    fn scratch(&mut self) -> &mut [u8] {
+        BitSink::scratch(self.writer_after_open_byte())
+    }
+}
+
 #[cfg(feature = "std")]
 impl BitSink for crate::BufWriterOwned {
     fn bit_pos(&self) -> usize {
@@ -514,6 +546,21 @@ pub(crate) fn put_delta(sink: &mut impl BitSink, z: u64, width: u8) -> Result<()
     sink.put_bits(width, z)
 }
 
+/// Bits [put_delta] writes for a value that needs `needs` bits (0 for 0) at `width`.
+pub(crate) fn delta_bits(needs: u8, width: u8) -> usize {
+    if needs == 0 {
+        return 1;
+    }
+    let mut bits = 1;
+    for &bucket in BUCKETS.iter().filter(|&&b| b < width) {
+        if needs <= bucket {
+            return bits + 1 + bucket as usize;
+        }
+        bits += 1;
+    }
+    bits + width as usize
+}
+
 pub(crate) fn get_delta(rd: &mut BufReader<'_>, width: u8) -> Result<u64, Error> {
     if !rd.read_bool()? {
         return Ok(0);
@@ -546,6 +593,65 @@ pub(crate) const fn sign_extend(bits: u64, width: u8) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The same writes through a `BufWriter` and through a `BitWriter` on it give the same bytes (the buffer's
+    /// old contents included), positions and errors, from any start in a byte, up to a full buffer.
+    #[test]
+    fn bit_writer_matches_buf_writer() {
+        let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+        let mut rand = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        for round in 0..300 {
+            let len = 1 + (rand() % 24) as usize;
+            let mut fill = [0u8; 24];
+            fill.iter_mut().for_each(|b| *b = rand() as u8);
+            let (mut a, mut b) = (fill, fill);
+            let mut plain = BufWriter::new(&mut a[..len]);
+            let mut wr = BufWriter::new(&mut b[..len]);
+            let lead = (rand() % 8) as u8;
+            plain.write_un8(lead, 0x5A).unwrap();
+            wr.write_un8(lead, 0x5A).unwrap();
+            {
+                let mut bits = crate::buf_writer::BitWriter::new(&mut wr);
+                for _ in 0..12 {
+                    let value = rand();
+                    let (x, y) = match rand() % 6 {
+                        0 => (plain.put_bit(value & 1 == 1), bits.put_bit(value & 1 == 1)),
+                        1 => {
+                            BitSink::align_byte(&mut plain);
+                            BitSink::align_byte(&mut bits);
+                            (Ok(()), Ok(()))
+                        }
+                        2 => {
+                            let bytes = [value as u8, (value >> 8) as u8];
+                            let n = (value >> 16) as usize % 3;
+                            (plain.put_bytes(&bytes[..n]), bits.put_bytes(&bytes[..n]))
+                        }
+                        _ => {
+                            let count = (rand() % 65) as u8;
+                            (plain.put_bits(count, value), bits.put_bits(count, value))
+                        }
+                    };
+                    assert_eq!(x, y, "round {round}");
+                    assert_eq!(
+                        BitSink::bit_pos(&plain),
+                        BitSink::bit_pos(&bits),
+                        "round {round}"
+                    );
+                    if x.is_err() {
+                        break;
+                    }
+                }
+            }
+            assert_eq!(plain.pos(), wr.pos(), "round {round}");
+            drop((plain, wr));
+            assert_eq!(a, b, "round {round}");
+        }
+    }
 
     #[test]
     fn zigzag_round_trip() {
@@ -600,6 +706,12 @@ mod tests {
                 });
             }
             assert_eq!(s, expected.replace(' ', ""), "z = {z}, width = {width}");
+            let needs = (64 - z.leading_zeros()) as u8;
+            assert_eq!(
+                delta_bits(needs, width),
+                bits_written,
+                "z = {z}, width = {width}"
+            );
             let mut rd = BufReader::new(bytes);
             assert_eq!(get_delta(&mut rd, width).unwrap(), z);
         }

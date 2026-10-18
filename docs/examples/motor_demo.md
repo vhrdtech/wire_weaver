@@ -95,7 +95,11 @@ The device's clock is simulated time, one PWM period (40 µs) per step; simulate
 1. the controller runs on the sensor readings (current offsets measured during the first 0.1 s, Clarke and Park,
    the Ortega flux observer and a PLL, d/q current PI loops with decoupling, space vector PWM; the speed loop and the
    filters every 25th step, the counters every 500th), the simulator steps with the duties it gives;
-2. every value of a tier that ran and changed is marked, `mark_changed_<name>()`, so `change:` observers get it;
+2. every value of a tier that ran and changed is marked, `mark_changed_<name>()`, so `change:` observers get it,
+   and every sample goes to the batches a `samples:` observer gets: `foc` writes its 21 values into its observe cells
+   and commits the row, as a FOC interrupt would ([observe cells](../api/observing.md#cells-sampling-from-an-interrupt),
+   `observe_cells = "root_foc"`), `control` hands its row to `sample(t, ControlSamples { .. })`: both paths in one
+   device, the same wire;
 3. `poll_properties(out, (), now_us, buf)` sends what is due, with `now_us` the simulated microseconds.
 
 Messages are up to 4 KiB (`MAX_MESSAGE_LEN`) each way, the in-process and UDP buffers sized from it: room for the

@@ -137,6 +137,7 @@ bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }
 cfg_variants_api = { version = "0.1.0", path = "./tests/cfg_variants_api" }
 cfg_variants_narrow_api = { version = "0.1.0", path = "./tests/cfg_variants_narrow_api", default-features = false, features = ["std"] }
 common_error_api = { version = "0.1.0", path = "./tests/common_error_api" }
+conformance_api = { version = "0.1.0", path = "./tests/conformance_api" }
 consts_api = { version = "0.1.0", path = "./tests/consts_api" }
 counters_api = { version = "0.1.0", path = "./tests/counters_api" }
 credit_sink_api = { version = "0.1.0", path = "./tests/credit_sink_api" }
@@ -174,6 +175,7 @@ quantities_api = { version = "0.1.0", path = "./tests/quantities_api" }
 recorder_groups_api = { version = "0.1.0", path = "./tests/recorder_groups_api" }
 recursive_api = { version = "0.1.0", path = "./tests/recursive_api" }
 series_api = { version = "0.1.0", path = "./tests/series_api" }
+shrink_wrap_c = { version = "0.1.0", path = "./shrink_wrap/c" }
 settings_api = { version = "0.1.0", path = "./examples/settings_api" }
 streams_api = { version = "0.1.0", path = "./tests/streams_api" }
 streams_batched_api = { version = "0.1.0", path = "./tests/streams_batched_api" }

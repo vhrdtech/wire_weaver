@@ -1,0 +1,12 @@
+[package]
+name = "conformance_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Types of the wire-format conformance matrix (TEST-23), one property per case type."
+
+[dependencies]
+wire_weaver = { workspace = true, features = ["std"] }

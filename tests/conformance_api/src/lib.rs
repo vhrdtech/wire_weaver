@@ -1,0 +1,399 @@
+//! Types of the wire-format conformance matrix (TEST-23, `docs/serdes/conformance.md`).
+//!
+//! Every case of `tests/conformance/corpus.json` names a type by the property of [Conformance] that has it
+//! (`"type": "u8"` is `property!(rw u8: u8)`), so each consumer finds it: the Rust derive through the case table of
+//! `tests/conformance`, the dynamic client and Python through this trait's API model, loaded from source. Types
+//! without a sw serdes (`head_tail`) or not in the API model yet are defined here but not listed in the trait; the
+//! corpus marks them for the consumers that can't read them.
+
+use core::ops::{Range, RangeInclusive};
+use wire_weaver::prelude::*;
+use wire_weaver::shrink_wrap::head_tail::List;
+use wire_weaver::shrink_wrap::series::Series;
+use wire_weaver::shrink_wrap::tail_bytes::{TailBytes, TailBytesOwned};
+
+#[ww_trait]
+trait Conformance {
+    // numbers
+    property!(rw u8: u8);
+    property!(rw u16: u16);
+    property!(rw u32: u32);
+    property!(rw u64: u64);
+    property!(rw u128: u128);
+    property!(rw i8: i8);
+    property!(rw i16: i16);
+    property!(rw i32: i32);
+    property!(rw i64: i64);
+    property!(rw i128: i128);
+    property!(rw f32: f32);
+    property!(rw f64: f64);
+    property!(rw bool: bool);
+    property!(rw unib32: UNib32);
+    property!(rw uvlq32: UVlq32);
+    property!(rw uvlq64: UVlq64);
+    property!(rw nibble: Nibble);
+    property!(rw u4: U4);
+    property!(rw u10: U10);
+    property!(rw u20: U20);
+    property!(rw i5: I5);
+    property!(rw i12: I12);
+    // lists and strings
+    property!(rw string: &'i str);
+    property!(rw bytes: RefVec<'i, u8>);
+    property!(rw vec_u16: RefVec<'i, u16>);
+    property!(rw vec_string: RefVec<'i, &'i str>);
+    property!(rw vec_bool: RefVec<'i, bool>);
+    property!(rw vec_option: RefVec<'i, Option<u8>>);
+    property!(rw vec_vec: RefVec<'i, RefVec<'i, u8>>);
+    property!(rw max_len_str: MaxLen<&'i str, 4>);
+    property!(rw max_len_bytes: MaxLen<RefVec<'i, u8>, 3>);
+    // composites
+    property!(rw option_u8: Option<u8>);
+    property!(rw option_str: Option<&'i str>);
+    property!(rw option_option: Option<Option<u8>>);
+    property!(rw result: Result<u8, Error>);
+    property!(rw array_u16: [u16; 3]);
+    property!(rw array_bool: [bool; 3]);
+    property!(rw tuple: (u8, u32, bool));
+    property!(rw range: Range<u16>);
+    property!(rw range_inclusive: RangeInclusive<i8>);
+    // structs
+    property!(rw bits: Bits);
+    property!(rw nested: Outer<'i>);
+    property!(rw flagged: Flagged<'i>);
+    property!(rw pair: Pair<'i>);
+    property!(rw rgb: Rgb);
+    property!(rw marker: Marker);
+    property!(rw sized: SizedPoint);
+    property!(rw final_struct: FinalHeader<'i>);
+    property!(rw generic: Timed<u16>);
+    property!(rw generic_const: Window<3>);
+    property!(rw sparse: Sparse<'i>);
+    property!(rw tree: Tree<'i>);
+    property!(rw expr: Expr<'i>);
+    // enums
+    property!(rw shape: Shape<'i>);
+    property!(rw shape_v2: ShapeV2<'i>);
+    property!(rw address: I2cAddress);
+    property!(rw command: Command);
+    property!(rw error: Error);
+    property!(rw cfg_subset: CfgSubset);
+    // evolution
+    property!(rw config_v1: ConfigV1<'i>);
+    property!(rw config_v2: ConfigV2<'i>);
+    // fixed layout
+    property!(rw fixed_numbers: FixedNumbers);
+    property!(rw fixed_bits: FixedBits);
+    property!(rw fixed_nested: FixedOuter);
+    property!(rw fixed_maybe: FixedMaybe);
+    property!(rw fixed_op: FixedOp);
+    // Series
+    property!(rw series_u16: Series<'i, u16>);
+    property!(rw series_sample: Series<'i, Sample>);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// structs
+
+/// Bit-sized fields and nibbles mixed with byte fields: a byte field starts a fresh byte, a nibble a 4-bit boundary.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Bits {
+    pub on: bool,
+    pub small: U4,
+    pub signed: I5,
+    pub nib: Nibble,
+    pub byte: u8,
+    pub wide: U10,
+    pub last: bool,
+}
+
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
+pub struct Inner<'i> {
+    pub id: u8,
+    pub note: &'i str,
+}
+
+/// An evolvable struct inside another: written with its size.
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
+pub struct Outer<'i> {
+    pub tag: u16,
+    pub inner: Inner<'i>,
+    pub items: RefVec<'i, Inner<'i>>,
+    pub after: u8,
+}
+
+/// Relocated `Option` and `Result` flags (`#[flag]`), also in an enum variant.
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
+pub struct Flagged<'i> {
+    pub a: U3,
+    #[flag]
+    late: bool,
+    #[flag]
+    res: bool,
+    pub early: Option<&'i str>,
+    pub res: Result<u8, Error>,
+    pub tagged: Tagged,
+    pub late: Option<u16>,
+}
+
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy), ww_repr = u1)]
+pub enum Tagged {
+    Plain,
+    Pair {
+        #[flag]
+        second: bool,
+        first: Option<u8>,
+        second: Option<u8>,
+    },
+}
+
+/// A tuple struct.
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
+pub struct Pair<'i>(pub u8, pub Option<&'i str>);
+
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Rgb(pub u8, pub u8, pub u8);
+
+/// A unit struct.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Marker;
+
+/// `sized`: no size of its own inside a parent, bits packed with the parent's.
+#[derive_shrink_wrap(borrowed, owned, sized, derive(Debug, PartialEq, Clone, Copy))]
+pub struct SizedPoint {
+    pub x: i16,
+    pub y: i16,
+    pub visible: bool,
+}
+
+/// `final_structure`: no size of its own, may hold variable-length fields.
+#[derive_shrink_wrap(owned, final_structure, derive(Debug, PartialEq, Clone))]
+pub struct FinalHeader<'i> {
+    pub version: u8,
+    pub name: &'i str,
+    pub crc: u16,
+}
+
+/// A generic struct (DER-14, API-43).
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Timed<T> {
+    pub t: u32,
+    pub value: T,
+}
+
+/// A const generic.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Window<const N: usize> {
+    pub samples: [u8; N],
+}
+
+/// `sparse`: an `OptionAnyVec` of its fields, a gap in the slots.
+#[derive_shrink_wrap(sparse, owned, derive(Debug, PartialEq, Clone, Default))]
+pub struct Sparse<'i> {
+    pub speed: Option<u16>,
+    pub name: Option<&'i str>,
+    #[slot = 5]
+    pub samples: Option<RefVec<'i, i16>>,
+    pub on: Option<bool>,
+}
+
+/// Self-reference through a list.
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
+pub struct Tree<'i> {
+    pub label: &'i str,
+    pub children: RefVec<'i, Tree<'i>>,
+}
+
+/// Self-reference through `RefBox`.
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone), ww_repr = u4)]
+pub enum Expr<'i> {
+    Add(RefBox<'i, Expr<'i>>, RefBox<'i, Expr<'i>>),
+    Neg(RefBox<'i, Expr<'i>>),
+    Lit(i32),
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// enums
+
+/// Unit, tuple and struct variants, an explicit discriminant, a 4-bit `ww_repr`, `Unknown` added by default.
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone), ww_repr = u4)]
+pub enum Shape<'i> {
+    Empty,
+    Circle(u16),
+    Rect { w: u8, h: u8, label: &'i str },
+    Far = 9,
+}
+
+/// [Shape] with a variant appended: its bytes are an unknown variant to a reader of [Shape].
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone), ww_repr = u4)]
+pub enum ShapeV2<'i> {
+    Empty,
+    Circle(u16),
+    Rect { w: u8, h: u8, label: &'i str },
+    Far = 9,
+    Polygon(RefVec<'i, u8>) = 10,
+}
+
+/// 7-bit or 10-bit I2C address in 8 or 11 bits: a sub-byte discriminant, `self_describing`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    derive(Debug, PartialEq, Clone, Copy),
+    ww_repr = u1,
+    self_describing
+)]
+pub enum I2cAddress {
+    Seven(U7),
+    Ten(U10),
+}
+
+/// `sized` enum, equal variants.
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    derive(Debug, PartialEq, Clone, Copy),
+    ww_repr = u8,
+    sized
+)]
+pub enum Command {
+    Stop(u16),
+    Go(u16) = 20,
+    Hold(u16) = 200,
+}
+
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy), ww_repr = u2)]
+pub enum Error {
+    TooBig,
+    Missing,
+}
+
+/// A variant compiled out keeps its discriminant (DER-8): its bytes read as `EnumVariantDisabled`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    derive(Debug, PartialEq, Clone, Copy),
+    self_describing,
+    ww_repr = unib32
+)]
+pub enum CfgSubset {
+    A(u8),
+    #[cfg(any())]
+    B(u16),
+    C,
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// evolution
+
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
+pub struct ConfigV1<'i> {
+    pub rate: u16,
+    pub name: &'i str,
+}
+
+/// [ConfigV1] with fields appended: reads old data with the defaults.
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
+pub struct ConfigV2<'i> {
+    pub rate: u16,
+    pub name: &'i str,
+    #[default = 7]
+    pub timeout: u16,
+    #[default = None]
+    pub retries: Option<u8>,
+    #[default = None]
+    pub tags: Option<RefVec<'i, u8>>,
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// fixed layout (SW-44, SW-45): same bytes as the sw serdes, plus offsets and a C reader
+
+#[derive_shrink_wrap(borrowed, owned, fixed_layout, derive(Debug, PartialEq, Clone, Copy))]
+pub struct FixedNumbers {
+    pub a: u8,
+    pub b: u16,
+    pub c: u32,
+    pub d: u64,
+    pub e: i8,
+    pub f: i16,
+    pub g: i32,
+    pub h: i64,
+    pub x: f32,
+    pub y: f64,
+    pub words: [u16; 2],
+}
+
+#[derive_shrink_wrap(borrowed, owned, fixed_layout, derive(Debug, PartialEq, Clone, Copy))]
+pub struct FixedBits {
+    pub a: bool,
+    pub n: Nibble,
+    pub b: U3,
+    pub s: I5,
+    pub x: u16,
+    pub wide: U20,
+    pub i: I12,
+}
+
+#[derive_shrink_wrap(borrowed, owned, fixed_layout, derive(Debug, PartialEq, Clone, Copy))]
+pub struct FixedInner {
+    pub id: u32,
+    pub hash: [u8; 4],
+}
+
+#[derive_shrink_wrap(borrowed, owned, fixed_layout, derive(Debug, PartialEq, Clone, Copy))]
+pub struct FixedOuter {
+    pub tag: u8,
+    pub inner: FixedInner,
+    pub signed: [i16; 2],
+}
+
+/// A variable last field: an `Option` with its flag as a bit field.
+#[derive_shrink_wrap(borrowed, owned, fixed_layout, derive(Debug, PartialEq, Clone, Copy))]
+pub struct FixedMaybe {
+    pub id: u16,
+    pub on: bool,
+    pub extra: Option<u32>,
+}
+
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    self_describing,
+    fixed_layout,
+    ww_repr = u8,
+    derive(Debug, PartialEq, Clone, Copy)
+)]
+pub enum FixedOp {
+    Stop = 1,
+    Erase { block: u16 } = 4,
+    Copy { dst: u16, src: u16 },
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Series (SW-60)
+
+#[derive_shrink_wrap(borrowed, owned, series, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Sample {
+    pub t: u32,
+    pub value: i16,
+    pub ok: bool,
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// not in the API model: their own format or types the model has no form for
+
+/// `head_tail` (SW-46): a wire format of its own, no sw serdes, so it can't be in an API.
+#[derive_shrink_wrap(head_tail, derive(Clone, Copy, Debug, PartialEq))]
+pub struct HtRecord<'i> {
+    pub ch: u8,
+    pub maybe: Option<u16>,
+    pub list: List<'i, u16>,
+    pub name: &'i str,
+    pub on: bool,
+}
+
+/// `TailBytes` (SW-9) as the last field.
+#[derive_shrink_wrap(owned, derive(Debug))]
+pub struct WithTail<'i> {
+    pub kind: u8,
+    pub rest: TailBytes<'i>,
+}

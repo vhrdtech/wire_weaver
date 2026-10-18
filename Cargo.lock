@@ -880,6 +880,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "conformance"
+version = "0.1.0"
+dependencies = [
+ "conformance_api",
+ "hex",
+ "serde",
+ "serde_json",
+ "shrink_wrap_c",
+ "wire_weaver",
+ "wire_weaver_core",
+ "ww_numeric",
+ "ww_self",
+]
+
+[[package]]
+name = "conformance_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "console"
 version = "0.16.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,20 @@
+[package]
+name = "conformance"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Wire-format conformance matrix (TEST-23): every case of corpus.json through every consumer."
+
+[dependencies]
+conformance_api.workspace = true
+hex.workspace = true
+serde = { workspace = true, features = ["std"] }
+serde_json.workspace = true
+shrink_wrap_c.workspace = true
+wire_weaver.workspace = true
+wire_weaver_core.workspace = true
+ww_self.workspace = true
+ww_numeric = { workspace = true, features = ["std"] }

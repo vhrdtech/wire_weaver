@@ -1,0 +1,678 @@
+{
+  "_about": [
+    "Wire-format conformance corpus (TEST-23): every case goes through every consumer (Rust derive, ww_self dynamic, Python, C), see docs/serdes/conformance.md.",
+    "type: a property of conformance_api's Conformance trait (or a Rust type outside the API model); value: in the wire_weaver_py form; bytes: the golden bytes in hex.",
+    "direction: both (default), decode (bytes decode to value, value encodes otherwise), reject (bytes don't decode), reject_value (value doesn't encode).",
+    "gaps: consumer -> why it can't run the case yet, with the FEATURES.md id that fixes it. A missing or stale mark fails the tests.",
+    "New case: add it here with \"bytes\": \"?\" and to tests/conformance/src/derive.rs, then CONFORMANCE=update cargo nextest run -p conformance and review the bytes."
+  ],
+  "cases": [
+    {
+      "name": "int.u8.zero",
+      "type": "u8",
+      "value": 0,
+      "bytes": "00"
+    },
+    {
+      "name": "int.u8.max",
+      "type": "u8",
+      "value": 255,
+      "bytes": "ff"
+    },
+    {
+      "name": "int.u16.le",
+      "type": "u16",
+      "value": 48879,
+      "bytes": "efbe"
+    },
+    {
+      "name": "int.u32.le",
+      "type": "u32",
+      "value": 3735928559,
+      "bytes": "efbeadde"
+    },
+    {
+      "name": "int.u64.max",
+      "type": "u64",
+      "value": 18446744073709551615,
+      "bytes": "ffffffffffffffff"
+    },
+    {
+      "name": "int.u128.max",
+      "type": "u128",
+      "value": "340282366920938463463374607431768211455",
+      "bytes": "ffffffffffffffffffffffffffffffff",
+      "gaps": {"c": "the C runtime has no 128-bit numbers (SW-66)"},
+      "note": "beyond 64 bits a number is a string, JSON parsers lose it"
+    },
+    {
+      "name": "int.i8.min",
+      "type": "i8",
+      "value": -128,
+      "bytes": "80"
+    },
+    {
+      "name": "int.i16.negative",
+      "type": "i16",
+      "value": -300,
+      "bytes": "d4fe"
+    },
+    {
+      "name": "int.i32.negative",
+      "type": "i32",
+      "value": -70000,
+      "bytes": "90eefeff"
+    },
+    {
+      "name": "int.i64.min",
+      "type": "i64",
+      "value": -9223372036854775808,
+      "bytes": "0000000000000080"
+    },
+    {
+      "name": "int.i128.min",
+      "type": "i128",
+      "value": "-170141183460469231731687303715884105728",
+      "bytes": "00000000000000000000000000000080",
+      "gaps": {"c": "the C runtime has no 128-bit numbers (SW-66)"},
+      "note": "beyond 64 bits a number is a string, JSON parsers lose it"
+    },
+    {
+      "name": "float.f32",
+      "type": "f32",
+      "value": 1.5,
+      "bytes": "0000c03f"
+    },
+    {
+      "name": "float.f64",
+      "type": "f64",
+      "value": -2.25,
+      "bytes": "00000000000002c0"
+    },
+    {
+      "name": "bool.true",
+      "type": "bool",
+      "value": true,
+      "bytes": "80"
+    },
+    {
+      "name": "bool.false",
+      "type": "bool",
+      "value": false,
+      "bytes": "00"
+    },
+    {
+      "name": "unib32.one_nibble",
+      "type": "unib32",
+      "value": 7,
+      "bytes": "70"
+    },
+    {
+      "name": "unib32.two_nibbles",
+      "type": "unib32",
+      "value": 8,
+      "bytes": "81"
+    },
+    {
+      "name": "unib32.max",
+      "type": "unib32",
+      "value": 4294967295,
+      "bytes": "ffffffffff30"
+    },
+    {
+      "name": "uvlq32.two_bytes",
+      "type": "uvlq32",
+      "value": 128,
+      "bytes": "8100"
+    },
+    {
+      "name": "uvlq64.max",
+      "type": "uvlq64",
+      "value": 18446744073709551615,
+      "bytes": "81ffffffffffffffff7f"
+    },
+    {
+      "name": "bits.nibble",
+      "type": "nibble",
+      "value": 10,
+      "bytes": "a0"
+    },
+    {
+      "name": "bits.u4",
+      "type": "u4",
+      "value": 9,
+      "bytes": "90"
+    },
+    {
+      "name": "bits.u10",
+      "type": "u10",
+      "value": 683,
+      "bytes": "aac0"
+    },
+    {
+      "name": "bits.u20",
+      "type": "u20",
+      "value": 1043915,
+      "bytes": "fedcb0"
+    },
+    {
+      "name": "bits.i5",
+      "type": "i5",
+      "value": -7,
+      "bytes": "c8"
+    },
+    {
+      "name": "bits.i12",
+      "type": "i12",
+      "value": -2,
+      "bytes": "ffe0"
+    },
+    {
+      "name": "str.empty",
+      "type": "string",
+      "value": "",
+      "bytes": "00"
+    },
+    {
+      "name": "str.ascii",
+      "type": "string",
+      "value": "hello",
+      "bytes": "68656c6c6f05"
+    },
+    {
+      "name": "str.utf8",
+      "type": "string",
+      "value": "größe",
+      "bytes": "6772c3b6c39f6507"
+    },
+    {
+      "name": "bytes.empty",
+      "type": "bytes",
+      "value": [],
+      "bytes": "00"
+    },
+    {
+      "name": "bytes.three",
+      "type": "bytes",
+      "value": [1, 2, 3],
+      "bytes": "01020303"
+    },
+    {
+      "name": "vec.u16",
+      "type": "vec_u16",
+      "value": [1, 65535],
+      "bytes": "0100ffff02",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "vec.string",
+      "type": "vec_string",
+      "value": ["a", "bc"],
+      "bytes": "6162630212",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "vec.bool",
+      "type": "vec_bool",
+      "value": [true, false, true],
+      "bytes": "a3",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "flags of a list are bits, packed"
+    },
+    {
+      "name": "vec.option",
+      "type": "vec_option",
+      "value": [1, null, 3],
+      "bytes": "8001400303",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "vec.vec",
+      "type": "vec_vec",
+      "value": [[1], [], [2, 3]],
+      "bytes": "0102032013",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "max_len.str.at_bound",
+      "type": "max_len_str",
+      "value": "abcd",
+      "bytes": "6162636404"
+    },
+    {
+      "name": "max_len.str.over_bound",
+      "type": "max_len_str",
+      "value": "abcde",
+      "direction": "reject_value"
+    },
+    {
+      "name": "max_len.str.over_bound_bytes",
+      "type": "max_len_str",
+      "value": null,
+      "bytes": "68656c6c6f05",
+      "bytes_from": "str.ascii",
+      "direction": "reject",
+      "note": "the bytes of a longer string: reading checks the bound too"
+    },
+    {
+      "name": "max_len.bytes",
+      "type": "max_len_bytes",
+      "value": [7, 8, 9],
+      "bytes": "07080903"
+    },
+    {
+      "name": "option.none",
+      "type": "option_u8",
+      "value": null,
+      "bytes": "00",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "option.some",
+      "type": "option_u8",
+      "value": 5,
+      "bytes": "8005",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "option.str",
+      "type": "option_str",
+      "value": "hi",
+      "bytes": "80686902",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "option.option.some_some",
+      "type": "option_option",
+      "value": 5,
+      "bytes": "c005",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "option.option.some_none",
+      "type": "option_option",
+      "value": null,
+      "bytes": "80",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13)", "python": "null is None and Some(None) alike in the Python value form (TOOL-13)"}
+    },
+    {
+      "name": "result.ok",
+      "type": "result",
+      "value": {"Ok": 7},
+      "bytes": "8007",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "result.err",
+      "type": "result",
+      "value": {"Err": "Missing"},
+      "bytes": "004001",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "array.u16",
+      "type": "array_u16",
+      "value": [1, 2, 65535],
+      "bytes": "01000200ffff",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "array.bool",
+      "type": "array_bool",
+      "value": [true, false, true],
+      "bytes": "a0",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "tuple",
+      "type": "tuple",
+      "value": [7, 100000, true],
+      "bytes": "07a086010080",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "range",
+      "type": "range",
+      "value": [3, 10],
+      "bytes": "03000a00",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "range_inclusive",
+      "type": "range_inclusive",
+      "value": [-5, 5],
+      "bytes": "fb05",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.bits",
+      "type": "bits",
+      "value": {"on": true, "small": 9, "signed": -7, "nib": 10, "byte": 66, "wide": 1023, "last": true},
+      "bytes": "ce4a42ffe0",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a nibble on a 4-bit boundary, a byte field on a fresh byte"
+    },
+    {
+      "name": "struct.nested",
+      "type": "nested",
+      "value": {"tag": 4660, "inner": {"id": 3, "note": "note"}, "items": [{"id": 1, "note": ""}, {"id": 2, "note": "x"}], "after": 170},
+      "bytes": "3412036e6f7465040100027801aa3226",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "evolvable structs inside a struct and a list carry their sizes"
+    },
+    {
+      "name": "struct.flags.relocated",
+      "type": "flagged",
+      "value": {"a": 5, "early": "hi", "res": {"Ok": 7}, "tagged": {"Pair": {"first": 1, "second": null}}, "late": 300},
+      "bytes": "bc686907a0012c0122",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.flags.relocated_other",
+      "type": "flagged",
+      "value": {"a": 0, "early": null, "res": {"Err": "TooBig"}, "tagged": {"Pair": {"first": null, "second": 2}}, "late": null},
+      "bytes": "0000c00221",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.tuple",
+      "type": "pair",
+      "value": [7, "hi"],
+      "bytes": "0780686902",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.tuple.none",
+      "type": "pair",
+      "value": [0, null],
+      "bytes": "0000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.tuple.plain",
+      "type": "rgb",
+      "value": [1, 2, 3],
+      "bytes": "010203",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.unit",
+      "type": "marker",
+      "value": null,
+      "bytes": "",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.sized",
+      "type": "sized",
+      "value": {"x": -1, "y": 300, "visible": true},
+      "bytes": "ffff2c0180",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.final_structure",
+      "type": "final_struct",
+      "value": {"version": 1, "name": "fw", "crc": 48879},
+      "bytes": "016677efbe02",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.generic",
+      "type": "generic",
+      "value": {"t": 7, "value": 300},
+      "bytes": "070000002c01",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.generic_const",
+      "type": "generic_const",
+      "value": {"samples": [1, 2, 3]},
+      "bytes": "010203",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.sparse.empty",
+      "type": "sparse",
+      "value": {"speed": null, "name": null, "samples": null, "on": null},
+      "bytes": "",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.sparse.slots",
+      "type": "sparse",
+      "value": {"speed": 1500, "name": null, "samples": [-1, 0, 1000], "on": true},
+      "bytes": "1786dc05ffff0000e80383",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "slot 5 after a gap"
+    },
+    {
+      "name": "struct.recursive.list",
+      "type": "tree",
+      "value": {"label": "root", "children": [{"label": "a", "children": []}, {"label": "b", "children": [{"label": "c", "children": []}]}]},
+      "bytes": "726f6f74610162630102115224",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "struct.recursive.box",
+      "type": "expr",
+      "value": {"Add": [{"Lit": 2}, {"Neg": {"Lit": 3}}]},
+      "bytes": "0020020000001020030000000575",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.unit",
+      "type": "shape",
+      "value": "Empty",
+      "bytes": "00",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.tuple",
+      "type": "shape",
+      "value": {"Circle": 5},
+      "bytes": "100500",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.struct",
+      "type": "shape",
+      "value": {"Rect": {"w": 1, "h": 2, "label": "rect"}},
+      "bytes": "2001027265637404",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.explicit_discriminant",
+      "type": "shape",
+      "value": "Far",
+      "bytes": "90",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.unknown_variant",
+      "type": "shape",
+      "value": "<unknown 10>",
+      "bytes": "a0010202",
+      "bytes_from": "enum.appended_variant",
+      "direction": "decode",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a variant of a newer version: read as unknown, its fields skipped"
+    },
+    {
+      "name": "enum.appended_variant",
+      "type": "shape_v2",
+      "value": {"Polygon": [1, 2]},
+      "bytes": "a0010202",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.sub_byte.seven",
+      "type": "address",
+      "value": {"Seven": 80},
+      "bytes": "50",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.sub_byte.ten",
+      "type": "address",
+      "value": {"Ten": 1023},
+      "bytes": "ffe0",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.sized",
+      "type": "command",
+      "value": {"Go": 513},
+      "bytes": "140102",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.sized.wide_discriminant",
+      "type": "command",
+      "value": {"Hold": 1},
+      "bytes": "c80100",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.u2",
+      "type": "error",
+      "value": "TooBig",
+      "bytes": "00",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.cfg.kept",
+      "type": "cfg_subset",
+      "value": {"A": 5},
+      "bytes": "0005",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "enum.cfg.kept_after_gap",
+      "type": "cfg_subset",
+      "value": "C",
+      "bytes": "20",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "C keeps discriminant 2 with B compiled out"
+    },
+    {
+      "name": "enum.cfg.compiled_out",
+      "type": "cfg_subset",
+      "value": null,
+      "bytes": "10 34 12",
+      "direction": "reject",
+      "gaps": {"dynamic": "by design: the API model has the variants of every build, a host reads it (DER-8)", "python": "by design: the API model has the variants of every build (DER-8)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "discriminant 1 is B, compiled out: EnumVariantDisabled"
+    },
+    {
+      "name": "evolution.v1",
+      "type": "config_v1",
+      "value": {"rate": 1000, "name": "abc"},
+      "bytes": "e80361626303",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "evolution.v2",
+      "type": "config_v2",
+      "value": {"rate": 1000, "name": "abc", "timeout": 20, "retries": 9, "tags": [1, 2]},
+      "bytes": "e8036162631400800980010223",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "evolution.new_reads_old",
+      "type": "config_v2",
+      "value": {"rate": 1000, "name": "abc", "timeout": 7, "retries": null, "tags": null},
+      "bytes": "e80361626303",
+      "bytes_from": "evolution.v1",
+      "direction": "decode",
+      "gaps": {"dynamic": "the API model has no #[default] values, an old field reads as its type's default (INT-10)", "python": "the API model has no #[default] values (INT-10)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "fields appended with #[default] read as their defaults"
+    },
+    {
+      "name": "evolution.old_reads_new",
+      "type": "config_v1",
+      "value": {"rate": 1000, "name": "abc"},
+      "bytes": "e8036162631400800980010223",
+      "bytes_from": "evolution.v2",
+      "direction": "decode",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "an older reader skips the appended fields"
+    },
+    {
+      "name": "fixed.numbers",
+      "type": "fixed_numbers",
+      "value": {"a": 18, "b": 13398, "c": 2023406814, "d": 72623859790382856, "e": -2, "f": -300, "g": -70000, "h": -9223372036854775807, "x": 0.25, "y": -2.5, "words": [43690, 7]},
+      "bytes": "125634debc9a780807060504030201fed4fe90eefeff01000000000000800000803e00000000000004c0aaaa0700",
+      "gaps": {"c": "reader only: the generated C has no writer yet (API-26)"}
+    },
+    {
+      "name": "fixed.bits",
+      "type": "fixed_bits",
+      "value": {"a": true, "n": 10, "b": 5, "s": -3, "x": 4660, "wide": 1043915, "i": -2},
+      "bytes": "8abd3412fedcbffe",
+      "gaps": {"c": "reader only: the generated C has no writer yet (API-26)"}
+    },
+    {
+      "name": "fixed.nested",
+      "type": "fixed_nested",
+      "value": {"tag": 9, "inner": {"id": 51966, "hash": [1, 2, 3, 4]}, "signed": [-1, 2]},
+      "bytes": "09feca000001020304ffff0200",
+      "gaps": {"c": "reader only: the generated C has no writer yet (API-26)"}
+    },
+    {
+      "name": "fixed.option.none",
+      "type": "fixed_maybe",
+      "value": {"id": 258, "on": true, "extra": null},
+      "bytes": "020180",
+      "gaps": {"c": "reader only: the generated C has no writer yet (API-26)"}
+    },
+    {
+      "name": "fixed.option.some",
+      "type": "fixed_maybe",
+      "value": {"id": 258, "on": false, "extra": 3735928559},
+      "bytes": "020140efbeadde",
+      "gaps": {"c": "reader only: the generated C has no writer yet (API-26)"}
+    },
+    {
+      "name": "fixed.enum.unit",
+      "type": "fixed_op",
+      "value": "Stop",
+      "bytes": "01",
+      "gaps": {"c": "reader only: the generated C has no writer yet (API-26)"}
+    },
+    {
+      "name": "fixed.enum.fields",
+      "type": "fixed_op",
+      "value": {"Copy": {"dst": 16, "src": 8240}},
+      "bytes": "0510003020",
+      "gaps": {"c": "reader only: the generated C has no writer yet (API-26)"}
+    },
+    {
+      "name": "series.u16",
+      "type": "series_u16",
+      "value": [1, 2, 3, 100],
+      "bytes": "41381040f200",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "series.struct",
+      "type": "series_sample",
+      "value": [{"t": 0, "value": -5, "ok": true}, {"t": 10, "value": -4, "ok": true}, {"t": 20, "value": 7, "ok": false}],
+      "bytes": "33042a282497ec40",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "head_tail.struct",
+      "type": "HtRecord",
+      "value": {"ch": 7, "maybe": 772, "list": [2571, 2], "name": "ab", "on": true},
+      "bytes": "0780020002008004030b0a02006162",
+      "gaps": {"dynamic": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "python": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "c": "reader only: the generated C has no writer yet (API-26)"}
+    },
+    {
+      "name": "tail_bytes",
+      "type": "WithTail",
+      "value": {"kind": 3, "rest": [1, 2, 3]},
+      "bytes": "03010203",
+      "gaps": {"dynamic": "TailBytes has no form in the API model yet (INT-9)", "python": "TailBytes has no form in the API model yet (INT-9)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    }
+  ]
+}

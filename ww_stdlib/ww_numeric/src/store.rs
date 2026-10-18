@@ -1,7 +1,12 @@
 //! [NumericValueStore]: the `SeriesStore` of [NumericValue], by hand (SW-62).
 
 use crate::NumericValue;
-use shrink_wrap::series::SeriesStore;
+use core::ops::Range;
+use shrink_wrap::Error;
+use shrink_wrap::series::{
+    BitSink, Level, SeriesPolicy, SeriesStore, write_enum_tags, write_float_column,
+    write_numeric_column, write_numeric128_column,
+};
 
 /// The payload of every variant enabled, at the width of the widest one.
 #[cfg(any(feature = "u128", feature = "i128"))]
@@ -276,6 +281,43 @@ impl SeriesStore for NumericValue {
             UVLQ64 => NumericValue::UVlq64(shrink_wrap::UVlq64(p as u64)),
             // `U8`, and what only `set` writes: every other byte is a variant compiled in
             _ => NumericValue::U8(p as u8),
+        }
+    }
+    /// One variant over the rows, and not `UN` / `IN` (their bit counts vary per value).
+    fn columnar<const N: usize>(store: &NumericValueStore<N>, rows: Range<usize>) -> bool {
+        let variants = &store.variant[rows];
+        let v = variants[0];
+        variants.iter().all(|&x| x == v) && v != UN && v != IN
+    }
+
+    /// The tag run, then the one variant's column from the payloads.
+    fn write_store<S: BitSink, P: SeriesPolicy + ?Sized, const N: usize>(
+        store: &NumericValueStore<N>,
+        rows: Range<usize>,
+        sink: &mut S,
+        policy: &P,
+        _level: Level,
+    ) -> Result<(), Error> {
+        let tag = Self::get(store, rows.start).discriminant() as u32;
+        write_enum_tags(sink, core::iter::repeat_n(tag, rows.len()))?;
+        let variant = store.variant[rows.start];
+        let p = &store.payload[rows];
+        match variant {
+            NIBBLE => write_numeric_column(sink, 4, false, p, policy),
+            U8 => write_numeric_column(sink, 8, false, p, policy),
+            U16 => write_numeric_column(sink, 16, false, p, policy),
+            U32 | UNIB32 | UVLQ32 => write_numeric_column(sink, 32, false, p, policy),
+            U64 | UVLQ64 => write_numeric_column(sink, 64, false, p, policy),
+            I8 => write_numeric_column(sink, 8, true, p, policy),
+            I16 => write_numeric_column(sink, 16, true, p, policy),
+            I32 => write_numeric_column(sink, 32, true, p, policy),
+            I64 => write_numeric_column(sink, 64, true, p, policy),
+            F32 => write_float_column::<f32, _, _, _>(sink, p, policy),
+            F64 => write_float_column::<f64, _, _, _>(sink, p, policy),
+            U128 => write_numeric128_column(sink, false, p),
+            I128 => write_numeric128_column(sink, true, p),
+            // `columnar` said no
+            _ => Err(Error::MalformedSeries),
         }
     }
 }

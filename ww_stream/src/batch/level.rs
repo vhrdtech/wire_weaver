@@ -88,8 +88,10 @@ pub struct RowsEncoded<O> {
 
 impl<const BYTES: usize> Scratch<BYTES> {
     /// Rows `rows` of one column of a [LevelRow] store, `store` (a column's own store, as [SeriesStore] makes it),
-    /// rebuilt into the scratch memory and encoded with `policy` as a `Series<C>` at the start of `buf`, or only
-    /// counted without `buf`. Returns the bytes. What generated [LevelRow::encode_column]s call.
+    /// encoded with `policy` as a `Series<C>` at the start of `buf`, or only counted without `buf`. Returns the
+    /// bytes. Written straight from the store's arrays when it can ([SeriesStore::columnar]: no tag changes in the
+    /// rows), else rebuilt item by item into the scratch memory first. What generated [LevelRow::encode_column]s
+    /// call.
     pub fn encode_column<C, P, const N: usize>(
         &mut self,
         store: &C::Store<N>,
@@ -101,6 +103,21 @@ impl<const BYTES: usize> Scratch<BYTES> {
         C: SeriesStore + for<'i> SeriesColumns<'i>,
         P: SeriesPolicy + Copy,
     {
+        let buf = match buf {
+            Some(buf) => {
+                let mut wr = wire_weaver::shrink_wrap::BufWriter::new(buf);
+                if wire_weaver::shrink_wrap::series::write_store_series::<C, P, N>(
+                    &mut wr,
+                    store,
+                    rows.clone(),
+                    &policy,
+                )? {
+                    return Ok(wr.finish_and_take()?.len());
+                }
+                Some(wr.deinit())
+            }
+            None => None,
+        };
         let filled = self.fill::<C, N>(store, rows);
         let series = wire_weaver::shrink_wrap::series::Series::with_policy(filled.items(), policy);
         match buf {

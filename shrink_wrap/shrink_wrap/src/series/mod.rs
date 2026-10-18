@@ -46,7 +46,10 @@ pub use leaves::{ArrayReader, OptionReader};
 #[cfg(feature = "std")]
 pub use series_type::SeriesOwned;
 pub use series_type::{SERIES_MAX_ITEMS, Series, SeriesIter, SeriesTryIter};
-pub use store::{SeriesStore, write_store_series};
+pub use store::{
+    SeriesStore, StoreWord, write_float_column, write_numeric_column, write_numeric128_column,
+    write_store_series,
+};
 
 pub use xor_float::XorBits;
 

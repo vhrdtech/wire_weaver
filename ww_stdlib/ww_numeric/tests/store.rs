@@ -153,3 +153,59 @@ fn size_up_to_32_bits() {
     assert_eq!(size_of::<NumericValueStore<32>>(), 32 * 5);
     assert_eq!(size_of::<NumericValue>(), 8);
 }
+
+/// Rows written column by column ([write_store_series]) against the item walk: the same bytes under each policy,
+/// and declined where the variant changes or for `UN` / `IN`.
+fn store_vs_walk<P: shrink_wrap::series::SeriesPolicy + Copy>(items: &[NumericValue], policy: P) {
+    use shrink_wrap::series::{Series, write_store_series};
+    use shrink_wrap::{BufWriter, SerializeShrinkWrap};
+    let mut store = NumericValue::empty_store::<40>();
+    for (i, item) in items.iter().enumerate() {
+        NumericValue::set(&mut store, i, item);
+    }
+    let mut a = [0u8; 2048];
+    let mut wr = BufWriter::new(&mut a);
+    let written =
+        write_store_series::<NumericValue, P, 40>(&mut wr, &store, 0..items.len(), &policy)
+            .unwrap();
+    let one_variant = items
+        .windows(2)
+        .all(|w| w[0].discriminant() == w[1].discriminant());
+    let bit_counts = items
+        .iter()
+        .any(|v| matches!(format!("{v:?}").get(..3), Some("UN(" | "IN(")));
+    assert_eq!(
+        written,
+        items.is_empty() || one_variant && !bit_counts,
+        "{items:?}"
+    );
+    if !written {
+        return;
+    }
+    let a = wr.finish_and_take().unwrap().to_vec();
+    let mut b = [0u8; 2048];
+    let mut wr = BufWriter::new(&mut b);
+    Series::with_policy(items, policy)
+        .ser_shrink_wrap(&mut wr)
+        .unwrap();
+    assert_eq!(a, wr.finish_and_take().unwrap(), "{items:?}");
+}
+
+proptest! {
+    #[test]
+    fn store_writes_what_the_walk_writes(
+        pick in any::<u8>(),
+        values in prop::collection::vec(any::<(u128, u8)>(), 0..40),
+        other in prop::option::of((any::<u8>(), 0..40usize)),
+    ) {
+        use shrink_wrap::series::{AlignedPlain, CodecPolicy, DeltaPacked, RawPlain};
+        let mut items: Vec<NumericValue> = values.iter().map(|&(v, b)| value(pick, v, b)).collect();
+        if let Some((p, at)) = other && at < items.len() {
+            items[at] = value(p, 1, 3);
+        }
+        store_vs_walk(&items, CodecPolicy::SMALLEST);
+        store_vs_walk(&items, DeltaPacked);
+        store_vs_walk(&items, RawPlain);
+        store_vs_walk(&items, AlignedPlain);
+    }
+}

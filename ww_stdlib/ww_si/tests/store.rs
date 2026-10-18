@@ -54,3 +54,42 @@ fn size_up_to_32_bits() {
     assert_eq!(size_of::<Store>(), 32 * 12);
     assert_eq!(size_of::<[Timed<Ampere>; 32]>(), 32 * 24);
 }
+
+/// A quantity column with one prefix and one number type over the rows is written column by column, the bytes
+/// of the item walk; a prefix change leaves it to the walk.
+#[test]
+fn quantities_written_column_by_column() {
+    use shrink_wrap::series::{
+        AlignedPlain, CodecPolicy, DeltaPacked, RawPlain, Series, SeriesPolicy, write_store_series,
+    };
+    use shrink_wrap::{BufWriter, SerializeShrinkWrap};
+    fn check<P: SeriesPolicy + Copy>(items: &[Ampere], policy: P, columnar: bool) {
+        let mut store = Ampere::empty_store::<32>();
+        for (i, item) in items.iter().enumerate() {
+            Ampere::set(&mut store, i, item);
+        }
+        let mut a = [0u8; 1024];
+        let mut wr = BufWriter::new(&mut a);
+        let written =
+            write_store_series::<Ampere, P, 32>(&mut wr, &store, 0..items.len(), &policy).unwrap();
+        assert_eq!(written, columnar);
+        if written {
+            let a = wr.finish_and_take().unwrap().to_vec();
+            let mut b = [0u8; 1024];
+            let mut wr = BufWriter::new(&mut b);
+            Series::with_policy(items, policy)
+                .ser_shrink_wrap(&mut wr)
+                .unwrap();
+            assert_eq!(a, wr.finish_and_take().unwrap());
+        }
+    }
+    let mut items: Vec<Ampere> = (0..32)
+        .map(|k: i32| Ampere::new(Prefix::Milli, k * k * 37 - 4000))
+        .collect();
+    check(&items, CodecPolicy::SMALLEST, true);
+    check(&items, DeltaPacked, true);
+    check(&items, RawPlain, true);
+    check(&items, AlignedPlain, true);
+    items[7] = Ampere::new(Prefix::Micro, 5);
+    check(&items, DeltaPacked, false);
+}

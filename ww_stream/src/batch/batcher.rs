@@ -6,9 +6,9 @@ use core::cell::UnsafeCell;
 use core::ops::Range;
 use portable_atomic::{AtomicU32, Ordering};
 use wire_weaver::shrink_wrap::series::{
-    SERIES_MAX_ITEMS, Series, SeriesColumns, SeriesPolicy, SeriesStore, bound,
+    SERIES_MAX_ITEMS, Series, SeriesColumns, SeriesPolicy, SeriesStore, bound, write_store_series,
 };
-use wire_weaver::shrink_wrap::{Error, SerializeShrinkWrap};
+use wire_weaver::shrink_wrap::{BufWriter, Error, SerializeShrinkWrap};
 
 /// Most items a batch can hold: the item counts share one atomic word.
 pub const MAX_BATCH: usize = (1 << COUNT_BITS) - 1;
@@ -770,9 +770,18 @@ where
             return Ok(None);
         };
         let policy = self.state().policy;
-        let (items, len, split) = {
-            let filled = scratch.fill::<T, N>(self.taken_store(&taken), taken.start..taken.end);
-            encode_fitting(filled.items(), policy, buf)?
+        let rows = taken.start..taken.end;
+        let (items, len, split) = match encode_columnar::<T, P, N>(
+            self.taken_store(&taken),
+            rows.clone(),
+            &policy,
+            buf,
+        ) {
+            Some(len) => (rows.len(), len, false),
+            None => {
+                let filled = scratch.fill::<T, N>(self.taken_store(&taken), rows);
+                encode_fitting(filled.items(), policy, buf)?
+            }
         };
         Ok(Some(self.encoded(taken, items, len, split)))
     }
@@ -820,6 +829,21 @@ where
         let split = items < rows.len();
         let encoded = self.encoded(taken, items, len, split);
         Ok(Some(RowsEncoded { encoded, out }))
+    }
+}
+
+/// Rows `rows` of `store` written straight from its arrays at the start of `buf` (no tag changes in the rows, see
+/// [SeriesStore::columnar]): their bytes, or `None` when they can't be or don't fit, for the item walk.
+fn encode_columnar<T: SeriesStore, P: SeriesPolicy, const N: usize>(
+    store: &T::Store<N>,
+    rows: Range<usize>,
+    policy: &P,
+    buf: &mut [u8],
+) -> Option<usize> {
+    let mut wr = BufWriter::new(buf);
+    match write_store_series::<T, P, N>(&mut wr, store, rows, policy) {
+        Ok(true) => wr.finish_and_take().ok().map(|bytes| bytes.len()),
+        _ => None,
     }
 }
 

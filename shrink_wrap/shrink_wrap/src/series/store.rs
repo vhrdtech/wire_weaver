@@ -1,11 +1,11 @@
 //! [SeriesStore]: items kept as a struct of arrays until they are written as a [Series](super::Series) (SW-62).
 
-use super::columns::float::write_float_slice;
-use super::columns::numeric::{write_numeric_slice, write_numeric128};
+use super::columns::float::{write_float, write_float_slice};
+use super::columns::numeric::{NumericKind, write_numeric_slice, write_numeric128};
 use super::columns::run::{RunKind, write_run};
 use super::group::Level;
 use super::leaves::NumericLeaf;
-use super::{BitSink, SeriesPolicy};
+use super::{BitSink, FloatCodec, SeriesPolicy, XorBits};
 use crate::un::{IN, U3, UN};
 use crate::{BufWriter, Error, Nibble, RefVec, UNib32, UVlq32, UVlq64};
 use core::marker::PhantomData;
@@ -104,6 +104,107 @@ pub fn write_store_series<T: SeriesStore, P: SeriesPolicy + ?Sized, const N: usi
     }
     wr.align_byte();
     Ok(true)
+}
+
+/// An unsigned integer a hand-written [SeriesStore] keeps values of another type in (`NumericValue` keeps every
+/// variant in one array of the widest), for [write_numeric_column] and its siblings.
+pub trait StoreWord: Copy + sealed::Sealed {
+    fn bits64(self) -> u64;
+    fn bits128(self) -> u128;
+}
+
+mod sealed {
+    pub trait Sealed {}
+}
+
+macro_rules! store_word {
+    ($($ty:ty),*) => {
+        $(
+            impl sealed::Sealed for $ty {}
+
+            impl StoreWord for $ty {
+                #[inline(always)]
+                fn bits64(self) -> u64 {
+                    self as u64
+                }
+
+                #[inline(always)]
+                fn bits128(self) -> u128 {
+                    self as u128
+                }
+            }
+        )*
+    };
+}
+
+store_word!(u8, u16, u32, u64, u128);
+
+/// The numeric column of a `width`-bit (1 to 64) number kept in `values` (its bits in the low `width` bits, zero
+/// or sign-extended above), as the number's own [SeriesColumns](super::SeriesColumns) writes it for these rows
+/// without restarts: what a hand-written [SeriesStore::write_store] writes for a numeric field. Aligned plain is
+/// one copy when `W` is exactly `width` bits wide.
+pub fn write_numeric_column<W: StoreWord, S: BitSink, P: SeriesPolicy + ?Sized>(
+    sink: &mut S,
+    width: u8,
+    signed: bool,
+    values: &[W],
+    policy: &P,
+) -> Result<(), Error> {
+    let kind = NumericKind::new(width, signed);
+    let native = width as usize == 8 * core::mem::size_of::<W>();
+    if width <= 32 {
+        write_numeric_slice(
+            sink,
+            kind,
+            values,
+            |v| v.bits64() as u32,
+            native,
+            policy.numeric(),
+        )?;
+    } else {
+        write_numeric_slice(sink, kind, values, |v| v.bits64(), native, policy.numeric())?;
+    }
+    Ok(())
+}
+
+/// The column of a `u128` or `i128` kept in `values`: raw plain at 128 bits, as [write_numeric_column].
+pub fn write_numeric128_column<W: StoreWord, S: BitSink>(
+    sink: &mut S,
+    signed: bool,
+    values: &[W],
+) -> Result<(), Error> {
+    write_numeric128(sink, signed, values.iter().map(|v| v.bits128()))
+}
+
+/// The float column of a `T` (`f32`, `f64`) kept as its bits in `values`, as [write_numeric_column]: aligned plain
+/// is one copy when `W` is exactly as wide as `T`.
+pub fn write_float_column<T: XorBits, W: StoreWord, S: BitSink, P: SeriesPolicy + ?Sized>(
+    sink: &mut S,
+    values: &[W],
+    policy: &P,
+) -> Result<(), Error> {
+    let codec = policy.float();
+    if codec == Some(FloatCodec::Aligned)
+        && cfg!(target_endian = "little")
+        && 8 * core::mem::size_of::<W>() == T::BITS as usize
+    {
+        sink.put_bits(4, FloatCodec::Aligned as u64)?;
+        sink.align_byte();
+        // SAFETY: `W` is an unsigned integer (sealed), plain bytes, and `u8` has no alignment
+        let bytes = unsafe {
+            core::slice::from_raw_parts(
+                values.as_ptr().cast::<u8>(),
+                core::mem::size_of_val(values),
+            )
+        };
+        return sink.put_bytes(bytes);
+    }
+    write_float(
+        sink,
+        values.iter().map(|v| (T::from_bits(v.bits64()), false)),
+        codec,
+    )?;
+    Ok(())
 }
 
 /// Whether `values` are all the same.

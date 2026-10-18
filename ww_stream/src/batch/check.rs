@@ -359,11 +359,10 @@ pub fn threaded(count: u32, seed: u8) {
                 {
                     lost += items as u64;
                 }
+                // paced by spinning only: a yield on a loaded PC waits out other tasks' time slices, thousands of
+                // them per run
                 for _ in 0..spins {
                     core::hint::spin_loop();
-                }
-                if i % 7 == 0 {
-                    std::thread::yield_now();
                 }
             }
             if let Seal::Lost { items, .. } = producer.flush() {

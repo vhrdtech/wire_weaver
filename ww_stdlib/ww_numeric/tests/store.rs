@@ -208,8 +208,6 @@ proptest! {
         store_vs_walk(&items, RawPlain);
     }
 }
-||||||| parent of a7bcb5fa (fix(client_server): no NumericValue::U64 on devices)
-
 
 /// A device without `u64` that is sent a `U64` answers with an error instead of reading garbage or panicking: the
 /// variant is compiled out and the bytes (the same as on a build that has it) read as `EnumVariantDisabled`.

@@ -12,7 +12,7 @@ nothing is rounded, the reader gets back exactly what the device measured: the b
 
 This article is the whole story of `Series<T>` in WireWeaver, in three parts. **Basic** is what it is, the one line
 that uses it and what it saves, including batched streams and observing every sample. **Advanced** is every knob:
-codec policies, quantities and autoranging, how it compares with ALP, sealing, budgets, the shared clock, Python,
+codec policies, quantities and autoranging, how it compares with ALP and with raw globals, sealing, budgets, the shared clock, Python,
 and what it costs on a microcontroller. **Nomicon** is how the bits are laid out and how the encoder got six times
 faster. Read until you have what you need; the numbers below were measured on the running code (the one worked out
 from the layout says so), and each part links to the reference pages for the details.
@@ -402,6 +402,44 @@ encoding than the CPU has.
 - **Unbounded items.** A type without a size bound (a string, a byte list, an opaque field) can't be batched, it's a
   compile error: the batcher couldn't keep a batch inside its budget.
 - **The CPU can't keep up.** Check the table above; decimate (`every_us`) or observe fewer properties.
+
+### Compared with raw globals
+
+The usual way to get fast signals out of a controller is no protocol at all: copy the variables into a RAM buffer
+and send it as it is (a VESC-style sample buffer), or let the debugger read RAM while the core runs (TI-style RAM
+observe). How does a `Series` compare? Per FOC level batch (21 values and their time, 32 samples) on the STM32H725
+at `opt-level = 3`, with 781 batches a second at 25 kHz:
+
+| one FOC level batch                    | cycles | bytes | CPU at 25 kHz (of 540 MHz) | link at 25 kHz |
+|----------------------------------------|--------|-------|----------------------------|----------------|
+| raw copy of the 22 arrays (`memcpy`)   | 2 800  | 2 816 | 0.4 %                      | 2.2 MB/s       |
+| `Series`, column-wise `DeltaPacked`    | 59 900 | 1 251 | 8.7 %                      | 0.98 MB/s      |
+
+The link decides first. USB full speed carries about 1 MB/s in practice: the raw copy at full rate doesn't fit it,
+the `Series` just does. Over USB high speed or Ethernet both fit, and raw wins on CPU by about 20x.
+
+What the ~9 % buys:
+
+- **Meaning on the wire.** Types, names, units and prefixes come with the device's introspection data, so `ww`,
+  Python and a dynamic client show `4980 mA` without a hand-kept list of offsets and scale factors.
+- **True time and counted losses.** Every sample carries its device time, and a sample that couldn't be sent is
+  counted in `missed`. A buffer read by the debugger can tear a row or skip samples without telling anyone.
+- **Mixed rates.** Each trait level is observed at its own rate and budget, a 25 kHz tier next to a 1 kHz one.
+- **Autoranging.** A value may change its prefix from sample to sample, at almost no cost.
+- **An API that evolves.** Fields and properties can be added without breaking older hosts or devices.
+- **Tooling.** `ww observe --samples`, and numpy columns in Python with `recv_batch()`.
+
+What it costs besides CPU:
+
+- **RAM**: the level's two batch stores, 8.4 KB for the FOC level at 32 samples, and its outbox (`observe_outbox`,
+  4 KB by default): about 12.5 KB.
+- **Flash**: the encoder itself is 15.0 KB on a Cortex-M3 with `DeltaPacked` and 9.8 KB on a Cortex-M4F (the
+  observe and batcher code around it is not counted there, and the H725 build wasn't measured for flash).
+
+Where the gap may shrink: **observe cells** would make capture as cheap as writing a global; a store of
+`NumericValue` payloads without `u64` would spare narrowing every value of an `I32` column; and **aligned plain**
+([measured](#straight-from-the-store), kept on file) is 34 200 cycles per batch for 2 882 bytes, for links fast enough
+to carry it.
 
 <div class="ww-level-part" markdown>
 <span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span>

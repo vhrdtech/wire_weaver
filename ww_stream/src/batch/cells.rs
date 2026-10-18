@@ -6,9 +6,11 @@ use super::{BatchStats, Cause, DefaultPolicy, Encoded};
 use crate::observe::{GateCursor, SampleGate};
 use core::cell::UnsafeCell;
 use core::marker::PhantomData;
+use core::mem::MaybeUninit;
 use core::ops::Range;
+use core::ptr::addr_of_mut;
 use core::sync::atomic::{AtomicU32, Ordering, fence};
-use wire_weaver::shrink_wrap::series::{SeriesCells, SeriesPolicy, bound};
+use wire_weaver::shrink_wrap::series::{SeriesCells, SeriesPolicy, bound, init_store_at};
 use ww_si::Second;
 
 /// A [LevelRow] that can live in [RowCells]: generated per level with the time column's cells.
@@ -428,25 +430,52 @@ pub struct Staged<Row: LevelRowCells, const N: usize, P = DefaultPolicy> {
 impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, P> {
     /// Empty, encoding with `policy` what its [CellsReader]'s [source](CellsReader::source) gives the calls.
     pub fn new(policy: P) -> Self {
+        let mut slot = MaybeUninit::uninit();
+        Self::init(&mut slot, policy);
+        // SAFETY: `init` initialized it
+        unsafe { slot.assume_init() }
+    }
+
+    /// [new](Self::new) in place: builds it in `slot` (a `static`'s `MaybeUninit`, a `StaticCell`'s `uninit()`)
+    /// without the store on the stack on the way, and returns it.
+    pub fn init(slot: &mut MaybeUninit<Self>, policy: P) -> &mut Self {
         const {
             assert!(
                 N >= 1 && N <= super::MAX_BATCH,
                 "batch size out of 1..=8191"
             );
         }
-        let bound = Row::bound(Columns::MAX);
-        Staged {
-            store: Row::empty_store::<N>(),
-            n: 0,
-            sealed: None,
-            first_us: None,
-            policy,
-            budget: usize::MAX,
-            bound,
-            limit: N,
-            last: None,
-            bytes: 0,
-            stats: BatchStats::default(),
+        // every field is written below: a new one fails to compile here until it is
+        let _ = |s: Self| {
+            let Staged {
+                store: _,
+                n: _,
+                sealed: _,
+                first_us: _,
+                policy: _,
+                budget: _,
+                bound: _,
+                limit: _,
+                last: _,
+                bytes: _,
+                stats: _,
+            } = s;
+        };
+        let at = slot.as_mut_ptr();
+        // SAFETY: every field written in place, each through its own pointer
+        unsafe {
+            init_store_at::<Row, N>(addr_of_mut!((*at).store));
+            addr_of_mut!((*at).n).write(0);
+            addr_of_mut!((*at).sealed).write(None);
+            addr_of_mut!((*at).first_us).write(None);
+            addr_of_mut!((*at).policy).write(policy);
+            addr_of_mut!((*at).budget).write(usize::MAX);
+            addr_of_mut!((*at).bound).write(Row::bound(Columns::MAX));
+            addr_of_mut!((*at).limit).write(N);
+            addr_of_mut!((*at).last).write(None);
+            addr_of_mut!((*at).bytes).write(0);
+            addr_of_mut!((*at).stats).write(BatchStats::default());
+            slot.assume_init_mut()
         }
     }
 

@@ -528,8 +528,17 @@ impl Observe {
                         type Store<const N: usize> = #samples_store<N>;
 
                         fn empty_store<const N: usize>() -> #samples_store<N> {
-                            #samples_store {
-                                #(#idents: <#ptys as wire_weaver::shrink_wrap::series::SeriesStore>::empty_store::<N>(),)*
+                            wire_weaver::shrink_wrap::series::empty_store_from_init::<Self, N>()
+                        }
+
+                        fn init_store<const N: usize>(
+                            slot: &mut core::mem::MaybeUninit<#samples_store<N>>,
+                        ) -> &mut #samples_store<N> {
+                            let at = slot.as_mut_ptr();
+                            // SAFETY: every field of the store written in place, each through its own pointer
+                            unsafe {
+                                #(wire_weaver::shrink_wrap::series::init_store_at::<#ptys, N>(core::ptr::addr_of_mut!((*at).#idents));)*
+                                slot.assume_init_mut()
                             }
                         }
 
@@ -561,9 +570,18 @@ impl Observe {
                         type Store<const N: usize> = #row_store<N>;
 
                         fn empty_store<const N: usize>() -> #row_store<N> {
-                            #row_store {
-                                t: <ww_stream::observe::Second as wire_weaver::shrink_wrap::series::SeriesStore>::empty_store::<N>(),
-                                values: <#samples as wire_weaver::shrink_wrap::series::SeriesStore>::empty_store::<N>(),
+                            wire_weaver::shrink_wrap::series::empty_store_from_init::<Self, N>()
+                        }
+
+                        fn init_store<const N: usize>(
+                            slot: &mut core::mem::MaybeUninit<#row_store<N>>,
+                        ) -> &mut #row_store<N> {
+                            let at = slot.as_mut_ptr();
+                            // SAFETY: both fields of the store written in place, each through its own pointer
+                            unsafe {
+                                wire_weaver::shrink_wrap::series::init_store_at::<ww_stream::observe::Second, N>(core::ptr::addr_of_mut!((*at).t));
+                                wire_weaver::shrink_wrap::series::init_store_at::<#samples, N>(core::ptr::addr_of_mut!((*at).values));
+                                slot.assume_init_mut()
                             }
                         }
 
@@ -897,16 +915,46 @@ impl Observe {
                     policy: ww_stream::batch::DefaultPolicy,
                     #(#cell_readers: ww_stream::batch::CellsReader<'c, #cell_rows, OBSERVE_BATCH>,)*
                 ) -> Self {
-                    ObserveBatches {
+                    let mut slot = core::mem::MaybeUninit::uninit();
+                    Self::init(&mut slot, policy, #(#cell_readers,)*);
+                    // SAFETY: `init` initialized it
+                    unsafe { slot.assume_init() }
+                }
+
+                /// [new](Self::new) in place: builds the batches in `slot` and returns them, the stores written
+                /// where they stay, never on the stack (they take a few KB per level). For a `static`:
+                /// `ObserveBatches::init(CELL.uninit(), DEFAULT_POLICY)` with a `static_cell::StaticCell`, or a
+                /// `static mut` `MaybeUninit`.
+                pub fn init<'s>(
+                    slot: &'s mut core::mem::MaybeUninit<Self>,
+                    policy: ww_stream::batch::DefaultPolicy,
+                    #(#cell_readers: ww_stream::batch::CellsReader<'c, #cell_rows, OBSERVE_BATCH>,)*
+                ) -> &'s mut Self {
+                    // every field is written below: a new one fails to compile here until it is
+                    let _ = |b: Self| {
+                        let ObserveBatches { #(#names: _, #gates: _, #cursors: _,)* #(#cell_names: _, #cell_readers: _,)* } = b;
+                    };
+                    let at = slot.as_mut_ptr();
+                    // SAFETY: every field written in place, each through its own pointer
+                    unsafe {
                         #(
-                            #names: ww_stream::batch::Batcher::new_rows(policy),
-                            #gates: ww_stream::observe::SampleGate::new(),
-                            #cursors: ww_stream::observe::GateCursor::new(),
+                            ww_stream::batch::Batcher::init_rows(
+                                &mut *core::ptr::addr_of_mut!((*at).#names)
+                                    .cast::<core::mem::MaybeUninit<ww_stream::batch::Batcher<#rows, OBSERVE_BATCH>>>(),
+                                policy,
+                            );
+                            core::ptr::addr_of_mut!((*at).#gates).write(ww_stream::observe::SampleGate::new());
+                            core::ptr::addr_of_mut!((*at).#cursors).write(ww_stream::observe::GateCursor::new());
                         )*
                         #(
-                            #cell_names: ww_stream::batch::Staged::new(policy),
-                            #cell_readers,
+                            ww_stream::batch::Staged::init(
+                                &mut *core::ptr::addr_of_mut!((*at).#cell_names)
+                                    .cast::<core::mem::MaybeUninit<ww_stream::batch::Staged<#cell_rows, OBSERVE_BATCH>>>(),
+                                policy,
+                            );
+                            core::ptr::addr_of_mut!((*at).#cell_readers).write(#cell_readers);
                         )*
+                        slot.assume_init_mut()
                     }
                 }
 
@@ -979,6 +1027,13 @@ impl Observe {
                         )*
                         _p: core::marker::PhantomData,
                     }
+                }
+            }
+
+            /// Batches kept elsewhere (a `static` built with `ObserveBatches::init`), lent to `ObserveState`.
+            impl<T: ObserveBatchSource + ?Sized> ObserveBatchSource for &mut T {
+                fn consumers(&mut self) -> ObserveBatchConsumers<'_> {
+                    (**self).consumers()
                 }
             }
 

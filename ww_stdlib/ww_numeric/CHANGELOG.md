@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+* `NumericValueStore` is built in place by `SeriesStore::init_store` (API-39).
 * `NumericValueCells`, the `shrink_wrap::series::SeriesCells` of `NumericValue` (API-50, observe cells): the
   variant byte and the payload word of `NumericValueStore` as atomics, copied out column by column; `put` is
   `#[inline(always)]` (a known variant folds to two stores).

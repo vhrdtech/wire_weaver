@@ -3,10 +3,13 @@
 use super::level::{Columns, LevelRow, RowsEncoded};
 use super::{BatchStats, Cause, DefaultPolicy, EncodeError, Encoded, Scratch, Seal};
 use core::cell::UnsafeCell;
+use core::mem::MaybeUninit;
 use core::ops::Range;
+use core::ptr::addr_of_mut;
 use portable_atomic::{AtomicU32, Ordering};
 use wire_weaver::shrink_wrap::series::{
-    SERIES_MAX_ITEMS, Series, SeriesColumns, SeriesPolicy, SeriesStore, bound, write_store_series,
+    SERIES_MAX_ITEMS, Series, SeriesColumns, SeriesPolicy, SeriesStore, bound, init_store_at,
+    write_store_series,
 };
 use wire_weaver::shrink_wrap::{BufWriter, Error, SerializeShrinkWrap};
 
@@ -156,22 +159,34 @@ where
     T: SeriesStore,
     P: SeriesPolicy + Copy,
 {
-    fn build(policy: P, bound: Bound) -> Self {
+    /// Builds the batcher in `slot`, the stores in place ([SeriesStore::init_store]).
+    fn build(slot: &mut MaybeUninit<Self>, policy: P, bound: Bound) -> &mut Self {
         const {
             assert!(
                 N >= 1 && N <= MAX_BATCH && N <= SERIES_MAX_ITEMS,
                 "batch size out of 1..=8191"
             );
         }
-        Batcher {
-            stores: [
-                UnsafeCell::new(T::empty_store::<N>()),
-                UnsafeCell::new(T::empty_store::<N>()),
-            ],
-            state: AtomicU32::new(0),
-            lost_before: [AtomicU32::new(0), AtomicU32::new(0)],
-            limit: AtomicU32::new(N as u32),
-            consumer: UnsafeCell::new(ConsumerState {
+        // every field is written below: a new one fails to compile here until it is
+        let _ = |b: Self| {
+            let Batcher {
+                stores: _,
+                state: _,
+                lost_before: _,
+                limit: _,
+                consumer: _,
+            } = b;
+        };
+        let at = slot.as_mut_ptr();
+        // SAFETY: every field written in place, each through its own pointer; `UnsafeCell<S>` has the layout of `S`
+        unsafe {
+            let stores = addr_of_mut!((*at).stores).cast::<T::Store<N>>();
+            init_store_at::<T, N>(stores);
+            init_store_at::<T, N>(stores.add(1));
+            addr_of_mut!((*at).state).write(AtomicU32::new(0));
+            addr_of_mut!((*at).lost_before).write([AtomicU32::new(0), AtomicU32::new(0)]);
+            addr_of_mut!((*at).limit).write(AtomicU32::new(N as u32));
+            addr_of_mut!((*at).consumer).write(UnsafeCell::new(ConsumerState {
                 policy,
                 budget: usize::MAX,
                 bound,
@@ -180,8 +195,17 @@ where
                 seen: None,
                 taken: None,
                 stats: BatchStats::default(),
-            }),
+            }));
+            slot.assume_init_mut()
         }
+    }
+
+    /// [build](Self::build) by value.
+    fn build_value(policy: P, bound: Bound) -> Self {
+        let mut slot = MaybeUninit::uninit();
+        Self::build(&mut slot, policy, bound);
+        // SAFETY: `build` initialized it
+        unsafe { slot.assume_init() }
     }
 
     /// The two halves, to push from one context and encode in another.
@@ -326,7 +350,14 @@ where
     pub fn new(policy: P) -> Self {
         // evaluated here, so that an unbounded `T` is a compile error at the first use
         const { assert!(Self::SERIES_BOUND.series == 1) };
-        Self::build(policy, Self::SERIES_BOUND)
+        Self::build_value(policy, Self::SERIES_BOUND)
+    }
+
+    /// [new](Self::new) in place: builds the batcher in `slot` (a `static`'s `MaybeUninit`, a `StaticCell`'s
+    /// `uninit()`) without a store on the stack on the way, and returns it.
+    pub fn init(slot: &mut MaybeUninit<Self>, policy: P) -> &mut Self {
+        const { assert!(Self::SERIES_BOUND.series == 1) };
+        Self::build(slot, policy, Self::SERIES_BOUND)
     }
 
     /// [new](Self::new) with an event budget set before the first poll.
@@ -372,7 +403,12 @@ where
     /// Empty rows of a trait level (API-39, shared clock), encoding each column with `policy`; the budget and the
     /// observed columns come with the first [poll_rows](Consumer::poll_rows).
     pub fn new_rows(policy: P) -> Self {
-        Self::build(policy, R::bound(Columns::MAX))
+        Self::build_value(policy, R::bound(Columns::MAX))
+    }
+
+    /// [new_rows](Self::new_rows) in place, as [init](Self::init).
+    pub fn init_rows(slot: &mut MaybeUninit<Self>, policy: P) -> &mut Self {
+        Self::build(slot, policy, R::bound(Columns::MAX))
     }
 }
 

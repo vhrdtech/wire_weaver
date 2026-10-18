@@ -8,6 +8,7 @@ cortex-m = "0.7"
 cortex-m-rt = "0.7"
 cortex-m-semihosting = "0.6"
 panic-semihosting = { version = "0.7", features = ["exit"] }
+static_cell = "2.1"
 
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }

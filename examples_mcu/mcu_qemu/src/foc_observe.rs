@@ -15,6 +15,7 @@
 
 use super::foc_signals as sig;
 use core::hint::black_box;
+use static_cell::StaticCell;
 use wire_weaver::prelude::*;
 use ww_client_server::observe::{ObserveEntry, ObserveMode, ObserveRequest};
 use ww_client_server::{PathKind, Request, RequestKind};
@@ -159,6 +160,8 @@ macro_rules! foc_getters {
 pub mod default {
     use super::*;
 
+    pub static BATCHES: StaticCell<api_impl::ObserveBatches> = StaticCell::new();
+
     pub type State = api_impl::ObserveState<api_impl::ObserveBatchConsumers<'static>>;
 
     pub struct Server {
@@ -191,7 +194,9 @@ pub mod cells {
 
     pub static ROOT: api_impl::RootCells<RING> = api_impl::RootCells::new();
 
-    pub type State = api_impl::ObserveState<api_impl::ObserveBatches<'static>>;
+    pub static BATCHES: StaticCell<api_impl::ObserveBatches<'static>> = StaticCell::new();
+
+    pub type State = api_impl::ObserveState<&'static mut api_impl::ObserveBatches<'static>>;
 
     pub struct Server {
         pub observe: State,
@@ -368,10 +373,9 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
     {
         let v = Variant::Default;
         let report = &mut reports[0];
-        let batches = cortex_m::singleton!(
-            : default::api_impl::ObserveBatches = default::api_impl::ObserveBatches::new(DEFAULT_POLICY)
-        )
-        .unwrap();
+        // built in place in its static: no store on the stack
+        let batches =
+            default::api_impl::ObserveBatches::init(default::BATCHES.uninit(), DEFAULT_POLICY);
         report.ram = core::mem::size_of::<default::api_impl::ObserveBatches>();
         let (samplers, consumers) = batches.split();
         let mut sampler = samplers.root;
@@ -435,7 +439,11 @@ pub fn run(meter: &mut dyn Meter) -> [Report; 2] {
         let mut server = cells::Server {
             observe: cells::State::new(
                 LIMITS,
-                cells::api_impl::ObserveBatches::new(DEFAULT_POLICY, cells::ROOT.reader().unwrap()),
+                cells::api_impl::ObserveBatches::init(
+                    cells::BATCHES.uninit(),
+                    DEFAULT_POLICY,
+                    cells::ROOT.reader().unwrap(),
+                ),
             ),
         };
         for i in 0..CLOSED_ROWS {

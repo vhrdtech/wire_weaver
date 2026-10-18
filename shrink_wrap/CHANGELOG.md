@@ -10,6 +10,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🚀 Features
 
+* `SeriesStore::init_store(slot: &mut MaybeUninit<Store<N>>) -> &mut Store<N>` builds an empty store in place, field by field, never a whole store on the stack on the way (API-39: a batch's stores take a few KB and a firmware keeps them in a `static`). Defaults to writing `empty_store()`; numbers, bools, strings, `Option`, arrays, tuples and derived structs and enums fill their arrays in place, and their `empty_store` goes through it. `series::init_store_in` calls it checked (panics when an impl gives back another store than its slot, so code building around it stays sound), `series::init_store_at` for a field of a bigger store, `series::fill_array` and `series::empty_store_from_init` for hand-written stores.
 * `Series` written straight from a `SeriesStore` (SW-64), column by column, the same bytes as the item walk:
   `SeriesStore::columnar` (whether rows of a store can be, `false` by default) and `SeriesStore::write_store`, and
   `series::write_store_series` for a whole `Series` (it writes nothing and returns `false` when a tag changes in the

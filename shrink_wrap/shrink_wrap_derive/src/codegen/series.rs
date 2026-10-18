@@ -135,13 +135,14 @@ impl SeriesSeed<'_> {
     }
 
     /// The store type's definition, named `#store_ident`, with `fields` (`name: type,` each, `#[cfg]`s included),
-    /// and its `impl SeriesStore` with the bodies given.
+    /// and its `impl SeriesStore` with the bodies given; `init` writes every field of the store at `__at` in place
+    /// (`empty_store` goes through it).
     #[allow(clippy::too_many_arguments)]
     fn store_impl(
         &self,
         store_ident: &Ident,
         fields: TokenStream,
-        empty: TokenStream,
+        init: TokenStream,
         set: TokenStream,
         get: TokenStream,
         columnar: TokenStream,
@@ -161,6 +162,7 @@ impl SeriesSeed<'_> {
         let series_policy = self.sc(quote! { SeriesPolicy });
         let level = self.sc(quote! { Level });
         let error = self.cp.error();
+        let empty_store_from_init = self.sc(quote! { empty_store_from_init });
         let doc = format!("The `SeriesStore` of [{ident}]: an array per leaf field.");
         quote! {
             #cfg
@@ -177,7 +179,19 @@ impl SeriesSeed<'_> {
                 type Store<const __N: usize> = #store_ident #args;
 
                 fn empty_store<const __N: usize>() -> Self::Store<__N> {
-                    #empty
+                    #empty_store_from_init::<Self, __N>()
+                }
+
+                fn init_store<const __N: usize>(
+                    slot: &mut ::core::mem::MaybeUninit<Self::Store<__N>>,
+                ) -> &mut Self::Store<__N> {
+                    let __at = slot.as_mut_ptr();
+                    // SAFETY: every field of the store written in place, each through its own pointer
+                    unsafe {
+                        #init
+                        ::core::ptr::addr_of_mut!((*__at).__params).write(::core::marker::PhantomData);
+                        slot.assume_init_mut()
+                    }
                 }
 
                 #[allow(unused_variables)]
@@ -223,6 +237,7 @@ impl SeriesSeed<'_> {
         let members: Vec<_> = fields.iter().map(|f| &f.member).collect();
         let tys: Vec<_> = fields.iter().map(|f| &f.ty).collect();
         let level = self.sc(quote! { Level });
+        let init_store_at = self.sc(quote! { init_store_at });
         let n = fields.len() as u32;
         let head = maybe_quote(evolvable, || {
             let write_struct_head = self.sc(quote! { write_struct_head });
@@ -238,10 +253,7 @@ impl SeriesSeed<'_> {
             &store_ident,
             quote! { #(#members: <#tys as #store_trait>::Store<__N>,)* },
             quote! {
-                #store_ident {
-                    #(#members: <#tys as #store_trait>::empty_store::<__N>(),)*
-                    __params: ::core::marker::PhantomData,
-                }
+                #(#init_store_at::<#tys, __N>(::core::ptr::addr_of_mut!((*__at).#members));)*
             },
             quote! { #(<#tys as #store_trait>::set::<__N>(&mut store.#members, i, &item.#members);)* },
             quote! { Self { #(#members: <#tys as #store_trait>::get::<__N>(&store.#members, i)),* } },
@@ -275,6 +287,8 @@ impl SeriesSeed<'_> {
         }
         let store_trait = self.sc(quote! { SeriesStore });
         let store_ident = format_ident!("__{}SeriesStore", self.ident);
+        let init_store_at = self.sc(quote! { init_store_at });
+        let fill_array = self.sc(quote! { fill_array });
         let tag_ty = match (future_version, max_tag) {
             (Some(_), _) => quote! { u32 },
             (None, 0..=0xFF) => quote! { u8 },
@@ -309,7 +323,9 @@ impl SeriesSeed<'_> {
             let binds: Vec<_> = fields.iter().map(bind).collect();
             for (s, ty) in slots.iter().zip(&tys) {
                 store_fields.push(quote! { #on #s: <#ty as #store_trait>::Store<__N>, });
-                empties.push(quote! { #on #s: <#ty as #store_trait>::empty_store::<__N>(), });
+                empties.push(quote! {
+                    #on #init_store_at::<#ty, __N>(::core::ptr::addr_of_mut!((*__at).#s));
+                });
             }
             let pat = pattern(v, fields);
             set_arms.push(quote! {
@@ -437,11 +453,12 @@ impl SeriesSeed<'_> {
                         None => 0,
                     }
                 };
-                #store_ident {
-                    __tag: [__FILL; __N],
-                    #(#empties)*
-                    __params: ::core::marker::PhantomData,
-                }
+                #fill_array(
+                    &mut *::core::ptr::addr_of_mut!((*__at).__tag)
+                        .cast::<::core::mem::MaybeUninit<[#tag_ty; __N]>>(),
+                    __FILL,
+                );
+                #(#empties)*
             },
             quote! {
                 #set_tag

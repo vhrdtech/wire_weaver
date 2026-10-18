@@ -9,6 +9,7 @@ use super::{BitSink, SeriesPolicy, XorBits};
 use crate::un::{IN, U3, UN};
 use crate::{BufWriter, Error, Nibble, RefVec, UNib32, UVlq32, UVlq64};
 use core::marker::PhantomData;
+use core::mem::MaybeUninit;
 use core::ops::Range;
 
 /// Room for `N` items of `Self` as a struct of arrays, one array per leaf field: what a device keeps while it
@@ -47,6 +48,17 @@ pub trait SeriesStore: Sized {
     /// A store with the empty value at every index.
     fn empty_store<const N: usize>() -> Self::Store<N>;
 
+    /// Writes the store [empty_store](Self::empty_store) gives into `slot` in place and returns it: field by field,
+    /// never a whole store on the stack on the way. A batch's stores take several KB and a firmware keeps them in a
+    /// `static` (API-39); building one by value there takes a stack frame of a few times its size.
+    ///
+    /// Returns `slot` itself, initialized ([init_store_in] checks it). Writes [empty_store](Self::empty_store)'s
+    /// value by default; numbers, bools, `Option`s, tuples, arrays and derived structs and enums fill their arrays
+    /// in place.
+    fn init_store<const N: usize>(slot: &mut MaybeUninit<Self::Store<N>>) -> &mut Self::Store<N> {
+        slot.write(Self::empty_store::<N>())
+    }
+
     /// Puts `item` at index `i`.
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self);
 
@@ -75,6 +87,62 @@ pub trait SeriesStore: Sized {
         let _ = (store, rows, sink, policy, level);
         Err(Error::MalformedSeries)
     }
+}
+
+/// [SeriesStore::init_store] of `slot`, checked: panics when the impl gave back another store than `slot` (which
+/// would leave `slot` uninitialized), so that code building a bigger store around it can rely on `slot` holding an
+/// empty store.
+#[inline]
+pub fn init_store_in<T: SeriesStore, const N: usize>(
+    slot: &mut MaybeUninit<T::Store<N>>,
+) -> &mut T::Store<N> {
+    let at = slot.as_mut_ptr();
+    let init: *mut T::Store<N> = T::init_store::<N>(slot);
+    assert!(
+        core::ptr::eq(init, at),
+        "SeriesStore::init_store gave back another store than its slot"
+    );
+    // SAFETY: `init` is a `&mut` to a valid store, and it is `slot`
+    unsafe { &mut *at }
+}
+
+/// [init_store_in] of the store at `at`, a part of a bigger store or struct being built in place: what derived and
+/// generated [SeriesStore::init_store] impls call per field.
+///
+/// # Safety
+///
+/// `at` is valid for writes and aligned, and nothing reads or writes it while this runs.
+#[doc(hidden)]
+#[inline]
+pub unsafe fn init_store_at<T: SeriesStore, const N: usize>(at: *mut T::Store<N>) {
+    // SAFETY: `MaybeUninit<S>` has the layout of `S`; the caller gives `at` to this call alone
+    let slot = unsafe { &mut *at.cast::<MaybeUninit<T::Store<N>>>() };
+    init_store_in::<T, N>(slot);
+}
+
+/// A store of `T` built by its [SeriesStore::init_store], for an `empty_store` of an impl whose `init_store` builds
+/// in place (never for one whose `init_store` is the default: that calls `empty_store`).
+#[inline]
+pub fn empty_store_from_init<T: SeriesStore, const N: usize>() -> T::Store<N> {
+    let mut slot = MaybeUninit::uninit();
+    init_store_in::<T, N>(&mut slot);
+    // SAFETY: `init_store_in` initialized it
+    unsafe { slot.assume_init() }
+}
+
+/// `slot` with `value` at every index, written in place.
+#[inline]
+pub fn fill_array<T: Copy, const N: usize>(
+    slot: &mut MaybeUninit<[T; N]>,
+    value: T,
+) -> &mut [T; N] {
+    let at = slot.as_mut_ptr().cast::<T>();
+    for k in 0..N {
+        // SAFETY: `[T; N]` is `N` `T`s one after the other, `k < N`
+        unsafe { at.add(k).write(value) };
+    }
+    // SAFETY: every element written
+    unsafe { slot.assume_init_mut() }
 }
 
 /// The bits of `Series::<T>::with_policy(items, policy)` for the items in rows `rows` of `store`, written column by
@@ -284,6 +352,10 @@ macro_rules! copy_leaf {
                     [$empty; N]
                 }
 
+                fn init_store<const N: usize>(slot: &mut MaybeUninit<[$ty; N]>) -> &mut [$ty; N] {
+                    fill_array(slot, $empty)
+                }
+
                 fn set<const N: usize>(store: &mut [$ty; N], i: usize, item: &Self) {
                     store[i] = *item;
                 }
@@ -348,6 +420,10 @@ impl<'i> SeriesStore for &'i str {
         [""; N]
     }
 
+    fn init_store<const N: usize>(slot: &mut MaybeUninit<Self::Store<N>>) -> &mut Self::Store<N> {
+        fill_array(slot, "")
+    }
+
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
         store[i] = item;
     }
@@ -364,6 +440,10 @@ impl<'i> SeriesStore for &'i [u8] {
         [&[]; N]
     }
 
+    fn init_store<const N: usize>(slot: &mut MaybeUninit<Self::Store<N>>) -> &mut Self::Store<N> {
+        fill_array(slot, &[])
+    }
+
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
         store[i] = item;
     }
@@ -378,6 +458,10 @@ impl<'i> SeriesStore for RefVec<'i, u8> {
 
     fn empty_store<const N: usize>() -> Self::Store<N> {
         [RefVec::new_bytes(&[]); N]
+    }
+
+    fn init_store<const N: usize>(slot: &mut MaybeUninit<Self::Store<N>>) -> &mut Self::Store<N> {
+        fill_array(slot, RefVec::new_bytes(&[]))
     }
 
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
@@ -448,7 +532,20 @@ impl<X: SeriesStore> SeriesStore for Option<X> {
     type Store<const N: usize> = ([bool; N], X::Store<N>);
 
     fn empty_store<const N: usize>() -> Self::Store<N> {
-        ([false; N], X::empty_store::<N>())
+        empty_store_from_init::<Self, N>()
+    }
+
+    fn init_store<const N: usize>(slot: &mut MaybeUninit<Self::Store<N>>) -> &mut Self::Store<N> {
+        let at = slot.as_mut_ptr();
+        // SAFETY: both fields of the pair written in place, each through its own pointer
+        unsafe {
+            fill_array(
+                &mut *core::ptr::addr_of_mut!((*at).0).cast::<MaybeUninit<[bool; N]>>(),
+                false,
+            );
+            init_store_at::<X, N>(core::ptr::addr_of_mut!((*at).1));
+            slot.assume_init_mut()
+        }
     }
 
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
@@ -493,7 +590,17 @@ impl<X: SeriesStore, const M: usize> SeriesStore for [X; M] {
     type Store<const N: usize> = [X::Store<N>; M];
 
     fn empty_store<const N: usize>() -> Self::Store<N> {
-        core::array::from_fn(|_| X::empty_store::<N>())
+        empty_store_from_init::<Self, N>()
+    }
+
+    fn init_store<const N: usize>(slot: &mut MaybeUninit<Self::Store<N>>) -> &mut Self::Store<N> {
+        let at = slot.as_mut_ptr().cast::<X::Store<N>>();
+        for k in 0..M {
+            // SAFETY: `[S; M]` is `M` `S`s one after the other, `k < M`
+            unsafe { init_store_at::<X, N>(at.add(k)) };
+        }
+        // SAFETY: every element written
+        unsafe { slot.assume_init_mut() }
     }
 
     fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
@@ -531,7 +638,16 @@ macro_rules! tuple {
             type Store<const N: usize> = ($($t::Store<N>,)+);
 
             fn empty_store<const N: usize>() -> Self::Store<N> {
-                ($($t::empty_store::<N>(),)+)
+                empty_store_from_init::<Self, N>()
+            }
+
+            fn init_store<const N: usize>(slot: &mut MaybeUninit<Self::Store<N>>) -> &mut Self::Store<N> {
+                let at = slot.as_mut_ptr();
+                // SAFETY: every element of the tuple written in place, each through its own pointer
+                unsafe {
+                    $(init_store_at::<$t, N>(core::ptr::addr_of_mut!((*at).$idx));)+
+                    slot.assume_init_mut()
+                }
             }
 
             fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {

@@ -1,12 +1,14 @@
 //! [NumericValueStore]: the `SeriesStore` of [NumericValue], by hand (SW-62).
 
 use crate::NumericValue;
+use core::mem::MaybeUninit;
 use core::ops::Range;
+use core::ptr::addr_of_mut;
 use core::sync::atomic::{AtomicU8, Ordering};
 use shrink_wrap::Error;
 use shrink_wrap::series::{
-    BitSink, CellWord, Level, SeriesCells, SeriesPolicy, SeriesStore, write_enum_tags,
-    write_float_column, write_numeric_column, write_numeric128_column,
+    BitSink, CellWord, Level, SeriesCells, SeriesPolicy, SeriesStore, empty_store_from_init,
+    fill_array, write_enum_tags, write_float_column, write_numeric_column, write_numeric128_column,
 };
 
 /// The payload of every variant enabled, at the width of the widest one.
@@ -192,11 +194,20 @@ impl SeriesStore for NumericValue {
     type Store<const N: usize> = NumericValueStore<N>;
 
     fn empty_store<const N: usize>() -> NumericValueStore<N> {
-        NumericValueStore {
-            variant: [U8; N],
-            payload: [0; N],
+        empty_store_from_init::<Self, N>()
+    }
+
+    fn init_store<const N: usize>(
+        slot: &mut MaybeUninit<NumericValueStore<N>>,
+    ) -> &mut NumericValueStore<N> {
+        let at = slot.as_mut_ptr();
+        // SAFETY: every field of the store written in place, each through its own pointer
+        unsafe {
+            fill_array::<u8, N>(&mut *addr_of_mut!((*at).variant).cast(), U8);
+            fill_array::<Payload, N>(&mut *addr_of_mut!((*at).payload).cast(), 0);
             #[cfg(any(feature = "un", feature = "in"))]
-            width: [0; N],
+            fill_array::<u8, N>(&mut *addr_of_mut!((*at).width).cast(), 0);
+            slot.assume_init_mut()
         }
     }
 

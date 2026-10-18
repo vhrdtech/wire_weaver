@@ -353,6 +353,7 @@ dependencies = [
  "cortex-m-semihosting",
  "foc_observe_api",
  "panic-semihosting",
+ "static_cell",
  "wire_weaver",
  "ww_client_server",
  "ww_si",
@@ -676,6 +677,15 @@ dependencies = [
  "libc",
  "psm",
  "windows-sys",
+]
+
+[[package]]
+name = "static_cell"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0530892bb4fa575ee0da4b86f86c667132a94b74bb72160f58ee5a4afec74c23"
+dependencies = [
+ "portable-atomic",
 ]
 
 [[package]]

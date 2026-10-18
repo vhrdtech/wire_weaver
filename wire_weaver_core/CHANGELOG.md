@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `ObserveBatches::init(slot, policy, ..)` (API-39) builds the batches in place, in a `static` (`ObserveBatches::init(CELL.uninit(), DEFAULT_POLICY)` with a `static_cell::StaticCell`): the stores of every level and a cells level's staging store are written where they stay, never on the stack. `ObserveBatches::new` went through by-value stores, a 31.6 KB stack frame for the 21-property FOC level of the motor demo on a Cortex-M4F at `opt-level = 3` (35 KB at `z`, which also has an 8.3 KB frame for the row store alone); with `init` into statics the bench's whole frame is 11.7 KB (12.8 KB at `z`), its own buffers. `new` goes through `init`. `ObserveBatchSource` for `&mut B`, so an `ObserveState` can borrow batches kept in a `static`. The generated `<Trait>Samples` / `<Trait>Row` stores have `init_store`.
+
 ### ⚠️ Breaking
 
 - `ServerScaffoldConfig` has an `observe_cells` field (API-50): code building it literally adds

@@ -8,6 +8,7 @@ cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7"
 cortex-m-semihosting = "0.6"
 panic-semihosting = { version = "0.7", features = ["exit"] }
+static_cell = "2.1"
 
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "angle", "dimensionless", "time", "i32", "u32"] }

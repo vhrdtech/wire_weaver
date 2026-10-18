@@ -5140,6 +5140,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   appended); a malformed header is an error. Writer takes the present set up front (<code>SetBits</code> over a bitset, any
   increasing iterator), <code>OptionAnyVecWriter</code> / in-place <code>OptionAnyVecBuilder</code>. For a trait level's properties in one
   update (API-38). See <code>docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types</code>, <code>docs/serdes/showcase.md</code>.</li>
+<li>✅ <strong>SW-63 Fast and small <code>Series</code> encoding on MCUs</strong>, the same bytes: about 6x fewer instructions per item on
+  a Cortex-M3/M4F (<code>Series&lt;Timed&lt;Ampere&gt;&gt;</code>, n = 32: 341 with a fixed codec, 969 with <code>SMALLEST</code>; 25 200 cycles per
+  batch of 32 on an STM32H725), and codec policies fixed at compile time (<code>SeriesPolicy</code>, <code>FixedCodecs</code>,
+  <code>DeltaPacked</code>, the <code>no_std</code> default of <code>ww_stream</code>'s batcher) that link only their own codecs: 15 KB of encoder
+  flash on a Cortex-M3 instead of 91 KB (25 KB with a run-time <code>CodecPolicy</code>). See
+  <code>docs/serdes/series.md#cpu-and-flash-on-an-mcu</code>, <code>examples_mcu/mcu_qemu</code>, <code>examples_mcu/qemu_icount</code>.</li>
 <li>✅ <strong>SW-62 <code>SeriesStore</code> and series size bounds</strong>: room for <code>N</code> items of a <code>series</code> type as a struct of arrays
   (<code>empty_store</code>, <code>set</code>, <code>get</code>), derived for structs (field stores) and enums (discriminants and every data
   variant's fields), by hand for <code>ww_numeric::NumericValue</code> (a variant byte and one payload as wide as the widest
@@ -5592,8 +5598,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>batched(untimed)</code> in <code>#[stream(..)]</code> and <code>#[batched]</code> on <code>stream!</code> for plain, counted and reliable streams,
   <code>StreamOpen { max_age_us }</code>, generated <code>&lt;name&gt;_push</code> (O(1), interrupt-safe) and <code>poll_streams</code> encoding sealed
   batches, typed clients giving items one by one with their own time or whole batches (<code>recv_batch</code>),
-  <code>tests/streams_batched</code>. Missing: dynamic client, <code>ww stream</code> and Python (piece 6), batched observe (<code>+batched</code>,
-  API-39 shape B), the docs page and the motor demo on it.</li>
+  <code>tests/streams_batched</code>; the dynamic client giving the same (<code>DynPositionedStream</code>/<code>DynStream</code>, no generated
+  code, <code>ApiItemKind::StreamFn::batch_item_ty</code>), <code>ww stream &lt;path&gt; [--batches]</code> and Python's
+  <code>recv_batch()</code> (numpy columns, <code>ww_self::SeriesColumn::from_items</code>) (piece 6, no-arg streams only). Missing:
+  batched observe (<code>+batched</code>, API-39 shape B), the docs page and the motor demo on it.</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
 <li>🚧 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: <code>MAX_SIZE</code> of types (SW-19) and per-method <code>&lt;METHOD&gt;_REQUEST_MAX_LEN</code> /

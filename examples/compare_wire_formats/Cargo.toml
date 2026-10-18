@@ -1,16 +1,16 @@
 [package]
 name = "compare-wire-formats"
-version.workspace = true
+version = "0.5.0"
 publish = false
-authors.workspace = true
-description.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+authors = ["Roman Isaikin <romix.lab@gmail.com>"]
+description = "WireWeaver is a wire format and API code generator for resource constrained systems."
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/vhrdtech/wire_weaver"
 
 [dependencies]
 postcard = "1.1"
 rmp-serde = "1.3"
-serde = { workspace = true, features = ["std"] }
-serde_json.workspace = true
-wire_weaver = { workspace = true, features = ["std", "serde"] }
+serde = { version = "1.0", default-features = false, features = ["derive", "std"] }
+serde_json = "1.0"
+wire_weaver = { path = "../../wire_weaver", features = ["std", "serde"] }

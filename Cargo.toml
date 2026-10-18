@@ -25,7 +25,7 @@ members = [
     "ww_stream",
 ]
 
-exclude = ["examples_mcu", "fuzz", "wire_weaver_tool"]
+exclude = ["examples/compare_wire_formats", "examples_mcu", "fuzz", "wire_weaver_tool"]
 
 [workspace.package]
 version = "0.5.0"

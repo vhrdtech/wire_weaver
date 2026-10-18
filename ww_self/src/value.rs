@@ -12,6 +12,8 @@ use crate::{
     ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
+use crate::explain::{PartKind, Trace};
+use shrink_wrap::buf_reader::Cursors;
 use shrink_wrap::buf_writer_owned::UnsizedBuilderOwned;
 use shrink_wrap::{
     BufReader, BufWriterOwned, DeserializeShrinkWrap, ElementSize, Nibble, OptionAnyVec,
@@ -122,6 +124,8 @@ pub(crate) struct Budget {
     /// Out-of-line definitions whose default is being created ([ValueOwned::default] only): a self-referential type
     /// takes an enum variant or an `Option` that doesn't refer back.
     open: Vec<u32>,
+    /// Where each value was read, for [explain](crate::explain) only.
+    pub(crate) trace: Option<Box<Trace>>,
 }
 
 /// The default value of a self-referential type would refer to itself (through this definition).
@@ -164,6 +168,7 @@ impl Budget {
             bytes_left: DECODE_MAX_BYTES,
             depth: 0,
             open: vec![],
+            trace: None,
         }
     }
 
@@ -223,6 +228,32 @@ impl Budget {
 
     pub(crate) fn leave(&mut self) {
         self.depth -= 1;
+    }
+
+    /// Label of the next value read, when tracing.
+    pub(crate) fn label(&mut self, label: impl std::fmt::Display) {
+        if let Some(trace) = &mut self.trace {
+            trace.label(label.to_string());
+        }
+    }
+
+    /// Where `rd` is, when tracing: the start of a [part](Self::part).
+    pub(crate) fn before(&self, rd: &BufReader) -> Option<Cursors> {
+        self.trace.as_ref()?.before(rd)
+    }
+
+    /// A length, discriminant or flag read since `before`, when tracing.
+    pub(crate) fn part(
+        &mut self,
+        before: Option<Cursors>,
+        rd: &BufReader,
+        kind: PartKind,
+        label: &str,
+        value: impl FnOnce() -> ValueOwned,
+    ) {
+        if let Some(trace) = &mut self.trace {
+            trace.part(before, rd, kind, label, value());
+        }
     }
 
     /// Runs `f` one level deeper, after taking one value.
@@ -425,14 +456,16 @@ fn default_numeric(base: &NumericBaseType) -> Result<NumericValue> {
 // Deserialization
 
 /// Read a value the way generated code reads a field (`BufReader::read`).
-fn des_field(
+pub(crate) fn des_field(
     rd: &mut BufReader,
     ty: &TypeOwned,
     api_bundle: &ApiBundleOwned,
     b: &mut Budget,
 ) -> Result<ValueOwned> {
     if ty.is_unsized(api_bundle)? {
+        let before = b.before(rd);
         let len = rd.read_rev_len()?;
+        b.part(before, rd, PartKind::Size, "size", || unib32(len));
         let mut rd = rd.split(len)?;
         des_inner(&mut rd, ty, api_bundle, b)
     } else {
@@ -446,7 +479,20 @@ pub(crate) fn des_inner(
     api_bundle: &ApiBundleOwned,
     b: &mut Budget,
 ) -> Result<ValueOwned> {
-    b.nested(|b| des_ty(rd, ty, api_bundle, b))
+    let Some(trace) = &mut b.trace else {
+        return b.nested(|b| des_ty(rd, ty, api_bundle, b));
+    };
+    let open = trace.enter(rd, ty, api_bundle);
+    let result = b.nested(|b| des_ty(rd, ty, api_bundle, b));
+    if let Some(trace) = &mut b.trace {
+        trace.leave(open, rd, &result);
+    }
+    result
+}
+
+/// A length or size as a value, for a [Budget::part].
+fn unib32(len: usize) -> ValueOwned {
+    ValueOwned::Numeric(NumericValue::UNib32(UNib32(len as u32)))
 }
 
 fn des_ty(
@@ -476,7 +522,9 @@ fn des_ty(
             des_inner(rd, ty, api_bundle, b)
         }
         TypeOwned::Vec(inner_ty) => {
+            let before = b.before(rd);
             let len = rd.read_rev_len()?;
+            b.part(before, rd, PartKind::Size, "len", || unib32(len));
             Ok(ValueOwned::Vec(des_items(
                 rd,
                 len,
@@ -509,7 +557,9 @@ fn des_ty(
         }
         TypeOwned::Enum(enum_def) => des_enum(rd, enum_def, api_bundle, b),
         TypeOwned::Option { .. } | TypeOwned::Result { .. } => {
+            let before = b.before(rd);
             let flag = rd.read_bool()?;
+            b.part(before, rd, PartKind::Flag, "flag", || ValueOwned::Bool(flag));
             des_flagged(rd, flag, ty, api_bundle, b)
         }
         // Box<T> is Unsized itself (its size is handled by des_field), T is read directly inside it
@@ -531,6 +581,7 @@ fn des_items<'t>(
 ) -> Result<Vec<ValueOwned>> {
     let mut items = Vec::with_capacity(len.min(rd.bytes_left() + 1));
     for i in 0..len {
+        b.label(format_args!("[{i}]"));
         items.push(des_field(rd, ty_of(i), api_bundle, b)?);
     }
     Ok(items)
@@ -545,6 +596,7 @@ fn des_enum(
 ) -> Result<ValueOwned> {
     {
         {
+            let before = b.before(rd);
             let discriminant = match enum_def.repr {
                 Repr::Nibble => rd.read_nib_value()? as u32,
                 Repr::BitAligned(bits) => rd.read_un32(bits)?,
@@ -553,6 +605,9 @@ fn des_enum(
                 Repr::ByteAlignedU16 => rd.read_u16()? as u32,
                 Repr::ByteAlignedU32 => rd.read_u32()?,
             };
+            b.part(before, rd, PartKind::Discriminant, "discriminant", || {
+                ValueOwned::Numeric(NumericValue::U32(discriminant))
+            });
             let position = enum_def
                 .variants
                 .iter()
@@ -609,13 +664,16 @@ fn des_flagged(
 ) -> Result<ValueOwned> {
     Ok(match ty {
         TypeOwned::Option { some_ty } => ValueOwned::Option(if flag {
+            b.label("some");
             Some(Box::new(des_field(rd, some_ty, api_bundle, b)?))
         } else {
             None
         }),
         TypeOwned::Result { ok_ty, err_ty } => ValueOwned::Result(if flag {
+            b.label("ok");
             Ok(Box::new(des_field(rd, ok_ty, api_bundle, b)?))
         } else {
+            b.label("err");
             Err(Box::new(des_field(rd, err_ty, api_bundle, b)?))
         }),
         _ => bail!(
@@ -640,6 +698,7 @@ fn des_fields(
                 let name = def.ident.as_deref().unwrap_or_default();
                 if def.is_flag() {
                     let at_end = rd.bytes_left() == 0;
+                    let before = b.before(rd);
                     let value = match rd.read_bool() {
                         Ok(flag) => Some(flag),
                         // the field has a default and was added later: missing from older data
@@ -652,10 +711,16 @@ fn des_fields(
                         }
                         Err(e) => return Err(e.into()),
                     };
+                    if let Some(flag) = value {
+                        b.part(before, rd, PartKind::Flag, &format!("{name} flag"), || {
+                            ValueOwned::Bool(flag)
+                        });
+                    }
                     flags.entry(name).or_insert(Flag { value, at_end });
                     continue;
                 }
                 let flag = flags.remove(name);
+                b.label(name);
                 values.push((
                     b.name(name)?,
                     des_struct_field(rd, def, flag, api_bundle, b)?,
@@ -665,7 +730,8 @@ fn des_fields(
         }
         FieldsOwned::Unnamed(defs) => {
             let mut values = vec![];
-            for def in defs {
+            for (idx, def) in defs.iter().enumerate() {
+                b.label(idx);
                 values.push(des_struct_field(rd, def, None, api_bundle, b)?);
             }
             FieldsValueOwned::Unnamed(values)
@@ -741,6 +807,7 @@ fn des_sparse_fields(
             bail!("sparse field '{name}' must be Option<T>");
         };
         let value = iter.read_slot_with::<ValueOwned, anyhow::Error>(slot.0, |rd| {
+            b.label(&name);
             des_field(rd, some_ty, api_bundle, b)
         })?;
         values.push((name, ValueOwned::Option(value.map(Box::new))));

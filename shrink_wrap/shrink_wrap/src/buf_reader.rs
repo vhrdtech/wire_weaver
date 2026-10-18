@@ -25,6 +25,16 @@ pub struct BufReader<'i> {
     depth_left: u16,
 }
 
+/// The two cursors of a [BufReader] in its base buffer, see [BufReader::cursors_in].
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Cursors {
+    /// Next bit read from the front, counted from bit 7 of byte 0.
+    pub front_bit: usize,
+    /// End of what is left for reads from the back (lengths), in nibbles: nibble `2k` is bits 7:4 of byte `k`,
+    /// `2k + 1` its bits 3:0.
+    pub back_nibble: usize,
+}
+
 impl<'i> BufReader<'i> {
     /// Create a new BufReader from the provided slice.
     pub fn new(buf: &'i [u8]) -> Self {
@@ -669,6 +679,19 @@ impl<'i> BufReader<'i> {
         (self.byte_idx, self.bit_idx)
     }
 
+    /// Where this reader's two cursors are in `base`, the buffer it was made from (also through [split](Self::split)),
+    /// or `None` when this reader is not inside `base`. Tools use it to map each value back to its bits.
+    pub fn cursors_in(&self, base: &[u8]) -> Option<Cursors> {
+        let offset = (self.buf.as_ptr() as usize).checked_sub(base.as_ptr() as usize)?;
+        if offset + self.buf.len() > base.len() {
+            return None;
+        }
+        Some(Cursors {
+            front_bit: (offset + self.byte_idx) * 8 + 7 - self.bit_idx as usize,
+            back_nibble: (offset + self.len_bytes) * 2 - self.is_at_bit7_rev as usize,
+        })
+    }
+
     /// Bits read from the front so far.
     pub(crate) fn bit_pos(&self) -> usize {
         self.byte_idx * 8 + 7 - self.bit_idx as usize
@@ -700,6 +723,7 @@ impl<'i> BufReader<'i> {
 
 #[cfg(test)]
 mod tests {
+    use crate::buf_reader::Cursors;
     use crate::{BufReader, BufWriter, Error};
     use hex_literal::hex;
 
@@ -1059,6 +1083,34 @@ mod tests {
         assert_eq!(rd.pos(), (0, 3));
         rd.read_nib().unwrap();
         assert_eq!(rd.pos(), (1, 7));
+    }
+
+    #[test]
+    fn cursors_in_base_through_split() {
+        let buf = [0xAB, 0xCD, 0xEF, 0x12];
+        let mut rd = BufReader::new(&buf);
+        let at = |rd: &BufReader, front_bit, back_nibble| {
+            assert_eq!(
+                rd.cursors_in(&buf),
+                Some(Cursors {
+                    front_bit,
+                    back_nibble
+                })
+            )
+        };
+        at(&rd, 0, 8);
+        rd.read_bool().unwrap();
+        at(&rd, 1, 8);
+        rd.read_u4_rev().unwrap();
+        at(&rd, 1, 7);
+        rd.read_u4_rev().unwrap();
+        at(&rd, 1, 6);
+        let mut inner = rd.split(2).unwrap();
+        at(&inner, 8, 6);
+        inner.read_u8().unwrap();
+        at(&inner, 16, 6);
+        at(&rd, 24, 6);
+        assert_eq!(rd.cursors_in(&[0u8; 4]), None);
     }
 
     #[test]

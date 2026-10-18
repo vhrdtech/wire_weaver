@@ -11,6 +11,7 @@ mod tests {
     use std::sync::Arc;
     use wire_weaver::prelude::*;
     use wire_weaver_client::ww_numeric::NumericValue::{self as N};
+    use wire_weaver_client::ww_self::explain::{Part, PartKind, explain};
     use wire_weaver_client::ww_self::{ApiBundleOwned, FieldsValueOwned, TypeOwned, ValueOwned};
     use wire_weaver_client::{
         ClientConfig, DynClient, DynMultiArgs, DynMultiValue, DynResource, DynResourceKind,
@@ -475,6 +476,83 @@ mod tests {
             partial.ser_shrink_wrap_dyn(ty, root.bundle()).unwrap(),
             derived
         );
+    }
+
+    /// Every bit of the derived bytes is in exactly one part (TOOL-9): leaves never overlap, gaps in the front are
+    /// only padding up to a byte boundary.
+    fn check_explained(bytes: &[u8], ty: &TypeOwned, bundle: &ApiBundleOwned) -> Vec<Part> {
+        let explained = explain(bytes, ty, bundle);
+        let value = ValueOwned::des_shrink_wrap_dyn(bytes, ty, bundle).unwrap();
+        assert_eq!(explained.result.unwrap(), vec![value]);
+        // which leaf holds each bit: lengths are nibbles at the back of the buffer, or of the unsized value they are in
+        let mut owner: Vec<Option<usize>> = vec![None; bytes.len() * 8];
+        for (idx, part) in explained.parts.iter().enumerate().filter(|(_, p)| p.value.is_some()) {
+            let back = part.back.start * 4..part.back.end * 4;
+            for bit in part.front.clone().chain(back) {
+                assert_eq!(owner[bit], None, "bit {bit} is in {part:?} and {:?}", owner[bit].map(|o| &explained.parts[o]));
+                owner[bit] = Some(idx);
+            }
+        }
+        // what is left is padding: less than a byte at a time
+        for run in owner.split(|o| o.is_some()) {
+            assert!(run.len() < 8, "{} bits in a row in no part: {owner:?}", run.len());
+        }
+        explained.parts
+    }
+
+    fn part<'p>(parts: &'p [Part], label: &str) -> &'p Part {
+        parts.iter().find(|p| p.label == label).unwrap_or_else(|| panic!("no part {label}"))
+    }
+
+    #[test]
+    fn explain_maps_every_bit() {
+        let root = DynResource::root(bundle());
+        let ty = everything_ty(&root);
+        let bytes = everything().to_ww_bytes_owned().unwrap();
+        let parts = check_explained(&bytes, &ty, root.bundle());
+
+        let flag = part(&parts, "flag");
+        assert_eq!((flag.depth, flag.front.clone()), (1, 0..1));
+        let small = part(&parts, "small");
+        assert_eq!((small.front.clone(), small.ty.as_str()), (1..5, "ub4"));
+        let a = part(&parts, "a");
+        assert_eq!(a.front.len(), 8);
+        assert_eq!(a.front.start % 8, 0);
+        assert_eq!(a.value, Some(num(N::U8(0xAB))));
+        let name = part(&parts, "name");
+        assert_eq!(name.front.len(), 5 * 8);
+        assert!(!name.back.is_empty(), "the length of a string is at the back");
+        let rect = parts.iter().position(|p| p.note.as_deref() == Some("Rect")).unwrap();
+        assert_eq!(parts[rect + 1].kind, PartKind::Discriminant);
+        assert_eq!(parts[rect + 1].front.len(), 4);
+        assert_eq!(parts[rect + 1].value, Some(num(N::U32(2))));
+    }
+
+    #[test]
+    fn explain_relocated_flags() {
+        let root = DynResource::root(bundle());
+        let flagged = root.child("flagged").unwrap();
+        let DynResourceKind::Property { ty, .. } = flagged.kind().unwrap() else {
+            panic!("property expected");
+        };
+        let bytes = FlaggedOwned {
+            a: U3::new(5).unwrap(),
+            early: Some("hi".into()),
+            res: Ok(7),
+            tagged: Tagged::Plain,
+            late: Some(300),
+        }
+        .to_ww_bytes_owned()
+        .unwrap();
+        let parts = check_explained(&bytes, ty, root.bundle());
+        assert_eq!(part(&parts, "late flag").kind, PartKind::Flag);
+        assert_eq!(part(&parts, "res.ok").value, Some(num(N::U8(7))));
+        assert_eq!(part(&parts, "late.some").value, Some(num(N::U16(300))));
+        // a flag in place: the `Option` is a part with its flag and value inside
+        let early = parts.iter().position(|p| p.label == "early").unwrap();
+        assert_eq!(parts[early + 1].kind, PartKind::Flag);
+        assert_eq!(parts[early + 2].label, "some");
+        assert_eq!(parts[early + 2].value, Some(string("hi")));
     }
 
     #[test]

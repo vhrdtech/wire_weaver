@@ -22,6 +22,8 @@ pub mod fuzz_bundle;
 #[doc(hidden)]
 pub mod fuzz_series;
 #[cfg(feature = "std")]
+pub mod explain;
+#[cfg(feature = "std")]
 pub mod generics;
 #[cfg(feature = "std")]
 pub mod inline;

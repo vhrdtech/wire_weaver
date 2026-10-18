@@ -20,13 +20,16 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   It found `fixed_layout` types rejected in APIs (fixed in `wire_weaver_core`) and unknown enum variants failing in
   Python (fixed in `wire_weaver_py`). See `docs/serdes/conformance.md`.
 - Two guards on the conformance corpus: `frozen_bytes` (TEST-24) fails `just test` when a case's `bytes`,
-  `direction` or `bytes_from` changed, or the case disappeared, since the merge base with main — a hand edit or a
-  reset to `"?"` used to re-seal silently; the escape for a deliberate wire change is `"wire_change": "EVO-n /
-  reason"` on the case, shown in the matrix report. `coverage` (TEST-25) fails when a wire-relevant `ww_self::Type`
-  variant or `shrink_wrap_derive` directive is exercised by no case and not listed as a gap; found two variants no
-  prepared bundle ever carries (INT-11) and two directives with no case yet (SW-67). Both depend only on the
-  repo's own git, print why and pass when there is nothing to compare (no git, a shallow clone, the corpus being
-  new). See `docs/serdes/conformance.md`.
+  `direction` or `bytes_from` changed, or the case disappeared, since the baseline commit (`CONFORMANCE_BASE` when
+  CI sets it to the pushed range's prior commit on a push to master, else the merge base with main) — a hand edit
+  or a reset to `"?"` used to re-seal silently. The baseline is parsed with a minimal, forward-compatible schema
+  so a field added or renamed since doesn't turn the guard off; a baseline that isn't a corpus at all fails loudly
+  instead. The escape for a deliberate wire change is a new or reworded `"wire_change": "EVO-n / reason"` on the
+  case (reusing the same mark for a later, unrelated change doesn't count), shown in the matrix report. `coverage`
+  (TEST-25) fails when a wire-relevant `ww_self::Type` variant or `shrink_wrap_derive` directive is exercised by
+  no case and not listed as a gap; found two variants no prepared bundle ever carries (INT-11) and two directives
+  with no case yet (SW-67). Both depend only on the repo's own git, print why and pass when there is nothing to
+  compare (no git, a shallow clone, the corpus being new). See `docs/serdes/conformance.md`.
 - shrink_wrap / ww_self: a dynamic `Series` writer (CLT-29): `ValueOwned::ser_shrink_wrap_dyn` / `ser_series_dyn`
   write a `Series` from its items with the bytes the typed writer gives for the same `CodecPolicy`, so a dynamic
   client and Python can send `Series` arguments and properties. See the `shrink_wrap` and `ww_self` changelogs.

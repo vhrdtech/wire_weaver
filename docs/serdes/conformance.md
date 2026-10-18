@@ -83,26 +83,46 @@ bytes already filled in (`corpus::fill_in_bytes` skips a case unless `to_fill()`
 `bytes` back to `"?"` and running the update again, bypasses that and re-seals silently.
 
 The `frozen_bytes` test (`tests/matrix.rs`, `conformance::frozen`, TEST-24) catches this independently: it reads
-`tests/conformance/corpus.json` as it was at the merge base of `HEAD` with main (`git merge-base HEAD
-origin/master`, falling back to local `master`) with `git show <sha>:tests/conformance/corpus.json`, and compares
-every case that existed there against the corpus on disk now. A case whose `bytes`, `direction` or `bytes_from`
-changed, or that disappeared, fails the test by name with the old and new values — so a session branch that
-touches sealed bytes fails `just test` and the landing gate, which runs on the branch rebased onto main.
+`tests/conformance/corpus.json` as it was at a baseline commit with `git show <sha>:tests/conformance/corpus.json`,
+and compares every case that existed there against the corpus on disk now. A case whose `bytes`, `direction` or
+`bytes_from` changed, or that disappeared, fails the test by name with the old and new values — so a session
+branch that touches sealed bytes fails `just test` and the landing gate, which runs on the branch rebased onto
+main.
+
+The baseline is `CONFORMANCE_BASE=<sha>` when it names a real commit, otherwise `git merge-base HEAD
+origin/master`, falling back to local `master`. The default is right for a pull request or a local run (where
+`origin/master` still differs from `HEAD`), but not for CI running on a push to master: there, `origin/master` is
+already `HEAD` right after the push, so the merge base would be `HEAD` itself and the guard would compare the
+corpus with itself, never actually checking the pushed commits. CI's `test` and `coverage` jobs set
+`CONFORMANCE_BASE` to the pushed range's prior commit (`github.event.before`) on a push, empty otherwise (which
+falls through to the default lookup); `github.event.before` is an all-zero sentinel when a branch has no prior
+commit (its first push), which the guard treats as nothing to compare against, same as not finding a merge base.
+
+The baseline corpus is parsed with its own minimal, forward-compatible schema (`frozen::LenientCase`: `name`,
+`bytes`, `direction`, `bytes_from`, `wire_change`, everything else ignored), not the current `Case` struct used
+for the corpus on disk: a field added, renamed or made required since the baseline commit would otherwise make
+the whole file fail to parse against today's stricter schema, turning this guard off silently right when the
+corpus is being reshaped — exactly when a bytes change could hide in the same commit. A baseline JSON that still
+fails this lenient parse (not JSON at all, or no `cases` array) isn't a schema difference, it's not a corpus at
+all, so that fails the test loudly instead of being treated as nothing to check.
 
 It depends only on the repository's own git history, never the network or anything outside the repo: without git,
-without `origin/master` or `master` resolving to a commit (a shallow clone with only the branch under test, say),
-or without the corpus existing yet at that commit (introducing TEST-24 itself, or the corpus as a whole), the test
-prints why and passes rather than failing a check it can't actually run. CI's `test` and `coverage` jobs fetch full
-history (`fetch-depth: 0`) so the check means something there; a shallower checkout elsewhere only loses the check,
-not correctness.
+without a baseline commit to resolve (a shallow clone with only the branch under test, say, or a `CONFORMANCE_BASE`
+that doesn't resolve), or without the corpus existing yet at that commit (introducing TEST-24 itself, or the corpus
+as a whole), the test prints why and passes rather than failing a check it can't actually run. CI's `test` and
+`coverage` jobs fetch full history (`fetch-depth: 0`) so the check means something there; a shallower checkout
+elsewhere only loses the check, not correctness.
 
 A deliberate wire break is still possible: mark the changed case with `"wire_change": "EVO-n / reason"`, which the
-guard accepts. It must come with the matching `EVO-n` item in `FEATURES.md` and a `### ⚠️ Breaking` entry in the
-affected crate's `CHANGELOG.md` saying what changed and why — the mark on its own is not a justification, just an
-acknowledgment that the matrix report also shows (a "Wire changes" section, `just conformance-update` writes it).
-Once the branch carrying the change lands on main, the mark has done its job and the next guard run treats the new
-bytes as sealed again; remove it once that is true (it is harmless to leave, but a stale mark invites a second
-unreviewed change).
+guard accepts once — only when the mark is new or its text changed since the baseline. A case whose mark is
+unchanged from the baseline is sealed again at its current bytes: reusing the same mark across unrelated later
+edits would otherwise exempt that case from this guard forever instead of for one change, so a second deliberate
+change needs its own new or reworded mark (a fresh `EVO-n`, or at least different wording). The mark must come
+with the matching `EVO-n` item in `FEATURES.md` and a `### ⚠️ Breaking` entry in the affected crate's
+`CHANGELOG.md` saying what changed and why — the mark on its own is not a justification, just an acknowledgment
+that the matrix report also shows (a "Wire changes" section, `just conformance-update` writes it). Once the branch
+carrying the change lands on main, the mark has done its job and the next guard run treats the new bytes as sealed
+again; remove it once that is true (it is harmless to leave, but do not reuse it for a later, unrelated change).
 
 ## Coverage guard
 

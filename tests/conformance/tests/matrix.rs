@@ -78,14 +78,17 @@ fn c() {
     conformance::run_all(&conformance::c::C);
 }
 
-/// TEST-24: a case's `bytes`, `direction` and `bytes_from` don't change or disappear once in, since the merge base
-/// with main (`conformance::frozen`); skips with a printed reason instead of failing when there's nothing to
-/// compare against (no git, a shallow clone, or the corpus being new).
+/// TEST-24: a case's `bytes`, `direction` and `bytes_from` don't change or disappear once in, since the baseline
+/// commit (`conformance::frozen`); skips with a printed reason instead of failing when there's nothing to compare
+/// against (no git, a shallow clone, or the corpus being new), but fails loudly when the baseline commit's corpus
+/// isn't recognizable as one at all.
 #[test]
 fn frozen_bytes() {
+    use conformance::frozen::Baseline;
     match conformance::frozen::baseline() {
-        conformance::frozen::Baseline::Unavailable(reason) => println!("{reason}"),
-        conformance::frozen::Baseline::At { sha, corpus: old } => {
+        Baseline::Unavailable(reason) => println!("{reason}"),
+        Baseline::Corrupt(reason) => panic!("{reason}"),
+        Baseline::At { sha, corpus: old } => {
             let now = corpus::load();
             let failures = conformance::frozen::check(&old, &now, &sha);
             assert!(failures.is_empty(), "{}", failures.join("\n"));

@@ -71,11 +71,12 @@ and CI. A new wire feature (or a change to one) lands only with its cases in the
 consumers; a consumer that can't express a case yet gets a gap mark naming a `FEATURES.md` item for it, never a
 silent skip. Golden bytes don't change once in: changed bytes are a wire break. New case: `"bytes": "?"` plus the
 Rust value in `tests/conformance/src/derive.rs`, then `just conformance-update`. Two guards keep this honest: the
-`frozen_bytes` test (TEST-24) fails `just test` when a case sealed at the merge base with main changed its bytes,
-direction or `bytes_from`, or disappeared (the escape for a real wire change is `"wire_change": "EVO-n / reason"`
-on the case, with the matching `EVO-n` item and a `**Breaking:**` CHANGELOG entry); the `coverage` test (TEST-25)
-fails when a wire-relevant `ww_self::Type` variant or `shrink_wrap_derive` directive is used by no case and not
-listed as a gap in `tests/conformance/src/coverage.rs`.
+`frozen_bytes` test (TEST-24) fails `just test` when a case sealed at the baseline commit (`CONFORMANCE_BASE` if
+set to a real commit, else the merge base with main) changed its bytes, direction or `bytes_from`, or disappeared
+(the escape for a real wire change is a new or reworded `"wire_change": "EVO-n / reason"` on the case — reusing
+the same mark across a later, unrelated change doesn't count — with the matching `EVO-n` item and a
+`**Breaking:**` CHANGELOG entry); the `coverage` test (TEST-25) fails when a wire-relevant `ww_self::Type` variant
+or `shrink_wrap_derive` directive is used by no case and not listed as a gap in `tests/conformance/src/coverage.rs`.
 
 CI (`.github/workflows/ci.yml`) fails on any warning: `cargo fmt --check`, `cargo sort -w -g --check` (plain
 `cargo sort` flattens the grouped `[workspace.dependencies]`, always pass `-g`), `typos` (project words go into

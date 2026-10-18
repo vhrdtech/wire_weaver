@@ -133,6 +133,15 @@ jobs:
       - run: uv run --group dev pytest -q tests/test_conformance.py
         working-directory: wire_weaver_py
 
+  # the docs site's own Markdown extensions (docs_ext: the `bits` fence)
+  docs-ext:
+    name: docs extensions (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv run --group dev pytest -q docs_ext
+
   coverage:
     name: coverage
     runs-on: ubuntu-latest

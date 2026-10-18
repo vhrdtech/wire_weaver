@@ -602,22 +602,23 @@ steps all columns in parallel, zero-copy, without allocating.
 Four `IvSample`s, `v` = 3300, 3301, 3301, 3299 mV as `U16` and `i` = 152 000, 152 002, 151 999, 152 001 µA as `I32`,
 are 14 bytes against 33 for the smallest plain form:
 
-```text
-bit  column                         bits
-  0  n = 4                          0100
-  4  IvSample field count = 2       0010
-  8  v.prefix run: Milli, end       0001 0
- 13  v.value tag run: U16, end      0010 0
- 18  v.value U16 column             01 01                     delta, packed
-                                    0000110011100100          3300
-                                    00010 10 00 11            block width 2: +1 0 -2 (zigzag 2 0 3)
- 49  i.prefix run: Micro, end       0010 0
- 54  i.value tag run: I32, end      0110 0
- 59  i.value I32 column             01 01                     delta, packed
-                                    00000000000000100101000111000000   152000
-                                    000011 100 101 100        block width 3: +2 -3 +2 (zigzag 4 5 4)
-110  padding                        00
-bytes: 42 11 14 33 90 51 91 8a 00 04 a3 80 1c b0
+```bits
+head  0100              n = 4
+head  0010              `IvSample` field count = 2
+run   0001 0            `v.prefix` run: `Milli`, end
+run   0010 0            `v.value` tag run: `U16`, end
+head  01 01             `v.value` `U16` column: delta, packed
+value 0000110011100100  3300
+width 00010             block width 2
+delta 10 00 11          +1 0 -2 (zigzag 2 0 3)
+run   0010 0            `i.prefix` run: `Micro`, end
+run   0110 0            `i.value` tag run: `I32`, end
+head  01 01             `i.value` `I32` column: delta, packed
+value 00000000000000100101000111000000  152000
+width 000011            block width 3
+delta 100 101 100       +2 -3 +2 (zigzag 4 5 4)
+pad   00                padding
+bytes 42 11 14 33 90 51 91 8a 00 04 a3 80 1c b0
 ```
 
 The first values and the 4.5 bytes of count, runs and headers are paid once per batch: that is why 4 items are 2.4x

@@ -307,6 +307,13 @@ pymdownx.superfences = {
       class = "mermaid",
       format = "pymdownx.superfences.fence_code_format",
     },
+    # bit layouts: coloured bits in byte cells and a table of the fields, checked against a `bytes` line
+    # (docs_ext/ww_docs_ext/bits.py, docs/levels.md "For writers")
+    {
+      name = "bits",
+      class = "ww-bits",
+      format = "ww_docs_ext.bits.fence",
+    },
   ],
 }
 pymdownx.tabbed = {

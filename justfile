@@ -10,6 +10,8 @@ test:
     cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store
     # the conformance matrix's Python consumer (TEST-23), the Rust ones run above
     just test-conformance-py
+    # the docs site's Markdown extensions (the `bits` fence)
+    uv run --group dev pytest -q docs_ext
 
 # Fill in the golden bytes of new conformance cases ("bytes": "?") from the derive and write docs/serdes/conformance_matrix.md (TEST-23)
 conformance-update:

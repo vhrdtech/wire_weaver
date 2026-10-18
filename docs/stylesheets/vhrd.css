@@ -195,3 +195,114 @@
   color: var(--md-default-fg-color--light);
   font-size: 0.7rem;
 }
+
+/* Bit layouts, the `bits` fence (docs_ext/ww_docs_ext/bits.py, docs/levels.md "For writers"): every bit in its byte's
+   cell, coloured by the kind of its field, a bar where a field starts, each byte's hex below; then a key and a table
+   of the fields with their bit offsets. One colour pair per kind, for each scheme. */
+[data-md-color-scheme="default"] .md-typeset .ww-bits {
+  --ww-head-bg: #dbe7f6; --ww-head-fg: #2f5f9e;
+  --ww-run-bg: #ece0f5; --ww-run-fg: #7a3fa0;
+  --ww-value-bg: #dcefe0; --ww-value-fg: #2e7d43;
+  --ww-delta-bg: #fbecd2; --ww-delta-fg: #96570a;
+  --ww-width-bg: #d7efef; --ww-width-fg: #1f7070;
+  --ww-pad-bg: #efefef; --ww-pad-fg: #7a7a7a;
+}
+[data-md-color-scheme="slate"] .md-typeset .ww-bits {
+  --ww-head-bg: #1d2c42; --ww-head-fg: #9cc0ee;
+  --ww-run-bg: #2e2240; --ww-run-fg: #cdaeea;
+  --ww-value-bg: #1c3324; --ww-value-fg: #8fd6a1;
+  --ww-delta-bg: #3a2c14; --ww-delta-fg: #ecbd6a;
+  --ww-width-bg: #163434; --ww-width-fg: #86d6d6;
+  --ww-pad-bg: #232325; --ww-pad-fg: #8f8f8f;
+}
+.md-typeset .ww-bits {
+  margin: 1em 0;
+}
+.md-typeset .ww-bit--head { --ww-bg: var(--ww-head-bg); --ww-fg: var(--ww-head-fg); }
+.md-typeset .ww-bit--run { --ww-bg: var(--ww-run-bg); --ww-fg: var(--ww-run-fg); }
+.md-typeset .ww-bit--value { --ww-bg: var(--ww-value-bg); --ww-fg: var(--ww-value-fg); }
+.md-typeset .ww-bit--delta { --ww-bg: var(--ww-delta-bg); --ww-fg: var(--ww-delta-fg); }
+.md-typeset .ww-bit--width { --ww-bg: var(--ww-width-bg); --ww-fg: var(--ww-width-fg); }
+.md-typeset .ww-bit--pad,
+.md-typeset .ww-bit--none { --ww-bg: var(--ww-pad-bg); --ww-fg: var(--ww-pad-fg); }
+.md-typeset .ww-bits__strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-family: var(--md-code-font-family);
+  font-size: 0.75rem;
+}
+.md-typeset .ww-bits__byte {
+  display: inline-flex;
+  flex-direction: column;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.md-typeset .ww-bits__cells {
+  display: flex;
+}
+.md-typeset .ww-bit {
+  width: 1.15em;
+  line-height: 1.8;
+  text-align: center;
+  background: var(--ww-bg);
+  color: var(--ww-fg);
+}
+.md-typeset .ww-bit--start {
+  box-shadow: inset 2px 0 0 var(--ww-fg);
+}
+.md-typeset .ww-bit--none {
+  opacity: 0.5;
+}
+.md-typeset .ww-bits__hex {
+  border-top: 1px solid var(--md-default-fg-color--lighter);
+  text-align: center;
+  line-height: 1.6;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .ww-bits__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 0.5rem 0;
+  font-size: 0.7rem;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .ww-bits__key .ww-bit {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 0.35em;
+  border-radius: 2px;
+  vertical-align: -0.1em;
+  box-shadow: inset 0 0 0 1px var(--ww-fg);
+}
+.md-typeset table.ww-bits__fields {
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+.md-typeset table.ww-bits__fields th,
+.md-typeset table.ww-bits__fields td {
+  padding: 0.15em 0.8em 0.15em 0;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  text-align: left;
+  vertical-align: top;
+}
+.md-typeset table.ww-bits__fields th {
+  font-weight: 600;
+}
+.md-typeset table.ww-bits__fields td.ww-bits__at {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .ww-bits__chip {
+  padding: 0 0.3em;
+  border-radius: 3px;
+  font-family: var(--md-code-font-family);
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--ww-bg);
+  color: var(--ww-fg);
+}

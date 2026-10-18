@@ -39,3 +39,28 @@ bootloader that has to fit in 2 KB.
     The badge comes from the page's front matter, `level: basic`, `level: advanced` or `level: nomicon`, and is
     drawn by `overrides/partials/level.html`. A page without it has no badge. In the navigation, a section lists its
     Basic pages first and groups the Advanced and Nomicon pages after them.
+
+!!! note "For writers: bit layouts"
+    A Nomicon or Advanced page that shows how bits are laid out uses a `bits` fence: one field per line, its kind,
+    its bits (groups of `0` and `1`), then its label. The site draws every bit in its byte, coloured by kind, with
+    each byte's hex below and a table of the fields with their bit offsets. A `bytes` line checks the fields: the
+    build fails when they don't make those bytes (MSB first, as `shrink_wrap` writes them). Take the bytes from a
+    real run (a test or a scratch example, see `AGENTS.md`), never from the bits by hand.
+
+    ````text
+    ```bits
+    head  0100              n = 4
+    run   0001 0            `v.prefix` run: `Milli`, end
+    value 0000110011100100  3300
+    width 00010             block width 2
+    delta 10 00 11          +1 0 -2 (zigzag 2 0 3)
+    pad   00                padding
+    bytes 42 11 ..
+    ```
+    ````
+
+    Kinds: `head` (counts, field counts, codec headers), `run` (tag runs), `value` (full values), `delta` (residuals
+    and other coded data), `width` (block widths), `pad` (padding). The label starts at the first word that isn't
+    only `0` and `1` and may have `code`. [The column layout](articles/series.md#the-column-layout) is a worked one.
+    The fence is `docs_ext/ww_docs_ext/bits.py` (tests next to it, in `just test`), its colours `.ww-bits` in
+    `docs/stylesheets/vhrd.css`.

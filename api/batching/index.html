@@ -5625,10 +5625,10 @@ them in <code>Samples</code> mode, a poll every 16 rows, <code>observe_batch = 3
 </tr>
 <tr>
 <td>a poll that encodes a batch</td>
-<td>131-169 k</td>
-<td>140-180 k</td>
-<td>78-100 k</td>
-<td>84-107 k</td>
+<td>107-122 k</td>
+<td>116-133 k</td>
+<td>65-76 k</td>
+<td>72-83 k</td>
 </tr>
 <tr>
 <td>a poll with nothing to send (16 rows waiting)</td>
@@ -5651,7 +5651,8 @@ them in <code>Samples</code> mode, a poll every 16 rows, <code>observe_batch = 3
 too (8 656 B either way). The total CPU is about the same, the cells' a bit more: what the interrupt saves, the
 event loop spends copying the ring (about 440 cycles a row at <code>opt-level = 3</code> on the H725 with all 21 observed; the
 poll copies only the observed columns, 4.4 k cycles for 16 rows of 3). The polls are those after API-52, which
-halved the one that encodes (it was 133-185 k at 3, 349-509 k at <code>"z"</code>). Without observers the cells' setters still
+halved the one that encodes (it was 133-185 k at 3, 349-509 k at <code>"z"</code>), and after SW-68's word-wide bit writer,
+which took another quarter off (78-107 k at 3, 131-180 k at <code>"z"</code> before it). Without observers the cells' setters still
 store (the sampler returns before copying): skip them with <code>is_sampling()</code>. Both builds keep the batches in a
 <code>static</code> built in place (<code>ObserveBatches::init</code>, see <a href="../observing/#device-side">Observing</a>).</p>
 <h3 id="the-motor-demo-measured">The motor demo, measured<a class="headerlink" href="#the-motor-demo-measured" title="Permanent link">&para;</a></h3>

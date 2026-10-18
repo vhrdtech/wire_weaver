@@ -5229,6 +5229,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#the-bit-writer-and-reader-a-word-at-a-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The bit writer and reader, a word at a time
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ahead" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5699,6 +5710,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         What a struct series costs: the restart check
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-bit-writer-and-reader-a-word-at-a-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The bit writer and reader, a word at a time
       </span>
     </span>
   </a>
@@ -6298,44 +6320,50 @@ the batch, as it did before, writes the same 1 251 bytes and is what a batch wit
 <tbody>
 <tr>
 <td>item walk, <code>opt-level = "z"</code></td>
-<td>302 200</td>
-<td>0.83 µs</td>
-<td>43.7 %</td>
+<td>264 900</td>
+<td>0.73 µs</td>
+<td>38.3 %</td>
 </tr>
 <tr>
 <td>item walk, <code>opt-level = 3</code></td>
-<td>125 300</td>
-<td>0.35 µs</td>
-<td>18.1 %</td>
+<td>96 800</td>
+<td>0.27 µs</td>
+<td>14.0 %</td>
 </tr>
 <tr>
 <td>column-wise from the store, <code>opt-level = "z"</code></td>
-<td>100 400</td>
-<td>0.28 µs</td>
-<td>14.5 %</td>
+<td>53 200</td>
+<td>0.15 µs</td>
+<td>7.7 %</td>
 </tr>
 <tr>
 <td>column-wise from the store, <code>opt-level = 3</code></td>
-<td>59 900</td>
-<td>0.17 µs</td>
-<td>8.7 %</td>
+<td>36 800</td>
+<td>0.10 µs</td>
+<td>5.3 %</td>
 </tr>
 </tbody>
 </table>
-<p><code>opt-level = "z"</code> (smallest code) is the firmware examples' release profile, and it alone makes the encoder 2.4x
-slower than <code>opt-level = 3</code>; at <code>"z"</code> the cycles also move by up to 15 % between builds as the code layout changes.
+<p>Before the word-wide bit writer (<a href="#the-bit-writer-and-reader-a-word-at-a-time">SW-68</a>) the same batch took 98 500 and
+58 900 cycles column-wise, 324 000 and 126 700 as an item walk.
+<code>opt-level = "z"</code> (smallest code) is the firmware examples' release profile, and it makes the encoder 1.4x
+(column-wise) to 2.7x (item walk) slower than <code>opt-level = 3</code>; at <code>"z"</code> the cycles also move by up to 15 % between
+builds as the code layout changes.
 Build firmware that encodes at 25 kHz at <code>opt-level = 3</code>. Setting it only for <code>shrink_wrap</code>, <code>ww_si</code> and <code>ww_numeric</code>
 doesn't help: the series code is generic and compiled in the firmware crate. The <a href="#straight-from-the-store">Nomicon</a>
 has where the cycles go.</p>
 <p>These tables count the encode, the <code>Series</code> writes of a batch. The whole <code>poll_properties</code> that sends it costs more:
-100 k cycles for a 32-row FOC batch on the H725 at <code>opt-level = 3</code> (<a href="#a-few-properties-of-a-level">a few properties</a>,
-a batch with a current ramp, so more than the quiet one above), 17 % of the core at 25 kHz with the rows; 169 k at
-<code>"z"</code>, 27 %. Until <a href="../../features/">API-52</a> it was 191 k and 513 k (30 % and 77 %): whenever a batch's worst case
+75.5 k cycles for a 32-row FOC batch on the H725 at <code>opt-level = 3</code> (<a href="#a-few-properties-of-a-level">a few properties</a>,
+a batch with a current ramp, so more than the quiet one above), 13 % of the core at 25 kHz with the rows; 121.5 k at
+<code>"z"</code>, 20 %. With the bit writer before SW-68 it was 99.9 k and 172.2 k (17 % and 27 %), and until
+<a href="../../features/">API-52</a> 191 k and 513 k (30 % and 77 %): whenever a batch's worst case
 didn't fit the outbox's free room, the poll measured it first by rebuilding each column of the batch into a scratch
 and walking it, and the outbox walked its entries for every lookup. Now a batch is written straight into the free
 room and measured only when it doesn't fit, a measure counts from the store's arrays, and the outbox keeps its
-offsets. In the profile of that poll on the Cortex-M4F model (105 k instructions, 207 k before) the codec's writes
-are more than half; the rest is the columns' framing, the update and the outbox.</p>
+offsets. In the profile of that poll on the Cortex-M4F model (74.8 k instructions; 104.8 k before SW-68, 207 k before
+API-52) the packed blocks and the delta code take 25.8 k (56.5 k before SW-68, when one <code>put_bits</code> per residual was
+29.3 k alone), each column's framing and the scratch around it 11 k, <code>memcpy</code> 5.8 k; the rest is the update, its
+length and the outbox.</p>
 <h3 id="high-rates-a-few-values-at-400-khz-to-2-mhz">High rates: a few values at 400 kHz to 2 MHz<a class="headerlink" href="#high-rates-a-few-values-at-400-khz-to-2-mhz" title="Permanent link">&para;</a></h3>
 <p>A power converter switches at 400 kHz to 2 MHz and samples a few values once per period: inductor current, output
 and input voltage. Can those be observed at every period? Measured on the STM32H725 (540 MHz, caches on,
@@ -6367,15 +6395,15 @@ values are a synthetic buck stage (48 V to 12 V, 8 A, a load step to 12 A in the
 </tr>
 <tr>
 <td>a poll that drains 16 rows</td>
-<td>3 846</td>
-<td>3 700</td>
-<td>3 286</td>
+<td>3 770</td>
+<td>3 650</td>
+<td>3 144</td>
 </tr>
 <tr>
 <td>the poll that drains 16 rows, encodes 32</td>
-<td>22 965</td>
-<td>22 443</td>
-<td>18 878</td>
+<td>19 945</td>
+<td>19 498</td>
+<td>17 316</td>
 </tr>
 <tr>
 <td>a raw copy of 32 rows</td>
@@ -6410,9 +6438,9 @@ values are a synthetic buck stage (48 V to 12 V, 8 A, a load step to 12 A in the
 </tr>
 <tr>
 <td><strong>CPU of the H725, <code>Series</code></strong></td>
-<td><strong>74 %</strong></td>
-<td><strong>181 %</strong></td>
-<td><strong>313 %</strong></td>
+<td><strong>67 %</strong></td>
+<td><strong>163 %</strong></td>
+<td><strong>293 %</strong></td>
 </tr>
 <tr>
 <td>CPU of the H725, raw copy</td>
@@ -6447,18 +6475,19 @@ MAC, 12.5 MB/s line rate) carries every <code>Series</code> row of the table and
 <ul>
 <li><strong><code>Series</code>: the encode in the event loop.</strong> The capture fits at every rate (a cells row is 12 to 53 % of a
   period; at 2 MHz half the period is a lot for an interrupt that also runs the control loop). The polls don't: 3
-  values at 400 kHz take 74 % of the core, which leaves little for the converter, and 1 MHz and 2 MHz need 1.8x and
-  3.1x the core. Per row the polls cost about 5 times the capture.</li>
+  values at 400 kHz take 67 % of the core, which leaves little for the converter, and 1 MHz and 2 MHz need 1.6x and
+  2.9x the core. Per row the polls cost about 4.5 times the capture.</li>
 <li><strong>Raw: the link.</strong> 4.5 to 19 % of the CPU, but 6.4 to 24 MB/s: Ethernet up to 400 kHz, USB HS above.</li>
 <li><strong>The <code>Series</code> bytes are 2.9x to 3.1x fewer</strong> than raw, which is what moves 1 and 2 MHz from USB HS to Ethernet,
   if the CPU were there.</li>
 </ul>
-<p>Where a poll's cycles go, from its profile on the Cortex-M4F model (22 900 instructions for a 3-value batch): the
-codec itself (delta, packed blocks, bit writer, runs) about 9 300, each column's own framing (count, tag runs,
-the check that no tag changes) 2 000, the ring copy 1 800, the update's framing, the outbox and the poll's own
-code the rest. <a href="../../features/">API-52</a> took 3 to 6 % off these polls (the FOC poll lost half, see above): this
-bench's 4 KB outbox always had room for a batch's worst case, so its batches were never measured, and what is left
-is the codec and the framing around it; a faster bit writer and less framing per column would move it. So today a device observes a few values at every period up to a few
+<p>Where a poll's cycles go, from its profile on the Cortex-M4F model (18 400 instructions for a 3-value batch, 22 900
+before the word-wide bit writer of SW-68): the codec itself (delta, packed blocks, bit writer, runs) about 5 100,
+9 300 before; each column's own framing (count, tag runs, the check that no tag changes) 2 000, the ring copy 1 800,
+the update's framing, the outbox and the poll's own code the rest. <a href="../../features/">API-52</a> took 3 to 6 % off these
+polls (the FOC poll lost half, see above): this bench's 4 KB outbox always had room for a batch's worst case, so its
+batches were never measured. SW-68 took 13 to 15 % off them on the H725 (17 % at <code>"z"</code>), and what is left is about
+as much codec as framing around it: less framing per column would move it next. So today a device observes a few values at every period up to a few
 hundred kHz, and above that decimates (<code>every_us</code>, a grid in whole µs) or sends raw over a fast link.</p>
 <p>Flash for the encoder is 15.0 KB on a Cortex-M3 with <code>DeltaPacked</code> (9.8 KB on an M4F), 25.4 KB (17.6 KB) with a
 run-time <code>CodecPolicy</code>. A firmware no longer carries 64-bit numbers for the protocol's own types: a <code>NumericValue</code>
@@ -6505,23 +6534,23 @@ at <code>opt-level = 3</code>, with 781 batches a second at 25 kHz:</p>
 </tr>
 <tr>
 <td><code>Series</code>, column-wise <code>DeltaPacked</code></td>
-<td>59 900</td>
+<td>36 800</td>
 <td>1 251</td>
-<td>8.7 %</td>
+<td>5.3 %</td>
 <td>0.98 MB/s</td>
 </tr>
 <tr>
 <td>the whole <code>poll_properties</code>, cells</td>
-<td>107 400</td>
+<td>83 300</td>
 <td>-</td>
-<td>about 19 % with the rows</td>
+<td>about 14 % with the rows</td>
 <td>-</td>
 </tr>
 </tbody>
 </table>
 <p>The link decides first. USB full speed carries about 1 MB/s in practice: the raw copy at full rate doesn't fit it,
-the <code>Series</code> just does. Over USB high speed or Ethernet both fit, and raw wins on CPU by about 20x for the encode,
-and by about 38x counting the whole poll that sends the batch (the third row, a 32-row batch of the FOC bench, which
+the <code>Series</code> just does. Over USB high speed or Ethernet both fit, and raw wins on CPU by about 13x for the encode,
+and by about 30x counting the whole poll that sends the batch (the third row, a 32-row batch of the FOC bench, which
 carries a current ramp).</p>
 <p>What that CPU buys:</p>
 <ul>
@@ -6543,10 +6572,11 @@ carries a current ramp).</p>
 </ul>
 <p>The <strong>capture</strong> gap is closed by <a href="#observe-cells-capture-as-cheap-as-a-global">observe cells</a>: the interrupt writes
 each value into its cell with a plain store, as it would write a global, and commits the row: 342 cycles and 52 B of
-stack for the 21 FOC values at <code>opt-level = 3</code>. What stays is the event loop's side: the <strong>encode</strong>, 8.7 % above,
-and the poll around it, about 19 % in all.
-There, a faster bit writer is next (see <a href="#ahead">Ahead</a>), and <strong>aligned plain</strong> (<a href="#straight-from-the-store">measured</a>,
-kept on file) is 34 200 cycles per batch for 2 882 bytes, for links fast enough to carry it.</p>
+stack for the 21 FOC values at <code>opt-level = 3</code>. What stays is the event loop's side: the <strong>encode</strong>, 5.3 % above,
+and the poll around it, about 14 % in all.
+There, less framing per column is next (see <a href="#ahead">Ahead</a>), and <strong>aligned plain</strong> (<a href="#straight-from-the-store">measured</a>,
+kept on file) was 34 200 cycles per batch for 2 882 bytes when it was measured, before SW-68: now hardly cheaper than
+column-wise <code>DeltaPacked</code> for 2.3x the bytes.</p>
 <div class="ww-level-part">
 <p><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 </div>
@@ -6809,9 +6839,12 @@ behind the predictor escape. Below both, an upper bound: the 22 payload arrays o
 <p>The surprise is the third row: walking items with aligned columns is already 44 k cycles at <code>opt-level = 3</code>. So the
 item walk was not the main cost; the <strong>bit writer</strong> and the codec are. Column-wise, a column still costs about 3.3 k
 instructions on a Cortex-M3: about 1.2 k for the delta and block code, 1.2 k for writing bits (24 bits per push,
-one byte per loop), and 0.8 k for the column's own <code>Series</code> framing (count, two tag runs, the checks).</p>
-<p><strong>Aligned plain was measured and is not recommended.</strong> From the store it is 1.75x cheaper than column-wise
-<code>DeltaPacked</code> at <code>opt-level = 3</code> (34 k against 60 k cycles), but slower at <code>"z"</code> (129 k against 100 k), and it
+one byte per loop), and 0.8 k for the column's own <code>Series</code> framing (count, two tag runs, the checks). The bit
+writer part is what <a href="#the-bit-writer-and-reader-a-word-at-a-time">SW-68</a> took down: a column is 1 601 instructions
+on the Cortex-M4F model now, against 2 510 before.</p>
+<p><strong>Aligned plain was measured and is not recommended.</strong> From the store it was 1.75x cheaper than column-wise
+<code>DeltaPacked</code> at <code>opt-level = 3</code> (34 k against 60 k cycles; since SW-68 <code>DeltaPacked</code> is 37 k), but slower at <code>"z"</code>
+(129 k against 100 k; 53 k now), and it
 sends 2.3x the bytes: 2.25 MB/s for the FOC level at 25 kHz, more than a full-speed USB link carries. It wasn't a
 plain copy either: when it was measured, the store kept every <code>NumericValue</code> payload as a <code>u64</code> (firmware carried
 64-bit numbers for the protocol's own types, since dropped), so an <code>I32</code> column was narrowed value by value, and the
@@ -6895,12 +6928,187 @@ against 0.3 M. Inside a struct, a column restarts its predictor when a tag of an
 tagged quantity fields that check is quadratic per item, and a decimated property's <code>None</code> rows would restart every
 later column's deltas. Restarts are the right rule for a quantity's own prefix; across unrelated properties they're
 pure cost, so a level is separate series per column.</p>
+<h3 id="the-bit-writer-and-reader-a-word-at-a-time">The bit writer and reader, a word at a time<a class="headerlink" href="#the-bit-writer-and-reader-a-word-at-a-time" title="Permanent link">&para;</a></h3>
+<p>After the column-wise writer, the bits themselves were the biggest cost left: in the FOC poll's profile on the
+Cortex-M4F model (104.8 k instructions), <code>put_bits</code> alone was 29.3 k and the packed blocks around it 27.2 k. SW-68
+rewrote <code>shrink_wrap</code>'s writers and readers to move a word at a time, with the same bytes (every golden vector, the
+conformance corpus and the fuzz round trips unchanged, no <code>unsafe</code>):</p>
+<ul>
+<li><strong><code>BitWriter</code></strong> (the Series sink) keeps a 32-bit accumulator in registers and stores four bytes when it fills,
+  instead of a byte; the room left is cached, so a push is one compare, a shift and an or.</li>
+<li><strong><code>BitSink::put_block</code></strong> writes a packed block (its width field and all residuals) in one call: one bounds check
+  for the block, the accumulator in locals for the loop. <code>delta_packed_slice</code> and the packed coder use it.</li>
+<li><strong><code>BufWriter::write_un*</code>, <code>write_bool</code></strong> (requests, replies, the non-Series paths) do one read-modify-write of a
+  4-byte big-endian window instead of a loop per byte, with one bounds check per call; only the last 3 bytes of a
+  buffer take a cold byte-wise path.</li>
+<li><strong><code>UNib32</code></strong> writes its nibbles as one run of bits, and <code>BufReader::take_unib32</code> reads one in a single loop.</li>
+<li><strong><code>BufReader::read_un32</code> / <code>read_un64</code></strong> read through the same 4-byte window, one bounds check, and a failing read
+  moves nothing.</li>
+</ul>
+<p>Per operation, Cortex-M4F instructions (QEMU) and STM32H725 cycles (DWT, warm), before and after:</p>
+<table>
+<thead>
+<tr>
+<th>per case (ops)</th>
+<th>M4F <code>3</code></th>
+<th>M4F <code>"z"</code></th>
+<th>H725 <code>3</code></th>
+<th>H725 <code>"z"</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>write_un32</code>, 1-24 bits (64)</td>
+<td>6 306 → 4 100</td>
+<td>6 179 → 4 952</td>
+<td>5 936 → 3 809</td>
+<td>6 264 → 5 141</td>
+</tr>
+<tr>
+<td><code>write_un32</code>, 25-32 bits (64)</td>
+<td>8 178 → 5 386</td>
+<td>7 470 → 6 073</td>
+<td>6 875 → 5 175</td>
+<td>6 936 → 6 113</td>
+</tr>
+<tr>
+<td><code>write_bool</code> (64)</td>
+<td>1 836 → 1 259</td>
+<td>3 592 → 3 664</td>
+<td>1 110 → 730</td>
+<td>3 916 → 3 841</td>
+</tr>
+<tr>
+<td><code>write_unib32</code> (32)</td>
+<td>5 385 → 3 703</td>
+<td>13 645 → 4 966</td>
+<td>4 652 → 3 744</td>
+<td>13 137 → 4 762</td>
+</tr>
+<tr>
+<td>bytes + rev len <code>finish</code> (16)</td>
+<td>3 609 → 3 686</td>
+<td>5 764 → 5 151</td>
+<td>3 599 → 3 683</td>
+<td>6 105 → 5 739</td>
+</tr>
+<tr>
+<td><code>Series</code> encode, <code>DeltaPacked</code> (32)</td>
+<td>10 960 → 9 363</td>
+<td>21 854 → 19 876</td>
+<td>10 851 → 8 586</td>
+<td>24 153 → 22 087</td>
+</tr>
+<tr>
+<td><code>read_un32</code>, 1-24 bits (64)</td>
+<td>7 720 → 4 225</td>
+<td>10 123 → 5 524</td>
+<td>6 570 → 4 247</td>
+<td>8 280 → 5 408</td>
+</tr>
+<tr>
+<td><code>read_un32</code>, 25-32 bits (64)</td>
+<td>12 617 → 4 719</td>
+<td>16 921 → 6 083</td>
+<td>9 317 → 4 896</td>
+<td>12 764 → 6 078</td>
+</tr>
+<tr>
+<td><code>read_un64</code>, 1-24 bits (64)</td>
+<td>9 918 → 4 420</td>
+<td>14 627 → 6 421</td>
+<td>7 848 → 4 373</td>
+<td>13 644 → 6 583</td>
+</tr>
+<tr>
+<td><code>read_bool</code> (64)</td>
+<td>3 297 → 2 425</td>
+<td>3 223 → 2 487</td>
+<td>3 268 → 2 460</td>
+<td>3 281 → 3 281</td>
+</tr>
+<tr>
+<td><code>read_unib32</code> (32)</td>
+<td>7 900 → 4 633</td>
+<td>11 949 → 4 763</td>
+<td>8 892 → 3 651</td>
+<td>10 880 → 3 778</td>
+</tr>
+<tr>
+<td>request decode, a call with args (1)</td>
+<td>1 272 → 1 189</td>
+<td>1 775 → 1 445</td>
+<td>1 644 → 1 537</td>
+<td>2 268 → 1 962</td>
+</tr>
+<tr>
+<td><code>Series</code> decode, <code>DeltaPacked</code> (32)</td>
+<td>89 924 → 81 760</td>
+<td>138 467 → 125 634</td>
+<td>116 076 → 103 631</td>
+<td>172 457 → 163 211</td>
+</tr>
+</tbody>
+</table>
+<p><code>write_nib</code>, <code>read_nib</code> and <code>read_bytes</code> are unchanged (a nibble is already one byte's read-modify-write). The
+2-nibble length <code>finish</code> writes stays within 2 %. <code>Series</code> decode gains least: most of it is the series machinery
+(runs, predictors, the item builders), not reading bits.</p>
+<p>What it does where it matters, the observe polls (warm, the poll that encodes):</p>
+<table>
+<thead>
+<tr>
+<th>before → after SW-68</th>
+<th>M4F instr., <code>3</code></th>
+<th>M4F instr., <code>"z"</code></th>
+<th>H725 cycles, <code>3</code></th>
+<th>H725 cycles, <code>"z"</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FOC level from the store (21 + clock)</td>
+<td>-</td>
+<td>-</td>
+<td>58 900 → 36 800</td>
+<td>98 500 → 53 200</td>
+</tr>
+<tr>
+<td>FOC poll, <code>sample()</code></td>
+<td>104 800 → 74 800</td>
+<td>157 600 → 106 800</td>
+<td>99 900 → 75 500</td>
+<td>172 200 → 121 500</td>
+</tr>
+<tr>
+<td>FOC poll, cells</td>
+<td>115 300 → 85 300</td>
+<td>170 400 → 119 600</td>
+<td>107 600 → 83 300</td>
+<td>182 100 → 132 900</td>
+</tr>
+<tr>
+<td>high rate, 3 values at 400 kHz</td>
+<td>22 900 → 18 400</td>
+<td>35 500 → 27 400</td>
+<td>23 500 → 19 900</td>
+<td>42 000 → 35 100</td>
+</tr>
+<tr>
+<td>one store column (M4F)</td>
+<td>2 510 → 1 601</td>
+<td>4 073 → 2 262</td>
+<td>-</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<p>The cost is flash at <code>"z"</code>: the word paths and <code>put_block</code> are out of line there and take about 1.5 KB more, 2 % of
+the FOC bench (72.7 → 74.2 KB on the M4F, 84.9 → 86.5 KB on the H725); at <code>opt-level = 3</code> the firmware got 0.2 to
+0.4 KB smaller. What is left in the poll is about as much column framing as codec, the next thing to cut.</p>
 <h3 id="ahead">Ahead<a class="headerlink" href="#ahead" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>More from cells.</strong> The snapshot modes (periodic, on change) could read a cells level's latest row instead of
   calling getters, and batched streams fed from an interrupt (ADC samples) could get the same cells.</li>
-<li><strong>A faster bit writer.</strong> After the column-wise writer the bit writer is the biggest cost left: writing into a
-  64-bit accumulator, 4 bytes per store, is next, then word-wise checks of the columns.</li>
 <li><strong>Strings and frames in batches.</strong> Codecs across items
   (<a href="../../features/">API-51</a>, a "same" bit per string, a frame XOR'd with the last one) and dictionary compression for
   strings (<a href="../../features/">SW-28</a>) would make text cheaper per item; frame splitters for byte streams
@@ -6914,8 +7122,8 @@ pure cost, so a level is separate series per column.</p>
   better float coders (Chimp, ALP). Diffs across batches would save the first values,
   about 8 B per batch, but only on reliable streams and with resync rules after a gap; not worth it at 32 items.</li>
 </ul>
-<p>The feature tracker has the state of all of this: <a href="../../features/">SW-60</a>, SW-62, SW-63, SW-64 for the type, the
-store, the fast encoder and the column-wise writer, API-41, API-39, API-49 and API-50 for batched streams, batched observe, the shared clock and
+<p>The feature tracker has the state of all of this: <a href="../../features/">SW-60</a>, SW-62, SW-63, SW-64, SW-68 for the type, the
+store, the fast encoder, the column-wise writer and the word-wide bit writer, API-41, API-39, API-49 and API-50 for batched streams, batched observe, the shared clock and
 observe cells.</p>
 
 

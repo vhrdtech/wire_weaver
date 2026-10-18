@@ -5620,23 +5620,26 @@ leaves, <code>write_store_series</code> writes nothing and says so, and the item
 <tr>
 <td><code>DeltaPacked</code>, item walk</td>
 <td>1 251</td>
-<td>143 463</td>
-<td>312 600 / 125 300</td>
+<td>118 283</td>
+<td>264 900 / 96 800</td>
 </tr>
 <tr>
 <td><code>DeltaPacked</code>, from the store</td>
 <td>1 251</td>
-<td>74 898</td>
-<td>100 400 / 59 900</td>
+<td>46 665</td>
+<td>53 200 / 36 800</td>
 </tr>
 <tr>
 <td><code>RawPlain</code>, from the store</td>
 <td>2 882</td>
-<td>115 063</td>
-<td>160 300 / 103 300</td>
+<td>78 873</td>
+<td>89 700 / 76 800</td>
 </tr>
 </tbody>
 </table>
+<p>Before the word-wide bit writer (SW-68, see the
+<a href="../../articles/series/#the-bit-writer-and-reader-a-word-at-a-time">Nomicon of the Series article</a>) these were
+143 463, 74 898 and 115 063 instructions.</p>
 <p>At opt-level <code>z</code> the cycles move by up to 15 % between builds with the code layout. A firmware that writes series
 in a hot path gains more from <code>opt-level = 3</code> than from any codec: the series code is
 generic and compiled into the firmware's own crate, so a <code>[profile.release.package.shrink_wrap]</code> override doesn't

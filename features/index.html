@@ -5321,6 +5321,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   appended); a malformed header is an error. Writer takes the present set up front (<code>SetBits</code> over a bitset, any
   increasing iterator), <code>OptionAnyVecWriter</code> / in-place <code>OptionAnyVecBuilder</code>. For a trait level's properties in one
   update (API-38). See <code>docs/serdes/special_types.md#optionanyvec-sparse-slots-of-any-types</code>, <code>docs/serdes/showcase.md</code>.</li>
+<li>✅ <strong>SW-68 Word-wide bit writer and reader</strong>, the same bytes: <code>BitWriter</code> with a 32-bit accumulator flushed a word
+  at a time, <code>BitSink::put_block</code> for packed blocks, <code>write_un*</code> / <code>write_bool</code> / <code>UNib32</code> and the reader's
+  <code>read_un*</code> / <code>UNib32</code> through one 4-byte window and one bounds check per call. The FOC observe poll on an STM32H725
+  75.5 k cycles instead of 99.9 k at <code>opt-level = 3</code> (121.5 k against 172.2 k at <code>"z"</code>), a FOC level batch from the
+  store 36.8 k instead of 58.9 k; reads of UN numbers and <code>UNib32</code> take 0.4-0.6x the instructions on a Cortex-M4F;
+  about 1.5 KB more flash at <code>"z"</code>. See <code>docs/articles/series.md#the-bit-writer-and-reader-a-word-at-a-time</code>,
+  <code>examples_mcu/mcu_qemu/src/bit_io.rs</code> (<code>qemu-bit-io</code>, <code>qemu-m4f-bit-io</code>, <code>stm32h725ig-bit-io-cycles</code>).</li>
 <li>✅ <strong>SW-64 <code>Series</code> written straight from a <code>SeriesStore</code></strong>, column by column, the same bytes as the item walk:
   <code>SeriesStore::columnar</code> / <code>write_store</code> (leaves, <code>Option</code>, arrays, tuples, derived structs and enums, by hand for
   <code>NumericValue</code>) and <code>series::write_store_series</code>, used by <code>ww_stream</code>'s batchers on their own. Needs one variant

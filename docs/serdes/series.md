@@ -185,9 +185,13 @@ One FOC level batch of the motor demo (21 quantities and the clock, n = 32: 21 x
 
 |                               | bytes | Cortex-M3 instructions | STM32H725 cycles, opt-level `z` / `3` |
 |-------------------------------|-------|------------------------|---------------------------------------|
-| `DeltaPacked`, item walk      | 1 251 | 143 463                | 312 600 / 125 300                     |
-| `DeltaPacked`, from the store | 1 251 | 74 898                 | 100 400 / 59 900                      |
-| `RawPlain`, from the store    | 2 882 | 115 063                | 160 300 / 103 300                     |
+| `DeltaPacked`, item walk      | 1 251 | 118 283                | 264 900 / 96 800                      |
+| `DeltaPacked`, from the store | 1 251 | 46 665                 | 53 200 / 36 800                       |
+| `RawPlain`, from the store    | 2 882 | 78 873                 | 89 700 / 76 800                       |
+
+Before the word-wide bit writer (SW-68, see the
+[Nomicon of the Series article](../articles/series.md#the-bit-writer-and-reader-a-word-at-a-time)) these were
+143 463, 74 898 and 115 063 instructions.
 
 At opt-level `z` the cycles move by up to 15 % between builds with the code layout. A firmware that writes series
 in a hot path gains more from `opt-level = 3` than from any codec: the series code is

@@ -205,7 +205,7 @@ them in `Samples` mode, a poll every 16 rows, `observe_batch = 32`, a ring of 32
 |---|---|---|---|---|
 | a row, observed: mean (first, worst) | 412 (576, 641) | 354 (426, 545) | 419 (545, 858) | 328 (422, 598) |
 | a row, nobody observes | 204 | 300 | 153 | 284 |
-| a poll that encodes a batch | 131-169 k | 140-180 k | 78-100 k | 84-107 k |
+| a poll that encodes a batch | 107-122 k | 116-133 k | 65-76 k | 72-83 k |
 | a poll with nothing to send (16 rows waiting) | 5.1 k | 15.3 k | 3.1 k | 10.1-10.3 k |
 | stack of a row | 108 B | 44 B | 116 B | 52 B |
 
@@ -214,7 +214,8 @@ On the Cortex-M3 and M4F models a row takes 189 instructions on cells against 25
 too (8 656 B either way). The total CPU is about the same, the cells' a bit more: what the interrupt saves, the
 event loop spends copying the ring (about 440 cycles a row at `opt-level = 3` on the H725 with all 21 observed; the
 poll copies only the observed columns, 4.4 k cycles for 16 rows of 3). The polls are those after API-52, which
-halved the one that encodes (it was 133-185 k at 3, 349-509 k at `"z"`). Without observers the cells' setters still
+halved the one that encodes (it was 133-185 k at 3, 349-509 k at `"z"`), and after SW-68's word-wide bit writer,
+which took another quarter off (78-107 k at 3, 131-180 k at `"z"` before it). Without observers the cells' setters still
 store (the sampler returns before copying): skip them with `is_sampling()`. Both builds keep the batches in a
 `static` built in place (`ObserveBatches::init`, see [Observing](observing.md#device-side)).
 

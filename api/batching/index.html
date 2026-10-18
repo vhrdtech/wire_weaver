@@ -5591,7 +5591,7 @@ the budget.</p>
 <p>A level on <a href="../observing/#cells-sampling-from-an-interrupt">observe cells</a> moves the copy of a row out of the
 interrupt: the setters store each value into a ring where it is computed, <code>poll_properties</code> copies the waiting rows
 into a staging batch. Measured on the motor demo's 21 FOC properties (<code>examples_mcu</code>: <code>stm32h725ig-foc-observe-cycles</code>,
-DWT cycles at 540 MHz with caches on; <code>qemu-m4f-foc-observe</code>, instructions under QEMU), a host observing all of
+DWT cycles at 540 MHz with caches on; <code>qemu-foc-observe</code> and <code>qemu-m4f-foc-observe</code>, instructions under QEMU), a host observing all of
 them in <code>Samples</code> mode, a poll every 16 rows, <code>observe_batch = 32</code>, a ring of 32 rows:</p>
 <table>
 <thead>
@@ -5606,46 +5606,47 @@ them in <code>Samples</code> mode, a poll every 16 rows, <code>observe_batch = 3
 <tbody>
 <tr>
 <td>a row, observed: mean (first, worst)</td>
-<td>1 400 (1 725, 1 631)</td>
-<td>357 (412, 643)</td>
-<td>423 (976, 795)</td>
-<td>342 (486, 588)</td>
+<td>412 (576, 641)</td>
+<td>354 (426, 545)</td>
+<td>419 (545, 858)</td>
+<td>328 (422, 598)</td>
 </tr>
 <tr>
 <td>a row, nobody observes</td>
-<td>180</td>
-<td>310</td>
-<td>189</td>
-<td>303</td>
+<td>204</td>
+<td>300</td>
+<td>153</td>
+<td>284</td>
 </tr>
 <tr>
 <td>a poll that encodes a batch</td>
-<td>347-507 k</td>
-<td>357-519 k</td>
-<td>136-187 k</td>
-<td>139-192 k</td>
+<td>349-509 k</td>
+<td>356-518 k</td>
+<td>133-185 k</td>
+<td>137-191 k</td>
 </tr>
 <tr>
 <td>a poll with nothing to send (16 rows waiting)</td>
-<td>5.3 k</td>
-<td>15.2 k</td>
-<td>3.2 k</td>
-<td>9.3 k</td>
+<td>5.4 k</td>
+<td>15.3 k</td>
+<td>3.0 k</td>
+<td>9.2 k</td>
 </tr>
 <tr>
 <td>stack of a row</td>
-<td>388 B</td>
+<td>108 B</td>
 <td>44 B</td>
 <td>116 B</td>
 <td>52 B</td>
 </tr>
 </tbody>
 </table>
-<p>On the Cortex-M4F model a row takes 189 instructions on cells against 1 122 through <code>sample()</code> at <code>opt-level = "z"</code>,
-206 against 260 at 3. Both send the same 2 021 bytes for the 64 rows; the level's RAM is the same too (8 640 B
-against 8 656 B). The total CPU is about the same: what the interrupt saves, the event loop spends copying the ring
-(about 380 cycles a row on the H725). Without observers the cells' setters still store (the sampler returns before
-copying): skip them with <code>is_sampling()</code>.</p>
+<p>On the Cortex-M3 and M4F models a row takes 189 instructions on cells against 250 through <code>sample()</code> at
+<code>opt-level = "z"</code>, 206 against 260 at 3. Both send the same 2 021 bytes for the 64 rows; the level's RAM is the same
+too (8 640 B against 8 656 B). The total CPU is about the same, the cells' a bit more: what the interrupt saves, the
+event loop spends copying the ring (about 380 cycles a row on the H725). Without observers the cells' setters still
+store (the sampler returns before copying): skip them with <code>is_sampling()</code>. Both builds keep the batches in a
+<code>static</code> built in place (<code>ObserveBatches::init</code>, see <a href="../observing/#device-side">Observing</a>).</p>
 <h3 id="the-motor-demo-measured">The motor demo, measured<a class="headerlink" href="#the-motor-demo-measured" title="Permanent link">&para;</a></h3>
 <p>The <a href="../../examples/motor_demo/">motor demo</a> (<code>motor_sim</code> repo) has every <code>Foc</code> property and <code>Control</code>'s 13
 measured values <code>+observe+batched</code>. Measured through the real generated code (one level observed per session, at

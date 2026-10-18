@@ -131,3 +131,10 @@ path = "src/bin/shared_clock_cycles.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "stm32h725ig-memcpy-columns-cycles"
+path = "src/bin/memcpy_columns_cycles.rs"
+test = false
+doctest = false
+bench = false

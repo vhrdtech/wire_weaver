@@ -60,3 +60,10 @@ path = "src/bin/shared_clock_raw_plain.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "qemu-memcpy-columns"
+path = "src/bin/memcpy_columns.rs"
+test = false
+doctest = false
+bench = false

@@ -11,12 +11,6 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
-### Removed
-
-- shrink_wrap / ww_self / wire_weaver_core / wire_weaver_client / wire_weaver_py / ww_logic_analyzer: the
-  `Delta`, `DeltaOfDelta` and `XorFloat` sequence types (SW-31, SW-32); `Series<T>` covers them with the same codes
-  plus automatic codec choice, and dynamic clients and Python now write it too. See the per-crate changelogs.
-
 ### Added
 
 - shrink_wrap / ww_self: a dynamic `Series` writer (CLT-29): `ValueOwned::ser_shrink_wrap_dyn` / `ser_series_dyn`
@@ -189,6 +183,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   wire
 - Docs site: the mobile nav drawer's logo is the graphite-wire W on dark too, like the header (only the red wire
   showed)
+
+### Removed
+
+- shrink_wrap / ww_self / wire_weaver_core / wire_weaver_client / wire_weaver_py / ww_logic_analyzer: the
+  `Delta`, `DeltaOfDelta` and `XorFloat` sequence types (SW-31, SW-32); `Series<T>` covers them with the same codes
+  plus automatic codec choice, and dynamic clients and Python now write it too. See the per-crate changelogs.
 
 ### Fixed
 

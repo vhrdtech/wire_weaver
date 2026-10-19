@@ -36,7 +36,7 @@ Goal (Roman, 19 Oct): shrink WireWeaver's generated server and observe code, ado
 
 ## Next
 
-- Board check on omarchy-m1 (observe incl. samples, settings, vbus cycle, USB throughput vs FW-24): session
+- Board check on omarchy-m1 (observe incl. samples, settings, vbus cycle, USB throughput vs FW-24): session (running, building fw at 19 Oct handoff)
   board-check. Not done until it reports.
 - Shipped profile is still opt-level 3; the design note's z-profile switch is a separate decision.
 

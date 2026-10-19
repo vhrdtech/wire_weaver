@@ -12,6 +12,7 @@ cortex-m = "0.7"
 cortex-m-rt = { version = "0.7", optional = true }
 embedded-storage = "0.3"
 embedded-storage-async = "0.4"
+defmt = { version = "1", optional = true }
 
 [features]
 # STM32G0 (and other parts that raise an NMI on a double ECC error, with FLASH_ECCR / FLASH_ECCR2): reads go through
@@ -23,3 +24,5 @@ stm32h7 = []
 # defines `NonMaskableInt` (cortex-m-rt), calling `on_nmi()` and panicking on any other NMI; leave off when the
 # application has its own NMI handler and call `on_nmi()` from there
 nmi-handler = ["stm32g0", "dep:cortex-m-rt"]
+# defmt::Format for Error, so a store's errors can be logged with defmt
+defmt = ["dep:defmt"]

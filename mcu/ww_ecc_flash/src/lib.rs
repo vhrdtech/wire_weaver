@@ -153,6 +153,7 @@ impl<F: NorFlash> EccSafeFlash<F> {
 
 /// [`EccSafeFlash`] error: the inner flash's, or a read outside the flash.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error<E> {
     Flash(E),
     OutOfBounds,

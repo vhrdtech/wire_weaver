@@ -169,6 +169,11 @@ def test_credit_sinks():
     assert not api.plain.credit
     assert api.plan.signature == "credit sink plan: Vec<u8>"
     assert api.plan.progress is None
+    # resume (API-34): no session before an open, a lost session is its own error
+    assert api.plan.cursor is None
+    assert issubclass(ww.SessionLost, ww.WireWeaverError)
+    with pytest.raises(ww.WireWeaverError):
+        api.plan.resume((7, 100))
 
 
 def test_optional_items():

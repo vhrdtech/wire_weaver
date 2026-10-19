@@ -10,6 +10,7 @@ use pyo3::exceptions::{PyAttributeError, PyIndexError, PyKeyError, PyTypeError, 
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyString, PyTuple};
 use std::collections::BTreeMap;
+use std::num::NonZeroU32;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use wire_weaver_client::ww_self::errors;
@@ -895,20 +896,68 @@ impl Sink {
     }
 }
 
-#[pymethods]
 impl Sink {
-    fn open(&self, py: Python<'_>) -> PyResult<()> {
+    /// The sink, prepared on first use.
+    fn prepared<'a>(
+        &self,
+        py: Python<'_>,
+        guard: &'a mut std::sync::MutexGuard<'_, Option<DynSink>>,
+    ) -> PyResult<&'a mut DynSink> {
         let conn = conn(&self.res, &self.conn)?;
-        let mut guard = self.sink.lock().expect("not poisoned");
         if guard.is_none() {
             let res = &self.res;
-            *guard = Some(
+            **guard = Some(
                 py.detach(|| res.sink_blocking(conn.client.cmd()))
                     .map_err(client_err)?,
             );
         }
-        let sink = guard.as_mut().expect("just set");
-        py.detach(|| sink.open_blocking()).map_err(stream_err)
+        Ok(guard.as_mut().expect("just set"))
+    }
+}
+
+#[pymethods]
+impl Sink {
+    /// Open the sink. A credit sink starts a new session, a random one or `session` (an int, not 0) when given: the
+    /// device continues where it is in a session it has.
+    #[pyo3(signature = (session = None))]
+    fn open(&self, py: Python<'_>, session: Option<u32>) -> PyResult<()> {
+        let mut guard = self.sink.lock().expect("not poisoned");
+        let sink = self.prepared(py, &mut guard)?;
+        match session {
+            Some(session) => {
+                let session = NonZeroU32::new(session)
+                    .ok_or_else(|| PyValueError::new_err("session: 0 is not a session"))?;
+                py.detach(|| sink.open_session_blocking(session))
+            }
+            None => py.detach(|| sink.open_blocking()),
+        }
+        .map_err(stream_err)
+    }
+
+    /// Credit sinks: `(session, pos)`, where the device is in the session, every unit before `pos` is on the device.
+    /// Save it with what the program sent, `resume(cursor)` continues from it after a restart. None outside a
+    /// session and for other sinks.
+    #[getter]
+    fn cursor(&self) -> Option<(u32, u64)> {
+        let guard = self.sink.lock().expect("not poisoned");
+        guard
+            .as_ref()
+            .and_then(|sink| sink.cursor())
+            .map(|c| (c.session.0, c.pos.0))
+    }
+
+    /// Credit sinks: continue the session of `cursor` (a `(session, pos)` saved from `cursor`) after a restart of the
+    /// program, instead of `open()`. Returns the position where the device is, at or after `pos`: continue the
+    /// program's own data from there. Raises `SessionLost` when the device no longer has the session (it rebooted).
+    fn resume(&self, py: Python<'_>, cursor: (u32, u64)) -> PyResult<u64> {
+        let mut guard = self.sink.lock().expect("not poisoned");
+        let sink = self.prepared(py, &mut guard)?;
+        let cursor = wire_weaver_client::StreamCursor {
+            session: shrink_wrap::UVlq32(cursor.0),
+            pos: shrink_wrap::UVlq64(cursor.1),
+        };
+        py.detach(|| sink.resume_blocking(cursor))
+            .map_err(stream_err)
     }
 
     fn close(&self, py: Python<'_>) -> PyResult<()> {
@@ -983,7 +1032,7 @@ impl Sink {
     }
 
     fn __enter__(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<Self>> {
-        slf.get().open(py)?;
+        slf.get().open(py, None)?;
         Ok(slf)
     }
 

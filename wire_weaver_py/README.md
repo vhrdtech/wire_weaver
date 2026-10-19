@@ -34,7 +34,10 @@ A sink marked `#[credit]` in the API (`sink.credit` is `True`) has flow control:
 room for all bytes of the value (a value bigger than the device's buffer raises `ww.WireWeaverError`), `flush()`
 waits until it accepted everything (lost values are sent again), `close()` flushes, `sink.progress` is
 `(accepted, sent)` units (one per value, the bytes of a byte sink's payload, or what `send(value, units=n)` names),
-`sink.set_credit_config(query_interval=1.0, stall_timeout=30.0)` tunes it to a slow link. See
+`sink.set_credit_config(query_interval=1.0, stall_timeout=30.0)` tunes it to a slow link. `sink.cursor` is
+`(session, pos)`, where the device is: save it with what the program sent, and after a restart
+`pos = sink.resume(cursor)` (instead of `open()`) continues the session from where the device is; a device that lost
+the session (it rebooted) raises `ww.SessionLost`. `open(session=n)` names the session itself. See
 `docs/api/credit_sinks.md`.
 
 A method returning `Result<T, E>` returns `T`, or raises `ww.RemoteError` with `E` in its `value` attribute and the

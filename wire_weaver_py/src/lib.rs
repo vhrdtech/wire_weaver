@@ -43,6 +43,13 @@ create_exception!(
     "A method returned `Err(e)`: `e` is in the `value` attribute, the `ww_error::CommonError` in it (if any) in `common`."
 );
 
+create_exception!(
+    wire_weaver,
+    SessionLost,
+    WireWeaverError,
+    "The device lost a credit sink's session (it rebooted): what was sent from `device_at` on is gone, start over."
+);
+
 pub(crate) fn client_err(e: Error) -> PyErr {
     match e {
         Error::Timeout => PyTimeoutError::new_err("no response from device"),
@@ -61,6 +68,7 @@ pub(crate) fn err_msg(e: Error) -> String {
 pub(crate) fn stream_err(e: StreamError) -> PyErr {
     match e {
         StreamError::Other(e) => client_err(e),
+        e @ StreamError::SinkSessionLost { .. } => SessionLost::new_err(e.to_string()),
         e => WireWeaverError::new_err(e.to_string()),
     }
 }
@@ -315,5 +323,6 @@ fn wire_weaver_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<observe::Observer>()?;
     m.add("WireWeaverError", m.py().get_type::<WireWeaverError>())?;
     m.add("RemoteError", m.py().get_type::<RemoteError>())?;
+    m.add("SessionLost", m.py().get_type::<SessionLost>())?;
     Ok(())
 }
